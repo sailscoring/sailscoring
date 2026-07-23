@@ -10,10 +10,12 @@ import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Loader2, Trash2 } from 'lucide-react';
 
+import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useSeriesReadOnly } from '@/components/series-read-only';
+import { useFeatures } from '@/components/features-provider';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -262,6 +264,8 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const qc = useQueryClient();
   const [showPublish, setShowPublish] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showFinalise, setShowFinalise] = useState(false);
+  const { has } = useFeatures();
 
   // The scorer bounces between this view and finish entry all day; the
   // global 30s staleTime would otherwise show a just-entered sheet as
@@ -275,6 +279,11 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   }
 
   const canManage = !readOnly && can('manage-series');
+  // Results lifecycle mirrors the Standings page: the chip and finalise
+  // affordance are feature-gated, but a series already marked final always
+  // shows its state.
+  const isFinal = data.series.resultsStatus === 'final';
+  const showResultsStatus = has('results-status') || isFinal;
   const { competitors, fleets, races } = data;
   const allFinishes = data.finishes ?? [];
   const raceStarts = data.raceStarts ?? [];
@@ -334,7 +343,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         <div className="rounded-lg border border-green-600/40 bg-green-50 px-4 py-3 text-sm dark:border-green-500/40 dark:bg-green-950/40" data-testid="sf-event-complete">
           <strong>Event complete.</strong> Every scheduled stage has been
           sailed — publish the final standings, then mark the results final
-          from the checklist on this series (Standings status controls).
+          from the standings section below.
         </div>
       )}
       <StageSection
@@ -416,6 +425,18 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         splitRound={splitRound}
         onPublish={can('manage-workspace') || can('score') ? () => setShowPublish(true) : undefined}
         onPreview={() => setShowPreview(true)}
+        resultsStatus={
+          showResultsStatus
+            ? {
+                isFinal,
+                finalisedAt: data.series.finalisedAt,
+                onMarkFinal:
+                  can('score') && !readOnly && !isFinal
+                    ? () => setShowFinalise(true)
+                    : undefined,
+              }
+            : undefined
+        }
       />
       {/* The round fleets are internal — the published output is the
           championship page + the assignments page, so both dialogs run in
@@ -434,6 +455,13 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         open={showPublish}
         onClose={() => setShowPublish(false)}
         canFtp={false}
+      />
+      <FinaliseResultsDialog
+        series={data.series}
+        races={races}
+        finishes={allFinishes}
+        open={showFinalise}
+        onClose={() => setShowFinalise(false)}
       />
 
     </div>
@@ -624,6 +652,14 @@ function QualifyingSection({
                       ? `From ranking after Q${round.basis.throughStageRace} · captured ${new Date(round.basis.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                       : 'Manual'}
                 </span>
+                {round.publishedAt && (
+                  <span
+                    className="inline-flex items-center rounded-full border border-green-600/40 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-500/40 dark:bg-green-950/40 dark:text-green-400"
+                    title={`Assignment list published ${new Date(round.publishedAt).toLocaleDateString()}`}
+                  >
+                    Published
+                  </span>
+                )}
                 {canManage && isLatest && !split && (
                   <Button
                     variant="ghost"
@@ -1598,6 +1634,7 @@ function StandingsSection({
   splitRound,
   onPublish,
   onPreview,
+  resultsStatus,
 }: {
   data: SplitFleetData;
   fleetMeta: Map<string, FleetMeta>;
@@ -1605,6 +1642,9 @@ function StandingsSection({
   splitRound: SplitRound | null;
   onPublish?: () => void;
   onPreview?: () => void;
+  /** Results-lifecycle surface (the Standings tab is hidden on split-fleet
+   *  series, so the chip + finalise affordance live here instead). */
+  resultsStatus?: { isFinal: boolean; finalisedAt?: number; onMarkFinal?: () => void };
 }) {
   const columns = useMemo(() => {
     const seen = new Map<string, { stage: SeriesStage; n: number }>();
@@ -1662,8 +1702,32 @@ function StandingsSection({
   return (
     <section className="bg-card border rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Standings</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide">Standings</h2>
+          {resultsStatus && (
+            <span
+              className={
+                resultsStatus.isFinal
+                  ? 'inline-flex items-center rounded-full border border-green-600/40 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-500/40 dark:bg-green-950/40 dark:text-green-400'
+                  : 'inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300'
+              }
+              title={
+                resultsStatus.isFinal && resultsStatus.finalisedAt
+                  ? `Final since ${new Date(resultsStatus.finalisedAt).toLocaleDateString()}`
+                  : undefined
+              }
+              data-testid="results-status-chip"
+            >
+              {resultsStatus.isFinal ? 'Final results' : 'Provisional'}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
+          {resultsStatus?.onMarkFinal && (
+            <Button variant="outline" size="sm" onClick={resultsStatus.onMarkFinal}>
+              Mark as final
+            </Button>
+          )}
           {onPreview && (
             <Button variant="outline" size="sm" onClick={onPreview}>Preview</Button>
           )}
@@ -1692,10 +1756,8 @@ function StandingsSection({
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Prototype standings: penalties, redress, and tie-break detail beyond
-        score-list comparison are not applied. A qualifying race counts only
-        once every fleet has completed it (greyed cells don&rsquo;t count);
-        discarded scores are in parentheses.
+        A qualifying race counts only once every fleet has completed it
+        (greyed cells don&rsquo;t count); discarded scores are in parentheses.
       </p>
     </section>
   );
