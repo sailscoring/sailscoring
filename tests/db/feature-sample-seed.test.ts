@@ -118,4 +118,57 @@ describe.skipIf(skip)('seedFeatureSample', () => {
     const seeded = await seedFeatureSample('prizes', workspaceId, db);
     expect(seeded).toBe(false);
   });
+
+  test('seeds the split-fleets championship demo with config, rounds, and round-owned fleets', async () => {
+    const seeded = await seedFeatureSample('split-fleets', workspaceId, db);
+    expect(seeded).toBe(true);
+
+    const [series] = await db
+      .select()
+      .from(schema.series)
+      .where(
+        and(
+          eq(schema.series.workspaceId, workspaceId),
+          eq(schema.series.name, 'Sample Championship 2026'),
+        ),
+      );
+    expect(series).toBeDefined();
+    expect(series.qfConfig).toBeTruthy();
+    expect(series.qfConfig!.qualifyingFleets.map((f) => f.label)).toEqual(['Yellow', 'Blue']);
+    expect(series.qfConfig!.medal).toMatchObject({ size: 6, multiplier: 2 });
+
+    // Four frozen rounds: seed, reassign, split, medal — with fresh fleet ids.
+    const rounds = await db
+      .select()
+      .from(schema.splitRounds)
+      .where(eq(schema.splitRounds.seriesId, series.id))
+      .orderBy(schema.splitRounds.createdAt);
+    expect(rounds.map((r) => r.stage)).toEqual(['qualifying', 'qualifying', 'final', 'medal']);
+    expect(rounds.map((r) => r.method)).toEqual(['seeded', 'rank-pattern', 'split', 'medal-select']);
+
+    // Every fleet is round-owned and stamped with its minted round id.
+    const fleetRows = await db
+      .select()
+      .from(schema.fleets)
+      .where(eq(schema.fleets.seriesId, series.id));
+    expect(fleetRows).toHaveLength(8);
+    const roundIds = new Set(rounds.map((r) => r.id));
+    for (const f of fleetRows) {
+      expect(f.splitRoundId).toBeTruthy();
+      expect(roundIds.has(f.splitRoundId!)).toBe(true);
+    }
+    for (const r of rounds) {
+      const owned = fleetRows.filter((f) => f.splitRoundId === r.id).map((f) => f.id);
+      expect(new Set(r.fleetIds)).toEqual(new Set(owned));
+    }
+
+    // Races carry their stage identity; the companion last race its offset.
+    const raceRows = await db
+      .select()
+      .from(schema.races)
+      .where(eq(schema.races.seriesId, series.id));
+    expect(raceRows).toHaveLength(14);
+    expect(raceRows.filter((r) => r.stage === 'medal')).toHaveLength(2);
+    expect(raceRows.filter((r) => r.firstPlaceOffset === 6)).toHaveLength(1);
+  });
 });

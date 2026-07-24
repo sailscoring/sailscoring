@@ -41,12 +41,15 @@ import { invitation, member, organization, orgRequest, user } from '@/lib/db/sch
 import { competitors, fleets, races, series } from '@/lib/db/schema/series';
 import {
   ALL_FEATURE_KEYS,
+  FEATURES,
   applyFeatureToggle,
   isFeatureKey,
   parseOrgMetadata,
   serializeOrgMetadata,
+  type FeatureDef,
   type FeatureKey,
 } from '@/lib/features';
+import { seedFeatureSample } from '@/lib/sample-series/seed';
 
 import { ROLE_PERMISSIONS, type WorkspaceRole } from '@/lib/auth/permissions';
 
@@ -262,6 +265,35 @@ export async function createOrg(
     metadata,
     createdAt: new Date(),
   });
+  // Features enabled at creation seed their worked example immediately, same
+  // as a later enable-feature would. Best-effort per feature.
+  const withSamples = (args.enabledFeatures ?? []).filter(
+    (f) => (FEATURES[f] as FeatureDef).demoSample,
+  );
+  if (withSamples.length > 0) {
+    const seeded: FeatureKey[] = [];
+    for (const f of withSamples) {
+      try {
+        await seedFeatureSample(f, id, db);
+        seeded.push(f);
+      } catch (err) {
+        console.error(`[feature-sample] seeding failed for ${f}:`, err);
+      }
+    }
+    if (seeded.length > 0) {
+      await db
+        .update(organization)
+        .set({
+          metadata: serializeOrgMetadata({
+            kind: 'club',
+            enabledFeatures: args.enabledFeatures ?? [],
+            disabledFeatures: [],
+            seededFeatureSamples: seeded,
+          }),
+        })
+        .where(eq(organization.id, id));
+    }
+  }
   return { id, name, slug };
 }
 
@@ -285,6 +317,22 @@ export async function setOrgFeature(
     .limit(1);
   const meta = parseOrgMetadata(row?.metadata ?? null, org.slug);
   const next = applyFeatureToggle(meta, args.feature, args.enabled);
+  // First-time enable of a feature with a worked example → seed it, exactly
+  // like the self-service path in `lib/api-handlers/workspace.ts`. Best-effort:
+  // a seeding failure must never fail the toggle.
+  if (
+    args.enabled &&
+    !meta.enabledFeatures.includes(args.feature) &&
+    (FEATURES[args.feature] as FeatureDef).demoSample &&
+    !meta.seededFeatureSamples.includes(args.feature)
+  ) {
+    try {
+      await seedFeatureSample(args.feature, org.id, db);
+      next.seededFeatureSamples = [...next.seededFeatureSamples, args.feature];
+    } catch (err) {
+      console.error(`[feature-sample] seeding failed for ${args.feature}:`, err);
+    }
+  }
   await db
     .update(organization)
     .set({ metadata: serializeOrgMetadata(next) })

@@ -20,7 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -151,6 +151,10 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           raceNumber: r.raceNumber,
           date: r.date,
           createdAt: new Date(r.createdAt),
+          // Split-fleet stage identity (the championship sample).
+          stage: r.stage ?? null,
+          stageRaceNumber: r.stageRaceNumber ?? null,
+          firstPlaceOffset: r.firstPlaceOffset ?? null,
         });
         return r;
       },
@@ -271,6 +275,45 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
     },
     deleteSeriesChildren: async () => {
       throw new Error('seedSampleSeries never deletes — it only writes fresh series');
+    },
+    // Split-fleet block (v23+, the championship sample): series config,
+    // assignment rounds, and round ownership stamped back onto the freshly
+    // minted fleets. Mirrors `seriesFileReposFor` in `lib/postgres-repository`.
+    splitFleets: {
+      get: async () => null,
+      async replace(seriesId, data) {
+        await db
+          .update(schema.series)
+          .set({ qfConfig: data.config })
+          .where(and(eq(schema.series.id, seriesId), eq(schema.series.workspaceId, workspaceId)));
+        if (data.rounds.length === 0) return;
+        await db.insert(schema.splitRounds).values(
+          data.rounds.map((r) => ({
+            id: r.id,
+            seriesId,
+            workspaceId,
+            stage: r.stage,
+            fromStageRace: r.fromStageRace,
+            fleetIds: r.fleetIds,
+            method: r.method,
+            basis: r.basis ?? null,
+            createdAt: new Date(r.createdAt),
+          })),
+        );
+        for (const r of data.rounds) {
+          if (r.fleetIds.length === 0) continue;
+          await db
+            .update(schema.fleets)
+            .set({ splitRoundId: r.id })
+            .where(
+              and(
+                inArray(schema.fleets.id, r.fleetIds),
+                eq(schema.fleets.seriesId, seriesId),
+                eq(schema.fleets.workspaceId, workspaceId),
+              ),
+            );
+        }
+      },
     },
   };
 }

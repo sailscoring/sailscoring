@@ -1,0 +1,2285 @@
+{
+  "formatVersion": 23,
+  "seriesId": "sample-championship",
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "series": {
+    "id": "sample-championship",
+    "name": "Sample Championship 2026",
+    "venue": "Dublin Bay",
+    "startDate": "2026-06-11",
+    "endDate": "2026-06-14",
+    "venueLogoUrl": "",
+    "eventLogoUrl": "",
+    "venueUrl": "",
+    "eventUrl": "",
+    "discardThresholds": [
+      {
+        "minRaces": 4,
+        "discardCount": 1
+      }
+    ],
+    "dnfScoring": "seriesEntries",
+    "ftpHost": "",
+    "ftpPath": "",
+    "includeJsonExport": true,
+    "enabledCompetitorFields": [
+      "nationality"
+    ],
+    "primaryPersonLabel": "helm",
+    "subdivisionAxes": [],
+    "scoringMode": "scratch"
+  },
+  "fleets": [
+    {
+      "id": "chf-01",
+      "name": "Yellow",
+      "displayOrder": 0,
+      "scoringSystem": "scratch"
+    },
+    {
+      "id": "chf-02",
+      "name": "Blue",
+      "displayOrder": 1,
+      "scoringSystem": "scratch"
+    },
+    {
+      "id": "chf-03",
+      "name": "Yellow",
+      "displayOrder": 2,
+      "scoringSystem": "scratch"
+    },
+    {
+      "id": "chf-04",
+      "name": "Blue",
+      "displayOrder": 3,
+      "scoringSystem": "scratch"
+    },
+    {
+      "id": "chf-05",
+      "name": "Gold",
+      "displayOrder": 4,
+      "scoringSystem": "scratch"
+    },
+    {
+      "id": "chf-06",
+      "name": "Silver",
+      "displayOrder": 5,
+      "scoringSystem": "scratch"
+    },
+    {
+      "id": "chf-07",
+      "name": "Medal",
+      "displayOrder": 6,
+      "scoringSystem": "scratch"
+    },
+    {
+      "id": "chf-08",
+      "name": "Last race",
+      "displayOrder": 7,
+      "scoringSystem": "scratch"
+    }
+  ],
+  "competitors": [
+    {
+      "id": "chc-01",
+      "fleetIds": [
+        "chf-01",
+        "chf-04",
+        "chf-05",
+        "chf-07"
+      ],
+      "sailNumber": "209549",
+      "seed": 1,
+      "name": "Sadhbh O'Toole",
+      "names": [
+        "Sadhbh O'Toole"
+      ],
+      "club": "",
+      "nationality": "IRL",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-02",
+      "fleetIds": [
+        "chf-02",
+        "chf-03",
+        "chf-05",
+        "chf-07"
+      ],
+      "sailNumber": "208603",
+      "seed": 2,
+      "name": "Josephine Ruttledge",
+      "names": [
+        "Josephine Ruttledge"
+      ],
+      "club": "",
+      "nationality": "IRL",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-03",
+      "fleetIds": [
+        "chf-02",
+        "chf-03",
+        "chf-05",
+        "chf-07"
+      ],
+      "sailNumber": "213572",
+      "seed": 3,
+      "name": "Bartholomew Pemberton",
+      "names": [
+        "Bartholomew Pemberton"
+      ],
+      "club": "",
+      "nationality": "IRL",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-04",
+      "fleetIds": [
+        "chf-01",
+        "chf-04",
+        "chf-05",
+        "chf-07"
+      ],
+      "sailNumber": "220361",
+      "seed": 4,
+      "name": "Walter Whittle",
+      "names": [
+        "Walter Whittle"
+      ],
+      "club": "",
+      "nationality": "IRL",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-05",
+      "fleetIds": [
+        "chf-01",
+        "chf-04",
+        "chf-05",
+        "chf-07"
+      ],
+      "sailNumber": "207699",
+      "seed": 5,
+      "name": "Cornelius Tyrrell",
+      "names": [
+        "Cornelius Tyrrell"
+      ],
+      "club": "",
+      "nationality": "GBR",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-06",
+      "fleetIds": [
+        "chf-02",
+        "chf-03",
+        "chf-05",
+        "chf-08"
+      ],
+      "sailNumber": "205435",
+      "seed": 6,
+      "name": "Muiris Braithwaite",
+      "names": [
+        "Muiris Braithwaite"
+      ],
+      "club": "",
+      "nationality": "GBR",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-07",
+      "fleetIds": [
+        "chf-02",
+        "chf-03",
+        "chf-05",
+        "chf-07"
+      ],
+      "sailNumber": "218718",
+      "seed": 7,
+      "name": "Cliodhna Fogarty",
+      "names": [
+        "Cliodhna Fogarty"
+      ],
+      "club": "",
+      "nationality": "GBR",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-08",
+      "fleetIds": [
+        "chf-01",
+        "chf-03",
+        "chf-05",
+        "chf-08"
+      ],
+      "sailNumber": "206797",
+      "seed": 8,
+      "name": "Cecily Blackwood",
+      "names": [
+        "Cecily Blackwood"
+      ],
+      "club": "",
+      "nationality": "FRA",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-09",
+      "fleetIds": [
+        "chf-01",
+        "chf-04",
+        "chf-05",
+        "chf-08"
+      ],
+      "sailNumber": "217744",
+      "seed": 9,
+      "name": "Osbert Makepeace",
+      "names": [
+        "Osbert Makepeace"
+      ],
+      "club": "",
+      "nationality": "FRA",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-10",
+      "fleetIds": [
+        "chf-02",
+        "chf-04",
+        "chf-05",
+        "chf-08"
+      ],
+      "sailNumber": "214798",
+      "seed": 10,
+      "name": "Cornelius Waterhouse",
+      "names": [
+        "Cornelius Waterhouse"
+      ],
+      "club": "",
+      "nationality": "NED",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-11",
+      "fleetIds": [
+        "chf-02",
+        "chf-03",
+        "chf-05",
+        "chf-08"
+      ],
+      "sailNumber": "208691",
+      "seed": 11,
+      "name": "Oengus Lydican",
+      "names": [
+        "Oengus Lydican"
+      ],
+      "club": "",
+      "nationality": "ESP",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-12",
+      "fleetIds": [
+        "chf-01",
+        "chf-04",
+        "chf-05",
+        "chf-08"
+      ],
+      "sailNumber": "215671",
+      "seed": 12,
+      "name": "Ignatius Wainwright",
+      "names": [
+        "Ignatius Wainwright"
+      ],
+      "club": "",
+      "nationality": "ITA",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-13",
+      "fleetIds": [
+        "chf-01",
+        "chf-03",
+        "chf-06"
+      ],
+      "sailNumber": "221802",
+      "seed": 13,
+      "name": "Bartholomew Jenkinson",
+      "names": [
+        "Bartholomew Jenkinson"
+      ],
+      "club": "",
+      "nationality": "GER",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-14",
+      "fleetIds": [
+        "chf-02",
+        "chf-04",
+        "chf-06"
+      ],
+      "sailNumber": "215271",
+      "seed": 14,
+      "name": "Lughaidh O'Dwyer",
+      "names": [
+        "Lughaidh O'Dwyer"
+      ],
+      "club": "",
+      "nationality": "BEL",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-15",
+      "fleetIds": [
+        "chf-02",
+        "chf-04",
+        "chf-06"
+      ],
+      "sailNumber": "210708",
+      "seed": 15,
+      "name": "Brendan Crotty",
+      "names": [
+        "Brendan Crotty"
+      ],
+      "club": "",
+      "nationality": "DEN",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-16",
+      "fleetIds": [
+        "chf-01",
+        "chf-03",
+        "chf-06"
+      ],
+      "sailNumber": "218077",
+      "seed": 16,
+      "name": "Domhnall Crotty",
+      "names": [
+        "Domhnall Crotty"
+      ],
+      "club": "",
+      "nationality": "POL",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-17",
+      "fleetIds": [
+        "chf-01",
+        "chf-04",
+        "chf-06"
+      ],
+      "sailNumber": "221492",
+      "seed": 17,
+      "name": "Malachy Drummond",
+      "names": [
+        "Malachy Drummond"
+      ],
+      "club": "",
+      "nationality": "USA",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-18",
+      "fleetIds": [
+        "chf-02",
+        "chf-04",
+        "chf-06"
+      ],
+      "sailNumber": "221543",
+      "seed": 18,
+      "name": "Kitty Moriarty",
+      "names": [
+        "Kitty Moriarty"
+      ],
+      "club": "",
+      "nationality": "AUS",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-19",
+      "fleetIds": [
+        "chf-02",
+        "chf-04",
+        "chf-06"
+      ],
+      "sailNumber": "206303",
+      "seed": 19,
+      "name": "Luiseach Fitzmaurice",
+      "names": [
+        "Luiseach Fitzmaurice"
+      ],
+      "club": "",
+      "nationality": "NZL",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-20",
+      "fleetIds": [
+        "chf-01",
+        "chf-03",
+        "chf-06"
+      ],
+      "sailNumber": "224683",
+      "seed": 20,
+      "name": "Harriet Cribb",
+      "names": [
+        "Harriet Cribb"
+      ],
+      "club": "",
+      "nationality": "CAN",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-21",
+      "fleetIds": [
+        "chf-01",
+        "chf-03",
+        "chf-06"
+      ],
+      "sailNumber": "209301",
+      "seed": 21,
+      "name": "Cora Shufflebottom",
+      "names": [
+        "Cora Shufflebottom"
+      ],
+      "club": "",
+      "nationality": "SWE",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-22",
+      "fleetIds": [
+        "chf-02",
+        "chf-04",
+        "chf-06"
+      ],
+      "sailNumber": "206899",
+      "seed": 22,
+      "name": "Almha O'Toole",
+      "names": [
+        "Almha O'Toole"
+      ],
+      "club": "",
+      "nationality": "NOR",
+      "gender": "F",
+      "age": null
+    },
+    {
+      "id": "chc-23",
+      "fleetIds": [
+        "chf-02",
+        "chf-03",
+        "chf-06"
+      ],
+      "sailNumber": "218882",
+      "seed": 23,
+      "name": "Eamonn Featherstone",
+      "names": [
+        "Eamonn Featherstone"
+      ],
+      "club": "",
+      "nationality": "CRO",
+      "gender": "M",
+      "age": null
+    },
+    {
+      "id": "chc-24",
+      "fleetIds": [
+        "chf-01",
+        "chf-03",
+        "chf-06"
+      ],
+      "sailNumber": "212944",
+      "seed": 24,
+      "name": "Lasairfhiona MacCormack",
+      "names": [
+        "Lasairfhiona MacCormack"
+      ],
+      "club": "",
+      "nationality": "HUN",
+      "gender": "F",
+      "age": null
+    }
+  ],
+  "races": [
+    {
+      "id": "chr-race-1",
+      "raceNumber": 1,
+      "date": "2026-06-11",
+      "stage": "qualifying",
+      "stageRaceNumber": 1,
+      "starts": [
+        {
+          "id": "chstart-1",
+          "fleetIds": [
+            "chf-01"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-1-chc-04",
+          "competitorId": "chc-04",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-01",
+          "competitorId": "chc-01",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-05",
+          "competitorId": "chc-05",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-08",
+          "competitorId": "chc-08",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-09",
+          "competitorId": "chc-09",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-12",
+          "competitorId": "chc-12",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-16",
+          "competitorId": "chc-16",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-13",
+          "competitorId": "chc-13",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-20",
+          "competitorId": "chc-20",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-21",
+          "competitorId": "chc-21",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-17",
+          "competitorId": "chc-17",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-1-chc-24",
+          "competitorId": "chc-24",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-2",
+      "raceNumber": 2,
+      "date": "2026-06-11",
+      "stage": "qualifying",
+      "stageRaceNumber": 1,
+      "starts": [
+        {
+          "id": "chstart-2",
+          "fleetIds": [
+            "chf-02"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-2-chc-03",
+          "competitorId": "chc-03",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-02",
+          "competitorId": "chc-02",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-10",
+          "competitorId": "chc-10",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-07",
+          "competitorId": "chc-07",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-06",
+          "competitorId": "chc-06",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-11",
+          "competitorId": "chc-11",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-15",
+          "competitorId": "chc-15",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-14",
+          "competitorId": "chc-14",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-19",
+          "competitorId": "chc-19",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-18",
+          "competitorId": "chc-18",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-22",
+          "competitorId": "chc-22",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-2-chc-23",
+          "competitorId": "chc-23",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-3",
+      "raceNumber": 3,
+      "date": "2026-06-11",
+      "stage": "qualifying",
+      "stageRaceNumber": 2,
+      "starts": [
+        {
+          "id": "chstart-3",
+          "fleetIds": [
+            "chf-01"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-3-chc-01",
+          "competitorId": "chc-01",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-04",
+          "competitorId": "chc-04",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-05",
+          "competitorId": "chc-05",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-12",
+          "competitorId": "chc-12",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-08",
+          "competitorId": "chc-08",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-09",
+          "competitorId": "chc-09",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-16",
+          "competitorId": "chc-16",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-20",
+          "competitorId": "chc-20",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-13",
+          "competitorId": "chc-13",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-24",
+          "competitorId": "chc-24",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-17",
+          "competitorId": "chc-17",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-3-chc-21",
+          "competitorId": "chc-21",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-4",
+      "raceNumber": 4,
+      "date": "2026-06-11",
+      "stage": "qualifying",
+      "stageRaceNumber": 2,
+      "starts": [
+        {
+          "id": "chstart-4",
+          "fleetIds": [
+            "chf-02"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-4-chc-03",
+          "competitorId": "chc-03",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-07",
+          "competitorId": "chc-07",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-02",
+          "competitorId": "chc-02",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-06",
+          "competitorId": "chc-06",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-10",
+          "competitorId": "chc-10",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-11",
+          "competitorId": "chc-11",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-14",
+          "competitorId": "chc-14",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-15",
+          "competitorId": "chc-15",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-19",
+          "competitorId": "chc-19",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-18",
+          "competitorId": "chc-18",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-22",
+          "competitorId": "chc-22",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-4-chc-23",
+          "competitorId": "chc-23",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-5",
+      "raceNumber": 5,
+      "date": "2026-06-12",
+      "stage": "qualifying",
+      "stageRaceNumber": 3,
+      "starts": [
+        {
+          "id": "chstart-5",
+          "fleetIds": [
+            "chf-03"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-5-chc-03",
+          "competitorId": "chc-03",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-02",
+          "competitorId": "chc-02",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-07",
+          "competitorId": "chc-07",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-06",
+          "competitorId": "chc-06",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-08",
+          "competitorId": "chc-08",
+          "sortOrder": null,
+          "resultCode": "BFD",
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-11",
+          "competitorId": "chc-11",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-13",
+          "competitorId": "chc-13",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-16",
+          "competitorId": "chc-16",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-20",
+          "competitorId": "chc-20",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-21",
+          "competitorId": "chc-21",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-24",
+          "competitorId": "chc-24",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-5-chc-23",
+          "competitorId": "chc-23",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-6",
+      "raceNumber": 6,
+      "date": "2026-06-12",
+      "stage": "qualifying",
+      "stageRaceNumber": 3,
+      "starts": [
+        {
+          "id": "chstart-6",
+          "fleetIds": [
+            "chf-04"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-6-chc-01",
+          "competitorId": "chc-01",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-04",
+          "competitorId": "chc-04",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-05",
+          "competitorId": "chc-05",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-10",
+          "competitorId": "chc-10",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-12",
+          "competitorId": "chc-12",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-09",
+          "competitorId": "chc-09",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-19",
+          "competitorId": "chc-19",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-14",
+          "competitorId": "chc-14",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-15",
+          "competitorId": "chc-15",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-18",
+          "competitorId": "chc-18",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-22",
+          "competitorId": "chc-22",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-6-chc-17",
+          "competitorId": "chc-17",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-7",
+      "raceNumber": 7,
+      "date": "2026-06-12",
+      "stage": "qualifying",
+      "stageRaceNumber": 4,
+      "starts": [
+        {
+          "id": "chstart-7",
+          "fleetIds": [
+            "chf-03"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-7-chc-03",
+          "competitorId": "chc-03",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-02",
+          "competitorId": "chc-02",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-06",
+          "competitorId": "chc-06",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-08",
+          "competitorId": "chc-08",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-07",
+          "competitorId": "chc-07",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-11",
+          "competitorId": "chc-11",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-16",
+          "competitorId": "chc-16",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-13",
+          "competitorId": "chc-13",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-21",
+          "competitorId": "chc-21",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-20",
+          "competitorId": "chc-20",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-24",
+          "competitorId": "chc-24",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-7-chc-23",
+          "competitorId": "chc-23",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-8",
+      "raceNumber": 8,
+      "date": "2026-06-12",
+      "stage": "qualifying",
+      "stageRaceNumber": 4,
+      "starts": [
+        {
+          "id": "chstart-8",
+          "fleetIds": [
+            "chf-04"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-8-chc-01",
+          "competitorId": "chc-01",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-04",
+          "competitorId": "chc-04",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-05",
+          "competitorId": "chc-05",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-10",
+          "competitorId": "chc-10",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-12",
+          "competitorId": "chc-12",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-09",
+          "competitorId": "chc-09",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-14",
+          "competitorId": "chc-14",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-19",
+          "competitorId": "chc-19",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-18",
+          "competitorId": "chc-18",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-17",
+          "competitorId": "chc-17",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-22",
+          "competitorId": "chc-22",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-9",
+      "raceNumber": 9,
+      "date": "2026-06-13",
+      "stage": "final",
+      "stageRaceNumber": 1,
+      "starts": [
+        {
+          "id": "chstart-9",
+          "fleetIds": [
+            "chf-05"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-9-chc-04",
+          "competitorId": "chc-04",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-01",
+          "competitorId": "chc-01",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-03",
+          "competitorId": "chc-03",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-05",
+          "competitorId": "chc-05",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-02",
+          "competitorId": "chc-02",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-10",
+          "competitorId": "chc-10",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-07",
+          "competitorId": "chc-07",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-06",
+          "competitorId": "chc-06",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-12",
+          "competitorId": "chc-12",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-08",
+          "competitorId": "chc-08",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-09",
+          "competitorId": "chc-09",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-9-chc-11",
+          "competitorId": "chc-11",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-10",
+      "raceNumber": 10,
+      "date": "2026-06-13",
+      "stage": "final",
+      "stageRaceNumber": 1,
+      "starts": [
+        {
+          "id": "chstart-10",
+          "fleetIds": [
+            "chf-06"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-10-chc-15",
+          "competitorId": "chc-15",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-19",
+          "competitorId": "chc-19",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-20",
+          "competitorId": "chc-20",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-14",
+          "competitorId": "chc-14",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-13",
+          "competitorId": "chc-13",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-16",
+          "competitorId": "chc-16",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-18",
+          "competitorId": "chc-18",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-21",
+          "competitorId": "chc-21",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-22",
+          "competitorId": "chc-22",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-17",
+          "competitorId": "chc-17",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-24",
+          "competitorId": "chc-24",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-10-chc-23",
+          "competitorId": "chc-23",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-11",
+      "raceNumber": 11,
+      "date": "2026-06-13",
+      "stage": "final",
+      "stageRaceNumber": 2,
+      "starts": [
+        {
+          "id": "chstart-11",
+          "fleetIds": [
+            "chf-05"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-11-chc-04",
+          "competitorId": "chc-04",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-01",
+          "competitorId": "chc-01",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-05",
+          "competitorId": "chc-05",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-03",
+          "competitorId": "chc-03",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-02",
+          "competitorId": "chc-02",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-06",
+          "competitorId": "chc-06",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-07",
+          "competitorId": "chc-07",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-10",
+          "competitorId": "chc-10",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-08",
+          "competitorId": "chc-08",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-11",
+          "competitorId": "chc-11",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-09",
+          "competitorId": "chc-09",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-11-chc-12",
+          "competitorId": "chc-12",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-12",
+      "raceNumber": 12,
+      "date": "2026-06-13",
+      "stage": "final",
+      "stageRaceNumber": 2,
+      "starts": [
+        {
+          "id": "chstart-12",
+          "fleetIds": [
+            "chf-06"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-12-chc-15",
+          "competitorId": "chc-15",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-16",
+          "competitorId": "chc-16",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-13",
+          "competitorId": "chc-13",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-14",
+          "competitorId": "chc-14",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-19",
+          "competitorId": "chc-19",
+          "sortOrder": null,
+          "resultCode": "DNF",
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-20",
+          "competitorId": "chc-20",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-17",
+          "competitorId": "chc-17",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-18",
+          "competitorId": "chc-18",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-21",
+          "competitorId": "chc-21",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-22",
+          "competitorId": "chc-22",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-24",
+          "competitorId": "chc-24",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-12-chc-23",
+          "competitorId": "chc-23",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-13",
+      "raceNumber": 13,
+      "date": "2026-06-14",
+      "stage": "medal",
+      "stageRaceNumber": 1,
+      "starts": [
+        {
+          "id": "chstart-13",
+          "fleetIds": [
+            "chf-07"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-13-chc-01",
+          "competitorId": "chc-01",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-13-chc-04",
+          "competitorId": "chc-04",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-13-chc-03",
+          "competitorId": "chc-03",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-13-chc-05",
+          "competitorId": "chc-05",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-13-chc-02",
+          "competitorId": "chc-02",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-13-chc-07",
+          "competitorId": "chc-07",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "chr-race-14",
+      "raceNumber": 14,
+      "date": "2026-06-14",
+      "stage": "medal",
+      "stageRaceNumber": 1,
+      "firstPlaceOffset": 6,
+      "starts": [
+        {
+          "id": "chstart-14",
+          "fleetIds": [
+            "chf-08"
+          ]
+        }
+      ],
+      "finishes": [
+        {
+          "id": "chfin-14-chc-06",
+          "competitorId": "chc-06",
+          "sortOrder": 1,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-14-chc-10",
+          "competitorId": "chc-10",
+          "sortOrder": 2,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-14-chc-08",
+          "competitorId": "chc-08",
+          "sortOrder": 3,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-14-chc-12",
+          "competitorId": "chc-12",
+          "sortOrder": 4,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-14-chc-09",
+          "competitorId": "chc-09",
+          "sortOrder": 5,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-14-chc-11",
+          "competitorId": "chc-11",
+          "sortOrder": 6,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    }
+  ],
+  "splitFleets": {
+    "config": {
+      "qualifyingFleets": [
+        {
+          "label": "Yellow",
+          "color": "#eab308"
+        },
+        {
+          "label": "Blue",
+          "color": "#3b82f6"
+        }
+      ],
+      "finalFleets": [
+        {
+          "label": "Gold",
+          "color": "#ca8a04"
+        },
+        {
+          "label": "Silver",
+          "color": "#94a3b8"
+        }
+      ],
+      "plannedDays": [
+        {
+          "label": "Day 1",
+          "races": 2
+        },
+        {
+          "label": "Day 2",
+          "races": 2
+        },
+        {
+          "label": "Day 3",
+          "races": 2
+        },
+        {
+          "label": "Day 4",
+          "races": 1
+        }
+      ],
+      "carry": "points",
+      "split": {
+        "kind": "equal-blocks"
+      },
+      "codeBasis": {
+        "qualifying": "largest-fleet",
+        "final": "own-fleet"
+      },
+      "equalization": "abandon-extra-races",
+      "discardThresholds": [
+        {
+          "minRaces": 4,
+          "discardCount": 1
+        }
+      ],
+      "maxFinalDiscards": 1,
+      "protectLoneFinalRace": true,
+      "reassignmentTieOrder": "a8-then-entry-order",
+      "medal": {
+        "size": 6,
+        "raceCount": 1,
+        "multiplier": 2
+      }
+    },
+    "rounds": [
+      {
+        "id": "chr-1",
+        "stage": "qualifying",
+        "fromStageRace": 1,
+        "fleetIds": [
+          "chf-01",
+          "chf-02"
+        ],
+        "method": "seeded",
+        "basis": null,
+        "createdAt": 1781168400000
+      },
+      {
+        "id": "chr-2",
+        "stage": "qualifying",
+        "fromStageRace": 3,
+        "fleetIds": [
+          "chf-03",
+          "chf-04"
+        ],
+        "method": "rank-pattern",
+        "basis": {
+          "throughStageRace": 2,
+          "capturedAt": 1781251200000
+        },
+        "createdAt": 1781172000000
+      },
+      {
+        "id": "chr-3",
+        "stage": "final",
+        "fromStageRace": 1,
+        "fleetIds": [
+          "chf-05",
+          "chf-06"
+        ],
+        "method": "split",
+        "basis": {
+          "throughStageRace": 4,
+          "capturedAt": 1781337600000
+        },
+        "createdAt": 1781175600000
+      },
+      {
+        "id": "chr-4",
+        "stage": "medal",
+        "fromStageRace": 1,
+        "fleetIds": [
+          "chf-07",
+          "chf-08"
+        ],
+        "method": "medal-select",
+        "basis": null,
+        "createdAt": 1781179200000
+      }
+    ]
+  }
+}

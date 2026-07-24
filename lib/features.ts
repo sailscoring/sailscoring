@@ -234,15 +234,17 @@ export const FEATURES = {
     selfService: false,
   },
   'split-fleets': {
-    // PROTOTYPE: the Split Fleets guided workflow for qualifying/final
-    // championship series (docs/design/split-fleets.md) — the
-    // Split Fleets series tab, its assignment ceremonies, and the
-    // split-fleets API surface. Operator-managed (not self-service): expert
-    // machinery for a handful of championship workspaces; mis-configuration
-    // produces authoritative-looking nonsense. Off by default.
+    // The Split Fleets guided workflow for qualifying/final championship
+    // series (docs/design/split-fleets.md) — the Split Fleets series tab, its
+    // assignment ceremonies, and the split-fleets API surface. Operator-managed
+    // (not self-service): expert machinery for a handful of championship
+    // workspaces; mis-configuration produces authoritative-looking nonsense.
+    // Off by default. Enabling it drops a complete worked championship into
+    // the series list.
     label: 'Split-fleet series (qualifying/final)',
-    helpSectionIds: [],
+    helpSectionIds: ['split-fleets'],
     selfService: false,
+    demoSample: 'championship.sailscoring',
   },
 } as const satisfies Record<string, FeatureDef>;
 

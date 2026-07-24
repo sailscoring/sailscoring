@@ -20,7 +20,18 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { CompetitorFieldKey, PrimaryPersonLabel } from '../lib/types';
+import type { Competitor, Finish, CompetitorFieldKey, PrimaryPersonLabel } from '../lib/types';
+import {
+  QUALIFYING_COLOR_SETS,
+  FINAL_FLEET_SET,
+  assignByRankPattern,
+  finalBlockSizes,
+  seedOrder,
+  splitFleetStandings,
+  type SplitFleetConfig,
+  type SplitFleetData,
+  type SplitRound,
+} from '../lib/split-fleets';
 
 const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'lib', 'sample-series');
@@ -67,6 +78,9 @@ interface FileCompetitor {
   id: string;
   fleetIds: string[];
   sailNumber: string;
+  seed?: number;
+  /** v13+ primary-person list; the pre-v13 samples use legacy `name`. */
+  names?: string[];
   boatName?: string;
   boatClass?: string;
   name: string;
@@ -95,12 +109,16 @@ interface FileFinish {
 interface FileRaceStart {
   id: string;
   fleetIds: string[];
-  startTime: string;
+  /** Absent for a membership-only start (scopes the fleet, no gun time). */
+  startTime?: string;
 }
 interface FileRace {
   id: string;
   raceNumber: number;
   date: string;
+  stage?: 'qualifying' | 'final' | 'medal';
+  stageRaceNumber?: number;
+  firstPlaceOffset?: number;
   starts: FileRaceStart[];
   finishes: FileFinish[];
 }
@@ -141,6 +159,15 @@ interface FileSubSeries {
   continueFromSubSeriesId?: string;
   excludeDncOnlyCompetitors?: boolean;
 }
+interface FileSplitRound {
+  id: string;
+  stage: 'qualifying' | 'final' | 'medal';
+  fromStageRace: number;
+  fleetIds: string[];
+  method: string;
+  basis: { throughStageRace: number; capturedAt: number } | null;
+  createdAt: number;
+}
 interface SeriesFile {
   formatVersion: number;
   seriesId: string;
@@ -150,6 +177,8 @@ interface SeriesFile {
   competitors: FileCompetitor[];
   races: FileRace[];
   subSeries?: FileSubSeries[];
+  /** v23+ split-fleet block (the championship sample). */
+  splitFleets?: { config: SplitFleetConfig; rounds: FileSplitRound[] };
 }
 
 // Stable timestamp so the file is deterministic across runs.
@@ -896,6 +925,317 @@ function buildClubLeague(): SeriesFile {
   };
 }
 
+
+// ─── Sample 4: the split-fleet championship (seeded on feature enable) ───────
+//
+// An ILCA-style one-design championship run to completion through the Split
+// Fleets workflow (Appendix-C shape, format F2): 24 boats seeded into Yellow
+// and Blue qualifying fleets, reshuffled by rank after day 1, split into
+// Gold/Silver for the final series, and closed with a doubled medal race for
+// the top six plus the companion "last race" for the rest of Gold. Every
+// assignment is precomputed with the real engine (rounds are frozen state —
+// the app never recomputes them), so what the scorer opens is exactly what
+// running the ceremonies would have produced.
+
+function buildChampionship(): SeriesFile {
+  const rng = makeRng(0x5a11);
+
+  const NATIONS = [
+    'IRL', 'IRL', 'IRL', 'IRL', 'GBR', 'GBR', 'GBR', 'FRA', 'FRA', 'NED',
+    'ESP', 'ITA', 'GER', 'BEL', 'DEN', 'POL', 'USA', 'AUS', 'NZL', 'CAN',
+    'SWE', 'NOR', 'CRO', 'HUN',
+  ] as const;
+
+  const config: SplitFleetConfig = {
+    qualifyingFleets: QUALIFYING_COLOR_SETS.slice(0, 2),
+    finalFleets: FINAL_FLEET_SET.slice(0, 2),
+    plannedDays: [
+      { label: 'Day 1', races: 2 },
+      { label: 'Day 2', races: 2 },
+      { label: 'Day 3', races: 2 },
+      { label: 'Day 4', races: 1 },
+    ],
+    carry: 'points',
+    split: { kind: 'equal-blocks' },
+    codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },
+    equalization: 'abandon-extra-races',
+    discardThresholds: [{ minRaces: 4, discardCount: 1 }],
+    maxFinalDiscards: 1,
+    protectLoneFinalRace: true,
+    reassignmentTieOrder: 'a8-then-entry-order',
+    medal: { size: 6, raceCount: 1, multiplier: 2 },
+  };
+
+  // 24 sailors. `seed` is the OA's pre-event ranking; racing ability tracks
+  // it loosely (a per-sailor bias plus per-race noise), so the reassignment
+  // and split genuinely reshuffle boats rather than replaying the seeding.
+  const usedNames = new Set<string>();
+  const usedSails = new Set<string>();
+  const engineCompetitors: Competitor[] = [];
+  const ability = new Map<string, number>();
+  for (let i = 0; i < 24; i++) {
+    const female = rng() < 0.45;
+    let name = '';
+    do {
+      name = `${pick(rng, female ? FEMALE_NAMES : MALE_NAMES)} ${pick(rng, SURNAMES)}`;
+    } while (usedNames.has(name));
+    usedNames.add(name);
+    let sail = '';
+    do {
+      sail = String(205000 + randint(rng, 0, 19999));
+    } while (usedSails.has(sail));
+    usedSails.add(sail);
+    const id = `chc-${String(i + 1).padStart(2, '0')}`;
+    engineCompetitors.push({
+      id,
+      seriesId: 'sample-championship',
+      fleetIds: [],
+      sailNumber: sail,
+      names: [name],
+      club: '',
+      nationality: NATIONS[i],
+      gender: female ? 'F' : 'M',
+      age: null,
+      seed: i + 1,
+      createdAt: i,
+    });
+    ability.set(id, i + (rng() - 0.5) * 7);
+  }
+
+  const fleets: FileFleet[] = [];
+  const rounds: SplitRound[] = [];
+  const races: FileRace[] = [];
+  const engineFinishes: Finish[] = [];
+  const raceFleetIds: Record<string, string> = {};
+  let fleetSeq = 0;
+  let roundSeq = 0;
+  // Round timestamps are display-only; fixed and spaced for determinism.
+  const T0 = Date.parse('2026-06-11T08:00:00Z');
+
+  const engineData = (): SplitFleetData => ({
+    config,
+    rounds,
+    fleets: fleets.map((f) => ({ ...f, seriesId: 'sample-championship' })),
+    competitors: engineCompetitors,
+    races: races.map((r) => ({
+      id: r.id,
+      seriesId: 'sample-championship',
+      raceNumber: r.raceNumber,
+      name: '',
+      date: r.date,
+      createdAt: r.raceNumber,
+      stage: r.stage,
+      stageRaceNumber: r.stageRaceNumber,
+      ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
+    })),
+    raceFleetIds,
+    finishes: engineFinishes,
+  });
+
+  /** Combined qualifying ranking through logical race N (the frozen basis). */
+  const qualifyingOrderThrough = (throughRace: number): string[] => {
+    const data = engineData();
+    data.races = data.races.filter(
+      (r) => r.stage === 'qualifying' && (r.stageRaceNumber ?? 0) <= throughRace,
+    );
+    return splitFleetStandings(data).map((row) => row.competitor.id);
+  };
+
+  const addRound = (
+    stage: 'qualifying' | 'final' | 'medal',
+    fromStageRace: number,
+    method: SplitRound['method'],
+    fleetDefs: { label: string }[],
+    membership: string[][],
+    basis: { throughStageRace: number; capturedAt: number } | null,
+  ): string[] => {
+    const ids = fleetDefs.map((f) => {
+      fleetSeq++;
+      const id = `chf-${String(fleetSeq).padStart(2, '0')}`;
+      fleets.push({ id, name: f.label, displayOrder: fleetSeq - 1, scoringSystem: 'scratch' });
+      return id;
+    });
+    membership.forEach((memberIds, i) => {
+      for (const cid of memberIds) {
+        engineCompetitors.find((c) => c.id === cid)!.fleetIds.push(ids[i]);
+      }
+    });
+    roundSeq++;
+    rounds.push({
+      id: `chr-${roundSeq}`,
+      seriesId: 'sample-championship',
+      stage,
+      fromStageRace,
+      fleetIds: ids,
+      method,
+      basis,
+      createdAt: T0 + roundSeq * 3_600_000,
+    });
+    return ids;
+  };
+
+  /** Race one fleet's physical race: order members by ability + noise. */
+  const runRace = (
+    stage: 'qualifying' | 'final' | 'medal',
+    n: number,
+    fleetId: string,
+    memberIds: string[],
+    date: string,
+    opts: { absent?: string[]; bfd?: string; dnf?: string; firstPlaceOffset?: number } = {},
+  ): void => {
+    const raceNumber = races.length + 1;
+    const raceId = `chr-race-${raceNumber}`;
+    const sailing = memberIds.filter((id) => !(opts.absent ?? []).includes(id));
+    const order = [...sailing].sort(
+      (a, b) => ability.get(a)! + noise(rng) * 4 - (ability.get(b)! + noise(rng) * 4),
+    );
+    const finishes: FileFinish[] = [];
+    let place = 0;
+    for (const cid of order) {
+      const coded = cid === opts.bfd ? 'BFD' : cid === opts.dnf ? 'DNF' : null;
+      finishes.push({
+        id: `chfin-${raceNumber}-${cid}`,
+        competitorId: cid,
+        sortOrder: coded ? null : ++place,
+        resultCode: coded,
+        startPresent: null,
+        penaltyCode: null,
+        penaltyOverride: null,
+      });
+      engineFinishes.push({
+        id: `chfin-${raceNumber}-${cid}`,
+        raceId,
+        competitorId: cid,
+        sortOrder: coded ? null : place,
+        tiedWithPrevious: false,
+        resultCode: coded,
+        startPresent: null,
+        penaltyCode: null,
+        penaltyOverride: null,
+        redressMethod: null,
+        redressExcludeRaceIds: null,
+        redressIncludeRaceIds: null,
+        redressIncludeAllLater: false,
+        redressPoints: null,
+      });
+    }
+    races.push({
+      id: raceId,
+      raceNumber,
+      date,
+      stage,
+      stageRaceNumber: n,
+      ...(opts.firstPlaceOffset != null ? { firstPlaceOffset: opts.firstPlaceOffset } : {}),
+      starts: [{ id: `chstart-${raceNumber}`, fleetIds: [fleetId] }],
+      finishes,
+    });
+    raceFleetIds[raceId] = fleetId;
+  };
+
+  // ── Day 1: Round 1 seeded by the OA seeding, Q1–Q2 ─────────────────────────
+  const seeded = seedOrder(engineCompetitors, 'seed-rank');
+  const r1Membership = assignByRankPattern(seeded, 2);
+  const r1 = addRound('qualifying', 1, 'seeded', config.qualifyingFleets, r1Membership, null);
+  for (const n of [1, 2]) {
+    r1.forEach((fid, i) => runRace('qualifying', n, fid, r1Membership[i], '2026-06-11'));
+  }
+
+  // ── Day 2: Round 2 from the ranking after Q2, Q3–Q4 ────────────────────────
+  const afterQ2 = qualifyingOrderThrough(2);
+  const r2Membership = assignByRankPattern(afterQ2, 2);
+  const r2 = addRound('qualifying', 3, 'rank-pattern', config.qualifyingFleets, r2Membership, {
+    throughStageRace: 2,
+    capturedAt: T0 + 24 * 3_600_000,
+  });
+  // Q3: a black-flag start in Yellow. Q4: one boat ashore with gear damage
+  // (absent from the sheet — scored DNC implicitly).
+  const bfdBoat = r2Membership[0][4];
+  const ashore = r2Membership[1][7];
+  r2.forEach((fid, i) => runRace('qualifying', 3, fid, r2Membership[i], '2026-06-12', i === 0 ? { bfd: bfdBoat } : {}));
+  r2.forEach((fid, i) => runRace('qualifying', 4, fid, r2Membership[i], '2026-06-12', i === 1 ? { absent: [ashore] } : {}));
+
+  // ── Day 3: the split, F1–F2 ────────────────────────────────────────────────
+  const afterQ4 = qualifyingOrderThrough(4);
+  const sizes = finalBlockSizes(afterQ4.length, 2);
+  const splitMembership = [afterQ4.slice(0, sizes[0]), afterQ4.slice(sizes[0])];
+  const fin = addRound('final', 1, 'split', config.finalFleets, splitMembership, {
+    throughStageRace: 4,
+    capturedAt: T0 + 48 * 3_600_000,
+  });
+  const dnfBoat = splitMembership[1][3];
+  fin.forEach((fid, i) => runRace('final', 1, fid, splitMembership[i], '2026-06-13'));
+  fin.forEach((fid, i) => runRace('final', 2, fid, splitMembership[i], '2026-06-13', i === 1 ? { dnf: dnfBoat } : {}));
+
+  // ── Day 4: medal race for the top six + the companion last race ────────────
+  const opening = splitFleetStandings(engineData()).map((row) => row.competitor.id);
+  const medalTop = opening.slice(0, config.medal!.size);
+  const companion = splitMembership[0].filter((id) => !medalTop.includes(id));
+  const medalFleets = addRound(
+    'medal', 1, 'medal-select',
+    [{ label: 'Medal' }, { label: 'Last race' }],
+    [medalTop, companion],
+    null,
+  );
+  runRace('medal', 1, medalFleets[0], medalTop, '2026-06-14');
+  runRace('medal', 1, medalFleets[1], companion, '2026-06-14', {
+    firstPlaceOffset: config.medal!.size,
+  });
+
+  const competitors: FileCompetitor[] = engineCompetitors.map((c) => ({
+    id: c.id,
+    fleetIds: c.fleetIds,
+    sailNumber: c.sailNumber,
+    seed: c.seed,
+    name: c.names[0],
+    names: c.names,
+    club: '',
+    nationality: c.nationality,
+    gender: c.gender as 'M' | 'F' | '',
+    age: null,
+  }));
+
+  return {
+    formatVersion: 23,
+    seriesId: 'sample-championship',
+    exportedAt: EXPORTED_AT,
+    series: {
+      id: 'sample-championship',
+      name: 'Sample Championship 2026',
+      venue: 'Dublin Bay',
+      startDate: '2026-06-11',
+      endDate: '2026-06-14',
+      venueLogoUrl: '',
+      eventLogoUrl: '',
+      venueUrl: '',
+      eventUrl: '',
+      discardThresholds: config.discardThresholds,
+      dnfScoring: 'seriesEntries',
+      ftpHost: '',
+      ftpPath: '',
+      includeJsonExport: true,
+      enabledCompetitorFields: ['nationality'],
+      primaryPersonLabel: 'helm',
+      subdivisionAxes: [],
+      scoringMode: 'scratch',
+    },
+    fleets,
+    competitors,
+    races,
+    splitFleets: {
+      config,
+      rounds: rounds.map((r) => ({
+        id: r.id,
+        stage: r.stage,
+        fromStageRace: r.fromStageRace,
+        fleetIds: r.fleetIds,
+        method: r.method,
+        basis: r.basis,
+        createdAt: r.createdAt,
+      })),
+    },
+  };
+}
+
 // ─── Emit ─────────────────────────────────────────────────────────────────────
 
 function write(name: string, file: SeriesFile) {
@@ -911,3 +1251,4 @@ mkdirSync(OUT_DIR, { recursive: true });
 write('regatta.sailscoring', buildRegatta());
 write('club-racing.sailscoring', buildClubRacing());
 write('club-league.sailscoring', buildClubLeague());
+write('championship.sailscoring', buildChampionship());

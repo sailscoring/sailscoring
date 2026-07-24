@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 
 import { parseSeriesFile, openSeriesFromFile, type SeriesFile, type SeriesFileRepos } from '@/lib/series-file';
 import { calculateFleetStandings, calculateSubSeriesFleetStandings } from '@/lib/scoring';
+import { splitFleetStandings, roundsForStage, type SplitFleetData, type SplitRound } from '@/lib/split-fleets';
 import type { SubSeries } from '@/lib/types';
 import { seriesInputSchema } from '@/lib/validation/series';
 import { fleetSchema } from '@/lib/validation/fleet';
@@ -35,19 +36,22 @@ function load(name: string) {
     ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
   }));
 
-  const competitors: Competitor[] = file.competitors.map((c) => ({
+  const competitors: Competitor[] = file.competitors.map((c, i) => ({
     ...c,
     seriesId: file.seriesId,
-    createdAt: 0,
+    createdAt: i,
   })) as Competitor[];
 
-  const races: Race[] = file.races.map((r) => ({
+  const races: Race[] = file.races.map((r, i) => ({
     id: r.id,
     seriesId: file.seriesId,
     raceNumber: r.raceNumber,
     name: r.name ?? null,
     date: r.date,
-    createdAt: 0,
+    createdAt: i,
+    ...(r.stage ? { stage: r.stage } : {}),
+    ...(r.stageRaceNumber != null ? { stageRaceNumber: r.stageRaceNumber } : {}),
+    ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
   }));
 
   const raceStarts: RaceStart[] = file.races.flatMap((r) =>
@@ -133,7 +137,12 @@ function makeValidatingRepos(): SeriesFileRepos {
 }
 
 describe('sample series files', () => {
-  it.each(['regatta.sailscoring', 'club-racing.sailscoring', 'club-league.sailscoring'])(
+  it.each([
+    'regatta.sailscoring',
+    'club-racing.sailscoring',
+    'club-league.sailscoring',
+    'championship.sailscoring',
+  ])(
     '%s imports through the /api/v1 schemas without a validation error',
     async (name) => {
       const file = parseSeriesFile(readFileSync(join(SAMPLE_DIR, name), 'utf8'));
@@ -193,6 +202,58 @@ describe('sample series files', () => {
       expect(fs.standings).toHaveLength(15);
       expect(fs.standings[0].netPoints).toBeGreaterThan(0);
     }
+  });
+
+  it('championship: the split-fleet sample scores as a complete F2 event', () => {
+    const { file, fleets, competitors, races, raceStarts, finishes } = load('championship.sailscoring');
+
+    expect(file.formatVersion).toBe(23);
+    const sf = file.splitFleets!;
+    expect(sf).toBeTruthy();
+    expect(sf.config.qualifyingFleets.map((f) => f.label)).toEqual(['Yellow', 'Blue']);
+    expect(sf.config.finalFleets.map((f) => f.label)).toEqual(['Gold', 'Silver']);
+    expect(sf.rounds.map((r) => r.method)).toEqual(['seeded', 'rank-pattern', 'split', 'medal-select']);
+
+    const raceFleetIds: Record<string, string> = {};
+    for (const start of raceStarts) {
+      if (start.fleetIds.length === 1) raceFleetIds[start.raceId] = start.fleetIds[0];
+    }
+    const data: SplitFleetData = {
+      config: sf.config,
+      rounds: sf.rounds.map((r) => ({ ...r, seriesId: file.seriesId }) as SplitRound),
+      fleets,
+      competitors,
+      races: races.filter((r) => r.stage),
+      raceFleetIds,
+      finishes,
+    };
+    const rows = splitFleetStandings(data);
+
+    // Every one of the 24 boats is ranked, 1..24 without gaps.
+    expect(rows).toHaveLength(24);
+    expect(rows.map((r) => r.rank)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));
+
+    // The fleet band dominates: ranks 1-12 are exactly the Gold fleet.
+    const splitRound = roundsForStage(data.rounds, 'final')[0];
+    const goldId = splitRound.fleetIds[0];
+    expect(rows.slice(0, 12).every((r) => r.finalFleetId === goldId)).toBe(true);
+
+    // The top six carry the medal flag and a doubled, non-discardable medal
+    // cell; the companion race scores from just below the medal group.
+    expect(rows.slice(0, 6).every((r) => r.medal)).toBe(true);
+    expect(rows.slice(6).every((r) => !r.medal)).toBe(true);
+    const medalCell = rows[0].cells.find((c) => c.stage === 'medal')!;
+    expect(medalCell.discardable).toBe(false);
+    const companionCells = rows
+      .slice(6, 12)
+      .map((r) => r.cells.find((c) => c.stage === 'medal')!)
+      .filter((c) => c.counts && !c.code);
+    expect(companionCells.length).toBeGreaterThan(0);
+    expect(Math.min(...companionCells.map((c) => c.points))).toBe(sf.config.medal!.size + 1);
+
+    // The sprinkled result codes survived generation: one BFD, one DNF.
+    expect(finishes.filter((f) => f.resultCode === 'BFD')).toHaveLength(1);
+    expect(finishes.filter((f) => f.resultCode === 'DNF')).toHaveLength(1);
   });
 
   it('club league: sub-series exercise membership, scoping, exclusions, chaining, and DNC', () => {
