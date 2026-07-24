@@ -99,6 +99,28 @@ results to update handicap numbers. Currently this is a manual process involving
 spreadsheets or web forms. Automating it would be valuable to both scorers and the
 authorities, but requires agreement on data format and access.
 
+### World Sailing Sailor ID and XRR results submission
+
+World Sailing lists scoring software as "integrated with WS Sailor ID"
+(sailing.org/our-sport/event-organisers/ — Sailwave, Manage2Sail, KSail, etc.).
+The integration has two halves. First, each competitor carries their World
+Sailing Sailor ID — the free, unique identifier tied to a sailor's World Sailing
+profile, required for international events and world rankings — and the software
+can verify IDs against World Sailing's datafeed before the event
+(`datafeed.sailing.org/query?type=Person&...`, lookup by name + NOC or by
+`IFPersonID`). Second, results are exported in the XRR (XML Regatta Reporting)
+format (sailing.org/xml/) and uploaded by POST to World Sailing's ingest
+endpoint, where they pass schema and reference validation (all sailor IDs must
+resolve) before import into the results database and rankings.
+
+For Sail Scoring this maps naturally onto the competitor-identity spine: a WS
+Sailor ID would be one more identity field on a competitor (see *Reconciling
+competitor identity with external member databases* below), and an XRR renderer
+is a bounded export target with a published schema — no bespoke agreement
+needed, unlike the Irish Sailing / RYA loop above. Club racing doesn't need any
+of it; this matters only if Sail Scoring scores events whose results feed World
+Sailing (which would also be the path onto that event-organisers list).
+
 ### Push competitor list to racingrulesofsailing.org
 
 Shipped (#260, July 2026) behind the `rrs-import` feature flag: the Competitors
