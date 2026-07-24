@@ -113,6 +113,13 @@ export async function buildFleetHtmlFiles(
   // Shared by preview, download, and publish, like the per-fleet path below.
   const splitFleets = await repos.splitFleets?.get(seriesId);
   if (splitFleets && splitFleets.rounds.length > 0) {
+    // Same on-demand flag loading as the per-fleet path below: the ~2.5 MB
+    // SVG payload is pulled only when the Nat column will actually render.
+    const enabledCompetitorFields =
+      snapshot.series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+    const wantsFlags =
+      enabledCompetitorFields.includes('nationality') &&
+      snapshot.competitors.some((c) => c.nationality);
     const input = {
       seriesName: snapshot.series.name,
       config: splitFleets.config,
@@ -122,6 +129,10 @@ export async function buildFleetHtmlFiles(
       races: snapshot.races,
       raceStarts: snapshot.raceStarts,
       finishes: snapshot.finishes,
+      enabledCompetitorFields,
+      ...(wantsFlags
+        ? { flagSvgByCode: (await import('./nationality/flags')).NATIONAL_FLAGS }
+        : {}),
     };
     return [
       {

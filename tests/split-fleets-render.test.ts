@@ -82,6 +82,31 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(html).not.toContain('Gold fleet');
   });
 
+  it('renders the Nat column with inline flags when nationality is enabled', () => {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    input.competitors.forEach((c, i) => {
+      c.nationality = i % 2 === 0 ? 'IRL' : 'GBR';
+    });
+    input.enabledCompetitorFields = ['nationality'];
+    input.flagSvgByCode = {
+      IRL: { viewBox: '0 0 3 2', inner: '<rect width="3" height="2" fill="#169b62"/>' },
+      GBR: { viewBox: '0 0 3 2', inner: '<rect width="3" height="2" fill="#012169"/>' },
+    };
+    const html = renderSplitFleetStandingsPage(input);
+    expect(html).toContain('<th>Nat</th>');
+    expect(html).toContain('id="flag-IRL"');
+    expect(html).toContain('href="#flag-GBR"');
+
+    const assignments = renderSplitFleetAssignmentsPage(input);
+    expect(assignments).toContain('<th>Nat</th>');
+    expect(assignments).toContain('id="flag-IRL"');
+
+    // Without the field enabled, no Nat column and no flag defs.
+    const off = renderSplitFleetStandingsPage({ ...input, enabledCompetitorFields: [] });
+    expect(off).not.toContain('<th>Nat</th>');
+    expect(off).not.toContain('id="flag-IRL"');
+  });
+
   it('escapes user-controlled fields', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
     input.seriesName = '<script>alert(1)</script>';

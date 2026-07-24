@@ -169,7 +169,7 @@ function plannedFirstRaces(config: SplitFleetConfig): number[] {
   const n = Math.max(1, config.plannedDays[0]?.races ?? 2);
   return Array.from({ length: n }, (_, i) => i + 1);
 }
-import type { Competitor, Finish, Fleet, Race } from '@/lib/types';
+import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race } from '@/lib/types';
 
 // ─── Demo data ──────────────────────────────────────────────────────────────
 
@@ -331,8 +331,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const standings = splitFleetStandings(sfData);
 
   const nextAction = computeNextAction(sfData, sfState.config, qualifyingRounds, splitRound, medalRound, fleetMeta);
-  const eventComplete =
-    !!medalRound && medalPhaseComplete(sfData, medalRound, sfState.config);
 
   return (
     <div className="space-y-6">
@@ -347,13 +345,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               Open
             </Link>
           )}
-        </div>
-      )}
-      {eventComplete && (
-        <div className="rounded-lg border border-green-600/40 bg-green-50 px-4 py-3 text-sm dark:border-green-500/40 dark:bg-green-950/40" data-testid="sf-event-complete">
-          <strong>Event complete.</strong> Every scheduled stage has been
-          sailed — publish the final standings, then mark the results final
-          from the standings section below.
         </div>
       )}
       <StageSection
@@ -433,6 +424,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         fleetMeta={fleetMeta}
         standings={standings}
         splitRound={splitRound}
+        enabledFields={data.series.enabledCompetitorFields ?? []}
         onPublish={can('manage-workspace') || can('score') ? () => setShowPublish(true) : undefined}
         onPreview={() => setShowPreview(true)}
         resultsStatus={
@@ -1642,6 +1634,7 @@ function StandingsSection({
   fleetMeta,
   standings,
   splitRound,
+  enabledFields,
   onPublish,
   onPreview,
   resultsStatus,
@@ -1650,6 +1643,7 @@ function StandingsSection({
   fleetMeta: Map<string, FleetMeta>;
   standings: SplitStandingRow[];
   splitRound: SplitRound | null;
+  enabledFields: CompetitorFieldKey[];
   onPublish?: () => void;
   onPreview?: () => void;
   /** Results-lifecycle surface (the Standings tab is hidden on split-fleet
@@ -1687,6 +1681,12 @@ function StandingsSection({
     ? []
     : provisionalCutIndexes(standings.length, data.config.finalFleets.length);
 
+  // Code-only in the live UI — flags are reserved for the published pages so
+  // this view doesn't pull the flag dataset into the bundle.
+  const showNationality =
+    enabledFields.includes('nationality') &&
+    standings.some((r) => r.competitor.nationality);
+
   const renderRows = (rows: SplitStandingRow[], withCuts: boolean) =>
     rows.map((row, i) => {
       const cellByKey = new Map(
@@ -1699,6 +1699,7 @@ function StandingsSection({
           columns={columns}
           cellByKey={cellByKey}
           fleetMeta={fleetMeta}
+          showNationality={showNationality}
           cutAfter={withCuts && cuts.includes(i)}
           cutLabel={
             withCuts && cuts.includes(i)
@@ -1757,12 +1758,12 @@ function StandingsSection({
                 <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
                   <FleetChip meta={meta} /> fleet
                 </h3>
-                <StandingsTable columns={columns}>{renderRows(rows, false)}</StandingsTable>
+                <StandingsTable columns={columns} showNationality={showNationality}>{renderRows(rows, false)}</StandingsTable>
               </div>
             );
           })
         ) : (
-          <StandingsTable columns={columns}>{renderRows(standings, true)}</StandingsTable>
+          <StandingsTable columns={columns} showNationality={showNationality}>{renderRows(standings, true)}</StandingsTable>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -1775,9 +1776,11 @@ function StandingsSection({
 
 function StandingsTable({
   columns,
+  showNationality,
   children,
 }: {
   columns: { stage: SeriesStage; n: number }[];
+  showNationality: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -1785,6 +1788,7 @@ function StandingsTable({
       <thead>
         <tr className="text-left text-xs text-muted-foreground">
           <th className="py-1 pr-2 font-medium">Rank</th>
+          {showNationality && <th className="py-1 pr-2 font-medium">Nat</th>}
           <th className="py-1 pr-2 font-medium">Sail</th>
           <th className="py-1 pr-2 font-medium">Name</th>
           {columns.map((c) => (
@@ -1807,6 +1811,7 @@ function FragmentRow({
   columns,
   cellByKey,
   fleetMeta,
+  showNationality,
   cutAfter,
   cutLabel,
 }: {
@@ -1814,6 +1819,7 @@ function FragmentRow({
   columns: { stage: SeriesStage; n: number }[];
   cellByKey: Map<string, import('@/lib/split-fleets').CellScore>;
   fleetMeta: Map<string, FleetMeta>;
+  showNationality: boolean;
   cutAfter: boolean;
   cutLabel: string | null;
 }) {
@@ -1821,6 +1827,9 @@ function FragmentRow({
     <>
       <tr className="border-t">
         <td className="py-1 pr-2">{row.rank}</td>
+        {showNationality && (
+          <td className="py-1 pr-2 font-mono text-xs">{row.competitor.nationality ?? ''}</td>
+        )}
         <td className="py-1 pr-2 whitespace-nowrap">{row.competitor.sailNumber}</td>
         <td className="py-1 pr-2 whitespace-nowrap">
           {row.competitor.names.join(' & ')}
@@ -1859,7 +1868,7 @@ function FragmentRow({
       </tr>
       {cutAfter && (
         <tr aria-hidden>
-          <td colSpan={columns.length + 5} className="py-0">
+          <td colSpan={columns.length + (showNationality ? 6 : 5)} className="py-0">
             <div className="my-0.5 border-t-2 border-dashed border-amber-400 text-center text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
               {cutLabel}
             </div>
