@@ -151,6 +151,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           raceNumber: r.raceNumber,
           name: r.name ?? null,
           date: r.date,
+          lastFinisherTime: r.lastFinisherTime ?? null,
           createdAt: new Date(r.createdAt),
           // Split-fleet stage identity (the championship sample).
           stage: r.stage ?? null,

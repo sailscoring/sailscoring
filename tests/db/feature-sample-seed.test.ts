@@ -170,5 +170,9 @@ describe.skipIf(skip)('seedFeatureSample', () => {
     expect(raceRows).toHaveLength(14);
     expect(raceRows.filter((r) => r.stage === 'medal')).toHaveLength(2);
     expect(raceRows.filter((r) => r.firstPlaceOffset === 6)).toHaveLength(1);
+    // Every race carries a name and a last-finisher clock time (the
+    // protest-time-limit input).
+    expect(raceRows.every((r) => /^[QFM]\d+ · /.test(r.name ?? ''))).toBe(true);
+    expect(raceRows.every((r) => /^\d\d:\d\d:\d\d$/.test(r.lastFinisherTime ?? ''))).toBe(true);
   });
 });

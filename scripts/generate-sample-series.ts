@@ -117,6 +117,7 @@ interface FileRace {
   raceNumber: number;
   name?: string;
   date: string;
+  lastFinisherTime?: string;
   stage?: 'qualifying' | 'final' | 'medal';
   stageRaceNumber?: number;
   firstPlaceOffset?: number;
@@ -1088,6 +1089,14 @@ function buildChampionship(): SeriesFile {
     const raceId = `chr-race-${raceNumber}`;
     const prefix = stage === 'qualifying' ? 'Q' : stage === 'final' ? 'F' : 'M';
     const fleetName = fleets.find((f) => f.id === fleetId)!.name;
+    // Last-finisher clock time (feeds the protest-time-limit computation):
+    // first warning 11:00, the day's second logical race mid-afternoon, the
+    // second fleet started 15 minutes after the first, and the tail of the
+    // fleet finishing 48–55 minutes after the gun.
+    const daySlot = stage === 'qualifying' ? (n - 1) % 2 : stage === 'final' ? (n - 1) % 2 : 0;
+    const fleetSlot = races.filter((r) => r.stage === stage && r.stageRaceNumber === n).length;
+    const gun = 11 * 3600 + daySlot * 3 * 3600 + fleetSlot * 15 * 60;
+    const lastFinisherTime = hms(gun + 48 * 60 + randint(rng, 0, 7 * 60));
     const sailing = memberIds.filter((id) => !(opts.absent ?? []).includes(id));
     const order = [...sailing].sort(
       (a, b) => ability.get(a)! + noise(rng) * 4 - (ability.get(b)! + noise(rng) * 4),
@@ -1127,6 +1136,7 @@ function buildChampionship(): SeriesFile {
       raceNumber,
       name: `${prefix}${n} · ${fleetName}`,
       date,
+      lastFinisherTime,
       stage,
       stageRaceNumber: n,
       ...(opts.firstPlaceOffset != null ? { firstPlaceOffset: opts.firstPlaceOffset } : {}),
