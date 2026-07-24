@@ -100,7 +100,7 @@ function SeriesCard({
         <DragHandle {...sortable.handleProps} data-testid={`series-drag-${series.id}`} />
       )}
       <Link
-        href={`/series/${series.id}/competitors`}
+        href={`/series/${series.id}`}
         className="flex-1 min-w-0"
       >
         <div className="font-medium flex items-center gap-2">
