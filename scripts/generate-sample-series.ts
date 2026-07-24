@@ -115,6 +115,7 @@ interface FileRaceStart {
 interface FileRace {
   id: string;
   raceNumber: number;
+  name?: string;
   date: string;
   stage?: 'qualifying' | 'final' | 'medal';
   stageRaceNumber?: number;
@@ -1021,7 +1022,7 @@ function buildChampionship(): SeriesFile {
       id: r.id,
       seriesId: 'sample-championship',
       raceNumber: r.raceNumber,
-      name: '',
+      name: r.name ?? '',
       date: r.date,
       createdAt: r.raceNumber,
       stage: r.stage,
@@ -1085,6 +1086,8 @@ function buildChampionship(): SeriesFile {
   ): void => {
     const raceNumber = races.length + 1;
     const raceId = `chr-race-${raceNumber}`;
+    const prefix = stage === 'qualifying' ? 'Q' : stage === 'final' ? 'F' : 'M';
+    const fleetName = fleets.find((f) => f.id === fleetId)!.name;
     const sailing = memberIds.filter((id) => !(opts.absent ?? []).includes(id));
     const order = [...sailing].sort(
       (a, b) => ability.get(a)! + noise(rng) * 4 - (ability.get(b)! + noise(rng) * 4),
@@ -1122,6 +1125,7 @@ function buildChampionship(): SeriesFile {
     races.push({
       id: raceId,
       raceNumber,
+      name: `${prefix}${n} · ${fleetName}`,
       date,
       stage,
       stageRaceNumber: n,

@@ -529,6 +529,7 @@
     {
       "id": "chr-race-1",
       "raceNumber": 1,
+      "name": "Q1 · Yellow",
       "date": "2026-06-11",
       "stage": "qualifying",
       "stageRaceNumber": 1,
@@ -654,6 +655,7 @@
     {
       "id": "chr-race-2",
       "raceNumber": 2,
+      "name": "Q1 · Blue",
       "date": "2026-06-11",
       "stage": "qualifying",
       "stageRaceNumber": 1,
@@ -779,6 +781,7 @@
     {
       "id": "chr-race-3",
       "raceNumber": 3,
+      "name": "Q2 · Yellow",
       "date": "2026-06-11",
       "stage": "qualifying",
       "stageRaceNumber": 2,
@@ -904,6 +907,7 @@
     {
       "id": "chr-race-4",
       "raceNumber": 4,
+      "name": "Q2 · Blue",
       "date": "2026-06-11",
       "stage": "qualifying",
       "stageRaceNumber": 2,
@@ -1029,6 +1033,7 @@
     {
       "id": "chr-race-5",
       "raceNumber": 5,
+      "name": "Q3 · Yellow",
       "date": "2026-06-12",
       "stage": "qualifying",
       "stageRaceNumber": 3,
@@ -1154,6 +1159,7 @@
     {
       "id": "chr-race-6",
       "raceNumber": 6,
+      "name": "Q3 · Blue",
       "date": "2026-06-12",
       "stage": "qualifying",
       "stageRaceNumber": 3,
@@ -1279,6 +1285,7 @@
     {
       "id": "chr-race-7",
       "raceNumber": 7,
+      "name": "Q4 · Yellow",
       "date": "2026-06-12",
       "stage": "qualifying",
       "stageRaceNumber": 4,
@@ -1404,6 +1411,7 @@
     {
       "id": "chr-race-8",
       "raceNumber": 8,
+      "name": "Q4 · Blue",
       "date": "2026-06-12",
       "stage": "qualifying",
       "stageRaceNumber": 4,
@@ -1520,6 +1528,7 @@
     {
       "id": "chr-race-9",
       "raceNumber": 9,
+      "name": "F1 · Gold",
       "date": "2026-06-13",
       "stage": "final",
       "stageRaceNumber": 1,
@@ -1645,6 +1654,7 @@
     {
       "id": "chr-race-10",
       "raceNumber": 10,
+      "name": "F1 · Silver",
       "date": "2026-06-13",
       "stage": "final",
       "stageRaceNumber": 1,
@@ -1770,6 +1780,7 @@
     {
       "id": "chr-race-11",
       "raceNumber": 11,
+      "name": "F2 · Gold",
       "date": "2026-06-13",
       "stage": "final",
       "stageRaceNumber": 2,
@@ -1895,6 +1906,7 @@
     {
       "id": "chr-race-12",
       "raceNumber": 12,
+      "name": "F2 · Silver",
       "date": "2026-06-13",
       "stage": "final",
       "stageRaceNumber": 2,
@@ -2020,6 +2032,7 @@
     {
       "id": "chr-race-13",
       "raceNumber": 13,
+      "name": "M1 · Medal",
       "date": "2026-06-14",
       "stage": "medal",
       "stageRaceNumber": 1,
@@ -2091,6 +2104,7 @@
     {
       "id": "chr-race-14",
       "raceNumber": 14,
+      "name": "M1 · Last race",
       "date": "2026-06-14",
       "stage": "medal",
       "stageRaceNumber": 1,
