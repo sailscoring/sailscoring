@@ -317,18 +317,20 @@ export async function setOrgFeature(
     .limit(1);
   const meta = parseOrgMetadata(row?.metadata ?? null, org.slug);
   const next = applyFeatureToggle(meta, args.feature, args.enabled);
-  // First-time enable of a feature with a worked example → seed it, exactly
-  // like the self-service path in `lib/api-handlers/workspace.ts`. Best-effort:
-  // a seeding failure must never fail the toggle.
+  // Enabling a feature with a worked example seeds it if this workspace has
+  // never had it (the self-service path only seeds on an off→on flip; here an
+  // operator re-running enable-feature deliberately backfills a workspace
+  // enabled before the sample existed). The seededFeatureSamples marker keeps
+  // it once-only. Best-effort: a seeding failure must never fail the toggle.
   if (
     args.enabled &&
-    !meta.enabledFeatures.includes(args.feature) &&
     (FEATURES[args.feature] as FeatureDef).demoSample &&
     !meta.seededFeatureSamples.includes(args.feature)
   ) {
     try {
       await seedFeatureSample(args.feature, org.id, db);
       next.seededFeatureSamples = [...next.seededFeatureSamples, args.feature];
+      console.log(`seeded the "${args.feature}" sample series into ${org.slug}`);
     } catch (err) {
       console.error(`[feature-sample] seeding failed for ${args.feature}:`, err);
     }
