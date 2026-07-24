@@ -10,19 +10,26 @@
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useFeatures } from '@/components/features-provider';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useSplitFleetState, useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
 import type { SplitFleetConfig } from '@/lib/split-fleets';
 
 export function SplitFleetsCard({ seriesId }: { seriesId: string }) {
-  const { data: state } = useSplitFleetState(seriesId);
-  const { data: finishes } = useFinishesBySeries(seriesId);
+  const { has } = useFeatures();
+  const gated = has('split-fleets');
+  const { data: state } = useSplitFleetState(seriesId, { enabled: gated });
+  const config = state?.config;
+  // Fetch finishes only for an actual split-fleet series. Fetching them
+  // unconditionally seeded the finishes.bySeries cache with an empty list on
+  // every Settings visit, and any standings view mounted within the global
+  // staleTime then scored over the stale empty cache — blank standings.
+  const { data: finishes } = useFinishesBySeries(seriesId, { enabled: gated && !!config });
   const save = useSaveSplitFleetConfig(seriesId);
   const readOnly = useSeriesReadOnly();
   const [expanded, setExpanded] = useState(false);
 
-  const config = state?.config;
   if (!config) return null;
 
   const locked = (finishes?.length ?? 0) > 0;
