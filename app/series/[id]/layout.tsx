@@ -58,16 +58,17 @@ export default function SeriesLayout({
   const isSplitFleetSeries = !!sfState?.config;
   const asPublished = series?.asPublished ?? false;
   // Prizes slots in after Standings — allocation reads the standings, so the
-  // tabs follow the scorer's flow. Split Fleets (PROTOTYPE) slots in after
-  // Races — the guided workflow drives race creation and reads finishes. An
-  // as-published archive (ADR-010) keeps Competitors and Standings (the
-  // stored tables); races, prizes, settings, and history have nothing behind
-  // them in this regime.
+  // tabs follow the scorer's flow. Split Fleets leads the bar — on a
+  // championship series it IS the workflow (and the standings view), so the
+  // scorer lands on it first; Competitors and Races stay as the underlying
+  // data views. An as-published archive (ADR-010) keeps Competitors and
+  // Standings (the stored tables); races, prizes, settings, and history have
+  // nothing behind them in this regime.
   const gatedTabs = showPrizes
     ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
     : [...baseTabs];
   if (showSplitFleets) {
-    gatedTabs.splice(2, 0, splitFleetsTab);
+    gatedTabs.unshift(splitFleetsTab);
   }
   const visibleTabs = isSplitFleetSeries
     ? gatedTabs.filter((t) => t.label !== 'Standings')
