@@ -260,7 +260,7 @@ ${fleets}
     ? `<p><a href="${esc(opts.backHref)}">&larr; ${esc(input.seriesName)}</a></p>`
     : '';
   const note =
-    '<p style="color:#555;font-size:0.9em">Newest assignment first. Assignments are frozen when made; later scoring changes never reshuffle a published round.</p>';
+    '<p style="color:#555;font-size:0.9em">Newest assignment first. Assignments are frozen when made; later scoring changes never change a published round.</p>';
   return `<!doctype html>
 <html lang="en">
 <head><meta name="viewport" content="width=device-width"><title>${esc(input.seriesName)} — Fleet assignments</title><style>${PAGE_CSS}</style></head>

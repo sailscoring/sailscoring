@@ -1255,17 +1255,17 @@ export default async function HelpPage() {
           <p>
             Big one-design championships split the entry into{' '}
             <strong className="text-foreground">qualifying fleets</strong> (Yellow, Blue, …) that
-            are reshuffled by rank as the event goes on, then into{' '}
+            are reassigned by series rank after each day of racing, then into{' '}
             <strong className="text-foreground">final fleets</strong> (Gold, Silver, …) for the
             closing races — the format behind ILCA and Optimist worlds and nationals. Enable it
             from the <strong className="text-foreground">Split Fleets</strong> tab on a series;
             everything about the event then runs from that tab.
           </p>
           <p>
-            <strong className="text-foreground">Round 1</strong> seeds the qualifying fleets — from
-            a seed ranking or sail numbers, or by pasting the committee&rsquo;s own lists — with an
+            <strong className="text-foreground">Round 1</strong> makes the initial assignment —
+            normally from the seeding committee&rsquo;s ranking, or by sail number — with an
             editable preview, so a hand-move is a click, not a spreadsheet edit. Each following
-            morning, <strong className="text-foreground">Assign Round N</strong> reshuffles from
+            morning, <strong className="text-foreground">Assign Round N</strong> reassigns from
             the ranking over the races every fleet has completed, in the standard rank pattern
             (down the fleet list and back). The assignment is frozen when you commit it: a protest
             decided that evening re-scores the standings but never re-deals fleets already racing.

@@ -506,8 +506,9 @@ function SetupCard({
       <h2 className="text-sm font-medium">Set up split fleets</h2>
       <p className="text-sm text-muted-foreground">
         Run this series as a qualifying/final championship: competitors race in
-        qualifying fleets reshuffled by rank each day, then split into
-        Gold/Silver{fleetCount > 2 ? '/Bronze' : ''} for the final series.
+        qualifying fleets reassigned by series rank after each day of racing,
+        then split into Gold/Silver{fleetCount > 2 ? '/Bronze' : ''} for the
+        final series.
         Preset: ILCA World Championship (largest-fleet score codes, 1 discard
         from 4 races, medal race for the top 10).
       </p>
@@ -649,7 +650,7 @@ function QualifyingSection({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">
                   {round.method === 'seeded'
-                    ? 'Seeded'
+                    ? 'Initial assignment'
                     : round.basis
                       ? `From ranking after Q${round.basis.throughStageRace} · captured ${new Date(round.basis.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                       : 'Manual'}
@@ -708,7 +709,7 @@ function QualifyingSection({
       {canManage && !split && (
         <div className="flex flex-wrap items-center gap-2">
           {rounds.length === 0 ? (
-            <Button onClick={() => setDialog('seed')}>Create Round 1</Button>
+            <Button onClick={() => setDialog('seed')}>Assign qualifying fleets</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setDialog('reassign')}>
@@ -828,9 +829,7 @@ function LogicalRaceRow({
       })}
       {stage === 'qualifying' && (
         <span className={`text-xs ${valid ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-          {valid
-            ? 'counts'
-            : `awaiting ${missing.map((f) => fleetMeta.get(f)?.label ?? '?').join(', ')}`}
+          {valid ? 'counts' : 'does not count yet'}
         </span>
       )}
     </div>
@@ -1024,8 +1023,8 @@ function SeedRoundDialog({
 
   return (
     <CeremonyDialog
-      title="Create Round 1"
-      description="Seed the initial qualifying fleets and create the first day's races."
+      title="Assign qualifying fleets (Round 1)"
+      description="Make the initial assignment — normally from the seeding committee's ranking — and create the first day's races."
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit Round 1 (${preview.sizes.join(' / ')})`}
@@ -1053,7 +1052,7 @@ function SeedRoundDialog({
           value={order}
           onChange={(e) => { setOrder(e.target.value as SeedOrder | 'committee'); setMoves({}); }}
         >
-          <option value="seed-rank">Seeding rank (seed column)</option>
+          <option value="seed-rank">Seeding rank</option>
           <option value="nationality-spread">Nationality, then sail number</option>
           <option value="sail-number">Sail number</option>
           <option value="committee">Committee lists (paste)</option>

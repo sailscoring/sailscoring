@@ -1,7 +1,7 @@
 # Qualifying and Final Series
 
 Design for scoring **split-fleet** championship events: a large entry is
-divided into qualifying fleets that are reshuffled by rank after each day's
+divided into qualifying fleets that are reassigned by series rank after each day's
 racing, then locked into Gold / Silver / Bronze fleets for a final series —
 the RRS "Appendix LE Addendum C" format used by ILCA, Optimist, 420,
 29er/49er and Topper world championships, and by big multi-class regattas
@@ -73,7 +73,7 @@ static split would crown group winners, not a champion: boats in different
 groups never meet. The qualifying/final format solves this in two phases:
 
 1. **Qualifying series:** boats race in qualifying fleets of roughly equal
-   size **and ability**. After each day, fleets are **reshuffled by current
+   size **and ability**. After each day, fleets are **reassigned by current
    overall rank** so that the groups stay balanced — every fleet contains a
    spread of leaders and backmarkers, and everyone eventually races
    comparable opposition.
@@ -348,7 +348,7 @@ Walk the 2024 Adelaide event through Sail Scoring concepts:
   A competitor accumulates one fleet membership per round, which the
   existing multi-fleet mechanics carry naturally.
 - Because fleet membership is *stored*, not computed, the SIs' snapshot
-  semantics fall out structurally: rescoring a protest can never reshuffle
+  semantics fall out structurally: rescoring a protest can never reassign
   a fleet that already exists. (This is the property Sailwave enforces
   with a freeze checkbox.)
 - Each scheduled qualifying race is sailed once per fleet: **one physical
@@ -694,7 +694,7 @@ math react per the rules above.
   fixtures from past events, we could not reconstruct their qualifying
   fleet assignments: the published Sailwave/Sailti results carry each
   boat's per-race *score* but not *which fleet she sailed in that race*, so
-  the reshuffle history is lost the moment the event ends (see the survey's
+  the reassignment history is lost the moment the event ends (see the survey's
   capture note). Because Sail Scoring publishes every round's assignment as
   a first-class, permanent artifact — not just the final standings — its
   own results are fully reconstructible: the assignment record is part of

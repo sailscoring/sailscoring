@@ -932,7 +932,7 @@ function buildClubLeague(): SeriesFile {
 //
 // An ILCA-style one-design championship run to completion through the Split
 // Fleets workflow (Appendix-C shape, format F2): 24 boats seeded into Yellow
-// and Blue qualifying fleets, reshuffled by rank after day 1, split into
+// and Blue qualifying fleets, reassigned by series rank after day 1, split into
 // Gold/Silver for the final series, and closed with a doubled medal race for
 // the top six plus the companion "last race" for the rest of Gold. Every
 // assignment is precomputed with the real engine (rounds are frozen state —
@@ -970,7 +970,7 @@ function buildChampionship(): SeriesFile {
 
   // 24 sailors. `seed` is the OA's pre-event ranking; racing ability tracks
   // it loosely (a per-sailor bias plus per-race noise), so the reassignment
-  // and split genuinely reshuffle boats rather than replaying the seeding.
+  // and split genuinely move boats rather than replaying the seeding.
   const usedNames = new Set<string>();
   const usedSails = new Set<string>();
   const engineCompetitors: Competitor[] = [];

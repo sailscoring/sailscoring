@@ -41,11 +41,11 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.getByRole('button', { name: 'Enable split fleets' }).click();
 
   // ── Round 1: seeded, Q1–Q2 created ────────────────────────────────────────
-  await page.getByRole('button', { name: 'Create Round 1' }).click();
-  await expect(page.getByRole('dialog')).toContainText('Seed the initial qualifying fleets');
+  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Make the initial assignment');
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
-  await expect(page.getByText('awaiting Yellow, Blue')).toHaveCount(2);
+  await expect(page.getByText('does not count yet')).toHaveCount(2);
 
   // ── Q1: both fleets' finish sheets ────────────────────────────────────────
   const q1Row = page.getByTestId('logical-race-qualifying-1');
@@ -58,7 +58,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.goBack();
 
   await expect(page.getByText('counts', { exact: true })).toBeVisible();
-  await expect(page.getByText('awaiting Yellow, Blue')).toHaveCount(1); // Q2 only
+  await expect(page.getByText('does not count yet')).toHaveCount(1); // Q2 only
   await expect(page.getByText('1 of 2 qualifying races count')).toBeVisible();
 
   // Standings: combined table with the provisional cut line.
