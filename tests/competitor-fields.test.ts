@@ -41,6 +41,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
     expect(ALL_COMPETITOR_FIELDS).toEqual([
       'bowNumber',
       'entryNumber',
+      'seed',
       'boatName',
       'boatClass',
       'helm',

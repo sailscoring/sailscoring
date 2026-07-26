@@ -24,6 +24,7 @@ import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './commo
 export const competitorFieldKeySchema = z.enum([
   'bowNumber',
   'entryNumber',
+  'seed',
   'boatName',
   'boatClass',
   'helm',

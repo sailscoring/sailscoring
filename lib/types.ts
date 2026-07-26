@@ -11,6 +11,7 @@ export interface DiscardThreshold {
 export type CompetitorFieldKey =
   | 'bowNumber'
   | 'entryNumber'
+  | 'seed'
   | 'boatName'
   | 'boatClass'
   | 'helm'

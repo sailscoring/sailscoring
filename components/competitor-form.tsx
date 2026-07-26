@@ -28,6 +28,7 @@ export interface CompetitorFormData {
   sailNumber: string;
   bowNumber: string;
   entryNumber: string;
+  seed: string;
   boatName: string;
   boatClass: string;
   names: string[];   // primary person rows; blanks dropped on save, at least one non-blank required
@@ -51,6 +52,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   sailNumber: '',
   bowNumber: '',
   entryNumber: '',
+  seed: '',
   boatName: '',
   boatClass: '',
   names: [''],
@@ -335,6 +337,18 @@ export function CompetitorForm({
               id="entryNumber"
               value={data.entryNumber}
               onChange={(e) => set('entryNumber', e.target.value)}
+            />
+          </div>
+        )}
+        {enabledFields.includes('seed') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="seed">Seeding rank</Label>
+            <Input
+              id="seed"
+              type="number"
+              min={1}
+              value={data.seed}
+              onChange={(e) => set('seed', e.target.value)}
             />
           </div>
         )}

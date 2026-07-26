@@ -87,6 +87,7 @@ export function competitorFleetNames(
 export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
   'bowNumber',
   'entryNumber',
+  'seed',
   'boatName',
   'boatClass',
   'helm',
@@ -105,6 +106,7 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
 export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   bowNumber: 'Bow number',
   entryNumber: 'Entry number',
+  seed: 'Seeding rank',
   boatName: 'Boat name',
   boatClass: 'Class',
   helm: 'Helm name',

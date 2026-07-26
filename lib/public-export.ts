@@ -700,7 +700,11 @@ export function buildPublicExportFromSnapshot(
           );
         return raceFleetExclusions.length > 0 ? { raceFleetExclusions } : {};
       })(),
-      displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+      // Seeding rank is operational, not a result: the export carries neither
+      // the values nor the display hint.
+      displayFields: (series.enabledCompetitorFields ?? defaultEnabledCompetitorFields()).filter(
+        (f) => f !== 'seed',
+      ),
       ...(series.multiPersonFields?.length ? { multiPersonFields: series.multiPersonFields } : {}),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       ...(series.subdivisionAxes?.length ? { subdivisionAxes: series.subdivisionAxes } : {}),
