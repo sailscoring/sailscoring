@@ -849,8 +849,12 @@ data model, UX, rollout). What stays on the horizon beyond that design's v1
 scope: authoring UX for the 29er net-plus-net and Topper rank-as-seed carry
 modes (modelled and fixture-tested, no UI); knockout medal-series brackets
 (iQFOiL / Formula Kite quarter/semi/grand finals scored on match points —
-not low-point arithmetic at all); and electronic finish/OCS ingestion from
-race-management systems like Vakaros RaceSense.
+not low-point arithmetic at all); electronic finish/OCS ingestion from
+race-management systems like Vakaros RaceSense; and manual initial fleet
+assignment supplied by the committee as a spreadsheet column on competitor
+import (the in-app assignment dialog covers seeding rank, nationality
+spread, and sail-number orders; a pasted-list entry mode was tried and
+dropped).
 
 ---
 

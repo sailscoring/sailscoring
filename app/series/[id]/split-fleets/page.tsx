@@ -961,50 +961,18 @@ function SeedRoundDialog({
   onClose: () => void;
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
-  const [order, setOrder] = useState<SeedOrder | 'committee'>('seed-rank');
-  const [committeeText, setCommitteeText] = useState('');
+  const [order, setOrder] = useState<SeedOrder>('seed-rank');
   const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
 
   const preview = useMemo(() => {
     const byId = new Map(data.competitors.map((c) => [c.id, c]));
-    const bySail = new Map(data.competitors.map((c) => [c.sailNumber.toUpperCase(), c]));
     let assignments: Record<string, number> = {};
-    if (order === 'committee') {
-      // The committee's named lists: one block per fleet, "Yellow:" then
-      // sail numbers (whitespace/comma separated), Sailwave-style.
-      let current = -1;
-      for (const raw of committeeText.split(/\n/)) {
-        const line = raw.trim();
-        if (!line) continue;
-        const header = qFleets.findIndex((f) => line.toLowerCase().startsWith(f.label.toLowerCase()));
-        if (header >= 0 && /[:\-]?\s*$/.test(line.slice(qFleets[header].label.length))) {
-          current = header;
-          continue;
-        }
-        if (current < 0) continue;
-        for (const tok of line.split(/[\s,;]+/)) {
-          const c = bySail.get(tok.toUpperCase());
-          if (c) assignments[c.id] = current;
-        }
-      }
-      // Unlisted boats fall to the end of the smallest fleet.
-      for (const c of data.competitors) {
-        if (assignments[c.id] == null) {
-          const sizes = qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length);
-          assignments[c.id] = sizes.indexOf(Math.min(...sizes));
-        }
-      }
-    } else {
-      const ordered = seedOrder(data.competitors, order);
-      const byFleet = assignByRankPattern(ordered, qFleets.length);
-      byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
-    }
+    const ordered = seedOrder(data.competitors, order);
+    const byFleet = assignByRankPattern(ordered, qFleets.length);
+    byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
     // Hand-moves layer on top.
     assignments = { ...assignments, ...moves };
-    const ordered = order === 'committee'
-      ? data.competitors.map((c) => c.id)
-      : seedOrder(data.competitors, order);
     return {
       assignments,
       rows: ordered.map((cid) => {
@@ -1019,7 +987,7 @@ function SeedRoundDialog({
       }),
       sizes: qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length),
     };
-  }, [data.competitors, order, committeeText, moves, qFleets]);
+  }, [data.competitors, order, moves, qFleets]);
 
   return (
     <CeremonyDialog
@@ -1050,23 +1018,13 @@ function SeedRoundDialog({
           id="sf-seed-order"
           className="rounded-md border bg-background px-2 py-1 text-sm"
           value={order}
-          onChange={(e) => { setOrder(e.target.value as SeedOrder | 'committee'); setMoves({}); }}
+          onChange={(e) => { setOrder(e.target.value as SeedOrder); setMoves({}); }}
         >
           <option value="seed-rank">Seeding rank</option>
           <option value="nationality-spread">Nationality, then sail number</option>
           <option value="sail-number">Sail number</option>
-          <option value="committee">Committee lists (paste)</option>
         </select>
       </div>
-      {order === 'committee' && (
-        <textarea
-          className="h-32 w-full rounded-md border bg-background p-2 font-mono text-xs"
-          aria-label="Committee fleet lists"
-          placeholder={`Yellow:\n210001 210004 210005\nBlue:\n210002 210003 210006`}
-          value={committeeText}
-          onChange={(e) => setCommitteeText(e.target.value)}
-        />
-      )}
       <AssignmentPreviewTable
         rows={preview.rows}
         fleetLabels={qFleets.map((f) => f.label)}
