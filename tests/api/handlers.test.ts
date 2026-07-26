@@ -17,6 +17,7 @@ import * as schema from '@/lib/db/schema';
 import { ArchivedError, BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
+import * as categories from '@/lib/api-handlers/categories';
 import * as fleets from '@/lib/api-handlers/fleets';
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as races from '@/lib/api-handlers/races';
@@ -302,6 +303,67 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
 
     await removeSeries(ctxBCopier, copyId);
     await removeSeries(ctxACopier, srcId);
+    await db.delete(schema.user).where(eq(schema.user.id, userId));
+  });
+
+  test('series: copy with omitted target duplicates within the workspace and keeps the category', async () => {
+    // Duplicate enforces manage-series against the caller's member row in
+    // the target workspace — here the source workspace itself.
+    const userId = `dup-user-${uuid().slice(0, 8)}`;
+    await db.insert(schema.user).values({
+      id: userId,
+      name: 'Dup User',
+      email: `${userId}@sailscoring.test`,
+    });
+    await db.insert(schema.member).values({
+      id: `mem_${uuid().replace(/-/g, '')}`,
+      organizationId: workspaceA,
+      userId,
+      role: 'owner',
+      createdAt: new Date(),
+    });
+    const ctx = { ...ctxA, userId };
+
+    const srcId = uuid();
+    const src = await series.putSeries(ctx, srcId, sampleSeries(srcId));
+    const fleetId = uuid();
+    await fleets.putFleet(ctx, srcId, fleetId, {
+      id: fleetId, seriesId: srcId, name: 'VPRS', displayOrder: 0,
+      scoringSystem: 'vprs' as const,
+    });
+    const compId = uuid();
+    await competitors.putCompetitor(ctx, srcId, compId, {
+      id: compId, seriesId: srcId, fleetIds: [fleetId],
+      sailNumber: 'IRL 4242', names: ['Helm'], club: 'HYC',
+      gender: '' as const, age: null, createdAt: Date.now(),
+    });
+    const category = await categories.createCategory(ctx, {
+      name: `Cat ${srcId.slice(0, 8)}`,
+    });
+    await series.setSeriesCategory(ctx, srcId, { categoryId: category.id });
+
+    const { id: dupId } = await series.copySeries(ctx, srcId, {});
+    expect(dupId).not.toBe(srcId);
+
+    const dup = await series.getSeries(ctx, dupId);
+    expect(dup.name).toBe(`Copy of ${src.name}`);
+    // Same-workspace duplicates keep the category; cross-workspace copies
+    // strip it (the category id wouldn't exist in the target).
+    expect(dup.categoryId).toBe(category.id);
+
+    const dupFleets = await fleets.listFleets(ctx, dupId);
+    expect(dupFleets).toHaveLength(1);
+    expect(dupFleets[0].id).not.toBe(fleetId);
+    const dupComps = await competitors.listCompetitors(ctx, dupId);
+    expect(dupComps).toHaveLength(1);
+    expect(dupComps[0].fleetIds).toEqual([dupFleets[0].id]);
+
+    // The duplicate is invisible from the other workspace.
+    await expect(series.getSeries(ctxB, dupId)).rejects.toBeInstanceOf(NotFoundError);
+
+    await removeSeries(ctx, dupId);
+    await removeSeries(ctx, srcId);
+    await categories.deleteCategory(ctx, category.id);
     await db.delete(schema.user).where(eq(schema.user.id, userId));
   });
 

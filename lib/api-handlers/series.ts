@@ -279,16 +279,20 @@ export async function reorderSeries(
 }
 
 /**
- * ADR-008 Phase 7 — copy a series into another workspace the caller is a
- * member of. Copy rather than move so a botched copy is recoverable: the
- * source series stays intact in the source workspace.
+ * ADR-008 Phase 7 — copy a series into a workspace the caller is a member
+ * of: another workspace, or (when `targetWorkspaceId` is omitted or equals
+ * the source) the source workspace itself — the "Duplicate" action. Copy
+ * rather than move so a botched copy is recoverable: the source series
+ * stays intact.
  *
  * Strips workspace-scoped references that don't carry across:
- *   - FTP credentials (`ftpHost`, `ftpPath`, `ftpPaths`) — distinct per workspace
+ *   - FTP credentials (`ftpHost`, `ftpPath`, `ftpPaths`) — distinct per
+ *     workspace, and two series must not publish to the same remote path
  *   - File-tracking metadata (`lastSavedAt`) — the copy has no file history
  *     of its own
- *   - Series-list organisation (`categoryId`, `archived`) — workspace-local;
- *     the copy lands active and uncategorised (#154)
+ *   - Series-list organisation (`categoryId`, `archived`) — workspace-local,
+ *     so the copy lands active and uncategorised (#154) — except that a
+ *     same-workspace duplicate keeps its category, which does exist there
  *
  * Resets `version` to 1 and clears `updated_by` on every new row (the
  * `version` reset is automatic — fresh inserts default to 1; we just
@@ -304,12 +308,8 @@ export async function copySeries(
   body: unknown,
 ): Promise<{ id: string }> {
   const input = seriesCopyInputSchema.parse(body);
-  const targetWorkspaceId = input.targetWorkspaceId;
-  if (targetWorkspaceId === workspace.workspaceId) {
-    throw new BadRequestError(
-      'target workspace must differ from source workspace',
-    );
-  }
+  const targetWorkspaceId = input.targetWorkspaceId ?? workspace.workspaceId;
+  const sameWorkspace = targetWorkspaceId === workspace.workspaceId;
 
   const db = getDb();
 
@@ -318,7 +318,8 @@ export async function copySeries(
   // and the series-load below is workspace-scoped. The route itself only
   // demands `read` (copying out is read-level on the source), so the
   // create-side permission is checked here against the caller's role in
-  // the *target* workspace.
+  // the *target* workspace — which for a same-workspace duplicate is the
+  // source workspace itself.
   const [targetMember] = await db
     .select({ id: schema.member.id, role: schema.member.role })
     .from(schema.member)
@@ -425,10 +426,11 @@ export async function copySeries(
       // Axis ids are series-local — carried verbatim so competitor
       // `subdivisions` keys still resolve in the copy.
       subdivisionAxes: source.subdivisionAxes,
-      // Series-list organisation (#154) is workspace-local: a copy lands
-      // active and uncategorised in the target workspace. The source category
-      // id wouldn't exist there anyway.
-      categoryId: null,
+      // Series-list organisation (#154) is workspace-local: a cross-workspace
+      // copy lands uncategorised — the source category id wouldn't exist in
+      // the target. A same-workspace duplicate keeps its category, which does.
+      // Both land active.
+      categoryId: sameWorkspace ? source.categoryId ?? null : null,
       archived: false,
       // Import provenance is deliberately not carried: a copy is a fork with
       // its own (reset) publishing destination, so it doesn't offer the
@@ -577,7 +579,9 @@ export async function copySeries(
     {
       action: 'series.copied',
       seriesId: newSeriesId,
-      summary: `Copied in series “${newName}”`,
+      summary: sameWorkspace
+        ? `Duplicated series “${source.name}” as “${newName}”`
+        : `Copied in series “${newName}”`,
     },
   );
   // Lazy identity population (#222) in the *target* workspace — the copy's

@@ -7,12 +7,15 @@ import { z } from 'zod';
  * the user is signed into). The handler verifies membership in the
  * target workspace before copying.
  *
+ * `targetWorkspaceId` is optional — when omitted, the copy is a duplicate
+ * into the source workspace itself.
+ *
  * `name` is optional — when omitted, the handler defaults to
  * "Copy of <Original>". Leading/trailing whitespace is trimmed; an empty
  * trimmed string falls back to the default too.
  */
 export const seriesCopyInputSchema = z.object({
-  targetWorkspaceId: z.string().min(1),
+  targetWorkspaceId: z.string().min(1).optional(),
   name: z.string().optional(),
 });
 
