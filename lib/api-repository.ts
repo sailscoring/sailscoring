@@ -886,6 +886,21 @@ export async function copySeriesToWorkspace(
 }
 
 /**
+ * Duplicate a series within the current workspace — the same copy endpoint
+ * with the target left implicit (the source workspace). The duplicate keeps
+ * the source's category; FTP paths and publishing state are stripped.
+ */
+export async function duplicateSeries(
+  sourceSeriesId: string,
+  body: { name?: string } = {},
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/api/v1/series/${sourceSeriesId}/copy`, {
+    method: 'POST',
+    body,
+  });
+}
+
+/**
  * Create a follow-on series in the same workspace: configuration, fleets,
  * and competitors carried over (no races or finishes), progressive starting
  * handicaps seeded from the source's end-of-series TCFs. `seededCount` is

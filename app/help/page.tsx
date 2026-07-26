@@ -157,6 +157,10 @@ export default async function HelpPage() {
           <strong className="text-foreground">Copy to workspace…</strong>.
           The original stays in your personal workspace; the copy lands in the target workspace
           with a fresh history. FTP credentials and publishing state are not carried over.
+          To copy a series within its own workspace — say, to experiment with scoring settings
+          or use last season&rsquo;s series as a template — choose{' '}
+          <strong className="text-foreground">Duplicate…</strong> from the same menu. The
+          duplicate keeps its category and everything else except publishing state and FTP paths.
         </p>
         <p>
           Concurrent edits between scorers in a shared workspace are detected per row. If two
