@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/select';
 import { Upload } from 'lucide-react';
 import { CompetitorImport } from '@/components/competitor-import';
+import { useFeatures } from '@/components/features-provider';
+import { useSplitFleetState } from '@/hooks/use-split-fleets';
+import { SplitFleetSetup } from '@/components/split-fleets-setup';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -233,6 +236,8 @@ function Step3({
         </div>
       </div>
 
+      <ChampionshipFormatBlock seriesId={seriesId} />
+
       <div className="space-y-2">
         <Label>Fleets</Label>
         <FleetsCard mode="wizard" seriesId={seriesId} series={series} />
@@ -247,6 +252,51 @@ function Step3({
 }
 
 // ── Step 4: Scoring & Discards ────────────────────────────────────────────────
+
+/** Wizard opt-in for the split-fleet championship format (gated on the
+ *  workspace feature). Enabling writes the config; the Split Fleets tab then
+ *  leads the series tab bar. */
+function ChampionshipFormatBlock({ seriesId }: { seriesId: string }) {
+  const { has } = useFeatures();
+  const enabled = has('split-fleets');
+  const { data: sfState } = useSplitFleetState(seriesId, { enabled });
+  const [wanted, setWanted] = useState(false);
+  if (!enabled) return null;
+
+  if (sfState?.config) {
+    return (
+      <div className="space-y-1 rounded-md border p-3">
+        <Label>Championship format</Label>
+        <p className="text-sm text-muted-foreground">
+          Split fleets enabled — {sfState.config.qualifyingFleets.map((f) => f.label).join(', ')} qualifying,
+          then {sfState.config.finalFleets.map((f) => f.label).join('/')}. The event runs from the
+          Split Fleets tab; the format is editable in Settings.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={wanted}
+          onChange={(e) => setWanted(e.target.checked)}
+          className="mt-0.5"
+        />
+        <div>
+          <span className="text-sm font-medium">Split-fleet championship</span>
+          <p className="text-xs text-muted-foreground">
+            Qualifying fleets reassigned by series rank after each day of racing,
+            then a Gold/Silver split for the final series.
+          </p>
+        </div>
+      </label>
+      {wanted && <SplitFleetSetup seriesId={seriesId} canManage />}
+    </div>
+  );
+}
 
 function Step4({
   series,

@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useFeatures } from '@/components/features-provider';
 import { useSeriesReadOnly } from '@/components/series-read-only';
+import { SplitFleetSetup } from '@/components/split-fleets-setup';
 import { useSplitFleetState, useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
 import type { SplitFleetConfig } from '@/lib/split-fleets';
@@ -30,7 +31,22 @@ export function SplitFleetsCard({ seriesId }: { seriesId: string }) {
   const readOnly = useSeriesReadOnly();
   const [expanded, setExpanded] = useState(false);
 
-  if (!config) return null;
+  if (!gated && !config) return null;
+  if (!config) {
+    // Not yet a split-fleet series: offer the Format chooser here — enabling
+    // makes the Split Fleets tab appear (leading the tab bar).
+    return (
+      <div className="bg-card border rounded-lg p-5 space-y-3" data-testid="split-fleets-card">
+        <h2 className="text-sm font-medium">Split-fleet championship</h2>
+        <p className="text-sm text-muted-foreground">
+          Run this series as a qualifying/final championship, per the
+          class&rsquo;s standard sailing instructions. Enabling adds the Split
+          Fleets tab, which runs the event.
+        </p>
+        <SplitFleetSetup seriesId={seriesId} canManage={!readOnly} />
+      </div>
+    );
+  }
 
   const locked = (finishes?.length ?? 0) > 0;
   const summary = [

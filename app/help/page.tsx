@@ -1257,9 +1257,11 @@ export default async function HelpPage() {
             <strong className="text-foreground">qualifying fleets</strong> (Yellow, Blue, …) that
             are reassigned by series rank after each day of racing, then into{' '}
             <strong className="text-foreground">final fleets</strong> (Gold, Silver, …) for the
-            closing races — the format behind ILCA and Optimist worlds and nationals. Enable it
-            from the <strong className="text-foreground">Split Fleets</strong> tab on a series;
-            everything about the event then runs from that tab.
+            closing races — the format behind ILCA and Optimist worlds and nationals. Choose the
+            format in the series setup wizard, or later from the{' '}
+            <strong className="text-foreground">Split-fleet championship</strong> card in Settings;
+            the <strong className="text-foreground">Split Fleets</strong> tab then appears and
+            everything about the event runs from it.
           </p>
           <p>
             <strong className="text-foreground">Round 1</strong> makes the initial assignment —

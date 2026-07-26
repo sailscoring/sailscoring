@@ -67,7 +67,7 @@ export default function SeriesLayout({
   const gatedTabs = showPrizes
     ? [...baseTabs.slice(0, 3), prizesTab, ...baseTabs.slice(3)]
     : [...baseTabs];
-  if (showSplitFleets) {
+  if (showSplitFleets && isSplitFleetSeries) {
     gatedTabs.unshift(splitFleetsTab);
   }
   const visibleTabs = isSplitFleetSeries
@@ -82,7 +82,9 @@ export default function SeriesLayout({
     t: () => router.push(`/series/${id}/settings`),
     h: () => router.push(`/series/${id}/history`),
     ...(showPrizes ? { p: () => router.push(`/series/${id}/prizes`) } : {}),
-    ...(showSplitFleets ? { q: () => router.push(`/series/${id}/split-fleets`) } : {}),
+    ...(showSplitFleets && isSplitFleetSeries
+      ? { q: () => router.push(`/series/${id}/split-fleets`) }
+      : {}),
   });
 
   // No description: the dialog's static Global section documents `?` itself.

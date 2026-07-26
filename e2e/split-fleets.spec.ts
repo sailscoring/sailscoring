@@ -32,13 +32,26 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
 
   await createSeriesQuick(page, { name: 'ILCA Demo Worlds', venue: 'Dun Laoghaire' });
 
-  // ── Setup: demo competitors, then enable with 2 qualifying fleets ─────────
+  // ── Setup: enable from Settings (no Split Fleets tab until configured),
+  // then seed demo competitors from the new tab ─────────────────────────────
+  await expect(
+    page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }),
+  ).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const sfSetupCard = page.getByTestId('split-fleets-card');
+  await expect(sfSetupCard).toContainText('Split-fleet championship');
+  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
+  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
+
+  // The tab appears (leading the bar) once the series carries a config.
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
-  // The demo button reloads the page.
-  await expect(page.getByText(`${DEMO_COUNT} competitors entered.`)).toBeVisible();
-  await page.locator('#sf-fleet-count').selectOption('2');
-  await page.getByRole('button', { name: 'Enable split fleets' }).click();
+  // The demo button reloads the page; wait for the empty-list card to
+  // disappear (post-reload, competitors present) before touching the round
+  // controls — they exist pre-reload too, and the reload would kill the dialog.
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
 
   // ── Round 1: seeded, Q1–Q2 created ────────────────────────────────────────
   await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();

@@ -37,14 +37,11 @@ import {
 } from '@/hooks/use-split-fleets';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
-import { SplitFleetSetup } from '@/components/split-fleets-setup';
 import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
-  defaultSplitFleetConfig,
   finalBlockSizes,
   fleetMembers,
-  iodaSplitFleetConfig,
   logicalRaces,
   provisionalCutIndexes,
   raceCompleted,
@@ -300,13 +297,16 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const raceStarts = data.raceStarts ?? [];
 
   if (!sfState.config) {
+    // Normally unreachable — the tab only shows for configured series. A
+    // direct URL lands here before setup: point at the enable paths.
     return (
-      <SetupCard
-        seriesId={seriesId}
-        competitorCount={competitors.length}
-        defaultFleetId={fleets[0]?.id ?? null}
-        canManage={canManage}
-      />
+      <div className="bg-card border rounded-lg p-5 max-w-xl">
+        <p className="text-sm text-muted-foreground">
+          Split fleets isn&rsquo;t set up for this series. Enable it from the
+          series setup wizard or the Split-fleet championship card in{' '}
+          <Link href={`/series/${seriesId}/settings`} className="underline">Settings</Link>.
+        </p>
+      </div>
     );
   }
 
@@ -335,6 +335,9 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="space-y-6">
+      {competitors.length === 0 && canManage && (
+        <DemoCompetitorsCard seriesId={seriesId} defaultFleetId={fleets[0]?.id ?? null} />
+      )}
       <DayStrip data={sfData} config={sfState.config} />
       {nextAction && (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-sm" data-testid="sf-next-action">
@@ -471,18 +474,14 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   );
 }
 
-// ─── Setup ──────────────────────────────────────────────────────────────────
+// ─── Demo competitors ───────────────────────────────────────────────────────
 
-function SetupCard({
+function DemoCompetitorsCard({
   seriesId,
-  competitorCount,
   defaultFleetId,
-  canManage,
 }: {
   seriesId: string;
-  competitorCount: number;
   defaultFleetId: string | null;
-  canManage: boolean;
 }) {
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -500,24 +499,15 @@ function SetupCard({
   };
 
   return (
-    <div className="bg-card border rounded-lg p-5 space-y-4 max-w-xl">
-      <h2 className="text-sm font-medium">Set up split fleets</h2>
+    <div className="bg-card border rounded-lg p-4 flex flex-wrap items-center gap-3">
       <p className="text-sm text-muted-foreground">
-        Run this series as a qualifying/final championship, per the class&rsquo;s
-        standard sailing instructions.
+        No competitors yet — import or add them on the Competitors tab, or try
+        the workflow with demo entries.
       </p>
-      <SplitFleetSetup seriesId={seriesId} canManage={canManage} />
-      {competitorCount === 0 && canManage && (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" disabled={seeding} onClick={addDemo}>
-            {seeding && <Loader2 className="h-4 w-4 animate-spin" />}
-            Add {DEMO_NAMES.length} demo competitors
-          </Button>
-        </div>
-      )}
-      {competitorCount > 0 && (
-        <p className="text-xs text-muted-foreground">{competitorCount} competitors entered.</p>
-      )}
+      <Button variant="outline" size="sm" disabled={seeding} onClick={addDemo}>
+        {seeding && <Loader2 className="h-4 w-4 animate-spin" />}
+        Add {DEMO_NAMES.length} demo competitors
+      </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
