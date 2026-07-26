@@ -8,13 +8,23 @@ import { Label } from '@/components/ui/label';
 
 export type ScoringValues = Pick<Series, 'discardThresholds' | 'dnfScoring'>;
 
+export type SplitFleetDiscardCaps = {
+  maxFinalDiscards: number;
+  protectLoneFinalRace: boolean;
+};
+
 export type ScoringCardProps = {
   value: ScoringValues;
   onChange: (patch: Partial<ScoringValues>) => void | Promise<void>;
   mode?: 'settings' | 'wizard';
+  /** Split-fleet series only: the final-series discard caps, edited alongside
+   *  the regular discard ladder so all discard policy reads in one place. */
+  splitFleet?: SplitFleetDiscardCaps & {
+    onChange: (patch: Partial<SplitFleetDiscardCaps>) => void;
+  };
 };
 
-export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardProps) {
+export function ScoringCard({ value, onChange, mode = 'settings', splitFleet }: ScoringCardProps) {
   const isWizard = mode === 'wizard';
   const [expanded, setExpanded] = useState(isWizard);
   const [thresholds, setThresholds] = useState<DiscardThreshold[]>(value.discardThresholds ?? []);
@@ -130,6 +140,38 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
           Add rule
         </Button>
       </div>
+      {splitFleet && (
+        <div className="space-y-2 border-t pt-3">
+          <p className="text-xs text-muted-foreground">
+            Split-fleet series: medal races never count toward the rules above
+            and are never discarded.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex items-center gap-2 text-sm" htmlFor="sf-max-final-discards">
+              At most
+              <Input
+                id="sf-max-final-discards"
+                type="number"
+                min={0}
+                className="h-8 w-16 text-sm"
+                value={splitFleet.maxFinalDiscards}
+                onChange={(e) =>
+                  splitFleet.onChange({ maxFinalDiscards: Math.max(0, parseInt(e.target.value) || 0) })
+                }
+              />
+              discard{splitFleet.maxFinalDiscards === 1 ? '' : 's'} from the final series
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={splitFleet.protectLoneFinalRace}
+                onChange={(e) => splitFleet.onChange({ protectLoneFinalRace: e.target.checked })}
+              />
+              never discard a lone final race
+            </label>
+          </div>
+        </div>
+      )}
     </>
   );
 

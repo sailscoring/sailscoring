@@ -37,6 +37,7 @@ import {
 } from '@/hooks/use-split-fleets';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { SplitFleetSetup } from '@/components/split-fleets-setup';
 import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
@@ -483,9 +484,6 @@ function SetupCard({
   defaultFleetId: string | null;
   canManage: boolean;
 }) {
-  const saveConfig = useSaveSplitFleetConfig(seriesId);
-  const [fleetCount, setFleetCount] = useState(3);
-  const [preset, setPreset] = useState<'ilca' | 'ioda'>('ilca');
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -505,62 +503,20 @@ function SetupCard({
     <div className="bg-card border rounded-lg p-5 space-y-4 max-w-xl">
       <h2 className="text-sm font-medium">Set up split fleets</h2>
       <p className="text-sm text-muted-foreground">
-        Run this series as a qualifying/final championship: competitors race in
-        qualifying fleets reassigned by series rank after each day of racing,
-        then split into Gold/Silver{fleetCount > 2 ? '/Bronze' : ''} for the
-        final series.
-        Preset: ILCA World Championship (largest-fleet score codes, 1 discard
-        from 4 races, medal race for the top 10).
+        Run this series as a qualifying/final championship, per the class&rsquo;s
+        standard sailing instructions.
       </p>
-      <div className="flex items-center gap-3">
-        <label className="text-sm" htmlFor="sf-preset">Preset</label>
-        <select
-          id="sf-preset"
-          className="rounded-md border bg-background px-2 py-1 text-sm"
-          value={preset}
-          onChange={(e) => setPreset(e.target.value as 'ilca' | 'ioda')}
-        >
-          <option value="ilca">ILCA World/European Championship</option>
-          <option value="ioda">IODA Championship</option>
-        </select>
-        <label className="text-sm" htmlFor="sf-fleet-count">
-          Qualifying fleets
-        </label>
-        <select
-          id="sf-fleet-count"
-          className="rounded-md border bg-background px-2 py-1 text-sm"
-          value={fleetCount}
-          onChange={(e) => setFleetCount(Number(e.target.value))}
-        >
-          <option value={2}>2 — Yellow, Blue</option>
-          <option value={3}>3 — Yellow, Blue, Red</option>
-          <option value={4}>4 — Yellow, Blue, Red, Green</option>
-        </select>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          disabled={!canManage || saveConfig.isPending}
-          onClick={() =>
-            saveConfig.mutate(
-              preset === 'ioda' ? iodaSplitFleetConfig(fleetCount) : defaultSplitFleetConfig(fleetCount),
-            )
-          }
-        >
-          {saveConfig.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          Enable split fleets
-        </Button>
-        {competitorCount === 0 && (
-          <Button variant="outline" disabled={!canManage || seeding} onClick={addDemo}>
+      <SplitFleetSetup seriesId={seriesId} canManage={canManage} />
+      {competitorCount === 0 && canManage && (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={seeding} onClick={addDemo}>
             {seeding && <Loader2 className="h-4 w-4 animate-spin" />}
             Add {DEMO_NAMES.length} demo competitors
           </Button>
-        )}
-      </div>
+        </div>
+      )}
       {competitorCount > 0 && (
         <p className="text-xs text-muted-foreground">{competitorCount} competitors entered.</p>
-      )}
-      {saveConfig.isError && (
-        <p className="text-sm text-destructive">{String(saveConfig.error)}</p>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>

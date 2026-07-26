@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useMemo } from 'react';
 import * as repos from '@/lib/api-repository';
 import { useSeries, useUpdateSeries } from '@/hooks/use-series';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
@@ -19,6 +19,7 @@ import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useFeatures } from '@/components/features-provider';
+import { useSaveSplitFleetConfig, useSplitFleetState } from '@/hooks/use-split-fleets';
 import { disabledConfigFeatures } from '@/lib/series-feature-hints';
 
 export default function SettingsPage({
@@ -35,6 +36,20 @@ export default function SettingsPage({
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
   const fleets = fleetsData ?? [];
   const updateSeries = useUpdateSeries();
+
+  // Split-fleet series: the split config's discard ladder is what the engine
+  // scores from, so the Scoring card edits it (plus the final-series caps)
+  // in place of the series-level ladder.
+  const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
+  const sfConfig = sfState?.config ?? null;
+  const saveSplitConfig = useSaveSplitFleetConfig(seriesId);
+  const scoringValue = useMemo(
+    () =>
+      series && sfConfig
+        ? { discardThresholds: sfConfig.discardThresholds, dnfScoring: series.dnfScoring }
+        : series,
+    [series, sfConfig],
+  );
 
   if (isLoading || series === undefined) return <SeriesTabFallback status="loading" />;
   if (series === null) return <SeriesTabFallback status="missing" />;
@@ -115,13 +130,30 @@ export default function SettingsPage({
       <SplitFleetsCard seriesId={seriesId} />
       <FleetsCard seriesId={seriesId} series={series} />
       <ScoringCard
-        value={series}
+        value={scoringValue ?? series}
         onChange={async (patch) => {
+          // The split config's ladder is the scored one; the series row is
+          // kept in step so exports and follow-on series read the same rules.
+          if (sfConfig && patch.discardThresholds) {
+            await saveSplitConfig.mutateAsync({
+              ...sfConfig,
+              discardThresholds: patch.discardThresholds,
+            });
+          }
           await updateSeries.mutateAsync({
             id: seriesId,
             patch: { ...patch, lastModifiedAt: Date.now() },
           });
         }}
+        splitFleet={
+          sfConfig
+            ? {
+                maxFinalDiscards: sfConfig.maxFinalDiscards,
+                protectLoneFinalRace: sfConfig.protectLoneFinalRace,
+                onChange: (patch) => saveSplitConfig.mutate({ ...sfConfig, ...patch }),
+              }
+            : undefined
+        }
       />
       {has('results-status') && (
         <ProtestTimeLimitCard

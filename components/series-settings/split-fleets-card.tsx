@@ -37,7 +37,6 @@ export function SplitFleetsCard({ seriesId }: { seriesId: string }) {
     `${config.qualifyingFleets.length} qualifying fleets (${config.qualifyingFleets.map((f) => f.label).join(', ')})`,
     `→ ${config.finalFleets.map((f) => f.label).join('/')}`,
     config.medal ? `medal race ×${config.medal.multiplier}` : 'no medal race',
-    config.discardThresholds.map((t) => `${t.discardCount} discard@${t.minRaces}`).join(', ') || 'no discards',
   ].join(' · ');
 
   const patch = (p: Partial<SplitFleetConfig>) => save.mutate({ ...config, ...p });
@@ -112,25 +111,10 @@ export function SplitFleetsCard({ seriesId }: { seriesId: string }) {
               <option value="largest-qualifying">Largest qualifying fleet + 1</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="w-56 text-muted-foreground" htmlFor="sfc-maxfd">Max final-series discards</label>
-            <input
-              id="sfc-maxfd"
-              type="number"
-              min={0}
-              className="w-20 rounded-md border bg-background px-2 py-1"
-              value={config.maxFinalDiscards}
-              onChange={(e) => patch({ maxFinalDiscards: Number(e.target.value) })}
-            />
-            <label className="flex items-center gap-1 text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={config.protectLoneFinalRace}
-                onChange={(e) => patch({ protectLoneFinalRace: e.target.checked })}
-              />
-              protect a lone final race
-            </label>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Discard rules — including the final-series caps — are edited in the
+            Scoring card below.
+          </p>
           <div className="flex items-center gap-2">
             <label className="w-56 text-muted-foreground" htmlFor="sfc-tie">Assignment tie order (after A8)</label>
             <select
