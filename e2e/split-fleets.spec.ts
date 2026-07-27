@@ -149,6 +149,14 @@ test('split fleets: set up from the series wizard and land on the tab', async ({
   // The format opt-in lives beside the scoring-mode choice on the Fleets step.
   await page.getByRole('checkbox', { name: /Split-fleet championship/ }).check();
   await page.locator('#sf-fleet-count').selectOption('2');
+  // The same editor the Settings card shows: the format fills the fields, and
+  // the configuration is restated as sailing-instruction prose to check.
+  await page.getByRole('button', {
+    name: /How this configuration translates to sailing instructions/,
+  }).click();
+  await expect(page.getByTestId('sf-si-translation')).toContainText(
+    'will count for total points in the championship',
+  );
   await page.getByRole('button', { name: 'Enable split fleets' }).click();
   await expect(page.getByText(/Split fleets enabled/)).toBeVisible();
 

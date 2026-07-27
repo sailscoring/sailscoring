@@ -22,7 +22,7 @@ import { Upload } from 'lucide-react';
 import { CompetitorImport } from '@/components/competitor-import';
 import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
-import { SplitFleetSetup } from '@/components/split-fleets-setup';
+import { SplitFleetEditor } from '@/components/split-fleets-editor';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -260,6 +260,8 @@ function ChampionshipFormatBlock({ seriesId }: { seriesId: string }) {
   const { has } = useFeatures();
   const enabled = has('split-fleets');
   const { data: sfState } = useSplitFleetState(seriesId, { enabled });
+  const { data: competitors } = useCompetitorsBySeries(seriesId);
+  const competitorCount = competitors?.length ?? 0;
   const [wanted, setWanted] = useState(false);
   if (!enabled) return null;
 
@@ -293,7 +295,14 @@ function ChampionshipFormatBlock({ seriesId }: { seriesId: string }) {
           </p>
         </div>
       </label>
-      {wanted && <SplitFleetSetup seriesId={seriesId} canManage />}
+      {wanted && (
+        <SplitFleetEditor
+          seriesId={seriesId}
+          config={null}
+          competitorCount={competitorCount}
+          canEdit
+        />
+      )}
     </div>
   );
 }
