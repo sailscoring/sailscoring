@@ -141,8 +141,9 @@ Ordered by coverage of events Sail Scoring will actually score:
    (none, or a double-points medal race with companion race). This is v1
    fixture territory and matches the prototype's scope.
 2. **F5 (net+net)** — one engine feature (per-stage discard pools + carried
-   nett scalar) unlocks the 29er's entire modern era and WASZP 2025. Already
-   modelled in the design; fixtures next.
+   nett scalar) unlocks the 29er's entire modern era and WASZP 2025.
+   *Implemented* — the discard ladder applies once per series and the
+   championship score is their sum (fixture 13).
 3. **F4 as record-only** — stated-points medal races + manual rank override +
    "no medal race → opening stands" flag capture every windsurf/kite event
    and the skiffs' 2025 experiment without computing brackets. The churn in
@@ -150,9 +151,10 @@ Ordered by coverage of events Sail Scoring will actually score:
    confirms record-not-compute as the durable position.
 4. **F6/F7 (rank-seed, no-carry)** — small but real: rank-seed was sailed
    twice (Topper 2022, 29er 2021) and returned in the 2026 470 Europeans;
-   no-carry is current Topper practice. Cheap in the engine (a synthetic
-   non-discardable carried score; a finals-only total mode); fixture-test
-   early, UI later — as the design already planned for rank-seed.
+   no-carry is current Topper practice. Rank-seed is *implemented* as a
+   synthetic non-discardable carried position that supersedes the
+   qualifying race scores (fixture 14); no-carry (a finals-only total)
+   remains a small follow-on.
 5. **F3 (compressed carry)** — two class lines converged on it in 2026
    (skiffs, 470 Europeans); expect more as LA2028 approaches. Needs a
    carried-score-transform hook. Post-v1, but the hook belongs in the data

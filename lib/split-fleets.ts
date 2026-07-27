@@ -1,18 +1,17 @@
 // Split-fleet (qualifying/final series) scoring engine.
 // See docs/design/split-fleets.md and docs/design/ux/flows/split-fleets.md.
-// Scope (#328): continuous-points carry (F1/F2); RDG average points per RRS
-// A9(a)/(b); SCP/DPI/ZFP penalties; A8.1+A8.2 tie-breaking; the validity
-// gate as the ILCA equalisation (a qualifying race doesn't count until every
-// fleet has completed it — the IODA exclude-most-recent variant is deferred).
+// Scope (#328): all three carry modes (continuous points, net+net,
+// carried qualifying rank); RDG average points per RRS A9(a)/(b);
+// SCP/DPI/ZFP penalties; A8.1+A8.2 tie-breaking; the validity gate as the
+// ILCA equalisation (a qualifying race doesn't count until every fleet has
+// completed it — the IODA exclude-most-recent variant is deferred).
 
 import type { Competitor, Finish, Fleet, Race } from './types';
 
 export type SeriesStage = 'qualifying' | 'final' | 'medal';
 
 /** Stored on series.qf_config — the split-fleet series' full scoring
- *  configuration (docs/design/split-fleets.md). `carry` is 'points' for the
- *  whole supported scope; the other carry modes are modelled for fixtures but
- *  have no engine path yet. */
+ *  configuration (docs/design/split-fleets.md). */
 export interface SplitFleetConfig {
   /** Qualifying fleet labels in SI order (the reassignment-pattern order). */
   qualifyingFleets: { label: string; color: string }[];
@@ -20,8 +19,16 @@ export interface SplitFleetConfig {
   finalFleets: { label: string; color: string }[];
   /** Planned schedule: races per day for the day strip. */
   plannedDays: { label: string; races: number }[];
-  /** How qualifying results enter the championship score. Only 'points'
-   *  (continuous carry) is implemented; the others are future formats. */
+  /** How qualifying results enter the championship score.
+   *  - `points` — one continuous series: every qualifying and final race
+   *    score totals into the championship, discards over the combined line
+   *    (ILCA, Optimist).
+   *  - `net-plus-net` — the qualifying and final series are scored as two
+   *    series, each with its own discards, and the championship score is
+   *    their sum (29er and similar).
+   *  - `rank-seed` — a boat's finishing position in the qualifying series
+   *    carries into the final series as one non-excludable score, and her
+   *    qualifying race scores drop out (470, Topper). */
   carry: 'points' | 'net-plus-net' | 'rank-seed';
   /** Final-fleet sizing: near-equal blocks (Gold largest), or a fixed
    *  top-fleet size (49er/29er). The split ceremony seeds from this and the
@@ -292,6 +299,12 @@ export interface CellScore {
   discarded: boolean;
   counts: boolean; // false while the logical race is not yet valid
   discardable: boolean;
+  /** `rank-seed` carry: this cell is the qualifying-series position carried
+   *  into the final series, not a race result. */
+  carriedRank?: boolean;
+  /** `rank-seed` carry: a qualifying race score replaced by the carried
+   *  rank. Shown, but out of the championship score. */
+  superseded?: boolean;
   /** The RDG finish awaiting A9 resolution (engine-internal). */
   rdg?: Finish | null;
 }
@@ -396,19 +409,30 @@ function discardCount(config: SplitFleetConfig, countedRaces: number): number {
   return n;
 }
 
-/** Apply discards over a row's counting cells. Medal cells are never
- *  discardable and do not count toward the discard thresholds (2024 ILCA
- *  SI 18.6); at most `maxFinalDiscards` may fall on final-series cells; and
- *  with `protectLoneFinalRace`, a lone completed final race is protected
+/** Apply the discard ladder over one group of a row's cells. Medal cells are
+ *  never discardable and do not count toward the thresholds (2024 ILCA
+ *  SI 18.6). With `finalCaps` (the continuous-carry line, where one ladder
+ *  spans both series) at most `maxFinalDiscards` may fall on final-series
+ *  cells and `protectLoneFinalRace` protects a lone completed final race
  *  (ILCA: "if only one Final series race is completed it will not be
- *  excluded"). Ties in badness discard the earliest race (RRS A2.1).
- *  Mutates cell.discarded. */
-function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
+ *  excluded"); the per-series ladders of net+net carry no such caps — each
+ *  series simply discards its own worst. Ties in badness discard the
+ *  earliest race (RRS A2.1). Mutates cell.discarded. */
+function applyDiscardGroup(
+  config: SplitFleetConfig,
+  cells: CellScore[],
+  opts: { finalCaps: boolean },
+): void {
   const counting = cells.filter((c) => c.counts);
-  const thresholdRaces = counting.filter((c) => c.stage !== 'medal').length;
+  // A carried qualifying position is a score, not a race, so it never moves
+  // the "when N races have been completed" ladder.
+  const thresholdRaces = counting.filter(
+    (c) => c.stage !== 'medal' && !c.carriedRank,
+  ).length;
   const n = discardCount(config, thresholdRaces);
-  const finalCells = counting.filter((c) => c.stage === 'final');
-  const loneFinalProtected = config.protectLoneFinalRace && finalCells.length === 1;
+  const finalCells = counting.filter((c) => c.stage === 'final' && !c.carriedRank);
+  const loneFinalProtected =
+    opts.finalCaps && config.protectLoneFinalRace && finalCells.length === 1;
   const order: SeriesStage[] = ['qualifying', 'final', 'medal'];
   const raceKey = (c: CellScore) => order.indexOf(c.stage) * 1000 + c.stageRaceNumber;
   let finalDiscards = 0;
@@ -418,7 +442,7 @@ function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
   let applied = 0;
   for (const c of candidates) {
     if (applied >= n) break;
-    if (c.stage === 'final') {
+    if (opts.finalCaps && c.stage === 'final') {
       if (loneFinalProtected) continue;
       if (finalDiscards >= config.maxFinalDiscards) continue;
       finalDiscards++;
@@ -426,6 +450,63 @@ function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
     c.discarded = true;
     applied++;
   }
+}
+
+/** Select discards for a row according to the carry mode:
+ *  - `points` — one ladder over the combined line, with the final-series caps.
+ *  - `net-plus-net` — the ladder applied separately to each series, so the
+ *    championship score is the sum of two independently-discarded series.
+ *  - `rank-seed` — the carried qualifying position is non-excludable and the
+ *    superseded qualifying cells are out of the score, so only the final
+ *    series discards. */
+function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
+  if (config.carry === 'points') {
+    applyDiscardGroup(config, cells, { finalCaps: true });
+    return;
+  }
+  // Both remaining modes discard per series. Under `rank-seed` the
+  // qualifying cells stop counting once the position is carried, so the
+  // first call is a no-op after the split and the running qualifying ladder
+  // before it.
+  applyDiscardGroup(config, cells.filter((c) => c.stage === 'qualifying'), { finalCaps: false });
+  applyDiscardGroup(config, cells.filter((c) => c.stage !== 'qualifying'), { finalCaps: false });
+}
+
+/** Finishing positions in the qualifying series alone — the input to
+ *  `rank-seed` carry. Scored over the qualifying cells with the qualifying
+ *  ladder, ranked by RRS A8. Boats with no qualifying race at all (a late
+ *  entry into the final series) get no position, and so no carried score. */
+function rankQualifyingSeries(
+  config: SplitFleetConfig,
+  rows: SplitStandingRow[],
+): Map<string, number> {
+  const scored = rows
+    .map((row) => {
+      const cells = row.cells
+        .filter((c) => c.stage === 'qualifying')
+        .map((c) => ({ ...c }));
+      applyDiscardGroup(config, cells, { finalCaps: false });
+      const counting = cells.filter((c) => c.counts);
+      return {
+        id: row.competitor.id,
+        cells,
+        sailed: counting.length > 0,
+        net: counting.filter((c) => !c.discarded).reduce((sum, c) => sum + c.points, 0),
+      };
+    })
+    .filter((r) => r.sailed);
+  scored.sort(
+    (a, b) =>
+      a.net - b.net ||
+      compareScoreLists(
+        a.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
+        b.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
+      ) ||
+      compareLastRace(a.cells, b.cells),
+  );
+  const positions = new Map<string, number>();
+  scored.forEach((r, i) => positions.set(r.id, i + 1));
+  return positions;
 }
 
 /**
@@ -541,6 +622,36 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
       }
       const mean = pool.reduce((sum, c) => sum + c.points, 0) / pool.length;
       cell.points = Math.round(mean * 10 + 1e-9) / 10;
+    }
+  }
+
+  // `rank-seed` carry: once the final series exists, a boat's qualifying
+  // position becomes one non-excludable score and her qualifying race scores
+  // drop out of the championship total (470/Topper wording: "the position of
+  // each boat in the Qualifying Series shall be carried forward to the Final
+  // Series as non-excludable points").
+  if (config.carry === 'rank-seed' && splitRound) {
+    const qualifyingPosition = rankQualifyingSeries(config, rows);
+    for (const row of rows) {
+      for (const cell of row.cells) {
+        if (cell.stage !== 'qualifying') continue;
+        cell.counts = false;
+        cell.superseded = true;
+      }
+      const position = qualifyingPosition.get(row.competitor.id);
+      if (position == null) continue;
+      row.cells.push({
+        stage: 'final',
+        stageRaceNumber: 0,
+        fleetId: row.finalFleetId ?? '',
+        raceId: '',
+        points: position,
+        code: null,
+        counts: true,
+        discardable: false,
+        discarded: false,
+        carriedRank: true,
+      });
     }
   }
 

@@ -22,6 +22,12 @@ function esc(s: string): string {
 }
 
 const STAGE_PREFIX: Record<SeriesStage, string> = { qualifying: 'Q', final: 'F', medal: 'M' };
+
+/** Column heading for a stage race. Stage race 0 in the final series is the
+ *  carried qualifying position (`rank-seed` carry), not a race. */
+function columnLabel(stage: SeriesStage, n: number): string {
+  return stage === 'final' && n === 0 ? 'QS' : `${STAGE_PREFIX[stage]}${n}`;
+}
 const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
 
 /** A round as the render path receives it: wide enough for both the server
@@ -140,12 +146,18 @@ export function renderSplitFleetStandingsPage(
     const inner = c.discarded ? `(${esc(text)})` : esc(text);
     const dim = c.counts ? '' : ';color:#adb5bd';
     const bold = c.discardable ? '' : ';font-weight:bold';
-    const title = c.counts ? '' : ' title="does not yet count — race incomplete across fleets"';
+    const title = c.counts
+      ? c.carriedRank
+        ? ' title="qualifying-series position, carried into the final series"'
+        : ''
+      : c.superseded
+        ? ' title="replaced by the carried qualifying position"'
+        : ' title="does not yet count — race incomplete across fleets"';
     return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${inner}</td>`;
   };
 
   const table = (rowsIn: typeof rows, cuts: number[] = []): string => {
-    const head = columns.map((c) => `<th>${STAGE_PREFIX[c.stage]}${c.n}</th>`).join('');
+    const head = columns.map((c) => `<th>${columnLabel(c.stage, c.n)}</th>`).join('');
     const body = rowsIn
       .map((row, i) => {
         const medal = row.medal

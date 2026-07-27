@@ -199,13 +199,15 @@ the physical race's fleet.)
 **One continuous points line — usually.** In the dominant model (ILCA,
 IODA, 420, 49er, Kieler Woche, Santander) qualifying scores **carry
 forward as points** into one series total; Q1…Qn and F1…Fn are columns of
-a single line. But three other carry models exist:
+a single line. But three other carry models exist — the engine implements
+the first three, and the scorer picks between them in the split-fleet
+settings:
 
 | Carry model | Events | Mechanics |
 |---|---|---|
 | **Continuous points** | ILCA, IODA, 420, 49er, KiWo | One total across Q+F; discards float across the boundary (KiWo makes this explicit: a qualifying discard "may be substituted by a worse score in the final series") |
 | **Net + net** | 29er | Q and F are separately-discarded series; championship score = Q net + F net; F ties broken on F scores only |
-| **Rank as seed** | Topper | Finals restart from a carried, non-discardable score equal to the boat's qualifying **rank** |
+| **Rank as seed** | Topper, 470 Europeans 2026 | Finals restart from a carried, non-discardable score equal to the boat's qualifying **rank**; her qualifying race scores then drop out of the championship total |
 | **Knockout bracket** | iQFOiL, Formula Kite | Opening series seeds quarter/semi/grand finals scored on match points — not low-point arithmetic at all (out of scope; see horizon) |
 
 **Stage-aware discard profiles.** The famous "special ILCA discard

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>F6 carried-position carry: the qualifying finishing position becomes one non-excludable score and the qualifying race scores drop out — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>F6 carried-position carry: the qualifying finishing position becomes one non-excludable score and the qualifying race scores drop out</h1>
+<p style="color:#555;">470 (and classes using the same carried-position wording) 2026 — European Championship &middot; <strong>F6</strong> &middot; SI (<code>Typical wording — see notes</code>) &middot; results (<code>n/a — constructed to isolate the carry rule</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 3.</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">The distinguishing wording: &quot;The position of each boat in the Qualifying
+Series shall be carried forward to the Final Series as non excludable
+points.&quot;
+
+So the qualifying series decides two things — which final fleet a boat is
+in, and one score she carries — and then her individual qualifying race
+scores play no further part. The carried position can never be discarded,
+and being a position rather than a race it does not advance the &quot;when N
+races have been completed&quot; discard ladder either.
+
+Hand-verification (fleets of 3, so races score 1/2/3; two qualifying races,
+below the three-race discard threshold, so nothing is dropped):
+
+Qualifying totals:
+  y1 1+2=3   y2 2+1=3   y3 3+3=6 | b1 1+1=2   b2 2+3=5   b3 3+2=5
+y1 and y2 tie on 3 with equal score lists, so A8.2 takes Q2 (y2 1, y1 2) →
+y2 ahead; b2 and b3 tie on 5 and A8.2 (Q2: b3 2, b2 3) puts b3 ahead.
+Qualifying positions: 1 b1, 2 y2, 3 y1, 4 b3, 5 b2, 6 y3.
+Split into equal blocks: Gold b1/y2/y1, Silver b3/b2/y3.
+
+Each boat carries that position into the final series (shown as the QS
+column), then sails two final races. Nothing is discarded: two races plus a
+carried position is two *races*, short of the three-race threshold.
+
+  b1 1 + 2,1 = 4   y1 3 + 1,3 = 7   y2 2 + 3,2 = 7
+  b3 4 + 3,2 = 9   b2 5 + 1,3 = 9   y3 6 + 2,1 = 9
+Gold: y1 and y2 tie on 7; A8.1 compares score lists [1,3,3] against
+[2,2,3] — y1's best score wins it. Silver: all three on 9, and A8.1 orders
+them y3 [1,2,6], b2 [1,3,5], b3 [2,3,4].
+
+Note the totals: they carry no qualifying race scores at all, which is
+exactly what distinguishes this format from continuous carry.</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff3bf;padding:0 4px;border-radius:3px;">Yellow: y1, y2, y3</span>&nbsp; <span style="background:#d0ebff;padding:0 4px;border-radius:3px;">Blue: b1, b2, b3</span></td></tr>
+<tr><td>Final split</td><td>split (qualifying ranking)</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: b1, y1, y2</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: b2, b3, y3</span></td></tr>
+</tbody>
+</table>
+<h2>Gold fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F0</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">b1</td>
+  <td>Helm B1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">1</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">1</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right;font-weight:bold">4</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">y1</td>
+  <td>Helm Y1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">2</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">3</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right;font-weight:bold">7</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">y2</td>
+  <td>Helm Y2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">1</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">2</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right;font-weight:bold">7</td>
+</tr>
+</tbody>
+</table>
+<h2>Silver fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F0</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>4</td>
+  <td class="mono">y3</td>
+  <td>Helm Y3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">3</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">6</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">b2</td>
+  <td>Helm B2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">3</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">5</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">b3</td>
+  <td>Helm B3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="does not yet count — race incomplete across fleets">2</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">4</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

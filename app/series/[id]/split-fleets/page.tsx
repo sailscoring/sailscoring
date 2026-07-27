@@ -210,6 +210,12 @@ function stagePrefix(stage: SeriesStage): string {
   return stage === 'qualifying' ? 'Q' : stage === 'final' ? 'F' : 'M';
 }
 
+/** Standings column heading. Stage race 0 in the final series is the carried
+ *  qualifying position (`rank-seed` carry), not a race. */
+function columnLabel(stage: SeriesStage, n: number): string {
+  return stage === 'final' && n === 0 ? 'QS' : `${stagePrefix(stage)}${n}`;
+}
+
 interface FleetMeta {
   label: string;
   color: string;
@@ -1696,8 +1702,7 @@ function StandingsTable({
           <th className="py-1 pr-2 font-medium">Name</th>
           {columns.map((c) => (
             <th key={`${c.stage}:${c.n}`} className="px-1.5 py-1 text-center font-medium">
-              {stagePrefix(c.stage)}
-              {c.n}
+              {columnLabel(c.stage, c.n)}
             </th>
           ))}
           <th className="px-1.5 py-1 text-right font-medium">Total</th>
@@ -1760,7 +1765,15 @@ function FragmentRow({
                 cell.counts ? '' : 'text-muted-foreground opacity-60'
               }`}
               style={{ backgroundColor: `${color}${cell.counts ? '2e' : '14'}` }}
-              title={cell.counts ? undefined : 'Does not yet count — race incomplete across fleets'}
+              title={
+                cell.counts
+                  ? cell.carriedRank
+                    ? 'Qualifying-series position, carried into the final series'
+                    : undefined
+                  : cell.superseded
+                    ? 'Replaced by the carried qualifying position'
+                    : 'Does not yet count — race incomplete across fleets'
+              }
             >
               {cell.discarded ? `(${text})` : text}
             </td>

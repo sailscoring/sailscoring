@@ -103,6 +103,8 @@ export interface SplitFleetFixture {
   config: {
     qualifyingFleets: string[];
     finalFleets?: string[];
+    /** Carry mode; default 'points' (continuous). */
+    carry?: 'points' | 'net-plus-net' | 'rank-seed';
     discardThresholds: { minRaces: number; discardCount: number }[];
     maxFinalDiscards: number;
     protectLoneFinalRace?: boolean;
@@ -197,7 +199,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     qualifyingFleets: dummy(fx.config.qualifyingFleets),
     finalFleets: dummy(fx.config.finalFleets ?? []),
     plannedDays: [],
-    carry: 'points',
+    carry: fx.config.carry ?? 'points',
     split: { kind: 'equal-blocks' },
     codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },
     equalization: 'abandon-extra-races',
