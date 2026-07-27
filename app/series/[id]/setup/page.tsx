@@ -349,7 +349,9 @@ export default function SetupPage({
   }
 
   function handleFinish() {
-    router.push(`/series/${seriesId}/competitors`);
+    // The series landing page picks the tab: Split Fleets for a split-fleet
+    // series (the workflow view), Competitors for everything else.
+    router.push(`/series/${seriesId}`);
   }
 
   return (

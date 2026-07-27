@@ -128,3 +128,33 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByText('Medal races score ×2')).toBeVisible();
   await expect(page.getByRole('link', { name: /M1/ })).toHaveCount(2);
 });
+
+/**
+ * The setup wizard's championship-format opt-in (gated on `split-fleets`):
+ * enabling it there makes the Split Fleets tab appear, and finishing setup
+ * lands on it rather than on Competitors.
+ */
+test('split fleets: set up from the series wizard and land on the tab', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+
+  await page.goto('/series/new');
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/setup$/);
+  await page.getByLabel('Name').fill('Wizard Worlds');
+  await page.getByRole('button', { name: /Next: Competitors/ }).click();
+  await page.getByRole('button', { name: /Next: Fleets/ }).click();
+
+  // The format opt-in lives beside the scoring-mode choice on the Fleets step.
+  await page.getByRole('checkbox', { name: /Split-fleet championship/ }).check();
+  await page.locator('#sf-fleet-count').selectOption('2');
+  await page.getByRole('button', { name: 'Enable split fleets' }).click();
+  await expect(page.getByText(/Split fleets enabled/)).toBeVisible();
+
+  await page.getByRole('button', { name: /Next: Scoring/ }).click();
+  await page.getByRole('button', { name: /Finish setup/ }).click();
+
+  await expect(page).toHaveURL(/\/split-fleets$/);
+  await expect(page.getByRole('button', { name: 'Assign qualifying fleets' })).toBeVisible();
+});
