@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 export type ScoringValues = Pick<Series, 'discardThresholds' | 'dnfScoring'>;
 
 export type SplitFleetDiscardCaps = {
+  /** Carry mode — the caps below only exist on the continuous line. */
+  carry: 'points' | 'net-plus-net' | 'rank-seed';
   maxFinalDiscards: number;
   protectLoneFinalRace: boolean;
 };
@@ -143,10 +145,13 @@ export function ScoringCard({ value, onChange, mode = 'settings', splitFleet }: 
       {splitFleet && (
         <div className="space-y-2 border-t pt-3">
           <p className="text-xs text-muted-foreground">
-            Split-fleet series: medal races never count toward the rules above
-            and are never discarded.
+            {splitFleet.carry === 'net-plus-net'
+              ? 'Split-fleet series: the rules above apply separately to the qualifying series and the final series. Medal races never count toward them and are never discarded.'
+              : splitFleet.carry === 'rank-seed'
+                ? 'Split-fleet series: the rules above apply to the final series; the carried qualifying position is never discarded. Medal races never count toward them and are never discarded.'
+                : 'Split-fleet series: medal races never count toward the rules above and are never discarded.'}
           </p>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${splitFleet.carry === 'points' ? '' : 'hidden'}`}>
             <label className="flex items-center gap-2 text-sm" htmlFor="sf-max-final-discards">
               At most
               <Input

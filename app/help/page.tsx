@@ -1291,6 +1291,25 @@ export default async function HelpPage() {
             round.
           </p>
           <p>
+            Set the format up in the series setup wizard (or later, from the{' '}
+            <strong className="text-foreground">Split-fleet championship</strong> card in
+            Settings). Start from a class format — ILCA, IODA, and the two-series and
+            carried-position models — which fills every setting; then read{' '}
+            <strong className="text-foreground">How this configuration translates to sailing
+            instructions</strong>, which restates your settings as SI prose, against the scoring
+            section of the sailing instructions you were given. Where a sentence disagrees,
+            change the setting.
+          </p>
+          <p>
+            Three ways of carrying qualifying results into the final series are supported:{' '}
+            <strong className="text-foreground">one continuous series</strong> (ILCA, Optimist —
+            every race totals together), <strong className="text-foreground">two series added
+            together</strong> (each with its own discards), and{' '}
+            <strong className="text-foreground">the qualifying position carried forward</strong>{' '}
+            as one score that can never be discarded, replacing the qualifying race scores (470,
+            Topper). The standings show a carried position in a <strong className="text-foreground">QS</strong> column.
+          </p>
+          <p>
             The published output is a single{' '}
             <strong className="text-foreground">championship standings</strong> page — combined
             with a provisional cut line during qualifying, tiered Gold/Silver tables after the

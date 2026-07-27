@@ -148,6 +148,7 @@ export default function SettingsPage({
         splitFleet={
           sfConfig
             ? {
+                carry: sfConfig.carry,
                 maxFinalDiscards: sfConfig.maxFinalDiscards,
                 protectLoneFinalRace: sfConfig.protectLoneFinalRace,
                 onChange: (patch) => saveSplitConfig.mutate({ ...sfConfig, ...patch }),
