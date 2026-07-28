@@ -614,6 +614,10 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
 });
 
 test('the public workspace listing mirrors category sections, relegates archived series, and quick-jumps (#320)', async ({ page }) => {
+  // Heavy: two scored series, two publishes, two categories, and an archive
+  // before the listing is even loaded. No single step is slow, but the setup
+  // alone fills the 30s default under full-suite load.
+  test.slow();
   // Two series: one we'll categorise and keep active, one we'll archive.
   // Both carry a start date so the quick-jump picker has two years to offer.
   await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11', date: '2026-05-01' });
