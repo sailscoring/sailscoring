@@ -161,6 +161,12 @@ export const archiveSeriesDocSchema = z
       /** Pinned public slug — the `/p/{ws}/{slug}` namespace this series
        *  publishes into. */
       publishedSlug: slugSegment,
+      /** Season the published slug files under (ADR-011). Usually redundant —
+       *  a season-like slug ("2025") is its own season — so pin it only when
+       *  the label can't be derived, e.g. a year-spanning "2025–26". Applied
+       *  to the slug's folder metadata on every ingest (pinned, like the
+       *  slug itself). */
+      season: z.string().trim().min(1).max(40).optional(),
     }),
     fleets: z.array(fleetSchema).min(1).max(50),
     /** Multi-section pages; fleets referenced here publish only as sections.

@@ -39,6 +39,7 @@ import {
   getPublishedBySeries,
   getPublishedGroupByWorkspaceSlug,
   savePublished,
+  upsertPublishedFolder,
 } from '@/lib/published-repository';
 import { contentHash, publishedBlobKey } from '@/lib/publishing';
 import type { PublishedSeries, PublishedSeriesPage } from '@/lib/types';
@@ -326,6 +327,17 @@ export async function putArchiveSeries(
   });
 
   const published = await publishArchiveSeries(workspace, doc);
+
+  // A pinned season files the slug's folder under a workspace season the
+  // derivation can't produce (e.g. a year-spanning "2025–26"). Pinned data,
+  // like the slug: re-asserted on every ingest (ADR-011).
+  if (doc.series.season) {
+    await upsertPublishedFolder(
+      workspace.workspaceId,
+      doc.series.publishedSlug,
+      { season: doc.series.season },
+    );
+  }
 
   await recordActivity(workspace, {
     action: 'series.archive-ingested',

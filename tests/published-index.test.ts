@@ -91,6 +91,7 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
       categoryName: 'Tuesday',
       categoryOrder: 0,
       year: 2026,
+      season: '2026',
       contributors: [
         {
           title: 'Tuesday Series 1',
@@ -111,6 +112,7 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
       categoryName: 'Wednesday',
       categoryOrder: 1,
       year: 2025,
+      season: '2025',
       contributors: [
         {
           title: 'Wednesday Series 1',
@@ -149,27 +151,28 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
     expect(html).toContain('"label":"Standings"');
   });
 
-  it('renders the year and category selects only when the dimension has two values', () => {
+  it('renders the season and category selects only when the dimension has two values', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', twoSeries);
     expect(html).toContain('id="picker-year"');
     expect(html).toContain('<option value="2026">2026</option>');
     expect(html).toContain('id="picker-cat"');
     expect(html).toContain('<option value="Tuesday">Tuesday</option>');
 
-    const sameYearAndCat = renderWorkspaceIndexHtml('hyc', 'HYC', [
+    const sameSeasonAndCat = renderWorkspaceIndexHtml('hyc', 'HYC', [
       { ...twoSeries[0] },
       {
         ...twoSeries[1],
         year: 2026,
+        season: '2026',
         categoryName: 'Tuesday',
         contributors: [
           { ...twoSeries[1].contributors[0], year: 2026, categoryName: 'Tuesday' },
         ],
       },
     ]);
-    expect(sameYearAndCat).not.toContain('id="picker-year"');
-    expect(sameYearAndCat).not.toContain('id="picker-cat"');
-    expect(sameYearAndCat).toContain('id="picker-series"');
+    expect(sameSeasonAndCat).not.toContain('id="picker-year"');
+    expect(sameSeasonAndCat).not.toContain('id="picker-cat"');
+    expect(sameSeasonAndCat).toContain('id="picker-series"');
   });
 
   it('escapes < in the embedded JSON so titles cannot close the script tag', () => {
@@ -229,13 +232,23 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
     expect(html).not.toContain('"title":"2025"');
   });
 
-  it('wraps archived publications in a hideable past block', () => {
+  it('collapses prior seasons and excludes season-echo categories from the picker', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
       twoSeries[0],
-      { ...twoSeries[1], archived: true },
+      {
+        ...twoSeries[1],
+        // The archive filing hack: category named after the season.
+        categoryName: '2025',
+        contributors: [
+          { ...twoSeries[1].contributors[0], categoryName: '2025' },
+        ],
+      },
     ]);
-    expect(html).toContain('<div class="pastblock">');
-    expect(html).toContain('Past results');
+    expect(html).toContain('<details class="season"><summary>2025</summary>');
+    // The season select still offers both seasons, but the season-echo
+    // category leaves only one real category → no category select.
+    expect(html).toContain('id="picker-year"');
+    expect(html).not.toContain('id="picker-cat"');
   });
 });
 

@@ -89,19 +89,30 @@ describe('renderWorkspaceIndexHtml sections', () => {
     expect(html).not.toContain('Uncategorized');
   });
 
-  it('renders category headings and a Past results section when present', () => {
+  it('expands the current season with category headings, collapses prior seasons (ADR-011)', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'Howth', [
-      item({ slug: 'cr', title: 'Cruisers Series', categoryName: 'Cruisers', categoryOrder: 0 }),
-      item({ slug: 'plain', title: 'Loose Series' }),
-      item({ slug: 'old', title: 'Old Series', archived: true, year: 2024 }),
+      item({ slug: 'cr', title: 'Cruisers Series', categoryName: 'Cruisers', categoryOrder: 0, season: '2026' }),
+      item({ slug: 'plain', title: 'Loose Series', season: '2026' }),
+      item({ slug: 'old', title: 'Old Series', season: '2024' }),
     ]);
-    expect(html).toContain('class="section"');
+    expect(html).toContain('<h2 class="season">2026</h2>');
     expect(html).toContain('Cruisers');
     expect(html).toContain('Uncategorized');
-    expect(html).toContain('Past results');
-    expect(html).toContain('2024');
-    // Active sections come before the relegated Past results block.
-    expect(html.indexOf('Cruisers Series')).toBeLessThan(html.indexOf('Past results'));
-    expect(html.indexOf('Old Series')).toBeGreaterThan(html.indexOf('Past results'));
+    expect(html).toContain('<details class="season"><summary>2024</summary>');
+    // The current season's items come before the collapsed prior season.
+    expect(html.indexOf('Cruisers Series')).toBeLessThan(html.indexOf('<details'));
+    expect(html.indexOf('Old Series')).toBeGreaterThan(html.indexOf('<summary>2024'));
+  });
+
+  it('suppresses a category heading that repeats its season label', () => {
+    // The archive corpora file series under a category named after the year;
+    // showing it under the season heading would say the same thing twice.
+    const html = renderWorkspaceIndexHtml('dbsc', 'DBSC', [
+      item({ slug: '2024', title: '2024', categoryName: '2024', categoryOrder: 0, season: '2024' }),
+      item({ slug: '2023', title: '2023', categoryName: '2023', categoryOrder: 1, season: '2023' }),
+    ]);
+    expect(html).not.toContain('class="cat"');
+    expect(html).toContain('<h2 class="season">2024</h2>');
+    expect(html).toContain('<summary>2023</summary>');
   });
 });

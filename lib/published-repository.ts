@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { getDb } from './db/client';
 import * as schema from './db/schema';
 import { humanizeSlug } from './publishing';
+import { seasonLikeSlug } from './published-tree';
 import type { PublishedSeries } from './types';
 
 /**
@@ -213,6 +214,9 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     categoryOrder: number;
     seriesOrder: number;
     year: number | null;
+    /** The season the slug files under (ADR-011): folder-metadata pin, a
+     *  season-like slug, or the start-date year; null = undated. */
+    season: string | null;
     contributors: {
       /** The contributing series' name; null for an orphaned publication. */
       title: string | null;
@@ -250,6 +254,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     )
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
+  const meta = await getPublishedFolderMeta(workspaceId);
 
   type Rep = {
     archived: boolean;
@@ -326,7 +331,9 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
   return [...groups.entries()]
     .map(([slug, g]) => ({
       slug,
-      title: g.names.length === 1 ? (g.names[0] ?? slug) : humanizeSlug(slug),
+      title:
+        meta.get(slug)?.label ??
+        (g.names.length === 1 ? (g.names[0] ?? slug) : humanizeSlug(slug)),
       publishedAt: g.publishedAt,
       fleetCount: g.fleetCount,
       archived: g.rep.archived,
@@ -334,6 +341,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
       categoryOrder: g.rep.categoryOrder,
       seriesOrder: g.rep.seriesOrder,
       year: g.rep.year,
+      season: seasonOf(slug, meta.get(slug), g.rep.year),
       contributors: g.contributors
         .sort(
           // Not `a - b`: unordered rows are both Infinity and the difference
@@ -355,6 +363,58 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     .sort((a, b) => b.publishedAt - a.publishedAt);
 }
 
+/** Folder metadata rows for a workspace (ADR-011), keyed by path. The tree
+ *  renders fine without rows — labels humanise, seasons derive — so this maps
+ *  only the overrides. */
+export async function getPublishedFolderMeta(
+  workspaceId: string,
+): Promise<Map<string, { label: string | null; season: string | null }>> {
+  const rows = await getDb()
+    .select({
+      path: schema.publishedFolders.path,
+      label: schema.publishedFolders.label,
+      season: schema.publishedFolders.season,
+    })
+    .from(schema.publishedFolders)
+    .where(eq(schema.publishedFolders.workspaceId, workspaceId));
+  return new Map(rows.map((r) => [r.path, { label: r.label, season: r.season }]));
+}
+
+/** Insert or update one folder's metadata. Only the given fields change, so
+ *  an ingest pinning `season` never clears a label set elsewhere. */
+export async function upsertPublishedFolder(
+  workspaceId: string,
+  path: string,
+  meta: { label?: string | null; season?: string | null },
+): Promise<void> {
+  const set: { label?: string | null; season?: string | null } = {};
+  if ('label' in meta) set.label = meta.label;
+  if ('season' in meta) set.season = meta.season;
+  await getDb()
+    .insert(schema.publishedFolders)
+    .values({ workspaceId, path, ...set })
+    .onConflictDoUpdate({
+      target: [
+        schema.publishedFolders.workspaceId,
+        schema.publishedFolders.path,
+      ],
+      set,
+    });
+}
+
+/** The season a published slug files under (ADR-011): the folder-metadata
+ *  pin, a season-like slug itself, or the representative series' start year.
+ *  Null = undated. */
+function seasonOf(
+  slug: string,
+  meta: { season: string | null } | undefined,
+  year: number | null,
+): string | null {
+  if (meta?.season) return meta.season;
+  if (seasonLikeSlug(slug)) return slug;
+  return year != null ? String(year) : null;
+}
+
 /** Every top-level folder of the workspace's publication tree (ADR-011): one
  *  entry per published slug, labelled by the sole contributor's series name or
  *  the humanised slug when several series share it, newest publish first (the
@@ -362,6 +422,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
  *  — because the navigation cascade loads this on every public page view. */
 export async function listPublishedTopFolders(
   workspaceId: string,
+  folderMeta?: Map<string, { label: string | null; season: string | null }>,
 ): Promise<{ slug: string; label: string }[]> {
   const rows = await getDb()
     .select({
@@ -377,6 +438,7 @@ export async function listPublishedTopFolders(
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
 
+  const meta = folderMeta ?? (await getPublishedFolderMeta(workspaceId));
   const groups = new Map<string, { names: (string | null)[]; at: number }>();
   for (const r of rows) {
     const g = groups.get(r.slug) ?? { names: [], at: 0 };
@@ -388,9 +450,10 @@ export async function listPublishedTopFolders(
     .map(([slug, g]) => ({
       slug,
       label:
-        g.names.length === 1 && g.names[0] !== null
+        meta.get(slug)?.label ??
+        (g.names.length === 1 && g.names[0] !== null
           ? g.names[0]
-          : humanizeSlug(slug),
+          : humanizeSlug(slug)),
       at: g.at,
     }))
     .sort((a, b) => b.at - a.at)

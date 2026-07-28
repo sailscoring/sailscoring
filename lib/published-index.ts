@@ -36,6 +36,10 @@ export interface ListingPlacement {
   seriesOrder?: number | null;
   /** The series' start-date year, for the "Past results" grouping. */
   year?: number | null;
+  /** The season the publication files under (ADR-011): the folder-metadata
+   *  pin, a season-like slug, or the start-date year as a string. Drives the
+   *  public season grouping; null = undated. */
+  season?: string | null;
 }
 
 /** One publication sharing a listing slug: its own series name, placement and
@@ -171,8 +175,11 @@ h2.series { font-size: 1.15em; color: #073358; font-weight: 700; margin: 24px 0 
 h3.subseries { font-size: 1.0em; color: #073358; font-weight: 700; margin: 20px 0 6px; }
 h3.subseries a { color: inherit; text-decoration: none; }
 h3.subseries a:hover { color: #fb3a3b; text-decoration: underline; }
-h2.past { font-size: 1.2em; color: #073358; font-weight: 700; margin: 36px 0 0; border-top: 1px solid #e2e6ea; padding-top: 18px; }
-h3.year { font-size: 0.95em; color: #556; font-weight: 600; margin: 18px 0 8px; }
+h2.season { font-size: 1.2em; color: #073358; font-weight: 700; margin: 28px 0 4px; }
+h3.cat { font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em; color: #073358; font-weight: 700; margin: 20px 0 8px; }
+details.season { border-top: 1px solid #e2e6ea; padding: 14px 0 6px; }
+details.season summary { font-size: 1.2em; color: #073358; font-weight: 700; cursor: pointer; }
+details.season summary:hover { color: #fb3a3b; }
 .picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
 /* Stable flex widths, not content width: a select sizes to its widest option,
    so "All years" (every series title loaded) would otherwise wrap the row and
@@ -228,31 +235,30 @@ export function renderPublicHero(headingHtml: string, logoUrl = ''): string {
 }
 
 /**
- * Partition the flat listing into the sections the workspace index renders:
- * active publications as category sections (mirroring the in-app series list),
- * and archived publications relegated to "Past results" year
- * sections. Pure, so the ordering rules are unit-tested directly.
+ * Partition the flat listing into active category sections and archived
+ * "Past results" year sections. The public workspace index moved to the
+ * season partition (ADR-011 — `groupWorkspaceListingBySeason`); this remains
+ * the in-app management page's partition (#292).
  *
  * Placement comes from each slug's representative series (see
  * `listPublishedByWorkspace`); a slug shared by several series under different
  * categories is fudged onto one section via that representative.
  */
-export function groupWorkspaceListing<T extends ListingPlacement>(
+/** Category sections over a set of items: section order is the category's
+ *  displayOrder, the Uncategorized bucket (null) always last; within a
+ *  section the manual series order wins, newest first as a tiebreak. */
+function groupByCategory<T extends ListingPlacement>(
   items: T[],
-): WorkspaceListing<T> {
+): ListingCategoryGroup<T>[] {
   const INF = Number.POSITIVE_INFINITY;
-
-  // Active → category sections. Section order is the representative category's
-  // displayOrder; the Uncategorized bucket (null) always sorts last. Within a
-  // section the manual series order wins, newest first as a tiebreak.
   const catBuckets = new Map<string | null, T[]>();
   const catOrder = new Map<string | null, number>();
-  for (const it of items.filter((i) => !i.archived)) {
+  for (const it of items) {
     const key = it.categoryName ?? null;
     (catBuckets.get(key) ?? catBuckets.set(key, []).get(key)!).push(it);
     catOrder.set(key, Math.min(catOrder.get(key) ?? INF, it.categoryOrder ?? INF));
   }
-  const active: ListingCategoryGroup<T>[] = [...catBuckets.entries()]
+  return [...catBuckets.entries()]
     .map(([categoryName, list]) => ({
       categoryName,
       items: list.sort(
@@ -266,6 +272,56 @@ export function groupWorkspaceListing<T extends ListingPlacement>(
       if (b.categoryName === null) return -1;
       return catOrder.get(a.categoryName)! - catOrder.get(b.categoryName)!;
     });
+}
+
+/** One season's slice of the public workspace listing (ADR-011), its items in
+ *  category sections. */
+export interface ListingSeasonGroup<T extends ListingPlacement = WorkspaceIndexItem> {
+  /** null = the undated bucket, always last. */
+  season: string | null;
+  groups: ListingCategoryGroup<T>[];
+}
+
+/**
+ * Partition the flat listing into season slices, newest season first, each
+ * grouped by category (ADR-011 — the public workspace index shows the current
+ * season expanded and prior seasons collapsed; the archived-based "Past
+ * results" partition retired in its favour). Pure, so the ordering rules are
+ * unit-tested directly.
+ */
+export function groupWorkspaceListingBySeason<T extends ListingPlacement>(
+  items: T[],
+): ListingSeasonGroup<T>[] {
+  const buckets = new Map<string | null, T[]>();
+  for (const it of items) {
+    const key = it.season ?? null;
+    (buckets.get(key) ?? buckets.set(key, []).get(key)!).push(it);
+  }
+  return [...buckets.entries()]
+    .map(([season, list]) => ({ season, groups: groupByCategory(list) }))
+    .sort((a, b) => {
+      if (a.season === null) return 1;
+      if (b.season === null) return -1;
+      return b.season.localeCompare(a.season);
+    });
+}
+
+/** A category heading that would merely repeat its season label is noise —
+ *  the `category = year` filing hack of the archive corpora — so the season
+ *  view suppresses it. */
+export function suppressCategoryHeading(
+  categoryName: string | null,
+  season: string | null,
+): boolean {
+  return categoryName !== null && categoryName === season;
+}
+
+export function groupWorkspaceListing<T extends ListingPlacement>(
+  items: T[],
+): WorkspaceListing<T> {
+  const active: ListingCategoryGroup<T>[] = groupByCategory(
+    items.filter((i) => !i.archived),
+  );
 
   // Archived → year sections, newest year first; the undated bucket last.
   const yearBuckets = new Map<number | null, T[]>();
@@ -288,11 +344,12 @@ export function groupWorkspaceListing<T extends ListingPlacement>(
 }
 
 /**
- * Workspace listing at `/p/{ws}`. Publications are grouped into category
- * sections and a relegated "Past results" block (the in-app series
- * organisation surfaced publicly).
- * A workspace with no categories and nothing archived collapses to a single
- * flat list with no section headings, matching the original look.
+ * Workspace listing at `/p/{ws}` (ADR-011). Publications are grouped by
+ * season, the current (newest) season expanded and grouped by category,
+ * prior seasons as collapsed sections. A category heading that merely
+ * repeats its season label is suppressed. A workspace with one season and no
+ * categories collapses to a single flat list with no section headings,
+ * matching the original look.
  */
 export function renderWorkspaceIndexHtml(
   workspaceSlug: string,
@@ -337,38 +394,47 @@ export function renderWorkspaceIndexHtml(
   const section = (heading: string, rows: WorkspaceIndexItem[]) =>
     `<section class="lgroup">\n${heading}${list(rows)}\n</section>`;
 
-  const { active, past } = groupWorkspaceListing(items);
+  const seasons = groupWorkspaceListingBySeason(items);
 
-  // Flat (no headings) when there's a single uncategorised active section and
-  // nothing archived — the common single-club, no-categories case.
-  const flat =
-    past.length === 0 &&
-    active.length <= 1 &&
-    (active.length === 0 || active[0].categoryName === null);
+  // One season slice's category sections. `h` picks the heading level: the
+  // single-season page keeps the original top-level category look.
+  const seasonInner = (
+    s: ListingSeasonGroup<WorkspaceIndexItem>,
+    h: 'h2' | 'h3',
+  ) =>
+    s.groups
+      .map((g) => {
+        const noHeading =
+          (g.categoryName === null && s.groups.length === 1) ||
+          suppressCategoryHeading(g.categoryName, s.season);
+        const cls = h === 'h2' ? 'section' : 'cat';
+        return section(
+          noHeading
+            ? ''
+            : `<${h} class="${cls}">${esc(g.categoryName ?? 'Uncategorized')}</${h}>\n`,
+          g.items,
+        );
+      })
+      .join('\n');
 
   let sections: string;
-  if (flat) {
-    sections = section('', active[0]?.items ?? []);
+  if (seasons.length <= 1) {
+    // A single season needs no season chrome — category sections (or a flat
+    // list) as before.
+    sections = seasons[0] ? seasonInner(seasons[0], 'h2') : section('', []);
   } else {
-    const activeHtml = active
-      .map((g) =>
-        section(
-          `<h2 class="section">${esc(g.categoryName ?? 'Uncategorized')}</h2>\n`,
-          g.items,
-        ),
+    const [current, ...past] = seasons;
+    const currentHtml = `<section class="seasonblock">\n<h2 class="season">${esc(current.season ?? 'Undated')}</h2>\n${seasonInner(current, 'h3')}\n</section>`;
+    const pastHtml = past
+      .map(
+        (s) =>
+          `<details class="season"><summary>${esc(s.season ?? 'Undated')}</summary>\n${seasonInner(s, 'h3')}\n</details>`,
       )
       .join('\n');
-    const pastHtml = past.length
-      ? `\n<div class="pastblock">\n<h2 class="past">Past results</h2>\n${past
-          .map((g) =>
-            section(`<h3 class="year">${g.year ?? 'Undated'}</h3>\n`, g.items),
-          )
-          .join('\n')}\n</div>`
-      : '';
-    sections = activeHtml + pastHtml;
+    sections = `${currentHtml}\n${pastHtml}`;
   }
 
-  const picker = renderQuickJumpPicker(workspaceSlug, active, past);
+  const picker = renderQuickJumpPicker(workspaceSlug, seasons);
 
   return renderPublicShell(
     `${workspaceName} — published results`,
@@ -378,50 +444,42 @@ export function renderWorkspaceIndexHtml(
 }
 
 /**
- * The quick-jump picker above the workspace listing (#320): cascading Year /
- * Category / Series / Fleet selects for scorers who know what they're looking
- * for, with the scrolling listing staying the browsable default. Year narrows
- * the Category options (not every category spans every year), both narrow the
- * Series options and filter the listing below; picking a Series populates
- * Fleet; picking a Fleet navigates to its page.
+ * The quick-jump picker above the workspace listing (#320/ADR-011): cascading
+ * Season / Category / Series / Page selects for scorers who know what they're
+ * looking for, with the scrolling listing staying the browsable default.
+ * Season narrows the Category options (not every category spans every
+ * season), both narrow the Series options and filter the listing below;
+ * picking a Series populates the page select; picking a page navigates.
  *
  * Progressive enhancement: the controls ship `hidden` and are revealed by the
  * inline script, which reads the embedded JSON tree — no framework, no
  * external requests, nothing to see without JS. Degenerate dimensions (one
- * year, one category) don't render their select, and a workspace with fewer
+ * season, one category) don't render their select, and a workspace with fewer
  * than two publications gets no picker at all.
  */
 function renderQuickJumpPicker(
   workspaceSlug: string,
-  active: ListingCategoryGroup<WorkspaceIndexItem>[],
-  past: ListingYearGroup<WorkspaceIndexItem>[],
+  seasons: ListingSeasonGroup<WorkspaceIndexItem>[],
 ): { controls: string; script: string } {
-  // Display order: active sections then past, matching the listing below.
-  const ordered = [
-    ...active.flatMap((g) => g.items),
-    ...past.flatMap((g) => g.items),
-  ];
+  // Display order: seasons newest first, matching the listing below.
+  const ordered = seasons.flatMap((s) => s.groups.flatMap((g) => g.items));
 
   // One picker entry per contributing publication, each with its own name,
-  // placement, and fleet pages — a slug shared by a whole year of series
-  // (the as-published archive shape) still offers every series by name. An
-  // item without contributor data falls back to one slug-level entry.
+  // category, and fleet pages — a slug shared by a whole season of series
+  // (the as-published archive shape) still offers every series by name. The
+  // season is the slug's: it's a property of the top-level folder. An item
+  // without contributor data falls back to one slug-level entry.
   const entries = ordered.flatMap((it) =>
     (
       it.contributors ?? [
-        {
-          title: it.title,
-          year: it.year,
-          categoryName: it.categoryName,
-          pages: [],
-        },
+        { title: it.title, categoryName: it.categoryName, pages: [] },
       ]
     ).map((c) => {
       const single = c.pages.filter((p) => !p.isPrizes).length === 1;
       return {
         slug: it.slug,
         title: c.title ?? it.title,
-        year: c.year ?? null,
+        season: it.season ?? null,
         cat: c.categoryName ?? null,
         pages: c.pages.map((p) => ({
           label: fleetPageLabel(p, single),
@@ -432,26 +490,27 @@ function renderQuickJumpPicker(
   );
   if (entries.length < 2) return { controls: '', script: '' };
 
-  const years = [
-    ...new Set(
-      entries.map((e) => e.year).filter((y): y is number => y != null),
-    ),
-  ].sort((a, b) => b - a);
-  // Categories in section order; ones only present on contributors placed
-  // elsewhere (e.g. under Past results) follow in listing order.
+  const seasonValues = seasons
+    .map((s) => s.season)
+    .filter((s): s is string => s != null);
+  // Categories in section order across the seasons; a category that merely
+  // repeats a season label (the archive filing hack) never appears.
   const cats = [
-    ...new Set([
-      ...active.map((g) => g.categoryName),
-      ...entries.map((e) => e.cat),
-    ]),
+    ...new Set(
+      seasons.flatMap((s) =>
+        s.groups
+          .filter((g) => !suppressCategoryHeading(g.categoryName, s.season))
+          .map((g) => g.categoryName),
+      ),
+    ),
   ].filter((c): c is string => c != null);
 
   const data = { items: entries };
 
-  const yearSelect =
-    years.length >= 2
-      ? `<select id="picker-year" aria-label="Year"><option value="">All years</option>${years
-          .map((y) => `<option value="${y}">${y}</option>`)
+  const seasonSelect =
+    seasonValues.length >= 2
+      ? `<select id="picker-year" aria-label="Season"><option value="">All seasons</option>${seasonValues
+          .map((s) => `<option value="${esc(s)}">${esc(s)}</option>`)
           .join('')}</select>`
       : '';
   const catSelect =
@@ -460,7 +519,7 @@ function renderQuickJumpPicker(
           .map((c) => `<option value="${esc(c)}">${esc(c)}</option>`)
           .join('')}</select>`
       : '';
-  const controls = `<div class="picker" hidden>${yearSelect}${catSelect}<select id="picker-series" aria-label="Series"><option value="">All series</option></select><select id="picker-fleet" aria-label="Results page" disabled><option value="">Go to results&hellip;</option></select></div>\n`;
+  const controls = `<div class="picker" hidden>${seasonSelect}${catSelect}<select id="picker-series" aria-label="Series"><option value="">All series</option></select><select id="picker-fleet" aria-label="Results page" disabled><option value="">Go to results&hellip;</option></select></div>\n`;
 
   // `<` escaped so an adversarial series title can't close the script tag.
   const json = JSON.stringify(data).replace(/</g, '\\u003c');
@@ -477,7 +536,7 @@ const PICKER_SCRIPT = `(function () {
   var seriesSel = document.getElementById('picker-series');
   var fleetSel = document.getElementById('picker-fleet');
   function matches(it, y, c) {
-    if (y && String(it.year) !== y) return false;
+    if (y && (it.season || '') !== y) return false;
     if (c && it.cat !== c) return false;
     return true;
   }
@@ -489,16 +548,18 @@ const PICKER_SCRIPT = `(function () {
   }
   function refresh() {
     var y = yearSel ? yearSel.value : '';
-    // Category sits downstream of Year in the cascade: its options narrow to
-    // the categories with a publication in the selected year (not every
-    // category spans every year), keeping the selection when it survives.
+    // Category sits downstream of Season in the cascade: its options narrow
+    // to the categories with a publication in the selected season (not every
+    // category spans every season), keeping the selection when it survives. A
+    // category repeating its season label (the archive filing hack) is
+    // skipped.
     var c = '';
     if (catSel) {
       var keepCat = catSel.value;
       var cats = [];
       data.items.forEach(function (it) {
-        if (!it.cat || cats.indexOf(it.cat) !== -1) return;
-        if (y && String(it.year) !== y) return;
+        if (!it.cat || it.cat === it.season || cats.indexOf(it.cat) !== -1) return;
+        if (y && (it.season || '') !== y) return;
         cats.push(it.cat);
       });
       catSel.textContent = '';
@@ -539,21 +600,28 @@ const PICKER_SCRIPT = `(function () {
       var show = !!slugVisible[slug] && (!selected || selected.slug === slug);
       li.style.display = show ? '' : 'none';
     });
+    var anyVisibleIn = function (root) {
+      var any = false;
+      root.querySelectorAll('li[data-slug]').forEach(function (li) {
+        if (li.style.display !== 'none') any = true;
+      });
+      return any;
+    };
     document.querySelectorAll('section.lgroup').forEach(function (sec) {
-      var any = false;
-      sec.querySelectorAll('li[data-slug]').forEach(function (li) {
-        if (li.style.display !== 'none') any = true;
-      });
-      sec.style.display = any ? '' : 'none';
+      sec.style.display = anyVisibleIn(sec) ? '' : 'none';
     });
-    var pastBlock = document.querySelector('.pastblock');
-    if (pastBlock) {
-      var any = false;
-      pastBlock.querySelectorAll('li[data-slug]').forEach(function (li) {
-        if (li.style.display !== 'none') any = true;
-      });
-      pastBlock.style.display = any ? '' : 'none';
+    // Season sections: hide an emptied one; a filter opens the collapsed
+    // past seasons that still match, and clearing it re-collapses them.
+    var filtering = !!(y || c || selected);
+    var seasonBlock = document.querySelector('.seasonblock');
+    if (seasonBlock) {
+      seasonBlock.style.display = anyVisibleIn(seasonBlock) ? '' : 'none';
     }
+    document.querySelectorAll('details.season').forEach(function (d) {
+      var any = anyVisibleIn(d);
+      d.style.display = any ? '' : 'none';
+      d.open = filtering && any;
+    });
   }
   [yearSel, catSel, seriesSel].forEach(function (sel) {
     if (sel) sel.addEventListener('change', refresh);

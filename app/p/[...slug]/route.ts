@@ -39,6 +39,7 @@ import {
 import {
   folderSegmentOf,
   injectAfterBodyTag,
+  interiorFolderLabels,
   pagesInFolder,
   renderFolderIndexHtml,
   renderTreeNav,
@@ -46,6 +47,7 @@ import {
   type TreePage,
 } from '@/lib/published-tree';
 import {
+  getPublishedFolderMeta,
   getPublishedGroupByWorkspaceSlug,
   getSeriesName,
   getWorkspaceBySlug,
@@ -166,8 +168,8 @@ async function workspaceIndex(
       (await listAsPublishedRankings(workspace.id)).length > 0);
 
   // ETag from listing metadata so repeat views revalidate without re-rendering.
-  // Includes the placement fields (category / archive / order / year) so
-  // re-categorising, archiving, or reordering a series busts the cached page,
+  // Includes the placement fields (category / order / season) so
+  // re-categorising, re-filing, or reordering a series busts the cached page,
   // plus the competitors-link flag so it appears the first time one is added,
   // and the ranking links so publishing/renaming a ladder shows up. Each
   // item's page list feeds the quick-jump picker (#320), so it contributes too.
@@ -177,7 +179,7 @@ async function workspaceIndex(
     `rankings:${rankingsLink}`,
     ...items.map(
       (i) =>
-        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}:${i.contributors
+        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.season ?? ''}:${i.contributors
           .map(
             (c) =>
               `${c.title ?? ''}^${c.year ?? ''}^${c.categoryName ?? ''}^${c.pages
@@ -474,12 +476,15 @@ async function seriesIndex(
 
   // The listing changes only when a contributor re-publishes, so the members'
   // content hashes compose a sound ETag — plus the workspace logo, which the
-  // hero shows, and the top-folder list the navigation cascade renders.
-  const topFolders = await listPublishedTopFolders(workspace.id);
+  // hero shows, and the folder labels the navigation cascade renders.
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
+  const topFolders = await listPublishedTopFolders(workspace.id, folderMeta);
+  const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     ...group.map((p) => p.contentHash),
     ...topFolders.map((f) => `${f.slug}:${f.label}`),
+    ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -512,6 +517,7 @@ async function seriesIndex(
         }));
       }),
       soleContributor: group.length === 1,
+      folderLabels,
     },
     'block',
   );
@@ -546,12 +552,16 @@ async function fleetPage(
     return folderIndex(req, workspace, workspaceSlug, seriesSlug, subPath, group);
   }
 
-  // The navigation cascade (ADR-011) draws on the whole slug group and the
-  // workspace's top-level folders, so both join the page content in the ETag.
-  const topFolders = await listPublishedTopFolders(workspace.id);
+  // The navigation cascade (ADR-011) draws on the whole slug group, the
+  // workspace's top-level folders, and any folder-label overrides — so all
+  // three join the page content in the ETag.
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
+  const topFolders = await listPublishedTopFolders(workspace.id, folderMeta);
+  const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const etag = `"${await contentHash([
     ...group.map((p) => p.contentHash),
     ...topFolders.map((f) => `${f.slug}:${f.label}`),
+    ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -569,6 +579,7 @@ async function fleetPage(
       soleContributor: group.length === 1,
       currentFolder: folderSegmentOf(subPath) ?? undefined,
       currentSubPath: subPath,
+      folderLabels,
     },
     'float',
   );
@@ -612,18 +623,24 @@ async function folderIndex(
   // Folders are single segments; a two-segment miss is just a missing page.
   if (subPath.includes('/') || group.length === 0) return NOT_FOUND;
 
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
+  const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const pages = await groupTreePages(group);
-  const folder = slugFolders(pages).find((f) => f.segment === subPath);
+  const folder = slugFolders(pages, folderLabels).find(
+    (f) => f.segment === subPath,
+  );
   if (!folder) return NOT_FOUND;
 
   // Same freshness basis as the series index: the folder's contents only
-  // change when a contributor re-publishes; the cascade adds the top folders.
-  const topFolders = await listPublishedTopFolders(workspace.id);
+  // change when a contributor re-publishes; the cascade adds the top folders
+  // and label overrides.
+  const topFolders = await listPublishedTopFolders(workspace.id, folderMeta);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `folder:${subPath}`,
     ...group.map((p) => p.contentHash),
     ...topFolders.map((f) => `${f.slug}:${f.label}`),
+    ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -641,6 +658,7 @@ async function folderIndex(
       pages,
       soleContributor: group.length === 1,
       currentFolder: subPath,
+      folderLabels,
     },
     'block',
   );

@@ -69,11 +69,15 @@ export interface TreeFolder {
 /**
  * The interior folders under a slug, in order of first appearance (which is
  * contributor order — the in-app series order). A folder is labelled by its
- * pages' sub-series (block) name when they agree on one — live sub-series
- * publications carry it — falling back to the humanised segment (the archive
- * shape, where the segment is the event's own slug).
+ * metadata row when one exists (ADR-011), else by its pages' sub-series
+ * (block) name when they agree on one — live sub-series publications carry
+ * it — falling back to the humanised segment (the archive shape, where the
+ * segment is the event's own slug).
  */
-export function slugFolders(pages: TreePage[]): TreeFolder[] {
+export function slugFolders(
+  pages: TreePage[],
+  labels?: Map<string, string>,
+): TreeFolder[] {
   const order: string[] = [];
   const blockNames = new Map<string, Set<string>>();
   for (const p of pages) {
@@ -89,9 +93,27 @@ export function slugFolders(pages: TreePage[]): TreeFolder[] {
     const names = [...blockNames.get(segment)!];
     return {
       segment,
-      label: names.length === 1 ? names[0] : humanizeSlug(segment),
+      label:
+        labels?.get(segment) ??
+        (names.length === 1 ? names[0] : humanizeSlug(segment)),
     };
   });
+}
+
+/** The interior-folder label overrides for one slug, keyed by segment, from
+ *  the workspace folder-metadata map (whose keys are full `slug/segment`
+ *  paths). */
+export function interiorFolderLabels(
+  meta: Map<string, { label: string | null }>,
+  slug: string,
+): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const [path, m] of meta) {
+    if (m.label && path.startsWith(`${slug}/`)) {
+      labels.set(path.slice(slug.length + 1), m.label);
+    }
+  }
+  return labels;
 }
 
 /** The slug's root-level pages (one-segment sub-paths), in page order. */
@@ -142,13 +164,16 @@ export function leafLabel(
   return duplicated && page.ownerName ? `${page.ownerName} — ${base}` : base;
 }
 
-/** True when every top-level folder slug reads as a season ("2025",
- *  "2025-26") — the converged archive shape, where the cascade should offer
- *  seasons newest first rather than publish order. */
+/** A slug that reads as a season: a year, or a year-spanning "2025-26". The
+ *  converged archive shape publishes one such folder per season. */
+export function seasonLikeSlug(slug: string): boolean {
+  return /^\d{4}(-\d{2,4})?$/.test(slug);
+}
+
+/** True when every top-level folder slug reads as a season — then the cascade
+ *  offers seasons newest first rather than publish order. */
 function allSeasonLike(folders: TopFolder[]): boolean {
-  return (
-    folders.length > 0 && folders.every((f) => /^\d{4}(-\d{2,4})?$/.test(f.slug))
-  );
+  return folders.length > 0 && folders.every((f) => seasonLikeSlug(f.slug));
 }
 
 /** Order the top-level folders for the cascade: newest season first when the
@@ -173,6 +198,8 @@ export interface TreeNavPosition {
   currentFolder?: string;
   /** The sub-path of the page being served; absent on index pages. */
   currentSubPath?: string;
+  /** Interior-folder label overrides for the slug, keyed by segment. */
+  folderLabels?: Map<string, string>;
 }
 
 /** Inline links up to this many sibling pages; beyond it, a select. */
@@ -259,7 +286,7 @@ export function buildTreeNav(position: TreeNavPosition): {
   const children: NavLevel = {
     aria: 'Event or series',
     options: [
-      ...slugFolders(pages).map((f) => ({
+      ...slugFolders(pages, position.folderLabels).map((f) => ({
         label: f.label,
         href: `${slugBase}/${f.segment}`,
         current: f.segment === currentFolder,

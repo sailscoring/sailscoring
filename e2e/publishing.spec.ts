@@ -619,7 +619,7 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
   expect(await cruiserUpdated.text()).toContain('>C9<');
 });
 
-test('the public workspace listing mirrors category sections, relegates archived series, and quick-jumps (#320)', async ({ page }) => {
+test('the public workspace listing groups by season, expands the current one, and quick-jumps (#320/ADR-011)', async ({ page }) => {
   // Heavy: two scored series, two publishes, two categories, and an archive
   // before the listing is even loaded. No single step is slow, but the setup
   // alone fills the 30s default under full-suite load.
@@ -677,28 +677,23 @@ test('the public workspace listing mirrors category sections, relegates archived
   // before reading the public listing, so it isn't a race with the PATCH.
   await expect(page.getByRole('button', { name: /Archived \(1\)/ })).toBeVisible();
 
-  // The public listing: the active series sits under its category heading, above
-  // a "Past results" block that holds the archived series under its event year.
+  // The public listing (ADR-011): the current season expanded, its series
+  // under their category headings; the prior season a collapsed block.
   await page.goto(`/p/${workspaceSlug}`);
+  await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Past results' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '2024' })).toBeVisible();
+  const pastSeason = page.locator('details.season');
+  await expect(pastSeason.locator('summary')).toHaveText('2024');
+  // Collapsed until expanded: the older series' link hides behind the summary.
+  await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();
+  await pastSeason.locator('summary').click();
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).toBeVisible();
 
-  // The active, categorised section is listed before the relegated Past
-  // results block, which holds the archived series. (The picker's series
-  // options also carry the titles, so anchor on the section structure rather
-  // than the first occurrence of a title in the page source.)
-  const body = await page.locator('body').innerHTML();
-  expect(body.indexOf('Club Racing')).toBeLessThan(body.indexOf('Past results'));
-  await expect(
-    page.locator('.pastblock').getByRole('link', { name: 'Lambay Race 2024', exact: true }),
-  ).toBeVisible();
-
-  // The quick-jump picker (#320): Year filters the listing, sections hiding
-  // when emptied, and narrows the category options to the categories with a
-  // publication in that year — a selection that no longer applies resets.
+  // The quick-jump picker (#320): Season filters the listing — opening the
+  // collapsed seasons that match, hiding emptied sections — and narrows the
+  // category options to the categories with a publication in that season; a
+  // selection that no longer applies resets.
   const picker = page.locator('.picker');
   await expect(picker).toBeVisible();
   await picker.locator('#picker-cat').selectOption('Club Racing');
