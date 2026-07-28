@@ -318,11 +318,18 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
   await page.getByRole('checkbox', { name: 'Dinghy' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
+  // The start must be on the sheet before a finish can be entered against it —
+  // finish entry refuses a competitor whose fleet has no start for the race.
+  await expect(page.getByText('14:00:00', { exact: true })).toBeVisible();
   // Close the race-starts panel via its Done button.
   await page.getByRole('button', { name: 'Done' }).click();
 
   await page.getByLabel('Sail number').fill('B1');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
+  // Confirm the finish actually landed on the sheet: a refused entry leaves the
+  // sheet empty, and the guard below then has nothing to block on — which reads
+  // as "the block is broken" rather than "the finish was never added".
+  await expect(page.getByRole('listitem').filter({ hasText: 'B1' })).toBeVisible();
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
