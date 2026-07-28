@@ -58,7 +58,10 @@ qualifying fleet; we avoid it in the app).
 - **Logical race vs physical race** — internal modelling terms (probably
   not user-visible): qualifying race Q3 is one *logical* race made up of
   three *physical* races, one per qualifying fleet, each with its own
-  start, finish sheet, and completion status.
+  start, places, and completion status. A stored `Race` is neither — it
+  is one **start sequence**: the fleets that started in succession and
+  finished over one combined sheet. A physical race is a (race, start)
+  pair; one sequence may hold one physical race or several (Part 2).
 
 ---
 
@@ -246,6 +249,24 @@ carries exactly this.
 on final-series scores only; the 2013 LE medal-race tie-break (medal score
 first, then A8 over the opening series) applies where a medal race exists.
 
+### Sequenced starts and the combined finish sheet
+
+How the racing is physically run (scorer feedback from real split-fleet
+events): a session's fleets start in sequence — five-minute gaps on the
+same line — and faster boats in a later-starting fleet catch and pass the
+tail of the fleet ahead. The finish team therefore records **one
+interleaved sheet across every fleet in the sequence**, not one sheet per
+fleet. Which fleets share a sequence varies session by session: all of
+Q3's fleets on a qualifying day; Gold F2 + Silver F2 + Bronze F1 when the
+final fleets are a race out of step; the medal race and its companion
+race. The one combination a sequence never contains is two fleets that
+share a boat — she cannot be on two start lines five minutes apart —
+which is why a catch-up race for a lagging fleet (whose old-round
+membership cuts across every new-round fleet) is always run as its own
+separate sequence, first (LE 7.3(c)). The data model leans on both halves
+of this: the combined sheet is the input to represent faithfully, and the
+disjointness is the validation rule (Part 2).
+
 ### The 2026 ILCA Worlds — the concrete target
 
 The **2026 ILCA 7 Men's Worlds run 23–30 August 2026 at Dun Laoghaire**
@@ -353,13 +374,26 @@ Walk the 2024 Adelaide event through Sail Scoring concepts:
   semantics fall out structurally: rescoring a protest can never reassign
   a fleet that already exists. (This is the property Sailwave enforces
   with a freeze checkbox.)
-- Each scheduled qualifying race is sailed once per fleet: **one physical
-  `Race` per (fleet × scheduled race)**, each with its own start, finish
-  sheet, abandonment, and possibly its own day (catch-up races). The
-  existing finish-sheet model, per-race abandonment, and
-  protest-time-limit machinery apply unchanged; scoping a race to a
-  single fleet also scopes finish entry to that fleet's roster — a Blue
-  boat cannot be given a finish from the Yellow sheet.
+- A `Race` already models how a session is actually run: a **start
+  sequence** — one or more `RaceStart`s, each with its own gun time and
+  fleets — finishing over **one unified crossing-order sheet** (ADR-007),
+  with places computed within each fleet. That is exactly the combined
+  finish sheet the finish team hands the scorer. So the stored `Race` is
+  the on-water session, and a **physical race is a (race, start) pair**:
+  *which* stage race each started fleet is sailing lives on the start
+  (`RaceStart.stageRaceNumber`), not on the race. Q1-Yellow can be a
+  standalone one-start race, Yellow/Blue/Red Q1 one race with three
+  starts, Gold F2 + Silver F2 + Bronze F1 one race — whatever the RC ran
+  that session. Finish entry scopes to the union of the started fleets,
+  and each row's fleet follows from the round's stored assignments — a
+  boat outside every started fleet still cannot be given a finish.
+- The one structural rule: **fleets started in the same race must have
+  pairwise-disjoint membership** (a boat can appear at most once on a
+  sheet). That validation forbids exactly the sequences an RC cannot
+  physically run — combining an old-round catch-up fleet with new-round
+  fleets that overlap it — and permits everything it can: same-round
+  qualifying fleets, final fleets in any stage-number combination, the
+  medal race with its companion race.
 - What no existing concept expresses is the relationships *between* those
   pieces: which fleets belong to which round and stage, which physical
   races make up qualifying race Q3, and the event-level scoring regime
@@ -457,33 +491,45 @@ export interface SplitFleetConfig {
 Two of these are deliberately *not* hard-wired, so unusual events don't need
 a config change:
 
-- **The companion "last race" is a per-race primitive, not a medal flag.**
-  A `Race.firstPlaceOffset?: number` (first finisher scores `offset + 1`)
-  lives on the race itself, so *any* race can be a companion race — the
-  common case (non-medal Gold, first = medal size + 1) is just what the
-  medal ceremony pre-fills, but a Silver last race or a one-off follows the
-  same primitive with no new pattern to encode.
+- **The companion "last race" is a per-start primitive, not a medal flag.**
+  A `RaceStart.firstPlaceOffset?: number` (first finisher scores
+  `offset + 1`) lives on the start, so *any* started fleet can sail a
+  companion race — the common case (non-medal Gold, first = medal size + 1)
+  is just what the medal ceremony pre-fills, but a Silver last race or a
+  one-off follows the same primitive with no new pattern to encode. It sits
+  on the start rather than the race because the medal race and its
+  companion race are typically one start sequence — one race, two starts,
+  one sheet.
 - **`medal.raceCount` is a planning hint, not a limit.** It seeds the day
   strip; the medal phase lets the scorer add M1, M2, … like final races (the
   2026 two-race medal series is two adds, not a special mode).
 
-`Race` gains optional fields (absent on standard series):
+`RaceStart` gains optional fields (absent on standard series). Stage
+identity is per start, not per race, because one sequence can span stage
+race numbers (Gold F2 + Silver F2 + Bronze F1):
 
 ```ts
 stage?: SeriesStage;
-stageRaceNumber?: number;   // Q3 → ('qualifying', 3); final/medal races are
-                            // numbered per fleet for display but need no
-                            // cross-fleet pairing
+stageRaceNumber?: number;   // Q3 → ('qualifying', 3), per start; final/medal
+                            // numbering is per fleet and needs no cross-fleet
+                            // pairing
+firstPlaceOffset?: number;  // companion-race offset (see above)
 ```
+
+`Race` itself carries nothing split-fleet-specific: its number, name, and
+date describe the session. Per-fleet completion is derived (a start is
+complete when the sheet has rows for its fleet's boats); per-fleet
+abandonment needs a per-start home — open question 8.
 
 `Series` gains `qfConfig?: SplitFleetConfig`. `Fleet` needs no new
 fields for v1: a fleet's stage, round, and order all live on the round
 that created it. The logical qualifying race Qk is derived state: the set
-of physical races with `stageRaceNumber == k` across the covering round's
-fleets, **valid** when there is one completed physical race per fleet.
+of (race, start) pairs with `stageRaceNumber == k` across the covering
+round's fleets, **valid** when every fleet's physical race is complete.
 Because rounds are keyed by logical race number, not date, a catch-up race
 sailed a day late automatically uses the round it was scheduled under —
-the LE 7.3(c) behaviour falls out with no special case.
+the LE 7.3(c) behaviour falls out with no special case: the catch-up is
+simply its own one-start race on the later date.
 
 **`Competitor` gains an optional `seed?: number`** — the OA's initial
 seeding rank (Sailwave's "Seeding" column). Initial seeding by a class
@@ -531,9 +577,11 @@ now.
 The engine (`lib/scoring.ts`) gains a split-fleet path alongside fleet
 standings:
 
-- **Per-fleet places** come from the existing within-fleet ranking — each
-  physical race is scoped to one fleet, so "multiple 1sts" needs no new
-  mechanism.
+- **Per-fleet places** come from the existing within-fleet ranking over
+  the race's combined sheet — a race shared by several fleets already
+  yields an independent 1, 2, 3… per fleet, so "multiple 1sts" needs no
+  new mechanism and the interleaved crossing order needs no disentangling
+  at entry time.
 - **Code points** from `codeBasis`: largest-fleet-assigned-size + 1 during
   qualifying — a *stage-wide* constant derived from the covering round's
   fleets (assigned size, DNC boats included), not each fleet's own size —
@@ -552,10 +600,10 @@ standings:
   `net-plus-net` computes per-stage nets and sums; `rank-seed` synthesises
   a non-discardable carried score equal to qualifying rank (Sailwave's
   CarriedFwd field, but computed, not hand-merged).
-- **Medal scoring:** points × multiplier, never discarded; a race whose
-  `Race.firstPlaceOffset` is set scores its first finisher `offset + 1` and
-  so on (like ZW's "First As") — the companion "last race" pre-filled with
-  `offset = medal.size`, but usable on any race.
+- **Medal scoring:** points × multiplier, never discarded; a start whose
+  `RaceStart.firstPlaceOffset` is set scores its fleet's first finisher
+  `offset + 1` and so on (like ZW's "First As") — the companion "last
+  race" pre-filled with `offset = medal.size`, but usable on any start.
 - **Event ranking.** Overall order: medal fleet first (where the stage
   exists), then Gold block, Silver block, … — each block internally by net
   points + A8 — with the RRS 6/69 carve-out surfaced as a per-boat flag
@@ -566,14 +614,18 @@ standings:
   Blue, 6 Yellow, …), plus the seeded initial orders (seed rank /
   nationality-spread / sail number). Pure, fixture-tested, and reused by
   the reassignment preview UI.
-- **Wrong-fleet finishes.** Finish entry is fleet-scoped, so the Sailwave
-  failure mode mostly can't occur at the desk; for the on-water case (a
-  boat sails with the wrong fleet), the SI-default outcome is DNC in her
-  own fleet's race and no score in the gate-crashed one. The scorer
-  records what the sheet says via an explicit affordance ("finished with
-  Blue — scores DNC in Yellow"), surfaced as a `ScoringRejection` until
-  resolved (accept the DNC, or record an RC-sanctioned assignment
-  override).
+- **Wrong-fleet finishes.** Finish entry is scoped to the union of the
+  race's started fleets, so a number outside all of them is caught at the
+  desk (the Sailwave failure mode). Where the boat's own fleet is in a
+  *different* race — the catch-up-day case — the SI-default outcome is
+  DNC in her own fleet's race and no score in the gate-crashed one; the
+  scorer records what the sheet says via an explicit affordance
+  ("finished with Blue — scores DNC in Yellow"), surfaced as a
+  `ScoringRejection` until resolved (accept the DNC, or record an
+  RC-sanctioned assignment override). Where both fleets share the
+  sequence, her row is on the sheet legitimately and her place computes
+  within her assigned fleet — a wrong *start* inside one sequence is
+  invisible to any scoring desk and stays an RC/jury observation.
 
 ### Frozen state, and what it does to fixtures
 
@@ -599,12 +651,13 @@ recomputable. Two consequences:
 ### Persistence, files, exports
 
 - Fleets reuse the existing `fleets` table and mechanics. New:
-  `assignment_rounds` (fleet ids + assignments/overrides as JSONB), two
-  nullable columns on `races`, `qf_config` JSONB on `series` — mirrored in
-  `lib/db/schema/`, validation in `lib/validation/`, and the repositories.
-- **Series-file format bump**: rounds, race stage fields, and `qfConfig`
-  must round-trip through `lib/series-file.ts` (fleets already do);
-  omitting any of it is silent data loss.
+  `assignment_rounds` (fleet ids + assignments/overrides as JSONB), three
+  nullable columns on `race_starts` (stage, stage race number, first-place
+  offset), `qf_config` JSONB on `series` — mirrored in `lib/db/schema/`,
+  validation in `lib/validation/`, and the repositories.
+- **Series-file format bump**: rounds, the start stage fields, and
+  `qfConfig` must round-trip through `lib/series-file.ts` (fleets and
+  starts already do); omitting any of it is silent data loss.
 - **Public JSON export** carries the same (fleet assignments are public
   information — they're on every published results page); CSV import
   should accept a seeding column (Sailwave-compatible ingest of an OA
@@ -664,14 +717,18 @@ Every round mutation is an activity-log entry, and revision history
 ### Races and finish entry
 
 The Races tab groups physical races under their logical race: "Q3" is a
-row with Yellow / Blue / Red chips, each a physical race with its own
-start time, finish sheet, and status — with a "not yet valid" marker on a
-logical race some fleet hasn't completed. Finish entry is the existing
-per-race sheet, scoped to the fleet's roster — the sail-number wizard only
-offers boats assigned to that fleet, and an out-of-roster number triggers
-the wrong-fleet flow rather than silent acceptance. Per-fleet abandonment
-is just abandoning that physical race; the standings and reassignment
-math react per the rules above.
+row with Yellow / Blue / Red chips, each a (race, start) pair with its
+own gun time and status — chips of one start sequence point into the same
+race and its shared sheet — with a "not yet valid" marker on a logical
+race some fleet hasn't completed. Finish entry is the existing unified
+per-race sheet, entered exactly as the combined sheet comes off the water,
+interleaved across the sequence's fleets, and scoped to their union: the
+sail-number wizard only offers boats assigned to the started fleets, each
+row tints with the boat's fleet colour as it resolves (a live visual check
+against the paper sheet), and an out-of-roster number triggers the
+wrong-fleet flow rather than silent acceptance. Per-fleet abandonment
+acts on the start, not the race (open question 8); the standings and
+reassignment math react per the rules above.
 
 ### Standings and publishing
 
@@ -798,6 +855,23 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
    v1 requires `scoringMode: 'scratch'`; split fleets × handicap systems
    is uncharted (no known real event) and stays unsupported until one
    exists.
+8. **Per-start status machinery.** Completion is derivable from the
+   sheet, but abandonment today is per-race, and a fleet's race can be
+   abandoned while the rest of the sequence stands. Per-start abandonment
+   flag, or "remove the start and re-create it on the resail race"? Work
+   the two sequences on paper before locking: Yellow general-recalled and
+   resailed at the end of the same sequence (same race, later gun), and
+   Yellow abandoned and resailed next morning (the start moves to its own
+   race; any entered Yellow rows go with it). The protest-time-limit
+   anchor (`lastFinisherTime`) has the same shape: limits run per fleet,
+   derivable from a timed sheet, needing a per-start fallback when the
+   sheet is untimed.
+9. **Race naming and numbering.** With the race as the start sequence,
+   "Q3" is no longer a race name: a race is "Day 2, Race 1" holding
+   Yellow Q3 + Blue Q3 + Red Q3 (or Gold F2 + Silver F2 + Bronze F1), and
+   Q3 / F2 are per-start labels. `raceNumber` ordering, default names,
+   and the standings column headers (keyed by stage race, not by race)
+   need a naming pass, taken alongside open questions 1–2.
 
 ### Feature-checklist mapping (when implementation starts)
 
@@ -817,6 +891,14 @@ the prioritised scenarios (D1/D3/D5/D6/D8/D10) is tracked in
 [**#328**](https://github.com/sailscoring/sailscoring/issues/328) — organised
 by layer, each item tagging its scenario driver and the prototype shortcut it
 undoes.
+
+The prototype predates the start-sequence revision above (scorer feedback:
+fleets start in sequence and finish onto one combined sheet): it assumes
+exactly one fleet per race — `SplitFleetData.raceFleetIds` maps race →
+single fleet, and `assembleSplitFleetData` drops multi-fleet starts — and
+keeps `stage` / `stageRaceNumber` / `firstPlaceOffset` on `Race`. Re-keying
+the physical race to (race, start) — types, engine, persistence, and the
+Races / finish-entry surfaces — is part of taking the prototype forward.
 
 ## References
 

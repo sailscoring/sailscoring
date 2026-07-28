@@ -9,6 +9,20 @@ is about what the scorer sees and does.
 **Route:** `/series/[id]/split-fleets` — a series tab (between Races and
 Standings) that exists only on a split-fleet series.
 
+> **Predates the start-sequence revision.** Scorer feedback moved the data
+> model on: fleets start in sequence and finish onto **one combined sheet**,
+> so a `Race` is now the start sequence (one or several fleets, disjoint
+> membership) and a physical race is a (race, start) pair — see the main
+> doc's "Sequenced starts and the combined finish sheet" and "The shape of
+> the problem". This document still assumes one `Race` per fleet. Most of it
+> survives (the ceremony, chips, validity gate, publishing), but these parts
+> need a pass: chips of one sequence open the *same* finish-entry screen
+> (one interleaved sheet, fleet-tinted rows) rather than one screen per
+> fleet; "abandoning one fleet's race" becomes a per-start action, not a
+> race-level one; race creation groups starts into sequences; and the
+> entity-mapping table's "`Race` rows (one per fleet)" is no longer the
+> invariant.
+
 ---
 
 ## Overview
