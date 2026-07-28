@@ -88,7 +88,7 @@ test('publish with a chosen slug → public page renders → bare slug lists the
   await expect(dialog).toBeVisible();
 
   // The slug is pre-filled from the series name and editable before publishing.
-  const slugInput = dialog.getByLabel('URL slug');
+  const slugInput = dialog.getByLabel('Publish under');
   await expect(slugInput).toHaveValue('hyc-autumn-league-2026');
   await slugInput.fill('autumn-26');
 
@@ -120,7 +120,7 @@ test('publish with a chosen slug → public page renders → bare slug lists the
   await page.goto(`/series/${seriesId}/standings`);
   await page.getByRole('button', { name: 'Publish' }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel('URL slug')).toHaveCount(0);
+  await expect(dialog.getByLabel('Publish under')).toHaveCount(0);
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
   await dialog.getByRole('button', { name: 'Re-publish' }).click();
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
@@ -215,7 +215,7 @@ test('back-links chain a fleet page up to its series index and on to the workspa
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('autumn-26');
+  await dialog.getByLabel('Publish under').fill('autumn-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const link = dialog.getByRole('link', { name: /\/p\// });
   await expect(link).toBeVisible();
@@ -296,7 +296,7 @@ test('workspace Published page lists a publication and unpublishing frees the sl
   // Publish under a chosen slug.
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('autumn-26');
+  await dialog.getByLabel('Publish under').fill('autumn-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const link = dialog.getByRole('link', { name: /\/p\// });
   await expect(link).toBeVisible();
@@ -328,7 +328,7 @@ test('workspace Published page lists a publication and unpublishing frees the sl
   // slug still held this would fail with a slug-in-use error.
   await page.goto(`/series/${seriesId}/standings`);
   await page.getByRole('button', { name: 'Publish' }).click();
-  const slugInput = dialog.getByLabel('URL slug');
+  const slugInput = dialog.getByLabel('Publish under');
   await expect(slugInput).toBeVisible();
   await slugInput.fill('autumn-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
@@ -340,7 +340,7 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('orphan-me');
+  await dialog.getByLabel('Publish under').fill('orphan-me');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /orphan-me/ })).toBeVisible();
 
@@ -373,11 +373,15 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
 });
 
 test('two series publish into one shared slug → the listing unions both, sub-headed per series', async ({ page }) => {
+  // Heavy: two scored series, two publishes, and cascade navigation across
+  // both pages — the setup alone can fill the 30s default under full-suite
+  // load.
+  test.slow();
   // First series publishes at a deliberately event-shaped slug.
   await createSeriesWithData(page, { name: 'Lambay Races Cruisers', sail: '11' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const firstLink = dialog.getByRole('link', { name: /\/p\// });
   await expect(firstLink).toBeVisible();
@@ -389,13 +393,13 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   await expect(firstLink).toHaveText(/\/2026-lambay-races\/standings$/);
 
   // Second series targets the same slug: publishing is blocked until the scorer
-  // confirms joining the existing event, so two events never merge by accident.
+  // confirms joining the existing folder, so two events never merge by accident.
   await createSeriesWithData(page, { name: 'Lambay Races One Designs', sail: '22' });
   await page.getByRole('button', { name: 'Publish' }).click();
-  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByText(/already has results from Lambay Races Cruisers/)).toBeVisible();
-  await dialog.getByRole('button', { name: 'Publish into existing event' }).click();
+  await dialog.getByRole('button', { name: 'Publish into existing folder' }).click();
   // A co-published default fleet lands at the series slug, not "standings".
   await expect(
     dialog.getByRole('link', { name: /\/2026-lambay-races\/lambay-races-one-designs$/ }),
@@ -440,7 +444,7 @@ test('single-fleet: the default page URL is editable before first publish', asyn
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('autumn-26');
+  await dialog.getByLabel('Publish under').fill('autumn-26');
 
   // The lone default page's sub-path defaults to "standings" and is editable.
   const pageUrl = dialog.getByRole('textbox', { name: 'Page URL' });
@@ -465,7 +469,7 @@ test('single-fleet: the page URL can be edited before joining a shared slug', as
   await createSeriesWithData(page, { name: 'Lambay Races Cruisers', sail: '11' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const firstLink = dialog.getByRole('link', { name: /\/p\// });
   await expect(firstLink).toBeVisible();
@@ -479,7 +483,7 @@ test('single-fleet: the page URL can be edited before joining a shared slug', as
   // slug (it can't keep "standings") — the scorer edits it before confirming.
   await createSeriesWithData(page, { name: 'Lambay Races One Designs', sail: '22' });
   await page.getByRole('button', { name: 'Publish' }).click();
-  await dialog.getByLabel('URL slug').fill('2026-lambay-races');
+  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
   const pageUrl = dialog.getByRole('textbox', { name: 'Page URL' });
   await expect(pageUrl).toHaveValue('standings');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
@@ -488,7 +492,7 @@ test('single-fleet: the page URL can be edited before joining a shared slug', as
   // Seeded disambiguated default, then overridden to the scorer's own segment.
   await expect(pageUrl).toHaveValue('lambay-races-one-designs');
   await pageUrl.fill('one-designs');
-  await dialog.getByRole('button', { name: 'Publish into existing event' }).click();
+  await dialog.getByRole('button', { name: 'Publish into existing folder' }).click();
 
   // The page lands at the edited segment, not the auto-derived series slug.
   await expect(dialog.getByRole('link', { name: /\/2026-lambay-races\/one-designs$/ })).toBeVisible();
@@ -503,7 +507,7 @@ test('selective publishing: choose fleets and override a fleet URL segment', asy
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('club-1');
+  await dialog.getByLabel('Publish under').fill('club-1');
 
   // The IRC fleet's URL segment defaults to the kebab name; override it so a
   // clean fleet name can live at a disambiguated URL.
@@ -536,7 +540,7 @@ test('the cascade moves between a publication\'s fleet pages (#320/ADR-011)', as
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('spring-26');
+  await dialog.getByLabel('Publish under').fill('spring-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const link = dialog.getByRole('link', { name: /\/spring-26\/irc$/ });
   await expect(link).toBeVisible();
@@ -561,7 +565,7 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
   // First publish: both fleets.
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('club-2');
+  await dialog.getByLabel('Publish under').fill('club-2');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
   const ircLink = dialog.getByRole('link', { name: /\/club-2\/irc$/ });
@@ -629,7 +633,7 @@ test('the public workspace listing groups by season, expands the current one, an
   await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11', date: '2026-05-01' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('URL slug').fill('spring-26');
+  await dialog.getByLabel('Publish under').fill('spring-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const firstLink = dialog.getByRole('link', { name: /\/p\// });
   await expect(firstLink).toBeVisible();
@@ -643,7 +647,7 @@ test('the public workspace listing groups by season, expands the current one, an
     date: '2024-08-17',
   });
   await page.getByRole('button', { name: 'Publish' }).click();
-  await dialog.getByLabel('URL slug').fill('lambay-24');
+  await dialog.getByLabel('Publish under').fill('lambay-24');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /\/lambay-24\/standings$/ })).toBeVisible();
 

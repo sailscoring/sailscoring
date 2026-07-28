@@ -1855,26 +1855,29 @@ export default async function HelpPage() {
           published its URL is fixed, like the slug; to change it, unpublish and publish again.
         </p>
         <p>
-          Each series also gets a listing page at its base URL (e.g.{' '}
-          <code className="text-foreground text-sm">…/autumn-league-2026</code>) linking to every
-          fleet, and your workspace has a public index at{' '}
-          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing all the
-          series you’ve published. Both update automatically as you publish. Each fleet page
-          links back up to its series listing, and that listing links up to the workspace index,
-          so a visitor can climb from one fleet’s results to everything you’ve published. A
-          fleet page in a multi-fleet publication also carries a switcher to its sibling fleets,
-          and once a workspace has more than one published series its index gains quick-jump
-          dropdowns — year, category, series, fleet — so a visitor can go straight to the table
-          they’re after instead of scrolling.
+          Published pages form a tree: everything you publish lives under a folder (the URL
+          slug you choose — a season like{' '}
+          <code className="text-foreground text-sm">…/2026</code> or an event like{' '}
+          <code className="text-foreground text-sm">…/autumn-league-2026</code>), each folder
+          gets a listing page linking to every page inside it, and your workspace has a public
+          index at <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code>{' '}
+          grouped by season — the current season open, earlier seasons collapsed. All of it
+          updates automatically as you publish. Every public page carries the same navigation
+          dropdowns showing where the visitor is — season or event, series, results page —
+          and changing any of them jumps straight to the sibling, so getting from{' '}
+          <em>Class 1</em> to <em>Class 2</em>, or from this season’s series to last
+          season’s, is one control away. The workspace index adds a quick-jump row — season,
+          category, series, page — that filters the listing and goes straight to the table
+          a visitor is after instead of scrolling.
         </p>
         <p>
           <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}
-          a slug is a shared namespace, so more than one series can publish under the same one —
+          a folder is shared, so more than one series can publish into the same one —
           handy when an event is scored as separate series, e.g. publishing both{' '}
           <em>Lambay Races Cruisers</em> and <em>Lambay Races One Designs</em> to{' '}
           <code className="text-foreground text-sm">…/2026-lambay-races</code>. Type the existing
-          slug when you publish the second series; Sail Scoring asks you to confirm joining the
-          existing event, then the listing page lists every series under it, each with its own
+          folder when you publish the second series; Sail Scoring asks you to confirm joining the
+          existing folder, then the listing page lists every series under it, each with its own
           fleets. Each series keeps publishing and unpublishing independently — unpublishing one
           removes only its fleets and leaves the others live. Every fleet URL must be distinct
           across the series sharing a slug; if two clash, edit one fleet’s URL segment in the
@@ -1885,7 +1888,7 @@ export default async function HelpPage() {
           the <strong className="text-foreground">Published</strong> tab on the workspace pages
           lists every page your workspace has published, with its public URL, when it was last
           published, how many edits have landed since, and whether it shares its URL with
-          another series. Pages are grouped the same way as the public listing — active series
+          another series. Pages are grouped for the scorer — active series
           by category, archived ones under Past results by year — and you can search by name
           or URL and filter to pages with edits since publish.{' '}
           <strong className="text-foreground">Unpublish</strong> takes a page down: the public URL

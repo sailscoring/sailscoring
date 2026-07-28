@@ -418,7 +418,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
             setSinglePath(status.suggestedSlug);
           }
           setError(
-            `This URL already has results from ${formatNameList(names)}. Publish “${series.name}” alongside them — check the page URL below first.`,
+            `This folder already has results from ${formatNameList(names)}. Publish “${series.name}” alongside them — check the page URL below first.`,
           );
           return;
         }
@@ -544,7 +544,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               </p>
             ) : (
               <div className="space-y-1.5">
-                <Label htmlFor="publish-slug">URL slug</Label>
+                <Label htmlFor="publish-slug">Publish under</Label>
                 <Input
                   id="publish-slug"
                   value={slug}
@@ -558,7 +558,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
             {multiFleet ? (
               <>
                 <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
-                  Fleet pages live under{' '}
+                  Pages live under{' '}
                   {isPublished ? (
                     // The series-index page at the bare slug only exists once
                     // something's published, so link it only then.
@@ -819,7 +819,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           )}
           {needsJoin ? (
             <Button onClick={() => handlePublish(true)} disabled={isPublishing || validation !== null}>
-              {isPublishing ? 'Publishing…' : 'Publish into existing event'}
+              {isPublishing ? 'Publishing…' : 'Publish into existing folder'}
             </Button>
           ) : (
             <Button

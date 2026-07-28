@@ -3,13 +3,17 @@
  * replacement — #153). Runtime-agnostic: uses Web Crypto (`crypto.subtle`),
  * available in both the Node server runtime and tests.
  *
- * Published URLs are `/p/{workspaceSlug}/{seriesSlug}/{subPath}`:
+ * Published URLs are `/p/{workspaceSlug}/{slug}/{subPath}` — a publication
+ * tree (ADR-011): the slug names a top-level folder (usually a season or an
+ * event; several series can publish into one), and the sub-path adds an
+ * optional interior folder plus the page.
  *   - `workspaceSlug` is the org slug (`hyc`, or `u-{id}` for personal).
- *   - `seriesSlug` is `kebab(series name)` by default, editable at first
- *     publish, frozen after, unique within the workspace.
- *   - `subPath` is `standings` for a single (default) fleet, or `kebab(fleet)`
- *     for a named fleet. The bare `/p/{ws}/{series}` is reserved for the
- *     listing (#162), so every fleet is a sub-page.
+ *   - the folder slug is `kebab(series name)` by default, editable at first
+ *     publish, frozen after.
+ *   - `subPath` is `standings` for a single (default) fleet, `kebab(fleet)`
+ *     for a named fleet, or `{block}/{fleet}` for a sub-series page. The bare
+ *     `/p/{ws}/{slug}` is reserved for the folder's listing (#162), so every
+ *     page is a sub-page; interior prefixes resolve to folder indexes.
  */
 
 /** Lowercase, hyphenate runs of non-alphanumerics, trim hyphens. */
