@@ -66,13 +66,31 @@ export const splitRoundCommitSchema = z.object({
   date: z.string().default(''),
 });
 
-/** Body for POST …/rounds/:roundId/races — add stage races to a round. */
-export const splitStageRacesSchema = z.object({
-  stageRaceNumbers: z.array(z.number().int().positive()).min(1),
-  /** Restrict creation to these of the round's fleets (default: all). */
-  fleetIds: z.array(uuidSchema).optional(),
-  date: z.string().default(''),
-});
+/** Body for POST …/rounds/:roundId/races — add stage races to a round.
+ *  Each stage race number becomes one race (a start sequence) covering the
+ *  given fleets. Alternatively `starts` names each fleet's own stage race
+ *  number and creates a single combined race — the out-of-step case (Gold
+ *  F2 + Silver F2 + Bronze F1 in one sequence). */
+export const splitStageRacesSchema = z
+  .object({
+    stageRaceNumbers: z.array(z.number().int().positive()).default([]),
+    /** Restrict creation to these of the round's fleets (default: all). */
+    fleetIds: z.array(uuidSchema).optional(),
+    /** One combined race with per-fleet stage race numbers. */
+    starts: z
+      .array(
+        z.object({
+          fleetId: uuidSchema,
+          stageRaceNumber: z.number().int().positive(),
+        }),
+      )
+      .min(1)
+      .optional(),
+    date: z.string().default(''),
+  })
+  .refine((v) => (v.starts?.length ?? 0) > 0 || v.stageRaceNumbers.length > 0, {
+    message: 'stageRaceNumbers or starts is required',
+  });
 
 const _configFromZod: SplitFleetConfig = undefined as unknown as z.infer<
   typeof splitFleetConfigSchema

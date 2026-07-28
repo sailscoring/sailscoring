@@ -60,13 +60,17 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
   await expect(page.getByText('does not count yet')).toHaveCount(2);
 
-  // ── Q1: both fleets' finish sheets ────────────────────────────────────────
+  // ── Q1: one start sequence, one combined sheet ────────────────────────────
+  // Both fleet chips open the same race — Yellow and Blue start in sequence
+  // and finish onto one combined crossing-order sheet.
   const q1Row = page.getByTestId('logical-race-qualifying-1');
   await q1Row.getByRole('link', { name: /Yellow · enter finishes/ }).click();
   await expect(page).toHaveURL(/\/races\//);
+  const q1Url = page.url();
   await enterFinishes(page, yellowSails);
   await page.goBack();
   await q1Row.getByRole('link', { name: /Blue · enter finishes/ }).click();
+  await expect(page).toHaveURL(q1Url);
   await enterFinishes(page, blueSails);
   await page.goBack();
 

@@ -176,15 +176,24 @@ export async function commitSplitRound(
         );
     }
 
-    // Physical races + fleet-scoped starts.
-    await createStageRaces(tx, {
-      seriesId,
-      workspaceId,
-      stage: input.stage,
-      stageRaceNumbers: input.stageRaceNumbers,
-      fleets: fleetRows.map((f) => ({ id: f.id, label: f.name })),
-      date: input.date,
+    // The stage races. Qualifying and final fleets start in sequence and
+    // finish onto one combined sheet — one race per stage race number, one
+    // start per fleet. Medal-stage fleets race apart (the umpired medal race
+    // and the companion "last race" run on their own courses): one race per
+    // fleet, the companion's first finisher scoring below the medal fleet.
+    const medalSize = Object.values(input.assignments).filter((idx) => idx === 0).length;
+    const specs: StageRaceSpec[] = input.stageRaceNumbers.flatMap((n) => {
+      const starts = fleetRows.map((f, i) => ({
+        fleetId: f.id,
+        label: f.name,
+        stageRaceNumber: n,
+        ...(input.stage === 'medal' && i > 0 ? { firstPlaceOffset: medalSize } : {}),
+      }));
+      return input.stage === 'medal'
+        ? starts.map((s) => ({ stage: input.stage, starts: [s] }))
+        : [{ stage: input.stage, starts }];
     });
+    await createStageRaces(tx, { seriesId, workspaceId, specs, date: input.date });
 
     // Editable-preview hand-moves: record which boats were placed by hand
     // and where, as computed-vs-override provenance on the round.
@@ -225,18 +234,67 @@ export async function commitSplitRound(
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
+/** One race to create: a start sequence — the fleets that start in
+ *  succession and finish onto one combined sheet. Usually every start
+ *  sails the same stage race number; a sequence may span numbers when
+ *  fleets are a race out of step (Gold F2 + Silver F2 + Bronze F1). */
+interface StageRaceSpec {
+  stage: SplitRound['stage'];
+  starts: {
+    fleetId: string;
+    label: string;
+    stageRaceNumber: number;
+    firstPlaceOffset?: number;
+  }[];
+}
+
+/** Display name for a sequence: "Q3" (whole sequence), "F2 · Gold" (a
+ *  single-fleet race), "F2 · Gold + F1 · Bronze" (out-of-step fleets). */
+function sequenceName(spec: StageRaceSpec): string {
+  const prefix = STAGE_PREFIX[spec.stage];
+  const nums = [...new Set(spec.starts.map((s) => s.stageRaceNumber))];
+  if (nums.length === 1) {
+    return spec.starts.length === 1
+      ? `${prefix}${nums[0]} · ${spec.starts[0].label}`
+      : `${prefix}${nums[0]}`;
+  }
+  return spec.starts.map((s) => `${prefix}${s.stageRaceNumber} · ${s.label}`).join(' + ');
+}
+
+/** The fleets sharing one race must have pairwise-disjoint membership — a
+ *  boat can appear at most once on a sheet. (An RC cannot run overlapping
+ *  fleets in one sequence either: a boat cannot be on two start lines.) */
+async function assertDisjointFleets(tx: Tx, seriesId: string, fleetIds: string[]): Promise<void> {
+  if (fleetIds.length < 2) return;
+  const members = await tx
+    .select({ fleetIds: schema.competitors.fleetIds })
+    .from(schema.competitors)
+    .where(eq(schema.competitors.seriesId, seriesId));
+  const wanted = new Set(fleetIds);
+  for (const m of members) {
+    const inSpec = m.fleetIds.filter((fid) => wanted.has(fid));
+    if (inSpec.length > 1) {
+      throw new BadRequestError(
+        'fleets sharing a start sequence must not share competitors',
+      );
+    }
+  }
+}
+
 async function createStageRaces(
   tx: Tx,
   input: {
     seriesId: string;
     workspaceId: string;
-    stage: SplitRound['stage'];
-    stageRaceNumbers: number[];
-    fleets: { id: string; label: string }[];
+    specs: StageRaceSpec[];
     date: string;
   },
 ): Promise<void> {
-  if (input.stageRaceNumbers.length === 0 || input.fleets.length === 0) return;
+  const specs = input.specs.filter((s) => s.starts.length > 0);
+  if (specs.length === 0) return;
+  for (const spec of specs) {
+    await assertDisjointFleets(tx, input.seriesId, spec.starts.map((s) => s.fleetId));
+  }
   const [{ maxNumber }] = await tx
     .select({ maxNumber: sql<number>`coalesce(max(${schema.races.raceNumber}), 0)` })
     .from(schema.races)
@@ -245,26 +303,27 @@ async function createStageRaces(
   const raceRows: (typeof schema.races.$inferInsert)[] = [];
   const startRows: (typeof schema.raceStarts.$inferInsert)[] = [];
   const date = input.date || new Date().toISOString().slice(0, 10);
-  for (const n of input.stageRaceNumbers) {
-    for (const fleet of input.fleets) {
-      const raceId = crypto.randomUUID();
-      raceRows.push({
-        id: raceId,
-        seriesId: input.seriesId,
-        workspaceId: input.workspaceId,
-        raceNumber: ++next,
-        name: `${STAGE_PREFIX[input.stage]}${n} · ${fleet.label}`,
-        date,
-        stage: input.stage,
-        stageRaceNumber: n,
-      });
+  for (const spec of specs) {
+    const raceId = crypto.randomUUID();
+    raceRows.push({
+      id: raceId,
+      seriesId: input.seriesId,
+      workspaceId: input.workspaceId,
+      raceNumber: ++next,
+      name: sequenceName(spec),
+      date,
+      stage: spec.stage,
+      stageRaceNumber: spec.starts[0].stageRaceNumber,
+    });
+    for (const s of spec.starts) {
       startRows.push({
         id: crypto.randomUUID(),
         raceId,
-        fleetIds: [fleet.id],
+        fleetIds: [s.fleetId],
         startTime: null,
-        stage: input.stage,
-        stageRaceNumber: n,
+        stage: spec.stage,
+        stageRaceNumber: s.stageRaceNumber,
+        firstPlaceOffset: s.firstPlaceOffset ?? null,
       });
     }
   }
@@ -292,36 +351,70 @@ export async function addStageRaces(
       ),
     );
   if (!roundRow) throw new NotFoundError('round');
-  const fleetIds = input.fleetIds ?? roundRow.fleetIds;
-  if (fleetIds.some((fid) => !roundRow.fleetIds.includes(fid))) {
+  const requestedIds = input.starts?.map((s) => s.fleetId) ?? input.fleetIds ?? roundRow.fleetIds;
+  if (requestedIds.some((fid) => !roundRow.fleetIds.includes(fid))) {
     throw new BadRequestError('fleet not in round');
   }
   const fleetRows = await db
     .select({ id: schema.fleets.id, name: schema.fleets.name })
     .from(schema.fleets)
-    .where(inArray(schema.fleets.id, fleetIds));
+    .where(inArray(schema.fleets.id, requestedIds));
   const byId = new Map(fleetRows.map((f) => [f.id, f]));
+  // The medal round's non-medal fleets sail the companion "last race": first
+  // finisher scores just below the committed medal fleet.
+  const medalSize =
+    roundRow.stage === 'medal'
+      ? (
+          await db
+            .select({ fleetIds: schema.competitors.fleetIds })
+            .from(schema.competitors)
+            .where(eq(schema.competitors.seriesId, seriesId))
+        ).filter((c) => c.fleetIds.includes(roundRow.fleetIds[0])).length
+      : 0;
+  const offsetFor = (fleetId: string): { firstPlaceOffset?: number } =>
+    roundRow.stage === 'medal' && fleetId !== roundRow.fleetIds[0]
+      ? { firstPlaceOffset: medalSize }
+      : {};
+
+  // In the round's fleet order, each start's own stage race number.
+  const orderStarts = (starts: { fleetId: string; stageRaceNumber: number }[]) =>
+    roundRow.fleetIds
+      .filter((fid) => starts.some((s) => s.fleetId === fid))
+      .map((fid) => ({
+        fleetId: fid,
+        label: byId.get(fid)?.name ?? '?',
+        stageRaceNumber: starts.find((s) => s.fleetId === fid)!.stageRaceNumber,
+        ...offsetFor(fid),
+      }));
+
+  const specs: StageRaceSpec[] = input.starts?.length
+    ? [{ stage: roundRow.stage, starts: orderStarts(input.starts) }]
+    : input.stageRaceNumbers.flatMap((n) => {
+        const starts = orderStarts(requestedIds.map((fid) => ({ fleetId: fid, stageRaceNumber: n })));
+        // Medal-stage fleets race apart (own courses) — one race per fleet.
+        return roundRow.stage === 'medal'
+          ? starts.map((s) => ({ stage: roundRow.stage, starts: [s] }))
+          : [{ stage: roundRow.stage, starts }];
+      });
 
   await db.transaction(async (tx) => {
     await createStageRaces(tx, {
       seriesId,
       workspaceId: workspace.workspaceId,
-      stage: roundRow.stage,
-      stageRaceNumbers: input.stageRaceNumbers,
-      // Preserve the round's fleet order.
-      fleets: roundRow.fleetIds
-        .filter((fid) => fleetIds.includes(fid))
-        .map((fid) => ({ id: fid, label: byId.get(fid)?.name ?? '?' })),
+      specs,
       date: input.date,
     });
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
     await repos.series.touch(seriesId);
   });
 
+  const added = input.starts?.length
+    ? input.starts.map((s) => s.stageRaceNumber).join(', ')
+    : input.stageRaceNumbers.join(', ');
   await trackChange(workspace, {
     action: 'race.added',
     seriesId,
-    summary: `Added ${roundRow.stage} race(s) ${input.stageRaceNumbers.join(', ')}`,
+    summary: `Added ${roundRow.stage} race(s) ${added}`,
     sessionKey: 'split-fleets',
   });
 }
@@ -363,7 +456,9 @@ export async function deleteSplitRound(
   }
 
   await db.transaction(async (tx) => {
-    // Races sailed by the round's fleets (single-fleet starts).
+    // Races whose sequences include any of the round's fleets. A sequence
+    // only ever combines fleets of one round, so this never catches another
+    // round's races.
     const startRows = await tx
       .select({ raceId: schema.raceStarts.raceId, fleetIds: schema.raceStarts.fleetIds })
       .from(schema.raceStarts)

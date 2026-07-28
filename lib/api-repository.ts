@@ -973,7 +973,14 @@ export function commitSplitRound(
 export async function addSplitStageRaces(
   seriesId: string,
   roundId: string,
-  payload: { stageRaceNumbers: number[]; fleetIds?: string[]; date?: string },
+  payload: {
+    stageRaceNumbers?: number[];
+    fleetIds?: string[];
+    /** One combined race with per-fleet stage race numbers (out-of-step
+     *  fleets sharing a start sequence). */
+    starts?: { fleetId: string; stageRaceNumber: number }[];
+    date?: string;
+  },
 ): Promise<void> {
   await apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/races`, {
     method: 'POST',

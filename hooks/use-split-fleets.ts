@@ -60,10 +60,16 @@ export function useCommitSplitRound(seriesId: string) {
 export function useAddSplitStageRaces(seriesId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { roundId: string; stageRaceNumbers: number[]; fleetIds?: string[] }) =>
+    mutationFn: (input: {
+      roundId: string;
+      stageRaceNumbers?: number[];
+      fleetIds?: string[];
+      starts?: { fleetId: string; stageRaceNumber: number }[];
+    }) =>
       addSplitStageRaces(seriesId, input.roundId, {
         stageRaceNumbers: input.stageRaceNumbers,
         fleetIds: input.fleetIds,
+        starts: input.starts,
       }),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
   });

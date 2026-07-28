@@ -1252,9 +1252,32 @@ function FinalSection({
         {round.basis
           ? `from the qualifying ranking after Q${round.basis.throughStageRace}`
           : ''}
-        . Final fleets race independently; different fleets need not complete the
-        same number of races.
+        . Final fleets usually start in sequence and finish onto one combined
+        sheet, but need not complete the same number of races — a fleet a race
+        behind simply sails its own next number in the sequence.
       </p>
+      {canManage && (
+        <Button
+          variant="outline"
+          size="xs"
+          disabled={addRaces.isPending}
+          onClick={() =>
+            addRaces.mutate({
+              roundId: round.id,
+              // One race, all fleets in sequence — each start at its own next
+              // stage race number, so out-of-step fleets stay out of step.
+              starts: round.fleetIds.map((fid) => {
+                const ns = stageRaceRefs(data, 'final')
+                  .filter((ref) => ref.fleetId === fid)
+                  .map((ref) => ref.start.stageRaceNumber ?? 0);
+                return { fleetId: fid, stageRaceNumber: (ns.length ? Math.max(...ns) : 0) + 1 };
+              }),
+            })
+          }
+        >
+          Add next race · all fleets in one sequence
+        </Button>
+      )}
       {round.fleetIds.map((fid) => {
         const refs = stageRaceRefs(data, 'final')
           .filter((ref) => ref.fleetId === fid)
