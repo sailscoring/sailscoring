@@ -83,10 +83,29 @@ export function useLogoDefaults(enabled = true) {
   });
 }
 
+/**
+ * Both defaults are written as one document, so the caller builds its payload
+ * from the currently-cached pair and replaces one slot. Picking the venue and
+ * then the event default in quick succession therefore has two hazards: the
+ * second pick reading the pre-mutation cache (and re-sending the empty venue
+ * slot it just filled), and the two PUTs landing out of order. `onMutate`
+ * closes the first by publishing the new pair before the request goes out;
+ * the mutation scope closes the second by serialising the PUTs.
+ */
 export function useSetLogoDefaults() {
   const qc = useQueryClient();
   return useMutation({
+    scope: { id: 'logo-defaults' },
     mutationFn: (defaults: LogoDefaults) => logoRepo.setDefaults(defaults),
+    onMutate: async (defaults) => {
+      await qc.cancelQueries({ queryKey: queryKeys.logos.defaults() });
+      const previous = qc.getQueryData<LogoDefaults>(queryKeys.logos.defaults());
+      qc.setQueryData(queryKeys.logos.defaults(), defaults);
+      return { previous };
+    },
+    onError: (_err, _defaults, context) => {
+      if (context) qc.setQueryData(queryKeys.logos.defaults(), context.previous);
+    },
     onSuccess: (data) => {
       qc.setQueryData(queryKeys.logos.defaults(), data);
     },
