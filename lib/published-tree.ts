@@ -19,7 +19,11 @@
 
 import { escapeHtml as esc } from './html';
 import { humanizeSlug } from './publishing';
-import type { SeriesIndexPage } from './published-index';
+import {
+  renderPublicHero,
+  renderPublicShell,
+  type SeriesIndexPage,
+} from './published-index';
 
 /** A page in a slug group, with its contributing series named so labels can
  *  distinguish same-named pages from different series on a shared slug. */
@@ -299,6 +303,40 @@ export function renderTreeNav(
   ];
   if (parts.length === 0) return '';
   return `<div class="sstreenav sstreenav-${variant}">${NAV_STYLE}${parts.join('')}</div>`;
+}
+
+/**
+ * Folder index at `/p/{ws}/{slug}/{folder}` (ADR-011): the pages inside one
+ * interior folder — an event or sub-series — across every series publishing
+ * into the slug. These paths appear in every two-segment page URL but
+ * resolved to nothing before the publication tree made them addressable.
+ * `slugTitle` names the back link's target (the series index above); `nav` is
+ * a pre-rendered cascade fragment, placed above the listing.
+ */
+export function renderFolderIndexHtml(opts: {
+  workspaceSlug: string;
+  slug: string;
+  folder: TreeFolder;
+  pages: TreePage[];
+  soleContributor: boolean;
+  slugTitle: string;
+  logoUrl?: string;
+  nav?: string;
+}): string {
+  const { workspaceSlug, slug, folder, pages, soleContributor } = opts;
+  const rows = pages
+    .map((p) => {
+      const label = leafLabel(p, pages, soleContributor);
+      return `<li><a href="/p/${esc(workspaceSlug)}/${esc(slug)}/${esc(p.subPath)}">${esc(label)}</a></li>`;
+    })
+    .join('\n');
+  const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}/${esc(slug)}">&larr; ${esc(opts.slugTitle)}</a></p>`;
+  const hero = renderPublicHero(esc(folder.label), opts.logoUrl ?? '');
+  return renderPublicShell(
+    `${folder.label} — ${opts.slugTitle}`,
+    hero,
+    `${back}\n${opts.nav ?? ''}<ul class="listing">\n${rows}\n</ul>`,
+  );
 }
 
 /** Insert a fragment immediately after the document's opening `<body ...>`

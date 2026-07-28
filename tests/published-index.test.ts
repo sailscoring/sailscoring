@@ -320,6 +320,21 @@ describe('renderSeriesIndexHtml', () => {
     );
   });
 
+  it('links a sub-series block heading to its folder index (ADR-011)', () => {
+    const html = renderSeriesIndexHtml('hyc', 'HYC', 'club-26', 'Club Series 2026', [
+      {
+        seriesName: 'Club Series 2026',
+        pages: [
+          { fleetName: 'Squibs', subSeriesName: 'Spring', subPath: 'spring/squibs' },
+          { fleetName: 'Puppeteers', subSeriesName: 'Spring', subPath: 'spring/puppeteers' },
+        ],
+      },
+    ]);
+    expect(html).toContain(
+      '<h3 class="subseries"><a href="/p/hyc/club-26/spring">Spring</a></h3>',
+    );
+  });
+
   it('escapes the title, fleet labels and slug', () => {
     const html = renderSeriesIndexHtml('hyc', 'Club & Co <X>', 'x', 'Title <&>', [
       {

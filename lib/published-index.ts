@@ -169,6 +169,8 @@ ul.listing .meta { display: block; color: #6b7280; font-size: 0.78em; font-weigh
 h2.section { font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em; color: #073358; font-weight: 700; margin: 28px 0 10px; }
 h2.series { font-size: 1.15em; color: #073358; font-weight: 700; margin: 24px 0 8px; }
 h3.subseries { font-size: 1.0em; color: #073358; font-weight: 700; margin: 20px 0 6px; }
+h3.subseries a { color: inherit; text-decoration: none; }
+h3.subseries a:hover { color: #fb3a3b; text-decoration: underline; }
 h2.past { font-size: 1.2em; color: #073358; font-weight: 700; margin: 36px 0 0; border-top: 1px solid #e2e6ea; padding-top: 18px; }
 h3.year { font-size: 0.95em; color: #556; font-weight: 600; margin: 18px 0 8px; }
 .picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
@@ -601,7 +603,8 @@ ${pages
   };
 
   // Sub-series pages group under their block name, in page order; any
-  // whole-series pages (no block) list first.
+  // whole-series pages (no block) list first. A block heading links to its
+  // folder index (ADR-011) when its pages live under a folder segment.
   const renderList = (pages: SeriesIndexPage[]): string => {
     const blockNames = [...new Set(pages.map((p) => p.subSeriesName).filter((n): n is string => !!n))];
     if (blockNames.length === 0) return renderFlatList(pages);
@@ -609,8 +612,15 @@ ${pages
     const parts: string[] = [];
     if (blockless.length > 0) parts.push(renderFlatList(blockless));
     for (const name of blockNames) {
-      parts.push(`<h3 class="subseries">${esc(name)}</h3>`);
-      parts.push(renderFlatList(pages.filter((p) => p.subSeriesName === name)));
+      const blockPages = pages.filter((p) => p.subSeriesName === name);
+      const seg = blockPages[0].subPath.includes('/')
+        ? blockPages[0].subPath.split('/')[0]
+        : null;
+      const heading = seg
+        ? `<a href="/p/${esc(workspaceSlug)}/${esc(slug)}/${esc(seg)}">${esc(name)}</a>`
+        : esc(name);
+      parts.push(`<h3 class="subseries">${heading}</h3>`);
+      parts.push(renderFlatList(blockPages));
     }
     return parts.join('\n');
   };

@@ -41,12 +41,19 @@ import {
   renderFleetNav,
 } from '@/lib/published-fleet-nav';
 import {
+  pagesInFolder,
+  renderFolderIndexHtml,
+  slugFolders,
+  type TreePage,
+} from '@/lib/published-tree';
+import {
   getPublishedGroupByWorkspaceSlug,
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
   listPublishedSeriesIds,
 } from '@/lib/published-repository';
+import type { PublishedSeries } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -515,7 +522,9 @@ async function fleetPage(
   const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
   const owner = group.find((p) => p.pages.some((pg) => pg.subPath === subPath));
   const page = owner?.pages.find((pg) => pg.subPath === subPath);
-  if (!owner || !page) return NOT_FOUND;
+  if (!owner || !page) {
+    return folderIndex(req, workspace, workspaceSlug, seriesSlug, subPath, group);
+  }
 
   const etag = `"${owner.contentHash}"`;
   const cached = notModified(req, etag);
@@ -533,4 +542,70 @@ async function fleetPage(
     `/p/${workspaceSlug}/${seriesSlug}`,
   );
   return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag);
+}
+
+/** The slug group's pages flattened into tree pages, each carrying its
+ *  contributing series' name so labels can tell same-named pages apart. */
+async function groupTreePages(group: PublishedSeries[]): Promise<TreePage[]> {
+  const withNames = await Promise.all(
+    group.map(async (p) => ({
+      pages: p.pages,
+      ownerName: p.seriesId ? await getSeriesName(p.seriesId) : null,
+    })),
+  );
+  return withNames.flatMap((c) =>
+    c.pages.map((pg) => ({
+      fleetName: pg.fleetName,
+      ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
+      ...(pg.isPrizes ? { isPrizes: true } : {}),
+      subPath: pg.subPath,
+      ownerName: c.ownerName,
+    })),
+  );
+}
+
+/** `/p/{ws}/{slug}/{folder}` — an interior folder of the publication tree
+ *  (ADR-011): the event or sub-series every two-segment page URL names but
+ *  which previously resolved to nothing. Reached as the fall-through when the
+ *  sub-path matches no page exactly; 404 when it names no folder either. */
+async function folderIndex(
+  req: NextRequest,
+  workspace: { id: string; name: string; logo: string },
+  workspaceSlug: string,
+  seriesSlug: string,
+  subPath: string,
+  group: PublishedSeries[],
+): Promise<Response> {
+  // Folders are single segments; a two-segment miss is just a missing page.
+  if (subPath.includes('/') || group.length === 0) return NOT_FOUND;
+
+  const pages = await groupTreePages(group);
+  const folder = slugFolders(pages).find((f) => f.segment === subPath);
+  if (!folder) return NOT_FOUND;
+
+  // Same freshness basis as the series index: the folder's contents only
+  // change when a contributor re-publishes.
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    `folder:${subPath}`,
+    ...group.map((p) => p.contentHash),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const slugTitle =
+    group.length === 1
+      ? ((group[0].seriesId ? await getSeriesName(group[0].seriesId) : null) ??
+        humanizeSlug(seriesSlug))
+      : humanizeSlug(seriesSlug);
+  const html = renderFolderIndexHtml({
+    workspaceSlug,
+    slug: seriesSlug,
+    folder,
+    pages: pagesInFolder(pages, subPath),
+    soleContributor: group.length === 1,
+    slugTitle,
+    logoUrl: workspace.logo,
+  });
+  return htmlResponse(html, etag);
 }

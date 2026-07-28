@@ -7,6 +7,7 @@ import {
   leafLabel,
   orderTopFolders,
   pagesInFolder,
+  renderFolderIndexHtml,
   renderTreeNav,
   rootPages,
   slugFolders,
@@ -313,6 +314,39 @@ describe('renderTreeNav', () => {
     expect(html).toContain('A &amp; B &lt;Cruisers&gt;');
     expect(html).not.toContain('<Cruisers>');
     expect(html).toContain('@media print { .sstreenav { display: none; } }');
+  });
+});
+
+describe('renderFolderIndexHtml', () => {
+  it('lists the folder pages with leaf labels and links back to the slug', () => {
+    const html = renderFolderIndexHtml({
+      workspaceSlug: 'hyc',
+      slug: '2025',
+      folder: { segment: 'autumn-league', label: 'Autumn League' },
+      pages: pagesInFolder(archivePages, 'autumn-league'),
+      soleContributor: false,
+      slugTitle: '2025',
+    });
+    expect(html).toContain('<h1>Autumn League</h1>');
+    expect(html).toContain('href="/p/hyc/2025/autumn-league/class-1-irc"');
+    expect(html).toContain('>Class 1 IRC<');
+    expect(html).toContain('href="/p/hyc/2025/autumn-league/class-2-irc"');
+    expect(html).toContain('<a href="/p/hyc/2025">&larr; 2025</a>');
+    expect(html).toContain('<title>Autumn League — 2025</title>');
+  });
+
+  it('escapes folder labels and page labels', () => {
+    const html = renderFolderIndexHtml({
+      workspaceSlug: 'hyc',
+      slug: '2025',
+      folder: { segment: 'x', label: 'A & B <Event>' },
+      pages: [{ fleetName: 'C & D', subPath: 'x/c-d' }, { fleetName: 'E', subPath: 'x/e' }],
+      soleContributor: false,
+      slugTitle: '2025',
+    });
+    expect(html).toContain('A &amp; B &lt;Event&gt;');
+    expect(html).toContain('C &amp; D');
+    expect(html).not.toContain('<Event>');
   });
 });
 
