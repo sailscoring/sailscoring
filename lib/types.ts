@@ -296,6 +296,15 @@ export interface RaceStart {
   // competitors) are in the race without providing a gun. Handicap scoring
   // needs a time, so a timeless start falls back to scratch for that race.
   startTime?: string;
+  // Split-fleet series: which stage race this start's fleets are sailing.
+  // Per start, not per race — a race is one start sequence, and the fleets in
+  // a sequence may be a race out of step (Gold F2 + Silver F2 + Bronze F1).
+  // Absent on standard series.
+  stage?: 'qualifying' | 'final' | 'medal';
+  stageRaceNumber?: number;
+  // Companion "last race": this start's first finisher scores offset + 1
+  // (e.g. the non-medal race scored from 11 when the medal fleet is 10).
+  firstPlaceOffset?: number;
   version?: number;     // server-side concurrency token (see Series.version)
 }
 
@@ -437,15 +446,11 @@ export interface Race {
   // times: when any finish has a `finishTime` the sheet is authoritative and
   // this field is ignored (see effectiveLastFinisherTime in lib/race-status.ts).
   lastFinisherTime?: string;
-  // Split-fleet series (PROTOTYPE — see lib/split-fleets.ts): the stage this
-  // race belongs to and its race number within the stage (Q3 → ('qualifying',
-  // 3)). Absent on standard series. Workspace-local for now: not carried in
-  // the .sailscoring file format or public JSON export.
+  // Transitional (#346): stage identity now lives on RaceStart (a race is one
+  // start sequence; its starts carry stage/stageRaceNumber/firstPlaceOffset).
+  // These race-level copies remain until the contract step removes them.
   stage?: 'qualifying' | 'final' | 'medal';
   stageRaceNumber?: number;
-  // Companion "last race" primitive: first finisher scores offset + 1 (e.g.
-  // the non-medal race scored from 11 when the medal fleet is 10). Absent on
-  // ordinary races.
   firstPlaceOffset?: number;
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)

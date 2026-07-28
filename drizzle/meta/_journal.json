@@ -533,6 +533,13 @@
       "when": 1784850338488,
       "tag": "0075_gorgeous_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1785274550289,
+      "tag": "0076_fat_iron_fist",
+      "breakpoints": true
     }
   ]
 }

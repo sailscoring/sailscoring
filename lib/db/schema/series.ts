@@ -869,6 +869,12 @@ export const raceStarts = pgTable(
     fleetIds: uuid('fleet_ids').array().notNull(),
     // Nullable: a membership-only start declares fleets with no gun time.
     startTime: text('start_time'),
+    // Split-fleet series: the stage race this start's fleets are sailing and
+    // the companion-race offset (see RaceStart in lib/types.ts). All null on
+    // standard series.
+    stage: text('stage').$type<'qualifying' | 'final' | 'medal'>(),
+    stageRaceNumber: integer('stage_race_number'),
+    firstPlaceOffset: integer('first_place_offset'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

@@ -10,6 +10,11 @@ export const raceStartSchema = z.object({
   fleetIds: z.array(uuidSchema),
   // Optional: a membership-only start declares fleets with no gun time.
   startTime: wallClockSchema.optional(),
+  // Split-fleet series: the stage race this start's fleets are sailing, and
+  // the companion-race offset (see RaceStart in lib/types.ts).
+  stage: z.enum(['qualifying', 'final', 'medal']).optional(),
+  stageRaceNumber: z.number().int().positive().optional(),
+  firstPlaceOffset: z.number().int().min(0).optional(),
   version: versionSchema,
 });
 

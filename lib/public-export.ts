@@ -187,13 +187,21 @@ export interface PublicSeriesExport {
      *  untimed finishes — the anchor for protest time limits. When finishes
      *  carry times the sheet itself is authoritative and this is absent. */
     lastFinisherTime?: string;
-    /** Split-fleet series: stage + logical race number + companion offset. */
+    /** Split-fleet series (transitional, #346): the race-level copies of the
+     *  stage identity. Still written and read; the per-start fields below are
+     *  authoritative. */
     stage?: 'qualifying' | 'final' | 'medal';
     stageRaceNumber?: number;
     firstPlaceOffset?: number;
     starts: {
       fleetNames: string[];
       startTime?: string;  // absent for a membership-only start (fleets, no gun time)
+      /** Split-fleet series: the stage race these fleets sail in this
+       *  sequence, and the companion-race offset. Per start — a sequence may
+       *  span stage race numbers. */
+      stage?: 'qualifying' | 'final' | 'medal';
+      stageRaceNumber?: number;
+      firstPlaceOffset?: number;
     }[];
     finishes: {
       sailNumber: string;
@@ -617,6 +625,9 @@ export function buildPublicExportFromSnapshot(
       .map((rs) => ({
         fleetNames: rs.fleetIds.map((id) => fleetNameById.get(id) ?? id),
         startTime: rs.startTime,
+        ...(rs.stage ? { stage: rs.stage } : {}),
+        ...(rs.stageRaceNumber != null ? { stageRaceNumber: rs.stageRaceNumber } : {}),
+        ...(rs.firstPlaceOffset != null ? { firstPlaceOffset: rs.firstPlaceOffset } : {}),
       }));
     const nhcByFleetMap = nhcByFleetByRaceId.get(race.id);
     const nhcByFleet = nhcByFleetMap && nhcByFleetMap.size > 0
@@ -1062,6 +1073,15 @@ export async function importPublicExport(
             raceId,
             fleetIds: s.startFleetIds,
             startTime: s.startTime,
+            // Per-start stage identity; older exports carry it on the race —
+            // inherit so they land on the new model.
+            ...((s.stage ?? race.stage) ? { stage: s.stage ?? race.stage } : {}),
+            ...((s.stageRaceNumber ?? race.stageRaceNumber) != null
+              ? { stageRaceNumber: s.stageRaceNumber ?? race.stageRaceNumber }
+              : {}),
+            ...((s.firstPlaceOffset ?? race.firstPlaceOffset) != null
+              ? { firstPlaceOffset: s.firstPlaceOffset ?? race.firstPlaceOffset }
+              : {}),
           }),
         ),
     );

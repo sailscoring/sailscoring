@@ -197,9 +197,15 @@ export interface SeriesFileRepos {
  *  v23 adds split-fleet series (#328): a top-level `splitFleets` block
  *  (config + assignment rounds), `races[*].stage` / `stageRaceNumber` /
  *  `firstPlaceOffset`, and `competitors[*].entryNumber` / `seed`. All sparse
- *  — absent on ordinary series. */
-export const FORMAT_VERSION = 23;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+ *  — absent on ordinary series.
+ *
+ *  v24 moves the split-fleet stage identity onto the starts (#346: a race is
+ *  one start sequence; its starts may span stage race numbers):
+ *  `races[*].starts[*].stage` / `stageRaceNumber` / `firstPlaceOffset`. The
+ *  race-level v23 fields are still read — the parser copies them onto the
+ *  race's starts when the starts don't carry their own. */
+export const FORMAT_VERSION = 24;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -331,6 +337,9 @@ interface SeriesFileRaceStart {
   id: string;
   fleetIds: string[];
   startTime?: string;  // absent for a membership-only start (fleets, no gun time)
+  stage?: 'qualifying' | 'final' | 'medal';  // v24+; split-fleet stage, per start
+  stageRaceNumber?: number;  // v24+; logical race number this start's fleets sail
+  firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
 }
 
 interface SeriesFileRatingOverride {
@@ -498,7 +507,14 @@ export async function buildSeriesFile(
   const startsByRace = new Map<string, SeriesFileRaceStart[]>();
   for (const s of allRaceStarts) {
     if (!startsByRace.has(s.raceId)) startsByRace.set(s.raceId, []);
-    startsByRace.get(s.raceId)!.push({ id: s.id, fleetIds: s.fleetIds, startTime: s.startTime });
+    startsByRace.get(s.raceId)!.push({
+      id: s.id,
+      fleetIds: s.fleetIds,
+      startTime: s.startTime,
+      ...(s.stage ? { stage: s.stage } : {}),
+      ...(s.stageRaceNumber != null ? { stageRaceNumber: s.stageRaceNumber } : {}),
+      ...(s.firstPlaceOffset != null ? { firstPlaceOffset: s.firstPlaceOffset } : {}),
+    });
   }
 
   const overridesByRace = new Map<string, SeriesFileRatingOverride[]>();
@@ -1485,6 +1501,15 @@ async function writeFleetsCompetitorsRaces(
         raceId: newRaceId,
         fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
         startTime: s.startTime,
+        // v24 carries stage identity per start; a v23 file carries it on the
+        // race — inherit so old split-fleet files land on the new model.
+        ...((s.stage ?? r.stage) ? { stage: s.stage ?? r.stage } : {}),
+        ...((s.stageRaceNumber ?? r.stageRaceNumber) != null
+          ? { stageRaceNumber: s.stageRaceNumber ?? r.stageRaceNumber }
+          : {}),
+        ...((s.firstPlaceOffset ?? r.firstPlaceOffset) != null
+          ? { firstPlaceOffset: s.firstPlaceOffset ?? r.firstPlaceOffset }
+          : {}),
       })),
     );
 

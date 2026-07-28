@@ -263,6 +263,8 @@ async function createStageRaces(
         raceId,
         fleetIds: [fleet.id],
         startTime: null,
+        stage: input.stage,
+        stageRaceNumber: n,
       });
     }
   }
