@@ -29,6 +29,10 @@ import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 const STEP_LABELS = ['Name & Basics', 'Competitors', 'Fleets', 'Scoring'];
+/** A split-fleet series' format supersedes the fleets and scoring steps —
+ *  the ceremonies create the fleets and the Format section owns the scoring
+ *  rules — so setup ends as soon as it is enabled. */
+const SPLIT_FLEET_STEP_LABELS = ['Name & Basics', 'Competitors', 'Format'];
 
 // ── Step 1: Name & Basics ─────────────────────────────────────────────────────
 
@@ -175,13 +179,19 @@ function Step2({
 function Step3({
   series,
   seriesId,
+  isSplitFleet,
   onNext,
   onBack,
+  onFinish,
 }: {
   series: Series;
   seriesId: string;
+  /** The series has a split-fleet format: fleets and scoring rules are the
+   *  Format section's business, so this is the last step. */
+  isSplitFleet: boolean;
   onNext: () => void;
   onBack: () => void;
+  onFinish: () => void;
 }) {
   const updateSeries = useUpdateSeries();
   const saveFleet = useSaveFleet();
@@ -204,6 +214,9 @@ function Step3({
 
   return (
     <div className="space-y-4">
+      <ChampionshipFormatBlock seriesId={seriesId} />
+
+      {isSplitFleet ? null : (
       <div className="space-y-2">
         <Label>How will this series be scored?</Label>
         <div className="space-y-2">
@@ -236,16 +249,22 @@ function Step3({
         </div>
       </div>
 
-      <ChampionshipFormatBlock seriesId={seriesId} />
+      )}
 
-      <div className="space-y-2">
-        <Label>Fleets</Label>
-        <FleetsCard mode="wizard" seriesId={seriesId} series={series} />
-      </div>
+      {!isSplitFleet && (
+        <div className="space-y-2">
+          <Label>Fleets</Label>
+          <FleetsCard mode="wizard" seriesId={seriesId} series={series} />
+        </div>
+      )}
 
       <div className="flex justify-between pt-2">
         <Button variant="ghost" onClick={onBack}>← Back</Button>
-        <Button onClick={onNext}>Next: Scoring →</Button>
+        {isSplitFleet ? (
+          <Button onClick={onFinish}>Finish setup →</Button>
+        ) : (
+          <Button onClick={onNext}>Next: Scoring →</Button>
+        )}
       </div>
     </div>
   );
@@ -271,8 +290,8 @@ function ChampionshipFormatBlock({ seriesId }: { seriesId: string }) {
         <Label>Championship format</Label>
         <p className="text-sm text-muted-foreground">
           Split fleets enabled — {sfState.config.qualifyingFleets.map((f) => f.label).join(', ')} qualifying,
-          then {sfState.config.finalFleets.map((f) => f.label).join('/')}. The event runs from the
-          Split Fleets tab; the format is editable in Settings.
+          then {sfState.config.finalFleets.map((f) => f.label).join('/')}. Everything else lives on the
+          Split Fleets tab, including the Format section that holds these settings.
         </p>
       </div>
     );
@@ -347,7 +366,10 @@ export default function SetupPage({
 }) {
   const { id: seriesId } = use(params);
   const router = useRouter();
+  const { has } = useFeatures();
   const { data: series, isLoading } = useSeries(seriesId);
+  const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
+  const isSplitFleet = !!sfState?.config;
   const [step, setStep] = useState(1);
 
   if (isLoading || series === undefined) {
@@ -366,7 +388,7 @@ export default function SetupPage({
   return (
     <div className="max-w-lg space-y-6">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        {STEP_LABELS.map((label, i) => (
+        {(isSplitFleet ? SPLIT_FLEET_STEP_LABELS : STEP_LABELS).map((label, i) => (
           <button
             key={i}
             className={`px-2 py-1 rounded ${step === i + 1 ? 'bg-foreground text-background font-medium' : 'hover:bg-muted cursor-pointer'}`}
@@ -384,9 +406,16 @@ export default function SetupPage({
         <Step2 seriesId={seriesId} onNext={() => setStep(3)} onBack={() => setStep(1)} />
       )}
       {step === 3 && (
-        <Step3 series={series} seriesId={seriesId} onNext={() => setStep(4)} onBack={() => setStep(2)} />
+        <Step3
+          series={series}
+          seriesId={seriesId}
+          isSplitFleet={isSplitFleet}
+          onNext={() => setStep(4)}
+          onBack={() => setStep(2)}
+          onFinish={handleFinish}
+        />
       )}
-      {step === 4 && (
+      {step === 4 && !isSplitFleet && (
         <Step4 series={series} seriesId={seriesId} onBack={() => setStep(3)} onFinish={handleFinish} />
       )}
     </div>

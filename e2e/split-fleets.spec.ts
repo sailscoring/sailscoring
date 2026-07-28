@@ -113,13 +113,17 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await preview.getByRole('button', { name: 'Close' }).click();
   await expect(preview).toBeHidden();
 
-  // The split-fleet config surfaces as a series-format card on Settings.
+  // The format lives in this page's own Format section, not in Settings.
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const sfCard = page.getByTestId('split-fleets-card');
-  await expect(sfCard).toBeVisible();
-  await expect(sfCard).toContainText('2 qualifying fleets');
+  await expect(page.getByTestId('split-fleets-card')).toHaveCount(0);
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
+  await page.getByRole('button', { name: /^Format/ }).click();
+  const formatSection = page.getByTestId('split-fleets-editor');
+  await expect(formatSection).toBeVisible();
+  await expect(page.getByTestId('sf-si-translation')).toContainText(
+    'will count for total points in the championship',
+  );
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Select medal fleet…' }).click();
@@ -160,7 +164,10 @@ test('split fleets: set up from the series wizard and land on the tab', async ({
   await page.getByRole('button', { name: 'Enable split fleets' }).click();
   await expect(page.getByText(/Split fleets enabled/)).toBeVisible();
 
-  await page.getByRole('button', { name: /Next: Scoring/ }).click();
+  // Enabling ends setup: the fleets and scoring steps belong to the Format
+  // section from here, so the wizard is three steps and finishes now.
+  await expect(page.getByRole('button', { name: /3\. Format/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Next: Scoring/ })).toHaveCount(0);
   await page.getByRole('button', { name: /Finish setup/ }).click();
 
   await expect(page).toHaveURL(/\/split-fleets$/);

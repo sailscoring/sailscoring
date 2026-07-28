@@ -14,6 +14,7 @@ import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
+import { SplitFleetEditor } from '@/components/split-fleets-editor';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useFeatures } from '@/components/features-provider';
 import { Button } from '@/components/ui/button';
@@ -206,6 +207,21 @@ const STAGE_TITLES: Record<SeriesStage, string> = {
   medal: 'Medal races',
 };
 
+/** The Format section's collapsed one-liner. */
+function formatSummary(config: SplitFleetConfig): string {
+  const carry =
+    config.carry === 'points'
+      ? 'one continuous series'
+      : config.carry === 'net-plus-net'
+        ? 'two series added together'
+        : 'qualifying position carried forward';
+  return [
+    `${config.qualifyingFleets.map((f) => f.label).join('/')} → ${config.finalFleets.map((f) => f.label).join('/')}`,
+    carry,
+    config.medal ? `medal race ×${config.medal.multiplier}` : 'no medal race',
+  ].join(' · ');
+}
+
 function stagePrefix(stage: SeriesStage): string {
   return stage === 'qualifying' ? 'Q' : stage === 'final' ? 'F' : 'M';
 }
@@ -357,6 +373,27 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
       )}
+      <StageSection
+        title="Format"
+        status={formatSummary(sfState.config)}
+        defaultOpen={false}
+      >
+        <SplitFleetEditor
+          seriesId={seriesId}
+          config={sfState.config}
+          competitorCount={competitors.length}
+          canEdit={canManage}
+          locked={allFinishes.length > 0}
+          layout="wide"
+        />
+        {allFinishes.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            The fleet count and the way scores carry are settled now that racing
+            has started — changing them would re-deal fleets that have already
+            sailed. Everything else re-scores as you change it.
+          </p>
+        )}
+      </StageSection>
       <StageSection
         title={STAGE_TITLES.qualifying}
         status={

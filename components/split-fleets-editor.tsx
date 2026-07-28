@@ -83,6 +83,7 @@ export function SplitFleetEditor({
   competitorCount,
   canEdit,
   locked,
+  layout = 'stacked',
   onEnabled,
 }: {
   seriesId: string;
@@ -94,6 +95,10 @@ export function SplitFleetEditor({
   canEdit: boolean;
   /** Racing has started: the two structural fields are settled. */
   locked?: boolean;
+  /** 'wide' uses the full width of the Split Fleets tab's Format section:
+   *  settings on the left, the sailing-instruction translation beside them.
+   *  'stacked' is the narrow card/wizard form. */
+  layout?: 'stacked' | 'wide';
   onEnabled?: () => void;
 }) {
   const save = useSaveSplitFleetConfig(seriesId);
@@ -125,6 +130,28 @@ export function SplitFleetEditor({
     });
   }
 
+  function setThreshold(index: number, field: 'minRaces' | 'discardCount', n: number) {
+    patch({
+      discardThresholds: value.discardThresholds.map((t, i) =>
+        i === index ? { ...t, [field]: Math.max(1, n) } : t,
+      ),
+    });
+  }
+
+  function addThreshold() {
+    const last = [...value.discardThresholds].sort((a, b) => a.minRaces - b.minRaces).at(-1);
+    patch({
+      discardThresholds: [
+        ...value.discardThresholds,
+        { minRaces: (last?.minRaces ?? 3) + 1, discardCount: (last?.discardCount ?? 0) + 1 },
+      ],
+    });
+  }
+
+  function removeThreshold(index: number) {
+    patch({ discardThresholds: value.discardThresholds.filter((_, i) => i !== index) });
+  }
+
   const fleetCount = value.qualifyingFleets.length;
   const entries = competitorCount;
   // What the settings mean for the boats actually entered.
@@ -142,8 +169,9 @@ export function SplitFleetEditor({
   const selectClass = 'w-full max-w-full rounded-md border bg-background px-2 py-1 text-sm';
   const hint = 'text-xs text-muted-foreground';
 
-  return (
-    <div className="space-y-4 text-sm" data-testid="split-fleets-editor">
+  const wide = layout === 'wide';
+  const fields = (
+    <div className="space-y-4">
       <div className={rowClass}>
         <label className="font-medium" htmlFor="sf-format">Format</label>
         <div className="space-y-1">
@@ -272,25 +300,90 @@ export function SplitFleetEditor({
 
       <div className={rowClass}>
         <span className="font-medium">Discards</span>
-        <div className="space-y-1">
-          <p>
-            {value.discardThresholds.length === 0
-              ? 'No discards.'
-              : value.discardThresholds
-                  .map((t) => `${t.discardCount} from ${t.minRaces} races`)
-                  .join(', ')}
-            {value.carry === 'points' && (
-              <>
-                {' · '}at most {value.maxFinalDiscards} from the final series
-                {value.protectLoneFinalRace && ' · a lone final race is never discarded'}
-              </>
-            )}
-            {value.carry === 'net-plus-net' && ' · applied to each series separately'}
-          </p>
+        <div className="space-y-2">
+          {value.discardThresholds.length === 0 ? (
+            <p>No scores are excluded.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {value.discardThresholds.map((t, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-1.5">
+                  <span>Exclude</span>
+                  <input
+                    type="number"
+                    aria-label="Scores excluded"
+                    min={1}
+                    className="w-14 rounded-md border bg-background px-2 py-1 text-sm"
+                    disabled={!canEdit}
+                    value={t.discardCount}
+                    onChange={(e) => setThreshold(i, 'discardCount', Number(e.target.value))}
+                  />
+                  <span>score{t.discardCount === 1 ? '' : 's'} from</span>
+                  <input
+                    type="number"
+                    aria-label="Races completed"
+                    min={1}
+                    className="w-14 rounded-md border bg-background px-2 py-1 text-sm"
+                    disabled={!canEdit}
+                    value={t.minRaces}
+                    onChange={(e) => setThreshold(i, 'minRaces', Number(e.target.value))}
+                  />
+                  <span>races</span>
+                  {canEdit && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-muted-foreground"
+                      aria-label="Remove discard rule"
+                      onClick={() => removeThreshold(i)}
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {canEdit && (
+            <Button type="button" variant="outline" size="sm" onClick={addThreshold}>
+              Add a rule
+            </Button>
+          )}
+          {value.carry === 'points' && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+              <label className="flex items-center gap-1.5">
+                At most
+                <input
+                  type="number"
+                  aria-label="Discards allowed from the final series"
+                  min={0}
+                  className="w-14 rounded-md border bg-background px-2 py-1 text-sm"
+                  disabled={!canEdit}
+                  value={value.maxFinalDiscards}
+                  onChange={(e) =>
+                    patch({ maxFinalDiscards: Math.max(0, Number(e.target.value)) })
+                  }
+                />
+                from the final series
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  disabled={!canEdit}
+                  checked={value.protectLoneFinalRace}
+                  onChange={(e) => patch({ protectLoneFinalRace: e.target.checked })}
+                />
+                never exclude a lone final race
+              </label>
+            </div>
+          )}
           <p className={hint}>
-            {isDraft
-              ? 'Set by the format above; editable in the Scoring settings once this is enabled.'
-              : 'Edited in the Scoring card below, with the rest of this series’ discard rules.'}
+            {value.carry === 'net-plus-net'
+              ? 'Applied separately to the qualifying series and the final series.'
+              : value.carry === 'rank-seed'
+                ? 'Applied to the final series; the carried qualifying position is never excluded.'
+                : 'Applied across the whole line.'}{' '}
+            Medal races never count toward these rules and are never excluded.
           </p>
         </div>
       </div>
@@ -450,8 +543,6 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <SiTranslation config={value} />
-
       {isDraft && (
         <div className="flex items-center gap-2">
           <Button disabled={!canEdit || save.isPending} onClick={async () => {
@@ -466,24 +557,52 @@ export function SplitFleetEditor({
       {save.isError && <p className="text-destructive">{String(save.error)}</p>}
     </div>
   );
+
+  // Wide: the settings and their sailing-instruction translation side by
+  // side, so the scorer reads one against the other without scrolling.
+  if (wide) {
+    return (
+      <div className="grid gap-6 text-sm lg:grid-cols-2" data-testid="split-fleets-editor">
+        {fields}
+        <SiTranslation config={value} alwaysOpen />
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4 text-sm" data-testid="split-fleets-editor">
+      {fields}
+      <SiTranslation config={value} />
+    </div>
+  );
 }
 
 /** The configuration restated as sailing-instruction prose, for checking
  *  against the document the scorer was handed. */
-function SiTranslation({ config }: { config: SplitFleetConfig }) {
-  const [open, setOpen] = useState(false);
+function SiTranslation({
+  config,
+  alwaysOpen = false,
+}: {
+  config: SplitFleetConfig;
+  alwaysOpen?: boolean;
+}) {
+  const [userOpen, setUserOpen] = useState(false);
+  const open = alwaysOpen || userOpen;
   const lines = describeSplitFleetConfig(config);
   return (
     <div className="rounded-md border bg-muted/30 p-3" data-testid="sf-si-translation">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between text-left font-medium"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        How this configuration translates to sailing instructions
-        <span className="text-muted-foreground">{open ? '▾' : '▸'}</span>
-      </button>
+      {alwaysOpen ? (
+        <p className="font-medium">How this configuration translates to sailing instructions</p>
+      ) : (
+        <button
+          type="button"
+          className="flex w-full items-center justify-between text-left font-medium"
+          onClick={() => setUserOpen((o) => !o)}
+          aria-expanded={open}
+        >
+          How this configuration translates to sailing instructions
+          <span className="text-muted-foreground">{open ? '▾' : '▸'}</span>
+        </button>
+      )}
       {open && (
         <>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-muted-foreground">

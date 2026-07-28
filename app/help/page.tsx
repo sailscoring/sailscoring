@@ -1293,8 +1293,11 @@ export default async function HelpPage() {
           <p>
             Set the format up in the series setup wizard (or later, from the{' '}
             <strong className="text-foreground">Split-fleet championship</strong> card in
-            Settings). Start from a class format — ILCA, IODA, and the two-series and
-            carried-position models — which fills every setting; then read{' '}
+            Settings). Enabling it ends setup — the fleets are created by the assignment
+            ceremonies and the scoring rules move to the tab&rsquo;s{' '}
+            <strong className="text-foreground">Format</strong> section, which holds the whole
+            configuration from then on. Start from a class format — ILCA, IODA, and the
+            two-series and carried-position models — which fills every setting; then read{' '}
             <strong className="text-foreground">How this configuration translates to sailing
             instructions</strong>, which restates your settings as SI prose, against the scoring
             section of the sailing instructions you were given. Where a sentence disagrees,
