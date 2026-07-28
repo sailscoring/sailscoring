@@ -224,8 +224,13 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <fieldset className={rowClass}>
-        <legend className="font-medium">How scores carry into the final series</legend>
+      {/* Not a fieldset/legend: a legend is rendered as the fieldset's caption,
+          outside the grid flow, which would drop the options into the narrow
+          label column. The shared radio `name` still groups them natively. */}
+      <div className={rowClass} role="radiogroup" aria-labelledby="sf-carry-label">
+        <span className="font-medium" id="sf-carry-label">
+          How scores carry into the final series
+        </span>
         <div className="space-y-2">
           {CARRY_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex items-start gap-2">
@@ -246,7 +251,7 @@ export function SplitFleetEditor({
             </label>
           ))}
         </div>
-      </fieldset>
+      </div>
 
       <div className={rowClass}>
         <label className="font-medium" htmlFor="sf-split">
