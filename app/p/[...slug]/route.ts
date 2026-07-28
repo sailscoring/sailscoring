@@ -37,12 +37,11 @@ import {
   type SeriesIndexGroup,
 } from '@/lib/published-index';
 import {
+  folderSegmentOf,
   injectAfterBodyTag,
-  renderFleetNav,
-} from '@/lib/published-fleet-nav';
-import {
   pagesInFolder,
   renderFolderIndexHtml,
+  renderTreeNav,
   slugFolders,
   type TreePage,
 } from '@/lib/published-tree';
@@ -52,6 +51,7 @@ import {
   getWorkspaceBySlug,
   listPublishedByWorkspace,
   listPublishedSeriesIds,
+  listPublishedTopFolders,
 } from '@/lib/published-repository';
 import type { PublishedSeries } from '@/lib/types';
 
@@ -474,10 +474,12 @@ async function seriesIndex(
 
   // The listing changes only when a contributor re-publishes, so the members'
   // content hashes compose a sound ETag — plus the workspace logo, which the
-  // hero shows.
+  // hero shows, and the top-folder list the navigation cascade renders.
+  const topFolders = await listPublishedTopFolders(workspace.id);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     ...group.map((p) => p.contentHash),
+    ...topFolders.map((f) => `${f.slug}:${f.label}`),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -496,6 +498,23 @@ async function seriesIndex(
   );
   const title =
     groups.length === 1 ? groups[0].seriesName : humanizeSlug(seriesSlug);
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      topFolders,
+      currentSlug: seriesSlug,
+      pages: groups.flatMap((g) => {
+        const single = g.pages.filter((pg) => !pg.isPrizes).length === 1;
+        return g.pages.map((pg) => ({
+          ...pg,
+          ownerName: g.seriesName,
+          ownerSingle: single,
+        }));
+      }),
+      soleContributor: group.length === 1,
+    },
+    'block',
+  );
   const html = renderSeriesIndexHtml(
     workspaceSlug,
     workspace.name,
@@ -503,6 +522,7 @@ async function seriesIndex(
     title,
     groups,
     workspace.logo,
+    nav,
   );
   return htmlResponse(html, etag);
 }
@@ -526,20 +546,31 @@ async function fleetPage(
     return folderIndex(req, workspace, workspaceSlug, seriesSlug, subPath, group);
   }
 
-  const etag = `"${owner.contentHash}"`;
+  // The navigation cascade (ADR-011) draws on the whole slug group and the
+  // workspace's top-level folders, so both join the page content in the ETag.
+  const topFolders = await listPublishedTopFolders(workspace.id);
+  const etag = `"${await contentHash([
+    ...group.map((p) => p.contentHash),
+    ...topFolders.map((f) => `${f.slug}:${f.label}`),
+  ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
 
   const html = await readPublishedHtml(page.blobUrl);
   if (html === null) return NOT_FOUND;
-  // Sideways navigation between the owning publication's pages (#320),
-  // injected at serve time so the stored blob stays exactly the published
-  // artifact. The ETag needs no extension: the switcher derives from
-  // `owner.pages`, and any change to that set changes `contentHash`.
-  const nav = renderFleetNav(
-    owner.pages,
-    subPath,
-    `/p/${workspaceSlug}/${seriesSlug}`,
+  // The cascade is injected at serve time so the stored blob stays exactly
+  // the published artifact (parity with the download and FTP outputs).
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      topFolders,
+      currentSlug: seriesSlug,
+      pages: await groupTreePages(group),
+      soleContributor: group.length === 1,
+      currentFolder: folderSegmentOf(subPath) ?? undefined,
+      currentSubPath: subPath,
+    },
+    'float',
   );
   return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag);
 }
@@ -553,15 +584,17 @@ async function groupTreePages(group: PublishedSeries[]): Promise<TreePage[]> {
       ownerName: p.seriesId ? await getSeriesName(p.seriesId) : null,
     })),
   );
-  return withNames.flatMap((c) =>
-    c.pages.map((pg) => ({
+  return withNames.flatMap((c) => {
+    const single = c.pages.filter((pg) => !pg.isPrizes).length === 1;
+    return c.pages.map((pg) => ({
       fleetName: pg.fleetName,
       ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
       ...(pg.isPrizes ? { isPrizes: true } : {}),
       subPath: pg.subPath,
       ownerName: c.ownerName,
-    })),
-  );
+      ownerSingle: single,
+    }));
+  });
 }
 
 /** `/p/{ws}/{slug}/{folder}` — an interior folder of the publication tree
@@ -584,11 +617,13 @@ async function folderIndex(
   if (!folder) return NOT_FOUND;
 
   // Same freshness basis as the series index: the folder's contents only
-  // change when a contributor re-publishes.
+  // change when a contributor re-publishes; the cascade adds the top folders.
+  const topFolders = await listPublishedTopFolders(workspace.id);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `folder:${subPath}`,
     ...group.map((p) => p.contentHash),
+    ...topFolders.map((f) => `${f.slug}:${f.label}`),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -598,6 +633,17 @@ async function folderIndex(
       ? ((group[0].seriesId ? await getSeriesName(group[0].seriesId) : null) ??
         humanizeSlug(seriesSlug))
       : humanizeSlug(seriesSlug);
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      topFolders,
+      currentSlug: seriesSlug,
+      pages,
+      soleContributor: group.length === 1,
+      currentFolder: subPath,
+    },
+    'block',
+  );
   const html = renderFolderIndexHtml({
     workspaceSlug,
     slug: seriesSlug,
@@ -606,6 +652,7 @@ async function folderIndex(
     soleContributor: group.length === 1,
     slugTitle,
     logoUrl: workspace.logo,
+    nav,
   });
   return htmlResponse(html, etag);
 }

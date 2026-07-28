@@ -140,6 +140,18 @@ test('sub-series: select races, per-block standings, publish per block', async (
   await expect(page.getByText('Frostbite 2026 — Spring').first()).toBeVisible();
   await expect(page.getByText('Carol Ryan').first()).toBeVisible();
   await expect(page.getByText('Bob Kelly')).toHaveCount(0);
+
+  // ── 6. The publication tree (ADR-011) ────────────────────────────────────
+  // The block segment, named by every page URL, resolves to a folder index.
+  await page.goto(`${indexPath}/winter`);
+  await expect(page.getByRole('heading', { name: 'Winter' })).toBeVisible();
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/winter\/standings$/);
+
+  // The cascade injected into the served page jumps across blocks.
+  await page.locator('.sstreenav select').selectOption({ label: 'Spring' });
+  await expect(page).toHaveURL(/\/frostbite-2026\/spring$/);
+  await expect(page.getByRole('heading', { name: 'Spring' })).toBeVisible();
 });
 
 test('sub-series: "rank only boats that took part" toggle persists', async ({ page, signedInEmail }) => {

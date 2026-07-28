@@ -355,6 +355,48 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     .sort((a, b) => b.publishedAt - a.publishedAt);
 }
 
+/** Every top-level folder of the workspace's publication tree (ADR-011): one
+ *  entry per published slug, labelled by the sole contributor's series name or
+ *  the humanised slug when several series share it, newest publish first (the
+ *  cascade re-orders season folders itself). Light on purpose — no page lists
+ *  — because the navigation cascade loads this on every public page view. */
+export async function listPublishedTopFolders(
+  workspaceId: string,
+): Promise<{ slug: string; label: string }[]> {
+  const rows = await getDb()
+    .select({
+      slug: schema.publishedSeries.slug,
+      seriesName: schema.series.name,
+      publishedAt: schema.publishedSeries.publishedAt,
+    })
+    .from(schema.publishedSeries)
+    .leftJoin(
+      schema.series,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+    .orderBy(desc(schema.publishedSeries.publishedAt));
+
+  const groups = new Map<string, { names: (string | null)[]; at: number }>();
+  for (const r of rows) {
+    const g = groups.get(r.slug) ?? { names: [], at: 0 };
+    g.names.push(r.seriesName);
+    g.at = Math.max(g.at, r.publishedAt.getTime());
+    groups.set(r.slug, g);
+  }
+  return [...groups.entries()]
+    .map(([slug, g]) => ({
+      slug,
+      label:
+        g.names.length === 1 && g.names[0] !== null
+          ? g.names[0]
+          : humanizeSlug(slug),
+      at: g.at,
+    }))
+    .sort((a, b) => b.at - a.at)
+    .map(({ slug, label }) => ({ slug, label }));
+}
+
 /**
  * Every publication in a workspace, newest first, for the authenticated
  * management page (#164). Richer than {@link listPublishedByWorkspace} (the

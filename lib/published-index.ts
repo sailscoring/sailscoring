@@ -460,7 +460,7 @@ function renderQuickJumpPicker(
           .map((c) => `<option value="${esc(c)}">${esc(c)}</option>`)
           .join('')}</select>`
       : '';
-  const controls = `<div class="picker" hidden>${yearSelect}${catSelect}<select id="picker-series" aria-label="Series"><option value="">All series</option></select><select id="picker-fleet" aria-label="Fleet" disabled><option value="">Go to fleet&hellip;</option></select></div>\n`;
+  const controls = `<div class="picker" hidden>${yearSelect}${catSelect}<select id="picker-series" aria-label="Series"><option value="">All series</option></select><select id="picker-fleet" aria-label="Results page" disabled><option value="">Go to results&hellip;</option></select></div>\n`;
 
   // `<` escaped so an adversarial series title can't close the script tag.
   const json = JSON.stringify(data).replace(/</g, '\\u003c');
@@ -521,7 +521,7 @@ const PICKER_SCRIPT = `(function () {
     var s = seriesSel.value;
     var selected = s === '' ? null : data.items[Number(s)];
     fleetSel.textContent = '';
-    fleetSel.appendChild(option('', 'Go to fleet\\u2026'));
+    fleetSel.appendChild(option('', 'Go to results\\u2026'));
     if (selected) {
       selected.pages.forEach(function (p) {
         fleetSel.appendChild(option(p.url, p.label));
@@ -586,6 +586,8 @@ export function renderSeriesIndexHtml(
   title: string,
   groups: SeriesIndexGroup[],
   logoUrl = '',
+  /** Pre-rendered navigation-cascade fragment (ADR-011), above the listing. */
+  nav = '',
 ): string {
   const renderFlatList = (pages: SeriesIndexPage[]): string => {
     // A lone results page reads better as "Standings" than as its (possibly
@@ -636,7 +638,7 @@ ${pages
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
   const hero = renderPublicHero(esc(title), logoUrl);
-  return renderPublicShell(title, hero, `${back}\n${sections}`);
+  return renderPublicShell(title, hero, `${back}\n${nav}${sections}`);
 }
 
 /** The public ranking index at `/p/{ws}/rankings` (#209/#309): the live

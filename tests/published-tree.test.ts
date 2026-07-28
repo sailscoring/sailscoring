@@ -80,27 +80,38 @@ describe('leafLabel', () => {
     // Mirrors the series-index rule: a sole contributor's only results page
     // is the standings, whatever its fleet is called.
     const pages: TreePage[] = [
-      { fleetName: 'IRC', subPath: 'irc' },
-      { fleetName: 'Prizes', isPrizes: true, subPath: 'prizes' },
+      { fleetName: 'IRC', subPath: 'irc', ownerSingle: true },
+      { fleetName: 'Prizes', isPrizes: true, subPath: 'prizes', ownerSingle: true },
     ];
     expect(leafLabel(pages[0], pages, true)).toBe('Standings');
   });
 
   it('reads a sole contributor\'s lone results page as "Standings"', () => {
     const pages: TreePage[] = [
-      { fleetName: 'Default', subPath: 'standings' },
-      { fleetName: 'Prizes', isPrizes: true, subPath: 'prizes' },
+      { fleetName: 'Unknown', subPath: 'standings', ownerSingle: true },
+      { fleetName: 'Prizes', isPrizes: true, subPath: 'prizes', ownerSingle: true },
     ];
     expect(leafLabel(pages[0], pages, true)).toBe('Standings');
   });
 
-  it('names a shared-slug synthetic Default page after its series', () => {
+  it('names a shared-slug synthetic single page after its series', () => {
     const pages: TreePage[] = [
-      { fleetName: 'Default', subPath: 'standings', ownerName: 'Lambay Races Cruisers' },
-      { fleetName: 'Default', subPath: 'one-designs', ownerName: 'Lambay Races One Designs' },
+      { fleetName: 'Unknown', subPath: 'standings', ownerName: 'Lambay Races Cruisers', ownerSingle: true },
+      { fleetName: 'Default', subPath: 'one-designs', ownerName: 'Lambay Races One Designs', ownerSingle: true },
     ];
     expect(leafLabel(pages[0], pages, false)).toBe('Lambay Races Cruisers');
     expect(leafLabel(pages[1], pages, false)).toBe('Lambay Races One Designs');
+  });
+
+  it('keeps a meaningful lone-fleet name on a shared slug', () => {
+    // The IODAI event shape: each contributing series publishes one page for
+    // a real fleet — the fleet name reads better than the long series name.
+    const pages: TreePage[] = [
+      { fleetName: 'Regatta Racing', subPath: 'regatta-racing', ownerName: 'Munsters 2025 Regatta Racing', ownerSingle: true },
+      { fleetName: 'Senior', subPath: 'senior', ownerName: 'Munsters 2025' },
+      { fleetName: 'Junior', subPath: 'junior', ownerName: 'Munsters 2025' },
+    ];
+    expect(leafLabel(pages[0], pages, false)).toBe('Regatta Racing');
   });
 
   it('disambiguates same-named fleets from different series', () => {
@@ -213,8 +224,8 @@ describe('buildTreeNav', () => {
 
   it('root-level page: the slug children are the sibling set', () => {
     const pages: TreePage[] = [
-      { fleetName: 'Default', subPath: 'standings', ownerName: 'Cruisers' },
-      { fleetName: 'Default', subPath: 'one-designs', ownerName: 'One Designs' },
+      { fleetName: 'Unknown', subPath: 'standings', ownerName: 'Cruisers', ownerSingle: true },
+      { fleetName: 'Unknown', subPath: 'one-designs', ownerName: 'One Designs', ownerSingle: true },
     ];
     const { selects, leaf } = buildTreeNav({
       workspaceSlug: 'm15',

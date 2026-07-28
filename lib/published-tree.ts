@@ -30,6 +30,10 @@ import {
 export interface TreePage extends SeriesIndexPage {
   /** The contributing series' name; null/absent for an orphaned publication. */
   ownerName?: string | null;
+  /** True when the owning publication has exactly one non-prizes page — the
+   *  page is that publication's standings, whatever its fleet is called
+   *  (possibly the synthetic "Default"/"Unknown" single-fleet name). */
+  ownerSingle?: boolean;
 }
 
 /** A top-level folder (published slug) as offered by the cascade's first
@@ -100,33 +104,42 @@ export function pagesInFolder(pages: TreePage[], segment: string): TreePage[] {
   return pages.filter((p) => folderSegmentOf(p.subPath) === segment);
 }
 
+/** The single-fleet placeholder names a publication's lone page can carry:
+ *  the series-creation default fleet and the scoring engine's fleetless
+ *  bucket. Neither is a name worth showing a viewer. */
+const SYNTHETIC_FLEET_NAMES = new Set(['Default', 'Unknown']);
+
+function baseLeafLabel(page: TreePage, soleContributor: boolean): string {
+  if (page.isPrizes) return page.fleetName;
+  // A synthetic name is never shown: such a page is its publication's (or
+  // block's) standings, so call it that — by the series' name when the slug
+  // is shared, since "Standings" alone wouldn't say whose.
+  if (SYNTHETIC_FLEET_NAMES.has(page.fleetName)) {
+    return soleContributor ? 'Standings' : (page.ownerName ?? 'Standings');
+  }
+  if (page.ownerSingle && soleContributor) return 'Standings';
+  return page.fleetName;
+}
+
 /**
  * Display label for a page among its sibling set. The rules, in order:
- * prize sheets keep their own name; a synthetic "Default" fleet reads as its
- * series' name on a shared slug ("Standings" for a sole contributor — the
- * series name is already the folder label there); a lone results page of a
- * sole contributor reads as "Standings"; otherwise the fleet name,
- * disambiguated with the series name when siblings from different series
- * share it. Block names never appear — the folder level of the cascade
- * carries them.
+ * prize sheets keep their own name; a publication's only results page is its
+ * standings — "Standings" for a sole contributor, its series' name on a
+ * shared slug when the fleet name is a synthetic placeholder; otherwise the
+ * fleet name, disambiguated with the series name when siblings from
+ * different series would read the same. Block names never appear — the
+ * folder level of the cascade carries them.
  */
 export function leafLabel(
   page: TreePage,
   siblings: TreePage[],
   soleContributor: boolean,
 ): string {
-  if (page.isPrizes) return page.fleetName;
-  if (page.fleetName === 'Default') {
-    return soleContributor ? 'Standings' : (page.ownerName ?? 'Standings');
-  }
-  const nonPrizes = siblings.filter((p) => !p.isPrizes);
-  if (soleContributor && nonPrizes.length === 1) return 'Standings';
+  const base = baseLeafLabel(page, soleContributor);
   const duplicated = siblings.some(
-    (p) => p !== page && !p.isPrizes && p.fleetName === page.fleetName,
+    (p) => p !== page && baseLeafLabel(p, soleContributor) === base,
   );
-  return duplicated && page.ownerName
-    ? `${page.ownerName} — ${page.fleetName}`
-    : page.fleetName;
+  return duplicated && page.ownerName ? `${page.ownerName} — ${base}` : base;
 }
 
 /** True when every top-level folder slug reads as a season ("2025",

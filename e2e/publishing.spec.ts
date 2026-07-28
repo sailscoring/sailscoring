@@ -410,10 +410,16 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   // Both fleet pages resolve under the one slug.
   await page.goto(`${indexPath}/standings`);
   await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
-  // The fleet switcher (#320) covers the owning publication's pages only —
-  // each contributor here has a single page, so neither shows a switcher.
-  await expect(page.locator('.ssfleetnav')).toHaveCount(0);
-  await page.goto(`${indexPath}/lambay-races-one-designs`);
+  // The navigation cascade (ADR-011) spans the whole slug group, so the
+  // sibling series' page is one link away, each named after its series.
+  await expect(page.locator('.sstreenav .sstreenav-current')).toHaveText(
+    'Lambay Races Cruisers',
+  );
+  await page
+    .locator('.sstreenav')
+    .getByRole('link', { name: 'Lambay Races One Designs' })
+    .click();
+  await expect(page).toHaveURL(/\/2026-lambay-races\/lambay-races-one-designs$/);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 
   // The workspace index picker offers each contributing series by name —
@@ -525,7 +531,7 @@ test('selective publishing: choose fleets and override a fleet URL segment', asy
   expect((await page.request.get(`${base}/cruiser`)).status()).toBe(404);
 });
 
-test('fleet switcher moves between a publication\'s fleet pages (#320)', async ({ page }) => {
+test('the cascade moves between a publication\'s fleet pages (#320/ADR-011)', async ({ page }) => {
   await createTwoFleetSeries(page, 'HYC Spring League');
 
   await page.getByRole('button', { name: 'Publish' }).click();
@@ -536,14 +542,14 @@ test('fleet switcher moves between a publication\'s fleet pages (#320)', async (
   await expect(link).toBeVisible();
   const ircPath = new URL((await link.getAttribute('href')) ?? '').pathname;
 
-  // On a fleet page the switcher shows the current fleet unlinked and links
-  // the sibling; clicking it lands on the sibling's standings.
+  // On a fleet page the cascade's leaf shows the current fleet unlinked and
+  // links the sibling; clicking it lands on the sibling's standings.
   await page.goto(ircPath);
-  await expect(page.locator('.ssfleetnav-current')).toHaveText('IRC');
-  await page.locator('.ssfleetnav').getByRole('link', { name: 'Cruiser' }).click();
+  await expect(page.locator('.sstreenav-current')).toHaveText('IRC');
+  await page.locator('.sstreenav').getByRole('link', { name: 'Cruiser' }).click();
   await expect(page).toHaveURL(/\/spring-26\/cruiser$/);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
-  await expect(page.locator('.ssfleetnav-current')).toHaveText('Cruiser');
+  await expect(page.locator('.sstreenav-current')).toHaveText('Cruiser');
 });
 
 test('unticking a published fleet on re-publish leaves its page live and unchanged', async ({ page }) => {
