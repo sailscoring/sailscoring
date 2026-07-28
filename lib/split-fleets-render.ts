@@ -57,10 +57,6 @@ export interface SplitFleetRenderInput {
 }
 
 export function assembleSplitFleetData(input: SplitFleetRenderInput): SplitFleetData {
-  const raceFleetIds: Record<string, string> = {};
-  for (const start of input.raceStarts) {
-    if (start.fleetIds.length === 1) raceFleetIds[start.raceId] = start.fleetIds[0];
-  }
   return {
     config: input.config,
     rounds: input.rounds.map((r) => ({
@@ -71,8 +67,8 @@ export function assembleSplitFleetData(input: SplitFleetRenderInput): SplitFleet
     })),
     fleets: input.fleets,
     competitors: input.competitors,
-    races: input.races.filter((r) => r.stage),
-    raceFleetIds,
+    races: input.races,
+    raceStarts: input.raceStarts,
     finishes: input.finishes,
   };
 }

@@ -111,6 +111,10 @@ interface FileRaceStart {
   fleetIds: string[];
   /** Absent for a membership-only start (scopes the fleet, no gun time). */
   startTime?: string;
+  /** Split-fleet series (v24+): stage identity per start. */
+  stage?: 'qualifying' | 'final' | 'medal';
+  stageRaceNumber?: number;
+  firstPlaceOffset?: number;
 }
 interface FileRace {
   id: string;
@@ -1008,7 +1012,6 @@ function buildChampionship(): SeriesFile {
   const rounds: SplitRound[] = [];
   const races: FileRace[] = [];
   const engineFinishes: Finish[] = [];
-  const raceFleetIds: Record<string, string> = {};
   let fleetSeq = 0;
   let roundSeq = 0;
   // Round timestamps are display-only; fixed and spaced for determinism.
@@ -1026,19 +1029,26 @@ function buildChampionship(): SeriesFile {
       name: r.name ?? '',
       date: r.date,
       createdAt: r.raceNumber,
-      stage: r.stage,
-      stageRaceNumber: r.stageRaceNumber,
-      ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
     })),
-    raceFleetIds,
+    raceStarts: races.flatMap((r) =>
+      r.starts.map((s) => ({
+        id: s.id,
+        raceId: r.id,
+        fleetIds: s.fleetIds,
+        startTime: s.startTime,
+        ...(s.stage ? { stage: s.stage } : {}),
+        ...(s.stageRaceNumber != null ? { stageRaceNumber: s.stageRaceNumber } : {}),
+        ...(s.firstPlaceOffset != null ? { firstPlaceOffset: s.firstPlaceOffset } : {}),
+      })),
+    ),
     finishes: engineFinishes,
   });
 
   /** Combined qualifying ranking through logical race N (the frozen basis). */
   const qualifyingOrderThrough = (throughRace: number): string[] => {
     const data = engineData();
-    data.races = data.races.filter(
-      (r) => r.stage === 'qualifying' && (r.stageRaceNumber ?? 0) <= throughRace,
+    data.raceStarts = data.raceStarts.filter(
+      (s) => s.stage === 'qualifying' && (s.stageRaceNumber ?? 0) <= throughRace,
     );
     return splitFleetStandings(data).map((row) => row.competitor.id);
   };
@@ -1140,10 +1150,15 @@ function buildChampionship(): SeriesFile {
       stage,
       stageRaceNumber: n,
       ...(opts.firstPlaceOffset != null ? { firstPlaceOffset: opts.firstPlaceOffset } : {}),
-      starts: [{ id: `chstart-${raceNumber}`, fleetIds: [fleetId] }],
+      starts: [{
+        id: `chstart-${raceNumber}`,
+        fleetIds: [fleetId],
+        stage,
+        stageRaceNumber: n,
+        ...(opts.firstPlaceOffset != null ? { firstPlaceOffset: opts.firstPlaceOffset } : {}),
+      }],
       finishes,
     });
-    raceFleetIds[raceId] = fleetId;
   };
 
   // ── Day 1: Round 1 seeded by the OA seeding, Q1–Q2 ─────────────────────────

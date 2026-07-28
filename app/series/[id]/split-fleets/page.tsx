@@ -44,17 +44,19 @@ import {
   finalBlockSizes,
   fleetMembers,
   logicalRaces,
+  physicalRaceCompleted,
   provisionalCutIndexes,
-  raceCompleted,
   roundsForStage,
   seedOrder,
   splitFleetStandings,
+  stageRaceRefs,
   type SeedOrder,
   type SeriesStage,
   type SplitFleetConfig,
   type SplitFleetData,
   type SplitRound,
   type SplitStandingRow,
+  type StageRaceRef,
 } from '@/lib/split-fleets';
 
 interface NextAction { label: string; href?: string }
@@ -71,19 +73,19 @@ function computeNextAction(
 ): NextAction | null {
   if (qualifyingRounds.length === 0) return { label: 'seed Round 1 (create the qualifying fleets)' };
   const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
-  const pending = [...data.races]
+  const pending = stageRaceRefs(data)
     .sort(
       (a, b) =>
-        stageOrder.indexOf(a.stage!) - stageOrder.indexOf(b.stage!) ||
-        (a.stageRaceNumber ?? 0) - (b.stageRaceNumber ?? 0),
+        stageOrder.indexOf(a.start.stage!) - stageOrder.indexOf(b.start.stage!) ||
+        (a.start.stageRaceNumber ?? 0) - (b.start.stageRaceNumber ?? 0),
     )
-    .find((r) => !raceCompleted(r, data.finishes));
+    .find((ref) => !physicalRaceCompleted(ref, data.competitors, data.finishes));
   if (pending) {
-    const fleet = fleetMeta.get(data.raceFleetIds[pending.id])?.label ?? '';
-    const prefix = pending.stage === 'qualifying' ? 'Q' : pending.stage === 'final' ? 'F' : 'M';
+    const fleet = fleetMeta.get(pending.fleetId)?.label ?? '';
+    const prefix = pending.start.stage === 'qualifying' ? 'Q' : pending.start.stage === 'final' ? 'F' : 'M';
     return {
-      label: `enter finishes for ${prefix}${pending.stageRaceNumber} · ${fleet}`,
-      href: `/series/${pending.seriesId}/races/${pending.id}`,
+      label: `enter finishes for ${prefix}${pending.start.stageRaceNumber} · ${fleet}`,
+      href: `/series/${pending.race.seriesId}/races/${pending.race.id}`,
     };
   }
   if (!splitRound) return { label: 'end qualifying and split into final fleets (when the SIs are satisfied)' };
@@ -95,26 +97,26 @@ function DayStrip({ data, config }: { data: SplitFleetData; config: SplitFleetCo
   // Planned schedule chips reconciled against reality: each planned day
   // shows its races; completed ones tick.
   const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
-  const sorted = [...data.races].sort(
+  const sorted = stageRaceRefs(data).sort(
     (a, b) =>
-      stageOrder.indexOf(a.stage!) - stageOrder.indexOf(b.stage!) ||
-      (a.stageRaceNumber ?? 0) - (b.stageRaceNumber ?? 0) ||
-      (data.raceFleetIds[a.id] ?? '').localeCompare(data.raceFleetIds[b.id] ?? ''),
+      stageOrder.indexOf(a.start.stage!) - stageOrder.indexOf(b.start.stage!) ||
+      (a.start.stageRaceNumber ?? 0) - (b.start.stageRaceNumber ?? 0) ||
+      a.fleetId.localeCompare(b.fleetId),
   );
   // One chip per logical race (stage+number), ticked when all its physical
   // races are complete.
   const chips: { key: string; label: string; state: 'done' | 'part' | 'todo' }[] = [];
   const seen = new Set<string>();
-  for (const r of sorted) {
-    const key = `${r.stage}:${r.stageRaceNumber}`;
+  for (const ref of sorted) {
+    const key = `${ref.start.stage}:${ref.start.stageRaceNumber}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const group = sorted.filter((x) => `${x.stage}:${x.stageRaceNumber}` === key);
-    const done = group.filter((x) => raceCompleted(x, data.finishes)).length;
-    const prefix = r.stage === 'qualifying' ? 'Q' : r.stage === 'final' ? 'F' : 'M';
+    const group = sorted.filter((x) => `${x.start.stage}:${x.start.stageRaceNumber}` === key);
+    const done = group.filter((x) => physicalRaceCompleted(x, data.competitors, data.finishes)).length;
+    const prefix = ref.start.stage === 'qualifying' ? 'Q' : ref.start.stage === 'final' ? 'F' : 'M';
     chips.push({
       key,
-      label: `${prefix}${r.stageRaceNumber}`,
+      label: `${prefix}${ref.start.stageRaceNumber}`,
       state: done === group.length ? 'done' : done > 0 ? 'part' : 'todo',
     });
   }
@@ -153,13 +155,13 @@ function medalPhaseComplete(
   medalRound: SplitRound,
   config: SplitFleetConfig,
 ): boolean {
-  const medalRaces = data.races.filter((r) => r.stage === 'medal');
-  if (medalRaces.length === 0) return false;
-  if (!medalRaces.every((r) => raceCompleted(r, data.finishes))) return false;
-  const medalFleetRaces = medalRaces.filter(
-    (r) => data.raceFleetIds[r.id] === medalRound.fleetIds[0],
-  );
-  return medalFleetRaces.length >= (config.medal?.raceCount ?? 1);
+  const medalRefs = stageRaceRefs(data, 'medal');
+  if (medalRefs.length === 0) return false;
+  if (!medalRefs.every((ref) => physicalRaceCompleted(ref, data.competitors, data.finishes))) {
+    return false;
+  }
+  const medalFleetRefs = medalRefs.filter((ref) => ref.fleetId === medalRound.fleetIds[0]);
+  return medalFleetRefs.length >= (config.medal?.raceCount ?? 1);
 }
 
 /** How many logical races the first round covers: the planned first day's
@@ -332,18 +334,13 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const raceFleetIds: Record<string, string> = {};
-  for (const start of raceStarts) {
-    if (start.fleetIds.length === 1) raceFleetIds[start.raceId] = start.fleetIds[0];
-  }
-
   const sfData: SplitFleetData = {
     config: sfState.config,
     rounds: sfState.rounds,
     fleets,
     competitors,
-    races: races.filter((r) => r.stage),
-    raceFleetIds,
+    races,
+    raceStarts,
     finishes: allFinishes,
   };
 
@@ -773,13 +770,13 @@ function LogicalRaceRow({
   stageRaceNumber: number;
 }) {
   const refs = new Map(
-    data.races
-      .filter((r) => r.stage === stage && r.stageRaceNumber === stageRaceNumber)
-      .map((r) => [data.raceFleetIds[r.id], r]),
+    stageRaceRefs(data, stage)
+      .filter((ref) => ref.start.stageRaceNumber === stageRaceNumber)
+      .map((ref) => [ref.fleetId, ref]),
   );
   const missing = round.fleetIds.filter((fid) => {
-    const race = refs.get(fid);
-    return !race || !raceCompleted(race, data.finishes);
+    const ref = refs.get(fid);
+    return !ref || !physicalRaceCompleted(ref, data.competitors, data.finishes);
   });
   const valid = missing.length === 0;
   return (
@@ -792,20 +789,20 @@ function LogicalRaceRow({
         {stageRaceNumber}
       </span>
       {round.fleetIds.map((fid) => {
-        const race = refs.get(fid);
+        const ref = refs.get(fid);
         const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
-        if (!race) {
+        if (!ref) {
           return (
             <span key={fid} className="rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
               {meta.label} — no race
             </span>
           );
         }
-        const done = raceCompleted(race, data.finishes);
+        const done = physicalRaceCompleted(ref, data.competitors, data.finishes);
         return (
           <Link
             key={fid}
-            href={`/series/${seriesId}/races/${race.id}`}
+            href={`/series/${seriesId}/races/${ref.race.id}`}
             className="rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-background/70"
             style={{
               borderColor: meta.color,
@@ -1259,29 +1256,31 @@ function FinalSection({
         same number of races.
       </p>
       {round.fleetIds.map((fid) => {
-        const races = data.races
-          .filter((r) => r.stage === 'final' && data.raceFleetIds[r.id] === fid)
-          .sort((a, b) => (a.stageRaceNumber ?? 0) - (b.stageRaceNumber ?? 0));
+        const refs = stageRaceRefs(data, 'final')
+          .filter((ref) => ref.fleetId === fid)
+          .sort((a, b) => (a.start.stageRaceNumber ?? 0) - (b.start.stageRaceNumber ?? 0));
         const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
-        const nextN = races.length ? Math.max(...races.map((r) => r.stageRaceNumber ?? 0)) + 1 : 1;
+        const nextN = refs.length
+          ? Math.max(...refs.map((ref) => ref.start.stageRaceNumber ?? 0)) + 1
+          : 1;
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">
             <span className="w-40">
               <FleetChip meta={meta} count={fleetMembers(data.competitors, fid).length} />
             </span>
-            {races.map((race) => {
-              const done = raceCompleted(race, data.finishes);
+            {refs.map((ref) => {
+              const done = physicalRaceCompleted(ref, data.competitors, data.finishes);
               return (
                 <Link
-                  key={race.id}
-                  href={`/series/${seriesId}/races/${race.id}`}
+                  key={ref.start.id}
+                  href={`/series/${seriesId}/races/${ref.race.id}`}
                   className="rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-background/70"
                   style={{
                     borderColor: meta.color,
                     backgroundColor: done ? `${meta.color}33` : undefined,
                   }}
                 >
-                  F{race.stageRaceNumber} {done ? '✓' : '· enter finishes'}
+                  F{ref.start.stageRaceNumber} {done ? '✓' : '· enter finishes'}
                 </Link>
               );
             })}
@@ -1519,33 +1518,35 @@ function MedalSection({
         finisher = {(medalConfig?.size ?? 10) + 1}).
       </p>
       {round.fleetIds.map((fid, i) => {
-        const races = data.races
-          .filter((r) => r.stage === 'medal' && data.raceFleetIds[r.id] === fid)
-          .sort((a, b) => (a.stageRaceNumber ?? 0) - (b.stageRaceNumber ?? 0));
+        const refs = stageRaceRefs(data, 'medal')
+          .filter((ref) => ref.fleetId === fid)
+          .sort((a, b) => (a.start.stageRaceNumber ?? 0) - (b.start.stageRaceNumber ?? 0));
         const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
-        const nextN = races.length ? Math.max(...races.map((r) => r.stageRaceNumber ?? 0)) + 1 : 1;
+        const nextN = refs.length
+          ? Math.max(...refs.map((ref) => ref.start.stageRaceNumber ?? 0)) + 1
+          : 1;
         const isMedal = i === 0;
         // raceCount is a planning hint, not a limit: the 2026 two-race medal
         // series is just two adds. Companion fleets sail one last race.
-        const canAddMore = isMedal || races.length < 1;
+        const canAddMore = isMedal || refs.length < 1;
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">
             <span className="w-40">
               <FleetChip meta={meta} count={fleetMembers(data.competitors, fid).length} />
             </span>
-            {races.map((race) => {
-              const done = raceCompleted(race, data.finishes);
+            {refs.map((ref) => {
+              const done = physicalRaceCompleted(ref, data.competitors, data.finishes);
               return (
                 <Link
-                  key={race.id}
-                  href={`/series/${seriesId}/races/${race.id}`}
+                  key={ref.start.id}
+                  href={`/series/${seriesId}/races/${ref.race.id}`}
                   className="rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-background/70"
                   style={{
                     borderColor: meta.color,
                     backgroundColor: done ? `${meta.color}33` : undefined,
                   }}
                 >
-                  M{race.stageRaceNumber} {isMedal ? `·×${medalConfig?.multiplier ?? 2}` : ''}{' '}
+                  M{ref.start.stageRaceNumber} {isMedal ? `·×${medalConfig?.multiplier ?? 2}` : ''}{' '}
                   {done ? '✓' : '· enter finishes'}
                 </Link>
               );

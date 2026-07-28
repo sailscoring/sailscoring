@@ -3,13 +3,15 @@ import {
   assignByRankPattern,
   defaultSplitFleetConfig,
   finalBlockSizes,
+  logicalRaces,
+  physicalRaceCompleted,
   provisionalCutIndexes,
   rankPatternFleetIndex,
   splitFleetStandings,
   type SplitFleetData,
   type SplitRound,
 } from '@/lib/split-fleets';
-import type { Competitor, Finish, Fleet, Race } from '@/lib/types';
+import type { Competitor, Finish, Fleet, Race, RaceStart } from '@/lib/types';
 
 function competitor(id: string, fleetIds: string[], sail: number): Competitor {
   return {
@@ -29,11 +31,7 @@ function fleet(id: string, name: string): Fleet {
   return { id, seriesId: 's1', name, displayOrder: 0, scoringSystem: 'scratch' };
 }
 
-function race(
-  id: string,
-  stage: 'qualifying' | 'final' | 'medal',
-  stageRaceNumber: number,
-): Race {
+function race(id: string): Race {
   return {
     id,
     seriesId: 's1',
@@ -41,8 +39,24 @@ function race(
     name: null,
     date: '2026-08-24',
     createdAt: 0,
+  };
+}
+
+/** One start in a race's sequence: `fleetIds` sail stage race `n`. */
+function start(
+  raceId: string,
+  fleetIds: string[],
+  stage: 'qualifying' | 'final' | 'medal',
+  n: number,
+  firstPlaceOffset?: number,
+): RaceStart {
+  return {
+    id: `${raceId}-start-${fleetIds.join('-')}`,
+    raceId,
+    fleetIds,
     stage,
-    stageRaceNumber,
+    stageRaceNumber: n,
+    ...(firstPlaceOffset != null ? { firstPlaceOffset } : {}),
   };
 }
 
@@ -131,8 +145,12 @@ describe('splitFleetStandings', () => {
       rounds: [round],
       fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue')],
       competitors,
-      races: [race('q1y', 'qualifying', 1), race('q1b', 'qualifying', 1), race('q2y', 'qualifying', 2)],
-      raceFleetIds: { q1y: 'fy', q1b: 'fb', q2y: 'fy' },
+      races: [race('q1y'), race('q1b'), race('q2y')],
+      raceStarts: [
+        start('q1y', ['fy'], 'qualifying', 1),
+        start('q1b', ['fb'], 'qualifying', 1),
+        start('q2y', ['fy'], 'qualifying', 2),
+      ],
       finishes: [
         finish('q1y', 'c1', 0),
         finish('q1y', 'c2', 1),
@@ -177,14 +195,18 @@ describe('splitFleetStandings', () => {
       id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
       fleetIds: ['fg'], method: 'split', basis: null, createdAt: 1,
     };
-    const mk = (id: string, stage: 'qualifying' | 'final', n: number) => race(id, stage, n);
     const data: SplitFleetData = {
       config: { ...config, discardThresholds: [{ minRaces: 4, discardCount: 2 }] },
       rounds: [qRound, fRound],
       fleets: [fleet('fy', 'Yellow'), fleet('fg', 'Gold')],
       competitors,
-      races: [mk('q1', 'qualifying', 1), mk('q2', 'qualifying', 2), mk('f1', 'final', 1), mk('f2', 'final', 2)],
-      raceFleetIds: { q1: 'fy', q2: 'fy', f1: 'fg', f2: 'fg' },
+      races: [race('q1'), race('q2'), race('f1'), race('f2')],
+      raceStarts: [
+        start('q1', ['fy'], 'qualifying', 1),
+        start('q2', ['fy'], 'qualifying', 2),
+        start('f1', ['fg'], 'final', 1),
+        start('f2', ['fg'], 'final', 2),
+      ],
       finishes: [
         // c1 wins both qualifying races (1, 1), is last in both final races (2, 2)
         finish('q1', 'c1', 0), finish('q1', 'c2', 1),
@@ -201,6 +223,121 @@ describe('splitFleetStandings', () => {
     // qualifying 1-pointer.
     expect(discardedStages).toEqual(['final', 'qualifying']);
     expect(c1.net).toBe(1 + 2); // one qualifying 1 + one final 2
+  });
+
+  it('scores per-fleet places from one combined sheet (sequenced starts)', () => {
+    // Yellow and Blue start in sequence and finish onto one interleaved
+    // sheet: crossing order c1(Y), c4(B), c2(Y), c5(B). Places are per
+    // fleet, so both fleets get a 1st and a 2nd.
+    const competitors = [
+      competitor('c1', ['fy'], 1),
+      competitor('c2', ['fy'], 2),
+      competitor('c3', ['fy'], 3),
+      competitor('c4', ['fb'], 4),
+      competitor('c5', ['fb'], 5),
+    ];
+    const round: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const data: SplitFleetData = {
+      config,
+      rounds: [round],
+      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue')],
+      competitors,
+      races: [race('q1')],
+      raceStarts: [
+        start('q1', ['fy'], 'qualifying', 1),
+        start('q1', ['fb'], 'qualifying', 1),
+      ],
+      finishes: [
+        finish('q1', 'c1', 0),
+        finish('q1', 'c4', 1),
+        finish('q1', 'c2', 2),
+        finish('q1', 'c5', 3),
+        // c3 absent from the sheet → DNC at largest-fleet base (3 + 1)
+      ],
+    };
+    const rows = splitFleetStandings(data);
+    const net = Object.fromEntries(rows.map((r) => [r.competitor.id, r.net]));
+    expect(net).toEqual({ c1: 1, c4: 1, c2: 2, c5: 2, c3: 4 });
+    // Both fleets have rows on the sheet, so Q1 is valid across fleets.
+    expect(logicalRaces(data, 'qualifying')[0].valid).toBe(true);
+  });
+
+  it('lets one sequence span stage race numbers (Gold F2 + Silver F1)', () => {
+    const competitors = [
+      competitor('c1', ['fg'], 1),
+      competitor('c2', ['fg'], 2),
+      competitor('c3', ['fs'], 3),
+      competitor('c4', ['fs'], 4),
+    ];
+    const fRound: SplitRound = {
+      id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+      fleetIds: ['fg', 'fs'], method: 'split', basis: null, createdAt: 1,
+    };
+    const data: SplitFleetData = {
+      config,
+      rounds: [fRound],
+      fleets: [fleet('fg', 'Gold'), fleet('fs', 'Silver')],
+      competitors,
+      // Gold sailed F1 alone; the next sequence holds Gold F2 + Silver F1.
+      races: [race('f1g'), race('seq2')],
+      raceStarts: [
+        start('f1g', ['fg'], 'final', 1),
+        start('seq2', ['fg'], 'final', 2),
+        start('seq2', ['fs'], 'final', 1),
+      ],
+      finishes: [
+        finish('f1g', 'c1', 0),
+        finish('f1g', 'c2', 1),
+        // seq2 interleaved: c3(S), c1(G), c4(S), c2(G)
+        finish('seq2', 'c3', 0),
+        finish('seq2', 'c1', 1),
+        finish('seq2', 'c4', 2),
+        finish('seq2', 'c2', 3),
+      ],
+    };
+    const rows = splitFleetStandings(data);
+    const c1 = rows.find((r) => r.competitor.id === 'c1')!;
+    const c3 = rows.find((r) => r.competitor.id === 'c3')!;
+    // Gold's cells are F1 and F2; Silver's one race is F1 — same sequence,
+    // different stage race numbers.
+    expect(c1.cells.map((c) => c.stageRaceNumber).sort()).toEqual([1, 2]);
+    expect(c1.cells.every((c) => c.points === 1)).toBe(true);
+    expect(c3.cells).toHaveLength(1);
+    expect(c3.cells[0].stageRaceNumber).toBe(1);
+    expect(c3.cells[0].points).toBe(1);
+  });
+
+  it('completes a sequence per fleet as its rows land on the sheet', () => {
+    const competitors = [
+      competitor('c1', ['fy'], 1),
+      competitor('c2', ['fb'], 2),
+    ];
+    const round: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const data: SplitFleetData = {
+      config,
+      rounds: [round],
+      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue')],
+      competitors,
+      races: [race('q1')],
+      raceStarts: [
+        start('q1', ['fy'], 'qualifying', 1),
+        start('q1', ['fb'], 'qualifying', 1),
+      ],
+      finishes: [finish('q1', 'c1', 0)], // only Yellow has crossed so far
+    };
+    const [lr] = logicalRaces(data, 'qualifying');
+    expect(lr.valid).toBe(false);
+    expect(physicalRaceCompleted(lr.races.get('fy')!, competitors, data.finishes)).toBe(true);
+    expect(physicalRaceCompleted(lr.races.get('fb')!, competitors, data.finishes)).toBe(false);
+    // Blue's first row lands → the logical race becomes valid.
+    data.finishes.push(finish('q1', 'c2', 1));
+    expect(logicalRaces(data, 'qualifying')[0].valid).toBe(true);
   });
 
   it('orders tiers after the split and pins medal boats on top', () => {
@@ -222,8 +359,12 @@ describe('splitFleetStandings', () => {
       rounds: [fRound, mRound],
       fleets: [fleet('fg', 'Gold'), fleet('fs', 'Silver'), fleet('fm', 'Medal')],
       competitors,
-      races: [race('f1g', 'final', 1), race('f1s', 'final', 1), race('m1', 'medal', 1)],
-      raceFleetIds: { f1g: 'fg', f1s: 'fs', m1: 'fm' },
+      races: [race('f1g'), race('f1s'), race('m1')],
+      raceStarts: [
+        start('f1g', ['fg'], 'final', 1),
+        start('f1s', ['fs'], 'final', 1),
+        start('m1', ['fm'], 'medal', 1),
+      ],
       finishes: [
         finish('f1g', 'c2', 0),
         finish('f1g', 'c1', 1),

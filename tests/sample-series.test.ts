@@ -55,7 +55,21 @@ function load(name: string) {
   }));
 
   const raceStarts: RaceStart[] = file.races.flatMap((r) =>
-    r.starts.map((s) => ({ id: s.id, raceId: r.id, fleetIds: s.fleetIds, startTime: s.startTime })),
+    r.starts.map((s) => ({
+      id: s.id,
+      raceId: r.id,
+      fleetIds: s.fleetIds,
+      startTime: s.startTime,
+      // Stage identity lives on the start (v24); a v23 sample carries it on
+      // the race — inherit, as the parser does.
+      ...((s.stage ?? r.stage) ? { stage: s.stage ?? r.stage } : {}),
+      ...((s.stageRaceNumber ?? r.stageRaceNumber) != null
+        ? { stageRaceNumber: s.stageRaceNumber ?? r.stageRaceNumber }
+        : {}),
+      ...((s.firstPlaceOffset ?? r.firstPlaceOffset) != null
+        ? { firstPlaceOffset: s.firstPlaceOffset ?? r.firstPlaceOffset }
+        : {}),
+    })),
   );
 
   const finishes: Finish[] = file.races.flatMap((r) =>
@@ -214,17 +228,13 @@ describe('sample series files', () => {
     expect(sf.config.finalFleets.map((f) => f.label)).toEqual(['Gold', 'Silver']);
     expect(sf.rounds.map((r) => r.method)).toEqual(['seeded', 'rank-pattern', 'split', 'medal-select']);
 
-    const raceFleetIds: Record<string, string> = {};
-    for (const start of raceStarts) {
-      if (start.fleetIds.length === 1) raceFleetIds[start.raceId] = start.fleetIds[0];
-    }
     const data: SplitFleetData = {
       config: sf.config,
       rounds: sf.rounds.map((r) => ({ ...r, seriesId: file.seriesId }) as SplitRound),
       fleets,
       competitors,
-      races: races.filter((r) => r.stage),
-      raceFleetIds,
+      races,
+      raceStarts,
       finishes,
     };
     const rows = splitFleetStandings(data);

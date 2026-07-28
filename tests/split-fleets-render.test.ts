@@ -24,11 +24,6 @@ function renderInputFor(file: string): SplitFleetRenderInput {
   const fx = fixtures.find((f) => f.file === file);
   if (!fx) throw new Error(`fixture not found: ${file}`);
   const { data } = buildSplitFleet(fx.fixture);
-  // The renderer takes raw race starts (what the repos hold); the fixture
-  // loader resolves them to a raceId → fleetId map. Reverse that here.
-  const raceStarts: RaceStart[] = Object.entries(data.raceFleetIds).map(
-    ([raceId, fleetId]) => ({ id: `start-${raceId}`, raceId, fleetIds: [fleetId] }),
-  );
   return {
     seriesName: fx.fixture.description,
     config: data.config,
@@ -36,7 +31,7 @@ function renderInputFor(file: string): SplitFleetRenderInput {
     fleets: data.fleets,
     competitors: data.competitors,
     races: data.races,
-    raceStarts,
+    raceStarts: data.raceStarts,
     finishes: data.finishes,
   };
 }

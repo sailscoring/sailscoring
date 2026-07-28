@@ -6,7 +6,7 @@
 // ILCA equalisation (a qualifying race doesn't count until every fleet has
 // completed it — the IODA exclude-most-recent variant is deferred).
 
-import type { Competitor, Finish, Fleet, Race } from './types';
+import type { Competitor, Finish, Fleet, Race, RaceStart } from './types';
 
 export type SeriesStage = 'qualifying' | 'final' | 'medal';
 
@@ -207,17 +207,22 @@ export function finalBlockSizes(total: number, fleetCount: number): number[] {
 // ---------------------------------------------------------------------------
 // Scoring
 
+/** One physical race: one fleet's sailing of a stage race. A stored `Race`
+ *  is the on-water start sequence; the start carries which stage race its
+ *  fleets are sailing, so the (race, start, fleet) triple is the scoring
+ *  unit. */
 export interface StageRaceRef {
   race: Race;
+  start: RaceStart;
   fleetId: string;
 }
 
 export interface LogicalRace {
   stageRaceNumber: number;
   round: SplitRound | null;
-  /** fleetId → race (may miss fleets that haven't got a race yet). */
+  /** fleetId → physical race (may miss fleets that haven't got one yet). */
   races: Map<string, StageRaceRef>;
-  /** Every fleet of the covering round has a completed race. */
+  /** Every fleet of the covering round has a completed physical race. */
   valid: boolean;
 }
 
@@ -226,11 +231,27 @@ export interface SplitFleetData {
   rounds: SplitRound[];
   fleets: Fleet[];
   competitors: Competitor[];
-  /** Qualifying/final/medal races only (race.stage set). */
+  /** The series' races — the lookup behind the starts; a race is one start
+   *  sequence and may hold several fleets' stage races. */
   races: Race[];
-  /** raceId → the single fleet that sails it (from its start). */
-  raceFleetIds: Record<string, string>;
+  /** All starts; those with `stage` set carry the split-fleet identity. */
+  raceStarts: RaceStart[];
   finishes: Finish[];
+}
+
+/** Enumerate the physical races — one ref per (race, start, fleet) for every
+ *  start carrying a stage identity, optionally restricted to one stage. */
+export function stageRaceRefs(data: SplitFleetData, stage?: SeriesStage): StageRaceRef[] {
+  const raceById = new Map(data.races.map((r) => [r.id, r]));
+  const refs: StageRaceRef[] = [];
+  for (const start of data.raceStarts) {
+    if (!start.stage || start.stageRaceNumber == null) continue;
+    if (stage && start.stage !== stage) continue;
+    const race = raceById.get(start.raceId);
+    if (!race) continue;
+    for (const fleetId of start.fleetIds) refs.push({ race, start, fleetId });
+  }
+  return refs;
 }
 
 export function roundsForStage(rounds: SplitRound[], stage: SeriesStage): SplitRound[] {
@@ -250,22 +271,33 @@ export function coveringRound(
   return eligible.length ? eligible[eligible.length - 1] : null;
 }
 
-export function raceCompleted(race: Race, finishes: Finish[]): boolean {
+/** A physical race is complete when its fleet has rows on the race's sheet
+ *  (a crossing or a code). Per fleet: one sequence's combined sheet may
+ *  complete some of its fleets before others. */
+export function physicalRaceCompleted(
+  ref: StageRaceRef,
+  competitors: Competitor[],
+  finishes: Finish[],
+): boolean {
+  const members = new Set(
+    competitors.filter((c) => c.fleetIds.includes(ref.fleetId)).map((c) => c.id),
+  );
   return finishes.some(
-    (f) => f.raceId === race.id && (f.sortOrder !== null || f.resultCode !== null),
+    (f) =>
+      f.raceId === ref.race.id &&
+      f.competitorId !== null &&
+      members.has(f.competitorId) &&
+      (f.sortOrder !== null || f.resultCode !== null),
   );
 }
 
-/** Group a stage's races into logical races with validity. */
+/** Group a stage's physical races into logical races with validity. */
 export function logicalRaces(data: SplitFleetData, stage: SeriesStage): LogicalRace[] {
   const byNumber = new Map<number, Map<string, StageRaceRef>>();
-  for (const race of data.races) {
-    if (race.stage !== stage || race.stageRaceNumber == null) continue;
-    const fleetId = data.raceFleetIds[race.id];
-    if (!fleetId) continue;
-    let entry = byNumber.get(race.stageRaceNumber);
-    if (!entry) byNumber.set(race.stageRaceNumber, (entry = new Map()));
-    entry.set(fleetId, { race, fleetId });
+  for (const ref of stageRaceRefs(data, stage)) {
+    let entry = byNumber.get(ref.start.stageRaceNumber!);
+    if (!entry) byNumber.set(ref.start.stageRaceNumber!, (entry = new Map()));
+    entry.set(ref.fleetId, ref);
   }
   return [...byNumber.entries()]
     .sort(([a], [b]) => a - b)
@@ -275,7 +307,7 @@ export function logicalRaces(data: SplitFleetData, stage: SeriesStage): LogicalR
         !!round &&
         round.fleetIds.every((fid) => {
           const ref = races.get(fid);
-          return !!ref && raceCompleted(ref.race, data.finishes);
+          return !!ref && physicalRaceCompleted(ref, data.competitors, data.finishes);
         });
       return { stageRaceNumber, round, races, valid };
     });
@@ -322,10 +354,13 @@ export interface SplitStandingRow {
   medal: boolean;
 }
 
-/** Score one physical race within its fleet.
- *  - Finishers score place + race.firstPlaceOffset (the companion "last
- *    race" primitive), multiplied by `multiplier` (medal doubling applies to
- *    finish points only — RRS A4.1 "points ... doubled", not the code base).
+/** Score one physical race — one fleet's sailing of a stage race — over the
+ *  race's sheet. Rows are scoped to the fleet's members, so a combined sheet
+ *  interleaving a sequence's fleets yields correct per-fleet places.
+ *  - Finishers score their place within the fleet + start.firstPlaceOffset
+ *    (the companion "last race" primitive), multiplied by `multiplier`
+ *    (medal doubling applies to finish points only — RRS A4.1 "points ...
+ *    doubled", not the code base).
  *  - Coded finishes and absentees (implicit DNC) score `codeBase`,
  *    undoubled.
  *  - SCP/ZFP add a percentage of the race's DNF score (RRS 44.3(c): % of
@@ -342,8 +377,11 @@ function scorePhysicalRace(
   codeBase: number,
   multiplier: number,
 ): Map<string, { points: number; code: string | null; rdg: Finish | null }> {
-  const offset = ref.race.firstPlaceOffset ?? 0;
-  const rows = finishes.filter((f) => f.raceId === ref.race.id && f.competitorId);
+  const offset = ref.start.firstPlaceOffset ?? 0;
+  const memberIds = new Set(members.map((m) => m.id));
+  const rows = finishes.filter(
+    (f) => f.raceId === ref.race.id && f.competitorId && memberIds.has(f.competitorId),
+  );
   const finishers = rows
     .filter((f) => f.sortOrder !== null && !f.resultCode)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -576,7 +614,7 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
             code: sc.code,
             // qualifying: only valid logical races count; final/medal races
             // count as soon as they're completed
-            counts: qualifying ? lr.valid : raceCompleted(ref.race, data.finishes),
+            counts: qualifying ? lr.valid : physicalRaceCompleted(ref, competitors, data.finishes),
             discardable: stage !== 'medal',
             discarded: false,
             rdg: sc.rdg,

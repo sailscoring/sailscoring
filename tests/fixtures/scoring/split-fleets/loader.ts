@@ -27,7 +27,7 @@ import type {
   SplitRound,
   SeriesStage,
 } from '@/lib/split-fleets';
-import type { Competitor, Finish, Fleet, Race, ResultCode } from '@/lib/types';
+import type { Competitor, Finish, Fleet, Race, RaceStart, ResultCode } from '@/lib/types';
 
 // ─── Fixture schema ──────────────────────────────────────────────────────────
 
@@ -227,19 +227,21 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
   const fleets: Fleet[] = [];
   const rounds: SplitRound[] = [];
   const races: Race[] = [];
-  const raceFleetIds: Record<string, string> = {};
+  const raceStarts: RaceStart[] = [];
   const finishes: Finish[] = [];
   const resolved: ResolvedRound[] = [];
   let order = 0;
   let createdAt = 0;
 
   const snapshot = (): SplitFleetData => ({
-    config, rounds, fleets, competitors: [...competitors.values()], races, raceFleetIds, finishes,
+    config, rounds, fleets, competitors: [...competitors.values()], races, raceStarts, finishes,
   });
   /** Ordered sails of a qualifying standings snapshot restricted to Q≤n. */
   const qualifyingOrder = (throughRace: number | null): string[] => {
-    const qRaces = races.filter((r) => r.stage === 'qualifying' && (throughRace == null || (r.stageRaceNumber ?? 0) <= throughRace));
-    const data: SplitFleetData = { ...snapshot(), races: qRaces };
+    const qStarts = raceStarts.filter(
+      (s) => s.stage === 'qualifying' && (throughRace == null || (s.stageRaceNumber ?? 0) <= throughRace),
+    );
+    const data: SplitFleetData = { ...snapshot(), raceStarts: qStarts };
     return splitFleetStandings(data).map((row) => row.competitor.sailNumber);
   };
 
@@ -328,15 +330,19 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
       for (const name of Object.keys(r.results)) {
         const raceId = `${st}${r.n}:${name}`;
         // A medal-stage race for a non-medal fleet is the companion "last
-        // race": first finisher scores medal size + 1 (Race.firstPlaceOffset).
+        // race": first finisher scores medal size + 1 (the start's
+        // firstPlaceOffset). Fixtures model each fleet's sheet as its own
+        // race; combined sequences are covered by the engine unit tests.
         const isCompanion = st === 'medal' && name !== fleetNames[0];
         races.push({
           id: raceId, seriesId: 's', raceNumber: races.length + 1,
           name: `${PREFIX[st]}${r.n} ${name}`, date: '2020-01-01', createdAt: createdAt++,
+        });
+        raceStarts.push({
+          id: `start:${raceId}`, raceId, fleetIds: [fid(name)],
           stage: st, stageRaceNumber: r.n,
           ...(isCompanion && fx.config.medal ? { firstPlaceOffset: fx.config.medal.size } : {}),
         });
-        raceFleetIds[raceId] = fid(name);
         enterResults(raceId, r.results[name]);
       }
     }
