@@ -187,9 +187,9 @@ export interface PublicSeriesExport {
      *  untimed finishes — the anchor for protest time limits. When finishes
      *  carry times the sheet itself is authoritative and this is absent. */
     lastFinisherTime?: string;
-    /** Split-fleet series (transitional, #346): the race-level copies of the
-     *  stage identity. Still written and read; the per-start fields below are
-     *  authoritative. */
+    /** @deprecated split-fleet stage identity on the race (older exports).
+     *  Read for back-compat (copied onto the starts), not written; the
+     *  per-start fields below are authoritative. */
     stage?: 'qualifying' | 'final' | 'medal';
     stageRaceNumber?: number;
     firstPlaceOffset?: number;
@@ -644,9 +644,6 @@ export function buildPublicExportFromSnapshot(
       date: race.date,
       ...(subSeriesNames?.length ? { subSeries: subSeriesNames } : {}),
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
-      ...(race.stage ? { stage: race.stage } : {}),
-      ...(race.stageRaceNumber != null ? { stageRaceNumber: race.stageRaceNumber } : {}),
-      ...(race.firstPlaceOffset != null ? { firstPlaceOffset: race.firstPlaceOffset } : {}),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -1049,9 +1046,6 @@ export async function importPublicExport(
       name: race.name ?? null,
       date: race.date,
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
-      ...(race.stage ? { stage: race.stage } : {}),
-      ...(race.stageRaceNumber != null ? { stageRaceNumber: race.stageRaceNumber } : {}),
-      ...(race.firstPlaceOffset != null ? { firstPlaceOffset: race.firstPlaceOffset } : {}),
       createdAt: now,
     });
     for (const name of race.subSeries ?? []) {

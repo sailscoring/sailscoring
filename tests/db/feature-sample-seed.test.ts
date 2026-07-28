@@ -162,17 +162,27 @@ describe.skipIf(skip)('seedFeatureSample', () => {
       expect(new Set(r.fleetIds)).toEqual(new Set(owned));
     }
 
-    // Races carry their stage identity; the companion last race its offset.
+    // A race is one start sequence: qualifying and final fleets share a race
+    // per stage race number; the medal race and the companion last race run
+    // apart. The starts carry the stage identity and the companion offset.
     const raceRows = await db
       .select()
       .from(schema.races)
       .where(eq(schema.races.seriesId, series.id));
-    expect(raceRows).toHaveLength(14);
-    expect(raceRows.filter((r) => r.stage === 'medal')).toHaveLength(2);
-    expect(raceRows.filter((r) => r.firstPlaceOffset === 6)).toHaveLength(1);
+    expect(raceRows).toHaveLength(8); // Q1–Q4, F1–F2 combined; M1 × 2 apart
+    const startRows = await db
+      .select()
+      .from(schema.raceStarts)
+      .where(inArray(schema.raceStarts.raceId, raceRows.map((r) => r.id)));
+    expect(startRows).toHaveLength(14); // 2 per Q/F sequence, 1 per medal race
+    expect(startRows.every((s) => s.stage !== null && s.stageRaceNumber !== null)).toBe(true);
+    expect(startRows.filter((s) => s.stage === 'medal')).toHaveLength(2);
+    expect(startRows.filter((s) => s.firstPlaceOffset === 6)).toHaveLength(1);
+    // Sequenced guns, five minutes apart within a combined race.
+    expect(startRows.every((s) => /^\d\d:\d\d:\d\d$/.test(s.startTime ?? ''))).toBe(true);
     // Every race carries a name and a last-finisher clock time (the
     // protest-time-limit input).
-    expect(raceRows.every((r) => /^[QFM]\d+ · /.test(r.name ?? ''))).toBe(true);
+    expect(raceRows.every((r) => /^[QFM]\d+/.test(r.name ?? ''))).toBe(true);
     expect(raceRows.every((r) => /^\d\d:\d\d:\d\d$/.test(r.lastFinisherTime ?? ''))).toBe(true);
   });
 });

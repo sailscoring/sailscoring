@@ -446,12 +446,6 @@ export interface Race {
   // times: when any finish has a `finishTime` the sheet is authoritative and
   // this field is ignored (see effectiveLastFinisherTime in lib/race-status.ts).
   lastFinisherTime?: string;
-  // Transitional (#346): stage identity now lives on RaceStart (a race is one
-  // start sequence; its starts carry stage/stageRaceNumber/firstPlaceOffset).
-  // These race-level copies remain until the contract step removes them.
-  stage?: 'qualifying' | 'final' | 'medal';
-  stageRaceNumber?: number;
-  firstPlaceOffset?: number;
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
 }

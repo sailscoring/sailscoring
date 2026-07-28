@@ -49,9 +49,6 @@ function load(name: string) {
     name: r.name ?? null,
     date: r.date,
     createdAt: i,
-    ...(r.stage ? { stage: r.stage } : {}),
-    ...(r.stageRaceNumber != null ? { stageRaceNumber: r.stageRaceNumber } : {}),
-    ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
   }));
 
   const raceStarts: RaceStart[] = file.races.flatMap((r) =>
@@ -221,7 +218,7 @@ describe('sample series files', () => {
   it('championship: the split-fleet sample scores as a complete F2 event', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('championship.sailscoring');
 
-    expect(file.formatVersion).toBe(23);
+    expect(file.formatVersion).toBe(24);
     const sf = file.splitFleets!;
     expect(sf).toBeTruthy();
     expect(sf.config.qualifyingFleets.map((f) => f.label)).toEqual(['Yellow', 'Blue']);

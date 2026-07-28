@@ -153,10 +153,6 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           date: r.date,
           lastFinisherTime: r.lastFinisherTime ?? null,
           createdAt: new Date(r.createdAt),
-          // Split-fleet stage identity (the championship sample).
-          stage: r.stage ?? null,
-          stageRaceNumber: r.stageRaceNumber ?? null,
-          firstPlaceOffset: r.firstPlaceOffset ?? null,
         });
         return r;
       },
@@ -222,6 +218,10 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             raceId: s.raceId,
             fleetIds: s.fleetIds,
             startTime: s.startTime,
+            // Split-fleet stage identity (the championship sample).
+            stage: s.stage ?? null,
+            stageRaceNumber: s.stageRaceNumber ?? null,
+            firstPlaceOffset: s.firstPlaceOffset ?? null,
           })),
         );
       },

@@ -58,12 +58,12 @@ describe('renderSplitFleetStandingsPage', () => {
       input.rounds.filter((r) => r.stage !== 'qualifying').flatMap((r) => r.fleetIds),
     );
     const qualRaceIds = new Set(
-      input.races.filter((r) => r.stage === 'qualifying').map((r) => r.id),
+      input.raceStarts.filter((s) => s.stage === 'qualifying').map((s) => s.raceId),
     );
     const mid: SplitFleetRenderInput = {
       ...input,
       rounds: input.rounds.filter((r) => r.stage === 'qualifying'),
-      races: input.races.filter((r) => r.stage === 'qualifying'),
+      races: input.races.filter((r) => qualRaceIds.has(r.id)),
       raceStarts: input.raceStarts.filter((s) => qualRaceIds.has(s.raceId)),
       finishes: input.finishes.filter((f) => qualRaceIds.has(f.raceId)),
       fleets: input.fleets.filter((f) => !finalFleetIds.has(f.id)),

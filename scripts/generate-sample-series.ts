@@ -122,9 +122,6 @@ interface FileRace {
   name?: string;
   date: string;
   lastFinisherTime?: string;
-  stage?: 'qualifying' | 'final' | 'medal';
-  stageRaceNumber?: number;
-  firstPlaceOffset?: number;
   starts: FileRaceStart[];
   finishes: FileFinish[];
 }
@@ -1086,51 +1083,74 @@ function buildChampionship(): SeriesFile {
     return ids;
   };
 
-  /** Race one fleet's physical race: order members by ability + noise. */
-  const runRace = (
+  /** Run one start sequence: each entry's fleet starts five minutes after
+   *  the one before, and every fleet finishes onto the same combined sheet —
+   *  the faster boats of a later start overtaking the tail of the fleet
+   *  ahead, exactly as the finish team records it. One race per sequence. */
+  const runSequence = (
     stage: 'qualifying' | 'final' | 'medal',
-    n: number,
-    fleetId: string,
-    memberIds: string[],
+    entries: {
+      n: number;
+      fleetId: string;
+      memberIds: string[];
+      opts?: { absent?: string[]; bfd?: string; dnf?: string; firstPlaceOffset?: number };
+    }[],
     date: string,
-    opts: { absent?: string[]; bfd?: string; dnf?: string; firstPlaceOffset?: number } = {},
   ): void => {
     const raceNumber = races.length + 1;
     const raceId = `chr-race-${raceNumber}`;
     const prefix = stage === 'qualifying' ? 'Q' : stage === 'final' ? 'F' : 'M';
-    const fleetName = fleets.find((f) => f.id === fleetId)!.name;
-    // Last-finisher clock time (feeds the protest-time-limit computation):
-    // first warning 11:00, the day's second logical race mid-afternoon, the
-    // second fleet started 15 minutes after the first, and the tail of the
-    // fleet finishing 48–55 minutes after the gun.
-    const daySlot = stage === 'qualifying' ? (n - 1) % 2 : stage === 'final' ? (n - 1) % 2 : 0;
-    const fleetSlot = races.filter((r) => r.stage === stage && r.stageRaceNumber === n).length;
-    const gun = 11 * 3600 + daySlot * 3 * 3600 + fleetSlot * 15 * 60;
-    const lastFinisherTime = hms(gun + 48 * 60 + randint(rng, 0, 7 * 60));
-    const sailing = memberIds.filter((id) => !(opts.absent ?? []).includes(id));
-    const order = [...sailing].sort(
-      (a, b) => ability.get(a)! + noise(rng) * 4 - (ability.get(b)! + noise(rng) * 4),
-    );
+    // First warning 11:00; the day's second logical race mid-afternoon.
+    const daySlot = (entries[0].n - 1) % 2;
+    const baseGun = 11 * 3600 + daySlot * 3 * 3600;
+
+    const starts: FileRaceStart[] = [];
+    const crossings: { cid: string; at: number; coded: 'BFD' | 'DNF' | null }[] = [];
+    entries.forEach((entry, i) => {
+      const gun = baseGun + i * 5 * 60;
+      const opts = entry.opts ?? {};
+      starts.push({
+        id: `chstart-${raceNumber}-${i + 1}`,
+        fleetIds: [entry.fleetId],
+        startTime: hms(gun),
+        stage,
+        stageRaceNumber: entry.n,
+        ...(opts.firstPlaceOffset != null ? { firstPlaceOffset: opts.firstPlaceOffset } : {}),
+      });
+      const sailing = entry.memberIds.filter((id) => !(opts.absent ?? []).includes(id));
+      const order = [...sailing].sort(
+        (a, b) => ability.get(a)! + noise(rng) * 4 - (ability.get(b)! + noise(rng) * 4),
+      );
+      // Crossing clock times: the tail takes ~48–64 minutes, so a later
+      // start's leaders cross among the previous fleet's tail-enders.
+      order.forEach((cid, p) => {
+        const coded = cid === opts.bfd ? 'BFD' : cid === opts.dnf ? 'DNF' : null;
+        crossings.push({ cid, at: gun + 48 * 60 + p * 45 + randint(rng, 0, 30), coded });
+      });
+    });
+    crossings.sort((a, b) => a.at - b.at);
+
     const finishes: FileFinish[] = [];
     let place = 0;
-    for (const cid of order) {
-      const coded = cid === opts.bfd ? 'BFD' : cid === opts.dnf ? 'DNF' : null;
+    let lastAt = 0;
+    for (const c of crossings) {
+      if (!c.coded) lastAt = Math.max(lastAt, c.at);
       finishes.push({
-        id: `chfin-${raceNumber}-${cid}`,
-        competitorId: cid,
-        sortOrder: coded ? null : ++place,
-        resultCode: coded,
+        id: `chfin-${raceNumber}-${c.cid}`,
+        competitorId: c.cid,
+        sortOrder: c.coded ? null : ++place,
+        resultCode: c.coded,
         startPresent: null,
         penaltyCode: null,
         penaltyOverride: null,
       });
       engineFinishes.push({
-        id: `chfin-${raceNumber}-${cid}`,
+        id: `chfin-${raceNumber}-${c.cid}`,
         raceId,
-        competitorId: cid,
-        sortOrder: coded ? null : place,
+        competitorId: c.cid,
+        sortOrder: c.coded ? null : place,
         tiedWithPrevious: false,
-        resultCode: coded,
+        resultCode: c.coded,
         startPresent: null,
         penaltyCode: null,
         penaltyOverride: null,
@@ -1141,22 +1161,22 @@ function buildChampionship(): SeriesFile {
         redressPoints: null,
       });
     }
+
+    const fleetName = (fid: string) => fleets.find((f) => f.id === fid)!.name;
+    const nums = [...new Set(entries.map((e) => e.n))];
+    const name =
+      entries.length === 1
+        ? `${prefix}${entries[0].n} · ${fleetName(entries[0].fleetId)}`
+        : nums.length === 1
+          ? `${prefix}${nums[0]}`
+          : entries.map((e) => `${prefix}${e.n} · ${fleetName(e.fleetId)}`).join(' + ');
     races.push({
       id: raceId,
       raceNumber,
-      name: `${prefix}${n} · ${fleetName}`,
+      name,
       date,
-      lastFinisherTime,
-      stage,
-      stageRaceNumber: n,
-      ...(opts.firstPlaceOffset != null ? { firstPlaceOffset: opts.firstPlaceOffset } : {}),
-      starts: [{
-        id: `chstart-${raceNumber}`,
-        fleetIds: [fleetId],
-        stage,
-        stageRaceNumber: n,
-        ...(opts.firstPlaceOffset != null ? { firstPlaceOffset: opts.firstPlaceOffset } : {}),
-      }],
+      lastFinisherTime: hms(lastAt),
+      starts,
       finishes,
     });
   };
@@ -1166,7 +1186,11 @@ function buildChampionship(): SeriesFile {
   const r1Membership = assignByRankPattern(seeded, 2);
   const r1 = addRound('qualifying', 1, 'seeded', config.qualifyingFleets, r1Membership, null);
   for (const n of [1, 2]) {
-    r1.forEach((fid, i) => runRace('qualifying', n, fid, r1Membership[i], '2026-06-11'));
+    runSequence(
+      'qualifying',
+      r1.map((fid, i) => ({ n, fleetId: fid, memberIds: r1Membership[i] })),
+      '2026-06-11',
+    );
   }
 
   // ── Day 2: Round 2 from the ranking after Q2, Q3–Q4 ────────────────────────
@@ -1180,8 +1204,26 @@ function buildChampionship(): SeriesFile {
   // (absent from the sheet — scored DNC implicitly).
   const bfdBoat = r2Membership[0][4];
   const ashore = r2Membership[1][7];
-  r2.forEach((fid, i) => runRace('qualifying', 3, fid, r2Membership[i], '2026-06-12', i === 0 ? { bfd: bfdBoat } : {}));
-  r2.forEach((fid, i) => runRace('qualifying', 4, fid, r2Membership[i], '2026-06-12', i === 1 ? { absent: [ashore] } : {}));
+  runSequence(
+    'qualifying',
+    r2.map((fid, i) => ({
+      n: 3,
+      fleetId: fid,
+      memberIds: r2Membership[i],
+      ...(i === 0 ? { opts: { bfd: bfdBoat } } : {}),
+    })),
+    '2026-06-12',
+  );
+  runSequence(
+    'qualifying',
+    r2.map((fid, i) => ({
+      n: 4,
+      fleetId: fid,
+      memberIds: r2Membership[i],
+      ...(i === 1 ? { opts: { absent: [ashore] } } : {}),
+    })),
+    '2026-06-12',
+  );
 
   // ── Day 3: the split, F1–F2 ────────────────────────────────────────────────
   const afterQ4 = qualifyingOrderThrough(4);
@@ -1192,8 +1234,21 @@ function buildChampionship(): SeriesFile {
     capturedAt: T0 + 48 * 3_600_000,
   });
   const dnfBoat = splitMembership[1][3];
-  fin.forEach((fid, i) => runRace('final', 1, fid, splitMembership[i], '2026-06-13'));
-  fin.forEach((fid, i) => runRace('final', 2, fid, splitMembership[i], '2026-06-13', i === 1 ? { dnf: dnfBoat } : {}));
+  runSequence(
+    'final',
+    fin.map((fid, i) => ({ n: 1, fleetId: fid, memberIds: splitMembership[i] })),
+    '2026-06-13',
+  );
+  runSequence(
+    'final',
+    fin.map((fid, i) => ({
+      n: 2,
+      fleetId: fid,
+      memberIds: splitMembership[i],
+      ...(i === 1 ? { opts: { dnf: dnfBoat } } : {}),
+    })),
+    '2026-06-13',
+  );
 
   // ── Day 4: medal race for the top six + the companion last race ────────────
   const opening = splitFleetStandings(engineData()).map((row) => row.competitor.id);
@@ -1205,10 +1260,19 @@ function buildChampionship(): SeriesFile {
     [medalTop, companion],
     null,
   );
-  runRace('medal', 1, medalFleets[0], medalTop, '2026-06-14');
-  runRace('medal', 1, medalFleets[1], companion, '2026-06-14', {
-    firstPlaceOffset: config.medal!.size,
-  });
+  // The medal race and the companion last race run on their own courses —
+  // two separate races, not one sequence.
+  runSequence('medal', [{ n: 1, fleetId: medalFleets[0], memberIds: medalTop }], '2026-06-14');
+  runSequence(
+    'medal',
+    [{
+      n: 1,
+      fleetId: medalFleets[1],
+      memberIds: companion,
+      opts: { firstPlaceOffset: config.medal!.size },
+    }],
+    '2026-06-14',
+  );
 
   const competitors: FileCompetitor[] = engineCompetitors.map((c) => ({
     id: c.id,
@@ -1224,7 +1288,7 @@ function buildChampionship(): SeriesFile {
   }));
 
   return {
-    formatVersion: 23,
+    formatVersion: 24,
     seriesId: 'sample-championship',
     exportedAt: EXPORTED_AT,
     series: {

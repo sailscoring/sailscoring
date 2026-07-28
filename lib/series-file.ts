@@ -355,9 +355,13 @@ interface SeriesFileRace {
   name?: string | null; // optional label; absent in files written before v10
   date: string;
   lastFinisherTime?: string;  // v20+; manual last-finisher clock time
-  stage?: 'qualifying' | 'final' | 'medal';  // v23+; split-fleet stage
-  stageRaceNumber?: number;  // v23+; logical race number within the stage
-  firstPlaceOffset?: number;  // v23+; companion race: first finisher scores offset + 1
+  /** @deprecated v23 split-fleet stage identity on the race; v24 carries it
+   *  per start. Read for back-compat (copied onto the starts), not written. */
+  stage?: 'qualifying' | 'final' | 'medal';
+  /** @deprecated see `stage`. */
+  stageRaceNumber?: number;
+  /** @deprecated see `stage`. */
+  firstPlaceOffset?: number;
   /** @deprecated pre-reshape v9 partition membership; read for back-compat,
    *  no longer written (membership now lives in `subSeries[*].raceIds`). */
   subSeriesId?: string;
@@ -611,9 +615,6 @@ export async function buildSeriesFile(
       ...(r.name ? { name: r.name } : {}),
       date: r.date,
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
-      ...(r.stage ? { stage: r.stage } : {}),
-      ...(r.stageRaceNumber != null ? { stageRaceNumber: r.stageRaceNumber } : {}),
-      ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -1489,9 +1490,6 @@ async function writeFleetsCompetitorsRaces(
       name: r.name ?? null,
       date: r.date,
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
-      ...(r.stage ? { stage: r.stage } : {}),
-      ...(r.stageRaceNumber != null ? { stageRaceNumber: r.stageRaceNumber } : {}),
-      ...(r.firstPlaceOffset != null ? { firstPlaceOffset: r.firstPlaceOffset } : {}),
       createdAt: now,
     });
 

@@ -766,13 +766,6 @@ export const races = pgTable(
     // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes;
     // ignored whenever any finish row carries a finishTime.
     lastFinisherTime: text('last_finisher_time'),
-    // Split-fleet series (PROTOTYPE): the stage a physical race belongs to
-    // ('qualifying' | 'final' | 'medal') and its logical race number within
-    // the stage. Both null on standard series.
-    stage: text('stage').$type<'qualifying' | 'final' | 'medal'>(),
-    stageRaceNumber: integer('stage_race_number'),
-    // Companion "last race": first finisher scores offset + 1.
-    firstPlaceOffset: integer('first_place_offset'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

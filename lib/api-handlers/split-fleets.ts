@@ -312,8 +312,6 @@ async function createStageRaces(
       raceNumber: ++next,
       name: sequenceName(spec),
       date,
-      stage: spec.stage,
-      stageRaceNumber: spec.starts[0].stageRaceNumber,
     });
     for (const s of spec.starts) {
       startRows.push({
@@ -523,13 +521,16 @@ export async function applySplitOverride(
   }
 
   // Post-finals promotion check: any completed race in this round's stage?
+  // Stage identity lives on the starts, so a race is final-stage when any of
+  // its starts is.
   let warning: string | null = null;
   if (round.stage === 'final') {
     const [sailed] = await getDb()
       .select({ id: schema.finishes.id })
       .from(schema.finishes)
       .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
-      .where(and(eq(schema.races.seriesId, seriesId), eq(schema.races.stage, 'final')))
+      .innerJoin(schema.raceStarts, eq(schema.raceStarts.raceId, schema.races.id))
+      .where(and(eq(schema.races.seriesId, seriesId), eq(schema.raceStarts.stage, 'final')))
       .limit(1);
     if (sailed) {
       warning =

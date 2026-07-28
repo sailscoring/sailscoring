@@ -892,13 +892,14 @@ the prioritised scenarios (D1/D3/D5/D6/D8/D10) is tracked in
 by layer, each item tagging its scenario driver and the prototype shortcut it
 undoes.
 
-The prototype predates the start-sequence revision above (scorer feedback:
-fleets start in sequence and finish onto one combined sheet): it assumes
-exactly one fleet per race — `SplitFleetData.raceFleetIds` maps race →
-single fleet, and `assembleSplitFleetData` drops multi-fleet starts — and
-keeps `stage` / `stageRaceNumber` / `firstPlaceOffset` on `Race`. Re-keying
-the physical race to (race, start) — types, engine, persistence, and the
-Races / finish-entry surfaces — is part of taking the prototype forward.
+The start-sequence revision above (scorer feedback: fleets start in
+sequence and finish onto one combined sheet) is implemented (#346): stage
+identity lives on `RaceStart`, the engine keys physical races to
+(race, start), the ceremonies create one race per stage race number with a
+start per fleet (medal-stage races excepted — they run on their own
+courses), and the add-races API takes per-start numbers for out-of-step
+sequences. Open questions 8–9 (per-start abandonment machinery, race
+naming) remain open.
 
 ## References
 
