@@ -126,8 +126,8 @@ function Step2({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Import your competitors from a CSV file. Fleet information can be
-        detected from the import.
+        Import your competitors from a spreadsheet — a CSV or Excel (.xlsx)
+        file. Fleet information can be detected from the import.
       </p>
       <CompetitorImport
         seriesId={seriesId}

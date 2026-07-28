@@ -365,7 +365,7 @@ export default async function HelpPage() {
         <p>
           It also looks for <strong className="text-foreground">possible duplicates</strong>: the
           same boat or person in the same fleet under two different sail numbers, which is what a
-          sail-number change between CSV imports leaves behind. Those open in a review dialog
+          sail-number change between spreadsheet imports leaves behind. Those open in a review dialog
           with a <strong className="text-foreground">Merge</strong> button per group. Merging
           keeps a single entry holding all the recorded results and the newest details — including
           the newest sail number. When two of the entries both hold a finish in the same race the
@@ -530,7 +530,7 @@ export default async function HelpPage() {
         </p>
         <p>
           In <strong className="text-foreground">handicap</strong> mode, the importer infers each
-          fleet’s scoring system from the rating columns it finds. If every boat in a CSV fleet
+          fleet’s scoring system from the rating columns it finds. If every boat in an imported fleet
           carries one rating system (say IRC), one fleet is created and configured for IRC. If the
           fleet has a mix — IRC for some boats, ECHO for others — the importer splits it into{' '}
           <code className="text-foreground text-sm">CR 0 (IRC)</code> and{' '}
@@ -540,7 +540,7 @@ export default async function HelpPage() {
           <strong className="text-foreground">scratch</strong> alongside (for line-honours awards).
         </p>
         <p>
-          When the CSV has no <em>Class</em> column and no existing competitor in the series has
+          When the spreadsheet has no <em>Class</em> column and no existing competitor in the series has
           a class set, the importer falls back to writing the original fleet name into{' '}
           <strong className="text-foreground">Class</strong>. This preserves the practical
           “Cruisers 2” grouping when the fleet column is being used as a class label
@@ -556,7 +556,7 @@ export default async function HelpPage() {
         <p>
           Because matching is by sail number, a boat that changed its number between imports
           would normally come in as a duplicate. The importer watches for this: when a row&apos;s
-          sail number is new to the series, the old number is missing from the CSV, and the boat
+          sail number is new to the series, the old number is missing from the spreadsheet, and the boat
           or person matches an existing competitor in the same fleet, it pauses to ask{' '}
           <strong className="text-foreground">Sail number changes?</strong> before importing.
           Accepted rows update the existing competitor under the new number — keeping its
@@ -579,15 +579,15 @@ export default async function HelpPage() {
           couple of clicks.
         </p>
         <p>
-          You can push on its own, or combine it with a CSV import in one step by
-          ticking both options. Combining is how contact details reach rrs.org: Sail
+          You can push on its own, or combine it with a spreadsheet import in one step
+          by ticking both options. Combining is how contact details reach rrs.org: Sail
           Scoring deliberately does not store emails, phone numbers, or MNA membership
-          numbers, but when your CSV has those columns the importer relays them to
+          numbers, but when your spreadsheet has those columns the importer relays them to
           rrs.org alongside the import and then discards them. Phone numbers are
           converted to international format (e.g.{' '}
           <code className="text-foreground text-sm">+353861234567</code>) using each
           competitor&rsquo;s nationality; numbers that can&rsquo;t be converted are sent
-          blank and listed in the summary. A push without a CSV sends those fields
+          blank and listed in the summary. A push without a spreadsheet sends those fields
           blank.
         </p>
         <p>
