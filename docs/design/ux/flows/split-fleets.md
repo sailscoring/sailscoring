@@ -21,7 +21,11 @@ Standings) that exists only on a split-fleet series.
 > fleet; "abandoning one fleet's race" becomes a per-start action, not a
 > race-level one; race creation groups starts into sequences; and the
 > entity-mapping table's "`Race` rows (one per fleet)" is no longer the
-> invariant.
+> invariant. The "explicit wrong-fleet exception flow" this document
+> references was dropped (#329): a boat that starts with the wrong fleet
+> of the same sequence is on the combined sheet legitimately and scores
+> within her own fleet, and the residual cross-race case falls out as an
+> implicit DNC — see the main doc's "Wrong-fleet finishes".
 
 ---
 

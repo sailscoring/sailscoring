@@ -614,18 +614,22 @@ standings:
   Blue, 6 Yellow, …), plus the seeded initial orders (seed rank /
   nationality-spread / sail number). Pure, fixture-tested, and reused by
   the reassignment preview UI.
-- **Wrong-fleet finishes.** Finish entry is scoped to the union of the
-  race's started fleets, so a number outside all of them is caught at the
-  desk (the Sailwave failure mode). Where the boat's own fleet is in a
-  *different* race — the catch-up-day case — the SI-default outcome is
-  DNC in her own fleet's race and no score in the gate-crashed one; the
-  scorer records what the sheet says via an explicit affordance
-  ("finished with Blue — scores DNC in Yellow"), surfaced as a
-  `ScoringRejection` until resolved (accept the DNC, or record an
-  RC-sanctioned assignment override). Where both fleets share the
-  sequence, her row is on the sheet legitimately and her place computes
-  within her assigned fleet — a wrong *start* inside one sequence is
-  invisible to any scoring desk and stays an RC/jury observation.
+- **Wrong-fleet finishes.** The start-sequence model mostly dissolves
+  this. In the common case the wrong fleet is in the *same* sequence, so
+  the boat's row goes on the combined sheet like any other and her place
+  computes within her assigned fleet — the sheet doesn't care which gun
+  she actually took, and a wrong *start* inside one sequence is invisible
+  to any scoring desk (it's an RC/jury observation, resolved by protest
+  or an RC-sanctioned assignment override on the round). Only when her
+  own fleet is in a *different* race — a catch-up day, or the medal race
+  vs the companion race — is her number rejected at the desk, and there
+  the SI-default outcome falls out with no action: leaving her off the
+  sheet scores her implicit DNC in her own fleet's race, and the
+  gate-crashed race ignores non-members. A dedicated in-wizard
+  exception-recording flow was once planned for that residual case
+  (#329); with combined sheets the window is so narrow it was dropped —
+  the observation lives in the race's notes or the protest paperwork,
+  where it was headed anyway.
 
 ### Frozen state, and what it does to fixtures
 
@@ -725,10 +729,11 @@ per-race sheet, entered exactly as the combined sheet comes off the water,
 interleaved across the sequence's fleets, and scoped to their union: the
 sail-number wizard only offers boats assigned to the started fleets, each
 row tints with the boat's fleet colour as it resolves (a live visual check
-against the paper sheet), and an out-of-roster number triggers the
-wrong-fleet flow rather than silent acceptance. Per-fleet abandonment
-acts on the start, not the race (open question 8); the standings and
-reassignment math react per the rules above.
+against the paper sheet), and an out-of-roster number is rejected rather
+than silently accepted (see "Wrong-fleet finishes" — the implicit DNC does
+the rest). Per-fleet abandonment acts on the start, not the race (open
+question 8); the standings and reassignment math react per the rules
+above.
 
 ### Standings and publishing
 
