@@ -155,6 +155,35 @@ changed there, and this ADR keeps the always-fresh dynamic read path.
 
 ## Decision
 
+> **Revised 2026-07-29**, after browsing the deployed first cut against the
+> HYC corpus. The original cut kept seasons as a display grouping over slug
+> *cards*, which collapsed into empty nesting for the archive shape (a season
+> section wrapping one card named after the season). The revision goes where
+> the ADR pointed and further, enabled by a new **static redirect table**
+> (`published_redirects`, operator-maintained via `pnpm redirects`, no UI)
+> that makes any future URL move a managed 301 rather than breakage:
+>
+> - **Seasons are tree nodes, workspace-wide.** `/p/{ws}/{season}` resolves
+>   for every season — the slug's own index where a slug *is* the season (the
+>   archive shape, URLs unchanged), a synthesized season index otherwise — and
+>   the cascade's levels are uniformly **Season / Event / Page**, with legacy
+>   per-event slugs sitting at the event level of their season. A
+>   `workspace_seasons` table holds what derivation can't: pre-defined
+>   seasons and the explicit **current** one.
+> - **The workspace index lists events, not slugs.** A season's own slug
+>   explodes into one row per event, each linking its pages directly; every
+>   season is collapsible with the current one open.
+> - **No control navigates on `change`.** The cascade's levels are
+>   details/summary menus of links (a navigating select fires while
+>   traversing options with arrow keys or a scroll wheel); the quick-jump
+>   picker is pure filters — Season / Category / Event, cascading population,
+>   no page select — and the rows' links do the navigating.
+> - **The publish dialog composes Season + Folder** for dated series (custom
+>   URLs stay a click away), a lone results page lives at its event folder,
+>   and first-publishing into a season slug joins without the merge
+>   confirmation. A workspace-settings Seasons card manages seasons and
+>   adopts year-named categories as season pins.
+
 Adopt the **publication tree**. The sub-decisions:
 
 1. **Grammar reinterpretation, not migration.** The URL space is

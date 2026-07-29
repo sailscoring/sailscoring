@@ -1855,20 +1855,21 @@ export default async function HelpPage() {
           published its URL is fixed, like the slug; to change it, unpublish and publish again.
         </p>
         <p>
-          Published pages form a tree: everything you publish lives under a folder (the URL
-          slug you choose — a season like{' '}
-          <code className="text-foreground text-sm">…/2026</code> or an event like{' '}
-          <code className="text-foreground text-sm">…/autumn-league-2026</code>), each folder
-          gets a listing page linking to every page inside it, and your workspace has a public
-          index at <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code>{' '}
-          grouped by season — the current season open, earlier seasons collapsed. All of it
-          updates automatically as you publish. Every public page carries the same navigation
-          dropdowns showing where the visitor is — season or event, series, results page —
-          and changing any of them jumps straight to the sibling, so getting from{' '}
-          <em>Class 1</em> to <em>Class 2</em>, or from this season’s series to last
-          season’s, is one control away. The workspace index adds a quick-jump row — season,
-          category, series, page — that filters the listing and goes straight to the table
-          a visitor is after instead of scrolling.
+          Published pages form a tree: a dated series publishes as{' '}
+          <strong className="text-foreground">Season + Folder</strong> (e.g.{' '}
+          <code className="text-foreground text-sm">…/2026/spring-regatta</code>; a custom
+          URL is one click away in the dialog), each season and folder gets its own index
+          page, and your workspace has a public index at{' '}
+          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing
+          every event by season — each season collapsible, the current one open, with each
+          event’s results tables linked right on its row. All of it updates automatically as
+          you publish. Every public page carries the same navigation menus showing where the
+          visitor is — season, event, results page — so getting from <em>Class 1</em> to{' '}
+          <em>Class 2</em>, or from this season’s series to last season’s, is one link away.
+          The workspace index adds filter dropdowns — season, category, event — that narrow
+          the listing to the table a visitor is after instead of scrolling. Manage seasons
+          (and pick the current one) from the{' '}
+          <strong className="text-foreground">Seasons</strong> card on Workspace settings.
         </p>
         <p>
           <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}
