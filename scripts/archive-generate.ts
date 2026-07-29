@@ -68,6 +68,15 @@ const seriesSchema = z.object({
   source: z.enum(['sailwave', 'halsail']),
   /** Initial category filing on first ingest (e.g. the season year). */
   category: z.string().optional(),
+  /** Pinned season for the published slug's folder (ADR-011) — only needed
+   *  where the label can't derive from the slug, e.g. "2025-26". */
+  season: z.string().optional(),
+  /** Pinned display labels for interior folders under the slug (ADR-011):
+   *  the original event names where humanising the segment would mangle
+   *  them. Re-asserted on every ingest, like the slug. */
+  folders: z
+    .array(z.object({ path: z.string().min(1), label: z.string().min(1) }))
+    .optional(),
   fleets: z.array(fleetSchema).min(1),
 });
 
@@ -97,6 +106,8 @@ function buildSeries(
     eventLogoUrl: entry.eventLogoUrl,
     category: entry.category,
     publishedSlug: entry.publishedSlug,
+    season: entry.season,
+    folders: entry.folders,
   };
   if (entry.source === 'halsail') {
     return buildHalsailArchiveDoc({

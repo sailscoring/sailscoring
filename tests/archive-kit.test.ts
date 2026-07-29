@@ -355,6 +355,51 @@ describe('document schema', () => {
     };
     expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
   });
+
+  test('folder labels must name a published segment, once each (ADR-011)', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const fleet = {
+      id: '11111111-2222-4333-8444-555555555555',
+      name: 'Class 1 IRC',
+      subPath: 'autumn-league/class-1-irc',
+      results: {
+        leadColumns: [{ key: 'helmname', label: 'Helm' }],
+        raceHeaders: [{ label: 'R1' }],
+        summaryColumns: [{ key: 'nett', label: 'Nett' }],
+        rows: [],
+      },
+    };
+    const doc = (folders: Array<{ path: string; label: string }>) => ({
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'Folder Label Test',
+        publishedSlug: '2025',
+        folders,
+      },
+      fleets: [fleet],
+      competitors: [],
+    });
+    expect(
+      archiveSeriesDocSchema.safeParse(
+        doc([{ path: 'autumn-league', label: "Autumn League '25" }]),
+      ).success,
+    ).toBe(true);
+    // A label for a segment no page publishes under is a typo, not a pin.
+    expect(
+      archiveSeriesDocSchema.safeParse(
+        doc([{ path: 'spring-league', label: 'Spring League' }]),
+      ).success,
+    ).toBe(false);
+    expect(
+      archiveSeriesDocSchema.safeParse(
+        doc([
+          { path: 'autumn-league', label: 'A' },
+          { path: 'autumn-league', label: 'B' },
+        ]),
+      ).success,
+    ).toBe(false);
+  });
 });
 
 describe('combined pages (#321)', () => {

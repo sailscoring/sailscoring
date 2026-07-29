@@ -75,6 +75,8 @@ describe.skipIf(skip)('archive ingest', () => {
   function doc(over: {
     name?: string;
     season?: string;
+    folders?: Array<{ path: string; label: string }>;
+    subPath?: string;
     competitors?: ArchiveSeriesDoc['competitors'];
     rows?: ArchiveSeriesDoc['fleets'][number]['results']['rows'];
   } = {}): ArchiveSeriesDoc {
@@ -117,12 +119,13 @@ describe.skipIf(skip)('archive ingest', () => {
         publishedSlug: 'iodai-ulsters-2015',
         source: 'sailwave',
         ...(over.season ? { season: over.season } : {}),
+        ...(over.folders ? { folders: over.folders } : {}),
       },
       fleets: [
         {
           id: fleetId,
           name: 'Main Fleet',
-          subPath: 'main-fleet',
+          subPath: over.subPath ?? 'main-fleet',
           results: {
             caption: 'Sailed: 2, Discards: 1, Entries: 2',
             leadColumns: [
@@ -794,6 +797,40 @@ describe.skipIf(skip)('archive ingest', () => {
     );
     const [again] = await folderRow();
     expect(again?.season).toBe('2015-16');
+  });
+
+  test('pinned folder labels upsert folder metadata, kept alongside season (ADR-011)', async () => {
+    await archive.putArchiveSeries(
+      ctx,
+      seriesId,
+      doc({
+        name: 'Ulsters 2015 Optimists (folders)',
+        season: '2015-16',
+        subPath: 'ulsters/main-fleet',
+        folders: [{ path: 'ulsters', label: "Ulster's Championship" }],
+      }),
+    );
+    const [labelRow] = await db
+      .select()
+      .from(schema.publishedFolders)
+      .where(
+        and(
+          eq(schema.publishedFolders.workspaceId, workspaceId),
+          eq(schema.publishedFolders.path, 'iodai-ulsters-2015/ulsters'),
+        ),
+      );
+    expect(labelRow?.label).toBe("Ulster's Championship");
+    // The label upsert never clears the slug folder's season pin.
+    const [slugRow] = await db
+      .select()
+      .from(schema.publishedFolders)
+      .where(
+        and(
+          eq(schema.publishedFolders.workspaceId, workspaceId),
+          eq(schema.publishedFolders.path, 'iodai-ulsters-2015'),
+        ),
+      );
+    expect(slugRow?.season).toBe('2015-16');
   });
 
   test('delete removes the publication and the series', async () => {

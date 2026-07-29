@@ -328,14 +328,23 @@ export async function putArchiveSeries(
 
   const published = await publishArchiveSeries(workspace, doc);
 
-  // A pinned season files the slug's folder under a workspace season the
-  // derivation can't produce (e.g. a year-spanning "2025–26"). Pinned data,
-  // like the slug: re-asserted on every ingest (ADR-011).
+  // Pinned folder metadata (ADR-011), re-asserted on every ingest like the
+  // slug itself: a season files the slug's folder under a workspace season
+  // the derivation can't produce (e.g. a year-spanning "2025–26"), and
+  // folder labels give interior folders their original event names where
+  // the humanised segment would mangle them.
   if (doc.series.season) {
     await upsertPublishedFolder(
       workspace.workspaceId,
       doc.series.publishedSlug,
       { season: doc.series.season },
+    );
+  }
+  for (const folder of doc.series.folders ?? []) {
+    await upsertPublishedFolder(
+      workspace.workspaceId,
+      `${doc.series.publishedSlug}/${folder.path}`,
+      { label: folder.label },
     );
   }
 

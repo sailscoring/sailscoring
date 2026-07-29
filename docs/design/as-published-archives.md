@@ -16,9 +16,12 @@ Each class/club has an archive git repo (`iodai-archive`, `dbsc-archive`,
   phone / address rows; age stays).
 - **`as-published.config.json`** — the whole per-class mapping: which files
   compose which series, under which pinned ids, published slugs, and fleet
-  sub-paths. Emitted by a repo-local script from whatever the repo already
-  knows (IODAI: the `events/` definitions + `manifest.json`; DBSC: the
-  per-year `catalog.json`).
+  sub-paths — plus the ADR-011 folder pins: an optional `season` for the
+  slug's folder (where "2025-26" can't derive from the slug) and `folders`
+  labels giving interior folders their original event names (re-asserted on
+  every ingest, like the slug). Emitted by a repo-local script from whatever
+  the repo already knows (IODAI: the `events/` definitions + `manifest.json`;
+  DBSC: the per-year `catalog.json`).
 - **`manifest.json`** (where the class has an identity spine) — the #218
   identity manifest; the ingest applies it and runs the scoped auto-pass.
 - **`.github/workflows/as-published.yml`** — on push: check out the app repo,
