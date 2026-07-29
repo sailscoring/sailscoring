@@ -18,10 +18,12 @@ import {
   getPublishedById,
   getPublishedBySeries,
   getPublishedGroupByWorkspaceSlug,
+  getPublishedSeasonTree,
   getSeriesName,
   listPublishedForWorkspace,
   savePublished,
 } from '@/lib/published-repository';
+import { seasonLikeSlug } from '@/lib/published-tree';
 import { producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
@@ -272,12 +274,21 @@ export async function publishSeries(
   ).filter((p) => p.seriesId !== seriesId);
 
   // First publish into an occupied slug needs explicit confirmation, so two
-  // unrelated events never merge by accident.
+  // unrelated events never merge by accident. Publishing into a *season*
+  // folder is the intended sharing (ADR-011) — a season-like slug, or one
+  // matching a workspace season, joins without ceremony.
   if (!existing && others.length > 0 && !input.join) {
-    throw new BadRequestError('slug already in use by other series', {
-      code: 'slug-shared',
-      sharedWith: await contributorNames(others),
-    });
+    const seasonSegments = new Set(
+      (await getPublishedSeasonTree(workspace.workspaceId)).seasons.map(
+        (s) => s.segment,
+      ),
+    );
+    if (!seasonLikeSlug(slug) && !seasonSegments.has(slug)) {
+      throw new BadRequestError('slug already in use by other series', {
+        code: 'slug-shared',
+        sharedWith: await contributorNames(others),
+      });
+    }
   }
 
   // Sub-paths are frozen per page: a fleet that was already published keeps its
@@ -304,7 +315,14 @@ export async function publishSeries(
     const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
     let leaf: string;
     if (override) {
-      if (!isValidSlugSegment(override)) {
+      // An override may carry a folder prefix (`spring-regatta/irc`,
+      // ADR-011) — one extra segment, and never on a sub-series page, whose
+      // block segment already takes that slot.
+      const segments = override.split('/');
+      const ok =
+        segments.every(isValidSlugSegment) &&
+        segments.length <= (file.subSeriesName ? 1 : 2);
+      if (!ok) {
         throw new BadRequestError('invalid fleet sub-path', {
           code: 'invalid-subpath',
           fleetName: file.fleetName,
@@ -421,10 +439,27 @@ export async function getPublication(
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
   const existing = await getPublishedBySeries(seriesId);
+
+  // The Season control's options (ADR-011): the workspace's seasons plus the
+  // series' own start-date season, which may not have anything published yet.
+  const tree = await getPublishedSeasonTree(workspace.workspaceId);
+  const yearMatch = /^(\d{4})/.exec(series.startDate ?? '');
+  const suggestedSeason = yearMatch ? yearMatch[1] : null;
+  const seasons = tree.seasons.map((s) => ({
+    label: s.label,
+    current: s.current,
+  }));
+  if (suggestedSeason && !seasons.some((s) => s.label === suggestedSeason)) {
+    seasons.unshift({ label: suggestedSeason, current: false });
+    seasons.sort((a, b) => b.label.localeCompare(a.label));
+  }
+
   return {
     workspaceSlug: workspace.workspaceSlug,
     suggestedSlug: deriveSeriesSlug(series.name),
     published: existing ? toResult(workspace.workspaceSlug, existing) : null,
+    seasons,
+    suggestedSeason,
   };
 }
 

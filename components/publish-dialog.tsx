@@ -17,7 +17,7 @@ import {
   publishSeries,
   unpublishSeries,
 } from '@/lib/api-repository';
-import { fleetSubPath } from '@/lib/publishing';
+import { fleetSubPath, kebab } from '@/lib/publishing';
 import {
   describeGroupMembers,
   fleetPagesSuppressed,
@@ -140,6 +140,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   );
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
+  // Where a first publish lands (ADR-011): into a season folder — "Season:
+  // 2026, Folder: spring-regatta" — or under a custom top-level slug (the
+  // original shape). Season mode is the default whenever the series' start
+  // date derives a season.
+  const [publishInto, setPublishInto] = useState<'season' | 'custom'>('custom');
+  const [season, setSeason] = useState('');
+  const [folder, setFolder] = useState('');
   // Selected fleet names (the set to publish) and per-fleet editable sub-paths.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [subPaths, setSubPaths] = useState<Record<string, string>>({});
@@ -196,6 +203,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         }
         setStatus(s);
         setSlug(pub?.slug ?? s.suggestedSlug);
+        setPublishInto(!pub && s.suggestedSeason !== null ? 'season' : 'custom');
+        setSeason(
+          s.suggestedSeason ??
+            s.seasons.find((x) => x.current)?.label ??
+            s.seasons[0]?.label ??
+            '',
+        );
+        setFolder(s.suggestedSlug);
         setSelected(initSelected);
         setSubPaths(initSubPaths);
         setSinglePath('standings');
@@ -273,7 +288,15 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const segmentFor = (row: FleetRow): string =>
     row.frozen ? lastSegment(row.publishedUrl ?? '') : (subPaths[row.name] ?? '');
 
-  const urlPrefix = `${APP_URL}/p/${workspaceSlug}/${slug || '…'}`;
+  // The slug a first publish will use: the season's URL form in season mode,
+  // the typed slug otherwise. Frozen once published.
+  const seasonMode = !isPublished && publishInto === 'season';
+  const effectiveSlug = isPublished ? slug : seasonMode ? kebab(season) : slug;
+  // The folder prefix pages land under in season mode. Sub-series pages
+  // already use their block segment, so a block series publishes its
+  // `{block}/{fleet}` pages directly under the season slug.
+  const folderPrefix = seasonMode && !hasBlocks ? folder.trim() : '';
+  const urlPrefix = `${APP_URL}/p/${workspaceSlug}/${effectiveSlug || '…'}`;
 
   // A single-fleet series has one default page. Its sub-path is editable before
   // first publish (seeded `standings`) and frozen after — the same lifecycle as a
@@ -291,10 +314,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
       // With sub-series there are several pages; link the series index that
-      // lists them all rather than one block's page.
-      url: hasBlocks ? urlPrefix : page?.url ?? `${urlPrefix}/${singlePath || 'standings'}`,
+      // lists them all rather than one block's page. In season mode the lone
+      // page lives at the folder itself.
+      url: hasBlocks
+        ? urlPrefix
+        : (page?.url ??
+          `${urlPrefix}/${folderPrefix || singlePath || 'standings'}`),
     };
-  }, [published, fleets, urlPrefix, singlePath, hasBlocks]);
+  }, [published, fleets, urlPrefix, singlePath, hasBlocks, folderPrefix]);
 
   // Client-side guard so the button reflects what the server would reject. The
   // single default page needs a non-empty sub-path while it's still editable
@@ -305,6 +332,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const prizesFrozen = (published?.pages ?? []).some((p) => p.fleetName === 'Prizes');
 
   const validation = useMemo(() => {
+    if (seasonMode) {
+      if (!season) return 'Choose a season.';
+      // The folder keeps events apart within the season; a block series
+      // publishes its block pages instead, so it needs none.
+      if (!hasBlocks && !folder.trim()) return 'Give the event a folder.';
+    }
     if (!multiFleet) {
       // The prize sheet makes even a single-fleet series multi-page: its own
       // (editable) sub-path must be present and distinct from the results page.
@@ -329,7 +362,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [multiFleet, isPublished, hasBlocks, singlePath, rows, selected, subPaths, published]);
+  }, [multiFleet, isPublished, hasBlocks, singlePath, rows, selected, subPaths, published, seasonMode, season, folder]);
 
   const pendingEdits = published
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
@@ -394,8 +427,29 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
       } else if (!isPublished && !hasBlocks) {
         selection = { defaultSubPath: singlePath };
       }
+      // Season mode (ADR-011): pages land under the event folder — every
+      // editable page gets an explicit prefixed override, and a lone results
+      // page lives at the folder itself.
+      if (folderPrefix) {
+        if (multiFleet) {
+          const overrides: Record<string, string> = {};
+          for (const r of rows) {
+            if (r.frozen || !selected.has(r.name)) continue;
+            overrides[r.name] = `${folderPrefix}/${segmentFor(r)}`;
+          }
+          selection = { ...selection, subPaths: overrides };
+        } else {
+          if (!isPublished) selection.defaultSubPath = folderPrefix;
+          if (hasPrizes && selected.has('Prizes') && !prizesFrozen) {
+            selection.subPaths = {
+              ...(selection.subPaths ?? {}),
+              Prizes: `${folderPrefix}/${subPaths['Prizes'] || 'prizes'}`,
+            };
+          }
+        }
+      }
       const result = await publishSeries(series.id, {
-        ...(isPublished ? {} : { slug, join }),
+        ...(isPublished ? {} : { slug: effectiveSlug, join }),
         ...selection,
       });
       setStatus((s) => (s ? { ...s, published: result } : s));
@@ -542,6 +596,45 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                   </span>
                 )}
               </p>
+            ) : publishInto === 'season' ? (
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="publish-season">Season</Label>
+                    <select
+                      id="publish-season"
+                      value={season}
+                      onChange={(e) => { setSeason(e.target.value); setError(null); }}
+                      className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                    >
+                      {(status?.seasons ?? []).map((s) => (
+                        <option key={s.label} value={s.label}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {!hasBlocks && (
+                    <div className="flex-1 space-y-1.5">
+                      <Label htmlFor="publish-folder">Folder</Label>
+                      <Input
+                        id="publish-folder"
+                        value={folder}
+                        onChange={(e) => { setFolder(sanitizeSlug(e.target.value)); setError(null); }}
+                        placeholder="spring-regatta"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                  onClick={() => { setPublishInto('custom'); setError(null); }}
+                >
+                  Use a custom URL instead
+                </button>
+              </div>
             ) : (
               <div className="space-y-1.5">
                 <Label htmlFor="publish-slug">Publish under</Label>
@@ -552,6 +645,15 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                   placeholder="autumn-league-2026"
                   autoFocus
                 />
+                {(status?.seasons.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline hover:text-foreground"
+                    onClick={() => { setPublishInto('season'); setNeedsJoin(false); setError(null); }}
+                  >
+                    Publish into a season instead
+                  </button>
+                )}
               </div>
             )}
 
@@ -571,7 +673,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                       /p/{workspaceSlug}/{slug}/
                     </a>
                   ) : (
-                    <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                    <span className="font-mono">
+                      /p/{workspaceSlug}/{effectiveSlug || '…'}/
+                      {folderPrefix ? `${folderPrefix}/` : ''}
+                    </span>
                   )}
                 </p>
                 <div className="space-y-1">
@@ -721,7 +826,16 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
             ) : hasBlocks ? (
               <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
                 Each sub-series publishes its own page under{' '}
-                <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                <span className="font-mono">/p/{workspaceSlug}/{effectiveSlug || '…'}/</span>
+              </p>
+            ) : seasonMode ? (
+              // Season mode: the lone results page lives at the event folder
+              // itself — no separate page segment to edit.
+              <p className="text-xs text-muted-foreground truncate" title={singlePreview.url}>
+                Published at{' '}
+                <span className="font-mono">
+                  /p/{workspaceSlug}/{effectiveSlug || '…'}/{folder || '…'}
+                </span>
               </p>
             ) : (
               // First publish of the lone default page: its sub-path is editable,

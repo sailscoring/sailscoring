@@ -438,6 +438,40 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 });
 
+test('season mode: Season + Folder compose the tree; a second event joins without ceremony (ADR-011)', async ({ page }) => {
+  // Heavy: two scored series and two publishes before the assertions.
+  test.slow();
+  // A dated series opens the dialog in season mode: Season derived from the
+  // start date, Folder seeded from the name.
+  await createSeriesWithData(page, { name: 'Spring Regatta', sail: '11', date: '2026-04-12' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog.getByLabel('Season')).toHaveValue('2026');
+  await dialog.getByLabel('Folder').fill('spring-regatta');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  // The lone results page lives at the event folder itself.
+  const link = dialog.getByRole('link', { name: /\/2026\/spring-regatta$/ });
+  await expect(link).toBeVisible();
+  const path = new URL((await link.getAttribute('href')) ?? '').pathname;
+  await page.goto(path);
+  await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
+
+  // A second dated event publishes into the same season with no join
+  // confirmation — sharing a season folder is the intended shape.
+  await createSeriesWithData(page, { name: 'Summer Regatta', sail: '22', date: '2026-06-20' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByLabel('Folder').fill('summer-regatta');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByRole('link', { name: /\/2026\/summer-regatta$/ })).toBeVisible();
+
+  // The season slug now serves both events; its index lists them.
+  await page.goto(path.replace(/\/spring-regatta$/, ''));
+  await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Spring Regatta' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Summer Regatta' })).toBeVisible();
+});
+
 test('single-fleet: the default page URL is editable before first publish', async ({ page }) => {
   await createSeriesWithData(page);
 
@@ -632,6 +666,9 @@ test('the public workspace listing groups by season, expands the current one, an
   await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11', date: '2026-05-01' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  // A dated series defaults to season mode (ADR-011); this test exercises the
+  // legacy per-event-slug shape, so switch to a custom URL.
+  await dialog.getByRole('button', { name: 'Use a custom URL instead' }).click();
   await dialog.getByLabel('Publish under').fill('spring-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const firstLink = dialog.getByRole('link', { name: /\/p\// });
@@ -646,6 +683,7 @@ test('the public workspace listing groups by season, expands the current one, an
     date: '2024-08-17',
   });
   await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByRole('button', { name: 'Use a custom URL instead' }).click();
   await dialog.getByLabel('Publish under').fill('lambay-24');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /\/lambay-24\/standings$/ })).toBeVisible();
