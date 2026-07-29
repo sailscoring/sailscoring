@@ -1275,8 +1275,13 @@ export default async function HelpPage() {
           <p>
             A qualifying race <strong className="text-foreground">counts only once every fleet
             has completed it</strong> — until then its column is greyed in the standings, matching
-            the abandon-and-cancel rule in championship sailing instructions. Finish entry is
-            per-fleet: each fleet&rsquo;s race gets its own sheet.
+            the abandon-and-cancel rule in championship sailing instructions. The fleets start in
+            sequence and finish onto <strong className="text-foreground">one combined sheet</strong>:
+            enter it exactly as it comes off the water, interleaved, and each boat scores her
+            place within her own fleet. If one fleet&rsquo;s race is abandoned, abandon just that
+            fleet&rsquo;s start from the race row — the rest of the sheet stands — and add its{' '}
+            <strong className="text-foreground">catch-up race</strong> (its own sheet, usually
+            sailed first the next day) from the same row.
           </p>
           <p>
             <strong className="text-foreground">End qualifying → split fleets</strong> deals the

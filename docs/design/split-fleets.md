@@ -855,17 +855,23 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
    v1 requires `scoringMode: 'scratch'`; split fleets × handicap systems
    is uncharted (no known real event) and stays unsupported until one
    exists.
-8. **Per-start status machinery.** Completion is derivable from the
-   sheet, but abandonment today is per-race, and a fleet's race can be
-   abandoned while the rest of the sequence stands. Per-start abandonment
-   flag, or "remove the start and re-create it on the resail race"? Work
-   the two sequences on paper before locking: Yellow general-recalled and
-   resailed at the end of the same sequence (same race, later gun), and
-   Yellow abandoned and resailed next morning (the start moves to its own
-   race; any entered Yellow rows go with it). The protest-time-limit
-   anchor (`lastFinisherTime`) has the same shape: limits run per fleet,
-   derivable from a timed sheet, needing a per-start fallback when the
-   sheet is untimed.
+8. **Per-start status machinery.** *Decided and implemented (#346):
+   remove-and-re-race, not a flag.* Abandoning a fleet's physical race
+   removes the fleet from the race's start sequence and voids its rows on
+   the sheet; the rest of the sequence stands, and a race left with no
+   starts is deleted. The resail is a fresh one-start catch-up race for
+   that fleet (offered on the logical-race row), so each sheet stays the
+   record of one session; the history lives in the activity log and
+   revision snapshots rather than a per-start abandoned state. The two
+   worked cases: a same-sequence resail (general recall, re-started after
+   the other fleets) is just a later gun on the same start; a
+   next-morning resail is the catch-up race. As a belt-and-braces rule
+   the engine prefers a completed physical race over an incomplete one
+   when two starts claim the same (fleet, stage race), so a lingering
+   abandoned start can never invalidate its resail. Still open from this
+   question: the protest-time-limit anchor (`lastFinisherTime`) — limits
+   run per fleet, derivable from a timed sheet, needing a per-start
+   fallback when the sheet is untimed.
 9. **Race naming and numbering.** With the race as the start sequence,
    "Q3" is no longer a race name: a race is "Day 2, Race 1" holding
    Yellow Q3 + Blue Q3 + Red Q3 (or Gold F2 + Silver F2 + Bronze F1), and
