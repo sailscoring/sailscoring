@@ -19,11 +19,8 @@
 
 import { escapeHtml as esc } from './html';
 import { humanizeSlug } from './publishing';
-import {
-  renderPublicHero,
-  renderPublicShell,
-  type SeriesIndexPage,
-} from './published-index';
+import { renderPublicHero, renderPublicShell } from './published-shell';
+import type { SeriesIndexPage } from './published-index';
 
 /** A page in a slug group, with its contributing series named so labels can
  *  distinguish same-named pages from different series on a shared slug. */

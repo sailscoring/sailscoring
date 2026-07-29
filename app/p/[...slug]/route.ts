@@ -183,6 +183,10 @@ async function workspaceIndex(
   // Don't reveal that a workspace exists if it has published nothing.
   if (items.length === 0) return NOT_FOUND;
 
+  // The explicitly-current season opens by default (ADR-011).
+  const seasonTree = await getPublishedSeasonTree(workspace.id);
+  const currentSeason = seasonTree.seasons.find((s) => s.current)?.label;
+
   // Surface the competitor index when the feature is on and there's at least
   // one competitor to browse (so the link never lands on a 404).
   const competitorsLink =
@@ -208,6 +212,7 @@ async function workspaceIndex(
     `logo:${workspace.logo}`,
     `competitors:${competitorsLink}`,
     `rankings:${rankingsLink}`,
+    `current:${currentSeason ?? ''}`,
     ...items.map(
       (i) =>
         `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.season ?? ''}:${i.contributors
@@ -225,6 +230,7 @@ async function workspaceIndex(
   const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo, {
     competitorsLink,
     rankingsLink,
+    currentSeason,
   });
   return htmlResponse(html, etag);
 }

@@ -89,18 +89,24 @@ describe('renderWorkspaceIndexHtml sections', () => {
     expect(html).not.toContain('Uncategorized');
   });
 
-  it('expands the current season with category headings, collapses prior seasons (ADR-011)', () => {
-    const html = renderWorkspaceIndexHtml('hyc', 'Howth', [
-      item({ slug: 'cr', title: 'Cruisers Series', categoryName: 'Cruisers', categoryOrder: 0, season: '2026' }),
-      item({ slug: 'plain', title: 'Loose Series', season: '2026' }),
-      item({ slug: 'old', title: 'Old Series', season: '2024' }),
-    ]);
-    expect(html).toContain('<h2 class="season">2026</h2>');
+  it('every season collapsible, the current one open, category headings within (ADR-011)', () => {
+    const html = renderWorkspaceIndexHtml(
+      'hyc',
+      'Howth',
+      [
+        item({ slug: 'cr', title: 'Cruisers Series', categoryName: 'Cruisers', categoryOrder: 0, season: '2026' }),
+        item({ slug: 'plain', title: 'Loose Series', season: '2026' }),
+        item({ slug: 'old', title: 'Old Series', season: '2024' }),
+      ],
+      '',
+      { currentSeason: '2026' },
+    );
+    expect(html).toContain('<details class="season" open data-open><summary>2026</summary>');
     expect(html).toContain('Cruisers');
     expect(html).toContain('Uncategorized');
     expect(html).toContain('<details class="season"><summary>2024</summary>');
     // The current season's items come before the collapsed prior season.
-    expect(html.indexOf('Cruisers Series')).toBeLessThan(html.indexOf('<details'));
+    expect(html.indexOf('Cruisers Series')).toBeLessThan(html.indexOf('<summary>2024'));
     expect(html.indexOf('Old Series')).toBeGreaterThan(html.indexOf('<summary>2024'));
   });
 
@@ -112,7 +118,7 @@ describe('renderWorkspaceIndexHtml sections', () => {
       item({ slug: '2023', title: '2023', categoryName: '2023', categoryOrder: 1, season: '2023' }),
     ]);
     expect(html).not.toContain('class="cat"');
-    expect(html).toContain('<h2 class="season">2024</h2>');
+    expect(html).toContain('<summary>2024</summary>');
     expect(html).toContain('<summary>2023</summary>');
   });
 });

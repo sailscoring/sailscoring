@@ -222,6 +222,8 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
       title: string | null;
       year: number | null;
       categoryName: string | null;
+      /** The category's displayOrder; Infinity when uncategorised. */
+      categoryOrder: number;
       pages: {
         fleetName: string;
         subSeriesName?: string;
@@ -273,6 +275,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     title: string | null;
     year: number | null;
     categoryName: string | null;
+    categoryOrder: number;
     // Sort keys only — the in-app series order, publish recency as tiebreak
     // (mirroring getPublishedGroupByWorkspaceSlug); stripped before return.
     seriesOrder: number;
@@ -317,6 +320,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
       title: r.seriesName ?? null,
       year: yearOf(r.startDate),
       categoryName: r.categoryName ?? null,
+      categoryOrder: r.categoryOrder ?? Number.POSITIVE_INFINITY,
       seriesOrder: r.seriesOrder ?? Number.POSITIVE_INFINITY,
       publishedAt: r.publishedAt.getTime(),
       pages: r.pages.map((p) => ({
@@ -353,10 +357,11 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
                 ? 1
                 : 0) || b.publishedAt - a.publishedAt,
         )
-        .map(({ title, year, categoryName, pages }) => ({
+        .map(({ title, year, categoryName, categoryOrder, pages }) => ({
           title,
           year,
           categoryName,
+          categoryOrder,
           pages,
         })),
     }))

@@ -426,15 +426,14 @@ test('two series publish into one shared slug → the listing unions both, sub-h
   await expect(page).toHaveURL(/\/2026-lambay-races\/lambay-races-one-designs$/);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 
-  // The workspace index picker offers each contributing series by name —
-  // never the shared slug — and jumps to the chosen series' page (#320).
+  // The workspace index's event row links each contributing series' page by
+  // name — never the shared slug — one click from the index (ADR-011).
   await page.goto(indexPath.replace(/\/[^/]+$/, ''));
-  const picker = page.locator('.picker');
-  await expect(picker).toBeVisible();
-  await picker
-    .locator('#picker-series')
-    .selectOption({ label: 'Lambay Races One Designs' });
-  await picker.locator('#picker-fleet').selectOption({ label: 'Standings' });
+  const row = page.locator('li[data-event="2026-lambay-races"]');
+  await row
+    .locator('.pages')
+    .getByRole('link', { name: 'Lambay Races One Designs' })
+    .click();
   await expect(page).toHaveURL(/\/2026-lambay-races\/lambay-races-one-designs$/);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 });
@@ -681,10 +680,10 @@ test('the public workspace listing groups by season, expands the current one, an
   // before reading the public listing, so it isn't a race with the PATCH.
   await expect(page.getByRole('button', { name: /Archived \(1\)/ })).toBeVisible();
 
-  // The public listing (ADR-011): the current season expanded, its series
-  // under their category headings; the prior season a collapsed block.
+  // The public listing (ADR-011): every season a collapsible block, the
+  // current one open, its events under their category headings.
   await page.goto(`/p/${workspaceSlug}`);
-  await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
+  await expect(page.locator('details.season[open] summary')).toHaveText('2026');
   await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
   // Seasons are addressable (ADR-011): /p/{ws}/2026 resolves to a season
@@ -696,7 +695,7 @@ test('the public workspace listing groups by season, expands the current one, an
   await expect(page).toHaveURL(/\/spring-26$/);
   await page.goto(`/p/${workspaceSlug}`);
 
-  const pastSeason = page.locator('details.season');
+  const pastSeason = page.locator('details.season').filter({ hasText: '2024' });
   await expect(pastSeason.locator('summary')).toHaveText('2024');
   // Collapsed until expanded: the older series' link hides behind the summary.
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();
@@ -709,6 +708,9 @@ test('the public workspace listing groups by season, expands the current one, an
   // selection that no longer applies resets.
   const picker = page.locator('.picker');
   await expect(picker).toBeVisible();
+  // The Event select cascades from Season: nothing to pick until one is
+  // chosen (ADR-011).
+  await expect(picker.locator('#picker-series')).toBeDisabled();
   await picker.locator('#picker-cat').selectOption('Club Racing');
   await picker.locator('#picker-year').selectOption('2024');
   await expect(picker.locator('#picker-cat')).toHaveValue('');
@@ -727,11 +729,16 @@ test('the public workspace listing groups by season, expands the current one, an
   ]);
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
 
-  // Picking a series narrows the listing to it; picking a fleet page
-  // navigates straight there.
+  // Picking an event (after its season) narrows the listing to its row —
+  // whose page links go straight to the table, so nothing navigates on a
+  // select change.
+  await picker.locator('#picker-year').selectOption('2026');
   await picker.locator('#picker-series').selectOption({ label: 'Spring League 2026' });
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();
-  await picker.locator('#picker-fleet').selectOption({ label: 'Standings' });
+  await page
+    .locator('li[data-event="spring-26"] .pages')
+    .getByRole('link', { name: 'Standings' })
+    .click();
   await expect(page).toHaveURL(/\/spring-26\/standings$/);
   await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
   await page.goBack();

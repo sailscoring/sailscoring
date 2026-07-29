@@ -22,11 +22,28 @@ describe('renderWorkspaceIndexHtml', () => {
     expect(html).toContain('Howth Yacht Club');
   });
 
-  it('shows a fleet count only when there is more than one fleet', () => {
-    const html = renderWorkspaceIndexHtml('hyc', 'HYC', items);
-    expect(html).toContain('3 fleets');
-    // The single-fleet row carries no fleet-count suffix.
-    expect(html).not.toContain('1 fleets');
+  it('links each event\'s pages directly from its row (ADR-011)', () => {
+    const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
+      {
+        slug: 'autumn-26',
+        title: 'Autumn League',
+        publishedAt: 2,
+        fleetCount: 2,
+        contributors: [
+          {
+            title: 'Autumn League',
+            pages: [
+              { fleetName: 'IRC', subPath: 'irc' },
+              { fleetName: 'Cruiser', subPath: 'cruiser' },
+            ],
+          },
+        ],
+      },
+      { slug: 'spring-26', title: 'Spring League', publishedAt: 1, fleetCount: 1 },
+    ]);
+    expect(html).toContain(
+      '<span class="pages"><a href="/p/hyc/autumn-26/irc">IRC</a> &middot; <a href="/p/hyc/autumn-26/cruiser">Cruiser</a></span>',
+    );
   });
 
   it('preserves the caller-supplied order', () => {
@@ -124,15 +141,16 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
     },
   ];
 
-  it('renders the hidden picker controls and behaviour script for two or more publications', () => {
+  it('renders the hidden picker controls and behaviour script for two or more events', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', twoSeries);
     expect(html).toContain('<div class="picker" hidden>');
     expect(html).toContain('id="picker-series"');
-    expect(html).toContain('id="picker-fleet"');
+    // No page select: the selects only filter, the rows carry the links.
+    expect(html).not.toContain('id="picker-fleet"');
     expect(html).toContain('id="picker-data"');
-    // Rows carry the slug the script filters on; sections are wrapped so an
-    // emptied one can hide, heading and all.
-    expect(html).toContain('data-slug="tue-1"');
+    // Rows carry the event key the script filters on; sections are wrapped so
+    // an emptied one can hide, heading and all.
+    expect(html).toContain('data-event="tue-1"');
     expect(html).toContain('<section class="lgroup">');
   });
 
@@ -142,13 +160,11 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
     expect(html).not.toContain('id="picker-data"');
   });
 
-  it('embeds each publication\'s fleet pages as label + public URL', () => {
+  it('links each event\'s pages inline in its row', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', twoSeries);
-    expect(html).toContain('"url":"/p/hyc/tue-1/squibs"');
-    expect(html).toContain('"label":"Squibs"');
+    expect(html).toContain('<a href="/p/hyc/tue-1/squibs">Squibs</a>');
     // A single-page publication's lone page reads as "Standings".
-    expect(html).toContain('"url":"/p/hyc/wed-1/standings"');
-    expect(html).toContain('"label":"Standings"');
+    expect(html).toContain('<a href="/p/hyc/wed-1/standings">Standings</a>');
   });
 
   it('renders the season and category selects only when the dimension has two values', () => {
@@ -177,19 +193,14 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
 
   it('escapes < in the embedded JSON so titles cannot close the script tag', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
-      {
-        ...twoSeries[0],
-        contributors: [
-          { ...twoSeries[0].contributors[0], title: 'Race </script><b>' },
-        ],
-      },
+      { ...twoSeries[0], title: 'Race </script><b>' },
       twoSeries[1],
     ]);
     expect(html).not.toContain('</script><b>');
     expect(html).toContain('\\u003c/script>');
   });
 
-  it('offers each contributing series by name when a slug is shared (archive year buckets)', () => {
+  it('explodes a season slug into event rows (archive year buckets, ADR-011)', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
       {
         slug: '2025',
@@ -199,6 +210,7 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
         categoryName: '2025',
         categoryOrder: 0,
         year: 2025,
+        season: '2025',
         contributors: [
           {
             title: 'Tuesday Series 1 2025',
@@ -221,15 +233,15 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
         ],
       },
     ]);
-    // Two contributing series justify the picker even with one listing slug,
-    // and each appears under its own name with its own fleet pages.
+    // The season's slug never renders as a card of its own: each interior
+    // folder is an event row, with its pages linked directly.
+    expect(html).toContain('data-event="2025/tuesday-series-1"');
+    expect(html).toContain('<a class="evt" href="/p/hyc/2025/tuesday-series-1">Tuesday Series 1</a>');
+    expect(html).toContain('<a href="/p/hyc/2025/tuesday-series-1/puppeteers">Puppeteers</a>');
+    expect(html).toContain('<a class="evt" href="/p/hyc/2025/wednesday-series-1">Wednesday Series 1</a>');
+    // Two events justify the picker even with one listing slug.
     expect(html).toContain('id="picker-data"');
-    expect(html).toContain('"title":"Tuesday Series 1 2025"');
-    expect(html).toContain('"title":"Wednesday Series 1 2025"');
-    expect(html).toContain('"url":"/p/hyc/2025/tuesday-series-1/puppeteers"');
-    expect(html).toContain('"label":"Puppeteers"');
-    // The humanised slug never appears as a series option title.
-    expect(html).not.toContain('"title":"2025"');
+    expect(html).toContain('"label":"Tuesday Series 1"');
   });
 
   it('collapses prior seasons and excludes season-echo categories from the picker', () => {
