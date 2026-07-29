@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
-import { humanizeSlug } from './publishing';
+import { humanizeSlug, kebab } from './publishing';
 import { seasonLikeSlug } from './published-tree';
 import type { PublishedSeries } from './types';
 
@@ -436,20 +436,35 @@ function seasonOf(
   return year != null ? String(year) : null;
 }
 
-/** Every top-level folder of the workspace's publication tree (ADR-011): one
- *  entry per published slug, labelled by the sole contributor's series name or
- *  the humanised slug when several series share it, newest publish first (the
- *  cascade re-orders season folders itself). Light on purpose — no page lists
- *  — because the navigation cascade loads this on every public page view. */
-export async function listPublishedTopFolders(
+/** One season of the workspace's publication tree (ADR-011). `segment` is
+ *  its URL form under `/p/{ws}/`; `folders` are the published top-level
+ *  folders filed in it (for the archive shape, the single folder whose slug
+ *  IS the season). */
+export interface PublishedSeason {
+  label: string;
+  segment: string;
+  current: boolean;
+  folders: { slug: string; label: string }[];
+}
+
+/**
+ * The workspace's seasons, newest first, each with its published top-level
+ * folders (ADR-011). Seasons union the defined rows (`workspace_seasons`)
+ * with those derived from publications; the current season is the explicitly
+ * flagged one, else the newest label. Folders whose season can't be derived
+ * land in `undated` (kept out of the season cascade).
+ */
+export async function getPublishedSeasonTree(
   workspaceId: string,
   folderMeta?: Map<string, { label: string | null; season: string | null }>,
-): Promise<{ slug: string; label: string }[]> {
+): Promise<{ seasons: PublishedSeason[]; undated: { slug: string; label: string }[] }> {
+  const meta = folderMeta ?? (await getPublishedFolderMeta(workspaceId));
   const rows = await getDb()
     .select({
       slug: schema.publishedSeries.slug,
       seriesName: schema.series.name,
       publishedAt: schema.publishedSeries.publishedAt,
+      startDate: schema.series.startDate,
     })
     .from(schema.publishedSeries)
     .leftJoin(
@@ -459,26 +474,72 @@ export async function listPublishedTopFolders(
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
 
-  const meta = folderMeta ?? (await getPublishedFolderMeta(workspaceId));
-  const groups = new Map<string, { names: (string | null)[]; at: number }>();
+  const groups = new Map<
+    string,
+    { names: (string | null)[]; at: number; year: number | null }
+  >();
   for (const r of rows) {
-    const g = groups.get(r.slug) ?? { names: [], at: 0 };
+    const g = groups.get(r.slug) ?? { names: [], at: 0, year: null };
     g.names.push(r.seriesName);
-    g.at = Math.max(g.at, r.publishedAt.getTime());
+    if (r.publishedAt.getTime() > g.at) {
+      g.at = r.publishedAt.getTime();
+      g.year = yearOf(r.startDate);
+    }
     groups.set(r.slug, g);
   }
-  return [...groups.entries()]
-    .map(([slug, g]) => ({
-      slug,
-      label:
-        meta.get(slug)?.label ??
-        (g.names.length === 1 && g.names[0] !== null
-          ? g.names[0]
-          : humanizeSlug(slug)),
-      at: g.at,
-    }))
-    .sort((a, b) => b.at - a.at)
-    .map(({ slug, label }) => ({ slug, label }));
+
+  const folderOf = (slug: string, g: { names: (string | null)[] }) => ({
+    slug,
+    label:
+      meta.get(slug)?.label ??
+      (g.names.length === 1 && g.names[0] !== null
+        ? g.names[0]
+        : humanizeSlug(slug)),
+  });
+
+  const bySeason = new Map<string, { slug: string; label: string; at: number }[]>();
+  const undated: { slug: string; label: string }[] = [];
+  for (const [slug, g] of groups) {
+    const season = seasonOf(slug, meta.get(slug), g.year);
+    if (season === null) {
+      undated.push(folderOf(slug, g));
+      continue;
+    }
+    const list = bySeason.get(season) ?? [];
+    list.push({ ...folderOf(slug, g), at: g.at });
+    bySeason.set(season, list);
+  }
+
+  const defined = await getDb()
+    .select({
+      label: schema.workspaceSeasons.label,
+      isCurrent: schema.workspaceSeasons.isCurrent,
+    })
+    .from(schema.workspaceSeasons)
+    .where(eq(schema.workspaceSeasons.workspaceId, workspaceId));
+  for (const d of defined) {
+    if (!bySeason.has(d.label)) bySeason.set(d.label, []);
+  }
+
+  const labels = [...bySeason.keys()].sort((a, b) => b.localeCompare(a));
+  const explicitCurrent = defined.find((d) => d.isCurrent)?.label;
+  const current =
+    explicitCurrent !== undefined && bySeason.has(explicitCurrent)
+      ? explicitCurrent
+      : labels[0];
+  const seasons: PublishedSeason[] = labels.map((label) => ({
+    label,
+    segment: kebab(label),
+    current: label === current,
+    folders: (bySeason.get(label) ?? [])
+      // A season-named folder (the archive shape) leads; the rest newest
+      // publish first.
+      .sort((a, b) =>
+        a.slug === kebab(label) ? -1 : b.slug === kebab(label) ? 1 : b.at - a.at,
+      )
+      .map(({ slug, label: l }) => ({ slug, label: l })),
+  }));
+  return { seasons, undated };
 }
 
 /**

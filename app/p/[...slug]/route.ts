@@ -42,19 +42,21 @@ import {
   interiorFolderLabels,
   pagesInFolder,
   renderFolderIndexHtml,
+  renderSeasonIndexHtml,
   renderTreeNav,
   slugFolders,
+  type SeasonNavTree,
   type TreePage,
 } from '@/lib/published-tree';
 import {
   getPublishedFolderMeta,
   getPublishedGroupByWorkspaceSlug,
   getPublishedRedirect,
+  getPublishedSeasonTree,
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
   listPublishedSeriesIds,
-  listPublishedTopFolders,
 } from '@/lib/published-repository';
 import type { PublishedSeries } from '@/lib/types';
 
@@ -500,19 +502,23 @@ async function seriesIndex(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
   const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
-  if (group.length === 0) return NOT_FOUND;
+  if (group.length === 0) {
+    // No published slug of this name: the segment may name a season whose
+    // events publish under their own folders (ADR-011).
+    return seasonIndex(req, workspace, workspaceSlug, seriesSlug, folderMeta);
+  }
 
   // The listing changes only when a contributor re-publishes, so the members'
   // content hashes compose a sound ETag — plus the workspace logo, which the
-  // hero shows, and the folder labels the navigation cascade renders.
-  const folderMeta = await getPublishedFolderMeta(workspace.id);
-  const topFolders = await listPublishedTopFolders(workspace.id, folderMeta);
+  // hero shows, and the season tree and folder labels the cascade renders.
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     ...group.map((p) => p.contentHash),
-    ...topFolders.map((f) => `${f.slug}:${f.label}`),
+    ...seasonTreeEtag(seasonTree),
     ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
   ])}"`;
   const cached = notModified(req, etag);
@@ -535,7 +541,7 @@ async function seriesIndex(
   const nav = renderTreeNav(
     {
       workspaceSlug,
-      topFolders,
+      seasonTree,
       currentSlug: seriesSlug,
       pages: groups.flatMap((g) => {
         const single = g.pages.filter((pg) => !pg.isPrizes).length === 1;
@@ -582,14 +588,14 @@ async function fleetPage(
   }
 
   // The navigation cascade (ADR-011) draws on the whole slug group, the
-  // workspace's top-level folders, and any folder-label overrides — so all
-  // three join the page content in the ETag.
+  // workspace's season tree, and any folder-label overrides — so all three
+  // join the page content in the ETag.
   const folderMeta = await getPublishedFolderMeta(workspace.id);
-  const topFolders = await listPublishedTopFolders(workspace.id, folderMeta);
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const etag = `"${await contentHash([
     ...group.map((p) => p.contentHash),
-    ...topFolders.map((f) => `${f.slug}:${f.label}`),
+    ...seasonTreeEtag(seasonTree),
     ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
   ])}"`;
   const cached = notModified(req, etag);
@@ -602,7 +608,7 @@ async function fleetPage(
   const nav = renderTreeNav(
     {
       workspaceSlug,
-      topFolders,
+      seasonTree,
       currentSlug: seriesSlug,
       pages: await groupTreePages(group),
       soleContributor: group.length === 1,
@@ -613,6 +619,64 @@ async function fleetPage(
     'float',
   );
   return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag);
+}
+
+/** The season tree's contribution to a page ETag: any season, current-flag,
+ *  or folder-label change must bust the cascade's cached render. */
+function seasonTreeEtag(tree: SeasonNavTree): string[] {
+  return [
+    ...tree.seasons.map(
+      (s) =>
+        `season:${s.label}:${s.current}:${s.folders
+          .map((f) => `${f.slug}~${f.label}`)
+          .join('|')}`,
+    ),
+    ...tree.undated.map((f) => `undated:${f.slug}~${f.label}`),
+  ];
+}
+
+/** `/p/{ws}/{season}` for a season with no same-named published slug
+ *  (ADR-011): the live-workspace shape, where each event publishes under its
+ *  own folder and the season is their grouping. Reached as the fall-through
+ *  when the segment matches no slug; 404 when it names no season either. */
+async function seasonIndex(
+  req: NextRequest,
+  workspace: { id: string; name: string; logo: string },
+  workspaceSlug: string,
+  segment: string,
+  folderMeta: Map<string, { label: string | null; season: string | null }>,
+): Promise<Response> {
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const season = seasonTree.seasons.find((s) => s.segment === segment);
+  if (!season || season.folders.length === 0) return NOT_FOUND;
+
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    `seasonindex:${season.label}`,
+    ...seasonTreeEtag(seasonTree),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      seasonTree,
+      currentSeason: season.label,
+      pages: [],
+      soleContributor: true,
+    },
+    'block',
+  );
+  const html = renderSeasonIndexHtml({
+    workspaceSlug,
+    workspaceName: workspace.name,
+    season: season.label,
+    folders: season.folders,
+    logoUrl: workspace.logo,
+    nav,
+  });
+  return htmlResponse(html, etag);
 }
 
 /** The slug group's pages flattened into tree pages, each carrying its
@@ -661,14 +725,14 @@ async function folderIndex(
   if (!folder) return NOT_FOUND;
 
   // Same freshness basis as the series index: the folder's contents only
-  // change when a contributor re-publishes; the cascade adds the top folders
-  // and label overrides.
-  const topFolders = await listPublishedTopFolders(workspace.id, folderMeta);
+  // change when a contributor re-publishes; the cascade adds the season
+  // tree and label overrides.
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `folder:${subPath}`,
     ...group.map((p) => p.contentHash),
-    ...topFolders.map((f) => `${f.slug}:${f.label}`),
+    ...seasonTreeEtag(seasonTree),
     ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
   ])}"`;
   const cached = notModified(req, etag);
@@ -682,7 +746,7 @@ async function folderIndex(
   const nav = renderTreeNav(
     {
       workspaceSlug,
-      topFolders,
+      seasonTree,
       currentSlug: seriesSlug,
       pages,
       soleContributor: group.length === 1,

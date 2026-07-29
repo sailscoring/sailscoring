@@ -687,6 +687,15 @@ test('the public workspace listing groups by season, expands the current one, an
   await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
+  // Seasons are addressable (ADR-011): /p/{ws}/2026 resolves to a season
+  // index even though no slug of that name exists — the live-workspace
+  // shape, listing the season's event folders.
+  await page.goto(`/p/${workspaceSlug}/2026`);
+  await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
+  await page.getByRole('link', { name: 'Spring League 2026', exact: true }).click();
+  await expect(page).toHaveURL(/\/spring-26$/);
+  await page.goto(`/p/${workspaceSlug}`);
+
   const pastSeason = page.locator('details.season');
   await expect(pastSeason.locator('summary')).toHaveText('2024');
   // Collapsed until expanded: the older series' link hides behind the summary.

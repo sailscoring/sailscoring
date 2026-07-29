@@ -526,6 +526,13 @@
       "when": 1785341394160,
       "tag": "0074_lame_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1785342361438,
+      "tag": "0075_stiff_forge",
+      "breakpoints": true
     }
   ]
 }

@@ -5,9 +5,9 @@ import {
   folderSegmentOf,
   injectAfterBodyTag,
   leafLabel,
-  orderTopFolders,
   pagesInFolder,
   renderFolderIndexHtml,
+  renderSeasonIndexHtml,
   renderTreeNav,
   rootPages,
   slugFolders,
@@ -128,49 +128,59 @@ describe('leafLabel', () => {
   });
 });
 
-describe('orderTopFolders', () => {
-  it('sorts season-like slugs newest first', () => {
-    const ordered = orderTopFolders([
-      { slug: '2023', label: '2023' },
-      { slug: '2025', label: '2025' },
-      { slug: '2024', label: '2024' },
-    ]);
-    expect(ordered.map((f) => f.slug)).toEqual(['2025', '2024', '2023']);
-  });
+/** The archive shape: one season per year, the year slug its own folder. */
+const archiveSeasonTree = {
+  seasons: [
+    {
+      label: '2025',
+      segment: '2025',
+      current: true,
+      folders: [{ slug: '2025', label: '2025' }],
+    },
+    {
+      label: '2024',
+      segment: '2024',
+      current: false,
+      folders: [{ slug: '2024', label: '2024' }],
+    },
+  ],
+  undated: [],
+};
 
-  it('understands year-spanning season slugs', () => {
-    const ordered = orderTopFolders([
-      { slug: '2025', label: '2025' },
-      { slug: '2025-26', label: '2025–26' },
-    ]);
-    expect(ordered.map((f) => f.slug)).toEqual(['2025-26', '2025']);
-  });
-
-  it('keeps publish order when any slug is not season-like', () => {
-    const given = [
-      { slug: '2026-westerns', label: '2026 Westerns' },
-      { slug: '2025', label: '2025' },
-    ];
-    expect(orderTopFolders(given)).toEqual(given);
-  });
-});
-
-const topFolders = [
-  { slug: '2025', label: '2025' },
-  { slug: '2024', label: '2024' },
-];
+/** The live shape: per-event slugs grouped under a derived season. */
+const liveSeasonTree = {
+  seasons: [
+    {
+      label: '2026',
+      segment: '2026',
+      current: true,
+      folders: [
+        { slug: '2026-westerns', label: '2026 Westerns' },
+        { slug: '2026-lambay-races', label: '2026 Lambay Races' },
+      ],
+    },
+    {
+      label: '2025',
+      segment: '2025',
+      current: false,
+      folders: [{ slug: '2025-westerns', label: '2025 Westerns' }],
+    },
+  ],
+  undated: [],
+};
 
 describe('buildTreeNav', () => {
-  it('series index: top select plus a jump select over the slug children', () => {
+  it('series index (archive shape): season menu plus a jump menu over the events', () => {
     const { selects, leaf } = buildTreeNav({
       workspaceSlug: 'hyc',
-      topFolders,
+      seasonTree: archiveSeasonTree,
       currentSlug: '2025',
       pages: archivePages,
       soleContributor: false,
     });
     expect(leaf).toBeNull();
     expect(selects).toHaveLength(2);
+    expect(selects[0].aria).toBe('Season');
     expect(selects[0].options).toEqual([
       { label: '2025', href: '/p/hyc/2025', current: true },
       { label: '2024', href: '/p/hyc/2024', current: false },
@@ -182,10 +192,53 @@ describe('buildTreeNav', () => {
     ]);
   });
 
-  it('folder index: the folder select marks the current folder, no leaf', () => {
+  it('legacy event slug: the season level leads, the slug sits at the event level', () => {
+    const { selects, leaf } = buildTreeNav({
+      workspaceSlug: 'm15',
+      seasonTree: liveSeasonTree,
+      currentSlug: '2026-westerns',
+      pages: [{ fleetName: 'Unknown', subPath: 'standings', ownerSingle: true }],
+      soleContributor: true,
+    });
+    expect(leaf).toBeNull();
+    expect(selects).toHaveLength(2);
+    expect(selects[0].options.map((o) => o.href)).toEqual([
+      '/p/m15/2026',
+      '/p/m15/2025',
+    ]);
+    expect(selects[0].options[0].current).toBe(true);
+    expect(selects[1].options).toEqual([
+      { label: '2026 Westerns', href: '/p/m15/2026-westerns', current: true },
+      { label: '2026 Lambay Races', href: '/p/m15/2026-lambay-races', current: false },
+    ]);
+  });
+
+  it('season index: seasons plus a jump menu over the season\'s folders', () => {
+    const { selects, leaf } = buildTreeNav({
+      workspaceSlug: 'm15',
+      seasonTree: liveSeasonTree,
+      currentSeason: '2026',
+      pages: [],
+      soleContributor: true,
+    });
+    expect(leaf).toBeNull();
+    expect(selects).toHaveLength(2);
+    expect(selects[0].options[0]).toEqual({
+      label: '2026',
+      href: '/p/m15/2026',
+      current: true,
+    });
+    expect(selects[1].placeholder).toBe('Go to results…');
+    expect(selects[1].options.map((o) => o.href)).toEqual([
+      '/p/m15/2026-westerns',
+      '/p/m15/2026-lambay-races',
+    ]);
+  });
+
+  it('folder index: the folder menu marks the current folder, no leaf', () => {
     const { selects, leaf } = buildTreeNav({
       workspaceSlug: 'hyc',
-      topFolders,
+      seasonTree: archiveSeasonTree,
       currentSlug: '2025',
       pages: archivePages,
       soleContributor: false,
@@ -197,10 +250,10 @@ describe('buildTreeNav', () => {
     );
   });
 
-  it('fleet page in a folder: ancestor selects plus sibling-page leaf', () => {
+  it('fleet page in a folder: ancestor menus plus sibling-page leaf', () => {
     const { selects, leaf } = buildTreeNav({
       workspaceSlug: 'hyc',
-      topFolders,
+      seasonTree: archiveSeasonTree,
       currentSlug: '2025',
       pages: archivePages,
       soleContributor: false,
@@ -229,13 +282,23 @@ describe('buildTreeNav', () => {
     ];
     const { selects, leaf } = buildTreeNav({
       workspaceSlug: 'm15',
-      topFolders: [{ slug: '2026-lambay-races', label: '2026 Lambay Races' }],
+      seasonTree: {
+        seasons: [
+          {
+            label: '2026',
+            segment: '2026',
+            current: true,
+            folders: [{ slug: '2026-lambay-races', label: '2026 Lambay Races' }],
+          },
+        ],
+        undated: [],
+      },
       currentSlug: '2026-lambay-races',
       pages,
       soleContributor: false,
       currentSubPath: 'standings',
     });
-    // One top folder → the top select is degenerate and dropped.
+    // One season, one folder in it → both ancestor levels degenerate.
     expect(selects).toHaveLength(0);
     expect(leaf?.options).toEqual([
       { label: 'Cruisers', href: '/p/m15/2026-lambay-races/standings', current: true },
@@ -246,7 +309,17 @@ describe('buildTreeNav', () => {
   it('drops every degenerate level', () => {
     const { selects, leaf } = buildTreeNav({
       workspaceSlug: 'm15',
-      topFolders: [{ slug: 'a', label: 'A' }],
+      seasonTree: {
+        seasons: [
+          {
+            label: '2026',
+            segment: '2026',
+            current: true,
+            folders: [{ slug: 'a', label: 'A' }],
+          },
+        ],
+        undated: [],
+      },
       currentSlug: 'a',
       pages: [{ fleetName: 'Default', subPath: 'standings' }],
       soleContributor: true,
@@ -260,7 +333,7 @@ describe('buildTreeNav', () => {
 describe('renderTreeNav', () => {
   const position = {
     workspaceSlug: 'hyc',
-    topFolders,
+    seasonTree: archiveSeasonTree,
     currentSlug: '2025',
     pages: archivePages,
     soleContributor: false,
@@ -274,7 +347,7 @@ describe('renderTreeNav', () => {
     // Never a select that navigates on change — each level is a menu of
     // links, summarised by the current position.
     expect(html).not.toContain('<select');
-    expect(html).toContain('<summary aria-label="Season or event">2025</summary>');
+    expect(html).toContain('<summary aria-label="Season">2025</summary>');
     expect(html).toContain('href="/p/hyc/2024"');
     expect(html).toContain(
       '<summary aria-label="Event or series">Autumn League</summary>',
@@ -303,7 +376,17 @@ describe('renderTreeNav', () => {
       renderTreeNav(
         {
           workspaceSlug: 'm15',
-          topFolders: [{ slug: 'a', label: 'A' }],
+          seasonTree: {
+            seasons: [
+              {
+                label: '2026',
+                segment: '2026',
+                current: true,
+                folders: [{ slug: 'a', label: 'A' }],
+              },
+            ],
+            undated: [],
+          },
           currentSlug: 'a',
           pages: [{ fleetName: 'Default', subPath: 'standings' }],
           soleContributor: true,
@@ -362,6 +445,25 @@ describe('renderFolderIndexHtml', () => {
     expect(html).toContain('A &amp; B &lt;Event&gt;');
     expect(html).toContain('C &amp; D');
     expect(html).not.toContain('<Event>');
+  });
+});
+
+describe('renderSeasonIndexHtml', () => {
+  it('lists the season\'s folders and links back to the workspace', () => {
+    const html = renderSeasonIndexHtml({
+      workspaceSlug: 'm15',
+      workspaceName: 'M15 Class',
+      season: '2026',
+      folders: [
+        { slug: '2026-westerns', label: '2026 Westerns' },
+        { slug: '2026-lambay-races', label: '2026 Lambay Races' },
+      ],
+    });
+    expect(html).toContain('<h1>2026</h1>');
+    expect(html).toContain('href="/p/m15/2026-westerns"');
+    expect(html).toContain('>2026 Westerns<');
+    expect(html).toContain('<a href="/p/m15">&larr; M15 Class &mdash; published results</a>');
+    expect(html).toContain('<title>2026 — M15 Class</title>');
   });
 });
 

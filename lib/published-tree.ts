@@ -170,26 +170,28 @@ export function seasonLikeSlug(slug: string): boolean {
   return /^\d{4}(-\d{2,4})?$/.test(slug);
 }
 
-/** True when every top-level folder slug reads as a season — then the cascade
- *  offers seasons newest first rather than publish order. */
-function allSeasonLike(folders: TopFolder[]): boolean {
-  return folders.length > 0 && folders.every((f) => seasonLikeSlug(f.slug));
-}
-
-/** Order the top-level folders for the cascade: newest season first when the
- *  workspace publishes season folders, otherwise the given (publish-recency)
- *  order. */
-export function orderTopFolders(folders: TopFolder[]): TopFolder[] {
-  if (!allSeasonLike(folders)) return folders;
-  return [...folders].sort((a, b) => b.slug.localeCompare(a.slug));
+/** The workspace's seasons and their published top-level folders, as the
+ *  cascade consumes them (the repository's `getPublishedSeasonTree` shape). */
+export interface SeasonNavTree {
+  seasons: {
+    label: string;
+    /** URL segment under `/p/{ws}/`. */
+    segment: string;
+    current: boolean;
+    folders: TopFolder[];
+  }[];
+  /** Folders whose season can't be derived; kept out of the season level. */
+  undated: TopFolder[];
 }
 
 /** What the cascade needs to know about the page it sits on. */
 export interface TreeNavPosition {
   workspaceSlug: string;
-  /** Every top-level folder in the workspace (the current one included). */
-  topFolders: TopFolder[];
-  currentSlug: string;
+  seasonTree: SeasonNavTree;
+  /** The top-level folder of the position; absent on a season index. */
+  currentSlug?: string;
+  /** The season of the position, for season indexes with no slug. */
+  currentSeason?: string;
   /** All pages in the current slug group, contributor order. */
   pages: TreePage[];
   /** Whether the slug has a single contributing publication. */
@@ -283,32 +285,73 @@ export function buildTreeNav(position: TreeNavPosition): {
 } {
   const {
     workspaceSlug,
-    topFolders,
+    seasonTree,
     currentSlug,
+    currentSeason,
     pages,
     soleContributor,
     currentFolder,
     currentSubPath,
   } = position;
   const base = `/p/${workspaceSlug}`;
-  const slugBase = `${base}/${currentSlug}`;
-
   const selects: NavLevel[] = [];
-  const top: NavLevel = {
-    aria: 'Season or event',
-    options: orderTopFolders(topFolders).map((f) => ({
-      label: f.label,
-      href: `${base}/${f.slug}`,
-      current: f.slug === currentSlug,
+
+  // Season level: which season holds the position — by its slug, or (on a
+  // season index) by label. An undated slug carries no season level.
+  const season = currentSlug
+    ? seasonTree.seasons.find((s) =>
+        s.folders.some((f) => f.slug === currentSlug),
+      )
+    : seasonTree.seasons.find((s) => s.label === currentSeason);
+  const seasonLevel: NavLevel = {
+    aria: 'Season',
+    options: seasonTree.seasons.map((s) => ({
+      label: s.label,
+      href: `${base}/${s.segment}`,
+      current: s === season,
     })),
   };
-  if (top.options.length >= 2) selects.push(top);
+  if (seasonLevel.options.length >= 2 && (season || !currentSlug)) {
+    selects.push(seasonLevel);
+  }
 
+  // Season index: no slug below — the season's folders are the jump level.
+  if (!currentSlug) {
+    const jump: NavLevel = {
+      aria: 'Event or series',
+      options: (season?.folders ?? []).map((f) => ({
+        label: f.label,
+        href: `${base}/${f.slug}`,
+      })),
+      placeholder: 'Go to results…',
+    };
+    if (jump.options.length >= 2) selects.push(jump);
+    return { selects, leaf: null };
+  }
+
+  // Event level: a legacy slug (one that isn't its season's own folder) sits
+  // among the season's other folders. The archive shape — slug == season —
+  // skips this level; its events are the slug's interior folders below.
+  const slugIsSeason = season !== undefined && currentSlug === season.segment;
+  if (!slugIsSeason) {
+    const siblings = season?.folders ?? seasonTree.undated;
+    const eventLevel: NavLevel = {
+      aria: 'Event or series',
+      options: siblings.map((f) => ({
+        label: f.label,
+        href: `${base}/${f.slug}`,
+        current: f.slug === currentSlug,
+      })),
+    };
+    if (eventLevel.options.length >= 2) selects.push(eventLevel);
+  }
+
+  const slugBase = `${base}/${currentSlug}`;
   // The slug's children — interior folders then root pages — are one level:
-  // the folder select when the position is inside (or at) a folder, or the
+  // the folder menu when the position is inside (or at) a folder, or the
   // leaf sibling set when the position is a root page.
   const children: NavLevel = {
-    aria: 'Event or series',
+    aria: slugIsSeason ? 'Event or series' : 'Section',
     options: [
       ...slugFolders(pages, position.folderLabels).map((f) => ({
         label: f.label,
@@ -325,7 +368,7 @@ export function buildTreeNav(position: TreeNavPosition): {
 
   if (currentFolder === undefined) {
     if (currentSubPath === undefined) {
-      // Series index: the children level renders as a trailing jump select —
+      // Series index: the children level renders as a trailing jump menu —
       // on an archive year slug it's the only route into the folder indexes.
       if (children.options.length >= 2) {
         selects.push({ ...children, placeholder: 'Go to results…' });
@@ -367,6 +410,37 @@ export function renderTreeNav(
   ];
   if (parts.length === 0) return '';
   return `<div class="sstreenav sstreenav-${variant}">${NAV_STYLE}${MENU_SCRIPT}${parts.join('')}</div>`;
+}
+
+/**
+ * Season index at `/p/{ws}/{season}` (ADR-011) for a season with no
+ * same-named published slug — the live-workspace shape, where each event
+ * publishes under its own top-level folder and the season exists as their
+ * grouping. (Where a slug *is* the season — the archive shape — that slug's
+ * own index serves this URL instead.) Lists the season's folders.
+ */
+export function renderSeasonIndexHtml(opts: {
+  workspaceSlug: string;
+  workspaceName: string;
+  season: string;
+  folders: TopFolder[];
+  logoUrl?: string;
+  nav?: string;
+}): string {
+  const { workspaceSlug, workspaceName, season, folders } = opts;
+  const rows = folders
+    .map(
+      (f) =>
+        `<li><a href="/p/${esc(workspaceSlug)}/${esc(f.slug)}">${esc(f.label)}</a></li>`,
+    )
+    .join('\n');
+  const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
+  const hero = renderPublicHero(esc(season), opts.logoUrl ?? '');
+  return renderPublicShell(
+    `${season} — ${workspaceName}`,
+    hero,
+    `${back}\n${opts.nav ?? ''}<ul class="listing">\n${rows}\n</ul>`,
+  );
 }
 
 /**

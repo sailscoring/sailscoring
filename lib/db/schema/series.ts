@@ -947,6 +947,35 @@ export const publishedSeries = pgTable(
 );
 
 /**
+ * Workspace seasons (ADR-011). Seasons mostly *derive* — a season-like
+ * published slug is its own season, otherwise the series start year — so this
+ * table holds only what derivation can't: seasons defined before anything is
+ * published in them (the publish dialog's dropdown), year-spanning labels,
+ * and the explicit **current** season that the public index expands and the
+ * publish dialog defaults to (otherwise the newest label is current).
+ */
+export const workspaceSeasons = pgTable(
+  'workspace_seasons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    isCurrent: boolean('is_current').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('workspace_seasons_workspace_label_uidx').on(
+      table.workspaceId,
+      table.label,
+    ),
+  ],
+);
+
+/**
  * Static redirect table for moved public URLs (ADR-011). When the publication
  * tree is restructured — a legacy event-slug re-homed under its season, a
  * folder renamed — the old path lands here and the `/p/` route 301s it, so
