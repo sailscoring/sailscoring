@@ -581,6 +581,45 @@ export async function deleteSubSeries(seriesId: string, subSeriesId: string): Pr
   });
 }
 
+// ─── Workspace seasons (ADR-011) ─────────────────────────────────────────────
+
+export interface SeasonListItem {
+  label: string;
+  current: boolean;
+  folderCount: number;
+}
+
+export interface SeasonsView {
+  items: SeasonListItem[];
+  /** Year-named categories the adopt helper would convert. */
+  yearCategories: string[];
+}
+
+export function listSeasons(): Promise<SeasonsView> {
+  return apiFetch<SeasonsView>('/api/v1/workspace/seasons');
+}
+
+export function createSeason(label: string): Promise<SeasonsView> {
+  return apiFetch<SeasonsView>('/api/v1/workspace/seasons', {
+    method: 'POST',
+    body: { label },
+  });
+}
+
+export function setCurrentSeason(label: string): Promise<SeasonsView> {
+  return apiFetch<SeasonsView>('/api/v1/workspace/seasons/current', {
+    method: 'PUT',
+    body: { label },
+  });
+}
+
+export function adoptYearCategories(): Promise<{ adopted: number; pinned: number }> {
+  return apiFetch<{ adopted: number; pinned: number }>(
+    '/api/v1/workspace/seasons/adopt-year-categories',
+    { method: 'POST' },
+  );
+}
+
 // ─── Series-list organisation (#154) ─────────────────────────────────────────
 
 /** Scorer-defined categories for the active workspace, in display order. */
