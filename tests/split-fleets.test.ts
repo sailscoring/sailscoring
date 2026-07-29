@@ -340,6 +340,39 @@ describe('splitFleetStandings', () => {
     expect(logicalRaces(data, 'qualifying')[0].valid).toBe(true);
   });
 
+  it('prefers the completed resail when an abandoned start lingers', () => {
+    // Red's Q1 was abandoned (start still on the sequence race, no rows) and
+    // resailed as its own one-start race. Whichever order the starts arrive
+    // in, the logical race must key Red to the completed resail.
+    const competitors = [
+      competitor('c1', ['fy'], 1),
+      competitor('c2', ['fr'], 2),
+    ];
+    const round: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy', 'fr'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const base: SplitFleetData = {
+      config,
+      rounds: [round],
+      fleets: [fleet('fy', 'Yellow'), fleet('fr', 'Red')],
+      competitors,
+      races: [{ ...race('q1'), raceNumber: 1 }, { ...race('q1r'), raceNumber: 2 }],
+      raceStarts: [],
+      finishes: [
+        finish('q1', 'c1', 0), // Yellow finished on the original sheet
+        finish('q1r', 'c2', 0), // Red finished the resail
+      ],
+    };
+    const abandoned = start('q1', ['fy', 'fr'], 'qualifying', 1);
+    const resail = start('q1r', ['fr'], 'qualifying', 1);
+    for (const raceStarts of [[abandoned, resail], [resail, abandoned]]) {
+      const [lr] = logicalRaces({ ...base, raceStarts }, 'qualifying');
+      expect(lr.valid).toBe(true);
+      expect(lr.races.get('fr')!.race.id).toBe('q1r');
+    }
+  });
+
   it('orders tiers after the split and pins medal boats on top', () => {
     const competitors = [
       competitor('c1', ['fg', 'fm'], 1),

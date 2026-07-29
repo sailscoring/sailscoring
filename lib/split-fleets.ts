@@ -291,13 +291,24 @@ export function physicalRaceCompleted(
   );
 }
 
-/** Group a stage's physical races into logical races with validity. */
+/** Group a stage's physical races into logical races with validity. Two
+ *  starts can claim the same (fleet, stage race number) — an abandoned
+ *  attempt lingering beside its resail — so the grouping prefers a complete
+ *  physical race over an incomplete one, and the later-created race (the
+ *  resail) among equals, rather than depending on start order. */
 export function logicalRaces(data: SplitFleetData, stage: SeriesStage): LogicalRace[] {
+  const prefer = (a: StageRaceRef | undefined, b: StageRaceRef): StageRaceRef => {
+    if (!a) return b;
+    const aDone = physicalRaceCompleted(a, data.competitors, data.finishes);
+    const bDone = physicalRaceCompleted(b, data.competitors, data.finishes);
+    if (aDone !== bDone) return aDone ? a : b;
+    return b.race.raceNumber >= a.race.raceNumber ? b : a;
+  };
   const byNumber = new Map<number, Map<string, StageRaceRef>>();
   for (const ref of stageRaceRefs(data, stage)) {
     let entry = byNumber.get(ref.start.stageRaceNumber!);
     if (!entry) byNumber.set(ref.start.stageRaceNumber!, (entry = new Map()));
-    entry.set(ref.fleetId, ref);
+    entry.set(ref.fleetId, prefer(entry.get(ref.fleetId), ref));
   }
   return [...byNumber.entries()]
     .sort(([a], [b]) => a - b)
