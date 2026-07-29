@@ -209,12 +209,24 @@ const MAX_LEAF_LINKS = 4;
 // styles. The floating variant sits right beside a results page's breadcrumb;
 // the block variant is a row above an index page's listing. Hidden in print
 // like the rest of the page chrome.
+//
+// Each level is a dropdown *menu of links* (details/summary), never a select
+// that navigates on `change`: a navigating select fires while traversing
+// options with arrow keys or a scroll wheel, so keyboard and wheel users get
+// carried to a neighbour of the option they wanted.
 const NAV_STYLE = `<style>
 .sstreenav { font-size: 0.78em; }
 .sstreenav-float { float: right; margin: 0 25px 10px 12px; text-align: right; max-width: 62%; }
 .sstreenav-block { margin: 0 0 16px; font-size: 0.9em; }
-.sstreenav select { font: inherit; color: #073358; max-width: 100%; margin-left: 8px; }
-.sstreenav-block select { margin-left: 0; margin-right: 8px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; }
+.sstreenav-menu { display: inline-block; position: relative; margin-left: 8px; text-align: left; }
+.sstreenav-block .sstreenav-menu { margin-left: 0; margin-right: 8px; }
+.sstreenav-menu > summary { list-style: none; cursor: pointer; padding: 4px 22px 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #073358; white-space: nowrap; position: relative; }
+.sstreenav-menu > summary::-webkit-details-marker { display: none; }
+.sstreenav-menu > summary::after { content: ""; position: absolute; right: 8px; top: 50%; margin-top: -2px; border: 4px solid transparent; border-top-color: #073358; }
+.sstreenav-menu > summary:hover { border-color: #073358; }
+.sstreenav-menu > nav { position: absolute; z-index: 30; left: 0; top: calc(100% + 2px); min-width: 100%; max-height: 60vh; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 6px 18px rgba(7,51,88,0.18); padding: 4px 0; }
+.sstreenav-float .sstreenav-menu > nav { left: auto; right: 0; }
+.sstreenav-menu > nav a, .sstreenav-menu > nav .sstreenav-current { display: block; padding: 4px 12px; margin: 0; white-space: nowrap; text-align: left; }
 .sstreenav a { color: #073358; text-decoration: none; margin-left: 12px; white-space: nowrap; }
 .sstreenav a:hover { color: #fb3a3b; text-decoration: underline; }
 .sstreenav .sstreenav-current { color: #fb3a3b; font-weight: 600; margin-left: 12px; white-space: nowrap; }
@@ -222,22 +234,34 @@ const NAV_STYLE = `<style>
 @media (max-width: 640px) { .sstreenav-float { float: none; text-align: center; margin: 10px 12px 0; max-width: none; } }
 </style>`;
 
-function renderSelect(level: NavLevel): string {
-  const lead =
-    level.placeholder && !level.options.some((o) => o.current)
-      ? `<option value="" selected>${esc(level.placeholder)}</option>`
-      : '';
-  const options = level.options
-    .map(
-      (o) =>
-        `<option value="${esc(o.href)}"${o.current ? ' selected' : ''}>${esc(o.label)}</option>`,
+// Close any open menu on a click outside it. One binding per document — the
+// fragment can appear alongside another (e.g. a folder index rendering both
+// block and float variants would still bind once).
+const MENU_SCRIPT = `<script>(function(){
+if(document.documentElement.hasAttribute('data-sstreenav'))return;
+document.documentElement.setAttribute('data-sstreenav','');
+document.addEventListener('click',function(e){
+  document.querySelectorAll('details.sstreenav-menu[open]').forEach(function(d){
+    if(!d.contains(e.target))d.removeAttribute('open');
+  });
+});
+})();</script>`;
+
+function renderMenu(level: NavLevel): string {
+  const current = level.options.find((o) => o.current);
+  const summary = current?.label ?? level.placeholder ?? level.aria;
+  const items = level.options
+    .map((o) =>
+      o.current
+        ? `<span class="sstreenav-current">${esc(o.label)}</span>`
+        : `<a href="${esc(o.href)}">${esc(o.label)}</a>`,
     )
     .join('');
-  return `<select aria-label="${esc(level.aria)}" onchange="if(this.value&&this.value!==location.pathname)location.href=this.value">${lead}${options}</select>`;
+  return `<details class="sstreenav-menu"><summary aria-label="${esc(level.aria)}">${esc(summary)}</summary><nav>${items}</nav></details>`;
 }
 
 function renderLeaf(level: NavLevel): string {
-  if (level.options.length > MAX_LEAF_LINKS) return renderSelect(level);
+  if (level.options.length > MAX_LEAF_LINKS) return renderMenu(level);
   return level.options
     .map((o) =>
       o.current
@@ -338,11 +362,11 @@ export function renderTreeNav(
 ): string {
   const { selects, leaf } = buildTreeNav(position);
   const parts = [
-    ...selects.map(renderSelect),
+    ...selects.map(renderMenu),
     ...(leaf ? [renderLeaf(leaf)] : []),
   ];
   if (parts.length === 0) return '';
-  return `<div class="sstreenav sstreenav-${variant}">${NAV_STYLE}${parts.join('')}</div>`;
+  return `<div class="sstreenav sstreenav-${variant}">${NAV_STYLE}${MENU_SCRIPT}${parts.join('')}</div>`;
 }
 
 /**

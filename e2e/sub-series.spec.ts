@@ -148,8 +148,10 @@ test('sub-series: select races, per-block standings, publish per block', async (
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/winter\/standings$/);
 
-  // The cascade injected into the served page jumps across blocks.
-  await page.locator('.sstreenav select').selectOption({ label: 'Spring' });
+  // The cascade injected into the served page jumps across blocks: a menu
+  // of links summarised by the current block, never a navigating select.
+  await page.locator('.sstreenav-menu summary').click();
+  await page.locator('.sstreenav-menu').getByRole('link', { name: 'Spring' }).click();
   await expect(page).toHaveURL(/\/frostbite-2026\/spring$/);
   await expect(page.getByRole('heading', { name: 'Spring' })).toBeVisible();
 });

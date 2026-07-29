@@ -268,18 +268,23 @@ describe('renderTreeNav', () => {
     currentSubPath: 'autumn-league/class-2-irc',
   };
 
-  it('renders ancestor selects and few sibling pages as inline links', () => {
+  it('renders ancestor link-menus and few sibling pages as inline links', () => {
     const html = renderTreeNav(position, 'float');
     expect(html).toContain('sstreenav-float');
-    expect(html).toContain('<option value="/p/hyc/2025" selected>2025</option>');
+    // Never a select that navigates on change — each level is a menu of
+    // links, summarised by the current position.
+    expect(html).not.toContain('<select');
+    expect(html).toContain('<summary aria-label="Season or event">2025</summary>');
+    expect(html).toContain('href="/p/hyc/2024"');
     expect(html).toContain(
-      '<option value="/p/hyc/2025/autumn-league" selected>Autumn League</option>',
+      '<summary aria-label="Event or series">Autumn League</summary>',
     );
+    expect(html).toContain('href="/p/hyc/2025/dinghy-regatta"');
     expect(html).toContain('href="/p/hyc/2025/autumn-league/class-1-irc"');
     expect(html).toContain('<span class="sstreenav-current">Class 2 IRC</span>');
   });
 
-  it('switches the leaf to a select beyond four sibling pages', () => {
+  it('switches the leaf to a menu beyond four sibling pages', () => {
     const many: TreePage[] = [1, 2, 3, 4, 5].map((n) => ({
       fleetName: `Class ${n}`,
       subPath: `autumn-league/class-${n}`,
@@ -288,10 +293,9 @@ describe('renderTreeNav', () => {
       { ...position, pages: many, currentSubPath: 'autumn-league/class-4' },
       'float',
     );
-    expect(html).toContain(
-      '<option value="/p/hyc/2025/autumn-league/class-4" selected>Class 4</option>',
-    );
-    expect(html).not.toContain('<span class="sstreenav-current"');
+    expect(html).toContain('<summary aria-label="Results page">Class 4</summary>');
+    expect(html).toContain('href="/p/hyc/2025/autumn-league/class-1"');
+    expect(html).toContain('<span class="sstreenav-current">Class 4</span>');
   });
 
   it('renders nothing when every level is degenerate', () => {
