@@ -138,6 +138,59 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
 });
 
 /**
+ * The abandoned-fleet flow: Q1 starts Yellow and Blue in one sequence, but
+ * Blue's race is abandoned (no wind) before any Blue boat finishes. The
+ * scorer abandons Blue's start — the sequence keeps Yellow's completed
+ * sheet — and later adds a catch-up race for Blue alone, with its own sheet.
+ */
+test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
+  page,
+  signedInEmail,
+}) => {
+  test.setTimeout(240_000);
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+  await createSeriesQuick(page, { name: 'Abandon Worlds', venue: 'Dun Laoghaire' });
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const sfSetupCard = page.getByTestId('split-fleets-card');
+  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
+  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
+  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+
+  // Yellow finishes on the combined sheet; Blue never got a race in.
+  const q1Row = page.getByTestId('logical-race-qualifying-1');
+  await q1Row.getByRole('link', { name: /Yellow · enter finishes/ }).click();
+  await expect(page).toHaveURL(/\/races\//);
+  const sequenceUrl = page.url();
+  await enterFinishes(page, yellowSails);
+  await page.goBack();
+
+  // Abandon Blue's race: the start leaves the sequence, Yellow stands.
+  page.once('dialog', (d) => void d.accept());
+  await q1Row.getByRole('button', { name: "Abandon Blue's race" }).click();
+  await expect(q1Row.getByText('Blue — no race')).toBeVisible();
+  await expect(q1Row.getByText(/Yellow ✓/)).toBeVisible();
+  await expect(page.getByText('does not count yet')).toHaveCount(2); // Q1 and Q2
+
+  // The catch-up race: Blue alone, its own sheet on its own race.
+  await q1Row.getByRole('button', { name: 'Add catch-up race' }).click();
+  await q1Row.getByRole('link', { name: /Blue · enter finishes/ }).click();
+  await expect(page).toHaveURL(/\/races\//);
+  expect(page.url()).not.toBe(sequenceUrl);
+  await enterFinishes(page, blueSails);
+  await page.goBack();
+  await expect(page.getByText('counts', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 of 2 qualifying races count')).toBeVisible();
+});
+
+/**
  * The setup wizard's championship-format opt-in (gated on `split-fleets`):
  * enabling it there makes the Split Fleets tab appear, and finishing setup
  * lands on it rather than on Competitors.

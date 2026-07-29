@@ -103,3 +103,11 @@ export const splitOverrideSchema = z.object({
   competitorId: uuidSchema,
   toFleetId: uuidSchema,
 });
+
+/** Body for POST …/split-fleets/abandon-start — abandon one fleet's physical
+ *  race: remove the fleet from the race's start sequence and void its rows
+ *  on the sheet. The rest of the sequence stands. */
+export const splitAbandonStartSchema = z.object({
+  raceId: uuidSchema,
+  fleetId: uuidSchema,
+});

@@ -8,7 +8,7 @@
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Loader2, Trash2 } from 'lucide-react';
+import { Ban, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 
 import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
@@ -29,6 +29,7 @@ import {
 import { useSeriesData } from '@/hooks/use-series-data';
 import { queryKeys } from '@/hooks/query-keys';
 import {
+  useAbandonSplitStart,
   useAddSplitStageRaces,
   useApplySplitOverride,
   useCommitSplitRound,
@@ -685,6 +686,7 @@ function QualifyingSection({
                   round={round}
                   stage="qualifying"
                   stageRaceNumber={lr.stageRaceNumber}
+                  canManage={canManage && !split}
                 />
               ))}
             </div>
@@ -761,6 +763,7 @@ function LogicalRaceRow({
   round,
   stage,
   stageRaceNumber,
+  canManage,
 }: {
   seriesId: string;
   data: SplitFleetData;
@@ -768,7 +771,10 @@ function LogicalRaceRow({
   round: SplitRound;
   stage: SeriesStage;
   stageRaceNumber: number;
+  canManage: boolean;
 }) {
+  const abandon = useAbandonSplitStart(seriesId);
+  const addRaces = useAddSplitStageRaces(seriesId);
   const refs = new Map(
     stageRaceRefs(data, stage)
       .filter((ref) => ref.start.stageRaceNumber === stageRaceNumber)
@@ -792,25 +798,68 @@ function LogicalRaceRow({
         const ref = refs.get(fid);
         const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
         if (!ref) {
+          // Abandoned (or never created): offer the catch-up race — its own
+          // one-start sequence, usually sailed first the next day.
           return (
-            <span key={fid} className="rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
-              {meta.label} — no race
+            <span key={fid} className="inline-flex items-center gap-1">
+              <span className="rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
+                {meta.label} — no race
+              </span>
+              {canManage && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  disabled={addRaces.isPending}
+                  onClick={() =>
+                    addRaces.mutate({
+                      roundId: round.id,
+                      stageRaceNumbers: [stageRaceNumber],
+                      fleetIds: [fid],
+                    })
+                  }
+                >
+                  Add catch-up race
+                </Button>
+              )}
             </span>
           );
         }
         const done = physicalRaceCompleted(ref, data.competitors, data.finishes);
         return (
-          <Link
-            key={fid}
-            href={`/series/${seriesId}/races/${ref.race.id}`}
-            className="rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-background/70"
-            style={{
-              borderColor: meta.color,
-              backgroundColor: done ? `${meta.color}33` : undefined,
-            }}
-          >
-            {meta.label} {done ? '✓' : '· enter finishes'}
-          </Link>
+          <span key={fid} className="inline-flex items-center gap-0.5">
+            <Link
+              href={`/series/${seriesId}/races/${ref.race.id}`}
+              className="rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-background/70"
+              style={{
+                borderColor: meta.color,
+                backgroundColor: done ? `${meta.color}33` : undefined,
+              }}
+            >
+              {meta.label} {done ? '✓' : '· enter finishes'}
+            </Link>
+            {canManage && !done && (
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Abandon ${meta.label}'s race`}
+                title={`Abandon ${meta.label}'s race`}
+                disabled={abandon.isPending}
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Abandon ${meta.label}'s ${stagePrefix(stage)}${stageRaceNumber}? ` +
+                        `Removes ${meta.label} from this start sequence and voids any of its rows ` +
+                        `on the sheet; the other fleets stand. Re-race it with "Add catch-up race".`,
+                    )
+                  ) {
+                    abandon.mutate({ raceId: ref.race.id, fleetId: fid });
+                  }
+                }}
+              >
+                <Ban className="h-3 w-3" />
+              </Button>
+            )}
+          </span>
         );
       })}
       {stage === 'qualifying' && (
@@ -1238,6 +1287,7 @@ function FinalSection({
   standings: SplitStandingRow[];
   canManage: boolean;
 }) {
+  const abandon = useAbandonSplitStart(seriesId);
   const addRaces = useAddSplitStageRaces(seriesId);
   const override = useApplySplitOverride(seriesId);
   const [medalOpen, setMedalOpen] = useState(false);
@@ -1294,17 +1344,40 @@ function FinalSection({
             {refs.map((ref) => {
               const done = physicalRaceCompleted(ref, data.competitors, data.finishes);
               return (
-                <Link
-                  key={ref.start.id}
-                  href={`/series/${seriesId}/races/${ref.race.id}`}
-                  className="rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-background/70"
-                  style={{
-                    borderColor: meta.color,
-                    backgroundColor: done ? `${meta.color}33` : undefined,
-                  }}
-                >
-                  F{ref.start.stageRaceNumber} {done ? '✓' : '· enter finishes'}
-                </Link>
+                <span key={ref.start.id} className="inline-flex items-center gap-0.5">
+                  <Link
+                    href={`/series/${seriesId}/races/${ref.race.id}`}
+                    className="rounded-md border px-2 py-0.5 text-xs font-medium hover:bg-background/70"
+                    style={{
+                      borderColor: meta.color,
+                      backgroundColor: done ? `${meta.color}33` : undefined,
+                    }}
+                  >
+                    F{ref.start.stageRaceNumber} {done ? '✓' : '· enter finishes'}
+                  </Link>
+                  {canManage && !done && (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={`Abandon ${meta.label}'s F${ref.start.stageRaceNumber}`}
+                      title={`Abandon ${meta.label}'s F${ref.start.stageRaceNumber}`}
+                      disabled={abandon.isPending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Abandon ${meta.label}'s F${ref.start.stageRaceNumber}? ` +
+                              `Removes ${meta.label} from this start sequence and voids any of its ` +
+                              `rows on the sheet; the other fleets stand.`,
+                          )
+                        ) {
+                          abandon.mutate({ raceId: ref.race.id, fleetId: fid });
+                        }
+                      }}
+                    >
+                      <Ban className="h-3 w-3" />
+                    </Button>
+                  )}
+                </span>
               );
             })}
             {canManage && (

@@ -5,6 +5,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import {
+  abandonSplitStart,
   addSplitStageRaces,
   applySplitOverride,
   commitSplitRound,
@@ -53,6 +54,15 @@ export function useCommitSplitRound(seriesId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: SplitRoundCommit) => commitSplitRound(seriesId, payload),
+    onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+  });
+}
+
+export function useAbandonSplitStart(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { raceId: string; fleetId: string }) =>
+      abandonSplitStart(seriesId, input),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
   });
 }

@@ -988,6 +988,19 @@ export async function addSplitStageRaces(
   });
 }
 
+/** Abandon one fleet's physical race: drops the fleet from the race's start
+ *  sequence and voids its rows on the sheet; the rest of the sequence
+ *  stands. Re-race via `addSplitStageRaces` with just that fleet. */
+export async function abandonSplitStart(
+  seriesId: string,
+  payload: { raceId: string; fleetId: string },
+): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/split-fleets/abandon-start`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
 export function applySplitOverride(
   seriesId: string,
   roundId: string,

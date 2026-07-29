@@ -17,6 +17,7 @@ import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { normalizeSplitFleetConfig } from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
+  splitAbandonStartSchema,
   splitFleetConfigSchema,
   splitOverrideSchema,
   splitRoundCommitSchema,
@@ -589,4 +590,105 @@ export async function applySplitOverride(
     sessionKey: 'split-fleets',
   });
   return { warning };
+}
+
+/**
+ * Abandon one fleet's physical race: remove the fleet from the race's start
+ * sequence and void the fleet's rows on the sheet (an abandoned race has no
+ * results — RRS "abandoned"). The rest of the sequence stands untouched.
+ * When the last start goes, the race goes with it. The resail is a fresh
+ * catch-up race for that fleet (`addStageRaces`), so each sheet stays an
+ * honest record of one session — and the logical race keys the fleet to the
+ * completed resail.
+ */
+export async function abandonSplitStart(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<void> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = splitAbandonStartSchema.parse(body);
+  const db = getDb();
+  const [race] = await db
+    .select({ id: schema.races.id, name: schema.races.name })
+    .from(schema.races)
+    .where(
+      and(
+        eq(schema.races.id, input.raceId),
+        eq(schema.races.seriesId, seriesId),
+        eq(schema.races.workspaceId, workspace.workspaceId),
+      ),
+    );
+  if (!race) throw new NotFoundError('race');
+  const starts = await db
+    .select()
+    .from(schema.raceStarts)
+    .where(eq(schema.raceStarts.raceId, race.id));
+  const withFleet = starts.filter((s) => s.fleetIds.includes(input.fleetId));
+  if (withFleet.length === 0) {
+    throw new BadRequestError('fleet has no start in this race');
+  }
+  const [fleetRow] = await db
+    .select({ name: schema.fleets.name })
+    .from(schema.fleets)
+    .where(eq(schema.fleets.id, input.fleetId));
+
+  let raceDeleted = false;
+  await db.transaction(async (tx) => {
+    // Void the fleet's rows on the sheet.
+    const members = await tx
+      .select({ id: schema.competitors.id })
+      .from(schema.competitors)
+      .where(
+        and(
+          eq(schema.competitors.seriesId, seriesId),
+          sql`${schema.competitors.fleetIds} && array[${input.fleetId}::uuid]`,
+        ),
+      );
+    if (members.length) {
+      await tx.delete(schema.finishes).where(
+        and(
+          eq(schema.finishes.raceId, race.id),
+          inArray(schema.finishes.competitorId, members.map((m) => m.id)),
+        ),
+      );
+    }
+    // Drop the fleet from its start(s); an emptied start goes entirely.
+    for (const s of withFleet) {
+      const rest = s.fleetIds.filter((fid) => fid !== input.fleetId);
+      if (rest.length) {
+        await tx
+          .update(schema.raceStarts)
+          .set({
+            fleetIds: rest,
+            version: sql`${schema.raceStarts.version} + 1`,
+            updatedAt: sql`now()`,
+            updatedBy: workspace.userId,
+          })
+          .where(eq(schema.raceStarts.id, s.id));
+      } else {
+        await tx.delete(schema.raceStarts).where(eq(schema.raceStarts.id, s.id));
+      }
+    }
+    // A race with no starts left isn't a session any more — and would scope
+    // finish entry to every competitor — so it goes too.
+    const remaining = await tx
+      .select({ id: schema.raceStarts.id })
+      .from(schema.raceStarts)
+      .where(eq(schema.raceStarts.raceId, race.id))
+      .limit(1);
+    if (remaining.length === 0) {
+      await tx.delete(schema.races).where(eq(schema.races.id, race.id));
+      raceDeleted = true;
+    }
+    const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+    await repos.series.touch(seriesId);
+  });
+
+  await trackChange(workspace, {
+    action: raceDeleted ? 'race.deleted' : 'race.updated',
+    seriesId,
+    summary: `Abandoned ${fleetRow?.name ?? 'fleet'}'s race${race.name ? ` (${race.name})` : ''}`,
+    sessionKey: 'split-fleets',
+  });
 }
