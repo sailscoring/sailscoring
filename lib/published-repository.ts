@@ -363,6 +363,27 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     .sort((a, b) => b.publishedAt - a.publishedAt);
 }
 
+/** The redirect target for a moved public path (ADR-011), or null. `fromPath`
+ *  is the path under `/p/{ws}/` (no leading slash); the returned target is
+ *  the same shape. Consulted by the `/p/` route only after everything else
+ *  404s, so a redirect can never shadow a live page. */
+export async function getPublishedRedirect(
+  workspaceId: string,
+  fromPath: string,
+): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ toPath: schema.publishedRedirects.toPath })
+    .from(schema.publishedRedirects)
+    .where(
+      and(
+        eq(schema.publishedRedirects.workspaceId, workspaceId),
+        eq(schema.publishedRedirects.fromPath, fromPath),
+      ),
+    )
+    .limit(1);
+  return row?.toPath ?? null;
+}
+
 /** Folder metadata rows for a workspace (ADR-011), keyed by path. The tree
  *  renders fine without rows — labels humanise, seasons derive — so this maps
  *  only the overrides. */

@@ -947,6 +947,35 @@ export const publishedSeries = pgTable(
 );
 
 /**
+ * Static redirect table for moved public URLs (ADR-011). When the publication
+ * tree is restructured — a legacy event-slug re-homed under its season, a
+ * folder renamed — the old path lands here and the `/p/` route 301s it, so
+ * URL changes are a managed consequence rather than breakage. `from_path` and
+ * `to_path` are the path under `/p/{ws}/` (no leading slash). Maintained by
+ * operators via `pnpm redirects` — deliberately no UI surface.
+ */
+export const publishedRedirects = pgTable(
+  'published_redirects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    fromPath: text('from_path').notNull(),
+    toPath: text('to_path').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('published_redirects_workspace_from_uidx').on(
+      table.workspaceId,
+      table.fromPath,
+    ),
+  ],
+);
+
+/**
  * Metadata over the publication tree's folders (ADR-011). A folder is a URL
  * path prefix the publications already imply — a top-level published slug
  * (`2025`) or an interior segment (`2025/autumn-league`) — so this table

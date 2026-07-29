@@ -519,6 +519,13 @@
       "when": 1785275353073,
       "tag": "0073_fancy_lyja",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1785341394160,
+      "tag": "0074_lame_colossus",
+      "breakpoints": true
     }
   ]
 }

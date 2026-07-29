@@ -49,6 +49,7 @@ import {
 import {
   getPublishedFolderMeta,
   getPublishedGroupByWorkspaceSlug,
+  getPublishedRedirect,
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
@@ -113,6 +114,34 @@ export async function GET(
   { params }: { params: Promise<{ slug: string[] }> },
 ): Promise<Response> {
   const { slug: segments } = await params;
+  const res = await dispatch(req, segments);
+  // Moved URLs (ADR-011): only after everything else 404s, consult the
+  // static redirect table — a redirect can never shadow a live page.
+  if (res.status === 404 && segments.length >= 2) {
+    const workspace = await getWorkspaceBySlug(segments[0]);
+    if (workspace) {
+      const to = await getPublishedRedirect(
+        workspace.id,
+        segments.slice(1).join('/'),
+      );
+      if (to) {
+        return new Response(null, {
+          status: 301,
+          headers: {
+            location: `/p/${segments[0]}/${to}`,
+            'cache-control': 'public, max-age=3600',
+          },
+        });
+      }
+    }
+  }
+  return res;
+}
+
+async function dispatch(
+  req: NextRequest,
+  segments: string[],
+): Promise<Response> {
   if (segments.length < 1 || segments.length > 4) return NOT_FOUND;
 
   if (segments.length === 1) return workspaceIndex(req, segments[0]);

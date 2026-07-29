@@ -42,6 +42,8 @@
     "cli": "tsx cli/index.ts",
     "change-email": "tsx --env-file-if-exists=.env.local scripts/change-email.ts",
     "change-email:test": "./scripts/local-env.sh --local-db tsx scripts/change-email.ts",
+    "redirects": "tsx --env-file-if-exists=.env.local scripts/manage-redirects.ts",
+    "redirects:test": "./scripts/local-env.sh --local-db tsx scripts/manage-redirects.ts",
     "delete-account": "tsx --env-file-if-exists=.env.local scripts/delete-account.ts",
     "delete-account:test": "./scripts/local-env.sh --local-db tsx scripts/delete-account.ts",
     "user-stats": "tsx --env-file-if-exists=.env.local scripts/user-stats.ts",
