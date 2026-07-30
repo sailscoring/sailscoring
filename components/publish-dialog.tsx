@@ -844,14 +844,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                   />
                   <span className="w-36 shrink-0 truncate text-sm">Prizes</span>
                   {prizesFrozen ? (
+                    // Same treatment as the published standings link: the full
+                    // URL, rtl-truncated so the distinguishing tail stays
+                    // visible when it clips.
                     <a
                       href={prizesUrl}
                       target="_blank"
                       rel="noreferrer"
                       title={prizesUrl}
                       className="flex-1 min-w-0 truncate text-xs font-mono hover:underline"
+                      style={{ direction: 'rtl', textAlign: 'left' }}
                     >
-                      {lastSegment(prizesUrl)}
+                      {prizesUrl}
                     </a>
                   ) : (
                     <Input
