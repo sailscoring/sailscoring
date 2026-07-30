@@ -579,6 +579,15 @@ test('selective publishing: choose fleets and override a fleet URL segment', asy
   // deselected Cruiser fleet was never published — both 404.
   expect((await page.request.get(`${base}/irc`)).status()).toBe(404);
   expect((await page.request.get(`${base}/cruiser`)).status()).toBe(404);
+
+  // Publishing Cruiser later lands it inside the event folder like its
+  // siblings — the folder derives from the frozen URLs on re-publish.
+  await page.goBack();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await dialog.getByRole('checkbox', { name: 'Publish Cruiser' }).check();
+  await dialog.getByRole('button', { name: 'Re-publish' }).click();
+  await expect(dialog.getByRole('link', { name: /\/club-1\/cruiser$/ })).toBeVisible();
+  expect((await page.request.get(`${base}/cruiser`)).status()).toBe(200);
 });
 
 test('the cascade moves between a publication\'s fleet pages (#320/ADR-011)', async ({ page }) => {
@@ -627,9 +636,12 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
   await page.goto(`/series/${seriesId}/competitors`);
   await addCompetitor(page, { sailNumber: 'C9', name: 'Carol', fleet: 'Cruiser' });
 
-  // Re-publish with Cruiser unticked: it's skipped, not retracted.
+  // Re-publish with Cruiser unticked: it's skipped, not retracted. The
+  // re-opened dialog names the event folder the pages live under, derived
+  // from the frozen URLs.
   await page.goto(`/series/${seriesId}/standings`);
   await page.getByRole('button', { name: 'Publish' }).click();
+  await expect(dialog.getByText(/\/2026\/club-2\/$/)).toBeVisible();
   await dialog.getByRole('checkbox', { name: 'Publish Cruiser' }).uncheck();
   const [resp] = await Promise.all([
     page.waitForResponse(

@@ -18,6 +18,7 @@ import {
   unpublishSeries,
 } from '@/lib/api-repository';
 import { fleetSubPath, kebab } from '@/lib/publishing';
+import { sharedFolderSegment } from '@/lib/published-tree';
 import {
   describeGroupMembers,
   fleetPagesSuppressed,
@@ -286,11 +287,26 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // Frozen once published.
   const seasonMode = !isPublished;
   const effectiveSlug = isPublished ? slug : hasBlocks ? folder.trim() : kebab(season);
-  // The folder prefix pages land under in season mode. Sub-series pages
-  // already use their block segment, so a block series publishes its
-  // `{block}/{fleet}` pages directly under the season slug.
-  const folderPrefix = seasonMode && !hasBlocks ? folder.trim() : '';
+  // The folder prefix pages land under. Before first publish it's the Folder
+  // field; once published it derives from the frozen page URLs, so the
+  // preview names the folder and a later-added page lands inside it.
+  // Sub-series pages already use their block segment, so a block series
+  // publishes its `{block}/{fleet}` pages directly under its slug.
+  const publishedFolder = useMemo(() => {
+    if (!published) return null;
+    return sharedFolderSegment(
+      published.pages.map((p) =>
+        new URL(p.url).pathname.split('/').filter(Boolean).slice(3).join('/'),
+      ),
+    );
+  }, [published]);
+  const folderPrefix = hasBlocks
+    ? ''
+    : isPublished
+      ? (publishedFolder ?? '')
+      : folder.trim();
   const urlPrefix = `${APP_URL}/p/${workspaceSlug}/${effectiveSlug || '…'}`;
+  const pagesPrefix = `${urlPrefix}${folderPrefix ? `/${folderPrefix}` : ''}`;
 
   // A single-fleet series has one default page. Its sub-path is editable before
   // first publish (seeded `standings`) and frozen after — the same lifecycle as a
@@ -621,18 +637,19 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
 
             {multiFleet ? (
               <>
-                <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
+                <p className="text-xs text-muted-foreground truncate" title={`${pagesPrefix}/`}>
                   Pages live under{' '}
                   {isPublished ? (
-                    // The series-index page at the bare slug only exists once
-                    // something's published, so link it only then.
+                    // The folder (or slug) index only exists once something's
+                    // published, so link it only then.
                     <a
-                      href={urlPrefix}
+                      href={pagesPrefix}
                       target="_blank"
                       rel="noreferrer"
                       className="font-mono hover:underline"
                     >
                       /p/{workspaceSlug}/{slug}/
+                      {folderPrefix ? `${folderPrefix}/` : ''}
                     </a>
                   ) : (
                     <span className="font-mono">
