@@ -13,6 +13,7 @@ import postgres, { type Sql } from 'postgres';
 import * as seasons from '@/lib/api-handlers/seasons';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as schema from '@/lib/db/schema';
+import { upsertPublishedFolder } from '@/lib/published-repository';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -70,23 +71,12 @@ describe.skipIf(skip)('workspace seasons', () => {
     ).rejects.toThrowError(/no such season/);
   });
 
-  test('adopt pins year-named categories onto published folders', async () => {
-    const [cat] = await db
-      .insert(schema.categories)
-      .values({
-        id: uuid(),
-        workspaceId,
-        name: '2025',
-        displayOrder: 0,
-        createdAt: new Date(),
-      })
-      .returning({ id: schema.categories.id });
+  test('a folder season pin surfaces in the list with its folder counted', async () => {
     const seriesId = uuid();
     await db.insert(schema.series).values({
       id: seriesId,
       workspaceId,
-      name: 'Adopted Series',
-      categoryId: cat.id,
+      name: 'Pinned Series',
       displayOrder: 0,
       version: 1,
     });
@@ -94,23 +84,15 @@ describe.skipIf(skip)('workspace seasons', () => {
       id: uuid(),
       workspaceId,
       seriesId,
-      slug: 'adopted-open-week',
+      slug: 'pinned-open-week',
       pages: [],
       contentHash: 'x',
       publishedVersion: 1,
     });
+    await upsertPublishedFolder(workspaceId, 'pinned-open-week', {
+      season: '2025',
+    });
 
-    const result = await seasons.adoptYearCategories(ctx);
-    expect(result.adopted).toBe(1);
-    expect(result.pinned).toBe(1);
-    const [folder] = await db
-      .select()
-      .from(schema.publishedFolders)
-      .where(eq(schema.publishedFolders.workspaceId, workspaceId));
-    expect(folder.path).toBe('adopted-open-week');
-    expect(folder.season).toBe('2025');
-
-    // The pinned season now shows in the list, folder counted.
     const listed = await seasons.listSeasons(ctx);
     expect(
       listed.items.find((s) => s.label === '2025')?.folderCount,

@@ -187,8 +187,9 @@ changed there, and this ADR keeps the always-fresh dynamic read path.
 >   season by a folder season pin. First publish pins the folder's label to
 >   the series name (reset to the humanised segment once a second series
 >   joins), and publishing into a season slug joins without the merge
->   confirmation. A workspace-settings Seasons card manages seasons and
->   adopts year-named categories as season pins.
+>   confirmation. A workspace-settings Seasons card manages seasons; its
+>   one-shot "adopt year categories as seasons" helper was removed once the
+>   existing workspaces had been migrated (the pins it wrote remain).
 
 Adopt the **publication tree**. The sub-decisions:
 

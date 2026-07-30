@@ -591,8 +591,6 @@ export interface SeasonListItem {
 
 export interface SeasonsView {
   items: SeasonListItem[];
-  /** Year-named categories the adopt helper would convert. */
-  yearCategories: string[];
 }
 
 export function listSeasons(): Promise<SeasonsView> {
@@ -611,13 +609,6 @@ export function setCurrentSeason(label: string): Promise<SeasonsView> {
     method: 'PUT',
     body: { label },
   });
-}
-
-export function adoptYearCategories(): Promise<{ adopted: number; pinned: number }> {
-  return apiFetch<{ adopted: number; pinned: number }>(
-    '/api/v1/workspace/seasons/adopt-year-categories',
-    { method: 'POST' },
-  );
 }
 
 // ─── Series-list organisation (#154) ─────────────────────────────────────────

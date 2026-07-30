@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { CalendarRange } from 'lucide-react';
 
 import {
-  adoptYearCategories,
   createSeason,
   listSeasons,
   setCurrentSeason,
@@ -16,16 +15,14 @@ import { Input } from '@/components/ui/input';
 /**
  * Workspace seasons management (ADR-011). Seasons mostly derive from what's
  * published — this card handles the rest: defining a season before its first
- * publish, choosing the **current** one (the public index expands it and the
- * publish dialog defaults to it), and adopting year-named categories as
- * season pins for workspaces that filed by year before seasons existed.
+ * publish and choosing the **current** one (the public index expands it and
+ * the publish dialog defaults to it).
  */
 export function SeasonsCard() {
   const [view, setView] = useState<SeasonsView | null>(null);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [adopted, setAdopted] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     listSeasons()
@@ -118,38 +115,6 @@ export function SeasonsCard() {
         </Button>
       </form>
 
-      {(view?.yearCategories.length ?? 0) > 0 && (
-        <div className="space-y-1">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError(null);
-              try {
-                const r = await adoptYearCategories();
-                setAdopted(
-                  `Pinned ${r.pinned} folder${r.pinned === 1 ? '' : 's'} from ${r.adopted} year categor${r.adopted === 1 ? 'y' : 'ies'}.`,
-                );
-                refresh();
-              } catch {
-                setError('Adopting year categories failed.');
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Adopt year categories as seasons
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Files everything published under {view!.yearCategories.join(', ')}{' '}
-            into those seasons. The categories themselves are left for you to
-            delete when ready.
-          </p>
-        </div>
-      )}
-      {adopted && <p className="text-xs text-muted-foreground">{adopted}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
