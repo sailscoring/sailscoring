@@ -51,9 +51,23 @@ function checkPath(path: string, name: string): string {
   return trimmed;
 }
 
+/** The database host in play, so a run against the wrong environment is
+ *  visible immediately (credentials masked). */
+function targetDescription(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) return 'DATABASE_URL is not set';
+  try {
+    const u = new URL(url);
+    return `${u.hostname}${u.port ? `:${u.port}` : ''}${u.pathname}`;
+  } catch {
+    return 'DATABASE_URL is not a parseable URL';
+  }
+}
+
 async function main(): Promise<void> {
   const [cmd, wsSlug, from, to] = process.argv.slice(2);
   if (!cmd || !wsSlug) usage();
+  console.error(`database: ${targetDescription()}`);
   const ws = await workspaceId(wsSlug);
 
   if (cmd === 'list') {
@@ -115,7 +129,12 @@ async function main(): Promise<void> {
 main().then(
   () => process.exit(0),
   (err) => {
+    // Drizzle wraps the driver error; the wrapped cause (ECONNREFUSED, SSL,
+    // auth, missing relation) is the part that says what actually happened.
     console.error(err);
+    for (let cause = (err as Error)?.cause; cause; cause = (cause as Error)?.cause) {
+      console.error('caused by:', cause);
+    }
     process.exit(1);
   },
 );
