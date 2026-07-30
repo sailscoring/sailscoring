@@ -225,12 +225,16 @@ test('back-links chain a fleet page up to its series index and on to the workspa
   const fleetPath = new URL((await link.getAttribute('href')) ?? '').pathname;
   const workspaceSlug = fleetPath.split('/')[2];
 
-  // Fleet page → breadcrumb up to the season index `/p/{ws}/2026`.
+  // Fleet page → breadcrumb up to its event folder `/p/{ws}/2026/autumn-26`.
   await page.goto(fleetPath);
   await page.getByRole('link', { name: 'HYC Autumn League 2026' }).click();
+  await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}/2026/autumn-26$`));
+
+  // Folder index → back-link up to the season index, titled by the season.
+  await page.locator(`a[href="/p/${workspaceSlug}/2026"]`).click();
   await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}/2026$`));
 
-  // Series index → back-link up to the workspace index `/p/{ws}`.
+  // Season index → back-link up to the workspace index `/p/{ws}`.
   await page.locator(`a[href="/p/${workspaceSlug}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}$`));
   await expect(page.getByRole('link', { name: 'HYC Autumn League 2026' })).toBeVisible();

@@ -57,6 +57,16 @@ export function folderSegmentOf(subPath: string): string | null {
   return at === -1 ? null : subPath.slice(0, at);
 }
 
+/** The one interior folder every given sub-path lives in, or null when they
+ *  span folders (a block series' per-block segments) or include root pages.
+ *  Decides where a publication's breadcrumb climbs to: its event folder when
+ *  it has exactly one, its slug otherwise. */
+export function sharedFolderSegment(subPaths: string[]): string | null {
+  const segments = new Set(subPaths.map(folderSegmentOf));
+  if (segments.size !== 1) return null;
+  return [...segments][0];
+}
+
 /** An interior folder implied by the slug's pages. */
 export interface TreeFolder {
   segment: string;

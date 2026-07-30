@@ -42,6 +42,7 @@ import {
   upsertPublishedFolder,
 } from '@/lib/published-repository';
 import { contentHash, publishedBlobKey } from '@/lib/publishing';
+import { sharedFolderSegment } from '@/lib/published-tree';
 import type { PublishedSeries, PublishedSeriesPage } from '@/lib/types';
 
 /**
@@ -371,7 +372,15 @@ async function publishArchiveSeries(
 ): Promise<{ slug: string; pages: Array<{ fleetName: string; subPath: string }> }> {
   const seriesId = doc.series.id;
   const slug = doc.series.publishedSlug;
-  const seriesIndexUrl = `/p/${workspace.workspaceSlug}/${slug}`;
+  // The breadcrumb climbs to the publication's own index: its event folder
+  // when every page shares one (the HYC `{year}/{event}/{class}` shape), the
+  // bare slug otherwise (ADR-011).
+  const docSubPaths = [
+    ...doc.fleets.flatMap((f) => (f.subPath ? [f.subPath] : [])),
+    ...(doc.combinedPages ?? []).map((p) => p.subPath),
+  ];
+  const breadcrumbFolder = sharedFolderSegment(docSubPaths);
+  const seriesIndexUrl = `/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`;
 
   // Flag SVGs load on demand, only when a fleet references national codes —
   // the ~2.5 MB dataset stays out of every other request (the same pattern

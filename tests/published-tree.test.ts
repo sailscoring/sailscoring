@@ -10,6 +10,7 @@ import {
   renderSeasonIndexHtml,
   renderTreeNav,
   rootPages,
+  sharedFolderSegment,
   slugFolders,
   type TreePage,
 } from '@/lib/published-tree';
@@ -51,6 +52,16 @@ describe('tree derivation', () => {
       { segment: 'spring', label: 'Spring' },
       { segment: 'summer', label: 'Summer' },
     ]);
+  });
+
+  it('finds the one folder a publication lives in, for the breadcrumb', () => {
+    expect(
+      sharedFolderSegment(['ilca-masters/ilca-7', 'ilca-masters/ilca-6']),
+    ).toBe('ilca-masters');
+    // Block series span folders; single-page publications may sit at root.
+    expect(sharedFolderSegment(['winter/standings', 'spring/standings'])).toBeNull();
+    expect(sharedFolderSegment(['standings'])).toBeNull();
+    expect(sharedFolderSegment(['a/b', 'standings'])).toBeNull();
   });
 
   it('partitions root pages from folder pages', () => {

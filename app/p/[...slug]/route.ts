@@ -756,11 +756,17 @@ async function folderIndex(
   const cached = notModified(req, etag);
   if (cached) return cached;
 
+  // Like the series index: a slug that IS a season is titled by the season,
+  // never a lone contributor's name.
+  const seasonForSlug = seasonTree.seasons.find(
+    (s) => s.segment === seriesSlug,
+  );
   const slugTitle =
-    group.length === 1
+    seasonForSlug?.label ??
+    (group.length === 1
       ? ((group[0].seriesId ? await getSeriesName(group[0].seriesId) : null) ??
         humanizeSlug(seriesSlug))
-      : humanizeSlug(seriesSlug);
+      : humanizeSlug(seriesSlug));
   const nav = renderTreeNav(
     {
       workspaceSlug,

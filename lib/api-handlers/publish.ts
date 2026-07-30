@@ -25,7 +25,7 @@ import {
   savePublished,
   upsertPublishedFolder,
 } from '@/lib/published-repository';
-import { seasonLikeSlug } from '@/lib/published-tree';
+import { seasonLikeSlug, sharedFolderSegment } from '@/lib/published-tree';
 import { producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
@@ -164,10 +164,17 @@ export async function publishSeries(
     id = crypto.randomUUID();
   }
 
+  // The breadcrumb on every page climbs to the publication's own index: its
+  // event folder when it has exactly one (ADR-011), else the bare slug. On
+  // first publish the folder comes from the request; on re-publish it derives
+  // from the frozen pages, so the breadcrumb never moves.
+  const breadcrumbFolder = existing
+    ? sharedFolderSegment(existing.pages.map((p) => p.subPath))
+    : (input.folder?.trim() || null);
   const allFiles = await buildFleetHtmlFiles(
     exportReposFor(workspace.workspaceId),
     seriesId,
-    `${appBase()}/p/${workspace.workspaceSlug}/${slug}`,
+    `${appBase()}/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`,
     // The prize sheet (#240) publishes only for workspaces with the feature
     // on; a prize list imported into an ungated workspace stays unpublished.
     { includePrizes: workspace.features.includes('prizes') },
