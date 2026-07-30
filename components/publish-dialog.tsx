@@ -319,7 +319,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
       url: hasBlocks
         ? urlPrefix
         : (page?.url ??
-          `${urlPrefix}/${folderPrefix || singlePath || 'standings'}`),
+          `${urlPrefix}/${
+            folderPrefix
+              ? singlePath
+                ? `${folderPrefix}/${singlePath}`
+                : folderPrefix
+              : singlePath || 'standings'
+          }`),
     };
   }, [published, fleets, urlPrefix, singlePath, hasBlocks, folderPrefix]);
 
@@ -344,7 +350,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
       const prizesTicked = hasPrizes && selected.has('Prizes') && !prizesFrozen;
       if (prizesTicked && !(subPaths['Prizes'] ?? '')) return 'Give the prize list a URL.';
       if (isPublished || hasBlocks) return null;
-      if (!singlePath) return 'Give the page a URL.';
+      // In season mode an empty segment is the at-the-folder shape.
+      if (!singlePath && !folderPrefix) return 'Give the page a URL.';
       if (prizesTicked && subPaths['Prizes'] === singlePath) {
         return 'The prize list and the results page share a URL. Make them unique.';
       }
@@ -439,7 +446,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           }
           selection = { ...selection, subPaths: overrides };
         } else {
-          if (!isPublished) selection.defaultSubPath = folderPrefix;
+          if (!isPublished) {
+            // `standings` (or whatever the scorer typed) under the folder;
+            // a cleared segment publishes the page at the folder itself.
+            selection.defaultSubPath = singlePath
+              ? `${folderPrefix}/${singlePath}`
+              : folderPrefix;
+          }
           if (hasPrizes && selected.has('Prizes') && !prizesFrozen) {
             selection.subPaths = {
               ...(selection.subPaths ?? {}),
@@ -829,14 +842,32 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                 <span className="font-mono">/p/{workspaceSlug}/{effectiveSlug || '…'}/</span>
               </p>
             ) : seasonMode ? (
-              // Season mode: the lone results page lives at the event folder
-              // itself — no separate page segment to edit.
-              <p className="text-xs text-muted-foreground truncate" title={singlePreview.url}>
-                Published at{' '}
-                <span className="font-mono">
-                  /p/{workspaceSlug}/{effectiveSlug || '…'}/{folder || '…'}
-                </span>
-              </p>
+              // Season mode: the lone results page defaults to `standings`
+              // under the event folder — the same depth as its prizes
+              // sibling — and clearing the segment publishes the page at the
+              // folder itself (the one-page-event shape).
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground truncate" title={singlePreview.url}>
+                  Published at{' '}
+                  <span className="font-mono">
+                    /p/{workspaceSlug}/{effectiveSlug || '…'}/{folder || '…'}
+                    {singlePath ? `/${singlePath}` : ''}
+                  </span>
+                </p>
+                <Input
+                  value={singlePath}
+                  onChange={(e) => {
+                    setSinglePath(sanitizeSlug(e.target.value));
+                    setError(null);
+                  }}
+                  placeholder="standings"
+                  aria-label="Page URL"
+                  className="h-8 text-xs font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to publish the page at the folder itself.
+                </p>
+              </div>
             ) : (
               // First publish of the lone default page: its sub-path is editable,
               // seeded `standings`, so the scorer controls the URL even when the

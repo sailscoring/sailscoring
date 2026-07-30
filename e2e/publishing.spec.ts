@@ -448,25 +448,29 @@ test('season mode: Season + Folder compose the tree; a second event joins withou
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog.getByLabel('Season')).toHaveValue('2026');
   await dialog.getByLabel('Folder').fill('spring-regatta');
+  // The lone results page defaults to `standings` under the folder — the
+  // same depth as a prizes sibling would get.
+  await expect(dialog.getByLabel('Page URL')).toHaveValue('standings');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  // The lone results page lives at the event folder itself.
-  const link = dialog.getByRole('link', { name: /\/2026\/spring-regatta$/ });
+  const link = dialog.getByRole('link', { name: /\/2026\/spring-regatta\/standings$/ });
   await expect(link).toBeVisible();
   const path = new URL((await link.getAttribute('href')) ?? '').pathname;
   await page.goto(path);
   await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
 
   // A second dated event publishes into the same season with no join
-  // confirmation — sharing a season folder is the intended shape.
+  // confirmation — sharing a season folder is the intended shape. Clearing
+  // the page segment publishes the page at the folder itself.
   await createSeriesWithData(page, { name: 'Summer Regatta', sail: '22', date: '2026-06-20' });
   await page.getByRole('button', { name: 'Publish' }).click();
   await dialog.getByLabel('Folder').fill('summer-regatta');
+  await dialog.getByLabel('Page URL').clear();
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /\/2026\/summer-regatta$/ })).toBeVisible();
 
   // The season slug now serves both events; its index lists them.
-  await page.goto(path.replace(/\/spring-regatta$/, ''));
+  await page.goto(path.replace(/\/spring-regatta\/standings$/, ''));
   await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Spring Regatta' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Summer Regatta' })).toBeVisible();
