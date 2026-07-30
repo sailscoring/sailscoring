@@ -722,8 +722,9 @@ export interface PublicationStatus {
    *  defined + derived, newest first; the series' own start-date season is
    *  always among them. */
   seasons: { label: string; current: boolean }[];
-  /** The season derived from the series' start date; null when undated. */
-  suggestedSeason: string | null;
+  /** The season the dialog defaults to: the series' start-date year, or the
+   *  current year for an undated series. */
+  suggestedSeason: string;
 }
 
 /**

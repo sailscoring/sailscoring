@@ -1855,10 +1855,10 @@ export default async function HelpPage() {
           published its URL is fixed, like the slug; to change it, unpublish and publish again.
         </p>
         <p>
-          Published pages form a tree: a dated series publishes as{' '}
+          Published pages form a tree: every series publishes as{' '}
           <strong className="text-foreground">Season + Folder</strong> (e.g.{' '}
-          <code className="text-foreground text-sm">…/2026/spring-regatta</code>; a custom
-          URL is one click away in the dialog), each season and folder gets its own index
+          <code className="text-foreground text-sm">…/2026/spring-regatta/standings</code>,
+          the season derived from the series date), each season and folder gets its own index
           page, and your workspace has a public index at{' '}
           <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing
           every event by season — each season collapsible, the current one open, with each

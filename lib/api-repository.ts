@@ -742,6 +742,9 @@ export function publishSeries(
     fleets?: string[];
     subPaths?: Record<string, string>;
     defaultSubPath?: string;
+    prizes?: boolean;
+    season?: string;
+    folder?: string;
   } = {},
 ): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {

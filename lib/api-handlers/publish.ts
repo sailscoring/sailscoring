@@ -21,7 +21,9 @@ import {
   getPublishedSeasonTree,
   getSeriesName,
   listPublishedForWorkspace,
+  pinPublishedFolderLabelIfAbsent,
   savePublished,
+  upsertPublishedFolder,
 } from '@/lib/published-repository';
 import { seasonLikeSlug } from '@/lib/published-tree';
 import { producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
@@ -406,6 +408,36 @@ export async function publishSeries(
   };
   await savePublished(published);
 
+  // File the publication under its season and name its event folder
+  // (ADR-011), both pinned at first publish. The season pin is what groups a
+  // block series' own top-level folder into its season; the label pin gives
+  // the event folder the series' name (first publisher wins, so a series
+  // joining an existing folder never renames it).
+  const season = input.season?.trim();
+  if (!existing && season) {
+    await upsertPublishedFolder(workspace.workspaceId, slug, { season });
+  }
+  const folder = input.folder?.trim();
+  if (!existing && folder) {
+    // A sole contributor's folder is the event named by the series; once a
+    // second series joins, no one series' name fits and the label resets so
+    // the folder reads by its (humanised) segment instead.
+    const folderShared = others.some((p) =>
+      p.pages.some((pg) => pg.subPath.startsWith(`${folder}/`)),
+    );
+    if (folderShared) {
+      await upsertPublishedFolder(workspace.workspaceId, `${slug}/${folder}`, {
+        label: null,
+      });
+    } else {
+      await pinPublishedFolderLabelIfAbsent(
+        workspace.workspaceId,
+        `${slug}/${folder}`,
+        series.name,
+      );
+    }
+  }
+
   // Now that the row resolves to the fresh blobs, drop the superseded ones.
   // Content-addressed keys differ by hash, so none of these are still in use.
   // Best-effort: a failed delete leaks a blob but never serves stale results.
@@ -444,7 +476,11 @@ export async function getPublication(
   // series' own start-date season, which may not have anything published yet.
   const tree = await getPublishedSeasonTree(workspace.workspaceId);
   const yearMatch = /^(\d{4})/.exec(series.startDate ?? '');
-  const suggestedSeason = yearMatch ? yearMatch[1] : null;
+  // An undated series still needs a season to publish under (the dialog has
+  // no other shape, ADR-011): the current year is the honest default.
+  const suggestedSeason = yearMatch
+    ? yearMatch[1]
+    : String(new Date().getFullYear());
   const seasons = tree.seasons.map((s) => ({
     label: s.label,
     current: s.current,

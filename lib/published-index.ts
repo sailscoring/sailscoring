@@ -15,6 +15,7 @@
 import { escapeHtml as esc } from './html';
 import { kebab } from './publishing';
 import {
+  interiorFolderLabels,
   leafLabel,
   pagesInFolder,
   rootPages,
@@ -279,10 +280,15 @@ function contributorPages(it: WorkspaceIndexItem): EventPage[] {
 export function workspaceIndexEvents(
   workspaceSlug: string,
   items: WorkspaceIndexItem[],
+  /** Folder metadata (ADR-011): label pins override derived folder names. */
+  folderMeta?: Map<string, { label: string | null }>,
 ): IndexEvent[] {
   const events: IndexEvent[] = [];
   for (const it of items) {
     const base = `/p/${workspaceSlug}/${it.slug}`;
+    const labels = folderMeta
+      ? interiorFolderLabels(folderMeta, it.slug)
+      : undefined;
     const season = it.season ?? null;
     const pages = contributorPages(it);
     // A season's own folder explodes into its events — but only when the
@@ -307,7 +313,7 @@ export function workspaceIndexEvents(
       });
       continue;
     }
-    for (const f of slugFolders(pages)) {
+    for (const f of slugFolders(pages, labels)) {
       const fp = pagesInFolder(pages, f.segment) as EventPage[];
       const cats = new Set(fp.map((p) => p.ownerCategory));
       const cat = cats.size === 1 ? [...cats][0] : null;
@@ -368,6 +374,8 @@ export function renderWorkspaceIndexHtml(
     /** The workspace's current season (expanded by default); absent → the
      *  newest season. */
     currentSeason?: string;
+    /** Folder metadata (ADR-011): label pins for event rows. */
+    folderMeta?: Map<string, { label: string | null }>;
   } = {},
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
@@ -403,7 +411,7 @@ export function renderWorkspaceIndexHtml(
     `<section class="lgroup">\n${heading}${list(rows)}\n</section>`;
 
   const seasons = groupWorkspaceListingBySeason(
-    workspaceIndexEvents(workspaceSlug, items),
+    workspaceIndexEvents(workspaceSlug, items, opts.folderMeta),
   );
 
   const seasonInner = (s: ListingSeasonGroup<IndexEvent>) =>

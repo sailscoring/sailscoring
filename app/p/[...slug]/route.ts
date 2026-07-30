@@ -183,8 +183,10 @@ async function workspaceIndex(
   // Don't reveal that a workspace exists if it has published nothing.
   if (items.length === 0) return NOT_FOUND;
 
-  // The explicitly-current season opens by default (ADR-011).
-  const seasonTree = await getPublishedSeasonTree(workspace.id);
+  // The explicitly-current season opens by default (ADR-011); the folder
+  // metadata carries the event rows' label pins.
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
   const currentSeason = seasonTree.seasons.find((s) => s.current)?.label;
 
   // Surface the competitor index when the feature is on and there's at least
@@ -213,6 +215,9 @@ async function workspaceIndex(
     `competitors:${competitorsLink}`,
     `rankings:${rankingsLink}`,
     `current:${currentSeason ?? ''}`,
+    ...[...folderMeta].map(
+      ([p, m]) => `fmeta:${p}:${m.label ?? ''}:${m.season ?? ''}`,
+    ),
     ...items.map(
       (i) =>
         `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.season ?? ''}:${i.contributors
@@ -231,6 +236,7 @@ async function workspaceIndex(
     competitorsLink,
     rankingsLink,
     currentSeason,
+    folderMeta,
   });
   return htmlResponse(html, etag);
 }
@@ -542,8 +548,14 @@ async function seriesIndex(
       })),
     })),
   );
+  // A slug that IS a season titles as the season, even with one contributor
+  // so far — "2026", never the first series' name.
+  const seasonForSlug = seasonTree.seasons.find(
+    (s) => s.segment === seriesSlug,
+  );
   const title =
-    groups.length === 1 ? groups[0].seriesName : humanizeSlug(seriesSlug);
+    seasonForSlug?.label ??
+    (groups.length === 1 ? groups[0].seriesName : humanizeSlug(seriesSlug));
   const nav = renderTreeNav(
     {
       workspaceSlug,

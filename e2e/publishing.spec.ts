@@ -80,25 +80,27 @@ async function createTwoFleetSeries(page: Page, name: string): Promise<void> {
   await expect(page.getByRole('heading', { name: 'IRC' })).toBeVisible();
 }
 
-test('publish with a chosen slug → public page renders → bare slug lists the fleet → re-publish freezes the URL', async ({ page }) => {
+test('publish into Season + Folder → public page renders → the folder lists the page → re-publish freezes the URL', async ({ page }) => {
   const seriesId = await createSeriesWithData(page);
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog).toBeVisible();
 
-  // The slug is pre-filled from the series name and editable before publishing.
-  const slugInput = dialog.getByLabel('Publish under');
-  await expect(slugInput).toHaveValue('hyc-autumn-league-2026');
-  await slugInput.fill('autumn-26');
+  // The season derives (the current year for an undated series); the folder
+  // is seeded from the series name and editable before publishing.
+  await expect(dialog.getByLabel('Season')).toHaveValue('2026');
+  const folderInput = dialog.getByLabel('Folder');
+  await expect(folderInput).toHaveValue('hyc-autumn-league-2026');
+  await folderInput.fill('autumn-26');
 
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  // Published: a /p/{ws}/{series}/standings link appears.
+  // Published: a /p/{ws}/{season}/{folder}/standings link appears.
   const link = dialog.getByRole('link', { name: /\/p\// });
   await expect(link).toBeVisible();
   const href = (await link.getAttribute('href')) ?? '';
-  expect(href).toMatch(/\/p\/[^/]+\/autumn-26\/standings$/);
+  expect(href).toMatch(/\/p\/[^/]+\/2026\/autumn-26\/standings$/);
   const path = new URL(href).pathname;
 
   // The public, unauthenticated page renders the standings.
@@ -106,21 +108,22 @@ test('publish with a chosen slug → public page renders → bare slug lists the
   await expect(page.getByText('HYC Autumn League 2026').first()).toBeVisible();
   await expect(page.getByText('42').first()).toBeVisible();
 
-  // The bare series slug now serves the per-publication listing (#162): a
-  // one-item "Standings" listing for this single-fleet series, linking back to
-  // the fleet page.
+  // The event folder serves its own index: a one-item "Standings" listing
+  // for this single-fleet series, linking back to the fleet page.
   const bare = path.replace(/\/standings$/, '');
   await page.goto(bare);
-  await expect(page.getByText('HYC Autumn League 2026')).toBeVisible();
+  // The folder's label is pinned to the series name at first publish.
+  await expect(page.getByRole('heading', { name: 'HYC Autumn League 2026' })).toBeVisible();
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/autumn-26\/standings$/);
   await expect(page.getByRole('cell', { name: '42' }).first()).toBeVisible();
 
-  // Re-open: the slug is frozen (no input) and re-publishing keeps the URL.
+  // Re-open: the destination is frozen (no inputs) and re-publishing keeps
+  // the URL.
   await page.goto(`/series/${seriesId}/standings`);
   await page.getByRole('button', { name: 'Publish' }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel('Publish under')).toHaveCount(0);
+  await expect(dialog.getByLabel('Folder')).toHaveCount(0);
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
   await dialog.getByRole('button', { name: 'Re-publish' }).click();
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
@@ -215,17 +218,17 @@ test('back-links chain a fleet page up to its series index and on to the workspa
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('autumn-26');
+  await dialog.getByLabel('Folder').fill('autumn-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const link = dialog.getByRole('link', { name: /\/p\// });
   await expect(link).toBeVisible();
   const fleetPath = new URL((await link.getAttribute('href')) ?? '').pathname;
   const workspaceSlug = fleetPath.split('/')[2];
 
-  // Fleet page → breadcrumb up to the series index `/p/{ws}/autumn-26`.
+  // Fleet page → breadcrumb up to the season index `/p/{ws}/2026`.
   await page.goto(fleetPath);
   await page.getByRole('link', { name: 'HYC Autumn League 2026' }).click();
-  await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}/autumn-26$`));
+  await expect(page).toHaveURL(new RegExp(`/p/${workspaceSlug}/2026$`));
 
   // Series index → back-link up to the workspace index `/p/{ws}`.
   await page.locator(`a[href="/p/${workspaceSlug}"]`).click();
@@ -293,10 +296,10 @@ test('re-publishing is reflected on the public page immediately', async ({ page 
 test('workspace Published page lists a publication and unpublishing frees the slug', async ({ page }) => {
   const seriesId = await createSeriesWithData(page);
 
-  // Publish under a chosen slug.
+  // Publish into a chosen folder.
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('autumn-26');
+  await dialog.getByLabel('Folder').fill('autumn-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const link = dialog.getByRole('link', { name: /\/p\// });
   await expect(link).toBeVisible();
@@ -311,7 +314,7 @@ test('workspace Published page lists a publication and unpublishing frees the sl
     page.getByRole('heading', { name: 'Published results' }),
   ).toBeVisible();
   await expect(page.getByText('1 page published')).toBeVisible();
-  await expect(page.getByRole('link', { name: /\/autumn-26$/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /\/2026$/ })).toBeVisible();
 
   // Unpublish (a confirm dialog guards it) → the row goes and the page 404s.
   const unpublishBtn = page.getByRole('button', {
@@ -323,14 +326,14 @@ test('workspace Published page lists a publication and unpublishing frees the sl
   await expect(page.getByText('Nothing published yet.')).toBeVisible();
   expect((await page.request.get(path)).status()).toBe(404);
 
-  // The slug freed: the series re-opens to a first-publish dialog (the slug
-  // input is back) and re-publishing under the same slug succeeds — were the
-  // slug still held this would fail with a slug-in-use error.
+  // The path freed: the series re-opens to a first-publish dialog (the
+  // folder input is back) and re-publishing into the same folder succeeds —
+  // were the path still held this would fail with a collision error.
   await page.goto(`/series/${seriesId}/standings`);
   await page.getByRole('button', { name: 'Publish' }).click();
-  const slugInput = dialog.getByLabel('Publish under');
-  await expect(slugInput).toBeVisible();
-  await slugInput.fill('autumn-26');
+  const folderInput = dialog.getByLabel('Folder');
+  await expect(folderInput).toBeVisible();
+  await folderInput.fill('autumn-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
 });
@@ -340,7 +343,7 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('orphan-me');
+  await dialog.getByLabel('Folder').fill('orphan-me');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /orphan-me/ })).toBeVisible();
 
@@ -357,14 +360,16 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
   await page.getByRole('button', { name: 'Delete series' }).click();
   await expect(page.getByText('HYC Autumn League 2026')).not.toBeVisible();
 
-  // The workspace Published tab is the only surface that manages it: relegated
-  // to its own "Series deleted" section, titled by its slug, and still
-  // unpublishable.
+  // The workspace Published tab is the only surface that manages it:
+  // relegated to its own "Series deleted" section, titled by its event
+  // folder's pinned label (the old series name), and still unpublishable.
   await page.goto('/workspace/published');
   await expect(
     page.getByRole('heading', { name: 'Series deleted' }),
   ).toBeVisible();
-  const unpublishBtn = page.getByRole('button', { name: 'Unpublish orphan-me' });
+  const unpublishBtn = page.getByRole('button', {
+    name: 'Unpublish HYC Autumn League 2026',
+  });
   await expect(unpublishBtn).toBeVisible();
   page.once('dialog', (d) => d.accept());
   await unpublishBtn.click();
@@ -372,50 +377,53 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
   await expect(page.getByText('Nothing published yet.')).toBeVisible();
 });
 
-test('two series publish into one shared slug → the listing unions both, sub-headed per series', async ({ page }) => {
+test('two series publish into one event folder → the folder lists both, no merge ceremony', async ({ page }) => {
   // Heavy: two scored series, two publishes, and cascade navigation across
   // both pages — the setup alone can fill the 30s default under full-suite
   // load.
   test.slow();
-  // First series publishes at a deliberately event-shaped slug.
+  // First series into the event folder, its page named for its class group.
   await createSeriesWithData(page, { name: 'Lambay Races Cruisers', sail: '11' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
+  await dialog.getByLabel('Folder').fill('lambay-races');
+  await dialog.getByLabel('Page URL').fill('cruisers');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const firstLink = dialog.getByRole('link', { name: /\/p\// });
   await expect(firstLink).toBeVisible();
-  const indexPath = new URL((await firstLink.getAttribute('href')) ?? '').pathname.replace(
-    /\/standings$/,
-    '',
-  );
-  // As the sole contributor its single fleet keeps the clean "standings" path.
-  await expect(firstLink).toHaveText(/\/2026-lambay-races\/standings$/);
+  await expect(firstLink).toHaveText(/\/2026\/lambay-races\/cruisers$/);
+  const folderPath = new URL(
+    (await firstLink.getAttribute('href')) ?? '',
+  ).pathname.replace(/\/cruisers$/, '');
 
-  // Second series targets the same slug: publishing is blocked until the scorer
-  // confirms joining the existing folder, so two events never merge by accident.
+  // Second series publishes into the same event folder — no ceremony, just a
+  // distinct page segment (the default `standings` would collide).
   await createSeriesWithData(page, { name: 'Lambay Races One Designs', sail: '22' });
   await page.getByRole('button', { name: 'Publish' }).click();
-  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
+  await dialog.getByLabel('Folder').fill('lambay-races');
+  await dialog.getByLabel('Page URL').fill('one-designs');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
-  await expect(dialog.getByText(/already has results from Lambay Races Cruisers/)).toBeVisible();
-  await dialog.getByRole('button', { name: 'Publish into existing folder' }).click();
-  // A co-published default fleet lands at the series slug, not "standings".
   await expect(
-    dialog.getByRole('link', { name: /\/2026-lambay-races\/lambay-races-one-designs$/ }),
+    dialog.getByRole('link', { name: /\/2026\/lambay-races\/one-designs$/ }),
   ).toBeVisible();
 
-  // The shared listing unions both series, each under its own sub-heading.
-  await page.goto(indexPath);
-  await expect(page.getByRole('heading', { name: '2026 Lambay Races' })).toBeVisible();
+  // The folder index lists both pages, each named after its series (the
+  // fleet names are synthetic); a shared folder reads by its segment, not
+  // the first publisher's series name.
+  await page.goto(folderPath);
+  await expect(page.getByRole('heading', { name: 'Lambay Races' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Races Cruisers' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Lambay Races One Designs' })).toBeVisible();
+
+  // The season index unions the season's series, sub-headed per series.
+  await page.goto(folderPath.replace(/\/lambay-races$/, ''));
   await expect(page.getByRole('heading', { name: 'Lambay Races Cruisers' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Lambay Races One Designs' })).toBeVisible();
 
-  // Both fleet pages resolve under the one slug.
-  await page.goto(`${indexPath}/standings`);
+  // On a fleet page the cascade's leaf spans the folder, so the sibling
+  // series' page is one link away, each named after its series.
+  await page.goto(`${folderPath}/cruisers`);
   await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
-  // The navigation cascade (ADR-011) spans the whole slug group, so the
-  // sibling series' page is one link away, each named after its series.
   await expect(page.locator('.sstreenav .sstreenav-current')).toHaveText(
     'Lambay Races Cruisers',
   );
@@ -423,18 +431,18 @@ test('two series publish into one shared slug → the listing unions both, sub-h
     .locator('.sstreenav')
     .getByRole('link', { name: 'Lambay Races One Designs' })
     .click();
-  await expect(page).toHaveURL(/\/2026-lambay-races\/lambay-races-one-designs$/);
+  await expect(page).toHaveURL(/\/2026\/lambay-races\/one-designs$/);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 
   // The workspace index's event row links each contributing series' page by
-  // name — never the shared slug — one click from the index (ADR-011).
-  await page.goto(indexPath.replace(/\/[^/]+$/, ''));
-  const row = page.locator('li[data-event="2026-lambay-races"]');
+  // name — never the folder segment — one click from the index (ADR-011).
+  await page.goto(`/p/${folderPath.split('/')[2]}`);
+  const row = page.locator('li[data-event="2026/lambay-races"]');
   await row
     .locator('.pages')
     .getByRole('link', { name: 'Lambay Races One Designs' })
     .click();
-  await expect(page).toHaveURL(/\/2026-lambay-races\/lambay-races-one-designs$/);
+  await expect(page).toHaveURL(/\/2026\/lambay-races\/one-designs$/);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
 });
 
@@ -460,14 +468,14 @@ test('season mode: Season + Folder compose the tree; a second event joins withou
   await expect(page.getByRole('cell', { name: '11' }).first()).toBeVisible();
 
   // A second dated event publishes into the same season with no join
-  // confirmation — sharing a season folder is the intended shape. Clearing
-  // the page segment publishes the page at the folder itself.
+  // confirmation — sharing a season folder is the intended shape.
   await createSeriesWithData(page, { name: 'Summer Regatta', sail: '22', date: '2026-06-20' });
   await page.getByRole('button', { name: 'Publish' }).click();
   await dialog.getByLabel('Folder').fill('summer-regatta');
-  await dialog.getByLabel('Page URL').clear();
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
-  await expect(dialog.getByRole('link', { name: /\/2026\/summer-regatta$/ })).toBeVisible();
+  await expect(
+    dialog.getByRole('link', { name: /\/2026\/summer-regatta\/standings$/ }),
+  ).toBeVisible();
 
   // The season slug now serves both events; its index lists them.
   await page.goto(path.replace(/\/spring-regatta\/standings$/, ''));
@@ -481,7 +489,7 @@ test('single-fleet: the default page URL is editable before first publish', asyn
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('autumn-26');
+  await dialog.getByLabel('Folder').fill('autumn-26');
 
   // The lone default page's sub-path defaults to "standings" and is editable.
   const pageUrl = dialog.getByRole('textbox', { name: 'Page URL' });
@@ -501,42 +509,39 @@ test('single-fleet: the default page URL is editable before first publish', asyn
   expect((await page.request.get(overallPath.replace(/\/overall$/, '/standings'))).status()).toBe(404);
 });
 
-test('single-fleet: the page URL can be edited before joining a shared slug', async ({ page }) => {
-  // A founding single-fleet series holds the clean "standings" path at the slug.
+test('single-fleet: a page collision inside a shared folder seeds a fix to edit', async ({ page }) => {
+  // A founding single-fleet series holds the `standings` page in the folder.
   await createSeriesWithData(page, { name: 'Lambay Races Cruisers', sail: '11' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
+  await dialog.getByLabel('Folder').fill('lambay-races');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const firstLink = dialog.getByRole('link', { name: /\/p\// });
   await expect(firstLink).toBeVisible();
-  const indexPath = new URL((await firstLink.getAttribute('href')) ?? '').pathname.replace(
-    /\/standings$/,
-    '',
-  );
+  const folderPath = new URL(
+    (await firstLink.getAttribute('href')) ?? '',
+  ).pathname.replace(/\/standings$/, '');
 
-  // A second single-fleet series targets the same slug. The first publish is
-  // blocked for confirmation; the page URL field is then seeded with the series
-  // slug (it can't keep "standings") — the scorer edits it before confirming.
+  // A second single-fleet series publishes into the same folder with the
+  // default `standings` page — the server rejects the collision, the field
+  // is seeded with a disambiguated segment, and the scorer edits it.
   await createSeriesWithData(page, { name: 'Lambay Races One Designs', sail: '22' });
   await page.getByRole('button', { name: 'Publish' }).click();
-  await dialog.getByLabel('Publish under').fill('2026-lambay-races');
+  await dialog.getByLabel('Folder').fill('lambay-races');
   const pageUrl = dialog.getByRole('textbox', { name: 'Page URL' });
   await expect(pageUrl).toHaveValue('standings');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  await expect(dialog.getByText(/already has results from Lambay Races Cruisers/)).toBeVisible();
-  // Seeded disambiguated default, then overridden to the scorer's own segment.
   await expect(pageUrl).toHaveValue('lambay-races-one-designs');
   await pageUrl.fill('one-designs');
-  await dialog.getByRole('button', { name: 'Publish into existing folder' }).click();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  // The page lands at the edited segment, not the auto-derived series slug.
-  await expect(dialog.getByRole('link', { name: /\/2026-lambay-races\/one-designs$/ })).toBeVisible();
-  await page.goto(`${indexPath}/one-designs`);
+  // The page lands at the edited segment.
+  await expect(dialog.getByRole('link', { name: /\/2026\/lambay-races\/one-designs$/ })).toBeVisible();
+  await page.goto(`${folderPath}/one-designs`);
   await expect(page.getByRole('cell', { name: '22' }).first()).toBeVisible();
-  // The auto-derived default was never published.
-  expect((await page.request.get(`${indexPath}/lambay-races-one-designs`)).status()).toBe(404);
+  // The seeded suggestion was never published.
+  expect((await page.request.get(`${folderPath}/lambay-races-one-designs`)).status()).toBe(404);
 });
 
 test('selective publishing: choose fleets and override a fleet URL segment', async ({ page }) => {
@@ -544,7 +549,7 @@ test('selective publishing: choose fleets and override a fleet URL segment', asy
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('club-1');
+  await dialog.getByLabel('Folder').fill('club-1');
 
   // The IRC fleet's URL segment defaults to the kebab name; override it so a
   // clean fleet name can live at a disambiguated URL.
@@ -577,7 +582,7 @@ test('the cascade moves between a publication\'s fleet pages (#320/ADR-011)', as
 
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('spring-26');
+  await dialog.getByLabel('Folder').fill('spring-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const link = dialog.getByRole('link', { name: /\/spring-26\/irc$/ });
   await expect(link).toBeVisible();
@@ -602,7 +607,7 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
   // First publish: both fleets.
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  await dialog.getByLabel('Publish under').fill('club-2');
+  await dialog.getByLabel('Folder').fill('club-2');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
   const ircLink = dialog.getByRole('link', { name: /\/club-2\/irc$/ });
@@ -670,10 +675,7 @@ test('the public workspace listing groups by season, expands the current one, an
   await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11', date: '2026-05-01' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
-  // A dated series defaults to season mode (ADR-011); this test exercises the
-  // legacy per-event-slug shape, so switch to a custom URL.
-  await dialog.getByRole('button', { name: 'Use a custom URL instead' }).click();
-  await dialog.getByLabel('Publish under').fill('spring-26');
+  await dialog.getByLabel('Folder').fill('spring-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   const firstLink = dialog.getByRole('link', { name: /\/p\// });
   await expect(firstLink).toBeVisible();
@@ -687,8 +689,7 @@ test('the public workspace listing groups by season, expands the current one, an
     date: '2024-08-17',
   });
   await page.getByRole('button', { name: 'Publish' }).click();
-  await dialog.getByRole('button', { name: 'Use a custom URL instead' }).click();
-  await dialog.getByLabel('Publish under').fill('lambay-24');
+  await dialog.getByLabel('Folder').fill('lambay-24');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(dialog.getByRole('link', { name: /\/lambay-24\/standings$/ })).toBeVisible();
 
@@ -728,13 +729,12 @@ test('the public workspace listing groups by season, expands the current one, an
   await expect(page.locator('details.season[open] summary')).toHaveText('2026');
   await expect(page.getByRole('heading', { name: 'Club Racing' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Spring League 2026', exact: true })).toBeVisible();
-  // Seasons are addressable (ADR-011): /p/{ws}/2026 resolves to a season
-  // index even though no slug of that name exists — the live-workspace
-  // shape, listing the season's event folders.
+  // Seasons are addressable (ADR-011): /p/{ws}/2026 is the season's own
+  // index — titled by the season, never a lone contributor's name.
   await page.goto(`/p/${workspaceSlug}/2026`);
   await expect(page.getByRole('heading', { name: '2026' })).toBeVisible();
-  await page.getByRole('link', { name: 'Spring League 2026', exact: true }).click();
-  await expect(page).toHaveURL(/\/spring-26$/);
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/2026\/spring-26\/standings$/);
   await page.goto(`/p/${workspaceSlug}`);
 
   const pastSeason = page.locator('details.season').filter({ hasText: '2024' });
@@ -778,7 +778,7 @@ test('the public workspace listing groups by season, expands the current one, an
   await picker.locator('#picker-series').selectOption({ label: 'Spring League 2026' });
   await expect(page.getByRole('link', { name: 'Lambay Race 2024', exact: true })).not.toBeVisible();
   await page
-    .locator('li[data-event="spring-26"] .pages')
+    .locator('li[data-event="2026/spring-26"] .pages')
     .getByRole('link', { name: 'Standings' })
     .click();
   await expect(page).toHaveURL(/\/spring-26\/standings$/);

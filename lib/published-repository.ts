@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
@@ -428,6 +428,28 @@ export async function upsertPublishedFolder(
     });
 }
 
+/** Pin a folder's display label unless one is already pinned — first
+ *  publisher wins, so a series joining an existing event folder never
+ *  renames it. */
+export async function pinPublishedFolderLabelIfAbsent(
+  workspaceId: string,
+  path: string,
+  label: string,
+): Promise<void> {
+  await getDb()
+    .insert(schema.publishedFolders)
+    .values({ workspaceId, path, label })
+    .onConflictDoUpdate({
+      target: [
+        schema.publishedFolders.workspaceId,
+        schema.publishedFolders.path,
+      ],
+      set: {
+        label: sql`coalesce(${schema.publishedFolders.label}, excluded.label)`,
+      },
+    });
+}
+
 /** The season a published slug files under (ADR-011): the folder-metadata
  *  pin, a season-like slug itself, or the representative series' start year.
  *  Null = undated. */
@@ -610,7 +632,23 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
 
   // Titles keyed by row id, so each row can name the *other* publications
   // sharing its slug (a slug is a shared namespace — see the schema note).
-  const titleOf = (r: (typeof rows)[number]) => r.seriesName ?? r.slug;
+  // An orphan (series deleted) falls back to its event folder's pinned label
+  // — the old series name (ADR-011) — before the bare slug, which under a
+  // season slug would just read "2026".
+  const meta = await getPublishedFolderMeta(workspaceId);
+  const titleOf = (r: (typeof rows)[number]) => {
+    if (r.seriesName) return r.seriesName;
+    const segments = new Set(
+      r.pages
+        .filter((p) => p.subPath.includes('/'))
+        .map((p) => p.subPath.split('/')[0]),
+    );
+    if (segments.size === 1) {
+      const label = meta.get(`${r.slug}/${[...segments][0]}`)?.label;
+      if (label) return label;
+    }
+    return r.slug;
+  };
   const bySlug = new Map<string, typeof rows>();
   for (const r of rows) {
     const list = bySlug.get(r.slug) ?? [];

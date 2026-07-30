@@ -178,9 +178,15 @@ changed there, and this ADR keeps the always-fresh dynamic read path.
 >   traversing options with arrow keys or a scroll wheel); the quick-jump
 >   picker is pure filters — Season / Category / Event, cascading population,
 >   no page select — and the rows' links do the navigating.
-> - **The publish dialog composes Season + Folder** for dated series (custom
->   URLs stay a click away), a lone results page lives at its event folder,
->   and first-publishing into a season slug joins without the merge
+> - **The publish dialog composes Season + Folder, and nothing else.** The
+>   custom-slug shape is gone from the UI (the API keeps it for the CLI);
+>   an undated series defaults to the current year. A single-fleet series'
+>   standings page sits at `folder/standings`, laid out symmetrically with
+>   its prizes sibling; a block series' folder becomes its own top-level
+>   slug (its `{block}/{page}` paths use both segments), filed under the
+>   season by a folder season pin. First publish pins the folder's label to
+>   the series name (reset to the humanised segment once a second series
+>   joins), and publishing into a season slug joins without the merge
 >   confirmation. A workspace-settings Seasons card manages seasons and
 >   adopts year-named categories as season pins.
 
