@@ -17,6 +17,12 @@
  * capped to one per day. Closed issue → reopened + a "recurred" comment.
  * Otherwise → created. Idempotent, so re-running against the same report is safe.
  *
+ * Budget context: every filed issue states what the test actually used against
+ * what it was allowed. A bare timeout says nothing about scale, so the reflex is
+ * to raise the ceiling with `test.slow()` — which hides the cause whenever the
+ * test was nowhere near its cap. The run summary also names any `test.slow()`
+ * that used under half its budget, so the marker doesn't quietly accumulate.
+ *
  * Suspend suppression: a laptop suspend mid-run fails whatever was in flight
  * across all workers with hung I/O, which the report records as `flaky` — real
  * enough looking that the fix it invites (marking a healthy test `test.slow()`)
@@ -67,8 +73,14 @@ interface PwResult {
   error?: PwError;
   errors?: PwError[];
 }
+interface PwAnnotation {
+  type: string; // 'slow' | 'skip' | 'fixme' | …
+  location?: { file?: string; line?: number };
+}
 interface PwTest {
   status: string; // 'expected' | 'unexpected' | 'flaky' | 'skipped'
+  timeout?: number; // the test-level budget, already tripled if test.slow()
+  annotations?: PwAnnotation[];
   results: PwResult[];
 }
 interface PwSpec {
@@ -102,11 +114,47 @@ interface FlakyTest {
   fullTitle: string; // describe › … › test, for the issue title
   errorExcerpt: string;
   attempt: Attempt; // the FAILED attempt's window, for suspend correlation
+  budget: Budget;
 }
 
 interface HardFailure {
   label: string;
   attempt: Attempt;
+}
+
+/** What the test actually needed, against what it was allowed. */
+export interface Budget {
+  /** Duration of the attempt that passed — the honest cost of the test. */
+  usedMs?: number;
+  /** The test-level cap, already tripled if the test carries `test.slow()`. */
+  capMs?: number;
+  markedSlow: boolean;
+}
+
+/**
+ * The line that stops a healthy test being "fixed" with `test.slow()`.
+ *
+ * A timeout in isolation says nothing about scale, so the reflex is to raise
+ * the ceiling. Stating what the test actually used makes it obvious whether a
+ * budget raise is even on the table: a test that passes in 11s of a 30s budget
+ * did not run out of time, it hung on something.
+ */
+export function budgetAdvice(b: Budget): string {
+  if (b.usedMs === undefined || !b.capMs) {
+    return b.markedSlow
+      ? 'This test already carries `test.slow()`, so raising the budget again is not the fix.'
+      : '';
+  }
+  const used = (b.usedMs / 1000).toFixed(1);
+  const cap = Math.round(b.capMs / 1000);
+  const pct = Math.round((b.usedMs / b.capMs) * 100);
+  const marked = b.markedSlow ? ' (already `test.slow()`)' : '';
+  const verdict =
+    pct >= 75
+      ? `That is tight — the test genuinely has little headroom, so a slow setup is a plausible cause.`
+      : `That is not close to the cap, so the test did **not** run out of time — it hung on something. ` +
+        `Raising the budget with \`test.slow()\` would hide the cause rather than fix it; find the operation that stalled.`;
+  return `**Budget:** used ${used}s of its ${cap}s${marked} on the attempt that passed — ${pct}%. ${verdict}`;
 }
 
 const ANSI = /\x1b\[[0-9;]*m/g;
@@ -118,10 +166,40 @@ function attemptWindow(result: PwResult | undefined): Attempt {
   return { from, to: from + (result?.duration ?? 0) };
 }
 
+/**
+ * A `test.slow()` whose test doesn't come close to using the budget.
+ *
+ * The marker asserts "this test is setup-heavy"; when it isn't true the marker
+ * misleads whoever reads the spec next, and it is the residue of exactly the
+ * misdiagnosis this script exists to prevent.
+ */
+export interface StaleSlowMarker {
+  label: string;
+  usedMs: number;
+  /** The budget the test would have had WITHOUT the marker. */
+  baseMs: number;
+}
+
+/**
+ * Below this share of the *un-tripled* budget, a `test.slow()` isn't earning its
+ * keep. Measuring against the tripled cap would be the wrong question: a test
+ * using 29s of a 90s budget looks idle at 32%, when in fact it would blow the
+ * 30s base and the marker is exactly what it needs.
+ */
+const SLOW_MARKER_FLOOR = 0.5;
+
+/** `test.slow()` triples the budget, so the base is a third of what's reported. */
+const SLOW_MULTIPLIER = 3;
+
 /** Walk the suite tree, collecting flaky and hard-failed leaf tests. */
-function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: HardFailure[] } {
+function collect(report: PwReport): {
+  flaky: FlakyTest[];
+  hardFailed: HardFailure[];
+  staleSlow: StaleSlowMarker[];
+} {
   const flaky: FlakyTest[] = [];
   const hardFailed: HardFailure[] = [];
+  const staleSlow: StaleSlowMarker[] = [];
 
   // `spec.file` is relative to the report's rootDir (the e2e/ dir), so resolve
   // against it, then relativise to cwd — yields `e2e/foo.spec.ts`, the path a
@@ -133,6 +211,21 @@ function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: HardFailur
     for (const spec of suite.specs ?? []) {
       const fullTitle = [...describePath, spec.title].join(' › ');
       for (const test of spec.tests ?? []) {
+        const passed = test.results.find((r) => r.status === 'passed');
+        const markedSlow = (test.annotations ?? []).some((a) => a.type === 'slow');
+        const budget: Budget = { usedMs: passed?.duration, capMs: test.timeout, markedSlow };
+
+        if (markedSlow && passed?.duration !== undefined && test.timeout) {
+          const baseMs = test.timeout / SLOW_MULTIPLIER;
+          if (passed.duration / baseMs < SLOW_MARKER_FLOOR) {
+            staleSlow.push({
+              label: `${relFile(spec.file || file)} › ${fullTitle}`,
+              usedMs: passed.duration,
+              baseMs,
+            });
+          }
+        }
+
         if (test.status === 'flaky') {
           const failed = test.results.find((r) => r.status !== 'passed');
           const raw = failed?.error?.message ?? failed?.errors?.[0]?.message ?? '(no error captured)';
@@ -143,6 +236,7 @@ function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: HardFailur
             fullTitle,
             errorExcerpt: strip(raw).trim().slice(0, 800),
             attempt: attemptWindow(failed),
+            budget,
           });
         } else if (test.status === 'unexpected') {
           hardFailed.push({
@@ -161,7 +255,7 @@ function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: HardFailur
   };
 
   for (const top of report.suites ?? []) walk(top, top.file ?? '', []);
-  return { flaky, hardFailed };
+  return { flaky, hardFailed, staleSlow };
 }
 
 // ── suspend windows (from e2e/clock-watch-reporter.ts) ───────────────────────
@@ -290,6 +384,7 @@ function issueBody(f: FlakyTest): string {
     f.errorExcerpt,
     '```',
     ``,
+    ...(budgetAdvice(f.budget) ? [budgetAdvice(f.budget), ``] : []),
     `**Reproduce** (retries are off here so you get the honest failure, and a trace is retained):`,
     '```',
     `pnpm test:e2e ${f.file} -g ${JSON.stringify(f.specTitle)} --repeat-each=20 --workers=4 --retries=0 --trace retain-on-failure`,
@@ -308,7 +403,8 @@ function issueBody(f: FlakyTest): string {
  * whose report has since been overwritten leaves nothing to work from.
  */
 function recurrenceNote(heading: string, f: FlakyTest): string {
-  return [heading, '', '```', f.errorExcerpt, '```'].join('\n');
+  const advice = budgetAdvice(f.budget);
+  return [heading, '', '```', f.errorExcerpt, '```', ...(advice ? ['', advice] : [])].join('\n');
 }
 
 function main(): number {
@@ -321,7 +417,7 @@ function main(): number {
   }
 
   const report: PwReport = JSON.parse(readFileSync(REPORT_PATH, 'utf8'));
-  const { flaky, hardFailed } = collect(report);
+  const { flaky, hardFailed, staleSlow } = collect(report);
   const suspends = readSuspendWindows(CLOCK_GAPS_PATH, report.stats?.startTime);
 
   if (suspends.length > 0) {
@@ -331,6 +427,19 @@ function main(): number {
         `   so whatever was in flight across all workers fails on hung I/O and passes on retry.\n` +
         `   That is environmental, not a load-sensitive test. Re-run the suite for honest data.`,
     );
+  }
+
+  if (staleSlow.length > 0) {
+    console.log(
+      `\n${staleSlow.length} test(s) carry \`test.slow()\` they don't need — each would fit in the\n` +
+        `  un-tripled budget with room to spare, so the marker misleads whoever reads the spec next:`,
+    );
+    for (const t of staleSlow) {
+      const pct = Math.round((t.usedMs / t.baseMs) * 100);
+      console.log(
+        `  · ${(t.usedMs / 1000).toFixed(1)}s — ${pct}% of the ${Math.round(t.baseMs / 1000)}s it would have without it  ${t.label}`,
+      );
+    }
   }
 
   if (hardFailed.length > 0) {

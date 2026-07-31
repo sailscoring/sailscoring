@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readSuspendWindows, spansSuspend, type SuspendWindow } from '../scripts/flake-triage';
+import { budgetAdvice, readSuspendWindows, spansSuspend, type SuspendWindow } from '../scripts/flake-triage';
 
 /**
  * A laptop suspend mid-suite fails whatever was in flight with hung I/O, which
@@ -94,5 +94,39 @@ describe('spansSuspend', () => {
   it('never suppresses when no suspend was recorded', () => {
     const attempt = { from: at('2026-07-31T13:30:00.000Z'), to: at('2026-07-31T13:30:20.000Z') };
     expect(spansSuspend(attempt, [])).toBe(false);
+  });
+});
+
+/**
+ * The audit that prompted this: eight tests had been marked `test.slow()` while
+ * using 24–53% of their budget. A bare timeout gives no sense of scale, so the
+ * issue has to supply one or the reflex wins.
+ */
+describe('budgetAdvice', () => {
+  it('argues against a budget raise when the test was nowhere near its cap', () => {
+    const advice = budgetAdvice({ usedMs: 11_200, capMs: 60_000, markedSlow: false });
+    expect(advice).toContain('11.2s of its 60s');
+    expect(advice).toContain('19%');
+    expect(advice).toContain('did **not** run out of time');
+    expect(advice).toContain('hung on something');
+  });
+
+  it('concedes the point when the test really is close to the cap', () => {
+    const advice = budgetAdvice({ usedMs: 27_800, capMs: 30_000, markedSlow: false });
+    expect(advice).toContain('93%');
+    expect(advice).toContain('little headroom');
+    expect(advice).not.toContain('did **not** run out of time');
+  });
+
+  it('says so when the test already carries the marker', () => {
+    expect(budgetAdvice({ usedMs: 20_000, capMs: 90_000, markedSlow: true })).toContain('already `test.slow()`');
+  });
+
+  it('falls back to a plain warning when the report carried no timings', () => {
+    expect(budgetAdvice({ markedSlow: true })).toContain('raising the budget again is not the fix');
+  });
+
+  it('says nothing rather than guess when there is no data at all', () => {
+    expect(budgetAdvice({ markedSlow: false })).toBe('');
   });
 });
