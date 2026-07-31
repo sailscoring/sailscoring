@@ -1,5 +1,6 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
 import { getCodeDefinition } from './scoring-codes';
+import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
@@ -1143,10 +1144,7 @@ function assembleStandings(
     // tie-break all read it, and a hand-added row of cells reaches the total.
     // Rounded to a tenth, keeping the engine-wide invariant that a race score
     // is a multiple of 0.1 (a ×1.5 on a 3.5 would otherwise land on 5.25).
-    const racePoints = rawPoints.map((p, i) => {
-      const multiplier = races[i]?.pointsMultiplier;
-      return multiplier == null || multiplier === 1 ? p : roundToTenth(p * multiplier);
-    });
+    const racePoints = rawPoints.map((p, i) => weightedRacePoints(p, races[i]?.pointsMultiplier));
     const raceRanks = per.raceRanks.get(competitor.id)!;
     const raceCodes = per.raceCodes.get(competitor.id)!;
     const racePenaltyCodes = per.racePenaltyCodes.get(competitor.id)!;

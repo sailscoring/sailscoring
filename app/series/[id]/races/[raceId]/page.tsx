@@ -39,6 +39,7 @@ import { useFeatures } from '@/components/features-provider';
 import { type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { RaceEntryHeader } from '@/components/race-entry/race-entry-header';
 import { RaceLastFinisher } from '@/components/race-entry/race-last-finisher';
+import { RaceScoringOptions } from '@/components/race-entry/race-scoring-options';
 import { RaceSwitcher } from '@/components/race-entry/race-switcher';
 import { RaceEntryTabs } from '@/components/race-entry/race-entry-tabs';
 import { adjacentRaces } from '@/lib/race-navigation';
@@ -122,6 +123,7 @@ export default function ResultEntryPage({
 
   const { has } = useFeatures();
   const [activeTab, setActiveTab] = useState<'finish' | 'checkin' | 'ratings'>('finish');
+  const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
   const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
   const startsRef = useRef<RaceStartsSectionHandle>(null);
   const penaltyRef = useRef<PenaltyEditorHandle>(null);
@@ -206,7 +208,8 @@ export default function ResultEntryPage({
     router.push(`/series/${seriesId}/races/${id}`);
   }
 
-  // Esc to leave; c to toggle check-in tab; s to add a start; i to import.
+  // Esc to leave; c to toggle check-in tab; s to add a start; i to import;
+  // o for the per-race scoring options.
   // A raw handler rather than useShortcuts: the conditions mix tab state,
   // fleet shape, and feature gates per key. The help rows register below.
   useGlobalKeyDown((e) => {
@@ -231,6 +234,14 @@ export default function ResultEntryPage({
     ) {
       e.preventDefault();
       finishSheetImportRef.current?.trigger();
+    } else if (
+      e.key === 'o' &&
+      has('race-scoring-options') &&
+      !isInputFocused() &&
+      !readOnly
+    ) {
+      e.preventDefault();
+      setScoringOptionsOpen(true);
     } else if (e.key === '[' && !isInputFocused() && prevRace) {
       e.preventDefault();
       goToRace(prevRace.id);
@@ -252,6 +263,9 @@ export default function ResultEntryPage({
       : []),
     ...(canManageStarts
       ? [{ key: 's', description: 'Add start (gun time, or fleets-only to scope the race)', section: 'Finish entry' }]
+      : []),
+    ...(has('race-scoring-options') && !readOnly
+      ? [{ key: 'o', description: 'Scoring options for this race (weighting, discard behaviour)', section: 'Finish entry' }]
       : []),
   ]);
 
@@ -290,6 +304,23 @@ export default function ResultEntryPage({
               readOnly={readOnly}
               onSave={async (lastFinisherTime) => {
                 await saveRace.mutateAsync({ ...race, lastFinisherTime });
+              }}
+            />
+          ) : undefined
+        }
+        scoringOptions={
+          has('race-scoring-options') ? (
+            <RaceScoringOptions
+              race={race}
+              readOnly={readOnly}
+              open={scoringOptionsOpen}
+              onOpenChange={setScoringOptionsOpen}
+              onSave={async ({ discardPolicy, pointsMultiplier }) => {
+                await saveRace.mutateAsync({
+                  ...race,
+                  discardPolicy: discardPolicy === 'normal' ? undefined : discardPolicy,
+                  pointsMultiplier: pointsMultiplier === 1 ? undefined : pointsMultiplier,
+                });
               }}
             />
           ) : undefined

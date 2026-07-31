@@ -246,6 +246,17 @@ export const FEATURES = {
     selfService: false,
     demoSample: 'championship.sailscoring',
   },
+  'race-scoring-options': {
+    // Per-race weighting and discard flags (#342): the scoring-options dialog
+    // on a race, its badges in the races list, and the marks and legend the
+    // standings carry as a result. Off by default and self-service — it
+    // changes scoring output, so the authoring surface stays contained until
+    // it has been run against a real NoR, but any scorer holding one can turn
+    // it on. The series file and public export carry the fields regardless of
+    // the gate, so a series authored with them scores the same everywhere.
+    label: 'Per-race scoring options',
+    helpSectionIds: ['race-scoring-options'],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

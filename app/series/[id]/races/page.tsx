@@ -51,6 +51,9 @@ import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { generateStarts } from '@/lib/start-sequence';
 import { generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
+import { RaceScoringOptionsDialog } from '@/components/race-scoring-options-dialog';
+import { hasScoringOptions, scoringOptionsSummary } from '@/lib/race-scoring-options';
+import { Badge } from '@/components/ui/badge';
 
 function RaceRow({
   race,
@@ -74,6 +77,10 @@ function RaceRow({
   const readOnly = useSeriesReadOnly() || !can('score');
   const { data: finishes } = useFinishesByRace(race.id);
   const deleteRace = useDeleteRace();
+  const saveRace = useSaveRace();
+  const { has } = useFeatures();
+  const scoringOptionsGated = has('race-scoring-options');
+  const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
 
   async function handleDelete() {
@@ -126,28 +133,42 @@ function RaceRow({
               {finisherCount} {finisherCount === 1 ? 'finisher' : 'finishers'}
             </span>
           )}
+          {scoringOptionsGated && hasScoringOptions(race) && (
+            <Badge variant="outline" className="ml-2 font-normal" data-testid="race-scoring-badge">
+              {scoringOptionsSummary(race)}
+            </Badge>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {!readOnly && onInsert && (
+        {!readOnly && (onInsert || scoringOptionsGated) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={`Insert a race near Race ${race.raceNumber}`}
+                aria-label={`Actions for Race ${race.raceNumber}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <ChevronsUpDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuItem onClick={() => onInsert('above')}>
-                Insert race above
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onInsert('below')}>
-                Insert race below
-              </DropdownMenuItem>
+              {onInsert && (
+                <>
+                  <DropdownMenuItem onClick={() => onInsert('above')}>
+                    Insert race above
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onInsert('below')}>
+                    Insert race below
+                  </DropdownMenuItem>
+                </>
+              )}
+              {scoringOptionsGated && (
+                <DropdownMenuItem onClick={() => setScoringOptionsOpen(true)}>
+                  Scoring options…
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -161,6 +182,22 @@ function RaceRow({
             <Trash2 className="h-4 w-4" />
           </Button>
         )}
+      </div>
+      {/* Stop the row's own click handler from navigating away underneath the
+          open dialog. */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <RaceScoringOptionsDialog
+          race={race}
+          open={scoringOptionsOpen}
+          onOpenChange={setScoringOptionsOpen}
+          onSave={async ({ discardPolicy, pointsMultiplier }) => {
+            await saveRace.mutateAsync({
+              ...race,
+              discardPolicy: discardPolicy === 'normal' ? undefined : discardPolicy,
+              pointsMultiplier: pointsMultiplier === 1 ? undefined : pointsMultiplier,
+            });
+          }}
+        />
       </div>
     </div>
   );

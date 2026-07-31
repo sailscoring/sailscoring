@@ -31,7 +31,7 @@ test('insert a race mid-series renumbers the tail', async ({ page }) => {
   await expect(rows).toHaveCount(2);
 
   // Insert a race below Alpha → it becomes Race 2, Bravo slides to Race 3.
-  await rows.filter({ hasText: 'Alpha' }).getByLabel(/^Insert a race near/).click();
+  await rows.filter({ hasText: 'Alpha' }).getByLabel(/^Actions for Race/).click();
   await page.getByRole('menuitem', { name: 'Insert race below' }).click();
 
   await expect(rows).toHaveCount(3);
