@@ -31,7 +31,14 @@ export default defineConfig({
   // `list` for humans; `json` so the triage step can read per-test flaky status
   // (test-results/ is gitignored). A raw trace file appears on any retried
   // attempt — flaky *and* hard-failed — so the JSON status is the real signal.
-  reporter: [['list'], ['json', { outputFile: 'test-results/report.json' }]],
+  // `clock-watch-reporter` records any window where the machine stopped (a
+  // laptop suspend), so the triage can tell a load-sensitive test from one that
+  // merely slept through its own timeout.
+  reporter: [
+    ['list'],
+    ['json', { outputFile: 'test-results/report.json' }],
+    ['./e2e/clock-watch-reporter.ts', { outputFile: 'test-results/clock-gaps.json' }],
+  ],
   // The whole suite runs 4 workers against one `next start` + Postgres on one
   // machine, so a single save→refetch→render round-trip can exceed the 5s
   // default under load. 15s only slows assertions that were going to fail;

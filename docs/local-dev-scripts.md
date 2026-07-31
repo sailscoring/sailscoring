@@ -21,7 +21,7 @@ from?", start here.
 | `pnpm test:e2e`          | Playwright, full-stack build (`retries: 2`, so flaky-but-passed exits 0) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:triage`   | `test:e2e` then file each flaky test as a `flake` GitHub issue (pre-push run) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:stress`   | `test:e2e` with CPU burners on half the cores (flake stress test; no triage — read results as an aggregate signal) | Yes — run `pnpm db:up` first   |
-| `pnpm flake:triage`      | Triage the last run's `test-results/report.json` into `flake` issues; `--dry-run` to preview | No (needs `gh` auth) |
+| `pnpm flake:triage`      | Triage the last run's `test-results/report.json` into `flake` issues; `--dry-run` to preview, `--ignore-suspend` to file suspend-spanning ones anyway | No (needs `gh` auth) |
 | `pnpm db:up`             | Bring up the local Postgres container, idempotent    | (it *is* the DB)|
 | `pnpm db:migrate`        | Apply Drizzle migrations (uses `.env.local`)         | Yes             |
 | `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes — run `pnpm db:up` first   |
@@ -67,6 +67,8 @@ on a runner that doesn't have it.)
 | `scripts/change-email.ts`         | Admin CLI behind `pnpm change-email` — reassign a user's login email                     |
 | `scripts/delete-account.ts`       | Admin CLI behind `pnpm delete-account` — delete a user and their sole-member workspaces   |
 | `scripts/user-stats.ts`           | Admin CLI behind `pnpm user-stats` — per-user activity and workspace stats               |
+| `scripts/e2e-with-triage.sh`      | Behind `pnpm test:e2e:triage` — run the suite, then triage; exits with the suite's status |
+| `scripts/flake-triage.ts`         | Behind `pnpm flake:triage` — file/update `flake` issues from the last run's report, skipping failures that a laptop suspend caused (see below) |
 | `scripts/render-scoring-fixtures.ts` | Render YAML scoring fixtures to HTML for human review                                  |
 | `scripts/sync-national-letters.ts` | Refresh `lib/nationality/generated/` from the pinned upstream dataset                   |
 
@@ -141,6 +143,31 @@ pnpm test:e2e
               ├─ pnpm build
               └─ pnpm start
 ```
+
+### `pnpm test:e2e:triage` and the suspend guard
+
+```
+pnpm test:e2e:triage
+  └─ scripts/e2e-with-triage.sh
+      ├─ pnpm test:e2e            ← reporters write test-results/
+      │   ├─ json          → report.json     (per-test flaky status + attempt times)
+      │   └─ clock-watch   → clock-gaps.json (windows where the machine stopped)
+      └─ pnpm flake:triage        ← files `flake` issues, minus the suspend-spanning ones
+```
+
+Suspending the laptop mid-suite fails whatever was in flight across all four
+workers: the keep-alive sockets between the browser, the server and Postgres are
+dead on resume, and the first requests through them hang until a timeout fires.
+Those tests then pass on retry, so the report calls them `flaky` — which reads
+as a load-sensitive test and invites the wrong fix, `test.slow()` on a healthy
+test. `e2e/clock-watch-reporter.ts` catches this by sampling the wall clock
+against the monotonic clock every two seconds: the wall clock advances across a
+suspend, the monotonic one does not, so their divergence *is* the suspend.
+`flake-triage` then reports rather than files any flaky test whose failed
+attempt overlapped a gap (plus two minutes of socket recovery), and annotates
+any hard failure that did. Re-run the suite for honest data; pass
+`--ignore-suspend` to file them regardless. With no gaps file, an unreadable
+one, or one from a different run, nothing is suppressed.
 
 ## Working in a second git worktree
 

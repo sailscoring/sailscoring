@@ -73,6 +73,8 @@ The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
 The e2e suite runs with `retries: 2` (locally too — see `playwright.config.ts`), so a test that fails then passes on a retry is reported **flaky** and the run still exits 0. **A flaky-but-passed run is good enough to push.** For the pre-push run, use **`pnpm test:e2e:triage`** instead of `pnpm test:e2e`: it runs the suite, then files each flaky test as a `flake`-labelled GitHub issue (dedup'd; recurrences get a dated comment) so the flake is tracked rather than silently absorbed by the retry. A **hard failure** (fails all attempts) still exits non-zero and blocks the push.
 
+If the triage reports that **the machine stopped during the run** (a laptop suspend, detected by `e2e/clock-watch-reporter.ts`), that run's timing data is worthless: suspend kills the browser↔server and server↔Postgres keep-alive sockets, so whatever was in flight across the workers fails on hung I/O and passes on retry. Those flakes are suppressed rather than filed, and any hard failure spanning the gap is annotated as suspect. Re-run the suite before believing either — and never "fix" such a test with `test.slow()`.
+
 If a test or lint check hard-fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit. A *new* flake your change introduced counts as a failure to fix, not to file.
 If a check was already failing before your change, note it explicitly and confirm with the user before pushing.
 

@@ -17,9 +17,17 @@
  * capped to one per day. Closed issue → reopened + a "recurred" comment.
  * Otherwise → created. Idempotent, so re-running against the same report is safe.
  *
+ * Suspend suppression: a laptop suspend mid-run fails whatever was in flight
+ * across all workers with hung I/O, which the report records as `flaky` — real
+ * enough looking that the fix it invites (marking a healthy test `test.slow()`)
+ * is the wrong one. e2e/clock-watch-reporter.ts writes the windows where the
+ * machine stopped; any flaky test whose failed attempt overlaps one is reported
+ * and NOT filed. `--ignore-suspend` files them anyway.
+ *
  * Usage:
- *   pnpm flake:triage              # file/update issues from the last run
- *   pnpm flake:triage --dry-run    # print what it would do, touch nothing
+ *   pnpm flake:triage                   # file/update issues from the last run
+ *   pnpm flake:triage --dry-run         # print what it would do, touch nothing
+ *   pnpm flake:triage --ignore-suspend  # file even suspend-spanning flakes
  *
  * Needs the `gh` CLI authenticated. Reads no database.
  */
@@ -29,9 +37,23 @@ import { existsSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 
 const REPORT_PATH = resolve(process.cwd(), 'test-results/report.json');
+const CLOCK_GAPS_PATH = resolve(process.cwd(), 'test-results/clock-gaps.json');
 const LABEL = 'flake';
 const DRY_RUN = process.argv.includes('--dry-run');
+const IGNORE_SUSPEND = process.argv.includes('--ignore-suspend');
 const TODAY = new Date().toISOString().slice(0, 10);
+
+/**
+ * How long after a resume to keep treating failures as environmental. The
+ * suspend itself is over, but the sockets it killed are not: the browser's
+ * keep-alive connections and the server's Postgres pool only discover they're
+ * dead on the next request, which then hangs until a timeout fires. Two minutes
+ * covers that recovery without swallowing an unrelated flake later in the run.
+ */
+const RESUME_GRACE_MS = 120_000;
+
+/** Two runs' artifacts must line up this closely to be from the same run. */
+const SAME_RUN_SLACK_MS = 120_000;
 
 // ── Playwright JSON report (the slice we read) ────────────────────────────────
 interface PwError {
@@ -40,6 +62,8 @@ interface PwError {
 interface PwResult {
   status: string; // 'passed' | 'failed' | 'timedOut' | 'interrupted' | 'skipped'
   retry: number;
+  startTime?: string; // ISO
+  duration?: number; // ms
   error?: PwError;
   errors?: PwError[];
 }
@@ -61,7 +85,14 @@ interface PwSuite {
 }
 interface PwReport {
   config?: { rootDir?: string };
+  stats?: { startTime?: string };
   suites?: PwSuite[];
+}
+
+/** The wall-clock window an attempt occupied, when the report recorded one. */
+export interface Attempt {
+  from?: number;
+  to?: number;
 }
 
 interface FlakyTest {
@@ -70,15 +101,27 @@ interface FlakyTest {
   specTitle: string; // the leaf test title, for the -g repro
   fullTitle: string; // describe › … › test, for the issue title
   errorExcerpt: string;
+  attempt: Attempt; // the FAILED attempt's window, for suspend correlation
+}
+
+interface HardFailure {
+  label: string;
+  attempt: Attempt;
 }
 
 const ANSI = /\x1b\[[0-9;]*m/g;
 const strip = (s: string): string => s.replace(ANSI, '');
 
+function attemptWindow(result: PwResult | undefined): Attempt {
+  const from = result?.startTime ? Date.parse(result.startTime) : NaN;
+  if (!Number.isFinite(from)) return {};
+  return { from, to: from + (result?.duration ?? 0) };
+}
+
 /** Walk the suite tree, collecting flaky and hard-failed leaf tests. */
-function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: string[] } {
+function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: HardFailure[] } {
   const flaky: FlakyTest[] = [];
-  const hardFailed: string[] = [];
+  const hardFailed: HardFailure[] = [];
 
   // `spec.file` is relative to the report's rootDir (the e2e/ dir), so resolve
   // against it, then relativise to cwd — yields `e2e/foo.spec.ts`, the path a
@@ -99,9 +142,13 @@ function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: string[] }
             specTitle: spec.title,
             fullTitle,
             errorExcerpt: strip(raw).trim().slice(0, 800),
+            attempt: attemptWindow(failed),
           });
         } else if (test.status === 'unexpected') {
-          hardFailed.push(`${relFile(spec.file || file)} › ${fullTitle}`);
+          hardFailed.push({
+            label: `${relFile(spec.file || file)} › ${fullTitle}`,
+            attempt: attemptWindow(test.results.find((r) => r.status !== 'passed')),
+          });
         }
       }
     }
@@ -115,6 +162,86 @@ function collect(report: PwReport): { flaky: FlakyTest[]; hardFailed: string[] }
 
   for (const top of report.suites ?? []) walk(top, top.file ?? '', []);
   return { flaky, hardFailed };
+}
+
+// ── suspend windows (from e2e/clock-watch-reporter.ts) ───────────────────────
+export interface SuspendWindow {
+  /** Start of the untrustworthy stretch — the last sample before the machine stopped. */
+  from: number;
+  /** End of it — the resume, plus the grace period the dead sockets need. */
+  to: number;
+  sleptSeconds: number;
+  suspectFrom: string;
+  resumedAt: string;
+}
+
+interface ClockGapsFile {
+  runStartedAt?: string;
+  gaps?: { suspectFrom: string; resumedAt: string; sleptSeconds: number }[];
+}
+
+/**
+ * Read the gaps the clock-watch reporter recorded for THIS run.
+ *
+ * The file is rewritten at the start of every run, so a mismatch against the
+ * report's own start time means one of the two artifacts is stale — a partial
+ * run, a hand-edited report, an older checkout without the reporter wired in.
+ * In that case return nothing rather than suppress against the wrong timeline.
+ */
+export function readSuspendWindows(
+  gapsPath: string,
+  reportStartTime: string | undefined,
+  read: (p: string) => string | undefined = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : undefined),
+): SuspendWindow[] {
+  const raw = read(gapsPath);
+  if (!raw) return [];
+
+  let parsed: ClockGapsFile;
+  try {
+    parsed = JSON.parse(raw) as ClockGapsFile;
+  } catch {
+    console.warn(`Ignoring unreadable ${gapsPath}.`);
+    return [];
+  }
+
+  const runStart = Date.parse(parsed.runStartedAt ?? '');
+  const reportStart = Date.parse(reportStartTime ?? '');
+  if (Number.isFinite(runStart) && Number.isFinite(reportStart) && Math.abs(runStart - reportStart) > SAME_RUN_SLACK_MS) {
+    console.warn(`Ignoring ${gapsPath}: it is from a different run than the report.`);
+    return [];
+  }
+
+  const windows: SuspendWindow[] = [];
+  for (const gap of parsed.gaps ?? []) {
+    const from = Date.parse(gap.suspectFrom);
+    const resumed = Date.parse(gap.resumedAt);
+    if (!Number.isFinite(from) || !Number.isFinite(resumed)) continue;
+    windows.push({
+      from,
+      to: resumed + RESUME_GRACE_MS,
+      sleptSeconds: gap.sleptSeconds,
+      suspectFrom: gap.suspectFrom,
+      resumedAt: gap.resumedAt,
+    });
+  }
+  return windows;
+}
+
+/**
+ * Did this attempt run through a stretch where the machine wasn't running?
+ *
+ * An attempt with no recorded window is treated as honest: better to file a
+ * suspend-caused flake than to silently drop a real one.
+ */
+export function spansSuspend(attempt: Attempt, windows: SuspendWindow[]): boolean {
+  if (attempt.from === undefined || attempt.to === undefined) return false;
+  return windows.some((w) => attempt.from! < w.to && attempt.to! > w.from);
+}
+
+function describeSuspend(windows: SuspendWindow[]): string {
+  return windows
+    .map((w) => `${w.suspectFrom} → ${w.resumedAt} (${Math.round(w.sleptSeconds / 60)} min)`)
+    .join(', ');
 }
 
 // ── gh helpers ────────────────────────────────────────────────────────────────
@@ -195,18 +322,41 @@ function main(): number {
 
   const report: PwReport = JSON.parse(readFileSync(REPORT_PATH, 'utf8'));
   const { flaky, hardFailed } = collect(report);
+  const suspends = readSuspendWindows(CLOCK_GAPS_PATH, report.stats?.startTime);
+
+  if (suspends.length > 0) {
+    console.log(
+      `\n⚠  The machine stopped during this run — ${describeSuspend(suspends)}.\n` +
+        `   Suspend kills the keep-alive sockets between the browser, the server and Postgres,\n` +
+        `   so whatever was in flight across all workers fails on hung I/O and passes on retry.\n` +
+        `   That is environmental, not a load-sensitive test. Re-run the suite for honest data.`,
+    );
+  }
 
   if (hardFailed.length > 0) {
     console.log(`\n${hardFailed.length} hard failure(s) — NOT filed (fix these; they block the push):`);
-    for (const t of hardFailed) console.log(`  ✗ ${t}`);
+    for (const t of hardFailed) {
+      const suspect = spansSuspend(t.attempt, suspends) ? '  ← ran through the suspend; re-run before believing it' : '';
+      console.log(`  ✗ ${t.label}${suspect}`);
+    }
   }
 
-  if (flaky.length === 0) {
-    console.log(hardFailed.length ? '\nNo flaky tests to triage.' : '\nNo flaky tests — clean run.');
+  const slept = IGNORE_SUSPEND ? [] : flaky.filter((f) => spansSuspend(f.attempt, suspends));
+  const toFile = flaky.filter((f) => !slept.includes(f));
+
+  if (slept.length > 0) {
+    console.log(`\n${slept.length} flaky test(s) suppressed — they ran through the suspend, so NOT filed:`);
+    for (const f of slept) console.log(`  · ${f.file} › ${f.fullTitle}`);
+    console.log(`  Pass --ignore-suspend to file them anyway.`);
+  }
+
+  if (toFile.length === 0) {
+    if (slept.length > 0) console.log('\nNothing left to triage once the suspend-spanning failures are set aside.');
+    else console.log(hardFailed.length ? '\nNo flaky tests to triage.' : '\nNo flaky tests — clean run.');
     return 0;
   }
 
-  console.log(`\n${flaky.length} flaky test(s) to triage${DRY_RUN ? ' (dry-run)' : ''}:`);
+  console.log(`\n${toFile.length} flaky test(s) to triage${DRY_RUN ? ' (dry-run)' : ''}:`);
   ensureLabel();
   const existing = DRY_RUN && !hasGh() ? new Map<string, IssueRow>() : listFlakeIssues();
 
@@ -215,7 +365,7 @@ function main(): number {
   let reopened = 0;
   let skipped = 0;
 
-  for (const f of flaky) {
+  for (const f of toFile) {
     const title = `Flake: ${f.file} › ${f.fullTitle}`;
     const found = existing.get(title);
 
