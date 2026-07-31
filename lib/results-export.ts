@@ -171,6 +171,7 @@ export async function buildFleetHtmlFiles(
     allRatingOverrides,
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
+    series.proportionalDiscard,
   );
 
   const isSingleDefault = fleets.length <= 1;
@@ -524,6 +525,8 @@ export async function buildFleetHtmlFiles(
       series.dnfScoring ?? 'seriesEntries',
       allRaceStarts,
       allRatingOverrides,
+      undefined,
+      series.proportionalDiscard,
     );
     for (const block of blockResults) {
       if (block.races.length === 0) continue;

@@ -104,6 +104,7 @@ export default function StandingsPage({
   }
 
   const discardThresholds: DiscardThreshold[] = series.discardThresholds ?? [];
+  const proportionalDiscard = series.proportionalDiscard;
   const enabledFields = data.enabledFields;
   const axes = subdivisionAxes(series);
   const isSingleFleet = fleets.length <= 1;
@@ -130,6 +131,9 @@ export default function StandingsPage({
       discardThresholds,
       series.dnfScoring ?? 'seriesEntries',
       allRaceStarts,
+      undefined,
+      undefined,
+      proportionalDiscard,
     );
     const nonEmpty = blockResults.filter((b) => b.races.length > 0);
     blockTabs = nonEmpty.map((b) => ({ id: b.subSeries.id, name: b.subSeries.name }));
@@ -164,7 +168,7 @@ export default function StandingsPage({
     }));
     fleetResults = selected.fleetStandings;
     circularRedressRaces = selected.circularRedressRaces;
-    const blockDiscards = getDiscardCount(selected.races.length, discardThresholds);
+    const blockDiscards = getDiscardCount(selected.races.length, discardThresholds, proportionalDiscard);
     const entrantCount = subSeriesEntrantIds(selected.races, allFinishes).size;
     // A fleet-scoped block scores fewer fleets than the series; reflect the
     // block's own count, not the series-wide one.
@@ -188,11 +192,12 @@ export default function StandingsPage({
       undefined,
       undefined,
       buildRaceFleetExclusionMap(series.raceFleetExclusions),
+      proportionalDiscard,
     );
     raceLabels = races;
     fleetResults = whole.fleetStandings;
     circularRedressRaces = whole.circularRedressRaces;
-    const discardCount = getDiscardCount(races.length, discardThresholds);
+    const discardCount = getDiscardCount(races.length, discardThresholds, proportionalDiscard);
     summary =
       `${races.length} race${races.length === 1 ? '' : 's'}${fleetCountLabel} · Low Point · ` +
       (discardCount > 0

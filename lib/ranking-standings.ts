@@ -202,6 +202,7 @@ export async function computeRankingStandings(
       snap.ratingOverrides,
       undefined,
       buildRaceFleetExclusionMap(snap.series.raceFleetExclusions),
+      snap.series.proportionalDiscard,
     );
     for (const fs of fleetStandings) {
       if (!matchesFleetFilter(fs.fleet.name, config.fleet)) continue;

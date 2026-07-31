@@ -127,6 +127,7 @@ export default function PrizesPage({
     undefined,
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
+    series.proportionalDiscard,
   );
   const allocations = allocatePrizes(localPrizes, fleetStandings, axes);
   const multiFleet = fleets.length > 1;

@@ -488,6 +488,7 @@ export function buildPublicExportFromSnapshot(
       allRatingOverrides,
       undefined,
       buildRaceFleetExclusionMap(series.raceFleetExclusions),
+      series.proportionalDiscard,
     ).fleetStandings;
 
   // Build fleet name lookup

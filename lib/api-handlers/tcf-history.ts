@@ -51,6 +51,8 @@ export async function listTcfHistory(
       dnfScoring,
       raceStarts,
       ratingOverrides,
+      undefined,
+      series.proportionalDiscard,
     );
     return blocks.flatMap((b) => b.fleetStandings.flatMap((fr) => fr.tcfHistory ?? []));
   }
@@ -66,6 +68,7 @@ export async function listTcfHistory(
     ratingOverrides,
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
+    series.proportionalDiscard,
   );
   return fleetStandings.flatMap((fr) => fr.tcfHistory ?? []);
 }

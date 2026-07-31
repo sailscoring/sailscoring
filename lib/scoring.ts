@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
 import { getCodeDefinition } from './scoring-codes';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
@@ -924,16 +924,29 @@ function penaltyPoints(
 /**
  * Get the number of discards to apply for a given race count.
  *
- * Thresholds are checked from highest minRaces to lowest; the first matching
- * threshold's discardCount is returned. Returns 0 if no threshold matches.
+ * A proportional rule, when the series has one, replaces the thresholds
+ * outright: the allowance is `1 + floor((sailed - firstAt) / everyRaces)` once
+ * `firstAt` races have been sailed, and nothing before that. Rounding is down,
+ * matching both the sailing instructions that word it this way and Sailwave's
+ * expression profiles.
+ *
+ * Otherwise thresholds are checked from highest minRaces to lowest; the first
+ * matching threshold's discardCount is returned. Returns 0 if neither applies.
  *
  * @param raceCount  Number of races sailed
  * @param thresholds  Discard thresholds configured for the series
+ * @param proportional  A proportional allowance, which supersedes `thresholds`
  */
 export function getDiscardCount(
   raceCount: number,
   thresholds: DiscardThreshold[],
+  proportional?: ProportionalDiscard,
 ): number {
+  if (proportional) {
+    const { firstAt, everyRaces } = proportional;
+    if (everyRaces < 1 || raceCount < firstAt) return 0;
+    return 1 + Math.floor((raceCount - firstAt) / everyRaces);
+  }
   const sorted = [...thresholds].sort((a, b) => b.minRaces - a.minRaces);
   for (const t of sorted) {
     if (raceCount >= t.minRaces) return t.discardCount;
@@ -1041,9 +1054,10 @@ function computeRaceExclusion(
 function computeDiscardCounts(
   raceExcluded: boolean[],
   discardThresholds: DiscardThreshold[],
+  proportionalDiscard?: ProportionalDiscard,
 ): { discardCount: number; redressDiscardAllowance: number } {
   const sailedRaceCount = raceExcluded.filter((x) => !x).length;
-  const redressDiscardAllowance = getDiscardCount(sailedRaceCount, discardThresholds);
+  const redressDiscardAllowance = getDiscardCount(sailedRaceCount, discardThresholds, proportionalDiscard);
   return {
     discardCount: Math.min(redressDiscardAllowance, sailedRaceCount),
     redressDiscardAllowance,
@@ -1236,6 +1250,7 @@ function sortAndRank(standings: Standing[]): void {
  * @param races  All races in the series, sorted by raceNumber ascending
  * @param allFinishes  All finishes in the series
  * @param discardThresholds  Discard rules for this series (default: none)
+ * @param proportionalDiscard  A proportional allowance, superseding the thresholds
  * @returns  Standings array sorted by rank
  */
 export function calculateStandings(
@@ -1246,6 +1261,7 @@ export function calculateStandings(
   dnfScoring: DnfScoring = 'seriesEntries',
   fleetId?: string,
   excludedRaceIds?: Set<string>,
+  proportionalDiscard?: ProportionalDiscard,
 ): { standings: Standing[]; circularRedressRaces: number[] } {
   const competitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1283,6 +1299,7 @@ export function calculateStandings(
   const { discardCount, redressDiscardAllowance } = computeDiscardCounts(
     raceExcluded,
     discardThresholds,
+    proportionalDiscard,
   );
 
   const circularRedressRaces = collectAndResolveRdg({
@@ -1330,6 +1347,7 @@ function calculateHandicapStandings(
   ratingOverrides: RaceRatingOverride[] = [],
   startingTcfOverrides?: Map<string, number>,
   excludedRaceIds?: Set<string>,
+  proportionalDiscard?: ProportionalDiscard,
 ): {
   standings: Standing[];
   rejections: ScoringRejection[];
@@ -1553,6 +1571,7 @@ function calculateHandicapStandings(
   const { discardCount, redressDiscardAllowance } = computeDiscardCounts(
     raceExcluded,
     discardThresholds,
+    proportionalDiscard,
   );
 
   // Resolve RDG against the per-race points computed above, then they
@@ -1702,6 +1721,7 @@ export function calculateFleetStandings(
   ratingOverrides: RaceRatingOverride[] = [],
   progressiveSeedTcfs?: Map<string, Map<string, number>>,
   excludedRaceIdsByFleet?: Map<string, Set<string>>,
+  proportionalDiscard?: ProportionalDiscard,
 ): FleetStandingsResult {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const knownFleetIds = new Set(fleets.map((f) => f.id));
@@ -1743,6 +1763,7 @@ export function calculateFleetStandings(
         ratingOverrides,
         progressiveSeedTcfs?.get(fleet.id),
         excluded,
+        proportionalDiscard,
       );
       allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
@@ -1755,6 +1776,7 @@ export function calculateFleetStandings(
       dnfScoring,
       fleet.id,
       excluded,
+      proportionalDiscard,
     );
     allCircular.push(...circularRedressRaces);
     return { fleet, standings, rejections: detectPerFleetGaps(fleet, fleetCompetitors, allFinishes) };
@@ -1762,7 +1784,9 @@ export function calculateFleetStandings(
 
   if (orphans.length > 0) {
     const unknownFleet: Fleet = { id: '__unknown__', seriesId: '', name: 'Unknown', displayOrder: 9999, scoringSystem: 'scratch' };
-    const { standings, circularRedressRaces } = calculateStandings(orphans, races, allFinishes, discardThresholds, dnfScoring);
+    const { standings, circularRedressRaces } = calculateStandings(
+      orphans, races, allFinishes, discardThresholds, dnfScoring, undefined, undefined, proportionalDiscard,
+    );
     allCircular.push(...circularRedressRaces);
     fleetStandings.push({ fleet: unknownFleet, standings, rejections: [] });
   }
@@ -1881,6 +1905,7 @@ export function calculateSubSeriesFleetStandings(
   raceStarts: RaceStart[] = [],
   ratingOverrides: RaceRatingOverride[] = [],
   excludeDncOnlyCompetitors = false,
+  proportionalDiscard?: ProportionalDiscard,
 ): SubSeriesStandings[] {
   const racesById = new Map(races.map((r) => [r.id, r]));
   const memberRaces = (ss: SubSeries): Race[] =>
@@ -1940,6 +1965,7 @@ export function calculateSubSeriesFleetStandings(
       ratingOverrides,
       seedTcfs,
       excludedByFleet,
+      proportionalDiscard,
     );
 
     const endByFleet = new Map<string, Map<string, number>>();

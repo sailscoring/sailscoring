@@ -489,6 +489,7 @@ export async function buildSeriesFile(
     allRatingOverrides,
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
+    series.proportionalDiscard,
   );
   const allTcfHistory: TcfRecord[] = fleetStandings.flatMap(
     (fr) => fr.tcfHistory ?? [],
