@@ -899,6 +899,10 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
     title: 'NHC progressive handicap',
     intro: 'Progressive handicap (NHC1): each boat’s TCF is updated after every race\n  based on its finish, so fast boats acquire higher TCFs and slow boats lower\n  ones. Race N+1 uses race N’s updated TCF. The blend factor α controls how\n  quickly the TCF responds to each race’s result.',
   },
+  'race-options': {
+    title: 'Per-race scoring options',
+    intro: 'How much a particular race counts, as a NoR or SI may specify it: a race\n  marked "must count" is never discarded, a race marked "discard first" is\n  taken before any other when discards are selected, and a weighting makes a\n  race count for more or less than one (×2 for a trophy race, ×0.5 for a\n  lesser one). Weighting a race up does not protect it from discard — an SI\n  that wants both says both — and the weighted score is the one discard\n  selection and the RRS A8.1 tie-break compare.',
+  },
   'sub-series': {
     title: 'Sub-series',
     intro: 'Named blocks of races inside one series, each scored independently — its\n  own standings, discards (the series discard rule applied to the block’s race\n  count), and entrants (a boat with no result other than DNC across a block\n  isn’t an entrant in it). Progressive handicaps chain across block boundaries\n  unchanged.',

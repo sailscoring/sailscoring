@@ -1,9 +1,10 @@
 /**
- * Declarative scoring-fixture tests for scratch / fleets / codes / sub-series
- * fixtures.
+ * Declarative scoring-fixture tests for scratch / fleets / codes /
+ * race-options / sub-series fixtures.
  *
- * Each YAML in the scratch/, fleets/, codes/, and sub-series/ subdirectories
- * describes a complete scoring scenario: series config, competitors, races,
+ * Each YAML in the scratch/, fleets/, codes/, race-options/ and sub-series/
+ * subdirectories describes a complete scoring scenario: series config,
+ * competitors, races,
  * finishes, and expected standings. This runner drives them through
  * calculateFleetStandings (whole-series `expected.standings`) and
  * calculateSubSeriesFleetStandings (per-block `expected.subSeries`).
@@ -18,7 +19,7 @@ import { buildFixtureInputs, loadFixturesFromDir, type FixtureStanding } from '.
 import type { Standing } from '@/lib/types';
 
 const fixtureDir = join(__dirname, 'fixtures/scoring');
-const SUBDIRS = ['scratch', 'fleets', 'codes', 'sub-series'];
+const SUBDIRS = ['scratch', 'fleets', 'codes', 'race-options', 'sub-series'];
 
 function assertExpectedStandings(
   expectedStandings: FixtureStanding[],

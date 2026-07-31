@@ -1,0 +1,112 @@
+description: "Per-race options — a race weighted ×2 is not protected by the weighting, and discards on its weighted score"
+notes: |
+  Weighting a race up does not on its own make it non-discardable. An SI that
+  wants both says both, and so does the scorer — the app does not infer one
+  from the other. What follows from the weighting alone is which score is a
+  boat's worst: selection compares the score that actually counts.
+
+  Race 3 counts double. Alice's heaviest raw score is her 4th in race 2, but
+  her 3rd in race 3 counts 6, so that is what she discards. Bob, David and
+  Carol each drop the score that is worst once the weighting is applied.
+
+series:
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "404"
+        position: 3
+      - sailor: "101"
+        position: 4
+
+  # The trophy race — every score in it counts double.
+  - number: 3
+    pointsMultiplier: 2
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "404"
+        position: 2
+      - sailor: "101"
+        position: 3
+      - sailor: "202"
+        position: 4
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Race 3 positions, doubled: 1st→2, 2nd→4, 3rd→6, 4th→8.
+#   Alice: 1, 4, 6, 1 — total=12. Worst is the doubled 6, not the raw 4. net=6.
+#   Bob:   2, 1, 8, 2 — total=13. Drops the doubled 8. net=5.
+#   Carol: 3, 2, 2, 3 — total=10. Won race 3, so the double is her best score;
+#          drops the earliest 3 instead. net=7.
+#   David: 4, 3, 4, 4 — total=15. Three 4s; drops the earliest (race 1). net=11.
+expected:
+  standings:
+    - rank: 1
+      sailor: "202"
+      racePoints: [2, 1, 8, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, true, false]
+      totalPoints: 13
+      netPoints: 5
+
+    - rank: 2
+      sailor: "101"
+      racePoints: [1, 4, 6, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, false, true, false]
+      totalPoints: 12
+      netPoints: 6
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 2, 2, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 10
+      netPoints: 7
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 3, 4, 4]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 15
+      netPoints: 11

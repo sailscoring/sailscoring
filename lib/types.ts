@@ -446,9 +446,33 @@ export interface Race {
   // times: when any finish has a `finishTime` the sheet is authoritative and
   // this field is ignored (see effectiveLastFinisherTime in lib/race-status.ts).
   lastFinisherTime?: string;
+  // How this race behaves when the series allows discards. Absent means
+  // 'normal'. A single field rather than two flags because "must count" and
+  // "discard first" are contradictory — one field makes that unrepresentable.
+  // Distinct from StandingsRow.raceNonDiscardable, which is the *code*-level
+  // protection (a DNE cannot be excluded whatever race it was scored in).
+  discardPolicy?: RaceDiscardPolicy;
+  // Points multiplier for this race — a NoR making one race count for more
+  // than the others ("2" doubles it: 1st scores 2, 2nd 4). Absent means 1.
+  // Applied to the final race score, penalties and redress included, and the
+  // weighted score is what discard selection and the A8 tie-break compare.
+  // Weighting a race up does not on its own protect it from discard; an SI
+  // that wants both states both, and so does the scorer.
+  pointsMultiplier?: number;
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
 }
+
+/**
+ * Per-race discard behaviour.
+ * - `normal` — discarded if it is a competitor's worst (the default).
+ * - `mustCount` — never discarded, even when it is the worst. A series NoR
+ *   designating its centrepiece race this way is common.
+ * - `discardFirst` — taken before any other race when discards are selected,
+ *   whatever the points. Reorders the selection; it does not guarantee the
+ *   race is dropped, since the series allowance may not reach it.
+ */
+export type RaceDiscardPolicy = 'normal' | 'mustCount' | 'discardFirst';
 
 export type ResultCode =
   // Position-replacing codes (replace finish; boat receives penalty score)
@@ -816,7 +840,7 @@ export interface LogoDefaults {
 export interface Standing {
   rank: number;
   competitor: Competitor;
-  racePoints: number[];                  // points per race, in race order
+  racePoints: number[];                  // points per race, in race order, after any Race.pointsMultiplier — the scores that sum to totalPoints
   raceRanks: (number | null)[];          // within-fleet finish rank per race (1/2/3… for clean finishers); null for coded/penalty/redress/excluded/not-yet-sailed
   raceCodes: (ResultCode | null)[];      // result code per race (null = normal finish)
   racePenaltyCodes: (PenaltyCode | null)[];        // additive penalty per race (null = no penalty)

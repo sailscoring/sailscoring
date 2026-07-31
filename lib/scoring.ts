@@ -1122,15 +1122,31 @@ function collectAndResolveRdg(args: {
  * from the code definitions, worst-N discard selection, net points.
  * `competitors` is the list that appears in the standings — for handicap
  * fleets that's the rated competitors only.
+ *
+ * `races` is the same array the per-competitor accumulators were filled from,
+ * index for index; it supplies the per-race scoring options (weighting and
+ * discard policy). Weighting is applied here rather than in the race loop so
+ * that `per.racePoints` is still unweighted while RDG averages are resolved —
+ * a boat's A9 average must not inherit the weighting of *other* races.
  */
 function assembleStandings(
   competitors: Competitor[],
+  races: Race[],
   per: PerCompetitorSeries,
   raceExcluded: boolean[],
   discardCount: number,
 ): Standing[] {
   return competitors.map((competitor) => {
-    const racePoints = per.racePoints.get(competitor.id)!;
+    const rawPoints = per.racePoints.get(competitor.id)!;
+    // The weighted score is what counts toward the total, so it is what the
+    // standings carry: display, export, discard selection and the A8
+    // tie-break all read it, and a hand-added row of cells reaches the total.
+    // Rounded to a tenth, keeping the engine-wide invariant that a race score
+    // is a multiple of 0.1 (a ×1.5 on a 3.5 would otherwise land on 5.25).
+    const racePoints = rawPoints.map((p, i) => {
+      const multiplier = races[i]?.pointsMultiplier;
+      return multiplier == null || multiplier === 1 ? p : roundToTenth(p * multiplier);
+    });
     const raceRanks = per.raceRanks.get(competitor.id)!;
     const raceCodes = per.raceCodes.get(competitor.id)!;
     const racePenaltyCodes = per.racePenaltyCodes.get(competitor.id)!;
@@ -1149,14 +1165,24 @@ function assembleStandings(
     });
 
     // Select worst N discardable scores to discard. Excluded races (no
-    // finishers) and codes that protect against discard are skipped; among
-    // equal scores the earliest race is discarded first.
+    // finishers), codes that protect against discard, and races the scorer
+    // marked "must count" are skipped. Races marked "discard first" are taken
+    // before any other, in race order among themselves, whatever their points;
+    // the rest follow worst-first, and among equal scores the earliest race is
+    // discarded first. Comparison is on the weighted score — the score that
+    // actually counts is the one whose removal helps.
     const raceDiscards = new Array<boolean>(racePoints.length).fill(false);
     if (discardCount > 0) {
       const discardable = racePoints
-        .map((p, i) => ({ p, i }))
-        .filter(({ i }) => !raceNonDiscardable[i] && !raceExcluded[i]);
-      discardable.sort((a, b) => b.p - a.p || a.i - b.i);
+        .map((p, i) => ({ p, i, first: races[i]?.discardPolicy === 'discardFirst' }))
+        .filter(({ i }) =>
+          !raceNonDiscardable[i] &&
+          !raceExcluded[i] &&
+          races[i]?.discardPolicy !== 'mustCount',
+        );
+      discardable.sort((a, b) =>
+        Number(b.first) - Number(a.first) || (a.first ? a.i - b.i : b.p - a.p || a.i - b.i),
+      );
       const effectiveCount = Math.min(discardCount, discardable.length);
       for (let d = 0; d < effectiveCount; d++) {
         raceDiscards[discardable[d].i] = true;
@@ -1272,7 +1298,7 @@ export function calculateStandings(
     fleetId,
   });
 
-  const standings = assembleStandings(competitors, per, raceExcluded, discardCount);
+  const standings = assembleStandings(competitors, races, per, raceExcluded, discardCount);
   sortAndRank(standings);
 
   return { standings, circularRedressRaces };
@@ -1546,7 +1572,7 @@ function calculateHandicapStandings(
     fleetId: fleet.id,
   });
 
-  const standings = assembleStandings(ratedCompetitors, per, raceExcluded, discardCount);
+  const standings = assembleStandings(ratedCompetitors, races, per, raceExcluded, discardCount);
   sortAndRank(standings);
 
   return {

@@ -1,0 +1,115 @@
+description: "Per-race options — a race marked 'discard first' is dropped before any other, whatever the points"
+notes: |
+  Sailwave's documented use: include a practice race in the series so
+  competitors can see how they are doing, mark it "discard me first", and it
+  drops out the moment real racing is sailed.
+
+  Race 1 is the practice race. Alice's worst score on points is her 2nd in
+  race 2, but the practice race goes first regardless — she discards a win.
+  David, who won the practice race, discards it too; the flag reorders the
+  selection for everyone, it is not a per-boat convenience.
+
+  The flag does not guarantee removal. It only means "take this one first",
+  so a series whose allowance is smaller than the number of discard-first
+  races will still count some of them.
+
+series:
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  # The practice race.
+  - number: 1
+    discardPolicy: discardFirst
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    finishes:
+      - sailor: "404"
+        position: 1
+      - sailor: "101"
+        position: 2
+      - sailor: "202"
+        position: 3
+      - sailor: "303"
+        position: 4
+
+  - number: 3
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Every boat discards race 1, whatever it scored there:
+#   Alice: 1, 2, 1, 1 — total=5.  Drops the 1 in race 1, not the 2 → net=4.
+#   Bob:   2, 3, 2, 2 — total=9.  Drops the 2 in race 1, not the 3 → net=7.
+#   Carol: 3, 4, 3, 3 — total=13. Drops the 3 in race 1, not the 4 → net=10.
+#   David: 4, 1, 4, 4 — total=13. Race 1 is also its worst → net=9.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 2, 1, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 5
+      netPoints: 4
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 3, 2, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 9
+      netPoints: 7
+
+    - rank: 3
+      sailor: "404"
+      racePoints: [4, 1, 4, 4]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 13
+      netPoints: 9
+
+    - rank: 4
+      sailor: "303"
+      racePoints: [3, 4, 3, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 13
+      netPoints: 10

@@ -1,0 +1,110 @@
+description: "Per-race options — a race weighted ×0.5 counts half, changing which race each boat discards"
+notes: |
+  HalSail's weighting is a percentage, default 100%, and can be set below it
+  as well as above: "you can weight an individual race more heavily, e.g 200%
+  for a trophy race, or less heavily."
+
+  Race 2 counts half, and reverses the finishing order of the rest of the
+  series. Halving is enough to lift it out of the discard for Bob, Carol and
+  David, each of whom discards a full-weight race instead; Alice was last in
+  it, so even at half weight it stays her worst score.
+
+series:
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    pointsMultiplier: 0.5
+    finishes:
+      - sailor: "404"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "202"
+        position: 3
+      - sailor: "101"
+        position: 4
+
+  - number: 3
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Race 2 positions, halved: 1st→0.5, 2nd→1, 3rd→1.5, 4th→2.
+#   Alice: 1, 2, 1, 1 — total=5.    Her 4th is worth 2, still her worst. net=3.
+#   Bob:   2, 1.5, 2, 2 — total=7.5. Drops the earliest 2 (race 1). net=5.5.
+#   Carol: 3, 1, 3, 3 — total=10.   Drops the earliest 3. net=7.
+#   David: 4, 0.5, 4, 4 — total=12.5. Won race 2 for half a point; drops a 4. net=8.5.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 2, 1, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [false, true, false, false]
+      totalPoints: 5
+      netPoints: 3
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 1.5, 2, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 7.5
+      netPoints: 5.5
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 1, 3, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 10
+      netPoints: 7
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 0.5, 4, 4]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 12.5
+      netPoints: 8.5

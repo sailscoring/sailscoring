@@ -1,0 +1,102 @@
+description: "Per-race options — weighted scores are what the A8.1 tie-break compares"
+rrs_notes: >
+  RRS A8.1: list each boat's race scores best to worst, excluding discards,
+  and break the tie in favour of the boat better at the first point of
+  difference. The scores listed are the ones that count — after weighting.
+
+notes: |
+  Race 2 counts double. At face value Alice (5), Bob (6) and Carol (7) are
+  separated on points and no tie arises; doubling race 2 brings all three level
+  on 8, and A8.1 decides.
+
+  Listed best to worst, the three boats' scores are 1-1-6, 2-2-4 and 2-3-3.
+  Alice's best score wins the first comparison. Bob and Carol match on their
+  best (2 each) and Bob's second-best 2 beats Carol's 3.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    pointsMultiplier: 2
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "101"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 3
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Raw points: Alice 1+3+1 = 5, Bob 2+2+2 = 6, Carol 3+1+3 = 7 — no tie.
+# Race 2 doubled:  Alice 1+6+1 = 8, Bob 2+4+2 = 8, Carol 3+2+3 = 8 — a
+# three-way tie, resolved by A8.1 on the weighted scores:
+#   Alice  [1, 1, 6]
+#   Bob    [2, 2, 4]
+#   Carol  [2, 3, 3]
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 6, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 4, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 2, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 8
+      netPoints: 8
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 8, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 16
+      netPoints: 16

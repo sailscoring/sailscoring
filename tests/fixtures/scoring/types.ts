@@ -100,6 +100,10 @@ export interface FixtureRejection {
 export interface FixtureRace {
   number?: number;
   startTime?: string;
+  /** Per-race scoring options (Race.discardPolicy / Race.pointsMultiplier).
+   *  Absent means an ordinary, discardable race counting once. */
+  discardPolicy?: 'normal' | 'mustCount' | 'discardFirst';
+  pointsMultiplier?: number;
   /** Sub-series this race belongs to, by name. A single name or a list (a
    *  race may belong to several — the many-to-many membership). Either every
    *  race names at least one or none does. */
@@ -301,6 +305,8 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     raceNumber: r.number ?? i + 1,
     name: null,
     date: '2025-01-01',
+    ...(r.discardPolicy ? { discardPolicy: r.discardPolicy } : {}),
+    ...(r.pointsMultiplier != null ? { pointsMultiplier: r.pointsMultiplier } : {}),
     createdAt: 0,
   }));
 

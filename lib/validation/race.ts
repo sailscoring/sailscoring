@@ -13,6 +13,12 @@ export const raceSchema = z.object({
   date: isoDateSchema,
   // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes.
   lastFinisherTime: wallClockSchema.optional(),
+  // Per-race scoring options. The policy needs no cross-field check — the
+  // enum makes "must count" and "discard first" mutually exclusive by
+  // construction. The multiplier is bounded generously: Sailwave allows any
+  // non-integer value, so the bounds only exclude the nonsensical.
+  discardPolicy: z.enum(['normal', 'mustCount', 'discardFirst']).optional(),
+  pointsMultiplier: z.number().positive().max(100).optional(),
   createdAt: epochMsSchema,
   version: versionSchema,
 });

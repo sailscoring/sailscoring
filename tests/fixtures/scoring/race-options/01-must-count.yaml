@@ -1,0 +1,111 @@
+description: "Per-race options — a race marked 'must count' is never discarded, even when it is a boat's worst"
+notes: |
+  A series NoR designating its centrepiece race non-discardable is common: the
+  Lambay Race is the centrepiece of the HYC Wave Regatta and its NoR marks it
+  so, meaning a competitor's worst result cannot be the Lambay Race.
+
+  Race 3 is marked "must count". Alice wins races 1, 2 and 4 and is 4th in
+  race 3 — without the flag she would discard that 4 and net 3, winning the
+  series outright. With it she must keep the 4 and discard one of her wins
+  instead, and Bob takes the series.
+
+series:
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  # The centrepiece race. Alice has her worst day of the series in it.
+  - number: 3
+    discardPolicy: mustCount
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "404"
+        position: 3
+      - sailor: "101"
+        position: 4
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Points per race, and what each boat may discard (race 3 is protected):
+#   Alice: 1, 1, 4, 1 — total=7.  Discardable: 1, 1, 1 → drop race 1 → net=6.
+#   Bob:   2, 2, 1, 2 — total=7.  Discardable: 2, 2, 2 → drop race 1 → net=5.
+#   Carol: 3, 3, 2, 3 — total=11. Discardable: 3, 3, 3 → drop race 1 → net=8.
+#   David: 4, 4, 3, 4 — total=15. Discardable: 4, 4, 4 → drop race 1 → net=11.
+expected:
+  standings:
+    - rank: 1
+      sailor: "202"
+      racePoints: [2, 2, 1, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 7
+      netPoints: 5
+
+    - rank: 2
+      sailor: "101"
+      racePoints: [1, 1, 4, 1]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 7
+      netPoints: 6
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3, 2, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 11
+      netPoints: 8
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 4, 3, 4]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 15
+      netPoints: 11

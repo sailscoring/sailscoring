@@ -1,0 +1,101 @@
+description: "Per-race options — a ×1.5 weighting on a shared place, rounded to a tenth"
+rrs_notes: >
+  RRS A7: boats tied in a race share the points for the places they occupy,
+  so the two boats sharing 2nd here each score (2 + 3) ÷ 2 = 2.5.
+
+notes: |
+  Sailwave allows non-integer weightings (0.5, 1.7, 2.5). A weighted score is
+  rounded to a tenth, keeping the engine-wide invariant that a race score is a
+  multiple of 0.1 — 2.5 × 1.5 = 3.75 is scored 3.8, rounding up at 0.05 as
+  RRS A9 does for averages.
+
+  No discards, so every score counts and the totals are the arithmetic on show.
+
+series:
+  discardThresholds: []
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  # Bob and Carol cross together. Their shared 2.5 is what the weighting acts on.
+  - number: 2
+    pointsMultiplier: 1.5
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+        tiedWithPrevious: true
+      - sailor: "404"
+        position: 4
+
+  - number: 3
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Race 2 scores, weighted ×1.5:
+#   Alice  1   → 1.5
+#   Bob    2.5 → 3.75 → 3.8
+#   Carol  2.5 → 3.75 → 3.8
+#   David  4   → 6
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 1.5, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 3.5
+      netPoints: 3.5
+
+    - rank: 2
+      sailor: "202"
+      racePoints: [2, 3.8, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 7.8
+      netPoints: 7.8
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3.8, 3]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 9.8
+      netPoints: 9.8
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 6, 4]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 14
+      netPoints: 14

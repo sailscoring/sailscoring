@@ -1,0 +1,115 @@
+description: "Per-race options — 'must count' and a DNE are different protections, and both apply at once"
+rrs_notes: >
+  RRS A5 / A9: a DNE (disqualification not excludable) cannot be discarded
+  whatever race it was scored in. That is a property of the *code*. "Must
+  count" is a property of the *race*, set from the NoR. A boat can meet both
+  in one series, and each removes a different column from its discard pool.
+
+notes: |
+  Race 2 is marked "must count". Alice is disqualified under a DNE in race 3.
+  With four races and one discard she has only races 1 and 4 available, both
+  wins, so she discards a win and carries both the 3rd and the DNE.
+
+series:
+  discardThresholds:
+    - minRaces: 4
+      discardCount: 1
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    discardPolicy: mustCount
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "101"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  # Alice is disqualified without the right to exclude the score (DNE = N+1 = 5).
+  - number: 3
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "303"
+        position: 2
+      - sailor: "404"
+        position: 3
+      - sailor: "101"
+        code: DNE
+
+  - number: 4
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Points, then what each boat may discard:
+#   Alice: 1, 3, 5(DNE), 1 — total=10. Race 2 must count, race 3 is a DNE →
+#          only races 1 and 4 available, both 1s → drop race 1. net=9.
+#   Bob:   2, 1, 1, 2 — total=6.  Races 1, 3, 4 available → drop race 1 (2). net=4.
+#   Carol: 3, 2, 2, 3 — total=10. Races 1, 3, 4 available → drop race 1 (3). net=7.
+#   David: 4, 4, 3, 4 — total=15. Races 1, 3, 4 available → drop race 1 (4). net=11.
+expected:
+  standings:
+    - rank: 1
+      sailor: "202"
+      racePoints: [2, 1, 1, 2]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      raceNonDiscardable: [false, false, false, false]
+      totalPoints: 6
+      netPoints: 4
+
+    - rank: 2
+      sailor: "303"
+      racePoints: [3, 2, 2, 3]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 10
+      netPoints: 7
+
+    - rank: 3
+      sailor: "101"
+      racePoints: [1, 3, 5, 1]
+      raceCodes: [null, null, "DNE", null]
+      raceDiscards: [true, false, false, false]
+      raceNonDiscardable: [false, false, true, false]
+      totalPoints: 10
+      netPoints: 9
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 4, 3, 4]
+      raceCodes: [null, null, null, null]
+      raceDiscards: [true, false, false, false]
+      totalPoints: 15
+      netPoints: 11

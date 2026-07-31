@@ -1,0 +1,122 @@
+description: "Per-race options — 'discard first' and 'must count' races in the same series, with two discards"
+notes: |
+  Race 1 is a practice race marked "discard first"; race 4 is the centrepiece
+  marked "must count". The series allows two discards after five races.
+
+  Selection order per boat: race 1 goes first whatever it scored, race 4 is
+  never available, and the second discard is the worst of what remains
+  (earliest race first among equal scores).
+
+series:
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 2
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+
+races:
+  - number: 1
+    discardPolicy: discardFirst
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 2
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 3
+    finishes:
+      - sailor: "202"
+        position: 1
+      - sailor: "101"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+  - number: 4
+    discardPolicy: mustCount
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "404"
+        position: 3
+      - sailor: "101"
+        position: 4
+
+  - number: 5
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+
+# Points, then the two discards each boat takes:
+#   Alice: 1, 1, 2, 4, 1 — total=9.  Race 1 first (1), then worst of
+#          {1, 2, 1} → race 3 (2). The 4 in race 4 must count. net=6.
+#   Bob:   2, 2, 1, 2, 2 — total=9.  Race 1 (2), then worst of {2, 1, 2} →
+#          race 2 (earliest 2). net=5.
+#   Carol: 3, 3, 3, 1, 3 — total=13. Race 1 (3), then race 2 (3). net=7.
+#   David: 4, 4, 4, 3, 4 — total=19. Race 1 (4), then race 2 (4). net=11.
+expected:
+  standings:
+    - rank: 1
+      sailor: "202"
+      racePoints: [2, 2, 1, 2, 2]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 9
+      netPoints: 5
+
+    - rank: 2
+      sailor: "101"
+      racePoints: [1, 1, 2, 4, 1]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, false, true, false, false]
+      totalPoints: 9
+      netPoints: 6
+
+    - rank: 3
+      sailor: "303"
+      racePoints: [3, 3, 3, 1, 3]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 13
+      netPoints: 7
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 4, 4, 3, 4]
+      raceCodes: [null, null, null, null, null]
+      raceDiscards: [true, true, false, false, false]
+      totalPoints: 19
+      netPoints: 11
