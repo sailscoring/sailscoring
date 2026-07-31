@@ -11,10 +11,6 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  */
 
 test('three-start sequence at 5-minute intervals resolves to distinct start times', async ({ page }) => {
-  // Heavy: three fleets, scoring-mode change, a three-group start sequence,
-  // then a materialised race — like its fleet-delete sibling below, the setup
-  // alone can brush the 30s default under full-suite load.
-  test.slow();
   await createSeriesQuick(page, { name: 'Start Sequence Test' });
   await createFleets(page, ['Class A', 'Class B', 'Class C']);
   await setScoringMode(page, 'handicap');
@@ -81,9 +77,6 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
 });
 
 test('deleting a fleet strips it from the default start sequence and existing race starts', async ({ page }) => {
-  // Heavy: three fleets, a multi-group start sequence, a materialised race, then
-  // a fleet deletion — the setup can brush the 30s cap under full-suite load.
-  test.slow();
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
   await createSeriesQuick(page, { name: 'Fleet Delete Sequence Cleanup' });

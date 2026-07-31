@@ -14,7 +14,6 @@ import { createSeriesQuick } from './helpers';
  * deterministically by holding the list response until after the commit.
  */
 test('a finish committed while the list fetch is in flight survives its stale response', async ({ page }) => {
-  test.slow();
   await createSeriesQuick(page, { name: 'Stale List 2026', venue: 'HYC' });
 
   await page.getByRole('link', { name: 'Competitors' }).click();

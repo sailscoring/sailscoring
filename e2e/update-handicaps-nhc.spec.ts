@@ -81,11 +81,6 @@ async function scoreOneNhcRace(page: Page): Promise<void> {
 }
 
 test('Update Handicaps dialog: carry NHC TCFs from a scored source series', async ({ page }) => {
-  // Long by nature: six boats each set up in two steps (add, then reopen to set
-  // the starting TCF), a scored race, and the full update-handicaps flow. Under
-  // full-suite DB contention the setup alone approached the 30s default and
-  // occasionally tipped over it. Triple the budget rather than race the cap.
-  test.slow();
   // ── 1. Source series, NHC fleet, scored race ──────────────────────────────
   await createSeriesQuick(page, { name: 'NHC Source 2026' });
   await configureNhcFleet(page, 'NHC');

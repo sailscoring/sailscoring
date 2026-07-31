@@ -13,10 +13,6 @@ import { createSeriesQuick } from './helpers';
  */
 
 test('finish entry matches on bow number and flags the committed row', async ({ page }) => {
-  // Heavy: enable a field, add two competitors, materialise a race, then commit
-  // a finish whose autosave + list refetch settle before the row re-renders —
-  // the setup can brush the 30s cap under full-suite load.
-  test.slow();
   await createSeriesQuick(page, { name: 'Borrowed Hull 2026', venue: 'HYC' });
 
   // ── Enable the Bow number competitor field ────────────────────────────────
@@ -85,10 +81,6 @@ test('finish entry matches on bow number and flags the committed row', async ({ 
 });
 
 test('a sail number wins over another boat’s bow number', async ({ page }) => {
-  // Heavy: enable a field, add two competitors, materialise a race, then commit
-  // a finish whose autosave + list refetch settle before the row re-renders —
-  // the setup can brush the 30s cap under full-suite load.
-  test.slow();
   await createSeriesQuick(page, { name: 'Bow Precedence 2026', venue: 'HYC' });
 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();

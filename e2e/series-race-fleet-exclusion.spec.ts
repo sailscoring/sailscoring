@@ -35,10 +35,6 @@ async function addRaceResults(page: import('@playwright/test').Page, raceName: s
 }
 
 test('exclude a race for one fleet from the standings column header', async ({ page }) => {
-  // Heavy: two fleets, four boats, and two fully-scored races before the
-  // standings exist to strike a column in. Like the sub-series test below, the
-  // setup alone fills the 30s default under full-suite load.
-  test.slow();
   await createSeriesQuick(page, { name: 'Exclusion Cup' });
   await createFleets(page, ['Blue', 'Red']);
 
@@ -87,8 +83,6 @@ test('exclude a race for one fleet from the standings column header', async ({ p
 });
 
 test('an automatically-excluded race (no entrants) offers no manual toggle', async ({ page }) => {
-  // Same setup weight as the test above — two fleets, four boats, two races.
-  test.slow();
   await createSeriesQuick(page, { name: 'Auto Exclusion Cup' });
   await createFleets(page, ['Blue', 'Red']);
 
@@ -123,10 +117,6 @@ test('an automatically-excluded race (no entrants) offers no manual toggle', asy
 test('exclude a race for one fleet from a sub-series standings header', async ({ page, signedInEmail }) => {
   // The motivating case: a DBSC-style series always views its standings inside a
   // sub-series, so the header action must target the block's own exclusions.
-  // Long by nature: four boats, three races each fully scored across two fleets,
-  // and a sub-series before standings even render — under full-suite DB load the
-  // setup can eat most of the 30s default, so give it the tripled budget.
-  test.slow();
   await enableFeatures(page, signedInEmail, ['sub-series']);
   await createSeriesQuick(page, { name: 'Block Exclusion Cup' });
   await createFleets(page, ['Blue', 'Red']);

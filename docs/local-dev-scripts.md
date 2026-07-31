@@ -155,6 +155,13 @@ pnpm test:e2e:triage
       └─ pnpm flake:triage        ← files `flake` issues, minus the suspend-spanning ones
 ```
 
+Every filed issue also states what the test **used against what it was allowed**
+(`14.8s of its 60s — 25%`). A bare timeout gives no sense of scale, so the reflex
+is to raise the ceiling; the arithmetic makes it obvious when that's not on the
+table. There are no `test.slow()` markers in the suite — one 60s budget covers
+it, and the run summary names any marker that creeps back in without earning its
+keep.
+
 Suspending the laptop mid-suite fails whatever was in flight across all four
 workers: the keep-alive sockets between the browser, the server and Postgres are
 dead on resume, and the first requests through them hang until a timeout fires.

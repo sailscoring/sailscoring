@@ -10,7 +10,6 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  */
 
 test('rating columns appear for handicap fleets', async ({ page }) => {
-  test.slow();
   // ── 1. Create series ──────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Rating Columns Test' });
 

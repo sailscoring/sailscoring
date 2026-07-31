@@ -382,10 +382,6 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
 });
 
 test('two series publish into one event folder → the folder lists both, no merge ceremony', async ({ page }) => {
-  // Heavy: two scored series, two publishes, and cascade navigation across
-  // both pages — the setup alone can fill the 30s default under full-suite
-  // load.
-  test.slow();
   // First series into the event folder, its page named for its class group.
   await createSeriesWithData(page, { name: 'Lambay Races Cruisers', sail: '11' });
   await page.getByRole('button', { name: 'Publish' }).click();
@@ -451,8 +447,6 @@ test('two series publish into one event folder → the folder lists both, no mer
 });
 
 test('season mode: Season + Folder compose the tree; a second event joins without ceremony (ADR-011)', async ({ page }) => {
-  // Heavy: two scored series and two publishes before the assertions.
-  test.slow();
   // A dated series opens the dialog in season mode: Season derived from the
   // start date, Folder seeded from the name.
   await createSeriesWithData(page, { name: 'Spring Regatta', sail: '11', date: '2026-04-12' });
@@ -682,10 +676,6 @@ test('unticking a published fleet on re-publish leaves its page live and unchang
 });
 
 test('the public workspace listing groups by season, expands the current one, and quick-jumps (#320/ADR-011)', async ({ page }) => {
-  // Heavy: two scored series, two publishes, two categories, and an archive
-  // before the listing is even loaded. No single step is slow, but the setup
-  // alone fills the 30s default under full-suite load.
-  test.slow();
   // Two series: one we'll categorise and keep active, one we'll archive.
   // Both carry a start date so the quick-jump picker has two years to offer.
   await createSeriesWithData(page, { name: 'Spring League 2026', sail: '11', date: '2026-05-01' });

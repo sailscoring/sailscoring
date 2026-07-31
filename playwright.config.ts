@@ -39,6 +39,16 @@ export default defineConfig({
     ['json', { outputFile: 'test-results/report.json' }],
     ['./e2e/clock-watch-reporter.ts', { outputFile: 'test-results/clock-gaps.json' }],
   ],
+  // One budget for the whole suite instead of `test.slow()` scattered over the
+  // heavy tests. Playwright's 30s default is too tight here — the heaviest specs
+  // legitimately spend ~28s building two scored series before they assert
+  // anything — and a test-level cap is the WRONG detector anyway: it reports an
+  // anonymous "test timeout exceeded" with no locator, while `actionTimeout` and
+  // `expect.timeout` below fail at the operation that actually hung. So this is
+  // a backstop, not the primary signal, and it is set high enough that raising
+  // it per-test is never the answer to a flake. Playwright's `reportSlowTests`
+  // still surfaces the slowest tests, which is a better perf guard than a cap.
+  timeout: 60_000,
   // The whole suite runs 4 workers against one `next start` + Postgres on one
   // machine, so a single save→refetch→render round-trip can exceed the 5s
   // default under load. 15s only slows assertions that were going to fail;
