@@ -4,10 +4,9 @@ import type { DiscardThreshold } from './types';
  * Presentation helpers for the discard-rule editor.
  *
  * A `DiscardThreshold` says "once N races have been sailed, the total number of
- * discards is D". A sailing instruction says the same thing as a range — "when
- * 5 or more but fewer than 9 races have been completed, excluding her worst
- * score" — and the range is the part a scorer checks the setup against. The
- * upper end of it is implicit in the *next* rule, so it has to be derived.
+ * discards is D". The range it actually governs runs up to the next rule's
+ * `minRaces`, which is what makes a rule dead, redundant, or a step backwards —
+ * so the range has to be derived before any of that can be flagged.
  *
  * Nothing here scores anything: `getDiscardCount` in lib/scoring.ts remains the
  * only interpretation of a threshold list that matters.
@@ -20,8 +19,6 @@ export type DescribedDiscardRule = {
   appliesFrom: number | null;
   /** Highest sailed-race count it governs; null when unbounded or never applied. */
   appliesTo: number | null;
-  /** The range as a sentence; empty when the rule never applies. */
-  appliesLabel: string;
   /** Problems worth flagging. None of them prevent saving. */
   warnings: string[];
 };
@@ -64,7 +61,6 @@ export function describeDiscardRules(thresholds: DiscardThreshold[]): DescribedD
       discardCount: threshold.discardCount,
       appliesFrom: null,
       appliesTo: null,
-      appliesLabel: '',
       warnings: [
         `Never applies — rule ${shadower + 1} already sets the discards at ${threshold.minRaces} ` +
         `${plural(threshold.minRaces, 'race', 'races')}.`,
@@ -96,38 +92,16 @@ export function describeDiscardRules(thresholds: DiscardThreshold[]): DescribedD
       warnings.push(`At ${minRaces} ${plural(minRaces, 'race', 'races')} sailed this discards every race.`);
     }
 
-    let appliesLabel: string;
-    if (appliesTo === null) {
-      appliesLabel = `applies from ${minRaces} ${plural(minRaces, 'race', 'races')} sailed onwards`;
-    } else if (appliesTo === minRaces) {
-      appliesLabel = `applies at ${minRaces} ${plural(minRaces, 'race', 'races')} sailed only`;
-    } else {
-      appliesLabel = `applies from ${minRaces} to ${appliesTo} races sailed`;
-    }
-
     described[index] = {
       minRaces,
       discardCount,
       appliesFrom: minRaces,
       appliesTo,
-      appliesLabel,
       warnings,
     };
   });
 
   return described;
-}
-
-/**
- * The race count below which nothing is discarded, or null when the lowest rule
- * already covers the first race (so there is no such gap to state).
- */
-export function discardFreeBelow(thresholds: DiscardThreshold[]): number | null {
-  const lowest = thresholds.reduce<number | null>(
-    (min, t) => (min === null || t.minRaces < min ? t.minRaces : min),
-    null,
-  );
-  return lowest !== null && lowest >= 2 ? lowest : null;
 }
 
 /**

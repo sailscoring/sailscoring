@@ -5,7 +5,7 @@ import type { DiscardThreshold, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { describeDiscardRules, discardFreeBelow, summarizeDiscardRules } from '@/lib/discard-rules';
+import { describeDiscardRules, summarizeDiscardRules } from '@/lib/discard-rules';
 
 export type ScoringValues = Pick<Series, 'discardThresholds' | 'dnfScoring'>;
 
@@ -80,7 +80,6 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   }
 
   const described = describeDiscardRules(thresholds);
-  const freeBelow = discardFreeBelow(thresholds);
 
   const thresholdTable = (
     <>
@@ -90,68 +89,47 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
       {thresholds.length === 0 ? (
         <p className="text-sm text-muted-foreground">No discards configured.</p>
       ) : (
-        <div className="space-y-3">
-          {thresholds.map((t, i) => {
-            const rule = described[i];
-            return (
-              <div key={i} className="space-y-1">
-                <div className="flex items-start gap-2">
-                  {/* Each clause is its own nowrap group, so a card too narrow
-                      for the whole sentence breaks at the comma rather than
-                      orphaning the trailing number on a line of its own. */}
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm flex-1">
-                    <span className="flex items-center gap-2 whitespace-nowrap">
-                      Once
-                      <Input
-                        type="number"
-                        min={1}
-                        aria-label={`Rule ${i + 1}: races sailed`}
-                        value={t.minRaces || ''}
-                        onChange={(e) => updateThreshold(i, 'minRaces', parseInt(e.target.value) || 0)}
-                        className="h-8 w-14 text-sm"
-                      />
-                      races have been sailed,
-                    </span>
-                    <span className="flex items-center gap-2 whitespace-nowrap">
-                      drop the worst
-                      <Input
-                        type="number"
-                        min={0}
-                        aria-label={`Rule ${i + 1}: discards`}
-                        value={t.discardCount || ''}
-                        onChange={(e) => updateThreshold(i, 'discardCount', parseInt(e.target.value) || 0)}
-                        className="h-8 w-14 text-sm"
-                      />
-                      {t.discardCount === 1 ? 'score.' : 'scores.'}
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Remove rule ${i + 1}`}
-                    className="h-8 px-2 text-muted-foreground"
-                    onClick={() => removeThreshold(i)}
-                  >
-                    ×
-                  </Button>
-                </div>
-                {rule.appliesLabel && (
-                  <p className="text-xs text-muted-foreground">{rule.appliesLabel}</p>
-                )}
-                {rule.warnings.map((warning) => (
-                  <p key={warning} className="text-xs text-amber-600 dark:text-amber-500">
-                    {warning}
-                  </p>
-                ))}
+        <div className="space-y-2">
+          {thresholds.map((t, i) => (
+            <div key={i} className="space-y-1">
+              <div className="flex items-center gap-2 text-sm">
+                <span>With</span>
+                <Input
+                  type="number"
+                  min={1}
+                  aria-label={`Rule ${i + 1}: races sailed`}
+                  value={t.minRaces || ''}
+                  onChange={(e) => updateThreshold(i, 'minRaces', parseInt(e.target.value) || 0)}
+                  className="h-8 w-14 text-sm"
+                />
+                <span>{t.minRaces === 1 ? 'race sailed, exclude' : 'races sailed, exclude'}</span>
+                <Input
+                  type="number"
+                  min={0}
+                  aria-label={`Rule ${i + 1}: discards`}
+                  value={t.discardCount || ''}
+                  onChange={(e) => updateThreshold(i, 'discardCount', parseInt(e.target.value) || 0)}
+                  className="h-8 w-14 text-sm"
+                />
+                <span className="flex-1">{t.discardCount === 1 ? 'score' : 'scores'}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove rule ${i + 1}`}
+                  className="h-8 px-2 text-muted-foreground"
+                  onClick={() => removeThreshold(i)}
+                >
+                  ×
+                </Button>
               </div>
-            );
-          })}
-          {freeBelow !== null && (
-            <p className="text-xs text-muted-foreground">
-              Fewer than {freeBelow} races sailed: no discards.
-            </p>
-          )}
+              {described[i].warnings.map((warning) => (
+                <p key={warning} className="text-xs text-amber-600 dark:text-amber-500">
+                  {warning}
+                </p>
+              ))}
+            </div>
+          ))}
         </div>
       )}
       <div className="flex gap-2">

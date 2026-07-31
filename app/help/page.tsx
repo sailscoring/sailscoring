@@ -1476,27 +1476,21 @@ export default async function HelpPage() {
         <p>
           Discards are configured per series on the{' '}
           <strong className="text-foreground">Settings</strong> tab, in the{' '}
-          <strong className="text-foreground">Scoring</strong> card. Each rule is a sentence: once a
-          number of races have been sailed, that many of each competitor’s worst scores are dropped.
-          For example:
+          <strong className="text-foreground">Scoring</strong> card. Each rule is a sentence: with a
+          number of races sailed, that many of each competitor’s worst scores are excluded. For
+          example:
         </p>
         <ul className="list-disc list-inside space-y-1 pl-2">
           <li>
-            <em>Once 5 races have been sailed, drop the worst 1 score.</em> — no discards until 5
-            races have been sailed; one from then on.
+            <em>With 5 races sailed, exclude 1 score</em> — no discards until 5 races have been
+            sailed; one from then on.
           </li>
           <li>
-            Add a second rule, <em>Once 9 races have been sailed, drop the worst 2 scores.</em>, to
-            increase the allowance as the series grows. Each rule states the <em>total</em>, so the
-            second one means two discards, not one on top of one.
+            Add a second rule, <em>With 9 races sailed, exclude 2 scores</em>, to increase the
+            allowance as the series grows. Each rule states the <em>total</em>, so the second one
+            means two discards, not one on top of one.
           </li>
         </ul>
-        <p>
-          Under each rule the app states the range it covers — <em>applies from 5 to 8 races
-          sailed</em>, <em>applies from 9 races sailed onwards</em>. That is the form a sailing
-          instruction usually takes (“when 5 or more but fewer than 9 races have been completed…”),
-          so the setup can be read straight against the SI.
-        </p>
         <p>
           A rule that never takes effect, that reduces the allowance, or that would discard every
           race is flagged where you can see it — but nothing prevents you saving it, since an

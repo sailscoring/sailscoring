@@ -156,8 +156,8 @@ test('BFD is struck through like any other code when it is the discarded worst s
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Scoring', exact: true }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add rule' }).click();
-  await page.getByRole('spinbutton').nth(0).fill('3');
-  await page.getByRole('spinbutton').nth(1).fill('1');
+  await page.getByLabel('Rule 1: races sailed').fill('3');
+  await page.getByLabel('Rule 1: discards').fill('1');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   await page.getByRole('link', { name: 'Standings' }).click();

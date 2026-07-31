@@ -105,9 +105,6 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   await page.getByLabel('Rule 1: races sailed').fill('3');
   await page.getByLabel('Rule 1: discards').fill('1');
 
-  // The rule reads back the range it covers
-  await expect(page.getByText('applies from 3 races sailed onwards')).toBeVisible();
-
   // Save the scoring card
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
@@ -144,7 +141,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   await expect(bobNettCell).toContainText('3');
 });
 
-test('discard rules read back the range they cover and flag odd ones', async ({ page }) => {
+test('discard rules can be edited freely and flag the odd ones', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Discard Readback Series' });
 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
@@ -153,19 +150,17 @@ test('discard rules read back the range they cover and flag odd ones', async ({ 
   await expect(scoringHeading).toBeVisible();
   await scoringHeading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
 
-  // One rule is open-ended
   await page.getByRole('button', { name: 'Add rule' }).click();
   await page.getByLabel('Rule 1: races sailed').fill('5');
   await page.getByLabel('Rule 1: discards').fill('1');
-  await expect(page.getByText('applies from 5 races sailed onwards')).toBeVisible();
 
-  // A second rule closes the first one's range, the way an SI states it
   await page.getByRole('button', { name: 'Add rule' }).click();
   await page.getByLabel('Rule 2: races sailed').fill('9');
   await page.getByLabel('Rule 2: discards').fill('2');
-  await expect(page.getByText('applies from 5 to 8 races sailed')).toBeVisible();
-  await expect(page.getByText('applies from 9 races sailed onwards')).toBeVisible();
-  await expect(page.getByText('Fewer than 5 races sailed: no discards.')).toBeVisible();
+
+  // Each rule reads as a sentence, and agrees with itself on the plural
+  await expect(page.getByText('score', { exact: true })).toBeVisible();
+  await expect(page.getByText('scores', { exact: true })).toBeVisible();
 
   // The second rule's count can be lowered — it used to be clamped to the
   // first rule's count plus one — and a rule that changes nothing is flagged.

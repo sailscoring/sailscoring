@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describeDiscardRules, discardFreeBelow, summarizeDiscardRules } from '@/lib/discard-rules';
+import { describeDiscardRules, summarizeDiscardRules } from '@/lib/discard-rules';
 import { getDiscardCount } from '@/lib/scoring';
 import type { DiscardThreshold } from '@/lib/types';
 
@@ -25,10 +25,10 @@ const hyc: DiscardThreshold[] = [
 ];
 
 describe('describeDiscardRules', () => {
-  it('reads back the range each rule covers', () => {
+  it('closes each rule range at the next rule', () => {
     const [first, second] = describeDiscardRules(rrsStyle);
-    expect(first.appliesLabel).toBe('applies from 5 to 8 races sailed');
-    expect(second.appliesLabel).toBe('applies from 9 races sailed onwards');
+    expect([first.appliesFrom, first.appliesTo]).toEqual([5, 8]);
+    expect([second.appliesFrom, second.appliesTo]).toEqual([9, null]);
     expect(first.warnings).toEqual([]);
     expect(second.warnings).toEqual([]);
   });
@@ -39,29 +39,30 @@ describe('describeDiscardRules', () => {
       { minRaces: 5, discardCount: 1 },
     ];
     const described = describeDiscardRules(outOfOrder);
-    expect(described[0].appliesLabel).toBe('applies from 9 races sailed onwards');
-    expect(described[1].appliesLabel).toBe('applies from 5 to 8 races sailed');
+    expect([described[0].appliesFrom, described[0].appliesTo]).toEqual([9, null]);
+    expect([described[1].appliesFrom, described[1].appliesTo]).toEqual([5, 8]);
     expect(described.flatMap((r) => r.warnings)).toEqual([]);
   });
 
-  it('names a range of one race as such', () => {
+  it('handles a range of a single race count', () => {
     const tight: DiscardThreshold[] = [
       { minRaces: 3, discardCount: 1 },
       { minRaces: 4, discardCount: 2 },
     ];
-    expect(describeDiscardRules(tight)[0].appliesLabel).toBe('applies at 3 races sailed only');
+    expect([describeDiscardRules(tight)[0].appliesFrom, describeDiscardRules(tight)[0].appliesTo])
+      .toEqual([3, 3]);
   });
 
   it('exposes the wide range in the HYC profile', () => {
-    const labels = describeDiscardRules(hyc).map((r) => r.appliesLabel);
-    expect(labels).toEqual([
-      'applies from 3 to 5 races sailed',
-      'applies from 6 to 8 races sailed',
-      'applies from 9 to 12 races sailed',
-      'applies from 13 to 15 races sailed',
-      'applies from 16 to 18 races sailed',
-      'applies from 19 to 21 races sailed',
-      'applies from 22 races sailed onwards',
+    const ranges = describeDiscardRules(hyc).map((r) => [r.appliesFrom, r.appliesTo]);
+    expect(ranges).toEqual([
+      [3, 5],
+      [6, 8],
+      [9, 12], // four races wide where every other range is three
+      [13, 15],
+      [16, 18],
+      [19, 21],
+      [22, null],
     ]);
   });
 
@@ -86,7 +87,6 @@ describe('describeDiscardRules', () => {
       const [first, second] = describeDiscardRules(duplicated);
       expect(first.warnings).toEqual([]);
       expect(second.appliesFrom).toBeNull();
-      expect(second.appliesLabel).toBe('');
       expect(second.warnings).toEqual([
         'Never applies — rule 1 already sets the discards at 5 races.',
       ]);
@@ -130,25 +130,6 @@ describe('describeDiscardRules', () => {
       const blank = describeDiscardRules([{ minRaces: 0, discardCount: 1 }])[0];
       expect(blank.warnings).toContain('Applies before any race is sailed — enter at least 1.');
     });
-  });
-});
-
-describe('discardFreeBelow', () => {
-  it('gives the race count below which nothing is discarded', () => {
-    expect(discardFreeBelow(rrsStyle)).toBe(5);
-    expect(discardFreeBelow(hyc)).toBe(3);
-  });
-
-  it('is silent when the lowest rule covers the first race', () => {
-    expect(discardFreeBelow([{ minRaces: 1, discardCount: 1 }])).toBeNull();
-  });
-
-  it('is silent when there are no rules', () => {
-    expect(discardFreeBelow([])).toBeNull();
-  });
-
-  it('reads the lowest rule wherever it sits in the list', () => {
-    expect(discardFreeBelow([{ minRaces: 9, discardCount: 2 }, { minRaces: 5, discardCount: 1 }])).toBe(5);
   });
 });
 
