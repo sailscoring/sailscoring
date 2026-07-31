@@ -1,9 +1,10 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
-import { humanizeSlug } from './publishing';
+import { humanizeSlug, kebab } from './publishing';
+import { seasonLikeSlug } from './published-tree';
 import type { PublishedSeries } from './types';
 
 /**
@@ -213,11 +214,16 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     categoryOrder: number;
     seriesOrder: number;
     year: number | null;
+    /** The season the slug files under (ADR-011): folder-metadata pin, a
+     *  season-like slug, or the start-date year; null = undated. */
+    season: string | null;
     contributors: {
       /** The contributing series' name; null for an orphaned publication. */
       title: string | null;
       year: number | null;
       categoryName: string | null;
+      /** The category's displayOrder; Infinity when uncategorised. */
+      categoryOrder: number;
       pages: {
         fleetName: string;
         subSeriesName?: string;
@@ -250,6 +256,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     )
     .where(eq(schema.publishedSeries.workspaceId, workspaceId))
     .orderBy(desc(schema.publishedSeries.publishedAt));
+  const meta = await getPublishedFolderMeta(workspaceId);
 
   type Rep = {
     archived: boolean;
@@ -268,6 +275,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     title: string | null;
     year: number | null;
     categoryName: string | null;
+    categoryOrder: number;
     // Sort keys only — the in-app series order, publish recency as tiebreak
     // (mirroring getPublishedGroupByWorkspaceSlug); stripped before return.
     seriesOrder: number;
@@ -312,6 +320,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
       title: r.seriesName ?? null,
       year: yearOf(r.startDate),
       categoryName: r.categoryName ?? null,
+      categoryOrder: r.categoryOrder ?? Number.POSITIVE_INFINITY,
       seriesOrder: r.seriesOrder ?? Number.POSITIVE_INFINITY,
       publishedAt: r.publishedAt.getTime(),
       pages: r.pages.map((p) => ({
@@ -326,7 +335,9 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
   return [...groups.entries()]
     .map(([slug, g]) => ({
       slug,
-      title: g.names.length === 1 ? (g.names[0] ?? slug) : humanizeSlug(slug),
+      title:
+        meta.get(slug)?.label ??
+        (g.names.length === 1 ? (g.names[0] ?? slug) : humanizeSlug(slug)),
       publishedAt: g.publishedAt,
       fleetCount: g.fleetCount,
       archived: g.rep.archived,
@@ -334,6 +345,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
       categoryOrder: g.rep.categoryOrder,
       seriesOrder: g.rep.seriesOrder,
       year: g.rep.year,
+      season: seasonOf(slug, meta.get(slug), g.rep.year),
       contributors: g.contributors
         .sort(
           // Not `a - b`: unordered rows are both Infinity and the difference
@@ -345,14 +357,216 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
                 ? 1
                 : 0) || b.publishedAt - a.publishedAt,
         )
-        .map(({ title, year, categoryName, pages }) => ({
+        .map(({ title, year, categoryName, categoryOrder, pages }) => ({
           title,
           year,
           categoryName,
+          categoryOrder,
           pages,
         })),
     }))
     .sort((a, b) => b.publishedAt - a.publishedAt);
+}
+
+/** The redirect target for a moved public path (ADR-011), or null. `fromPath`
+ *  is the path under `/p/{ws}/` (no leading slash); the returned target is
+ *  the same shape. Consulted by the `/p/` route only after everything else
+ *  404s, so a redirect can never shadow a live page. */
+export async function getPublishedRedirect(
+  workspaceId: string,
+  fromPath: string,
+): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ toPath: schema.publishedRedirects.toPath })
+    .from(schema.publishedRedirects)
+    .where(
+      and(
+        eq(schema.publishedRedirects.workspaceId, workspaceId),
+        eq(schema.publishedRedirects.fromPath, fromPath),
+      ),
+    )
+    .limit(1);
+  return row?.toPath ?? null;
+}
+
+/** Folder metadata rows for a workspace (ADR-011), keyed by path. The tree
+ *  renders fine without rows — labels humanise, seasons derive — so this maps
+ *  only the overrides. */
+export async function getPublishedFolderMeta(
+  workspaceId: string,
+): Promise<Map<string, { label: string | null; season: string | null }>> {
+  const rows = await getDb()
+    .select({
+      path: schema.publishedFolders.path,
+      label: schema.publishedFolders.label,
+      season: schema.publishedFolders.season,
+    })
+    .from(schema.publishedFolders)
+    .where(eq(schema.publishedFolders.workspaceId, workspaceId));
+  return new Map(rows.map((r) => [r.path, { label: r.label, season: r.season }]));
+}
+
+/** Insert or update one folder's metadata. Only the given fields change, so
+ *  an ingest pinning `season` never clears a label set elsewhere. */
+export async function upsertPublishedFolder(
+  workspaceId: string,
+  path: string,
+  meta: { label?: string | null; season?: string | null },
+): Promise<void> {
+  const set: { label?: string | null; season?: string | null } = {};
+  if ('label' in meta) set.label = meta.label;
+  if ('season' in meta) set.season = meta.season;
+  await getDb()
+    .insert(schema.publishedFolders)
+    .values({ workspaceId, path, ...set })
+    .onConflictDoUpdate({
+      target: [
+        schema.publishedFolders.workspaceId,
+        schema.publishedFolders.path,
+      ],
+      set,
+    });
+}
+
+/** Pin a folder's display label unless one is already pinned — first
+ *  publisher wins, so a series joining an existing event folder never
+ *  renames it. */
+export async function pinPublishedFolderLabelIfAbsent(
+  workspaceId: string,
+  path: string,
+  label: string,
+): Promise<void> {
+  await getDb()
+    .insert(schema.publishedFolders)
+    .values({ workspaceId, path, label })
+    .onConflictDoUpdate({
+      target: [
+        schema.publishedFolders.workspaceId,
+        schema.publishedFolders.path,
+      ],
+      set: {
+        label: sql`coalesce(${schema.publishedFolders.label}, excluded.label)`,
+      },
+    });
+}
+
+/** The season a published slug files under (ADR-011): the folder-metadata
+ *  pin, a season-like slug itself, or the representative series' start year.
+ *  Null = undated. */
+function seasonOf(
+  slug: string,
+  meta: { season: string | null } | undefined,
+  year: number | null,
+): string | null {
+  if (meta?.season) return meta.season;
+  if (seasonLikeSlug(slug)) return slug;
+  return year != null ? String(year) : null;
+}
+
+/** One season of the workspace's publication tree (ADR-011). `segment` is
+ *  its URL form under `/p/{ws}/`; `folders` are the published top-level
+ *  folders filed in it (for the archive shape, the single folder whose slug
+ *  IS the season). */
+export interface PublishedSeason {
+  label: string;
+  segment: string;
+  current: boolean;
+  folders: { slug: string; label: string }[];
+}
+
+/**
+ * The workspace's seasons, newest first, each with its published top-level
+ * folders (ADR-011). Seasons union the defined rows (`workspace_seasons`)
+ * with those derived from publications; the current season is the explicitly
+ * flagged one, else the newest label. Folders whose season can't be derived
+ * land in `undated` (kept out of the season cascade).
+ */
+export async function getPublishedSeasonTree(
+  workspaceId: string,
+  folderMeta?: Map<string, { label: string | null; season: string | null }>,
+): Promise<{ seasons: PublishedSeason[]; undated: { slug: string; label: string }[] }> {
+  const meta = folderMeta ?? (await getPublishedFolderMeta(workspaceId));
+  const rows = await getDb()
+    .select({
+      slug: schema.publishedSeries.slug,
+      seriesName: schema.series.name,
+      publishedAt: schema.publishedSeries.publishedAt,
+      startDate: schema.series.startDate,
+    })
+    .from(schema.publishedSeries)
+    .leftJoin(
+      schema.series,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+    .orderBy(desc(schema.publishedSeries.publishedAt));
+
+  const groups = new Map<
+    string,
+    { names: (string | null)[]; at: number; year: number | null }
+  >();
+  for (const r of rows) {
+    const g = groups.get(r.slug) ?? { names: [], at: 0, year: null };
+    g.names.push(r.seriesName);
+    if (r.publishedAt.getTime() > g.at) {
+      g.at = r.publishedAt.getTime();
+      g.year = yearOf(r.startDate);
+    }
+    groups.set(r.slug, g);
+  }
+
+  const folderOf = (slug: string, g: { names: (string | null)[] }) => ({
+    slug,
+    label:
+      meta.get(slug)?.label ??
+      (g.names.length === 1 && g.names[0] !== null
+        ? g.names[0]
+        : humanizeSlug(slug)),
+  });
+
+  const bySeason = new Map<string, { slug: string; label: string; at: number }[]>();
+  const undated: { slug: string; label: string }[] = [];
+  for (const [slug, g] of groups) {
+    const season = seasonOf(slug, meta.get(slug), g.year);
+    if (season === null) {
+      undated.push(folderOf(slug, g));
+      continue;
+    }
+    const list = bySeason.get(season) ?? [];
+    list.push({ ...folderOf(slug, g), at: g.at });
+    bySeason.set(season, list);
+  }
+
+  const defined = await getDb()
+    .select({
+      label: schema.workspaceSeasons.label,
+      isCurrent: schema.workspaceSeasons.isCurrent,
+    })
+    .from(schema.workspaceSeasons)
+    .where(eq(schema.workspaceSeasons.workspaceId, workspaceId));
+  for (const d of defined) {
+    if (!bySeason.has(d.label)) bySeason.set(d.label, []);
+  }
+
+  const labels = [...bySeason.keys()].sort((a, b) => b.localeCompare(a));
+  const explicitCurrent = defined.find((d) => d.isCurrent)?.label;
+  const current =
+    explicitCurrent !== undefined && bySeason.has(explicitCurrent)
+      ? explicitCurrent
+      : labels[0];
+  const seasons: PublishedSeason[] = labels.map((label) => ({
+    label,
+    segment: kebab(label),
+    current: label === current,
+    folders: (bySeason.get(label) ?? [])
+      // A season-named folder (the archive shape) leads; the rest newest
+      // publish first.
+      .sort((a, b) =>
+        a.slug === kebab(label) ? -1 : b.slug === kebab(label) ? 1 : b.at - a.at,
+      )
+      .map(({ slug, label: l }) => ({ slug, label: l })),
+  }));
+  return { seasons, undated };
 }
 
 /**
@@ -418,7 +632,23 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
 
   // Titles keyed by row id, so each row can name the *other* publications
   // sharing its slug (a slug is a shared namespace — see the schema note).
-  const titleOf = (r: (typeof rows)[number]) => r.seriesName ?? r.slug;
+  // An orphan (series deleted) falls back to its event folder's pinned label
+  // — the old series name (ADR-011) — before the bare slug, which under a
+  // season slug would just read "2026".
+  const meta = await getPublishedFolderMeta(workspaceId);
+  const titleOf = (r: (typeof rows)[number]) => {
+    if (r.seriesName) return r.seriesName;
+    const segments = new Set(
+      r.pages
+        .filter((p) => p.subPath.includes('/'))
+        .map((p) => p.subPath.split('/')[0]),
+    );
+    if (segments.size === 1) {
+      const label = meta.get(`${r.slug}/${[...segments][0]}`)?.label;
+      if (label) return label;
+    }
+    return r.slug;
+  };
   const bySlug = new Map<string, typeof rows>();
   for (const r of rows) {
     const list = bySlug.get(r.slug) ?? [];

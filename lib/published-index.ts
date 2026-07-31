@@ -12,8 +12,16 @@
  * footer) so a listing and a results page feel like one site.
  */
 
-import { formatShortDate as formatDate } from './format-date';
 import { escapeHtml as esc } from './html';
+import { kebab } from './publishing';
+import {
+  interiorFolderLabels,
+  leafLabel,
+  pagesInFolder,
+  rootPages,
+  slugFolders,
+  type TreePage,
+} from './published-tree';
 
 /**
  * The fields the listing partition reads — what decides which section a
@@ -36,6 +44,10 @@ export interface ListingPlacement {
   seriesOrder?: number | null;
   /** The series' start-date year, for the "Past results" grouping. */
   year?: number | null;
+  /** The season the publication files under (ADR-011): the folder-metadata
+   *  pin, a season-like slug, or the start-date year as a string. Drives the
+   *  public season grouping; null = undated. */
+  season?: string | null;
 }
 
 /** One publication sharing a listing slug: its own series name, placement and
@@ -47,6 +59,8 @@ export interface WorkspaceIndexContributor {
   title: string | null;
   year?: number | null;
   categoryName?: string | null;
+  /** The category's displayOrder; absent/Infinity when uncategorised. */
+  categoryOrder?: number;
   pages: SeriesIndexPage[];
 }
 
@@ -112,145 +126,26 @@ export interface SeriesIndexGroup {
   pages: SeriesIndexPage[];
 }
 
-/** The sail-mark path, on the tightened `205 205 840 840` viewBox. */
-const MARK_PATH =
-  'M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z';
+// The shared chrome lives in published-shell.ts; re-exported here for the
+// long-standing external callers (career arc, competitor index, rankings).
+import { renderPublicHero, renderPublicShell } from './published-shell';
+export { renderPublicHero, renderPublicShell };
 
-/** Inline brand sail mark — self-contained (no external image). */
-function markSvg(fill: string, size: number): string {
-  return `<svg viewBox="205 205 840 840" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:middle;"><path fill="${fill}" d="${MARK_PATH}"/></svg>`;
-}
-
-/** Self-contained SVG favicon (red sail mark as a data URI). */
-const FAVICON = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 205 840 840"><path fill="#fb3a3b" d="${MARK_PATH}"/></svg>`,
-)}">`;
-
-/** Brand lockup for the hero: white sail mark + the "Sail Scoring" wordmark,
- *  side by side, linking to the brand site. */
-function brandLockup(): string {
-  return `<a class="brand" href="https://sailscoring.ie" target="_top" rel="noopener">${markSvg('#ffffff', 44)}<span class="brandname">Sail Scoring</span></a>`;
-}
-
-/** The workspace's own logo in the hero, on a white chip so any colourway stays
- *  legible on the navy background. Empty string when the workspace has no logo. */
-function heroLogo(url: string): string {
-  if (!url) return '';
-  return `<div class="wslogo"><img src="${esc(url)}" alt=""></div>`;
-}
-
-const FOOTER = `<footer class="credit">${markSvg('#fb3a3b', 14)} Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a></footer>`;
-
-const STYLE = `*{box-sizing:border-box;}
-body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, helvetica, sans-serif; margin: 0; background: #f4f6f8; color: #1a1a1a; }
-.hero { background: #073358; color: #fff; padding: 32px 24px 28px; text-align: center; border-bottom: 4px solid #fb3a3b; }
-.hero h1 { font-size: 1.7em; font-weight: 700; color: #fff; margin: 22px 0 0; }
-/* Logos sit in a centred row with a generous gap. The lockup is vertically
-   stacked — mark over wordmark — so it reads square next to the (usually
-   squarish) workspace logo rather than as a wide banner. */
-.hero .herologos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 40px; }
-.hero .brand { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; }
-.hero .brandname { color: #fff; font-size: 1.15em; font-weight: 700; letter-spacing: 0.01em; }
-.hero .brand:hover .brandname { text-decoration: underline; }
-.hero .wslogo { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
-.hero .wslogo img { display: block; height: 60px; width: auto; max-width: 260px; object-fit: contain; }
-.content { max-width: 720px; margin: 28px auto 40px; padding: 0 20px; }
-p.back { margin: 0 0 16px; font-size: 0.82em; }
-p.back a { color: #073358; text-decoration: none; }
-p.back a:hover { color: #fb3a3b; text-decoration: underline; }
-p.browse { margin: 0 0 18px; font-size: 0.9em; font-weight: 600; }
-p.browse a { color: #073358; text-decoration: none; }
-p.browse a:hover { color: #fb3a3b; text-decoration: underline; }
-ul.listing { list-style: none; padding: 0; margin: 16px 0; }
-ul.listing li { background: #fff; border: 1px solid #e2e6ea; border-left: 4px solid transparent; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(7,51,88,0.06); transition: box-shadow .15s, border-color .15s, transform .1s; }
-ul.listing li:hover { box-shadow: 0 4px 14px rgba(7,51,88,0.13); border-left-color: #fb3a3b; transform: translateY(-1px); }
-ul.listing li a { display: block; padding: 16px 20px 18px; font-size: 1.15em; font-weight: 600; color: #073358; text-decoration: none; }
-ul.listing .meta { display: block; color: #6b7280; font-size: 0.78em; font-weight: 400; margin-top: 6px; padding-bottom: 2px; }
-h2.section { font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em; color: #073358; font-weight: 700; margin: 28px 0 10px; }
-h2.series { font-size: 1.15em; color: #073358; font-weight: 700; margin: 24px 0 8px; }
-h3.subseries { font-size: 1.0em; color: #073358; font-weight: 700; margin: 20px 0 6px; }
-h2.past { font-size: 1.2em; color: #073358; font-weight: 700; margin: 36px 0 0; border-top: 1px solid #e2e6ea; padding-top: 18px; }
-h3.year { font-size: 0.95em; color: #556; font-weight: 600; margin: 18px 0 8px; }
-.picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
-/* Stable flex widths, not content width: a select sizes to its widest option,
-   so "All years" (every series title loaded) would otherwise wrap the row and
-   re-flow every time a filter changes the options. */
-.picker select { font: inherit; font-size: 0.9em; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #073358; min-width: 0; }
-.picker select:disabled { color: #94a3b8; }
-.picker #picker-year, .picker #picker-cat { flex: 1 1 110px; }
-.picker #picker-series, .picker #picker-fleet { flex: 2 1 200px; }
-p.empty { color: #6b7280; text-align: center; margin: 48px 0; }
-footer.credit { text-align: center; color: #475569; font-size: 0.85em; padding: 22px 20px; border-top: 1px solid #e2e6ea; }
-footer.credit a { color: #073358; text-decoration: none; }
-footer.credit a:hover { color: #fb3a3b; text-decoration: underline; }`;
-
-/**
- * The shared public-page chrome (navy hero, red accent, Poppins, the
- * `Sail Scoring — sailscoring.ie` footer). Reused by the career-arc page so the
- * whole `/p/...` surface reads as one site. `extraCss` is appended after the
- * base stylesheet for page-specific rules.
- */
-export function renderPublicShell(
-  title: string,
-  hero: string,
-  body: string,
-  extraCss = '',
-): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
-<meta name="robots" content="noindex">
-<title>${esc(title)}</title>
-${FAVICON}
-<style type="text/css">
-${STYLE}
-${extraCss}
-</style>
-</head>
-<body>
-<header class="hero">${hero}</header>
-<main class="content">
-${body}
-</main>
-${FOOTER}
-</body>
-</html>`;
-}
-
-/** The standard hero: the brand lockup beside the workspace logo, then the
- *  heading. `headingHtml` is inserted as-is (callers escape their own text). */
-export function renderPublicHero(headingHtml: string, logoUrl = ''): string {
-  return `<div class="herologos">${brandLockup()}${heroLogo(logoUrl)}</div>\n<h1>${headingHtml}</h1>`;
-}
-
-/**
- * Partition the flat listing into the sections the workspace index renders:
- * active publications as category sections (mirroring the in-app series list),
- * and archived publications relegated to "Past results" year
- * sections. Pure, so the ordering rules are unit-tested directly.
- *
- * Placement comes from each slug's representative series (see
- * `listPublishedByWorkspace`); a slug shared by several series under different
- * categories is fudged onto one section via that representative.
- */
-export function groupWorkspaceListing<T extends ListingPlacement>(
+/** Category sections over a set of items: section order is the category's
+ *  displayOrder, the Uncategorized bucket (null) always last; within a
+ *  section the manual series order wins, newest first as a tiebreak. */
+function groupByCategory<T extends ListingPlacement>(
   items: T[],
-): WorkspaceListing<T> {
+): ListingCategoryGroup<T>[] {
   const INF = Number.POSITIVE_INFINITY;
-
-  // Active → category sections. Section order is the representative category's
-  // displayOrder; the Uncategorized bucket (null) always sorts last. Within a
-  // section the manual series order wins, newest first as a tiebreak.
   const catBuckets = new Map<string | null, T[]>();
   const catOrder = new Map<string | null, number>();
-  for (const it of items.filter((i) => !i.archived)) {
+  for (const it of items) {
     const key = it.categoryName ?? null;
     (catBuckets.get(key) ?? catBuckets.set(key, []).get(key)!).push(it);
     catOrder.set(key, Math.min(catOrder.get(key) ?? INF, it.categoryOrder ?? INF));
   }
-  const active: ListingCategoryGroup<T>[] = [...catBuckets.entries()]
+  return [...catBuckets.entries()]
     .map(([categoryName, list]) => ({
       categoryName,
       items: list.sort(
@@ -264,6 +159,66 @@ export function groupWorkspaceListing<T extends ListingPlacement>(
       if (b.categoryName === null) return -1;
       return catOrder.get(a.categoryName)! - catOrder.get(b.categoryName)!;
     });
+}
+
+/** One season's slice of the public workspace listing (ADR-011), its items in
+ *  category sections. */
+export interface ListingSeasonGroup<T extends ListingPlacement = WorkspaceIndexItem> {
+  /** null = the undated bucket, always last. */
+  season: string | null;
+  groups: ListingCategoryGroup<T>[];
+}
+
+/**
+ * Partition the flat listing into season slices, newest season first, each
+ * grouped by category (ADR-011 — the public workspace index shows the current
+ * season expanded and prior seasons collapsed; the archived-based "Past
+ * results" partition retired in its favour). Pure, so the ordering rules are
+ * unit-tested directly.
+ */
+export function groupWorkspaceListingBySeason<T extends ListingPlacement>(
+  items: T[],
+): ListingSeasonGroup<T>[] {
+  const buckets = new Map<string | null, T[]>();
+  for (const it of items) {
+    const key = it.season ?? null;
+    (buckets.get(key) ?? buckets.set(key, []).get(key)!).push(it);
+  }
+  return [...buckets.entries()]
+    .map(([season, list]) => ({ season, groups: groupByCategory(list) }))
+    .sort((a, b) => {
+      if (a.season === null) return 1;
+      if (b.season === null) return -1;
+      return b.season.localeCompare(a.season);
+    });
+}
+
+/** A category heading that would merely repeat its season label is noise —
+ *  the `category = year` filing hack of the archive corpora — so the season
+ *  view suppresses it. */
+export function suppressCategoryHeading(
+  categoryName: string | null,
+  season: string | null,
+): boolean {
+  return categoryName !== null && categoryName === season;
+}
+
+/**
+ * Partition the flat listing into active category sections and archived
+ * "Past results" year sections. The public workspace index moved to the
+ * season partition (ADR-011 — `groupWorkspaceListingBySeason`); this remains
+ * the in-app management page's partition (#292).
+ *
+ * Placement comes from each slug's representative series (see
+ * `listPublishedByWorkspace`); a slug shared by several series under different
+ * categories is fudged onto one section via that representative.
+ */
+export function groupWorkspaceListing<T extends ListingPlacement>(
+  items: T[],
+): WorkspaceListing<T> {
+  const active: ListingCategoryGroup<T>[] = groupByCategory(
+    items.filter((i) => !i.archived),
+  );
 
   // Archived → year sections, newest year first; the undated bucket last.
   const yearBuckets = new Map<number | null, T[]>();
@@ -285,12 +240,125 @@ export function groupWorkspaceListing<T extends ListingPlacement>(
   return { active, past };
 }
 
+/** One event row of the public workspace index (ADR-011): an interior folder
+ *  of a season's own slug, a root page of one, or a whole legacy top-level
+ *  folder — with the page links that jump straight to a results table. */
+export interface IndexEvent extends ListingPlacement {
+  /** Stable row key for the picker's filtering. */
+  key: string;
+  label: string;
+  href: string;
+  pages: { label: string; href: string }[];
+}
+
+type EventPage = TreePage & {
+  ownerCategory: string | null;
+  ownerCategoryOrder: number;
+};
+
+function contributorPages(it: WorkspaceIndexItem): EventPage[] {
+  return (it.contributors ?? []).flatMap((c) => {
+    const single = c.pages.filter((p) => !p.isPrizes).length === 1;
+    return c.pages.map((p) => ({
+      ...p,
+      ownerName: c.title,
+      ownerSingle: single,
+      ownerCategory: c.categoryName ?? null,
+      ownerCategoryOrder: c.categoryOrder ?? Number.POSITIVE_INFINITY,
+    }));
+  });
+}
+
 /**
- * Workspace listing at `/p/{ws}`. Publications are grouped into category
- * sections and a relegated "Past results" block (the in-app series
- * organisation surfaced publicly).
- * A workspace with no categories and nothing archived collapses to a single
- * flat list with no section headings, matching the original look.
+ * Explode the listing's slug items into event rows (ADR-011). A slug that is
+ * its season's own folder (the archive shape) contributes one row per
+ * interior folder and per root page — the season card that would otherwise
+ * wrap them says nothing a season heading doesn't. Any other slug is one
+ * event row. Categories come from the contributing series, so an exploded
+ * event keeps its own filing (e.g. HYC's Open Events vs Club Racing).
+ */
+export function workspaceIndexEvents(
+  workspaceSlug: string,
+  items: WorkspaceIndexItem[],
+  /** Folder metadata (ADR-011): label pins override derived folder names. */
+  folderMeta?: Map<string, { label: string | null }>,
+): IndexEvent[] {
+  const events: IndexEvent[] = [];
+  for (const it of items) {
+    const base = `/p/${workspaceSlug}/${it.slug}`;
+    const labels = folderMeta
+      ? interiorFolderLabels(folderMeta, it.slug)
+      : undefined;
+    const season = it.season ?? null;
+    const pages = contributorPages(it);
+    // A season's own folder explodes into its events — but only when the
+    // page data to explode is present; a bare item stays one row.
+    const isSeasonFolder =
+      season !== null && kebab(season) === it.slug && pages.length > 0;
+    const sole = (it.contributors?.length ?? 1) <= 1;
+    if (!isSeasonFolder) {
+      events.push({
+        key: it.slug,
+        label: it.title,
+        href: base,
+        categoryName: it.categoryName ?? null,
+        categoryOrder: it.categoryOrder ?? null,
+        seriesOrder: it.seriesOrder ?? null,
+        publishedAt: it.publishedAt,
+        season,
+        pages: pages.map((p) => ({
+          label: leafLabel(p, pages, sole),
+          href: `${base}/${p.subPath}`,
+        })),
+      });
+      continue;
+    }
+    for (const f of slugFolders(pages, labels)) {
+      const fp = pagesInFolder(pages, f.segment) as EventPage[];
+      const cats = new Set(fp.map((p) => p.ownerCategory));
+      const cat = cats.size === 1 ? [...cats][0] : null;
+      events.push({
+        key: `${it.slug}/${f.segment}`,
+        label: f.label,
+        href: `${base}/${f.segment}`,
+        categoryName: cat,
+        categoryOrder:
+          cat !== null ? Math.min(...fp.map((p) => p.ownerCategoryOrder)) : null,
+        seriesOrder: null,
+        publishedAt: it.publishedAt,
+        season,
+        pages: fp.map((p) => ({
+          label: leafLabel(p, fp, sole),
+          href: `${base}/${p.subPath}`,
+        })),
+      });
+    }
+    const roots = rootPages(pages) as EventPage[];
+    for (const p of roots) {
+      events.push({
+        key: `${it.slug}/${p.subPath}`,
+        label: leafLabel(p, roots, sole),
+        href: `${base}/${p.subPath}`,
+        categoryName: p.ownerCategory,
+        categoryOrder: p.ownerCategory !== null ? p.ownerCategoryOrder : null,
+        seriesOrder: null,
+        publishedAt: it.publishedAt,
+        season,
+        pages: [],
+      });
+    }
+  }
+  return events;
+}
+
+/**
+ * Workspace listing at `/p/{ws}` (ADR-011). The unit is the *event* — a
+ * season slug's interior folders and root pages, or a whole legacy top-level
+ * folder — each row linking its index and its results pages directly. Events
+ * group by season, every season a collapsible section with the current one
+ * open, categories as headings within (suppressed where they merely repeat
+ * the season). A workspace with one season and no categories collapses to a
+ * flat list with no chrome.
  */
 export function renderWorkspaceIndexHtml(
   workspaceSlug: string,
@@ -303,6 +371,11 @@ export function renderWorkspaceIndexHtml(
      *  the ranking index, not a link per ladder: the series results are the
      *  page's focus. */
     rankingsLink?: boolean;
+    /** The workspace's current season (expanded by default); absent → the
+     *  newest season. */
+    currentSeason?: string;
+    /** Folder metadata (ADR-011): label pins for event rows. */
+    folderMeta?: Map<string, { label: string | null }>;
   } = {},
 ): string {
   const heading = `${esc(workspaceName)} &mdash; published results`;
@@ -324,49 +397,63 @@ export function renderWorkspaceIndexHtml(
     );
   }
 
-  const row = (it: WorkspaceIndexItem) => {
-    const fleets = it.fleetCount > 1 ? ` &middot; ${it.fleetCount} fleets` : '';
-    return `<li data-slug="${esc(it.slug)}"><a href="/p/${esc(workspaceSlug)}/${esc(it.slug)}">${esc(it.title)}</a><span class="meta">Published ${esc(formatDate(it.publishedAt))}${fleets}</span></li>`;
+  const row = (e: IndexEvent) => {
+    const pageLinks = e.pages
+      .map((p) => `<a href="${esc(p.href)}">${esc(p.label)}</a>`)
+      .join(' &middot; ');
+    return `<li data-season="${esc(e.season ?? '')}" data-cat="${esc(e.categoryName ?? '')}" data-event="${esc(e.key)}"><a class="evt" href="${esc(e.href)}">${esc(e.label)}</a>${pageLinks ? `<span class="pages">${pageLinks}</span>` : ''}</li>`;
   };
-  const list = (rows: WorkspaceIndexItem[]) =>
+  const list = (rows: IndexEvent[]) =>
     `<ul class="listing">\n${rows.map(row).join('\n')}\n</ul>`;
   // Each heading + list pairs inside a `section.lgroup` so the quick-jump
   // picker can hide a section its filter empties, heading and all.
-  const section = (heading: string, rows: WorkspaceIndexItem[]) =>
+  const section = (heading: string, rows: IndexEvent[]) =>
     `<section class="lgroup">\n${heading}${list(rows)}\n</section>`;
 
-  const { active, past } = groupWorkspaceListing(items);
+  const seasons = groupWorkspaceListingBySeason(
+    workspaceIndexEvents(workspaceSlug, items, opts.folderMeta),
+  );
 
-  // Flat (no headings) when there's a single uncategorised active section and
-  // nothing archived — the common single-club, no-categories case.
-  const flat =
-    past.length === 0 &&
-    active.length <= 1 &&
-    (active.length === 0 || active[0].categoryName === null);
+  const seasonInner = (s: ListingSeasonGroup<IndexEvent>) =>
+    s.groups
+      .map((g) => {
+        const noHeading =
+          (g.categoryName === null && s.groups.length === 1) ||
+          suppressCategoryHeading(g.categoryName, s.season) ||
+          // A heading over a single row that reads the same is pure echo —
+          // the event-family-as-category shape, where most seasons hold one
+          // event per family.
+          (g.items.length === 1 && g.items[0].label === g.categoryName);
+        return section(
+          noHeading
+            ? ''
+            : `<h3 class="cat">${esc(g.categoryName ?? 'Uncategorized')}</h3>\n`,
+          g.items,
+        );
+      })
+      .join('\n');
 
   let sections: string;
-  if (flat) {
-    sections = section('', active[0]?.items ?? []);
+  if (seasons.length <= 1) {
+    // A single season needs no season chrome.
+    sections = seasons[0] ? seasonInner(seasons[0]) : section('', []);
   } else {
-    const activeHtml = active
-      .map((g) =>
-        section(
-          `<h2 class="section">${esc(g.categoryName ?? 'Uncategorized')}</h2>\n`,
-          g.items,
-        ),
-      )
+    const openLabel =
+      opts.currentSeason !== undefined &&
+      seasons.some((s) => s.season === opts.currentSeason)
+        ? opts.currentSeason
+        : seasons[0].season;
+    // Every season is collapsible; the current one starts open (`data-open`
+    // remembers the default so the picker can restore it after filtering).
+    sections = seasons
+      .map((s) => {
+        const open = s.season === openLabel;
+        return `<details class="season"${open ? ' open data-open' : ''}><summary>${esc(s.season ?? 'Undated')}</summary>\n${seasonInner(s)}\n</details>`;
+      })
       .join('\n');
-    const pastHtml = past.length
-      ? `\n<div class="pastblock">\n<h2 class="past">Past results</h2>\n${past
-          .map((g) =>
-            section(`<h3 class="year">${g.year ?? 'Undated'}</h3>\n`, g.items),
-          )
-          .join('\n')}\n</div>`
-      : '';
-    sections = activeHtml + pastHtml;
   }
 
-  const picker = renderQuickJumpPicker(workspaceSlug, active, past);
+  const picker = renderQuickJumpPicker(seasons);
 
   return renderPublicShell(
     `${workspaceName} — published results`,
@@ -376,89 +463,65 @@ export function renderWorkspaceIndexHtml(
 }
 
 /**
- * The quick-jump picker above the workspace listing (#320): cascading Year /
- * Category / Series / Fleet selects for scorers who know what they're looking
- * for, with the scrolling listing staying the browsable default. Year narrows
- * the Category options (not every category spans every year), both narrow the
- * Series options and filter the listing below; picking a Series populates
- * Fleet; picking a Fleet navigates to its page.
+ * The quick-jump picker above the workspace listing (#320/ADR-011): Season /
+ * Category / Event filter selects. The selects only ever *filter* — the rows
+ * beneath carry the actual links (each event row links its pages directly),
+ * so nothing navigates on `change` and a couple of selections put the wanted
+ * table one click away. Population cascades: with several seasons the Event
+ * select stays empty until a season is chosen, and Category narrows to the
+ * chosen season's categories.
  *
  * Progressive enhancement: the controls ship `hidden` and are revealed by the
- * inline script, which reads the embedded JSON tree — no framework, no
- * external requests, nothing to see without JS. Degenerate dimensions (one
- * year, one category) don't render their select, and a workspace with fewer
- * than two publications gets no picker at all.
+ * inline script, which reads the embedded JSON — no framework, no external
+ * requests, nothing to see without JS. Degenerate dimensions (one season, one
+ * category) don't render their select, and a workspace with fewer than two
+ * events gets no picker at all.
  */
 function renderQuickJumpPicker(
-  workspaceSlug: string,
-  active: ListingCategoryGroup<WorkspaceIndexItem>[],
-  past: ListingYearGroup<WorkspaceIndexItem>[],
+  seasons: ListingSeasonGroup<IndexEvent>[],
 ): { controls: string; script: string } {
-  // Display order: active sections then past, matching the listing below.
-  const ordered = [
-    ...active.flatMap((g) => g.items),
-    ...past.flatMap((g) => g.items),
-  ];
+  // Display order: seasons newest first, matching the listing below.
+  const events = seasons.flatMap((s) => s.groups.flatMap((g) => g.items));
+  if (events.length < 2) return { controls: '', script: '' };
 
-  // One picker entry per contributing publication, each with its own name,
-  // placement, and fleet pages — a slug shared by a whole year of series
-  // (the as-published archive shape) still offers every series by name. An
-  // item without contributor data falls back to one slug-level entry.
-  const entries = ordered.flatMap((it) =>
-    (
-      it.contributors ?? [
-        {
-          title: it.title,
-          year: it.year,
-          categoryName: it.categoryName,
-          pages: [],
-        },
-      ]
-    ).map((c) => {
-      const single = c.pages.filter((p) => !p.isPrizes).length === 1;
-      return {
-        slug: it.slug,
-        title: c.title ?? it.title,
-        year: c.year ?? null,
-        cat: c.categoryName ?? null,
-        pages: c.pages.map((p) => ({
-          label: fleetPageLabel(p, single),
-          url: `/p/${workspaceSlug}/${it.slug}/${p.subPath}`,
-        })),
-      };
-    }),
-  );
-  if (entries.length < 2) return { controls: '', script: '' };
-
-  const years = [
-    ...new Set(
-      entries.map((e) => e.year).filter((y): y is number => y != null),
-    ),
-  ].sort((a, b) => b - a);
-  // Categories in section order; ones only present on contributors placed
-  // elsewhere (e.g. under Past results) follow in listing order.
+  const seasonValues = seasons
+    .map((s) => s.season)
+    .filter((s): s is string => s != null);
+  // Categories in section order across the seasons; a category that merely
+  // repeats a season label (the archive filing hack) never appears.
   const cats = [
-    ...new Set([
-      ...active.map((g) => g.categoryName),
-      ...entries.map((e) => e.cat),
-    ]),
+    ...new Set(
+      seasons.flatMap((s) =>
+        s.groups
+          .filter((g) => !suppressCategoryHeading(g.categoryName, s.season))
+          .map((g) => g.categoryName),
+      ),
+    ),
   ].filter((c): c is string => c != null);
 
-  const data = { items: entries };
+  const multiSeason = seasonValues.length >= 2;
+  const data = {
+    multiSeason,
+    events: events.map((e) => ({
+      key: e.key,
+      label: e.label,
+      season: e.season ?? null,
+      cat: e.categoryName ?? null,
+    })),
+  };
 
-  const yearSelect =
-    years.length >= 2
-      ? `<select id="picker-year" aria-label="Year"><option value="">All years</option>${years
-          .map((y) => `<option value="${y}">${y}</option>`)
-          .join('')}</select>`
-      : '';
+  const seasonSelect = multiSeason
+    ? `<select id="picker-year" aria-label="Season"><option value="">All seasons</option>${seasonValues
+        .map((s) => `<option value="${esc(s)}">${esc(s)}</option>`)
+        .join('')}</select>`
+    : '';
   const catSelect =
     cats.length >= 2
       ? `<select id="picker-cat" aria-label="Category"><option value="">All categories</option>${cats
           .map((c) => `<option value="${esc(c)}">${esc(c)}</option>`)
           .join('')}</select>`
       : '';
-  const controls = `<div class="picker" hidden>${yearSelect}${catSelect}<select id="picker-series" aria-label="Series"><option value="">All series</option></select><select id="picker-fleet" aria-label="Fleet" disabled><option value="">Go to fleet&hellip;</option></select></div>\n`;
+  const controls = `<div class="picker" hidden>${seasonSelect}${catSelect}<select id="picker-series" aria-label="Event or series"><option value="">All events</option></select></div>\n`;
 
   // `<` escaped so an adversarial series title can't close the script tag.
   const json = JSON.stringify(data).replace(/</g, '\\u003c');
@@ -472,11 +535,10 @@ const PICKER_SCRIPT = `(function () {
   var data = JSON.parse(document.getElementById('picker-data').textContent);
   var yearSel = document.getElementById('picker-year');
   var catSel = document.getElementById('picker-cat');
-  var seriesSel = document.getElementById('picker-series');
-  var fleetSel = document.getElementById('picker-fleet');
-  function matches(it, y, c) {
-    if (y && String(it.year) !== y) return false;
-    if (c && it.cat !== c) return false;
+  var eventSel = document.getElementById('picker-series');
+  function matches(e, y, c) {
+    if (y && (e.season || '') !== y) return false;
+    if (c && e.cat !== c) return false;
     return true;
   }
   function option(value, label) {
@@ -487,17 +549,18 @@ const PICKER_SCRIPT = `(function () {
   }
   function refresh() {
     var y = yearSel ? yearSel.value : '';
-    // Category sits downstream of Year in the cascade: its options narrow to
-    // the categories with a publication in the selected year (not every
-    // category spans every year), keeping the selection when it survives.
+    // Category sits downstream of Season in the cascade: its options narrow
+    // to the categories with an event in the selected season, keeping the
+    // selection when it survives. A category repeating its season label (the
+    // archive filing hack) is skipped.
     var c = '';
     if (catSel) {
       var keepCat = catSel.value;
       var cats = [];
-      data.items.forEach(function (it) {
-        if (!it.cat || cats.indexOf(it.cat) !== -1) return;
-        if (y && String(it.year) !== y) return;
-        cats.push(it.cat);
+      data.events.forEach(function (e) {
+        if (!e.cat || e.cat === e.season || cats.indexOf(e.cat) !== -1) return;
+        if (y && (e.season || '') !== y) return;
+        cats.push(e.cat);
       });
       catSel.textContent = '';
       catSel.appendChild(option('', 'All categories'));
@@ -506,58 +569,53 @@ const PICKER_SCRIPT = `(function () {
       if (catSel.value !== keepCat) catSel.value = '';
       c = catSel.value;
     }
-    // Series options are entries (one per publication), keyed by index — a
-    // slug is not a key here, since several series can share one.
-    var keep = seriesSel.value;
-    seriesSel.textContent = '';
-    seriesSel.appendChild(option('', 'All series'));
-    data.items.forEach(function (it, i) {
-      if (matches(it, y, c)) seriesSel.appendChild(option(String(i), it.title));
-    });
-    seriesSel.value = keep;
-    if (seriesSel.value !== keep) seriesSel.value = '';
-    var s = seriesSel.value;
-    var selected = s === '' ? null : data.items[Number(s)];
-    fleetSel.textContent = '';
-    fleetSel.appendChild(option('', 'Go to fleet\\u2026'));
-    if (selected) {
-      selected.pages.forEach(function (p) {
-        fleetSel.appendChild(option(p.url, p.label));
+    // The Event select cascades from Season: with several seasons it stays
+    // empty until one is chosen, so it never lists the whole archive.
+    var keep = eventSel.value;
+    eventSel.textContent = '';
+    if (data.multiSeason && !y) {
+      eventSel.appendChild(option('', 'Choose a season\u2026'));
+      eventSel.disabled = true;
+    } else {
+      eventSel.disabled = false;
+      eventSel.appendChild(option('', 'All events'));
+      data.events.forEach(function (e) {
+        if (matches(e, y, c)) eventSel.appendChild(option(e.key, e.label));
       });
+      eventSel.value = keep;
+      if (eventSel.value !== keep) eventSel.value = '';
     }
-    fleetSel.disabled = !selected || selected.pages.length === 0;
-    // A listing row covers a whole slug: it stays visible while any of its
-    // publications match the filter.
-    var slugVisible = {};
-    data.items.forEach(function (it) {
-      if (matches(it, y, c)) slugVisible[it.slug] = true;
-    });
-    document.querySelectorAll('li[data-slug]').forEach(function (li) {
-      var slug = li.getAttribute('data-slug');
-      var show = !!slugVisible[slug] && (!selected || selected.slug === slug);
+    var sel = eventSel.disabled ? '' : eventSel.value;
+    var filtering = !!(y || c || sel);
+    document.querySelectorAll('li[data-event]').forEach(function (li) {
+      var e = {
+        season: li.getAttribute('data-season') || null,
+        cat: li.getAttribute('data-cat') || null,
+      };
+      var show =
+        matches(e, y, c) && (!sel || li.getAttribute('data-event') === sel);
       li.style.display = show ? '' : 'none';
     });
+    var anyVisibleIn = function (root) {
+      var any = false;
+      root.querySelectorAll('li[data-event]').forEach(function (li) {
+        if (li.style.display !== 'none') any = true;
+      });
+      return any;
+    };
     document.querySelectorAll('section.lgroup').forEach(function (sec) {
-      var any = false;
-      sec.querySelectorAll('li[data-slug]').forEach(function (li) {
-        if (li.style.display !== 'none') any = true;
-      });
-      sec.style.display = any ? '' : 'none';
+      sec.style.display = anyVisibleIn(sec) ? '' : 'none';
     });
-    var pastBlock = document.querySelector('.pastblock');
-    if (pastBlock) {
-      var any = false;
-      pastBlock.querySelectorAll('li[data-slug]').forEach(function (li) {
-        if (li.style.display !== 'none') any = true;
-      });
-      pastBlock.style.display = any ? '' : 'none';
-    }
+    // Season sections: hide an emptied one; a filter opens the collapsed
+    // seasons that still match, and clearing it restores the default state.
+    document.querySelectorAll('details.season').forEach(function (d) {
+      var any = anyVisibleIn(d);
+      d.style.display = any ? '' : 'none';
+      d.open = filtering ? any : d.hasAttribute('data-open');
+    });
   }
-  [yearSel, catSel, seriesSel].forEach(function (sel) {
+  [yearSel, catSel, eventSel].forEach(function (sel) {
     if (sel) sel.addEventListener('change', refresh);
-  });
-  fleetSel.addEventListener('change', function () {
-    if (fleetSel.value) location.href = fleetSel.value;
   });
   refresh();
   document.querySelector('.picker').hidden = false;
@@ -584,6 +642,8 @@ export function renderSeriesIndexHtml(
   title: string,
   groups: SeriesIndexGroup[],
   logoUrl = '',
+  /** Pre-rendered navigation-cascade fragment (ADR-011), above the listing. */
+  nav = '',
 ): string {
   const renderFlatList = (pages: SeriesIndexPage[]): string => {
     // A lone results page reads better as "Standings" than as its (possibly
@@ -601,7 +661,8 @@ ${pages
   };
 
   // Sub-series pages group under their block name, in page order; any
-  // whole-series pages (no block) list first.
+  // whole-series pages (no block) list first. A block heading links to its
+  // folder index (ADR-011) when its pages live under a folder segment.
   const renderList = (pages: SeriesIndexPage[]): string => {
     const blockNames = [...new Set(pages.map((p) => p.subSeriesName).filter((n): n is string => !!n))];
     if (blockNames.length === 0) return renderFlatList(pages);
@@ -609,8 +670,15 @@ ${pages
     const parts: string[] = [];
     if (blockless.length > 0) parts.push(renderFlatList(blockless));
     for (const name of blockNames) {
-      parts.push(`<h3 class="subseries">${esc(name)}</h3>`);
-      parts.push(renderFlatList(pages.filter((p) => p.subSeriesName === name)));
+      const blockPages = pages.filter((p) => p.subSeriesName === name);
+      const seg = blockPages[0].subPath.includes('/')
+        ? blockPages[0].subPath.split('/')[0]
+        : null;
+      const heading = seg
+        ? `<a href="/p/${esc(workspaceSlug)}/${esc(slug)}/${esc(seg)}">${esc(name)}</a>`
+        : esc(name);
+      parts.push(`<h3 class="subseries">${heading}</h3>`);
+      parts.push(renderFlatList(blockPages));
     }
     return parts.join('\n');
   };
@@ -626,7 +694,7 @@ ${pages
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
   const hero = renderPublicHero(esc(title), logoUrl);
-  return renderPublicShell(title, hero, `${back}\n${sections}`);
+  return renderPublicShell(title, hero, `${back}\n${nav}${sections}`);
 }
 
 /** The public ranking index at `/p/{ws}/rankings` (#209/#309): the live

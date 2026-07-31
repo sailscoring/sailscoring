@@ -29,6 +29,11 @@ test.describe('fine-grained workspace roles', () => {
   test('scorer runs race-day ops; member is read-only; the API enforces both', async ({
     browser,
   }) => {
+    // Three sessions means three full magic-link sign-ins before the org is
+    // even populated, then an invitation round trip and three browsers' worth
+    // of navigation. Around 70 steps, none of them slow on its own, which
+    // still overruns the 30s default under full-suite load.
+    test.slow();
     const ctxAlice = await browser.newContext();
     const ctxCarol = await browser.newContext();
     const ctxBob = await browser.newContext();

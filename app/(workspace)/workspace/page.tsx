@@ -10,6 +10,7 @@ import { getDb } from '@/lib/db/client';
 import { isPersonalWorkspaceSlug } from '@/lib/features';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
+import { SeasonsCard } from '@/components/workspace-settings/seasons-card';
 import { FeaturesCard } from '@/components/workspace-settings/features-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
 import { LogosCard } from '@/components/workspace-settings/logos-card';
@@ -85,6 +86,7 @@ export default async function WorkspacePage() {
           canAssignScorer={features.includes('fine-grained-roles')}
         />
       )}
+      {canManageSeries && <SeasonsCard />}
       {canManageSeries && <CategoriesCard />}
       {canManageWorkspace && <FeaturesCard />}
       {features.includes('logo-library') && canManageWorkspace && <LogosCard />}

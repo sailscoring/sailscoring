@@ -18,10 +18,14 @@ import {
   getPublishedById,
   getPublishedBySeries,
   getPublishedGroupByWorkspaceSlug,
+  getPublishedSeasonTree,
   getSeriesName,
   listPublishedForWorkspace,
+  pinPublishedFolderLabelIfAbsent,
   savePublished,
+  upsertPublishedFolder,
 } from '@/lib/published-repository';
+import { seasonLikeSlug, sharedFolderSegment } from '@/lib/published-tree';
 import { producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
@@ -167,10 +171,17 @@ export async function publishSeries(
     id = crypto.randomUUID();
   }
 
+  // The breadcrumb on every page climbs to the publication's own index: its
+  // event folder when it has exactly one (ADR-011), else the bare slug. On
+  // first publish the folder comes from the request; on re-publish it derives
+  // from the frozen pages, so the breadcrumb never moves.
+  const breadcrumbFolder = existing
+    ? sharedFolderSegment(existing.pages.map((p) => p.subPath))
+    : (input.folder?.trim() || null);
   const allFiles = await buildFleetHtmlFiles(
     exportReposFor(workspace.workspaceId),
     seriesId,
-    `${appBase()}/p/${workspace.workspaceSlug}/${slug}`,
+    `${appBase()}/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`,
     // The prize sheet (#240) publishes only for workspaces with the feature
     // on; a prize list imported into an ungated workspace stays unpublished.
     { includePrizes: workspace.features.includes('prizes') },
@@ -279,12 +290,21 @@ export async function publishSeries(
   ).filter((p) => p.seriesId !== seriesId);
 
   // First publish into an occupied slug needs explicit confirmation, so two
-  // unrelated events never merge by accident.
+  // unrelated events never merge by accident. Publishing into a *season*
+  // folder is the intended sharing (ADR-011) — a season-like slug, or one
+  // matching a workspace season, joins without ceremony.
   if (!existing && others.length > 0 && !input.join) {
-    throw new BadRequestError('slug already in use by other series', {
-      code: 'slug-shared',
-      sharedWith: await contributorNames(others),
-    });
+    const seasonSegments = new Set(
+      (await getPublishedSeasonTree(workspace.workspaceId)).seasons.map(
+        (s) => s.segment,
+      ),
+    );
+    if (!seasonLikeSlug(slug) && !seasonSegments.has(slug)) {
+      throw new BadRequestError('slug already in use by other series', {
+        code: 'slug-shared',
+        sharedWith: await contributorNames(others),
+      });
+    }
   }
 
   // Sub-paths are frozen per page: a fleet that was already published keeps its
@@ -311,7 +331,14 @@ export async function publishSeries(
     const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
     let leaf: string;
     if (override) {
-      if (!isValidSlugSegment(override)) {
+      // An override may carry a folder prefix (`spring-regatta/irc`,
+      // ADR-011) — one extra segment, and never on a sub-series page, whose
+      // block segment already takes that slot.
+      const segments = override.split('/');
+      const ok =
+        segments.every(isValidSlugSegment) &&
+        segments.length <= (file.subSeriesName ? 1 : 2);
+      if (!ok) {
         throw new BadRequestError('invalid fleet sub-path', {
           code: 'invalid-subpath',
           fleetName: file.fleetName,
@@ -395,6 +422,36 @@ export async function publishSeries(
   };
   await savePublished(published);
 
+  // File the publication under its season and name its event folder
+  // (ADR-011), both pinned at first publish. The season pin is what groups a
+  // block series' own top-level folder into its season; the label pin gives
+  // the event folder the series' name (first publisher wins, so a series
+  // joining an existing folder never renames it).
+  const season = input.season?.trim();
+  if (!existing && season) {
+    await upsertPublishedFolder(workspace.workspaceId, slug, { season });
+  }
+  const folder = input.folder?.trim();
+  if (!existing && folder) {
+    // A sole contributor's folder is the event named by the series; once a
+    // second series joins, no one series' name fits and the label resets so
+    // the folder reads by its (humanised) segment instead.
+    const folderShared = others.some((p) =>
+      p.pages.some((pg) => pg.subPath.startsWith(`${folder}/`)),
+    );
+    if (folderShared) {
+      await upsertPublishedFolder(workspace.workspaceId, `${slug}/${folder}`, {
+        label: null,
+      });
+    } else {
+      await pinPublishedFolderLabelIfAbsent(
+        workspace.workspaceId,
+        `${slug}/${folder}`,
+        series.name,
+      );
+    }
+  }
+
   // Now that the row resolves to the fresh blobs, drop the superseded ones.
   // Content-addressed keys differ by hash, so none of these are still in use.
   // Best-effort: a failed delete leaks a blob but never serves stale results.
@@ -439,10 +496,31 @@ export async function getPublication(
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
   const existing = await getPublishedBySeries(seriesId);
+
+  // The Season control's options (ADR-011): the workspace's seasons plus the
+  // series' own start-date season, which may not have anything published yet.
+  const tree = await getPublishedSeasonTree(workspace.workspaceId);
+  const yearMatch = /^(\d{4})/.exec(series.startDate ?? '');
+  // An undated series still needs a season to publish under (the dialog has
+  // no other shape, ADR-011): the current year is the honest default.
+  const suggestedSeason = yearMatch
+    ? yearMatch[1]
+    : String(new Date().getFullYear());
+  const seasons = tree.seasons.map((s) => ({
+    label: s.label,
+    current: s.current,
+  }));
+  if (suggestedSeason && !seasons.some((s) => s.label === suggestedSeason)) {
+    seasons.unshift({ label: suggestedSeason, current: false });
+    seasons.sort((a, b) => b.label.localeCompare(a.label));
+  }
+
   return {
     workspaceSlug: workspace.workspaceSlug,
     suggestedSlug: deriveSeriesSlug(series.name),
     published: existing ? toResult(workspace.workspaceSlug, existing) : null,
+    seasons,
+    suggestedSeason,
   };
 }
 

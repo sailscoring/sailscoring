@@ -74,6 +74,9 @@ describe.skipIf(skip)('archive ingest', () => {
 
   function doc(over: {
     name?: string;
+    season?: string;
+    folders?: Array<{ path: string; label: string }>;
+    subPath?: string;
     competitors?: ArchiveSeriesDoc['competitors'];
     rows?: ArchiveSeriesDoc['fleets'][number]['results']['rows'];
   } = {}): ArchiveSeriesDoc {
@@ -115,12 +118,14 @@ describe.skipIf(skip)('archive ingest', () => {
         startDate: '2015-06-13',
         publishedSlug: 'iodai-ulsters-2015',
         source: 'sailwave',
+        ...(over.season ? { season: over.season } : {}),
+        ...(over.folders ? { folders: over.folders } : {}),
       },
       fleets: [
         {
           id: fleetId,
           name: 'Main Fleet',
-          subPath: 'main-fleet',
+          subPath: over.subPath ?? 'main-fleet',
           results: {
             caption: 'Sailed: 2, Discards: 1, Entries: 2',
             leadColumns: [
@@ -757,6 +762,75 @@ describe.skipIf(skip)('archive ingest', () => {
     expect(cats2.map((c) => c.name).sort()).toEqual(['2015', '2016']);
 
     await archive.deleteArchiveSeries(ctx, catSeries);
+  });
+
+  test('a pinned season files the slug folder and is re-asserted on ingest (ADR-011)', async () => {
+    const folderRow = () =>
+      db
+        .select()
+        .from(schema.publishedFolders)
+        .where(
+          and(
+            eq(schema.publishedFolders.workspaceId, workspaceId),
+            eq(schema.publishedFolders.path, 'iodai-ulsters-2015'),
+          ),
+        );
+
+    await archive.putArchiveSeries(
+      ctx,
+      seriesId,
+      doc({ name: 'Ulsters 2015 Optimists (season)', season: '2015-16' }),
+    );
+    const [folder] = await folderRow();
+    expect(folder?.season).toBe('2015-16');
+
+    // Pinned data, like the slug: a drifted row is re-asserted by the next
+    // applying ingest.
+    await db
+      .update(schema.publishedFolders)
+      .set({ season: '2099' })
+      .where(eq(schema.publishedFolders.id, folder.id));
+    await archive.putArchiveSeries(
+      ctx,
+      seriesId,
+      doc({ name: 'Ulsters 2015 Optimists (season 2)', season: '2015-16' }),
+    );
+    const [again] = await folderRow();
+    expect(again?.season).toBe('2015-16');
+  });
+
+  test('pinned folder labels upsert folder metadata, kept alongside season (ADR-011)', async () => {
+    await archive.putArchiveSeries(
+      ctx,
+      seriesId,
+      doc({
+        name: 'Ulsters 2015 Optimists (folders)',
+        season: '2015-16',
+        subPath: 'ulsters/main-fleet',
+        folders: [{ path: 'ulsters', label: "Ulster's Championship" }],
+      }),
+    );
+    const [labelRow] = await db
+      .select()
+      .from(schema.publishedFolders)
+      .where(
+        and(
+          eq(schema.publishedFolders.workspaceId, workspaceId),
+          eq(schema.publishedFolders.path, 'iodai-ulsters-2015/ulsters'),
+        ),
+      );
+    expect(labelRow?.label).toBe("Ulster's Championship");
+    // The label upsert never clears the slug folder's season pin.
+    const [slugRow] = await db
+      .select()
+      .from(schema.publishedFolders)
+      .where(
+        and(
+          eq(schema.publishedFolders.workspaceId, workspaceId),
+          eq(schema.publishedFolders.path, 'iodai-ulsters-2015'),
+        ),
+      );
+    expect(slugRow?.season).toBe('2015-16');
   });
 
   test('delete removes the publication and the series', async () => {

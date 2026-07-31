@@ -219,7 +219,7 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Tip: when you import a CSV, the wizard proposes these settings automatically.
+            Tip: when you import a spreadsheet, the wizard proposes these settings automatically.
             Most scorers won’t need to configure this by hand.
           </p>
           <div className="space-y-2">

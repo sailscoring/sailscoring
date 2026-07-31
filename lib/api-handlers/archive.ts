@@ -39,8 +39,10 @@ import {
   getPublishedBySeries,
   getPublishedGroupByWorkspaceSlug,
   savePublished,
+  upsertPublishedFolder,
 } from '@/lib/published-repository';
 import { contentHash, publishedBlobKey } from '@/lib/publishing';
+import { sharedFolderSegment } from '@/lib/published-tree';
 import type { PublishedSeries, PublishedSeriesPage } from '@/lib/types';
 
 /**
@@ -327,6 +329,26 @@ export async function putArchiveSeries(
 
   const published = await publishArchiveSeries(workspace, doc);
 
+  // Pinned folder metadata (ADR-011), re-asserted on every ingest like the
+  // slug itself: a season files the slug's folder under a workspace season
+  // the derivation can't produce (e.g. a year-spanning "2025–26"), and
+  // folder labels give interior folders their original event names where
+  // the humanised segment would mangle them.
+  if (doc.series.season) {
+    await upsertPublishedFolder(
+      workspace.workspaceId,
+      doc.series.publishedSlug,
+      { season: doc.series.season },
+    );
+  }
+  for (const folder of doc.series.folders ?? []) {
+    await upsertPublishedFolder(
+      workspace.workspaceId,
+      `${doc.series.publishedSlug}/${folder.path}`,
+      { label: folder.label },
+    );
+  }
+
   await recordActivity(workspace, {
     action: 'series.archive-ingested',
     seriesId,
@@ -350,7 +372,15 @@ async function publishArchiveSeries(
 ): Promise<{ slug: string; pages: Array<{ fleetName: string; subPath: string }> }> {
   const seriesId = doc.series.id;
   const slug = doc.series.publishedSlug;
-  const seriesIndexUrl = `/p/${workspace.workspaceSlug}/${slug}`;
+  // The breadcrumb climbs to the publication's own index: its event folder
+  // when every page shares one (the HYC `{year}/{event}/{class}` shape), the
+  // bare slug otherwise (ADR-011).
+  const docSubPaths = [
+    ...doc.fleets.flatMap((f) => (f.subPath ? [f.subPath] : [])),
+    ...(doc.combinedPages ?? []).map((p) => p.subPath),
+  ];
+  const breadcrumbFolder = sharedFolderSegment(docSubPaths);
+  const seriesIndexUrl = `/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`;
 
   // Flag SVGs load on demand, only when a fleet references national codes —
   // the ~2.5 MB dataset stays out of every other request (the same pattern

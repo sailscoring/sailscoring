@@ -17,7 +17,8 @@ import {
   publishSeries,
   unpublishSeries,
 } from '@/lib/api-repository';
-import { fleetSubPath } from '@/lib/publishing';
+import { fleetSubPath, kebab } from '@/lib/publishing';
+import { sharedFolderSegment } from '@/lib/published-tree';
 import {
   describeGroupMembers,
   fleetPagesSuppressed,
@@ -140,6 +141,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   );
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
+  // Where a first publish lands (ADR-011): a season folder — "Season: 2026,
+  // Folder: spring-regatta". The season derives from the series' start date
+  // (the current year for an undated series); there is no custom-slug shape,
+  // only the tree.
+  const [season, setSeason] = useState('');
+  const [folder, setFolder] = useState('');
   // Selected fleet names (the set to publish) and per-fleet editable sub-paths.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [subPaths, setSubPaths] = useState<Record<string, string>>({});
@@ -151,7 +158,6 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     'loading' | 'idle' | 'publishing' | 'unpublishing'
   >('loading');
   const [error, setError] = useState<string | null>(null);
-  const [needsJoin, setNeedsJoin] = useState(false);
 
   const published = status?.published ?? null;
   const isPublished = published !== null;
@@ -176,7 +182,6 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     let cancelled = false;
     setPhase('loading');
     setError(null);
-    setNeedsJoin(false);
     getPublication(series.id)
       .then((s) => {
         if (cancelled) return;
@@ -196,6 +201,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         }
         setStatus(s);
         setSlug(pub?.slug ?? s.suggestedSlug);
+        setSeason(s.suggestedSeason);
+        setFolder(s.suggestedSlug);
         setSelected(initSelected);
         setSubPaths(initSubPaths);
         setSinglePath('standings');
@@ -273,7 +280,33 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const segmentFor = (row: FleetRow): string =>
     row.frozen ? lastSegment(row.publishedUrl ?? '') : (subPaths[row.name] ?? '');
 
-  const urlPrefix = `${APP_URL}/p/${workspaceSlug}/${slug || '…'}`;
+  // The slug a first publish will use: the season's URL form, with pages
+  // under the event folder — except a block series, whose `{block}/{page}`
+  // pages already use both path segments: its folder becomes its own
+  // top-level slug, filed under the season via the folder's season pin.
+  // Frozen once published.
+  const seasonMode = !isPublished;
+  const effectiveSlug = isPublished ? slug : hasBlocks ? folder.trim() : kebab(season);
+  // The folder prefix pages land under. Before first publish it's the Folder
+  // field; once published it derives from the frozen page URLs, so the
+  // preview names the folder and a later-added page lands inside it.
+  // Sub-series pages already use their block segment, so a block series
+  // publishes its `{block}/{fleet}` pages directly under its slug.
+  const publishedFolder = useMemo(() => {
+    if (!published) return null;
+    return sharedFolderSegment(
+      published.pages.map((p) =>
+        new URL(p.url).pathname.split('/').filter(Boolean).slice(3).join('/'),
+      ),
+    );
+  }, [published]);
+  const folderPrefix = hasBlocks
+    ? ''
+    : isPublished
+      ? (publishedFolder ?? '')
+      : folder.trim();
+  const urlPrefix = `${APP_URL}/p/${workspaceSlug}/${effectiveSlug || '…'}`;
+  const pagesPrefix = `${urlPrefix}${folderPrefix ? `/${folderPrefix}` : ''}`;
 
   // A single-fleet series has one default page. Its sub-path is editable before
   // first publish (seeded `standings`) and frozen after — the same lifecycle as a
@@ -291,10 +324,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
       // With sub-series there are several pages; link the series index that
-      // lists them all rather than one block's page.
-      url: hasBlocks ? urlPrefix : page?.url ?? `${urlPrefix}/${singlePath || 'standings'}`,
+      // lists them all rather than one block's page. In season mode the lone
+      // page lives at the folder itself.
+      url: hasBlocks
+        ? urlPrefix
+        : (page?.url ??
+          `${urlPrefix}/${folderPrefix ? `${folderPrefix}/` : ''}${singlePath || 'standings'}`),
     };
-  }, [published, fleets, urlPrefix, singlePath, hasBlocks]);
+  }, [published, fleets, urlPrefix, singlePath, hasBlocks, folderPrefix]);
 
   // Client-side guard so the button reflects what the server would reject. The
   // single default page needs a non-empty sub-path while it's still editable
@@ -305,6 +342,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const prizesFrozen = (published?.pages ?? []).some((p) => p.fleetName === 'Prizes');
 
   const validation = useMemo(() => {
+    if (seasonMode) {
+      if (!season) return 'Choose a season.';
+      if (!folder.trim()) return 'Give the event a folder.';
+    }
     if (!multiFleet) {
       // The prize sheet makes even a single-fleet series multi-page: its own
       // (editable) sub-path must be present and distinct from the results page.
@@ -329,7 +370,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [multiFleet, isPublished, hasBlocks, singlePath, rows, selected, subPaths, published]);
+  }, [multiFleet, isPublished, hasBlocks, singlePath, rows, selected, subPaths, published, seasonMode, season, folder]);
 
   const pendingEdits = published
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
@@ -350,7 +391,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.name)));
   }
 
-  async function handlePublish(join = false) {
+  async function handlePublish() {
     setPhase('publishing');
     setError(null);
     try {
@@ -394,12 +435,41 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
       } else if (!isPublished && !hasBlocks) {
         selection = { defaultSubPath: singlePath };
       }
+      // Season mode (ADR-011): pages land under the event folder — every
+      // editable page gets an explicit prefixed override, and a lone results
+      // page lives at the folder itself.
+      if (folderPrefix) {
+        if (multiFleet) {
+          const overrides: Record<string, string> = {};
+          for (const r of rows) {
+            if (r.frozen || !selected.has(r.name)) continue;
+            overrides[r.name] = `${folderPrefix}/${segmentFor(r)}`;
+          }
+          selection = { ...selection, subPaths: overrides };
+        } else {
+          if (!isPublished) {
+            // `standings` (or whatever the scorer typed) under the folder.
+            selection.defaultSubPath = `${folderPrefix}/${singlePath}`;
+          }
+          if (hasPrizes && selected.has('Prizes') && !prizesFrozen) {
+            selection.subPaths = {
+              ...(selection.subPaths ?? {}),
+              Prizes: `${folderPrefix}/${subPaths['Prizes'] || 'prizes'}`,
+            };
+          }
+        }
+      }
       const result = await publishSeries(series.id, {
-        ...(isPublished ? {} : { slug, join }),
+        ...(isPublished
+          ? {}
+          : {
+              slug: effectiveSlug,
+              season,
+              ...(folderPrefix ? { folder: folderPrefix } : {}),
+            }),
         ...selection,
       });
       setStatus((s) => (s ? { ...s, published: result } : s));
-      setNeedsJoin(false);
       setPhase('idle');
     } catch (e) {
       setPhase('idle');
@@ -408,22 +478,15 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           | { code?: string; sharedWith?: string[]; fleetName?: string }
           | undefined;
         if (issues?.code === 'slug-shared') {
-          setNeedsJoin(true);
-          const names = issues.sharedWith ?? [];
-          // Single default page joining a shared slug can't keep the clean
-          // `standings` path (the founding series holds it). Seed the editable
-          // suffix with the series slug so the scorer sees a disambiguated URL
-          // they can confirm or tweak, instead of a silent rename.
-          if (!multiFleet && singlePath === 'standings' && status?.suggestedSlug) {
-            setSinglePath(status.suggestedSlug);
-          }
+          // Publishing into a season joins silently; this fires when the
+          // top-level URL (a block series' folder, or a season's URL form)
+          // collides with an unrelated existing slug.
           setError(
-            `This URL already has results from ${formatNameList(names)}. Publish “${series.name}” alongside them — check the page URL below first.`,
+            `That URL is already used by ${formatNameList(issues.sharedWith ?? [])}. Pick a different ${hasBlocks ? 'folder' : 'season label'}.`,
           );
           return;
         }
         if (issues?.code === 'subpath-collision') {
-          setNeedsJoin(false);
           // Same disambiguation seed for the single default page if it still
           // carries the bare `standings` default that just collided.
           if (!multiFleet && singlePath === 'standings' && status?.suggestedSlug) {
@@ -543,35 +606,56 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                 )}
               </p>
             ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="publish-slug">URL slug</Label>
-                <Input
-                  id="publish-slug"
-                  value={slug}
-                  onChange={(e) => { setSlug(sanitizeSlug(e.target.value)); setNeedsJoin(false); setError(null); }}
-                  placeholder="autumn-league-2026"
-                  autoFocus
-                />
+              <div className="flex gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="publish-season">Season</Label>
+                  <select
+                    id="publish-season"
+                    value={season}
+                    onChange={(e) => { setSeason(e.target.value); setError(null); }}
+                    className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                  >
+                    {(status?.seasons ?? []).map((s) => (
+                      <option key={s.label} value={s.label}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label htmlFor="publish-folder">Folder</Label>
+                  <Input
+                    id="publish-folder"
+                    value={folder}
+                    onChange={(e) => { setFolder(sanitizeSlug(e.target.value)); setError(null); }}
+                    placeholder="spring-regatta"
+                    autoFocus
+                  />
+                </div>
               </div>
             )}
 
             {multiFleet ? (
               <>
-                <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
-                  Fleet pages live under{' '}
+                <p className="text-xs text-muted-foreground truncate" title={`${pagesPrefix}/`}>
+                  Pages live under{' '}
                   {isPublished ? (
-                    // The series-index page at the bare slug only exists once
-                    // something's published, so link it only then.
+                    // The folder (or slug) index only exists once something's
+                    // published, so link it only then.
                     <a
-                      href={urlPrefix}
+                      href={pagesPrefix}
                       target="_blank"
                       rel="noreferrer"
                       className="font-mono hover:underline"
                     >
                       /p/{workspaceSlug}/{slug}/
+                      {folderPrefix ? `${folderPrefix}/` : ''}
                     </a>
                   ) : (
-                    <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                    <span className="font-mono">
+                      /p/{workspaceSlug}/{effectiveSlug || '…'}/
+                      {folderPrefix ? `${folderPrefix}/` : ''}
+                    </span>
                   )}
                 </p>
                 <div className="space-y-1">
@@ -721,26 +805,40 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
             ) : hasBlocks ? (
               <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
                 Each sub-series publishes its own page under{' '}
-                <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                <span className="font-mono">/p/{workspaceSlug}/{effectiveSlug || '…'}/</span>
               </p>
             ) : (
-              // First publish of the lone default page: its sub-path is editable,
-              // seeded `standings`, so the scorer controls the URL even when the
-              // page co-publishes into a shared slug.
+              // First publish of a single-fleet series: the standings page,
+              // laid out symmetrically with its optional prizes sibling below
+              // — a (fixed) checkbox, the page name, its editable segment.
               <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
-                  Published at <span className="font-mono">/p/{workspaceSlug}/{slug || '…'}/</span>
+                <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/${folder || '…'}/`}>
+                  Pages live under{' '}
+                  <span className="font-mono">
+                    /p/{workspaceSlug}/{effectiveSlug || '…'}/{folder || '…'}/
+                  </span>
                 </p>
-                <Input
-                  value={singlePath}
-                  onChange={(e) => {
-                    setSinglePath(sanitizeSlug(e.target.value));
-                    setError(null);
-                  }}
-                  placeholder="standings"
-                  aria-label="Page URL"
-                  className="h-8 text-xs font-mono"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked
+                    disabled
+                    className="h-4 w-4 shrink-0"
+                    aria-label="Publish Standings"
+                    title="The results page always publishes"
+                  />
+                  <span className="w-36 shrink-0 truncate text-sm">Standings</span>
+                  <Input
+                    value={singlePath}
+                    onChange={(e) => {
+                      setSinglePath(sanitizeSlug(e.target.value));
+                      setError(null);
+                    }}
+                    placeholder="standings"
+                    aria-label="Page URL"
+                    className="flex-1 min-w-0 h-7 text-xs font-mono"
+                  />
+                </div>
               </div>
             )}
 
@@ -763,14 +861,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                   />
                   <span className="w-36 shrink-0 truncate text-sm">Prizes</span>
                   {prizesFrozen ? (
+                    // Same treatment as the published standings link: the full
+                    // URL, rtl-truncated so the distinguishing tail stays
+                    // visible when it clips.
                     <a
                       href={prizesUrl}
                       target="_blank"
                       rel="noreferrer"
                       title={prizesUrl}
                       className="flex-1 min-w-0 truncate text-xs font-mono hover:underline"
+                      style={{ direction: 'rtl', textAlign: 'left' }}
                     >
-                      {lastSegment(prizesUrl)}
+                      {prizesUrl}
                     </a>
                   ) : (
                     <Input
@@ -808,7 +910,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          {isPublished && !needsJoin && (
+          {isPublished && (
             <Button
               variant="destructive"
               onClick={handleUnpublish}
@@ -817,24 +919,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               {isUnpublishing ? 'Unpublishing…' : 'Unpublish'}
             </Button>
           )}
-          {needsJoin ? (
-            <Button onClick={() => handlePublish(true)} disabled={isPublishing || validation !== null}>
-              {isPublishing ? 'Publishing…' : 'Publish into existing event'}
-            </Button>
-          ) : (
-            <Button
-              onClick={() => handlePublish(false)}
-              disabled={
-                isLoading ||
-                isPublishing ||
-                isUnpublishing ||
-                (!isPublished && !slug) ||
-                validation !== null
-              }
-            >
-              {isPublishing ? 'Publishing…' : isPublished ? 'Re-publish' : 'Publish'}
-            </Button>
-          )}
+          <Button
+            onClick={() => handlePublish()}
+            disabled={
+              isLoading ||
+              isPublishing ||
+              isUnpublishing ||
+              (!isPublished && !season) ||
+              validation !== null
+            }
+          >
+            {isPublishing ? 'Publishing…' : isPublished ? 'Re-publish' : 'Publish'}
+          </Button>
         </DialogFooter>
         </>
         )}

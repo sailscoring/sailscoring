@@ -40,6 +40,10 @@ export interface HalsailDocInput {
   /** Initial category filing on first ingest (e.g. the season year). */
   category?: string;
   publishedSlug: string;
+  /** Pinned season for the published slug's folder (ADR-011). */
+  season?: string;
+  /** Pinned display labels for interior folders under the slug (ADR-011). */
+  folders?: Array<{ path: string; label: string }>;
   fleets: HalsailFleetInput[];
 }
 
@@ -170,6 +174,8 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       source: 'halsail',
       ...(input.category ? { category: input.category } : {}),
       publishedSlug: input.publishedSlug,
+      ...(input.season ? { season: input.season } : {}),
+      ...(input.folders?.length ? { folders: input.folders } : {}),
     },
     fleets,
     competitors: [...pool.values()],

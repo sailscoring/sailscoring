@@ -1106,8 +1106,8 @@ function PushConfirmBody({
       <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
         <li>
           Email, phone and MNA membership numbers will be blank — Sail Scoring
-          does not store contact details. To include them, import from a CSV
-          that has them and tick both options in the Import dialog.
+          does not store contact details. To include them, import from a
+          spreadsheet that has them and tick both options in the Import dialog.
         </li>
         <li>Owner and crew names are not sent; rrs.org has no fields for them.</li>
         <li>
@@ -1960,7 +1960,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           <DialogHeader>
             <DialogTitle>Import competitors — map columns</DialogTitle>
             <DialogDescription>
-              Match each CSV column to a competitor field. Sail number and the
+              Match each spreadsheet column to a competitor field. Sail number and the
               primary identifier are required. Use <code>|</code> in the fleet
               column to assign a competitor to multiple fleets, e.g. <code>PY|M15</code>.
             </DialogDescription>
@@ -1996,7 +1996,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
             <DialogDescription>
               These rows look like sail-number changes: the new number matches
               no competitor in the series, the old number is missing from the
-              CSV, and the boat or person matches. Ticked rows update the
+              spreadsheet, and the boat or person matches. Ticked rows update the
               existing competitor — keeping its recorded results — under the
               new number. Unticked rows are imported as new competitors.
             </DialogDescription>
@@ -2112,7 +2112,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                       <p className="text-sm">
                         The push to rrs.org failed
                         {importFlow.push.result.status ? ` (HTTP ${importFlow.push.result.status})` : ''}.
-                        {importFlow.csv ? ' The CSV import above has still been applied.' : ''}
+                        {importFlow.csv ? ' The spreadsheet import above has still been applied.' : ''}
                       </p>
                       {importFlow.push.result.message && (
                         <p className="text-xs text-muted-foreground font-mono max-h-24 overflow-auto whitespace-pre-wrap">

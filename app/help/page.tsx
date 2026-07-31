@@ -159,6 +159,10 @@ export default async function HelpPage() {
           <strong className="text-foreground">Copy to workspace…</strong>.
           The original stays in your personal workspace; the copy lands in the target workspace
           with a fresh history. FTP credentials and publishing state are not carried over.
+          To copy a series within its own workspace — say, to experiment with scoring settings
+          or use last season&rsquo;s series as a template — choose{' '}
+          <strong className="text-foreground">Duplicate…</strong> from the same menu. The
+          duplicate keeps its category and everything else except publishing state and FTP paths.
         </p>
         <p>
           Concurrent edits between scorers in a shared workspace are detected per row. If two
@@ -363,7 +367,7 @@ export default async function HelpPage() {
         <p>
           It also looks for <strong className="text-foreground">possible duplicates</strong>: the
           same boat or person in the same fleet under two different sail numbers, which is what a
-          sail-number change between CSV imports leaves behind. Those open in a review dialog
+          sail-number change between spreadsheet imports leaves behind. Those open in a review dialog
           with a <strong className="text-foreground">Merge</strong> button per group. Merging
           keeps a single entry holding all the recorded results and the newest details — including
           the newest sail number. When two of the entries both hold a finish in the same race the
@@ -528,7 +532,7 @@ export default async function HelpPage() {
         </p>
         <p>
           In <strong className="text-foreground">handicap</strong> mode, the importer infers each
-          fleet’s scoring system from the rating columns it finds. If every boat in a CSV fleet
+          fleet’s scoring system from the rating columns it finds. If every boat in an imported fleet
           carries one rating system (say IRC), one fleet is created and configured for IRC. If the
           fleet has a mix — IRC for some boats, ECHO for others — the importer splits it into{' '}
           <code className="text-foreground text-sm">CR 0 (IRC)</code> and{' '}
@@ -538,7 +542,7 @@ export default async function HelpPage() {
           <strong className="text-foreground">scratch</strong> alongside (for line-honours awards).
         </p>
         <p>
-          When the CSV has no <em>Class</em> column and no existing competitor in the series has
+          When the spreadsheet has no <em>Class</em> column and no existing competitor in the series has
           a class set, the importer falls back to writing the original fleet name into{' '}
           <strong className="text-foreground">Class</strong>. This preserves the practical
           “Cruisers 2” grouping when the fleet column is being used as a class label
@@ -554,7 +558,7 @@ export default async function HelpPage() {
         <p>
           Because matching is by sail number, a boat that changed its number between imports
           would normally come in as a duplicate. The importer watches for this: when a row&apos;s
-          sail number is new to the series, the old number is missing from the CSV, and the boat
+          sail number is new to the series, the old number is missing from the spreadsheet, and the boat
           or person matches an existing competitor in the same fleet, it pauses to ask{' '}
           <strong className="text-foreground">Sail number changes?</strong> before importing.
           Accepted rows update the existing competitor under the new number — keeping its
@@ -577,15 +581,15 @@ export default async function HelpPage() {
           couple of clicks.
         </p>
         <p>
-          You can push on its own, or combine it with a CSV import in one step by
-          ticking both options. Combining is how contact details reach rrs.org: Sail
+          You can push on its own, or combine it with a spreadsheet import in one step
+          by ticking both options. Combining is how contact details reach rrs.org: Sail
           Scoring deliberately does not store emails, phone numbers, or MNA membership
-          numbers, but when your CSV has those columns the importer relays them to
+          numbers, but when your spreadsheet has those columns the importer relays them to
           rrs.org alongside the import and then discards them. Phone numbers are
           converted to international format (e.g.{' '}
           <code className="text-foreground text-sm">+353861234567</code>) using each
           competitor&rsquo;s nationality; numbers that can&rsquo;t be converted are sent
-          blank and listed in the summary. A push without a CSV sends those fields
+          blank and listed in the summary. A push without a spreadsheet sends those fields
           blank.
         </p>
         <p>
@@ -1932,26 +1936,30 @@ export default async function HelpPage() {
           published its URL is fixed, like the slug; to change it, unpublish and publish again.
         </p>
         <p>
-          Each series also gets a listing page at its base URL (e.g.{' '}
-          <code className="text-foreground text-sm">…/autumn-league-2026</code>) linking to every
-          fleet, and your workspace has a public index at{' '}
-          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing all the
-          series you’ve published. Both update automatically as you publish. Each fleet page
-          links back up to its series listing, and that listing links up to the workspace index,
-          so a visitor can climb from one fleet’s results to everything you’ve published. A
-          fleet page in a multi-fleet publication also carries a switcher to its sibling fleets,
-          and once a workspace has more than one published series its index gains quick-jump
-          dropdowns — year, category, series, fleet — so a visitor can go straight to the table
-          they’re after instead of scrolling.
+          Published pages form a tree: every series publishes as{' '}
+          <strong className="text-foreground">Season + Folder</strong> (e.g.{' '}
+          <code className="text-foreground text-sm">…/2026/spring-regatta/standings</code>,
+          the season derived from the series date), each season and folder gets its own index
+          page, and your workspace has a public index at{' '}
+          <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc</code> listing
+          every event by season — each season collapsible, the current one open, with each
+          event’s results tables linked right on its row. All of it updates automatically as
+          you publish. Every public page carries the same navigation menus showing where the
+          visitor is — season, event, results page — so getting from <em>Class 1</em> to{' '}
+          <em>Class 2</em>, or from this season’s series to last season’s, is one link away.
+          The workspace index adds filter dropdowns — season, category, event — that narrow
+          the listing to the table a visitor is after instead of scrolling. Manage seasons
+          (and pick the current one) from the{' '}
+          <strong className="text-foreground">Seasons</strong> card on Workspace settings.
         </p>
         <p>
           <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}
-          a slug is a shared namespace, so more than one series can publish under the same one —
+          a folder is shared, so more than one series can publish into the same one —
           handy when an event is scored as separate series, e.g. publishing both{' '}
           <em>Lambay Races Cruisers</em> and <em>Lambay Races One Designs</em> to{' '}
           <code className="text-foreground text-sm">…/2026-lambay-races</code>. Type the existing
-          slug when you publish the second series; Sail Scoring asks you to confirm joining the
-          existing event, then the listing page lists every series under it, each with its own
+          folder when you publish the second series; Sail Scoring asks you to confirm joining the
+          existing folder, then the listing page lists every series under it, each with its own
           fleets. Each series keeps publishing and unpublishing independently — unpublishing one
           removes only its fleets and leaves the others live. Every fleet URL must be distinct
           across the series sharing a slug; if two clash, edit one fleet’s URL segment in the
@@ -1962,7 +1970,7 @@ export default async function HelpPage() {
           the <strong className="text-foreground">Published</strong> tab on the workspace pages
           lists every page your workspace has published, with its public URL, when it was last
           published, how many edits have landed since, and whether it shares its URL with
-          another series. Pages are grouped the same way as the public listing — active series
+          another series. Pages are grouped for the scorer — active series
           by category, archived ones under Past results by year — and you can search by name
           or URL and filter to pages with edits since publish.{' '}
           <strong className="text-foreground">Unpublish</strong> takes a page down: the public URL

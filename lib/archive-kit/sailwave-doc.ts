@@ -55,6 +55,10 @@ export interface SailwaveDocInput {
   /** Initial category filing on first ingest (e.g. the season year). */
   category?: string;
   publishedSlug: string;
+  /** Pinned season for the published slug's folder (ADR-011). */
+  season?: string;
+  /** Pinned display labels for interior folders under the slug (ADR-011). */
+  folders?: Array<{ path: string; label: string }>;
   fleets: SailwaveFleetInput[];
   /** Combined pages; the named fleets publish only as their sections. */
   combinedPages?: SailwaveCombinedPageInput[];
@@ -248,6 +252,8 @@ export function buildSailwaveArchiveDoc(
       source: input.source ?? 'sailwave',
       ...(input.category ? { category: input.category } : {}),
       publishedSlug: input.publishedSlug,
+      ...(input.season ? { season: input.season } : {}),
+      ...(input.folders?.length ? { folders: input.folders } : {}),
     },
     fleets,
     ...(input.combinedPages && input.combinedPages.length > 0

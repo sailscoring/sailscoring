@@ -1004,6 +1004,96 @@ export const publishedSeries = pgTable(
 );
 
 /**
+ * Workspace seasons (ADR-011). Seasons mostly *derive* — a season-like
+ * published slug is its own season, otherwise the series start year — so this
+ * table holds only what derivation can't: seasons defined before anything is
+ * published in them (the publish dialog's dropdown), year-spanning labels,
+ * and the explicit **current** season that the public index expands and the
+ * publish dialog defaults to (otherwise the newest label is current).
+ */
+export const workspaceSeasons = pgTable(
+  'workspace_seasons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    isCurrent: boolean('is_current').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('workspace_seasons_workspace_label_uidx').on(
+      table.workspaceId,
+      table.label,
+    ),
+  ],
+);
+
+/**
+ * Static redirect table for moved public URLs (ADR-011). When the publication
+ * tree is restructured — a legacy event-slug re-homed under its season, a
+ * folder renamed — the old path lands here and the `/p/` route 301s it, so
+ * URL changes are a managed consequence rather than breakage. `from_path` and
+ * `to_path` are the path under `/p/{ws}/` (no leading slash). Maintained by
+ * operators via `pnpm redirects` — deliberately no UI surface.
+ */
+export const publishedRedirects = pgTable(
+  'published_redirects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    fromPath: text('from_path').notNull(),
+    toPath: text('to_path').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('published_redirects_workspace_from_uidx').on(
+      table.workspaceId,
+      table.fromPath,
+    ),
+  ],
+);
+
+/**
+ * Metadata over the publication tree's folders (ADR-011). A folder is a URL
+ * path prefix the publications already imply — a top-level published slug
+ * (`2025`) or an interior segment (`2025/autumn-league`) — so this table
+ * stores nothing structural: the tree renders fine from an empty table, with
+ * humanised segments as labels and seasons derived from slugs / series start
+ * dates. A row overrides that derivation: `label` names the folder, `season`
+ * (top-level folders only) files it under a workspace season — the
+ * non-derivable case being a year-spanning season like "2025–26". Written by
+ * archive ingest (the config's pinned season); label writers come with the
+ * folder-management surface.
+ */
+export const publishedFolders = pgTable(
+  'published_folders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    /** The folder's URL path under `/p/{ws}/`: one or two slug segments. */
+    path: text('path').notNull(),
+    label: text('label'),
+    season: text('season'),
+  },
+  (table) => [
+    uniqueIndex('published_folders_workspace_path_uidx').on(
+      table.workspaceId,
+      table.path,
+    ),
+  ],
+);
+
+/**
  * Local fallback store for published HTML (ADR-008 Phase 9). In production,
  * rendered results are uploaded to Vercel Blob and `published_series.pages[]`
  * holds the absolute blob URL. When `BLOB_READ_WRITE_TOKEN` is unset

@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { scrubBlwText, isPiiKey } from '@/lib/archive-kit/blw-scrub';
+import { decodeCapture } from '@/lib/archive-kit/capture-encoding';
 import { archiveDocHash, stableStringify } from '@/lib/archive-kit/format';
 import { buildHalsailArchiveDoc } from '@/lib/archive-kit/halsail-doc';
 import { parseHalsailHtml } from '@/lib/archive-kit/halsail-html';
@@ -355,6 +356,51 @@ describe('document schema', () => {
     };
     expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
   });
+
+  test('folder labels must name a published segment, once each (ADR-011)', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const fleet = {
+      id: '11111111-2222-4333-8444-555555555555',
+      name: 'Class 1 IRC',
+      subPath: 'autumn-league/class-1-irc',
+      results: {
+        leadColumns: [{ key: 'helmname', label: 'Helm' }],
+        raceHeaders: [{ label: 'R1' }],
+        summaryColumns: [{ key: 'nett', label: 'Nett' }],
+        rows: [],
+      },
+    };
+    const doc = (folders: Array<{ path: string; label: string }>) => ({
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'Folder Label Test',
+        publishedSlug: '2025',
+        folders,
+      },
+      fleets: [fleet],
+      competitors: [],
+    });
+    expect(
+      archiveSeriesDocSchema.safeParse(
+        doc([{ path: 'autumn-league', label: "Autumn League '25" }]),
+      ).success,
+    ).toBe(true);
+    // A label for a segment no page publishes under is a typo, not a pin.
+    expect(
+      archiveSeriesDocSchema.safeParse(
+        doc([{ path: 'spring-league', label: 'Spring League' }]),
+      ).success,
+    ).toBe(false);
+    expect(
+      archiveSeriesDocSchema.safeParse(
+        doc([
+          { path: 'autumn-league', label: 'A' },
+          { path: 'autumn-league', label: 'B' },
+        ]),
+      ).success,
+    ).toBe(false);
+  });
 });
 
 describe('combined pages (#321)', () => {
@@ -614,5 +660,57 @@ describe('blw PII scrub', () => {
     expect(isPiiKey('compaddress2')).toBe(true);
     expect(isPiiKey('comphelmdateofbirth')).toBe(true);
     expect(isPiiKey('compemergencycontact')).toBe(true);
+  });
+});
+
+describe('capture decoding', () => {
+  const page = (charset: string, body: string) =>
+    `<html><head><meta http-equiv="Content-Type" content="text/html;charset=${charset}"/>` +
+    `</head><body>${body}</body></html>`;
+
+  test('an ISO-8859-1 page keeps its accented names', () => {
+    const bytes = Buffer.from(page('ISO-8859-1', '<td>Aoibh\xed Ryan</td>'), 'latin1');
+    const { text, encoding } = decodeCapture(bytes);
+    expect(text).toContain('Aoibhí Ryan');
+    expect(text).not.toContain('\uFFFD');
+    expect(encoding).toBe('windows-1252');
+  });
+
+  test('windows-1252 punctuation decodes as punctuation', () => {
+    const bytes = Buffer.from(page('ISO-8859-1', "<td>Craig O\x92Neill</td><td>April \x96 May</td>"), 'latin1');
+    expect(decodeCapture(bytes).text).toContain('Craig O\u2019Neill');
+    expect(decodeCapture(bytes).text).toContain('April \u2013 May');
+  });
+
+  test('bytes windows-1252 leaves unassigned pass through, never U+FFFD', () => {
+    const bytes = Buffer.from(page('ISO-8859-1', "<td>P Cruise O'\x81\x81\x81Brien</td>"), 'latin1');
+    const { text } = decodeCapture(bytes);
+    expect(text).toContain("P Cruise O'\u0081\u0081\u0081Brien");
+    expect(text).not.toContain('\uFFFD');
+  });
+
+  test('a UTF-8 page is read as UTF-8 even when it declares ISO-8859-1', () => {
+    const bytes = Buffer.from(page('ISO-8859-1', '<td>Martin O\u2019Reilly</td>'), 'utf8');
+    const { text, encoding } = decodeCapture(bytes);
+    expect(text).toContain('Martin O\u2019Reilly');
+    expect(encoding).toBe('utf-8');
+  });
+
+  test('a UTF-8 BOM is not carried into the text', () => {
+    const bytes = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(page('UTF-8', '<td>Réaltín Boinnard</td>'), 'utf8'),
+    ]);
+    const { text } = decodeCapture(bytes);
+    expect(text.startsWith('<html>')).toBe(true);
+    expect(text).toContain('Réaltín Boinnard');
+  });
+
+  test('a declared non-Latin-1 charset is honoured when the bytes are not UTF-8', () => {
+    // 0xE8 is č in windows-1250 and è in windows-1252.
+    const bytes = Buffer.from(page('windows-1250', '<td>\xe8</td>'), 'latin1');
+    const { text, encoding } = decodeCapture(bytes);
+    expect(encoding).toBe('windows-1250');
+    expect(text).toContain('<td>\u010D</td>');
   });
 });

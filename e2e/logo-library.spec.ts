@@ -238,6 +238,19 @@ test('a series with empty logo slots inherits the workspace default logos when e
   await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // Now set the workspace default venue + event logos (after the series exists).
+  // Both slots live in one document, so the event pick has to carry the venue
+  // one the scorer just made. Hold the first PUT open so the event pick is
+  // guaranteed to happen while it is still in flight — without that ordering
+  // the venue default is silently dropped, which is what made this flaky.
+  let heldFirstPut = false;
+  await page.route('**/api/v1/logos/defaults', async (route) => {
+    if (route.request().method() === 'PUT' && !heldFirstPut) {
+      heldFirstPut = true;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    await route.continue();
+  });
+
   await page.goto('/workspace');
   await page.getByRole('button', { name: 'Choose Default venue logo' }).click();
   await page.getByRole('dialog').getByLabel('Search logos').fill('Howth');
@@ -245,10 +258,13 @@ test('a series with empty logo slots inherits the workspace default logos when e
   await page.getByRole('button', { name: 'Choose Default event logo' }).click();
   await page.getByRole('dialog').getByLabel('Search logos').fill('AIB');
   await Promise.all([
+    // Match the event PUT specifically — the held venue PUT resolves during
+    // this wait and would otherwise satisfy it.
     page.waitForResponse(
       (r) =>
         r.url().includes('/api/v1/logos/defaults') &&
         r.request().method() === 'PUT' &&
+        (r.request().postData() ?? '').includes('aib.png') &&
         r.ok(),
     ),
     page.getByRole('dialog').getByRole('button', { name: 'Use AIB' }).click(),

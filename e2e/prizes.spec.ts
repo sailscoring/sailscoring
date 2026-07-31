@@ -113,6 +113,9 @@ test('prizes: division podiums allocate live and publish as a prize sheet', asyn
 
   const link = dialog.getByRole('link', { name: /standings$/ });
   await expect(link).toBeVisible();
+  // Once published, the frozen Prizes row shows its full URL, symmetric with
+  // the standings line above it.
+  await expect(dialog.getByRole('link', { name: /\/prizes$/ })).toBeVisible();
   const standingsPath = new URL((await link.getAttribute('href')) ?? '').pathname;
   const indexPath = standingsPath.replace(/\/standings$/, '');
 

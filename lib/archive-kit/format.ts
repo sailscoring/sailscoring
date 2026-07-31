@@ -161,6 +161,26 @@ export const archiveSeriesDocSchema = z
       /** Pinned public slug — the `/p/{ws}/{slug}` namespace this series
        *  publishes into. */
       publishedSlug: slugSegment,
+      /** Season the published slug files under (ADR-011). Usually redundant —
+       *  a season-like slug ("2025") is its own season — so pin it only when
+       *  the label can't be derived, e.g. a year-spanning "2025–26". Applied
+       *  to the slug's folder metadata on every ingest (pinned, like the
+       *  slug itself). */
+      season: z.string().trim().min(1).max(40).optional(),
+      /** Display labels for the interior folders this series publishes into
+       *  (ADR-011): `path` is the folder segment under the published slug,
+       *  `label` the name it shows in navigation — the original event name
+       *  where the humanised segment would mangle it ("1720's Easterns" vs
+       *  "1720 S Easterns"). Pinned like the slug: re-asserted every ingest. */
+      folders: z
+        .array(
+          z.object({
+            path: slugSegment,
+            label: z.string().trim().min(1).max(120),
+          }),
+        )
+        .max(50)
+        .optional(),
     }),
     fleets: z.array(fleetSchema).min(1).max(50),
     /** Multi-section pages; fleets referenced here publish only as sections.
@@ -207,6 +227,24 @@ export const archiveSeriesDocSchema = z
     if (new Set(publishedSubPaths).size !== publishedSubPaths.length) {
       ctx.addIssue({ code: 'custom', message: 'duplicate published subPath', path: ['fleets'] });
     }
+
+    // Folder labels must name folders the series actually publishes into —
+    // a label for a segment no page lives under is a typo, not a pin.
+    const folderSegments = new Set(
+      publishedSubPaths
+        .filter((p) => p.includes('/'))
+        .map((p) => p.split('/')[0]),
+    );
+    const seenFolderPaths = new Set<string>();
+    (doc.series.folders ?? []).forEach((f, fi) => {
+      if (!folderSegments.has(f.path)) {
+        ctx.addIssue({ code: 'custom', message: 'folder label names a segment no page publishes under', path: ['series', 'folders', fi, 'path'] });
+      }
+      if (seenFolderPaths.has(f.path)) {
+        ctx.addIssue({ code: 'custom', message: 'duplicate folder path', path: ['series', 'folders', fi, 'path'] });
+      }
+      seenFolderPaths.add(f.path);
+    });
     const competitorIds = new Set<string>();
     doc.competitors.forEach((c, i) => {
       if (competitorIds.has(c.id)) {

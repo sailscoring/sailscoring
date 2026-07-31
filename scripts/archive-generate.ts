@@ -18,6 +18,7 @@ import { dirname, join, resolve } from 'node:path';
 
 import { z } from 'zod';
 
+import { decodeCapture } from '@/lib/archive-kit/capture-encoding';
 import { stableStringify, type ArchiveSeriesDoc } from '@/lib/archive-kit/format';
 import { buildHalsailArchiveDoc } from '@/lib/archive-kit/halsail-doc';
 import { parseHalsailHtml } from '@/lib/archive-kit/halsail-html';
@@ -68,6 +69,15 @@ const seriesSchema = z.object({
   source: z.enum(['sailwave', 'halsail']),
   /** Initial category filing on first ingest (e.g. the season year). */
   category: z.string().optional(),
+  /** Pinned season for the published slug's folder (ADR-011) — only needed
+   *  where the label can't derive from the slug, e.g. "2025-26". */
+  season: z.string().optional(),
+  /** Pinned display labels for interior folders under the slug (ADR-011):
+   *  the original event names where humanising the segment would mangle
+   *  them. Re-asserted on every ingest, like the slug. */
+  folders: z
+    .array(z.object({ path: z.string().min(1), label: z.string().min(1) }))
+    .optional(),
   fleets: z.array(fleetSchema).min(1),
 });
 
@@ -80,6 +90,18 @@ const configSchema = z.object({
   identities: z.string().optional(),
   series: z.array(seriesSchema).min(1),
 });
+
+/** How each capture that wasn't UTF-8 was decoded, keyed by file, for the run
+ *  summary — a silent transcode is how mangled names get shipped. */
+const captureEncodings = new Map<string, string>();
+
+/** Captures are verbatim third-party files: Sailwave publishes ISO-8859-1, so
+ *  decode by what the bytes are rather than assuming UTF-8. */
+function readCapture(path: string): string {
+  const { text, encoding } = decodeCapture(readFileSync(path));
+  if (encoding !== 'utf-8') captureEncodings.set(path, encoding);
+  return text;
+}
 
 function buildSeries(
   baseDir: string,
@@ -97,6 +119,8 @@ function buildSeries(
     eventLogoUrl: entry.eventLogoUrl,
     category: entry.category,
     publishedSlug: entry.publishedSlug,
+    season: entry.season,
+    folders: entry.folders,
   };
   if (entry.source === 'halsail') {
     return buildHalsailArchiveDoc({
@@ -104,13 +128,13 @@ function buildSeries(
       fleets: entry.fleets.map((fleet) => ({
         name: fleet.name,
         subPath: fleet.subPath,
-        page: parseHalsailHtml(readFileSync(join(baseDir, fleet.file), 'utf8')),
+        page: parseHalsailHtml(readCapture(join(baseDir, fleet.file))),
       })),
     });
   }
   let sawSail100 = false;
   const parse = (fleet: z.infer<typeof fleetSchema>) => {
-    const html = readFileSync(join(baseDir, fleet.file), 'utf8');
+    const html = readCapture(join(baseDir, fleet.file));
     let page = parseSailwaveHtml(html);
     if (page.summaries.length === 0) {
       // Several IODAI events (2009–2013, some Ulsters) were published by
@@ -263,6 +287,18 @@ function run(argv: string[]): number {
     const manifest = readFileSync(join(baseDir, config.identities), 'utf8');
     writeFileSync(join(outDir, 'identities.json'), manifest);
     console.log(`identities: copied ${config.identities}`);
+  }
+
+  if (captureEncodings.size > 0) {
+    const byEncoding = new Map<string, number>();
+    for (const encoding of captureEncodings.values()) {
+      byEncoding.set(encoding, (byEncoding.get(encoding) ?? 0) + 1);
+    }
+    const summary = [...byEncoding]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([encoding, count]) => `${count} ${encoding}`)
+      .join(', ');
+    console.log(`captures: ${summary} (the rest UTF-8)`);
   }
 
   console.log(

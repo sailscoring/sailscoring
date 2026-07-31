@@ -2,7 +2,7 @@
 
 /**
  * The series-header ⋯ menu: actions on the series as a whole — save/update
- * from file, copy to workspace, archive / delete — as distinct from the
+ * from file, duplicate, copy to workspace, archive / delete — as distinct from the
  * configuration that lives on the Settings tab. Mounted in the series layout
  * so the actions are reachable from every tab, and the menu owns the dialogs,
  * hidden file inputs, and the global Ctrl+S binding they imply.
@@ -14,6 +14,7 @@ import {
   Archive,
   ArchiveRestore,
   Copy,
+  CopyPlus,
   FileDown,
   FileUp,
   Loader2,
@@ -41,6 +42,7 @@ import { useWorkspaceMemberships } from '@/components/workspace-memberships-prov
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { hasPermission } from '@/lib/auth/permissions';
 import { CopySeriesToWorkspaceDialog } from '@/components/copy-series-to-workspace-dialog';
+import { DuplicateSeriesDialog } from '@/components/duplicate-series-dialog';
 import { formatDayStamp } from '@/lib/format-date';
 import { Button } from '@/components/ui/button';
 import {
@@ -83,6 +85,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
   const sailwaveInputRef = useRef<HTMLInputElement>(null);
   const [updateFlow, setUpdateFlow] = useState<UpdateFlow>({ step: 'idle' });
   const [copyOpen, setCopyOpen] = useState(false);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: publication } = usePublicationStatus(confirmDelete ? seriesId : null);
 
@@ -270,14 +273,20 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
               Update from Sailwave file…
             </DropdownMenuItem>
           )}
+          {!asPublished && (canManageSeries || hasCopyTargets) && (
+            <DropdownMenuSeparator />
+          )}
+          {!asPublished && canManageSeries && (
+            <DropdownMenuItem onSelect={() => setDuplicateOpen(true)}>
+              <CopyPlus className="h-4 w-4" />
+              Duplicate…
+            </DropdownMenuItem>
+          )}
           {hasCopyTargets && !asPublished && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setCopyOpen(true)}>
-                <Copy className="h-4 w-4" />
-                Copy to workspace…
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem onSelect={() => setCopyOpen(true)}>
+              <Copy className="h-4 w-4" />
+              Copy to workspace…
+            </DropdownMenuItem>
           )}
           {canManageSeries && (
             <>
@@ -338,6 +347,13 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
         seriesName={series.name}
         open={copyOpen}
         onOpenChange={setCopyOpen}
+      />
+
+      <DuplicateSeriesDialog
+        seriesId={seriesId}
+        seriesName={series.name}
+        open={duplicateOpen}
+        onOpenChange={setDuplicateOpen}
       />
 
       {/* Confirm update from file */}

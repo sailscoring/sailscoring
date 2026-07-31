@@ -29,12 +29,20 @@ export function useSaveRaceStart() {
     save: (start, opts) => raceStartRepo.save(start, opts),
     scopeId: 'race-starts',
     onSaved: async (qc, saved) => {
-      qc.invalidateQueries({ queryKey: queryKeys.raceStarts.byRace(saved.raceId) });
-      qc.invalidateQueries({ queryKey: queryKeys.raceStarts.all });
-      // Every child write bumps the series row's lastModifiedAt + version
-      // server-side. Await the series refetch so a caller that proceeds to a
-      // series settings save reads a fresh expectedVersion, not a stale 409.
-      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+      // Await the race's own refetch: finish entry refuses a competitor whose
+      // fleet has no start for the race, reading this very query. Leaving the
+      // refetch in flight means a scorer who adds a start and immediately types
+      // a sail number is told there is no start for the fleet.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.raceStarts.byRace(saved.raceId) }),
+        // `all` prefix-matches byRace; issued together so the two invalidations
+        // share one refetch rather than chaining a second round trip.
+        qc.invalidateQueries({ queryKey: queryKeys.raceStarts.all }),
+        // Every child write bumps the series row's lastModifiedAt + version
+        // server-side. Await the series refetch so a caller that proceeds to a
+        // series settings save reads a fresh expectedVersion, not a stale 409.
+        qc.invalidateQueries({ queryKey: queryKeys.series.all }),
+      ]);
     },
   });
 }

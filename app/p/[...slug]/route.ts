@@ -37,16 +37,28 @@ import {
   type SeriesIndexGroup,
 } from '@/lib/published-index';
 import {
+  folderSegmentOf,
   injectAfterBodyTag,
-  renderFleetNav,
-} from '@/lib/published-fleet-nav';
+  interiorFolderLabels,
+  pagesInFolder,
+  renderFolderIndexHtml,
+  renderSeasonIndexHtml,
+  renderTreeNav,
+  slugFolders,
+  type SeasonNavTree,
+  type TreePage,
+} from '@/lib/published-tree';
 import {
+  getPublishedFolderMeta,
   getPublishedGroupByWorkspaceSlug,
+  getPublishedRedirect,
+  getPublishedSeasonTree,
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
   listPublishedSeriesIds,
 } from '@/lib/published-repository';
+import type { PublishedSeries } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +116,34 @@ export async function GET(
   { params }: { params: Promise<{ slug: string[] }> },
 ): Promise<Response> {
   const { slug: segments } = await params;
+  const res = await dispatch(req, segments);
+  // Moved URLs (ADR-011): only after everything else 404s, consult the
+  // static redirect table — a redirect can never shadow a live page.
+  if (res.status === 404 && segments.length >= 2) {
+    const workspace = await getWorkspaceBySlug(segments[0]);
+    if (workspace) {
+      const to = await getPublishedRedirect(
+        workspace.id,
+        segments.slice(1).join('/'),
+      );
+      if (to) {
+        return new Response(null, {
+          status: 301,
+          headers: {
+            location: `/p/${segments[0]}/${to}`,
+            'cache-control': 'public, max-age=3600',
+          },
+        });
+      }
+    }
+  }
+  return res;
+}
+
+async function dispatch(
+  req: NextRequest,
+  segments: string[],
+): Promise<Response> {
   if (segments.length < 1 || segments.length > 4) return NOT_FOUND;
 
   if (segments.length === 1) return workspaceIndex(req, segments[0]);
@@ -143,6 +183,12 @@ async function workspaceIndex(
   // Don't reveal that a workspace exists if it has published nothing.
   if (items.length === 0) return NOT_FOUND;
 
+  // The explicitly-current season opens by default (ADR-011); the folder
+  // metadata carries the event rows' label pins.
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const currentSeason = seasonTree.seasons.find((s) => s.current)?.label;
+
   // Surface the competitor index when the feature is on and there's at least
   // one competitor to browse (so the link never lands on a 404).
   const competitorsLink =
@@ -159,8 +205,8 @@ async function workspaceIndex(
       (await listAsPublishedRankings(workspace.id)).length > 0);
 
   // ETag from listing metadata so repeat views revalidate without re-rendering.
-  // Includes the placement fields (category / archive / order / year) so
-  // re-categorising, archiving, or reordering a series busts the cached page,
+  // Includes the placement fields (category / order / season) so
+  // re-categorising, re-filing, or reordering a series busts the cached page,
   // plus the competitors-link flag so it appears the first time one is added,
   // and the ranking links so publishing/renaming a ladder shows up. Each
   // item's page list feeds the quick-jump picker (#320), so it contributes too.
@@ -168,9 +214,13 @@ async function workspaceIndex(
     `logo:${workspace.logo}`,
     `competitors:${competitorsLink}`,
     `rankings:${rankingsLink}`,
+    `current:${currentSeason ?? ''}`,
+    ...[...folderMeta].map(
+      ([p, m]) => `fmeta:${p}:${m.label ?? ''}:${m.season ?? ''}`,
+    ),
     ...items.map(
       (i) =>
-        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.year ?? ''}:${i.contributors
+        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.season ?? ''}:${i.contributors
           .map(
             (c) =>
               `${c.title ?? ''}^${c.year ?? ''}^${c.categoryName ?? ''}^${c.pages
@@ -185,6 +235,8 @@ async function workspaceIndex(
   const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo, {
     competitorsLink,
     rankingsLink,
+    currentSeason,
+    folderMeta,
   });
   return htmlResponse(html, etag);
 }
@@ -462,15 +514,24 @@ async function seriesIndex(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
   const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
-  if (group.length === 0) return NOT_FOUND;
+  if (group.length === 0) {
+    // No published slug of this name: the segment may name a season whose
+    // events publish under their own folders (ADR-011).
+    return seasonIndex(req, workspace, workspaceSlug, seriesSlug, folderMeta);
+  }
 
   // The listing changes only when a contributor re-publishes, so the members'
   // content hashes compose a sound ETag — plus the workspace logo, which the
-  // hero shows.
+  // hero shows, and the season tree and folder labels the cascade renders.
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     ...group.map((p) => p.contentHash),
+    ...seasonTreeEtag(seasonTree),
+    ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
@@ -487,8 +548,32 @@ async function seriesIndex(
       })),
     })),
   );
+  // A slug that IS a season titles as the season, even with one contributor
+  // so far — "2026", never the first series' name.
+  const seasonForSlug = seasonTree.seasons.find(
+    (s) => s.segment === seriesSlug,
+  );
   const title =
-    groups.length === 1 ? groups[0].seriesName : humanizeSlug(seriesSlug);
+    seasonForSlug?.label ??
+    (groups.length === 1 ? groups[0].seriesName : humanizeSlug(seriesSlug));
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      seasonTree,
+      currentSlug: seriesSlug,
+      pages: groups.flatMap((g) => {
+        const single = g.pages.filter((pg) => !pg.isPrizes).length === 1;
+        return g.pages.map((pg) => ({
+          ...pg,
+          ownerName: g.seriesName,
+          ownerSingle: single,
+        }));
+      }),
+      soleContributor: group.length === 1,
+      folderLabels,
+    },
+    'block',
+  );
   const html = renderSeriesIndexHtml(
     workspaceSlug,
     workspace.name,
@@ -496,6 +581,7 @@ async function seriesIndex(
     title,
     groups,
     workspace.logo,
+    nav,
   );
   return htmlResponse(html, etag);
 }
@@ -515,22 +601,193 @@ async function fleetPage(
   const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
   const owner = group.find((p) => p.pages.some((pg) => pg.subPath === subPath));
   const page = owner?.pages.find((pg) => pg.subPath === subPath);
-  if (!owner || !page) return NOT_FOUND;
+  if (!owner || !page) {
+    return folderIndex(req, workspace, workspaceSlug, seriesSlug, subPath, group);
+  }
 
-  const etag = `"${owner.contentHash}"`;
+  // The navigation cascade (ADR-011) draws on the whole slug group, the
+  // workspace's season tree, and any folder-label overrides — so all three
+  // join the page content in the ETag.
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
+  const etag = `"${await contentHash([
+    ...group.map((p) => p.contentHash),
+    ...seasonTreeEtag(seasonTree),
+    ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
+  ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
 
   const html = await readPublishedHtml(page.blobUrl);
   if (html === null) return NOT_FOUND;
-  // Sideways navigation between the owning publication's pages (#320),
-  // injected at serve time so the stored blob stays exactly the published
-  // artifact. The ETag needs no extension: the switcher derives from
-  // `owner.pages`, and any change to that set changes `contentHash`.
-  const nav = renderFleetNav(
-    owner.pages,
-    subPath,
-    `/p/${workspaceSlug}/${seriesSlug}`,
+  // The cascade is injected at serve time so the stored blob stays exactly
+  // the published artifact (parity with the download and FTP outputs).
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      seasonTree,
+      currentSlug: seriesSlug,
+      pages: await groupTreePages(group),
+      soleContributor: group.length === 1,
+      currentFolder: folderSegmentOf(subPath) ?? undefined,
+      currentSubPath: subPath,
+      folderLabels,
+    },
+    'float',
   );
   return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag);
+}
+
+/** The season tree's contribution to a page ETag: any season, current-flag,
+ *  or folder-label change must bust the cascade's cached render. */
+function seasonTreeEtag(tree: SeasonNavTree): string[] {
+  return [
+    ...tree.seasons.map(
+      (s) =>
+        `season:${s.label}:${s.current}:${s.folders
+          .map((f) => `${f.slug}~${f.label}`)
+          .join('|')}`,
+    ),
+    ...tree.undated.map((f) => `undated:${f.slug}~${f.label}`),
+  ];
+}
+
+/** `/p/{ws}/{season}` for a season with no same-named published slug
+ *  (ADR-011): the live-workspace shape, where each event publishes under its
+ *  own folder and the season is their grouping. Reached as the fall-through
+ *  when the segment matches no slug; 404 when it names no season either. */
+async function seasonIndex(
+  req: NextRequest,
+  workspace: { id: string; name: string; logo: string },
+  workspaceSlug: string,
+  segment: string,
+  folderMeta: Map<string, { label: string | null; season: string | null }>,
+): Promise<Response> {
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const season = seasonTree.seasons.find((s) => s.segment === segment);
+  if (!season || season.folders.length === 0) return NOT_FOUND;
+
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    `seasonindex:${season.label}`,
+    ...seasonTreeEtag(seasonTree),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      seasonTree,
+      currentSeason: season.label,
+      pages: [],
+      soleContributor: true,
+    },
+    'block',
+  );
+  const html = renderSeasonIndexHtml({
+    workspaceSlug,
+    workspaceName: workspace.name,
+    season: season.label,
+    folders: season.folders,
+    logoUrl: workspace.logo,
+    nav,
+  });
+  return htmlResponse(html, etag);
+}
+
+/** The slug group's pages flattened into tree pages, each carrying its
+ *  contributing series' name so labels can tell same-named pages apart. */
+async function groupTreePages(group: PublishedSeries[]): Promise<TreePage[]> {
+  const withNames = await Promise.all(
+    group.map(async (p) => ({
+      pages: p.pages,
+      ownerName: p.seriesId ? await getSeriesName(p.seriesId) : null,
+    })),
+  );
+  return withNames.flatMap((c) => {
+    const single = c.pages.filter((pg) => !pg.isPrizes).length === 1;
+    return c.pages.map((pg) => ({
+      fleetName: pg.fleetName,
+      ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
+      ...(pg.isPrizes ? { isPrizes: true } : {}),
+      subPath: pg.subPath,
+      ownerName: c.ownerName,
+      ownerSingle: single,
+    }));
+  });
+}
+
+/** `/p/{ws}/{slug}/{folder}` — an interior folder of the publication tree
+ *  (ADR-011): the event or sub-series every two-segment page URL names but
+ *  which previously resolved to nothing. Reached as the fall-through when the
+ *  sub-path matches no page exactly; 404 when it names no folder either. */
+async function folderIndex(
+  req: NextRequest,
+  workspace: { id: string; name: string; logo: string },
+  workspaceSlug: string,
+  seriesSlug: string,
+  subPath: string,
+  group: PublishedSeries[],
+): Promise<Response> {
+  // Folders are single segments; a two-segment miss is just a missing page.
+  if (subPath.includes('/') || group.length === 0) return NOT_FOUND;
+
+  const folderMeta = await getPublishedFolderMeta(workspace.id);
+  const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
+  const pages = await groupTreePages(group);
+  const folder = slugFolders(pages, folderLabels).find(
+    (f) => f.segment === subPath,
+  );
+  if (!folder) return NOT_FOUND;
+
+  // Same freshness basis as the series index: the folder's contents only
+  // change when a contributor re-publishes; the cascade adds the season
+  // tree and label overrides.
+  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const etag = `"${await contentHash([
+    `logo:${workspace.logo}`,
+    `folder:${subPath}`,
+    ...group.map((p) => p.contentHash),
+    ...seasonTreeEtag(seasonTree),
+    ...[...folderLabels].map(([s, l]) => `flabel:${s}:${l}`),
+  ])}"`;
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+
+  // Like the series index: a slug that IS a season is titled by the season,
+  // never a lone contributor's name.
+  const seasonForSlug = seasonTree.seasons.find(
+    (s) => s.segment === seriesSlug,
+  );
+  const slugTitle =
+    seasonForSlug?.label ??
+    (group.length === 1
+      ? ((group[0].seriesId ? await getSeriesName(group[0].seriesId) : null) ??
+        humanizeSlug(seriesSlug))
+      : humanizeSlug(seriesSlug));
+  const nav = renderTreeNav(
+    {
+      workspaceSlug,
+      seasonTree,
+      currentSlug: seriesSlug,
+      pages,
+      soleContributor: group.length === 1,
+      currentFolder: subPath,
+      folderLabels,
+    },
+    'block',
+  );
+  const html = renderFolderIndexHtml({
+    workspaceSlug,
+    slug: seriesSlug,
+    folder,
+    pages: pagesInFolder(pages, subPath),
+    soleContributor: group.length === 1,
+    slugTitle,
+    logoUrl: workspace.logo,
+    nav,
+  });
+  return htmlResponse(html, etag);
 }

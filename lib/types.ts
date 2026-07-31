@@ -736,6 +736,13 @@ export interface PublicationStatus {
   workspaceSlug: string;
   suggestedSlug: string;          // kebab(series name) — default for first publish
   published: PublishResult | null;
+  /** The workspace's seasons for the dialog's Season control (ADR-011):
+   *  defined + derived, newest first; the series' own start-date season is
+   *  always among them. */
+  seasons: { label: string; current: boolean }[];
+  /** The season the dialog defaults to: the series' start-date year, or the
+   *  current year for an undated series. */
+  suggestedSeason: string;
 }
 
 /**

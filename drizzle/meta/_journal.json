@@ -516,36 +516,29 @@
     {
       "idx": 73,
       "version": "7",
-      "when": 1784674180314,
-      "tag": "0073_cute_silhouette",
+      "when": 1785275353073,
+      "tag": "0073_fancy_lyja",
       "breakpoints": true
     },
     {
       "idx": 74,
       "version": "7",
-      "when": 1784846543274,
-      "tag": "0074_fat_zeigeist",
+      "when": 1785341394160,
+      "tag": "0074_lame_colossus",
       "breakpoints": true
     },
     {
       "idx": 75,
       "version": "7",
-      "when": 1784850338488,
-      "tag": "0075_gorgeous_nightcrawler",
+      "when": 1785342361438,
+      "tag": "0075_stiff_forge",
       "breakpoints": true
     },
     {
       "idx": 76,
       "version": "7",
-      "when": 1785274550289,
-      "tag": "0076_fat_iron_fist",
-      "breakpoints": true
-    },
-    {
-      "idx": 77,
-      "version": "7",
-      "when": 1785276772159,
-      "tag": "0077_next_true_believers",
+      "when": 1785502107572,
+      "tag": "0076_grey_salo",
       "breakpoints": true
     }
   ]

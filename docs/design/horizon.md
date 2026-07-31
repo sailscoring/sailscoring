@@ -99,6 +99,28 @@ results to update handicap numbers. Currently this is a manual process involving
 spreadsheets or web forms. Automating it would be valuable to both scorers and the
 authorities, but requires agreement on data format and access.
 
+### World Sailing Sailor ID and XRR results submission
+
+World Sailing lists scoring software as "integrated with WS Sailor ID"
+(sailing.org/our-sport/event-organisers/ — Sailwave, Manage2Sail, KSail, etc.).
+The integration has two halves. First, each competitor carries their World
+Sailing Sailor ID — the free, unique identifier tied to a sailor's World Sailing
+profile, required for international events and world rankings — and the software
+can verify IDs against World Sailing's datafeed before the event
+(`datafeed.sailing.org/query?type=Person&...`, lookup by name + NOC or by
+`IFPersonID`). Second, results are exported in the XRR (XML Regatta Reporting)
+format (sailing.org/xml/) and uploaded by POST to World Sailing's ingest
+endpoint, where they pass schema and reference validation (all sailor IDs must
+resolve) before import into the results database and rankings.
+
+For Sail Scoring this maps naturally onto the competitor-identity spine: a WS
+Sailor ID would be one more identity field on a competitor (see *Reconciling
+competitor identity with external member databases* below), and an XRR renderer
+is a bounded export target with a published schema — no bespoke agreement
+needed, unlike the Irish Sailing / RYA loop above. Club racing doesn't need any
+of it; this matters only if Sail Scoring scores events whose results feed World
+Sailing (which would also be the path onto that event-organisers list).
+
 ### Push competitor list to racingrulesofsailing.org
 
 Shipped (#260, July 2026) behind the `rrs-import` feature flag: the Competitors
@@ -256,19 +278,6 @@ would save the scorer a step. Unclear how common this practice actually is in th
 worth asking real recorders before building anything.
 
 *(Was GitHub issue #21)*
-
-### Per-race metadata — race officer, conditions, course
-
-Capture the per-race context that has nowhere to live today: the race officer's name,
-wind speed and direction, and a course note. HalSail records these at result entry.
-Two of them are more than provenance — **wind speed and the course are required inputs
-for ORC scoring** (performance-curve scoring selects a boat's rating from the wind
-condition on the course sailed), so this is a prerequisite for the ORC advanced methods
-below. The rest is audit and presentation value: who ran the race, what the conditions
-were, surfaced on the race view and plausibly the published page. Shape of the change: a
-small metadata bag on `Race` (RO, wind speed, wind direction, course/notes), entered in
-the finish-sheet header / race settings, carried in the series file + JSON export.
-Relates to the committee-boat-photo entry (same race-record enrichment) and to ORC Club / PCS.
 
 ### Printable starters checklist (spotter sheet)
 
@@ -876,27 +885,34 @@ real board-racing series turns up.
 Shape of the change: a per-fleet discipline flag selecting the Appendix A / B /
 F variant, with the affected steps (series scoring, tie-break) branching on it.
 
-### Non-discardable races
+### Qualification profile (DNQ)
 
-A series NoR can designate certain races as non-discardable — they must count
-toward the final total even when the series allows discards. Example: the
-Lambay Race is the centrepiece of the HYC Wave Regatta and its NoR marks it
-as non-discardable, so a competitor's worst result cannot be the Lambay Race.
+A series can require a minimum number of races sailed before a competitor
+places at all — typically a proportion of the races run. Competitors below the
+line are shown `DNQ` instead of a series score. Sailwave supports this as a
+"qualification profile", using exactly the same two forms as its discard
+profile (a comma-separated list indexed by races sailed, or an expression in
+`s` and `r`) and hiding the whole thing behind a UI-level toggle. HalSail has
+no equivalent.
 
-Shape of the change: a per-race flag on `Race`, surfaced in race settings, and
-a tweak to the discard selection logic in `lib/scoring.ts` to exclude flagged
-races from the discardable set.
+Shape of the change: a qualification rule alongside the discard rule on
+`Series`, evaluated in `lib/scoring.ts` after totals, with a `DNQ` presentation
+in standings and published output. The natural time to build it is alongside
+proportional discards, since it wants the same rule vocabulary.
 
-### Race weightings
+### Per-fleet discard profiles
 
-A series NoR can weight individual races differently — e.g. the Lambay Race
-counts for 1.5× points. The weighting multiplies each competitor's score for
-that race before series totals are computed.
+`Series.discardThresholds` is series-wide. Sailwave allows a discard profile —
+and a rating system, and most of the rest of the scoring system — to be
+overridden per fleet from Edit → Fleets, which is how one file scores a
+cruiser fleet under IRC and a one-design fleet under level rating with
+different allowances. Our importer already notes the gap: it reads only
+Sailwave's root profile because per-fleet variation isn't representable.
 
-Shape of the change: a per-race multiplier on `Race` (default 1.0), applied in
-the series totalling step. Interaction with discards needs thought: is the
-weighted or unweighted score used when selecting which race to discard?
-Sailwave's behaviour here is worth checking before designing.
+Shape of the change: an optional per-fleet override of the series-wide discard
+rule. Worth doing only once a real series needs different allowances per fleet
+in one file; splitting into two series is the current workaround and is often
+the honest model anyway.
 
 ### Remaining RDG (redress) method — points for a place
 

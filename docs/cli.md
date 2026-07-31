@@ -147,8 +147,9 @@ sailscoring import *.sailscoring --workspace <slug>
 
 ## Import → publish → categorise → archive (the IODAI workflow)
 
-Several series' fleets can publish under one shared slug (`/p/{workspace}/{slug}`),
-and the whole lifecycle is a single command:
+Several series' fleets can publish into one shared folder of the publication
+tree (`/p/{workspace}/{slug}`, ADR-011), and the whole lifecycle is a single
+command:
 
 ```sh
 sailscoring import *.sailscoring \
@@ -170,7 +171,7 @@ sailscoring archive $ids
 ```
 
 Publish flags: `--slug <slug>` co-publishes the given series into one shared
-namespace (without it, each series gets its own derived slug);
+folder (without it, each series gets its own derived slug);
 `--subpath fleet=path,…` resolves fleet-URL collisions; `--fleets a,b` limits
 which fleets publish.
 

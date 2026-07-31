@@ -277,6 +277,13 @@ public index destination.
 > **blob key** itself (`publishedBlobKey`), so every re-publish writes a brand-
 > new immutable object the DB row points straight at — no overwrite, no lag.
 > Superseded blobs are deleted by the publish handler after the row is updated.
+>
+> **Navigation revised by [ADR-011](011-public-results-navigation.md)
+> (2026-07-28).** The URL grammar, slug freezing, and orphaning rules above
+> stand, but the navigation surface is reinterpreted as a publication tree:
+> the "series slug" is a top-level folder (usually a season), interior path
+> prefixes resolve to index pages, seasons are first-class, and one
+> sibling-based cascade replaces the per-level navigation styles.
 
 ### bilge retirement
 

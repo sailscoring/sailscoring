@@ -581,6 +581,36 @@ export async function deleteSubSeries(seriesId: string, subSeriesId: string): Pr
   });
 }
 
+// ─── Workspace seasons (ADR-011) ─────────────────────────────────────────────
+
+export interface SeasonListItem {
+  label: string;
+  current: boolean;
+  folderCount: number;
+}
+
+export interface SeasonsView {
+  items: SeasonListItem[];
+}
+
+export function listSeasons(): Promise<SeasonsView> {
+  return apiFetch<SeasonsView>('/api/v1/workspace/seasons');
+}
+
+export function createSeason(label: string): Promise<SeasonsView> {
+  return apiFetch<SeasonsView>('/api/v1/workspace/seasons', {
+    method: 'POST',
+    body: { label },
+  });
+}
+
+export function setCurrentSeason(label: string): Promise<SeasonsView> {
+  return apiFetch<SeasonsView>('/api/v1/workspace/seasons/current', {
+    method: 'PUT',
+    body: { label },
+  });
+}
+
 // ─── Series-list organisation (#154) ─────────────────────────────────────────
 
 /** Scorer-defined categories for the active workspace, in display order. */
@@ -703,6 +733,9 @@ export function publishSeries(
     fleets?: string[];
     subPaths?: Record<string, string>;
     defaultSubPath?: string;
+    prizes?: boolean;
+    season?: string;
+    folder?: string;
   } = {},
 ): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {
@@ -878,6 +911,21 @@ export async function updateHandicaps(
 export async function copySeriesToWorkspace(
   sourceSeriesId: string,
   body: { targetWorkspaceId: string; name?: string },
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/api/v1/series/${sourceSeriesId}/copy`, {
+    method: 'POST',
+    body,
+  });
+}
+
+/**
+ * Duplicate a series within the current workspace — the same copy endpoint
+ * with the target left implicit (the source workspace). The duplicate keeps
+ * the source's category; FTP paths and publishing state are stripped.
+ */
+export async function duplicateSeries(
+  sourceSeriesId: string,
+  body: { name?: string } = {},
 ): Promise<{ id: string }> {
   return apiFetch<{ id: string }>(`/api/v1/series/${sourceSeriesId}/copy`, {
     method: 'POST',

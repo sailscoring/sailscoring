@@ -29,6 +29,13 @@ import { z } from 'zod';
  *     no client-known name to put in `fleets`. Like an unticked fleet, a live
  *     prizes page carries over untouched. Multi-fleet selections instead
  *     tick/untick the name-keyed "Prizes" row via `fleets`.
+ *   - `season` — the season the publication files under (ADR-011). Pinned on
+ *     the slug's folder metadata at first publish, so a block series
+ *     publishing under its own top-level folder still groups into its season.
+ *     Ignored on re-publish.
+ *   - `folder` — the event folder the pages were prefixed into (ADR-011),
+ *     so its display label can be pinned to the series name (first publisher
+ *     wins; a joiner never renames the folder). Ignored on re-publish.
  */
 export const publishInputSchema = z.object({
   slug: z.string().optional(),
@@ -37,6 +44,8 @@ export const publishInputSchema = z.object({
   subPaths: z.record(z.string(), z.string()).optional(),
   defaultSubPath: z.string().optional(),
   prizes: z.boolean().optional(),
+  season: z.string().trim().max(40).optional(),
+  folder: z.string().trim().max(60).optional(),
 });
 
 export type PublishInput = z.infer<typeof publishInputSchema>;
