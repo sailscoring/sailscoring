@@ -12,6 +12,7 @@ import type {
   NhcProfile,
   TcfRecord,
   SubdivisionAxis,
+  RaceDiscardPolicy,
   RaceFleetExclusion,
   PublishingGroup,
   ProtestTimeLimit,
@@ -203,9 +204,16 @@ export interface SeriesFileRepos {
  *  one start sequence; its starts may span stage race numbers):
  *  `races[*].starts[*].stage` / `stageRaceNumber` / `firstPlaceOffset`. The
  *  race-level v23 fields are still read — the parser copies them onto the
- *  race's starts when the starts don't carry their own. */
-export const FORMAT_VERSION = 24;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
+ *  race's starts when the starts don't carry their own.
+ *
+ *  v25 adds the per-race scoring options (#342): `races[*].discardPolicy`
+ *  ('mustCount' / 'discardFirst') and `races[*].pointsMultiplier`. Both
+ *  additive and sparse — written only when set, and absent means an ordinary
+ *  discardable race counting once. The bump exists so a file carrying them
+ *  fails loudly in a build that predates the engine support rather than
+ *  loading a series whose standings would silently differ. */
+export const FORMAT_VERSION = 25;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -355,6 +363,9 @@ interface SeriesFileRace {
   name?: string | null; // optional label; absent in files written before v10
   date: string;
   lastFinisherTime?: string;  // v20+; manual last-finisher clock time
+  // v25+; per-race scoring options, absent on an ordinary race.
+  discardPolicy?: RaceDiscardPolicy;
+  pointsMultiplier?: number;
   /** @deprecated v23 split-fleet stage identity on the race; v24 carries it
    *  per start. Read for back-compat (copied onto the starts), not written. */
   stage?: 'qualifying' | 'final' | 'medal';
@@ -615,6 +626,8 @@ export async function buildSeriesFile(
       ...(r.name ? { name: r.name } : {}),
       date: r.date,
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
+      ...(r.discardPolicy && r.discardPolicy !== 'normal' ? { discardPolicy: r.discardPolicy } : {}),
+      ...(r.pointsMultiplier != null && r.pointsMultiplier !== 1 ? { pointsMultiplier: r.pointsMultiplier } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -1490,6 +1503,8 @@ async function writeFleetsCompetitorsRaces(
       name: r.name ?? null,
       date: r.date,
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
+      ...(r.discardPolicy ? { discardPolicy: r.discardPolicy } : {}),
+      ...(r.pointsMultiplier != null ? { pointsMultiplier: r.pointsMultiplier } : {}),
       createdAt: now,
     });
 

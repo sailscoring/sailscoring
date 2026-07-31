@@ -540,6 +540,13 @@
       "when": 1785502107572,
       "tag": "0076_grey_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1785519479543,
+      "tag": "0077_quick_mandroid",
+      "breakpoints": true
     }
   ]
 }

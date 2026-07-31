@@ -9,6 +9,7 @@ import {
   boolean,
   integer,
   real,
+  doublePrecision,
   index,
   uniqueIndex,
   primaryKey,
@@ -32,6 +33,7 @@ import type {
   PrimaryPersonLabel,
   PublishingGroup,
   ProtestTimeLimit,
+  RaceDiscardPolicy,
   RaceFleetExclusion,
   RrsOrgPushConfig,
   Prize,
@@ -766,6 +768,10 @@ export const races = pgTable(
     // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes;
     // ignored whenever any finish row carries a finishTime.
     lastFinisherTime: text('last_finisher_time'),
+    // Per-race scoring options. Null discardPolicy = 'normal'; null
+    // pointsMultiplier = counts once.
+    discardPolicy: text('discard_policy').$type<RaceDiscardPolicy>(),
+    pointsMultiplier: doublePrecision('points_multiplier'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

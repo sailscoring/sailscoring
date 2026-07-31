@@ -152,6 +152,8 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           name: r.name ?? null,
           date: r.date,
           lastFinisherTime: r.lastFinisherTime ?? null,
+          discardPolicy: r.discardPolicy ?? null,
+          pointsMultiplier: r.pointsMultiplier ?? null,
           createdAt: new Date(r.createdAt),
         });
         return r;

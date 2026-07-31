@@ -285,6 +285,29 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('RaceRepository: per-race scoring options survive insert, update and clearing', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const r: Race = {
+      id: uuid(), seriesId: s.id, raceNumber: 1, name: 'Lambay Race', date: '2026-06-06',
+      discardPolicy: 'mustCount', pointsMultiplier: 2, createdAt: Date.now(),
+    };
+    await repos.races.save(r);
+    const inserted = await repos.races.get(r.id);
+    expect(inserted?.discardPolicy).toBe('mustCount');
+    expect(inserted?.pointsMultiplier).toBe(2);
+
+    // A scorer changing their mind has to clear the columns, not just skip
+    // them — an update that only ever writes set values leaves the old ones.
+    await repos.races.save({ ...r, discardPolicy: undefined, pointsMultiplier: undefined, version: inserted?.version });
+    const cleared = await repos.races.get(r.id);
+    expect(cleared?.discardPolicy).toBeUndefined();
+    expect(cleared?.pointsMultiplier).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('RaceRepository: reorder renumbers 1..n without tripping the unique index', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = makeSeries();

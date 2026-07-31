@@ -497,6 +497,8 @@ export async function copySeries(
           name: r.name ?? null,
           date: r.date,
           lastFinisherTime: r.lastFinisherTime ?? null,
+          discardPolicy: r.discardPolicy ?? null,
+          pointsMultiplier: r.pointsMultiplier ?? null,
           createdAt: new Date(r.createdAt),
         })),
       );

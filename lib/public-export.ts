@@ -11,6 +11,7 @@ import type {
   LogoDefaults,
   Series,
   Prize,
+  RaceDiscardPolicy,
 } from './types';
 import type {
   CompetitorRepository,
@@ -187,6 +188,11 @@ export interface PublicSeriesExport {
      *  untimed finishes — the anchor for protest time limits. When finishes
      *  carry times the sheet itself is authoritative and this is absent. */
     lastFinisherTime?: string;
+    /** Per-race scoring options: how the race behaves when discards are
+     *  selected, and what its scores are multiplied by. Absent on an
+     *  ordinary race — discardable, counting once. */
+    discardPolicy?: RaceDiscardPolicy;
+    pointsMultiplier?: number;
     /** @deprecated split-fleet stage identity on the race (older exports).
      *  Read for back-compat (copied onto the starts), not written; the
      *  per-start fields below are authoritative. */
@@ -644,6 +650,8 @@ export function buildPublicExportFromSnapshot(
       date: race.date,
       ...(subSeriesNames?.length ? { subSeries: subSeriesNames } : {}),
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
+      ...(race.discardPolicy && race.discardPolicy !== 'normal' ? { discardPolicy: race.discardPolicy } : {}),
+      ...(race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? { pointsMultiplier: race.pointsMultiplier } : {}),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -1046,6 +1054,8 @@ export async function importPublicExport(
       name: race.name ?? null,
       date: race.date,
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
+      ...(race.discardPolicy ? { discardPolicy: race.discardPolicy } : {}),
+      ...(race.pointsMultiplier != null ? { pointsMultiplier: race.pointsMultiplier } : {}),
       createdAt: now,
     });
     for (const name of race.subSeries ?? []) {
