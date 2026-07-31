@@ -25,9 +25,18 @@ import {
 import type {
   CompetitorFieldKey,
   PrimaryPersonLabel,
+  RaceDiscardPolicy,
   Standing,
   SubdivisionAxis,
 } from '@/lib/types';
+import {
+  formatMultiplier,
+  hasScoringOptions,
+  raceMultiplier,
+  racePolicy,
+  scoringOptionsLegend,
+} from '@/lib/race-scoring-options';
+import { ordinal } from '@/lib/prizes';
 
 export interface FleetStandingsTableProps {
   standings: Standing[];
@@ -35,7 +44,18 @@ export interface FleetStandingsTableProps {
   // exclusion menu/tooltip name the underlying race by `overallNumber` (its
   // series-wide number; defaults to raceNumber) plus `date`/`name`, so a scorer
   // knows "Series B R6" is really "Race 13" before acting on it.
-  races: { id: string; raceNumber: number; overallNumber?: number; date?: string; name?: string | null }[];
+  races: {
+    id: string;
+    raceNumber: number;
+    overallNumber?: number;
+    date?: string;
+    name?: string | null;
+    // Per-race scoring options (#342). Marked in the column header and named
+    // in the legend under the table — the cells carry weighted scores, so
+    // without the marks the arithmetic would have to be inferred.
+    discardPolicy?: RaceDiscardPolicy;
+    pointsMultiplier?: number;
+  }[];
   hasDiscards: boolean;
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
@@ -86,7 +106,15 @@ export function FleetStandingsTable({
   const visibleAxes = enabledFields.includes('subdivision') ? subdivisionAxes : [];
   const showAge = enabledFields.includes('age');
   const showGender = enabledFields.includes('gender');
+  // Named in words under the table: a column marked "×2" or "*" has to say
+  // what it does, or the standings don't add up for anyone checking by hand.
+  const optionNotes = races
+    .filter((r) => hasScoringOptions(r))
+    .map((r) => scoringOptionsLegend(r, `R${r.raceNumber}`))
+    .filter(Boolean);
+
   return (
+    <>
     <div className="overflow-x-auto rounded-lg border bg-card">
     <Table>
       <TableHeader>
@@ -107,7 +135,14 @@ export function FleetStandingsTable({
           {showAge && <TableHead>Age</TableHead>}
           {showGender && <TableHead>Gender</TableHead>}
           {races.map((race, i) => {
-            const label = `R${race.raceNumber}`;
+            // "R4 ×2 *" — the weighting numerically, an asterisk for a race
+            // whose discard behaviour differs. Both are spelled out in the
+            // legend under the table.
+            const multiplier = raceMultiplier(race);
+            const label =
+              `R${race.raceNumber}` +
+              (multiplier !== 1 ? ` ${formatMultiplier(multiplier)}` : '') +
+              (racePolicy(race) !== 'normal' ? ' *' : '');
             // Manual strike (raceFleetExclusions) vs the automatic "no entrants"
             // exclusion, which shows up in every standing's raceExcluded flag.
             const isManual = excludedRaceIds?.has(race.id) ?? false;
@@ -122,7 +157,10 @@ export function FleetStandingsTable({
               : isAuto
                 ? 'no entrants — excluded automatically'
                 : null;
-            const headTitle = `${raceTitle}${dateLabel ? ` · ${dateLabel}` : ''}${reason ? ` — ${reason}` : ''}`;
+            const optionsNote = scoringOptionsLegend(race, raceTitle);
+            const headTitle =
+              `${raceTitle}${dateLabel ? ` · ${dateLabel}` : ''}${reason ? ` — ${reason}` : ''}` +
+              (optionsNote ? ` — ${optionsNote}` : '');
             return (
               <TableHead
                 key={race.id}
@@ -172,6 +210,7 @@ export function FleetStandingsTable({
           <StandingRow
             key={standing.competitor.id}
             standing={standing}
+            races={races}
             raceCount={races.length}
             hasDiscards={hasDiscards}
             showBoat={showBoat}
@@ -189,11 +228,18 @@ export function FleetStandingsTable({
       </TableBody>
     </Table>
     </div>
+    {optionNotes.length > 0 && (
+      <p className="text-xs text-muted-foreground" data-testid="race-options-legend">
+        {optionNotes.join(' ')}
+      </p>
+    )}
+    </>
   );
 }
 
 interface StandingRowProps {
   standing: Standing;
+  races: FleetStandingsTableProps['races'];
   raceCount: number;
   hasDiscards: boolean;
   showBoat: boolean;
@@ -210,6 +256,7 @@ interface StandingRowProps {
 
 function StandingRow({
   standing,
+  races,
   raceCount,
   hasDiscards,
   showBoat,
@@ -283,9 +330,20 @@ function StandingRow({
             </TableCell>
           );
         }
+        // A weighted cell shows the score that counts, so the cell says how it
+        // got there: "1st × 2 = 2". Coded and redress cells have no place to
+        // name, so they carry the multiplier alone.
+        const multiplier = raceMultiplier(races[i] ?? {});
+        const weightNote =
+          multiplier === 1
+            ? undefined
+            : raceRank !== null
+              ? `${ordinal(raceRank)} × ${multiplier} = ${points}`
+              : `Counts ×${multiplier}`;
         return (
           <TableCell
             key={i}
+            title={weightNote}
             className={cn(
               'text-center tabular-nums',
               isDiscard && 'line-through text-muted-foreground',

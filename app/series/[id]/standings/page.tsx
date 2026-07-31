@@ -22,7 +22,10 @@ import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { AsPublishedStandings } from '@/components/as-published-standings';
-import { FleetStandingsTable } from '@/components/fleet-standings-table';
+import {
+  FleetStandingsTable,
+  type FleetStandingsTableProps,
+} from '@/components/fleet-standings-table';
 import { ScoringRejectionsWarning } from '@/components/scoring-rejections-warning';
 import type { DiscardThreshold } from '@/lib/types';
 
@@ -110,7 +113,7 @@ export default function StandingsPage({
   // independently, and the tab strip selects which one is shown.
   const hasBlocks = subSeriesList.length > 0;
 
-  let raceLabels: { id: string; raceNumber: number }[];
+  let raceLabels: FleetStandingsTableProps['races'];
   let fleetResults: ReturnType<typeof calculateFleetStandings>['fleetStandings'];
   let circularRedressRaces: number[];
   let summary: string;
@@ -156,6 +159,8 @@ export default function StandingsPage({
       overallNumber: r.raceNumber,
       date: r.date,
       name: r.name,
+      discardPolicy: r.discardPolicy,
+      pointsMultiplier: r.pointsMultiplier,
     }));
     fleetResults = selected.fleetStandings;
     circularRedressRaces = selected.circularRedressRaces;

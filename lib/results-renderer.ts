@@ -1,4 +1,4 @@
-import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel, SubdivisionAxis } from './types';
+import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel, RaceDiscardPolicy, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
 import { parseHmsToSeconds } from './time-parse';
 import {
@@ -10,6 +10,13 @@ import {
 } from './competitor-fields';
 import { roundCorrectedSecs } from './scoring';
 import { describePrizeClauses, ordinal, type PrizeAllocation } from './prizes';
+import {
+  formatMultiplier,
+  hasScoringOptions,
+  raceMultiplier,
+  racePolicy,
+  scoringOptionsLegend,
+} from './race-scoring-options';
 
 /** Column heading for a subdivision axis, falling back to the default label when
  *  the axis label is blank. */
@@ -92,6 +99,11 @@ export interface RaceData {
   name?: string | null; // optional race label, shown in the section heading + column tooltip
   label: string; // column header, e.g. "R1" or "R3 Jul 23"
   anchorId: string; // in-page anchor, e.g. "r1"
+  /** Per-race scoring options (#342). The summary table marks the column
+   *  ("R4 ×2 *") and names it in a legend beneath; the race's own section
+   *  states it in words. Absent on an ordinary race. */
+  discardPolicy?: RaceDiscardPolicy;
+  pointsMultiplier?: number;
   startTime?: string; // "HH:MM:SS" gun time for this fleet (handicap fleets only)
   results: RaceResultData[];
   /** True when the fleet uses NHC scoring. Drives the "TCF" rating column
@@ -611,6 +623,7 @@ td.discard { background: #f2f2f2; }
 td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
 .override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
+.raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
@@ -820,10 +833,18 @@ function renderSummaryTable(
     ...(showGender ? ['<th>Gender</th>'] : []),
     ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
     ...races.map((r) => {
-      const titleAttr = r.name ? ` title="${esc(r.name)}"` : '';
+      // "R4 ×2 *" — the weighting numerically, an asterisk for a race whose
+      // discard behaviour differs; both spelled out in the legend below.
+      const multiplier = raceMultiplier(r);
+      const marks =
+        (multiplier !== 1 ? ` ${formatMultiplier(multiplier)}` : '') +
+        (racePolicy(r) !== 'normal' ? ' *' : '');
+      const optionsNote = scoringOptionsLegend(r, r.label);
+      const titleText = [r.name, optionsNote].filter(Boolean).join(' — ');
+      const titleAttr = titleText ? ` title="${esc(titleText)}"` : '';
       return linkRaceLabels && r.results.length > 0
-        ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a></th>`
-        : `<th${titleAttr}>${esc(r.label)}</th>`;
+        ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a>${esc(marks)}</th>`
+        : `<th${titleAttr}>${esc(r.label)}${esc(marks)}</th>`;
     }),
     '<th>Total</th>',
     ...(hasDiscards ? ['<th>Nett</th>'] : []),
@@ -878,6 +899,16 @@ function renderSummaryTable(
     })
     .join('\n');
 
+  // A marked column has to say what it does, or the standings don't add up
+  // for anyone checking the arithmetic by hand.
+  const optionNotes = races
+    .filter((r) => hasScoringOptions(r))
+    .map((r) => scoringOptionsLegend(r, r.label))
+    .filter(Boolean);
+  const optionsLegend = optionNotes.length > 0
+    ? `\n<p class="raceoptions">${esc(optionNotes.join(' '))}</p>`
+    : '';
+
   return `<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 ${cols}
@@ -890,7 +921,7 @@ ${headerCells}
 <tbody>
 ${rows}
 </tbody>
-</table></div>`;
+</table></div>${optionsLegend}`;
 }
 
 // ---- Race detail table ----
@@ -1015,8 +1046,14 @@ function renderRaceTable(
 
   const primaryTh = esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader);
   const nameStr = race.name ? `${esc(race.name)}&nbsp;&mdash;&nbsp;` : '';
+  // The Points column here is the race's own score at face value; the
+  // multiplier applies in the series total, so say so where the two differ.
+  const optionsNote = hasScoringOptions(race) ? scoringOptionsLegend(race, 'This race') : '';
+  const optionsSubheading = optionsNote
+    ? `<p class="raceoptions" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(optionsNote)}</p>\n`
+    : '';
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${nameStr}${dateStr}${startStr}</h3>
-${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
+${optionsSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
@@ -1300,7 +1337,7 @@ function maybeLink(url: string | undefined, inner: string): string {
  */
 export function assembleSeriesResultsData(
   series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string },
-  races: Array<{ id: string; raceNumber: number; name?: string | null; date: string }>,
+  races: Array<{ id: string; raceNumber: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number }>,
   standings: Array<{
     rank: number;
     competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
@@ -1493,6 +1530,8 @@ export function assembleSeriesResultsData(
       ...(race.name ? { name: race.name } : {}),
       label: `R${race.raceNumber}`,
       anchorId: `${anchorPrefix ?? ''}r${race.raceNumber}`,
+      ...(race.discardPolicy && race.discardPolicy !== 'normal' ? { discardPolicy: race.discardPolicy } : {}),
+      ...(race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? { pointsMultiplier: race.pointsMultiplier } : {}),
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
