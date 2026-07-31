@@ -325,6 +325,11 @@ export async function publishSeries(
   // `isDefault`), since its fleet name can be synthetic and unknown to the
   // client; named fleets use `subPaths[fleetName]`.
   const defaultOverride = input.defaultSubPath?.trim();
+  // The event folder derived pages land under (see below). `breadcrumbFolder`
+  // is caller input on first publish, so it only prefixes paths when it is a
+  // valid segment of its own.
+  const derivedFolder =
+    breadcrumbFolder && isValidSlugSegment(breadcrumbFolder) ? breadcrumbFolder : null;
   const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean }): string => {
     const existingPath = frozen.get(pageKey(file));
     if (existingPath !== undefined) return existingPath;
@@ -350,8 +355,16 @@ export async function publishSeries(
       // `prizes` path for a sole contributor, disambiguated by the series'
       // own slug when co-publishing so two prize sheets never both claim it.
       leaf = shared ? `${seriesSlug}-prizes` : 'prizes';
+      if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
     } else {
       leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
+      // A derived page lands in the publication's event folder like every
+      // overridden one (ADR-011: a publication's pages share one folder).
+      // This is how server-built pages the dialog cannot enumerate — the
+      // split-fleet championship and fleet-assignments pages — stay inside
+      // the folder the scorer chose. A sub-series page's block segment
+      // already takes the extra path slot.
+      if (derivedFolder && !file.subSeriesName) leaf = `${derivedFolder}/${leaf}`;
     }
     return file.subSeriesName ? `${kebab(file.subSeriesName)}/${leaf}` : leaf;
   };

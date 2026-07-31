@@ -191,6 +191,66 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
 });
 
 /**
+ * Publishing a split-fleet series through the ADR-011 Season + Folder dialog:
+ * the championship standings and rolling fleet-assignments pages land in the
+ * publication tree, the event folder lists both, and the public pages render.
+ * This is the seam where the split-fleets publish output meets the
+ * publication-tree model — covered end-to-end here.
+ */
+test('split fleets: publish lands the championship + assignments pages in the tree', async ({
+  page,
+  signedInEmail,
+}) => {
+  test.setTimeout(240_000);
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+  await createSeriesQuick(page, { name: 'Publish Worlds', venue: 'Dun Laoghaire' });
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const sfSetupCard = page.getByTestId('split-fleets-card');
+  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
+  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
+  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+
+  const q1Row = page.getByTestId('logical-race-qualifying-1');
+  await q1Row.getByRole('link', { name: /Yellow · enter finishes/ }).click();
+  await enterFinishes(page, [...yellowSails, ...blueSails]);
+  await page.goBack();
+  await expect(page.getByText('1 of 2 qualifying races count')).toBeVisible();
+
+  // Publish through the Season + Folder dialog.
+  await page.getByRole('button', { name: 'Publish…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog.getByLabel('Season')).toHaveValue('2026');
+  await dialog.getByLabel('Folder').fill('worlds-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  // Both pages get URLs under /p/{ws}/2026/worlds-26/.
+  const champLink = dialog.getByRole('link', { name: /worlds-26\/standings$/ });
+  await expect(champLink).toBeVisible();
+  await expect(dialog.getByRole('link', { name: /worlds-26\/fleet-assignments$/ })).toBeVisible();
+  const champPath = new URL((await champLink.getAttribute('href')) ?? '').pathname;
+
+  // The public championship page renders the combined qualifying table.
+  await page.goto(champPath);
+  await expect(page.getByText('Publish Worlds').first()).toBeVisible();
+  await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
+
+  // The event folder lists both pages; assignments shows the round's fleets.
+  await page.goto(champPath.replace(/\/standings$/, ''));
+  await expect(page.getByRole('heading', { name: 'Publish Worlds' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Championship' })).toBeVisible();
+  await page.getByRole('link', { name: 'Fleet assignments' }).click();
+  await expect(page).toHaveURL(/\/worlds-26\/fleet-assignments$/);
+  await expect(page.getByText(/Qualifying round 1/)).toBeVisible();
+});
+
+/**
  * The setup wizard's championship-format opt-in (gated on `split-fleets`):
  * enabling it there makes the Split Fleets tab appear, and finishing setup
  * lands on it rather than on Competitors.

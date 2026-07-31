@@ -315,6 +315,17 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // slug when the page co-publishes into a shared slug.
   const multiFleet = fleets.length > 1;
 
+  // The publication's live results pages when there are several in single-page
+  // mode (server-built pages the dialog can't enumerate, e.g. a split-fleet
+  // series' championship + fleet-assignments pages); null means one page and
+  // the `singlePreview` link renders alone. Blocks link their index instead,
+  // and the prizes page keeps its dedicated row.
+  const publishedResultPages = useMemo(() => {
+    if (hasBlocks) return null;
+    const pages = (published?.pages ?? []).filter((p) => p.fleetName !== 'Prizes');
+    return pages.length > 1 ? pages : null;
+  }, [published, hasBlocks]);
+
   // The single default page once published — the server's actual live page, used
   // for the frozen read-only link + Copy.
   const singlePreview = useMemo(() => {
@@ -781,26 +792,40 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                 </div>
               </>
             ) : isPublished ? (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  {/* direction: rtl makes the ellipsis clip the (shared) start of
-                      the URL and keep the distinguishing end visible; text-align:
-                      left keeps it left-aligned when it fits. The URL is a single
-                      LTR run so its character order is unaffected. */}
-                  <a
-                    href={singlePreview.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={singlePreview.url}
-                    className="text-xs font-mono truncate block hover:underline"
-                    style={{ direction: 'rtl', textAlign: 'left' }}
-                  >
-                    {singlePreview.url}
-                  </a>
-                </div>
-                <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(singlePreview.url)}>
-                  Copy
-                </Button>
+              // A publication can carry pages the dialog cannot enumerate
+              // before publishing — a split-fleet series' championship and
+              // fleet-assignments pages — so the published view lists every
+              // live results page, not just the first. The prizes page keeps
+              // its own row below.
+              <div className="space-y-1.5">
+                {(publishedResultPages ?? [singlePreview]).map((p) => (
+                  <div key={p.url} className="flex items-center gap-2">
+                    {publishedResultPages && (
+                      <span className="w-36 shrink-0 truncate text-sm" title={p.fleetName}>
+                        {p.fleetName}
+                      </span>
+                    )}
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      {/* direction: rtl makes the ellipsis clip the (shared) start of
+                          the URL and keep the distinguishing end visible; text-align:
+                          left keeps it left-aligned when it fits. The URL is a single
+                          LTR run so its character order is unaffected. */}
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={p.url}
+                        className="text-xs font-mono truncate block hover:underline"
+                        style={{ direction: 'rtl', textAlign: 'left' }}
+                      >
+                        {p.url}
+                      </a>
+                    </div>
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(p.url)}>
+                      Copy
+                    </Button>
+                  </div>
+                ))}
               </div>
             ) : hasBlocks ? (
               <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>
