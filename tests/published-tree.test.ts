@@ -125,12 +125,29 @@ describe('leafLabel', () => {
     expect(leafLabel(pages[0], pages, false)).toBe('Regatta Racing');
   });
 
-  it('disambiguates same-named fleets from different series', () => {
+  it('a shared fleet name yields to the series name alone', () => {
+    // The every-class-in-one-folder shape: each series contributes one page
+    // and they all carry the folder's own name as their fleet name — the
+    // series is the whole signal, the fleet name pure repetition.
+    const pages: TreePage[] = [
+      { fleetName: 'Saturday Overall', subPath: 'sat/beneteau-211', ownerName: 'Beneteau 211 Echo (Sat) 2025' },
+      { fleetName: 'Saturday Overall', subPath: 'sat/cruisers-1', ownerName: 'Cruisers 1 IRC 2025' },
+    ];
+    expect(leafLabel(pages[0], pages, false)).toBe('Beneteau 211 Echo (Sat) 2025');
+    expect(leafLabel(pages[1], pages, false)).toBe('Cruisers 1 IRC 2025');
+  });
+
+  it('keeps the fleet-name suffix when a series has several pages in the set', () => {
+    // Two series each publishing IRC + Cruiser pages: the series name alone
+    // would collide with its own sibling, so the fleet name stays.
     const pages: TreePage[] = [
       { fleetName: 'IRC', subPath: 'irc', ownerName: 'Spring League' },
+      { fleetName: 'Cruiser', subPath: 'cruiser', ownerName: 'Spring League' },
       { fleetName: 'IRC', subPath: 'irc-2', ownerName: 'Summer League' },
+      { fleetName: 'Cruiser', subPath: 'cruiser-2', ownerName: 'Summer League' },
     ];
     expect(leafLabel(pages[0], pages, false)).toBe('Spring League — IRC');
+    expect(leafLabel(pages[3], pages, false)).toBe('Summer League — Cruiser');
   });
 
   it('never prefixes block names — the folder level carries them', () => {

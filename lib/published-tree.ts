@@ -155,8 +155,10 @@ function baseLeafLabel(page: TreePage, soleContributor: boolean): string {
  * prize sheets keep their own name; a publication's only results page is its
  * standings — "Standings" for a sole contributor, its series' name on a
  * shared slug when the fleet name is a synthetic placeholder; otherwise the
- * fleet name, disambiguated with the series name when siblings from
- * different series would read the same. Block names never appear — the
+ * fleet name. When siblings share a fleet name it carries no signal, so the
+ * series name takes over — alone when the series contributes just that one
+ * page to the set (the every-class-in-one-folder shape), prefixed onto the
+ * fleet name when it contributes several. Block names never appear — the
  * folder level of the cascade carries them.
  */
 export function leafLabel(
@@ -168,7 +170,11 @@ export function leafLabel(
   const duplicated = siblings.some(
     (p) => p !== page && baseLeafLabel(p, soleContributor) === base,
   );
-  return duplicated && page.ownerName ? `${page.ownerName} — ${base}` : base;
+  if (!duplicated || !page.ownerName) return base;
+  const ownersPages = siblings.filter(
+    (p) => p.ownerName === page.ownerName,
+  ).length;
+  return ownersPages === 1 ? page.ownerName : `${page.ownerName} — ${base}`;
 }
 
 /** A slug that reads as a season: a year, or a year-spanning "2025-26". The
