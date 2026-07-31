@@ -29,6 +29,7 @@ import type {
   CompetitorFieldKey,
   MultiPersonFieldKey,
   DiscardThreshold,
+  ProportionalDiscard,
   NhcProfile,
   PrimaryPersonLabel,
   PublishingGroup,
@@ -152,6 +153,10 @@ export const series = pgTable(
       .$type<DiscardThreshold[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // A proportional discard allowance, replacing the thresholds above when
+    // set. Nullable rather than defaulted: absent is the common case and is
+    // what selects the threshold-list mode.
+    proportionalDiscard: jsonb('proportional_discard').$type<ProportionalDiscard>(),
     dnfScoring: text('dnf_scoring').notNull().default('seriesEntries'),
     // Per-fleet race exclusions for the whole-series standings: {raceId,
     // fleetId} pairs, each striking one race from one fleet's scoring (a

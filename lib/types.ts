@@ -3,6 +3,21 @@ export interface DiscardThreshold {
   discardCount: number; // number of worst scores to drop
 }
 
+/** A discard allowance stated as a proportion — "one third of the results are
+ *  discarded", "one discard for every three races sailed" — rather than as a
+ *  table of step-ups. Club long-series sailing instructions word it this way;
+ *  hand-expanding it into thresholds produces a list of numbers that no longer
+ *  resembles the rule it came from.
+ *
+ *  Resolves to `sailed < firstAt ? 0 : 1 + floor((sailed - firstAt) / everyRaces)`,
+ *  rounded down, counted against races *sailed* (excluded races earn no credit,
+ *  as for thresholds). With `firstAt === everyRaces` that is exactly
+ *  `floor(sailed / everyRaces)`. */
+export interface ProportionalDiscard {
+  firstAt: number;      // races sailed at which the first discard applies
+  everyRaces: number;   // one further discard per this many races after that
+}
+
 /** Optional competitor fields that can be shown or hidden per series.
  *  Sail number and the primary person slot (`Competitor.name`, labelled per
  *  `Series.primaryPersonLabel`) are always shown and are not configurable.
@@ -186,6 +201,10 @@ export interface Series {
   defaultStartSequence?: StartGroup[];  // default start groups and offsets for race creation
   // Scoring rules
   discardThresholds: DiscardThreshold[];
+  // A proportional discard allowance. When set it *replaces* discardThresholds
+  // for scoring; the thresholds are kept so switching back in the editor loses
+  // nothing. Absent is the common case.
+  proportionalDiscard?: ProportionalDiscard;
   dnfScoring: DnfScoring;  // A5.2, A5.3, or A5.3-with-DNC-from-starting-area
   // Per-fleet race exclusions applied to the whole-series standings (see
   // RaceFleetExclusion). Sparse — present only for the rare heat struck for one

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type {
   Series,
   DiscardThreshold,
+  ProportionalDiscard,
   StartGroup,
   CompetitorFieldKey,
   PrimaryPersonLabel,
@@ -47,6 +48,13 @@ export const primaryPersonLabelSchema = z.enum([
 export const discardThresholdSchema = z.object({
   minRaces: z.number().int().nonnegative(),
   discardCount: z.number().int().nonnegative(),
+});
+
+export const proportionalDiscardSchema = z.object({
+  firstAt: z.number().int().nonnegative(),
+  // A zero interval would divide by zero in the engine, so it is rejected here
+  // rather than defended against at every read.
+  everyRaces: z.number().int().positive(),
 });
 
 export const startGroupSchema = z.object({
@@ -122,6 +130,9 @@ export const seriesSchema = z.object({
   scoringMode: z.enum(['scratch', 'handicap']),
   defaultStartSequence: z.array(startGroupSchema).optional(),
   discardThresholds: z.array(discardThresholdSchema),
+  // A proportional allowance in place of the threshold list. Optional on the
+  // wire so sparse creation and older clients round-trip cleanly.
+  proportionalDiscard: proportionalDiscardSchema.optional(),
   dnfScoring: z.enum(['seriesEntries', 'startingArea', 'startingAreaInclDnc']),
   // Whole-series per-fleet race exclusions. Optional on the wire so sparse
   // creation and older clients round-trip cleanly.
@@ -229,6 +240,11 @@ const _discardFromZod: DiscardThreshold = undefined as unknown as z.infer<typeof
 const _discardFromTs: z.infer<typeof discardThresholdSchema> = undefined as unknown as DiscardThreshold;
 void _discardFromZod;
 void _discardFromTs;
+
+const _proportionalFromZod: ProportionalDiscard = undefined as unknown as z.infer<typeof proportionalDiscardSchema>;
+const _proportionalFromTs: z.infer<typeof proportionalDiscardSchema> = undefined as unknown as ProportionalDiscard;
+void _proportionalFromZod;
+void _proportionalFromTs;
 
 const _startGroupFromZod: StartGroup = undefined as unknown as z.infer<typeof startGroupSchema>;
 const _startGroupFromTs: z.infer<typeof startGroupSchema> = undefined as unknown as StartGroup;

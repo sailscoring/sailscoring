@@ -2,6 +2,7 @@ import type {
   ResultCode,
   PenaltyCode,
   DiscardThreshold,
+  ProportionalDiscard,
   DnfScoring,
   CompetitorFieldKey,
   MultiPersonFieldKey,
@@ -84,6 +85,9 @@ export interface PublicSeriesExport {
     venueUrl?: string;
     eventUrl?: string;
     discardThresholds: DiscardThreshold[];
+    /** A proportional discard allowance in place of the thresholds. Sparse —
+     *  omitted unless the series uses one. */
+    proportionalDiscard?: ProportionalDiscard;
     dnfScoring: DnfScoring;
     /** Whole-series per-fleet race exclusions — a race struck from one fleet's
      *  scoring. Keyed by the export's portable identity (race number + fleet
@@ -702,6 +706,7 @@ export function buildPublicExportFromSnapshot(
       ...(series.venueUrl ? { venueUrl: series.venueUrl } : {}),
       ...(series.eventUrl ? { eventUrl: series.eventUrl } : {}),
       discardThresholds: series.discardThresholds,
+      ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       dnfScoring: series.dnfScoring,
       ...(() => {
         // Whole-series exclusions, re-keyed to the export's portable identity
@@ -926,6 +931,7 @@ export async function importPublicExport(
     scoringMode: data.series.scoringMode,
     ...(importedDefaultStartSequence?.length ? { defaultStartSequence: importedDefaultStartSequence } : {}),
     discardThresholds: data.series.discardThresholds,
+    ...(data.series.proportionalDiscard ? { proportionalDiscard: data.series.proportionalDiscard } : {}),
     dnfScoring: data.series.dnfScoring,
     ...(importedRaceFleetExclusions.length ? { raceFleetExclusions: importedRaceFleetExclusions } : {}),
     ftpHost: '',

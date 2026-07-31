@@ -547,6 +547,13 @@
       "when": 1785519479543,
       "tag": "0077_quick_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1785537566089,
+      "tag": "0078_slimy_magus",
+      "breakpoints": true
     }
   ]
 }

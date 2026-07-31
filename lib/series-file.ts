@@ -4,6 +4,7 @@ import type {
   ResultCode,
   PenaltyCode,
   DiscardThreshold,
+  ProportionalDiscard,
   DnfScoring,
   Finish,
   CompetitorFieldKey,
@@ -211,9 +212,16 @@ export interface SeriesFileRepos {
  *  additive and sparse — written only when set, and absent means an ordinary
  *  discardable race counting once. The bump exists so a file carrying them
  *  fails loudly in a build that predates the engine support rather than
- *  loading a series whose standings would silently differ. */
-export const FORMAT_VERSION = 25;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
+ *  loading a series whose standings would silently differ.
+ *
+ *  v26 adds `series.proportionalDiscard` (#341): a discard allowance stated as
+ *  a proportion ("one discard for every three races sailed") in place of the
+ *  threshold list. Additive and sparse — written only when set. The bump is for
+ *  the same reason as v25: a build that predates the engine support must fail
+ *  loudly rather than load the series and score it with the thresholds the rule
+ *  replaced. */
+export const FORMAT_VERSION = 26;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -260,6 +268,7 @@ interface SeriesFileSeries {
   venueUrl?: string;   // additive; absent in files written before logo/event links landed
   eventUrl?: string;
   discardThresholds: DiscardThreshold[];
+  proportionalDiscard?: ProportionalDiscard;  // v26+; replaces the thresholds when set
   dnfScoring: DnfScoring;
   raceFleetExclusions?: RaceFleetExclusion[];  // v14+; whole-series per-fleet race strikes
   ftpHost: string;
@@ -561,6 +570,7 @@ export async function buildSeriesFile(
       venueUrl: series.venueUrl,
       eventUrl: series.eventUrl,
       discardThresholds: series.discardThresholds,
+      ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       dnfScoring: series.dnfScoring,
       ...(series.raceFleetExclusions && series.raceFleetExclusions.length > 0
         ? { raceFleetExclusions: series.raceFleetExclusions }
@@ -1030,6 +1040,7 @@ export async function openSeriesFromFile(
     scoringMode: file.series.scoringMode,
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
+    proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
@@ -1119,6 +1130,7 @@ export async function restoreSeriesFromFile(
     scoringMode: file.series.scoringMode,
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
+    proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
@@ -1217,6 +1229,7 @@ async function updateSeriesFromFileInner(
     scoringMode: file.series.scoringMode,
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),
     discardThresholds: file.series.discardThresholds,
+    proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
@@ -1390,6 +1403,7 @@ async function updateSeriesFromSailwaveInner(
   await repos.seriesRepo.save({
     ...current,
     discardThresholds: file.series.discardThresholds,
+    proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     defaultStartSequence: undefined,

@@ -510,3 +510,58 @@ describe('parseSeriesFile — v22 person lists', () => {
     expect(file.competitors[0].owners).toEqual(['J. Murphy', 'M. Murphy']);
   });
 });
+
+// v26 adds `series.proportionalDiscard` (#341) — a discard allowance stated as
+// a proportion in place of the threshold list. Additive and sparse.
+
+describe('parseSeriesFile — v26 proportional discard', () => {
+  function fileAtVersion(formatVersion: number, series: Record<string, unknown>): string {
+    return JSON.stringify({
+      formatVersion,
+      seriesId: 's1',
+      exportedAt: '2026-07-31T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'Winter League',
+        venue: 'HYC',
+        startDate: '2026-11-01',
+        endDate: '2027-03-31',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        includeJsonExport: true,
+        enabledCompetitorFields: [],
+        primaryPersonLabel: 'helm',
+        scoringMode: 'scratch',
+        ...series,
+      },
+      fleets: [],
+      competitors: [],
+      races: [],
+    });
+  }
+
+  it('reads a proportional rule off a v26 file', () => {
+    const file = parseSeriesFile(
+      fileAtVersion(26, { proportionalDiscard: { firstAt: 3, everyRaces: 3 } }),
+    );
+    expect(file.series.proportionalDiscard).toEqual({ firstAt: 3, everyRaces: 3 });
+  });
+
+  it('leaves it absent on a v25 file', () => {
+    const file = parseSeriesFile(fileAtVersion(25, {}));
+    expect(file.series.proportionalDiscard).toBeUndefined();
+  });
+
+  it('keeps the thresholds a proportional rule sits alongside', () => {
+    const file = parseSeriesFile(fileAtVersion(26, {
+      discardThresholds: [{ minRaces: 5, discardCount: 1 }],
+      proportionalDiscard: { firstAt: 3, everyRaces: 3 },
+    }));
+    expect(file.series.discardThresholds).toEqual([{ minRaces: 5, discardCount: 1 }]);
+    expect(file.series.proportionalDiscard).toEqual({ firstAt: 3, everyRaces: 3 });
+  });
+});
