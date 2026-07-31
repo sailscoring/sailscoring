@@ -96,8 +96,8 @@ export function scoringOptionsLegend(
     clauses.push(multiplier === 2 ? 'counts double' : `counts ${formatMultiplier(multiplier)}`);
   }
   const policy = racePolicy(race);
-  if (policy === 'mustCount') clauses.push('must count and is never discarded');
+  if (policy === 'mustCount') clauses.push('is never discarded');
   if (policy === 'discardFirst') clauses.push('is discarded before any other race');
   if (clauses.length === 0) return '';
-  return `${raceLabel} ${clauses.join(', and ')}.`;
+  return `${raceLabel} ${clauses.join(' and ')}.`;
 }

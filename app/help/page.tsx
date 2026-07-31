@@ -76,6 +76,8 @@ export default async function HelpPage() {
             ['#prizes', 'Prizes', 'prizes'],
             ['#rating-systems', 'Rating systems'],
             ['#discard-rules', 'Discard rules'],
+            // Gated: only listed when race-scoring-options is enabled (#342).
+            ['#race-scoring-options', 'Per-race scoring options', 'race-scoring-options'],
             ['#a53-scoring', 'A5.3 starting-area scoring'],
             ['#saving-and-sharing', 'Saving and sharing a series'],
             ['#collaboration', 'Working with co-scorers'],
@@ -1506,6 +1508,60 @@ export default async function HelpPage() {
           score. When two races have the same score, the earlier race is discarded.
         </p>
       </Section>
+
+      {has('race-scoring-options') && (
+        <Section id="race-scoring-options" title="Per-race scoring options">
+          <p>
+            A Notice of Race often says how much a <em>particular</em> race counts — the
+            centrepiece race that cannot be discarded, the trophy race worth double, the practice
+            race that should drop out once real racing starts. Open a race and click{' '}
+            <strong className="text-foreground">Scoring</strong> in its header (or{' '}
+            <strong className="text-foreground">Scoring options…</strong> from its row on the{' '}
+            <strong className="text-foreground">Races</strong> tab, or press{' '}
+            <kbd className="px-1 border rounded text-xs">o</kbd>) to set them.
+          </p>
+          <p>
+            <strong className="text-foreground">Discarding</strong> is one of three behaviours:
+          </p>
+          <ul className="list-disc list-inside space-y-1 pl-2">
+            <li>
+              <strong className="text-foreground">Normal</strong> — discarded if it is a
+              competitor’s worst. This is every race unless you say otherwise.
+            </li>
+            <li>
+              <strong className="text-foreground">Must count</strong> — never discarded, even when
+              it is the worst. A competitor’s worst result then cannot be this race.
+            </li>
+            <li>
+              <strong className="text-foreground">Discard first</strong> — taken before any other
+              race when discards are selected, whatever it scored. This is how a practice race is
+              included in the series and then drops out: mark it discard first and add one to the
+              series discard allowance on the Settings tab. It reorders the selection rather than
+              guaranteeing removal, so if the allowance doesn’t reach it, it still counts.
+            </li>
+          </ul>
+          <p>
+            <strong className="text-foreground">Weighting</strong> multiplies every score in the
+            race. At ×2 a win scores 2, a second 4, and so on; values below 1 and non-whole values
+            (0.5, 1.7) work too. Two consequences worth knowing: the multiplier applies to the
+            whole score, so a DNC in a double race costs double; and a weighted race is still one
+            race as far as the discard allowance is concerned — ×2 does not mean two races sailed.
+          </p>
+          <p>
+            The two settings are independent. Weighting a race up does <em>not</em> make it
+            non-discardable — a Notice of Race that wants both says both, so set both. What the
+            weighting does change is which race is a competitor’s worst: discard selection and the
+            RRS A8.1 tie-break compare the score that actually counts, after weighting.
+          </p>
+          <p>
+            In the standings, a race column carrying options is marked in its header — the
+            weighting numerically (“R4 ×2”) and an asterisk where discarding differs — with a line
+            beneath the table saying what each one does. The cells show the weighted score, so the
+            row still adds up to the total; a race’s own results table keeps its face-value points
+            and states the multiplier separately. Published pages carry the same marks.
+          </p>
+        </Section>
+      )}
 
       <Section id="a53-scoring" title="A5.3 starting-area scoring">
         <p>
