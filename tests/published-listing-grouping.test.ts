@@ -110,6 +110,38 @@ describe('renderWorkspaceIndexHtml sections', () => {
     expect(html.indexOf('Old Series')).toBeGreaterThan(html.indexOf('<summary>2024'));
   });
 
+  it('suppresses a category heading that merely echoes its lone row', () => {
+    // The event-family-as-category shape: most seasons hold one event per
+    // family, and 'Leinsters' over a single 'Leinsters' row says nothing.
+    const html = renderWorkspaceIndexHtml('iodai', 'IODAI', [
+      item({
+        slug: '2019',
+        title: '2019',
+        season: '2019',
+        contributors: [
+          {
+            title: 'IODAI Leinsters 2019 — Main Fleet',
+            categoryName: 'Leinsters',
+            pages: [
+              { fleetName: 'Senior', subPath: 'leinsters/senior' },
+              { fleetName: 'Junior', subPath: 'leinsters/junior' },
+            ],
+          },
+          {
+            title: 'Irish Sailing Youth Nationals 2019',
+            categoryName: 'Trials',
+            pages: [{ fleetName: 'Standings', subPath: 'youth-nationals/standings' }],
+          },
+        ],
+      }),
+      item({ slug: '2018', title: '2018', season: '2018' }),
+    ]);
+    // 'Leinsters' echoes its lone row → suppressed; 'Trials' differs from
+    // its row's label → kept.
+    expect(html).not.toContain('>Leinsters</h3>');
+    expect(html).toContain('<h3 class="cat">Trials</h3>');
+  });
+
   it('suppresses a category heading that repeats its season label', () => {
     // The archive corpora file series under a category named after the year;
     // showing it under the season heading would say the same thing twice.

@@ -419,7 +419,11 @@ export function renderWorkspaceIndexHtml(
       .map((g) => {
         const noHeading =
           (g.categoryName === null && s.groups.length === 1) ||
-          suppressCategoryHeading(g.categoryName, s.season);
+          suppressCategoryHeading(g.categoryName, s.season) ||
+          // A heading over a single row that reads the same is pure echo —
+          // the event-family-as-category shape, where most seasons hold one
+          // event per family.
+          (g.items.length === 1 && g.items[0].label === g.categoryName);
         return section(
           noHeading
             ? ''
