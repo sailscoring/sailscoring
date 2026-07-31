@@ -1476,24 +1476,36 @@ export default async function HelpPage() {
         <p>
           Discards are configured per series on the{' '}
           <strong className="text-foreground">Settings</strong> tab, in the{' '}
-          <strong className="text-foreground">Scoring</strong> card. Each rule specifies a minimum
-          number of races sailed and how many discards apply from that point on. For example:
+          <strong className="text-foreground">Scoring</strong> card. Each rule is a sentence: once a
+          number of races have been sailed, that many of each competitor’s worst scores are dropped.
+          For example:
         </p>
         <ul className="list-disc list-inside space-y-1 pl-2">
           <li>
-            <em>From (races): 5, Total discards: 1</em> — one discard applies once 5 or more races
-            have been sailed; no discards before that.
+            <em>Once 5 races have been sailed, drop the worst 1 score.</em> — no discards until 5
+            races have been sailed; one from then on.
           </li>
           <li>
-            You can add a second rule, e.g. <em>From: 9, Total discards: 2</em>, to increase the
-            total number of discards as the series grows. Each rule sets the <em>total</em>, so a
-            second rule of 2 means two discards (not one on top of one).
+            Add a second rule, <em>Once 9 races have been sailed, drop the worst 2 scores.</em>, to
+            increase the allowance as the series grows. Each rule states the <em>total</em>, so the
+            second one means two discards, not one on top of one.
           </li>
         </ul>
         <p>
-          To add a rule, click <strong className="text-foreground">Add rule</strong>, fill in the
-          thresholds, then click <strong className="text-foreground">Save</strong>. To remove a
-          rule, click the × button on that row. A series with no rules has no discards.
+          Under each rule the app states the range it covers — <em>applies from 5 to 8 races
+          sailed</em>, <em>applies from 9 races sailed onwards</em>. That is the form a sailing
+          instruction usually takes (“when 5 or more but fewer than 9 races have been completed…”),
+          so the setup can be read straight against the SI.
+        </p>
+        <p>
+          A rule that never takes effect, that reduces the allowance, or that would discard every
+          race is flagged where you can see it — but nothing prevents you saving it, since an
+          unusual profile is sometimes exactly what the sailing instruction says.
+        </p>
+        <p>
+          To add a rule, click <strong className="text-foreground">Add rule</strong>, fill it in,
+          then click <strong className="text-foreground">Save</strong>. To remove a rule, click the ×
+          button on that row. A series with no rules has no discards.
         </p>
         <p>
           The worst race(s) are dropped per competitor — each competitor discards their own worst
