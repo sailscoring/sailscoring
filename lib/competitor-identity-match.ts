@@ -203,11 +203,13 @@ export function isLowSignalPersonName(name: string | undefined): boolean {
  * the same shape.
  *
  * Conservative on purpose: it splits on the separators that unambiguously join
- * two people and never on whitespace, so a single name is returned whole.
+ * two people and never on whitespace, so a single name is returned whole. A
+ * slash counts — unlike the club field, where "WHSC / RCYC" is one sailor's two
+ * clubs, nobody's *name* contains one.
  */
 export function splitCrewCell(cell: string | undefined): string[] {
   return (cell ?? '')
-    .split(/\s*[,&+]\s*|\s+and\s+/i)
+    .split(/\s*[,&+/]\s*|\s+and\s+/i)
     .map((n) => n.trim())
     .filter((n) => n.length > 0);
 }

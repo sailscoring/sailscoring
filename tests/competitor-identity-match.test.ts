@@ -170,6 +170,20 @@ describe('splitting a crew cell', () => {
     expect(splitCrewCell('AM, SG, AS')).toEqual(['AM', 'SG', 'AS']);
     expect(splitCrewCell('Jane Doe & John Roe')).toEqual(['Jane Doe', 'John Roe']);
     expect(splitCrewCell('Jane Doe and John Roe')).toEqual(['Jane Doe', 'John Roe']);
+    // A slash joins two people in a crew cell. (In the *club* field the same
+    // character separates one sailor's two clubs — see `normalizeClubs`.)
+    expect(splitCrewCell("Jack Keane / Emma O'Farrell")).toEqual([
+      'Jack Keane',
+      "Emma O'Farrell",
+    ]);
+    expect(splitCrewCell('Marcus Wright/Susan Le Mignon')).toEqual([
+      'Marcus Wright',
+      'Susan Le Mignon',
+    ]);
+    expect(splitCrewCell("Pat O'Donnell/ Simon McNamara")).toEqual([
+      "Pat O'Donnell",
+      'Simon McNamara',
+    ]);
   });
 
   it('never splits on whitespace alone', () => {
