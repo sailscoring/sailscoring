@@ -1921,6 +1921,20 @@ export default async function HelpPage() {
           corroborated it leaves the rows apart rather than risk merging two
           different sailors.
         </p>
+        {has('competitor-identity-crew') && (
+          <p>
+            Crew count as sailors too. On a crewed boat both people get a
+            record, so someone who only ever crews still has a history, and
+            someone who helms one season and crews the next has one record
+            rather than two halves. A crewing entry is marked{' '}
+            <strong className="text-foreground">Crew</strong> and names whose
+            boat it was, since the two sailors share the same finishing
+            position. Crew names are often recorded loosely — a first name
+            alone, initials, a question mark — and anything that doesn’t
+            identify a person is left as published rather than turned into a
+            record. Cross-series rankings still count the helm only.
+          </p>
+        )}
         {has('competitor-reconcile') && (
           <>
             <p>
