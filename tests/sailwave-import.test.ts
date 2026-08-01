@@ -426,6 +426,34 @@ describe('parseDiscardThresholds', () => {
       { minRaces: 4, discardCount: 1 },
     ]);
   });
+
+  // Sailwave accepts an *expression* in this field as well as a list (`s/4`,
+  // where `s` is races sailed). We model only the list — but importing such a
+  // file with no discards and saying nothing produces standings that are wrong
+  // in a way nobody is told about.
+  describe('a profile that is not a list', () => {
+    it('still imports with no discards', () => {
+      expect(parseDiscardThresholds(rawWithDiscardList('s/4'))).toEqual([]);
+    });
+
+    it('says so, rather than failing silently', () => {
+      const { warnings } = analyzeSailwaveScoring(rawWithDiscardList('s/4'));
+      const discard = warnings.filter((w) => w.kind === 'discardProfile');
+      expect(discard).toHaveLength(1);
+      expect(discard[0].detail).toContain('s/4');
+      expect(discard[0].detail).toContain('no discards');
+    });
+
+    it('stays quiet about a profile it can read', () => {
+      const { warnings } = analyzeSailwaveScoring(rawWithDiscardList('0,0,0,1'));
+      expect(warnings.filter((w) => w.kind === 'discardProfile')).toEqual([]);
+    });
+
+    it('stays quiet when there is no profile at all', () => {
+      const { warnings } = analyzeSailwaveScoring(rawWithDiscardList(undefined));
+      expect(warnings.filter((w) => w.kind === 'discardProfile')).toEqual([]);
+    });
+  });
 });
 
 describe('buildSeriesFileFromSailwave: Tues & Sat Series 1 (H17 discard profile)', () => {

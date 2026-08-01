@@ -813,8 +813,10 @@ export interface SailwaveScoringWarning {
    *  finishers base, a `+ N` with N≠1, a mixed A5.2/A5.3 config).
    *  `unrecognised` — a scoring method string we don't know how to read.
    *  `perFleet` — a per-fleet scoring system whose codes diverge from the root;
-   *  we apply one series-wide setting. */
-  kind: 'unrepresentable' | 'unrecognised' | 'perFleet';
+   *  we apply one series-wide setting.
+   *  `discardProfile` — a discard profile we can't read as a list of counts,
+   *  most likely one of Sailwave's expressions (`s/4`, `(s-1)*0.8`). */
+  kind: 'unrepresentable' | 'unrecognised' | 'perFleet' | 'discardProfile';
   /** The Sailwave code the warning concerns, when it's about a single code. */
   code?: string;
   /** The fleet whose scoring system diverges, for `perFleet` warnings. */
@@ -945,6 +947,14 @@ export function analyzeSailwaveScoring(raw: SailwaveRaw): SailwaveScoringAnalysi
     });
   }
 
+  const discardList = readDiscardList(raw);
+  if (discardList.source !== null && discardList.counts === null) {
+    warnings.push({
+      kind: 'discardProfile',
+      detail: `The discard profile "${discardList.source}" isn't a list of counts — Sailwave also accepts an expression here. Sail Scoring imports the series with no discards; set them on the Settings tab afterwards.`,
+    });
+  }
+
   return { dnfScoring: chosen, warnings };
 }
 
@@ -962,24 +972,37 @@ export function analyzeSailwaveScoring(raw: SailwaveRaw): SailwaveScoringAnalysi
  *  Run-length compress the list into `DiscardThreshold[]` — emit a threshold at
  *  each step-up, matching how `getDiscardCount` picks the highest
  *  `minRaces ≤ raceCount`. Returns `[]` when the list is absent or all-zero. */
-export function parseDiscardThresholds(raw: SailwaveRaw): DiscardThreshold[] {
+/** The root system's raw discard profile and, when it reads as one, the list of
+ *  counts it denotes.
+ *
+ *  `counts` is null for a profile we can't read — Sailwave accepts an
+ *  *expression* in this field as well as a list (`s/4`, `(s-1)*0.8`, where `s`
+ *  is races sailed), and we model only the list. Position is significant, so a
+ *  single bad token spoils the whole profile; there is no partial reading.
+ *  Callers must not treat a null as "no discards" silently — that imports a
+ *  series whose standings are wrong in a way nobody is told about. */
+function readDiscardList(raw: SailwaveRaw): { source: string | null; counts: number[] | null } {
   const globals = raw.globals ?? {};
   const handle = globals.serscoringhandle;
   const systems = raw['scoring-systems'] ?? {};
-  if (!handle || !(handle in systems)) return [];
+  if (!handle || !(handle in systems)) return { source: null, counts: null };
   const list = systems[handle]?.scrdiscardlist;
-  if (!list) return [];
+  if (!list) return { source: null, counts: null };
 
   const counts: number[] = [];
   for (const token of list.split(',')) {
     const trimmed = token.trim();
     if (trimmed === '') continue;
     const n = Number.parseInt(trimmed, 10);
-    // Malformed list — fall back to no discards; the scorer sets them in
-    // Settings. Position is significant, so we can't skip a bad token.
-    if (!Number.isFinite(n)) return [];
+    if (!Number.isFinite(n)) return { source: list, counts: null };
     counts.push(n);
   }
+  return { source: list, counts };
+}
+
+export function parseDiscardThresholds(raw: SailwaveRaw): DiscardThreshold[] {
+  const counts = readDiscardList(raw).counts;
+  if (counts === null) return [];
 
   const thresholds: DiscardThreshold[] = [];
   let prev = 0;

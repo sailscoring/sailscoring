@@ -357,7 +357,7 @@ function Wizard({
               data-testid="sailwave-scoring-warnings"
             >
               <p className="font-medium">
-                Sail Scoring can&apos;t exactly reproduce this file&apos;s scoring codes
+                Sail Scoring can&apos;t exactly reproduce this file&apos;s scoring setup
               </p>
               <ul className="mt-1.5 list-disc space-y-1 pl-5">
                 {preview.scoringWarnings.map((w, i) => (
