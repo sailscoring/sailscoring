@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * E2E tests for discard rules (issue #32).
@@ -171,4 +171,78 @@ test('discard rules can be edited freely and flag the odd ones', async ({ page }
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   await expect(page.getByText('1 discard from 5 races, 2 from 9 ·')).toBeVisible();
+});
+
+test('a proportional rule scores the series and survives the gate being off', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['proportional-discards']);
+  await createSeriesQuick(page, { name: 'Proportional Discard Series' });
+
+  // ── Competitors ───────────────────────────────────────────────────────────
+  for (const c of competitors) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+
+  // ── Three races, Alice missing the last one ───────────────────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  for (let i = 1; i <= 3; i++) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(`Race ${i}`)).toBeVisible();
+  }
+  for (const [race, sails] of [
+    ['Race 1', ['1001', '1002', '1003', '1004', '1005']],
+    ['Race 2', ['1001', '1002', '1003', '1004', '1005']],
+    ['Race 3', ['1002', '1003', '1004', '1005']],
+  ] as const) {
+    await page.getByText(race).click();
+    for (const sail of sails) {
+      await page.getByLabel('Sail number').fill(sail);
+      await page.getByRole('button', { name: 'Add' }).click();
+    }
+    await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+    await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+    await expect(page).toHaveURL(/\/races$/);
+  }
+
+  // ── Set a proportional rule: one discard per 3 races, from 3 ──────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  const scoringHeading = page.getByRole('heading', { name: 'Scoring', exact: true });
+  await expect(scoringHeading).toBeVisible();
+  await scoringHeading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+
+  await page.getByRole('radio', { name: 'One per so many races' }).check();
+  await expect(page.getByLabel('Races per discard')).toHaveValue('3');
+  await expect(page.getByLabel('Races before the first discard')).toHaveValue('3');
+
+  // The rule reads back where the allowance steps up — the check against the SI
+  await expect(page.getByText('steps up at 3, 6, 9, 12, 15 … races sailed')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('1 discard per 3 races sailed, from 3 races ·')).toBeVisible();
+
+  // ── It scores: three races sailed earns one discard ──────────────────────
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/standings$/);
+  await expect(page.getByRole('columnheader', { name: 'Nett' })).toBeVisible();
+  await expect(page.getByText('1 discard')).toBeVisible();
+
+  // Alice drops her DNC of 6 and leads on nett 2
+  const aliceRow = page.getByRole('row').filter({ hasText: 'Alice Murphy' });
+  await expect(aliceRow.getByRole('cell').nth(0)).toContainText('1');
+  await expect(aliceRow.getByRole('cell').nth(9)).toContainText('2');
+
+  // ── Turning the gate off must not change how the series scores ───────────
+  await enableFeatures(page, signedInEmail, []);
+  await page.goto(page.url());
+  await expect(page.getByText('1 discard')).toBeVisible();
+  await expect(aliceRow.getByRole('cell').nth(9)).toContainText('2');
+
+  // Settings states the rule rather than showing an empty step-rule editor
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByText('1 discard per 3 races sailed, from 3 races ·')).toBeVisible();
 });

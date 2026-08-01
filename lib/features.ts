@@ -257,6 +257,20 @@ export const FEATURES = {
     label: 'Per-race scoring options',
     helpSectionIds: ['race-scoring-options'],
   },
+  'proportional-discards': {
+    // A discard allowance stated as a proportion (#341) — "one discard for
+    // every three races sailed" — instead of a threshold per step-up. Off by
+    // default and self-service, on the same reasoning as race-scoring-options:
+    // it changes scoring output, so the authoring surface stays contained until
+    // the wording has been run against real sailing instructions, but a scorer
+    // holding one can turn it on. The series file, public export, and engine
+    // carry the rule regardless of the gate, so a series authored with one
+    // scores identically everywhere. The discard-rules help section is shared
+    // with the threshold editor, so the new part is gated inline rather than by
+    // hiding the section.
+    label: 'Proportional discards',
+    helpSectionIds: [],
+  },
 } as const satisfies Record<string, FeatureDef>;
 
 export type FeatureKey = keyof typeof FEATURES;

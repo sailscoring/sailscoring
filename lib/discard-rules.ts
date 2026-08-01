@@ -1,4 +1,4 @@
-import type { DiscardThreshold } from './types';
+import type { DiscardThreshold, ProportionalDiscard } from './types';
 
 /**
  * Presentation helpers for the discard-rule editor.
@@ -127,4 +127,54 @@ export function summarizeDiscardRules(thresholds: DiscardThreshold[]): string {
     return `${parts[0]}, ${parts[1]}, … ${parts[parts.length - 1]}`;
   }
   return parts.join(', ');
+}
+
+// ─── Proportional rules ──────────────────────────────────────────────────────
+
+/** How many step-up points to show under a proportional rule before trailing
+ *  off. Enough to make the interval unmistakable without implying the series
+ *  ends there. */
+const PROPORTIONAL_STEPS_SHOWN = 5;
+
+export type DescribedProportionalDiscard = {
+  /** The race counts at which the allowance goes up, earliest first. */
+  stepsAt: number[];
+  /** "steps up at 3, 6, 9, 12, 15 … races sailed" */
+  stepsLabel: string;
+  warnings: string[];
+};
+
+/**
+ * A proportional rule has no rows to read a range off, so the check against the
+ * sailing instruction is where its steps land. Two numbers don't show that;
+ * this does.
+ */
+export function describeProportionalDiscard(rule: ProportionalDiscard): DescribedProportionalDiscard {
+  const warnings: string[] = [];
+  if (rule.everyRaces < 1) {
+    warnings.push('Enter how many races earn each further discard.');
+  }
+  if (rule.firstAt < 1) {
+    warnings.push('Applies before any race is sailed — enter at least 1.');
+  }
+
+  if (rule.everyRaces < 1 || rule.firstAt < 1) {
+    return { stepsAt: [], stepsLabel: '', warnings };
+  }
+
+  const stepsAt = Array.from(
+    { length: PROPORTIONAL_STEPS_SHOWN },
+    (_, i) => rule.firstAt + i * rule.everyRaces,
+  );
+  return {
+    stepsAt,
+    stepsLabel: `steps up at ${stepsAt.join(', ')} … races sailed`,
+    warnings,
+  };
+}
+
+/** The collapsed-card line for a proportional rule. */
+export function summarizeProportionalDiscard(rule: ProportionalDiscard): string {
+  const races = (n: number) => `${n} ${plural(n, 'race', 'races')}`;
+  return `1 discard per ${races(rule.everyRaces)} sailed, from ${races(rule.firstAt)}`;
 }

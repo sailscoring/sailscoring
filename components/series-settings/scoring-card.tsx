@@ -1,13 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { DiscardThreshold, Series } from '@/lib/types';
+import type { DiscardThreshold, ProportionalDiscard, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { describeDiscardRules, summarizeDiscardRules } from '@/lib/discard-rules';
+import {
+  describeDiscardRules,
+  describeProportionalDiscard,
+  summarizeDiscardRules,
+  summarizeProportionalDiscard,
+} from '@/lib/discard-rules';
+import { useFeatures } from '@/components/features-provider';
 
-export type ScoringValues = Pick<Series, 'discardThresholds' | 'dnfScoring'>;
+export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'dnfScoring'>;
+
+/** What a scorer gets on switching to a proportional rule: one discard per
+ *  three races sailed, the commonest wording found in club sailing
+ *  instructions. */
+const DEFAULT_PROPORTIONAL: ProportionalDiscard = { firstAt: 3, everyRaces: 3 };
 
 export type ScoringCardProps = {
   value: ScoringValues;
@@ -17,8 +28,11 @@ export type ScoringCardProps = {
 
 export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardProps) {
   const isWizard = mode === 'wizard';
+  const { has } = useFeatures();
+  const proportionalAllowed = has('proportional-discards');
   const [expanded, setExpanded] = useState(isWizard);
   const [thresholds, setThresholds] = useState<DiscardThreshold[]>(value.discardThresholds ?? []);
+  const [proportional, setProportional] = useState<ProportionalDiscard | undefined>(value.proportionalDiscard);
   const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(value.dnfScoring ?? 'seriesEntries');
   const [changed, setChanged] = useState(false);
 
@@ -30,6 +44,7 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   if (prevValue !== value) {
     setPrevValue(value);
     setThresholds(value.discardThresholds ?? []);
+    setProportional(value.proportionalDiscard);
     setDnfScoring(value.dnfScoring ?? 'seriesEntries');
     setChanged(false);
   }
@@ -46,6 +61,16 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     setThresholds(next);
     setChanged(true);
     if (isWizard) fireWizardSave({ discardThresholds: next });
+  }
+
+  function updateProportional(next: ProportionalDiscard | undefined) {
+    setProportional(next);
+    setChanged(true);
+    if (isWizard) fireWizardSave({ proportionalDiscard: next });
+  }
+
+  function updateProportionalField(field: keyof ProportionalDiscard, fieldValue: number) {
+    updateProportional({ ...(proportional ?? DEFAULT_PROPORTIONAL), [field]: fieldValue });
   }
 
   function updateDnf(next: Series['dnfScoring']) {
@@ -74,18 +99,16 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     // under the cursor as a number is edited is worse than a momentarily
     // out-of-order list, and the engine sorts for itself either way.
     const ordered = [...thresholds].sort((a, b) => a.minRaces - b.minRaces);
-    await onChange({ discardThresholds: ordered, dnfScoring });
+    await onChange({ discardThresholds: ordered, proportionalDiscard: proportional, dnfScoring });
     setChanged(false);
     setExpanded(false);
   }
 
   const described = describeDiscardRules(thresholds);
+  const describedProportional = proportional ? describeProportionalDiscard(proportional) : null;
 
-  const thresholdTable = (
+  const stepRules = (
     <>
-      <p className="text-xs text-muted-foreground">
-        Discard rules — drop each competitor&apos;s worst race(s) from the series total.
-      </p>
       {thresholds.length === 0 ? (
         <p className="text-sm text-muted-foreground">No discards configured.</p>
       ) : (
@@ -137,6 +160,89 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
           Add rule
         </Button>
       </div>
+    </>
+  );
+
+  const proportionalRule = (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2 text-sm">
+        <span>One discard per</span>
+        <Input
+          type="number"
+          min={1}
+          aria-label="Races per discard"
+          value={proportional?.everyRaces || ''}
+          onChange={(e) => updateProportionalField('everyRaces', parseInt(e.target.value) || 0)}
+          className="h-8 w-14 text-sm"
+        />
+        <span>races sailed, from</span>
+        <Input
+          type="number"
+          min={1}
+          aria-label="Races before the first discard"
+          value={proportional?.firstAt || ''}
+          onChange={(e) => updateProportionalField('firstAt', parseInt(e.target.value) || 0)}
+          className="h-8 w-14 text-sm"
+        />
+        <span>races</span>
+      </div>
+      {/* Two numbers don't show where the allowance actually steps up, and with
+          no rows to read a range off that is the only check against the SI. */}
+      {describedProportional?.stepsLabel && (
+        <p className="text-xs text-muted-foreground">{describedProportional.stepsLabel}</p>
+      )}
+      {describedProportional?.warnings.map((warning) => (
+        <p key={warning} className="text-xs text-amber-600 dark:text-amber-500">
+          {warning}
+        </p>
+      ))}
+    </div>
+  );
+
+  const thresholdTable = (
+    <>
+      <p className="text-xs text-muted-foreground">
+        Discard rules — drop each competitor&apos;s worst race(s) from the series total.
+      </p>
+      {proportionalAllowed ? (
+        <>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="discardMode"
+                checked={!proportional}
+                onChange={() => updateProportional(undefined)}
+              />
+              A rule per step
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="discardMode"
+                checked={!!proportional}
+                onChange={() => updateProportional(proportional ?? DEFAULT_PROPORTIONAL)}
+              />
+              One per so many races
+            </label>
+          </div>
+          {proportional ? proportionalRule : stepRules}
+        </>
+      ) : proportional ? (
+        // The rule is authored behind a gate, but a series that already carries
+        // one scores with it regardless — so state it rather than showing an
+        // empty threshold editor that misrepresents how the series is scored.
+        <div className="space-y-1">
+          <p className="text-sm">{summarizeProportionalDiscard(proportional)}</p>
+          <p className="text-xs text-muted-foreground">
+            This series uses a proportional discard rule. Turn on{' '}
+            <strong className="text-foreground">Proportional discards</strong> in Workspace
+            settings to edit it.
+          </p>
+        </div>
+      ) : (
+        stepRules
+      )}
     </>
   );
 
@@ -206,7 +312,10 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     : dnfMode === 'startingArea'
       ? 'DNF: starting area'
       : 'DNF: series entries';
-  const summary = `${summarizeDiscardRules(value.discardThresholds ?? [])} · ${dnfLabel}`;
+  const discardSummary = value.proportionalDiscard
+    ? summarizeProportionalDiscard(value.proportionalDiscard)
+    : summarizeDiscardRules(value.discardThresholds ?? []);
+  const summary = `${discardSummary} · ${dnfLabel}`;
 
   return (
     <div className="bg-card border rounded-lg p-5 space-y-4">

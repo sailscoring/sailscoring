@@ -1507,6 +1507,37 @@ export default async function HelpPage() {
           The worst race(s) are dropped per competitor — each competitor discards their own worst
           score. When two races have the same score, the earlier race is discarded.
         </p>
+
+        {has('proportional-discards') && (
+          <>
+            <h3 className="text-base font-medium text-foreground pt-2">
+              An allowance stated as a proportion
+            </h3>
+            <p>
+              Club long-series sailing instructions often state the allowance as a proportion
+              instead of a table — <em>“one third of the results will be discarded (rounded down)”</em>,
+              or <em>“no race shall be excluded until 5 have been sailed, after which one further
+              race may be excluded for every 3 sailed”</em>. Hand-expanding that into a rule per
+              step-up gives a list of numbers that no longer resembles what the SI says, and a long
+              series needs a lot of them.
+            </p>
+            <p>
+              Switch the <strong className="text-foreground">Scoring</strong> card to{' '}
+              <strong className="text-foreground">One per so many races</strong> and state it as
+              two numbers: how many races earn each discard, and the race count at which the first
+              one applies. The card reads back where the allowance steps up —{' '}
+              <em>steps up at 3, 6, 9, 12, 15 … races sailed</em> — which is what you check against
+              the sailing instruction, since there are no rows to read a range off.
+            </p>
+            <p>
+              The count is always rounded <strong className="text-foreground">down</strong>, is
+              measured against races <em>sailed</em> (an abandoned race earns no discard), and can
+              never exceed the number of races sailed. A proportional rule{' '}
+              <strong className="text-foreground">replaces</strong> the step rules rather than
+              adding to them; the step rules are kept, so switching back loses nothing.
+            </p>
+          </>
+        )}
       </Section>
 
       {has('race-scoring-options') && (

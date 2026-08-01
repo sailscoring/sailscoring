@@ -132,6 +132,22 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save sets and clears a proportional discard rule', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = { ...makeSeries(), proportionalDiscard: { firstAt: 5, everyRaces: 3 } };
+
+    await repos.series.save(s);
+    expect((await repos.series.get(s.id))?.proportionalDiscard).toEqual({ firstAt: 5, everyRaces: 3 });
+
+    // Switching the editor back to step rules leaves the field undefined, which
+    // JSON drops on the wire — so the update path has to clear the column
+    // rather than leave the old rule scoring the series.
+    await repos.series.save({ ...s, proportionalDiscard: undefined });
+    expect((await repos.series.get(s.id))?.proportionalDiscard).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.list orders by manual display_order; new series append last', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     // Save order determines display_order: each new series seeds max+1, so it
