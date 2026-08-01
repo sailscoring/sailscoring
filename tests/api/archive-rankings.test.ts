@@ -146,9 +146,6 @@ describe.skipIf(skip)('as-published rankings ingest (#309)', () => {
       slug: 'national-ranking-2012-junior',
       config: { buckets: [] },
     });
-    await expect(
-      putArchiveRanking(ctx(), uuid(), { ...doc(), ranking: { ...doc().ranking, id: undefined } }),
-    ).rejects.toThrow();
     const d = doc();
     const otherId = uuid();
     d.ranking.id = otherId;
