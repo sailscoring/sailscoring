@@ -40,6 +40,7 @@ import { type FinishSheetImportHandle } from '@/components/finish-sheet-import';
 import { RaceEntryHeader } from '@/components/race-entry/race-entry-header';
 import { RaceLastFinisher } from '@/components/race-entry/race-last-finisher';
 import { RaceScoringOptions } from '@/components/race-entry/race-scoring-options';
+import { RaceMetadata } from '@/components/race-entry/race-metadata';
 import { RaceSwitcher } from '@/components/race-entry/race-switcher';
 import { RaceEntryTabs } from '@/components/race-entry/race-entry-tabs';
 import { adjacentRaces } from '@/lib/race-navigation';
@@ -124,6 +125,7 @@ export default function ResultEntryPage({
   const { has } = useFeatures();
   const [activeTab, setActiveTab] = useState<'finish' | 'checkin' | 'ratings'>('finish');
   const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
+  const [raceRecordOpen, setRaceRecordOpen] = useState(false);
   const finishSheetImportRef = useRef<FinishSheetImportHandle>(null);
   const startsRef = useRef<RaceStartsSectionHandle>(null);
   const penaltyRef = useRef<PenaltyEditorHandle>(null);
@@ -209,7 +211,7 @@ export default function ResultEntryPage({
   }
 
   // Esc to leave; c to toggle check-in tab; s to add a start; i to import;
-  // o for the per-race scoring options.
+  // o for the per-race scoring options; r for the race record.
   // A raw handler rather than useShortcuts: the conditions mix tab state,
   // fleet shape, and feature gates per key. The help rows register below.
   useGlobalKeyDown((e) => {
@@ -242,6 +244,14 @@ export default function ResultEntryPage({
     ) {
       e.preventDefault();
       setScoringOptionsOpen(true);
+    } else if (
+      e.key === 'r' &&
+      has('race-management-metadata') &&
+      !isInputFocused() &&
+      !readOnly
+    ) {
+      e.preventDefault();
+      setRaceRecordOpen(true);
     } else if (e.key === '[' && !isInputFocused() && prevRace) {
       e.preventDefault();
       goToRace(prevRace.id);
@@ -266,6 +276,9 @@ export default function ResultEntryPage({
       : []),
     ...(has('race-scoring-options') && !readOnly
       ? [{ key: 'o', description: 'Scoring options for this race (weighting, discard behaviour)', section: 'Finish entry' }]
+      : []),
+    ...(has('race-management-metadata') && !readOnly
+      ? [{ key: 'r', description: 'Race record (conditions, course, who ran the race)', section: 'Finish entry' }]
       : []),
   ]);
 
@@ -321,6 +334,19 @@ export default function ResultEntryPage({
                   discardPolicy: discardPolicy === 'normal' ? undefined : discardPolicy,
                   pointsMultiplier: pointsMultiplier === 1 ? undefined : pointsMultiplier,
                 });
+              }}
+            />
+          ) : undefined
+        }
+        raceRecord={
+          has('race-management-metadata') ? (
+            <RaceMetadata
+              race={race}
+              readOnly={readOnly}
+              open={raceRecordOpen}
+              onOpenChange={setRaceRecordOpen}
+              onSave={async ({ conditions, officials }) => {
+                await saveRace.mutateAsync({ ...race, conditions, officials });
               }}
             />
           ) : undefined

@@ -257,6 +257,24 @@ export const FEATURES = {
     label: 'Per-race scoring options',
     helpSectionIds: ['race-scoring-options'],
   },
+  'race-management-metadata': {
+    // The race record (#338/#339): what a race was sailed in — wind range,
+    // direction, a free-text course/tide note — and who ran it, as a named
+    // team drawn from World Sailing's race-management roles, at the series and
+    // per-race levels. Off by default and self-service.
+    //
+    // Only the authoring surfaces and the published display are gated; a
+    // series that already carries a record keeps it in its file and export
+    // regardless, per the containment model.
+    //
+    // One thing to revisit: wind is a *scoring* input for ORC
+    // performance-curve work, not only a display field. If that work starts
+    // before this feature is generally available, a gate that hides the wind
+    // inputs would be hiding a required input — at which point either split
+    // the gate or default it on.
+    label: 'Race conditions and management team',
+    helpSectionIds: ['race-management-metadata'],
+  },
   'proportional-discards': {
     // A discard allowance stated as a proportion (#341) — "one discard for
     // every three races sailed" — instead of a threshold per step-up. Off by

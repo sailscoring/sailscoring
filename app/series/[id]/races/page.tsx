@@ -52,7 +52,9 @@ import { generateStarts } from '@/lib/start-sequence';
 import { generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 import { RaceScoringOptionsDialog } from '@/components/race-scoring-options-dialog';
+import { RaceMetadataDialog } from '@/components/race-metadata-dialog';
 import { hasScoringOptions, scoringOptionsSummary } from '@/lib/race-scoring-options';
+import { formatConditions, hasConditions } from '@/lib/race-conditions';
 import { Badge } from '@/components/ui/badge';
 
 function RaceRow({
@@ -80,7 +82,9 @@ function RaceRow({
   const saveRace = useSaveRace();
   const { has } = useFeatures();
   const scoringOptionsGated = has('race-scoring-options');
+  const raceRecordGated = has('race-management-metadata');
   const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
+  const [raceRecordOpen, setRaceRecordOpen] = useState(false);
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
 
   async function handleDelete() {
@@ -138,10 +142,18 @@ function RaceRow({
               {scoringOptionsSummary(race)}
             </Badge>
           )}
+          {/* Conditions earn a badge; the team doesn't. A wind range is the
+              thing a scorer scans a race list for, and a row carrying every
+              official's name would crowd out the date and finisher count. */}
+          {raceRecordGated && hasConditions(race.conditions) && (
+            <Badge variant="outline" className="ml-2 font-normal" data-testid="race-conditions-badge">
+              {formatConditions(race.conditions)}
+            </Badge>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {!readOnly && (onInsert || scoringOptionsGated) && (
+        {!readOnly && (onInsert || scoringOptionsGated || raceRecordGated) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -167,6 +179,11 @@ function RaceRow({
               {scoringOptionsGated && (
                 <DropdownMenuItem onClick={() => setScoringOptionsOpen(true)}>
                   Scoring options…
+                </DropdownMenuItem>
+              )}
+              {raceRecordGated && (
+                <DropdownMenuItem onClick={() => setRaceRecordOpen(true)}>
+                  Race record…
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -196,6 +213,14 @@ function RaceRow({
               discardPolicy: discardPolicy === 'normal' ? undefined : discardPolicy,
               pointsMultiplier: pointsMultiplier === 1 ? undefined : pointsMultiplier,
             });
+          }}
+        />
+        <RaceMetadataDialog
+          race={race}
+          open={raceRecordOpen}
+          onOpenChange={setRaceRecordOpen}
+          onSave={async ({ conditions, officials }) => {
+            await saveRace.mutateAsync({ ...race, conditions, officials });
           }}
         />
       </div>
