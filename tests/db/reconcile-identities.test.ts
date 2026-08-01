@@ -8,7 +8,7 @@
  * part that matters most for a re-runnable backfill — idempotency.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
 
@@ -572,11 +572,18 @@ describe.skipIf(skip)('reconcile-identities crew slot (#348)', () => {
       'Maeve Dervan:crew',
       'Sam Cronin:primary',
     ]);
-    // One Maeve across both seasons, not one per appearance.
+    // One Maeve across both seasons, not one per appearance. Scoped to this
+    // workspace: identities are workspace-local, and other suites seed the
+    // same name into workspaces of their own.
     const maeve = await db
       .select({ id: schema.competitorIdentities.id })
       .from(schema.competitorIdentities)
-      .where(eq(schema.competitorIdentities.label, 'Maeve Dervan'));
+      .where(
+        and(
+          eq(schema.competitorIdentities.workspaceId, workspaceId),
+          eq(schema.competitorIdentities.label, 'Maeve Dervan'),
+        ),
+      );
     expect(maeve).toHaveLength(1);
   });
 
