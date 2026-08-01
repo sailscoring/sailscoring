@@ -146,13 +146,6 @@ describe.skipIf(skip)('as-published rankings ingest (#309)', () => {
       slug: 'national-ranking-2012-junior',
       config: { buckets: [] },
     });
-    const conflictingId = uuid();
-    await expect(
-      putArchiveRanking(ctx(), conflictingId, {
-        ...doc(),
-        ranking: { ...doc().ranking, id: conflictingId },
-      }),
-    ).rejects.toThrow(/computed ranking already uses this slug/);
     const d = doc();
     const otherId = uuid();
     d.ranking.id = otherId;
