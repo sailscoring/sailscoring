@@ -182,6 +182,69 @@ export interface ProtestTimeLimit {
   basis: 'race' | 'day';
 }
 
+/**
+ * A race management role, in World Sailing's terms.
+ *
+ * The vocabulary is the Race Management Manual's, not the rulebook's: the RRS
+ * names only bodies (race committee, protest committee), never individuals, so
+ * the individual titles have to come from the manual. Deliberately fixed
+ * rather than workspace-configurable — a club saying "OOD" means a Race
+ * Officer, and one list makes two names for one job unrepresentable instead of
+ * merely discouraged.
+ *
+ * Race management only. The jury and protest-committee titles (Umpire, Judge,
+ * Classifier) are a different body and are not modelled here.
+ */
+export type OfficialRole =
+  | 'principalRaceOfficer'
+  | 'raceOfficer'
+  | 'deputyRaceOfficer'
+  | 'assistantRaceOfficer'
+  | 'recorder'
+  | 'timekeeper'
+  | 'markLayer'
+  | 'safetyOfficer'
+  | 'equipmentInspector'
+  | 'eventMeasurer'
+  | 'technicalDelegate';
+
+/** One named member of a race management team. Array position is the display
+ *  order; `id` keeps a row stable while the list is edited. */
+export interface RaceOfficial {
+  id: string;
+  role: OfficialRole;
+  name: string;
+}
+
+/** A point of the compass, 16-point. Wind direction is recorded as a point
+ *  rather than degrees because that is what a race officer reports. */
+export type CompassPoint =
+  | 'N' | 'NNE' | 'NE' | 'ENE'
+  | 'E' | 'ESE' | 'SE' | 'SSE'
+  | 'S' | 'SSW' | 'SW' | 'WSW'
+  | 'W' | 'WNW' | 'NW' | 'NNW';
+
+/**
+ * The conditions a race was sailed in, and the course used.
+ *
+ * More than provenance: wind speed and course are required inputs for ORC
+ * performance-curve scoring, which picks a boat's rating from the conditions
+ * on the course sailed. Recorded as a *range* because that is what a race
+ * officer stipulates, and because ORC's triple-number scheme keys off the
+ * average of the two.
+ *
+ * Every field is optional and the whole block is sparse — a race carries it
+ * only once someone records something.
+ */
+export interface RaceConditions {
+  windSpeedMin?: number;          // knots
+  windSpeedMax?: number;          // knots
+  windDirection?: CompassPoint;
+  /** Free text: the course sailed, the tide, anything else worth the record.
+   *  Bounded by RACE_NOTES_MAX_LENGTH. */
+  notes?: string;
+}
+
 export interface Series {
   id: string;
   name: string;
@@ -252,6 +315,16 @@ export interface Series {
   // the finalise checklist. Absent = no stated limit tracked — finality is
   // scorer judgement once the protest committee is silent.
   protestTimeLimit?: ProtestTimeLimit;
+  // The standing race management team for the event — what a regatta fills in.
+  // Kept separate from each race's own team (Race.officials): neither inherits
+  // from nor overrides the other, so a series that fills in both shows both.
+  // Sparse — absent/empty is the common case.
+  officials?: RaceOfficial[];
+  // Whether the race management team appears on published pages. Officials are
+  // named non-competitors, so publication is opt-in: absent = not published.
+  // Governs the public JSON export too, which is embedded in every published
+  // page and is therefore published output itself.
+  publishOfficials?: boolean;
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   multiPersonFields?: MultiPersonFieldKey[];  // person fields opened to multiple names per entry (gated by the multi-person-fields feature); sparse — absent = all single
@@ -478,6 +551,14 @@ export interface Race {
   // Weighting a race up does not on its own protect it from discard; an SI
   // that wants both states both, and so does the scorer.
   pointsMultiplier?: number;
+  // What this race was sailed in, and the course used. Sparse — absent until
+  // recorded. A prerequisite for ORC performance-curve scoring, which reads
+  // the wind off the race rather than treating it as a display note.
+  conditions?: RaceConditions;
+  // Who ran this particular race — what a club series with a rotating duty
+  // fills in. Independent of the series-level standing team
+  // (Series.officials): no inheritance, no override. Sparse.
+  officials?: RaceOfficial[];
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
 }
