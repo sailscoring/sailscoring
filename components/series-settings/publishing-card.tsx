@@ -6,14 +6,29 @@ import { Button } from '@/components/ui/button';
 import { useUpdateSeries } from '@/hooks/use-series';
 import type { Series } from '@/lib/types';
 
-export function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seriesId: string; series: Series; anyProgressiveFleet: boolean }) {
+export function PublishingCard({
+  seriesId,
+  series,
+  anyProgressiveFleet,
+  // A split-fleet championship publishes tiered standings from its own
+  // renderer, which the publish-detail choice has no say over (#347).
+  splitFleets,
+}: {
+  seriesId: string;
+  series: Series;
+  anyProgressiveFleet: boolean;
+  splitFleets?: boolean;
+}) {
   const updateSeries = useUpdateSeries();
   const [expanded, setExpanded] = useState(false);
 
   const includeJson = series.includeJsonExport ?? true;
   const publishRatingCalcs = series.publishRatingCalculations ?? true;
   const showPerRaceRatings = series.showPerRaceRatingsInSummary ?? true;
+  const publishDetail = series.publishDetail ?? 'full';
+  const showDetail = !splitFleets;
   const summaryParts = [
+    ...(showDetail && publishDetail === 'races' ? ['race results only'] : []),
     includeJson ? 'JSON export included' : 'JSON export excluded',
     ...(anyProgressiveFleet
       ? [
@@ -25,7 +40,7 @@ export function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seri
   const summary = summaryParts.join(' · ');
 
   return (
-    <div className="bg-card border rounded-lg p-5 space-y-4">
+    <div className="bg-card border rounded-lg p-5 space-y-4" data-testid="publishing-card">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Publishing</h2>
         {!expanded && (
@@ -38,6 +53,41 @@ export function PublishingCard({ seriesId, series, anyProgressiveFleet }: { seri
         <p className="text-sm text-muted-foreground">{summary}</p>
       ) : (
         <div className="space-y-4">
+          {showDetail && (
+          <div className="space-y-1.5" data-testid="publish-detail">
+            <p className="text-sm font-medium">Publish detail</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-1" role="radiogroup" aria-label="Publish detail">
+              {(
+                [
+                  ['full', 'Series standings + race results'],
+                  ['races', 'Race results only'],
+                ] as const
+              ).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="publishDetail"
+                    checked={publishDetail === value}
+                    onChange={() => {
+                      updateSeries.mutate({
+                        id: seriesId,
+                        patch: { publishDetail: value, lastModifiedAt: Date.now() },
+                      });
+                    }}
+                    className="h-4 w-4"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              For a single-race event — a trophy race, a one-off open — publish
+              just the race table. No series summary, no Total, Nett or discard
+              columns. Leave this on the default for a series that happens to
+              have sailed one race so far.
+            </p>
+          </div>
+          )}
           <div className="flex items-start gap-2.5">
             <input
               id="includeJsonExport"

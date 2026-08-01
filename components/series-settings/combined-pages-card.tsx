@@ -41,6 +41,11 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
   const groups = series.publishingGroups ?? [];
   const hasBlocks = (subSeriesList?.length ?? 0) > 0;
   const multiFleet = fleets.length > 1;
+  // A race-results series (#347) publishes every page — combined pages
+  // included — as race tables alone, so a group's own detail has nothing to
+  // say. The radios stay visible but inert rather than vanishing, so the
+  // configuration isn't silently discarded when the setting is flipped back.
+  const detailOverridden = series.publishDetail === 'races';
 
   // A single-fleet series has nothing to combine; stay out of the way unless
   // there's existing config to surface.
@@ -268,24 +273,40 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-x-5 gap-y-1" role="radiogroup" aria-label="Detail level">
-                  {(
-                    [
-                      ['standings', 'Standings only'],
-                      ['full', 'Full per-race detail'],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <label key={value} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name={`detail-${group.id}`}
-                        checked={group.detail === value}
-                        onChange={() => patchGroup(group.id, { detail: value })}
-                        className="h-4 w-4"
-                      />
-                      {label}
-                    </label>
-                  ))}
+                <div className="space-y-1">
+                  <div
+                    className={`flex flex-wrap gap-x-5 gap-y-1${detailOverridden ? ' opacity-50' : ''}`}
+                    role="radiogroup"
+                    aria-label="Detail level"
+                  >
+                    {(
+                      [
+                        ['standings', 'Standings only'],
+                        ['full', 'Full per-race detail'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label
+                        key={value}
+                        className={`flex items-center gap-1.5 text-sm ${detailOverridden ? 'cursor-default' : 'cursor-pointer'}`}
+                      >
+                        <input
+                          type="radio"
+                          name={`detail-${group.id}`}
+                          checked={group.detail === value}
+                          disabled={detailOverridden}
+                          onChange={() => patchGroup(group.id, { detail: value })}
+                          className="h-4 w-4"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                  {detailOverridden && (
+                    <p className="text-xs text-muted-foreground">
+                      This series publishes race results only, so this page
+                      carries its fleets&rsquo; race tables.
+                    </p>
+                  )}
                 </div>
 
               </div>

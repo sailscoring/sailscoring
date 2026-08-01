@@ -226,3 +226,57 @@ test('Preview sub-series: separate sub-series and fleet dropdowns (#231)', async
   await expect(frame.getByText('Senior Sam').first()).toBeVisible();
   await expect(frame.getByText('Junior Jane')).toHaveCount(0);
 });
+
+test('a single-race event previews the race result alone (#347)', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Lambay Race 2026', venue: 'Howth Yacht Club' });
+
+  for (const [sail, name] of [['42', 'Alice Murphy'], ['7', 'Carol Ryan']]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByLabel('Competitor name').fill(name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  for (const sail of ['42', '7']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Default: the summary is there, with its Total column.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('button', { name: 'Preview', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  let frame = page.frameLocator('iframe[title="Results preview"]');
+  await expect(frame.getByRole('columnheader', { name: 'Total' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Switch the series to race results only.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  const publishing = page.getByTestId('publishing-card');
+  await expect(publishing.getByRole('button', { name: 'Edit ▸' })).toBeVisible();
+  await publishing.getByRole('button', { name: 'Edit ▸' }).click();
+  // The control auto-saves: the click round-trips through the series PATCH
+  // before the checked state lands, so poll rather than check().
+  await page.getByRole('radio', { name: 'Race results only' }).click();
+  await expect(page.getByRole('radio', { name: 'Race results only' })).toBeChecked();
+  await publishing.getByRole('button', { name: 'Done' }).click();
+  await expect(publishing.getByText('race results only')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('button', { name: 'Preview', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  frame = page.frameLocator('iframe[title="Results preview"]');
+  // The race table alone: no series summary, so no Total or Nett column, and
+  // the lone race's heading has shed its "R1" prefix.
+  await expect(frame.getByText('Alice Murphy')).toBeVisible();
+  await expect(frame.getByRole('columnheader', { name: 'Total' })).toHaveCount(0);
+  await expect(frame.getByRole('columnheader', { name: 'Nett' })).toHaveCount(0);
+  await expect(frame.getByRole('heading', { name: /^R1\b/ })).toHaveCount(0);
+  await expect(frame.getByRole('columnheader', { name: 'Points' })).toBeVisible();
+});

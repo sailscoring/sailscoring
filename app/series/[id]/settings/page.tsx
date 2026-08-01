@@ -149,7 +149,12 @@ export default function SettingsPage({
         <RaceManagementCard seriesId={seriesId} series={series} />
       )}
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
-      <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
+      <PublishingCard
+        seriesId={seriesId}
+        series={series}
+        anyProgressiveFleet={anyProgressiveFleet}
+        splitFleets={!!sfConfig}
+      />
       {/* Combined pages are gated (#155): only the authoring UI hides when
           the feature is off — existing group config keeps publishing. */}
       {has('combined-pages') && <CombinedPagesCard seriesId={seriesId} series={series} />}
