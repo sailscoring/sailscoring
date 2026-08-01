@@ -20,6 +20,8 @@ function entry(over: Partial<ArcEntry>): ArcEntry {
     sailNumber: 'IRL1',
     club: '',
     age: null,
+    role: 'primary',
+    sailedWith: '',
     asPublished: false,
     ...over,
   };

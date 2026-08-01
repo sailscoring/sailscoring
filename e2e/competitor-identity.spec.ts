@@ -329,6 +329,49 @@ test.describe('competitor identity reconcile', () => {
     expect(missing?.status()).toBe(404);
   });
 
+  test('a crewing appearance is marked as one, and names whose boat it was', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'crewarc');
+    const { id: orgId, slug } = await createOrgWorkspace('Crew Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['competitor-identity']);
+
+    // One sailor's record spanning both slots — helming one season, crewing
+    // the next. Before #348 the crewing half didn't exist at all.
+    const { slug: competitorSlug } = await seedCareerArc(orgId, {
+      label: 'Maeve Dervan',
+      club: 'KSC',
+      entries: [
+        { year: 2023, eventName: 'KSC Autumn 2023', sailNumber: '900', published: true },
+        {
+          year: 2024,
+          eventName: 'KSC Spring 2024',
+          sailNumber: '742',
+          published: true,
+          crewFor: 'Frank Larkin',
+        },
+      ],
+    });
+
+    const res = await page.goto(`/p/${slug}/competitor/${competitorSlug}`);
+    expect(res?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Maeve Dervan' })).toBeVisible();
+    await expect(page.getByText('2 series')).toBeVisible();
+    // Both appearances are on the one arc.
+    await expect(page.getByText('KSC Autumn 2023')).toBeVisible();
+    await expect(page.getByText('KSC Spring 2024')).toBeVisible();
+    // The crewing one is marked, and says whose boat it was — the two sailors
+    // share a placement, so unmarked it would read as her own result.
+    await expect(page.getByText('Crew', { exact: true })).toHaveCount(1);
+    await expect(page.getByText('with Frank Larkin')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
   test('public competitor index: search, year filter, deep-link to timeline', async ({
     page,
   }) => {

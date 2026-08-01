@@ -426,7 +426,7 @@ async function careerArc(
     `label:${identity.label}`,
     ...identity.entries.map(
       (e) =>
-        `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}:${e.rank}/${e.fleetSize}:${e.publishedSlug ?? ''}`,
+        `${e.competitorId}:${e.seriesName}:${e.year}:${e.sailNumber}:${e.rank}/${e.fleetSize}:${e.publishedSlug ?? ''}:${e.role}:${e.sailedWith}`,
     ),
     ...identity.rankingEntries.map(
       (r) => `ranking:${r.rankingId}:${r.rankLabel}:${r.rankedCount}:${r.name}`,

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { and, eq, inArray, isNotNull, or } from 'drizzle-orm';
 
+import type { IdentityRole } from '@/lib/competitor-identity-cluster';
 import { workspaceIdentityFeatureOn } from '@/lib/competitor-identity-reconcile';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { mintSlug } from '@/lib/competitor-slug';
@@ -34,6 +35,13 @@ export interface ArcEntry {
   club: string;
   /** Age at the event, where recorded (null in most pre-2020 IODAI data). */
   age: number | null;
+  /** Which slot of the entry this person filled (#348). A sailor's arc mixes
+   *  the two freely — helming one season, crewing the next. */
+  role: IdentityRole;
+  /** The entry's primary person(s), for a crewing appearance: two sailors on
+   *  one boat share a placement, and whose boat it was is the fact that makes
+   *  the entry legible. Empty when this *is* the primary appearance. */
+  sailedWith: string;
   /** True when the series is an as-published archive (ADR-010): the row's
    *  membership belongs to the archive manifest, so the reconcile UI never
    *  peels it. */
@@ -86,7 +94,9 @@ function assemble(
     startDate: string | null;
     compSailNumber: string | null;
     compClub: string | null;
+    compNames: string[] | null;
     age: number | null;
+    role: string | null;
     seriesAsPublished: boolean | null;
   }>,
 ): IdentityWithArc[] {
@@ -110,6 +120,7 @@ function assemble(
       byId.set(r.id, identity);
     }
     if (r.competitorId && r.seriesId) {
+      const role: IdentityRole = r.role === 'crew' ? 'crew' : 'primary';
       identity.entries.push({
         competitorId: r.competitorId,
         seriesId: r.seriesId,
@@ -120,6 +131,9 @@ function assemble(
         sailNumber: r.compSailNumber ?? '',
         club: r.compClub ?? '',
         age: r.age,
+        role,
+        sailedWith:
+          role === 'crew' ? formatPrimaryNames(r.compNames ?? []) : '',
         asPublished: r.seriesAsPublished ?? false,
       });
     }
@@ -151,7 +165,9 @@ const selection = {
   startDate: series.startDate,
   compSailNumber: competitors.sailNumber,
   compClub: competitors.club,
+  compNames: competitors.names,
   age: competitors.age,
+  role: competitorIdentityLinks.role,
   seriesAsPublished: series.asPublished,
 } as const;
 

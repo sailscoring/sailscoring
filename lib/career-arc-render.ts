@@ -25,6 +25,7 @@ const ARC_CSS = `.arch2 { font-size: 0.95em; text-transform: uppercase; letter-s
 .arc .ev a { color: #073358; text-decoration: none; }
 .arc .ev a:hover { color: #fb3a3b; text-decoration: underline; }
 .arc .ev .venue { display: block; font-weight: 400; color: #6b7280; font-size: 0.82em; margin-top: 2px; }
+.arc .crew { display: inline-block; font-weight: 600; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.06em; color: #073358; background: #eef2f6; border-radius: 4px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
 .arc .right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
 .arc .place { color: #073358; font-weight: 700; font-variant-numeric: tabular-nums; }
 .arc .place .of { color: #6b7280; font-weight: 400; }
@@ -96,7 +97,18 @@ export function renderCareerArcHtml(
   // years with no series entries slot into year order; a ranking-only
   // sailor's arc is exactly those lines.
   const seriesItems = identity.entries.map((e, i) => {
-    const venue = e.venue ? `<span class="venue">${esc(e.venue)}</span>` : '';
+    // A crewing appearance is marked as one, and says whose boat it was: the
+    // two sailors share a placement, so without it the line reads as though
+    // this sailor's own result (#348).
+    const badge = e.role === 'crew' ? '<span class="crew">Crew</span>' : '';
+    const secondary = [
+      e.venue,
+      e.role === 'crew' && e.sailedWith ? `with ${e.sailedWith}` : '',
+    ]
+      .filter(Boolean)
+      .map(esc)
+      .join(' &middot; ');
+    const venue = secondary ? `<span class="venue">${secondary}</span>` : '';
     const place = placementHtml(e);
     const right = `<span class="right">${place}<span class="sail">${esc(e.sailNumber)}</span></span>`;
     // Deep-link the event to its published results when there is a page;
@@ -108,7 +120,7 @@ export function renderCareerArcHtml(
       year: e.year,
       kind: 0,
       seq: i,
-      html: `<li><span class="yr">${e.year ?? '&mdash;'}</span><span class="ev">${name}${venue}</span>${right}</li>`,
+      html: `<li><span class="yr">${e.year ?? '&mdash;'}</span><span class="ev">${badge}${name}${venue}</span>${right}</li>`,
     };
   });
   const rankingItems = identity.rankingEntries.map((r, i) => {

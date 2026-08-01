@@ -14,6 +14,8 @@ function arcEntry(over: Partial<CareerArcEntry>): CareerArcEntry {
     sailNumber: 'IRL1200',
     club: '',
     age: null,
+    role: 'primary',
+    sailedWith: '',
     asPublished: false,
     rank: null,
     fleetSize: null,
@@ -119,5 +121,47 @@ describe('renderCareerArcHtml deep-links', () => {
     ];
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+});
+
+describe('crewing appearances (#348)', () => {
+  it('marks a crewing entry and says whose boat it was', () => {
+    const html = renderCareerArcHtml('ksc', 'Killaloe SC', arc([
+      arcEntry({
+        seriesName: 'Autumn Series 2024',
+        year: 2024,
+        role: 'crew',
+        sailedWith: 'Frank Larkin',
+        rank: 3,
+        fleetSize: 12,
+      }),
+    ]));
+    expect(html).toContain('Crew');
+    expect(html).toContain('with Frank Larkin');
+  });
+
+  it('leaves a helming entry unmarked', () => {
+    const html = renderCareerArcHtml('ksc', 'Killaloe SC', arc([
+      arcEntry({
+        seriesName: 'Autumn Series 2024',
+        year: 2024,
+        // A primary entry carries no crewmate even if the field is populated.
+        sailedWith: 'Frank Larkin',
+      }),
+    ]));
+    expect(html).not.toContain('<span class="crew">');
+    expect(html).not.toContain('Frank Larkin');
+  });
+
+  it('escapes a crewmate name and keeps the separator intact', () => {
+    const html = renderCareerArcHtml('ksc', 'Killaloe SC', arc([
+      arcEntry({
+        venue: 'Lough Derg',
+        role: 'crew',
+        sailedWith: 'Ann <b>Ryan</b>',
+      }),
+    ]));
+    expect(html).toContain('Lough Derg &middot; with Ann &lt;b&gt;Ryan&lt;/b&gt;');
+    expect(html).not.toContain('<b>Ryan</b>');
   });
 });

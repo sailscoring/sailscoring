@@ -239,6 +239,10 @@ export async function seedCareerArc(
       /** Seed a live publication for this series so it appears on the public
        *  timeline / index. Unpublished series stay private (#223). */
       published?: boolean;
+      /** Seed this entry as a *crewing* appearance (#348): the boat's primary
+       *  name is this person, our sailor is in its crew list, and the
+       *  membership is stamped 'crew'. */
+      crewFor?: string;
     }>;
   },
 ): Promise<{ identityId: string; slug: string }> {
@@ -287,7 +291,8 @@ export async function seedCareerArc(
         workspaceId,
         fleetIds,
         sailNumber: entry.sailNumber,
-        names: [opts.label],
+        names: [entry.crewFor ?? opts.label],
+        crewNames: entry.crewFor ? [opts.label] : null,
         club: entry.club ?? opts.club ?? '',
         gender: '',
         age: null,
@@ -296,6 +301,7 @@ export async function seedCareerArc(
         competitorId: starId,
         identityId,
         workspaceId,
+        role: entry.crewFor ? 'crew' : 'primary',
       });
       if (entry.scored && fleetId) {
         const fillerId = crypto.randomUUID();

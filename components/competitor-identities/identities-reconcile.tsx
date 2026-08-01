@@ -456,6 +456,18 @@ function IdentityCard({
                   {e.year ?? '????'}
                 </span>
                 {e.seriesName}
+                {e.role === 'crew' && (
+                  <span
+                    className="ml-2 text-xs text-muted-foreground"
+                    title={
+                      e.sailedWith
+                        ? `Crewed with ${e.sailedWith}`
+                        : 'A crewing appearance'
+                    }
+                  >
+                    crew{e.sailedWith ? ` · ${e.sailedWith}` : ''}
+                  </span>
+                )}
               </span>
             </span>
             <span className="flex items-center gap-3 shrink-0 text-muted-foreground">
