@@ -803,9 +803,10 @@ overrides, the Split Fleets view, combined/tiered standings, fleet-coloured
 published pages, assignment-list publishing, medal race as config
 (`size` / `raceCount` / `multiplier` / companion-race offset).
 
-Modelled but deferred UI: `net-plus-net` (29er) and `rank-seed` (Topper)
-— they cost little in the engine (worth fixture coverage early, since
-they stress the same stage machinery) but their authoring UX can wait.
+Since shipped beyond that v1 scope: `net-plus-net` (29er) and `rank-seed`
+(Topper), which this design had modelled but left without authoring UX.
+Both are now scored and set from the same plain-language carry editor, with
+fixtures 13 and 14 pinning each against its SI wording.
 
 Out (horizon): knockout medal-series brackets (iQFOiL / Formula Kite
 match points — not low-point arithmetic); Manage2Sail-style online

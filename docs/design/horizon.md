@@ -253,21 +253,6 @@ its reconciliation are explicitly *not* this issue's concern (that's #212 below)
 
 ---
 
-## Import / export
-
-### Excel (.xlsx) import and export alongside CSV
-
-Competitor import today is CSV; exports are JSON / HTML. HalSail does everything in Excel
-(with a pre-2007 `.xls` toggle), and many scorers live in spreadsheets. Adding `.xlsx`
-read/write alongside CSV would let scorers round-trip boats, races, and results without
-CSV's footguns — notably **quoting/comma fragility** (a HalSail CSV boat import silently
-dropped a boat whose entrant contained a comma; see the `hyc-archive` Puppeteer build).
-Shape of the change: an xlsx reader/writer behind the existing import/export seams (a small
-MIT/Apache-licensed dependency, per our licensing constraint); CSV stays as the
-lowest-common-denominator format. A format-breadth feature, not new data.
-
----
-
 ## Finish entry UX
 
 ### Elapsed time recording in finish entry
@@ -285,9 +270,10 @@ A printed sheet the recording team takes on the committee boat — HYC calls it 
 **starters checklist** — pre-filled with the expected entrants so a scribe can tick boats
 off as they start and finish, record lap counts, and pencil in conditions. HalSail's
 equivalent ("round" / "spotter" sheet) also leaves room for wind, the number of starters,
-and the **time of the last finisher** (the protest-time-limit anchor — see the
-last-finisher entry below). It's the paper counterpart to the mobile finish-recording app,
-and the realistic fallback when there's no device on the water. Shape of the change: a
+and the **time of the last finisher** (the protest-time-limit anchor the results-status
+feature already computes from). It's the paper counterpart to the mobile
+finish-recording app, and the realistic fallback when there's no device on the water.
+Shape of the change: a
 print/PDF rendering of a race's entry list with tick / lap / time columns and a conditions
 header, generated per race (parameterised by fleet/start) — mostly a rendering-path
 feature, tying into server-side PDF generation.
@@ -318,23 +304,22 @@ between versions, and allow viewers to browse earlier result snapshots.
 
 *(Was GitHub issue #8)*
 
-### Scorer attribution in snapshot history
-
-Every signed-in scorer has an email address (Better Auth); include it as attribution in
-the snapshot history entries in the series file format.
-
-*(Was GitHub issue #37)*
-
 ### Per-race lock granularity and unlock audit trail
 
-Whole-series locking is done: archiving a series (#154) makes it read-only
-(enforced server-side) and collapses it out of the active list; unarchiving or
-copying to another workspace restores editing, and delete is gated behind
-archive-first. What's still future layers on top of that model without changing
-it: **per-race lock granularity** (freeze individual races while the rest of the
-series stays editable), and an **unlock audit trail** that records who reopened a
-locked series or race and when — which only becomes meaningful once revision
-history (above) exists to record against.
+Series-level read-only is done twice over. Archiving a series (#154) makes it
+read-only (enforced server-side) and collapses it out of the active list;
+unarchiving or copying to another workspace restores editing, and delete is
+gated behind archive-first. Marking a series **final** (the `results-status`
+feature) enforces read-only for a different reason — the result is settled, not
+filed away — and keeps enforcing it regardless of the feature gate.
+
+What's still future layers on top of both without changing either:
+**per-race lock granularity** (freeze individual races while the rest of the
+series stays editable), and an **unlock audit trail** that records who reopened
+a locked, archived, or finalised series or race and when. Revision history
+(above) is what such a trail records against, and the finalise flow is the
+natural first place to want it — reopening a final series is exactly the event
+worth attributing.
 
 ### Attach committee-boat finish-sheet photos to a race
 
@@ -422,70 +407,6 @@ original alongside the compressed copy or treat the normalised image as the reco
 truth (lean: normalised *is* the record — the whole point is to not hoard full-colour
 originals).
 
-### Race / results status (Provisional vs Final)
-
-Results carry a lifecycle status, surfaced on the series and on published pages. HalSail
-models this as a five-state machine — `NoResults` → `Provisional` →
-`Validated` / `Cancelled` / `Abandoned` — which is probably more than Sail Scoring needs.
-The distinction that genuinely matters to competitors and scorers is the standard
-**Provisional vs Final**: provisional results are still open to correction; final results
-are settled. A status field (per race, or per race day, or per series — granularity is an
-open question) drives a clear badge on the standings and the published `/p/...` page, so a
-competitor can tell at a glance whether a result can still move.
-
-The hard part is making "Final" mean something specific rather than a button a scorer
-clicks when they feel done. The anchor is **RRS 90.3**, which governs scoring; **90.3(e)**
-in particular covers the time limits for requesting changes to a race score and when such
-requests may be initiated. So "Final" should be defined against the actual mechanism by
-which a score can still change:
-
-- The protest / request-for-redress time limit has passed (RRS 62.2 / the SI's stated
-  limit).
-- There are no open scoring inquiries or protest-committee decisions pending.
-- The results team is not aware of any other issue outstanding.
-
-The subtlety is that the *time limit* itself is event-specific. The RRS are written with
-World Sailing / Olympic / international-championship events in mind and include hurdles
-that smaller events often ignore. Some classes close the window explicitly in the NoR — a
-short period (sometimes an hour or so) after results are *published* — which matters most
-where results decide selection to another event or advancement to the next round of a
-match-racing ladder. Many events impose no NoR limit at all; there, late change requests
-are handled by a protest committee whose decision simply arrives, and for a small fleet by
-the next day no issue has arisen and the results are presumed final.
-
-So a credible design can't just hard-code a global clock. It needs to express, per
-series/event, *which* regime applies — a configured time limit (absolute, or relative to
-publication time, per the NoR), or "no stated limit, finalised by scorer judgement once the
-PC is silent." The status then becomes the visible output of that rule rather than a free
--floating flag, and the "Final" badge carries real meaning: it asserts a specific,
-RRS-grounded condition has been met, not merely that someone pressed a button. Worth
-designing the status field and its transitions so that meaning is enforced (or at least
-prompted for) rather than assumed. Relates to per-race lock granularity above — finalising
-and locking are adjacent but distinct (a result can be locked-for-editing without being
-formally Final, and vice versa).
-
-### Surface the last finisher's finish time for protest time limits
-
-A close relative of the status work above: the **protest and request-for-redress time
-limit is itself often defined relative to the last boat's finish**. Many SIs set it as a
-fixed period after the last boat finishes (or after the race committee signals the end of
-racing), so the protest committee — and any competitor deciding whether they still have
-time to lodge — needs one specific number from the results: **the finish time of the last
-finisher** in the relevant race. Today that number is buried in the finish sheet (and only
-exists at all when finishes were timed); a PC member ends up scanning the timesheet for the
-last row.
-
-The note is just to surface it deliberately. The results already hold the finish times, so
-the data is there when the race was timed — the work is presenting the last-finisher time
-where the people computing the limit will look for it: on the race view for the scorer, and
-plausibly on the published page. From there it's a short step to *deriving* the limit when
-the SI's rule is configured (e.g. "90 minutes after the last finisher" → a concrete clock
-time), which feeds directly into the "has the protest time limit passed?" condition that
-gates a Final status above. Open questions mirror that entry: where the rule lives (NoR/SI
-config per series), the untimed-finish case (no last-finisher *time* exists, so the limit
-falls back to "after the RC signals end of racing" — which Sail Scoring doesn't capture
-today), and whether the derived limit is competitor-facing or scorer-only.
-
 ---
 
 ## Publishing
@@ -509,12 +430,13 @@ finished.
 Shape of the change: a per-target (or per-event) scheduled-release timestamp, a
 mechanism to fire the publish at that time (Vercel Cron over due series, since the app
 already runs on Vercel), and UI to set/clear it. Open questions: the scope unit — does a
-schedule attach to one series or to an event-level grouping of series that publish
-together (relates to the event/day-level scope raised under Prize allocation, which we
-don't model yet); what happens if the scorer edits results after scheduling but before
-release (re-snapshot at fire time, or freeze what was current when scheduled?); timezone
-handling for the release instant; and how a pending schedule is surfaced so it isn't
-forgotten.
+schedule attach to one series or to a grouping of series that publish together? ADR-011's
+publication tree gives that grouping a home it didn't have before (an event folder under a
+season), so the question is now whether a schedule hangs off a tree node rather than
+whether the grouping exists at all. Then: what happens if the scorer edits results after
+scheduling but before release (re-snapshot at fire time, or freeze what was current when
+scheduled?); timezone handling for the release instant; and how a pending schedule is
+surfaced so it isn't forgotten.
 
 ### Print-only QR code for a published page
 
@@ -545,10 +467,10 @@ What it can't do is produce a deterministic, server-generated artifact that the 
 flow can attach or link directly. The follow-on is to render the existing
 `renderSeriesHtml` output through headless Chromium (`puppeteer-core` +
 `@sparticuz/chromium` — both Apache-2.0 / BSD, clear of the GPL constraint) inside a
-Fluid function, store the resulting PDF as a blob next to the fleet HTML in the publish
-path, and serve it at e.g. `/p/{ws}/{series}/{fleet}.pdf` with a download link on the
-published page. Because it reuses the same renderer, there's no layout duplication — the
-PDF matches the HTML exactly.
+Fluid function, store the resulting PDF as a blob next to the page's HTML in the publish
+path, and serve it as a `.pdf` sibling of the published page's own URL in the ADR-011
+publication tree, with a download link on the page. Because it reuses the same renderer,
+there's no layout duplication — the PDF matches the HTML exactly.
 
 Costs that keep this deferred: a ~50 MB Chromium binary in the function bundle,
 cold-start and timeout headroom, and a heavier publish path (every re-publish now also
@@ -569,7 +491,9 @@ Two related affordances:
   pages. This is the same curated-token approach proposed under
   [Per-event branding](#per-event-branding) (colours, not arbitrary CSS, to keep the
   published HTML safe), just driven by the class identity rather than a single regatta.
-  The logo library already supplies the marks; this adds the colour layer.
+  The logo library already supplies the marks; this adds the colour layer. ADR-011's
+  publication tree gives the "class-scoped grouping" a candidate home — a folder — so
+  the palette would most naturally attach to a tree node and cascade to the pages under it.
 - **Embed/link the index from the class's own site.** A way for the class to surface its
   live Sail Scoring results inside its own web page — at minimum a clean canonical URL
   and link affordance, ideally an embeddable widget (an `<iframe>`-able results index, or
@@ -577,12 +501,11 @@ Two related affordances:
   are static, so an embeddable read-only view is cheap; the work is a chrome-less render
   mode and the cross-origin/sizing story.
 
-Open questions: the scope unit again (workspace vs. a real class/series grouping — a class
-typically spans multiple series and seasons); how branding here relates to the
-workspace-level and per-event branding layers (this is plausibly the *class* tier of the
-same override stack); and whether embedding is a true widget or just a well-documented
-link + canonical URL to start. The adoption argument is the point: the class's members
-discover the tool through the class's own site, in the class's own colours.
+Open questions: how branding here relates to the workspace-level and per-event branding
+layers (this is plausibly the *class* tier of the same override stack); and whether
+embedding is a true widget or just a well-documented link + canonical URL to start. The
+adoption argument is the point: the class's members discover the tool through the class's
+own site, in the class's own colours.
 
 ### Splitting `Fleet` into a boat-group and a scoring view
 
@@ -723,19 +646,18 @@ overrides the club banner, plus a bespoke per-event stylesheet.
 
 This is the consumption side of the shared logo library above: the library is where
 branding *assets* live; per-event branding is how a chosen set of them (plus layout and
-style) gets bound to an event and rendered onto its published pages. It also relates to
-the event/day-level scope raised under Prize allocation and Scheduled publishing — an
-"event" that groups several fleet-series and carries shared branding is the same missing
-abstraction in each case.
+style) gets bound to an event and rendered onto its published pages. The "event" that
+groups several fleet-series is no longer a missing abstraction: ADR-011's publication
+tree models it as a folder under a season, and the same node is the natural carrier for
+Scheduled publishing and the class palette above.
 
-Shape of the change: an event-level (or series-level) branding override — banner
+Shape of the change: a branding override attached to a publication-tree node — banner
 logos, title, and optionally a constrained set of style tokens (colours, not arbitrary
-CSS, to keep the published HTML safe and consistent) — falling back to workspace
-branding when unset. Open questions: the scope unit again (per-series vs. a real event
-grouping); how much styling to expose (a curated theme vs. HalSail's full custom
-stylesheet — arbitrary CSS injected into a public page is a footgun); and how this lands
-in the published HTML, which today embeds the full series rather than linking to shared
-assets.
+CSS, to keep the published HTML safe and consistent) — cascading to the pages beneath it
+and falling back to workspace branding when unset. Open questions: how much styling to
+expose (a curated theme vs. HalSail's full custom stylesheet — arbitrary CSS injected
+into a public page is a footgun); and how this lands in the published HTML, which today
+embeds the full series rather than linking to shared assets.
 
 ---
 
@@ -854,16 +776,18 @@ whether start times round to sensible whole seconds/minutes for a startable sequ
 The split-fleet championship format — a large entry in rotating qualifying
 fleets, then Gold/Silver/Bronze final fleets — is designed in
 [`docs/design/split-fleets.md`](split-fleets.md) (primer,
-data model, UX, rollout). What stays on the horizon beyond that design's v1
-scope: authoring UX for the 29er net-plus-net and Topper rank-as-seed carry
-modes (modelled and fixture-tested, no UI); knockout medal-series brackets
-(iQFOiL / Formula Kite quarter/semi/grand finals scored on match points —
-not low-point arithmetic at all); electronic finish/OCS ingestion from
-race-management systems like Vakaros RaceSense; and manual initial fleet
-assignment supplied by the committee as a spreadsheet column on competitor
-import (the in-app assignment dialog covers seeding rank, nationality
-spread, and sail-number orders; a pasted-list entry mode was tried and
-dropped).
+data model, UX, rollout), and shipped behind the `split-fleets` gate. All
+three carry modes are now scored and authorable, including the 29er
+net-plus-net and Topper rank-as-seed ones the design deferred.
+
+What stays on the horizon: knockout medal-series brackets (iQFOiL / Formula
+Kite quarter/semi/grand finals scored on match points — not low-point
+arithmetic at all); electronic finish/OCS ingestion from race-management
+systems like Vakaros RaceSense (the CSV finish import is the interim
+answer); and manual initial fleet assignment supplied by the committee as a
+spreadsheet column on competitor import (the in-app assignment dialog covers
+seeding rank, nationality spread, and sail-number orders; a pasted-list entry
+mode was tried and dropped).
 
 ---
 
@@ -1068,52 +992,40 @@ algorithm — out of scope for the first pass, captured so it isn't lost:
 Detail in `docs/design/handicap-scoring.md` (ECHO → "Out of scope (first
 ECHO pass): certificate-layer features").
 
-### VPRS and YTC (DBSC 2026)
+### YTC (DBSC 2026)
 
 The **DBSC 2026 Summer Series** NoR
-(`reference-docs:events/dbsc-2026/NoR-Keelboats-Wag-Summer-amended1.pdf`) adds
-two rating systems Sail Scoring doesn't yet model, both driven by this one
-real-world series. DBSC's general SI
+(`reference-docs:events/dbsc-2026/NoR-Keelboats-Wag-Summer-amended1.pdf`) drove
+two rating systems Sail Scoring didn't model. DBSC's general SI
 (`reference-docs:events/dbsc-2026/SI-A-General-v2.pdf`, A15.1) lists the
-full 2026 handicap set — ECHO (Progressive), IRC, VPRS, ORC Club, YTC and PY —
-so with IRC, ECHO and PY in production and ORC Club captured as Phase 3 below,
-VPRS and YTC are the two missing pieces for full DBSC coverage.
+full 2026 handicap set — ECHO (Progressive), IRC, VPRS, ORC Club, YTC and PY.
+VPRS has since landed (a `scoringSystem` value behind the `vprs` gate, with
+`lib/vprs-rating.ts` reading `vprs.org/ratings.html`), so with IRC, ECHO and PY
+in production and ORC Club captured as Phase 3 below, **YTC is the last missing
+piece for full DBSC coverage**.
 
-- **VPRS** (Velocity Prediction Rating System) — a UK measurement handicap
-  that, like IRC, issues each boat a single time-correction coefficient applied
-  time-on-time (`CT = ET × TCC`). Mechanically it is a **static-TCF** system,
-  identical to the IRC path already in production; the engine needs no new
-  scoring maths. What it needs is a distinct `scoringSystem` value (so results
-  label it correctly, and a boat can be scored under VPRS *and* ECHO in
-  parallel, as DBSC requires), a per-boat `vprsTcc` rating field alongside
-  `ircTcc`, and a rating source (below). DBSC scores its (Mixed) Sportsboats and
-  Cruisers 4A/4B/5A/5B classes under VPRS by default (NoR 2.3, 2.7), and allows
-  it to substitute for IRC in Cruisers 0–3 on class request (NoR 2.6).
+**YTC** (RYA Yacht Time Correction) is the RYA's national keelboat yardstick
+scheme. Like PY it is a published yardstick number turned into a TCF, so it
+reuses the existing PY mechanics — but unlike PY it is a **per-boat** rating
+carried on a certificate (NoR 3.5), not a per-boat-*type* class number. That
+distinction drives the data model: PY today is a boat-type lookup, whereas YTC
+is a certificate field on the individual competitor. DBSC allows YTC to
+substitute for IRC in Cruisers 0–3 and for VPRS in Cruisers 4/5 on class
+request (NoR 2.6, 2.7).
 
-- **YTC** (RYA Yacht Time Correction) — the RYA's national keelboat
-  yardstick scheme. Like PY it is a published yardstick number turned into a
-  TCF, so it reuses the existing PY mechanics — but unlike PY it is a
-  **per-boat** rating carried on a certificate (NoR 3.5), not a per-boat-*type*
-  class number. That distinction drives the data model: PY today is a boat-type
-  lookup, whereas YTC is a certificate field on the individual competitor. DBSC
-  allows YTC to substitute for IRC in Cruisers 0–3 and for VPRS in Cruisers 4/5
-  on class request (NoR 2.6, 2.7).
-
-Both are gated the same way the existing systems are: a boat may only be scored
+It is gated the same way the existing systems are: a boat may only be scored
 under a system for which it holds a current certificate (NoR 3.5), and a class
 winning under IRC/VPRS forfeits the parallel ECHO prize (NoR 9.2) — the
 parallel-scoring and prize-eligibility shape is the same as the ECHO/one-design
 pairing already supported.
 
-**Rating sources.** The IRC, ECHO and VPRS fetch paths are implemented
-(`lib/irc-rating.ts`, `lib/irish-sailing-ratings.ts`, `lib/vprs-rating.ts`);
-VPRS reads its ratings from `vprs.org/ratings.html`. YTC is the remaining
-source: RYA YTC certificates are listed by the RORC Rating Office at
-`rorcrating.com/ryaytc/ryaytclistings`, and its fetch path lands with YTC
-scoring. All these sources share the same posture the implemented ones already
-follow — per-event and verification-only: fetch the boats in an event being
-scored, never mirror the whole database, and never let a rating fetched for one
-system feed another's computation (e.g. IRC TCCs must not feed ECHO).
+**Rating source.** RYA YTC certificates are listed by the RORC Rating Office at
+`rorcrating.com/ryaytc/ryaytclistings`, and the fetch path lands with YTC
+scoring alongside the implemented IRC, ECHO and VPRS ones (`lib/irc-rating.ts`,
+`lib/irish-sailing-ratings.ts`, `lib/vprs-rating.ts`). It shares their posture —
+per-event and verification-only: fetch the boats in an event being scored, never
+mirror the whole database, and never let a rating fetched for one system feed
+another's computation (e.g. IRC TCCs must not feed ECHO).
 
 ### PHRF (time-on-distance)
 
@@ -1268,6 +1180,15 @@ The ranking, lazy population, and reconcile UI shipped together (July 2026):
   split. Splits land on fresh confirmed identities so the auto-pass never
   re-fuses them. A merged-away identity's public slug stops resolving — slug
   aliases/redirects are deferred until someone actually misses them.
+- **Crew as people** — **#348, implemented**. The spine now extends to the
+  crew slot behind its own `competitor-identity-crew` gate: everyone in a
+  row's `crewNames` becomes a person the reconcile pass can recognise, so a
+  sailor who only ever crews gets an identity, a timeline and a career arc,
+  and one who helms some seasons and crews others stops showing half a
+  record. Held apart from the spine's own gate because switching it on
+  changes which identities exist in a workspace. Deliberately open: crew do
+  **not** accrue ranking points — whether they should is a scoring-policy
+  question for the club, so the ladder keeps crediting the primary slot only.
 - **IODAI competitor-history cleanup** — **#218, done**. Repeatable
   corrections keyed on vanity slugs (the iodai-archive manifest) fixed
   blank / mojibake / malformed names at source. The standing convention: the
@@ -1310,12 +1231,15 @@ key and the rankings are the easy part.
 
 ## Prize allocation
 
-> **First stab in flight:** the deterministic core (predicate + recipient count,
-> ranked by series standing) is scoped in #240, with the 2026 ILCA Leinsters
-> Sailwave prize config as the baseline target. The ambitious parts below
-> (NL/LLM drafting, event/day scope, the Lambay Lady derived-metric/OA case,
-> prize exclusion, perpetual trophies, free-form selectors) stay deferred here.
-> Prereq: #239 (the importer drops helm gender, which the "Lady" prizes need).
+> **First stab shipped:** the deterministic core (a named award with an
+> eligibility predicate over fleet / subdivision axes / rank, top-N by series
+> standing, plus a published prize sheet) landed as #240 behind the `prizes`
+> gate, with the 2026 ILCA Leinsters Sailwave prize config as the baseline
+> target; its prerequisite #239 (carrying helm gender through the Sailwave
+> importer, which the "Lady" prizes need) landed with it. The ambitious parts
+> below — NL/LLM drafting, event/day scope, the Lambay Lady derived-metric/OA
+> case, prize exclusion, perpetual trophies, free-form selectors — stay
+> deferred here.
 
 ### Allocating prizes
 
@@ -1435,8 +1359,9 @@ escape hatch for the long tail a club invents, not a substitute for modelling.
 
 > The structured counterpart — letting a competitor carry more than one
 > subdivision/category axis at once (e.g. a Gold/Silver division *and* a
-> Youth/Master age category) — is tracked in #241; keep that distinct from these
-> free-form tags.
+> Youth/Master age category) — shipped as #241, and is what the prize
+> predicates above range over. Keep it distinct from these free-form tags:
+> the axes are modelled, the tags would be the escape hatch.
 
 ---
 
