@@ -212,12 +212,17 @@ export async function setSeriesResultsStatus(
     },
     { updatedBy: workspace.userId },
   );
-  await recordActivity(workspace, {
+  // `resultsStatus` / `finalisedAt` are `.sailscoring` fields, so the
+  // assertion needs a revision pinning the state that was declared final —
+  // not just an activity entry. `touch: false`: the save already bumped.
+  await trackChange(workspace, {
     action: final ? 'series.finalised' : 'series.reopened',
     seriesId: id,
     summary: final
       ? 'Marked the results final'
       : 'Reopened the results as provisional',
+    sessionKey: 'results-status',
+    touch: false,
   });
   return saved;
 }
@@ -575,8 +580,10 @@ export async function copySeries(
 
   });
 
-  // Logged in the *target* workspace — that's where the new series lives.
-  await recordActivity(
+  // Logged in the *target* workspace — that's where the new series lives —
+  // and with a baseline revision, so the copy is restorable from the state it
+  // was created in.
+  await trackChange(
     { workspaceId: targetWorkspaceId, userId: workspace.userId },
     {
       action: 'series.copied',
@@ -584,6 +591,8 @@ export async function copySeries(
       summary: sameWorkspace
         ? `Duplicated series “${source.name}” as “${newName}”`
         : `Copied in series “${newName}”`,
+      sessionKey: 'copy',
+      touch: false,
     },
   );
   // Lazy identity population (#222) in the *target* workspace — the copy's
@@ -623,10 +632,15 @@ export async function importSeries(
     return openSeriesFromFile(file, repos);
   });
 
-  await recordActivity(workspace, {
+  // Baseline revision: a freshly imported series starts restorable, rather
+  // than having its first history entry be whatever edit happens to land next
+  // — which would also swallow this activity entry into that edit's window.
+  await trackChange(workspace, {
     action: 'series.imported',
     seriesId: id,
     summary: `Imported series “${file.series.name}”`,
+    sessionKey: 'import',
+    touch: false,
   });
   // Lazy identity population (#222): link the imported competitors. Identity
   // is workspace-local and never travels in the file, so it's re-derived here.
@@ -817,12 +831,14 @@ export async function createFollowOnSeries(
     }
   });
 
-  await recordActivity(
+  await trackChange(
     { workspaceId: workspace.workspaceId, userId: workspace.userId },
     {
       action: 'series.created-follow-on',
       seriesId: newSeriesId,
       summary: `Created follow-on series “${newName}” from “${source.name}”`,
+      sessionKey: 'follow-on',
+      touch: false,
     },
   );
   // Lazy identity population (#222): the rolled-over entry list is new rows.

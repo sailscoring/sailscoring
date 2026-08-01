@@ -37,6 +37,10 @@ export async function restoreFromTrash(
   );
   if (!restored) throw new NotFoundError('deleted-series');
 
+  // No revision capture: the tombstone embeds the series' whole revision
+  // history and `restoreTombstone` re-imports it, so the recovered series is
+  // already restorable — a baseline here would just duplicate its newest
+  // revision.
   await recordActivity(workspace, {
     action: 'series.restored',
     seriesId: restored.seriesId,

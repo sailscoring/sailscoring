@@ -6,8 +6,8 @@ import {
   requireFeature,
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
-import { recordActivity } from '@/lib/activity-log';
 import { createRepos } from '@/lib/postgres-repository';
+import { trackChange } from '@/lib/revision-log';
 import {
   buildRrsOrgPayload,
   RRS_ORG_API_URL,
@@ -112,10 +112,16 @@ export async function pushCompetitorsToRrsOrg(
     );
   }
 
-  await recordActivity(workspace, {
+  // `trackChange`, not a bare activity entry: the save above changed the
+  // series' stored `rrsOrgPush`, which is a `.sailscoring` field, so the push
+  // needs a revision snapshotting the state it left behind. `touch: false` —
+  // `repos.series.save` already bumped the version and lastModifiedAt.
+  await trackChange(workspace, {
     action: 'competitors.rrs_pushed',
     seriesId,
     summary: `Pushed ${input.competitors.length} competitors to rrs.org`,
+    sessionKey: 'rrs-org',
+    touch: false,
   });
 
   return { ok: true, pushed: input.competitors.length };
