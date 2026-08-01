@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "publish_detail" text DEFAULT 'full' NOT NULL;

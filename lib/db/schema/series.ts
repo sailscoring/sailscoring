@@ -201,6 +201,12 @@ export const series = pgTable(
     publishIndividualFleetPages: boolean('publish_individual_fleet_pages')
       .notNull()
       .default(true),
+    // How much of each published page to render: 'full' (summary + race
+    // tables) or 'races' (the race tables alone — a single-race event).
+    publishDetail: text('publish_detail')
+      .$type<'full' | 'races'>()
+      .notNull()
+      .default('full'),
     // rrs.org competitor-push settings remembered from the last push (event
     // UUID + division source). Nullable JSONB — absent until first pushed,
     // never queried by content.

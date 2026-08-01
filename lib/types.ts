@@ -296,6 +296,13 @@ export interface Series {
   // least one combined page is configured — with none, fleet pages always
   // publish (a page-less publication is never constructed).
   publishIndividualFleetPages?: boolean;
+  // How much of each published page to render (#347). 'races' publishes the
+  // per-race tables alone — the single-race-event presentation, where a series
+  // summary would be one race column, a total equal to that race's score, and
+  // discard columns that mean nothing. Absent = 'full' (summary + race
+  // tables); an explicit setting, never inferred from race count, since a
+  // league in its first week legitimately has one race and is still a series.
+  publishDetail?: 'full' | 'races';
   // rrs.org competitor push: remembered from the last push. Sparse — absent
   // until the series is first pushed. Carried in the .sailscoring file (the
   // config should follow the series between workspaces) but excluded from the

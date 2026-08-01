@@ -421,6 +421,7 @@ export async function copySeries(
         fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
       })),
       publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
+      publishDetail: source.publishDetail ?? 'full',
       // The protest-time-limit config travels (it mirrors the SIs); the
       // results *status* does not — a copy is a fork whose scorer makes
       // their own finality assertion, so it lands provisional.
@@ -805,6 +806,7 @@ export async function createFollowOnSeries(
         fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
       })),
       publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
+      publishDetail: source.publishDetail ?? 'full',
       // Same SIs, next series of the season: the limit config rolls over;
       // the fresh series is provisional by construction.
       protestTimeLimit: source.protestTimeLimit ?? null,

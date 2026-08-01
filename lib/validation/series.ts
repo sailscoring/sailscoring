@@ -160,6 +160,9 @@ export const seriesSchema = z.object({
   // and older clients round-trip cleanly.
   publishingGroups: z.array(publishingGroupSchema).optional(),
   publishIndividualFleetPages: z.boolean().optional(),
+  // Published-page detail (#347): 'races' is the single-race-event
+  // presentation. Optional on the wire; absent = 'full'.
+  publishDetail: z.enum(['full', 'races']).optional(),
   // rrs.org competitor-push settings. Optional on the wire so sparse creation
   // and older clients round-trip cleanly.
   rrsOrgPush: rrsOrgPushConfigSchema.optional(),

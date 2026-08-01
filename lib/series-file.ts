@@ -231,9 +231,15 @@ export interface SeriesFileRepos {
  *  the teams unconditionally, `publishOfficials` and all — round-tripping a
  *  series losslessly is what this format is for, and the publish decision
  *  travels with the data it governs. The public JSON export is where that
- *  decision is *applied*. */
-export const FORMAT_VERSION = 27;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
+ *  decision is *applied*.
+ *
+ *  v28 adds `series.publishDetail` (#347): 'races' publishes the per-race
+ *  tables alone — the single-race-event presentation. Additive and sparse,
+ *  written only when set; older files load with it absent (full detail).
+ *  Purely presentational, so a build that predates it loads the series and
+ *  scores it identically — unlike v25/v26, nothing here can change a score. */
+export const FORMAT_VERSION = 28;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -303,6 +309,7 @@ interface SeriesFileSeries {
   showPerRaceRatingsInSummary?: boolean;
   publishingGroups?: PublishingGroup[];  // v15+; combined published pages
   publishIndividualFleetPages?: boolean;  // v15+; absent = true
+  publishDetail?: 'races';  // v28+; written only when set; absent = full detail
   rrsOrgPush?: RrsOrgPushConfig;  // v16+; rrs.org competitor-push settings
   prizes?: Prize[];  // v17+; prize list (#240)
   resultsStatus?: 'provisional' | 'final';  // v20+; written only when final
@@ -616,6 +623,7 @@ export async function buildSeriesFile(
       ...(series.publishIndividualFleetPages === false
         ? { publishIndividualFleetPages: false }
         : {}),
+      ...(series.publishDetail === 'races' ? { publishDetail: 'races' as const } : {}),
       ...(series.rrsOrgPush ? { rrsOrgPush: series.rrsOrgPush } : {}),
       ...(series.prizes && series.prizes.length > 0 ? { prizes: series.prizes } : {}),
       ...(series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
@@ -1076,6 +1084,7 @@ export async function openSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
+    publishDetail: file.series.publishDetail ?? 'full',
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
     resultsStatus: file.series.resultsStatus,
@@ -1168,6 +1177,7 @@ export async function restoreSeriesFromFile(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
+    publishDetail: file.series.publishDetail ?? 'full',
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
     resultsStatus: file.series.resultsStatus,
@@ -1269,6 +1279,7 @@ async function updateSeriesFromFileInner(
     showPerRaceRatingsInSummary: file.series.showPerRaceRatingsInSummary ?? true,
     publishingGroups: remapPublishingGroups(file.series.publishingGroups, fleetIdMap),
     publishIndividualFleetPages: file.series.publishIndividualFleetPages ?? true,
+    publishDetail: file.series.publishDetail ?? 'full',
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
     resultsStatus: file.series.resultsStatus,

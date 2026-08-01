@@ -160,6 +160,11 @@ export interface PublicSeriesExport {
     publishRatingCalculations?: boolean;
     /** NHC/ECHO summary per-race rating toggle (display hint). */
     showPerRaceRatingsInSummary?: boolean;
+    /** Published-page detail (#347). Present only as 'races' — the
+     *  single-race-event presentation, where a re-renderer should show the
+     *  race tables alone. Absent = full detail. Display hint: the standings
+     *  are exported in full regardless. */
+    publishDetail?: 'races';
     /** Default start sequence used when new races are created. */
     defaultStartSequence?: ExportStartGroup[];
     /** Prize list (#240). Absent in exports from older builds and when the
@@ -799,6 +804,7 @@ export function buildPublicExportFromSnapshot(
       scoringMode: series.scoringMode ?? 'scratch',
       ...(series.publishRatingCalculations != null ? { publishRatingCalculations: series.publishRatingCalculations } : {}),
       ...(series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: series.showPerRaceRatingsInSummary } : {}),
+      ...(series.publishDetail === 'races' ? { publishDetail: 'races' as const } : {}),
       ...(exportedDefaultStartSequence ? { defaultStartSequence: exportedDefaultStartSequence } : {}),
       ...(() => {
         // Prizes (#240): fleet clauses go out by fleet name; a prize whose
@@ -1009,6 +1015,7 @@ export async function importPublicExport(
     includeJsonExport: true,
     ...(data.series.publishRatingCalculations != null ? { publishRatingCalculations: data.series.publishRatingCalculations } : {}),
     ...(data.series.showPerRaceRatingsInSummary != null ? { showPerRaceRatingsInSummary: data.series.showPerRaceRatingsInSummary } : {}),
+    ...(data.series.publishDetail === 'races' ? { publishDetail: 'races' as const } : {}),
     enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     ...(data.series.multiPersonFields?.length ? { multiPersonFields: data.series.multiPersonFields } : {}),
     primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,

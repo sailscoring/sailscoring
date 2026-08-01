@@ -168,7 +168,8 @@ describe('.sailscoring v27 race record', () => {
     const file = await buildSeriesFile('s1', repos);
 
     expect(file.formatVersion).toBe(FORMAT_VERSION);
-    expect(FORMAT_VERSION).toBe(27);
+    // The race record landed in v27; later fields have moved the version on.
+    expect(FORMAT_VERSION).toBeGreaterThanOrEqual(27);
     expect('conditions' in file.races[0]).toBe(false);
     expect('officials' in file.races[0]).toBe(false);
     expect(file.races[1].conditions).toEqual({
