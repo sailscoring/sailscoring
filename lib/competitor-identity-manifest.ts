@@ -127,13 +127,25 @@ export interface ManifestAssignment {
   members: { competitorId: string; role: IdentityRole }[];
 }
 
-/** A workspace competitor a `(seriesId, sail)` member could resolve to. */
+/**
+ * A workspace competitor a `(seriesId, sail)` member could resolve to.
+ *
+ * Both slots are lists, and their lengths matter: they say how many identities
+ * a member row may legitimately be claimed by. A two-person crew is claimed by
+ * two identities — that isn't a curation error, it's a crew.
+ */
 export interface CompetitorCandidate {
   competitorId: string;
-  name: string;
-  /** The row's crew, joined for token matching. A crew member row is
-   *  disambiguated against these rather than the primary name (#348). */
-  crewName?: string;
+  /** The primary person(s) — co-owners of a syndicate entry (#316). */
+  names: string[];
+  /** The crew, one entry per person, already filtered of unrecognisable
+   *  names by the caller (#348). */
+  crewNames?: string[];
+}
+
+/** The people in one slot of a candidate row. */
+function slotNames(c: CompetitorCandidate, role: IdentityRole): string[] {
+  return (role === 'crew' ? c.crewNames : c.names) ?? [];
 }
 
 /** A member row that didn't resolve to a competitor, surfaced for the operator. */
@@ -183,13 +195,15 @@ export interface ManifestPlan {
  * ranked against the candidates' crew names, since that is where its person
  * appears (#348).
  *
- * Claiming is per slot, not per row: a crewed boat is legitimately claimed
- * twice, once by its helm's identity and once by its crew's. Two identities
- * claiming the *same* slot is still the curation error it always was.
+ * Claiming is counted per slot, not per row. A crewed boat is claimed twice —
+ * once by its helm's identity, once by its crew's — and a boat with two named
+ * crew is claimed twice more, because the slot holds two people. What stays an
+ * error is claiming a slot by *more* identities than it names people.
  *
- * Members that don't resolve (unknown series-slug, no such sail, a slot two
- * entries both claim, or a name that matches no candidate) are collected rather
- * than dropped: a golden record that silently loses rows isn't reproducible.
+ * Members that don't resolve (unknown series-slug, no such sail, a slot claimed
+ * by more identities than it holds people, or a name that matches no candidate)
+ * are collected rather than dropped: a golden record that silently loses rows
+ * isn't reproducible.
  */
 export function planManifestApply(
   manifest: Manifest,
@@ -198,8 +212,28 @@ export function planManifestApply(
 ): ManifestPlan {
   const assignments: ManifestAssignment[] = [];
   const unresolvedMembers: UnresolvedMember[] = [];
-  const claimedBy = new Map<string, string>(); // `competitorId|role` → slug
+  // `competitorId|role` → the slugs claiming it. A slot may be claimed once
+  // per person it names.
+  const claimedBy = new Map<string, Set<string>>();
   const slugCounts = new Map<string, number>();
+  /** Is this slot claimed by as many identities as it names people? Re-claiming
+   *  a slot this identity already holds takes no further seat — an entry may
+   *  legitimately list one `(series, sail)` twice, which is how two siblings on
+   *  a shared hull are addressed. */
+  const slotFull = (c: CompetitorCandidate, role: IdentityRole, slug: string) => {
+    const claimers = claimedBy.get(`${c.competitorId}|${role}`);
+    if (!claimers || claimers.has(slug)) return false;
+    return claimers.size >= Math.max(1, slotNames(c, role).length);
+  };
+  /** Among candidates for an ambiguous sail, prefer a row this identity hasn't
+   *  claimed yet and that still has a seat — so the sibling case spreads across
+   *  the rows instead of piling onto the first. */
+  const slotAvailable = (c: CompetitorCandidate, role: IdentityRole, slug: string) => {
+    const claimers = claimedBy.get(`${c.competitorId}|${role}`);
+    if (!claimers) return true;
+    if (claimers.has(slug)) return false;
+    return claimers.size < Math.max(1, slotNames(c, role).length);
+  };
 
   for (const identity of manifest.identities) {
     slugCounts.set(identity.slug, (slugCounts.get(identity.slug) ?? 0) + 1);
@@ -221,22 +255,23 @@ export function planManifestApply(
         continue;
       }
 
-      // Match against the slot the member claims: a crew is named in the crew
-      // field, so ranking them against the helm's name would find nothing.
-      const candidateName = (c: CompetitorCandidate) =>
-        role === 'crew' ? (c.crewName ?? '') : c.name;
       let chosen: CompetitorCandidate | undefined;
       if (candidates.length === 1) {
         chosen = candidates[0];
       } else {
-        // Ambiguous sail — rank by name-token overlap, preferring a row whose
-        // claimed slot is still free.
+        // Ambiguous sail — rank by name-token overlap against the slot the
+        // member claims (a crew is named in the crew field, so ranking them
+        // against the helm's name would find nothing), preferring a row whose
+        // slot still has room.
         const ranked = candidates
-          .map((c) => ({ c, score: tokenOverlap(want, nameTokens(candidateName(c))) }))
+          .map((c) => ({
+            c,
+            score: tokenOverlap(want, nameTokens(slotNames(c, role).join(' '))),
+          }))
           .filter((x) => x.score > 0)
           .sort((a, b) => b.score - a.score);
         chosen = (
-          ranked.find((x) => !claimedBy.has(`${x.c.competitorId}|${role}`)) ?? ranked[0]
+          ranked.find((x) => slotAvailable(x.c, role, identity.slug)) ?? ranked[0]
         )?.c;
         if (!chosen) {
           unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'ambiguous' });
@@ -244,13 +279,14 @@ export function planManifestApply(
         }
       }
 
-      const slotKey = `${chosen.competitorId}|${role}`;
-      const claimer = claimedBy.get(slotKey);
-      if (claimer && claimer !== identity.slug) {
+      if (slotFull(chosen, role, identity.slug)) {
         unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'already-claimed' });
         continue;
       }
-      claimedBy.set(slotKey, identity.slug);
+      const slotKey = `${chosen.competitorId}|${role}`;
+      const claimers = claimedBy.get(slotKey) ?? new Set<string>();
+      claimers.add(identity.slug);
+      claimedBy.set(slotKey, claimers);
       members.push({ competitorId: chosen.competitorId, role });
       lastSail = sailNumber;
     }

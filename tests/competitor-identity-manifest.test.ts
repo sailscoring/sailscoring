@@ -40,7 +40,7 @@ function manifestJson(overrides: Partial<Manifest> = {}): string {
 function lookupFrom(index: Record<string, string>) {
   return (seriesId: string, sail: string) => {
     const id = index[`${seriesId}|${sail}`];
-    return id ? [{ competitorId: id, name: '' }] : undefined;
+    return id ? [{ competitorId: id, names: [] }] : undefined;
   };
 }
 
@@ -142,8 +142,8 @@ describe('planManifestApply', () => {
       'ws1',
       lookupCandidates({
         [`${NATIONALS}|1087`]: [
-          { competitorId: 'comp-addison', name: 'Addison Carmody' },
-          { competitorId: 'comp-adeson', name: 'Adeson Carmody' },
+          { competitorId: 'comp-addison', names: ['Addison Carmody'] },
+          { competitorId: 'comp-adeson', names: ['Adeson Carmody'] },
         ],
       }),
     );
@@ -217,8 +217,8 @@ describe('planManifestApply', () => {
       'ws1',
       lookupCandidates({
         [`${NATIONALS}|1682`]: [
-          { competitorId: 'comp-jess', name: 'Jess Tottenham' },
-          { competitorId: 'comp-ellie', name: 'Ellie Tottenham' },
+          { competitorId: 'comp-jess', names: ['Jess Tottenham'] },
+          { competitorId: 'comp-ellie', names: ['Ellie Tottenham'] },
         ],
       }),
     );
@@ -241,8 +241,8 @@ describe('planManifestApply', () => {
       'ws1',
       lookupCandidates({
         [`${NATIONALS}|1464`]: [
-          { competitorId: 'comp-skye', name: 'Skye Oâ€™Callaghan' }, // mojibake in the DB
-          { competitorId: 'comp-jacob', name: 'Jacob Browne' },
+          { competitorId: 'comp-skye', names: ['Skye Oâ€™Callaghan'] }, // mojibake in the DB
+          { competitorId: 'comp-jacob', names: ['Jacob Browne'] },
         ],
       }),
     );
@@ -263,8 +263,8 @@ describe('planManifestApply', () => {
       'ws1',
       lookupCandidates({
         [`${NATIONALS}|0`]: [
-          { competitorId: 'comp-a', name: 'Alice Adams' },
-          { competitorId: 'comp-b', name: 'Bob Burns' },
+          { competitorId: 'comp-a', names: ['Alice Adams'] },
+          { competitorId: 'comp-b', names: ['Bob Burns'] },
         ],
       }),
     );
@@ -395,6 +395,78 @@ describe('crewed boats (#348)', () => {
     ]);
   });
 
+  it('lets both of a two-person crew claim the same boat', () => {
+    // A keelboat crew is an ordered list of any size, and one cell can name
+    // two people ("Maeve Dervan, Amber Robson"). Claiming per slot rather than
+    // per person dropped the second of them.
+    const plan = planManifestApply(
+      parseManifest(
+        manifestJson({
+          identities: [
+            {
+              slug: 'maeve-dervan-aaaa',
+              name: 'Maeve Dervan',
+              members: [['iodai-nationals-2019', '1423', 'crew']],
+            },
+            {
+              slug: 'amber-robson-bbbb',
+              name: 'Amber Robson',
+              members: [['iodai-nationals-2019', '1423', 'crew']],
+            },
+          ],
+        }),
+      ),
+      WS,
+      lookupCandidates({
+        [`${NATIONALS}|1423`]: [
+          {
+            competitorId: 'row-1',
+            names: ['Frank Larkin'],
+            crewNames: ['Maeve Dervan', 'Amber Robson'],
+          },
+        ],
+      }),
+    );
+    expect(plan.unresolvedMembers).toEqual([]);
+    expect(plan.assignments.map((a) => a.members)).toEqual([
+      [{ competitorId: 'row-1', role: 'crew' }],
+      [{ competitorId: 'row-1', role: 'crew' }],
+    ]);
+  });
+
+  it('rejects a third claimer on a two-person crew', () => {
+    // The seat count is what makes `already-claimed` still mean something.
+    const plan = planManifestApply(
+      parseManifest(
+        manifestJson({
+          identities: ['aaaa', 'bbbb', 'cccc'].map((suffix, i) => ({
+            slug: `sailor-${suffix}`,
+            name: `Sailor ${i}`,
+            members: [['iodai-nationals-2019', '1423', 'crew'] as [string, string, 'crew']],
+          })),
+        }),
+      ),
+      WS,
+      lookupCandidates({
+        [`${NATIONALS}|1423`]: [
+          {
+            competitorId: 'row-1',
+            names: ['Frank Larkin'],
+            crewNames: ['Maeve Dervan', 'Amber Robson'],
+          },
+        ],
+      }),
+    );
+    expect(plan.unresolvedMembers).toEqual([
+      {
+        slug: 'sailor-cccc',
+        seriesSlug: 'iodai-nationals-2019',
+        sailNumber: '1423',
+        reason: 'already-claimed',
+      },
+    ]);
+  });
+
   it('disambiguates a shared sail against the crew field, not the helm', () => {
     // Two boats sharing a sail in one series — the club reuses hulls. The crew
     // identity must be ranked against the crew names, where its person is.
@@ -413,8 +485,8 @@ describe('crewed boats (#348)', () => {
       WS,
       lookupCandidates({
         [`${NATIONALS}|1423`]: [
-          { competitorId: 'boat-a', name: 'Frank Larkin', crewName: 'Amber Robson' },
-          { competitorId: 'boat-b', name: 'Sam Cronin', crewName: "Zoe O'Farrell" },
+          { competitorId: 'boat-a', names: ['Frank Larkin'], crewNames: ['Amber Robson'] },
+          { competitorId: 'boat-b', names: ['Sam Cronin'], crewNames: ["Zoe O'Farrell"] },
         ],
       }),
     );

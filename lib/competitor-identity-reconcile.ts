@@ -26,7 +26,6 @@ import type {
   CompetitorCandidate,
   ManifestPlan,
 } from '@/lib/competitor-identity-manifest';
-import { formatPrimaryNames } from '@/lib/competitor-fields';
 import {
   isLowSignalPersonName,
   normalizePersonName,
@@ -276,10 +275,11 @@ export async function collectStaleLinks(
  * resolves member rows against. A sail can repeat within a series (placeholder
  * sails in coached fleets, two siblings on a shared hull at one event — see the
  * iodai-archive identity audit), so each key maps to *all* its candidates and
- * the planner disambiguates by name. Each candidate carries its crew names as
- * well as its primary ones, so a crew member row is disambiguated against the
- * field its person actually appears in (#348). The collision count (keys with
- * >1 row) is returned for the operator's report.
+ * the planner disambiguates by name. Each candidate carries both slots as
+ * lists, so a crew member row is matched against the field its person actually
+ * appears in, and the planner knows how many identities may claim each slot
+ * (#348). The collision count (keys with >1 row) is returned for the
+ * operator's report.
  */
 export async function collectCompetitorIndex(
   db: SailScoringDb,
@@ -299,10 +299,11 @@ export async function collectCompetitorIndex(
   let collisions = 0;
   for (const r of rows) {
     const key = `${r.seriesId}|${r.sailNumber}`;
+    const crew = crewPersons(r.crewNames);
     const candidate: CompetitorCandidate = {
       competitorId: r.competitorId,
-      name: formatPrimaryNames(r.names),
-      ...(r.crewNames?.length ? { crewName: r.crewNames.join(' ') } : {}),
+      names: r.names.filter((n) => n.trim()),
+      ...(crew.length ? { crewNames: crew } : {}),
     };
     const arr = index.get(key);
     if (arr) {
