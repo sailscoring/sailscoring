@@ -105,7 +105,16 @@ export interface SeriesIndexPage {
   subSeriesName?: string;
   /** The prize sheet (#240) — labelled by its own name, never "Standings". */
   isPrizes?: boolean;
+  /** Published at race-results detail (#347) — a lone page then reads
+   *  "Results", since there are no standings on it. */
+  isRaceResults?: boolean;
   subPath: string; // `standings` for a single fleet, else `kebab(fleetName)`
+}
+
+/** What a publication's lone results page is called: its standings, or — for a
+ *  single-race event — the race result it actually carries (#347). */
+export function loneResultsPageLabel(page: { isRaceResults?: boolean }): string {
+  return page.isRaceResults ? 'Results' : 'Standings';
 }
 
 /** Display label for a fleet page outside the series index's own lists (the
@@ -115,7 +124,7 @@ export interface SeriesIndexPage {
  *  sheet keeps its own name, and a sub-series page carries its block name so
  *  same-named fleets in different blocks stay distinguishable. */
 export function fleetPageLabel(page: SeriesIndexPage, single: boolean): string {
-  const leaf = !page.isPrizes && single ? 'Standings' : page.fleetName;
+  const leaf = !page.isPrizes && single ? loneResultsPageLabel(page) : page.fleetName;
   return page.subSeriesName ? `${page.subSeriesName} — ${leaf}` : leaf;
 }
 
@@ -653,7 +662,7 @@ export function renderSeriesIndexHtml(
     return `<ul class="listing">
 ${pages
   .map((p) => {
-    const label = !p.isPrizes && single ? 'Standings' : p.fleetName;
+    const label = !p.isPrizes && single ? loneResultsPageLabel(p) : p.fleetName;
     return `<li><a href="/p/${esc(workspaceSlug)}/${esc(slug)}/${esc(p.subPath)}">${esc(label)}</a></li>`;
   })
   .join('\n')}

@@ -105,6 +105,13 @@ describe('leafLabel', () => {
     expect(leafLabel(pages[0], pages, true)).toBe('Standings');
   });
 
+  it('reads a single-race event\'s lone page as "Results" (#347)', () => {
+    const pages: TreePage[] = [
+      { fleetName: 'Default', subPath: 'results', isRaceResults: true, ownerSingle: true },
+    ];
+    expect(leafLabel(pages[0], pages, true)).toBe('Results');
+  });
+
   it('names a shared-slug synthetic single page after its series', () => {
     const pages: TreePage[] = [
       { fleetName: 'Unknown', subPath: 'standings', ownerName: 'Lambay Races Cruisers', ownerSingle: true },

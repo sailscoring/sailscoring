@@ -17,7 +17,7 @@ import {
   publishSeries,
   unpublishSeries,
 } from '@/lib/api-repository';
-import { fleetSubPath, kebab } from '@/lib/publishing';
+import { defaultPageSlug, fleetSubPath, kebab } from '@/lib/publishing';
 import { sharedFolderSegment } from '@/lib/published-tree';
 import {
   describeGroupMembers,
@@ -163,15 +163,25 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const isPublished = published !== null;
   const workspaceSlug = status?.workspaceSlug ?? '';
 
-  // Derived default sub-path for an unpublished fleet: `standings` for a lone
-  // (default) fleet, otherwise the kebab-cased name — mirrors the server. The
-  // prize sheet defaults to `prizes` regardless of the fleet count (when
-  // co-publishing the server disambiguates to `{series-slug}-prizes`).
+  // A single-race event's lone page is its race result (#347), so it is named
+  // and served as one.
+  const raceResults = series.publishDetail === 'races';
+  const lonePageLabel = raceResults ? 'Results' : 'Standings';
+
+  // Derived default sub-path for an unpublished fleet: `standings` (or
+  // `results`) for a lone (default) fleet, otherwise the kebab-cased name —
+  // mirrors the server. The prize sheet defaults to `prizes` regardless of the
+  // fleet count (when co-publishing the server disambiguates to
+  // `{series-slug}-prizes`).
   const defaultSubPath = useMemo(() => {
     const single = fleets.length <= 1;
     return (name: string) =>
-      name === 'Prizes' ? 'prizes' : single ? 'standings' : fleetSubPath(name, false);
-  }, [fleets.length]);
+      name === 'Prizes'
+        ? 'prizes'
+        : single
+          ? defaultPageSlug(raceResults)
+          : fleetSubPath(name, false);
+  }, [fleets.length, raceResults]);
 
   // Load publication state each time the dialog opens, and seed the per-fleet
   // selection + sub-paths from it. Syncing with the external open signal, so the
@@ -849,17 +859,17 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                     checked
                     disabled
                     className="h-4 w-4 shrink-0"
-                    aria-label="Publish Standings"
+                    aria-label={`Publish ${lonePageLabel}`}
                     title="The results page always publishes"
                   />
-                  <span className="w-36 shrink-0 truncate text-sm">Standings</span>
+                  <span className="w-36 shrink-0 truncate text-sm">{lonePageLabel}</span>
                   <Input
                     value={singlePath}
                     onChange={(e) => {
                       setSinglePath(sanitizeSlug(e.target.value));
                       setError(null);
                     }}
-                    placeholder="standings"
+                    placeholder={defaultPageSlug(raceResults)}
                     aria-label="Page URL"
                     className="flex-1 min-w-0 h-7 text-xs font-mono"
                   />

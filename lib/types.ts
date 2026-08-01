@@ -826,6 +826,10 @@ export interface PublishedSeriesPage {
   // The prize sheet (#240) — `fleetName` is then "Prizes". Lets the listing
   // label the page as prizes rather than as a fleet's standings.
   isPrizes?: boolean;
+  // Published at race-results detail (#347). Lets a listing call a lone page
+  // "Results" rather than "Standings"; the page itself carries no summary.
+  // Sparse — absent on every full-detail page, and on prize sheets.
+  isRaceResults?: boolean;
   // Sub-path under the slug: `standings` for a single (default) fleet, or
   // `kebab(fleetName)` for a named fleet — prefixed `kebab(block)/` for a
   // sub-series page. Never empty (the bare slug is the listing). The full

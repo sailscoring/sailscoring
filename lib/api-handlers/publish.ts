@@ -320,6 +320,11 @@ export async function publishSeries(
   );
   const shared = others.length > 0;
   const seriesSlug = deriveSeriesSlug(series.name);
+  // A single-race event's lone page is a race result, not standings (#347):
+  // it is served at `results` and labelled as such. Only newly derived paths
+  // are affected — a page published before the setting was flipped keeps the
+  // frozen path it announced.
+  const raceResults = series.publishDetail === 'races';
   const overrides = input.subPaths ?? {};
   // The lone default page is overridden via `defaultSubPath` (keyed by
   // `isDefault`), since its fleet name can be synthetic and unknown to the
@@ -357,7 +362,7 @@ export async function publishSeries(
       leaf = shared ? `${seriesSlug}-prizes` : 'prizes';
       if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
     } else {
-      leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared);
+      leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared, raceResults);
       // A derived page lands in the publication's event folder like every
       // overridden one (ADR-011: a publication's pages share one folder).
       // This is how server-built pages the dialog cannot enumerate — the
@@ -400,6 +405,7 @@ export async function publishSeries(
         fleetName: file.fleetName,
         ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
         ...(file.isPrizes ? { isPrizes: true } : {}),
+        ...(raceResults && !file.isPrizes ? { isRaceResults: true } : {}),
         subPath,
         blobUrl,
       };

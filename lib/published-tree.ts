@@ -20,7 +20,7 @@
 import { escapeHtml as esc } from './html';
 import { humanizeSlug } from './publishing';
 import { renderPublicHero, renderPublicShell } from './published-shell';
-import type { SeriesIndexPage } from './published-index';
+import { loneResultsPageLabel, type SeriesIndexPage } from './published-index';
 
 /** A page in a slug group, with its contributing series named so labels can
  *  distinguish same-named pages from different series on a shared slug. */
@@ -141,12 +141,14 @@ const SYNTHETIC_FLEET_NAMES = new Set(['Default', 'Unknown']);
 function baseLeafLabel(page: TreePage, soleContributor: boolean): string {
   if (page.isPrizes) return page.fleetName;
   // A synthetic name is never shown: such a page is its publication's (or
-  // block's) standings, so call it that — by the series' name when the slug
-  // is shared, since "Standings" alone wouldn't say whose.
+  // block's) standings — its race result, on a single-race event (#347) — so
+  // call it that, by the series' name when the slug is shared, since the bare
+  // word wouldn't say whose.
+  const lone = loneResultsPageLabel(page);
   if (SYNTHETIC_FLEET_NAMES.has(page.fleetName)) {
-    return soleContributor ? 'Standings' : (page.ownerName ?? 'Standings');
+    return soleContributor ? lone : (page.ownerName ?? lone);
   }
-  if (page.ownerSingle && soleContributor) return 'Standings';
+  if (page.ownerSingle && soleContributor) return lone;
   return page.fleetName;
 }
 

@@ -228,6 +228,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         fleetName: string;
         subSeriesName?: string;
         isPrizes?: boolean;
+        isRaceResults?: boolean;
         subPath: string;
       }[];
     }[];
@@ -269,6 +270,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     fleetName: string;
     subSeriesName?: string;
     isPrizes?: boolean;
+    isRaceResults?: boolean;
     subPath: string;
   };
   type Contributor = {
@@ -327,6 +329,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         fleetName: p.fleetName,
         ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
         ...(p.isPrizes ? { isPrizes: true } : {}),
+        ...(p.isRaceResults ? { isRaceResults: true } : {}),
         subPath: p.subPath,
       })),
     });

@@ -54,6 +54,26 @@ describe('fleetSubPath', () => {
   });
 });
 
+describe('a single-race event\'s lone page (#347)', () => {
+  it('is served at "results" rather than "standings"', () => {
+    expect(fleetSubPath('Default', true, true)).toBe('results');
+    expect(publicationSubPath('Default', true, 'lambay-race-2026', false, true)).toBe('results');
+  });
+
+  it('leaves named fleets alone — they are served at their own name either way', () => {
+    expect(fleetSubPath('Class 1', false, true)).toBe('class-1');
+    expect(publicationSubPath('Class 1', false, 'lambay-race-2026', false, true)).toBe('class-1');
+  });
+
+  it('still falls back to the series slug on a shared slug', () => {
+    // The synthetic single fleet can't claim `results` any more than it could
+    // claim `standings` when several series publish into one folder.
+    expect(publicationSubPath('Default', true, 'lambay-race-2026', true, true)).toBe(
+      'lambay-race-2026',
+    );
+  });
+});
+
 describe('publicationSubPath', () => {
   it('keeps the clean "standings" path for a sole contributor', () => {
     expect(publicationSubPath('Default', true, 'lambay-races-cruisers', false)).toBe(

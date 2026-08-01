@@ -10,8 +10,9 @@
  *   - `workspaceSlug` is the org slug (`hyc`, or `u-{id}` for personal).
  *   - the folder slug is `kebab(series name)` by default, editable at first
  *     publish, frozen after.
- *   - `subPath` is `standings` for a single (default) fleet, `kebab(fleet)`
- *     for a named fleet, or `{block}/{fleet}` for a sub-series page. The bare
+ *   - `subPath` is `standings` for a single (default) fleet (`results` where
+ *     the series publishes a race result, #347), `kebab(fleet)` for a named
+ *     fleet, or `{block}/{fleet}` for a sub-series page. The bare
  *     `/p/{ws}/{slug}` is reserved for the folder's listing (#162), so every
  *     page is a sub-page; interior prefixes resolve to folder indexes.
  */
@@ -44,13 +45,21 @@ export function humanizeSlug(slug: string): string {
     .join(' ');
 }
 
+/** What a publication's lone default page is called, and served at: a
+ *  single-race event publishes a race result, not standings (#347). Named
+ *  fleets are unaffected — they are served at their own name either way. */
+export function defaultPageSlug(raceResults?: boolean): string {
+  return raceResults ? 'results' : 'standings';
+}
+
 /**
  * Sub-path under the series slug for a fleet's page. A single (default) fleet
- * is served at `standings`; named fleets at `kebab(fleetName)`. This is the
- * sole-contributor scheme — see {@link publicationSubPath} for the shared case.
+ * is served at `standings` — `results` for a race-results series — and named
+ * fleets at `kebab(fleetName)`. This is the sole-contributor scheme; see
+ * {@link publicationSubPath} for the shared case.
  */
-export function fleetSubPath(fleetName: string, isDefault: boolean): string {
-  return isDefault ? 'standings' : kebab(fleetName);
+export function fleetSubPath(fleetName: string, isDefault: boolean, raceResults?: boolean): string {
+  return isDefault ? defaultPageSlug(raceResults) : kebab(fleetName);
 }
 
 /**
@@ -73,9 +82,10 @@ export function publicationSubPath(
   isDefault: boolean,
   seriesSlug: string,
   shared: boolean,
+  raceResults?: boolean,
 ): string {
   if (!isDefault) return kebab(fleetName);
-  if (!shared) return 'standings';
+  if (!shared) return defaultPageSlug(raceResults);
   // The synthetic single fleet ("Default") falls back to the series slug so
   // co-published single-fleet series don't collide; a named lone fleet uses
   // its own name.
