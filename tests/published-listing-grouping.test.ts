@@ -52,11 +52,13 @@ describe('groupWorkspaceListing', () => {
     const { active, past } = groupWorkspaceListing([
       item({ slug: 'active-one' }),
       item({ slug: 'old-2024', archived: true, year: 2024 }),
-      item({ slug: 'old-2025', archived: true, year: 2025 }),
+      item({ slug: 'old-2025-newer', archived: true, year: 2025, publishedAt: 9_000_000_000_000 }),
+      item({ slug: 'old-2025-older', archived: true, year: 2025, publishedAt: 8_000_000_000_000 }),
       item({ slug: 'old-undated', archived: true, year: null }),
     ]);
     expect(active.map((g) => g.categoryName)).toEqual([null]);
     expect(past.map((g) => g.year)).toEqual([2025, 2024, null]);
+    expect(past[0].items.map((i) => i.slug)).toEqual(['old-2025-newer', 'old-2025-older']);
   });
 
   it('sorts null category and series orders last, like absent ones', () => {
@@ -69,6 +71,14 @@ describe('groupWorkspaceListing', () => {
     ]);
     expect(active.map((g) => g.categoryName)).toEqual(['Fleet', 'Tail']);
     expect(active[0].items.map((i) => i.slug)).toEqual(['first', 'loose']);
+  });
+
+  it('uses insertion order as the tiebreak when categories share the same categoryOrder', () => {
+    const { active } = groupWorkspaceListing([
+      item({ slug: 'alpha-1', categoryName: 'Alpha', categoryOrder: 0, seriesOrder: 1 }),
+      item({ slug: 'beta-1', categoryName: 'Beta', categoryOrder: 0, seriesOrder: 1 }),
+    ]);
+    expect(active.map((g) => g.categoryName)).toEqual(['Alpha', 'Beta']);
   });
 
   it('treats an orphaned/bare item as an active uncategorised entry', () => {
