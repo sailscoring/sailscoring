@@ -290,10 +290,10 @@ describe.skipIf(skip)('provision-org operations', () => {
 
     async function featuresOf(orgId: string) {
       const [row] = await db
-        .select({ metadata: schema.organization.metadata })
+        .select({ metadata: schema.organization.metadata, slug: schema.organization.slug })
         .from(schema.organization)
         .where(eq(schema.organization.id, orgId));
-      return parseOrgMetadata(row.metadata, org.slug).enabledFeatures.sort();
+      return parseOrgMetadata(row.metadata, row.slug).enabledFeatures.sort();
     }
 
     expect(await featuresOf(org.id)).toEqual(['echo', 'ftp-upload']);
