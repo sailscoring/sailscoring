@@ -118,6 +118,8 @@ function seriesRowToType(row: SeriesRow): Series {
     ...(row.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
     ...(row.finalisedAt ? { finalisedAt: row.finalisedAt.getTime() } : {}),
     ...(row.protestTimeLimit ? { protestTimeLimit: row.protestTimeLimit } : {}),
+    ...(row.officials?.length ? { officials: row.officials } : {}),
+    ...(row.publishOfficials ? { publishOfficials: true } : {}),
     enabledCompetitorFields: row.enabledCompetitorFields,
     ...(row.multiPersonFields?.length ? { multiPersonFields: row.multiPersonFields } : {}),
     primaryPersonLabel: row.primaryPersonLabel,
@@ -188,6 +190,8 @@ function raceRowToType(row: RaceRow): Race {
     ...(row.lastFinisherTime ? { lastFinisherTime: row.lastFinisherTime } : {}),
     ...(row.discardPolicy ? { discardPolicy: row.discardPolicy } : {}),
     ...(row.pointsMultiplier != null ? { pointsMultiplier: row.pointsMultiplier } : {}),
+    ...(row.conditions ? { conditions: row.conditions } : {}),
+    ...(row.officials?.length ? { officials: row.officials } : {}),
     createdAt: row.createdAt.getTime(),
     version: row.version,
   };
@@ -596,6 +600,8 @@ function seriesToRow(s: Series, workspaceId: string) {
     resultsStatus: s.resultsStatus ?? 'provisional',
     finalisedAt: s.finalisedAt != null ? new Date(s.finalisedAt) : null,
     protestTimeLimit: s.protestTimeLimit ?? null,
+    officials: s.officials ?? [],
+    publishOfficials: s.publishOfficials ?? false,
     enabledCompetitorFields: s.enabledCompetitorFields,
     multiPersonFields: s.multiPersonFields?.length ? s.multiPersonFields : null,
     primaryPersonLabel: s.primaryPersonLabel,
@@ -620,7 +626,7 @@ const seriesUpdateColumns = [
   'ftpLastUploadedAt', 'ftpUploadedVersion', 'includeJsonExport',
   'publishRatingCalculations', 'showPerRaceRatingsInSummary',
   'publishingGroups', 'publishIndividualFleetPages', 'rrsOrgPush', 'prizes',
-  'resultsStatus', 'finalisedAt', 'protestTimeLimit',
+  'resultsStatus', 'finalisedAt', 'protestTimeLimit', 'officials', 'publishOfficials',
   'enabledCompetitorFields', 'multiPersonFields', 'primaryPersonLabel', 'subdivisionAxes',
   'categoryId', 'archived', 'source',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];
@@ -1148,12 +1154,15 @@ function raceToRow(r: Race, workspaceId: string) {
     lastFinisherTime: r.lastFinisherTime ?? null,
     discardPolicy: r.discardPolicy ?? null,
     pointsMultiplier: r.pointsMultiplier ?? null,
+    conditions: r.conditions ?? null,
+    officials: r.officials ?? null,
     createdAt: new Date(r.createdAt),
   };
 }
 
 const raceUpdateColumns = [
   'raceNumber', 'name', 'date', 'lastFinisherTime', 'discardPolicy', 'pointsMultiplier',
+  'conditions', 'officials',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {

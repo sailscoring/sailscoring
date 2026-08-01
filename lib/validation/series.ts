@@ -20,7 +20,14 @@ import {
   PRIZE_RECIPIENT_COUNT_MAX,
 } from '@/lib/prizes';
 
-import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema } from './common';
+import {
+  OFFICIALS_MAX,
+  epochMsSchema,
+  isoDateSchema,
+  raceOfficialSchema,
+  uuidSchema,
+  versionSchema,
+} from './common';
 
 export const competitorFieldKeySchema = z.enum([
   'bowNumber',
@@ -165,6 +172,11 @@ export const seriesSchema = z.object({
   resultsStatus: z.enum(['provisional', 'final']).optional(),
   finalisedAt: epochMsSchema.optional(),
   protestTimeLimit: protestTimeLimitSchema.optional(),
+  // The standing race management team, and whether it is published. Officials
+  // are named non-competitors, so absent `publishOfficials` means not
+  // published — the safe reading for anything that predates the field.
+  officials: z.array(raceOfficialSchema).max(OFFICIALS_MAX).optional(),
+  publishOfficials: z.boolean().optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   multiPersonFields: z.array(z.enum(['primary', 'owner', 'helm', 'crewName'])).optional(),
   primaryPersonLabel: primaryPersonLabelSchema,

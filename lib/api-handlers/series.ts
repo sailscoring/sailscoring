@@ -425,6 +425,10 @@ export async function copySeries(
       // results *status* does not — a copy is a fork whose scorer makes
       // their own finality assertion, so it lands provisional.
       protestTimeLimit: source.protestTimeLimit ?? null,
+      // The standing team and its publish decision travel with the rest of the
+      // event config; the copy's scorer edits whoever has changed.
+      officials: source.officials ?? [],
+      publishOfficials: source.publishOfficials ?? false,
       enabledCompetitorFields: source.enabledCompetitorFields,
       multiPersonFields: source.multiPersonFields?.length ? source.multiPersonFields : null,
       primaryPersonLabel: source.primaryPersonLabel,
@@ -504,6 +508,10 @@ export async function copySeries(
           lastFinisherTime: r.lastFinisherTime ?? null,
           discardPolicy: r.discardPolicy ?? null,
           pointsMultiplier: r.pointsMultiplier ?? null,
+          // A copy duplicates the racing, finishes and all, so what each race
+          // was sailed in and who ran it are part of what is being copied.
+          conditions: r.conditions ?? null,
+          officials: r.officials ?? null,
           createdAt: new Date(r.createdAt),
         })),
       );
@@ -800,6 +808,10 @@ export async function createFollowOnSeries(
       // Same SIs, next series of the season: the limit config rolls over;
       // the fresh series is provisional by construction.
       protestTimeLimit: source.protestTimeLimit ?? null,
+      // Same club, next series of the season: the standing team rolls over
+      // like the rest of the config, and rotates by editing.
+      officials: source.officials ?? [],
+      publishOfficials: source.publishOfficials ?? false,
       enabledCompetitorFields: source.enabledCompetitorFields,
       multiPersonFields: source.multiPersonFields?.length ? source.multiPersonFields : null,
       primaryPersonLabel: source.primaryPersonLabel,

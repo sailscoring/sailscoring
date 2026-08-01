@@ -324,6 +324,65 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('RaceRepository: conditions and the race management team survive insert, update and clearing', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const r: Race = {
+      id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-06-06',
+      conditions: { windSpeedMin: 8, windSpeedMax: 14, windDirection: 'SW', notes: 'Course 2, ebb tide' },
+      officials: [
+        { id: uuid(), role: 'raceOfficer', name: 'Jane Smith' },
+        { id: uuid(), role: 'recorder', name: 'Tom Byrne' },
+      ],
+      createdAt: Date.now(),
+    };
+    await repos.races.save(r);
+    const inserted = await repos.races.get(r.id);
+    expect(inserted?.conditions).toEqual(r.conditions);
+    // Team order is the scorer's, so it has to survive the JSONB round-trip.
+    expect(inserted?.officials?.map((o) => [o.role, o.name])).toEqual([
+      ['raceOfficer', 'Jane Smith'],
+      ['recorder', 'Tom Byrne'],
+    ]);
+
+    await repos.races.save({ ...r, conditions: undefined, officials: undefined, version: inserted?.version });
+    const cleared = await repos.races.get(r.id);
+    expect(cleared?.conditions).toBeUndefined();
+    expect(cleared?.officials).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
+  test('SeriesRepository: the standing team and its publish opt-in round-trip', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+
+    // Absent on a series that has never set them — publication of named
+    // non-competitors must never default on.
+    const fresh = await repos.series.get(s.id);
+    expect(fresh?.officials).toBeUndefined();
+    expect(fresh?.publishOfficials).toBeUndefined();
+
+    await repos.series.save({
+      ...s,
+      officials: [{ id: uuid(), role: 'principalRaceOfficer', name: 'Ann Kelly' }],
+      publishOfficials: true,
+      version: fresh?.version,
+    });
+    const saved = await repos.series.get(s.id);
+    expect(saved?.officials?.[0]?.name).toBe('Ann Kelly');
+    expect(saved?.publishOfficials).toBe(true);
+
+    await repos.series.save({ ...saved!, officials: [], publishOfficials: false });
+    const cleared = await repos.series.get(s.id);
+    expect(cleared?.officials).toBeUndefined();
+    expect(cleared?.publishOfficials).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('RaceRepository: reorder renumbers 1..n without tripping the unique index', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = makeSeries();

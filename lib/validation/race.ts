@@ -2,8 +2,28 @@ import { z } from 'zod';
 
 import type { Race } from '@/lib/types';
 
-import { epochMsSchema, isoDateSchema, uuidSchema, versionSchema, wallClockSchema } from './common';
+import { COMPASS_POINTS, RACE_NOTES_MAX_LENGTH, WIND_SPEED_MAX } from '@/lib/race-conditions';
+import type { CompassPoint } from '@/lib/types';
+
+import {
+  OFFICIALS_MAX,
+  epochMsSchema,
+  isoDateSchema,
+  raceOfficialSchema,
+  uuidSchema,
+  versionSchema,
+  wallClockSchema,
+} from './common';
 import { raceStartInputSchema } from './race-start';
+
+/** Conditions a race was sailed in (#338). Every field optional — the block is
+ *  built up as the recording team has the numbers, not all at once. */
+export const raceConditionsSchema = z.object({
+  windSpeedMin: z.number().min(0).max(WIND_SPEED_MAX).optional(),
+  windSpeedMax: z.number().min(0).max(WIND_SPEED_MAX).optional(),
+  windDirection: z.enum(COMPASS_POINTS as readonly [CompassPoint, ...CompassPoint[]]).optional(),
+  notes: z.string().max(RACE_NOTES_MAX_LENGTH).optional(),
+});
 
 export const raceSchema = z.object({
   id: uuidSchema,
@@ -19,6 +39,12 @@ export const raceSchema = z.object({
   // non-integer value, so the bounds only exclude the nonsensical.
   discardPolicy: z.enum(['normal', 'mustCount', 'discardFirst']).optional(),
   pointsMultiplier: z.number().positive().max(100).optional(),
+  // What the race was sailed in, and who ran it. Wind speeds are bounded but
+  // not ordered here — a minimum above the maximum is caught in the dialog,
+  // where the scorer can see which of the two they meant; rejecting it at the
+  // boundary would only turn a typo into a 400.
+  conditions: raceConditionsSchema.optional(),
+  officials: z.array(raceOfficialSchema).max(OFFICIALS_MAX).optional(),
   createdAt: epochMsSchema,
   version: versionSchema,
 });

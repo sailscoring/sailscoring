@@ -34,8 +34,10 @@ import type {
   PrimaryPersonLabel,
   PublishingGroup,
   ProtestTimeLimit,
+  RaceConditions,
   RaceDiscardPolicy,
   RaceFleetExclusion,
+  RaceOfficial,
   RrsOrgPushConfig,
   Prize,
   SeriesSource,
@@ -223,6 +225,15 @@ export const series = pgTable(
     // Protest / redress time limit from the SIs ({minutes, basis}). Nullable
     // JSONB — absent = not tracked; never queried by content.
     protestTimeLimit: jsonb('protest_time_limit').$type<ProtestTimeLimit>(),
+    // The standing race management team for the event (#339), separate from
+    // each race's own. JSONB — a small, ordered list never queried by content.
+    officials: jsonb('officials')
+      .$type<RaceOfficial[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    // Whether that team is published. Officials are named non-competitors, so
+    // publication is opt-in; false is the safe default for every existing row.
+    publishOfficials: boolean('publish_officials').notNull().default(false),
     // Split-fleet (qualifying/final) series config (PROTOTYPE — see
     // lib/split-fleets.ts). Nullable JSONB, never queried by content; present
     // iff the series is a split-fleet series. Exposed through the
@@ -777,6 +788,11 @@ export const races = pgTable(
     // pointsMultiplier = counts once.
     discardPolicy: text('discard_policy').$type<RaceDiscardPolicy>(),
     pointsMultiplier: doublePrecision('points_multiplier'),
+    // What the race was sailed in, and who ran it (#338/#339). JSONB per the
+    // convention above: small, sparse, never queried by content. Null on both
+    // = nothing recorded, which is the common case.
+    conditions: jsonb('conditions').$type<RaceConditions>(),
+    officials: jsonb('officials').$type<RaceOfficial[]>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
