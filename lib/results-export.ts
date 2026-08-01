@@ -446,6 +446,13 @@ export async function buildFleetHtmlFiles(
                 ...(series.finalisedAt ? { finalisedAt: new Date(series.finalisedAt) } : {}),
               }
             : {}),
+          // Officials are named non-competitors, so nothing about the race
+          // management team reaches a page unless the series opted in. Passing
+          // the flag through keeps that decision in one place — the assembler
+          // — rather than in every renderer that touches a race.
+          ...(series.publishOfficials
+            ? { publishOfficials: true, ...(series.officials?.length ? { officials: series.officials } : {}) }
+            : {}),
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;

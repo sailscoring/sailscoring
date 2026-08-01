@@ -1,4 +1,4 @@
-import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel, RaceDiscardPolicy, SubdivisionAxis } from './types';
+import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
 import { parseHmsToSeconds } from './time-parse';
 import {
@@ -8,6 +8,8 @@ import {
   DEFAULT_SUBDIVISION_LABEL,
   isFieldDisabledByPrimary,
 } from './competitor-fields';
+import { formatConditions, hasConditions } from './race-conditions';
+import { formatOfficials, hasOfficials } from './race-officials';
 import { roundCorrectedSecs } from './scoring';
 import { describePrizeClauses, ordinal, type PrizeAllocation } from './prizes';
 import {
@@ -91,6 +93,9 @@ export interface SeriesResultsData {
    *  the export flow imports `lib/nationality/flags` dynamically and slices
    *  it down to the codes actually referenced. */
   flagSvgByCode?: Readonly<Record<string, { viewBox: string; inner: string }>>;
+  /** The event's standing race management team (#339). Set by the caller only
+   *  when the series has opted into publishing officials. */
+  officials?: RaceOfficial[];
 }
 
 export interface RaceData {
@@ -104,6 +109,12 @@ export interface RaceData {
    *  states it in words. Absent on an ordinary race. */
   discardPolicy?: RaceDiscardPolicy;
   pointsMultiplier?: number;
+  /** What the race was sailed in, and the course used (#338). Stated in words
+   *  above the race table. */
+  conditions?: RaceConditions;
+  /** Who ran this race (#339). Set only when the series has opted into
+   *  publishing officials. */
+  officials?: RaceOfficial[];
   startTime?: string; // "HH:MM:SS" gun time for this fleet (handicap fleets only)
   results: RaceResultData[];
   /** True when the fleet uses NHC scoring. Drives the "TCF" rating column
@@ -422,6 +433,10 @@ export interface DocumentChrome {
   finalisedAt?: Date;
   seriesIndexUrl?: string;
   openInAppUrl?: string;
+  /** The event's standing race management team, rendered under the results
+   *  stamp. The caller has already applied the series' publish opt-in — the
+   *  renderer never decides whether officials may be shown. */
+  officials?: RaceOfficial[];
 }
 
 export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
@@ -496,6 +511,7 @@ export function renderCombinedSeriesHtml(
     finalisedAt: first.finalisedAt,
     seriesIndexUrl: first.seriesIndexUrl,
     openInAppUrl: first.openInAppUrl,
+    officials: first.officials,
   };
   return renderHtmlDocument(chrome, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
 }
@@ -575,7 +591,7 @@ export function renderHtmlDocument(
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string },
 ): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl } = chrome;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, officials } = chrome;
   const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
@@ -669,6 +685,7 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 ${resultsFinal
   ? `<h3 class="seriestitle">Final results${finalisedAt ? ` — declared ${formatDate(finalisedAt)}` : ''}</h3>`
   : generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
+${hasOfficials(officials) ? `<p class="seriesofficials" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(formatOfficials(officials))}</p>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${flagDefs}
 ${content}
@@ -1052,8 +1069,17 @@ function renderRaceTable(
   const optionsSubheading = optionsNote
     ? `<p class="raceoptions" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(optionsNote)}</p>\n`
     : '';
+  // The race record: conditions, then whoever ran it. Two lines rather than
+  // one — a scorer reading down a page is looking for the wind or for the
+  // team, and rarely both at once.
+  const conditionsSubheading = hasConditions(race.conditions)
+    ? `<p class="raceconditions" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(formatConditions(race.conditions))}</p>\n`
+    : '';
+  const officialsSubheading = hasOfficials(race.officials)
+    ? `<p class="raceofficials" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(formatOfficials(race.officials))}</p>\n`
+    : '';
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${nameStr}${dateStr}${startStr}</h3>
-${optionsSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
+${optionsSubheading}${conditionsSubheading}${officialsSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
@@ -1337,7 +1363,7 @@ function maybeLink(url: string | undefined, inner: string): string {
  */
 export function assembleSeriesResultsData(
   series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string },
-  races: Array<{ id: string; raceNumber: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number }>,
+  races: Array<{ id: string; raceNumber: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
   standings: Array<{
     rank: number;
     competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
@@ -1391,9 +1417,16 @@ export function assembleSeriesResultsData(
      *  the provisional-as-of line, dated by `finalisedAt` when known. */
     resultsFinal?: boolean;
     finalisedAt?: Date;
+    /** The event's standing race management team. Officials are published
+     *  only when the series has opted in, and this is the one place that
+     *  decision is applied: callers pass the teams when `publishOfficials` is
+     *  set and omit them otherwise, so the renderer never has to know. */
+    officials?: RaceOfficial[];
+    /** Whether per-race teams reach the page, on the same opt-in. */
+    publishOfficials?: boolean;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -1532,6 +1565,8 @@ export function assembleSeriesResultsData(
       anchorId: `${anchorPrefix ?? ''}r${race.raceNumber}`,
       ...(race.discardPolicy && race.discardPolicy !== 'normal' ? { discardPolicy: race.discardPolicy } : {}),
       ...(race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? { pointsMultiplier: race.pointsMultiplier } : {}),
+      ...(hasConditions(race.conditions) ? { conditions: race.conditions } : {}),
+      ...(publishOfficials && hasOfficials(race.officials) ? { officials: race.officials } : {}),
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
@@ -1620,6 +1655,7 @@ export function assembleSeriesResultsData(
     generatedAt,
     ...(resultsFinal ? { resultsFinal: true } : {}),
     ...(finalisedAt ? { finalisedAt } : {}),
+    ...(publishOfficials && hasOfficials(officials) ? { officials } : {}),
     enabledCompetitorFields,
     ...(primaryPersonLabel ? { primaryPersonLabel } : {}),
     ...(subdivisionAxes?.length ? { subdivisionAxes } : {}),
