@@ -42,7 +42,16 @@ export function RaceManagementCard({
     setChanged(false);
   }
 
-  const published = series.publishOfficials === true;
+  // The switch is mirrored locally so it responds to the click rather than to
+  // the round-trip; the save is not optimistic, so a purely controlled input
+  // would sit unmoved until the row came back. Re-synced at render time when
+  // the persisted value changes identity, as the team list is above.
+  const [published, setPublished] = useState(series.publishOfficials === true);
+  const [prevPublished, setPrevPublished] = useState(series.publishOfficials);
+  if (prevPublished !== series.publishOfficials) {
+    setPrevPublished(series.publishOfficials);
+    setPublished(series.publishOfficials === true);
+  }
 
   async function save() {
     // Half-filled rows are editing artefacts, not members.
@@ -96,9 +105,11 @@ export function RaceManagementCard({
               type="checkbox"
               checked={published}
               onChange={(e) => {
+                const next = e.target.checked;
+                setPublished(next);
                 updateSeries.mutate({
                   id: seriesId,
-                  patch: { publishOfficials: e.target.checked, lastModifiedAt: Date.now() },
+                  patch: { publishOfficials: next, lastModifiedAt: Date.now() },
                 });
               }}
               className="mt-0.5 h-4 w-4 shrink-0"
