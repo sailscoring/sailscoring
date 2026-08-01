@@ -71,6 +71,14 @@ describe('groupWorkspaceListing', () => {
     expect(active[0].items.map((i) => i.slug)).toEqual(['first', 'loose']);
   });
 
+  it('uses insertion order as the tiebreak when categories share the same categoryOrder', () => {
+    const { active } = groupWorkspaceListing([
+      item({ slug: 'alpha-1', categoryName: 'Alpha', categoryOrder: 0, seriesOrder: 1 }),
+      item({ slug: 'beta-1', categoryName: 'Beta', categoryOrder: 0, seriesOrder: 1 }),
+    ]);
+    expect(active.map((g) => g.categoryName)).toEqual(['Alpha', 'Beta']);
+  });
+
   it('treats an orphaned/bare item as an active uncategorised entry', () => {
     const { active, past } = groupWorkspaceListing([item({ slug: 'orphan' })]);
     expect(past).toEqual([]);
