@@ -77,6 +77,10 @@ const raceTableSchema = z.object({
 
 const fleetResultsSchema = z.object({
   caption: z.string().max(400).optional(),
+  /** 'races' publishes the race tables alone (#347). `rows` is still
+   *  required — the identity spine reads it — so a generator setting this
+   *  synthesises the summary rows it no longer displays. */
+  detail: z.enum(['races']).optional(),
   leadColumns: z.array(columnSchema).max(20),
   raceHeaders: z.array(raceHeaderSchema).max(60),
   summaryColumns: z.array(columnSchema).max(20),
@@ -259,6 +263,11 @@ export const archiveSeriesDocSchema = z
     });
     doc.fleets.forEach((fleet, fi) => {
       const { leadColumns, raceHeaders, summaryColumns, rows } = fleet.results;
+      // Race-results detail renders the race tables and nothing else, so a
+      // fleet claiming it without one would publish an empty page.
+      if (fleet.results.detail === 'races' && (fleet.results.raceTables?.length ?? 0) === 0) {
+        ctx.addIssue({ code: 'custom', message: "detail 'races' needs at least one race table", path: ['fleets', fi, 'results', 'detail'] });
+      }
       (fleet.results.raceTables ?? []).forEach((table, ti) => {
         table.rows.forEach((row, ri) => {
           if (row.cells.length !== table.columns.length) {

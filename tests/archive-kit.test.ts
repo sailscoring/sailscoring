@@ -403,6 +403,94 @@ describe('document schema', () => {
   });
 });
 
+describe("as-published race-results detail (#347)", () => {
+  const RACE_TABLE = {
+    label: 'Lambay Race',
+    columns: [
+      { key: 'rank', label: 'Rank' },
+      { key: 'boat', label: 'Boat' },
+      { key: 'points', label: 'Points' },
+    ],
+    rows: [
+      { rank: 1, cells: ['1', 'Aurelia', '1.0'] },
+      { rank: 2, cells: ['2', 'Bandit', '2.0'] },
+    ],
+  };
+  const RESULTS = {
+    detail: 'races' as const,
+    leadColumns: [{ key: 'helmname', label: 'Helm' }],
+    raceHeaders: [{ label: 'R1' }],
+    summaryColumns: [{ key: 'nett', label: 'Nett' }],
+    // Structural, not display: the identity spine reads these rows even
+    // though the page shows only the race table.
+    rows: [
+      {
+        competitorId: '11111111-2222-4333-8444-5555555555aa',
+        rank: 1,
+        rankLabel: '1st',
+        leadCells: ['Aurelia'],
+        raceCells: [{ text: '1' }],
+        summaryCells: ['1.0'],
+      },
+    ],
+    raceTables: [RACE_TABLE],
+  };
+
+  test('a fleet page renders the race table alone', async () => {
+    const { renderAsPublishedFleetHtml } = await import('@/lib/archive-kit/render');
+    const html = renderAsPublishedFleetHtml({ seriesName: 'Lambay Race' }, RESULTS);
+    expect(html).toContain('class="racetable"');
+    expect(html).not.toContain('class="summarytable"');
+    expect(html).not.toContain('>Nett<');
+    expect(html).toContain('Aurelia');
+  });
+
+  test('a combined page drops only the race-results sections\' standings', async () => {
+    const { renderAsPublishedCombinedHtml } = await import('@/lib/archive-kit/render');
+    const withStandings = { ...RESULTS, detail: undefined };
+    const html = renderAsPublishedCombinedHtml({ seriesName: 'Mixed' }, [
+      { name: 'Class 1', results: RESULTS },
+      { name: 'Class 2', results: withStandings },
+    ]);
+    // Only the full-detail section contributes a standings heading…
+    expect(html).not.toContain('<h3 class="summarytitle">Class 1</h3>');
+    expect(html).toContain('<h3 class="summarytitle">Class 2</h3>');
+    // …and both sections' race tables are there.
+    expect(html.match(/class="racetable"/g)).toHaveLength(2);
+  });
+
+  test('the ingest format rejects race-results detail with no race table', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const doc = (results: unknown) => ({
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'Lambay Race',
+        publishedSlug: '2026',
+      },
+      fleets: [
+        {
+          id: '11111111-2222-4333-8444-555555555555',
+          name: 'Class 1',
+          subPath: 'lambay-race/class-1',
+          results,
+        },
+      ],
+      competitors: [
+        {
+          id: '11111111-2222-4333-8444-5555555555aa',
+          name: 'Aurelia',
+          sailNumber: '1234',
+          fleetIds: ['11111111-2222-4333-8444-555555555555'],
+        },
+      ],
+    });
+    expect(archiveSeriesDocSchema.safeParse(doc(RESULTS)).success).toBe(true);
+    const noRaceTable = { ...RESULTS, raceTables: undefined };
+    expect(archiveSeriesDocSchema.safeParse(doc(noRaceTable)).success).toBe(false);
+  });
+});
+
 describe('combined pages (#321)', () => {
   const FLEET_A = '11111111-2222-4333-8444-555555555555';
   const FLEET_B = '11111111-2222-4333-8444-555555555556';

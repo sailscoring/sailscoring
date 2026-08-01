@@ -85,6 +85,14 @@ export interface AsPublishedRaceTable {
  *  `as_published_results`: the summary standings table, plus optional
  *  per-race detail tables below it. */
 export interface AsPublishedFleetResults {
+  /** How much of this fleet to render. 'races' publishes the race tables
+   *  alone — a single-race event, whose summary would be one race column and
+   *  a total equal to that race's score. `rows` stays required regardless:
+   *  it is structural, not display. The identity spine, the rankings, and the
+   *  career arcs all read `competitorId` + `rank` off it, so a generator
+   *  emitting 'races' synthesises those rows from the captured race table.
+   *  Absent = the summary table, then any race tables. */
+  detail?: 'races';
   /** The source's caption line, e.g.
    *  "Sailed: 6, Discards: 1, To count: 5, Entries: 46, Scoring system:
    *  Appendix A". Display-only context. */

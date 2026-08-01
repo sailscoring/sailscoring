@@ -197,7 +197,8 @@ ${body}
 </div>`;
 }
 
-/** One fleet's standings table followed by its per-race detail tables. */
+/** One fleet's standings table followed by its per-race detail tables — or,
+ *  at race-results detail (#347), the race tables alone. */
 function renderFleetContent(
   results: AsPublishedFleetResults,
   flagSvgByCode: AsPublishedPageChrome['flagSvgByCode'],
@@ -205,6 +206,10 @@ function renderFleetContent(
   const raceTables = (results.raceTables ?? [])
     .map(renderAsPublishedRaceTable)
     .join('\n');
+  // The ingest format rejects 'races' without a race table, so this never
+  // renders an empty page; the guard keeps that a local fact rather than a
+  // trust in the validator.
+  if (results.detail === 'races' && raceTables) return raceTables;
   const table = renderAsPublishedTable(results, { flagSvgByCode });
   return raceTables ? `${table}\n${raceTables}` : table;
 }
@@ -262,6 +267,9 @@ export function renderAsPublishedCombinedHtml(
   // first, each under its heading, then all the per-race detail tables. The
   // race titles already name their fleet, so the race block needs no headings.
   const standings = sections
+    // A race-results section (#347) contributes no standings table; its race
+    // tables carry the heading role, as they do on a standalone page.
+    .filter((section) => section.results.detail !== 'races')
     .map(
       (section) =>
         `<h3 class="summarytitle">${esc(section.name)}</h3>\n${renderAsPublishedTable(
@@ -275,7 +283,7 @@ export function renderAsPublishedCombinedHtml(
       (section.results.raceTables ?? []).map(renderAsPublishedRaceTable),
     )
     .join('\n');
-  const content = races ? `${standings}\n${races}` : standings;
+  const content = standings && races ? `${standings}\n${races}` : standings || races;
   const codes = new Set<string>();
   for (const section of sections) {
     for (const code of collectNationalityCodes(section.results)) codes.add(code);

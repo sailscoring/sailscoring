@@ -418,7 +418,7 @@ async function publishArchiveSeries(
   // Pages in fleet display order: a combined page emits at its first member;
   // its other members are skipped (they publish only as sections).
   const emittedGroups = new Set<string>();
-  const files: Array<{ fleetName: string; subPath: string; html: string }> = [];
+  const files: Array<{ fleetName: string; subPath: string; html: string; isRaceResults?: boolean }> = [];
   for (const fleet of doc.fleets) {
     const group = groupByMemberId.get(fleet.id);
     if (group) {
@@ -431,6 +431,11 @@ async function publishArchiveSeries(
       files.push({
         fleetName: group.name,
         subPath: group.subPath,
+        // A combined page reads as race results only when every section does;
+        // a mixed page still carries standings, so it is labelled as such.
+        ...(sections.every((s) => s.results.detail === 'races')
+          ? { isRaceResults: true }
+          : {}),
         html: renderAsPublishedCombinedHtml(
           { ...commonChrome, fleetName: group.name },
           sections,
@@ -442,6 +447,7 @@ async function publishArchiveSeries(
     files.push({
       fleetName: fleet.name,
       subPath: fleet.subPath as string,
+      ...(fleet.results.detail === 'races' ? { isRaceResults: true } : {}),
       html: renderAsPublishedFleetHtml(
         {
           ...commonChrome,
@@ -487,6 +493,7 @@ async function publishArchiveSeries(
     async (f) => ({
       fleetName: f.fleetName,
       subPath: f.subPath,
+      ...(f.isRaceResults ? { isRaceResults: true } : {}),
       blobUrl: await putPublishedHtml(
         publishedBlobKey(workspace.workspaceSlug, slug, f.subPath, hash),
         f.html,
