@@ -78,6 +78,8 @@ export default async function HelpPage() {
             ['#discard-rules', 'Discard rules'],
             // Gated: only listed when race-scoring-options is enabled (#342).
             ['#race-scoring-options', 'Per-race scoring options', 'race-scoring-options'],
+            // Gated: only listed when race-management-metadata is enabled (#338/#339).
+            ['#race-management-metadata', 'Race conditions and the management team', 'race-management-metadata'],
             ['#a53-scoring', 'A5.3 starting-area scoring'],
             ['#saving-and-sharing', 'Saving and sharing a series'],
             ['#collaboration', 'Working with co-scorers'],
@@ -1590,6 +1592,52 @@ export default async function HelpPage() {
             beneath the table saying what each one does. The cells show the weighted score, so the
             row still adds up to the total; a race’s own results table keeps its face-value points
             and states the multiplier separately. Published pages carry the same marks.
+          </p>
+        </Section>
+      )}
+
+      {has('race-management-metadata') && (
+        <Section id="race-management-metadata" title="Race conditions and the management team">
+          <p>
+            A race is more than its finishing order. What it was sailed in, and who ran it, belong
+            on the record too — and in the case of wind, they are a scoring input in waiting. Open
+            a race and click the record line in its header (or{' '}
+            <strong className="text-foreground">Race record…</strong> from its row on the{' '}
+            <strong className="text-foreground">Races</strong> tab, or press{' '}
+            <kbd className="px-1 border rounded text-xs">r</kbd>).
+          </p>
+          <p>
+            <strong className="text-foreground">Wind</strong> is recorded as a range — a minimum
+            and a maximum in knots — plus a direction from the sixteen points of the compass. A
+            range rather than one figure because that is what a race officer stipulates, and
+            because handicap systems that select a rating from the conditions use the average of
+            the two. Record just one of the two if that is all you have. The{' '}
+            <strong className="text-foreground">Course and notes</strong> field is free text: the
+            course sailed, the tide, or anything else worth keeping.
+          </p>
+          <p>
+            The <strong className="text-foreground">race management team</strong> is a list of
+            names, each with a role. The roles are World Sailing’s, from its Race Management
+            Manual, rather than club usage — so what a club calls the{' '}
+            <strong className="text-foreground">OOD</strong> or Officer of the Day is a{' '}
+            <strong className="text-foreground">Race Officer</strong> here, and the person
+            recording finishes is a <strong className="text-foreground">Recorder</strong>. One
+            fixed list keeps two names for the same job from both appearing in your results.
+          </p>
+          <p>
+            There are two places to record a team, and they are kept separate on purpose.{' '}
+            <strong className="text-foreground">Series Settings</strong> holds the{' '}
+            <em>standing</em> team for the event — what a regatta with the same people all week
+            wants. Each race holds its <em>own</em> team — what a club series with a rotating duty
+            wants. Neither one inherits from or overrides the other: fill in both and both appear.
+          </p>
+          <p>
+            <strong className="text-foreground">Officials are not published unless you say so.</strong>{' '}
+            These are the names of people who are not competitors, so the{' '}
+            <strong className="text-foreground">Publish the race management team</strong> switch on
+            Series Settings is off by default. While it is off, no team — the standing one or any
+            race’s — appears on a published page or in the data export attached to it. Conditions
+            are always published; they describe the racing rather than a person.
           </p>
         </Section>
       )}
