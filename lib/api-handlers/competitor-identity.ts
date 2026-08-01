@@ -6,7 +6,12 @@ import {
   type WorkspaceContext,
 } from '@/lib/auth/require-workspace';
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
-import { collectClusterInputs, collectStaleLinks, type StaleLink } from '@/lib/competitor-identity-reconcile';
+import {
+  collectClusterInputs,
+  collectStaleLinks,
+  workspaceCrewIdentityFeatureOn,
+  type StaleLink,
+} from '@/lib/competitor-identity-reconcile';
 import {
   addIdentityDistinction,
   getIdentityArc,
@@ -228,7 +233,9 @@ export async function reviewQueue(
   workspace: WorkspaceContext,
 ): Promise<{ mergeSuggestions: MergeSuggestion[]; staleLinks: StaleLink[] }> {
   requireFeature(workspace, 'competitor-reconcile');
-  const inputs = await collectClusterInputs(getDb(), workspace.workspaceId);
+  const inputs = await collectClusterInputs(getDb(), workspace.workspaceId, {
+    includeCrew: await workspaceCrewIdentityFeatureOn(getDb(), workspace.workspaceId),
+  });
   const { clusters, suggestions } = clusterCompetitors(inputs);
   const dismissed = await listIdentityDistinctions(workspace.workspaceId);
 

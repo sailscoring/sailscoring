@@ -276,8 +276,10 @@ export async function collectStaleLinks(
  * resolves member rows against. A sail can repeat within a series (placeholder
  * sails in coached fleets, two siblings on a shared hull at one event — see the
  * iodai-archive identity audit), so each key maps to *all* its candidates and
- * the planner disambiguates by name. The collision count (keys with >1 row) is
- * returned for the operator's report.
+ * the planner disambiguates by name. Each candidate carries its crew names as
+ * well as its primary ones, so a crew member row is disambiguated against the
+ * field its person actually appears in (#348). The collision count (keys with
+ * >1 row) is returned for the operator's report.
  */
 export async function collectCompetitorIndex(
   db: SailScoringDb,
@@ -289,6 +291,7 @@ export async function collectCompetitorIndex(
       seriesId: competitors.seriesId,
       sailNumber: competitors.sailNumber,
       names: competitors.names,
+      crewNames: competitors.crewNames,
     })
     .from(competitors)
     .where(eq(competitors.workspaceId, workspaceId));
@@ -296,12 +299,17 @@ export async function collectCompetitorIndex(
   let collisions = 0;
   for (const r of rows) {
     const key = `${r.seriesId}|${r.sailNumber}`;
+    const candidate: CompetitorCandidate = {
+      competitorId: r.competitorId,
+      name: formatPrimaryNames(r.names),
+      ...(r.crewNames?.length ? { crewName: r.crewNames.join(' ') } : {}),
+    };
     const arr = index.get(key);
     if (arr) {
-      arr.push({ competitorId: r.competitorId, name: formatPrimaryNames(r.names) });
+      arr.push(candidate);
       collisions++;
     } else {
-      index.set(key, [{ competitorId: r.competitorId, name: formatPrimaryNames(r.names) }]);
+      index.set(key, [candidate]);
     }
   }
   return { index, collisions };
@@ -315,7 +323,12 @@ export async function collectCompetitorIndex(
  * id is removed first so the deterministic insert doesn't trip the
  * `(workspace, slug)` unique index (the FK clears its links; the manifest
  * re-links below). Manifest links are authoritative — they overwrite any prior
- * link on a covered row, unlike the auto-pass which only fills blanks.
+ * link on a covered slot, unlike the auto-pass which only fills blanks.
+ *
+ * "Covered slot", not "covered row": a crewed boat is claimed by two
+ * identities (#348), so clearing every link on a row would have the crew's
+ * assignment delete the helm's on its way past. Every covered slot is cleared
+ * once, up front, before anything is written back.
  */
 export async function applyManifest(
   db: SailScoringDb,
@@ -340,6 +353,30 @@ export async function applyManifest(
             eq(competitorIdentities.workspaceId, workspaceId),
             inArray(competitorIdentities.slug, targetSlugs),
             notInArray(competitorIdentities.id, targetIds),
+          ),
+        );
+    }
+
+    // Clear every slot the manifest covers, once, before writing any of them
+    // back. Doing it per assignment would have one identity's delete undo an
+    // earlier one's insert on a boat they share — the helm and crew case.
+    // Slots the manifest doesn't mention keep whatever they had.
+    for (const role of ['primary', 'crew'] as const) {
+      const rowIds = [
+        ...new Set(
+          writable.flatMap((a) =>
+            a.members.filter((m) => m.role === role).map((m) => m.competitorId),
+          ),
+        ),
+      ];
+      if (rowIds.length === 0) continue;
+      await tx
+        .delete(competitorIdentityLinks)
+        .where(
+          and(
+            eq(competitorIdentityLinks.workspaceId, workspaceId),
+            eq(competitorIdentityLinks.role, role),
+            inArray(competitorIdentityLinks.competitorId, rowIds),
           ),
         );
     }
@@ -372,26 +409,17 @@ export async function applyManifest(
         });
       identitiesWritten++;
 
-      if (a.competitorIds.length > 0) {
-        // The manifest is authoritative over rows it covers: replace their
-        // memberships wholesale, unlike the auto-pass which only fills blanks.
-        await tx
-          .delete(competitorIdentityLinks)
-          .where(
-            and(
-              eq(competitorIdentityLinks.workspaceId, workspaceId),
-              inArray(competitorIdentityLinks.competitorId, a.competitorIds),
-            ),
-          );
+      if (a.members.length > 0) {
         const res = await tx
           .insert(competitorIdentityLinks)
-          .values(a.competitorIds.map((id) => ({
-            competitorId: id,
+          .values(a.members.map((m) => ({
+            competitorId: m.competitorId,
             identityId: a.identityId,
             workspaceId,
+            role: m.role,
           })))
           .onConflictDoNothing();
-        competitorsLinked += res.count ?? a.competitorIds.length;
+        competitorsLinked += res.count ?? a.members.length;
       }
     }
   });
@@ -492,11 +520,10 @@ export async function applyClusters(
       // this cluster carried no membership at collect time — a row whose
       // co-owner A is already confirmed elsewhere still gets B's new link.
       const needing = cluster.members.filter((m) => m.needsLink);
-      const targetIds = (opts.onlyCompetitorIds
+      const targets = opts.onlyCompetitorIds
         ? needing.filter((m) => opts.onlyCompetitorIds!.has(m.competitorId))
-        : needing
-      ).map((m) => m.competitorId);
-      if (targetIds.length === 0) continue;
+        : needing;
+      if (targets.length === 0) continue;
 
       let identityId: string;
       if (existing.length === 1) {
@@ -518,15 +545,18 @@ export async function applyClusters(
 
       // Confirmed memberships were attributed at collect time and never
       // re-written here; the PK no-op absorbs a race with a concurrent pass.
+      // Each membership records the slot its person came out of (#348), so a
+      // crewing appearance stays distinguishable from a helming one.
       await tx
         .insert(competitorIdentityLinks)
-        .values(targetIds.map((id) => ({
-          competitorId: id,
+        .values(targets.map((m) => ({
+          competitorId: m.competitorId,
           identityId,
           workspaceId,
+          role: m.role,
         })))
         .onConflictDoNothing();
-      competitorsLinked += targetIds.length;
+      competitorsLinked += targets.length;
     }
   });
 

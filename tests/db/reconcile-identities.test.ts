@@ -449,3 +449,181 @@ describe.skipIf(skip)('reconcile-identities manifest apply path (#218)', () => {
     expect(byslug['ellie-tottenham-bb22']).toEqual([ellie]);
   });
 });
+
+/**
+ * Crew as people (#348). The auto-pass half is about the `role` stamp and the
+ * gate; the manifest half is about a boat being legitimately claimed twice,
+ * which the per-row "replace this row's memberships" rule used to make
+ * impossible.
+ */
+describe.skipIf(skip)('reconcile-identities crew slot (#348)', () => {
+  let sql!: Sql;
+  let db!: PostgresJsDatabase<typeof schema>;
+  let workspaceId!: string;
+  const seriesByYear: Record<number, string> = {};
+  const slugByYear: Record<number, string> = {};
+
+  beforeAll(async () => {
+    sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
+    db = drizzle(sql, { schema });
+    workspaceId = `org_crew_${uuid().replace(/-/g, '')}`;
+    await db.insert(schema.organization).values({
+      id: workspaceId,
+      name: 'crew-test',
+      slug: `crew-${workspaceId.slice(9, 17)}`,
+      createdAt: new Date(),
+    });
+    for (const year of [2023, 2024]) {
+      const id = uuid();
+      seriesByYear[year] = id;
+      slugByYear[year] = `ksc-event-${year}`;
+      await db.insert(schema.series).values({
+        id,
+        workspaceId,
+        name: `Event ${year}`,
+        startDate: `${year}-05-01`,
+        displayOrder: year,
+      });
+    }
+  });
+
+  afterAll(async () => {
+    if (workspaceId) {
+      await db.delete(schema.organization).where(eq(schema.organization.id, workspaceId));
+    }
+    await sql?.end();
+  });
+
+  async function addBoat(p: {
+    year: number;
+    name: string;
+    sailNumber: string;
+    crewNames?: string[];
+    club?: string;
+  }): Promise<string> {
+    const id = uuid();
+    await db.insert(schema.competitors).values({
+      id,
+      seriesId: seriesByYear[p.year],
+      workspaceId,
+      fleetIds: [],
+      sailNumber: p.sailNumber,
+      names: [p.name],
+      crewNames: p.crewNames ?? null,
+      club: p.club ?? 'KSC',
+      gender: '',
+      age: null,
+    });
+    return id;
+  }
+
+  async function linksOf(competitorId: string) {
+    const rows = await db
+      .select({
+        role: schema.competitorIdentityLinks.role,
+        label: schema.competitorIdentities.label,
+      })
+      .from(schema.competitorIdentityLinks)
+      .innerJoin(
+        schema.competitorIdentities,
+        eq(schema.competitorIdentities.id, schema.competitorIdentityLinks.identityId),
+      )
+      .where(eq(schema.competitorIdentityLinks.competitorId, competitorId));
+    return rows.map((r) => `${r.label}:${r.role}`).sort();
+  }
+
+  async function reconcile(includeCrew: boolean) {
+    const inputs = await collectClusterInputs(db, workspaceId, { includeCrew });
+    return applyClusters(db, workspaceId, clusterCompetitors(inputs));
+  }
+
+  let boat23!: string;
+  let boat24!: string;
+
+  test('without the gate, only the primary slot is linked', async () => {
+    boat23 = await addBoat({
+      year: 2023,
+      name: 'Frank Larkin',
+      sailNumber: '900',
+      crewNames: ['Maeve Dervan'],
+    });
+    await reconcile(false);
+    expect(await linksOf(boat23)).toEqual(['Frank Larkin:primary']);
+  });
+
+  test('with the gate, the crew gets an identity of their own', async () => {
+    await reconcile(true);
+    expect(await linksOf(boat23)).toEqual([
+      'Frank Larkin:primary',
+      'Maeve Dervan:crew',
+    ]);
+  });
+
+  test('a crew recurring on the same boat joins their own identity', async () => {
+    boat24 = await addBoat({
+      year: 2024,
+      name: 'Sam Cronin',
+      sailNumber: '900',
+      crewNames: ['Maeve Dervan'],
+    });
+    await reconcile(true);
+    expect(await linksOf(boat24)).toEqual([
+      'Maeve Dervan:crew',
+      'Sam Cronin:primary',
+    ]);
+    // One Maeve across both seasons, not one per appearance.
+    const maeve = await db
+      .select({ id: schema.competitorIdentities.id })
+      .from(schema.competitorIdentities)
+      .where(eq(schema.competitorIdentities.label, 'Maeve Dervan'));
+    expect(maeve).toHaveLength(1);
+  });
+
+  test('an unrecognisable crew cell mints nothing', async () => {
+    const boat = await addBoat({
+      year: 2024,
+      name: 'Ann Ryan',
+      sailNumber: '311',
+      crewNames: ['???'],
+    });
+    await reconcile(true);
+    expect(await linksOf(boat)).toEqual(['Ann Ryan:primary']);
+  });
+
+  test('a manifest can claim both slots of one boat', async () => {
+    // The sail addresses the boat, so helm and crew share a member key and
+    // differ only by slot. Applying per row would have the second assignment
+    // delete the first's link on its way past.
+    const manifest = parseManifest(
+      JSON.stringify({
+        version: 1,
+        series: { [slugByYear[2023]]: seriesByYear[2023] },
+        identities: [
+          {
+            slug: 'frank-larkin-mmmm',
+            name: 'Frank Larkin',
+            members: [[slugByYear[2023], '900']],
+          },
+          {
+            slug: 'maeve-dervan-nnnn',
+            name: 'Maeve Dervan',
+            members: [[slugByYear[2023], '900', 'crew']],
+          },
+        ],
+      }),
+    );
+    const { index } = await collectCompetitorIndex(db, workspaceId);
+    const plan = planManifestApply(manifest, workspaceId, (seriesId, sail) =>
+      index.get(`${seriesId}|${sail}`),
+    );
+    expect(plan.unresolvedMembers).toEqual([]);
+
+    const applied = await applyManifest(db, workspaceId, plan);
+    expect(applied.competitorsLinked).toBe(2);
+    expect(await linksOf(boat23)).toEqual([
+      'Frank Larkin:primary',
+      'Maeve Dervan:crew',
+    ]);
+    expect(await identityIdForSlug(workspaceId, 'maeve-dervan-nnnn')).toBeTruthy();
+  });
+});

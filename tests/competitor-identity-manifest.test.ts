@@ -5,6 +5,7 @@ import {
   MANIFEST_VERSION,
   parseManifest,
   planManifestApply,
+  type CompetitorCandidate,
   type Manifest,
 } from '@/lib/competitor-identity-manifest';
 
@@ -44,7 +45,7 @@ function lookupFrom(index: Record<string, string>) {
 }
 
 /** A lookup where a `seriesId|sail` key can carry several named candidates. */
-function lookupCandidates(index: Record<string, Array<{ competitorId: string; name: string }>>) {
+function lookupCandidates(index: Record<string, CompetitorCandidate[]>) {
   return (seriesId: string, sail: string) => index[`${seriesId}|${sail}`];
 }
 
@@ -288,5 +289,137 @@ describe('planManifestApply', () => {
       lookupFrom({ [`${NATIONALS}|1423`]: 'comp-a', [`${LEINSTERS}|1599`]: 'comp-b' }),
     );
     expect(plan.duplicateSlugs).toEqual(['dup-one']);
+  });
+});
+
+describe('crewed boats (#348)', () => {
+  const WS = 'ws-1';
+
+  it('accepts a member row naming the slot, and defaults to primary without one', () => {
+    const m = parseManifest(
+      manifestJson({
+        identities: [
+          {
+            slug: 'frank-larkin-aaaa',
+            name: 'Frank Larkin',
+            members: [['iodai-nationals-2019', '1423']],
+          },
+          {
+            slug: 'maeve-dervan-bbbb',
+            name: 'Maeve Dervan',
+            members: [['iodai-nationals-2019', '1423', 'crew']],
+          },
+        ],
+      }),
+    );
+    expect(m.identities[0].members[0]).toEqual(['iodai-nationals-2019', '1423']);
+    expect(m.identities[1].members[0]).toEqual(['iodai-nationals-2019', '1423', 'crew']);
+  });
+
+  it('rejects a slot that is not a real one', () => {
+    const json = JSON.stringify({
+      version: MANIFEST_VERSION,
+      series: { 'iodai-nationals-2019': NATIONALS },
+      identities: [
+        {
+          slug: 'x-aaaa',
+          name: 'X',
+          members: [['iodai-nationals-2019', '1423', 'tactician']],
+        },
+      ],
+    });
+    expect(() => parseManifest(json)).toThrow(/failed validation/);
+  });
+
+  it('lets a helm and a crew both claim one boat', () => {
+    // The sail identifies the boat; the boat carries two sailors. Before the
+    // slot existed, the second claimer was rejected as `already-claimed` and
+    // the crew silently lost their row.
+    const plan = planManifestApply(
+      parseManifest(
+        manifestJson({
+          identities: [
+            {
+              slug: 'frank-larkin-aaaa',
+              name: 'Frank Larkin',
+              members: [['iodai-nationals-2019', '1423']],
+            },
+            {
+              slug: 'maeve-dervan-bbbb',
+              name: 'Maeve Dervan',
+              members: [['iodai-nationals-2019', '1423', 'crew']],
+            },
+          ],
+        }),
+      ),
+      WS,
+      lookupFrom({ [`${NATIONALS}|1423`]: 'row-1' }),
+    );
+    expect(plan.unresolvedMembers).toEqual([]);
+    expect(plan.assignments[0].members).toEqual([
+      { competitorId: 'row-1', role: 'primary' },
+    ]);
+    expect(plan.assignments[1].members).toEqual([
+      { competitorId: 'row-1', role: 'crew' },
+    ]);
+  });
+
+  it('still rejects two identities claiming the same slot', () => {
+    const plan = planManifestApply(
+      parseManifest(
+        manifestJson({
+          identities: [
+            {
+              slug: 'frank-larkin-aaaa',
+              name: 'Frank Larkin',
+              members: [['iodai-nationals-2019', '1423', 'crew']],
+            },
+            {
+              slug: 'someone-else-bbbb',
+              name: 'Someone Else',
+              members: [['iodai-nationals-2019', '1423', 'crew']],
+            },
+          ],
+        }),
+      ),
+      WS,
+      lookupFrom({ [`${NATIONALS}|1423`]: 'row-1' }),
+    );
+    expect(plan.unresolvedMembers).toEqual([
+      {
+        slug: 'someone-else-bbbb',
+        seriesSlug: 'iodai-nationals-2019',
+        sailNumber: '1423',
+        reason: 'already-claimed',
+      },
+    ]);
+  });
+
+  it('disambiguates a shared sail against the crew field, not the helm', () => {
+    // Two boats sharing a sail in one series — the club reuses hulls. The crew
+    // identity must be ranked against the crew names, where its person is.
+    const plan = planManifestApply(
+      parseManifest(
+        manifestJson({
+          identities: [
+            {
+              slug: 'zoe-ofarrell-cccc',
+              name: "Zoe O'Farrell",
+              members: [['iodai-nationals-2019', '1423', 'crew']],
+            },
+          ],
+        }),
+      ),
+      WS,
+      lookupCandidates({
+        [`${NATIONALS}|1423`]: [
+          { competitorId: 'boat-a', name: 'Frank Larkin', crewName: 'Amber Robson' },
+          { competitorId: 'boat-b', name: 'Sam Cronin', crewName: "Zoe O'Farrell" },
+        ],
+      }),
+    );
+    expect(plan.assignments[0].members).toEqual([
+      { competitorId: 'boat-b', role: 'crew' },
+    ]);
   });
 });

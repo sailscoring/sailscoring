@@ -30,6 +30,7 @@ import {
   collectCompetitorIndex,
   ensureSlugs,
   gcOrphanIdentities,
+  workspaceCrewIdentityFeatureOn,
 } from '@/lib/competitor-identity-reconcile';
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
 import { mapWithConcurrency } from '@/lib/concurrency';
@@ -698,7 +699,9 @@ export async function applyArchiveIdentities(
         eq(schema.series.asPublished, true),
       ),
     );
-  const inputs = await collectClusterInputs(db, workspace.workspaceId);
+  const inputs = await collectClusterInputs(db, workspace.workspaceId, {
+    includeCrew: await workspaceCrewIdentityFeatureOn(db, workspace.workspaceId),
+  });
   const result = clusterCompetitors(inputs);
   const autoPass = await applyClusters(db, workspace.workspaceId, result, {
     managedBy: 'archive',

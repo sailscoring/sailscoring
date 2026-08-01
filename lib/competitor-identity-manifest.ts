@@ -25,6 +25,8 @@ import { createHash } from 'node:crypto';
 
 import { z } from 'zod';
 
+import type { IdentityRole } from './competitor-identity-cluster';
+
 export const MANIFEST_VERSION = 1;
 
 /**
@@ -37,10 +39,23 @@ export const MANIFEST_VERSION = 1;
  */
 const IDENTITY_NS = 'b6e7a3d2-9c41-5f08-8a2e-1d4c7b0e9f63';
 
-/** A single member row: the competitor was in this series under this sail. */
+/**
+ * A single member row: the competitor was in this series under this sail, in
+ * this slot of the entry.
+ *
+ * The slot is optional and defaults to `primary`, so every manifest written
+ * before crew identities existed (#348) stays valid and means what it always
+ * meant — no version bump. A crewed boat is addressed by two member rows
+ * sharing a `(series-slug, sail)` and differing only in the slot, which is
+ * exactly what the key describes: the sail identifies the boat, and the boat
+ * carries more than one sailor.
+ */
 const manifestMemberSchema = z
-  .tuple([z.string().min(1), z.string()])
-  .describe('[series-slug, sail-number]');
+  .union([
+    z.tuple([z.string().min(1), z.string()]),
+    z.tuple([z.string().min(1), z.string(), z.enum(['primary', 'crew'])]),
+  ])
+  .describe('[series-slug, sail-number, role?]');
 
 const manifestIdentitySchema = z.object({
   slug: z
@@ -107,12 +122,18 @@ export interface ManifestAssignment {
   /** Representative sail number — the last member row's sail. */
   sailNumber: string;
   competitorIds: string[];
+  /** The resolved rows paired with the slot each was claimed in (#348), in the
+   *  same order as `competitorIds`. */
+  members: { competitorId: string; role: IdentityRole }[];
 }
 
 /** A workspace competitor a `(seriesId, sail)` member could resolve to. */
 export interface CompetitorCandidate {
   competitorId: string;
   name: string;
+  /** The row's crew, joined for token matching. A crew member row is
+   *  disambiguated against these rather than the primary name (#348). */
+  crewName?: string;
 }
 
 /** A member row that didn't resolve to a competitor, surfaced for the operator. */
@@ -158,9 +179,15 @@ export interface ManifestPlan {
  * fleets, two siblings on a shared hull at one event). When a member resolves to
  * more than one competitor, the claiming identity's name disambiguates — the
  * candidate with the most shared name tokens wins — so the two sailors each get
- * their own row instead of one shadowing the other.
+ * their own row instead of one shadowing the other. A crew member row is
+ * ranked against the candidates' crew names, since that is where its person
+ * appears (#348).
  *
- * Members that don't resolve (unknown series-slug, no such sail, a sail two
+ * Claiming is per slot, not per row: a crewed boat is legitimately claimed
+ * twice, once by its helm's identity and once by its crew's. Two identities
+ * claiming the *same* slot is still the curation error it always was.
+ *
+ * Members that don't resolve (unknown series-slug, no such sail, a slot two
  * entries both claim, or a name that matches no candidate) are collected rather
  * than dropped: a golden record that silently loses rows isn't reproducible.
  */
@@ -171,16 +198,18 @@ export function planManifestApply(
 ): ManifestPlan {
   const assignments: ManifestAssignment[] = [];
   const unresolvedMembers: UnresolvedMember[] = [];
-  const claimedBy = new Map<string, string>(); // competitorId → slug
+  const claimedBy = new Map<string, string>(); // `competitorId|role` → slug
   const slugCounts = new Map<string, number>();
 
   for (const identity of manifest.identities) {
     slugCounts.set(identity.slug, (slugCounts.get(identity.slug) ?? 0) + 1);
 
     const want = nameTokens(identity.name);
-    const competitorIds: string[] = [];
+    const members: { competitorId: string; role: IdentityRole }[] = [];
     let lastSail = '';
-    for (const [seriesSlug, sailNumber] of identity.members) {
+    for (const member of identity.members) {
+      const [seriesSlug, sailNumber] = member;
+      const role: IdentityRole = member[2] ?? 'primary';
       const seriesId = manifest.series[seriesSlug];
       if (!seriesId) {
         unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'unknown-series' });
@@ -192,29 +221,37 @@ export function planManifestApply(
         continue;
       }
 
+      // Match against the slot the member claims: a crew is named in the crew
+      // field, so ranking them against the helm's name would find nothing.
+      const candidateName = (c: CompetitorCandidate) =>
+        role === 'crew' ? (c.crewName ?? '') : c.name;
       let chosen: CompetitorCandidate | undefined;
       if (candidates.length === 1) {
         chosen = candidates[0];
       } else {
-        // Ambiguous sail — rank by name-token overlap, preferring an unclaimed row.
+        // Ambiguous sail — rank by name-token overlap, preferring a row whose
+        // claimed slot is still free.
         const ranked = candidates
-          .map((c) => ({ c, score: tokenOverlap(want, nameTokens(c.name)) }))
+          .map((c) => ({ c, score: tokenOverlap(want, nameTokens(candidateName(c))) }))
           .filter((x) => x.score > 0)
           .sort((a, b) => b.score - a.score);
-        chosen = (ranked.find((x) => !claimedBy.has(x.c.competitorId)) ?? ranked[0])?.c;
+        chosen = (
+          ranked.find((x) => !claimedBy.has(`${x.c.competitorId}|${role}`)) ?? ranked[0]
+        )?.c;
         if (!chosen) {
           unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'ambiguous' });
           continue;
         }
       }
 
-      const claimer = claimedBy.get(chosen.competitorId);
+      const slotKey = `${chosen.competitorId}|${role}`;
+      const claimer = claimedBy.get(slotKey);
       if (claimer && claimer !== identity.slug) {
         unresolvedMembers.push({ slug: identity.slug, seriesSlug, sailNumber, reason: 'already-claimed' });
         continue;
       }
-      claimedBy.set(chosen.competitorId, identity.slug);
-      competitorIds.push(chosen.competitorId);
+      claimedBy.set(slotKey, identity.slug);
+      members.push({ competitorId: chosen.competitorId, role });
       lastSail = sailNumber;
     }
 
@@ -225,7 +262,8 @@ export function planManifestApply(
       club: identity.club ?? null,
       nationality: identity.nationality ?? null,
       sailNumber: lastSail,
-      competitorIds,
+      competitorIds: members.map((m) => m.competitorId),
+      members,
     });
   }
 
