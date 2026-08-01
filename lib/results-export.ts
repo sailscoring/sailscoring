@@ -514,7 +514,7 @@ export async function buildFleetHtmlFiles(
         ...(subSeriesName ? { subSeriesName } : {}),
         html: renderCombinedSeriesHtml(sections, {
           pageName: group.name,
-          standingsOnly: group.detail === 'standings',
+          detail: group.detail === 'standings' ? 'standings' : 'full',
         }),
       };
     });

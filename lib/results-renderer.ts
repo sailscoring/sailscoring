@@ -396,22 +396,38 @@ function collectReferencedCodes(sections: SeriesResultsData[]): string[] {
   return [...set].sort();
 }
 
-/** One fleet section's tables: the summary standings table, followed by the
- *  per-race detail tables unless `standingsOnly`. `linkRaceLabels` controls
- *  whether the summary's race column headers link to the per-race anchors;
- *  off when the detail tables (the link targets) aren't being rendered. */
+/**
+ * How much of a section to render:
+ *   - `full` — the summary standings table, then the per-race detail tables.
+ *   - `standings` — the summary alone (a combined page's standings view, #255).
+ *   - `races` — the per-race tables alone (#347): a single-race event publishes
+ *     its race result, not a one-race series table whose total is the race
+ *     score and whose discard columns mean nothing.
+ */
+export type SectionDetail = 'full' | 'standings' | 'races';
+
+/** One fleet section's tables, per `detail`. `linkRaceLabels` controls whether
+ *  the summary's race column headers link to the per-race anchors; off when the
+ *  detail tables (the link targets) aren't being rendered. */
 function renderSectionTables(
   data: SeriesResultsData,
   view: SectionView,
-  opts: { standingsOnly: boolean; linkRaceLabels: boolean },
+  opts: { detail: SectionDetail; linkRaceLabels: boolean },
 ): string {
-  const summary = renderSummaryTable(data.standings, data.races, view, opts.linkRaceLabels, data.flagSvgByCode);
-  if (opts.standingsOnly) return summary;
-  const raceTables = data.races
-    .filter((race) => race.results.length > 0)
-    .map((race) => renderRaceTable(race, view, data.flagSvgByCode))
+  const summary = () =>
+    renderSummaryTable(data.standings, data.races, view, opts.linkRaceLabels, data.flagSvgByCode);
+  if (opts.detail === 'standings') return summary();
+  const scored = data.races.filter((race) => race.results.length > 0);
+  // A race-results section with a single race drops the "Race 1" prefix: it is
+  // the event's result, and the numbering distinguishes nothing.
+  const suppressRaceLabel = opts.detail === 'races' && scored.length === 1;
+  const raceTables = scored
+    .map((race) => renderRaceTable(race, view, data.flagSvgByCode, { suppressLabel: suppressRaceLabel }))
     .join('\n');
-  return `${summary}\n${raceTables}`;
+  // Never publish blank chrome: a section whose races have no finishers falls
+  // back to the summary even when asked for race results alone.
+  if (opts.detail === 'races' && scored.length > 0) return raceTables;
+  return `${summary()}\n${raceTables}`;
 }
 
 /** Document-level fields shared by the single-fleet and combined renders:
@@ -439,8 +455,12 @@ export interface DocumentChrome {
   officials?: RaceOfficial[];
 }
 
-export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercent?: number }): string {
+export function renderSeriesHtml(
+  data: SeriesResultsData,
+  options?: { fontPercent?: number; detail?: SectionDetail },
+): string {
   const fontPercent = options?.fontPercent ?? 72;
+  const detail = options?.detail ?? 'full';
   const view = computeSectionView(data);
   const hasNhcDetail = data.races.some((r) => r.nhcHeader != null);
   const hasEchoDetail = data.races.some((r) => r.echoHeader != null);
@@ -449,7 +469,7 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
   const content = [
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
-    renderSectionTables(data, view, { standingsOnly: false, linkRaceLabels: true }),
+    renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' }),
   ].join('\n');
 
   return renderHtmlDocument(data, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
@@ -462,20 +482,22 @@ export function renderSeriesHtml(data: SeriesResultsData, options?: { fontPercen
  * from the first section, whose fields are identical across sections since
  * they're assembled from the same series. `pageName` is the combined page's
  * title/heading, taking the slot a fleet name occupies on a per-fleet page;
- * each section is headed by its own fleet name. With `standingsOnly`, the
+ * each section is headed by its own fleet name. With `detail: 'standings'` the
  * per-race detail tables are dropped and each summary's race columns stop
  * linking (their targets aren't rendered); the NHC/ECHO calculation toggles
  * go with them, since the explainability columns live on the detail tables
- * and there is nothing left to toggle.
+ * and there is nothing left to toggle. With `detail: 'races'` it is the
+ * summaries that go and the toggles stay.
  */
 export function renderCombinedSeriesHtml(
   sections: SeriesResultsData[],
-  options: { pageName: string; standingsOnly?: boolean; fontPercent?: number },
+  options: { pageName: string; detail?: SectionDetail; fontPercent?: number },
 ): string {
   if (sections.length === 0) {
     throw new Error('renderCombinedSeriesHtml requires at least one section');
   }
-  const standingsOnly = options.standingsOnly ?? false;
+  const detail = options.detail ?? 'full';
+  const standingsOnly = detail === 'standings';
   const fontPercent = options.fontPercent ?? 72;
   const first = sections[0];
   const hasNhcDetail = !standingsOnly && sections.some((s) => s.races.some((r) => r.nhcHeader != null));
@@ -489,7 +511,7 @@ export function renderCombinedSeriesHtml(
     .map((data) => {
       const view = computeSectionView(data);
       const heading = data.fleetName ? `<h2>${esc(data.fleetName)}</h2>\n` : '';
-      return heading + renderSectionTables(data, view, { standingsOnly, linkRaceLabels: !standingsOnly });
+      return heading + renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' });
     })
     .join('\n');
 
@@ -947,6 +969,9 @@ function renderRaceTable(
   race: RaceData,
   view: SectionView,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
+  // `suppressLabel` drops the "Race N" prefix from the heading — set for the
+  // lone race of a race-results page, where the numbering says nothing.
+  opts?: { suppressLabel?: boolean },
 ): string {
   const { showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader } = view;
   const dateStr = formatIsoDate(race.date);
@@ -1078,7 +1103,8 @@ function renderRaceTable(
   const officialsSubheading = hasOfficials(race.officials)
     ? `<p class="raceofficials" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(formatOfficials(race.officials))}</p>\n`
     : '';
-  return `<h3 class="racetitle" id="${esc(race.anchorId)}">${esc(race.label)}&nbsp;&mdash;&nbsp;${nameStr}${dateStr}${startStr}</h3>
+  const labelStr = opts?.suppressLabel ? '' : `${esc(race.label)}&nbsp;&mdash;&nbsp;`;
+  return `<h3 class="racetitle" id="${esc(race.anchorId)}">${labelStr}${nameStr}${dateStr}${startStr}</h3>
 ${optionsSubheading}${conditionsSubheading}${officialsSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />

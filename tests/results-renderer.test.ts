@@ -1370,6 +1370,57 @@ describe('renderSeriesHtml — nationality', () => {
   });
 });
 
+// ---- renderSeriesHtml: race-results detail (#347) ----
+
+describe('renderSeriesHtml with detail: races', () => {
+  const singleRace: SeriesResultsData = {
+    ...MINIMAL,
+    races: [makeRace(1, [['42', 'Alice', 1, null], ['99', 'Bob', 2, null]])],
+    standings: [
+      makeStanding(1, '42', 'Alice', [{ points: 1, podiumRank: 1 }]),
+      makeStanding(2, '99', 'Bob', [{ points: 2, podiumRank: 2 }]),
+    ],
+  };
+
+  it('publishes the race table alone — no summary, total, or nett', () => {
+    const html = renderSeriesHtml(singleRace, { detail: 'races' });
+    expect(html).not.toContain('class="summarytable"');
+    expect(html).toContain('class="racetable"');
+    expect(html).not.toContain('<th>Total</th>');
+    expect(html).not.toContain('<th>Nett</th>');
+    // The competitors are still there — this is a presentation change only.
+    expect(html).toContain('Alice');
+    expect(html).toContain('Bob');
+  });
+
+  it('drops the "Race 1" prefix when the section has a single race', () => {
+    const html = renderSeriesHtml(singleRace, { detail: 'races' });
+    expect(html).not.toContain('R1&nbsp;&mdash;&nbsp;');
+    // The date still heads the table, and the anchor is unchanged.
+    expect(html).toContain('<h3 class="racetitle" id="r1">1 Jun 2025</h3>');
+  });
+
+  it('keeps the race labels when several races share the page', () => {
+    const html = renderSeriesHtml(MINIMAL, { detail: 'races' });
+    expect(html.match(/class="racetable"/g)).toHaveLength(2);
+    expect(html).toContain('R1&nbsp;&mdash;&nbsp;');
+    expect(html).toContain('R2&nbsp;&mdash;&nbsp;');
+  });
+
+  it('falls back to the summary rather than publishing a blank page', () => {
+    const noFinishers: SeriesResultsData = {
+      ...MINIMAL,
+      races: [makeRace(1, []), makeRace(2, [])],
+    };
+    const html = renderSeriesHtml(noFinishers, { detail: 'races' });
+    expect(html).toContain('class="summarytable"');
+  });
+
+  it('defaults to full detail', () => {
+    expect(renderSeriesHtml(MINIMAL)).toContain('class="summarytable"');
+  });
+});
+
 // ---- renderCombinedSeriesHtml ----
 
 describe('renderCombinedSeriesHtml', () => {
@@ -1405,10 +1456,10 @@ describe('renderCombinedSeriesHtml', () => {
     expect(html).toContain('class="racelink"');
   });
 
-  it('standingsOnly drops the race tables and unlinks the race headers', () => {
+  it("detail 'standings' drops the race tables and unlinks the race headers", () => {
     const html = renderCombinedSeriesHtml([fleetA, fleetB], {
       pageName: 'Overall',
-      standingsOnly: true,
+      detail: 'standings',
     });
     expect(html).not.toContain('class="racetable"');
     expect(html).not.toContain('class="racelink"');
@@ -1416,11 +1467,23 @@ describe('renderCombinedSeriesHtml', () => {
     expect(html.match(/class="summarytable"/g)).toHaveLength(2);
   });
 
-  it('standingsOnly keeps the per-race summary columns', () => {
-    const html = renderCombinedSeriesHtml([fleetA], { pageName: 'Overall', standingsOnly: true });
+  it("detail 'standings' keeps the per-race summary columns", () => {
+    const html = renderCombinedSeriesHtml([fleetA], { pageName: 'Overall', detail: 'standings' });
     // R1/R2 column headers still present as plain text.
     expect(html).toContain('<th>R1</th>');
     expect(html).toContain('<th>R2</th>');
+  });
+
+  it("detail 'races' drops every section's summary, keeping the race tables", () => {
+    const html = renderCombinedSeriesHtml([fleetA, fleetB], {
+      pageName: 'Overall',
+      detail: 'races',
+    });
+    expect(html).not.toContain('class="summarytable"');
+    // 2 races from IRC 1 + 1 from IRC 2, each still under its fleet heading.
+    expect(html.match(/class="racetable"/g)).toHaveLength(3);
+    expect(html).toContain('<h2>IRC 1</h2>');
+    expect(html).toContain('<h2>IRC 2</h2>');
   });
 
   it('chrome comes from the sections: breadcrumb and provisional stamp render once', () => {
