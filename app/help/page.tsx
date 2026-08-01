@@ -2094,6 +2094,26 @@ export default async function HelpPage() {
           <strong className="text-foreground">Seasons</strong> card on Workspace settings.
         </p>
         <p>
+          <strong className="text-foreground">Single-race events:</strong> some events are one
+          race — a trophy race, a one-off open. Published as a series, such an event comes out
+          as a standings table with a single race column, a total equal to that race&rsquo;s
+          score, and discard columns that mean nothing. On{' '}
+          <strong className="text-foreground">Settings → Publishing</strong>, set{' '}
+          <strong className="text-foreground">Publish detail</strong> to{' '}
+          <strong className="text-foreground">Race results only</strong> and the page becomes
+          just the race table: finish times, corrected times and places, with no series summary
+          above it. The page is called <em>Results</em> rather than <em>Standings</em>, and a
+          new one is published at{' '}
+          <code className="text-foreground text-sm">…/2026/lambay-race/results</code>.
+        </p>
+        <p>
+          This is a deliberate choice, never guessed from the number of races — a league in its
+          first week has one race and is still a league, so leave the setting alone there. It
+          applies to every page the series publishes, including combined pages. If you set it
+          on a series that is already published, the pages keep the URLs they announced; only
+          what is on them changes.
+        </p>
+        <p>
           <strong className="text-foreground">Co-publishing several series to one URL:</strong>{' '}
           a folder is shared, so more than one series can publish into the same one —
           handy when an event is scored as separate series, e.g. publishing both{' '}
