@@ -27,7 +27,12 @@ import type {
   ManifestPlan,
 } from '@/lib/competitor-identity-manifest';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
-import { normalizePersonName, personNamesMatch } from '@/lib/competitor-identity-match';
+import {
+  isLowSignalPersonName,
+  normalizePersonName,
+  personNamesMatch,
+  splitCrewCell,
+} from '@/lib/competitor-identity-match';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import { competitorIdentities, competitorIdentityLinks, competitors, series } from '@/lib/db/schema/series';
@@ -52,27 +57,75 @@ export async function resetIdentities(
   return removed.length;
 }
 
+/** The people a competitor row's crew field names (#348), one per person:
+ *  the stored list, with any cell that packs several people into one string
+ *  split out, and the unrecognisable ones dropped. */
+function crewPersons(crewNames: string[] | null): string[] {
+  return (crewNames ?? [])
+    .flatMap((cell) => splitCrewCell(cell))
+    .filter((name) => !isLowSignalPersonName(name));
+}
+
 /**
- * Load the flattened inputs the clusterer needs: **one input per person** of
- * each row's primary slot (#316). A single-person row behaves exactly as
- * before. For a multi-person row ("J. & M. Murphy") each co-owner is an
- * independent matching unit, flagged `fromMultiPersonRow` so the clusterer
- * demands harder corroboration for the fragment names.
+ * Attribute a slot's existing memberships to its people. Each link is used at
+ * most once, matched to the person its identity label names. A slot holding a
+ * single person keeps its first link regardless of label, which is what lets a
+ * renamed identity stay confirmed. Links matching no person are left alone —
+ * they surface in the review queue as stale.
+ */
+function attributeLinks(
+  persons: string[],
+  links: { identityId: string; label: string }[],
+): (string | null)[] {
+  if (persons.length <= 1) return [links[0]?.identityId ?? null];
+  const used = new Set<number>();
+  return persons.map((person) => {
+    const normPerson = normalizePersonName(person);
+    for (let i = 0; i < links.length; i++) {
+      if (used.has(i)) continue;
+      if (personNamesMatch(normPerson, normalizePersonName(links[i].label))) {
+        used.add(i);
+        return links[i].identityId;
+      }
+    }
+    return null;
+  });
+}
+
+export interface CollectInputsOpts {
+  /** Whether the crew slot contributes people of its own (#348). Off by
+   *  default: a workspace adopts crew identities deliberately, because
+   *  switching them on changes which identities exist. */
+  includeCrew?: boolean;
+}
+
+/**
+ * Load the flattened inputs the clusterer needs: **one input per person** on
+ * each row. A single-person row behaves exactly as before. For a multi-person
+ * primary ("J. & M. Murphy") each co-owner is an independent matching unit,
+ * flagged `fromMultiPersonRow` so the clusterer demands harder corroboration
+ * for the fragment names.
  *
- * Link attribution: a row's memberships carry no slot, so each link is
- * attributed to the person its identity label matches (each link at most
- * once); a single-person row keeps its first link regardless of label, which
- * is what lets a renamed identity stay confirmed. Links matching no person
- * are left alone here — they surface in the review queue as stale.
+ * With `includeCrew`, everyone in the row's crew list is a matching unit too
+ * (#348) — otherwise a sailor who only ever crews has no identity at all, and
+ * a sailor who helms some seasons and crews others shows half a career. Crew
+ * are flagged as fragments for the same reason co-owners are: they share the
+ * boat's club and sail by construction, so those signals can't corroborate.
+ *
+ * Attribution is per slot, so a row's crew membership can never be mistaken
+ * for its primary one (or vice versa) — which matters most exactly when an
+ * identity has been renamed away from the name it was linked from.
  */
 export async function collectClusterInputs(
   db: SailScoringDb,
   workspaceId: string,
+  opts: CollectInputsOpts = {},
 ): Promise<ClusterInput[]> {
   const rows = await db
     .select({
       competitorId: competitors.id,
       names: competitors.names,
+      crewNames: competitors.crewNames,
       sailNumber: competitors.sailNumber,
       club: competitors.club,
       nationality: competitors.nationality,
@@ -86,6 +139,7 @@ export async function collectClusterInputs(
     .select({
       competitorId: competitorIdentityLinks.competitorId,
       identityId: competitorIdentityLinks.identityId,
+      role: competitorIdentityLinks.role,
       label: competitorIdentities.label,
     })
     .from(competitorIdentityLinks)
@@ -94,7 +148,10 @@ export async function collectClusterInputs(
       eq(competitorIdentities.id, competitorIdentityLinks.identityId),
     )
     .where(eq(competitorIdentityLinks.workspaceId, workspaceId));
-  const linksByRow = new Map<string, { identityId: string; label: string }[]>();
+  const linksByRow = new Map<
+    string,
+    { identityId: string; role: string; label: string }[]
+  >();
   for (const l of linkRows) {
     const arr = linksByRow.get(l.competitorId);
     if (arr) arr.push(l);
@@ -112,43 +169,48 @@ export async function collectClusterInputs(
       age: r.age,
       raceYear: Number.isFinite(year) ? year : null,
     };
-    const persons = r.names.filter((n) => n.trim());
     const links = linksByRow.get(r.competitorId) ?? [];
-    if (persons.length <= 1) {
+
+    const persons = r.names.filter((n) => n.trim());
+    const attributed = attributeLinks(
+      persons,
+      links.filter((l) => l.role === 'primary'),
+    );
+    // A row with no usable primary name still contributes one input, so its
+    // membership is accounted for; the clusterer never matches a blank.
+    (persons.length ? persons : ['']).forEach((name, i) => {
       inputs.push({
         ...base,
-        name: persons[0] ?? '',
-        existingIdentityId: links[0]?.identityId ?? null,
+        name,
+        role: 'primary',
+        existingIdentityId: attributed[i] ?? null,
+        ...(persons.length > 1 ? { fromMultiPersonRow: true } : {}),
       });
-      continue;
-    }
-    const used = new Set<number>();
-    for (const person of persons) {
-      const normPerson = normalizePersonName(person);
-      let attributed: string | null = null;
-      for (let i = 0; i < links.length; i++) {
-        if (used.has(i)) continue;
-        if (personNamesMatch(normPerson, normalizePersonName(links[i].label))) {
-          used.add(i);
-          attributed = links[i].identityId;
-          break;
-        }
-      }
+    });
+
+    if (!opts.includeCrew) continue;
+    const crew = crewPersons(r.crewNames);
+    const crewAttributed = attributeLinks(
+      crew,
+      links.filter((l) => l.role === 'crew'),
+    );
+    crew.forEach((name, i) => {
       inputs.push({
         ...base,
-        name: person,
-        existingIdentityId: attributed,
+        name,
+        role: 'crew',
+        existingIdentityId: crewAttributed[i] ?? null,
         fromMultiPersonRow: true,
       });
-    }
+    });
   }
   return inputs;
 }
 
-/** A membership whose identity label matches no person on the row — usually a
- *  rename that walked away from the link, or a pre-list joined-name identity
- *  ("J. & M. Murphy") still attached to a now per-person row. Never touched
- *  automatically; the review queue surfaces it for a human (#316). */
+/** A membership whose identity label matches no person in the slot it claims —
+ *  usually a rename that walked away from the link, or a pre-list joined-name
+ *  identity ("J. & M. Murphy") still attached to a now per-person row. Never
+ *  touched automatically; the review queue surfaces it for a human (#316). */
 export interface StaleLink {
   competitorId: string;
   identityId: string;
@@ -157,8 +219,10 @@ export interface StaleLink {
   sailNumber: string;
 }
 
-/** Find stale memberships (see `StaleLink`). Only multi-person rows are
- *  examined: a single-person row keeps its link through renames by design. */
+/** Find stale memberships (see `StaleLink`). A link is checked against the
+ *  people in its own slot, so a crew membership is never judged against the
+ *  helm's name. Only slots holding more than one person are examined: a
+ *  single-person slot keeps its link through renames by design. */
 export async function collectStaleLinks(
   db: SailScoringDb,
   workspaceId: string,
@@ -167,8 +231,10 @@ export async function collectStaleLinks(
     .select({
       competitorId: competitorIdentityLinks.competitorId,
       identityId: competitorIdentityLinks.identityId,
+      role: competitorIdentityLinks.role,
       label: competitorIdentities.label,
       names: competitors.names,
+      crewNames: competitors.crewNames,
       sailNumber: competitors.sailNumber,
     })
     .from(competitorIdentityLinks)
@@ -183,7 +249,10 @@ export async function collectStaleLinks(
     .where(eq(competitorIdentityLinks.workspaceId, workspaceId));
   const stale: StaleLink[] = [];
   for (const l of linkRows) {
-    const persons = l.names.filter((n) => n.trim());
+    const persons =
+      l.role === 'crew'
+        ? crewPersons(l.crewNames)
+        : l.names.filter((n) => n.trim());
     if (persons.length <= 1) continue;
     const normLabel = normalizePersonName(l.label);
     const matchesSomeone = persons.some((p) =>
@@ -194,7 +263,7 @@ export async function collectStaleLinks(
         competitorId: l.competitorId,
         identityId: l.identityId,
         identityLabel: l.label,
-        competitorNames: l.names,
+        competitorNames: l.role === 'crew' ? persons : l.names,
         sailNumber: l.sailNumber,
       });
     }
@@ -518,6 +587,19 @@ export async function workspaceIdentityFeatureOn(
 }
 
 /**
+ * Whether the workspace has adopted crew identities (#348) — the same
+ * own-flags rule as the spine itself. Gates only what the *auto-pass*
+ * collects: an archive manifest that names crew states its intent outright,
+ * so it applies regardless.
+ */
+export async function workspaceCrewIdentityFeatureOn(
+  db: SailScoringDb,
+  workspaceId: string,
+): Promise<boolean> {
+  return workspaceOwnFeatureOn(db, workspaceId, 'competitor-identity-crew');
+}
+
+/**
  * Lazy on-demand identity population (#222): run the reconcile pass after a
  * competitor write, so the spine fills itself as series are scored instead of
  * waiting for the batch CLI. This *is* the batch pass — same clusterer, same
@@ -535,10 +617,12 @@ export async function relinkIdentitiesAfterWrite(
   // Jurisdiction (ADR-010): the lazy pass links rows in live series only —
   // as-published rows are the archive ingest's to link. The probe and the
   // apply share the same scope.
+  const includeCrew = await workspaceCrewIdentityFeatureOn(db, workspaceId);
   const liveRows = await db
     .select({
       id: competitors.id,
       names: competitors.names,
+      crewNames: competitors.crewNames,
       linkedIdentityId: competitorIdentityLinks.identityId,
     })
     .from(competitors)
@@ -555,13 +639,16 @@ export async function relinkIdentitiesAfterWrite(
     );
   // Under-linked = fewer memberships than named persons (zero links on a
   // single-person row is the classic case; a co-owned row with one link has
-  // an unlinked co-owner). Persons may legitimately outnumber links while a
-  // stale link exists too — the pass only ever adds, so that's safe.
+  // an unlinked co-owner, and a crewed row with only its helm linked has an
+  // unlinked crew). Persons may legitimately outnumber links while a stale
+  // link exists too — the pass only ever adds, so that's safe.
   const linkCounts = new Map<string, number>();
   const personCounts = new Map<string, number>();
   for (const r of liveRows) {
     if (!personCounts.has(r.id)) {
-      personCounts.set(r.id, Math.max(1, r.names.filter((n) => n.trim()).length));
+      const primary = Math.max(1, r.names.filter((n) => n.trim()).length);
+      const crew = includeCrew ? crewPersons(r.crewNames).length : 0;
+      personCounts.set(r.id, primary + crew);
     }
     if (r.linkedIdentityId) {
       linkCounts.set(r.id, (linkCounts.get(r.id) ?? 0) + 1);
@@ -572,7 +659,7 @@ export async function relinkIdentitiesAfterWrite(
   );
   if (!underLinked) return null;
 
-  const inputs = await collectClusterInputs(db, workspaceId);
+  const inputs = await collectClusterInputs(db, workspaceId, { includeCrew });
   const result = clusterCompetitors(inputs);
   const underLinkedIds = new Set(
     [...personCounts]

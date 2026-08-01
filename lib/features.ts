@@ -166,6 +166,25 @@ export const FEATURES = {
     helpSectionIds: ['competitor-identity'],
     selfService: false,
   },
+  'competitor-identity-crew': {
+    // Extends the identity spine to the crew slot (#348): everyone in a row's
+    // `crewNames` becomes a person the reconcile pass can recognise, so a
+    // sailor who only ever crews gets an identity, a timeline, and a career
+    // arc, and one who helms some seasons and crews others stops showing half
+    // a record. Only the *auto-pass* is gated — an archive manifest that names
+    // crew is explicit intent and always applies.
+    //
+    // Held apart from `competitor-identity` because switching it on changes
+    // which identities exist in a workspace, which is not something to do to
+    // an adopted corpus by surprise. Inert where no crew is recorded, so a
+    // single-handed class (IODAI) sees nothing either way. Crew do *not*
+    // accrue ranking points: whether they should is a scoring-policy question
+    // for the club, so the ladder keeps crediting the primary slot only.
+    // Operator-managed, like the spine it extends.
+    label: 'Cross-series competitor identity for crew',
+    helpSectionIds: ['competitor-identity'],
+    selfService: false,
+  },
   'combined-pages': {
     // Combined published pages (#255): publish several fleets' results as
     // sections of one page — an all-fleets "Overall" page, or a multi-method
