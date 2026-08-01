@@ -12,7 +12,10 @@ import type {
   LogoDefaults,
   Series,
   Prize,
+  OfficialRole,
+  RaceConditions,
   RaceDiscardPolicy,
+  RaceOfficial,
 } from './types';
 import type {
   CompetitorRepository,
@@ -24,6 +27,8 @@ import type {
   SeriesRepository,
   SubSeriesRepository,
 } from './repository';
+import { hasConditions } from './race-conditions';
+import { isOfficialRole, namedOfficials } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SplitFleetConfig } from './split-fleets';
@@ -50,6 +55,47 @@ import { disambiguateSeriesName } from './series-name';
 export interface ExportStartGroup {
   fleetNames: string[];
   offsetMinutes: number;
+}
+
+/** A member of a race management team as it appears in the public export
+ *  (#339). No id — official ids are series-local, and importers mint fresh
+ *  ones, exactly as for prizes. */
+export interface ExportOfficial {
+  role: OfficialRole;
+  name: string;
+}
+
+/**
+ * A team as the export carries it, or nothing at all.
+ *
+ * Returns a spreadable fragment rather than an array so that "not published"
+ * and "nobody named" produce the same output: an absent key. Unnamed rows are
+ * dropped, and ids with them — the export's identity is portable, and an
+ * importer mints fresh ones.
+ */
+function exportOfficials(
+  officials: RaceOfficial[] | undefined,
+  publish: boolean,
+): { officials?: ExportOfficial[] } {
+  if (!publish) return {};
+  const named = namedOfficials(officials).map((o) => ({ role: o.role, name: o.name.trim() }));
+  return named.length > 0 ? { officials: named } : {};
+}
+
+/**
+ * A team read back off an export, with fresh ids.
+ *
+ * An unrecognised role is dropped rather than coerced: the vocabulary is
+ * fixed, so a role this build doesn't know is either a newer build's or
+ * corrupt, and inventing a substitute would misattribute a real person's job.
+ */
+function importOfficials(
+  officials: ExportOfficial[] | undefined,
+): { officials?: RaceOfficial[] } {
+  const rebuilt = (officials ?? [])
+    .filter((o) => isOfficialRole(o.role) && o.name.trim() !== '')
+    .map((o) => ({ id: crypto.randomUUID(), role: o.role, name: o.name }));
+  return rebuilt.length > 0 ? { officials: rebuilt } : {};
 }
 
 /** A prize clause as it appears in the public export (#240). Fleet clauses
@@ -127,6 +173,13 @@ export interface PublicSeriesExport {
     /** Protest / redress time limit from the SIs. Carried so a re-import
      *  keeps computing per-race limit times. */
     protestTimeLimit?: { minutes: number; basis: 'race' | 'day' };
+    /** The standing race management team. Present only when the series has
+     *  opted into publishing officials — this export is embedded in every
+     *  published page, so it is published output, not a private file. */
+    officials?: ExportOfficial[];
+    /** The opt-in itself, carried so a re-import keeps the decision rather
+     *  than silently reverting a publishing series to unpublished. */
+    publishOfficials?: boolean;
   };
   fleets: {
     name: string;
@@ -197,6 +250,13 @@ export interface PublicSeriesExport {
      *  ordinary race — discardable, counting once. */
     discardPolicy?: RaceDiscardPolicy;
     pointsMultiplier?: number;
+    /** What the race was sailed in, and the course used. Always carried —
+     *  conditions are a fact about the racing, not personal data, and they
+     *  are a scoring input for ORC performance-curve work. */
+    conditions?: RaceConditions;
+    /** Who ran this race. Gated by the series' `publishOfficials`, like the
+     *  standing team above. */
+    officials?: ExportOfficial[];
     /** @deprecated split-fleet stage identity on the race (older exports).
      *  Read for back-compat (copied onto the starts), not written; the
      *  per-start fields below are authoritative. */
@@ -466,6 +526,10 @@ export function buildPublicExportFromSnapshot(
     ratingOverrides: allRatingOverrides,
   } = snapshot;
   if (competitors.length === 0 || races.length === 0) return null;
+  // The single place the officials opt-in is read. This export is embedded in
+  // every published page, so leaving officials out of it is what "not
+  // published" actually means for named non-competitors.
+  const publishOfficials = series.publishOfficials === true;
   const subSeriesNamesByRaceId = new Map<string, string[]>();
   for (const ss of subSeries) {
     for (const rid of ss.raceIds) {
@@ -657,6 +721,8 @@ export function buildPublicExportFromSnapshot(
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
       ...(race.discardPolicy && race.discardPolicy !== 'normal' ? { discardPolicy: race.discardPolicy } : {}),
       ...(race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? { pointsMultiplier: race.pointsMultiplier } : {}),
+      ...(hasConditions(race.conditions) ? { conditions: race.conditions } : {}),
+      ...(exportOfficials(race.officials, publishOfficials)),
       starts,
       finishes,
       ...(nhcByFleet ? { nhcByFleet } : {}),
@@ -759,6 +825,8 @@ export function buildPublicExportFromSnapshot(
         ? { finalisedAt: series.finalisedAt }
         : {}),
       ...(series.protestTimeLimit ? { protestTimeLimit: series.protestTimeLimit } : {}),
+      ...(exportOfficials(series.officials, publishOfficials)),
+      ...(publishOfficials ? { publishOfficials: true } : {}),
       // NB: `categoryId`/`archived` (#154) and `previousSeriesId` are
       // deliberately not exported — workspace-local organisation and
       // lineage, not series data.
@@ -949,6 +1017,11 @@ export async function importPublicExport(
       ? { finalisedAt: data.series.finalisedAt }
       : {}),
     ...(data.series.protestTimeLimit ? { protestTimeLimit: data.series.protestTimeLimit } : {}),
+    ...(importOfficials(data.series.officials)),
+    // A published export only carries officials when the source series opted
+    // in, so the flag comes back with them rather than quietly resetting a
+    // publishing series to unpublished on re-import.
+    ...(data.series.publishOfficials ? { publishOfficials: true } : {}),
     // Axis ids are series-local opaque keys; carried verbatim so the imported
     // competitors' `subdivisions` maps still resolve.
     subdivisionAxes: data.series.subdivisionAxes ?? [],
@@ -1063,6 +1136,8 @@ export async function importPublicExport(
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
       ...(race.discardPolicy ? { discardPolicy: race.discardPolicy } : {}),
       ...(race.pointsMultiplier != null ? { pointsMultiplier: race.pointsMultiplier } : {}),
+      ...(hasConditions(race.conditions) ? { conditions: race.conditions } : {}),
+      ...(importOfficials(race.officials)),
       createdAt: now,
     });
     for (const name of race.subSeries ?? []) {

@@ -13,8 +13,10 @@ import type {
   NhcProfile,
   TcfRecord,
   SubdivisionAxis,
+  RaceConditions,
   RaceDiscardPolicy,
   RaceFleetExclusion,
+  RaceOfficial,
   PublishingGroup,
   ProtestTimeLimit,
   RrsOrgPushConfig,
@@ -26,6 +28,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   upgradeSubdivisionAxes,
 } from './competitor-fields';
+import { hasConditions } from './race-conditions';
 import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName, seriesSlug } from './series-name';
@@ -219,9 +222,18 @@ export interface SeriesFileRepos {
  *  threshold list. Additive and sparse — written only when set. The bump is for
  *  the same reason as v25: a build that predates the engine support must fail
  *  loudly rather than load the series and score it with the thresholds the rule
- *  replaced. */
-export const FORMAT_VERSION = 26;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
+ *  replaced.
+ *
+ *  v27 adds the race record (#338/#339): `races[*].conditions` (wind range,
+ *  direction, and a free-text course/tide note), `races[*].officials` and
+ *  `series.officials` (race management teams at the two independent levels),
+ *  and `series.publishOfficials`. All additive and sparse. The file carries
+ *  the teams unconditionally, `publishOfficials` and all — round-tripping a
+ *  series losslessly is what this format is for, and the publish decision
+ *  travels with the data it governs. The public JSON export is where that
+ *  decision is *applied*. */
+export const FORMAT_VERSION = 27;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -296,6 +308,8 @@ interface SeriesFileSeries {
   resultsStatus?: 'provisional' | 'final';  // v20+; written only when final
   finalisedAt?: number;  // v20+; epoch ms when marked final
   protestTimeLimit?: ProtestTimeLimit;  // v20+; SI time-limit config
+  officials?: RaceOfficial[];  // v27+; the standing race management team
+  publishOfficials?: boolean;  // v27+; absent = not published
 }
 
 interface SeriesFileCompetitor {
@@ -375,6 +389,9 @@ interface SeriesFileRace {
   // v25+; per-race scoring options, absent on an ordinary race.
   discardPolicy?: RaceDiscardPolicy;
   pointsMultiplier?: number;
+  // v27+; what the race was sailed in, and who ran it. Both sparse.
+  conditions?: RaceConditions;
+  officials?: RaceOfficial[];
   /** @deprecated v23 split-fleet stage identity on the race; v24 carries it
    *  per start. Read for back-compat (copied onto the starts), not written. */
   stage?: 'qualifying' | 'final' | 'medal';
@@ -604,6 +621,8 @@ export async function buildSeriesFile(
       ...(series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
       ...(series.finalisedAt != null ? { finalisedAt: series.finalisedAt } : {}),
       ...(series.protestTimeLimit ? { protestTimeLimit: series.protestTimeLimit } : {}),
+      ...(series.officials?.length ? { officials: series.officials } : {}),
+      ...(series.publishOfficials ? { publishOfficials: true } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -639,6 +658,8 @@ export async function buildSeriesFile(
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
       ...(r.discardPolicy && r.discardPolicy !== 'normal' ? { discardPolicy: r.discardPolicy } : {}),
       ...(r.pointsMultiplier != null && r.pointsMultiplier !== 1 ? { pointsMultiplier: r.pointsMultiplier } : {}),
+      ...(hasConditions(r.conditions) ? { conditions: r.conditions } : {}),
+      ...(r.officials?.length ? { officials: r.officials } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -1060,6 +1081,8 @@ export async function openSeriesFromFile(
     resultsStatus: file.series.resultsStatus,
     finalisedAt: file.series.finalisedAt,
     protestTimeLimit: file.series.protestTimeLimit,
+    officials: file.series.officials,
+    publishOfficials: file.series.publishOfficials,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1150,6 +1173,8 @@ export async function restoreSeriesFromFile(
     resultsStatus: file.series.resultsStatus,
     finalisedAt: file.series.finalisedAt,
     protestTimeLimit: file.series.protestTimeLimit,
+    officials: file.series.officials,
+    publishOfficials: file.series.publishOfficials,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1249,6 +1274,8 @@ async function updateSeriesFromFileInner(
     resultsStatus: file.series.resultsStatus,
     finalisedAt: file.series.finalisedAt,
     protestTimeLimit: file.series.protestTimeLimit,
+    officials: file.series.officials,
+    publishOfficials: file.series.publishOfficials,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1411,6 +1438,12 @@ async function updateSeriesFromSailwaveInner(
     ftpPaths,
     publishingGroups,
     prizes,
+    // The standing team is series content, so the file's copy replaces the
+    // current one. `publishOfficials` follows it: the decision belongs with
+    // the team it governs, and a file written without either leaves the series
+    // with no team to publish.
+    officials: file.series.officials,
+    publishOfficials: file.series.publishOfficials,
     lastModifiedAt: now,
   });
 
@@ -1520,6 +1553,8 @@ async function writeFleetsCompetitorsRaces(
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
       ...(r.discardPolicy ? { discardPolicy: r.discardPolicy } : {}),
       ...(r.pointsMultiplier != null ? { pointsMultiplier: r.pointsMultiplier } : {}),
+      ...(hasConditions(r.conditions) ? { conditions: r.conditions } : {}),
+      ...(r.officials?.length ? { officials: r.officials } : {}),
       createdAt: now,
     });
 
