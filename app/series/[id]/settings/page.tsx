@@ -14,6 +14,7 @@ import { CompetitorFieldsCard } from '@/components/series-settings/competitor-fi
 import { PublishingCard } from '@/components/series-settings/publishing-card';
 import { CombinedPagesCard } from '@/components/series-settings/combined-pages-card';
 import { ProtestTimeLimitCard } from '@/components/series-settings/protest-time-limit-card';
+import { RaceManagementCard } from '@/components/series-settings/race-management-card';
 import { DisabledFeatureHint } from '@/components/series-settings/disabled-feature-hint';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
@@ -143,6 +144,9 @@ export default function SettingsPage({
             });
           }}
         />
+      )}
+      {has('race-management-metadata') && (
+        <RaceManagementCard seriesId={seriesId} series={series} />
       )}
       <CompetitorFieldsCard seriesId={seriesId} series={series} />
       <PublishingCard seriesId={seriesId} series={series} anyProgressiveFleet={anyProgressiveFleet} />
