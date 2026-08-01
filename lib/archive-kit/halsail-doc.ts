@@ -25,6 +25,9 @@ export interface HalsailFleetInput {
   /** Pinned public sub-path for the fleet page. */
   subPath: string;
   page: HalsailPage;
+  /** Publish the race tables alone — a single-race event (#347). The summary
+   *  rows are still built: the identity spine reads them. */
+  detail?: 'races';
 }
 
 export interface HalsailDocInput {
@@ -148,6 +151,7 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       subPath: fleet.subPath,
       results: {
         ...(overall.caption ? { caption: overall.caption } : {}),
+        ...(fleet.detail ? { detail: fleet.detail } : {}),
         leadColumns: overall.leadColumns,
         raceHeaders: overall.raceHeaders.map((label, i) => ({
           label: overall.raceDates[i] ? `${label} ${overall.raceDates[i]}` : label,

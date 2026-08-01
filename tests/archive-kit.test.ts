@@ -459,6 +459,22 @@ describe("as-published race-results detail (#347)", () => {
     expect(html.match(/class="racetable"/g)).toHaveLength(2);
   });
 
+  test('a doc builder carries the detail onto each fleet', () => {
+    const page = parseHalsailHtml(HALSAIL_HTML);
+    const doc = buildHalsailArchiveDoc({
+      seriesId: '99999999-8888-4777-8666-555555555551',
+      name: 'Gibney Classic',
+      publishedSlug: 'gibney-classic',
+      fleets: [
+        { name: 'Class 1', subPath: 'class-1', page, detail: 'races' },
+      ],
+    });
+    expect(doc.fleets[0].results.detail).toBe('races');
+    // The summary rows survive — they are what the identity spine reads.
+    expect(doc.fleets[0].results.rows.length).toBeGreaterThan(0);
+    expect(doc.competitors.length).toBeGreaterThan(0);
+  });
+
   test('the ingest format rejects race-results detail with no race table', async () => {
     const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
     const doc = (results: unknown) => ({

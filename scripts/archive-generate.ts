@@ -67,6 +67,12 @@ const seriesSchema = z.object({
   venueLogoUrl: z.string().optional(),
   eventLogoUrl: z.string().optional(),
   source: z.enum(['sailwave', 'halsail']),
+  /** Publish this event's fleets as race results alone (#347) — a one-off
+   *  trophy race, not a series. Every fleet must carry its race table, so a
+   *  Sailwave entry needs `includeRaces` (the build fails loudly otherwise).
+   *  Never inferred from the race count: a season whose capture stops after
+   *  one race is a curtailed series, not a single-race event. */
+  detail: z.enum(['races']).optional(),
   /** Initial category filing on first ingest (e.g. the season year). */
   category: z.string().optional(),
   /** Pinned season for the published slug's folder (ADR-011) — only needed
@@ -129,6 +135,7 @@ function buildSeries(
         name: fleet.name,
         subPath: fleet.subPath,
         page: parseHalsailHtml(readCapture(join(baseDir, fleet.file))),
+        ...(entry.detail ? { detail: entry.detail } : {}),
       })),
     });
   }
@@ -207,6 +214,7 @@ function buildSeries(
           name: memberName,
           summary: summaryOf(page, section.sectionTitle, fleet.file),
           ...(races ? { races } : {}),
+          ...(entry.detail ? { detail: entry.detail } : {}),
         });
       }
       combinedPages.push({
@@ -221,7 +229,21 @@ function buildSeries(
       subPath: fleet.subPath,
       summary: summaryOf(page, fleet.sectionTitle, fleet.file),
       ...(fleet.includeRaces ? { races: page.races } : {}),
+      ...(entry.detail ? { detail: entry.detail } : {}),
     });
+  }
+
+  // Race-results detail renders the race tables and nothing else, so a fleet
+  // without one would publish an empty page. Fail here, naming the fleet,
+  // rather than at the ingest's schema check.
+  if (entry.detail === 'races') {
+    const bare = fleets.filter((f) => (f.races?.length ?? 0) === 0).map((f) => f.name);
+    if (bare.length > 0) {
+      throw new Error(
+        `${entry.key}: detail 'races' needs each fleet's race table — missing for ${bare.join(', ')}` +
+          ' (set includeRaces on the fleet, or on its sections)',
+      );
+    }
   }
 
   return buildSailwaveArchiveDoc({

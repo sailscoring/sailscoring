@@ -29,6 +29,9 @@ export interface SailwaveFleetInput {
   subPath?: string;
   summary: SailwaveSummarySection;
   races?: SailwaveRaceSection[];
+  /** Publish the race tables alone — a single-race event (#347). The summary
+   *  rows are still built: the identity spine reads them. */
+  detail?: 'races';
 }
 
 /** A combined page grouping several of the series' fleets (by name) as
@@ -228,6 +231,7 @@ export function buildSailwaveArchiveDoc(
       ...(fleet.subPath ? { subPath: fleet.subPath } : {}),
       results: {
         ...(summary.caption ? { caption: summary.caption } : {}),
+        ...(fleet.detail ? { detail: fleet.detail } : {}),
         leadColumns: summary.leadColumns,
         raceHeaders: summary.raceHeaders.map((label) => ({ label })),
         summaryColumns: summary.summaryColumns,
