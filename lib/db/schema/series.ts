@@ -540,6 +540,14 @@ export const competitorIdentities = pgTable(
  * arcs. A link is plain membership: no slot/index column, because `names`
  * order is editable and the reconcile pass re-derives who-matches-what.
  * Cascades both ways: deleting a competitor or an identity retires its links.
+ *
+ * `role` says which slot of the row the person came out of (#348): 'primary'
+ * for `names` (the entrant/helm/owner, per the series' primary label), 'crew'
+ * for `crew_names`. Two sailors on one boat share a placement but not a role,
+ * and the distinction has to be recorded rather than re-derived: a renamed
+ * identity no longer matches the name it was linked from, and the ranking
+ * ladder credits only the primary slot. Not part of the key — a person is
+ * never both helm and crew of the same boat in the same series.
  */
 export const competitorIdentityLinks = pgTable(
   'competitor_identity_links',
@@ -550,6 +558,9 @@ export const competitorIdentityLinks = pgTable(
     identityId: uuid('identity_id')
       .notNull()
       .references((): AnyPgColumn => competitorIdentities.id, { onDelete: 'cascade' }),
+    // Which slot of the row this person came out of — see the table note.
+    // Defaulted so every pre-#348 link reads as what it was: a primary.
+    role: text('role').notNull().default('primary'),
     // Denormalised like the parent tables so tenancy filters are one lookup.
     workspaceId: text('workspace_id')
       .notNull()
@@ -562,6 +573,10 @@ export const competitorIdentityLinks = pgTable(
     primaryKey({ columns: [table.competitorId, table.identityId] }),
     index('competitor_identity_links_identity_idx').on(table.identityId),
     index('competitor_identity_links_workspace_idx').on(table.workspaceId),
+    check(
+      'competitor_identity_links_role_chk',
+      sql`${table.role} in ('primary','crew')`,
+    ),
   ],
 );
 

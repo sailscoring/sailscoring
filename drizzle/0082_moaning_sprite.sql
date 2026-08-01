@@ -1,0 +1,2 @@
+ALTER TABLE "competitor_identity_links" ADD COLUMN "role" text DEFAULT 'primary' NOT NULL;--> statement-breakpoint
+ALTER TABLE "competitor_identity_links" ADD CONSTRAINT "competitor_identity_links_role_chk" CHECK ("competitor_identity_links"."role" in ('primary','crew'));
