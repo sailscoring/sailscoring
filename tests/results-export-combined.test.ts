@@ -228,6 +228,25 @@ describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () =
     }
   });
 
+  it('a race-results series drops every summary, fleet pages and combined alike', async () => {
+    const series = { ...makeSeries([OVERALL]), publishDetail: 'races' as const };
+    const files = await buildFleetHtmlFiles(makeRepos(series), 's1');
+    expect(files!.map((f) => f.fleetName)).toEqual([
+      'Overall',
+      'Puppeteer Scratch',
+      'Puppeteer HPH',
+      'IRC 1',
+    ]);
+    for (const f of files!) {
+      expect(f.html).not.toContain('class="summarytable"');
+      expect(f.html).toContain('class="racetable"');
+    }
+    // The Overall group asked for standings only; on a single-race event that
+    // is exactly the table this setting exists to suppress, so it renders the
+    // members' race tables instead of nothing.
+    expect(files![0].html.match(/class="racetable"/g)).toHaveLength(3);
+  });
+
   it('the toggle is inert per block: a block with no combined page keeps its fleet pages', async () => {
     const ircOnly: PublishingGroup = {
       ...PUPPETEER,

@@ -10,6 +10,7 @@ import {
   renderCombinedSeriesHtml,
   renderPrizesHtml,
   assembleSeriesResultsData,
+  type SectionDetail,
   type SeriesResultsData,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
@@ -175,6 +176,12 @@ export async function buildFleetHtmlFiles(
   );
 
   const isSingleDefault = fleets.length <= 1;
+
+  // A single-race event publishes its race tables alone (#347) — every page
+  // this path builds, per-fleet and combined alike. Split-fleet series never
+  // reach here: their pages are built above, and a championship's tiered
+  // standings are not a presentation this setting has any say over.
+  const pageDetail: SectionDetail = series.publishDetail === 'races' ? 'races' : 'full';
 
   // Build the JSON export once for the whole series (embedded in every
   // fleet's HTML) from the snapshot and standings already in hand, so the
@@ -467,7 +474,7 @@ export async function buildFleetHtmlFiles(
         fleetName: fleet.name,
         isDefault: isSingleDefault,
         ...(subSeriesName ? { subSeriesName } : {}),
-        html: renderSeriesHtml(assemble()),
+        html: renderSeriesHtml(assemble(), { detail: pageDetail }),
       });
     }
   }
@@ -514,7 +521,10 @@ export async function buildFleetHtmlFiles(
         ...(subSeriesName ? { subSeriesName } : {}),
         html: renderCombinedSeriesHtml(sections, {
           pageName: group.name,
-          detail: group.detail === 'standings' ? 'standings' : 'full',
+          // A race-results series overrides the group's own detail: a
+          // standings-only combined page of a single-race event is exactly
+          // the table #347 exists to suppress.
+          detail: pageDetail === 'races' ? 'races' : group.detail === 'standings' ? 'standings' : 'full',
         }),
       };
     });
