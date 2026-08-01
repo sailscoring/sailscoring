@@ -70,7 +70,13 @@ describe.skipIf(skip)('CLI ranking methods (#209)', () => {
     if (init.method === 'GET' && std) {
       return wrap(await standingsGET(req() as Parameters<typeof standingsGET>[0], { params: Promise.resolve({ id: std[1] }) }));
     }
-    throw new Error(`unexpected ${init.method} ${pathname}`);
+
+    const knownPath =
+      pathname === '/api/v1/rankings' ||
+      /^\/api\/v1\/rankings\/[^/]+$/.test(pathname) ||
+      /^\/api\/v1\/rankings\/[^/]+\/standings$/.test(pathname);
+    const status = knownPath ? 405 : 404;
+    return { status, text: async () => '' };
   };
 
   beforeAll(async () => {
