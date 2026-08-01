@@ -155,3 +155,59 @@ export function birthYearsConflict(a: number | null, b: number | null): boolean 
 export function isPlaceholderName(name: string | undefined): boolean {
   return /^unknown competitor\b/i.test((name ?? '').trim());
 }
+
+/** Stand-ins scorers type when a crew name isn't known at publication time. */
+const CREW_PLACEHOLDERS = new Set([
+  'tbd',
+  'tba',
+  'na',
+  'n/a',
+  'none',
+  'unknown',
+  'crew',
+  'guest',
+  'various',
+  'visitor',
+]);
+
+/**
+ * Whether a name carries too little signal to be worth an identity of its own
+ * (#348). Crew fields are markedly messier than the primary slot — the KSC
+ * corpus publishes bare first names ("Michael"), initials ("AM"), and
+ * placeholders ("???", "TBD") — and each of those would otherwise mint an
+ * identity row, a vanity slug, and a public page for a person who can't be
+ * recognised.
+ *
+ * Note this is about *noise*, not false merges: `personNamesMatch` already
+ * requires a given name on both sides, so a bare "Michael" matches nobody —
+ * not even another "Michael". These rows would become permanent singletons
+ * rather than a hub that fuses strangers. Skipping them leaves the mention in
+ * the published results, where it belongs, and out of the roster.
+ */
+export function isLowSignalPersonName(name: string | undefined): boolean {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return true;
+  if (CREW_PLACEHOLDERS.has(trimmed.toLowerCase())) return true;
+  // Two name-like tokens are the minimum for a recognisable person. This also
+  // catches "??" / "?????" (no letters at all) and bare initials ("AM"),
+  // since `normalizePersonName` drops everything that isn't a letter.
+  const { surname, given } = normalizePersonName(trimmed);
+  return !surname || given.length === 0;
+}
+
+/**
+ * Split a crew cell into the people it names. Most cells hold one person, but
+ * an as-published capture carries whatever the club typed, and a few cells
+ * list a whole crew in one field ("Maeve Dervan, Amber Robson"). The primary
+ * slot is already a list (`names`), so this only exists to give the crew field
+ * the same shape.
+ *
+ * Conservative on purpose: it splits on the separators that unambiguously join
+ * two people and never on whitespace, so a single name is returned whole.
+ */
+export function splitCrewCell(cell: string | undefined): string[] {
+  return (cell ?? '')
+    .split(/\s*[,&+]\s*|\s+and\s+/i)
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+}

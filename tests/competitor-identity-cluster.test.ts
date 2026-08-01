@@ -17,6 +17,8 @@ function row(p: Partial<ClusterInput> & { name: string }): ClusterInput {
     age: p.age ?? null,
     raceYear: p.raceYear ?? null,
     existingIdentityId: p.existingIdentityId ?? null,
+    ...(p.role ? { role: p.role } : {}),
+    ...(p.fromMultiPersonRow ? { fromMultiPersonRow: true } : {}),
   };
 }
 
@@ -170,5 +172,66 @@ describe('clusterCompetitors', () => {
     expect(r.stats.withoutSurname).toBe(1);
     expect(r.stats.multiRowClusters).toBe(1);
     expect(r.stats.largestCluster).toBe(2);
+  });
+});
+
+describe('crew on the same boat (#348)', () => {
+  it('never fuses two people on one row, however well their names agree', () => {
+    // A family boat: mother helming, daughter crewing. Name, club and sail all
+    // agree — every signal the matcher has — so only the shared row can tell
+    // them apart.
+    const r = clusterCompetitors([
+      row({ competitorId: 'boat', name: 'Ann Ryan', sailNumber: '1234', club: 'KSC', raceYear: 2024 }),
+      row({ competitorId: 'boat', name: 'A Ryan', sailNumber: '1234', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+    ]);
+    expect(r.clusters).toHaveLength(2);
+    expect(r.suggestions).toHaveLength(0); // not even offered for review
+  });
+
+  it('still links a crew to their own appearances on other boats', () => {
+    const r = clusterCompetitors([
+      row({ competitorId: 'boat1', name: 'Frank Larkin', sailNumber: '900', club: 'KSC', raceYear: 2023 }),
+      row({ competitorId: 'boat1', name: 'Maeve Dervan', sailNumber: '900', club: 'KSC', raceYear: 2023, role: 'crew', fromMultiPersonRow: true }),
+      row({ competitorId: 'boat2', name: 'Maeve Dervan', sailNumber: '900', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+    ]);
+    const maeve = clusterOf(r, 'boat2')!;
+    expect(maeve.competitorIds.sort()).toEqual(['boat1', 'boat2']);
+    expect(maeve.members.every((m) => m.role === 'crew')).toBe(true);
+  });
+
+  it('carries the slot through to each membership', () => {
+    const r = clusterCompetitors([
+      row({ competitorId: 'boat1', name: 'Frank Larkin', sailNumber: '900', club: 'KSC', raceYear: 2023 }),
+      row({ competitorId: 'boat2', name: 'Frank Larkin', sailNumber: '900', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+    ]);
+    // Same person on the same boat, helming one season and crewing the next:
+    // one identity, two memberships, each stamped with the slot it came out
+    // of. Sail-number continuity is what corroborates the match — club alone
+    // would not, since a crew shares the boat's club by construction.
+    const frank = clusterOf(r, 'boat1')!;
+    expect(frank.competitorIds.sort()).toEqual(['boat1', 'boat2']);
+    expect(
+      frank.members.map((m) => `${m.competitorId}:${m.role}`).sort(),
+    ).toEqual(['boat1:primary', 'boat2:crew']);
+  });
+
+  it('defaults an unstamped input to the primary slot', () => {
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'Solo Sailor', sailNumber: 'IRL3', raceYear: 2021 }),
+    ]);
+    expect(r.clusters[0].members).toEqual([
+      { competitorId: 'a', role: 'primary', needsLink: true },
+    ]);
+  });
+
+  it('demotes a club-only crew match to a review suggestion', () => {
+    // Crew share the boat's club by construction, so club alone is not
+    // corroboration — the same rule co-owner fragments already follow.
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'Sam Cronin', sailNumber: '11', club: 'KSC', raceYear: 2019, role: 'crew', fromMultiPersonRow: true }),
+      row({ competitorId: 'b', name: 'Sam Cronin', sailNumber: '77', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+    ]);
+    expect(r.clusters).toHaveLength(2);
+    expect(r.suggestions).toHaveLength(1);
   });
 });

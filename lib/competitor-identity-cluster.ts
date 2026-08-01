@@ -26,10 +26,17 @@ import {
 } from './competitor-identity-match';
 import { sailNumberParts, sailNumbersMatch } from './rating-match';
 
+/** Which slot of a competitor row a person came out of (#348): the primary
+ *  names, or the crew list. */
+export type IdentityRole = 'primary' | 'crew';
+
 /** One competitor row, flattened to just what clustering needs. */
 export interface ClusterInput {
   competitorId: string;
   name: string;
+  /** Slot this person came out of; defaults to 'primary'. Carried through to
+   *  the membership so a crew appearance is recorded as one. */
+  role?: IdentityRole;
   sailNumber: string;
   club?: string;
   nationality?: string;
@@ -38,20 +45,22 @@ export interface ClusterInput {
   raceYear: number | null;
   /** Pre-existing identity link attributed to this person, if any. */
   existingIdentityId: string | null;
-  /** True when this input is one person of a multi-person entry (a co-owner
-   *  fragment like "J. Murphy" from "J. & M. Murphy"). Fragments are more
-   *  collision-prone than whole-row names, so club-only corroboration is
-   *  demoted to a review suggestion — sail-number continuity or a compatible
-   *  birth year is required to auto-merge. */
+  /** True when this input is one person among several on an entry — a
+   *  co-owner fragment like "J. Murphy" from "J. & M. Murphy", or a crew
+   *  (#348). Both are more collision-prone than a whole-row name, because
+   *  everyone on a boat shares its club by construction, so club-only
+   *  corroboration is demoted to a review suggestion — sail-number continuity
+   *  or a compatible birth year is required to auto-merge. */
   fromMultiPersonRow?: boolean;
 }
 
 /** A proposed recurring identity: a set of competitor rows that link together. */
 export interface IdentityCluster {
   competitorIds: string[];
-  /** Per-row membership detail: whether any person-input of this row inside
-   *  this cluster still lacks an identity link (the apply step links those). */
-  members: { competitorId: string; needsLink: boolean }[];
+  /** Per-row-and-slot membership detail: whether any person-input of this row
+   *  and slot inside this cluster still lacks an identity link (the apply step
+   *  links those). */
+  members: { competitorId: string; role: IdentityRole; needsLink: boolean }[];
   /** Distinct existing identity ids among the members (excludes null). 0 → all
    *  new (create one); 1 → reuse it; ≥2 → a conflict, never auto-merged. */
   existingIdentityIds: string[];
@@ -179,6 +188,13 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
       for (let b = a + 1; b < idxs.length; b++) {
         const i = idxs[a];
         const j = idxs[b];
+        // Two people on the *same* boat are never the same person, however
+        // well their names agree (#348). A family boat publishing "Ann Ryan"
+        // helming and "A Ryan" crewing matches on name, club, and sail — every
+        // signal the matcher has — so without this it would fuse a crew into
+        // their own helm. Not a suggestion either: the row itself is the
+        // evidence they are two people.
+        if (inputs[i].competitorId === inputs[j].competitorId) continue;
         if (!personNamesMatch(norm[i], norm[j])) continue;
         // A known age gap is a hard split — two real namesakes.
         if (birthYearsConflict(birth[i], birth[j])) continue;
@@ -236,17 +252,23 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
           .filter((x): x is string => x != null),
       ),
     ];
-    const memberByRow = new Map<string, { competitorId: string; needsLink: boolean }>();
+    // Keyed by row *and* slot: a boat can contribute both its primary and a
+    // crew to one cluster, and they are two memberships, not one.
+    const memberBySlot = new Map<
+      string,
+      { competitorId: string; role: IdentityRole; needsLink: boolean }
+    >();
     for (const i of idxs) {
       const id = inputs[i].competitorId;
+      const role = inputs[i].role ?? 'primary';
       const needs = inputs[i].existingIdentityId == null;
-      const prev = memberByRow.get(id);
-      if (!prev) memberByRow.set(id, { competitorId: id, needsLink: needs });
+      const prev = memberBySlot.get(`${id}|${role}`);
+      if (!prev) memberBySlot.set(`${id}|${role}`, { competitorId: id, role, needsLink: needs });
       else if (needs) prev.needsLink = true;
     }
     return {
-      competitorIds: [...memberByRow.keys()],
-      members: [...memberByRow.values()],
+      competitorIds: [...new Set([...memberBySlot.values()].map((m) => m.competitorId))],
+      members: [...memberBySlot.values()],
       existingIdentityIds: existing,
       label: inputs[rep].name.trim(),
       sailNumber: inputs[rep].sailNumber,

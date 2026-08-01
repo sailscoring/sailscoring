@@ -4,9 +4,11 @@ import {
   birthYearsConflict,
   clubsOverlap,
   impliedBirthYear,
+  isLowSignalPersonName,
   normalizeClubs,
   normalizePersonName,
   personNamesMatch,
+  splitCrewCell,
 } from '@/lib/competitor-identity-match';
 
 const n = normalizePersonName;
@@ -118,5 +120,69 @@ describe('implied birth year', () => {
     expect(birthYearsConflict(2014, 2008)).toBe(true);
     expect(birthYearsConflict(2014, null)).toBe(false); // unknown is no signal
     expect(birthYearsConflict(null, null)).toBe(false);
+  });
+});
+
+describe('low-signal person names', () => {
+  it('accepts a recognisable person', () => {
+    expect(isLowSignalPersonName('Frank Larkin')).toBe(false);
+    expect(isLowSignalPersonName("Stephen O'Brien")).toBe(false);
+    expect(isLowSignalPersonName('P Ryan')).toBe(false);
+  });
+
+  it('rejects a bare first name', () => {
+    // Real KSC crew cells. `personNamesMatch` would never fuse these with
+    // anyone (no given name), so each would become a permanent singleton
+    // identity with a public page naming nobody.
+    expect(isLowSignalPersonName('Michael')).toBe(true);
+    expect(isLowSignalPersonName('Daragh')).toBe(true);
+  });
+
+  it('rejects initials and punctuation-only cells', () => {
+    expect(isLowSignalPersonName('AM')).toBe(true);
+    expect(isLowSignalPersonName('??')).toBe(true);
+    expect(isLowSignalPersonName('?????')).toBe(true);
+  });
+
+  it('rejects placeholders regardless of case', () => {
+    expect(isLowSignalPersonName('TBD')).toBe(true);
+    expect(isLowSignalPersonName('n/a')).toBe(true);
+    expect(isLowSignalPersonName('Crew')).toBe(true);
+  });
+
+  it('rejects blank and absent names', () => {
+    expect(isLowSignalPersonName('')).toBe(true);
+    expect(isLowSignalPersonName('   ')).toBe(true);
+    expect(isLowSignalPersonName(undefined)).toBe(true);
+  });
+});
+
+describe('splitting a crew cell', () => {
+  it('returns a single name whole', () => {
+    expect(splitCrewCell('Frank Larkin')).toEqual(['Frank Larkin']);
+  });
+
+  it('splits the separators that join two people', () => {
+    expect(splitCrewCell('Maeve Dervan, Amber Robson')).toEqual([
+      'Maeve Dervan',
+      'Amber Robson',
+    ]);
+    expect(splitCrewCell('AM, SG, AS')).toEqual(['AM', 'SG', 'AS']);
+    expect(splitCrewCell('Jane Doe & John Roe')).toEqual(['Jane Doe', 'John Roe']);
+    expect(splitCrewCell('Jane Doe and John Roe')).toEqual(['Jane Doe', 'John Roe']);
+  });
+
+  it('never splits on whitespace alone', () => {
+    expect(splitCrewCell("Pepper Robson , Zoe O'Farrell")).toEqual([
+      'Pepper Robson',
+      "Zoe O'Farrell",
+    ]);
+    expect(splitCrewCell('Mary Anne Delaney')).toEqual(['Mary Anne Delaney']);
+  });
+
+  it('drops empties', () => {
+    expect(splitCrewCell('')).toEqual([]);
+    expect(splitCrewCell(undefined)).toEqual([]);
+    expect(splitCrewCell('Jane Doe,')).toEqual(['Jane Doe']);
   });
 });
