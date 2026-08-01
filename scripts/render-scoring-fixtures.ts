@@ -24,7 +24,7 @@ import {
 } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
-import type { DiscardThreshold, ResultCode, PenaltyCode } from '../lib/types';
+import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
 import { splitFleetStandings } from '../lib/split-fleets';
 import type { SeriesStage } from '../lib/split-fleets';
@@ -53,6 +53,19 @@ function discardThresholdsSummary(thresholds: DiscardThreshold[]): string {
     .join(', ') + '.';
 }
 
+/** The series' discard allowance however it is stated — a proportional rule
+ *  replaces the threshold list rather than adding to it. */
+function discardSummary(series: {
+  discardThresholds: DiscardThreshold[];
+  proportionalDiscard?: ProportionalDiscard;
+}): string {
+  const rule = series.proportionalDiscard;
+  if (!rule) return discardThresholdsSummary(series.discardThresholds);
+  const races = (n: number) => `${n} race${n === 1 ? '' : 's'}`;
+  return `One discard once ${races(rule.firstAt)} have been sailed, `
+    + `then one more every ${races(rule.everyRaces)}.`;
+}
+
 /**
  * Extract all YAML comment lines from the raw source, stripping the leading `#`
  * but preserving indentation so arithmetic blocks stay aligned.
@@ -74,7 +87,7 @@ function buildPreamble(fixture: Fixture, yamlSource: string): string {
   const dnfLabel = fixture.series.dnfScoring === 'startingArea'
     ? 'A5.3 (starting area)'
     : 'A5.2 (series entries)';
-  const configHtml = `<p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> ${esc(discardThresholdsSummary(fixture.series.discardThresholds))} DNF/OCS scoring: ${esc(dnfLabel)}.</p>`;
+  const configHtml = `<p style="margin:0 0 0.5em; color:#333;"><strong>Scoring configuration:</strong> ${esc(discardSummary(fixture.series))} DNF/OCS scoring: ${esc(dnfLabel)}.</p>`;
 
   const comments = extractComments(yamlSource);
   const commentsHtml = comments
@@ -89,14 +102,14 @@ ${notesHtml}${configHtml}${commentsHtml}
 // ─── Scratch / fleets / codes renderer (full series results layout) ─────────
 
 function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  const { competitors, fleets, races, finishes, discardThresholds, dnfScoring } = buildFixtureInputs(fixture);
+  const { competitors, fleets, races, finishes, discardThresholds, proportionalDiscard, dnfScoring } = buildFixtureInputs(fixture);
   const isMultiFleet = fleets.length > 1;
 
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
   const preamble = buildPreamble(fixture, yamlSource);
 
   if (isMultiFleet) {
-    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring);
+    const { fleetStandings: fleetResults } = calculateFleetStandings(fleets, competitors, races, finishes, discardThresholds, dnfScoring, [], [], undefined, undefined, proportionalDiscard);
     const sections: string[] = [];
 
     for (const { fleet, standings } of fleetResults) {
@@ -152,7 +165,7 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
     return shell + sections.map(extractFleetContent).join('\n') + '\n' + footer;
   }
 
-  const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring);
+  const { standings } = calculateStandings(competitors, races, finishes, discardThresholds, dnfScoring, undefined, undefined, proportionalDiscard);
 
   const raceScoresByRaceId = new Map<
     string,
@@ -701,7 +714,7 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 ${notesHtml}
 <div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
   <strong>Scoring system:</strong> ${esc(sysLabel)} &middot;
-  <strong>Discards:</strong> ${esc(discardThresholdsSummary(fixture.series.discardThresholds))}
+  <strong>Discards:</strong> ${esc(discardSummary(fixture.series))}
 </div>
 ${commentsHtml}
 ${blockSections}

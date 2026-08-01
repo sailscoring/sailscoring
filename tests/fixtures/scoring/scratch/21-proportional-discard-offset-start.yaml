@@ -1,0 +1,116 @@
+description: "Scratch — proportional discards starting at 5 races, then one every 3"
+rrs_notes: >
+  RRS A2.1 — the sailing instructions may change the number of races excluded
+  from a boat's series score.
+notes: |
+  The other common wording for a proportional allowance: the first discard is
+  held back until a qualifying number of races has been sailed, and further
+  discards accrue at a fixed rate after that.
+
+    "No race shall be excluded until 5 races have been sailed, after which one
+    further race may be excluded for every 3 races sailed."
+
+  Six races here, so the first discard has been earned (5 sailed) but not the
+  second — that would need 8. Each boat drops exactly one race, its own worst.
+
+  The rule is what distinguishes this from a plain single-discard series: had
+  the series run to 8 races a second discard would have appeared without anyone
+  editing the setup, which is the whole reason an SI words it this way.
+
+series:
+  discardThresholds: []
+  proportionalDiscard:
+    firstAt: 5
+    everyRaces: 3
+
+competitors:
+  - sailNumber: "11"
+    name: "Fionn"
+  - sailNumber: "22"
+    name: "Gráinne"
+  - sailNumber: "33"
+    name: "Hugh"
+  - sailNumber: "44"
+    name: "Iseult"
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "11", position: 1 }
+      - { sailor: "22", position: 2 }
+      - { sailor: "33", position: 3 }
+      - { sailor: "44", position: 4 }
+
+  - number: 2
+    finishes:
+      - { sailor: "22", position: 1 }
+      - { sailor: "11", position: 2 }
+      - { sailor: "44", position: 3 }
+      - { sailor: "33", position: 4 }
+
+  - number: 3
+    finishes:
+      - { sailor: "11", position: 1 }
+      - { sailor: "33", position: 2 }
+      - { sailor: "22", position: 3 }
+      - { sailor: "44", position: 4 }
+
+  - number: 4
+    finishes:
+      - { sailor: "22", position: 1 }
+      - { sailor: "44", position: 2 }
+      - { sailor: "11", position: 3 }
+      - { sailor: "33", position: 4 }
+
+  - number: 5
+    finishes:
+      - { sailor: "33", position: 1 }
+      - { sailor: "11", position: 2 }
+      - { sailor: "22", position: 3 }
+      - { sailor: "44", position: 4 }
+
+  - number: 6
+    finishes:
+      - { sailor: "11", position: 1 }
+      - { sailor: "22", position: 2 }
+      - { sailor: "33", position: 3 }
+      - { sailor: "44", position: 4 }
+
+# Totals, each dropping one worst race:
+#   Fionn    1,2,1,3,2,1 = 10, drops 3 → 7
+#   Gráinne  2,1,3,1,3,2 = 12, drops the earlier 3 → 9
+#   Hugh     3,4,2,4,1,3 = 17, drops the earlier 4 → 13
+#   Iseult   4,3,4,2,4,4 = 21, drops the earliest 4 → 17
+expected:
+  standings:
+    - rank: 1
+      sailor: "11"
+      racePoints: [1, 2, 1, 3, 2, 1]
+      raceCodes: [null, null, null, null, null, null]
+      raceDiscards: [false, false, false, true, false, false]
+      totalPoints: 10
+      netPoints: 7
+
+    - rank: 2
+      sailor: "22"
+      racePoints: [2, 1, 3, 1, 3, 2]
+      raceCodes: [null, null, null, null, null, null]
+      raceDiscards: [false, false, true, false, false, false]
+      totalPoints: 12
+      netPoints: 9
+
+    - rank: 3
+      sailor: "33"
+      racePoints: [3, 4, 2, 4, 1, 3]
+      raceCodes: [null, null, null, null, null, null]
+      raceDiscards: [false, true, false, false, false, false]
+      totalPoints: 17
+      netPoints: 13
+
+    - rank: 4
+      sailor: "44"
+      racePoints: [4, 3, 4, 2, 4, 4]
+      raceCodes: [null, null, null, null, null, null]
+      raceDiscards: [true, false, false, false, false, false]
+      totalPoints: 21
+      netPoints: 17

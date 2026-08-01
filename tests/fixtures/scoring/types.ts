@@ -17,6 +17,7 @@ import { parse as parseYaml } from 'yaml';
 import type {
   Competitor,
   DiscardThreshold,
+  ProportionalDiscard,
   Finish,
   Fleet,
   PenaltyCode,
@@ -173,6 +174,9 @@ export interface Fixture {
   notes?: string;
   series: {
     discardThresholds: DiscardThreshold[];
+    /** A discard allowance stated as a proportion — "one discard for every
+     *  three races sailed". Supersedes `discardThresholds` when present. */
+    proportionalDiscard?: ProportionalDiscard;
     dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
     // When true, a sub-series drops competitors that are all-DNC across the
     // block (and from the entry count its DNC penalty is based on) — the #203
@@ -207,6 +211,7 @@ export interface FixtureInputs {
   raceStarts: RaceStart[];
   ratingOverrides: RaceRatingOverride[];
   discardThresholds: DiscardThreshold[];
+  proportionalDiscard?: ProportionalDiscard;
   dnfScoring: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   excludeDncOnlyCompetitors: boolean;
   sailToId: Map<string, string>;
@@ -417,6 +422,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
     raceStarts,
     ratingOverrides,
     discardThresholds: fixture.series.discardThresholds,
+    proportionalDiscard: fixture.series.proportionalDiscard,
     dnfScoring: fixture.series.dnfScoring ?? 'seriesEntries',
     excludeDncOnlyCompetitors: fixture.series.excludeDncOnlyCompetitors ?? false,
     sailToId,

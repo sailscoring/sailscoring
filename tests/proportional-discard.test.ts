@@ -125,8 +125,8 @@ describe('proportional discards reach every scoring entry point', () => {
   it('calculateSubSeriesFleetStandings', () => {
     const subSeries: SubSeries[] = [{
       id: 'ss1', seriesId: 's1', name: 'Block', displayOrder: 0,
-      raceIds: races.map((r) => r.id), startingHandicapSource: 'series',
-      continueFromSubSeriesId: null, createdAt: 0,
+      raceIds: races.map((r) => r.id), startingHandicapSource: 'base',
+      continueFromSubSeriesId: null,
     }];
     const blocks = calculateSubSeriesFleetStandings(
       subSeries, fleets, competitors, races, finishes, thresholds, 'seriesEntries',

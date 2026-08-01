@@ -1,0 +1,148 @@
+description: "Scratch — proportional discards, one per three races sailed, 7 races"
+rrs_notes: >
+  RRS A2.1 permits the sailing instructions to change the number of races
+  excluded from a boat's series score. This fixture scores an allowance stated
+  as a proportion rather than as a table of step-ups.
+notes: |
+  Shanklin Sailing Club words the allowance for two of its series as:
+
+    "One third of the results ... will be discarded (rounded down to the
+    nearest whole number - eg 7 races = 2 discards)."
+
+  Typed as a rule — first discard once 3 races have been sailed, one more every
+  3 races after that — rather than hand-expanded into a threshold per step-up.
+  Seven races sailed, so the SI's own worked example applies: 2 discards.
+
+  Each boat drops its own two worst scores. Alice has one bad race (a 5 in race
+  4) and an ordinary 3; Bob's two worst are both 4s. Carol sails a consistent
+  series and her discards barely help her, which is the point of the rule for a
+  long series — the allowance grows with the number of races, so a boat is not
+  punished for one bad day out of many.
+
+series:
+  discardThresholds: []
+  proportionalDiscard:
+    firstAt: 3
+    everyRaces: 3
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "101", position: 1 }
+      - { sailor: "202", position: 2 }
+      - { sailor: "303", position: 3 }
+      - { sailor: "404", position: 4 }
+      - { sailor: "505", position: 5 }
+
+  - number: 2
+    finishes:
+      - { sailor: "101", position: 1 }
+      - { sailor: "303", position: 2 }
+      - { sailor: "202", position: 3 }
+      - { sailor: "505", position: 4 }
+      - { sailor: "404", position: 5 }
+
+  - number: 3
+    finishes:
+      - { sailor: "202", position: 1 }
+      - { sailor: "101", position: 2 }
+      - { sailor: "303", position: 3 }
+      - { sailor: "404", position: 4 }
+      - { sailor: "505", position: 5 }
+
+  - number: 4
+    finishes:
+      - { sailor: "303", position: 1 }
+      - { sailor: "202", position: 2 }
+      - { sailor: "404", position: 3 }
+      - { sailor: "505", position: 4 }
+      - { sailor: "101", position: 5 }
+
+  - number: 5
+    finishes:
+      - { sailor: "101", position: 1 }
+      - { sailor: "303", position: 2 }
+      - { sailor: "505", position: 3 }
+      - { sailor: "202", position: 4 }
+      - { sailor: "404", position: 5 }
+
+  - number: 6
+    finishes:
+      - { sailor: "101", position: 1 }
+      - { sailor: "303", position: 2 }
+      - { sailor: "202", position: 3 }
+      - { sailor: "404", position: 4 }
+      - { sailor: "505", position: 5 }
+
+  - number: 7
+    finishes:
+      - { sailor: "303", position: 1 }
+      - { sailor: "101", position: 2 }
+      - { sailor: "202", position: 3 }
+      - { sailor: "505", position: 4 }
+      - { sailor: "404", position: 5 }
+
+# Totals and the two worst dropped from each:
+#   Alice  1,1,2,5,1,1,2 = 13, drops 5 and 2 → 6
+#   Bob    2,3,1,2,4,3,3 = 18, drops 4 and 3 → 11
+#   Carol  3,2,3,1,2,2,1 = 14, drops 3 and 3 → 8
+#   David  4,5,4,3,5,4,5 = 30, drops 5 and 5 → 20
+#   Eve    5,4,5,4,3,5,4 = 30, drops 5 and 5 → 20
+# David and Eve tie on 20; A8.1 compares their non-discarded scores best to
+# worst — David 3,4,4,4,5 against Eve 3,4,4,4,5 is level, so A8.2 counts back
+# from the last race: Eve's 4 beats David's 5.
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 1, 2, 5, 1, 1, 2]
+      raceCodes: [null, null, null, null, null, null, null]
+      # Her worst is the 5; the second discard is a 2, and of her two 2s the
+      # earlier race goes first.
+      raceDiscards: [false, false, true, true, false, false, false]
+      totalPoints: 13
+      netPoints: 6
+
+    - rank: 2
+      sailor: "303"
+      racePoints: [3, 2, 3, 1, 2, 2, 1]
+      raceCodes: [null, null, null, null, null, null, null]
+      raceDiscards: [true, false, true, false, false, false, false]
+      totalPoints: 14
+      netPoints: 8
+
+    - rank: 3
+      sailor: "202"
+      racePoints: [2, 3, 1, 2, 4, 3, 3]
+      raceCodes: [null, null, null, null, null, null, null]
+      raceDiscards: [false, true, false, false, true, false, false]
+      totalPoints: 18
+      netPoints: 11
+
+    - rank: 4
+      sailor: "505"
+      racePoints: [5, 4, 5, 4, 3, 5, 4]
+      raceCodes: [null, null, null, null, null, null, null]
+      raceDiscards: [true, false, true, false, false, false, false]
+      totalPoints: 30
+      netPoints: 20
+
+    - rank: 5
+      sailor: "404"
+      racePoints: [4, 5, 4, 3, 5, 4, 5]
+      raceCodes: [null, null, null, null, null, null, null]
+      raceDiscards: [false, true, false, false, true, false, false]
+      totalPoints: 30
+      netPoints: 20
