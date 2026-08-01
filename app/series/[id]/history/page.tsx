@@ -33,14 +33,14 @@ function actorLabel(actor: RevisionEntry['actor']): string {
 /**
  * Headline for a revision row. Named checkpoints use their label and reverts
  * their message; an auto revision's headline is derived from the *set* of
- * changes in its window (chronological, de-duplicated) rather than the
+ * changes it captured (chronological, de-duplicated) rather than the
  * last-action `summary`, which only described whatever happened to land last.
  */
-function revisionTitle(rev: RevisionEntry, windowActivity: ActivityEntry[]): string {
+function revisionTitle(rev: RevisionEntry, capturedActivity: ActivityEntry[]): string {
   // named / publish / saved carry an explicit label.
   if (rev.label) return rev.label;
   if (rev.kind === 'revert') return rev.summary ?? 'Restored an earlier version';
-  const summaries = [...new Set([...windowActivity].reverse().map((a) => a.summary))];
+  const summaries = [...new Set([...capturedActivity].reverse().map((a) => a.summary))];
   if (summaries.length === 0) return rev.summary ?? 'Edited the series';
   if (summaries.length <= 2) return summaries.join(', ');
   return `${summaries.slice(0, 2).join(', ')} +${summaries.length - 2} more`;
@@ -66,17 +66,17 @@ function KindBadge({ kind }: { kind: RevisionEntry['kind'] }) {
 
 function RevisionRow({
   rev,
-  windowActivity,
+  capturedActivity,
   canRestore,
   onRestore,
 }: {
   rev: RevisionEntry;
-  windowActivity: ActivityEntry[];
+  capturedActivity: ActivityEntry[];
   canRestore: boolean;
   onRestore: (rev: RevisionEntry) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const expandable = windowActivity.length > 0;
+  const expandable = capturedActivity.length > 0;
 
   return (
     <li className="py-3">
@@ -99,12 +99,12 @@ function RevisionRow({
           </span>
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-sm">
-              <span className="font-medium">{revisionTitle(rev, windowActivity)}</span>
+              <span className="font-medium">{revisionTitle(rev, capturedActivity)}</span>
               <KindBadge kind={rev.kind} />
             </p>
             <p className="text-xs text-muted-foreground">
               {actorLabel(rev.actor)} · {formatRelativeTime(rev.createdAt)}
-              {expandable && ` · ${windowActivity.length} change${windowActivity.length === 1 ? '' : 's'}`}
+              {expandable && ` · ${capturedActivity.length} change${capturedActivity.length === 1 ? '' : 's'}`}
               {!rev.hasSnapshot && ' · snapshot no longer kept'}
             </p>
           </div>
@@ -123,7 +123,7 @@ function RevisionRow({
       </div>
       {open && expandable && (
         <ul className="mt-2 ml-10 space-y-1 border-l pl-4">
-          {windowActivity.map((a) => (
+          {capturedActivity.map((a) => (
             <li key={a.id} className="text-xs text-muted-foreground">
               {a.summary}
               {a.count > 1 && <span className="ml-1">×{a.count}</span>}
@@ -132,6 +132,35 @@ function RevisionRow({
           ))}
         </ul>
       )}
+    </li>
+  );
+}
+
+/**
+ * A change with no revision behind it — a workspace-organisation action that
+ * stores nothing recoverable, or an entry predating revision attribution.
+ * Shown in the timeline so it isn't lost, but plainly not a saved version:
+ * folding it into a neighbouring revision would credit that snapshot with a
+ * change it doesn't contain.
+ */
+function UnversionedRow({ entry }: { entry: ActivityEntry }) {
+  return (
+    <li className="py-3">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center">
+          <span className="h-1.5 w-1.5 rounded-full border border-muted-foreground/40" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted-foreground">
+            {entry.summary}
+            {entry.count > 1 && <span className="ml-1">×{entry.count}</span>}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {actorLabel(entry.actor)} · {formatRelativeTime(entry.createdAt)} · not
+            captured in a saved version
+          </p>
+        </div>
+      </div>
     </li>
   );
 }
@@ -192,7 +221,35 @@ export default function SeriesHistoryPage({
   const revs = revisions ?? [];
   const activity = activityPages?.pages.flatMap((p) => p.items) ?? [];
 
-  if (revs.length === 0) {
+  // Each revision's drill-down is the activity it actually captured — stamped
+  // at capture time (#354), not guessed from timestamps. Guessing let a change
+  // with no revision behind it be absorbed by an unrelated later edit, which
+  // then described itself with changes its snapshot doesn't contain.
+  const capturedBy = new Map<string, ActivityEntry[]>();
+  const unversioned: ActivityEntry[] = [];
+  for (const entry of activity) {
+    if (entry.revisionId === null) unversioned.push(entry);
+    else {
+      const bucket = capturedBy.get(entry.revisionId);
+      if (bucket) bucket.push(entry);
+      else capturedBy.set(entry.revisionId, [entry]);
+    }
+  }
+
+  // One timeline, newest first: saved versions and the changes no version
+  // captured, each in its own place rather than the latter hiding inside the
+  // former.
+  const timeline = [
+    ...revs.map((rev) => ({ key: rev.id, at: rev.createdAt, rev, entry: null })),
+    ...unversioned.map((entry) => ({
+      key: entry.id,
+      at: entry.createdAt,
+      rev: null,
+      entry,
+    })),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+  if (timeline.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
         <p>No saved versions yet.</p>
@@ -203,19 +260,6 @@ export default function SeriesHistoryPage({
         </p>
       </div>
     );
-  }
-
-  // Bucket activity into each revision's window: entries created after the
-  // previous (older) revision and up to this one. `revs` is newest-first, so
-  // the previous revision in time is the next index.
-  function windowFor(index: number): ActivityEntry[] {
-    const thisAt = new Date(revs[index].createdAt).getTime();
-    const prevAt =
-      index + 1 < revs.length ? new Date(revs[index + 1].createdAt).getTime() : -Infinity;
-    return activity.filter((a) => {
-      const t = new Date(a.createdAt).getTime();
-      return t > prevAt && t <= thisAt;
-    });
   }
 
   return (
@@ -234,16 +278,22 @@ export default function SeriesHistoryPage({
         )}
       </div>
       <ul className="divide-y bg-card border rounded-lg px-5" data-testid="revision-list">
-        {revs.map((rev, i) => (
-          <RevisionRow
-            key={rev.id}
-            rev={rev}
-            windowActivity={windowFor(i)}
-            // The newest revision is the current state — nothing to restore to.
-            canRestore={canRestore && i !== 0 && rev.hasSnapshot}
-            onRestore={setConfirming}
-          />
-        ))}
+        {timeline.map((item) =>
+          item.rev ? (
+            <RevisionRow
+              key={item.key}
+              rev={item.rev}
+              capturedActivity={capturedBy.get(item.rev.id) ?? []}
+              // The newest revision is the current state — nothing to restore to.
+              canRestore={
+                canRestore && item.rev.id !== revs[0]?.id && item.rev.hasSnapshot
+              }
+              onRestore={setConfirming}
+            />
+          ) : (
+            <UnversionedRow key={item.key} entry={item.entry!} />
+          ),
+        )}
       </ul>
 
       <Dialog

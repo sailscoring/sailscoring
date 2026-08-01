@@ -903,6 +903,10 @@ export interface ActivityEntry {
   /** ISO-8601 timestamp of the (most recent) occurrence. */
   createdAt: string;
   actor: { id: string; email?: string; displayName?: string } | null;
+  /** The revision whose snapshot covers this change (#354), or null when no
+   *  revision captured it — a workspace-organisation action that stores no
+   *  recoverable state, or a change that predates the attribution column. */
+  revisionId: string | null;
 }
 
 /** A single revision in a series' history (#166). Metadata only — the full

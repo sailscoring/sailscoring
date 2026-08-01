@@ -1228,6 +1228,14 @@ export const idempotencyKeys = pgTable('idempotency_keys', {
  * inside a session window into one row with a running `metadata.count`, so a
  * 20-boat race reads as a single "recorded finishes for Race 3" entry rather
  * than twenty lines.
+ *
+ * `revision_id` records which revision's snapshot covers the entry (#354).
+ * `trackChange` hands each entry to the capture that follows it and the
+ * revision stamps it here, so the History drill-down reports what a revision
+ * actually captured rather than inferring it from timestamps — which let a
+ * change no revision covered be absorbed by an unrelated later edit. It stays
+ * null for actions that deliberately snapshot nothing (a category move, an
+ * archive toggle) and for entries predating the column.
  */
 export const activityLog = pgTable(
   'activity_log',
@@ -1241,6 +1249,10 @@ export const activityLog = pgTable(
     action: text('action').notNull(),
     summary: text('summary').notNull(),
     dedupeKey: text('dedupe_key'),
+    // Plain uuid, not a foreign key, for the same reason as `series_id`: old
+    // auto revisions are thinned and series-deletion cascades them away, but
+    // the log entry stays a historical record either way.
+    revisionId: uuid('revision_id'),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -1260,6 +1272,7 @@ export const activityLog = pgTable(
       table.dedupeKey,
       table.actorUserId,
     ),
+    index('activity_log_revision_idx').on(table.revisionId),
   ],
 );
 

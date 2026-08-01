@@ -61,11 +61,22 @@ function countOf(metadata: unknown): number {
  * window, the existing row is updated (summary refreshed, `count` incremented,
  * `created_at` bumped to float it to the head of the feed) rather than a new
  * row inserted.
+ *
+ * Returns the id of the row written or folded into, so `trackChange` can hand
+ * it to the revision capture that follows and have that revision claim exactly
+ * this entry (#354). Null if the write failed.
+ *
+ * A folded row keeps floating forward: its `created_at` moves and, with it,
+ * its revision attribution, so it always sits under the revision that most
+ * recently captured it. That is deliberate — a coalesced row represents N
+ * occurrences and can only live in one place, and splitting it per revision
+ * boundary would undo the point of coalescing (a 20-boat race reading as one
+ * line). Revisions it has moved on from fall back to their own summary.
  */
 export async function recordActivity(
   actor: Actor,
   input: RecordActivityInput,
-): Promise<void> {
+): Promise<string | null> {
   try {
     const db = getDb();
 
@@ -94,12 +105,13 @@ export async function recordActivity(
             createdAt: new Date(),
           })
           .where(eq(activityLog.id, recent.id));
-        return;
+        return recent.id;
       }
     }
 
+    const id = crypto.randomUUID();
     await db.insert(activityLog).values({
-      id: crypto.randomUUID(),
+      id,
       workspaceId: actor.workspaceId,
       seriesId: input.seriesId ?? null,
       actorUserId: actor.userId,
@@ -108,8 +120,10 @@ export async function recordActivity(
       dedupeKey: input.dedupeKey ?? null,
       metadata: { ...(input.metadata ?? {}), count: 1 },
     });
+    return id;
   } catch (err) {
     console.error('recordActivity failed (non-fatal):', err);
+    return null;
   }
 }
 
@@ -120,6 +134,7 @@ function toEntry(row: {
   summary: string;
   metadata: unknown;
   createdAt: Date;
+  revisionId: string | null;
   actorId: string | null;
   actorEmail: string | null;
   actorName: string | null;
@@ -131,6 +146,7 @@ function toEntry(row: {
     summary: row.summary,
     count: countOf(row.metadata),
     createdAt: row.createdAt.toISOString(),
+    revisionId: row.revisionId,
     actor: row.actorId
       ? {
           id: row.actorId,
@@ -151,6 +167,7 @@ const ACTIVITY_SELECTION = {
   summary: activityLog.summary,
   metadata: activityLog.metadata,
   createdAt: activityLog.createdAt,
+  revisionId: activityLog.revisionId,
   actorId: user.id,
   actorEmail: user.email,
   actorName: user.name,

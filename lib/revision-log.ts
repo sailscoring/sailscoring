@@ -7,7 +7,7 @@ import { getDb } from '@/lib/db/client';
 import { recordActivity } from '@/lib/activity-log';
 import type { ActivityAction } from '@/lib/activity-actions';
 import { user } from '@/lib/db/schema/auth';
-import { seriesRevision } from '@/lib/db/schema/series';
+import { activityLog, seriesRevision } from '@/lib/db/schema/series';
 import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
 import {
   buildSeriesFile,
@@ -77,6 +77,40 @@ interface Actor {
   userId: string;
 }
 
+interface CaptureOpts {
+  kind?: RevisionKind;
+  label?: string;
+  summary?: string;
+  sessionKey?: string;
+  /** The activity entry this snapshot covers, for the revision to claim (#354). */
+  activityEntryId?: string;
+}
+
+/**
+ * Attribute one activity entry to the revision that has just snapshotted the
+ * change it describes (#354), so the History drill-down shows what a revision
+ * actually captured instead of inferring it from timestamps.
+ *
+ * Attribution is per-entry and explicit rather than "everything unattributed
+ * for this series": handlers that deliberately capture no revision — a
+ * category move, an archive toggle — write entries that must stay unattributed
+ * for good, and a sweeping claim would hand them to the next unrelated edit,
+ * which is the failure this exists to fix.
+ *
+ * Best-effort: the revision itself is already stored, so a failure here costs
+ * attribution, not history.
+ */
+async function claimActivity(entryId: string, revisionId: string): Promise<void> {
+  try {
+    await getDb()
+      .update(activityLog)
+      .set({ revisionId })
+      .where(eq(activityLog.id, entryId));
+  } catch (err) {
+    console.error('claimActivity failed (non-fatal):', err);
+  }
+}
+
 /**
  * Snapshot the current state of a series into the revision history.
  *
@@ -85,12 +119,17 @@ interface Actor {
  * overwritten in place rather than appended, so a burst of edits becomes one
  * "end of session" revision. `named` and `revert` revisions always append.
  *
+ * `activityEntryId` names the activity entry this snapshot covers, which the
+ * revision then claims (#354). Deliberate captures with no accompanying entry
+ * — named checkpoints, save and publish milestones — leave it unset and simply
+ * have no drill-down, which is what they are: markers, not edits.
+ *
  * Best-effort: never throws into the caller.
  */
 export async function captureRevision(
   actor: Actor,
   seriesId: string,
-  opts: { kind?: RevisionKind; label?: string; summary?: string; sessionKey?: string } = {},
+  opts: CaptureOpts = {},
 ): Promise<void> {
   try {
     const db = getDb();
@@ -133,12 +172,14 @@ export async function captureRevision(
             createdAt: new Date(),
           })
           .where(eq(seriesRevision.id, open.id));
+        if (opts.activityEntryId) await claimActivity(opts.activityEntryId, open.id);
         return;
       }
     }
 
+    const revisionId = crypto.randomUUID();
     await db.insert(seriesRevision).values({
-      id: crypto.randomUUID(),
+      id: revisionId,
       workspaceId: actor.workspaceId,
       seriesId,
       actorUserId: actor.userId,
@@ -148,6 +189,7 @@ export async function captureRevision(
       sessionKey,
       snapshotGz: packSnapshot(snapshot),
     });
+    if (opts.activityEntryId) await claimActivity(opts.activityEntryId, revisionId);
 
     // A new revision was born — opportunistically thin this series' old auto
     // snapshots. (Coalesce updates above return early and don't trigger it.)
@@ -193,7 +235,7 @@ export async function sealOpenRevisions(
 export function captureRevisionAfter(
   actor: Actor,
   seriesId: string,
-  opts: { kind?: RevisionKind; label?: string; summary?: string; sessionKey?: string } = {},
+  opts: CaptureOpts = {},
 ): void {
   try {
     after(() => captureRevision(actor, seriesId, opts));
@@ -240,7 +282,7 @@ export async function trackChange(
     const repos = createRepos({ workspaceId: actor.workspaceId });
     await repos.series.touch(input.seriesId);
   }
-  await recordActivity(actor, {
+  const activityEntryId = await recordActivity(actor, {
     action: input.action,
     seriesId: input.seriesId,
     summary: input.summary,
@@ -249,6 +291,9 @@ export async function trackChange(
   captureRevisionAfter(actor, input.seriesId, {
     summary: input.summary,
     sessionKey: input.sessionKey,
+    // Ties the entry to the snapshot that covers it (#354), so History reports
+    // what a revision captured rather than guessing from timestamps.
+    activityEntryId: activityEntryId ?? undefined,
   });
 }
 

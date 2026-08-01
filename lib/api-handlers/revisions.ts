@@ -89,8 +89,16 @@ export async function revertToRevision(
   // then pin the restore as its own revision.
   await sealOpenRevisions(workspace.workspaceId, seriesId);
   const summary = `Restored the version from ${new Date(revision.createdAt).toLocaleString('en-IE')}`;
-  await recordActivity(workspace, { action: 'series.reverted', seriesId, summary });
-  await captureRevision(actor, seriesId, { kind: 'revert', summary });
+  const activityEntryId = await recordActivity(workspace, {
+    action: 'series.reverted',
+    seriesId,
+    summary,
+  });
+  await captureRevision(actor, seriesId, {
+    kind: 'revert',
+    summary,
+    activityEntryId: activityEntryId ?? undefined,
+  });
 
   // Lazy identity population (#222): the replay rewrote the competitor rows,
   // so their workspace-local identity links are re-derived here.
