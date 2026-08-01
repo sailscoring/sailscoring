@@ -181,8 +181,9 @@ changed there, and this ADR keeps the always-fresh dynamic read path.
 > - **The publish dialog composes Season + Folder, and nothing else.** The
 >   custom-slug shape is gone from the UI (the API keeps it for the CLI);
 >   an undated series defaults to the current year. A single-fleet series'
->   standings page sits at `folder/standings`, laid out symmetrically with
->   its prizes sibling; a block series' folder becomes its own top-level
+>   standings page sits at `folder/standings` — `folder/results` where the
+>   series publishes a single-race event's race result (#347) — laid out
+>   symmetrically with its prizes sibling; a block series' folder becomes its own top-level
 >   slug (its `{block}/{page}` paths use both segments), filed under the
 >   season by a folder season pin. First publish pins the folder's label to
 >   the series name (reset to the humanised segment once a second series
