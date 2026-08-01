@@ -27,6 +27,7 @@ import {
   ensureSlugs,
   resetIdentities,
 } from '@/lib/competitor-identity-reconcile';
+import { computeRankingStandings } from '@/lib/ranking-standings';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -624,6 +625,71 @@ describe.skipIf(skip)('reconcile-identities crew slot (#348)', () => {
       'Frank Larkin:primary',
       'Maeve Dervan:crew',
     ]);
-    expect(await identityIdForSlug(workspaceId, 'maeve-dervan-nnnn')).toBeTruthy();
+    const [maeve] = await db
+      .select({ managedBy: schema.competitorIdentities.managedBy })
+      .from(schema.competitorIdentities)
+      .where(
+        eq(
+          schema.competitorIdentities.id,
+          identityIdForSlug(workspaceId, 'maeve-dervan-nnnn'),
+        ),
+      );
+    expect(maeve?.managedBy).toBe('archive');
+  });
+  test('a crew earns no ranking points from their helm placing', async () => {
+    // The ladder joins memberships to credit each linked identity with the
+    // boat's place. Crew memberships must not ride along on that join —
+    // whether crew score is the club's call, not a consequence of the schema.
+    const fleetId = uuid();
+    await db.insert(schema.fleets).values({
+      id: fleetId,
+      seriesId: seriesByYear[2023],
+      workspaceId,
+      name: 'Main Fleet',
+      displayOrder: 0,
+      scoringSystem: 'scratch',
+    });
+    await db
+      .update(schema.series)
+      .set({ asPublished: true })
+      .where(eq(schema.series.id, seriesByYear[2023]));
+    await db.insert(schema.asPublishedResults).values({
+      id: uuid(),
+      workspaceId,
+      seriesId: seriesByYear[2023],
+      fleetId,
+      results: {
+        leadColumns: [],
+        raceHeaders: [],
+        summaryColumns: [],
+        rows: [
+          {
+            competitorId: boat23,
+            rank: 1,
+            rankLabel: '1st',
+            leadCells: [],
+            raceCells: [],
+            summaryCells: [],
+          },
+        ],
+      },
+    });
+
+    const standings = await computeRankingStandings(workspaceId, {
+      buckets: [
+        {
+          id: 'all',
+          name: 'All',
+          seriesIds: [seriesByYear[2023]],
+          countBest: 1,
+          requiredMin: 1,
+        },
+      ],
+    });
+    const frank = identityIdForSlug(workspaceId, 'frank-larkin-mmmm');
+    const maeve = identityIdForSlug(workspaceId, 'maeve-dervan-nnnn');
+    const ranked = standings.result.rows.map((r) => r.identityId);
+    expect(ranked).toContain(frank);
+    expect(ranked).not.toContain(maeve);
   });
 });

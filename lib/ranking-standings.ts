@@ -252,6 +252,12 @@ export async function computeRankingStandings(
   const placedIds = [...placeByCompetitor.keys()];
   // One row per identity membership: a co-owned entry (several links) credits
   // each linked identity with the full place, once per identity (#316).
+  //
+  // Primary memberships only (#348). Crew now carry identities too, and a
+  // crew link on the same row would otherwise be credited with the boat's
+  // place automatically. Whether crew should accrue ranking points is a
+  // scoring-policy question for the club, not something to decide by leaving
+  // a join unfiltered — so the ladder keeps crediting the slot it always did.
   const rows = await db
     .select({
       id: competitors.id,
@@ -262,7 +268,10 @@ export async function computeRankingStandings(
     .from(competitors)
     .leftJoin(
       competitorIdentityLinks,
-      eq(competitorIdentityLinks.competitorId, competitors.id),
+      and(
+        eq(competitorIdentityLinks.competitorId, competitors.id),
+        eq(competitorIdentityLinks.role, 'primary'),
+      ),
     )
     .where(inArray(competitors.id, placedIds));
 
