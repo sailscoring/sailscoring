@@ -164,10 +164,13 @@ const SHOTS: Shot[] = [
       const rows = page.getByTestId(/^non-finisher-/);
       const count = await rows.count();
       if (count === 0) throw new Error('the race has no non-finisher rows to open a code dropdown on');
+      // Frame the non-finisher panel, then open the dropdown and ring it.
+      await scrollTo(page.getByText('Non-finishers', { exact: false }).first());
       const combo = rows.first().getByRole('combobox');
-      await combo.scrollIntoViewIfNeeded();
       await combo.click();
-      await page.getByRole('listbox').waitFor();
+      const listbox = page.getByRole('listbox');
+      await listbox.waitFor();
+      await highlight(listbox);
       await shot('result-codes.png');
       await page.keyboard.press('Escape');
     },
@@ -283,7 +286,9 @@ const SHOTS: Shot[] = [
     async capture({ page, seriesId, shot }) {
       await page.goto(`${BASE}/series/${await seriesId()}/settings`);
       await settle(page);
-      await page.getByText('Fleets', { exact: true }).first().scrollIntoViewIfNeeded();
+      await openCardEdit(page, 'Fleets');
+      await page.getByTestId('fleet-row').first().waitFor();
+      await scrollTo(page.getByText('Fleets', { exact: true }).first());
       await shot('fleets.png');
     },
   },
@@ -295,30 +300,20 @@ const SHOTS: Shot[] = [
     async capture({ page, seriesId, shot }) {
       await page.goto(`${BASE}/series/${await seriesId()}/settings`);
       await settle(page);
-      // Every settings card has an "Edit ▸"; walk up from the Fleets heading
-      // to its card and click that card's button.
-      await page.evaluate(() => {
-        const heads = [...document.querySelectorAll<HTMLElement>('h1,h2,h3,h4,div,span')].filter(
-          (e) => e.childElementCount === 0 && e.textContent?.trim() === 'Fleets',
-        );
-        for (const h of heads) {
-          for (let node = h.parentElement, i = 0; node && i < 8; node = node.parentElement, i++) {
-            const btn = [...node.querySelectorAll('button')].find(
-              (b) => b.textContent?.trim() === 'Edit ▸',
-            );
-            if (btn) {
-              btn.click();
-              return;
-            }
-          }
-        }
-        throw new Error('Fleets card Edit ▸ not found');
-      });
-      await settle(page);
-      await page
-        .getByText('Default start sequence', { exact: false })
-        .first()
-        .scrollIntoViewIfNeeded();
+      await openCardEdit(page, 'Fleets');
+      // The sample carries per-race starts but no series default, so build
+      // the classic three-class sequence in the editor — shown, not saved.
+      const editor = page.getByText('Default start sequence').locator('..');
+      for (let n = 1; n <= 3; n++) {
+        await editor.getByRole('button', { name: '+ Add start group' }).click();
+        await editor.getByRole('combobox').last().click();
+        await page.getByRole('option', { name: `Class ${n} IRC` }).click();
+        await editor.getByRole('combobox').last().click();
+        await page.getByRole('option', { name: `Class ${n} ECHO` }).click();
+        if (n > 1) await editor.locator('input[type="number"]').last().fill('5');
+      }
+      await editor.getByText(/min after Start 2/).waitFor();
+      await scrollTo(page.getByText('Default start sequence', { exact: false }).first());
       await shot('start-sequences.png');
     },
   },
@@ -329,7 +324,8 @@ const SHOTS: Shot[] = [
     async capture({ page, seriesId, shot }) {
       await page.goto(`${BASE}/series/${await seriesId()}/settings`);
       await settle(page);
-      await page.getByText('Scoring', { exact: true }).first().scrollIntoViewIfNeeded();
+      await openCardEdit(page, 'Scoring');
+      await scrollTo(page.getByText('Scoring', { exact: true }).first());
       await shot('discard-rules.png');
     },
   },
@@ -396,9 +392,12 @@ const SHOTS: Shot[] = [
       await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
+      // Show a penalty actually chosen, not the "No penalty" default.
+      await dialog.getByRole('combobox').click();
+      await page.getByRole('option', { name: /SCP/ }).click();
       await settle(page);
       await shot('scoring-penalties.png');
-      await page.keyboard.press('Escape');
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
       await dialog.waitFor({ state: 'hidden' }).catch(() => {});
     },
   },
@@ -458,21 +457,6 @@ const SHOTS: Shot[] = [
       await page.getByRole('menuitem', { name: 'Exclude from this fleet' }).waitFor();
       await shot('race-exclusion.png');
       await page.keyboard.press('Escape');
-    },
-  },
-  {
-    // Inventory: Version history — the History tab with a version expanded.
-    slug: 'version-history',
-    group: 'Reading and checking',
-    async capture({ page, seriesId, shot }) {
-      await page.goto(`${BASE}/series/${await seriesId()}/history`);
-      await settle(page);
-      const list = page.getByTestId('revision-list');
-      await list.waitFor();
-      // Expand the newest version's change detail where the row offers it.
-      await list.getByRole('button').first().click().catch(() => {});
-      await settle(page);
-      await shot('version-history.png');
     },
   },
   {
@@ -615,37 +599,6 @@ const SHOTS: Shot[] = [
       await pub.close();
     },
   },
-  {
-    // Inventory: Unknown sail numbers — the suggestion offering Record as
-    // unknown. The row only shows alongside live suggestions, and every
-    // sample race is fully recorded — so local mode adds an empty race for
-    // it. Deliberately LAST in the registry: the extra race must not appear
-    // in any other shot.
-    slug: 'unknown-sail',
-    group: 'Entering results',
-    async capture({ page, seriesId, shot }) {
-      const id = await seriesId();
-      let raceNumber = 3;
-      if (LOCAL) {
-        await page.goto(`${BASE}/series/${id}/races`);
-        await settle(page);
-        const rows = page.getByTestId('race-row');
-        const before = await rows.count();
-        await page.getByRole('button', { name: 'Add race', exact: true }).click();
-        for (let i = 0; i < 40 && (await rows.count()) === before; i++) {
-          await page.waitForTimeout(250);
-        }
-        raceNumber = before + 1;
-      }
-      await openRace(page, id, raceNumber);
-      // A value that prefixes registered boats without matching one exactly.
-      await page.getByLabel('Sail number').fill('IRL2');
-      await page.getByTestId('record-unknown-option').waitFor();
-      await shot('unknown-sail.png');
-      await page.keyboard.press('Escape');
-    },
-  },
-
   // ── Batch 3 — the rest of the inventory ────────────────────────────────────
   {
     // Inventory: Standings (and the Low Point row it illustrates).
@@ -680,6 +633,7 @@ const SHOTS: Shot[] = [
     group: 'Entering results',
     async capture({ page, seriesId, shot }) {
       await openRace(page, await seriesId(), 1);
+      await scrollTo(page.getByText('Finishing order', { exact: true }).first());
       await shot('finish-entry.png');
     },
   },
@@ -766,9 +720,10 @@ const SHOTS: Shot[] = [
       await settle(page);
       const heading = page.getByRole('heading', { name: 'Scoring', exact: true });
       await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-      await page
-        .getByLabel('Boats in the starting area (RRS A5.3 — alternative)')
-        .scrollIntoViewIfNeeded();
+      await scrollTo(
+        page.getByLabel('Boats in the starting area (RRS A5.3 — alternative)'),
+        'center',
+      );
       await shot('a53-scoring.png');
     },
   },
@@ -785,7 +740,7 @@ const SHOTS: Shot[] = [
       await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
       await page.getByRole('radio', { name: 'One per so many races' }).check();
       await page.getByText(/steps up at/).waitFor();
-      await page.getByText(/steps up at/).scrollIntoViewIfNeeded();
+      await scrollTo(page.getByText('Scoring', { exact: true }).first());
       await shot('proportional-discards.png');
     },
   },
@@ -842,7 +797,9 @@ const SHOTS: Shot[] = [
     group: 'Data in and out',
     async capture({ page, anon, shot }) {
       const pub = await openPublicFleetPage(page, anon, 'class-1-irc');
-      await pub.getByText('Open in Sail Scoring').scrollIntoViewIfNeeded();
+      const link = pub.getByText('Open in Sail Scoring');
+      await scrollTo(link, 'center');
+      await highlight(link);
       await settle(pub);
       await shot('open-in-sailscoring.png', { page: pub });
       await pub.close();
@@ -1011,11 +968,14 @@ const SHOTS: Shot[] = [
     slug: 'split-fleets',
     group: 'Running a series',
     async capture({ page, shot }) {
-      // The split-fleets gate is flipped through provision-org's operator
-      // seam during local sign-in (see signInLocalUser) — before the app
-      // first caches a feature set — which also seeds the worked
-      // championship demo. Note the in-app `.sailscoring` import can NOT be
-      // used here: it silently drops the file's splitFleets block.
+      // Flip the operator gate through provision-org's seam (which seeds the
+      // worked championship demo), then bust the persisted client cache so
+      // the fresh feature set — and the Split Fleets tab — actually renders.
+      // Enabling only now keeps the split-fleet setup card out of every
+      // other series' settings shots. (The in-app `.sailscoring` import can
+      // NOT be used here: it silently drops the file's splitFleets block.)
+      await dbEnableOperatorFeature('split-fleets');
+      await page.evaluate(() => localStorage.clear());
       await page.goto(`${BASE}/`);
       await settle(page);
       await page.getByRole('link', { name: 'Sample Championship 2026' }).first().click();
@@ -1086,6 +1046,69 @@ const SHOTS: Shot[] = [
       await page.getByRole('checkbox', { name: /^Tie / }).last().check();
       await settle(page);
       await shot('tied-finishes.png');
+    },
+  },
+  {
+    // Inventory: Unknown sail numbers — an unknown crossing recorded in the
+    // finishing order, ready to Resolve. LOCAL-only mutation: adds an empty
+    // race on the league to type into. Late in the registry so the extra
+    // race stays out of every other shot.
+    slug: 'unknown-sail',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      if (!LOCAL) throw new Error('unknown-sail stages data and is local-mode only');
+      const id = await seriesId();
+      await page.goto(`${BASE}/series/${id}/races`);
+      await settle(page);
+      const rows = page.getByTestId('race-row');
+      const before = await rows.count();
+      await page.getByRole('button', { name: 'Add race', exact: true }).click();
+      for (let i = 0; i < 40 && (await rows.count()) === before; i++) {
+        await page.waitForTimeout(250);
+      }
+      await openRace(page, id, before + 1);
+      // A value that prefixes registered boats without matching one exactly,
+      // filed as unknown with Shift+Enter — the recorded row is the shot.
+      const input = page.getByLabel('Sail number');
+      await input.fill('IRL2');
+      await page.getByTestId('record-unknown-option').waitFor();
+      await input.press('Shift+Enter');
+      const unknownRow = page
+        .getByRole('listitem')
+        .filter({ hasText: /not registered|Unknown/i })
+        .first();
+      await unknownRow.waitFor();
+      await scrollTo(page.getByText('Finishing order', { exact: true }).first());
+      await highlight(unknownRow);
+      await shot('unknown-sail.png');
+    },
+  },
+  {
+    // Inventory: Version history — the History tab with real texture: the
+    // run's publishes and edits, plus a named checkpoint staged here.
+    // LOCAL-only (the checkpoint is a mutation); late so the entries exist.
+    slug: 'version-history',
+    group: 'Reading and checking',
+    async capture({ page, seriesId, shot }) {
+      const id = await seriesId();
+      if (LOCAL) {
+        await page.goto(`${BASE}/series/${id}/history`);
+        await settle(page);
+        await page.getByRole('button', { name: 'Name this version' }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.waitFor();
+        await dialog.getByRole('textbox').fill('Before protest hearing — R4');
+        await dialog.getByRole('button', { name: /Name|Save/ }).click();
+        await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+      }
+      await page.goto(`${BASE}/series/${id}/history`);
+      await settle(page);
+      const list = page.getByTestId('revision-list');
+      await list.waitFor();
+      // Expand the newest expandable version's change detail.
+      await list.getByRole('button').first().click().catch(() => {});
+      await settle(page);
+      await shot('version-history.png');
     },
   },
   {
@@ -1224,6 +1247,67 @@ async function settle(page: Page) {
   await page.waitForTimeout(400);
 }
 
+/** Scroll the shot's subject to lead the frame — 'start' pins it to the top
+ *  of the viewport, 'center' frames it with context around. */
+async function scrollTo(
+  locator: ReturnType<Page['locator']>,
+  block: 'start' | 'center' = 'start',
+) {
+  await locator.evaluate(
+    (el, b) => el.scrollIntoView({ block: b as ScrollLogicalPosition, behavior: 'instant' }),
+    block,
+  );
+  await locator.page().waitForTimeout(300);
+}
+
+/** Draw a presentation ring around the shot's subject — for features whose
+ *  UI is a small affordance that would otherwise be easy to miss. */
+async function highlight(locator: ReturnType<Page['locator']>) {
+  const box = await locator.boundingBox();
+  if (!box) return;
+  await locator.page().evaluate(({ x, y, width, height }) => {
+    const ring = document.createElement('div');
+    // Fixed positioning: boundingBox is viewport-relative, and the shot is
+    // taken with no further scrolling, so no document-coordinate math.
+    Object.assign(ring.style, {
+      position: 'fixed',
+      left: `${x - 10}px`,
+      top: `${y - 10}px`,
+      width: `${width + 20}px`,
+      height: `${height + 20}px`,
+      border: '3px solid #fb3a3b',
+      borderRadius: '10px',
+      boxShadow: '0 0 0 6px rgba(251, 58, 59, 0.15)',
+      pointerEvents: 'none',
+      zIndex: '99999',
+    });
+    document.body.append(ring);
+  }, box);
+}
+
+/** Open a settings card's inline editor by its heading text — every card has
+ *  an identical "Edit ▸", so walk up from the heading to its card. */
+async function openCardEdit(page: Page, heading: string) {
+  await page.evaluate((title) => {
+    const heads = [...document.querySelectorAll<HTMLElement>('h1,h2,h3,h4,div,span')].filter(
+      (e) => e.childElementCount === 0 && e.textContent?.trim() === title,
+    );
+    for (const h of heads) {
+      for (let node = h.parentElement, i = 0; node && i < 8; node = node.parentElement, i++) {
+        const btn = [...node.querySelectorAll('button')].find(
+          (b) => b.textContent?.trim() === 'Edit ▸',
+        );
+        if (btn) {
+          btn.click();
+          return;
+        }
+      }
+    }
+    throw new Error(`${title} card Edit ▸ not found`);
+  }, heading);
+  await settle(page);
+}
+
 /** A race's finish-entry screen — shared by the result-entry shots. */
 async function openRace(page: Page, seriesId: string, raceNumber: number) {
   await page.goto(`${BASE}/series/${seriesId}/races`);
@@ -1282,11 +1366,6 @@ async function signInLocalUser(page: Page): Promise<void> {
   }
   if (!link) throw new Error(`no magic link appeared for ${email} in ${MAGIC_LINKS_LOG}`);
   await page.goto(link);
-  // The user and their personal workspace now exist. Flip the operator-only
-  // split-fleets gate at the database HERE — before the first app load
-  // caches a feature set client-side, so the Split Fleets tab renders
-  // without fighting the persisted query cache.
-  await dbEnableOperatorFeature('split-fleets');
   // First-time sign-ups land on the welcome (name) step. Give the throwaway
   // user a presentable display name — it's what activity and history lines
   // show in place of the shots-<timestamp> email.

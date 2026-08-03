@@ -31,7 +31,12 @@ marketing page as downstream of it.
   actual image — a brief that sounds worthwhile can come out too low-value to
   publish, and vice versa. Gated features need a demo workspace with the gate
   on; the seeded demo samples (`club-league.sailscoring`,
-  `championship.sailscoring`) are ready-made subjects.
+  `championship.sailscoring`) are ready-made subjects. Composition rules the
+  capture rig (`scripts/feature-shots.ts`) applies: the shot's subject leads
+  the frame (scrolled to the top of the viewport, not buried below settings
+  cards or long lists), and a small affordance that carries the feature — an
+  Open in Sail Scoring link, a recorded unknown row, an open code dropdown —
+  gets a red presentation ring so it can't be missed.
 
 Group ordering follows what a scorer cares about, not how the code is
 organised; regroup freely when laying out a page.
@@ -65,7 +70,7 @@ The race-day loop: getting a finish sheet into the app fast and correctly.
 | Feature (help §) | Status | Description | Screenshot |
 |---|---|---|---|
 | Finish entry (`#entering-results`) | core | The entry screen is a digital finish sheet — row order is crossing order, a sail number commits on Enter as soon as it's unambiguous, and timed fleets prompt for a finish time. | Exists (`finish-entry.webp`): entry screen mid-race with finishers recorded and the Did-not-compete group below. |
-| Unknown sail numbers (`#entering-results`) | core | A number not on the entry list is recorded as an unknown crossing in its slot and resolved to a competitor later, so the sheet is never held up. | Suggestion list offering Record as unknown for a typed number, with a committed unknown row showing its Resolve button. |
+| Unknown sail numbers (`#entering-results`) | core | A number not on the entry list is recorded as an unknown crossing in its slot and resolved to a competitor later, so the sheet is never held up. | A recorded unknown crossing in the finishing order — the "not registered" row with its Resolve affordance, ringed. |
 | Bow-number matching (`#entering-results` and `#adding-competitors`) | core | When recorders write bow numbers, finish entry matches on those too and tags the row so the differing sail number is explained. | Suggestion list showing the matched-on-bow marker, and the committed row tagged entered by bow. |
 | Result codes (`#entering-results`) | core | The full RRS code set — DNS, DNF, OCS, NSC, RET, DNC, DSQ, DNE, UFD, BFD — grouped by how each arises, with non-competing boats collected automatically. | Result-code dropdown open, showing the operational and protest-committee groups. |
 | Scoring penalties (`#entering-results`) | core | Finishers penalised after a hearing take ZFP, SCP, or DPI additive penalties scored per RRS 44.3(c) and A6.2, shown in amber in the standings. | Penalty editor open from a finisher's row-actions menu, with an amber penalised score like 4 (ZFP) visible in the standings. |
@@ -113,7 +118,7 @@ Trusting the numbers: standings you can read, and a record of how they got there
 | Standings (`#reading-the-standings`) | core | Total and nett columns, struck-through discards, podium badges on the series and every race, and distinct styling for coded, penalised, and redress scores. | Exists (`standings.webp`). |
 | Per-fleet race exclusion (`#reading-the-standings`) | core | Strike a race from one fleet's scoring straight from the standings — the single-competitor heat case — while it still counts for every other fleet. | Race column-header menu open on Exclude from this fleet, naming the underlying race, with an already-struck column alongside. |
 | Preview (`#reading-the-standings`) | core | See the exact rendered results page in-app before anything goes public, and download it as self-contained HTML or print-tuned PDF. | Exists (`preview.webp`). |
-| Version history (`#history`) | core | Automatic point-in-time versions with per-session change detail, one-click restore, named checkpoints, and pinned Published/Saved milestones — the audit trail for a protest committee. | History tab with one version expanded to its individual changes. |
+| Version history (`#history`) | core | Automatic point-in-time versions with per-session change detail, one-click restore, named checkpoints, and pinned Published/Saved milestones — the audit trail for a protest committee. | History tab with real texture: a named checkpoint, a Published pin, and edit sessions, the newest expanded to its changes. |
 
 ## 6. Publishing
 
