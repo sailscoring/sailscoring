@@ -61,7 +61,7 @@
     "update-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/update-ftp-paths.ts",
     "screenshots": "tsx scripts/screenshots.ts",
     "feature-shots": "tsx scripts/feature-shots.ts",
-    "feature-shots:local": "./scripts/local-env.sh tsx scripts/feature-shots.ts --local"
+    "feature-shots:local": "./scripts/local-env.sh --local-db tsx scripts/feature-shots.ts --local"
   },
   "dependencies": {
     "@better-auth/api-key": "^1.6.25",

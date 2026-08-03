@@ -57,7 +57,14 @@ import { mkdir, access, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import { chromium, type BrowserContext, type Page } from '@playwright/test';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { eq } from 'drizzle-orm';
+import postgres from 'postgres';
 import sharp from 'sharp';
+
+import * as schema from '../lib/db/schema';
+import { type FeatureKey } from '../lib/features';
+import { setOrgFeature } from './provision-org';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -638,7 +645,507 @@ const SHOTS: Shot[] = [
       await page.keyboard.press('Escape');
     },
   },
+
+  // ── Batch 3 — the rest of the inventory ────────────────────────────────────
+  {
+    // Inventory: Standings (and the Low Point row it illustrates).
+    slug: 'standings',
+    group: 'Reading and checking',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await shot('standings.png');
+    },
+  },
+  {
+    // Inventory: Preview — the in-app render of the exact published page.
+    slug: 'preview',
+    group: 'Reading and checking',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('heading', { name: 'Preview results' }).waitFor();
+      await page.frameLocator('iframe[title="Results preview"]').locator('body').waitFor();
+      await settle(page);
+      await shot('preview.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Finish entry — the core entry screen, refreshed.
+    slug: 'finish-entry',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      await openRace(page, await seriesId(), 1);
+      await shot('finish-entry.png');
+    },
+  },
+  {
+    // Inventory: Keyboard-first workflow — the ? reference dialog.
+    slug: 'keyboard-shortcuts',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/races`);
+      await settle(page);
+      await page.keyboard.press('?');
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await settle(page);
+      await shot('keyboard-shortcuts.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Race-scoped fleets — the Race starts editor.
+    slug: 'race-starts',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await openRace(page, await seriesId(), 1);
+      await page.evaluate(() => {
+        const heads = [...document.querySelectorAll<HTMLElement>('h1,h2,h3,h4,div,span')].filter(
+          (e) => e.childElementCount === 0 && e.textContent?.trim() === 'Race starts',
+        );
+        for (const h of heads) {
+          for (let node = h.parentElement, i = 0; node && i < 8; node = node.parentElement, i++) {
+            const btn = [...node.querySelectorAll('button')].find(
+              (b) => b.textContent?.trim() === 'Edit ▸',
+            );
+            if (btn) {
+              btn.click();
+              return;
+            }
+          }
+        }
+        throw new Error('Race starts Edit ▸ not found');
+      });
+      await settle(page);
+      await shot('race-starts.png');
+    },
+  },
+  {
+    // Inventory: Bulk clean-up — Set field over a header-checkbox selection.
+    slug: 'bulk-cleanup',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('checkbox', { name: 'Select all shown competitors' }).check();
+      await page.getByRole('button', { name: /Set field/ }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await settle(page);
+      await shot('bulk-cleanup.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: .sailscoring files — the series actions menu with Save to
+    // File / Update from File / Duplicate / Copy to workspace.
+    slug: 'series-actions',
+    group: 'Data in and out',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Series actions' }).click();
+      await page.getByRole('menuitem', { name: /Save to File/ }).waitFor();
+      await shot('series-actions.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
+    // Inventory: A5.3 starting-area scoring — the Scoring card's options.
+    slug: 'a53-scoring',
+    group: 'Scoring correctness',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      const heading = page.getByRole('heading', { name: 'Scoring', exact: true });
+      await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+      await page
+        .getByLabel('Boats in the starting area (RRS A5.3 — alternative)')
+        .scrollIntoViewIfNeeded();
+      await shot('a53-scoring.png');
+    },
+  },
+  {
+    // Inventory: Proportional discards — the One-per-so-many mode with its
+    // steps-up readback, left unsaved.
+    slug: 'proportional-discards',
+    group: 'Scoring correctness',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'proportional-discards');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      const heading = page.getByRole('heading', { name: 'Scoring', exact: true });
+      await heading.locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('radio', { name: 'One per so many races' }).check();
+      await page.getByText(/steps up at/).waitFor();
+      await page.getByText(/steps up at/).scrollIntoViewIfNeeded();
+      await shot('proportional-discards.png');
+    },
+  },
+  {
+    // Inventory: ECHO — the Update-handicaps dialog on the Irish Sailing
+    // national list, previewed only. Needs network.
+    slug: 'update-handicaps-echo',
+    group: 'Rating and handicap systems',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Update handicaps' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByText(/Irish Sailing/i).first().click();
+      await dialog.getByRole('button', { name: 'Next' }).click();
+      await dialog.getByText(/Preview:/i).waitFor({ timeout: 90_000 });
+      await settle(page);
+      await shot('update-handicaps-echo.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Scratch — a one-design fleet's per-race table on the
+    // published regatta.
+    slug: 'scratch-results',
+    group: 'Rating and handicap systems',
+    async capture({ page, anon, shot }) {
+      const pub = await openPublicFleetPage(page, anon, 'optimist');
+      await pub
+        .getByText('Race 1', { exact: false })
+        .first()
+        .scrollIntoViewIfNeeded({ timeout: 10_000 })
+        .catch(() => {}); // fall back to the top of the page
+      await settle(pub);
+      await shot('scratch-results.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
+    // Inventory: Public results pages — a full fleet page, refreshed.
+    slug: 'public-results-page',
+    group: 'Publishing',
+    async capture({ page, anon, shot }) {
+      const pub = await openPublicFleetPage(page, anon, 'class-1-irc');
+      await shot('public-results-page.png', { fullPage: true, page: pub });
+      await pub.close();
+    },
+  },
+  {
+    // Inventory: JSON export and Open in Sail Scoring — the public footer.
+    slug: 'open-in-sailscoring',
+    group: 'Data in and out',
+    async capture({ page, anon, shot }) {
+      const pub = await openPublicFleetPage(page, anon, 'class-1-irc');
+      await pub.getByText('Open in Sail Scoring').scrollIntoViewIfNeeded();
+      await settle(pub);
+      await shot('open-in-sailscoring.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
+    // Inventory: Logo library — the picker with the built-in canonical set.
+    slug: 'logo-library',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      await page
+        .locator('h2', { hasText: 'Basic' })
+        .locator('..')
+        .getByRole('button', { name: /Edit/ })
+        .click();
+      await page.getByRole('button', { name: 'Choose Event logo from library' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await settle(page);
+      await shot('logo-library.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Sailwave import — the wizard's detected preview, abandoned
+    // without creating the series.
+    slug: 'sailwave-import',
+    group: 'Data in and out',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'sailwave-import');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Import Series' }).click();
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.getByTestId('import-format-sailwave').click(),
+      ]);
+      await chooser.setFiles(
+        resolve(__dirname, '..', 'tests', 'fixtures', 'sailwave', '2026 ILCA Leinsters results.blw'),
+      );
+      await page.getByRole('heading', { name: 'Import from Sailwave' }).waitFor();
+      await settle(page);
+      await shot('sailwave-import.png');
+      await page.goto(`${BASE}/`); // walk away — nothing was created
+    },
+  },
+  {
+    // Inventory: rrs.org competitor push — the import dialog's rrs section.
+    slug: 'rrs-push',
+    group: 'Data in and out',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'rrs-import');
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      // With the gate on, the button is plain "Import" and opens an options
+      // step (spreadsheet / rrs.org) before any file is chosen.
+      await page.getByRole('button', { name: 'Import', exact: true }).click();
+      await page.getByRole('heading', { name: 'Import competitors' }).waitFor();
+      await page.getByRole('checkbox', { name: 'rrs.org' }).check();
+      await page.getByLabel('Event UUID').fill('2f6d4c8a-91b3-4e5f-8a07-c3d1e9b64a20');
+      await settle(page);
+      await shot('rrs-push.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
+    // Inventory: World Sailing Sailor IDs — the ID field on a competitor,
+    // typed but unsaved.
+    slug: 'world-sailing-id',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'world-sailing-id');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      await page
+        .getByRole('heading', { name: 'Competitor fields' })
+        .locator('..')
+        .getByRole('button', { name: 'Edit ▸' })
+        .click();
+      await page.getByRole('checkbox', { name: 'World Sailing ID' }).check();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('cell', { name: 'IRL2046' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByLabel('World Sailing ID').fill('IRLPS7');
+      await shot('world-sailing-id.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Multi-person fields — a full crew list in the dialog,
+    // unsaved.
+    slug: 'multi-person-fields',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'multi-person-fields');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      await page
+        .getByRole('heading', { name: 'Competitor fields' })
+        .locator('..')
+        .getByRole('button', { name: 'Edit ▸' })
+        .click();
+      await page.getByRole('checkbox', { name: 'Crew', exact: true }).check();
+      await page.getByRole('checkbox', { name: 'Allow multiple Crew' }).check();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('cell', { name: 'IRL2046' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByLabel('Crew 1').fill('Aoife Byrne');
+      await dialog.getByRole('button', { name: 'Add crew' }).click();
+      await dialog.getByLabel('Crew 2').fill('Conor Walsh');
+      await dialog.getByRole('button', { name: 'Add crew' }).click();
+      await dialog.getByLabel('Crew 3').fill('Niamh Doyle');
+      await shot('multi-person-fields.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Combined pages — define an Overall page, publish it, and
+    // capture the published composite.
+    slug: 'combined-pages',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      await ensureFeature(page, 'combined-pages');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      const card = page.getByTestId('combined-pages-card');
+      await card.getByRole('button', { name: 'Edit ▸' }).click();
+      await card.getByRole('button', { name: '+ Add combined page' }).click();
+      await card.getByRole('button', { name: 'Done' }).click();
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      // The series is already live at this point in a run, so the dialog is
+      // in re-publish mode and the new Overall row starts unticked.
+      const overall = dialog.getByRole('checkbox', { name: /Overall/ });
+      if (!(await overall.isChecked())) await overall.check();
+      await dialog.getByRole('button', { name: /^(Publish|Re-publish)$/ }).click();
+      const overallLink = dialog.getByRole('link', { name: /\/overall$/ });
+      await overallLink.waitFor({ timeout: 30_000 });
+      const href = await overallLink.getAttribute('href');
+      await page.keyboard.press('Escape');
+      const pub = await anon.newPage();
+      await pub.goto(new URL(href!, BASE).toString());
+      await settle(pub);
+      await shot('combined-pages.png', { fullPage: true, page: pub });
+      await pub.close();
+    },
+  },
+  {
+    // Inventory: Split-fleet championships — the guided tab of the worked
+    // championship sample. Operator-gated, so local mode flips the gate at
+    // the database like provision-org would, then imports the demo.
+    slug: 'split-fleets',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      // The split-fleets gate is flipped through provision-org's operator
+      // seam during local sign-in (see signInLocalUser) — before the app
+      // first caches a feature set — which also seeds the worked
+      // championship demo. Note the in-app `.sailscoring` import can NOT be
+      // used here: it silently drops the file's splitFleets block.
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample Championship 2026' }).first().click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+      await settle(page);
+      await shot('split-fleets.png');
+    },
+  },
+  {
+    // Inventory: Workspace requests — the Account page's request card.
+    slug: 'workspace-request',
+    group: 'Collaboration and accounts',
+    async capture({ page, shot }) {
+      await page.goto(`${BASE}/account`);
+      await settle(page);
+      await shot('workspace-request.png');
+    },
+  },
+  {
+    // Inventory: Send feedback — the dialog with its attached context.
+    slug: 'send-feedback',
+    group: 'Collaboration and accounts',
+    async capture({ page, shot }) {
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByTestId('user-menu').click();
+      await page.getByTestId('user-menu-feedback').click();
+      const dialog = page.getByTestId('feedback-dialog');
+      await dialog.waitFor();
+      await page
+        .getByTestId('feedback-message')
+        .fill('The finish-entry screen is a joy — could the race switcher remember my last fleet filter?');
+      await settle(page);
+      await shot('send-feedback.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
+    // Inventory: Tie-breaking — two boats crossing together, tied per A8.
+    // LOCAL-only mutation: adds an empty race and two tied finishers.
+    slug: 'tied-finishes',
+    group: 'Entering results',
+    async capture({ page, shot }) {
+      if (!LOCAL) throw new Error('tied-finishes stages data and is local-mode only');
+      // Use the scratch regatta: no start times, so rows commit instantly and
+      // carry the tie affordance.
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample Junior Regatta 2026' }).click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      const id = new URL(page.url()).pathname.split('/')[2];
+      await page.goto(`${BASE}/series/${id}/races`);
+      await settle(page);
+      const rows = page.getByTestId('race-row');
+      const before = await rows.count();
+      await page.getByRole('button', { name: 'Add race', exact: true }).click();
+      for (let i = 0; i < 40 && (await rows.count()) === before; i++) {
+        await page.waitForTimeout(250);
+      }
+      await openRace(page, id, before + 1);
+      // Two boats picked from the suggestions, then tie the second.
+      for (let n = 0; n < 2; n++) {
+        await page.getByLabel('Sail number').fill('1');
+        await page.getByRole('option').first().click();
+        await page.getByRole('listitem').nth(n).waitFor();
+      }
+      await page.getByRole('checkbox', { name: /^Tie / }).last().check();
+      await settle(page);
+      await shot('tied-finishes.png');
+    },
+  },
+  {
+    // Inventory: Archive and trash — the foot of the series list with both
+    // sections populated. LOCAL-only mutations, deliberately dead last.
+    slug: 'archive-trash',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      if (!LOCAL) throw new Error('archive-trash stages data and is local-mode only');
+      // Archive the regatta and delete it into the Trash, then archive the
+      // championship so both foot sections are populated. All from the home
+      // page, mirroring the archive-series / delete-series e2e flows.
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      const regatta = 'Sample Junior Regatta 2026';
+      await page.getByRole('button', { name: `Actions for ${regatta}` }).click();
+      await page.getByRole('menuitem', { name: 'Archive' }).click();
+      await page.getByRole('button', { name: /Archived \(1\)/ }).click();
+      await page.getByRole('button', { name: `Actions for ${regatta}` }).click();
+      await page.getByRole('menuitem', { name: /Delete/ }).click();
+      await page.getByRole('button', { name: 'Delete series' }).click();
+      await page.getByRole('button', { name: 'Actions for Sample Championship 2026' }).click();
+      await page.getByRole('menuitem', { name: 'Archive' }).click();
+      // Expand both sections and frame the foot of the list.
+      await page.getByRole('button', { name: /Archived \(1\)/ }).click();
+      await page.getByRole('button', { name: /Trash \(1\)/ }).click();
+      await settle(page);
+      await page.getByRole('button', { name: /Trash \(1\)/ }).scrollIntoViewIfNeeded();
+      await shot('archive-trash.png');
+    },
+  },
 ];
+
+/** Open a published fleet page (by URL substring) in the anonymous context,
+ *  resolved via the workspace's public index. */
+async function openPublicFleetPage(
+  page: Page,
+  anon: BrowserContext,
+  urlPart: string,
+): Promise<Page> {
+  await page.goto(`${BASE}/workspace/published`);
+  await settle(page);
+  const anyHref = await page
+    .locator('a[href*="/p/"]')
+    .first()
+    .getAttribute('href', { timeout: 10_000 });
+  if (!anyHref) throw new Error('no published pages found');
+  const ws = new URL(anyHref, BASE).pathname.split('/')[2];
+  const pub = await anon.newPage();
+  await pub.goto(`${BASE}/p/${ws}`);
+  await settle(pub);
+  const href = await pub
+    .locator(`a[href*="${urlPart}"]`)
+    .first()
+    .getAttribute('href', { timeout: 10_000 });
+  if (!href) throw new Error(`no ${urlPart} link on the public index`);
+  await pub.goto(new URL(href, BASE).toString());
+  await settle(pub);
+  return pub;
+}
 
 /** The self-service gates batch 2 needs — switched on through the real
  *  Features card (which is itself the feature-toggles shot). */
@@ -652,6 +1159,34 @@ const BATCH_GATES = [
 ] as const;
 
 const enabledGates = new Set<string>();
+
+/** LOCAL-only: switch an operator-managed feature (selfService: false) on for
+ *  the throwaway user's personal workspace through provision-org's
+ *  `setOrgFeature` — the operator seam — which also seeds the feature's demo
+ *  sample (the split-fleets championship) exactly as a real provisioning
+ *  would. Needs DATABASE_URL (feature-shots:local wraps the script in
+ *  `local-env.sh --local-db`). */
+async function dbEnableOperatorFeature(key: FeatureKey): Promise<void> {
+  if (!LOCAL) throw new Error('dbEnableOperatorFeature is local-mode prep only');
+  if (enabledGates.has(key)) return;
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL not set — run via pnpm feature-shots:local');
+  const sql = postgres(url, { max: 1 });
+  try {
+    const db = drizzle(sql, { schema });
+    const [u] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, localUserEmail.toLowerCase()))
+      .limit(1);
+    if (!u) throw new Error(`user ${localUserEmail} not found`);
+    const slug = `u-${u.id.slice(0, 16)}`;
+    await setOrgFeature(db, { orgSlugOrId: slug, feature: key, enabled: true });
+  } finally {
+    await sql.end();
+  }
+  enabledGates.add(key);
+}
 
 /** Switch a self-service feature on via the Workspace-settings Features card.
  *  Idempotent; no-op when the toggle is already on (e.g. production mode with
@@ -724,8 +1259,12 @@ async function publishSeries(page: Page, name: string) {
  *  dev/CI Resend stub's TSV log (see e2e/helpers.ts readLatestMagicLink). */
 const MAGIC_LINKS_LOG = resolve(process.cwd(), 'tests', '.magic-links.log');
 
+/** The throwaway local user's email, for DB-side prep (operator gates). */
+let localUserEmail = '';
+
 async function signInLocalUser(page: Page): Promise<void> {
   const email = `shots-${Date.now()}-${Math.floor(Math.random() * 1e9)}@sailscoring.test`;
+  localUserEmail = email;
   await page.goto(`${BASE}/sign-in`);
   await page.getByLabel('Email').fill(email);
   await page.getByRole('button', { name: 'Send sign-in link' }).click();
@@ -743,6 +1282,11 @@ async function signInLocalUser(page: Page): Promise<void> {
   }
   if (!link) throw new Error(`no magic link appeared for ${email} in ${MAGIC_LINKS_LOG}`);
   await page.goto(link);
+  // The user and their personal workspace now exist. Flip the operator-only
+  // split-fleets gate at the database HERE — before the first app load
+  // caches a feature set client-side, so the Split Fleets tab renders
+  // without fighting the persisted query cache.
+  await dbEnableOperatorFeature('split-fleets');
   // First-time sign-ups land on the welcome (name) step. Give the throwaway
   // user a presentable display name — it's what activity and history lines
   // show in place of the shots-<timestamp> email.
@@ -887,7 +1431,11 @@ async function main() {
         const msg = err instanceof Error ? err.message.split('\n')[0] : String(err);
         failures.push([shot.slug, msg]);
         console.error(`  ✗ ${shot.slug}: ${msg}`);
-        // Recover for the next shot: dismiss any open overlay.
+        // Freeze the failure state for diagnosis, then recover for the next
+        // shot by dismissing any open overlay.
+        await page
+          .screenshot({ path: join(PNG_OUT, `_fail-${shot.slug}.png`) })
+          .catch(() => {});
         await page.keyboard.press('Escape').catch(() => {});
       }
     }
