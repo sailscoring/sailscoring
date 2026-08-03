@@ -231,7 +231,446 @@ const SHOTS: Shot[] = [
       await pub.close();
     },
   },
+
+  // ── Batch 2 ────────────────────────────────────────────────────────────────
+  // Registry order matters within a full run: the feature-toggles shot below
+  // switches the batch's self-service gates on, so it (and everything gated)
+  // comes after the ungated batch-1 shots, which capture the default UI.
+  {
+    // Inventory: Feature toggles — doubles as the prep that enables the
+    // gates the rest of this batch needs.
+    slug: 'feature-toggles',
+    group: 'Collaboration and accounts',
+    async capture({ page, shot }) {
+      for (const key of BATCH_GATES) await ensureFeature(page, key);
+      await page.goto(`${BASE}/workspace`);
+      await settle(page);
+      await page
+        .getByTestId(`feature-toggle-${BATCH_GATES[0]}`)
+        .scrollIntoViewIfNeeded()
+        .catch(() => {});
+      await shot('feature-toggles.png');
+    },
+  },
+  {
+    // Inventory: Series creation — the wizard filled in, nothing submitted.
+    slug: 'series-creation',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'New series' }).click();
+      await settle(page);
+      const name = page.getByLabel('Name');
+      if (await name.isVisible().catch(() => false)) await name.fill('Autumn League 2026');
+      const venue = page.getByLabel('Venue');
+      if (await venue.isVisible().catch(() => false)) await venue.fill('Howth Yacht Club');
+      await shot('series-creation.png');
+    },
+  },
+  {
+    // Inventory: Fleets — the Settings card summarising fleets and their
+    // scoring systems.
+    slug: 'fleets',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      await page.getByText('Fleets', { exact: true }).first().scrollIntoViewIfNeeded();
+      await shot('fleets.png');
+    },
+  },
+  {
+    // Inventory: Start sequences — the editor open on the sample's three
+    // staggered class starts.
+    slug: 'start-sequences',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      // Every settings card has an "Edit ▸"; walk up from the Fleets heading
+      // to its card and click that card's button.
+      await page.evaluate(() => {
+        const heads = [...document.querySelectorAll<HTMLElement>('h1,h2,h3,h4,div,span')].filter(
+          (e) => e.childElementCount === 0 && e.textContent?.trim() === 'Fleets',
+        );
+        for (const h of heads) {
+          for (let node = h.parentElement, i = 0; node && i < 8; node = node.parentElement, i++) {
+            const btn = [...node.querySelectorAll('button')].find(
+              (b) => b.textContent?.trim() === 'Edit ▸',
+            );
+            if (btn) {
+              btn.click();
+              return;
+            }
+          }
+        }
+        throw new Error('Fleets card Edit ▸ not found');
+      });
+      await settle(page);
+      await page
+        .getByText('Default start sequence', { exact: false })
+        .first()
+        .scrollIntoViewIfNeeded();
+      await shot('start-sequences.png');
+    },
+  },
+  {
+    // Inventory: Discard rules — the Scoring card with the sample's rule.
+    slug: 'discard-rules',
+    group: 'Scoring correctness',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      await page.getByText('Scoring', { exact: true }).first().scrollIntoViewIfNeeded();
+      await shot('discard-rules.png');
+    },
+  },
+  {
+    // Inventory: Sub-series — the Races tab of the demo the gate seeds.
+    slug: 'sub-series',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'sub-series');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample Club League 2026' }).click({ timeout: 30_000 });
+      await page.waitForURL(/\/series\/[^/]+/);
+      await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+      await page.getByRole('button', { name: 'New sub-series' }).waitFor();
+      await settle(page);
+      await shot('sub-series.png');
+    },
+  },
+  {
+    // Inventory: Follow-on series — the create dialog, cancelled unsaved.
+    slug: 'follow-on-series',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'follow-on-series');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('button', { name: `Actions for ${SERIES_NAME}` }).click();
+      await page.getByRole('menuitem', { name: 'Create follow-on series…' }).click();
+      await page.getByLabel('Name').waitFor();
+      await settle(page);
+      await shot('follow-on-series.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
+    // Inventory: Race conditions and management team — the record dialog
+    // filled in but never saved.
+    slug: 'race-management',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'race-management-metadata');
+      await openRace(page, await seriesId(), 1);
+      await page.getByTestId('race-metadata').click();
+      const dialog = page.getByTestId('race-metadata-dialog');
+      await dialog.waitFor();
+      await dialog.getByLabel('Minimum wind speed in knots').fill('12');
+      await dialog.getByLabel('Maximum wind speed in knots').fill('18');
+      await dialog.getByTestId('race-conditions-notes').fill('Windward-leeward, ebb tide');
+      await dialog.getByTestId('race-add-official').click();
+      await dialog.getByLabel('Name for team member 1').fill('Jane Smith');
+      await shot('race-management.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Scoring penalties — the ZFP/SCP/DPI editor on a finisher.
+    slug: 'scoring-penalties',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      await openRace(page, await seriesId(), 1);
+      await page.getByRole('button', { name: /^Row actions for / }).first().click();
+      await page.getByRole('menuitem', { name: 'Set scoring penalty' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await settle(page);
+      await shot('scoring-penalties.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Start check-in — the sample race's 45 checked-in boats.
+    slug: 'start-check-in',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      await openRace(page, await seriesId(), 1);
+      await page.getByRole('button', { name: /Start check-in/ }).click();
+      await settle(page);
+      await shot('start-check-in.png');
+    },
+  },
+  {
+    // Inventory: Finish-sheet import — the confirm step of a CSV import,
+    // cancelled before it replaces anything.
+    slug: 'finish-sheet-import',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'csv-finish-import');
+      await openRace(page, await seriesId(), 3);
+      const csv = [
+        'sailNumber,finishTime,resultCode',
+        'IRL2046,19:38:12,',
+        'IRL7887,19:40:41,',
+        'IRL3429,19:41:57,',
+        'IRL32032,19:43:05,',
+        'IRL2237,,DNF',
+      ].join('\n');
+      await page.getByTestId('finish-sheet-csv-input').setInputFiles({
+        name: 'race-3-finish-sheet.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csv),
+      });
+      await page.getByRole('heading', { name: /map columns/i }).waitFor();
+      await page.getByRole('button', { name: /Preview \d+ rows/i }).click();
+      await page.getByRole('heading', { name: /confirm finish sheet import/i }).waitFor();
+      await settle(page);
+      await shot('finish-sheet-import.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
+    // Inventory: Per-fleet race exclusion — the column-header menu naming
+    // the underlying race.
+    slug: 'race-exclusion',
+    group: 'Reading and checking',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page
+        .getByRole('table')
+        .first()
+        .getByRole('button', { name: 'R5', exact: true })
+        .click();
+      await page.getByRole('menuitem', { name: 'Exclude from this fleet' }).waitFor();
+      await shot('race-exclusion.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
+    // Inventory: Version history — the History tab with a version expanded.
+    slug: 'version-history',
+    group: 'Reading and checking',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/history`);
+      await settle(page);
+      const list = page.getByTestId('revision-list');
+      await list.waitFor();
+      // Expand the newest version's change detail where the row offers it.
+      await list.getByRole('button').first().click().catch(() => {});
+      await settle(page);
+      await shot('version-history.png');
+    },
+  },
+  {
+    // Inventory: IRC — the Update-handicaps dialog on the worldwide rating
+    // list, previewed only. Needs network to fetch the list; matches are the
+    // sample's realistic Irish sail numbers.
+    slug: 'update-handicaps-irc',
+    group: 'Rating and handicap systems',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Update handicaps' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByText(/IRC TCC/i).first().click();
+      await dialog.getByRole('button', { name: 'Next' }).click();
+      await dialog.getByText(/Preview:/i).waitFor({ timeout: 90_000 });
+      await settle(page);
+      await shot('update-handicaps-irc.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Rating transparency — a published ECHO page with the
+    // calculation columns revealed.
+    slug: 'rating-transparency',
+    group: 'Rating and handicap systems',
+    async capture({ page, anon, shot }) {
+      // Find the fleet page from the public workspace index, where each event
+      // row links its results tables.
+      await page.goto(`${BASE}/workspace/published`);
+      await settle(page);
+      const anyHref = await page
+        .locator('a[href*="/p/"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!anyHref) throw new Error('no published pages found');
+      const ws = new URL(anyHref, BASE).pathname.split('/')[2];
+      const pub = await anon.newPage();
+      await pub.goto(`${BASE}/p/${ws}`);
+      await settle(pub);
+      const echoHref = await pub
+        .locator('a[href*="class-1-echo"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!echoHref) throw new Error('no class-1-echo link on the public index');
+      await pub.goto(new URL(echoHref, BASE).toString());
+      await settle(pub);
+      await pub.getByText('Show ECHO rating calculations').click();
+      await pub.getByText('New H', { exact: true }).first().scrollIntoViewIfNeeded();
+      await settle(pub);
+      await shot('rating-transparency.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
+    // Inventory: Provisional and final results — the finalise checklist,
+    // cancelled unconfirmed.
+    slug: 'results-status-final',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'results-status');
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Mark as final' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await settle(page);
+      await shot('results-status-final.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Competitor spreadsheet import — the column-mapping dialog
+    // with samples, cancelled before importing.
+    slug: 'competitor-import',
+    group: 'Data in and out',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      const csv = [
+        'Sail Number,Boat,Class,Owner,Club,Fleet',
+        'IRL1234,Windshift,J/109,Sarah Byrne,Howth Yacht Club,Class 2 IRC|Class 2 ECHO',
+        'GBR8871R,Meridian Blue,First 40.7,Tom Nolan,Royal Cork Yacht Club,Class 1 IRC|Class 1 ECHO',
+        'IRL355,Slipstream,Sigma 33,Anne Kelly,Howth Yacht Club,Class 3 IRC|Class 3 ECHO',
+        'IRL9021,Tempo,X-332,Mick Dwyer,Royal Irish Yacht Club,Class 2 IRC|Class 2 ECHO',
+      ].join('\n');
+      await page.getByTestId('competitor-import-input').setInputFiles({
+        name: 'entries.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csv),
+      });
+      await page.getByRole('dialog').waitFor();
+      await settle(page);
+      await shot('competitor-import.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
+    // Inventory: Per-race scoring options — the dialog with a weighting and
+    // discard behaviour chosen, cancelled unsaved.
+    slug: 'race-scoring-options',
+    group: 'Scoring correctness',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'race-scoring-options');
+      await openRace(page, await seriesId(), 4);
+      await page.getByTestId('race-scoring-options').click();
+      const dialog = page.getByTestId('race-scoring-options-dialog');
+      await dialog.waitFor();
+      await dialog.getByRole('radio', { name: /Must count/ }).check();
+      await dialog.getByLabel('Points multiplier').fill('2');
+      await settle(page);
+      await shot('race-scoring-options.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
+    // Inventory: Published-page management — the workspace Published tab
+    // after this run's publishes.
+    slug: 'published-management',
+    group: 'Publishing',
+    async capture({ page, shot }) {
+      await page.goto(`${BASE}/workspace/published`);
+      await settle(page);
+      await shot('published-management.png');
+    },
+  },
+  {
+    // Inventory: Passwordless sign-in — captured signed out.
+    slug: 'sign-in',
+    group: 'Collaboration and accounts',
+    async capture({ anon, shot }) {
+      const pub = await anon.newPage();
+      await pub.goto(`${BASE}/sign-in`);
+      await settle(pub);
+      await shot('sign-in.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
+    // Inventory: Unknown sail numbers — the suggestion offering Record as
+    // unknown. The row only shows alongside live suggestions, and every
+    // sample race is fully recorded — so local mode adds an empty race for
+    // it. Deliberately LAST in the registry: the extra race must not appear
+    // in any other shot.
+    slug: 'unknown-sail',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      const id = await seriesId();
+      let raceNumber = 3;
+      if (LOCAL) {
+        await page.goto(`${BASE}/series/${id}/races`);
+        await settle(page);
+        const rows = page.getByTestId('race-row');
+        const before = await rows.count();
+        await page.getByRole('button', { name: 'Add race', exact: true }).click();
+        for (let i = 0; i < 40 && (await rows.count()) === before; i++) {
+          await page.waitForTimeout(250);
+        }
+        raceNumber = before + 1;
+      }
+      await openRace(page, id, raceNumber);
+      // A value that prefixes registered boats without matching one exactly.
+      await page.getByLabel('Sail number').fill('IRL2');
+      await page.getByTestId('record-unknown-option').waitFor();
+      await shot('unknown-sail.png');
+      await page.keyboard.press('Escape');
+    },
+  },
 ];
+
+/** The self-service gates batch 2 needs — switched on through the real
+ *  Features card (which is itself the feature-toggles shot). */
+const BATCH_GATES = [
+  'sub-series',
+  'follow-on-series',
+  'race-management-metadata',
+  'csv-finish-import',
+  'race-scoring-options',
+  'results-status',
+] as const;
+
+const enabledGates = new Set<string>();
+
+/** Switch a self-service feature on via the Workspace-settings Features card.
+ *  Idempotent; no-op when the toggle is already on (e.g. production mode with
+ *  a pre-configured workspace). */
+async function ensureFeature(page: Page, key: string): Promise<void> {
+  if (enabledGates.has(key)) return;
+  await page.goto(`${BASE}/workspace`);
+  await settle(page);
+  const toggle = page.getByTestId(`feature-toggle-${key}`);
+  await toggle.waitFor({ timeout: 15_000 });
+  if (!(await toggle.isChecked())) {
+    await toggle.click();
+    // Checked = the PATCH resolved (and any demo sample was seeded).
+    for (let i = 0; i < 40 && !(await toggle.isChecked()); i++) {
+      await page.waitForTimeout(250);
+    }
+  }
+  enabledGates.add(key);
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -304,9 +743,12 @@ async function signInLocalUser(page: Page): Promise<void> {
   }
   if (!link) throw new Error(`no magic link appeared for ${email} in ${MAGIC_LINKS_LOG}`);
   await page.goto(link);
-  // First-time sign-ups land on the welcome (name) step.
+  // First-time sign-ups land on the welcome (name) step. Give the throwaway
+  // user a presentable display name — it's what activity and history lines
+  // show in place of the shots-<timestamp> email.
   if (new URL(page.url()).pathname === '/welcome') {
-    await page.getByTestId('welcome-skip').click();
+    await page.getByTestId('welcome-name').fill('Sam Scorer');
+    await page.getByTestId('welcome-save').click();
   }
   await page.waitForURL(/\/$/);
   await settle(page);
@@ -419,8 +861,12 @@ async function main() {
             // as noise in public URLs; a real club shows its own slug there.
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-              if (n.textContent && /\/p\/u-[A-Za-z0-9]+/.test(n.textContent)) {
-                n.textContent = n.textContent.replace(/\/p\/u-[A-Za-z0-9]+/g, '/p/my-club');
+              const text = n.textContent;
+              if (!text) continue;
+              if (/\/p\/u-[A-Za-z0-9]+/.test(text) || /@sailscoring\.test/.test(text)) {
+                n.textContent = text
+                  .replace(/\/p\/u-[A-Za-z0-9]+/g, '/p/my-club')
+                  .replace(/[\w.-]+@sailscoring\.test/g, 'scorer@example.ie');
               }
             }
           });
