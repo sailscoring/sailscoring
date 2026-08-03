@@ -59,7 +59,9 @@
     "nationality:sync": "tsx scripts/sync-national-letters.ts",
     "canonical:sync": "tsx scripts/sync-canonical-logos.ts",
     "update-ftp-paths": "tsx --env-file-if-exists=.env.tmp scripts/update-ftp-paths.ts",
-    "screenshots": "tsx scripts/screenshots.ts"
+    "screenshots": "tsx scripts/screenshots.ts",
+    "feature-shots": "tsx scripts/feature-shots.ts",
+    "feature-shots:local": "./scripts/local-env.sh tsx scripts/feature-shots.ts --local"
   },
   "dependencies": {
     "@better-auth/api-key": "^1.6.25",
@@ -105,6 +107,7 @@
     "eslint-config-next": "16.2.12",
     "jsdom": "^30.0.0",
     "shadcn": "^4.16.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "tar": "^7.5.22",
     "tsx": "^4.23.1",

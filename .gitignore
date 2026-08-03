@@ -43,6 +43,10 @@ yarn-error.log*
 # saved Better Auth session for scripts/screenshots.ts (production cookie)
 /scripts/.auth/
 
+# full-resolution captures from scripts/feature-shots.ts (WebPs land in the
+# marketing repo; these are the raw frames)
+/screenshots/
+
 # vercel
 .vercel
 
