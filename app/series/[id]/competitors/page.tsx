@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/tooltip';
 import { AlertTriangle } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
+import { SeedingListImport, type SeedingListImportHandle } from '@/components/seeding-list-import';
 import {
   bulkEditFieldOptions,
   CompetitorBulkEditDialog,
@@ -166,6 +167,7 @@ export default function CompetitorsPage({
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
+  const seedingImportRef = useRef<SeedingListImportHandle>(null);
   const updateHandicapsRef = useRef<UpdateHandicapsHandle>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
@@ -314,7 +316,9 @@ export default function CompetitorsPage({
   }, [editingCompetitor]);
 
   const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
-  const hasRrsImport = useFeatures().has('rrs-import');
+  const features = useFeatures();
+  const hasRrsImport = features.has('rrs-import');
+  const hasWorldSailingId = features.has('world-sailing-id');
   // Round-owned fleets (split-fleet ceremonies) stay visible in the table's
   // Fleet column but are never offered for manual assignment or import.
   const assignableFleets = pickableFleets(fleets ?? []);
@@ -329,6 +333,13 @@ export default function CompetitorsPage({
       section: 'Competitors',
       when: () => hasHandicapFleet,
       handler: () => updateHandicapsRef.current?.open(),
+    },
+    {
+      key: 'l',
+      description: 'Import seeding list',
+      section: 'Competitors',
+      when: () => hasWorldSailingId && !readOnly,
+      handler: () => seedingImportRef.current?.trigger(),
     },
     { key: '/', description: 'Filter competitors', section: 'Competitors', handler: () => filterInputRef.current?.focus() },
     {
@@ -554,6 +565,9 @@ export default function CompetitorsPage({
               seriesId={seriesId}
               fleets={assignableFleets}
             />
+            {hasWorldSailingId && (
+              <SeedingListImport ref={seedingImportRef} competitors={competitors ?? []} />
+            )}
             <Button onClick={() => setShowAddForm(true)}>Add competitor</Button>
           </div>
         )}

@@ -52,6 +52,7 @@ import {
   splitFleetStandings,
   stageRaceRefs,
   type SeedOrder,
+  type SeedTailOrder,
   type SeriesStage,
   type SplitFleetConfig,
   type SplitFleetData,
@@ -997,13 +998,17 @@ function SeedRoundDialog({
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
   const [order, setOrder] = useState<SeedOrder>('seed-rank');
+  // Sailors the ranking didn't reach sort below it either way; at a
+  // championship where boats are chartered, spreading them by nation beats
+  // ordering a tail of strangers by a number the charter fleet handed out.
+  const [tailOrder, setTailOrder] = useState<SeedTailOrder>('nationality-spread');
   const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
 
   const preview = useMemo(() => {
     const byId = new Map(data.competitors.map((c) => [c.id, c]));
     let assignments: Record<string, number> = {};
-    const ordered = seedOrder(data.competitors, order);
+    const ordered = seedOrder(data.competitors, order, tailOrder);
     const byFleet = assignByRankPattern(ordered, qFleets.length);
     byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
     // Hand-moves layer on top.
@@ -1022,7 +1027,7 @@ function SeedRoundDialog({
       }),
       sizes: qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length),
     };
-  }, [data.competitors, order, moves, qFleets]);
+  }, [data.competitors, order, tailOrder, moves, qFleets]);
 
   return (
     <CeremonyDialog
@@ -1059,6 +1064,22 @@ function SeedRoundDialog({
           <option value="nationality-spread">Nationality, then sail number</option>
           <option value="sail-number">Sail number</option>
         </select>
+        {order === 'seed-rank' && data.competitors.some((c) => c.seed == null) && (
+          <>
+            <label className="text-sm" htmlFor="sf-seed-tail">
+              Sailors with no seeding rank
+            </label>
+            <select
+              id="sf-seed-tail"
+              className="rounded-md border bg-background px-2 py-1 text-sm"
+              value={tailOrder}
+              onChange={(e) => { setTailOrder(e.target.value as SeedTailOrder); setMoves({}); }}
+            >
+              <option value="nationality-spread">Nationality, then sail number</option>
+              <option value="sail-number">Sail number</option>
+            </select>
+          </>
+        )}
       </div>
       <AssignmentPreviewTable
         rows={preview.rows}

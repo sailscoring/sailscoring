@@ -178,15 +178,37 @@ export function pickableFleets<T extends { splitRoundId?: string }>(fleets: T[])
   return fleets.filter((f) => !f.splitRoundId);
 }
 
-export function seedOrder(competitors: Competitor[], order: SeedOrder): string[] {
+/** How sailors the seeding rank doesn't reach are ordered among themselves.
+ *  They sort below every ranked sailor either way; this decides the order
+ *  within that tail. At a championship where boats are chartered the sail
+ *  number carries no information, so spreading compatriots is the useful
+ *  choice — otherwise the unranked tail hands one fleet a national bloc. */
+export type SeedTailOrder = 'sail-number' | 'nationality-spread';
+
+export function seedOrder(
+  competitors: Competitor[],
+  order: SeedOrder,
+  tailOrder: SeedTailOrder = 'sail-number',
+): string[] {
   const bySail = (a: Competitor, b: Competitor) => {
     const na = parseInt(a.sailNumber.replace(/\D/g, ''), 10) || 0;
     const nb = parseInt(b.sailNumber.replace(/\D/g, ''), 10) || 0;
     return na - nb || a.sailNumber.localeCompare(b.sailNumber);
   };
+  const byNationality = (a: Competitor, b: Competitor) =>
+    (a.nationality ?? '').localeCompare(b.nationality ?? '') || bySail(a, b);
   const sorted = [...competitors];
-  if (order === 'seed-rank')
-    sorted.sort((a, b) => (a.seed ?? Infinity) - (b.seed ?? Infinity) || bySail(a, b));
+  if (order === 'seed-rank') {
+    const tail = tailOrder === 'nationality-spread' ? byNationality : bySail;
+    sorted.sort((a, b) => {
+      const ra = a.seed ?? Infinity;
+      const rb = b.seed ?? Infinity;
+      if (ra !== rb) return ra - rb;
+      // Both unranked: the tail order decides. Both ranked and equal can only
+      // happen if two seeds collide, where sail number is as good as anything.
+      return ra === Infinity ? tail(a, b) : bySail(a, b);
+    });
+  }
   else if (order === 'sail-number') sorted.sort(bySail);
   else if (order === 'nationality-spread')
     sorted.sort(

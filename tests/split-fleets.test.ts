@@ -7,6 +7,7 @@ import {
   physicalRaceCompleted,
   provisionalCutIndexes,
   rankPatternFleetIndex,
+  seedOrder,
   splitFleetStandings,
   type SplitFleetData,
   type SplitRound,
@@ -103,6 +104,47 @@ describe('assignByRankPattern', () => {
     expect(fleets.map((f) => f.length)).toEqual([47, 47, 47]);
     expect(fleets[0][0]).toBe('c0'); // rank 1 → Yellow
     expect(fleets[2][1]).toBe('c3'); // rank 4 → Red
+  });
+});
+
+describe('seedOrder', () => {
+  function seeded(id: string, sail: number, seed?: number, nationality?: string): Competitor {
+    const c = competitor(id, [], sail);
+    return { ...c, ...(seed != null ? { seed } : {}), ...(nationality ? { nationality } : {}) };
+  }
+
+  it('orders by the ranking’s own numbers, unranked sailors last', () => {
+    // Global ranks, not a densified 1..n — 240 still sorts after 17.
+    const order = seedOrder(
+      [seeded('a', 10), seeded('b', 20, 240), seeded('c', 30, 17)],
+      'seed-rank',
+    );
+    expect(order).toEqual(['c', 'b', 'a']);
+  });
+
+  it('spreads the unranked tail by nation when asked', () => {
+    // Sail numbers mean nothing at a charter event; ordering the tail by
+    // nation stops the pattern handing one fleet a national bloc.
+    const tail = [
+      seeded('irl1', 1, undefined, 'IRL'),
+      seeded('gbr1', 2, undefined, 'GBR'),
+      seeded('irl2', 3, undefined, 'IRL'),
+      seeded('gbr2', 4, undefined, 'GBR'),
+    ];
+    expect(seedOrder(tail, 'seed-rank', 'nationality-spread')).toEqual([
+      'gbr1', 'gbr2', 'irl1', 'irl2',
+    ]);
+    // The historical default leaves them in sail-number order.
+    expect(seedOrder(tail, 'seed-rank')).toEqual(['irl1', 'gbr1', 'irl2', 'gbr2']);
+  });
+
+  it('keeps ranked sailors above the tail whichever tail order is used', () => {
+    const order = seedOrder(
+      [seeded('unranked', 1, undefined, 'AUS'), seeded('ranked', 99, 500, 'IRL')],
+      'seed-rank',
+      'nationality-spread',
+    );
+    expect(order).toEqual(['ranked', 'unranked']);
   });
 });
 
