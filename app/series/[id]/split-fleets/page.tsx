@@ -998,10 +998,13 @@ function SeedRoundDialog({
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
   const [order, setOrder] = useState<SeedOrder>('seed-rank');
-  // Sailors the ranking didn't reach sort below it either way; at a
-  // championship where boats are chartered, spreading them by nation beats
-  // ordering a tail of strangers by a number the charter fleet handed out.
-  const [tailOrder, setTailOrder] = useState<SeedTailOrder>('nationality-spread');
+  // Sailors the ranking didn't reach sort below it either way; this decides
+  // the order within that tail. Defaulted to sail number to agree with
+  // `seedOrder` — when *no one* carries a seeding rank, "seeding rank" order
+  // is the tail order and nothing else, and that is no place to spring a
+  // different assignment on a scorer. Spreading by nation is the better
+  // choice at a charter event, so it's offered, not assumed.
+  const [tailOrder, setTailOrder] = useState<SeedTailOrder>('sail-number');
   const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
 
@@ -1075,8 +1078,8 @@ function SeedRoundDialog({
               value={tailOrder}
               onChange={(e) => { setTailOrder(e.target.value as SeedTailOrder); setMoves({}); }}
             >
-              <option value="nationality-spread">Nationality, then sail number</option>
               <option value="sail-number">Sail number</option>
+              <option value="nationality-spread">Nationality, then sail number</option>
             </select>
           </>
         )}
