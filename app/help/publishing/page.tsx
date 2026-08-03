@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Publishing — Help — Sail Scoring',
@@ -19,6 +19,11 @@ export default async function Page() {
   return (
     <HelpShell slug="publishing" features={features}>
       <Section id="publishing-results" title="Publishing results">
+        <HelpShot
+          src="/help/shots/publish-dialog.webp"
+          alt="The Publish dialog: choose fleets, set each URL, and publish."
+          caption="The Publish dialog: choose fleets, set each URL, and publish."
+        />
         <p>
           Publish results to a public URL from the{' '}
           <strong className="text-foreground">Standings</strong> tab
@@ -161,6 +166,11 @@ export default async function Page() {
       </Section>
       {has('combined-pages') && (
         <Section id="combined-pages" title="Combined pages">
+          <HelpShot
+            src="/help/shots/combined-pages.webp"
+            alt="A combined Overall page carrying every fleet."
+            caption="A combined Overall page carrying every fleet."
+          />
           <p>
             A combined page publishes several fleets&rsquo; results together as sections of one
             page. Two common uses: an <strong className="text-foreground">Overall</strong> page
@@ -198,6 +208,11 @@ export default async function Page() {
       )}
       {has('results-status') && (
         <Section id="results-status" title="Provisional and final results">
+          <HelpShot
+            src="/help/shots/results-status-final.webp"
+            alt="The Mark as final checklist."
+            caption="The Mark as final checklist."
+          />
           <p>
             Results are <strong className="text-foreground">provisional</strong> while they can
             still change — a protest decision, a redress request, or a scoring correction can all
@@ -267,6 +282,11 @@ export default async function Page() {
       )}
       {has('logo-library') && (
       <Section id="logo-library" title="The logo library">
+        <HelpShot
+          src="/help/shots/logo-library.webp"
+          alt="Picking a logo from the built-in collection."
+          caption="Picking a logo from the built-in collection."
+        />
         <p>
           Your workspace has a shared <strong className="text-foreground">logo library</strong> —
           a place to keep the venue, club, class, sponsor, and governing-body logos you reach for

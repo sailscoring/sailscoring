@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Scoring correctness — Help — Sail Scoring',
@@ -19,6 +19,11 @@ export default async function Page() {
   return (
     <HelpShell slug="scoring-correctness" features={features}>
       <Section id="discard-rules" title="Discard rules">
+        <HelpShot
+          src="/help/shots/discard-rules.webp"
+          alt="The Scoring card: each discard rule is a sentence you can check against the sailing instructions."
+          caption="The Scoring card: each discard rule is a sentence you can check against the sailing instructions."
+        />
         <p>
           A <strong className="text-foreground">discard</strong> lets a competitor drop their worst
           race score from the series total — a bad day doesn’t ruin a whole season. Only the
@@ -91,6 +96,11 @@ export default async function Page() {
       </Section>
       {has('race-scoring-options') && (
         <Section id="race-scoring-options" title="Per-race scoring options">
+          <HelpShot
+            src="/help/shots/race-scoring-options.webp"
+            alt="Weighting and discard behaviour for a single race."
+            caption="Weighting and discard behaviour for a single race."
+          />
           <p>
             A Notice of Race often says how much a <em>particular</em> race counts — the
             centrepiece race that cannot be discarded, the trophy race worth double, the practice
@@ -143,6 +153,11 @@ export default async function Page() {
         </Section>
       )}
       <Section id="a53-scoring" title="A5.3 starting-area scoring">
+        <HelpShot
+          src="/help/shots/a53-scoring.webp"
+          alt="The A5.3 options on the Scoring card."
+          caption="The A5.3 options on the Scoring card."
+        />
         <p>
           Under the default RRS A5.2 rule, every penalty code (DNF, OCS, DNC, etc.) scores{' '}
           <em>N + 1</em> where N is the total number of competitors entered in the series.

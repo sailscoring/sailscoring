@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Running a series — Help — Sail Scoring',
@@ -37,6 +37,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="organising-series" title="Organising the series list: categories and archive">
+        <HelpShot
+          src="/help/shots/archive-trash.webp"
+          alt="Archived series group by year at the foot of the list; deleted series wait in the Trash for 30 days."
+          caption="Archived series group by year at the foot of the list; deleted series wait in the Trash for 30 days."
+        />
         <p>
           As a club builds up seasons of results, the home list grows. Two tools keep it
           tidy: <strong className="text-foreground">categories</strong> for grouping, and{' '}
@@ -89,6 +94,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="adding-competitors" title="Adding competitors">
+        <HelpShot
+          src="/help/shots/competitor-list.webp"
+          alt="The Competitors tab of a keelboat series, with the class, club, and nationality fields enabled."
+          caption="The Competitors tab of a keelboat series, with the class, club, and nationality fields enabled."
+        />
         <p>
           On the <strong className="text-foreground">Competitors</strong> tab, add every boat that
           may start a race in the series — even those you expect to DNS every race. This ensures
@@ -207,6 +217,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="fleets" title="Fleets">
+        <HelpShot
+          src="/help/shots/fleets.webp"
+          alt="The Fleets card open for editing: each fleet with its own scoring system."
+          caption="The Fleets card open for editing: each fleet with its own scoring system."
+        />
         <p>
           A <strong className="text-foreground">fleet</strong> is a group of competitors
           scored independently. Each fleet produces its own standings — the penalty point
@@ -248,6 +263,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="start-sequences" title="Start sequences">
+        <HelpShot
+          src="/help/shots/start-sequences.webp"
+          alt="Three class starts at five-minute intervals in the default start sequence editor."
+          caption="Three class starts at five-minute intervals in the default start sequence editor."
+        />
         <p>
           For handicap series with multiple fleets starting at staggered times, the{' '}
           <strong className="text-foreground">Default start sequence</strong> editor (in{' '}
@@ -279,6 +299,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="race-fleets" title="Which fleets are in a race">
+        <HelpShot
+          src="/help/shots/race-starts.webp"
+          alt="The Race starts editor names the fleets in a race — with gun times, or without for scratch racing."
+          caption="The Race starts editor names the fleets in a race — with gun times, or without for scratch racing."
+        />
         <p>
           Not every fleet sails every race — a big series can carry several
           sub-series, each made up of a different handful of boats. When you
@@ -307,6 +332,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="adding-races" title="Adding races">
+        <HelpShot
+          src="/help/shots/add-races-bulk.webp"
+          alt="Add multiple races previews every generated date before anything is created."
+          caption="Add multiple races previews every generated date before anything is created."
+        />
         <p>
           On the <strong className="text-foreground">Races</strong> tab, create a race for each
           race sailed. A race number is assigned automatically; a date is optional. You can create
@@ -348,6 +378,11 @@ export default async function Page() {
       </Section>
       {has('race-management-metadata') && (
         <Section id="race-management-metadata" title="Race conditions and the management team">
+          <HelpShot
+            src="/help/shots/race-management.webp"
+            alt="The race record: wind range and direction, course notes, and the management team."
+            caption="The race record: wind range and direction, course notes, and the management team."
+          />
           <p>
             A race is more than its finishing order. What it was sailed in, and who ran it, belong
             on the record too — and in the case of wind, they are a scoring input in waiting. Open
@@ -393,6 +428,11 @@ export default async function Page() {
       )}
       {has('sub-series') && (
         <Section id="sub-series" title="Sub-series">
+          <HelpShot
+            src="/help/shots/sub-series.webp"
+            alt="A season kept in one series: Overall, Spring, and Summer blocks over the same races."
+            caption="A season kept in one series: Overall, Spring, and Summer blocks over the same races."
+          />
           <p>
             A season often scores as several series that share one entry list and fleet structure —
             a Winter block and a Spring block sailed back-to-back, or a Tuesday series and a
@@ -445,6 +485,11 @@ export default async function Page() {
       )}
       {has('follow-on-series') && (
       <Section id="creating-a-follow-on-series" title="Creating a follow-on series">
+        <HelpShot
+          src="/help/shots/follow-on-series.webp"
+          alt="Creating a follow-on series: pick the name and start date; competitors and handicaps carry over."
+          caption="Creating a follow-on series: pick the name and start date; competitors and handicaps carry over."
+        />
         <p>
           When one series of a season ends and the next begins —{' '}
           <em>Spring Series 1</em> into <em>Spring Series 2</em> — pick{' '}
@@ -469,6 +514,11 @@ export default async function Page() {
       )}
       {has('split-fleets') && (
         <Section id="split-fleets" title="Split-fleet championships">
+          <HelpShot
+            src="/help/shots/split-fleets.webp"
+            alt="The Split Fleets tab of a championship: format, qualifying and final rounds, and the tiered standings."
+            caption="The Split Fleets tab of a championship: format, qualifying and final rounds, and the tiered standings."
+          />
           <p>
             Big one-design championships split the entry into{' '}
             <strong className="text-foreground">qualifying fleets</strong> (Yellow, Blue, …) that
@@ -547,6 +597,11 @@ export default async function Page() {
       )}
       {has('world-sailing-id') && (
       <Section id="world-sailing-id" title="World Sailing Sailor IDs and seeding">
+        <HelpShot
+          src="/help/shots/world-sailing-id.webp"
+          alt="A competitor's World Sailing ID, recorded for the primary sailor."
+          caption="A competitor's World Sailing ID, recorded for the primary sailor."
+        />
         <p>
           A <strong className="text-foreground">World Sailing Sailor ID</strong> is the
           free, unique identifier tied to a sailor&rsquo;s World Sailing profile —{' '}

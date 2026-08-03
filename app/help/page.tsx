@@ -5,7 +5,7 @@ import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 
 import { HashRedirect } from './hash-redirect';
 import { HELP_GROUPS } from './sections';
-import { Section } from './shell';
+import { HelpShot, Section } from './shell';
 
 export const metadata: Metadata = {
   title: 'Help — Sail Scoring',
@@ -72,6 +72,11 @@ export default async function HelpPage() {
         </p>
       </Section>
       <Section id="signing-in" title="Signing in and workspaces">
+        <HelpShot
+          src="/help/shots/feature-toggles.webp"
+          alt="The Features card in Workspace settings: optional features switch on and off for the whole workspace."
+          caption="The Features card in Workspace settings: optional features switch on and off for the whole workspace."
+        />
         <p>
           Sail Scoring uses passwordless email sign-in. From the home screen, click{' '}
           <strong className="text-foreground">Sign in</strong>, enter your email, and click the

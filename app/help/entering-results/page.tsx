@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Entering results — Help — Sail Scoring',
@@ -19,6 +19,11 @@ export default async function Page() {
   return (
     <HelpShell slug="entering-results" features={features}>
       <Section id="entering-results" title="Entering results">
+        <HelpShot
+          src="/help/shots/finish-entry.webp"
+          alt="The finishing order is the finish sheet: row order is crossing order."
+          caption="The finishing order is the finish sheet: row order is crossing order."
+        />
         <p>
           The result entry screen is a digital transcription of the handwritten finish sheet.
           Each row is a crossing of the finish line; row order is crossing order. Search for
@@ -154,6 +159,11 @@ export default async function Page() {
       </Section>
       {has('csv-finish-import') && (
       <Section id="importing-finish-sheet" title="Importing a finish sheet from a spreadsheet">
+        <HelpShot
+          src="/help/shots/finish-sheet-import.webp"
+          alt="The import confirms what will land before it replaces the race."
+          caption="The import confirms what will land before it replaces the race."
+        />
         <p>
           On a race’s result entry screen, click{' '}
           <strong className="text-foreground">Import sheet</strong> (or press{' '}
@@ -198,6 +208,11 @@ export default async function Page() {
       </Section>
       )}
       <Section id="redress" title="Redress (RDG)">
+        <HelpShot
+          src="/help/shots/redress.webp"
+          alt="Granting redress: the three RRS A9 methods and the race pool."
+          caption="Granting redress: the three RRS A9 methods and the race pool."
+        />
         <p>
           When the protest committee grants a competitor redress under RRS Rule 62,
           their score for a race is replaced by an average calculated from their
@@ -282,6 +297,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="start-check-in" title="Start check-in">
+        <HelpShot
+          src="/help/shots/start-check-in.webp"
+          alt="Ticking off boats in the starting area as they arrive."
+          caption="Ticking off boats in the starting area as they arrive."
+        />
         <p>
           The{' '}
           <strong className="text-foreground">Start check-in</strong> tab on the race

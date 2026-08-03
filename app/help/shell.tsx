@@ -13,6 +13,27 @@ export function Section({ id, title, children }: { id: string; title: string; ch
   );
 }
 
+/** A screenshot inside a help section — the same captures the marketing
+ *  site uses (scripts/feature-shots.ts writes both), with an instructional
+ *  caption. Click opens the image full size. */
+export function HelpShot({ src, alt, caption }: { src: string; alt: string; caption: string }) {
+  return (
+    <figure className="my-4 space-y-2">
+      <a
+        href={src}
+        target="_blank"
+        rel="noreferrer"
+        className="block overflow-hidden rounded-md border"
+      >
+        {/* Plain img: static asset of known quality; next/image adds nothing here. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={alt} loading="lazy" className="w-full" />
+      </a>
+      <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>
+    </figure>
+  );
+}
+
 /** The frame every help chapter shares: heading, blurb, and a TOC of the
  *  chapter's sections filtered to the viewer's effective features. */
 export function HelpShell({

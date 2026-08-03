@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Rating and handicap systems — Help — Sail Scoring',
@@ -19,6 +19,11 @@ export default async function Page() {
   return (
     <HelpShell slug="rating-systems" features={features}>
       <Section id="rating-systems" title="Rating systems">
+        <HelpShot
+          src="/help/shots/rating-transparency.webp"
+          alt="A published ECHO page with the rating calculations revealed."
+          caption="A published ECHO page with the rating calculations revealed."
+        />
         <p>
           Sail Scoring supports several scoring systems. Pick the right one per fleet
           on the <strong className="text-foreground">Settings</strong> tab.
@@ -141,6 +146,11 @@ export default async function Page() {
       </Section>
       {has('irc-rating') && (
       <Section id="update-handicaps-irc-rating" title="Updating IRC TCCs from the rating list">
+        <HelpShot
+          src="/help/shots/update-handicaps-irc.webp"
+          alt="IRC TCCs proposed from the rating list — every change previewed boat by boat."
+          caption="IRC TCCs proposed from the rating list — every change previewed boat by boat."
+        />
         <p>
           The <strong className="text-foreground">Update handicaps</strong> dialog can pull IRC
           TCCs directly from the worldwide IRC rating list, matched by sail number. Choose{' '}
@@ -203,6 +213,11 @@ export default async function Page() {
       )}
       {has('echo') && (
       <Section id="update-handicaps-irish-sailing" title="Updating ECHO from Irish Sailing">
+        <HelpShot
+          src="/help/shots/update-handicaps-echo.webp"
+          alt="ECHO handicaps proposed from the Irish Sailing list."
+          caption="ECHO handicaps proposed from the Irish Sailing list."
+        />
         <p>
           The <strong className="text-foreground">Update handicaps</strong> dialog can pull ECHO
           handicaps directly from the national{' '}

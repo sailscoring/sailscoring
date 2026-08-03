@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Data in and out — Help — Sail Scoring',
@@ -19,6 +19,11 @@ export default async function Page() {
   return (
     <HelpShell slug="data-in-and-out" features={features}>
       <Section id="importing-competitors" title="Importing competitors from a spreadsheet">
+        <HelpShot
+          src="/help/shots/competitor-import.webp"
+          alt="Column mapping, with a sample of what each column holds."
+          caption="Column mapping, with a sample of what each column holds."
+        />
         <p>
           If your entry list is already in a spreadsheet, you can import it directly rather than
           typing each competitor by hand. On the{' '}
@@ -106,6 +111,11 @@ export default async function Page() {
       </Section>
       {has('rrs-import') && (
       <Section id="rrs-org-push" title="Pushing the competitor list to rrs.org">
+        <HelpShot
+          src="/help/shots/rrs-push.webp"
+          alt="Pushing the entry list to an rrs.org event."
+          caption="Pushing the entry list to an rrs.org event."
+        />
         <p>
           racingrulesofsailing.org (RRS.org) runs the protest and jury side of many
           events — protest filing, hearing schedules, the online notice board — and
@@ -148,6 +158,11 @@ export default async function Page() {
       </Section>
       )}
       <Section id="saving-and-sharing" title="Saving and sharing a series">
+        <HelpShot
+          src="/help/shots/series-actions.webp"
+          alt="Save to File, Update from File, Duplicate, and Copy to workspace all live on the series actions menu."
+          caption="Save to File, Update from File, Duplicate, and Copy to workspace all live on the series actions menu."
+        />
         <p>
           All changes are saved automatically to your account as you score — there is no Save
           button. The series is reachable from any device you sign in on, and panel members in
@@ -216,6 +231,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="json-export" title="JSON data export and Open in Sail Scoring">
+        <HelpShot
+          src="/help/shots/open-in-sailscoring.webp"
+          alt="Every published page footer carries an Open in Sail Scoring link."
+          caption="Every published page footer carries an Open in Sail Scoring link."
+        />
         <p>
           Every HTML results page — whether downloaded from{' '}
           <strong className="text-foreground">Preview</strong> or pushed via FTP or

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Reading and checking — Help — Sail Scoring',
@@ -19,6 +19,11 @@ export default async function Page() {
   return (
     <HelpShell slug="reading-and-checking" features={features}>
       <Section id="reading-the-standings" title="Reading the standings">
+        <HelpShot
+          src="/help/shots/standings.webp"
+          alt="The Standings tab: nett totals, struck-through discards, and podium badges."
+          caption="The Standings tab: nett totals, struck-through discards, and podium badges."
+        />
         <p>
           The <strong className="text-foreground">Standings</strong> tab shows the series results
           at any point. Each row is a competitor; the columns show their points for each race and
@@ -93,6 +98,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="history" title="Version history">
+        <HelpShot
+          src="/help/shots/version-history.webp"
+          alt="The History tab: automatic versions, a named checkpoint, and the Published pin."
+          caption="The History tab: automatic versions, a named checkpoint, and the Published pin."
+        />
         <p>
           Every series keeps a versioned <strong className="text-foreground">History</strong>{' '}
           tab (or press <strong className="text-foreground">g</strong> then{' '}

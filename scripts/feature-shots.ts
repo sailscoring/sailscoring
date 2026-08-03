@@ -84,6 +84,10 @@ const PNG_OUT =
 const WEBP_OUT =
   process.env.WEBP_OUT ??
   resolve(__dirname, '..', '..', 'sailscoring.ie', 'public', 'screenshots', 'features');
+/** The in-app help docs embed the same captures at a lighter width (the help
+ *  column is ~672px, so 1400px covers retina). */
+const HELP_OUT =
+  process.env.HELP_WEBP_OUT ?? resolve(__dirname, '..', 'public', 'help', 'shots');
 
 const WORKSPACE_NAME = process.env.WORKSPACE_NAME ?? 'My Workspace';
 const SERIES_NAME = process.env.SERIES_NAME ?? 'Sample Tuesday Evening League 2026';
@@ -1423,6 +1427,7 @@ async function main() {
 
   await mkdir(PNG_OUT, { recursive: true });
   await mkdir(WEBP_OUT, { recursive: true });
+  await mkdir(HELP_OUT, { recursive: true });
   console.log(`Base:  ${BASE}`);
   console.log(`PNG:   ${PNG_OUT}`);
   console.log(`WebP:  ${WEBP_OUT}`);
@@ -1496,8 +1501,15 @@ async function main() {
         }
         const pngPath = join(PNG_OUT, name);
         await target.screenshot({ path: pngPath, fullPage: opts.fullPage ?? false });
-        const webpPath = join(WEBP_OUT, name.replace(/\.png$/, '.webp'));
-        await sharp(pngPath).resize({ width: WEBP_WIDTH }).webp({ quality: 82 }).toFile(webpPath);
+        const webpName = name.replace(/\.png$/, '.webp');
+        await sharp(pngPath)
+          .resize({ width: WEBP_WIDTH })
+          .webp({ quality: 82 })
+          .toFile(join(WEBP_OUT, webpName));
+        await sharp(pngPath)
+          .resize({ width: 1400 })
+          .webp({ quality: 78 })
+          .toFile(join(HELP_OUT, webpName));
         console.log(`  ✓ ${name}`);
       },
     };

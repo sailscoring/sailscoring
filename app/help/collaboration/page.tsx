@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell, HelpShot, Section } from '../shell';
 
 export const metadata: Metadata = {
   title: 'Collaboration and accounts — Help — Sail Scoring',
@@ -80,6 +80,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="sending-feedback" title="Sending feedback">
+        <HelpShot
+          src="/help/shots/send-feedback.webp"
+          alt="Send feedback attaches the page and browser you were using, shown before you send."
+          caption="Send feedback attaches the page and browser you were using, shown before you send."
+        />
         <p>
           Found a bug, have a question, or want to suggest an improvement? Open the
           user menu in the top-right of the header (your email address) and click{' '}
@@ -94,6 +99,11 @@ export default async function Page() {
         </p>
       </Section>
       <Section id="keyboard-shortcuts" title="Keyboard shortcuts">
+        <HelpShot
+          src="/help/shots/keyboard-shortcuts.webp"
+          alt="The shortcut reference — press ? anywhere."
+          caption="The shortcut reference — press ? anywhere."
+        />
         <p>
           Press <strong className="text-foreground">?</strong> anywhere in the app (outside a text
           input) to open the keyboard shortcuts reference. Press{' '}
