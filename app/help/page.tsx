@@ -49,6 +49,8 @@ export default async function HelpPage() {
             ['#importing-competitors', 'Importing competitors from a spreadsheet'],
             // Gated: only listed when rrs-import is enabled (#260).
             ['#rrs-org-push', 'Pushing the competitor list to rrs.org', 'rrs-import'],
+            // Gated: only listed when world-sailing-id is enabled (#362).
+            ['#world-sailing-id', 'World Sailing Sailor IDs and seeding', 'world-sailing-id'],
             ['#updating-handicaps', 'Updating handicaps from another series'],
             // Gated: only listed when irc-rating is enabled (on by default, #168 follow-up).
             ['#update-handicaps-irc-rating', 'Updating IRC TCCs from the rating list', 'irc-rating'],
@@ -610,6 +612,67 @@ export default async function HelpPage() {
           corrected list rather than editing on both sides. Competitors entered
           manually on rrs.org are never affected. After a push, rrs.org records any
           per-record problems on its Event Panel; review the imported entries there.
+        </p>
+      </Section>
+      )}
+
+      {has('world-sailing-id') && (
+      <Section id="world-sailing-id" title="World Sailing Sailor IDs and seeding">
+        <p>
+          A <strong className="text-foreground">World Sailing Sailor ID</strong> is the
+          free, unique identifier tied to a sailor&rsquo;s World Sailing profile —{' '}
+          <code className="font-mono text-xs">IRLMM1</code>, a nation code, initials, and
+          a number. Most international notices of race require one to enter. Switch on the{' '}
+          <strong className="text-foreground">World Sailing ID</strong> field in{' '}
+          <strong className="text-foreground">Competitor fields</strong> on the series
+          Settings tab, and a spreadsheet import picks the column up automatically —
+          &ldquo;World Sailing ID&rdquo;, &ldquo;Sailor ID&rdquo;, or Sailwave&rsquo;s
+          &ldquo;HelmID&rdquo;. Published results show the ID as a link to the
+          sailor&rsquo;s World Sailing biography.
+        </p>
+        <p>
+          The ID belongs to a person, and Sail Scoring records it for the{' '}
+          <em>primary sailor</em> on each entry. There is nowhere to put a crew&rsquo;s ID.
+        </p>
+        <h3 className="text-foreground font-medium mt-4">Importing a seeding list</h3>
+        <p>
+          Championships that split into qualifying fleets assign the first day&rsquo;s
+          fleets from a ranking the organising authority supplies — a World Sailing
+          ranking table for an Olympic class, or a class association&rsquo;s own list.{' '}
+          <strong className="text-foreground">Import seeding list</strong> on the
+          Competitors tab reads that document and writes each sailor&rsquo;s{' '}
+          <strong className="text-foreground">Seeding rank</strong>, which the{' '}
+          <strong className="text-foreground">Split Fleets</strong> initial assignment
+          then orders by.
+        </p>
+        <p>
+          Sailors are matched on their Sailor ID. That matters more than it sounds: a
+          ranking list and an entry list are both lists of <em>people</em>, and at an
+          event sailing chartered boats the sail number is no help at all — so without
+          the ID the only thing left to match on is the spelling of a name. Where an ID
+          is missing, a match on name and nation is offered for you to confirm, never
+          applied on its own.
+        </p>
+        <p>
+          The rank written is the one the ranking states — a global rank of 3, 17 or 240,
+          not renumbered from one — so you can check the import against the document it
+          came from. Sailors the ranking doesn&rsquo;t list get no seeding rank and sort
+          below those it does; the assignment dialog lets you choose whether that tail
+          goes in sail-number order or spread by nation. Importing again replaces the
+          whole series&rsquo; seeding, so a revised ranking can be applied by importing it.
+        </p>
+        <h3 className="text-foreground font-medium mt-4">Checking the IDs</h3>
+        <p>
+          <strong className="text-foreground">Check Sailor IDs</strong> looks every ID up
+          in World Sailing&rsquo;s own datafeed and reports each one as valid, unknown to
+          World Sailing, not in the ID format at all, or a mismatch — the ID resolves, but
+          to a different name or nation than you have. A mismatch is what catches two
+          digits transposed on an entry form.
+        </p>
+        <p>
+          Nothing is corrected for you: World Sailing&rsquo;s record can be years out of
+          date and your entry list is what the event runs on. The one exception is a
+          nationality you don&rsquo;t hold at all, which the dialog offers to fill in.
         </p>
       </Section>
       )}

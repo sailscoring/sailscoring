@@ -151,6 +151,7 @@ export const SeedingListImport = forwardRef<SeedingListImportHandle, {
     <>
       <input
         ref={fileInputRef}
+        data-testid="seeding-list-input"
         type="file"
         accept={TABULAR_IMPORT_ACCEPT}
         className="hidden"
@@ -332,7 +333,7 @@ export const SeedingListImport = forwardRef<SeedingListImportHandle, {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button onClick={() => setFlow({ step: 'idle' })}>Close</Button>
+              <Button onClick={() => setFlow({ step: 'idle' })}>Done</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
