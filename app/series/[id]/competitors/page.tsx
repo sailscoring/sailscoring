@@ -43,6 +43,7 @@ import {
 import { AlertTriangle } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
 import { SeedingListImport, type SeedingListImportHandle } from '@/components/seeding-list-import';
+import { WorldSailingCheck, type WorldSailingCheckHandle } from '@/components/world-sailing-check';
 import {
   bulkEditFieldOptions,
   CompetitorBulkEditDialog,
@@ -168,6 +169,7 @@ export default function CompetitorsPage({
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
   const seedingImportRef = useRef<SeedingListImportHandle>(null);
+  const worldSailingCheckRef = useRef<WorldSailingCheckHandle>(null);
   const updateHandicapsRef = useRef<UpdateHandicapsHandle>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
@@ -340,6 +342,13 @@ export default function CompetitorsPage({
       section: 'Competitors',
       when: () => hasWorldSailingId && !readOnly,
       handler: () => seedingImportRef.current?.trigger(),
+    },
+    {
+      key: 'w',
+      description: 'Check World Sailing Sailor IDs',
+      section: 'Competitors',
+      when: () => hasWorldSailingId && (competitors ?? []).some((c) => c.worldSailingId),
+      handler: () => worldSailingCheckRef.current?.open(),
     },
     { key: '/', description: 'Filter competitors', section: 'Competitors', handler: () => filterInputRef.current?.focus() },
     {
@@ -566,7 +575,16 @@ export default function CompetitorsPage({
               fleets={assignableFleets}
             />
             {hasWorldSailingId && (
-              <SeedingListImport ref={seedingImportRef} competitors={competitors ?? []} />
+              <>
+                <SeedingListImport ref={seedingImportRef} competitors={competitors ?? []} />
+                {(competitors ?? []).some((c) => c.worldSailingId) && (
+                  <WorldSailingCheck
+                    ref={worldSailingCheckRef}
+                    seriesId={seriesId}
+                    competitors={competitors ?? []}
+                  />
+                )}
+              </>
             )}
             <Button onClick={() => setShowAddForm(true)}>Add competitor</Button>
           </div>

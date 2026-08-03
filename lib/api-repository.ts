@@ -19,6 +19,7 @@ import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
 import type { VprsClub, VprsRatings } from './vprs-rating';
 import type { RrsOrgCompetitor, RrsOrgPushResult } from './rrs-org';
+import type { WorldSailingCheckResult } from './world-sailing-datafeed';
 import type {
   CompetitorFieldPatch,
   CompetitorRepository,
@@ -764,6 +765,16 @@ export function pushCompetitorsToRrsOrg(
     method: 'POST',
     body: input,
   });
+}
+
+/**
+ * Check this series' World Sailing Sailor IDs against World Sailing's
+ * datafeed. The lookup runs server-side — the datafeed is a third-party host
+ * a browser can't reach cross-origin — and reports per competitor rather than
+ * changing anything: what to do about a mismatch is the scorer's call.
+ */
+export function checkWorldSailingIds(seriesId: string): Promise<WorldSailingCheckResult> {
+  return apiFetch<WorldSailingCheckResult>(`/api/v1/series/${seriesId}/world-sailing-check`);
 }
 
 /** The publication state for a series (workspace slug, suggested slug, and the
