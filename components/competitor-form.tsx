@@ -22,6 +22,7 @@ import {
 } from '@/lib/competitor-fields';
 import { requiredForFleetsHint } from '@/lib/competitor-ratings';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { isValidWorldSailingId, normalizeWorldSailingId } from '@/lib/world-sailing';
 import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 
 export interface CompetitorFormData {
@@ -29,6 +30,7 @@ export interface CompetitorFormData {
   bowNumber: string;
   entryNumber: string;
   seed: string;
+  worldSailingId: string;
   boatName: string;
   boatClass: string;
   names: string[];   // primary person rows; blanks dropped on save, at least one non-blank required
@@ -53,6 +55,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   bowNumber: '',
   entryNumber: '',
   seed: '',
+  worldSailingId: '',
   boatName: '',
   boatClass: '',
   names: [''],
@@ -350,6 +353,27 @@ export function CompetitorForm({
               value={data.seed}
               onChange={(e) => set('seed', e.target.value)}
             />
+          </div>
+        )}
+        {enabledFields.includes('worldSailingId') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="worldSailingId">World Sailing ID</Label>
+            <Input
+              id="worldSailingId"
+              className="font-mono"
+              value={data.worldSailingId}
+              onChange={(e) => set('worldSailingId', e.target.value)}
+              placeholder="e.g. IRLMM1"
+            />
+            {/* A warning, never a rejection: an entry list is transcribed by
+                humans, and a scorer needs to see what it actually said. */}
+            {data.worldSailingId.trim() &&
+              !isValidWorldSailingId(normalizeWorldSailingId(data.worldSailingId)) && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  Doesn&apos;t look like a Sailor ID (nation code, initials, then a
+                  number — IRLMM1). Saved as entered.
+                </p>
+              )}
           </div>
         )}
         {enabledFields.includes('bowNumber') && (

@@ -75,6 +75,7 @@ import {
   formatPrimaryNames,
   cleanSubdivisions,
 } from '@/lib/competitor-fields';
+import { normalizeWorldSailingId, worldSailingProfileUrl } from '@/lib/world-sailing';
 import {
   duplicateDeletionIds,
   findDuplicateGroups,
@@ -384,6 +385,10 @@ export default function CompetitorsPage({
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
+      ...((): { worldSailingId?: string } => {
+        const id = normalizeWorldSailingId(data.worldSailingId);
+        return id ? { worldSailingId: id } : {};
+      })(),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       names: cleanPersonNames(data.names) ?? [''],
@@ -429,6 +434,10 @@ export default function CompetitorsPage({
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
+      ...((): { worldSailingId?: string } => {
+        const id = normalizeWorldSailingId(data.worldSailingId);
+        return id ? { worldSailingId: id } : {};
+      })(),
       ...(data.boatName.trim() ? { boatName: data.boatName.trim() } : {}),
       ...(data.boatClass.trim() ? { boatClass: data.boatClass.trim() } : {}),
       names: cleanPersonNames(data.names) ?? [''],
@@ -466,6 +475,7 @@ export default function CompetitorsPage({
     if (!data.bowNumber.trim()) delete updated.bowNumber;
     if (!data.entryNumber.trim()) delete updated.entryNumber;
     if (!(parseInt(data.seed, 10) > 0)) delete updated.seed;
+    if (!normalizeWorldSailingId(data.worldSailingId)) delete updated.worldSailingId;
     if (!data.boatName.trim()) delete updated.boatName;
     if (!data.boatClass.trim()) delete updated.boatClass;
     if (!cleanPersonNames(data.owners)) delete updated.owners;
@@ -504,6 +514,7 @@ export default function CompetitorsPage({
     : existingCompetitors;
   const showBow = enabledFields.includes('bowNumber');
   const showSeed = enabledFields.includes('seed');
+  const showWorldSailingId = enabledFields.includes('worldSailingId');
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
   const showOwner = enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel);
@@ -653,6 +664,7 @@ export default function CompetitorsPage({
               <TableHead>Sail no.</TableHead>
               {showBow && <TableHead>Bow no.</TableHead>}
               {showSeed && <TableHead>Seeding rank</TableHead>}
+              {showWorldSailingId && <TableHead>WS ID</TableHead>}
               {showBoat && <TableHead>Boat</TableHead>}
               {showClass && <TableHead>Class</TableHead>}
               <TableHead className="whitespace-normal break-words">{primaryFieldLabel}</TableHead>
@@ -718,6 +730,20 @@ export default function CompetitorsPage({
                 </TableCell>
                 {showBow && <TableCell className="font-mono">{c.bowNumber ?? ''}</TableCell>}
                 {showSeed && <TableCell className="font-mono">{c.seed ?? ''}</TableCell>}
+                {showWorldSailingId && (
+                  <TableCell className="font-mono">
+                    {c.worldSailingId ? (
+                      <a
+                        href={worldSailingProfileUrl(c.worldSailingId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2"
+                      >
+                        {c.worldSailingId}
+                      </a>
+                    ) : ''}
+                  </TableCell>
+                )}
                 {showBoat && <TruncatedCell value={c.boatName} />}
                 {showClass && <TruncatedCell value={c.boatClass} />}
                 <TableCell className="whitespace-normal break-words">{c.names.filter((n) => n.trim()).map((n, i) => <div key={i}>{n}</div>)}</TableCell>
@@ -887,6 +913,7 @@ export default function CompetitorsPage({
                 bowNumber: editingCompetitor.bowNumber ?? '',
                 entryNumber: editingCompetitor.entryNumber ?? '',
                 seed: editingCompetitor.seed != null ? String(editingCompetitor.seed) : '',
+                worldSailingId: editingCompetitor.worldSailingId ?? '',
                 boatName: editingCompetitor.boatName ?? '',
                 boatClass: editingCompetitor.boatClass ?? '',
                 names: editingCompetitor.names,

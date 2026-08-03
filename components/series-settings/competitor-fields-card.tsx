@@ -269,11 +269,18 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
             <p className="text-xs text-muted-foreground">
               Toggle the optional fields you want displayed in the competitor list, standings, and exported results.
             </p>
-            {ALL_COMPETITOR_FIELDS.filter(
-              // Seeding rank drives split-fleet initial assignment; hidden
-              // without the feature (a stored value still shows its column).
-              (f) => f !== 'seed' || has('split-fleets') || enabledSet.has('seed'),
-            ).map((field) => {
+            {ALL_COMPETITOR_FIELDS.filter((f) => {
+              // Two fields belong to features rather than to every series. A
+              // field already enabled always stays listed — otherwise turning a
+              // feature off would strand a column the scorer can't reach the
+              // switch for.
+              if (enabledSet.has(f)) return true;
+              // Seeding rank drives split-fleet initial assignment, and is what
+              // the seeding-list import writes.
+              if (f === 'seed') return has('split-fleets') || has('world-sailing-id');
+              if (f === 'worldSailingId') return has('world-sailing-id');
+              return true;
+            }).map((field) => {
               const disabledByPrimary = isFieldDisabledByPrimary(field, primaryLabel);
               return (
                 <div
