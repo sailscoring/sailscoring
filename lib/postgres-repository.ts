@@ -158,6 +158,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.bowNumber ? { bowNumber: row.bowNumber } : {}),
     ...(row.entryNumber ? { entryNumber: row.entryNumber } : {}),
     ...(row.seed != null ? { seed: row.seed } : {}),
+    ...(row.worldSailingId ? { worldSailingId: row.worldSailingId } : {}),
     ...(row.boatName ? { boatName: row.boatName } : {}),
     ...(row.boatClass ? { boatClass: row.boatClass } : {}),
     names: row.names,
@@ -952,6 +953,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     bowNumber: c.bowNumber ?? null,
     entryNumber: c.entryNumber ?? null,
     seed: c.seed ?? null,
+    worldSailingId: c.worldSailingId ?? null,
     boatName: c.boatName ?? null,
     boatClass: c.boatClass ?? null,
     names: c.names,
@@ -973,7 +975,8 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 }
 
 const competitorUpdateColumns = [
-  'fleetIds', 'sailNumber', 'bowNumber', 'entryNumber', 'seed', 'boatName', 'boatClass', 'names',
+  'fleetIds', 'sailNumber', 'bowNumber', 'entryNumber', 'seed', 'worldSailingId',
+  'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
   'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',

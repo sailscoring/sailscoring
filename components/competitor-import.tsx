@@ -44,6 +44,7 @@ import {
 import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
 import { lookupAlias, normalizeCodeInput } from '@/lib/nationality';
 import { matchLikelySameBoat, type MatchEntry } from '@/lib/competitor-matching';
+import { normalizeWorldSailingId } from '@/lib/world-sailing';
 import {
   planFleetCreation,
   type PlanRow,
@@ -246,6 +247,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   bowNumber: 'Bow number',
   entryNumber: 'Entry number',
   seed: 'Seeding rank',
+  worldSailingId: 'World Sailing ID',
   boatName: 'Boat name',
   boatClass: 'Class',
   crewName: 'Crew',
@@ -289,6 +291,7 @@ function buildFieldLabels(
     bowNumber: STATIC_FIELD_LABELS.bowNumber,
     entryNumber: STATIC_FIELD_LABELS.entryNumber,
     seed: STATIC_FIELD_LABELS.seed,
+    worldSailingId: STATIC_FIELD_LABELS.worldSailingId,
     boatName: STATIC_FIELD_LABELS.boatName,
     boatClass: STATIC_FIELD_LABELS.boatClass,
     primary: `${primaryText} name (primary)`,
@@ -1486,6 +1489,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let bowNumber = '';
       let entryNumber = '';
       let seed: number | undefined;
+      let worldSailingId: string | undefined;
       let boatName = '';
       let boatClass = '';
       const primaryCells: string[] = [];  // every column mapped to the primary, in column order
@@ -1511,6 +1515,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'bowNumber') bowNumber = val;
         else if (field === 'entryNumber') entryNumber = val;
         else if (field === 'seed') seed = parseInt(val, 10) || undefined;
+        else if (field === 'worldSailingId') worldSailingId = normalizeWorldSailingId(val);
         else if (field === 'boatName') boatName = val;
         else if (field === 'boatClass') boatClass = val;
         else if (field === 'primary') { if (val) primaryCells.push(val); }
@@ -1631,6 +1636,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           : {}),
         ...(seed != null || existingCompetitor?.seed != null
           ? { seed: seed ?? existingCompetitor?.seed }
+          : {}),
+        ...(worldSailingId || existingCompetitor?.worldSailingId
+          ? { worldSailingId: worldSailingId || existingCompetitor?.worldSailingId }
           : {}),
         ...(resolvedBoatName ? { boatName: resolvedBoatName } : {}),
         ...(resolvedBoatClass ? { boatClass: resolvedBoatClass } : {}),

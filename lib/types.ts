@@ -27,6 +27,7 @@ export type CompetitorFieldKey =
   | 'bowNumber'
   | 'entryNumber'
   | 'seed'
+  | 'worldSailingId'
   | 'boatName'
   | 'boatClass'
   | 'helm'
@@ -435,6 +436,7 @@ export interface Competitor {
   bowNumber?: string; // bow number, when it differs from the registered sail number (e.g. a borrowed hull); optional, used for finish-entry matching
   entryNumber?: string; // the OA's registration/admin number on the entry list (split-fleet championships); distinct from bowNumber, often coincident — leave unset when they match
   seed?: number;      // OA seeding rank for split-fleet initial assignment (Sailwave's "Seeding" column); not derivable from entry order/sail/nationality
+  worldSailingId?: string; // World Sailing Sailor ID of the primary sailor (see lib/world-sailing.ts); the join key for an OA's seed ranking
   boatName?: string;  // name of the vessel, e.g. "The Big Picture"
   boatClass?: string; // boat class, e.g. "Laser", "Firefly" — relevant for PY fleets
   names: string[];    // primary identifying person(s), min one (labelled per Series.primaryPersonLabel); several for co-owned/co-helmed entries, joined " & " in one-line contexts

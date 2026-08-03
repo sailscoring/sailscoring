@@ -201,6 +201,11 @@ export interface PublicSeriesExport {
     bowNumber?: string;
     /** OA registration number (split-fleet championships). */
     entryNumber?: string;
+    /** The OA's seeding rank. Carried so a reader can reproduce a split-fleet
+     *  series' initial assignment, which is unexplainable without it. */
+    seed?: number;
+    /** World Sailing Sailor ID of the primary sailor. */
+    worldSailingId?: string;
     boatName?: string;
     boatClass?: string;
     /** Primary person(s), min one; several for co-owned/co-helmed entries. */
@@ -793,11 +798,7 @@ export function buildPublicExportFromSnapshot(
           );
         return raceFleetExclusions.length > 0 ? { raceFleetExclusions } : {};
       })(),
-      // Seeding rank is operational, not a result: the export carries neither
-      // the values nor the display hint.
-      displayFields: (series.enabledCompetitorFields ?? defaultEnabledCompetitorFields()).filter(
-        (f) => f !== 'seed',
-      ),
+      displayFields: series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
       ...(series.multiPersonFields?.length ? { multiPersonFields: series.multiPersonFields } : {}),
       primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
       ...(series.subdivisionAxes?.length ? { subdivisionAxes: series.subdivisionAxes } : {}),
@@ -848,6 +849,8 @@ export function buildPublicExportFromSnapshot(
       sailNumber: c.sailNumber,
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+      ...(c.seed != null ? { seed: c.seed } : {}),
+      ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: c.names,
@@ -1088,6 +1091,8 @@ export async function importPublicExport(
         sailNumber: c.sailNumber,
         ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+        ...(c.seed != null ? { seed: c.seed } : {}),
+        ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         names: c.names?.length ? c.names : [c.name ?? ''],

@@ -1,0 +1,1 @@
+ALTER TABLE "competitors" ADD COLUMN "world_sailing_id" text;

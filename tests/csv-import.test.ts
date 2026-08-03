@@ -52,6 +52,23 @@ describe('autoDetectField', () => {
     expect(autoDetectField('PY')).toBe('py');
   });
 
+  it('reads Sailor ID headers as the World Sailing ID, not the sail number', () => {
+    // Every spelling of the header contains "sail", which the sail-number rule
+    // would otherwise claim.
+    expect(autoDetectField('World Sailing ID')).toBe('worldSailingId');
+    expect(autoDetectField('WS Sailor ID')).toBe('worldSailingId');
+    expect(autoDetectField('Sailor ID')).toBe('worldSailingId');
+    expect(autoDetectField('sailorId')).toBe('worldSailingId');
+    expect(autoDetectField('ISAF ID')).toBe('worldSailingId');
+    expect(autoDetectField('IFPersonID')).toBe('worldSailingId');
+    // Sailwave's HelmID column is documented as holding a sailor
+    // identification string, so it is not the helm's name.
+    expect(autoDetectField('HelmID')).toBe('worldSailingId');
+    expect(autoDetectField('Helm Name')).toBe('helm');
+    // And a plain sail-number column is unaffected.
+    expect(autoDetectField('Sail Number')).toBe('sailNumber');
+  });
+
   it('maps division/category/subdivision headers to subdivision, not fleet', () => {
     // Regression (issue #158): "Division" used to fall through to `fleet`,
     // conflating the prize-giving subdivision with the scoring group.

@@ -237,9 +237,16 @@ export interface SeriesFileRepos {
  *  tables alone — the single-race-event presentation. Additive and sparse,
  *  written only when set; older files load with it absent (full detail).
  *  Purely presentational, so a build that predates it loads the series and
- *  scores it identically — unlike v25/v26, nothing here can change a score. */
-export const FORMAT_VERSION = 28;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28];
+ *  scores it identically — unlike v25/v26, nothing here can change a score.
+ *
+ *  v29 adds `competitors[*].worldSailingId` (#362): the primary sailor's World
+ *  Sailing Sailor ID, the join key an organising authority's seed ranking is
+ *  matched on. Additive and sparse. Nothing scores off it, so an older build
+ *  reading a v29 file would lose only the identifier — the bump is so that
+ *  loss is visible rather than silent, which is the whole reason this format
+ *  is versioned. */
+export const FORMAT_VERSION = 29;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -326,6 +333,7 @@ interface SeriesFileCompetitor {
   bowNumber?: string;  // v19+
   entryNumber?: string;  // v23+; OA registration number (split-fleet events)
   seed?: number;  // v23+; OA seeding rank
+  worldSailingId?: string;  // v29+; World Sailing Sailor ID of the primary sailor
   boatName?: string;
   boatClass?: string;
   names: string[];    // v22+; primary person(s), min one
@@ -639,6 +647,7 @@ export async function buildSeriesFile(
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
       ...(c.seed != null ? { seed: c.seed } : {}),
+      ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: c.names,
@@ -1529,6 +1538,7 @@ async function writeFleetsCompetitorsRaces(
         club: c.club,
         ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
         ...(c.seed != null ? { seed: c.seed } : {}),
+        ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender,
         age: c.age,

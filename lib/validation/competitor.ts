@@ -14,6 +14,10 @@ export const competitorSchema = z.object({
   bowNumber: z.string().optional(),
   entryNumber: z.string().optional(),
   seed: z.number().int().positive().optional(),
+  // Deliberately unpatterned: a Sailor ID that doesn't match the published
+  // format is warned about in the UI, never rejected at the boundary (see
+  // lib/world-sailing.ts).
+  worldSailingId: z.string().max(20).optional(),
   boatName: z.string().optional(),
   boatClass: z.string().optional(),
   names: z.array(z.string()).min(1),

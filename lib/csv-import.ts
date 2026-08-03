@@ -11,6 +11,7 @@ export type CompetitorField =
   | 'bowNumber'
   | 'entryNumber'
   | 'seed'
+  | 'worldSailingId'
   | 'boatName'
   | 'boatClass'
   | 'primary'
@@ -157,6 +158,12 @@ export function matchSubdivisionAxis(header: string, axisLabels: string[]): numb
  */
 export function autoDetectField(header: string): CompetitorField {
   const h = header.trim().replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  // The World Sailing Sailor ID must be checked before `/sail/`: both "World
+  // Sailing ID" and "Sailor ID" contain it. Sailwave's `HelmID` belongs here
+  // too — its user guide is explicit that the *ID fields are for a sailor
+  // identification string such as the WS Sailor ID, not for arbitrary data.
+  if (/world\s*sailing|sailor\s*id|\bwsid\b|\bws\s*id\b|\bisaf\b|ifperson|\bhelm\s*id\b/.test(h))
+    return 'worldSailingId';
   if (/sail/.test(h)) return 'sailNumber';
   if (/\bbow\b/.test(h)) return 'bowNumber';
   if (/entry\s*(number|no|id|#)?/.test(h)) return 'entryNumber';

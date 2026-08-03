@@ -42,6 +42,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
       'bowNumber',
       'entryNumber',
       'seed',
+      'worldSailingId',
       'boatName',
       'boatClass',
       'helm',

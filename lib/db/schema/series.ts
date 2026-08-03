@@ -425,6 +425,9 @@ export const competitors = pgTable(
     // rank (docs/design/split-fleets.md). Sparse; both nullable.
     entryNumber: text('entry_number'),
     seed: integer('seed'),
+    // World Sailing Sailor ID of the primary sailor — the join key for an OA's
+    // seed ranking, and a profile link in published results.
+    worldSailingId: text('world_sailing_id'),
     boatName: text('boat_name'),
     boatClass: text('boat_class'),
     names: jsonb('names').$type<string[]>().notNull(),

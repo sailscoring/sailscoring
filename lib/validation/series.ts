@@ -33,6 +33,7 @@ export const competitorFieldKeySchema = z.enum([
   'bowNumber',
   'entryNumber',
   'seed',
+  'worldSailingId',
   'boatName',
   'boatClass',
   'helm',
