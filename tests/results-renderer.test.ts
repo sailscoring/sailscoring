@@ -224,6 +224,33 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('<td>M</td>');
   });
 
+  it('links the World Sailing ID column to the sailor biography', () => {
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['worldSailingId'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [
+        { ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), worldSailingId: 'IRLMM1' },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('<th>World Sailing ID</th>');
+    expect(html).toContain('href="https://www.sailing.org/sailor/?ref=IRLMM1"');
+    expect(html).toContain('>IRLMM1</a>');
+  });
+
+  it('suppresses the World Sailing ID column when enabled but nobody has one', () => {
+    // Same treatment as Club and Nat: a club series that switches the field on
+    // shouldn't publish a dead column.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['worldSailingId'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }])],
+    };
+    expect(renderSeriesHtml(data)).not.toContain('<th>World Sailing ID</th>');
+  });
+
   it('suppresses Age and Gender columns when enabled but no competitor has a value', () => {
     const data: SeriesResultsData = {
       series: { name: 'S', venue: '' },

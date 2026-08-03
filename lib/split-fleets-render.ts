@@ -6,6 +6,7 @@
 
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
 import { renderFlagDefs } from './results-renderer';
+import { worldSailingProfileUrl } from './world-sailing';
 import {
   provisionalCutIndexes,
   roundsForStage,
@@ -92,6 +93,18 @@ function showNat(input: SplitFleetRenderInput): boolean {
   );
 }
 
+function showWsid(input: SplitFleetRenderInput): boolean {
+  return (
+    (input.enabledCompetitorFields ?? []).includes('worldSailingId') &&
+    input.competitors.some((c) => c.worldSailingId)
+  );
+}
+
+function wsidCell(id: string | undefined): string {
+  if (!id) return '<td class="wsid"></td>';
+  return `<td class="wsid" style="font-family:monospace;font-size:0.85em;white-space:nowrap"><a href="${esc(worldSailingProfileUrl(id))}" target="_blank" rel="noopener noreferrer">${esc(id)}</a></td>`;
+}
+
 function natCell(
   code: string | undefined,
   flagSvgByCode: SplitFleetRenderInput['flagSvgByCode'],
@@ -127,6 +140,7 @@ export function renderSplitFleetStandingsPage(
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
   const splitRound = roundsForStage(data.rounds, 'final')[0] ?? null;
   const nat = showNat(input);
+  const wsid = showWsid(input);
 
   const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
   for (const r of rows) for (const c of r.cells) colKeys.set(`${c.stage}:${c.stageRaceNumber}`, { stage: c.stage, n: c.stageRaceNumber });
@@ -164,18 +178,19 @@ export function renderSplitFleetStandingsPage(
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   <td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>
   <td>${esc(row.competitor.names.join(' & '))}${medal}</td>
+  ${wsid ? wsidCell(row.competitor.worldSailingId) : ''}
   ${columns.map((c) => cellHtml(row, c)).join('\n  ')}
   <td style="text-align:right">${row.total}</td>
   <td style="text-align:right;font-weight:bold">${row.net}</td>
 </tr>`;
         const cut = cuts.includes(i)
-          ? `<tr><td colspan="${columns.length + (nat ? 6 : 5)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">provisional split if qualifying ended now</div></td></tr>`
+          ? `<tr><td colspan="${columns.length + 5 + (nat ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">provisional split if qualifying ended now</div></td></tr>`
           : '';
         return tr + cut;
       })
       .join('\n');
     return `<div class="wrap"><table>
-<thead><tr><th>Rank</th>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${head}<th>Total</th><th>Nett</th></tr></thead>
+<thead><tr><th>Rank</th>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 ${body}
 </tbody>
