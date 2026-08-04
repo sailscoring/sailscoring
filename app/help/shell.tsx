@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
 import type { FeatureKey } from '@/lib/features';
 
@@ -48,6 +49,9 @@ export function HelpShell({
   const group = HELP_GROUPS.find((g) => g.slug === slug);
   if (!group) throw new Error(`unknown help group: ${slug}`);
   const sections = group.sections.filter((s) => !s.feature || features.includes(s.feature));
+  // A chapter whose every section is gated off for this viewer doesn't exist
+  // for them — the landing index skips it too (see app/help/page.tsx).
+  if (sections.length === 0) notFound();
   return (
     <div className="max-w-2xl mx-auto space-y-10">
       <div>

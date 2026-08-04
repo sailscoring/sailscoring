@@ -34,4 +34,11 @@ test('help landing indexes chapters and old anchors redirect to them', async ({ 
   await page.goto('/help#what-is-sail-scoring');
   await expect(page).toHaveURL(/\/help#what-is-sail-scoring$/);
   await expect(page.getByRole('heading', { name: 'What is Sail Scoring?' })).toBeVisible();
+
+  // A chapter whose every section is feature-gated off for this viewer
+  // (Across series: competitor-identity and rankings, both operator-managed
+  // and off here) is hidden entirely — absent from the index, URL a 404.
+  await expect(page.getByRole('link', { name: 'Across series and seasons' })).toHaveCount(0);
+  const response = await page.goto('/help/across-series');
+  expect(response!.status()).toBe(404);
 });
