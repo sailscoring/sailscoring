@@ -104,6 +104,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'importing-competitors', title: 'Importing competitors from a spreadsheet' },
       { id: 'rrs-org-push', title: 'Pushing the competitor list to rrs.org', feature: 'rrs-import' },
       { id: 'saving-and-sharing', title: 'Saving and sharing a series' },
+      { id: 'sailwave-import', title: 'Importing from Sailwave', feature: 'sailwave-import' },
       { id: 'json-export', title: 'JSON data export and Open in Sail Scoring' },
     ],
   },
@@ -124,6 +125,15 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'collaboration', title: 'Working with co-scorers' },
       { id: 'sending-feedback', title: 'Sending feedback' },
       { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts' },
+    ],
+  },
+  {
+    slug: 'for-the-technical',
+    label: 'For the technical',
+    blurb: 'The API and command-line tool behind the app.',
+    sections: [
+      { id: 'rest-api', title: 'The REST API' },
+      { id: 'cli', title: 'The sailscoring CLI' },
     ],
   },
 ];

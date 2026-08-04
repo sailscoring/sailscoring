@@ -55,7 +55,7 @@ export interface FeatureDef {
 export const FEATURES = {
   'sailwave-import': {
     label: 'Sailwave import',
-    helpSectionIds: [],
+    helpSectionIds: ['sailwave-import'],
   },
   'csv-finish-import': {
     label: 'Finish-sheet import (CSV / Excel)',

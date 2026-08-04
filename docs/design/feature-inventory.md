@@ -17,8 +17,11 @@ marketing page as downstream of it.
 
 ## How to read the tables
 
-- **Feature (help §)** — the anchor in `app/help/page.tsx` documenting it;
-  *no §* marks a help gap worth closing.
+- **Feature (help §)** — the section id documenting it in the in-app help.
+  Help is chaptered (`/help/<group>`, one chapter per group below, same slugs
+  as the marketing page); the manifest in `app/help/sections.ts` maps each id
+  to its chapter, and old `/help#id` links redirect. *No §* marks a help gap
+  worth closing.
 - **Status** — `core` (always on), `default-on` (gated, on unless a workspace
   opts out), `opt-in` (self-service gate, off by default), `operator`
   (switched on per workspace by us, on request). Gated features get a light
@@ -145,7 +148,7 @@ No lock-in, in either direction.
 | Feature (help §) | Status | Description | Screenshot |
 |---|---|---|---|
 | Competitor spreadsheet import (`#importing-competitors`) | core | Import an entry list from CSV or Excel with per-column mapping and samples, fleets inferred from rating columns, and sail-number changes detected instead of duplicated. | Column-mapping dialog with sample values and a planned-fleets list. |
-| Sailwave import (*inline in* `#saving-and-sharing`, no own §) | opt-in | Import a Sailwave `.blw` — fleets, competitors, ratings, results, subdivisions, prizes — or keep scoring in Sailwave and use Update from Sailwave file to make Sail Scoring the publishing front end. | Sailwave import wizard preview of fleets, competitors, and races. |
+| Sailwave import (`#sailwave-import`) | opt-in | Import a Sailwave `.blw` — fleets, competitors, ratings, results, subdivisions, prizes — or keep scoring in Sailwave and use Update from Sailwave file to make Sail Scoring the publishing front end. | Sailwave import wizard preview of fleets, competitors, and races. |
 | `.sailscoring` files (`#saving-and-sharing`) | core | Save any series as a single portable file — competitors, races, results, and its full version history — and reopen or update from it anywhere, with divergence detected. | Update from File confirmation with the clean-continuation check, alongside the series ⋯ menu showing Save to File. |
 | JSON export and Open in Sail Scoring (`#json-export`) | core | Every published page embeds a machine-readable results snapshot and an Open in Sail Scoring link that imports the whole series into any account, one click. | Published-page footer with the Open in Sail Scoring link, and the import confirmation with its workspace picker. |
 | rrs.org competitor push (`#rrs-org-push`) | opt-in | Push the entry list to a racingrulesofsailing.org event for protests and jury work, relaying contact columns without ever storing them. | Import dialog with Import to rrs.org ticked: event UUID field and the division-slot mapping choice. |
@@ -177,14 +180,12 @@ A scoring panel working as one.
 
 ## 10. For the technical
 
-For clubs with a developer, and anyone who cares about openness. (No help
-sections — the audience finds these in the repo's `docs/`; the help page
-stays scorer-focused.)
+For clubs with a developer, and anyone who cares about openness.
 
 | Feature (help §) | Status | Description | Screenshot |
 |---|---|---|---|
-| REST API (no §; `docs/cli.md`, ADR-009) | core | A keyed public `/api/v1` covering series, competitors, races, results, and publishing — the same surface the app itself uses. | Terminal shot: a curl request to `/api/v1` and its JSON response. |
-| CLI (no §; `docs/cli.md`) | core | The `sailscoring` CLI drives the API for bulk import, publish, and read operations — scriptable season automation with no database access required. | Terminal shot: a `sailscoring` command and its output (a series import or publish). |
+| REST API (`#rest-api`; `docs/cli.md`, ADR-009) | core | A keyed public `/api/v1` covering series, competitors, races, results, and publishing — the same surface the app itself uses. | Terminal shot: a curl request to `/api/v1` and its JSON response. |
+| CLI (`#cli`; `docs/cli.md`) | core | The `sailscoring` CLI drives the API for bulk import, publish, and read operations — scriptable season automation with no database access required. | Terminal shot: a `sailscoring` command and its output (a series import or publish). |
 | Open source (no §) | core | The application is MIT-licensed and developed in the open. *(Hold until the repo flip, #282.)* | The public GitHub repository page (capture after the #282 flip). |
 | Open data (no §) | core | Your data is exportable at any time — `.sailscoring` files, embedded JSON on every published page — and the file format is documented. | View-source excerpt of a published page's embedded JSON snapshot beside the rendered footer. |
 

@@ -184,11 +184,33 @@ export default async function Page() {
           already in your workspace, you will be asked whether to update the existing copy or open
           it as a separate one.
         </p>
-        {has('sailwave-import') && (
+        <p>
+          To bring a series someone else is scoring into your workspace, open the{' '}
+          <strong className="text-foreground">⋯</strong> menu on the existing series and
+          click <strong className="text-foreground">Update from File…</strong>. The app checks
+          whether the incoming file is a clean continuation of the workspace copy and warns you
+          if both copies have diverged.
+        </p>
+        <p>
+          If you used Sail Scoring before sign-in was required and have series saved in this
+          browser, the home page shows a banner offering to{' '}
+          <strong className="text-foreground">Move to my account</strong>. The migration runs
+          one series at a time and is safe to re-run — the banner only counts series that
+          haven’t already been moved.
+        </p>
+      </Section>
+      {has('sailwave-import') && (
+        <Section id="sailwave-import" title="Importing from Sailwave">
+          <HelpShot
+            src="/help/shots/sailwave-import.webp"
+            alt="The Sailwave import wizard previewing a .blw file"
+            caption="The Sailwave import wizard previews the detected fleets, competitors, and races before anything is created."
+          />
           <>
             <p>
-              To bring a season’s seedings across from Sailwave, choose{' '}
-              <strong className="text-foreground">Sailwave file</strong> from the same dialog and
+              To bring a season across from Sailwave, click{' '}
+              <strong className="text-foreground">Import Series</strong> on the home screen,
+              choose <strong className="text-foreground">Sailwave file</strong>, and
               pick the <code className="text-foreground text-sm">.blw</code> series file from
               Sailwave. The wizard previews the fleets, competitors, and races, then creates the series
               with ratings and any results Sailwave already had — fill in the per-fleet scoring system
@@ -214,22 +236,8 @@ export default async function Page() {
               don’t change until you publish again.
             </p>
           </>
-        )}
-        <p>
-          To bring a series someone else is scoring into your workspace, open the{' '}
-          <strong className="text-foreground">⋯</strong> menu on the existing series and
-          click <strong className="text-foreground">Update from File…</strong>. The app checks
-          whether the incoming file is a clean continuation of the workspace copy and warns you
-          if both copies have diverged.
-        </p>
-        <p>
-          If you used Sail Scoring before sign-in was required and have series saved in this
-          browser, the home page shows a banner offering to{' '}
-          <strong className="text-foreground">Move to my account</strong>. The migration runs
-          one series at a time and is safe to re-run — the banner only counts series that
-          haven’t already been moved.
-        </p>
-      </Section>
+        </Section>
+      )}
       <Section id="json-export" title="JSON data export and Open in Sail Scoring">
         <HelpShot
           src="/help/shots/open-in-sailscoring.webp"
