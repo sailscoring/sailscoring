@@ -119,7 +119,7 @@ export default async function HelpPage() {
           The original stays in your personal workspace; the copy lands in the target workspace
           with a fresh history. FTP credentials and publishing state are not carried over.
           To copy a series within its own workspace — say, to experiment with scoring settings
-          or use last season&rsquo;s series as a template — choose{' '}
+          or use last season’s series as a template — choose{' '}
           <strong className="text-foreground">Duplicate…</strong> from the same menu. The
           duplicate keeps its category and everything else except publishing state and FTP paths.
         </p>
@@ -138,7 +138,7 @@ export default async function HelpPage() {
         <p>
           Workspace settings also has a <strong className="text-foreground">Features</strong>{' '}
           card (owners and admins only). Optional features are switched on and off there for
-          everyone in the workspace — turn off anything your club doesn&apos;t use to keep the
+          everyone in the workspace — turn off anything your club doesn’t use to keep the
           interface uncluttered. Switching a feature off only hides its controls; any data you
           already entered is kept, and you can switch it back on at any time.
         </p>

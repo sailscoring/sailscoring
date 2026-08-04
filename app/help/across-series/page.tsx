@@ -88,7 +88,7 @@ export default async function Page() {
               <strong className="text-foreground">archive</strong> come from a
               results archive and are corrected there rather than here — you
               can still merge one of your records <em>into</em> an archive
-              record when they&rsquo;re the same sailor.
+              record when they’re the same sailor.
             </p>
           </>
         )}
@@ -115,7 +115,7 @@ export default async function Page() {
         <p>
           A <strong className="text-foreground">ranking</strong> is a season
           ladder computed across several series — the classic shape is a
-          championship plus a sailor&rsquo;s best N regional results, summed so
+          championship plus a sailor’s best N regional results, summed so
           the lowest total ranks first. Create and view them on the{' '}
           <strong className="text-foreground">Rankings</strong> tab of the
           workspace home.
@@ -123,7 +123,7 @@ export default async function Page() {
         <p>
           A ranking is a set of <strong className="text-foreground">buckets</strong>.
           Each bucket picks the series that belong to it, how many of a
-          sailor&rsquo;s best places count (<em>count best</em>), and how many of
+          sailor’s best places count (<em>count best</em>), and how many of
           its series a sailor must have sailed to rank at all (<em>need at
           least</em>). For example: a <em>National</em> bucket holding just the
           Nationals (best 1, need 1) and a <em>Regional</em> bucket holding the
@@ -133,7 +133,7 @@ export default async function Page() {
           one fleet by name. The nationality filter can also{' '}
           <strong className="text-foreground">count places among matching
           sailors only</strong> — a home sailor finishing 2nd behind a visiting
-          boat counts a 1st, the convention national rankings like IODAI&rsquo;s
+          boat counts a 1st, the convention national rankings like IODAI’s
           use. Sailors with no nationality set are left out of that numbering,
           so the ladder warns about them.
         </p>
@@ -149,22 +149,22 @@ export default async function Page() {
         </p>
         <p>
           The ladder reads like a standings table: a column per series showing
-          each sailor&rsquo;s place, discarded places in parentheses, podium
+          each sailor’s place, discarded places in parentheses, podium
           places medal-coloured, and Total alongside the Net that ranks.
           Where a committee sets a place by hand — an averaged place for a
           sailor away on representational duty, medical redress — add an{' '}
           <strong className="text-foreground">adjustment</strong> in the
-          ranking&rsquo;s configuration: the place (fractions allowed) appears
+          ranking’s configuration: the place (fractions allowed) appears
           with an asterisk and your note explains it, as a tooltip in-app and
           a footnote on the public page.
         </p>
         <p>
           Switch <strong className="text-foreground">Public page</strong> on to
           host the ladder at a public URL that updates as results land. As with
-          publishing standings, you choose the URL&rsquo;s last segment while
-          the ranking is private; once published it&rsquo;s fixed. The
+          publishing standings, you choose the URL’s last segment while
+          the ranking is private; once published it’s fixed. The
           public ladder counts <strong className="text-foreground">published
-          series only</strong> and names exactly which series it&rsquo;s based
+          series only</strong> and names exactly which series it’s based
           on — publish the contributing series to bring them in.
         </p>
       </Section>

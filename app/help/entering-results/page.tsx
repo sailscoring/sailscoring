@@ -43,7 +43,7 @@ export default async function Page() {
         <p>
           If a sail number is not yet registered in the series, the app will offer to{' '}
           <strong className="text-foreground">Record as unknown</strong>. When the number you
-          have typed is also the start of a registered boat&rsquo;s sail number — an unknown{' '}
+          have typed is also the start of a registered boat’s sail number — an unknown{' '}
           <span className="font-mono">12</span> while <span className="font-mono">12345</span>{' '}
           is registered — press <strong className="text-foreground">Shift+Enter</strong> (or
           pick <strong className="text-foreground">Record as unknown</strong> from the
@@ -216,7 +216,7 @@ export default async function Page() {
         <p>
           When the protest committee grants a competitor redress under RRS Rule 62,
           their score for a race is replaced by an average calculated from their
-          other scores. Assign redress from a competitor&rsquo;s controls in the
+          other scores. Assign redress from a competitor’s controls in the
           race entry screen — the exact control depends on whether they finished
           (see below).
         </p>

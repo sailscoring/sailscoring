@@ -77,7 +77,7 @@ export default async function Page() {
         <p>
           <strong className="text-foreground">Single-race events:</strong> some events are one
           race — a trophy race, a one-off open. Published as a series, such an event comes out
-          as a standings table with a single race column, a total equal to that race&rsquo;s
+          as a standings table with a single race column, a total equal to that race’s
           score, and discard columns that mean nothing. On{' '}
           <strong className="text-foreground">Settings → Publishing</strong>, set{' '}
           <strong className="text-foreground">Publish detail</strong> to{' '}
@@ -172,22 +172,22 @@ export default async function Page() {
             caption="A combined Overall page carrying every fleet."
           />
           <p>
-            A combined page publishes several fleets&rsquo; results together as sections of one
+            A combined page publishes several fleets’ results together as sections of one
             page. Two common uses: an <strong className="text-foreground">Overall</strong> page
-            carrying every fleet&rsquo;s standings, so a multi-class event has a single link to
+            carrying every fleet’s standings, so a multi-class event has a single link to
             hand out; and a single class page covering all the ways that class is scored — say
             one <em>Puppeteer</em> page with its Scratch and HPH fleets — instead of separate
             per-fleet pages.
           </p>
           <p>
-            Define combined pages on the series&rsquo;{' '}
+            Define combined pages on the series’{' '}
             <strong className="text-foreground">Settings</strong> tab under{' '}
             <strong className="text-foreground">Combined pages</strong>. Each has a name (which
             becomes the page title and its URL segment), a fleet selection —{' '}
             <strong className="text-foreground">All fleets</strong> keeps up with fleets you add
             later, or <strong className="text-foreground">Choose fleets</strong> picks a subset —
             and a detail level: <strong className="text-foreground">Standings only</strong> shows
-            each fleet&rsquo;s summary table without the per-race tables (the usual choice for an
+            each fleet’s summary table without the per-race tables (the usual choice for an
             Overall page), while <strong className="text-foreground">Full per-race detail</strong>{' '}
             keeps everything a standalone fleet page shows.
           </p>
@@ -198,7 +198,7 @@ export default async function Page() {
             to publish <em>only</em> the combined pages — the standalone fleet pages are taken
             down on the next publish, and the Publish dialog shows each fleet with a note
             pointing at the combined page(s) it appears on. A fleet on no combined page
-            isn&rsquo;t published at all while the toggle is off. Combined pages
+            isn’t published at all while the toggle is off. Combined pages
             appear in the Publish dialog, the series listing page, and Preview alongside the
             fleet pages. On a series with sub-series, each sub-series gets its own combined
             page (e.g. <code className="text-foreground text-sm">…/winter/overall</code>)
@@ -236,9 +236,9 @@ export default async function Page() {
             <strong className="text-foreground">last finisher</strong>. Where finish times are
             recorded, each race knows its last finisher automatically; for untimed racing, record
             it by hand on the race page (<strong className="text-foreground">Record last
-            finisher</strong> under the race title). Set your SIs&rsquo; limit under{' '}
+            finisher</strong> under the race title). Set your SIs’ limit under{' '}
             <strong className="text-foreground">Settings ▸ Protest time limit</strong> — a number
-            of minutes measured from each race&rsquo;s last finisher, or from the last finisher
+            of minutes measured from each race’s last finisher, or from the last finisher
             of the whole race day — and the <strong className="text-foreground">Races</strong>{' '}
             tab shows a live line on race day: when the last boat finished, and when the protest
             time limit ends.

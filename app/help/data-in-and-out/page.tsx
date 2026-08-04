@@ -59,10 +59,10 @@ export default async function Page() {
           <em>Owner 2</em>, or <em>Crew 1</em>…<em>Crew 3</em>) map every column to the same
           field; the names are kept in column order. Or several names can share one cell
           separated by semicolons (Sailwave’s{' '}
-          <code className="text-foreground text-sm">&lt;br&gt;</code> convention and line breaks
+          <code className="text-foreground text-sm">{'<br>'}</code> convention and line breaks
           also work) — the sample column previews how a cell will split before you import.
-          Commas and <em>&amp;</em> are never treated as separators, so surname-first names
-          (“MOUSE, Micky”), shared-surname pairs (“Alice &amp; Bob Byrne”), and “J &amp; M
+          Commas and <em>&</em> are never treated as separators, so surname-first names
+          (“MOUSE, Micky”), shared-surname pairs (“Alice & Bob Byrne”), and “J & M
           Murphy” co-owners come through intact as one entry each. Rows that arrive with more
           than one primary name carry no gender or age, whatever those cells say.
         </p>
@@ -101,7 +101,7 @@ export default async function Page() {
         </p>
         <p>
           Because matching is by sail number, a boat that changed its number between imports
-          would normally come in as a duplicate. The importer watches for this: when a row&apos;s
+          would normally come in as a duplicate. The importer watches for this: when a row’s
           sail number is new to the series, the old number is missing from the spreadsheet, and the boat
           or person matches an existing competitor in the same fleet, it pauses to ask{' '}
           <strong className="text-foreground">Sail number changes?</strong> before importing.
@@ -123,7 +123,7 @@ export default async function Page() {
           <strong className="text-foreground">Import</strong> button on the
           Competitors tab can push your list to an rrs.org event: tick{' '}
           <strong className="text-foreground">Import to rrs.org</strong> and paste the
-          event&rsquo;s <strong className="text-foreground">UUID</strong>, found in the
+          event’s <strong className="text-foreground">UUID</strong>, found in the
           event details at the top of the rrs.org Event Panel. Sail Scoring remembers
           the UUID for the series, so a re-push after the entry list changes is just a
           couple of clicks.
@@ -136,7 +136,7 @@ export default async function Page() {
           rrs.org alongside the import and then discards them. Phone numbers are
           converted to international format (e.g.{' '}
           <code className="text-foreground text-sm">+353861234567</code>) using each
-          competitor&rsquo;s nationality; numbers that can&rsquo;t be converted are sent
+          competitor’s nationality; numbers that can’t be converted are sent
           blank and listed in the summary. A push without a spreadsheet sends those fields
           blank.
         </p>

@@ -232,7 +232,7 @@ function AsPublishedNotice({ seriesId }: { seriesId: string }) {
     >
       <p>
         <strong>This series is an as-published archive.</strong> Results are
-        shown exactly as originally published and can&rsquo;t be edited or
+        shown exactly as originally published and can’t be edited or
         re-scored here; corrections are made in the archive that supplies them.
       </p>
       {pages.length > 0 && (

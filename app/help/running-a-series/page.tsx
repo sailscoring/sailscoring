@@ -107,7 +107,7 @@ export default async function Page() {
         <p>
           Each competitor requires a <strong className="text-foreground">sail number</strong> and a
           primary <strong className="text-foreground">name</strong> (labelled Helm, Owner,
-          Competitor, or Entrant per the series&rsquo; primary-identifier setting). Sail numbers
+          Competitor, or Entrant per the series’ primary-identifier setting). Sail numbers
           must be unique within the series. Other fields — boat name, class, owner, helm, crew,
           club, gender, age — are optional, and which of them appear in the form and tables is
           controlled by the <strong className="text-foreground">Competitor fields</strong> card on
@@ -123,7 +123,7 @@ export default async function Page() {
               <strong className="text-foreground">Competitor fields</strong> card and it takes any
               number of names: <em>Add name</em> (on the primary), <em>Add owner</em>,{' '}
               <em>Add helm</em>, or <em>Add crew</em> in the competitor dialog adds a row per
-              person, so co-owned boats (&ldquo;J. &amp; M. Murphy&rdquo; syndicates), offshore
+              person, so co-owned boats (“J. & M. Murphy” syndicates), offshore
               co-helms, and full keelboat crews are all first-class. A single owner-and-crew
               pairing keeps the classic one-line <em>Helm / Crew</em> in exported results; any
               more people stack one name per line. One-line contexts such as finish entry join
@@ -195,7 +195,7 @@ export default async function Page() {
           list also offers <strong className="text-foreground">Fleet</strong>, which adds
           the selection to a fleet or removes it from one rather than writing a value.
           Boats a removal would leave with no fleet are kept, and removing a boat from a
-          fleet drops it from that fleet&apos;s standings and entry counts — its recorded
+          fleet drops it from that fleet’s standings and entry counts — its recorded
           finishes stay on the races.
         </p>
         <p>
@@ -212,7 +212,7 @@ export default async function Page() {
           with a <strong className="text-foreground">Merge</strong> button per group. Merging
           keeps a single entry holding all the recorded results and the newest details — including
           the newest sail number. When two of the entries both hold a finish in the same race the
-          group is flagged instead of merged, since both results can&apos;t stand; fix the finish
+          group is flagged instead of merged, since both results can’t stand; fix the finish
           sheet, then merge.
         </p>
       </Section>
@@ -314,7 +314,7 @@ export default async function Page() {
           fleets that never started.
         </p>
         <p>
-          The signal is the race&rsquo;s starts. A boat is in the race when one
+          The signal is the race’s starts. A boat is in the race when one
           of its fleets has a start there. <strong className="text-foreground">If
           a race has no starts recorded, every fleet is implied</strong> — the
           full series sails, exactly as before — so nothing changes for a simple
@@ -532,7 +532,7 @@ export default async function Page() {
           </p>
           <p>
             <strong className="text-foreground">Round 1</strong> makes the initial assignment —
-            normally from the seeding committee&rsquo;s ranking, or by sail number — with an
+            normally from the seeding committee’s ranking, or by sail number — with an
             editable preview, so a hand-move is a click, not a spreadsheet edit. Each following
             morning, <strong className="text-foreground">Assign Round N</strong> reassigns from
             the ranking over the races every fleet has completed, in the standard rank pattern
@@ -545,8 +545,8 @@ export default async function Page() {
             the abandon-and-cancel rule in championship sailing instructions. The fleets start in
             sequence and finish onto <strong className="text-foreground">one combined sheet</strong>:
             enter it exactly as it comes off the water, interleaved, and each boat scores her
-            place within her own fleet. If one fleet&rsquo;s race is abandoned, abandon just that
-            fleet&rsquo;s start from the race row — the rest of the sheet stands — and add its{' '}
+            place within her own fleet. If one fleet’s race is abandoned, abandon just that
+            fleet’s start from the race row — the rest of the sheet stands — and add its{' '}
             <strong className="text-foreground">catch-up race</strong> (its own sheet, usually
             sailed first the next day) from the same row.
           </p>
@@ -566,7 +566,7 @@ export default async function Page() {
             Set the format up in the series setup wizard (or later, from the{' '}
             <strong className="text-foreground">Split-fleet championship</strong> card in
             Settings). Enabling it ends setup — the fleets are created by the assignment
-            ceremonies and the scoring rules move to the tab&rsquo;s{' '}
+            ceremonies and the scoring rules move to the tab’s{' '}
             <strong className="text-foreground">Format</strong> section, which holds the whole
             configuration from then on. Start from a class format — ILCA, IODA, and the
             two-series and carried-position models — which fills every setting; then read{' '}
@@ -589,7 +589,7 @@ export default async function Page() {
             <strong className="text-foreground">championship standings</strong> page — combined
             with a provisional cut line during qualifying, tiered Gold/Silver tables after the
             split — plus a rolling <strong className="text-foreground">fleet assignments</strong>{' '}
-            page, newest round first, so competitors always know which start they&rsquo;re in.
+            page, newest round first, so competitors always know which start they’re in.
             Preview, publish, and <strong className="text-foreground">Mark as final</strong> all
             live on the Split Fleets tab (the regular Standings tab is hidden for these series).
           </p>
@@ -604,27 +604,27 @@ export default async function Page() {
         />
         <p>
           A <strong className="text-foreground">World Sailing Sailor ID</strong> is the
-          free, unique identifier tied to a sailor&rsquo;s World Sailing profile —{' '}
+          free, unique identifier tied to a sailor’s World Sailing profile —{' '}
           <code className="font-mono text-xs">IRLMM1</code>, a nation code, initials, and
           a number. Most international notices of race require one to enter. Switch on the{' '}
           <strong className="text-foreground">World Sailing ID</strong> field in{' '}
           <strong className="text-foreground">Competitor fields</strong> on the series
           Settings tab, and a spreadsheet import picks the column up automatically —
-          &ldquo;World Sailing ID&rdquo;, &ldquo;Sailor ID&rdquo;, or Sailwave&rsquo;s
-          &ldquo;HelmID&rdquo;. Published results show the ID as a link to the
-          sailor&rsquo;s World Sailing biography.
+          “World Sailing ID”, “Sailor ID”, or Sailwave’s
+          “HelmID”. Published results show the ID as a link to the
+          sailor’s World Sailing biography.
         </p>
         <p>
           The ID belongs to a person, and Sail Scoring records it for the{' '}
-          <em>primary sailor</em> on each entry. There is nowhere to put a crew&rsquo;s ID.
+          <em>primary sailor</em> on each entry. There is nowhere to put a crew’s ID.
         </p>
         <h3 className="text-foreground font-medium mt-4">Importing a seeding list</h3>
         <p>
-          Championships that split into qualifying fleets assign the first day&rsquo;s
+          Championships that split into qualifying fleets assign the first day’s
           fleets from a ranking the organising authority supplies — a World Sailing
-          ranking table for an Olympic class, or a class association&rsquo;s own list.{' '}
+          ranking table for an Olympic class, or a class association’s own list.{' '}
           <strong className="text-foreground">Import seeding list</strong> on the
-          Competitors tab reads that document and writes each sailor&rsquo;s{' '}
+          Competitors tab reads that document and writes each sailor’s{' '}
           <strong className="text-foreground">Seeding rank</strong>, which the{' '}
           <strong className="text-foreground">Split Fleets</strong> initial assignment
           then orders by.
@@ -640,23 +640,23 @@ export default async function Page() {
         <p>
           The rank written is the one the ranking states — a global rank of 3, 17 or 240,
           not renumbered from one — so you can check the import against the document it
-          came from. Sailors the ranking doesn&rsquo;t list get no seeding rank and sort
+          came from. Sailors the ranking doesn’t list get no seeding rank and sort
           below those it does; the assignment dialog lets you choose whether that tail
           goes in sail-number order or spread by nation. Importing again replaces the
-          whole series&rsquo; seeding, so a revised ranking can be applied by importing it.
+          whole series’ seeding, so a revised ranking can be applied by importing it.
         </p>
         <h3 className="text-foreground font-medium mt-4">Checking the IDs</h3>
         <p>
           <strong className="text-foreground">Check Sailor IDs</strong> looks every ID up
-          in World Sailing&rsquo;s own datafeed and reports each one as valid, unknown to
+          in World Sailing’s own datafeed and reports each one as valid, unknown to
           World Sailing, not in the ID format at all, or a mismatch — the ID resolves, but
           to a different name or nation than you have. A mismatch is what catches two
           digits transposed on an entry form.
         </p>
         <p>
-          Nothing is corrected for you: World Sailing&rsquo;s record can be years out of
+          Nothing is corrected for you: World Sailing’s record can be years out of
           date and your entry list is what the event runs on. The one exception is a
-          nationality you don&rsquo;t hold at all, which the dialog offers to fill in.
+          nationality you don’t hold at all, which the dialog offers to fill in.
         </p>
       </Section>
       )}
