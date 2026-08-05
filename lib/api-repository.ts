@@ -14,7 +14,7 @@ import type {
   IdentityWithArc,
   MergeResult as IdentityMergeUndo,
 } from './competitor-identity-repository';
-import type { SeriesFileRevision } from './series-file';
+import type { SeriesFileRevision, SeriesFileSplitFleetsWrite } from './series-file';
 import type { IrishSailingRatings } from './irish-sailing-ratings';
 import type { IrcRatings } from './irc-rating';
 import type { VprsClub, VprsRatings } from './vprs-rating';
@@ -1077,10 +1077,21 @@ export async function deleteSplitRound(seriesId: string, roundId: string): Promi
   });
 }
 
-/** SeriesFileRepos.splitFleets member (v23+): lets the client file-save path
- *  carry split-fleet config + rounds. File opens replay server-side, so the
- *  client bundle only needs `get`. */
+/** SeriesFileRepos.splitFleets member (v23+): carries split-fleet config +
+ *  rounds through the file paths. Both halves are needed — the in-app file
+ *  open/update replays in the browser through this bundle, so without
+ *  `replace` a saved championship silently loses its format, rounds, and
+ *  assignments on re-open (#365). `replace` posts the whole block to one
+ *  endpoint rather than rebuilding it round by round: the server writer also
+ *  re-stamps round ownership on the fleets, and that's not the client's to
+ *  know. */
 export const splitFleets = {
+  async replace(seriesId: string, data: SeriesFileSplitFleetsWrite) {
+    await apiFetch(`/api/v1/series/${seriesId}/split-fleets/state`, {
+      method: 'PUT',
+      body: data,
+    });
+  },
   async get(seriesId: string) {
     const state = await getSplitFleetState(seriesId);
     if (!state.config) return null;

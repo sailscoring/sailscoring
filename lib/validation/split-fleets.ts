@@ -44,6 +44,34 @@ export const splitFleetConfigSchema = z.object({
     .optional(),
 });
 
+/** Body for PUT …/split-fleets/state — the whole split-fleet block of a
+ *  `.sailscoring` file, replayed wholesale by an in-browser file open/update.
+ *  A null config with no rounds clears the series' split-fleet state, which is
+ *  what a file carrying no block replays as.
+ *
+ *  Deliberately looser than `splitRoundCommitSchema`: this is an authoritative
+ *  replay of rows this app wrote, not a ceremony. `method` stays a free string
+ *  (the file format and the column both hold text) so a file written by a
+ *  build that knows a method this one doesn't still lands. */
+export const splitFleetStateSchema = z.object({
+  config: splitFleetConfigSchema.nullable(),
+  rounds: z.array(
+    z.object({
+      id: uuidSchema,
+      stage: z.enum(['qualifying', 'final', 'medal']),
+      fromStageRace: z.number().int().min(0),
+      fleetIds: z.array(uuidSchema),
+      method: z.string().min(1),
+      basis: z
+        .object({ throughStageRace: z.number().int().min(0), capturedAt: z.number() })
+        .nullish()
+        .transform((v) => v ?? null),
+      overrides: z.record(uuidSchema, uuidSchema).optional(),
+      createdAt: z.number().int(),
+    }),
+  ),
+});
+
 /** Body for POST /api/v1/series/:id/split-fleets/rounds — one assignment
  *  ceremony commit. The server creates the fleets, memberships, and the
  *  physical races for `stageRaceNumbers`, and stores the round. */

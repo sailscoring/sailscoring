@@ -11,7 +11,7 @@ import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
-import { createRepos } from '@/lib/postgres-repository';
+import { createRepos, replaceSplitFleetState } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { normalizeSplitFleetConfig } from '@/lib/split-fleets';
@@ -19,6 +19,7 @@ import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitAbandonStartSchema,
   splitFleetConfigSchema,
+  splitFleetStateSchema,
   splitOverrideSchema,
   splitRoundCommitSchema,
   splitStageRacesSchema,
@@ -116,6 +117,73 @@ export async function putSplitFleetConfig(
     sessionKey: 'split-fleets',
   });
   return getSplitFleetState(workspace, seriesId);
+}
+
+/**
+ * Replay a `.sailscoring` file's split-fleet block over the series (#365).
+ * The in-app file open/update runs in the browser against
+ * `lib/api-repository`, so the block needs an endpoint to land through; the
+ * CLI import and the revision/Trash restores reach the same writer directly
+ * through `seriesFileReposFor`.
+ *
+ * Authoritative, like every other file-replay write: the config-editability
+ * freeze that guards `putSplitFleetConfig` doesn't apply (the user has already
+ * confirmed the overwrite), and no activity entry is recorded — this is one
+ * part of an import that logs itself. Not feature-gated either: a file's
+ * split-fleet block has to survive a round-trip through a workspace where the
+ * tab is hidden.
+ */
+export async function putSplitFleetState(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<SplitFleetState> {
+  await assertSeriesWritable(workspace, seriesId);
+  const parsed = splitFleetStateSchema.parse(normalizeStateBody(body));
+  const ctx = { workspaceId: workspace.workspaceId };
+  const repos = createRepos(ctx);
+
+  // Defence in depth: the client remaps every id onto the freshly-written rows
+  // before posting, so anything unrecognised here is a bug or a hand-edited
+  // file. Drop it rather than storing a round that points at nothing.
+  const [fleets, competitors] = await Promise.all([
+    repos.fleets.listBySeries(seriesId),
+    repos.competitors.listBySeries(seriesId),
+  ]);
+  const fleetIds = new Set(fleets.map((f) => f.id));
+  const competitorIds = new Set(competitors.map((c) => c.id));
+
+  const rounds = parsed.rounds
+    .map((r) => {
+      const overrides = Object.fromEntries(
+        Object.entries(r.overrides ?? {}).filter(
+          ([competitorId, fleetId]) =>
+            competitorIds.has(competitorId) && fleetIds.has(fleetId),
+        ),
+      );
+      return {
+        ...r,
+        fleetIds: r.fleetIds.filter((id) => fleetIds.has(id)),
+        ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
+      };
+    })
+    .filter((r) => r.fleetIds.length > 0);
+
+  await replaceSplitFleetState(ctx, seriesId, { config: parsed.config, rounds });
+  return getSplitFleetState(workspace, seriesId);
+}
+
+/** Bring an older file's config forward before validating it: `normalize`
+ *  fills in the fields added since the file was written, so a v23-era block
+ *  replays instead of failing the schema. */
+function normalizeStateBody(body: unknown): unknown {
+  if (!body || typeof body !== 'object') return body;
+  const { config } = body as { config?: unknown };
+  if (!config || typeof config !== 'object') return body;
+  return {
+    ...body,
+    config: normalizeSplitFleetConfig(config as Partial<SplitFleetConfig>),
+  };
 }
 
 /**

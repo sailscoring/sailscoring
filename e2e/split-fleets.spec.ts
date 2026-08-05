@@ -290,3 +290,74 @@ test('split fleets: set up from the series wizard and land on the tab', async ({
   await expect(page).toHaveURL(/\/split-fleets$/);
   await expect(page.getByRole('button', { name: 'Assign qualifying fleets' })).toBeVisible();
 });
+
+/**
+ * A saved championship survives a round-trip through a `.sailscoring` file
+ * (#365). The in-app open replays in the browser, so the split-fleet block
+ * only lands if the client repository can write it — before the fix the
+ * series imported with no format, no rounds and no Split Fleets tab.
+ */
+test('split fleets: the format and rounds survive a file round-trip', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+
+  await createSeriesQuick(page, { name: 'Round Trip Worlds', venue: 'Dun Laoghaire' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const sfSetupCard = page.getByTestId('split-fleets-card');
+  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
+  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
+  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+
+  // ── Save to file ──────────────────────────────────────────────────────────
+  await page.getByRole('button', { name: 'Series actions' }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: 'Save to File' }).click(),
+  ]);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const saved = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+  expect(saved.splitFleets.rounds).toHaveLength(1);
+
+  // Fresh seriesId so the import takes the "new series" branch rather than
+  // offering to update the series it came from.
+  const freshId = crypto.randomUUID();
+  const fresh = {
+    ...saved,
+    seriesId: freshId,
+    series: { ...saved.series, id: freshId, name: 'Round Trip Reopened' },
+  };
+
+  // ── Import it back ────────────────────────────────────────────────────────
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Series' })).toBeVisible();
+  await page.getByRole('button', { name: 'Import Series' }).click();
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('import-format-sailscoring').click(),
+  ]);
+  await fileChooser.setFiles({
+    name: 'round-trip.sailscoring',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(fresh)),
+  });
+  await expect(page).toHaveURL(/\/series\/[^/]+\/races$/);
+  await expect(page.getByRole('heading', { name: 'Round Trip Reopened' })).toBeVisible();
+
+  // ── The championship came with it ─────────────────────────────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  const q1Row = page.getByTestId('logical-race-qualifying-1');
+  await expect(q1Row.getByRole('link', { name: /Yellow · enter finishes/ })).toBeVisible();
+  await expect(q1Row.getByRole('link', { name: /Blue · enter finishes/ })).toBeVisible();
+});
