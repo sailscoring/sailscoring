@@ -4,7 +4,7 @@
  * "Duplicate…" action on a series, opened from the series-header actions
  * menu — a copy into the same workspace (#330). Unlike "Copy to
  * workspace…" there's no workspace switch, so success soft-routes to the
- * new series after invalidating the series list.
+ * new series after refreshing the series list.
  */
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -59,7 +59,16 @@ export function DuplicateSeriesDialog({
       const result = await duplicateSeries(seriesId, {
         name: name.trim() || undefined,
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
+      // Refetch rather than invalidate: the home list is unmounted here, and
+      // invalidate only marks inactive queries stale — leaving the cache
+      // holding a list that predates the copy. The scorer's next visit to the
+      // list then paints without the new series until the mount-time refetch
+      // lands. Refetching with `type: 'all'` reaches the inactive query, so
+      // the cache is correct before we navigate.
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.series.list(),
+        type: 'all',
+      });
       router.push(`/series/${result.id}/competitors`);
       onOpenChange(false);
       reset();
