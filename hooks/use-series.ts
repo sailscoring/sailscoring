@@ -23,6 +23,7 @@ import type { Series } from '@/lib/types';
 import { queryKeys } from './query-keys';
 import { keepNewerVersionedRow, keepNewerVersionedRows } from './query-version-guard';
 import { useVersionedSave } from './use-versioned-save';
+import { workspaceListOptions } from './workspace-list-options';
 
 /**
  * Save a series row, retrying once on a version conflict with a re-read row.
@@ -58,6 +59,7 @@ export function useSeriesList(
     queryKey: queryKeys.series.list(),
     queryFn: () => seriesRepo.list(),
     structuralSharing: keepNewerVersionedRows,
+    ...workspaceListOptions,
     ...options,
   });
 }

@@ -6,6 +6,7 @@ import { listTrash, purgeFromTrash, restoreFromTrash } from '@/lib/api-repositor
 import type { DeletedSeriesEntry } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { workspaceListOptions } from './workspace-list-options';
 
 /** The workspace Trash — soft-deleted series recoverable within the retention
  *  window ("Recover a deleted series"). */
@@ -13,6 +14,7 @@ export function useTrash() {
   return useQuery<DeletedSeriesEntry[]>({
     queryKey: queryKeys.trash.list(),
     queryFn: listTrash,
+    ...workspaceListOptions,
   });
 }
 

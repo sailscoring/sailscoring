@@ -6,6 +6,7 @@ import { listActivity, listRecentActivity } from '@/lib/api-repository';
 import type { ActivityEntry } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { workspaceListOptions } from './workspace-list-options';
 
 /**
  * Paginated activity feed for one series — backs the Activity tab (#153).
@@ -36,5 +37,6 @@ export function useRecentActivity() {
       }
       return byId;
     },
+    ...workspaceListOptions,
   });
 }

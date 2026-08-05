@@ -12,12 +12,14 @@ import {
 import type { Category } from '@/lib/types';
 
 import { queryKeys } from './query-keys';
+import { workspaceListOptions } from './workspace-list-options';
 
 /** Scorer-defined categories for the active workspace, in display order (#154). */
 export function useCategories() {
   return useQuery<Category[]>({
     queryKey: queryKeys.categories.list(),
     queryFn: () => listCategories(),
+    ...workspaceListOptions,
   });
 }
 
