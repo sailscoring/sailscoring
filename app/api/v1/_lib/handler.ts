@@ -125,20 +125,30 @@ export function workspaceRoute<P, R>(
       if (idemKey) {
         await storeIdempotency(workspace.workspaceId, idemKey, status, body);
       }
-      return status === 204
-        ? new Response(null, { status: 204 })
-        : Response.json(result);
+      return jsonResponse(status, body);
     } catch (err) {
-      return errorToResponse(err);
+      const res = errorToResponse(err);
+      res.headers.set('cache-control', NO_STORE);
+      return res;
     }
   };
 }
 
+/**
+ * Every response here is workspace data read under one session's credentials,
+ * and mutable — a series list is stale the moment the next series lands. The
+ * responses carried no cache directive at all, leaving reuse to whatever
+ * heuristic a browser or intermediary applies.
+ */
+const NO_STORE = 'no-store';
+
 function jsonResponse(status: number, body: unknown): Response {
-  if (status === 204 || body === null) return new Response(null, { status });
+  if (status === 204 || body === null) {
+    return new Response(null, { status, headers: { 'cache-control': NO_STORE } });
+  }
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'cache-control': NO_STORE },
   });
 }
 
