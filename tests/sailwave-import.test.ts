@@ -905,6 +905,38 @@ describe('buildSeriesFileFromSailwave: errors', () => {
   });
 });
 
+describe('buildSeriesFileFromSailwave: redress codes', () => {
+  /** One competitor, one race, one coded result. */
+  function withCode(rcod: string): SailwaveRaw {
+    return parseSailwaveBlw(blw([
+      ['serversion', '2.38.02', '', ''],
+      ['comphelmname', 'Redressed', '53', ''],
+      ['compsailno', '17', '53', ''],
+      ['compexclude', '0', '53', ''],
+      ['compalias', '0', '53', ''],
+      ['racerank', '1', '', '1'],
+      ['racesailed', '1', '', '1'],
+      ['racestart', '|10.00.00|Finish time|Start 1', '', '1'],
+      ['rrestyp', '3', '53', '1'],
+      ['rcod', rcod, '53', '1'],
+    ]));
+  }
+
+  // Sailwave's `RDGa` is redress scored as the average of all races except the
+  // one in question — the same A9(a) pool our own RDG averages over.
+  it.each(['RDG', 'RDGa'])('maps %s to RDG', (rcod) => {
+    const file = buildSeriesFileFromSailwave(withCode(rcod), DEFAULT_OPTS);
+    expect(file.races[0].finishes.map((f) => f.resultCode)).toEqual(['RDG']);
+  });
+
+  it('reads RDGa case-insensitively, as Sailwave writes it mixed-case', () => {
+    for (const spelling of ['RDGA', 'rdga', ' RDGa ']) {
+      const file = buildSeriesFileFromSailwave(withCode(spelling), DEFAULT_OPTS);
+      expect(file.races[0].finishes[0].resultCode).toBe('RDG');
+    }
+  });
+});
+
 describe('buildSeriesFileFromSailwave: default date fallback', () => {
   it('uses the current year as the hint for word-month dates when defaultRaceDate is omitted', () => {
     const raw = loadFile(`${HYC}/2026 Tues Series 1.blw`);

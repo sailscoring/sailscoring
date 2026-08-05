@@ -198,6 +198,15 @@ const SAILWAVE_TO_SAILSCORING_CODE: Record<string, ResultCode> = {
   UFD: 'UFD',
   BFD: 'BFD',
   RDG: 'RDG',
+  // Sailwave ships redress in two flavours: bare `RDG`, and `RDGa` — "redress,
+  // average points for all races except the race in question" (Sailwave's own
+  // description of the code; HYC's club files use it, and score race-officer
+  // duty through it too). That pool is precisely the A9(a) average our `RDG`
+  // already computes, so it maps onto the same code rather than carrying
+  // Sailwave's frozen number — an imported series stays re-scoreable, and the
+  // value follows when a race is added. Keyed upper-case because
+  // `mapSailwaveCode` normalises before lookup.
+  RDGA: 'RDG',
 };
 
 // ---- Error type ----
