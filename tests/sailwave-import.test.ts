@@ -906,8 +906,9 @@ describe('buildSeriesFileFromSailwave: errors', () => {
 });
 
 describe('buildSeriesFileFromSailwave: redress codes', () => {
-  /** One competitor, one race, one coded result. */
-  function withCode(rcod: string): SailwaveRaw {
+  /** One competitor, one race, one coded result — optionally carrying the
+   *  points Sailwave scored it at (`rpts`). */
+  function withCode(rcod: string, rpts?: string): SailwaveRaw {
     return parseSailwaveBlw(blw([
       ['serversion', '2.38.02', '', ''],
       ['comphelmname', 'Redressed', '53', ''],
@@ -919,6 +920,7 @@ describe('buildSeriesFileFromSailwave: redress codes', () => {
       ['racestart', '|10.00.00|Finish time|Start 1', '', '1'],
       ['rrestyp', '3', '53', '1'],
       ['rcod', rcod, '53', '1'],
+      ...(rpts === undefined ? [] : [['rpts', rpts, '53', '1']]),
     ]));
   }
 
@@ -934,6 +936,31 @@ describe('buildSeriesFileFromSailwave: redress codes', () => {
       const file = buildSeriesFileFromSailwave(withCode(spelling), DEFAULT_OPTS);
       expect(file.races[0].finishes[0].resultCode).toBe('RDG');
     }
+  });
+
+  it('leaves RDG/RDGa to the engine, with no stated points', () => {
+    for (const rcod of ['RDG', 'RDGa']) {
+      const finish = buildSeriesFileFromSailwave(withCode(rcod, '6.7'), DEFAULT_OPTS).races[0].finishes[0];
+      expect(finish.redressMethod).toBeUndefined();
+      expect(finish.redressPoints).toBeUndefined();
+    }
+  });
+
+  // Race-officer duty: no OOD in our code registry, and its score is a club
+  // rule (average, best race, flat allocation) rather than one we model — so
+  // Sailwave's own number is carried through as stated redress.
+  it('imports OOD as redress with the points Sailwave scored it at', () => {
+    const finish = buildSeriesFileFromSailwave(withCode('OOD', '4.8'), DEFAULT_OPTS).races[0].finishes[0];
+    expect(finish.resultCode).toBe('RDG');
+    expect(finish.redressMethod).toBe('stated');
+    expect(finish.redressPoints).toBe(4.8);
+  });
+
+  it('falls back to averaged redress when an OOD row carries no points', () => {
+    const finish = buildSeriesFileFromSailwave(withCode('OOD'), DEFAULT_OPTS).races[0].finishes[0];
+    expect(finish.resultCode).toBe('RDG');
+    expect(finish.redressMethod).toBeUndefined();
+    expect(finish.redressPoints).toBeUndefined();
   });
 });
 

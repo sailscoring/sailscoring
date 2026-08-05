@@ -93,6 +93,10 @@ export interface SailwaveResultRaw {
   rele?: string;
   rcod?: string;
   rdisc?: string;
+  /** Points Sailwave scored this result at. Only read for codes we import as
+   *  redress with stated points (OOD) — everywhere else our engine derives the
+   *  score itself, and a stored number would go stale. */
+  rpts?: string;
 }
 
 export interface SailwaveScoringSystemRaw {
@@ -207,7 +211,20 @@ const SAILWAVE_TO_SAILSCORING_CODE: Record<string, ResultCode> = {
   // value follows when a race is added. Keyed upper-case because
   // `mapSailwaveCode` normalises before lookup.
   RDGA: 'RDG',
+  // Race-officer duty. There is no OOD in our code registry, and no single
+  // right score for one: clubs award duty points as an average, as the boat's
+  // best race, or as a flat allocation, and Sailwave lets each configure it
+  // (HYC scores theirs as RDGa). Rather than model every arrangement, it comes
+  // in as redress with the points Sailwave already worked out — see
+  // SAILWAVE_STATED_REDRESS_CODES.
+  OOD: 'RDG',
 };
+
+/** Codes imported as redress with **stated** points, taken from the file's own
+ *  `rpts`, instead of the A9(a) average our engine would otherwise compute.
+ *  For these the source's number is the truthful one: it reflects a club rule
+ *  our engine doesn't model, so recomputing would quietly change the score. */
+const SAILWAVE_STATED_REDRESS_CODES = new Set(['OOD']);
 
 // ---- Error type ----
 
@@ -1264,6 +1281,10 @@ interface CompetitorBuild {
 interface FinishBuild {
   id: string;
   competitorId: string;
+  /** Set together, for the stated-redress codes only (see
+   *  SAILWAVE_STATED_REDRESS_CODES); absent on every other finish. */
+  redressMethod?: 'stated';
+  redressPoints?: number;
   sortOrder: number | null;
   finishTime?: string;
   resultCode: ResultCode | null;
@@ -1472,6 +1493,9 @@ export function buildSeriesFileFromSailwave(
         competitorId: f.competitorId,
         sortOrder: f.sortOrder,
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+        // Sparse: set only on the stated-redress codes (OOD).
+        ...(f.redressMethod ? { redressMethod: f.redressMethod } : {}),
+        ...(f.redressPoints !== undefined ? { redressPoints: f.redressPoints } : {}),
         resultCode: f.resultCode,
         startPresent: f.startPresent,
         penaltyCode: f.penaltyCode,
@@ -1801,7 +1825,7 @@ function buildRaceFinishes(
     // engine auto-DNCs competitors that don't appear in a race's finish
     // sheet, so dropping the row preserves the score and tidies the UI.
     if (code === 'DNC') continue;
-    out.push({
+    const entry: FinishBuild = {
       id: cryptoUuid(),
       competitorId: compId,
       sortOrder: null,
@@ -1809,7 +1833,18 @@ function buildRaceFinishes(
       startPresent: null,
       penaltyCode: null,
       penaltyOverride: null,
-    });
+    };
+    // Stated-redress codes carry Sailwave's own points. A file that somehow
+    // omits them falls through to plain redress rather than fabricating a
+    // score — the engine's A9(a) average is the better guess than zero.
+    if (SAILWAVE_STATED_REDRESS_CODES.has((raw.rcod ?? '').trim().toUpperCase())) {
+      const points = Number.parseFloat(raw.rpts ?? '');
+      if (Number.isFinite(points)) {
+        entry.redressMethod = 'stated';
+        entry.redressPoints = points;
+      }
+    }
+    out.push(entry);
   }
 
   return out;
