@@ -20,7 +20,7 @@ import {
   type SeriesRepository,
   type SubSeriesRepository,
 } from './repository';
-import type { SeriesFileRepos } from './series-file';
+import type { SeriesFileRepos, SeriesFileSplitFleetsWrite } from './series-file';
 import { normalizeSplitFleetConfig } from './split-fleets';
 import type { SplitFleetConfig, SplitRound } from './split-fleets';
 import type {
@@ -2472,6 +2472,64 @@ export function createRepos(ctx: RepoCtx) {
 }
 
 /**
+ * Rewrite a series' split-fleet state wholesale (v23+): the config onto the
+ * series row, the rounds replacing whatever was there. A null config with no
+ * rounds clears the series' split-fleet state — what a file carrying no block
+ * replays as.
+ *
+ * The file-replay path reaches this through `seriesFileReposFor`; the browser
+ * reaches it through `PUT /api/v1/series/:id/split-fleets/state`, because that
+ * replay runs client-side. Both land here so the two can't drift — the fleet
+ * re-stamping below is easy to forget in a second implementation.
+ *
+ * Ids are the caller's: a replay mints fresh ones and remaps every reference
+ * before calling.
+ */
+export async function replaceSplitFleetState(
+  ctx: RepoCtx,
+  seriesId: string,
+  data: SeriesFileSplitFleetsWrite,
+): Promise<void> {
+  const db = ctx.db ?? getDb();
+  await db
+    .update(schema.series)
+    .set({ qfConfig: data.config })
+    .where(and(eq(schema.series.id, seriesId), eq(schema.series.workspaceId, ctx.workspaceId)));
+  await db.delete(schema.splitRounds).where(eq(schema.splitRounds.seriesId, seriesId));
+  if (data.rounds.length === 0) return;
+  await db.insert(schema.splitRounds).values(
+    data.rounds.map((r) => ({
+      id: r.id,
+      seriesId,
+      workspaceId: ctx.workspaceId,
+      stage: r.stage,
+      fromStageRace: r.fromStageRace,
+      fleetIds: r.fleetIds,
+      method: r.method,
+      basis: r.basis ?? null,
+      overrides: r.overrides ?? null,
+      createdAt: new Date(r.createdAt),
+    })),
+  );
+  // Re-stamp round ownership on the freshly-minted fleets: the file's fleet
+  // rows carry no splitRoundId (round ids are re-minted per import), so the
+  // marker is derived from each round's fleet list.
+  for (const r of data.rounds) {
+    if (r.fleetIds.length === 0) continue;
+    await db
+      .update(schema.fleets)
+      .set({ splitRoundId: r.id })
+      .where(
+        and(
+          inArray(schema.fleets.id, r.fleetIds),
+          eq(schema.fleets.seriesId, seriesId),
+          eq(schema.fleets.workspaceId, ctx.workspaceId),
+        ),
+      );
+  }
+}
+
+/**
  * Adapt the workspace-scoped repos to the `SeriesFileRepos` shape that the
  * `lib/series-file.ts` helpers (`buildSeriesFile`, `openSeriesFromFile`,
  * `updateSeriesFromFile`) consume. Server-side counterpart of the client
@@ -2518,46 +2576,7 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
           })),
         };
       },
-      async replace(seriesId, data) {
-        const db = ctx.db ?? getDb();
-        await db
-          .update(schema.series)
-          .set({ qfConfig: data.config })
-          .where(and(eq(schema.series.id, seriesId), eq(schema.series.workspaceId, ctx.workspaceId)));
-        await db.delete(schema.splitRounds).where(eq(schema.splitRounds.seriesId, seriesId));
-        if (data.rounds.length) {
-          await db.insert(schema.splitRounds).values(
-            data.rounds.map((r) => ({
-              id: r.id,
-              seriesId,
-              workspaceId: ctx.workspaceId,
-              stage: r.stage,
-              fromStageRace: r.fromStageRace,
-              fleetIds: r.fleetIds,
-              method: r.method,
-              basis: r.basis ?? null,
-              overrides: r.overrides ?? null,
-              createdAt: new Date(r.createdAt),
-            })),
-          );
-          // Re-stamp round ownership on the freshly-minted fleets: the file's
-          // fleet rows carry no splitRoundId (round ids are re-minted per
-          // import), so the marker is derived from each round's fleet list.
-          for (const r of data.rounds) {
-            if (r.fleetIds.length === 0) continue;
-            await db
-              .update(schema.fleets)
-              .set({ splitRoundId: r.id })
-              .where(
-                and(
-                  inArray(schema.fleets.id, r.fleetIds),
-                  eq(schema.fleets.seriesId, seriesId),
-                  eq(schema.fleets.workspaceId, ctx.workspaceId),
-                ),
-              );
-          }
-        }
-      },
+      replace: (seriesId, data) => replaceSplitFleetState(ctx, seriesId, data),
     },
     async listSeriesNames(opts) {
       const all = await repos.series.list();

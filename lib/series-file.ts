@@ -59,10 +59,11 @@ export interface SeriesFileRepos {
   finishRepo: FinishRepository;
   /** Split-fleet state (v23+). Optional: bundles that lack it simply don't
    *  carry split-fleet data through files/revisions. `replace` rewrites the
-   *  series' rounds + config wholesale (ids freshly minted by the caller). */
+   *  series' rounds + config wholesale (ids freshly minted by the caller);
+   *  a null config with no rounds clears the series' split-fleet state. */
   splitFleets?: {
     get(seriesId: string): Promise<SeriesFileSplitFleets | null>;
-    replace?(seriesId: string, data: SeriesFileSplitFleets): Promise<void>;
+    replace?(seriesId: string, data: SeriesFileSplitFleetsWrite): Promise<void>;
   };
   listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
   deleteSeriesChildren(seriesId: string): Promise<void>;
@@ -266,6 +267,14 @@ export interface SeriesFileSplitRound {
 }
 export interface SeriesFileSplitFleets {
   config: import('./split-fleets').SplitFleetConfig;
+  rounds: SeriesFileSplitRound[];
+}
+
+/** What a replay writes. A file carrying no split-fleet block replays as a
+ *  null config with no rounds — i.e. it clears whatever the series had, which
+ *  a plain `SeriesFileSplitFleets` can't express. */
+export interface SeriesFileSplitFleetsWrite {
+  config: import('./split-fleets').SplitFleetConfig | null;
   rounds: SeriesFileSplitRound[];
 }
 
@@ -1302,7 +1311,7 @@ async function updateSeriesFromFileInner(
     subdivisionAxes: subdivisions.axes,
   });
 
-  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId);
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId, true);
 }
 
 // ---- Update existing series from a re-imported Sailwave file ----
@@ -1470,7 +1479,7 @@ async function updateSeriesFromSailwaveInner(
   // Subdivision axes are retained from `current` (not taken from the file), so
   // the competitors key onto whatever the file resolves to — matching the
   // behaviour before `legacyAxisId` was threaded through.
-  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, resolveFileSubdivisions(file).legacyAxisId);
+  await writeFleetsCompetitorsRaces(repos, file, seriesId, now, fleetIdMap, competitorIdMap, raceIdMap, resolveFileSubdivisions(file).legacyAxisId, true);
 }
 
 // ---- Internal: shared body for open and update ----
@@ -1484,6 +1493,11 @@ async function writeFleetsCompetitorsRaces(
   competitorIdMap: Map<string, string>,
   raceIdMap: Map<string, string>,
   legacyAxisId: string | null,
+  /** In-place replays (update-from-file, update-from-Sailwave) pass true so a
+   *  file with no split-fleet block clears the series' existing state. The
+   *  open/restore paths write into a series with no split-fleet rows to begin
+   *  with, so they leave it alone rather than spending a write on a no-op. */
+  clearAbsentSplitFleets = false,
 ): Promise<void> {
   // Redress race references are stored in the file positionally (by race
   // number) but held internally by id. Map each file race number to its
@@ -1708,12 +1722,16 @@ async function writeFleetsCompetitorsRaces(
   }
 
   // Split-fleet rounds + config (v23+): replayed last, with fleet and
-  // competitor ids remapped onto the freshly-minted rows. Rounds whose
-  // fleets didn't survive the remap are dropped rather than half-written.
-  if (file.splitFleets && repos.splitFleets?.replace) {
+  // competitor ids remapped onto the freshly-minted rows. References that
+  // didn't survive the remap are dropped rather than written dangling.
+  // A blockless file clears the series' split-fleet state on an in-place
+  // replay (`clearAbsentSplitFleets`): `deleteSeriesChildren` doesn't reach
+  // split rounds — they cascade from the series row, which survives — so
+  // without this the old rounds would linger pointing at deleted fleets.
+  if (repos.splitFleets?.replace && (file.splitFleets || clearAbsentSplitFleets)) {
     await repos.splitFleets.replace(seriesId, {
-      config: file.splitFleets.config,
-      rounds: file.splitFleets.rounds.map((r) => ({
+      config: file.splitFleets?.config ?? null,
+      rounds: (file.splitFleets?.rounds ?? []).map((r) => ({
         ...r,
         id: crypto.randomUUID(),
         fleetIds: r.fleetIds
