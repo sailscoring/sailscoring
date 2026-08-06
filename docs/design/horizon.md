@@ -52,23 +52,6 @@ policy, and polyglot SDKs generated on demand — its own follow-up ADR.
 
 ## Third-party integrations
 
-### Mobile finish-recording app
-
-A mobile app for finish-line officials to log boat finishes in real time — using voice
-recognition or document scanning — is a natural third-party application built on the
-Sail Scoring API. It would be a thin write client: POSTs finish times (or positions)
-as boats cross the line, with no scoring, series management, or standings logic of its own.
-
-Shapes API design: the finish-recording use case requires a simple, low-latency write
-endpoint, which should inform how the external API is scoped and authenticated. Voice
-and scanning input are specific enough to be worth designing the data model around
-(e.g. tolerating corrections, ambiguous identifiers).
-
-Sail Scoring's public documentation should explicitly invite this kind of integration
-and describe the API surface it would use.
-
-*(Was GitHub issue #15)*
-
 ### Live results display for clubhouse big screens
 
 A read-only display client consuming the Sail Scoring API, designed for large screens
@@ -272,12 +255,55 @@ A printed sheet the recording team takes on the committee boat — HYC calls it 
 off as they start and finish, record lap counts, and pencil in conditions. HalSail's
 equivalent ("round" / "spotter" sheet) also leaves room for wind, the number of starters,
 and the **time of the last finisher** (the protest-time-limit anchor the results-status
-feature already computes from). It's the paper counterpart to the mobile
-finish-recording app, and the realistic fallback when there's no device on the water.
-Shape of the change: a
+feature already computes from). It's the paper counterpart to voice-driven start check-in
+and finish recording (below), and the realistic fallback when there's no device on the
+water. Shape of the change: a
 print/PDF rendering of a race's entry list with tick / lap / time columns and a conditions
 header, generated per race (parameterised by fleet/start) — mostly a rendering-path
 feature, tying into server-side PDF generation.
+
+### Voice-driven start check-in and finish recording
+
+A browser-based accessory to Sail Scoring that replaces the manual finish-line recording
+process on the committee boat. Today one race official hails each finisher ("1613… NOW")
+while two others write down the sail number and the time by hand, for redundancy and
+cross-checking. Instead, the app listens on a noise-cancelling headset mic and does two
+things **independently**: a tiny keyword-spotting model detects the word "NOW" to fix the
+timestamp, while a speech recogniser constrained to the event's actual entry list resolves
+the sail number. Keeping the two apart is the central design point — a misheard number can
+never corrupt a finish time.
+
+Both run fully offline on-device using **sherpa-onnx**, the next-gen Kaldi speech toolkit,
+whose WebAssembly build brings streaming recognition, voice-activity detection and a
+purpose-built 3.3M-parameter English keyword spotter into the browser, with frame-aligned
+timestamps and runtime hotword biasing to the entry list. Offline matters for its own sake:
+there is no usable connectivity on a committee boat.
+
+The raw audio is **always** recorded to disk as the authoritative record, and the software
+is assistive rather than autonomous. After the finish it produces a reviewable timeline —
+waveform plus detected hails — that officials confirm and correct, preserving the human
+cross-check the current paper system relies on, providing an auditable artefact for protest
+and redress hearings, and outputting confirmed finish times directly into the existing
+scoring pipeline. That puts it in the same family as attaching committee-boat finish-sheet
+photos to a race (below): a primary-source artifact kept with the race it documents, rather
+than in a drive nobody can find six months later.
+
+The same listening pipeline covers **start check-in**, which is the simpler half: only the
+constrained sail-number recogniser is needed, with no "NOW" timestamp, to mark which
+entrants are actually on the water — the job the printed starters checklist does with a
+pencil tick, and the thing that separates a genuine DNC from a boat that started.
+
+Not a third-party integration. It is a first-party accessory to the app, sharing the entry
+list it constrains recognition against and writing back through the same surface; if it does
+ride `/api/v1` it needs a low-latency write path that tolerates corrections and ambiguous
+identifiers, which is worth remembering when that API is scoped.
+
+If real-world trials expose browser limitations — iOS backgrounding killing the mic stream
+being the likeliest — the same web app can be wrapped in Capacitor and switched to
+sherpa-onnx's native Swift/Kotlin bindings, so shipping a native app later is a swap of the
+audio layer rather than a rewrite.
+
+*(Was GitHub issue #15)*
 
 ---
 
