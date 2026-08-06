@@ -399,7 +399,24 @@ function safeJson(raw: string): unknown {
 
 function errorMessage(status: number, body: unknown): string {
   if (status === 401) return 'unauthenticated — check the token (sailscoring auth login)';
-  if (status === 403) return 'forbidden — the token is not a member of that workspace';
+  if (status === 403) {
+    // The server distinguishes the two ways a 403 happens — a token outside the
+    // workspace, and one inside it that lacks the permission
+    // (`permission-denied:<permission>`) — so pass its answer through. A fixed
+    // "not a member" for both sends you auditing workspace membership when the
+    // token is a member and simply isn't allowed to make that call.
+    const reason =
+      body && typeof body === 'object' && 'reason' in body
+        ? String((body as { reason: unknown }).reason)
+        : '';
+    if (reason.startsWith('permission-denied:')) {
+      const permission = reason.slice('permission-denied:'.length);
+      return `forbidden — the token's role lacks the \`${permission}\` permission`;
+    }
+    return reason
+      ? `forbidden — ${reason}`
+      : 'forbidden — the token is not a member of that workspace';
+  }
   if (body && typeof body === 'object' && 'message' in body) {
     return `request failed (${status}): ${String((body as { message: unknown }).message)}`;
   }
