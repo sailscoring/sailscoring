@@ -10,7 +10,6 @@ import { createSeriesQuick } from './helpers';
  * creating the series, adding the race, and entering finishes are three.
  */
 test('history tab: deleting a competitor and a race are recorded (#166 audit)', async ({ page }) => {
-  page.on('dialog', (d) => d.accept()); // accept the delete confirm()
   await createSeriesQuick(page, { name: 'Delete Capture Series' });
 
   await page.getByRole('button', { name: 'Add competitor' }).click();
@@ -28,6 +27,7 @@ test('history tab: deleting a competitor and a race are recorded (#166 audit)', 
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByRole('cell', { name: 'D1' }).click();
   await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByTestId('confirm-dialog-confirm').click();
   await expect(page.getByRole('cell', { name: 'D1' })).toHaveCount(0);
 
   // History records both the (flat) competitor delete and the race add.

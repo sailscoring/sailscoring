@@ -3,6 +3,7 @@
 import { use, useState, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSeries } from '@/hooks/use-series';
+import { useConfirm } from '@/components/confirm-dialog';
 import { FollowOnProvenanceNote } from '@/components/follow-on-provenance-note';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useFeatures } from '@/components/features-provider';
@@ -124,6 +125,7 @@ export default function CompetitorsPage({
 }) {
   const { id: seriesId } = use(params);
   const { can } = useWorkspacePermissions();
+  const confirm = useConfirm();
   // Archived series and roles without manage-series both view-only here.
   const readOnly = useSeriesReadOnly() || !can('manage-series');
   const { data: competitors } = useCompetitorsBySeries(seriesId);
@@ -509,7 +511,14 @@ export default function CompetitorsPage({
   }
 
   async function handleDelete(competitor: Competitor) {
-    if (!confirm(`Delete ${formatPrimaryNames(competitor.names)} (${competitor.sailNumber})?`)) return;
+    const ok = await confirm({
+      title: `Delete ${formatPrimaryNames(competitor.names)} (${competitor.sailNumber})?`,
+      description:
+        'This removes the competitor from the series; any recorded race results go with it.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
     log('competitors', 'deleting', competitor.id);
     await deleteCompetitor.mutateAsync({ id: competitor.id, seriesId });
     // Close the edit dialog (delete is now dialog-only) and drop the stale

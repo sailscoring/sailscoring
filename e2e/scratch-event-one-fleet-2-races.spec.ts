@@ -197,10 +197,10 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   // "1005" row would swallow the click without opening the edit dialog.
   await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
   // Delete now lives inside the edit dialog: click the row to open it, then
-  // the destructive Delete button (a confirm() guards it).
+  // the destructive Delete button (a confirmation guards it).
   await page.getByRole('row').filter({ hasText: '1005' }).click();
-  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByTestId('confirm-dialog-confirm').click();
   await expect(page.getByRole('cell', { name: '1005' })).not.toBeVisible();
   await expect(page.getByText('4 competitors')).toBeVisible();
 
