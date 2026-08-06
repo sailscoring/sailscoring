@@ -24,7 +24,7 @@ import {
 } from '@/lib/api-handlers/series-access';
 import { listTcfHistory } from '@/lib/api-handlers/tcf-history';
 import { suggestFollowOnName } from '@/lib/series-name';
-import { openSeriesFromFile, parseSeriesFile } from '@/lib/series-file';
+import { openSeriesFromFile, parseSeriesFile, updateSeriesFromFile } from '@/lib/series-file';
 import { endOfSeriesTcfKey, endOfSeriesTcfs } from '@/lib/source-handicaps';
 import { seriesCopyInputSchema } from '@/lib/validation/series-copy';
 import { seriesImportInputSchema } from '@/lib/validation/series-import';
@@ -655,6 +655,97 @@ export async function importSeries(
   // is workspace-local and never travels in the file, so it's re-derived here.
   await relinkIdentitiesBestEffort(workspace.workspaceId);
   return { id };
+}
+
+/** The series row as `putSeriesFile` needs it, unscoped by workspace so an id
+ *  squatting in another workspace is a hard error, never a silent insert.
+ *  Mirrors the as-published ingest's own lookup. */
+async function seriesRowById(id: string) {
+  const [row] = await getDb()
+    .select({
+      id: schema.series.id,
+      workspaceId: schema.series.workspaceId,
+      asPublished: schema.series.asPublished,
+    })
+    .from(schema.series)
+    .where(eq(schema.series.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Upsert a full-fidelity series from a `.sailscoring` file at a caller-chosen
+ * id — the re-runnable counterpart to {@link importSeries}.
+ *
+ * `importSeries` is what a scorer means by "import": every call mints a fresh
+ * series, so opening the same file twice gives two series. That is wrong for a
+ * generator that owns its identity — an archive repo deriving ids from stable
+ * keys and re-emitting as a season goes on — where the second run means *this
+ * series again, updated*. Same shape as the as-published ingest
+ * (`putArchiveSeries`) and the same guards: an id already live in another
+ * workspace is a 403 rather than a silent insert, and an as-published series is
+ * never clobbered by a full-fidelity file.
+ *
+ * An existing series is replayed through `updateSeriesFromFile`, which keeps
+ * its id, `createdAt`, category and archived flag while replacing the racing.
+ * Embedded revision history is not restored on that path — the series keeps the
+ * server-side history it has already accumulated.
+ */
+export async function putSeriesFile(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ id: string; created: boolean }> {
+  const { content } = seriesImportInputSchema.parse(body);
+  let file;
+  try {
+    file = parseSeriesFile(content);
+  } catch (err) {
+    throw new BadRequestError(
+      err instanceof Error ? err.message : 'invalid .sailscoring file',
+    );
+  }
+  if (file.seriesId !== seriesId) {
+    throw new BadRequestError('file series id does not match the path');
+  }
+
+  const existing = await seriesRowById(seriesId);
+  if (existing && existing.workspaceId !== workspace.workspaceId) {
+    throw new ForbiddenError('series-id-in-use');
+  }
+  if (existing?.asPublished) {
+    throw new BadRequestError(
+      'an as-published series already has this id; ingest it through as-published push instead',
+      { code: 'as-published-series-exists' },
+    );
+  }
+
+  if (existing) {
+    await assertSeriesWritable(workspace, seriesId);
+    await updateSeriesFromFile(
+      seriesId,
+      file,
+      seriesFileReposFor({ workspaceId: workspace.workspaceId }),
+    );
+  } else {
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      const repos = seriesFileReposFor({ db: tx, workspaceId: workspace.workspaceId });
+      return openSeriesFromFile(file, repos, { seriesId });
+    });
+  }
+
+  await trackChange(workspace, {
+    action: existing ? 'series.updated' : 'series.imported',
+    seriesId,
+    summary: `${existing ? 'Replaced' : 'Imported'} series “${file.series.name}” from a file`,
+    sessionKey: 'import',
+    touch: false,
+  });
+  // Identity is workspace-local and never travels in the file, so the
+  // competitor rows this just wrote need re-linking (#222).
+  await relinkIdentitiesBestEffort(workspace.workspaceId);
+  return { id: seriesId, created: !existing };
 }
 
 /**

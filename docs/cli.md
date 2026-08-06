@@ -87,6 +87,7 @@ otherwise they print an aligned table.
 sailscoring series list
 sailscoring series get <seriesId>
 sailscoring series import <files…>          # also: sailscoring import …
+sailscoring series import <files…> --replace   # upsert at each file's own id
 sailscoring series publish <seriesIds…>     # also: sailscoring publish …
 sailscoring series categorise <seriesIds…> --category <name>
 sailscoring series archive <seriesIds…> [--unarchive]
@@ -140,6 +141,19 @@ sailscoring import *.sailscoring --workspace <slug>
 - Resumable: a failed file is reported but doesn't stop the batch; a re-run
   replays already-imported files rather than duplicating them (the
   `Idempotency-Key` is a hash of each file's contents).
+- `--replace` upserts each file at the series id the **file** carries
+  (`PUT /api/v1/series/:id/file`) instead of minting a new series per import.
+  For a generator that owns its identity — an archive repo whose ids are
+  derived from stable keys, re-emitting a season as it progresses — where a
+  second run over changed content means *this series again, updated*, not a
+  second copy of it. Without it, changed content is a new series: the
+  idempotency key only deduplicates a byte-identical replay.
+
+  The series keeps its id, `createdAt`, category and archived flag; the racing
+  is replaced. The name is taken verbatim rather than disambiguated, so
+  re-running doesn't rename the series. An id already live in another
+  workspace is a 403, and an as-published series is never overwritten by a
+  full-fidelity file.
 - `--concurrency <n>` bounds parallelism (default 4).
 - `--json` emits the per-file results (with the new series ids) and skips the
   human log and post-phases — use it to capture ids and drive your own

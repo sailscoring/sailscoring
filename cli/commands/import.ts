@@ -14,6 +14,11 @@ import { printOpLine, summariseOp } from './categorise';
  * workspace with `--workspace` (slug or id), otherwise the token's default
  * workspace applies. Resumable: a failed file is reported but doesn't stop the
  * rest, and a re-run replays already-imported files (stable idempotency key).
+ *
+ * `--replace` upserts each file at the series id the file carries, instead of
+ * minting a new series per import: the mode for a generator that owns its ids
+ * (an archive repo re-emitting a season as it goes), where a second run means
+ * "this series again, updated".
  */
 export async function importCommand(
   files: string[],
@@ -56,11 +61,13 @@ export async function importCommand(
     files,
     client,
     concurrency,
+    replace: flags.replace === '' || flags.replace === 'true',
     onResult: json
       ? undefined
       : (r) => {
           if (r.status === 'imported') {
-            console.log(`  ✓ ${r.file} → ${r.id}`);
+            const how = r.created === false ? ' (replaced)' : '';
+            console.log(`  ✓ ${r.file} → ${r.id}${how}`);
           } else {
             console.error(`  ✗ ${r.file}: ${r.error}`);
           }

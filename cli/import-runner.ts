@@ -13,11 +13,18 @@ export interface ImportResult {
   file: string;
   status: 'imported' | 'failed';
   id?: string;
+  /** `replace` mode only: false when the run updated a series already there. */
+  created?: boolean;
   error?: string;
 }
 
 interface ImportClient {
   importSeries(content: string, opts: { idempotencyKey: string }): Promise<{ id: string }>;
+  putSeriesFile?(
+    seriesId: string,
+    content: string,
+    opts: { idempotencyKey: string },
+  ): Promise<{ id: string; created: boolean }>;
 }
 
 export interface RunImportOptions {
@@ -27,6 +34,12 @@ export interface RunImportOptions {
   concurrency?: number;
   /** Called as each file settles — for progress output. */
   onResult?: (result: ImportResult) => void;
+  /**
+   * Upsert each file at the series id it carries, rather than minting a new
+   * series per import. The re-runnable mode: a second run over an updated file
+   * replaces that series instead of adding a second copy of it.
+   */
+  replace?: boolean;
 }
 
 export async function runImport(opts: RunImportOptions): Promise<ImportResult[]> {
@@ -42,8 +55,18 @@ export async function runImport(opts: RunImportOptions): Promise<ImportResult[]>
       try {
         const content = await readFile(file, 'utf8');
         const idempotencyKey = createHash('sha256').update(content).digest('hex');
-        const { id } = await opts.client.importSeries(content, { idempotencyKey });
-        results[i] = { file, status: 'imported', id };
+        if (opts.replace) {
+          if (!opts.client.putSeriesFile) throw new Error('client cannot replace series');
+          const seriesId = (JSON.parse(content) as { seriesId?: unknown }).seriesId;
+          if (typeof seriesId !== 'string' || !seriesId) {
+            throw new Error('file carries no seriesId to replace at');
+          }
+          const res = await opts.client.putSeriesFile(seriesId, content, { idempotencyKey });
+          results[i] = { file, status: 'imported', id: res.id, created: res.created };
+        } else {
+          const { id } = await opts.client.importSeries(content, { idempotencyKey });
+          results[i] = { file, status: 'imported', id };
+        }
       } catch (err) {
         results[i] = {
           file,

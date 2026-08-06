@@ -1050,11 +1050,24 @@ function competitorSubdivisionsForWrite(
 export async function openSeriesFromFile(
   file: SeriesFile,
   repos: SeriesFileRepos,
-  opts?: { categoryId?: string | null; source?: Series['source'] },
+  opts?: {
+    categoryId?: string | null;
+    source?: Series['source'];
+    /**
+     * Create under this id instead of a fresh one. For a caller that owns the
+     * identity — an archive repo whose ids are derived from stable keys, so a
+     * re-run replays over the same series rather than adding another copy. The
+     * name is then kept verbatim too: disambiguating it would rename the series
+     * on every re-import, which is the churn the pinned id exists to avoid.
+     */
+    seriesId?: string;
+  },
 ): Promise<string> {
-  const newSeriesId = crypto.randomUUID();
+  const newSeriesId = opts?.seriesId ?? crypto.randomUUID();
   const now = Date.now();
-  const name = disambiguateSeriesName(file.series.name, await repos.listSeriesNames());
+  const name = opts?.seriesId
+    ? file.series.name
+    : disambiguateSeriesName(file.series.name, await repos.listSeriesNames());
 
   // Remap IDs to avoid conflicts with existing DB records.
   const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));

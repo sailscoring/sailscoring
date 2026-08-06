@@ -86,6 +86,22 @@ export class SailscoringClient {
   }
 
   /**
+   * Upsert a `.sailscoring` file at the id the file itself carries. Unlike
+   * `importSeries`, a re-run updates that series rather than adding another —
+   * for generators whose ids are derived from stable keys.
+   */
+  async putSeriesFile(
+    seriesId: string,
+    content: string,
+    opts: { idempotencyKey: string },
+  ): Promise<{ id: string; created: boolean }> {
+    return (await this.request('PUT', `/api/v1/series/${seriesId}/file`, {
+      body: { content },
+      idempotencyKey: opts.idempotencyKey,
+    })) as { id: string; created: boolean };
+  }
+
+  /**
    * Publish a series' current standings. `input.slug` co-publishes into a
    * shared namespace; `input.join` confirms joining a slug that already holds
    * other series. Returns the slug and per-fleet public URLs.

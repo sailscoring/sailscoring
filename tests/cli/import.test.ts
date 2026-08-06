@@ -8,7 +8,7 @@
  *
  * Skipped when DATABASE_URL is unset.
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -33,6 +33,7 @@ import { buildSeriesFile } from '@/lib/series-file';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
 import { requireWorkspace } from '@/lib/auth/require-workspace';
 import { POST as importRoute } from '@/app/api/v1/series/import/route';
+import { PUT as seriesFileRoute } from '@/app/api/v1/series/[id]/file/route';
 import { SailscoringClient, type FetchLike } from '@/cli/client';
 import { runImport } from '@/cli/import-runner';
 
@@ -64,6 +65,14 @@ describe.skipIf(skip)('CLI bulk import (ADR-009 M3)', () => {
       });
       const res = await importRoute(req as Parameters<typeof importRoute>[0], {
         params: Promise.resolve({}),
+      });
+      return { status: res.status, text: () => res.text() };
+    }
+    const put = /^\/api\/v1\/series\/([^/]+)\/file$/.exec(pathname);
+    if (init.method === 'PUT' && put) {
+      const req = new Request(url, { method: 'PUT', headers: init.headers, body: init.body });
+      const res = await seriesFileRoute(req as Parameters<typeof seriesFileRoute>[0], {
+        params: Promise.resolve({ id: put[1] }),
       });
       return { status: res.status, text: () => res.text() };
     }
@@ -152,6 +161,87 @@ describe.skipIf(skip)('CLI bulk import (ADR-009 M3)', () => {
     const second = await runImport({ files, client, concurrency: 2 });
     expect(second.map((r) => r.id)).toEqual(first.map((r) => r.id));
     expect(await seriesCount()).toBe(before + 3);
+  });
+
+  /** A file carrying a generator-owned id that isn't in the workspace yet —
+   *  what an archive repo emits, ids derived from its own stable keys. */
+  async function generatedFile(name: string, seriesId: string): Promise<string> {
+    const seeded = await seedFile(name);
+    const file = JSON.parse(await readFile(seeded, 'utf8'));
+    file.seriesId = seriesId;
+    file.series.id = seriesId;
+    const path = join(tmp, `${seriesId}.sailscoring`);
+    await writeFile(path, JSON.stringify(file), 'utf8');
+    return path;
+  }
+
+  test("--replace upserts at the file's own id, so a re-run updates in place", async () => {
+    const seriesId = uuid();
+    const file = await generatedFile('Foxtrot League', seriesId);
+    const before = await seriesCount();
+
+    // Creates the series *under the id the file carries* — not a fresh one,
+    // which is what lets the next run find it.
+    const first = await runImport({ files: [file], client, replace: true });
+    expect(first[0].status).toBe('imported');
+    expect(first[0].id).toBe(seriesId);
+    expect(first[0].created).toBe(true);
+    expect(await seriesCount()).toBe(before + 1);
+
+    // Change the content so the idempotency key differs: a plain import would
+    // add a second series here; replace updates the one already there.
+    const edited = JSON.parse(await readFile(file, 'utf8'));
+    edited.series.name = 'Foxtrot League (revised)';
+    const editedPath = join(tmp, 'foxtrot-revised.sailscoring');
+    await writeFile(editedPath, JSON.stringify(edited), 'utf8');
+
+    const second = await runImport({ files: [editedPath], client, replace: true });
+    expect(second[0].id).toBe(seriesId);
+    expect(second[0].created).toBe(false);
+    expect(await seriesCount()).toBe(before + 1);
+
+    const row = await seriesFileReposFor({ workspaceId }).seriesRepo.get(seriesId);
+    expect(row?.name).toBe('Foxtrot League (revised)');
+  });
+
+  test('--replace keeps the name verbatim rather than disambiguating it', async () => {
+    // A plain import appends "(2)" to a clashing name. Under replace the name
+    // is the generator's, so re-running must not rename the series each time.
+    const existing = await seedFile('Hotel League');
+    await runImport({ files: [existing], client });
+    const file = await generatedFile('Hotel League', uuid());
+    const res = await runImport({ files: [file], client, replace: true });
+    const row = await seriesFileReposFor({ workspaceId }).seriesRepo.get(res[0].id!);
+    expect(row?.name).toBe('Hotel League');
+  });
+
+  test('rejects a file whose id is live in another workspace', async () => {
+    const seriesId = uuid();
+    const file = await generatedFile('Golf League', seriesId);
+    await runImport({ files: [file], client, replace: true });
+
+    const otherId = `org_cli_${uuid().replace(/-/g, '')}`;
+    await db.insert(schema.organization).values({
+      id: otherId, name: 'Other', slug: `other-${otherId.slice(8, 18)}`, createdAt: new Date(),
+    });
+    try {
+      const otherCtx: WorkspaceContext = { ...ctx, workspaceId: otherId };
+      await expect(
+        series.putSeriesFile(otherCtx, seriesId, { content: await readFile(file, 'utf8') }),
+      ).rejects.toThrow(/series-id-in-use/);
+    } finally {
+      await db.delete(schema.organization).where(eq(schema.organization.id, otherId));
+    }
+    // The original is untouched.
+    expect((await seriesFileReposFor({ workspaceId }).seriesRepo.get(seriesId))?.name)
+      .toBe('Golf League');
+  });
+
+  test('rejects a file whose id does not match the path', async () => {
+    const file = await generatedFile('India League', uuid());
+    await expect(
+      series.putSeriesFile(ctx, uuid(), { content: await readFile(file, 'utf8') }),
+    ).rejects.toThrow(/does not match the path/);
   });
 
   test('resume-on-failure: a malformed file fails but the batch continues', async () => {
