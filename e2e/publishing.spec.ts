@@ -320,12 +320,12 @@ test('workspace Published page lists a publication and unpublishing frees the sl
   await expect(page.getByText('1 page published')).toBeVisible();
   await expect(page.getByRole('link', { name: /\/2026$/ })).toBeVisible();
 
-  // Unpublish (a confirm dialog guards it) → the row goes and the page 404s.
+  // Unpublish (a confirmation guards it) → the row goes and the page 404s.
   const unpublishBtn = page.getByRole('button', {
     name: 'Unpublish HYC Autumn League 2026',
   });
-  page.once('dialog', (d) => d.accept());
   await unpublishBtn.click();
+  await page.getByTestId('confirm-dialog-confirm').click();
   await expect(unpublishBtn).not.toBeVisible();
   await expect(page.getByText('Nothing published yet.')).toBeVisible();
   expect((await page.request.get(path)).status()).toBe(404);
@@ -339,7 +339,23 @@ test('workspace Published page lists a publication and unpublishing frees the sl
   await expect(folderInput).toBeVisible();
   await folderInput.fill('autumn-26');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
-  await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
+  const republished = dialog.getByRole('link', { name: /\/autumn-26\/standings$/ });
+  await expect(republished).toBeVisible();
+  const republishedPath = new URL(
+    (await republished.getAttribute('href')) ?? '',
+  ).pathname;
+
+  // Unpublishing from inside the publish dialog: the confirmation is raised
+  // from one dialog and lands on top of it, and answering it leaves the
+  // publish dialog usable — back to its first-publish state.
+  await dialog.getByRole('button', { name: 'Unpublish' }).click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText(
+    'Unpublish “HYC Autumn League 2026”?',
+  );
+  await page.getByTestId('confirm-dialog-confirm').click();
+  await expect(page.getByTestId('confirm-dialog')).toHaveCount(0);
+  await expect(dialog.getByLabel('Folder')).toBeVisible();
+  expect((await page.request.get(republishedPath)).status()).toBe(404);
 });
 
 test('an orphaned snapshot (series deleted) stays listed and can be unpublished', async ({ page }) => {
@@ -375,8 +391,13 @@ test('an orphaned snapshot (series deleted) stays listed and can be unpublished'
     name: 'Unpublish HYC Autumn League 2026',
   });
   await expect(unpublishBtn).toBeVisible();
-  page.once('dialog', (d) => d.accept());
   await unpublishBtn.click();
+  // The series is gone, so this page is the final copy — a removal, not an
+  // unpublish, and the confirmation says so.
+  await expect(page.getByTestId('confirm-dialog')).toContainText(
+    'the final copy',
+  );
+  await page.getByTestId('confirm-dialog-confirm').click();
   await expect(unpublishBtn).not.toBeVisible();
   await expect(page.getByText('Nothing published yet.')).toBeVisible();
 });

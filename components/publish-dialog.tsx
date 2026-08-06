@@ -27,6 +27,7 @@ import {
 } from '@/lib/publishing-groups';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
+import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { FtpPublishPane } from '@/components/ftp-publish-pane';
 import type { Fleet, PublicationStatus, Series } from '@/lib/types';
@@ -96,6 +97,7 @@ interface SuppressedRow {
  */
 export function PublishDialog({ series, fleets, open, onClose, canFtp }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
+  const confirm = useConfirm();
   const { has } = useFeatures();
   // The prize sheet (#240) publishes as one more name-keyed page, "Prizes".
   const hasPrizes = has('prizes') && (series.prizes?.length ?? 0) > 0;
@@ -542,13 +544,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   }
 
   async function handleUnpublish() {
-    if (
-      !confirm(
-        `Unpublish "${series.name}"? The public page will stop working and its URL frees up.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Unpublish “${series.name}”?`,
+      description: 'The public page stops working and its URL frees up.',
+      confirmLabel: 'Unpublish',
+      destructive: true,
+    });
+    if (!ok) return;
     setPhase('unpublishing');
     setError(null);
     try {

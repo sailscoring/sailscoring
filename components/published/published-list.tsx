@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronDown, ChevronRight, Copy, ExternalLink, Trash2 } from 'lucide-react';
 
 import { usePublishedList, useUnpublish } from '@/hooks/use-published';
+import { useConfirm } from '@/components/confirm-dialog';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { Button } from '@/components/ui/button';
@@ -122,6 +123,7 @@ function Row({
 export function PublishedList() {
   const { data: published } = usePublishedList();
   const unpublish = useUnpublish();
+  const confirm = useConfirm();
   // Unpublishing is part of the publish (score) job; the list itself is a read.
   const canUnpublish = useWorkspacePermissions().can('score');
 
@@ -171,12 +173,23 @@ export function PublishedList() {
 
   async function handleUnpublish(item: PublishedListItem) {
     const shared = item.sharedWith.length > 0;
-    const message = item.orphaned
-      ? `Permanently remove the saved results page "${item.title}"? Its series was already deleted, so this is the final copy.`
-      : shared
-        ? `Unpublish "${item.title}"? Its fleets are removed from ${item.url}; the page stays live for ${formatNameList(item.sharedWith)}.`
-        : `Unpublish "${item.title}"? The public page at ${item.url} will stop working and the URL frees up.`;
-    if (!confirm(message)) return;
+    const ok = item.orphaned
+      ? await confirm({
+          title: `Permanently remove “${item.title}”?`,
+          description:
+            'Its series was already deleted, so this saved results page is the final copy.',
+          confirmLabel: 'Remove',
+          destructive: true,
+        })
+      : await confirm({
+          title: `Unpublish “${item.title}”?`,
+          description: shared
+            ? `Its fleets are removed from ${item.url}; the page stays live for ${formatNameList(item.sharedWith)}.`
+            : `The public page at ${item.url} stops working and the URL frees up.`,
+          confirmLabel: 'Unpublish',
+          destructive: true,
+        });
+    if (!ok) return;
     await unpublish.mutateAsync(item.id);
   }
 
