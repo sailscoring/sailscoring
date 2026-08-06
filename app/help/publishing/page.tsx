@@ -202,6 +202,15 @@ export default async function Page() {
             to that race below.
           </p>
           <p>
+            A full-detail page can also{' '}
+            <strong className="text-foreground">show only the last N races’ results</strong>. This
+            is for pages embedded in a fixed-height frame on a club website, where a long series
+            runs past the space and gets cut off — the race tables are what make the page tall.
+            The standings always cover the whole series, so only the per-race tables are trimmed;
+            the page says which races it is showing, and race columns without a table below stop
+            being links.
+          </p>
+          <p>
             By default every fleet still publishes its own page and the combined pages are
             extras. Untick{' '}
             <strong className="text-foreground">Publish individual per-fleet pages</strong>{' '}

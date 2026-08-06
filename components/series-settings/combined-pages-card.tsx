@@ -37,6 +37,8 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
   // doesn't round-trip per keystroke.
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
   const [nameErrors, setNameErrors] = useState<Record<string, string>>({});
+  // Same treatment for the race-detail limit: typing "12" passes through "1".
+  const [recentDrafts, setRecentDrafts] = useState<Record<string, string>>({});
 
   const groups = series.publishingGroups ?? [];
   const hasBlocks = (subSeriesList?.length ?? 0) > 0;
@@ -116,6 +118,35 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
     patchGroup(group.id, { fleetIds: next });
   }
 
+  /** Absent means every race, so clearing the limit drops the key rather than
+   *  storing an undefined one. */
+  function setRecentRaces(group: PublishingGroup, value: number | undefined) {
+    patchGroups((current) =>
+      current.map((g) => {
+        if (g.id !== group.id) return g;
+        const { recentRaces: _cleared, ...rest } = g;
+        void _cleared;
+        return value == null ? rest : { ...rest, recentRaces: value };
+      }),
+    );
+  }
+
+  function commitRecent(group: PublishingGroup) {
+    const draft = recentDrafts[group.id];
+    if (draft === undefined) return;
+    setRecentDrafts((prev) => {
+      const { [group.id]: _committed, ...rest } = prev;
+      void _committed;
+      return rest;
+    });
+    const parsed = Number.parseInt(draft, 10);
+    // A cleared or nonsense box falls back to what was stored rather than
+    // silently turning the limit off.
+    if (!Number.isFinite(parsed)) return;
+    const next = Math.min(999, Math.max(1, parsed));
+    if (next !== group.recentRaces) setRecentRaces(group, next);
+  }
+
   // Stored array order is display order everywhere downstream — the publish
   // dialog rows, the built page list, and the public series index.
   function reorderGroups(orderedIds: string[]) {
@@ -136,7 +167,13 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
     groups.length === 0
       ? 'No combined pages.'
       : resolved
-          .map((r) => `${r.group.name.trim() || '(unnamed)'} (${describeGroupMembers(r)})`)
+          .map((r) => {
+            const limit =
+              r.group.detail === 'full' && r.group.recentRaces != null
+                ? `, last ${r.group.recentRaces} races`
+                : '';
+            return `${r.group.name.trim() || '(unnamed)'} (${describeGroupMembers(r)}${limit})`;
+          })
           .join(' · ') +
         (series.publishIndividualFleetPages === false
           ? ' · individual fleet pages off'
@@ -306,6 +343,46 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                       This series publishes race results only, so this page
                       carries its fleets&rsquo; race tables.
                     </p>
+                  )}
+                  {group.detail === 'full' && !detailOverridden && (
+                    <div className="space-y-1 pt-1">
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={group.recentRaces != null}
+                            onChange={(e) => setRecentRaces(group, e.target.checked ? 6 : undefined)}
+                            className="h-4 w-4"
+                          />
+                          Show only the last
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={999}
+                          value={recentDrafts[group.id] ?? String(group.recentRaces ?? 6)}
+                          disabled={group.recentRaces == null}
+                          aria-label="Races of detail to publish"
+                          className="h-7 w-16 text-sm"
+                          onChange={(e) =>
+                            setRecentDrafts((prev) => ({ ...prev, [group.id]: e.target.value }))
+                          }
+                          onBlur={() => commitRecent(group)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              commitRecent(group);
+                            }
+                          }}
+                        />
+                        <span>races&rsquo; results</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        For a page embedded in a fixed-height frame, where a
+                        long series runs past the space. The standings still
+                        cover the whole series.
+                      </p>
+                    </div>
                   )}
                 </div>
 

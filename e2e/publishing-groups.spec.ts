@@ -165,6 +165,60 @@ test('replace-members page: full detail, standalone fleet pages retracted', asyn
   await expect(page.locator('section.fleetraces table.summarytable')).toHaveCount(0);
 });
 
+test('full-detail page: only the last N races’ results are published', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['combined-pages']);
+  await createTwoFleetSeries(page, 'Trimmed League 2026');
+  const seriesUrl = page.url();
+
+  // A second race, so a limit of one has something to trim.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 2')).toBeVisible();
+  await page.getByText('Race 2').click();
+  await expect(page.getByRole('button', { name: 'Switch race' })).toHaveText('Race 2');
+  for (const sail of ['11', '22']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  const card = page.getByTestId('combined-pages-card');
+  await card.getByRole('button', { name: 'Edit ▸' }).click();
+  await card.getByRole('button', { name: '+ Add combined page' }).click();
+  const row = card.getByTestId('combined-page-row');
+  await row.getByLabel('Combined page name').fill('Recent');
+  await row.getByLabel('Combined page name').press('Enter');
+  await row.getByRole('radio', { name: 'Full per-race detail' }).click();
+  await expect(row.getByRole('radio', { name: 'Full per-race detail' })).toBeChecked();
+  // The limit box is inert until the box beside it is ticked.
+  const limitBox = row.getByLabel('Races of detail to publish');
+  await expect(limitBox).toBeDisabled();
+  await row.getByRole('checkbox', { name: 'Show only the last' }).click();
+  await expect(limitBox).toBeEnabled();
+  await limitBox.fill('1');
+  await limitBox.press('Enter');
+  await card.getByRole('button', { name: 'Done' }).click();
+  await expect(card.getByText('Recent (all fleets, last 1 races)')).toBeVisible();
+
+  await page.goto(seriesUrl);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('checkbox', { name: 'Publish Recent' }).check();
+  await dialog.getByRole('button', { name: /^(Publish|Re-publish)$/ }).click();
+  const link = dialog.getByRole('link', { name: /\/recent$/ });
+  await expect(link).toBeVisible();
+  await page.goto(new URL((await link.getAttribute('href')) ?? '').pathname);
+
+  // Both fleets' full standings, but only race 2's detail tables.
+  await expect(page.locator('table.summarytable')).toHaveCount(2);
+  await expect(page.locator('table.racetable')).toHaveCount(2);
+  await expect(page.locator('#irc-r2')).toBeVisible();
+  await expect(page.locator('#irc-r1')).toHaveCount(0);
+  await expect(page.locator('p.racelimitnote')).toContainText('last race');
+});
+
 test('block series: each sub-series gets its own combined page', async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['combined-pages', 'sub-series']);
   await createSeriesQuick(page, { name: 'Block League 2026' });
