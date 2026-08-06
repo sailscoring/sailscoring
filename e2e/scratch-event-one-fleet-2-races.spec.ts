@@ -171,9 +171,10 @@ test('scratch event, one fleet, 2 races', async ({ page }) => {
   await page.getByRole('link', { name: 'Races' }).click();
   await expect(page.getByText('2 races')).toBeVisible();
 
-  // Race 2 is the second row — accept the confirm dialog then click its Delete
-  page.once('dialog', (dialog) => dialog.accept());
+  // Race 2 is the second row — click its Delete, then confirm.
   await page.getByRole('button', { name: 'Delete Race 2' }).click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('Delete Race 2?');
+  await page.getByTestId('confirm-dialog-confirm').click();
   await expect(page.getByText('Race 2')).not.toBeVisible();
   await expect(page.getByText('1 race')).toBeVisible();
 

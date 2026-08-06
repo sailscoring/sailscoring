@@ -4,6 +4,7 @@ import { use, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { raceRepo } from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
+import { useConfirm } from '@/components/confirm-dialog';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
@@ -76,6 +77,7 @@ function RaceRow({
 }) {
   const router = useRouter();
   const { can } = useWorkspacePermissions();
+  const confirm = useConfirm();
   const readOnly = useSeriesReadOnly() || !can('score');
   const { data: finishes } = useFinishesByRace(race.id);
   const deleteRace = useDeleteRace();
@@ -88,7 +90,13 @@ function RaceRow({
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
 
   async function handleDelete() {
-    if (!confirm(`Delete Race ${race.raceNumber}? This will also delete all results for this race.`)) return;
+    const ok = await confirm({
+      title: `Delete Race ${race.raceNumber}?`,
+      description: 'Every result recorded for this race is deleted with it.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
     // Finishes / race-starts cascade with the race row in Postgres.
     await deleteRace.mutateAsync({ id: race.id, seriesId });
   }
@@ -291,6 +299,7 @@ export default function RacesPage({
 }) {
   const { id: seriesId } = use(params);
   const { can } = useWorkspacePermissions();
+  const confirm = useConfirm();
   const { has } = useFeatures();
   // Race-day operations: archived series and roles without score view-only.
   const readOnly = useSeriesReadOnly() || !can('score');
@@ -707,7 +716,13 @@ export default function RacesPage({
   }
 
   async function handleDeleteSubSeries(ss: SubSeries) {
-    if (!confirm(`Remove sub-series "${ss.name}"? The races themselves are kept.`)) return;
+    const ok = await confirm({
+      title: `Remove sub-series “${ss.name}”?`,
+      description: 'The races themselves are kept — only the grouping goes.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    });
+    if (!ok) return;
     await deleteSubSeries.mutateAsync({ seriesId, subSeriesId: ss.id });
   }
 
