@@ -71,6 +71,37 @@ const config = [
     },
     rules: { 'sailscoring/no-entity-after-inline-element': 'error' },
   },
+  /**
+   * Chrome suppresses native dialogs whenever the page isn't the active tab
+   * of the frontmost window, and a suppressed confirm() returns false — the
+   * guarded action silently never runs. Use `useConfirm()` instead; alert()
+   * and prompt() have no in-app equivalent because neither belongs in a
+   * scoring flow.
+   */
+  {
+    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'hooks/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'confirm',
+          message: 'Chrome silently suppresses native dialogs — use useConfirm() from @/components/confirm-dialog.',
+        },
+        { name: 'alert', message: 'Chrome silently suppresses native dialogs — render the message in the page.' },
+        { name: 'prompt', message: 'Chrome silently suppresses native dialogs — use a dialog with an input.' },
+      ],
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'window',
+          property: 'confirm',
+          message: 'Chrome silently suppresses native dialogs — use useConfirm() from @/components/confirm-dialog.',
+        },
+        { object: 'window', property: 'alert', message: 'Chrome silently suppresses native dialogs — render the message in the page.' },
+        { object: 'window', property: 'prompt', message: 'Chrome silently suppresses native dialogs — use a dialog with an input.' },
+      ],
+    },
+  },
   {
     ignores: [
       'e2e/**',
