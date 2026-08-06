@@ -11,6 +11,7 @@ import {
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
 import { roundCorrectedSecs } from './scoring';
+import { seriesSlug } from './series-name';
 import { worldSailingProfileUrl } from './world-sailing';
 import { describePrizeClauses, ordinal, type PrizeAllocation } from './prizes';
 import {
@@ -419,28 +420,47 @@ function collectReferencedCodes(sections: SeriesResultsData[]): string[] {
  */
 export type SectionDetail = 'full' | 'standings' | 'races';
 
-/** One fleet section's tables, per `detail`. `linkRaceLabels` controls whether
- *  the summary's race column headers link to the per-race anchors; off when the
+/** One fleet section's summary standings table. `linkRaceLabels` controls
+ *  whether the race column headers link to the per-race anchors; off when the
  *  detail tables (the link targets) aren't being rendered. */
+function renderSectionSummary(
+  data: SeriesResultsData,
+  view: SectionView,
+  linkRaceLabels: boolean,
+): string {
+  return renderSummaryTable(data.standings, data.races, view, linkRaceLabels, data.flagSvgByCode);
+}
+
+/** One fleet section's per-race detail tables, empty when no race has
+ *  finishers. */
+function renderSectionRaceTables(
+  data: SeriesResultsData,
+  view: SectionView,
+  detail: SectionDetail,
+): string {
+  const scored = data.races.filter((race) => race.results.length > 0);
+  // A race-results section with a single race drops the "Race 1" prefix: it is
+  // the event's result, and the numbering distinguishes nothing.
+  const suppressRaceLabel = detail === 'races' && scored.length === 1;
+  return scored
+    .map((race) => renderRaceTable(race, view, data.flagSvgByCode, { suppressLabel: suppressRaceLabel }))
+    .join('\n');
+}
+
+/** One fleet section's tables, per `detail`: the summary followed by the
+ *  per-race detail. This is the per-fleet page's whole body; combined pages
+ *  assemble the two halves separately (see `renderCombinedSeriesHtml`). */
 function renderSectionTables(
   data: SeriesResultsData,
   view: SectionView,
   opts: { detail: SectionDetail; linkRaceLabels: boolean },
 ): string {
-  const summary = () =>
-    renderSummaryTable(data.standings, data.races, view, opts.linkRaceLabels, data.flagSvgByCode);
-  if (opts.detail === 'standings') return summary();
-  const scored = data.races.filter((race) => race.results.length > 0);
-  // A race-results section with a single race drops the "Race 1" prefix: it is
-  // the event's result, and the numbering distinguishes nothing.
-  const suppressRaceLabel = opts.detail === 'races' && scored.length === 1;
-  const raceTables = scored
-    .map((race) => renderRaceTable(race, view, data.flagSvgByCode, { suppressLabel: suppressRaceLabel }))
-    .join('\n');
+  if (opts.detail === 'standings') return renderSectionSummary(data, view, opts.linkRaceLabels);
+  const raceTables = renderSectionRaceTables(data, view, opts.detail);
   // Never publish blank chrome: a section whose races have no finishers falls
   // back to the summary even when asked for race results alone.
-  if (opts.detail === 'races' && scored.length > 0) return raceTables;
-  return `${summary()}\n${raceTables}`;
+  if (opts.detail === 'races' && raceTables) return raceTables;
+  return `${renderSectionSummary(data, view, opts.linkRaceLabels)}\n${raceTables}`;
 }
 
 /** Document-level fields shared by the single-fleet and combined renders:
@@ -495,7 +515,16 @@ export function renderSeriesHtml(
  * from the first section, whose fields are identical across sections since
  * they're assembled from the same series. `pageName` is the combined page's
  * title/heading, taking the slot a fleet name occupies on a per-fleet page;
- * each section is headed by its own fleet name. With `detail: 'standings'` the
+ * each section is headed by its own fleet name.
+ *
+ * At full detail the page reads standings-first: every fleet's summary table,
+ * then every fleet's race detail, each set of races in its own delineated
+ * section. That is the shape club results readers know from Sailwave-published
+ * pages. The cost is that a fleet name now heads two different blocks, so the
+ * race block carries a qualifier and a rule above it — without them it is hard
+ * to see where one fleet's races end and the next fleet's begin.
+ *
+ * With `detail: 'standings'` the
  * per-race detail tables are dropped and each summary's race columns stop
  * linking (their targets aren't rendered); the NHC/ECHO calculation toggles
  * go with them, since the explainability columns live on the detail tables
@@ -520,13 +549,36 @@ export function renderCombinedSeriesHtml(
   const flagSvgByCode = sections.find((s) => s.flagSvgByCode)?.flagSvgByCode;
   const flagDefs = renderFlagDefs(collectReferencedCodes(sections), flagSvgByCode);
 
-  const sectionHtml = sections
-    .map((data) => {
-      const view = computeSectionView(data);
-      const heading = data.fleetName ? `<h2>${esc(data.fleetName)}</h2>\n` : '';
-      return heading + renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' });
-    })
-    .join('\n');
+  const viewed = sections.map((data) => ({ data, view: computeSectionView(data) }));
+  const fleetHeading = (data: SeriesResultsData) =>
+    data.fleetName ? `<h2>${esc(data.fleetName)}</h2>\n` : '';
+
+  let sectionHtml: string;
+  if (detail === 'full') {
+    const standingsHtml = viewed
+      .map(({ data, view }) => fleetHeading(data) + renderSectionSummary(data, view, true))
+      .join('\n');
+    const racesHtml = viewed
+      .map(({ data, view }) => {
+        const tables = renderSectionRaceTables(data, view, 'full');
+        if (!tables) return '';
+        const heading = data.fleetName
+          ? `${esc(data.fleetName)} &mdash; race results`
+          : 'Race results';
+        // The id gives the races block a stable link target, matching the
+        // per-section anchor prefix the assembly path puts on the race
+        // anchors themselves.
+        const id = data.fleetName ? ` id="${esc(seriesSlug(data.fleetName))}-races"` : '';
+        return `<section class="fleetraces"${id}>\n<h2>${heading}</h2>\n${tables}\n</section>`;
+      })
+      .filter(Boolean)
+      .join('\n');
+    sectionHtml = racesHtml ? `${standingsHtml}\n${racesHtml}` : standingsHtml;
+  } else {
+    sectionHtml = viewed
+      .map(({ data, view }) => fleetHeading(data) + renderSectionTables(data, view, { detail, linkRaceLabels: false }))
+      .join('\n');
+  }
 
   const content = [
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
@@ -675,6 +727,9 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
 .override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
+/* A combined page's per-fleet race block: the rule and the space above it are
+   what separate one fleet's set of races from the next when scrolling. */
+.fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }

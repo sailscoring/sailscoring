@@ -151,6 +151,34 @@ describe('buildFleetHtmlFiles — combined pages', () => {
     expect(pups.html).toContain('id="puppeteer-hph-r1"');
   });
 
+  it('a full-detail group reads standings-first, then a race block per fleet', async () => {
+    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
+    const html = files![0].html;
+    // Every member's standings comes before any race detail…
+    const lastSummary = html.lastIndexOf('class="summarytable"');
+    const firstRaceTable = html.indexOf('class="racetable"');
+    expect(lastSummary).toBeGreaterThan(-1);
+    expect(firstRaceTable).toBeGreaterThan(lastSummary);
+    // …and each fleet's races sit in their own delineated, linkable section,
+    // in the same fleet order as the standings above them.
+    expect(html).toContain('<section class="fleetraces" id="puppeteer-scratch-races">');
+    expect(html).toContain('<section class="fleetraces" id="puppeteer-hph-races">');
+    expect(html.indexOf('id="puppeteer-scratch-races"')).toBeLessThan(
+      html.indexOf('id="puppeteer-hph-races"'),
+    );
+    // The qualifier is what keeps the two occurrences of a fleet name apart.
+    expect(html).toContain('<h2>Puppeteer Scratch &mdash; race results</h2>');
+    expect(html).toContain('<h2>Puppeteer HPH &mdash; race results</h2>');
+  });
+
+  it("a full-detail group's summary race links still resolve within the document", async () => {
+    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
+    const html = files![0].html;
+    const targets = [...html.matchAll(/class="racelink" href="#([^"]+)"/g)].map((m) => m[1]);
+    expect(targets).toEqual(['puppeteer-scratch-r1', 'puppeteer-hph-r1']);
+    for (const id of targets) expect(html).toContain(`id="${id}"`);
+  });
+
   it('individual fleet pages off: the output is exactly the combined pages', async () => {
     const files = await buildFleetHtmlFiles(
       makeRepos(makeSeries([OVERALL, PUPPETEER], false)),

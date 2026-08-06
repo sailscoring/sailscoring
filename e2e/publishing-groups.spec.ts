@@ -155,6 +155,14 @@ test('replace-members page: full detail, standalone fleet pages retracted', asyn
   await expect(page.locator('table.racetable')).toHaveCount(2);
   await expect(page.locator('#irc-r1')).toBeVisible();
   await expect(page.locator('#cruiser-r1')).toBeVisible();
+
+  // Standings first, then one delineated race section per fleet.
+  await expect(page.locator('#irc-races')).toBeVisible();
+  await expect(page.locator('#cruiser-races')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'IRC — race results' }),
+  ).toBeVisible();
+  await expect(page.locator('section.fleetraces table.summarytable')).toHaveCount(0);
 });
 
 test('block series: each sub-series gets its own combined page', async ({ page, signedInEmail }) => {

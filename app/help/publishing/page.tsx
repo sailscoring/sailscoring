@@ -192,6 +192,16 @@ export default async function Page() {
             keeps everything a standalone fleet page shows.
           </p>
           <p>
+            Fleets appear in the order they sit in the{' '}
+            <strong className="text-foreground">Fleets</strong> card on the same tab — drag them
+            there to change the order on every combined page at once. A full-detail page reads
+            standings first: each fleet’s summary table one after another, then each fleet’s race
+            results in its own section, headed{' '}
+            <em>fleet name — race results</em> and separated by a rule so it’s clear where one
+            fleet’s races end and the next begin. Clicking a race column in a summary table jumps
+            to that race below.
+          </p>
+          <p>
             By default every fleet still publishes its own page and the combined pages are
             extras. Untick{' '}
             <strong className="text-foreground">Publish individual per-fleet pages</strong>{' '}
