@@ -6,6 +6,8 @@
  * - QueryClientProvider — TanStack Query is the reactivity primitive
  *   for server-backed data. Mutations explicitly invalidate keys;
  *   per-mutation optimistic updates are added where the UX warrants.
+ * - ConfirmDialogProvider — the single in-app confirmation dialog behind
+ *   `useConfirm()`, replacing `window.confirm()`.
  *
  * Read-only offline (persistQueryClient) is deferred. The default
  * persister throttles writes by 1s, which produced stale-cache races
@@ -23,6 +25,7 @@ import {
 import { ThemeProvider } from 'next-themes';
 import { useEffect, useState, type ReactNode } from 'react';
 
+import { ConfirmDialogProvider } from '@/components/confirm-dialog';
 import { ConflictNoticeProvider, useNotifyConflict } from '@/components/conflict-notice';
 import { AuthError, ConflictApiError } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
@@ -87,7 +90,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <ConflictNoticeProvider>
           <ConflictMutationSubscriber />
-          {children}
+          <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
         </ConflictNoticeProvider>
       </QueryClientProvider>
     </ThemeProvider>
