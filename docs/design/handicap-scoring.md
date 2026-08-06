@@ -971,6 +971,112 @@ handicap series; not applicable for static-TCF series). One knob. Clubs
 that want cleaner published results can turn it off; clubs that want
 transparency get it automatically.
 
+### Relationship to Sailwave's BCR and BCE
+
+Scorers arriving from Sailwave will ask where our columns map onto its
+**BCR** and **BCE** statistics. They map cleanly, but not onto the column
+most people first reach for.
+
+**Definitions** (the vocabulary comes from the PHRF world, and Sailwave
+adopted it wholesale):
+
+- **BCR — Back Calculated Rating.** The rating a boat would have needed,
+  given its actual elapsed time, to tie the winner on corrected time. It is
+  the corrected-time formula solved for `r` instead of for `c`. The
+  winner's BCR equals its own rating by definition; every other boat's
+  falls on the more generous side — *lower* under a TCF multiplier
+  (`BCR_i = CT_winner / T_E_i`), *higher* under PHRF seconds-per-mile.
+- **BCE — Back Calculated Elapsed.** How much faster the boat would have
+  had to sail, in elapsed time, to tie the winner. The same question in the
+  units a sailor actually feels.
+
+Sailwave computes both automatically whenever a rating system is in use —
+there is no feature to switch on. They appear per result under *Edit →
+Result Audit*, and as optional **BCR** / **BCE** columns when publishing
+race tables. For a Custom rating system the scorer must supply the
+rearranged formulas for `r` and `e`, or Sailwave cannot fill the `Rwin` /
+`-Ewin` columns; that requirement is the only trace of the feature in the
+Sailwave user guide. Critically, BCR is **analytical, not automatic**:
+nothing feeds it back into ratings. A rating committee reads the column and
+decides — usually accumulated over a series, because a single race's BCR is
+dominated by that day's luck.
+
+**Our equivalent is PI (ECHO) / Q (NHC1), not New H / New TCF.**
+
+| Sailwave | Ours | Means |
+|----------|------|-------|
+| BCR | — | Rating that would tie **the winner** |
+| BCR × EchoIndex | **PI** (ECHO), **Q** (NHC1) | Rating that would tie **the fleet** |
+| ECHO / NHC new rating | **New H**, **New TCF** | Only `α` of the way to PI / Q |
+| BCE | — | Not computed anywhere |
+
+The middle row is an exact identity, not an analogy. Sailwave's `SWECHO`
+spreadsheet computes the raw BCR and then re-aligns it by
+`EchoIndex = mean(H) / mean(BCR)` to hold the fleet mean steady. Substituting
+`BCR_i = CT_winner / T_E_i`, the winner reference cancels completely:
+
+```
+BCR_i × EchoIndex = (CT_win / T_E_i) × mean(H) / mean(CT_win / T_E)
+                  = ΣH / (T_E_i × Σ(1/T_E))
+                  = PI_i
+```
+
+So PI *is* BCR, already re-aligned — the two differ only by a single
+fleet-wide scale factor, which ECHO removes at the end and our IS-PI form
+never introduces (`mean(PI) = mean(H)` falls out of the formula for free).
+The same holds for NHC1's `Q` and RYA NHC 2015's `Ha`, which share the
+identical fair-handicap formula. The one difference is the anchor after
+re-alignment: NHC1 and ECHO preserve the fleet's own sum, while RYA NHC
+2015 scales to the externally published base numbers `ΣH0`, so its
+post-realignment rating is BCR anchored outside the fleet rather than
+within it.
+
+**Why New H is not the answer to "what rating would have tied?"** Because
+the blend is deliberately damped. Under PI every finisher lands on the
+*identical* corrected time — a dead heat, at `ΣH / Σ(1/T_E)`. Under raw BCR
+they also all tie, but at the winner's corrected time. Under New H nobody
+ties: with ECHO's default `α = 0.25` the fleet closes a quarter of the
+corrected-time spread. A five-boat illustration, with elapsed times
+3600 / 3720 / 3910 / 4050 / 4300 s and starting handicaps
+0.960 / 0.985 / 1.010 / 1.035 / 1.060:
+
+| Scored under | Corrected times (s) | Spread |
+|--------------|---------------------|--------|
+| Starting H | 3456.0 / 3664.2 / 3949.1 / 4191.8 / 4558.0 | 1102 s |
+| New H (α = 0.25) | 3576.9 / 3733.1 / 3946.8 / 4128.7 / 4403.4 | 827 s |
+| PI | 3939.7 × 5 | 0 |
+| BCR (raw) | 3456.0 × 5 | 0 |
+
+NHC1 sits further from `Q` again: its blend is asymmetric (0.30 up / 0.15
+down, halved for extremes), so an under-performing boat moves half as far
+towards its BCR as an over-performing one, and the whole fleet is then
+scaled by `Z51`.
+
+**Caveats when reading PI / Q as a committee input.** Only finishers get
+one — DNF/DNS/DNC carry their handicap unchanged and contribute to neither
+`ΣH` nor `Σ(1/T_E)`. The whole update is suppressed below three finishers.
+And PI is a per-race number: a committee wanting a fair set of handicaps
+from a handful of results needs it aggregated across races, which nothing
+in the engine currently does.
+
+**The real gap is static fleets.** PI and Q exist only for progressive
+fleets, because they are steps in an adjustment the engine performs itself.
+A scratch, IRC, PY, or VPRS fleet gets no back-calculated rating at all —
+which is precisely the rating-committee case, where the numbers do not move
+on their own and a human needs the evidence to move them. Both halves are
+captured under **Results analytics** in
+[`docs/design/horizon.md`](horizon.md): *time-to-win* is BCE, and *handicap
+analysis* is BCR for systems whose rating is static.
+
+Source for the Sailwave behaviour, which its user guide does not document:
+the Sailwave user group threads
+[How do I use BCR](https://forum.sailingresults.co.uk/t/how-do-i-use-bcr/2055)
+and [Calculations for Back Calculated Handicap](https://forum.sailingresults.co.uk/t/calculations-for-back-calculated-handicap/6489),
+cross-checked against Nepean Sailing Club's
+[Understanding PHRF Results](https://nsc.ca/an/racing/understanding-phrf-results/).
+The `SWECHO` / `EchoIndex` formulas are in
+[`docs/notes/sailwave/excel-handicap-protocol.md`](../notes/sailwave/excel-handicap-protocol.md).
+
 ### Why Phase 2 is a significant jump
 
 Phase 1 is stateless: the same TCC/PY number applies to every race; results can be

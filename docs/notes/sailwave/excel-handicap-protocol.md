@@ -60,7 +60,7 @@ The spreadsheet assumes boats are **sorted fastest to slowest** (winner in row 9
 ```
 H_i    = G_i × 1440                          # elapsed time in decimal minutes
 CT_i   = MROUND(G_i × J_i, 1/86400)         # corrected time (rounded to 1 second)
-BCR_i  = CT_winner / ET_i                    # "Best Corrected Rate" — the TCF that
+BCR_i  = CT_winner / ET_i                    # "Back Calculated Rating" — the TCF that
                                               # would have given boat i exactly the
                                               # winner's corrected time
                                               # (= J_winner for the winner itself)
