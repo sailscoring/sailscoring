@@ -245,9 +245,15 @@ export interface SeriesFileRepos {
  *  matched on. Additive and sparse. Nothing scores off it, so an older build
  *  reading a v29 file would lose only the identifier — the bump is so that
  *  loss is visible rather than silent, which is the whole reason this format
- *  is versioned. */
-export const FORMAT_VERSION = 29;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29];
+ *  is versioned.
+ *
+ *  v30 adds optional `series.publishingGroups[*].recentRaces` (#372): publish
+ *  a combined page's per-race detail for the last N races only. Additive and
+ *  sparse, and purely presentational — the standings a group publishes are
+ *  the full series either way, so an older build reading a v30 file renders
+ *  the same results with more race tables than the scorer asked for. */
+export const FORMAT_VERSION = 30;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -323,7 +329,7 @@ interface SeriesFileSeries {
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
   showPerRaceRatingsInSummary?: boolean;
-  publishingGroups?: PublishingGroup[];  // v15+; combined published pages
+  publishingGroups?: PublishingGroup[];  // v15+; combined published pages (v30+ carries recentRaces)
   publishIndividualFleetPages?: boolean;  // v15+; absent = true
   publishDetail?: 'races';  // v28+; written only when set; absent = full detail
   rrsOrgPush?: RrsOrgPushConfig;  // v16+; rrs.org competitor-push settings

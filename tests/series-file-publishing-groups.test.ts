@@ -148,6 +148,18 @@ describe('publishingGroups fleet remap on import (v15)', () => {
     });
   });
 
+  it('a v30 file carries the per-page race-detail limit through the remap', async () => {
+    const file = makeFile();
+    file.formatVersion = 30;
+    file.series.publishingGroups![1].recentRaces = 6;
+    const repos = makeRepos();
+    await openSeriesFromFile(file, repos);
+    const pups = repos.savedSeries.at(-1)!.publishingGroups![1];
+    expect(pups.recentRaces).toBe(6);
+    // A group without the field keeps it absent — that's "every race".
+    expect(repos.savedSeries.at(-1)!.publishingGroups![0].recentRaces).toBeUndefined();
+  });
+
   it('a pre-v15 file loads with no publishing groups', async () => {
     const file = makeFile();
     file.formatVersion = 14;

@@ -111,6 +111,13 @@ export interface PublishingGroup {
   /** 'full' keeps each section's per-race detail tables; 'standings' renders
    *  only the summary standings tables. */
   detail: 'standings' | 'full';
+  /** Publish per-race detail for the last N races only; absent means all of
+   *  them. For pages embedded in a fixed-height frame, where a long series
+   *  overruns the space — the race tables are where the height is. The
+   *  standings are always the full series: a summary trimmed to match would
+   *  publish totals that visibly don't add up. Only meaningful at
+   *  `detail: 'full'`. */
+  recentRaces?: number;
 }
 
 /**

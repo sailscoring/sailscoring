@@ -84,6 +84,10 @@ export const publishingGroupSchema = z.object({
   fleetMode: z.enum(['all', 'chosen']),
   fleetIds: z.array(uuidSchema),
   detail: z.enum(['standings', 'full']),
+  // Publish the last N races' detail tables only. Optional on the wire;
+  // absent = every race. Bounded loosely — the cap is a sanity check, not a
+  // rule about series length.
+  recentRaces: z.number().int().min(1).max(999).optional(),
 });
 
 /** Protest / redress time limit from the SIs. Minutes are bounded loosely —
