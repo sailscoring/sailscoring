@@ -173,8 +173,11 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
   await page.goBack();
 
   // Abandon Blue's race: the start leaves the sequence, Yellow stands.
-  page.once('dialog', (d) => void d.accept());
   await q1Row.getByRole('button', { name: "Abandon Blue's race" }).click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText(
+    "Abandon Blue's Q1?",
+  );
+  await page.getByTestId('confirm-dialog-confirm').click();
   await expect(q1Row.getByText('Blue — no race')).toBeVisible();
   await expect(q1Row.getByText(/Yellow ✓/)).toBeVisible();
   await expect(page.getByText('does not count yet')).toHaveCount(2); // Q1 and Q2

@@ -38,6 +38,7 @@ import {
   useSplitFleetState,
 } from '@/hooks/use-split-fleets';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
+import { useConfirm } from '@/components/confirm-dialog';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
@@ -609,6 +610,7 @@ function QualifyingSection({
   canManage: boolean;
 }) {
   const [dialog, setDialog] = useState<'seed' | 'reassign' | 'split' | null>(null);
+  const confirm = useConfirm();
   const deleteRound = useDeleteSplitRound(seriesId);
   const addRaces = useAddSplitStageRaces(seriesId);
   const lrs = logicalRaces(data, 'qualifying');
@@ -657,10 +659,15 @@ function QualifyingSection({
                     size="icon-xs"
                     aria-label="Delete round"
                     disabled={deleteRound.isPending}
-                    onClick={() => {
-                      if (confirm('Delete this round and everything it created (fleets, races, finishes)?')) {
-                        deleteRound.mutate(round.id);
-                      }
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Delete this round?',
+                        description:
+                          'Everything it created goes with it — its fleets, races, and finishes.',
+                        confirmLabel: 'Delete round',
+                        destructive: true,
+                      });
+                      if (ok) deleteRound.mutate(round.id);
                     }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -774,6 +781,7 @@ function LogicalRaceRow({
   stageRaceNumber: number;
   canManage: boolean;
 }) {
+  const confirm = useConfirm();
   const abandon = useAbandonSplitStart(seriesId);
   const addRaces = useAddSplitStageRaces(seriesId);
   const refs = new Map(
@@ -845,16 +853,14 @@ function LogicalRaceRow({
                 aria-label={`Abandon ${meta.label}'s race`}
                 title={`Abandon ${meta.label}'s race`}
                 disabled={abandon.isPending}
-                onClick={() => {
-                  if (
-                    confirm(
-                      `Abandon ${meta.label}'s ${stagePrefix(stage)}${stageRaceNumber}? ` +
-                        `Removes ${meta.label} from this start sequence and voids any of its rows ` +
-                        `on the sheet; the other fleets stand. Re-race it with "Add catch-up race".`,
-                    )
-                  ) {
-                    abandon.mutate({ raceId: ref.race.id, fleetId: fid });
-                  }
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `Abandon ${meta.label}'s ${stagePrefix(stage)}${stageRaceNumber}?`,
+                    description: `This removes ${meta.label} from the start sequence and voids any of its rows on the sheet; the other fleets stand. Re-race it with “Add catch-up race”.`,
+                    confirmLabel: 'Abandon',
+                    destructive: true,
+                  });
+                  if (ok) abandon.mutate({ raceId: ref.race.id, fleetId: fid });
                 }}
               >
                 <Ban className="h-3 w-3" />
@@ -1311,6 +1317,7 @@ function FinalSection({
   standings: SplitStandingRow[];
   canManage: boolean;
 }) {
+  const confirm = useConfirm();
   const abandon = useAbandonSplitStart(seriesId);
   const addRaces = useAddSplitStageRaces(seriesId);
   const override = useApplySplitOverride(seriesId);
@@ -1386,16 +1393,14 @@ function FinalSection({
                       aria-label={`Abandon ${meta.label}'s F${ref.start.stageRaceNumber}`}
                       title={`Abandon ${meta.label}'s F${ref.start.stageRaceNumber}`}
                       disabled={abandon.isPending}
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `Abandon ${meta.label}'s F${ref.start.stageRaceNumber}? ` +
-                              `Removes ${meta.label} from this start sequence and voids any of its ` +
-                              `rows on the sheet; the other fleets stand.`,
-                          )
-                        ) {
-                          abandon.mutate({ raceId: ref.race.id, fleetId: fid });
-                        }
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: `Abandon ${meta.label}'s F${ref.start.stageRaceNumber}?`,
+                          description: `This removes ${meta.label} from the start sequence and voids any of its rows on the sheet; the other fleets stand.`,
+                          confirmLabel: 'Abandon',
+                          destructive: true,
+                        });
+                        if (ok) abandon.mutate({ raceId: ref.race.id, fleetId: fid });
                       }}
                     >
                       <Ban className="h-3 w-3" />
