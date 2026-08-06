@@ -525,6 +525,9 @@ export async function buildFleetHtmlFiles(
           // standings-only combined page of a single-race event is exactly
           // the table #347 exists to suppress.
           detail: pageDetail === 'races' ? 'races' : group.detail === 'standings' ? 'standings' : 'full',
+          // The race-detail limit (#372) is a full-detail concern; the
+          // renderer ignores it at the other detail levels.
+          ...(group.recentRaces != null ? { recentRaces: group.recentRaces } : {}),
         }),
       };
     });

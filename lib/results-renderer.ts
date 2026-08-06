@@ -420,15 +420,29 @@ function collectReferencedCodes(sections: SeriesResultsData[]): string[] {
  */
 export type SectionDetail = 'full' | 'standings' | 'races';
 
-/** One fleet section's summary standings table. `linkRaceLabels` controls
- *  whether the race column headers link to the per-race anchors; off when the
- *  detail tables (the link targets) aren't being rendered. */
+/**
+ * The races whose detail tables a section publishes: those with finishers,
+ * trimmed to the last `recentRaces` when the page sets a limit (#372). The
+ * standings are never trimmed — the limit is about how tall the page is, and
+ * that is the race tables.
+ */
+function detailedRaces(data: SeriesResultsData, recentRaces?: number): RaceData[] {
+  const scored = data.races.filter((race) => race.results.length > 0);
+  return recentRaces != null && recentRaces > 0 && recentRaces < scored.length
+    ? scored.slice(-recentRaces)
+    : scored;
+}
+
+/** One fleet section's summary standings table. A race column header links to
+ *  its detail table only when that table is on the page — so the headers go
+ *  plain on a standings-only page, and on the races a `recentRaces` limit
+ *  trimmed away. */
 function renderSectionSummary(
   data: SeriesResultsData,
   view: SectionView,
-  linkRaceLabels: boolean,
+  linkedAnchorIds: ReadonlySet<string>,
 ): string {
-  return renderSummaryTable(data.standings, data.races, view, linkRaceLabels, data.flagSvgByCode);
+  return renderSummaryTable(data.standings, data.races, view, linkedAnchorIds, data.flagSvgByCode);
 }
 
 /** One fleet section's per-race detail tables, empty when no race has
@@ -437,15 +451,25 @@ function renderSectionRaceTables(
   data: SeriesResultsData,
   view: SectionView,
   detail: SectionDetail,
+  recentRaces?: number,
 ): string {
-  const scored = data.races.filter((race) => race.results.length > 0);
+  const shown = detailedRaces(data, recentRaces);
   // A race-results section with a single race drops the "Race 1" prefix: it is
   // the event's result, and the numbering distinguishes nothing.
-  const suppressRaceLabel = detail === 'races' && scored.length === 1;
-  return scored
+  const suppressRaceLabel = detail === 'races' && shown.length === 1;
+  return shown
     .map((race) => renderRaceTable(race, view, data.flagSvgByCode, { suppressLabel: suppressRaceLabel }))
     .join('\n');
 }
+
+/** Anchor ids of the detail tables a section is publishing — what the summary
+ *  is allowed to link to. */
+function linkableAnchorIds(data: SeriesResultsData, recentRaces?: number): ReadonlySet<string> {
+  return new Set(detailedRaces(data, recentRaces).map((r) => r.anchorId));
+}
+
+/** No detail tables on the page, so no race column links. */
+const NO_LINKS: ReadonlySet<string> = new Set<string>();
 
 /** One fleet section's tables, per `detail`: the summary followed by the
  *  per-race detail. This is the per-fleet page's whole body; combined pages
@@ -455,12 +479,13 @@ function renderSectionTables(
   view: SectionView,
   opts: { detail: SectionDetail; linkRaceLabels: boolean },
 ): string {
-  if (opts.detail === 'standings') return renderSectionSummary(data, view, opts.linkRaceLabels);
+  const linked = opts.linkRaceLabels ? linkableAnchorIds(data) : NO_LINKS;
+  if (opts.detail === 'standings') return renderSectionSummary(data, view, linked);
   const raceTables = renderSectionRaceTables(data, view, opts.detail);
   // Never publish blank chrome: a section whose races have no finishers falls
   // back to the summary even when asked for race results alone.
   if (opts.detail === 'races' && raceTables) return raceTables;
-  return `${renderSectionSummary(data, view, opts.linkRaceLabels)}\n${raceTables}`;
+  return `${renderSectionSummary(data, view, linked)}\n${raceTables}`;
 }
 
 /** Document-level fields shared by the single-fleet and combined renders:
@@ -533,7 +558,14 @@ export function renderSeriesHtml(
  */
 export function renderCombinedSeriesHtml(
   sections: SeriesResultsData[],
-  options: { pageName: string; detail?: SectionDetail; fontPercent?: number },
+  options: {
+    pageName: string;
+    detail?: SectionDetail;
+    fontPercent?: number;
+    /** Publish per-race detail for the last N races only (#372). Applies at
+     *  full detail; the standings stay the whole series either way. */
+    recentRaces?: number;
+  },
 ): string {
   if (sections.length === 0) {
     throw new Error('renderCombinedSeriesHtml requires at least one section');
@@ -553,14 +585,23 @@ export function renderCombinedSeriesHtml(
   const fleetHeading = (data: SeriesResultsData) =>
     data.fleetName ? `<h2>${esc(data.fleetName)}</h2>\n` : '';
 
+  // Applies to the race tables only, and only where they're rendered.
+  const recentRaces = detail === 'full' ? options.recentRaces : undefined;
+  const trimmed =
+    recentRaces != null &&
+    sections.some((data) => detailedRaces(data).length > detailedRaces(data, recentRaces).length);
+
   let sectionHtml: string;
   if (detail === 'full') {
     const standingsHtml = viewed
-      .map(({ data, view }) => fleetHeading(data) + renderSectionSummary(data, view, true))
+      .map(
+        ({ data, view }) =>
+          fleetHeading(data) + renderSectionSummary(data, view, linkableAnchorIds(data, recentRaces)),
+      )
       .join('\n');
     const racesHtml = viewed
       .map(({ data, view }) => {
-        const tables = renderSectionRaceTables(data, view, 'full');
+        const tables = renderSectionRaceTables(data, view, 'full', recentRaces);
         if (!tables) return '';
         const heading = data.fleetName
           ? `${esc(data.fleetName)} &mdash; race results`
@@ -580,7 +621,16 @@ export function renderCombinedSeriesHtml(
       .join('\n');
   }
 
+  // Say the page is trimmed. Without it a shortened page reads as results
+  // gone missing, which is the last thing a results page should suggest.
+  const limitNote = trimmed
+    ? `<p class="racelimitnote">Race results shown for the ${
+        recentRaces === 1 ? 'last race' : `last ${recentRaces} races`
+      } &mdash; the standings cover the whole series.</p>`
+    : '';
+
   const content = [
+    limitNote,
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     sectionHtml,
@@ -727,6 +777,7 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
 .override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
+.racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
 /* A combined page's per-fleet race block: the rule and the space above it are
    what separate one fleet's set of races from the next when scrolling. */
 .fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
@@ -897,7 +948,9 @@ function renderSummaryTable(
   standings: StandingRowData[],
   races: RaceData[],
   view: SectionView,
-  linkRaceLabels: boolean,
+  /** Anchor ids of the per-race detail tables present on the page; a race
+   *  column header links only when its own table is one of them. */
+  linkedAnchorIds: ReadonlySet<string>,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {
   const { hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, summaryRatingSystem: ratingSystem } = view;
@@ -952,7 +1005,7 @@ function renderSummaryTable(
       const optionsNote = scoringOptionsLegend(r, r.label);
       const titleText = [r.name, optionsNote].filter(Boolean).join(' — ');
       const titleAttr = titleText ? ` title="${esc(titleText)}"` : '';
-      return linkRaceLabels && r.results.length > 0
+      return linkedAnchorIds.has(r.anchorId) && r.results.length > 0
         ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a>${esc(marks)}</th>`
         : `<th${titleAttr}>${esc(r.label)}${esc(marks)}</th>`;
     }),

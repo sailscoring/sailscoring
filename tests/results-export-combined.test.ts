@@ -202,6 +202,83 @@ describe('buildFleetHtmlFiles — combined pages', () => {
   });
 });
 
+describe('buildFleetHtmlFiles — combined page race-detail limit (#372)', () => {
+  const MANY_RACES: Race[] = [1, 2, 3, 4].map((n) => ({
+    id: `r${n}`,
+    seriesId: 's1',
+    raceNumber: n,
+    name: null,
+    date: `2026-09-0${n + 4}`,
+    createdAt: 0,
+  }));
+
+  const MANY_FINISHES: Finish[] = MANY_RACES.flatMap((race) =>
+    ['c1', 'c2', 'c3'].map((competitorId, i) => ({
+      ...makeFinish(competitorId, i + 1),
+      id: `${race.id}-${competitorId}`,
+      raceId: race.id,
+    })),
+  );
+
+  function makeManyRaceRepos(series: Series): ExportRepos {
+    return {
+      ...makeRepos(series),
+      raceRepo: { listBySeries: async () => MANY_RACES },
+      finishRepo: { listBySeries: async () => MANY_FINISHES },
+    } as unknown as ExportRepos;
+  }
+
+  async function combinedHtml(group: PublishingGroup): Promise<string> {
+    const files = await buildFleetHtmlFiles(makeManyRaceRepos(makeSeries([group])), 's1');
+    return files![0].html;
+  }
+
+  it('publishes only the last N races’ detail tables, keeping the full standings', async () => {
+    const html = await combinedHtml({ ...PUPPETEER, recentRaces: 2 });
+    // Two fleets × the last two races.
+    expect(html.match(/class="racetable"/g)).toHaveLength(4);
+    expect(html).toContain('id="puppeteer-scratch-r3"');
+    expect(html).toContain('id="puppeteer-scratch-r4"');
+    expect(html).not.toContain('id="puppeteer-scratch-r1"');
+    expect(html).not.toContain('id="puppeteer-scratch-r2"');
+    // The standings keep every race column — the limit is about page height,
+    // not about which races are scored.
+    expect(html.match(/<col class="race" \/>/g)).toHaveLength(8);
+  });
+
+  it('links only the race columns whose detail table is on the page', async () => {
+    const html = await combinedHtml({ ...PUPPETEER, recentRaces: 2 });
+    const targets = [...html.matchAll(/class="racelink" href="#([^"]+)"/g)].map((m) => m[1]);
+    expect(targets).toEqual([
+      'puppeteer-scratch-r3',
+      'puppeteer-scratch-r4',
+      'puppeteer-hph-r3',
+      'puppeteer-hph-r4',
+    ]);
+    for (const id of targets) expect(html).toContain(`id="${id}"`);
+  });
+
+  it('says on the page that the race detail is trimmed', async () => {
+    const html = await combinedHtml({ ...PUPPETEER, recentRaces: 2 });
+    expect(html).toContain('Race results shown for the last 2 races');
+    expect(html).toContain('the standings cover the whole series');
+  });
+
+  it('is absent, or wider than the series, without effect', async () => {
+    for (const group of [PUPPETEER, { ...PUPPETEER, recentRaces: 9 }]) {
+      const html = await combinedHtml(group);
+      expect(html.match(/class="racetable"/g)).toHaveLength(8);
+      expect(html).not.toContain('<p class="racelimitnote"');
+    }
+  });
+
+  it('is inert on a standings-only page, which has no race tables to trim', async () => {
+    const html = await combinedHtml({ ...OVERALL, recentRaces: 2 });
+    expect(html).not.toContain('class="racetable"');
+    expect(html).not.toContain('<p class="racelimitnote"');
+  });
+});
+
 describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () => {
   // Two blocks over the same race; Spring is fleet-scoped so it scores only
   // the two Puppeteer fleets, exercising the membership ∩ block-fleets rule.
