@@ -97,8 +97,18 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   await expect(page.getByRole('button', { name: 'Add competitor' })).toHaveCount(0);
 
   // ── 6. Reopen as provisional; editing comes back ─────────────────────────
-  page.once('dialog', (d) => d.accept());
+  // Cancelling leaves the series final — the confirmation is a real gate,
+  // not a formality.
   await page.getByRole('button', { name: 'Reopen as provisional' }).click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText(
+    'Reopen this series as provisional?',
+  );
+  await page.getByTestId('confirm-dialog-cancel').click();
+  await expect(page.getByTestId('confirm-dialog')).toHaveCount(0);
+  await expect(page.getByTestId('final-banner')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Reopen as provisional' }).click();
+  await page.getByTestId('confirm-dialog-confirm').click();
   await expect(page.getByTestId('final-banner')).toHaveCount(0);
   await expect(page.getByTestId('final-badge')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();

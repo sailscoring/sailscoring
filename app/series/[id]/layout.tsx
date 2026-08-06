@@ -8,6 +8,7 @@ import { useSeries, useArchiveSeries, useSetResultsStatus } from '@/hooks/use-se
 import { cn } from '@/lib/utils';
 import { useChordShortcut, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { usePublicationStatus } from '@/hooks/use-published';
+import { useConfirm } from '@/components/confirm-dialog';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
@@ -47,6 +48,7 @@ export default function SeriesLayout({
   const setResultsStatus = useSetResultsStatus();
   const { can } = useWorkspacePermissions();
   const { has } = useFeatures();
+  const confirm = useConfirm();
   const [showHelp, setShowHelp] = useState(false);
 
   const showPrizes = has('prizes');
@@ -173,10 +175,14 @@ export default function SeriesLayout({
               size="sm"
               variant="outline"
               disabled={setResultsStatus.isPending}
-              onClick={() => {
-                if (confirm('Reopen this series as provisional? Results become editable again and the Final stamp comes off the next publish.')) {
-                  setResultsStatus.mutate({ id, status: 'provisional' });
-                }
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Reopen this series as provisional?',
+                  description:
+                    'Results become editable again and the Final stamp comes off the next publish.',
+                  confirmLabel: 'Reopen',
+                });
+                if (ok) setResultsStatus.mutate({ id, status: 'provisional' });
               }}
             >
               Reopen as provisional
