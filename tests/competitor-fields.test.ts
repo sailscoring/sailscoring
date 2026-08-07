@@ -15,7 +15,10 @@ import {
   isFieldDisabledByPrimary,
   isMultiPersonField,
   multiPersonAllowed,
+  personFieldFormLabel,
+  personFieldHeader,
   primaryPersonFieldKey,
+  primaryPersonHeader,
   subdivisionAxisLabel,
   subdivisionAxes,
   cleanSubdivisions,
@@ -307,6 +310,46 @@ describe('multiPersonAllowed', () => {
     expect(multiPersonAllowed({ multiPersonFields: [...series.multiPersonFields] }, 'crewName')).toBe(true);
     expect(multiPersonAllowed({ multiPersonFields: [...series.multiPersonFields] }, 'primary')).toBe(false);
     expect(multiPersonAllowed({ multiPersonFields: [...series.multiPersonFields] }, 'helm')).toBe(false);
+  });
+});
+
+describe('personFieldHeader', () => {
+  it('is singular when the field takes one name', () => {
+    expect(personFieldHeader('owner', [])).toBe('Owner');
+    expect(personFieldHeader('helm', undefined)).toBe('Helm');
+  });
+
+  it('pluralises only the fields the series has opened', () => {
+    expect(personFieldHeader('owner', ['owner'])).toBe('Owners');
+    expect(personFieldHeader('helm', ['owner'])).toBe('Helm');
+    expect(personFieldHeader('helm', ['helm'])).toBe('Helms');
+  });
+
+  it('leaves Crew alone — it is already a mass noun', () => {
+    expect(personFieldHeader('crewName', [])).toBe('Crew');
+    expect(personFieldHeader('crewName', ['crewName'])).toBe('Crew');
+  });
+});
+
+describe('personFieldFormLabel', () => {
+  it('names one input or several', () => {
+    expect(personFieldFormLabel('owner', [])).toBe('Owner name');
+    expect(personFieldFormLabel('owner', ['owner'])).toBe('Owner names');
+    expect(personFieldFormLabel('helm', ['owner'])).toBe('Helm name');
+  });
+});
+
+describe('primaryPersonHeader', () => {
+  it('is singular unless the primary slot takes several names', () => {
+    expect(primaryPersonHeader('competitor', [])).toBe('Competitor');
+    expect(primaryPersonHeader('competitor', ['owner'])).toBe('Competitor');
+    expect(primaryPersonHeader('competitor', ['primary'])).toBe('Competitors');
+  });
+
+  it('pluralises every primary-label option', () => {
+    expect(primaryPersonHeader('entrant', ['primary'])).toBe('Entrants');
+    expect(primaryPersonHeader('helm', ['primary'])).toBe('Helms');
+    expect(primaryPersonHeader('owner', ['primary'])).toBe('Owners');
   });
 });
 

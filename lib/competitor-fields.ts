@@ -176,6 +176,36 @@ export function multiPersonAllowed(
   return series.multiPersonFields?.includes(key) ?? false;
 }
 
+/** Column headers for the role person fields, singular and plural. Crew is a
+ *  mass noun, so it reads the same either way. */
+const PERSON_FIELD_HEADERS: Record<'owner' | 'helm' | 'crewName', [string, string]> = {
+  owner: ['Owner', 'Owners'],
+  helm: ['Helm', 'Helms'],
+  crewName: ['Crew', 'Crew'],
+};
+
+/** Column header for a role person field. Plural once the series has opened
+ *  that field to multiple names — the setting is the scorer's declared intent
+ *  for the whole series, so the header doesn't flip about as rows are edited
+ *  or as you page through the competitors. */
+export function personFieldHeader(
+  field: 'owner' | 'helm' | 'crewName',
+  multiPersonFields: readonly MultiPersonFieldKey[] | undefined,
+): string {
+  const [singular, plural] = PERSON_FIELD_HEADERS[field];
+  return multiPersonFields?.includes(field) ? plural : singular;
+}
+
+/** Form label for a role person field — the header plus the noun the inputs
+ *  hold: "Owner name", or "Owner names" when the field takes several. */
+export function personFieldFormLabel(
+  field: 'owner' | 'helm',
+  multiPersonFields: readonly MultiPersonFieldKey[] | undefined,
+): string {
+  const [singular] = PERSON_FIELD_HEADERS[field];
+  return `${singular} ${multiPersonFields?.includes(field) ? 'names' : 'name'}`;
+}
+
 /** Display order for the primary-label picker. */
 export const PRIMARY_PERSON_LABELS: readonly PrimaryPersonLabel[] = [
   'competitor',
@@ -192,6 +222,26 @@ export const PRIMARY_PERSON_LABEL_TEXT: Record<PrimaryPersonLabel, string> = {
   helm: 'Helm',
   owner: 'Owner',
 };
+
+/** Plural forms of the primary-label options, for the column header of a
+ *  series whose entries carry more than one primary name. */
+const PRIMARY_PERSON_LABEL_PLURAL: Record<PrimaryPersonLabel, string> = {
+  competitor: 'Competitors',
+  entrant: 'Entrants',
+  helm: 'Helms',
+  owner: 'Owners',
+};
+
+/** Header for the primary person column, plural when the series opens the
+ *  primary slot to multiple names. */
+export function primaryPersonHeader(
+  label: PrimaryPersonLabel,
+  multiPersonFields: readonly MultiPersonFieldKey[] | undefined,
+): string {
+  return multiPersonFields?.includes('primary')
+    ? PRIMARY_PERSON_LABEL_PLURAL[label]
+    : PRIMARY_PERSON_LABEL_TEXT[label];
+}
 
 /** Short descriptions to help scorers choose a primary-label option. */
 export const PRIMARY_PERSON_LABEL_HINTS: Record<PrimaryPersonLabel, string> = {

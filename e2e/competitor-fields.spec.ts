@@ -184,6 +184,9 @@ test('co-owners: Add owner rows, gender/age single-individual rule, stacked expo
   await expect(row).toContainText('J. Murphy');
   await expect(row).toContainText('M. Murphy');
 
+  // ── 4b. …under a plural header, since the series allows several owners ───
+  await expect(page.getByRole('columnheader', { name: 'Owners', exact: true })).toBeVisible();
+
   // ── 5. Race + finish, then export: stacked primary, no stored age ────────
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
@@ -198,6 +201,7 @@ test('co-owners: Add owner rows, gender/age single-individual rule, stacked expo
   const fs = await import('node:fs');
   const html = fs.readFileSync(path, 'utf-8');
   expect(html).toContain('J. Murphy<br>M. Murphy');
+  expect(html).toContain('<th>Owners</th>');
   expect(html).not.toContain('>44<');
 });
 

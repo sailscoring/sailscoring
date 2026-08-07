@@ -18,12 +18,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
-  PRIMARY_PERSON_LABEL_TEXT,
   isFieldDisabledByPrimary,
+  personFieldHeader,
+  primaryPersonHeader,
   subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
 import type {
   CompetitorFieldKey,
+  MultiPersonFieldKey,
   PrimaryPersonLabel,
   RaceDiscardPolicy,
   Standing,
@@ -59,6 +61,9 @@ export interface FleetStandingsTableProps {
   hasDiscards: boolean;
   enabledFields: CompetitorFieldKey[];
   primaryLabel: PrimaryPersonLabel;
+  /** Person fields opened to multiple names (#316); their headers read
+   *  plural. [] = all single. */
+  multiPersonFields?: MultiPersonFieldKey[];
   /** Configured subdivision axes; one prize-giving column each. */
   subdivisionAxes: SubdivisionAxis[];
   /** Fleet display name, used in the race-column exclusion menu. */
@@ -89,6 +94,7 @@ export function FleetStandingsTable({
   hasDiscards,
   enabledFields,
   primaryLabel,
+  multiPersonFields,
   subdivisionAxes,
   fleetName,
   excludedRaceIds,
@@ -123,10 +129,10 @@ export function FleetStandingsTable({
           <TableHead className="w-20">Sail no.</TableHead>
           {showBoat && <TableHead>Boat</TableHead>}
           {showClass && <TableHead>Class</TableHead>}
-          <TableHead>{PRIMARY_PERSON_LABEL_TEXT[primaryLabel]}</TableHead>
-          {showHelm && <TableHead>Helm</TableHead>}
-          {showOwner && <TableHead>Owner</TableHead>}
-          {showCrew && <TableHead>Crew</TableHead>}
+          <TableHead>{primaryPersonHeader(primaryLabel, multiPersonFields)}</TableHead>
+          {showHelm && <TableHead>{personFieldHeader('helm', multiPersonFields)}</TableHead>}
+          {showOwner && <TableHead>{personFieldHeader('owner', multiPersonFields)}</TableHead>}
+          {showCrew && <TableHead>{personFieldHeader('crewName', multiPersonFields)}</TableHead>}
           {showClub && <TableHead>Club</TableHead>}
           {showNationality && <TableHead>Nat</TableHead>}
           {visibleAxes.map((axis) => (

@@ -441,6 +441,7 @@ export async function buildFleetHtmlFiles(
           fleetId: fleet.id,
           scoringSystem: fleet.scoringSystem,
           primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+          multiPersonFields: series.multiPersonFields ?? [],
           subdivisionAxes: series.subdivisionAxes ?? [],
           ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
           ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),

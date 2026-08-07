@@ -334,6 +334,7 @@ export default function StandingsPage({
               hasDiscards={hasDiscards}
               enabledFields={enabledFields}
               primaryLabel={data.primaryLabel}
+              multiPersonFields={data.series.multiPersonFields}
               subdivisionAxes={axes}
               fleetName={fleet.name}
               excludedRaceIds={excludedRaceIds}

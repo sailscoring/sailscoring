@@ -127,7 +127,10 @@ export default async function Page() {
               co-helms, and full keelboat crews are all first-class. A single owner-and-crew
               pairing keeps the classic one-line <em>Helm / Crew</em> in exported results; any
               more people stack one name per line. One-line contexts such as finish entry join
-              co-owners with an ampersand. Untick it and the field goes back to a single value —
+              co-owners with an ampersand. The column header follows the setting, so a series
+              that allows several owners is headed <em>Owners</em> rather than <em>Owner</em>,
+              in the competitor list, the standings, and published results. Untick it and the
+              field goes back to a single value —
               entries that already carry several names keep them and still show every row.
             </p>
             <p>

@@ -18,6 +18,8 @@ import {
   COMPETITOR_FIELD_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
   isFieldDisabledByPrimary,
+  personFieldFormLabel,
+  personFieldHeader,
   subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
 import { requiredForFleetsHint } from '@/lib/competitor-ratings';
@@ -322,7 +324,7 @@ export function CompetitorForm({
         </div>
         <div className="space-y-1.5">
           <PersonRowsField
-            heading={<>{primaryFieldLabel} name *</>}
+            heading={<>{primaryFieldLabel} {multiPersonFields.includes('primary') ? 'names' : 'name'} *</>}
             rowLabelBase={`${primaryFieldLabel} name`}
             addLabel="Add name"
             rows={data.names}
@@ -430,7 +432,7 @@ export function CompetitorForm({
         )}
         {enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel) && (
           <PersonRowsField
-            heading="Helm name"
+            heading={personFieldFormLabel('helm', multiPersonFields)}
             rowLabelBase="Helm name"
             addLabel="Add helm"
             rows={data.helms}
@@ -441,7 +443,7 @@ export function CompetitorForm({
         )}
         {enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel) && (
           <PersonRowsField
-            heading="Owner name"
+            heading={personFieldFormLabel('owner', multiPersonFields)}
             rowLabelBase="Owner name"
             addLabel="Add owner"
             rows={data.owners}
@@ -452,7 +454,7 @@ export function CompetitorForm({
         )}
         {showMore && extraRoleFields.includes('helm') && (
           <PersonRowsField
-            heading="Helm name"
+            heading={personFieldFormLabel('helm', multiPersonFields)}
             rowLabelBase="Helm name"
             addLabel="Add helm"
             rows={data.helms}
@@ -463,7 +465,7 @@ export function CompetitorForm({
         )}
         {showMore && extraRoleFields.includes('owner') && (
           <PersonRowsField
-            heading="Owner name"
+            heading={personFieldFormLabel('owner', multiPersonFields)}
             rowLabelBase="Owner name"
             addLabel="Add owner"
             rows={data.owners}
@@ -474,7 +476,7 @@ export function CompetitorForm({
         )}
         {enabledFields.includes('crewName') && (
           <PersonRowsField
-            heading="Crew"
+            heading={personFieldHeader('crewName', multiPersonFields)}
             rowLabelBase="Crew"
             addLabel="Add crew"
             rows={data.crewNames}

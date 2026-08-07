@@ -598,6 +598,28 @@ describe('renderSeriesHtml', () => {
       expect(html).toContain('<th>Owner</th>');
       expect(html).not.toContain('<th>Helm</th>');
     });
+
+    it('pluralises the primary header when the primary slot takes several names', () => {
+      const html = renderSeriesHtml({
+        ...withBoatAndCrew,
+        enabledCompetitorFields: [],
+        primaryPersonLabel: 'owner',
+        multiPersonFields: ['primary'],
+      });
+      expect(html).toContain('<th>Owners</th>');
+    });
+
+    it('pluralises a role header only when that field takes several names', () => {
+      const html = renderSeriesHtml({
+        ...withBoatAndCrew,
+        enabledCompetitorFields: ['owner', 'helm'],
+        primaryPersonLabel: 'competitor',
+        multiPersonFields: ['owner'],
+      });
+      expect(html).toContain('<th>Owners</th>');
+      expect(html).toContain('<th>Helm</th>');
+      expect(html).toContain('<th>Competitor</th>');
+    });
   });
 
   describe('subdivision columns', () => {

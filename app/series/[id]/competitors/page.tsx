@@ -78,7 +78,8 @@ import {
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
-  PRIMARY_PERSON_LABEL_TEXT,
+  personFieldHeader,
+  primaryPersonHeader,
   ALL_COMPETITOR_FIELDS,
   isFieldDisabledByPrimary,
   sameFleetIdSet,
@@ -151,11 +152,11 @@ export default function CompetitorsPage({
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const primaryLabel: PrimaryPersonLabel =
     series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
-  const primaryFieldLabel = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
   const axes = series ? subdivisionAxes(series) : [];
   // Person fields opened to multiple names (#316). The feature gate lives in
   // the settings card that writes this; the dialog only reads the result.
   const multiPersonFields = series?.multiPersonFields ?? [];
+  const primaryHeader = primaryPersonHeader(primaryLabel, multiPersonFields);
   const fleetById = new Map((fleets ?? []).map((f) => [f.id, f]));
   const multipleFleets = (fleets ?? []).length > 1;
   const ratingSystems = configuredRatingSystems(fleets ?? []);
@@ -796,10 +797,10 @@ export default function CompetitorsPage({
               {showWorldSailingId && <SortableTableHead columnId="worldSailingId" sortKeys={sortKeys} onSort={handleSort}>WS ID</SortableTableHead>}
               {showBoat && <SortableTableHead columnId="boatName" sortKeys={sortKeys} onSort={handleSort}>Boat</SortableTableHead>}
               {showClass && <SortableTableHead columnId="boatClass" sortKeys={sortKeys} onSort={handleSort}>Class</SortableTableHead>}
-              <SortableTableHead columnId="names" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{primaryFieldLabel}</SortableTableHead>
-              {showHelm && <SortableTableHead columnId="helms" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Helm</SortableTableHead>}
-              {showOwner && <SortableTableHead columnId="owners" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Owner</SortableTableHead>}
-              {showCrew && <SortableTableHead columnId="crewNames" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Crew</SortableTableHead>}
+              <SortableTableHead columnId="names" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{primaryHeader}</SortableTableHead>
+              {showHelm && <SortableTableHead columnId="helms" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{personFieldHeader('helm', multiPersonFields)}</SortableTableHead>}
+              {showOwner && <SortableTableHead columnId="owners" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{personFieldHeader('owner', multiPersonFields)}</SortableTableHead>}
+              {showCrew && <SortableTableHead columnId="crewNames" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{personFieldHeader('crewName', multiPersonFields)}</SortableTableHead>}
               {showClub && <SortableTableHead columnId="club" sortKeys={sortKeys} onSort={handleSort}>Club</SortableTableHead>}
               {showNationality && <SortableTableHead columnId="nationality" sortKeys={sortKeys} onSort={handleSort}>Nat</SortableTableHead>}
               {multipleFleets && <SortableTableHead columnId="fleets" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Fleet</SortableTableHead>}

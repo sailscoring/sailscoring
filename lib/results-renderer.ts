@@ -1,4 +1,4 @@
-import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
+import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
 import { parseHmsToSeconds } from './time-parse';
 import {
@@ -7,6 +7,8 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   DEFAULT_SUBDIVISION_LABEL,
   isFieldDisabledByPrimary,
+  personFieldHeader,
+  primaryPersonHeader,
 } from './competitor-fields';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
@@ -60,6 +62,10 @@ export interface SeriesResultsData {
    *  summary and race table column heading that corresponds to the primary
    *  name. Defaults to "Competitor" if not set (matching v1 files). */
   primaryPersonLabel?: PrimaryPersonLabel;
+  /** Person fields the series has opened to multiple names (#316). Their
+   *  column headers read plural, so a reader meeting two names stacked in a
+   *  cell isn't left wondering. Absent/empty = all single. */
+  multiPersonFields?: MultiPersonFieldKey[];
   /** Named subdivision axes, e.g. a "Division" and an "Age category"
    *  axis. Each becomes a prize-giving column (one per axis) in the summary and
    *  race tables, headed by its label, suppressed when no competitor has a value
@@ -333,15 +339,21 @@ interface SectionView {
   showAge: boolean;
   showGender: boolean;
   primaryHeader: string;
+  helmHeader: string;
+  ownerHeader: string;
+  crewHeader: string;
   summaryRatingSystem: 'nhc' | 'echo' | null;
 }
 
 function computeSectionView(data: SeriesResultsData): SectionView {
-  const { enabledCompetitorFields, primaryPersonLabel, races, standings, progressiveScoringSystem, showPerRaceRatings } = data;
+  const { enabledCompetitorFields, primaryPersonLabel, multiPersonFields, races, standings, progressiveScoringSystem, showPerRaceRatings } = data;
   const summaryRatingSystem = showPerRaceRatings && progressiveScoringSystem ? progressiveScoringSystem : null;
 
   const primaryLabel = primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
-  const primaryHeader = PRIMARY_PERSON_LABEL_TEXT[primaryLabel];
+  const primaryHeader = primaryPersonHeader(primaryLabel, multiPersonFields);
+  const helmHeader = personFieldHeader('helm', multiPersonFields);
+  const ownerHeader = personFieldHeader('owner', multiPersonFields);
+  const crewHeader = personFieldHeader('crewName', multiPersonFields);
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
   const showBoatName = enabledCompetitorFields.includes('boatName');
   const showBoatClass = enabledCompetitorFields.includes('boatClass');
@@ -395,6 +407,9 @@ function computeSectionView(data: SeriesResultsData): SectionView {
     showAge,
     showGender,
     primaryHeader,
+    helmHeader,
+    ownerHeader,
+    crewHeader,
     summaryRatingSystem,
   };
 }
@@ -954,7 +969,7 @@ function renderSummaryTable(
   linkedAnchorIds: ReadonlySet<string>,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {
-  const { hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, summaryRatingSystem: ratingSystem } = view;
+  const { hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader, summaryRatingSystem: ratingSystem } = view;
   const hasSeedCol = ratingSystem !== null;
   const seedHeader = ratingSystem === 'nhc' ? 'NHC1' : (ratingSystem === 'echo' ? 'ECHO' : '');
   const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
@@ -986,9 +1001,9 @@ function renderSummaryTable(
     '<th>Sail Number</th>',
     ...(showBoatName ? ['<th>Boat</th>'] : []),
     ...(showBoatClass ? ['<th>Class</th>'] : []),
-    `<th>${esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader)}</th>`,
-    ...(showHelm ? ['<th>Helm</th>'] : []),
-    ...(showOwner ? ['<th>Owner</th>'] : []),
+    `<th>${esc(showCrewName ? `${primaryHeader} / ${crewHeader}` : primaryHeader)}</th>`,
+    ...(showHelm ? [`<th>${esc(helmHeader)}</th>`] : []),
+    ...(showOwner ? [`<th>${esc(ownerHeader)}</th>`] : []),
     ...(showClub ? ['<th>Club</th>'] : []),
     ...(showNationality ? ['<th>Nationality</th>'] : []),
     ...(showWorldSailingId ? ['<th>World Sailing ID</th>'] : []),
@@ -1099,7 +1114,7 @@ function renderRaceTable(
   // lone race of a race-results page, where the numbering says nothing.
   opts?: { suppressLabel?: boolean },
 ): string {
-  const { showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader } = view;
+  const { showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader } = view;
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const isNhc = race.isNhc === true || race.nhcHeader != null;
@@ -1213,7 +1228,7 @@ function renderRaceTable(
     ? `<p class="echo-fleet-header echo-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: ECHO &middot; α = ${race.echoHeader!.alpha} &middot; Finishers: ${race.echoHeader!.finisherCount} &middot; ΣH_S = ${race.echoHeader!.sumH.toFixed(3)} &middot; Σ(1/T_E) = ${race.echoHeader!.sumReciprocalEt.toFixed(5)}${race.echoHeader!.updateSuppressed ? ' &middot; <strong>Rating update suppressed (fewer than 3 finishers)</strong>' : ''}</p>`
     : '';
 
-  const primaryTh = esc(showCrewName ? `${primaryHeader} / Crew` : primaryHeader);
+  const primaryTh = esc(showCrewName ? `${primaryHeader} / ${crewHeader}` : primaryHeader);
   const nameStr = race.name ? `${esc(race.name)}&nbsp;&mdash;&nbsp;` : '';
   // The Points column here is the race's own score at face value; the
   // multiplier applies in the series total, so say so where the two differ.
@@ -1244,7 +1259,7 @@ ${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail Number</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? '\n<th>Helm</th>' : ''}${showOwner ? '\n<th>Owner</th>' : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
+${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? `\n<th>${esc(helmHeader)}</th>` : ''}${showOwner ? `\n<th>${esc(ownerHeader)}</th>` : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
 <th>Points</th>
 </tr>
 </thead>
@@ -1547,6 +1562,8 @@ export function assembleSeriesResultsData(
     /** Display label for the primary person slot. Defaults to "Competitor"
      *  in the renderer if omitted here (matching v1 file behaviour). */
     primaryPersonLabel?: PrimaryPersonLabel;
+    /** Person fields opened to multiple names; their headers read plural. */
+    multiPersonFields?: MultiPersonFieldKey[];
     /** Named subdivision axes; one prize-giving column each. */
     subdivisionAxes?: SubdivisionAxis[];
     /** RaceStart records for all races — used to find the gun time for this fleet */
@@ -1587,7 +1604,7 @@ export function assembleSeriesResultsData(
     publishOfficials?: boolean;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -1821,6 +1838,7 @@ export function assembleSeriesResultsData(
     ...(publishOfficials && hasOfficials(officials) ? { officials } : {}),
     enabledCompetitorFields,
     ...(primaryPersonLabel ? { primaryPersonLabel } : {}),
+    ...(multiPersonFields?.length ? { multiPersonFields } : {}),
     ...(subdivisionAxes?.length ? { subdivisionAxes } : {}),
     races: raceDataList,
     standings: standingRows,
