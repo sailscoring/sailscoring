@@ -169,8 +169,10 @@ export default async function Page() {
           standings, and exported results.
         </p>
         <p>
-          Competitors are sorted by sail number. You can edit or delete a competitor at any time,
-          though deleting one after races have been entered will also remove their finishes.
+          Competitors are listed by sail number (see{' '}
+          <em>Sorting the competitor list</em> below to order them another way).
+          You can edit or delete a competitor at any time, though deleting one
+          after races have been entered will also remove their finishes.
         </p>
         <p>
           To clean up several entries at once — say after a mis-import — use the{' '}
@@ -214,6 +216,40 @@ export default async function Page() {
           the newest sail number. When two of the entries both hold a finish in the same race the
           group is flagged instead of merged, since both results can’t stand; fix the finish
           sheet, then merge.
+        </p>
+      </Section>
+      <Section id="sorting-the-competitor-list" title="Sorting the competitor list">
+        <HelpShot
+          src="/help/shots/competitor-sorting.webp"
+          alt="The competitors table sorted by club, then by sail number, each heading showing its arrow and its place in the sort."
+          caption="Sorted by club first, then sail number — the small numbers beside each arrow show which column applies first."
+        />
+        <p>
+          The list arrives ordered by sail number, counted as a number rather
+          than as text — so <em>7</em> comes before <em>69</em> and{' '}
+          <em>217236</em>, however many digits each carries. Entries with
+          national letters group by country first.
+        </p>
+        <p>
+          Click any column heading to sort by it instead. Click the same
+          heading again to reverse the order, and a third time to return to the
+          default. An arrow on the heading shows which way it is sorted.
+        </p>
+        <p>
+          Hold <strong className="text-foreground">Shift</strong> while clicking
+          to add a column to the sort rather than replacing it — so you can list
+          the entries by nationality, then by gender within each nationality,
+          then by sail number within that. A small number beside each arrow
+          shows the order the columns apply in. Up to three columns can be
+          stacked; adding a fourth drops the one you chose first. A plain click
+          on any heading starts again with that column alone.
+        </p>
+        <p>
+          Sorting only changes how the list is shown — it changes nothing about
+          the entries, affects no results, and is not saved. Leaving the tab and
+          coming back gives you the default sail-number order again. It also
+          works alongside the filter box: filter to a club, then sort what’s
+          left.
         </p>
       </Section>
       <Section id="fleets" title="Fleets">

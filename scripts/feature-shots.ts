@@ -139,6 +139,23 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Sorting the competitor list. Stacks two keys so the shot
+    // shows the position badges, which are the part that needs explaining.
+    slug: 'competitor-sorting',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('columnheader', { name: 'Club' }).getByRole('button').click();
+      await page
+        .getByRole('columnheader', { name: 'Sail no.' })
+        .getByRole('button')
+        .click({ modifiers: ['Shift'] });
+      await settle(page);
+      await shot('competitor-sorting.png');
+    },
+  },
+  {
     // Inventory: Adding races, bulk add. Fills the generator dialog to make
     // the date preview render, then Escapes without creating anything.
     slug: 'add-races-bulk',

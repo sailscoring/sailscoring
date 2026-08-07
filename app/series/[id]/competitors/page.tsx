@@ -20,6 +20,16 @@ import { queryKeys } from '@/hooks/query-keys';
 import { finishRepo, raceRatingOverrideRepo } from '@/lib/api-repository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SortableTableHead } from '@/components/sortable-table-head';
+import {
+  comparatorFor,
+  compareNumeric,
+  compareText,
+  toggleSortKey,
+  type SortableColumn,
+  type SortKey,
+} from '@/lib/table-sort';
+import { compareSailNumbers } from '@/lib/sail-number-sort';
 import {
   Table,
   TableBody,
@@ -167,6 +177,9 @@ export default function CompetitorsPage({
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   // Result line for the bulk actions (duplicate scan, field set).
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Click-to-sort stack. View state: deliberately not persisted, so leaving
+  // the tab returns the list to its default sail-number order.
+  const [sortKeys, setSortKeys] = useState<SortKey[]>([]);
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
@@ -555,6 +568,58 @@ export default function CompetitorsPage({
   const showAge = enabledFields.includes('age');
   const visibleAxes = enabledFields.includes('subdivision') ? axes : [];
 
+  // One comparator per column the table can show. Only shown columns are
+  // listed, so a sort key left over from a column the series has since turned
+  // off is ignored rather than sorting on something invisible.
+  const col = (
+    id: string,
+    compare: (a: Competitor, b: Competitor) => number,
+  ): SortableColumn<Competitor> => ({ id, compare });
+  const names = (values: string[] | undefined) => (values ?? []).filter((n) => n.trim()).join(' ');
+  const fleetNames = (c: Competitor) =>
+    c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ');
+  // The rating cell renders a display string, with an em dash where the boat
+  // has no certificate. Sort on the number behind it, and treat the dash as
+  // the blank it stands for.
+  const ratingValue = (c: Competitor) => {
+    const shown = Number(competitorRatings(c, fleetById)[0]?.value);
+    return Number.isFinite(shown) ? shown : null;
+  };
+  const sortColumns: SortableColumn<Competitor>[] = [
+    col('sailNumber', (a, b) => compareSailNumbers(a.sailNumber, b.sailNumber)),
+    ...(showBow ? [col('bowNumber', (a, b) => compareSailNumbers(a.bowNumber ?? '', b.bowNumber ?? ''))] : []),
+    ...(showSeed ? [col('seed', (a, b) => compareNumeric(a.seed, b.seed))] : []),
+    ...(showWorldSailingId ? [col('worldSailingId', (a, b) => compareText(a.worldSailingId, b.worldSailingId))] : []),
+    ...(showBoat ? [col('boatName', (a, b) => compareText(a.boatName, b.boatName))] : []),
+    ...(showClass ? [col('boatClass', (a, b) => compareText(a.boatClass, b.boatClass))] : []),
+    col('names', (a, b) => compareText(names(a.names), names(b.names))),
+    ...(showHelm ? [col('helms', (a, b) => compareText(names(a.helms), names(b.helms)))] : []),
+    ...(showOwner ? [col('owners', (a, b) => compareText(names(a.owners), names(b.owners)))] : []),
+    ...(showCrew ? [col('crewNames', (a, b) => compareText(names(a.crewNames), names(b.crewNames)))] : []),
+    ...(showClub ? [col('club', (a, b) => compareText(a.club, b.club))] : []),
+    ...(showNationality ? [col('nationality', (a, b) => compareText(a.nationality, b.nationality))] : []),
+    ...(multipleFleets ? [col('fleets', (a, b) => compareText(fleetNames(a), fleetNames(b)))] : []),
+    // A boat can carry more than one rating; sort on the one the cell shows
+    // first, since mixed systems have no single scale to order across.
+    ...(showRating ? [col('rating', (a, b) => compareNumeric(ratingValue(a), ratingValue(b)))] : []),
+    ...(showGender ? [col('gender', (a, b) => compareText(a.gender, b.gender))] : []),
+    ...(showAge ? [col('age', (a, b) => compareNumeric(a.age, b.age))] : []),
+    ...visibleAxes.map((axis) =>
+      col(`axis:${axis.id}`, (a, b) =>
+        compareText(a.subdivisions?.[axis.id], b.subdivisions?.[axis.id]),
+      ),
+    ),
+  ];
+
+  const sortComparator = comparatorFor(sortKeys, sortColumns);
+  // Sorting a list the server already returned in sail-number order, so a
+  // stable sort leaves ties in that order rather than an arbitrary one.
+  const sortedCompetitors = sortComparator
+    ? [...filteredCompetitors].sort(sortComparator)
+    : filteredCompetitors;
+  const handleSort = (columnId: string, additive: boolean) =>
+    setSortKeys((keys) => toggleSortKey(keys, columnId, additive));
+
   return (
     <div className="space-y-6">
       {series?.previousSeriesId && (
@@ -702,29 +767,29 @@ export default function CompetitorsPage({
                   />
                 </TableHead>
               )}
-              <TableHead>Sail no.</TableHead>
-              {showBow && <TableHead>Bow no.</TableHead>}
-              {showSeed && <TableHead>Seeding rank</TableHead>}
-              {showWorldSailingId && <TableHead>WS ID</TableHead>}
-              {showBoat && <TableHead>Boat</TableHead>}
-              {showClass && <TableHead>Class</TableHead>}
-              <TableHead className="whitespace-normal break-words">{primaryFieldLabel}</TableHead>
-              {showHelm && <TableHead className="whitespace-normal break-words">Helm</TableHead>}
-              {showOwner && <TableHead className="whitespace-normal break-words">Owner</TableHead>}
-              {showCrew && <TableHead className="whitespace-normal break-words">Crew</TableHead>}
-              {showClub && <TableHead>Club</TableHead>}
-              {showNationality && <TableHead>Nat</TableHead>}
-              {multipleFleets && <TableHead className="whitespace-normal break-words">Fleet</TableHead>}
-              {showRating && <TableHead>Rating</TableHead>}
-              {showGender && <TableHead>Gender</TableHead>}
-              {showAge && <TableHead>Age</TableHead>}
+              <SortableTableHead columnId="sailNumber" sortKeys={sortKeys} onSort={handleSort}>Sail no.</SortableTableHead>
+              {showBow && <SortableTableHead columnId="bowNumber" sortKeys={sortKeys} onSort={handleSort}>Bow no.</SortableTableHead>}
+              {showSeed && <SortableTableHead columnId="seed" sortKeys={sortKeys} onSort={handleSort}>Seeding rank</SortableTableHead>}
+              {showWorldSailingId && <SortableTableHead columnId="worldSailingId" sortKeys={sortKeys} onSort={handleSort}>WS ID</SortableTableHead>}
+              {showBoat && <SortableTableHead columnId="boatName" sortKeys={sortKeys} onSort={handleSort}>Boat</SortableTableHead>}
+              {showClass && <SortableTableHead columnId="boatClass" sortKeys={sortKeys} onSort={handleSort}>Class</SortableTableHead>}
+              <SortableTableHead columnId="names" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{primaryFieldLabel}</SortableTableHead>
+              {showHelm && <SortableTableHead columnId="helms" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Helm</SortableTableHead>}
+              {showOwner && <SortableTableHead columnId="owners" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Owner</SortableTableHead>}
+              {showCrew && <SortableTableHead columnId="crewNames" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Crew</SortableTableHead>}
+              {showClub && <SortableTableHead columnId="club" sortKeys={sortKeys} onSort={handleSort}>Club</SortableTableHead>}
+              {showNationality && <SortableTableHead columnId="nationality" sortKeys={sortKeys} onSort={handleSort}>Nat</SortableTableHead>}
+              {multipleFleets && <SortableTableHead columnId="fleets" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Fleet</SortableTableHead>}
+              {showRating && <SortableTableHead columnId="rating" sortKeys={sortKeys} onSort={handleSort}>Rating</SortableTableHead>}
+              {showGender && <SortableTableHead columnId="gender" sortKeys={sortKeys} onSort={handleSort}>Gender</SortableTableHead>}
+              {showAge && <SortableTableHead columnId="age" sortKeys={sortKeys} onSort={handleSort}>Age</SortableTableHead>}
               {visibleAxes.map((axis) => (
-                <TableHead key={axis.id} className="whitespace-normal break-words">{subdivisionAxisLabel(axis)}</TableHead>
+                <SortableTableHead key={axis.id} columnId={`axis:${axis.id}`} sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{subdivisionAxisLabel(axis)}</SortableTableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody ref={tbodyRef}>
-            {filteredCompetitors.map((c) => (
+            {sortedCompetitors.map((c) => (
               <TableRow
                 key={c.id}
                 tabIndex={0}
