@@ -91,10 +91,9 @@ test('Update Handicaps dialog: carry IRC TCCs from source series to target', asy
   await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // ── 6. Verify the target competitors carry the source's TCCs now ──────────
-  // The Competitors table renders the raw stored number — trailing zeros
-  // are dropped (0.940 → 0.94). Match the stored shape rather than the
-  // dialog's 3-dp display.
-  for (const expected of ['0.94', '0.985', '1.075']) {
+  // The Competitors table pads to three decimals, the way a certificate
+  // prints a TCC, so 0.940 keeps its trailing zero.
+  for (const expected of ['0.940', '0.985', '1.075']) {
     await expect(page.getByRole('cell', { name: expected, exact: true })).toBeVisible();
   }
 });
