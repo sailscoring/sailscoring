@@ -787,7 +787,9 @@ export async function addCompetitor(
   data: { sailNumber: string; name: string; club?: string; fleet?: string; ircTcc?: string; pyNumber?: string; nhcStartingTcf?: string; echoStartingTcf?: string },
 ): Promise<void> {
   await page.getByRole('button', { name: 'Add competitor' }).click();
-  await page.getByLabel('Sail number').fill(data.sailNumber);
+  // Exact label: with the Alternative sail numbers field enabled, a substring
+  // match on "Sail number" resolves to two inputs.
+  await page.getByLabel('Sail number *').fill(data.sailNumber);
   await page.getByLabel('Competitor name').fill(data.name);
   if (data.club) await page.getByLabel('Club').fill(data.club);
   if (data.fleet) {

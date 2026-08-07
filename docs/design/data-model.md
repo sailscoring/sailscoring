@@ -155,7 +155,7 @@ A boat or person entered in the Series. Belongs to exactly one Fleet.
 | id | uuid | Yes | Unique identifier |
 | fleet_id | uuid | Yes | Parent Fleet |
 | sail_number | string | Yes | Primary identifier, e.g. "IRL 1234", "GBR 5678" |
-| alt_sail_numbers | list[string] | No | Alternative sail number identifiers. Used as fallback lookup during finish entry if the primary sail_number is not found. Useful when a boat has both a national registration number and a class sail number, or when different race areas use different numbering conventions |
+| alternative_sail_numbers | list[string] | No | Other sail numbers the boat may show — a replacement or borrowed sail, or a second numbering convention. Lookup keys only: matched during finish entry beneath the registered sail number and above the bow number, never displayed or published in place of `sail_number`. A finish matched on one records which number was used |
 | name | string | Yes | Primary identifying person. Labelled per the series' `primaryPersonLabel` — "Competitor", "Entrant", "Helm", or "Owner" — a display concept only; the data slot is the same regardless of label. Required on every competitor so published results always carry at least one identifying name |
 | owner | string | No | Owner, when recorded separately from the primary. Used when `primaryPersonLabel` is Helm (dinghy pattern, helm is primary) or Competitor/Entrant, and the owner is distinct |
 | helm | string | No | Helm, when recorded separately from the primary. Used when `primaryPersonLabel` is Owner (cruiser pattern) or Competitor/Entrant, and the helm is distinct from whoever is primary |

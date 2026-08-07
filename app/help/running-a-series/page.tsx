@@ -147,6 +147,22 @@ export default async function Page() {
           free-text field; when set, finish entry will also match on it (see{' '}
           <em>Entering results</em> below).
         </p>
+        <HelpShot
+          src="/help/shots/alternative-sail-numbers.webp"
+          alt="The competitor dialog with two alternative sail numbers listed against an entry."
+          caption="Alternative sail numbers listed against an entry — the numbers this boat may show, beyond the one it entered under."
+        />
+        <p>
+          Enable <em>Alternative sail numbers</em> when boats may race under a
+          number other than the one they entered with — a replacement sail after
+          damage, a borrowed one, or a charter taken on mid-event. List them
+          against the entry separated by commas (<em>IRL 99, 7</em>). Finish
+          entry matches any of them, and a result entered under one is tagged
+          with the number used, so the series records which sail the boat
+          actually raced under. Standings and published results always show the
+          registered sail number — the alternatives are there to be recognised,
+          not displayed.
+        </p>
         <p>
           Enable <em>Nationality</em> to record each entry’s 3-letter
           country code (RRS Appendix G / IOC, e.g. <em>IRL</em>, <em>GBR</em>,

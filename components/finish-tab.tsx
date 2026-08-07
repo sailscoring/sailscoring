@@ -364,7 +364,11 @@ export function FinishTab(props: FinishTabProps) {
                     } else {
                       const idx = highlightedIndex >= 0 && highlightedIndex < suggestions.length
                         ? highlightedIndex : 0;
-                      commitCompetitor(suggestions[idx].competitor, suggestions[idx].matchedOn);
+                      commitCompetitor(
+                        suggestions[idx].competitor,
+                        suggestions[idx].matchedOn,
+                        suggestions[idx].entered,
+                      );
                     }
                   } else if (e.key === 'Enter') {
                     e.preventDefault();
@@ -398,7 +402,7 @@ export function FinishTab(props: FinishTabProps) {
               role="listbox"
               className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md"
             >
-              {suggestions.map(({ competitor, matchedOn }, i) => (
+              {suggestions.map(({ competitor, matchedOn, entered }, i) => (
                 <li
                   key={competitor.id}
                   role="option"
@@ -409,13 +413,13 @@ export function FinishTab(props: FinishTabProps) {
                   )}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    commitCompetitor(competitor, matchedOn);
+                    commitCompetitor(competitor, matchedOn, entered);
                   }}
                 >
                   <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
-                  {matchedOn === 'bow' && (
+                  {matchedOn !== 'sail' && (
                     <Badge variant="outline" className="shrink-0">
-                      matched on bow {competitor.bowNumber}
+                      {matchedOn === 'bow' ? 'matched on bow' : 'sails as'} {entered}
                     </Badge>
                   )}
                   {showFleetBadge && (

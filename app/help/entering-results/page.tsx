@@ -67,6 +67,24 @@ export default async function Page() {
           clear why the displayed sail number differs from what was keyed.
         </p>
         <p>
+          The <em>Alternative sail numbers</em> field works the same way, for
+          the case where a boat sails under a different number rather than
+          carrying a second identifier: a replacement sail, a borrowed one, or a
+          charter picked up mid-event. List the numbers the boat may show
+          against its entry (see{' '}
+          <em>Alternative sail numbers</em> in <em>Running a series</em>) and
+          finish entry matches any of them. The registered sail number still
+          takes precedence over every alternative, and alternatives are tried
+          before bow numbers.
+        </p>
+        <p>
+          A row matched this way is tagged{' '}
+          <strong className="text-foreground">sailed as</strong> with the number
+          the boat actually showed. That tag is stored with the result, so the
+          series keeps a record of which sail a boat raced under in each race
+          even though results always display and publish the registered number.
+        </p>
+        <p>
           Rows for fleets without a start time (scratch scoring) show a{' '}
           <strong className="text-foreground">grip handle</strong> you can drag to reorder a
           boat in the list (or, with the keyboard, focus the handle, press Space, use the arrow

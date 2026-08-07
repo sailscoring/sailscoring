@@ -139,6 +139,34 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Alternative sail numbers. The competitor dialog carries the
+    // field; the finish-row tag needs a race entered under one, which the
+    // sample series doesn't have, so this shows the entry side.
+    slug: 'alternative-sail-numbers',
+    group: 'Running a series',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      await page
+        .getByRole('heading', { name: 'Competitor fields' })
+        .locator('..')
+        .getByRole('button', { name: 'Edit ▸' })
+        .click();
+      await page.getByRole('checkbox', { name: 'Alternative sail numbers' }).check();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('cell', { name: 'IRL2046' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByLabel('Alternative sail numbers').fill('IRL 99, 7');
+      await settle(page);
+      await shot('alternative-sail-numbers.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
     // Inventory: Sorting the competitor list. Stacks two keys so the shot
     // shows the position badges, which are the part that needs explaining.
     slug: 'competitor-sorting',

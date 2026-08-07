@@ -54,10 +54,21 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
     if (!resolvingEntry) return;
     const finish = finishByEntryKey.get(resolvingEntry.finishId);
     if (finish) {
+      // Linking clears unknownSailNumber and the row starts displaying the
+      // registered number, so without this the number the boat actually
+      // showed would be lost — which is the whole reason a scorer typed it.
+      const registered =
+        nonFinishers.find((v) => v.competitor.id === competitorId)?.competitor.sailNumber ?? '';
+      const sailed = resolvingEntry.sailNumber.trim();
+      const differs =
+        sailed !== '' && sailed.toUpperCase() !== registered.trim().toUpperCase();
       const next: Finish = {
         ...finish,
         competitorId,
         unknownSailNumber: undefined,
+        ...(differs
+          ? { matchedOn: 'alternative' as const, enteredSailNumber: sailed }
+          : { matchedOn: undefined, enteredSailNumber: undefined }),
       };
       patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
       saveFinish.mutate(next);
