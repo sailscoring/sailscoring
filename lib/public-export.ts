@@ -199,6 +199,8 @@ export interface PublicSeriesExport {
     sailNumber: string;
     /** Bow number, when it differs from the registered sail number. */
     bowNumber?: string;
+    /** Other sail numbers the boat may show; finish-entry lookup keys only. */
+    alternativeSailNumbers?: string[];
     /** OA registration number (split-fleet championships). */
     entryNumber?: string;
     /** The OA's seeding rank. Carried so a reader can reproduce a split-fleet
@@ -288,8 +290,13 @@ export interface PublicSeriesExport {
       /** Set when the finish is unresolved (scorer recorded a crossing
        *  but no matching competitor). When present, `sailNumber` is empty. */
       unknownSailNumber?: string;
-      /** Marks a row entered by typing the competitor's bow number. */
+      /** Marks a row entered by typing the competitor's bow number. Written
+       *  by builds before alternative sail numbers; still read on import. */
       matchedOnBowNumber?: boolean;
+      /** Which identifier matched, when it was not the registered sail
+       *  number, and the text that matched. */
+      matchedOn?: 'bow' | 'alternative';
+      enteredSailNumber?: string;
       sortOrder: number | null;
       /** Marks the finisher as tied with the prior row (RRS A8.1). Optional
        *  in the export; older exports default to false on import. */
@@ -672,7 +679,8 @@ export function buildPublicExportFromSnapshot(
       const finish = finishesForRace.find((f) => f.competitorId === competitorId);
       return {
         sailNumber: sailNumberById.get(competitorId) ?? competitorId,
-        ...(finish?.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
+        ...(finish?.matchedOn ? { matchedOn: finish.matchedOn } : {}),
+        ...(finish?.enteredSailNumber ? { enteredSailNumber: finish.enteredSailNumber } : {}),
         sortOrder: finish?.sortOrder ?? null,
         ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
@@ -848,6 +856,9 @@ export function buildPublicExportFromSnapshot(
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+      ...(c.alternativeSailNumbers?.length
+        ? { alternativeSailNumbers: c.alternativeSailNumbers }
+        : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
       ...(c.seed != null ? { seed: c.seed } : {}),
       ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
@@ -912,6 +923,15 @@ export function buildPublicExportFromSnapshot(
  * finishes + starting TCFs on next render, matching what the file-export
  * path now does.
  */
+/** Exports written before alternative sail numbers carried only a
+ *  "matched on bow" flag; fold it forward on import. */
+function exportedMatchedOn(finish: {
+  matchedOn?: 'bow' | 'alternative';
+  matchedOnBowNumber?: boolean;
+}): 'bow' | 'alternative' | undefined {
+  return finish.matchedOn ?? (finish.matchedOnBowNumber ? 'bow' : undefined);
+}
+
 export async function importPublicExport(
   data: PublicSeriesExport,
   repos: ImportRepos,
@@ -1090,7 +1110,10 @@ export async function importPublicExport(
         fleetIds,
         sailNumber: c.sailNumber,
         ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
-      ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+        ...(c.alternativeSailNumbers?.length
+          ? { alternativeSailNumbers: c.alternativeSailNumbers }
+          : {}),
+        ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
         ...(c.seed != null ? { seed: c.seed } : {}),
         ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
@@ -1202,7 +1225,12 @@ export async function importPublicExport(
         raceId,
         competitorId: competitorId ?? null,
         ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
-        ...(competitorId && finish.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
+        ...(competitorId && exportedMatchedOn(finish)
+          ? { matchedOn: exportedMatchedOn(finish)! }
+          : {}),
+        ...(competitorId && finish.enteredSailNumber
+          ? { enteredSailNumber: finish.enteredSailNumber }
+          : {}),
         sortOrder: finish.sortOrder,
         tiedWithPrevious: finish.tiedWithPrevious ?? false,
         ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),

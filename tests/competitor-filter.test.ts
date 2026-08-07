@@ -73,3 +73,21 @@ describe('competitorMatchesFilter', () => {
     expect(competitorMatchesFilter(c, 'doehyc')).toBe(false);
   });
 });
+
+describe('competitorMatchesFilter over the other identifiers', () => {
+  test('finds a boat by an alternative sail number', () => {
+    // A scorer holding a sheet written in whatever number the boat showed
+    // needs to reach the entry from that number, not only the registered one.
+    const c = competitor({ alternativeSailNumbers: ['IRL 99'] });
+    expect(competitorMatchesFilter(c, 'irl 99')).toBe(true);
+  });
+
+  test('finds a boat by its bow number', () => {
+    expect(competitorMatchesFilter(competitor({ bowNumber: '42' }), '42')).toBe(true);
+  });
+
+  test('does not match a number no identifier carries', () => {
+    const c = competitor({ alternativeSailNumbers: ['IRL 99'], bowNumber: '42' });
+    expect(competitorMatchesFilter(c, '77')).toBe(false);
+  });
+});

@@ -9,6 +9,7 @@ import {
   makeFinish,
   resolveSailEntry,
   type FinishEntry,
+  type MatchTier,
   type NonFinisherView,
 } from '@/lib/finish-entry';
 import { normalizeTimeInput } from '@/lib/time-parse';
@@ -59,7 +60,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // Pending time entry: competitor confirmed, waiting for finish time.
   // `matchedOn` is carried through so a bow-number match is still recorded on
   // the finish after the time step, not just on the immediate-commit path.
-  const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor; matchedOn: 'sail' | 'bow' } | null>(null);
+  const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor; matchedOn: MatchTier; entered: string } | null>(null);
   const [pendingTimeValue, setPendingTimeValue] = useState('');
   const [pendingTimeError, setPendingTimeError] = useState('');
 
@@ -125,15 +126,21 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // carries which identifier it matched on, so a bow match can be flagged —
   // the row displays the registered sail number, not what the scorer typed.
   const suggestionQuery = sailInput.trim().toUpperCase();
-  type MatchedSuggestion = NonFinisherView & { matchedOn: 'sail' | 'bow' };
+  type MatchedSuggestion = NonFinisherView & { matchedOn: MatchTier; entered: string };
   const suggestions: MatchedSuggestion[] = suggestionQuery
     ? nonFinishers.flatMap((view): MatchedSuggestion[] => {
         if (view.competitor.sailNumber.toUpperCase().startsWith(suggestionQuery)) {
-          return [{ ...view, matchedOn: 'sail' }];
+          return [{ ...view, matchedOn: 'sail', entered: view.competitor.sailNumber }];
+        }
+        const alt = (view.competitor.alternativeSailNumbers ?? []).find(
+          (v) => v.trim() !== '' && v.trim().toUpperCase().startsWith(suggestionQuery),
+        );
+        if (alt !== undefined) {
+          return [{ ...view, matchedOn: 'alternative', entered: alt }];
         }
         const bow = (view.competitor.bowNumber ?? '').toUpperCase();
         if (bow !== '' && bow.startsWith(suggestionQuery)) {
-          return [{ ...view, matchedOn: 'bow' }];
+          return [{ ...view, matchedOn: 'bow', entered: view.competitor.bowNumber! }];
         }
         return [];
       })
@@ -142,7 +149,12 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.
   // Timed entries are auto-slotted immediately before the next later-timed row, preserving
   // the relative order of scratch rows (time-order invariant, ADR-007).
-  function addKnownFinisher(competitor: Competitor, finishTime?: string, matchedOn: 'sail' | 'bow' = 'sail') {
+  function addKnownFinisher(
+    competitor: Competitor,
+    finishTime?: string,
+    matchedOn: MatchTier = 'sail',
+    entered?: string,
+  ) {
     let insertAt = finishingOrder.length;
     if (finishTime) {
       for (let i = 0; i < finishingOrder.length; i++) {
@@ -154,7 +166,13 @@ export function useFinishInput(args: UseFinishInputArgs) {
       }
     }
 
-    const matchedOnBowNumber = matchedOn === 'bow';
+    // Only a row that came in under something other than the registered sail
+    // number carries the provenance; a plain sail match clears any stale value
+    // left by an earlier entry of the same boat.
+    const provenance =
+      matchedOn === 'sail'
+        ? { matchedOn: undefined, enteredSailNumber: undefined }
+        : { matchedOn, enteredSailNumber: entered };
     const existing = finishByCompetitorId.get(competitor.id);
     const finishId = existing?.id ?? crypto.randomUUID();
     const newRow: Finish = existing
@@ -162,7 +180,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
           ...existing,
           sortOrder: insertAt + 1,
           tiedWithPrevious: false,
-          matchedOnBowNumber,
+          ...provenance,
           ...(finishTime ? { finishTime } : {}),
         }
       : makeFinish(raceId, {
@@ -170,7 +188,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
           competitorId: competitor.id,
           sortOrder: insertAt + 1,
           startPresent: true,
-          ...(matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
+          ...(provenance.matchedOn ? provenance : {}),
           ...(finishTime ? { finishTime } : {}),
         });
 
@@ -199,7 +217,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
 
   // Route a resolved competitor through time-entry if their fleet has a start time.
   // In a handicap series, block competitors whose fleet has no start configured.
-  function commitCompetitor(competitor: Competitor, matchedOn: 'sail' | 'bow' = 'sail') {
+  function commitCompetitor(competitor: Competitor, matchedOn: MatchTier = 'sail', entered?: string) {
     if (isHandicapSeries && !hasStartForRace(competitor.id)) {
       const fleetNames = competitor.fleetIds
         .map((id) => fleetById.get(id)?.name)
@@ -215,11 +233,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setSailInput('');
       setInputError('');
       setHighlightedIndex(-1);
-      setPendingTimeEntry({ competitor, matchedOn });
+      setPendingTimeEntry({ competitor, matchedOn, entered: entered ?? competitor.sailNumber });
       setPendingTimeValue('');
       setPendingTimeError('');
     } else {
-      addKnownFinisher(competitor, undefined, matchedOn);
+      addKnownFinisher(competitor, undefined, matchedOn, entered);
     }
   }
 
@@ -234,7 +252,12 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setPendingTimeError('Enter a valid time, e.g. 14:32:10 or 143210.');
       return;
     }
-    addKnownFinisher(pendingTimeEntry.competitor, time, pendingTimeEntry.matchedOn);
+    addKnownFinisher(
+      pendingTimeEntry.competitor,
+      time,
+      pendingTimeEntry.matchedOn,
+      pendingTimeEntry.entered,
+    );
     setPendingTimeEntry(null);
     setPendingTimeValue('');
     setPendingTimeError('');
@@ -285,7 +308,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     if (highlightedIndex >= 0) {
       if (highlightedIndex < suggestions.length) {
         const s = suggestions[highlightedIndex];
-        commitCompetitor(s.competitor, s.matchedOn);
+        commitCompetitor(s.competitor, s.matchedOn, s.entered);
       } else {
         recordCurrentAsUnknown();
       }
@@ -297,7 +320,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       case 'empty':
         return;
       case 'commit':
-        commitCompetitor(resolution.competitor, resolution.matchedOn);
+        commitCompetitor(resolution.competitor, resolution.matchedOn, resolution.entered);
         return;
       case 'already-finished':
         setInputError(`${trimmedSail} is already in the finishing order.`);

@@ -10,7 +10,8 @@ export function makeFinish(
     raceId,
     competitorId: overrides.competitorId ?? null,
     ...(overrides.unknownSailNumber != null ? { unknownSailNumber: overrides.unknownSailNumber } : {}),
-    ...(overrides.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
+    ...(overrides.matchedOn ? { matchedOn: overrides.matchedOn } : {}),
+    ...(overrides.enteredSailNumber ? { enteredSailNumber: overrides.enteredSailNumber } : {}),
     sortOrder: overrides.sortOrder ?? null,
     tiedWithPrevious: overrides.tiedWithPrevious ?? false,
     ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
@@ -352,14 +353,26 @@ export function partitionNonFinishers(views: NonFinisherView[]): {
 
 // ─── Sail-number entry resolution ────────────────────────────────────────────
 
+/** Which of a competitor's identifiers a typed entry resolved against.
+ *  `sail` is the registered sail number; the other two are the fallbacks that
+ *  only rescue an entry the registered number could not match. */
+export type MatchTier = 'sail' | 'alternative' | 'bow';
+
 /** What a plain Enter in the sail-number box should do with the typed text. */
 export type SailEntryResolution =
   | { kind: 'empty' }
-  /** Add this competitor — an exact sail/bow match, or the sole unfinished boat
-   *  whose sail/bow number the input is a prefix of. `matchedOn` records which
-   *  identifier the typed text resolved against, so the UI can flag a bow match
-   *  (the committed row shows the registered sail number, not what was typed). */
-  | { kind: 'commit'; competitor: Competitor; matchedOn: 'sail' | 'bow' }
+  /** Add this competitor — an exact match on one of its identifiers, or the
+   *  sole unfinished boat one of them is a prefix of. `matchedOn` records which
+   *  identifier the typed text resolved against, so the UI can flag a row that
+   *  did not come in under the registered sail number (the committed row shows
+   *  that number, not what was typed). `entered` is the full identifier that
+   *  matched — not the typed text, which may be only a prefix of it. */
+  | {
+      kind: 'commit';
+      competitor: Competitor;
+      matchedOn: MatchTier;
+      entered: string;
+    }
   /** Exact sail match, but every boat carrying it is already in the order. */
   | { kind: 'already-finished' }
   /** Exact sail match shared by more than one unfinished boat. */
@@ -377,13 +390,25 @@ export type SailEntryResolution =
  * or unmatched hands off to the dropdown / record-as-unknown path. Pure and
  * order-preserving (mirrors the prefix filter behind the suggestions list).
  *
- * Bow-number matching layers strictly *underneath* sail matching: the sail
- * logic runs unchanged, and only when it finds nothing (no exact sail, no sail
- * prefix) do we fall through to matching on `bowNumber` — exact first, then a
- * unique unfinished bow prefix. So a typed value that is one boat's sail number
- * always resolves to that boat, even if it happens to be another boat's bow
- * number; the bow path only ever rescues an otherwise-unknown entry (#234).
+ * The other identifiers layer strictly *underneath* sail matching, in tiers:
+ * registered sail number (exact, then unique prefix), then alternative sail
+ * numbers (exact, then unique prefix), then bow numbers (exact, then unique
+ * prefix). Each tier only runs when every tier above it found nothing, so a
+ * typed value that is one boat's registered sail number always resolves to
+ * that boat, even if it happens to be another boat's alternative or bow
+ * number. The lower tiers only ever rescue an otherwise-unknown entry
+ * (#234, #379).
  */
+/** The identifier value itself, as the competitor spells it, rather than the
+ *  normalised form used for comparison or the possibly-partial typed text. */
+function matchedValue(
+  c: Competitor,
+  values: (c: Competitor) => string[],
+  predicate: (normalised: string) => boolean,
+): string | undefined {
+  return values(c).find((v) => predicate(v.trim().toUpperCase()));
+}
+
 export function resolveSailEntry(
   rawInput: string,
   competitors: Competitor[],
@@ -397,30 +422,63 @@ export function resolveSailEntry(
     const unfinished = exact.filter((c) => !finishedIds.has(c.id));
     if (unfinished.length === 0) return { kind: 'already-finished' };
     if (unfinished.length > 1) return { kind: 'duplicate-sail' };
-    return { kind: 'commit', competitor: unfinished[0], matchedOn: 'sail' };
+    return {
+      kind: 'commit',
+      competitor: unfinished[0],
+      matchedOn: 'sail',
+      entered: unfinished[0].sailNumber,
+    };
   }
 
   const prefix = competitors.filter(
     (c) => !finishedIds.has(c.id) && c.sailNumber.toUpperCase().startsWith(sail),
   );
-  if (prefix.length === 1) return { kind: 'commit', competitor: prefix[0], matchedOn: 'sail' };
+  if (prefix.length === 1) {
+    return { kind: 'commit', competitor: prefix[0], matchedOn: 'sail', entered: prefix[0].sailNumber };
+  }
   if (prefix.length > 1) return { kind: 'ambiguous-prefix' };
 
-  // No sail match at all — fall through to bow-number matching. Exact bow
-  // match wins over a bow prefix, mirroring the sail rules above. A bow number
-  // shared by more than one unfinished boat is ambiguous, same as a duplicate
-  // sail: defer to the dropdown rather than guessing.
-  const bowExact = competitors.filter(
-    (c) => !finishedIds.has(c.id) && (c.bowNumber ?? '').toUpperCase() === sail,
-  );
-  if (bowExact.length === 1) return { kind: 'commit', competitor: bowExact[0], matchedOn: 'bow' };
-  if (bowExact.length > 1) return { kind: 'ambiguous-prefix' };
+  // No registered-sail match at all — try the boat's other identifiers. Within
+  // each tier an exact match wins over a prefix, mirroring the sail rules
+  // above, and an identifier shared by more than one unfinished boat is
+  // ambiguous: defer to the dropdown rather than guessing.
+  const tiers: { matchedOn: 'alternative' | 'bow'; values: (c: Competitor) => string[] }[] = [
+    {
+      matchedOn: 'alternative',
+      values: (c) => c.alternativeSailNumbers ?? [],
+    },
+    {
+      matchedOn: 'bow',
+      values: (c) => (c.bowNumber ? [c.bowNumber] : []),
+    },
+  ];
 
-  const bowPrefix = competitors.filter(
-    (c) => !finishedIds.has(c.id) && (c.bowNumber ?? '') !== '' && (c.bowNumber ?? '').toUpperCase().startsWith(sail),
-  );
-  if (bowPrefix.length === 1) return { kind: 'commit', competitor: bowPrefix[0], matchedOn: 'bow' };
-  if (bowPrefix.length > 1) return { kind: 'ambiguous-prefix' };
+  for (const tier of tiers) {
+    const unfinished = competitors.filter((c) => !finishedIds.has(c.id));
+    const values = (c: Competitor) => tier.values(c).map((v) => v.trim().toUpperCase()).filter(Boolean);
+
+    const tierExact = unfinished.filter((c) => values(c).includes(sail));
+    if (tierExact.length === 1) {
+      return {
+        kind: 'commit',
+        competitor: tierExact[0],
+        matchedOn: tier.matchedOn,
+        entered: matchedValue(tierExact[0], tier.values, (v) => v === sail)!,
+      };
+    }
+    if (tierExact.length > 1) return { kind: 'ambiguous-prefix' };
+
+    const tierPrefix = unfinished.filter((c) => values(c).some((v) => v.startsWith(sail)));
+    if (tierPrefix.length === 1) {
+      return {
+        kind: 'commit',
+        competitor: tierPrefix[0],
+        matchedOn: tier.matchedOn,
+        entered: matchedValue(tierPrefix[0], tier.values, (v) => v.startsWith(sail))!,
+      };
+    }
+    if (tierPrefix.length > 1) return { kind: 'ambiguous-prefix' };
+  }
 
   return { kind: 'unknown' };
 }

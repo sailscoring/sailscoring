@@ -244,7 +244,8 @@ describe('parseFinishSheetCsv bow-number matching', () => {
     expect(result.finishes[0]).toMatchObject({
       competitorId: 'c1',
       sortOrder: 1,
-      matchedOnBowNumber: true,
+      matchedOn: 'bow',
+      enteredSailNumber: '3',
     });
     expect(result.summary.matchedOnBow).toBe(1);
     expect(result.warnings).toEqual([
@@ -256,7 +257,7 @@ describe('parseFinishSheetCsv bow-number matching', () => {
     const rows = [['22', '11:00:00', '']];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: withBows });
     expect(result.finishes[0].competitorId).toBe('c2');
-    expect(result.finishes[0].matchedOnBowNumber).toBeUndefined();
+    expect(result.finishes[0].matchedOn).toBeUndefined();
     expect(result.summary.matchedOnBow).toBe(0);
   });
 
@@ -267,7 +268,8 @@ describe('parseFinishSheetCsv bow-number matching', () => {
     expect(result.finishes[0]).toMatchObject({
       competitorId: 'c2',
       resultCode: 'DNF',
-      matchedOnBowNumber: true,
+      matchedOn: 'bow',
+      enteredSailNumber: '4',
     });
   });
 
@@ -301,5 +303,69 @@ describe('parseFinishSheetCsv bow-number matching', () => {
     const rows = [['', '11:00:00', '']];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: withBows });
     expect(result.errors).toEqual([{ rowIndex: 2, reason: 'missing sail number' }]);
+  });
+});
+
+describe('parseFinishSheetCsv alternative sail numbers', () => {
+  const withAlts: Candidate[] = [
+    { id: 'c1', sailNumber: '15', alternativeSailNumbers: ['IRL99', '7'], fleetIds: ['f1'] },
+    { id: 'c2', sailNumber: '22', bowNumber: '7', fleetIds: ['f1'] },
+    { id: 'c3', sailNumber: '254', fleetIds: ['f1'] },
+  ];
+
+  it('resolves a row written under an alternative number', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['irl99', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: withAlts,
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes[0]).toMatchObject({
+      competitorId: 'c1',
+      matchedOn: 'alternative',
+      enteredSailNumber: 'irl99',
+    });
+    expect(result.warnings).toEqual([
+      { rowIndex: 2, reason: 'irl99 is an alternative sail number of 15' },
+    ]);
+    expect(result.summary.matchedOnBow).toBe(1);
+  });
+
+  it('prefers an alternative over another boat’s bow number', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['7', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: withAlts,
+    });
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'c1', matchedOn: 'alternative' });
+  });
+
+  it('still prefers a registered sail number over any alternative', () => {
+    const shadowing: Candidate[] = [
+      { id: 'a', sailNumber: '100', alternativeSailNumbers: ['200'], fleetIds: ['f1'] },
+      { id: 'b', sailNumber: '200', fleetIds: ['f1'] },
+    ];
+    const result = parseFinishSheetCsv({
+      rows: [['200', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: shadowing,
+    });
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'b' });
+    expect(result.finishes[0].matchedOn).toBeUndefined();
+  });
+
+  it('reports an alternative claimed by two boats as ambiguous', () => {
+    const shared: Candidate[] = [
+      { id: 'a', sailNumber: '100', alternativeSailNumbers: ['9'], fleetIds: ['f1'] },
+      { id: 'b', sailNumber: '200', alternativeSailNumbers: ['9'], fleetIds: ['f1'] },
+    ];
+    const result = parseFinishSheetCsv({
+      rows: [['9', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: shared,
+    });
+    expect(result.errors).toEqual([
+      { rowIndex: 2, reason: 'sail 9 is ambiguous — multiple competitors share this number' },
+    ]);
   });
 });

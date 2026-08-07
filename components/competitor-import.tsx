@@ -95,6 +95,7 @@ import {
   newSubdivisionAxis,
   cleanSubdivisions,
   subdivisionsEqual,
+  parseAlternativeSailNumbers,
 } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 
@@ -245,6 +246,7 @@ export interface ImportResult {
 const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 'owner'>, string> = {
   sailNumber: 'Sail number',
   bowNumber: 'Bow number',
+  alternativeSailNumbers: 'Alternative sail numbers',
   entryNumber: 'Entry number',
   seed: 'Seeding rank',
   worldSailingId: 'World Sailing ID',
@@ -289,6 +291,7 @@ function buildFieldLabels(
   const labels: Record<string, string> = {
     sailNumber: STATIC_FIELD_LABELS.sailNumber,
     bowNumber: STATIC_FIELD_LABELS.bowNumber,
+    alternativeSailNumbers: STATIC_FIELD_LABELS.alternativeSailNumbers,
     entryNumber: STATIC_FIELD_LABELS.entryNumber,
     seed: STATIC_FIELD_LABELS.seed,
     worldSailingId: STATIC_FIELD_LABELS.worldSailingId,
@@ -1487,6 +1490,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
       let sailNumber = '';
       let bowNumber = '';
+      let alternativeSailNumbers: string[] = [];
       let entryNumber = '';
       let seed: number | undefined;
       let worldSailingId: string | undefined;
@@ -1513,6 +1517,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         const val = row[col]?.trim() ?? '';
         if (field === 'sailNumber') sailNumber = val;
         else if (field === 'bowNumber') bowNumber = val;
+        else if (field === 'alternativeSailNumbers') alternativeSailNumbers = parseAlternativeSailNumbers(val);
         else if (field === 'entryNumber') entryNumber = val;
         else if (field === 'seed') seed = parseInt(val, 10) || undefined;
         else if (field === 'worldSailingId') worldSailingId = normalizeWorldSailingId(val);
@@ -1590,6 +1595,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         : (existingCompetitor?.nationality ?? '');
 
       const resolvedBowNumber = bowNumber || existingCompetitor?.bowNumber || '';
+      const resolvedAlternatives = alternativeSailNumbers.length
+        ? alternativeSailNumbers
+        : (existingCompetitor?.alternativeSailNumbers ?? []);
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
       // boatClass fallback: when neither the CSV nor any existing competitor
       // provides a boatClass, fall back to the original CSV fleet name so
@@ -1631,6 +1639,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         fleetIds,
         sailNumber: normSail,
         ...(resolvedBowNumber ? { bowNumber: resolvedBowNumber } : {}),
+        ...(resolvedAlternatives.length
+          ? { alternativeSailNumbers: resolvedAlternatives }
+          : {}),
         ...(entryNumber || existingCompetitor?.entryNumber
           ? { entryNumber: entryNumber || existingCompetitor?.entryNumber }
           : {}),
@@ -1670,6 +1681,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor.sailNumber.toUpperCase() === competitor.sailNumber &&
         sameFleetIdSet(existingCompetitor.fleetIds, competitor.fleetIds) &&
         (existingCompetitor.bowNumber ?? '') === (competitor.bowNumber ?? '') &&
+        (existingCompetitor.alternativeSailNumbers ?? []).join('\u0000') ===
+          (competitor.alternativeSailNumbers ?? []).join('\u0000') &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         (existingCompetitor.boatClass ?? '') === (competitor.boatClass ?? '') &&
         samePersonNames(existingCompetitor.names, competitor.names) &&

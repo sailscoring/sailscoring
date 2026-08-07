@@ -157,6 +157,9 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     fleetIds: row.fleetIds,
     sailNumber: row.sailNumber,
     ...(row.bowNumber ? { bowNumber: row.bowNumber } : {}),
+    ...(row.alternativeSailNumbers?.length
+      ? { alternativeSailNumbers: row.alternativeSailNumbers }
+      : {}),
     ...(row.entryNumber ? { entryNumber: row.entryNumber } : {}),
     ...(row.seed != null ? { seed: row.seed } : {}),
     ...(row.worldSailingId ? { worldSailingId: row.worldSailingId } : {}),
@@ -254,7 +257,8 @@ function finishRowToType(row: FinishRow): Finish {
     ...(row.unknownSailNumber != null
       ? { unknownSailNumber: row.unknownSailNumber }
       : {}),
-    ...(row.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
+    ...(row.matchedOn ? { matchedOn: row.matchedOn as 'bow' | 'alternative' } : {}),
+    ...(row.enteredSailNumber ? { enteredSailNumber: row.enteredSailNumber } : {}),
     sortOrder: row.sortOrder,
     tiedWithPrevious: row.tiedWithPrevious,
     ...(row.finishTime != null ? { finishTime: row.finishTime } : {}),
@@ -952,6 +956,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     fleetIds: c.fleetIds,
     sailNumber: c.sailNumber,
     bowNumber: c.bowNumber ?? null,
+    alternativeSailNumbers: c.alternativeSailNumbers?.length ? c.alternativeSailNumbers : null,
     entryNumber: c.entryNumber ?? null,
     seed: c.seed ?? null,
     worldSailingId: c.worldSailingId ?? null,
@@ -976,7 +981,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 }
 
 const competitorUpdateColumns = [
-  'fleetIds', 'sailNumber', 'bowNumber', 'entryNumber', 'seed', 'worldSailingId',
+  'fleetIds', 'sailNumber', 'bowNumber', 'alternativeSailNumbers', 'entryNumber', 'seed', 'worldSailingId',
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
@@ -1820,7 +1825,8 @@ function finishToRow(f: Finish) {
     raceId: f.raceId,
     competitorId: f.competitorId,
     unknownSailNumber: f.unknownSailNumber ?? null,
-    matchedOnBowNumber: f.matchedOnBowNumber ?? null,
+    matchedOn: f.matchedOn ?? null,
+    enteredSailNumber: f.enteredSailNumber ?? null,
     sortOrder: f.sortOrder,
     tiedWithPrevious: f.tiedWithPrevious,
     finishTime: f.finishTime ?? null,
@@ -1839,7 +1845,7 @@ function finishToRow(f: Finish) {
 }
 
 const finishUpdateColumns = [
-  'competitorId', 'unknownSailNumber', 'matchedOnBowNumber', 'sortOrder', 'tiedWithPrevious',
+  'competitorId', 'unknownSailNumber', 'matchedOn', 'enteredSailNumber', 'sortOrder', 'tiedWithPrevious',
   'finishTime', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
   'penaltyOverrideByFleet', 'redressMethod', 'redressExcludeRaceIds', 'redressIncludeRaceIds',
   'redressIncludeAllLater', 'redressPoints', 'redressPointsByFleet',

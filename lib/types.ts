@@ -25,6 +25,7 @@ export interface ProportionalDiscard {
  *  role, the matching key is disabled to avoid duplication with the primary. */
 export type CompetitorFieldKey =
   | 'bowNumber'
+  | 'alternativeSailNumbers'
   | 'entryNumber'
   | 'seed'
   | 'worldSailingId'
@@ -441,6 +442,7 @@ export interface Competitor {
   fleetIds: string[];
   sailNumber: string;
   bowNumber?: string; // bow number, when it differs from the registered sail number (e.g. a borrowed hull); optional, used for finish-entry matching
+  alternativeSailNumbers?: string[]; // other sail numbers this boat may show — a replacement or borrowed sail mid-event. Lookup keys for finish entry only: the boat is still identified, displayed, and published under `sailNumber`. Sparse.
   entryNumber?: string; // the OA's registration/admin number on the entry list (split-fleet championships); distinct from bowNumber, often coincident — leave unset when they match
   seed?: number;      // OA seeding rank for split-fleet initial assignment (Sailwave's "Seeding" column); not derivable from entry order/sail/nationality
   worldSailingId?: string; // World Sailing Sailor ID of the primary sailor (see lib/world-sailing.ts); the join key for an OA's seed ranking
@@ -616,7 +618,15 @@ export interface Finish {
   raceId: string;
   competitorId: string | null;    // null for unresolved unknown finishes
   unknownSailNumber?: string;     // set when competitorId is null
-  matchedOnBowNumber?: boolean;   // true when this row was entered by typing the competitor's bow number rather than sail number; display hint for the "entered by bow number" badge (records how the row was entered, not a current fact — may go stale if numbers are later edited)
+  // How this row was identified, when it was not by the competitor's
+  // registered sail number: `bow` for a bow number, `alternative` for one of
+  // the competitor's alternative sail numbers. `enteredSailNumber` is the text
+  // that actually matched — so a boat that raced under a replacement sail is
+  // recorded as having done so, even though the row displays the registered
+  // number. Both record how the row was entered, not a current fact: they may
+  // go stale if the competitor's numbers are later edited.
+  matchedOn?: 'bow' | 'alternative';
+  enteredSailNumber?: string;
   sortOrder: number | null;       // crossing-order index in the unified finish sheet; null for coded finishes (except RDG: may be set alongside RDG)
   // Per ADR-008 Phase 6 (#111): explicit tie marker. The scoring engine
   // treats a finisher with `tiedWithPrevious === true` as sharing the

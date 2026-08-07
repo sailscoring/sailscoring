@@ -9,6 +9,7 @@
 export type CompetitorField =
   | 'sailNumber'
   | 'bowNumber'
+  | 'alternativeSailNumbers'
   | 'entryNumber'
   | 'seed'
   | 'worldSailingId'

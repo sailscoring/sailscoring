@@ -421,6 +421,9 @@ export const competitors = pgTable(
     fleetIds: uuid('fleet_ids').array().notNull(),
     sailNumber: text('sail_number').notNull(),
     bowNumber: text('bow_number'),
+    // Other sail numbers this boat may show. Lookup keys for finish entry
+    // only — the boat is identified and published under `sail_number`.
+    alternativeSailNumbers: jsonb('alternative_sail_numbers').$type<string[]>(),
     // Split-fleet championships: the OA's registration number and seeding
     // rank (docs/design/split-fleets.md). Sparse; both nullable.
     entryNumber: text('entry_number'),
@@ -967,10 +970,12 @@ export const finishes = pgTable(
       onDelete: 'cascade',
     }),
     unknownSailNumber: text('unknown_sail_number'),
-    // True when this row was entered by typing the competitor's bow number
-    // rather than their sail number (display hint for the "entered by bow
-    // number" badge). Nullable; absent/false for the common sail-entry path.
-    matchedOnBowNumber: boolean('matched_on_bow_number'),
+    // How the row was identified when it was not by the registered sail
+    // number — 'bow' or 'alternative' — and the text that matched. Both
+    // nullable; absent for the common sail-entry path. `matched_on_bow_number`
+    // was the boolean these replaced; the migration folds true into 'bow'.
+    matchedOn: text('matched_on'),
+    enteredSailNumber: text('entered_sail_number'),
     sortOrder: integer('sort_order'),
     // Tied with the immediately-prior row at the same display position.
     // Engine averages ranks per RRS A8.1; display sortOrder stays distinct.

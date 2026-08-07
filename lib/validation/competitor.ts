@@ -12,6 +12,7 @@ export const competitorSchema = z.object({
   fleetIds: z.array(uuidSchema),
   sailNumber: z.string(),
   bowNumber: z.string().optional(),
+  alternativeSailNumbers: z.array(z.string().min(1)).optional(),
   entryNumber: z.string().optional(),
   seed: z.number().int().positive().optional(),
   // Deliberately unpatterned: a Sailor ID that doesn't match the published

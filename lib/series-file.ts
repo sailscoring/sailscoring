@@ -251,9 +251,18 @@ export interface SeriesFileRepos {
  *  a combined page's per-race detail for the last N races only. Additive and
  *  sparse, and purely presentational — the standings a group publishes are
  *  the full series either way, so an older build reading a v30 file renders
- *  the same results with more race tables than the scorer asked for. */
-export const FORMAT_VERSION = 30;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30];
+ *  the same results with more race tables than the scorer asked for.
+ *
+ *  v31 adds optional `competitor.alternativeSailNumbers` (other sail numbers a
+ *  boat may show, matched during finish entry) and replaces v19's
+ *  `finish.matchedOnBowNumber` boolean with `finish.matchedOn` ('bow' |
+ *  'alternative') plus `finish.enteredSailNumber` (the text that matched).
+ *  The parser still reads the old boolean, folding true into `matchedOn:
+ *  'bow'`, so v19–v30 files load unchanged; writers emit only the new fields.
+ *  The bump exists because an older build reading a v31 file would drop the
+ *  alternatives — losing which number a boat actually raced under. */
+export const FORMAT_VERSION = 31;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -346,6 +355,7 @@ interface SeriesFileCompetitor {
   fleetIds: string[];
   sailNumber: string;
   bowNumber?: string;  // v19+
+  alternativeSailNumbers?: string[];  // v31+
   entryNumber?: string;  // v23+; OA registration number (split-fleet events)
   seed?: number;  // v23+; OA seeding rank
   worldSailingId?: string;  // v29+; World Sailing Sailor ID of the primary sailor
@@ -372,11 +382,20 @@ interface SeriesFileCompetitor {
   echoStartingTcf?: number;
 }
 
+/** v19–v30 recorded only "this row was entered by bow number"; v31 records
+ *  which identifier matched. Fold the old boolean forward on read. */
+function fileFinishMatchedOn(f: SeriesFileFinish): 'bow' | 'alternative' | undefined {
+  return f.matchedOn ?? (f.matchedOnBowNumber ? 'bow' : undefined);
+}
+
 interface SeriesFileFinish {
   id: string;
   competitorId: string | null;
   unknownSailNumber?: string;
-  matchedOnBowNumber?: boolean;  // v19+
+  /** v19–v30; read for back-compat, folded into `matchedOn`. Never written. */
+  matchedOnBowNumber?: boolean;
+  matchedOn?: 'bow' | 'alternative';  // v31+
+  enteredSailNumber?: string;  // v31+
   sortOrder: number | null;
   /** Optional in the file format — older files default to `false` on import. */
   tiedWithPrevious?: boolean;
@@ -558,7 +577,8 @@ export async function buildSeriesFile(
       id: f.id,
       competitorId: f.competitorId,
       unknownSailNumber: f.unknownSailNumber,
-      ...(f.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
+      ...(f.matchedOn ? { matchedOn: f.matchedOn } : {}),
+      ...(f.enteredSailNumber ? { enteredSailNumber: f.enteredSailNumber } : {}),
       sortOrder: f.sortOrder,
       ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
@@ -660,6 +680,9 @@ export async function buildSeriesFile(
       fleetIds: c.fleetIds,
       sailNumber: c.sailNumber,
       ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+      ...(c.alternativeSailNumbers?.length
+        ? { alternativeSailNumbers: c.alternativeSailNumbers }
+        : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
       ...(c.seed != null ? { seed: c.seed } : {}),
       ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
@@ -1562,6 +1585,9 @@ async function writeFleetsCompetitorsRaces(
         fleetIds,
         sailNumber: c.sailNumber,
         ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+      ...(c.alternativeSailNumbers?.length
+        ? { alternativeSailNumbers: c.alternativeSailNumbers }
+        : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         names: c.names,
@@ -1654,7 +1680,8 @@ async function writeFleetsCompetitorsRaces(
           raceId: newRaceId,
           competitorId: mappedCompetitorId,
           unknownSailNumber: f.unknownSailNumber,
-          ...(f.matchedOnBowNumber ? { matchedOnBowNumber: true } : {}),
+          ...(fileFinishMatchedOn(f) ? { matchedOn: fileFinishMatchedOn(f)! } : {}),
+          ...(f.enteredSailNumber ? { enteredSailNumber: f.enteredSailNumber } : {}),
           sortOrder: f.sortOrder,
           tiedWithPrevious: f.tiedWithPrevious ?? false,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),

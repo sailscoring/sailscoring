@@ -162,7 +162,7 @@ function makeFile(): SeriesFile {
 }
 
 describe('bow-number field file round-trip (#234)', () => {
-  it('imports competitor.bowNumber and finish.matchedOnBowNumber from a v19 file', async () => {
+  it('folds a v19 file\u2019s matchedOnBowNumber into matchedOn', async () => {
     const repos = makeRepos();
     await openSeriesFromFile(makeFile(), repos);
 
@@ -171,7 +171,9 @@ describe('bow-number field file round-trip (#234)', () => {
     expect(repos.savedCompetitors[0].sailNumber).toBe('567');
 
     expect(repos.savedFinishes).toHaveLength(1);
-    expect(repos.savedFinishes[0].matchedOnBowNumber).toBe(true);
+    expect(repos.savedFinishes[0].matchedOn).toBe('bow');
+    // v19 never recorded what was typed, so there is nothing to carry.
+    expect(repos.savedFinishes[0].enteredSailNumber).toBeUndefined();
   });
 
   it('exports both fields back into the file (buildSeriesFile)', async () => {
@@ -201,7 +203,8 @@ describe('bow-number field file round-trip (#234)', () => {
         id: 'finish-1',
         raceId: 'race-1',
         competitorId: 'comp-1',
-        matchedOnBowNumber: true,
+        matchedOn: 'bow',
+        enteredSailNumber: '1234',
         sortOrder: 1,
         tiedWithPrevious: false,
         resultCode: null,
@@ -221,6 +224,9 @@ describe('bow-number field file round-trip (#234)', () => {
 
     expect(file.formatVersion).toBe(FORMAT_VERSION);
     expect(file.competitors[0].bowNumber).toBe('1234');
-    expect(file.races[0].finishes[0].matchedOnBowNumber).toBe(true);
+    expect(file.races[0].finishes[0].matchedOn).toBe('bow');
+    expect(file.races[0].finishes[0].enteredSailNumber).toBe('1234');
+    // The superseded boolean is read on import but never written back.
+    expect(file.races[0].finishes[0].matchedOnBowNumber).toBeUndefined();
   });
 });

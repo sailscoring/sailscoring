@@ -219,13 +219,14 @@ describe('resolveSailEntry', () => {
   it('commits an exact, unfinished match', () => {
     const boats = [competitor('a', '101'), competitor('b', '202')];
     const res = resolveSailEntry('101', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail' });
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail', entered: '101' });
   });
 
   it('matches case-insensitively and ignores surrounding space', () => {
     const boats = [competitor('a', 'IRL101')];
     const res = resolveSailEntry(' irl101 ', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail' });
+    // `entered` is the competitor's own spelling, not the typed text.
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail', entered: 'IRL101' });
   });
 
   it('reports an exact match already in the finishing order', () => {
@@ -241,13 +242,14 @@ describe('resolveSailEntry', () => {
   it('commits a unique prefix match', () => {
     const boats = [competitor('a', '218456'), competitor('b', '331')];
     const res = resolveSailEntry('218', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail' });
+    // A prefix match records the full number, never the typed fragment.
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail', entered: '218456' });
   });
 
   it('lets an exact match win over a longer boat it is a prefix of', () => {
     const boats = [competitor('a', '7'), competitor('b', '72')];
     const res = resolveSailEntry('7', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail' });
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail', entered: '7' });
   });
 
   it('prefix-completes to a registered boat even when the input could be a standalone unknown', () => {
@@ -255,7 +257,7 @@ describe('resolveSailEntry', () => {
     // "12" commits 12345, so recording unknown "12" needs its own trigger.
     const boats = [competitor('a', '12345')];
     const res = resolveSailEntry('12', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail' });
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail', entered: '12345' });
   });
 
   it('defers an ambiguous prefix to the dropdown', () => {
@@ -279,7 +281,7 @@ describe('resolveSailEntry', () => {
   it('matches on bow number when no sail matches, flagging matchedOn: bow', () => {
     const boats = [competitor('a', '567', '1234'), competitor('b', '890')];
     const res = resolveSailEntry('1234', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'bow' });
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'bow', entered: '1234' });
   });
 
   it('prefers a sail-number match over another boat’s bow number', () => {
@@ -287,13 +289,13 @@ describe('resolveSailEntry', () => {
     // wins, so the typed value never silently resolves to the bow-number boat.
     const boats = [competitor('a', '567', '1234'), competitor('b', '1234')];
     const res = resolveSailEntry('1234', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[1], matchedOn: 'sail' });
+    expect(res).toEqual({ kind: 'commit', competitor: boats[1], matchedOn: 'sail', entered: '1234' });
   });
 
   it('commits a unique bow-number prefix', () => {
     const boats = [competitor('a', '567', '1234'), competitor('b', '890', '5678')];
     const res = resolveSailEntry('12', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'bow' });
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'bow', entered: '1234' });
   });
 
   it('defers to the dropdown when a bow number is shared by two unfinished boats', () => {
@@ -304,7 +306,7 @@ describe('resolveSailEntry', () => {
   it('matches bow numbers case-insensitively', () => {
     const boats = [competitor('a', '567', 'BOW9')];
     const res = resolveSailEntry(' bow9 ', boats, new Set());
-    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'bow' });
+    expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'bow', entered: 'BOW9' });
   });
 
   it('ignores a finished boat’s bow number', () => {
@@ -316,6 +318,87 @@ describe('resolveSailEntry', () => {
     // Boats without a bow number must never collide on a blank/prefix.
     const boats = [competitor('a', '567'), competitor('b', '890')];
     expect(resolveSailEntry('999', boats, new Set()).kind).toBe('unknown');
+  });
+
+  // ─── Alternative sail numbers (#379) ──────────────────────────────────────
+
+  const withAlts = (
+    id: string,
+    sailNumber: string,
+    alternativeSailNumbers: string[],
+    bowNumber?: string,
+  ): Competitor => ({
+    ...competitor(id, sailNumber, bowNumber),
+    alternativeSailNumbers,
+  });
+
+  it('matches an alternative sail number when the registered one does not', () => {
+    const boats = [withAlts('a', '567', ['IRL99']), competitor('b', '890')];
+    const res = resolveSailEntry('irl99', boats, new Set());
+    expect(res).toEqual({
+      kind: 'commit',
+      competitor: boats[0],
+      matchedOn: 'alternative',
+      entered: 'IRL99',
+    });
+  });
+
+  it('matches any number in the list, recording which one', () => {
+    const boats = [withAlts('a', '567', ['11', '22', '33'])];
+    expect(resolveSailEntry('22', boats, new Set())).toMatchObject({
+      matchedOn: 'alternative',
+      entered: '22',
+    });
+  });
+
+  it('prefers a registered sail number over another boat’s alternative', () => {
+    // The rule that keeps a lower tier from ever shadowing a real entry.
+    const boats = [withAlts('a', '567', ['890']), competitor('b', '890')];
+    expect(resolveSailEntry('890', boats, new Set())).toMatchObject({
+      competitor: boats[1],
+      matchedOn: 'sail',
+    });
+  });
+
+  it('prefers an alternative over another boat’s bow number', () => {
+    const boats = [withAlts('a', '567', ['1234']), competitor('b', '890', '1234')];
+    expect(resolveSailEntry('1234', boats, new Set())).toMatchObject({
+      competitor: boats[0],
+      matchedOn: 'alternative',
+    });
+  });
+
+  it('commits a unique alternative prefix, recording the whole number', () => {
+    const boats = [withAlts('a', '567', ['218456']), competitor('b', '331')];
+    expect(resolveSailEntry('218', boats, new Set())).toMatchObject({
+      competitor: boats[0],
+      matchedOn: 'alternative',
+      entered: '218456',
+    });
+  });
+
+  it('defers when two unfinished boats claim the same alternative', () => {
+    const boats = [withAlts('a', '567', ['99']), withAlts('b', '890', ['99'])];
+    expect(resolveSailEntry('99', boats, new Set()).kind).toBe('ambiguous-prefix');
+  });
+
+  it('ignores a finished boat’s alternatives', () => {
+    const boats = [withAlts('a', '567', ['99'])];
+    expect(resolveSailEntry('99', boats, new Set(['a'])).kind).toBe('unknown');
+  });
+
+  it('ignores blank entries in the list', () => {
+    const boats = [withAlts('a', '567', ['', '   '])];
+    expect(resolveSailEntry('   ', boats, new Set()).kind).toBe('empty');
+    expect(resolveSailEntry('99', boats, new Set()).kind).toBe('unknown');
+  });
+
+  it('falls through to a bow number when no alternative matches', () => {
+    const boats = [withAlts('a', '567', ['99'], '1234')];
+    expect(resolveSailEntry('1234', boats, new Set())).toMatchObject({
+      matchedOn: 'bow',
+      entered: '1234',
+    });
   });
 });
 

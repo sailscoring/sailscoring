@@ -86,6 +86,7 @@ export function competitorFleetNames(
  *  role the primary label doesn't already carry. */
 export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
   'bowNumber',
+  'alternativeSailNumbers',
   'entryNumber',
   'seed',
   'worldSailingId',
@@ -106,6 +107,7 @@ export const ALL_COMPETITOR_FIELDS: readonly CompetitorFieldKey[] = [
  *  per-series and come from `Series.subdivisionAxes` (see `subdivisionAxisLabel`). */
 export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   bowNumber: 'Bow number',
+  alternativeSailNumbers: 'Alternative sail numbers',
   entryNumber: 'Entry number',
   seed: 'Seeding rank',
   worldSailingId: 'World Sailing ID',
@@ -120,6 +122,31 @@ export const COMPETITOR_FIELD_LABELS: Record<CompetitorFieldKey, string> = {
   age: 'Age',
   subdivision: 'Division',
 };
+
+/**
+ * Alternative sail numbers are entered and imported as one comma-separated
+ * cell — a boat carries a handful at most, and a row of inputs would cost more
+ * clicks than it saves. Parsing trims, drops blanks, and de-duplicates
+ * case-insensitively while keeping the scorer's own spelling and order.
+ */
+export function parseAlternativeSailNumbers(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(',')) {
+    const value = part.trim();
+    if (!value) continue;
+    const key = value.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out;
+}
+
+/** The inverse of {@link parseAlternativeSailNumbers}, for populating the field. */
+export function formatAlternativeSailNumbers(values: string[] | undefined): string {
+  return (values ?? []).join(', ');
+}
 
 /** Order of the person fields in the "Allow multiple" settings UI. */
 export const MULTI_PERSON_FIELD_KEYS: readonly MultiPersonFieldKey[] = [

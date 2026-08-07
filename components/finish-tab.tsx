@@ -565,15 +565,20 @@ export function FinishTab(props: FinishTabProps) {
                   <DragHandle {...handleProps} data-testid={`drag-handle-${competitor.sailNumber}`} />
                 )}
                 <span className="font-mono font-medium">{competitor.sailNumber}</span>
-                {finishByCompetitorId.get(entry.competitorId)?.matchedOnBowNumber && (
-                  <Badge
-                    variant="outline"
-                    className="shrink-0"
-                    data-testid={`bow-match-${competitor.sailNumber}`}
-                  >
-                    entered by bow {competitor.bowNumber}
-                  </Badge>
-                )}
+                {(() => {
+                  const f = finishByCompetitorId.get(entry.competitorId);
+                  if (!f?.matchedOn) return null;
+                  const entered = f.enteredSailNumber ?? competitor.bowNumber ?? '';
+                  return (
+                    <Badge
+                      variant="outline"
+                      className="shrink-0"
+                      data-testid={`${f.matchedOn}-match-${competitor.sailNumber}`}
+                    >
+                      {f.matchedOn === 'bow' ? 'entered by bow' : 'sailed as'} {entered}
+                    </Badge>
+                  );
+                })()}
                 {showFleetBadge && (
                   <FleetBadges
                     fleetIds={competitor.fleetIds}

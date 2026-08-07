@@ -1261,6 +1261,7 @@ interface CompetitorBuild {
   id: string;
   fleetIds: string[];
   sailNumber: string;
+  alternativeSailNumbers?: string[];
   boatName?: string;
   boatClass?: string;
   name: string;
@@ -1464,6 +1465,9 @@ export function buildSeriesFileFromSailwave(
       id: c.id,
       fleetIds: c.fleetIds,
       sailNumber: c.sailNumber,
+      ...(c.alternativeSailNumbers?.length
+        ? { alternativeSailNumbers: c.alternativeSailNumbers }
+        : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: [c.name],
@@ -1642,6 +1646,13 @@ function buildCompetitors(
       age: null,
     };
     if (v.compboat?.trim()) built.boatName = v.compboat.trim();
+    // Sailwave's alternate sail number: one value, often blank. It maps onto
+    // the list, which is the same idea with room for more than one. Dropped
+    // when it merely repeats the registered number.
+    const altSail = (v.compaltsailno ?? '').trim();
+    if (altSail && altSail.toUpperCase() !== built.sailNumber.toUpperCase()) {
+      built.alternativeSailNumbers = [altSail];
+    }
     // A repurposed Class column feeds its subdivision axis (below), not
     // boatClass — the values are prize categories, not boat classes.
     const classIsAxis = axes.some((a) => a.sourceKey === 'compclass');

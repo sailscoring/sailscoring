@@ -28,6 +28,8 @@ import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, PrimaryPersonLabel
 export interface CompetitorFormData {
   sailNumber: string;
   bowNumber: string;
+  /** Comma-separated; parsed on save (see parseAlternativeSailNumbers). */
+  alternativeSailNumbers: string;
   entryNumber: string;
   seed: string;
   worldSailingId: string;
@@ -53,6 +55,7 @@ export interface CompetitorFormData {
 export const emptyCompetitorForm: CompetitorFormData = {
   sailNumber: '',
   bowNumber: '',
+  alternativeSailNumbers: '',
   entryNumber: '',
   seed: '',
   worldSailingId: '',
@@ -385,6 +388,22 @@ export function CompetitorForm({
               onChange={(e) => set('bowNumber', e.target.value)}
               placeholder="e.g. 42"
             />
+          </div>
+        )}
+        {enabledFields.includes('alternativeSailNumbers') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="alternativeSailNumbers">Alternative sail numbers</Label>
+            <Input
+              id="alternativeSailNumbers"
+              value={data.alternativeSailNumbers}
+              onChange={(e) => set('alternativeSailNumbers', e.target.value)}
+              placeholder="e.g. IRL 1234, 99"
+            />
+            <p className="text-xs text-muted-foreground">
+              Other sail numbers this boat may show, separated by commas. Finish
+              entry matches any of them; results still show the registered sail
+              number.
+            </p>
           </div>
         )}
         {enabledFields.includes('boatName') && (

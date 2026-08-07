@@ -9,6 +9,8 @@ import {
   cleanPersonNames,
   competitorFleetNames,
   defaultEnabledCompetitorFields,
+  formatAlternativeSailNumbers,
+  parseAlternativeSailNumbers,
   displayCompetitorLabel,
   isFieldDisabledByPrimary,
   isMultiPersonField,
@@ -40,6 +42,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
   it('includes all optional fields in display order', () => {
     expect(ALL_COMPETITOR_FIELDS).toEqual([
       'bowNumber',
+      'alternativeSailNumbers',
       'entryNumber',
       'seed',
       'worldSailingId',
@@ -314,5 +317,29 @@ describe('isMultiPersonField', () => {
     expect(isMultiPersonField('crewName')).toBe(true);
     expect(isMultiPersonField('club')).toBe(false);
     expect(isMultiPersonField('boatName')).toBe(false);
+  });
+});
+
+describe('parseAlternativeSailNumbers', () => {
+  it('splits on commas, trimming blanks', () => {
+    expect(parseAlternativeSailNumbers(' IRL 99 , 7 ,, ')).toEqual(['IRL 99', '7']);
+  });
+
+  it('de-duplicates case-insensitively, keeping the first spelling', () => {
+    expect(parseAlternativeSailNumbers('irl99, IRL99, Irl99')).toEqual(['irl99']);
+  });
+
+  it('returns nothing for an empty or blank field', () => {
+    expect(parseAlternativeSailNumbers('')).toEqual([]);
+    expect(parseAlternativeSailNumbers('  ,  ')).toEqual([]);
+  });
+
+  it('round-trips through the formatter', () => {
+    const values = ['IRL 99', '7'];
+    expect(parseAlternativeSailNumbers(formatAlternativeSailNumbers(values))).toEqual(values);
+  });
+
+  it('formats an absent list as an empty field', () => {
+    expect(formatAlternativeSailNumbers(undefined)).toBe('');
   });
 });

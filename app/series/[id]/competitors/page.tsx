@@ -87,6 +87,8 @@ import {
   cleanPersonNames,
   formatPrimaryNames,
   cleanSubdivisions,
+  parseAlternativeSailNumbers,
+  formatAlternativeSailNumbers,
 } from '@/lib/competitor-fields';
 import { normalizeWorldSailingId, worldSailingProfileUrl } from '@/lib/world-sailing';
 import {
@@ -418,6 +420,10 @@ export default function CompetitorsPage({
       fleetIds,
       sailNumber: data.sailNumber,
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
+      ...((): { alternativeSailNumbers?: string[] } => {
+        const alts = parseAlternativeSailNumbers(data.alternativeSailNumbers);
+        return alts.length ? { alternativeSailNumbers: alts } : {};
+      })(),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
       ...((): { worldSailingId?: string } => {
@@ -467,6 +473,10 @@ export default function CompetitorsPage({
       fleetIds: newFleetIds,
       sailNumber: data.sailNumber,
       ...(data.bowNumber.trim() ? { bowNumber: data.bowNumber.trim() } : {}),
+      ...((): { alternativeSailNumbers?: string[] } => {
+        const alts = parseAlternativeSailNumbers(data.alternativeSailNumbers);
+        return alts.length ? { alternativeSailNumbers: alts } : {};
+      })(),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
       ...((): { worldSailingId?: string } => {
@@ -508,6 +518,9 @@ export default function CompetitorsPage({
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!updated.echoStartingTcf) delete updated.echoStartingTcf;
     if (!data.bowNumber.trim()) delete updated.bowNumber;
+    if (!parseAlternativeSailNumbers(data.alternativeSailNumbers).length) {
+      delete updated.alternativeSailNumbers;
+    }
     if (!data.entryNumber.trim()) delete updated.entryNumber;
     if (!(parseInt(data.seed, 10) > 0)) delete updated.seed;
     if (!normalizeWorldSailingId(data.worldSailingId)) delete updated.worldSailingId;
@@ -555,6 +568,7 @@ export default function CompetitorsPage({
     ? existingCompetitors.filter((c) => c.sailNumber !== editingCompetitor.sailNumber.toUpperCase() || !sameFleetIdSet(c.fleetIds, editingCompetitor.fleetIds))
     : existingCompetitors;
   const showBow = enabledFields.includes('bowNumber');
+  const showAlternatives = enabledFields.includes('alternativeSailNumbers');
   const showSeed = enabledFields.includes('seed');
   const showWorldSailingId = enabledFields.includes('worldSailingId');
   const showBoat = enabledFields.includes('boatName');
@@ -588,6 +602,14 @@ export default function CompetitorsPage({
   const sortColumns: SortableColumn<Competitor>[] = [
     col('sailNumber', (a, b) => compareSailNumbers(a.sailNumber, b.sailNumber)),
     ...(showBow ? [col('bowNumber', (a, b) => compareSailNumbers(a.bowNumber ?? '', b.bowNumber ?? ''))] : []),
+    ...(showAlternatives
+      ? [col('alternativeSailNumbers', (a, b) =>
+          compareText(
+            formatAlternativeSailNumbers(a.alternativeSailNumbers),
+            formatAlternativeSailNumbers(b.alternativeSailNumbers),
+          ),
+        )]
+      : []),
     ...(showSeed ? [col('seed', (a, b) => compareNumeric(a.seed, b.seed))] : []),
     ...(showWorldSailingId ? [col('worldSailingId', (a, b) => compareText(a.worldSailingId, b.worldSailingId))] : []),
     ...(showBoat ? [col('boatName', (a, b) => compareText(a.boatName, b.boatName))] : []),
@@ -769,6 +791,7 @@ export default function CompetitorsPage({
               )}
               <SortableTableHead columnId="sailNumber" sortKeys={sortKeys} onSort={handleSort}>Sail no.</SortableTableHead>
               {showBow && <SortableTableHead columnId="bowNumber" sortKeys={sortKeys} onSort={handleSort}>Bow no.</SortableTableHead>}
+              {showAlternatives && <SortableTableHead columnId="alternativeSailNumbers" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Also sails as</SortableTableHead>}
               {showSeed && <SortableTableHead columnId="seed" sortKeys={sortKeys} onSort={handleSort}>Seeding rank</SortableTableHead>}
               {showWorldSailingId && <SortableTableHead columnId="worldSailingId" sortKeys={sortKeys} onSort={handleSort}>WS ID</SortableTableHead>}
               {showBoat && <SortableTableHead columnId="boatName" sortKeys={sortKeys} onSort={handleSort}>Boat</SortableTableHead>}
@@ -835,6 +858,11 @@ export default function CompetitorsPage({
                   {c.sailNumber}
                 </TableCell>
                 {showBow && <TableCell className="font-mono">{c.bowNumber ?? ''}</TableCell>}
+                {showAlternatives && (
+                  <TableCell className="font-mono whitespace-normal break-words">
+                    {formatAlternativeSailNumbers(c.alternativeSailNumbers)}
+                  </TableCell>
+                )}
                 {showSeed && <TableCell className="font-mono">{c.seed ?? ''}</TableCell>}
                 {showWorldSailingId && (
                   <TableCell className="font-mono">
@@ -1017,6 +1045,9 @@ export default function CompetitorsPage({
               initial={{
                 sailNumber: editingCompetitor.sailNumber,
                 bowNumber: editingCompetitor.bowNumber ?? '',
+                alternativeSailNumbers: formatAlternativeSailNumbers(
+                  editingCompetitor.alternativeSailNumbers,
+                ),
                 entryNumber: editingCompetitor.entryNumber ?? '',
                 seed: editingCompetitor.seed != null ? String(editingCompetitor.seed) : '',
                 worldSailingId: editingCompetitor.worldSailingId ?? '',
