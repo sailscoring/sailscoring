@@ -5,6 +5,7 @@ import type { PgInsertValue, PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
+import { bySailNumber } from './sail-number-sort';
 import { ECHO_DEFAULT_ALPHA } from './scoring';
 import {
   ConflictError,
@@ -1000,9 +1001,12 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
           eq(schema.competitors.seriesId, seriesId),
           eq(schema.competitors.workspaceId, this.workspaceId),
         ),
-      )
-      .orderBy(schema.competitors.sailNumber);
-    return rows.map(competitorRowToType);
+      );
+    // Ordered in JS, not SQL: sail numbers are text, so `order by sail_number`
+    // is a collation sort that puts 217236 ahead of 7. The comparator can't
+    // run in Postgres, and one series' competitors are few enough that sorting
+    // them here costs nothing.
+    return rows.map(competitorRowToType).sort(bySailNumber);
   }
 
   async get(id: string): Promise<Competitor | undefined> {

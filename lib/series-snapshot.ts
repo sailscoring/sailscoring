@@ -1,4 +1,5 @@
 import type { ExportRepos } from './public-export';
+import { bySailNumber } from './sail-number-sort';
 import type {
   Competitor,
   Finish,
@@ -58,9 +59,7 @@ export async function loadSeriesSnapshot(
 
   // The repositories already sort by these keys; sort defensively so every
   // consumer sees one deterministic order regardless of backend.
-  const competitors = [...competitorsUnsorted].sort((a, b) =>
-    a.sailNumber.localeCompare(b.sailNumber),
-  );
+  const competitors = [...competitorsUnsorted].sort(bySailNumber);
   const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
   const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
   const subSeries = [...subSeriesUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);

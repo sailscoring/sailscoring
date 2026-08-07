@@ -22,6 +22,7 @@
 import type { Competitor, Finish, RaceRatingOverride } from './types';
 import { normalizeIdentity } from './competitor-matching';
 import { cleanSubdivisions } from './competitor-fields';
+import { compareSailNumbers } from './sail-number-sort';
 
 export interface DuplicateGroup {
   /** Every row sharing the key, keeper first. */
@@ -83,7 +84,7 @@ export function findDuplicateGroups(
     groups.push({ competitors: sorted, keeperId: sorted[0].id });
   }
   groups.sort((a, b) =>
-    a.competitors[0].sailNumber.localeCompare(b.competitors[0].sailNumber),
+    compareSailNumbers(a.competitors[0].sailNumber, b.competitors[0].sailNumber),
   );
   return groups;
 }
@@ -181,7 +182,7 @@ export function findPossibleDuplicateGroups(
     }
   }
   groups.sort((a, b) =>
-    a.competitors[0].sailNumber.localeCompare(b.competitors[0].sailNumber),
+    compareSailNumbers(a.competitors[0].sailNumber, b.competitors[0].sailNumber),
   );
   return groups;
 }

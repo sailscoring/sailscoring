@@ -11,6 +11,7 @@ import {
 import { useTcfHistoryBySeries } from '@/hooks/use-tcf-history';
 import type { Competitor, Fleet, RaceRatingOverride, RatingField } from '@/lib/types';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
+import { bySailNumber } from '@/lib/sail-number-sort';
 
 export interface RatingsTabProps {
   seriesId: string;
@@ -62,7 +63,7 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
   };
 
   const rows: Row[] = [];
-  for (const c of [...competitors].sort((a, b) => a.sailNumber.localeCompare(b.sailNumber))) {
+  for (const c of [...competitors].sort(bySailNumber)) {
     for (const fleetId of c.fleetIds) {
       const fleet = fleetById.get(fleetId);
       if (!fleet || fleet.scoringSystem === 'scratch') continue;

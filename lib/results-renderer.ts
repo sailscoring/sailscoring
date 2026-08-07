@@ -10,6 +10,7 @@ import {
 } from './competitor-fields';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
+import { compareSailNumbers } from './sail-number-sort';
 import { roundCorrectedSecs } from './scoring';
 import { seriesSlug } from './series-name';
 import { worldSailingProfileUrl } from './world-sailing';
@@ -1711,8 +1712,8 @@ export function assembleSeriesResultsData(
     results.sort((a, b) => {
       if (a.place !== null && b.place === null) return -1;
       if (a.place === null && b.place !== null) return 1;
-      if (a.place !== null && b.place !== null) return a.place - b.place || a.sailNumber.localeCompare(b.sailNumber);
-      return a.sailNumber.localeCompare(b.sailNumber);
+      if (a.place !== null && b.place !== null) return a.place - b.place || compareSailNumbers(a.sailNumber, b.sailNumber);
+      return compareSailNumbers(a.sailNumber, b.sailNumber);
     });
 
     const nhcHeader = isNhcExplain ? nhcAggregatesByRaceId!.get(race.id) : undefined;

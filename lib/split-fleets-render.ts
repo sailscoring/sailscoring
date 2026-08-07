@@ -6,6 +6,7 @@
 
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
 import { renderFlagDefs } from './results-renderer';
+import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
   provisionalCutIndexes,
@@ -253,7 +254,7 @@ export function renderSplitFleetAssignmentsPage(
         .map((fid) => {
           const members = data.competitors
             .filter((c) => c.fleetIds.includes(fid))
-            .sort((a, b) => a.sailNumber.localeCompare(b.sailNumber, undefined, { numeric: true }));
+            .sort(bySailNumber);
           const rowsHtml = members
             .map(
               (c) =>

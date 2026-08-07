@@ -7,6 +7,7 @@
 // completed it — the IODA exclude-most-recent variant is deferred).
 
 import type { Competitor, Finish, Fleet, Race, RaceStart } from './types';
+import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
 
 export type SeriesStage = 'qualifying' | 'final' | 'medal';
 
@@ -190,11 +191,11 @@ export function seedOrder(
   order: SeedOrder,
   tailOrder: SeedTailOrder = 'sail-number',
 ): string[] {
-  const bySail = (a: Competitor, b: Competitor) => {
-    const na = parseInt(a.sailNumber.replace(/\D/g, ''), 10) || 0;
-    const nb = parseInt(b.sailNumber.replace(/\D/g, ''), 10) || 0;
-    return na - nb || a.sailNumber.localeCompare(b.sailNumber);
-  };
+  // Deliberately prefix-blind: at a championship where boats are chartered
+  // the national letters say nothing about the boat, and grouping by nation
+  // is the outcome seeding exists to avoid.
+  const bySail = (a: Competitor, b: Competitor) =>
+    compareSailNumbersIgnoringPrefix(a.sailNumber, b.sailNumber);
   const byNationality = (a: Competitor, b: Competitor) =>
     (a.nationality ?? '').localeCompare(b.nationality ?? '') || bySail(a, b);
   const sorted = [...competitors];
