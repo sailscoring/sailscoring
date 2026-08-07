@@ -18,6 +18,12 @@
  * Unknown sail numbers produce unresolved-crossing finishes (competitorId=null,
  * unknownSailNumber=<raw>) — the race editor UI already supports these.
  *
+ * Matching mirrors keyboard finish entry: exact sail number first, then exact
+ * bow number for rows that would otherwise be unresolved. It stops there — the
+ * unique-prefix tiers the keyboard path offers are a typing convenience with a
+ * scorer watching each suggestion, and an imported sheet carries whole numbers
+ * with nobody reading the rows one at a time.
+ *
  * v1 scope intentionally excludes ties, penalties (ZFP/SCP/DPI),
  * redress (RDG), equal-position sortOrder overrides, and startPresent.
  * Those are rare and can be set in the editor after import.
@@ -48,12 +54,14 @@ export interface ParseFinishSheetResult {
     finishers: number;
     coded: number;
     unresolved: number;  // finishers with an unknown sail number
+    matchedOnBow: number;  // rows resolved via a bow number rather than a sail number
   };
 }
 
 export interface Candidate {
   id: string;
   sailNumber: string;
+  bowNumber?: string;
   fleetIds: string[];
 }
 
@@ -61,7 +69,8 @@ export interface ParseFinishSheetInput {
   rows: string[][];                            // data rows (header row excluded)
   columnMap: FinishSheetColumnMap;
   /** Candidates eligible to be finishers in this race. Caller filters to
-   *  competitors in the race's fleets; matching is case-insensitive on sail number. */
+   *  competitors in the race's fleets; matching is case-insensitive on sail
+   *  number, falling back to bow number (see {@link parseFinishSheetCsv}). */
   candidates: Candidate[];
 }
 
@@ -118,13 +127,19 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     else if (field === 'resultCode') cols.code = col;
   }
 
-  const sailMap = new Map<string, Candidate[]>();
-  for (const c of candidates) {
-    const key = c.sailNumber.toUpperCase();
-    const arr = sailMap.get(key);
-    if (arr) arr.push(c);
-    else sailMap.set(key, [c]);
-  }
+  const index = (key: (c: Candidate) => string) => {
+    const map = new Map<string, Candidate[]>();
+    for (const c of candidates) {
+      const k = key(c).toUpperCase();
+      if (!k) continue;
+      const arr = map.get(k);
+      if (arr) arr.push(c);
+      else map.set(k, [c]);
+    }
+    return map;
+  };
+  const sailMap = index((c) => c.sailNumber);
+  const bowMap = index((c) => c.bowNumber ?? '');
 
   const errors: FinishSheetRowError[] = [];
   const warnings: FinishSheetRowError[] = [];
@@ -134,6 +149,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
   let finisherCount = 0;
   let codedCount = 0;
   let unresolvedCount = 0;
+  let bowMatchCount = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -181,26 +197,45 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
       code = upper as ResultCode;
     }
 
-    // Resolve sail number → competitor
+    // Resolve sail number → competitor. Bow numbers sit strictly underneath,
+    // as in keyboard finish entry: a value that is one boat's sail number
+    // always resolves to that boat, and the bow tier only rescues a row that
+    // would otherwise be unresolved.
     const normSail = rawSail.toUpperCase();
-    const matches = sailMap.get(normSail) ?? [];
+    const sailMatches = sailMap.get(normSail) ?? [];
+    const matchedOnBow = sailMatches.length === 0 && bowMap.has(normSail);
+    const matches = matchedOnBow ? bowMap.get(normSail)! : sailMatches;
     // Filter out sail numbers already used in this sheet (dedupe — keep first)
     const available = matches.filter((c) => !usedCompetitorIds.has(c.id));
 
+    const idLabel = matchedOnBow ? 'bow' : 'sail';
+
     if (matches.length > 0 && available.length === 0) {
-      errors.push({ rowIndex: csvRowNumber, reason: `sail ${rawSail} already used earlier in this sheet` });
+      errors.push({ rowIndex: csvRowNumber, reason: `${idLabel} ${rawSail} already used earlier in this sheet` });
       continue;
     }
     if (available.length > 1) {
       errors.push({
         rowIndex: csvRowNumber,
-        reason: `sail ${rawSail} is ambiguous — multiple competitors share this number`,
+        reason: `${idLabel} ${rawSail} is ambiguous — multiple competitors share this number`,
       });
       continue;
     }
 
     const competitor = available[0];
     const resolved = competitor !== undefined;
+
+    // The committed row shows the registered sail number, so a row matched on
+    // a bow number needs saying: otherwise the imported sheet silently reads
+    // back as a different number from the one the recorders wrote down.
+    if (resolved && matchedOnBow) {
+      bowMatchCount++;
+      warnings.push({
+        rowIndex: csvRowNumber,
+        reason: `${rawSail} matched the bow number of sail ${competitor.sailNumber}`,
+      });
+    }
+    const bowTag = resolved && matchedOnBow ? { matchedOnBowNumber: true } : {};
 
     if (hasCode) {
       if (!resolved) {
@@ -218,6 +253,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
         competitorId: competitor.id,
         sortOrder: null,
         resultCode: code,
+        ...bowTag,
       });
       codedCount++;
     } else {
@@ -232,6 +268,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
           sortOrder,
           resultCode: null,
           ...(normalizedTime ? { finishTime: normalizedTime } : {}),
+          ...bowTag,
         });
       } else {
         unresolvedCount++;
@@ -259,6 +296,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
       finishers: finisherCount,
       coded: codedCount,
       unresolved: unresolvedCount,
+      matchedOnBow: bowMatchCount,
     },
   };
 }

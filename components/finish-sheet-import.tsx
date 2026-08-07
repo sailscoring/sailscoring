@@ -274,6 +274,13 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
                 )}
                 .
               </p>
+              {flow.result.summary.matchedOnBow > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {flow.result.summary.matchedOnBow} row
+                  {flow.result.summary.matchedOnBow === 1 ? '' : 's'} matched on a bow
+                  number rather than a sail number.
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">
                 This will replace the {flow.existingFinishCount} existing finish
                 {flow.existingFinishCount === 1 ? '' : 'es'} for this race.

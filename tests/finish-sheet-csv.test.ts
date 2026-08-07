@@ -54,7 +54,7 @@ describe('parseFinishSheetCsv', () => {
     ];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
     expect(result.errors).toEqual([]);
-    expect(result.summary).toEqual({ finishers: 3, coded: 0, unresolved: 0 });
+    expect(result.summary).toEqual({ finishers: 3, coded: 0, unresolved: 0, matchedOnBow: 0 });
     expect(result.finishes).toHaveLength(3);
     expect(result.finishes[0]).toMatchObject({
       competitorId: 'c4',
@@ -73,7 +73,7 @@ describe('parseFinishSheetCsv', () => {
     ];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
     expect(result.errors).toEqual([]);
-    expect(result.summary).toEqual({ finishers: 1, coded: 1, unresolved: 0 });
+    expect(result.summary).toEqual({ finishers: 1, coded: 1, unresolved: 0, matchedOnBow: 0 });
     expect(result.finishes[1]).toMatchObject({
       competitorId: 'c2',
       sortOrder: null,
@@ -135,7 +135,7 @@ describe('parseFinishSheetCsv', () => {
     expect(result.warnings).toEqual([
       { rowIndex: 3, reason: 'sail 9999 not registered — imported as unresolved crossing' },
     ]);
-    expect(result.summary).toEqual({ finishers: 2, coded: 0, unresolved: 1 });
+    expect(result.summary).toEqual({ finishers: 2, coded: 0, unresolved: 1, matchedOnBow: 0 });
     expect(result.finishes[1]).toMatchObject({
       competitorId: null,
       unknownSailNumber: '9999',
@@ -225,5 +225,81 @@ describe('parseFinishSheetCsv', () => {
     expect(f.redressMethod).toBeNull();
     expect(f.redressIncludeAllLater).toBe(false);
     expect(f.startPresent).toBeNull();
+  });
+});
+
+describe('parseFinishSheetCsv bow-number matching', () => {
+  const withBows: Candidate[] = [
+    { id: 'c1', sailNumber: '15', bowNumber: '3', fleetIds: ['f1'] },
+    { id: 'c2', sailNumber: '22', bowNumber: '4', fleetIds: ['f1'] },
+    // c3's bow number is another boat's sail number — the sail tier must win.
+    { id: 'c3', sailNumber: '254', bowNumber: '22', fleetIds: ['f1'] },
+    { id: 'c4', sailNumber: '6413', fleetIds: ['f1'] },
+  ];
+
+  it('resolves a row written in bow numbers, tagging how it matched', () => {
+    const rows = [['3', '11:00:00', '']];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: withBows });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes[0]).toMatchObject({
+      competitorId: 'c1',
+      sortOrder: 1,
+      matchedOnBowNumber: true,
+    });
+    expect(result.summary.matchedOnBow).toBe(1);
+    expect(result.warnings).toEqual([
+      { rowIndex: 2, reason: '3 matched the bow number of sail 15' },
+    ]);
+  });
+
+  it('prefers a sail number over another boat’s bow number', () => {
+    const rows = [['22', '11:00:00', '']];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: withBows });
+    expect(result.finishes[0].competitorId).toBe('c2');
+    expect(result.finishes[0].matchedOnBowNumber).toBeUndefined();
+    expect(result.summary.matchedOnBow).toBe(0);
+  });
+
+  it('assigns a result code to a boat identified by bow number', () => {
+    const rows = [['4', '', 'DNF']];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: withBows });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes[0]).toMatchObject({
+      competitorId: 'c2',
+      resultCode: 'DNF',
+      matchedOnBowNumber: true,
+    });
+  });
+
+  it('reports an ambiguous bow number as a bow, not a sail', () => {
+    const shared: Candidate[] = [
+      { id: 'a', sailNumber: '100', bowNumber: '9', fleetIds: ['f1'] },
+      { id: 'b', sailNumber: '200', bowNumber: '9', fleetIds: ['f1'] },
+    ];
+    const result = parseFinishSheetCsv({
+      rows: [['9', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: shared,
+    });
+    expect(result.errors).toEqual([
+      { rowIndex: 2, reason: 'bow 9 is ambiguous — multiple competitors share this number' },
+    ]);
+  });
+
+  it('does not match a bow number by prefix', () => {
+    // The keyboard path would commit this; a bulk import will not guess.
+    const rows = [['641', '11:00:00', '']];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: withBows });
+    expect(result.finishes[0]).toMatchObject({
+      competitorId: null,
+      unknownSailNumber: '641',
+    });
+    expect(result.summary.unresolved).toBe(1);
+  });
+
+  it('ignores blank bow numbers when indexing', () => {
+    const rows = [['', '11:00:00', '']];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: withBows });
+    expect(result.errors).toEqual([{ rowIndex: 2, reason: 'missing sail number' }]);
   });
 });
