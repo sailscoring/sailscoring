@@ -11,6 +11,7 @@ import {
 import { useTcfHistoryBySeries } from '@/hooks/use-tcf-history';
 import type { Competitor, Fleet, RaceRatingOverride, RatingField } from '@/lib/types';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
+import { formatRatingValue, type RatingSystemCode } from '@/lib/competitor-ratings';
 import { bySailNumber } from '@/lib/sail-number-sort';
 
 export interface RatingsTabProps {
@@ -22,16 +23,12 @@ export interface RatingsTabProps {
 
 const STATIC_FIELD: Record<'irc' | 'py', RatingField> = { irc: 'ircTcc', py: 'pyNumber' };
 
-function formatRating(value: number | null, system: string): string {
-  if (value == null) return '—';
-  return system === 'py' ? String(value) : value.toFixed(3);
-}
-
 interface Row {
   key: string;
   competitor: Competitor;
   fleet: Fleet;
-  system: Fleet['scoringSystem'];
+  /** Scratch fleets carry no rating, so they never make a row. */
+  system: RatingSystemCode;
   /** Static fleets only — the field an override edits. */
   field: RatingField | null;
   /** The boat's current/base rating: competitor value (static) or seed (progressive). */
@@ -165,13 +162,13 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
                         />
                       ) : (
                         <span className={overridden ? 'font-medium' : ''}>
-                          {formatRating(r.applied, r.system)}
+                          {formatRatingValue(r.applied, r.system)}
                           {overridden && <span className="ml-1 text-xs text-amber-600" title="Per-race override">●</span>}
                         </span>
                       )}
                     </td>
                     <td className="py-1.5 pr-3 text-muted-foreground tabular-nums">
-                      {overridden ? formatRating(r.base, r.system) : ''}
+                      {overridden ? formatRatingValue(r.base, r.system) : ''}
                     </td>
                     <td className="py-1.5 text-right whitespace-nowrap">
                       {isEditing ? (
@@ -223,8 +220,8 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
                       <td className="py-1.5 pr-3 font-mono">{r.competitor.sailNumber}</td>
                       <td className="py-1.5 pr-3">{r.competitor.boatName ?? formatPrimaryNames(r.competitor.names)}</td>
                       <td className="py-1.5 pr-3">{r.fleet.name}</td>
-                      <td className="py-1.5 pr-3 text-right tabular-nums">{formatRating(r.applied, r.system)}</td>
-                      <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{formatRating(r.base, r.system)}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums">{formatRatingValue(r.applied, r.system)}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{formatRatingValue(r.base, r.system)}</td>
                       <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">
                         {drift == null ? '—' : `${drift >= 0 ? '+' : ''}${drift.toFixed(3)}`}
                       </td>

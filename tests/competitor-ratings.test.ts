@@ -7,6 +7,7 @@ import {
   requiredForFleetsHint,
   competitorRatings,
   configuredRatingSystems,
+  formatRatingValue,
 } from '@/lib/competitor-ratings';
 
 function mkFleet(over: Partial<Fleet> & { id: string; name: string; scoringSystem: Fleet['scoringSystem'] }): Fleet {
@@ -110,6 +111,29 @@ describe('formatMissingRatings', () => {
   });
 });
 
+describe('formatRatingValue', () => {
+  it('pads the multiplier ratings to three decimals', () => {
+    expect(formatRatingValue(1.13, 'irc')).toBe('1.130');
+    expect(formatRatingValue(1, 'vprs')).toBe('1.000');
+    expect(formatRatingValue(0.9725, 'nhc')).toBe('0.973');
+    expect(formatRatingValue(1.02, 'echo')).toBe('1.020');
+  });
+
+  it('leaves PY numbers whole', () => {
+    expect(formatRatingValue(1034, 'py')).toBe('1034');
+  });
+
+  it('keeps a genuinely fractional PY number but drops float noise', () => {
+    expect(formatRatingValue(1034.5, 'py')).toBe('1034.5');
+    expect(formatRatingValue(4.899999999999977, 'py')).toBe('4.9');
+  });
+
+  it('shows an em dash for a missing rating', () => {
+    expect(formatRatingValue(null, 'irc')).toBe('—');
+    expect(formatRatingValue(undefined, 'py')).toBe('—');
+  });
+});
+
 describe('competitorRatings', () => {
   const irc = mkFleet({ id: 'irc', name: 'Cruisers', scoringSystem: 'irc' });
   const py = mkFleet({ id: 'py', name: 'Whitesails', scoringSystem: 'py' });
@@ -121,6 +145,13 @@ describe('competitorRatings', () => {
     const c = mkCompetitor({ id: 'c1', fleetIds: ['irc'], ircTcc: 0.972 });
     expect(competitorRatings(c, fleetMap([irc]))).toEqual([
       { system: 'irc', label: 'IRC', value: '0.972' },
+    ]);
+  });
+
+  it('pads a rating whose stored value has fewer decimals', () => {
+    const c = mkCompetitor({ id: 'c1', fleetIds: ['irc'], ircTcc: 1.13 });
+    expect(competitorRatings(c, fleetMap([irc]))).toEqual([
+      { system: 'irc', label: 'IRC', value: '1.130' },
     ]);
   });
 

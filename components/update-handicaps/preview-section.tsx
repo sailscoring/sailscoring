@@ -12,11 +12,11 @@ import type { PreviewRow } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
 import { formatPrimaryNames } from '@/lib/competitor-fields';
+import { formatRatingValue } from '@/lib/competitor-ratings';
 import {
   SYSTEM_LABEL,
   describeMatch,
   formatDelta,
-  formatTcf,
   rowKey,
   systemLabel,
 } from './shared';
@@ -99,7 +99,7 @@ export function PreviewSection({
                         {r.certChoice.options.map((o) => (
                           <option key={o.certId} value={o.certId}>
                             {o.label}
-                            {o.tcc !== null ? ` — ${o.tcc.toFixed(3)}` : ''}
+                            {o.tcc !== null ? ` — ${formatRatingValue(o.tcc, 'irc')}` : ''}
                           </option>
                         ))}
                       </select>
@@ -108,7 +108,7 @@ export function PreviewSection({
                   <TableCell>{fleet?.name}</TableCell>
                   <TableCell>{systemLabel(r)}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatTcf(r.currentTcf, r.system)} → {formatTcf(r.newTcf, r.system)}
+                    {formatRatingValue(r.currentTcf, r.system)} → {formatRatingValue(r.newTcf, r.system)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {r.newTcf !== null ? formatDelta(r.currentTcf, r.newTcf, r.system) : '—'}

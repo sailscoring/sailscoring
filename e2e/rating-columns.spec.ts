@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test';
+
 import { signedInTest as test, expect } from './fixtures';
 import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
 
@@ -6,8 +8,38 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  *
  * Verifies that a Rating column appears in the competitors table when the
  * series has fleets using a non-scratch scoring system, and that scratch-only
- * series show no Rating column.
+ * series show no Rating column, and (issue #381) that the multiplier ratings
+ * are shown to three decimal places.
  */
+
+/** Switch the series to handicap mode and move its only fleet onto `system`,
+ *  from the Settings tab. */
+async function useScoringSystem(
+  page: Page,
+  system: 'PY' | 'IRC',
+  code: 'py' | 'irc',
+): Promise<void> {
+  await setScoringMode(page, 'handicap');
+  // Open Fleets card for editing
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  // Changing the scoring system is a fire-and-forget fleet PUT. Wait for it to
+  // persist before moving on: without this, navigating to Competitors and
+  // reading the fleets query can race the write, and the edit form (whose
+  // rating field only appears once it sees the fleet's scoring system) can
+  // render against the stale (scratch) fleet and never show the field.
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        /\/api\/v1\/series\/[^/]+\/fleets\//.test(r.url()) &&
+        r.request().method() === 'PUT' &&
+        r.ok() &&
+        (r.request().postData() ?? '').includes(`"scoringSystem":"${code}"`),
+    ),
+    page.getByRole('option', { name: system, exact: true }).click(),
+  ]);
+  await page.getByRole('button', { name: 'Done' }).click();
+}
 
 test('rating columns appear for handicap fleets', async ({ page }) => {
   // ── 1. Create series ──────────────────────────────────────────────────────
@@ -34,26 +66,7 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   await expect(header.getByRole('columnheader', { name: 'Rating' })).not.toBeVisible();
 
   // ── 5. Switch to handicap mode and change fleet scoring system to PY ──────
-  await setScoringMode(page, 'handicap');
-  // Open Fleets card for editing
-  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
-  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
-  // Changing the scoring system is a fire-and-forget fleet PUT. Wait for it to
-  // persist before moving on: without this, navigating to Competitors and
-  // reading the fleets query can race the write, and the edit form (whose PY
-  // number field only appears once it sees the fleet's PY scoring system) can
-  // render against the stale (scratch) fleet and never show the field.
-  await Promise.all([
-    page.waitForResponse(
-      (r) =>
-        /\/api\/v1\/series\/[^/]+\/fleets\//.test(r.url()) &&
-        r.request().method() === 'PUT' &&
-        r.ok() &&
-        (r.request().postData() ?? '').includes('"scoringSystem":"py"'),
-    ),
-    page.getByRole('option', { name: 'PY' }).click(),
-  ]);
-  await page.getByRole('button', { name: 'Done' }).click();
+  await useScoringSystem(page, 'PY', 'py');
 
   // ── 6. Edit competitors to set PY numbers ────────────────────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -96,4 +109,39 @@ test('rating columns appear for handicap fleets', async ({ page }) => {
   const py2Row = page.getByRole('row').filter({ hasText: 'PY2' });
   await expect(py1Row).toContainText('1034');
   await expect(py2Row).toContainText('1087');
+});
+
+test('IRC ratings are shown to three decimal places', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Rating Decimals Test' });
+  await createFleets(page, ['IRC']);
+  await useScoringSystem(page, 'IRC', 'irc');
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL 1');
+  await page.getByLabel('Competitor name').fill('Alice');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL 1' })).toBeVisible();
+
+  // The Rating column appearing is the signal the IRC scoring change is live
+  // in the page's fleet data, so the edit dialog will offer the TCC field.
+  const header = page.getByRole('row').first();
+  await expect(header.getByRole('columnheader', { name: 'Rating' })).toBeVisible();
+
+  // A certificate reads 1.130; typing it without the trailing zero must still
+  // display as 1.130.
+  const dialog = page.getByRole('dialog', { name: 'Edit competitor' });
+  const row = page.getByRole('row').filter({ hasText: 'IRL 1' });
+  const tccField = dialog.getByLabel('IRC TCC', { exact: true });
+  // Same re-render race as the PY test above: the row can swallow the click
+  // while queries settle, so re-click until the dialog is actually open.
+  await expect(async () => {
+    if (!(await dialog.isVisible())) await row.click();
+    await expect(tccField).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  await tccField.fill('1.13');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await expect(row).toContainText('1.130');
 });

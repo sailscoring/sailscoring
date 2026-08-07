@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { queryKeys } from '@/hooks/query-keys';
 import { raceRepo, type HandicapUpdateRow } from '@/lib/api-repository';
+import { formatRatingValue } from '@/lib/competitor-ratings';
 import type { IrcTccVariant } from '@/lib/rating-match';
 import type {
   FleetAdditionCandidate,
@@ -46,12 +47,6 @@ export function rowKey(r: PreviewRow): string {
   return `${r.competitorId}::${r.targetFleetId}::${r.system}`;
 }
 
-export function formatTcf(v: number | null, system: HandicapSystem): string {
-  if (v === null) return '—';
-  // PY numbers are integers; the three TCFs are decimal, always 3 dp
-  // (even when the stored value happens to be a round number).
-  return system === 'py' ? String(Math.round(v)) : v.toFixed(3);
-}
 
 /** System label for a preview row — IRC rows from Irish Sailing also show
  *  which TCC variant was used, so a mixed spin/non-spin run is auditable. */
@@ -72,11 +67,11 @@ export function describeMatch(m: RatingMatch): string {
 }
 
 export function formatDelta(currentTcf: number | null, newTcf: number, system: HandicapSystem): string {
-  if (currentTcf === null) return `+${formatTcf(newTcf, system)}`;
+  if (currentTcf === null) return `+${formatRatingValue(newTcf, system)}`;
   const d = newTcf - currentTcf;
   const sign = d > 0 ? '+' : d < 0 ? '−' : '';
   if (d === 0) return '0';
-  return `${sign}${formatTcf(Math.abs(d), system)}`;
+  return `${sign}${formatRatingValue(Math.abs(d), system)}`;
 }
 
 // ── The shell ↔ step contract ───────────────────────────────────────────────

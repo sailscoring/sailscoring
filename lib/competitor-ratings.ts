@@ -57,18 +57,32 @@ const RATING_LABEL: Record<RatingSystemCode, string> = {
   echo: 'ECHO',
 };
 
+/** Render a rating for display. The multiplier-style ratings — IRC TCC, VPRS
+ *  TCC, NHC starting TCF, ECHO starting handicap — always carry three decimal
+ *  places, the way certificates print them, so 1.13 reads as 1.130 and a
+ *  column of them lines up on the decimal point. PY numbers are whole and
+ *  print as stored; `Number(toFixed(3))` only strips the float noise a
+ *  subtraction leaves behind (4.899999999999977 → 4.9). */
+export function formatRatingValue(
+  value: number | null | undefined,
+  system: RatingSystemCode,
+): string {
+  if (value == null) return '—';
+  return system === 'py' ? String(Number(value.toFixed(3))) : value.toFixed(3);
+}
+
 function ratingValueFor(competitor: Competitor, system: RatingSystemCode): string {
   switch (system) {
     case 'irc':
-      return competitor.ircTcc != null ? String(competitor.ircTcc) : '—';
+      return formatRatingValue(competitor.ircTcc, 'irc');
     case 'vprs':
-      return competitor.vprsTcc != null ? String(competitor.vprsTcc) : '—';
+      return formatRatingValue(competitor.vprsTcc, 'vprs');
     case 'py':
-      return competitor.pyNumber != null ? String(competitor.pyNumber) : '—';
+      return formatRatingValue(competitor.pyNumber, 'py');
     case 'nhc':
-      return competitor.nhcStartingTcf != null ? String(competitor.nhcStartingTcf) : '—';
+      return formatRatingValue(competitor.nhcStartingTcf, 'nhc');
     case 'echo':
-      return competitor.echoStartingTcf != null ? String(competitor.echoStartingTcf) : '—';
+      return formatRatingValue(competitor.echoStartingTcf, 'echo');
   }
 }
 

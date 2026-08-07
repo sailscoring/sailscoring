@@ -11,8 +11,9 @@ import {
 import { additionKey, type FleetAdditionCandidate } from '@/lib/source-handicaps';
 import type { Competitor } from '@/lib/types';
 
-import { SYSTEM_LABEL, describeMatch, formatTcf } from './shared';
+import { SYSTEM_LABEL, describeMatch } from './shared';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
+import { formatRatingValue } from '@/lib/competitor-ratings';
 
 export function AddToFleetSection({
   candidates,
@@ -108,12 +109,12 @@ export function AddToFleetSection({
                       {c.certChoice.options.map((o) => (
                         <option key={o.certId} value={o.certId}>
                           {o.label}
-                          {o.tcc !== null ? ` — ${o.tcc.toFixed(3)}` : ''}
+                          {o.tcc !== null ? ` — ${formatRatingValue(o.tcc, 'irc')}` : ''}
                         </option>
                       ))}
                     </select>
                   )}
-                  {c.proposedTcf !== null ? formatTcf(c.proposedTcf, c.system) : '—'}
+                  {c.proposedTcf !== null ? formatRatingValue(c.proposedTcf, c.system) : '—'}
                 </TableCell>
               </TableRow>
             );
