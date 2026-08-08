@@ -19,7 +19,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 
-import { authClient } from '@/lib/auth-client';
+import { setActiveWorkspace } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -77,7 +77,7 @@ export function WorkspaceSwitcher({
     if (organizationId === activeOrganizationId) return;
     setBusy(true);
     try {
-      await authClient.organization.setActive({ organizationId });
+      await setActiveWorkspace(organizationId);
       // Hard reload so every server component re-evaluates against the
       // new workspace. Soft routing would leave server-rendered shells
       // pointing at the previous workspace's data.

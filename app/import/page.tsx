@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { authClient } from '@/lib/auth-client';
+import { setActiveWorkspace } from '@/lib/auth-client';
 import * as repos from '@/lib/api-repository';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { importPublicExport, type PublicSeriesExport } from '@/lib/public-export';
@@ -92,9 +92,7 @@ export default function ImportPage() {
         chosenWorkspaceId &&
         chosenWorkspaceId !== activeOrganizationId
       ) {
-        await authClient.organization.setActive({
-          organizationId: chosenWorkspaceId,
-        });
+        await setActiveWorkspace(chosenWorkspaceId);
       }
       const newId = await importPublicExport(data, repos);
       window.location.assign(`/series/${newId}/standings`);

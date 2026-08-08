@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { authClient } from '@/lib/auth-client';
+import { authClient, refreshSessionCache } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -35,6 +35,10 @@ export function AccountNameField({ initialName }: { initialName: string | null }
       setError(updateError.message ?? 'Could not save your name.');
       return;
     }
+    // Before revalidating: the server reads the name from the session, and
+    // `updateUser` writes the user row without refreshing the session cookie
+    // cache, so a refresh alone would re-render the old name.
+    await refreshSessionCache();
     setSaving(false);
     setEditing(false);
     router.refresh();

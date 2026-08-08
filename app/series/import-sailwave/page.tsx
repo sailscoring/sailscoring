@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 
 import * as repos from '@/lib/api-repository';
-import { authClient } from '@/lib/auth-client';
+import { setActiveWorkspace } from '@/lib/auth-client';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -247,7 +247,7 @@ function Wizard({
         targetWorkspaceId &&
         targetWorkspaceId !== activeOrganizationId
       ) {
-        await authClient.organization.setActive({ organizationId: targetWorkspaceId });
+        await setActiveWorkspace(targetWorkspaceId);
       }
       const newId = await openSeriesFromFile(file, repos, {
         categoryId: categoryPickerAvailable ? categoryId : null,

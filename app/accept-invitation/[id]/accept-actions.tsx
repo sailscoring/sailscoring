@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { authClient } from '@/lib/auth-client';
+import { authClient, setActiveWorkspace } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -31,7 +31,7 @@ export function AcceptInvitationActions({
       setError(acceptError.message ?? 'Could not accept the invitation.');
       return;
     }
-    await authClient.organization.setActive({ organizationId });
+    await setActiveWorkspace(organizationId);
     window.location.assign('/');
   }
 

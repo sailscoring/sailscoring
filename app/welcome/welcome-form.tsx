@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { authClient } from '@/lib/auth-client';
+import { authClient, refreshSessionCache } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,7 +37,10 @@ export function WelcomeForm({ next }: { next: string }) {
       return;
     }
     // Revalidate server data before leaving so the destination renders with
-    // the freshly-saved name rather than the empty creation-time value.
+    // the freshly-saved name rather than the empty creation-time value. The
+    // cache refresh has to come first: `updateUser` writes the user row but
+    // leaves the session cookie cache holding the creation-time name.
+    await refreshSessionCache();
     router.refresh();
     router.push(next);
   }

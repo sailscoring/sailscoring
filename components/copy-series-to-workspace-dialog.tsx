@@ -12,7 +12,7 @@
  */
 import { useMemo, useState } from 'react';
 
-import { authClient } from '@/lib/auth-client';
+import { setActiveWorkspace } from '@/lib/auth-client';
 import { hasPermission } from '@/lib/auth/permissions';
 import { copySeriesToWorkspace } from '@/lib/api-repository';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
@@ -91,7 +91,7 @@ export function CopySeriesToWorkspaceDialog({
       // Switch active workspace, then hard-navigate. Soft routing would
       // re-render the source-workspace shell against target data and
       // every cached query would 404 / 403.
-      await authClient.organization.setActive({ organizationId: targetId });
+      await setActiveWorkspace(targetId);
       window.location.assign(`/series/${result.id}/competitors`);
     } catch (err) {
       setError(
