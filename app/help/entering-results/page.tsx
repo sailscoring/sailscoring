@@ -49,7 +49,10 @@ export default async function Page() {
           pick <strong className="text-foreground">Record as unknown</strong> from the
           suggestions) to file it as unknown rather than completing to the registered boat. The
           row is kept in crossing order; click <strong className="text-foreground">Resolve</strong>{' '}
-          next to the entry to link it to a registered competitor once you know who it was.
+          next to the entry to link it to a registered competitor once you know who it was. The
+          resolve dialog opens with the cursor in a filter box — type any part of a sail number,
+          boat name or person and the list of boats still to finish narrows as you go, then use
+          the arrow keys and <strong className="text-foreground">Enter</strong> to pick one.
           Unresolved unknown finishes are excluded from standings until resolved.
         </p>
         <p>

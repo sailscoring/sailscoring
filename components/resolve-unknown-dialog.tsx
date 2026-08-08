@@ -18,13 +18,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { displayCompetitorLabel } from '@/lib/competitor-fields';
+import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import type { Competitor, CompetitorFieldKey, Fleet } from '@/lib/types';
 
 export interface ResolveUnknownDialogProps {
   /** When non-null, the dialog is open. The unknown entry being resolved. */
   unknownSailNumber: string | null;
   /** Candidate competitors to link to (typically non-finishers). */
-  candidates: Pick<Competitor, 'id' | 'sailNumber' | 'names' | 'crewNames' | 'boatName'>[];
+  candidates: Competitor[];
   fleets: Fleet[];
   primaryFieldLabel: string;
   showCrew: boolean;
@@ -63,6 +64,16 @@ function ResolveUnknownDialogInner({
   const [fleetId, setFleetId] = useState(fleets[0]?.id ?? '');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Narrowing the candidate list. Deliberately starts empty: the unknown
+  // number is the one thing already known not to match any boat, so seeding
+  // it would open the dialog on an empty list.
+  const [filter, setFilter] = useState('');
+  const [highlight, setHighlight] = useState(0);
+
+  const matches = candidates.filter((c) => competitorMatchesFilter(c, filter));
+  // Arrow keys move within whatever the filter left; a filter edit can shrink
+  // the list under the cursor, so clamp rather than trusting the stored index.
+  const active = matches.length === 0 ? -1 : Math.min(highlight, matches.length - 1);
 
   function openAddForm() {
     setSail(unknownSailNumber);
@@ -112,18 +123,49 @@ function ResolveUnknownDialogInner({
 
         {!showAddForm ? (
           <>
+            {candidates.length > 0 && (
+              <Input
+                aria-label="Filter competitors"
+                placeholder="Filter by sail number, boat or name"
+                value={filter}
+                autoFocus
+                autoComplete="off"
+                onChange={(e) => { setFilter(e.target.value); setHighlight(0); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setHighlight((h) => Math.min(h + 1, matches.length - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setHighlight((h) => Math.max(h - 1, 0));
+                  } else if (e.key === 'Enter' && active >= 0) {
+                    e.preventDefault();
+                    onResolveExisting(matches[active].id);
+                  }
+                }}
+              />
+            )}
             <div className="space-y-1 max-h-52 overflow-y-auto">
               {candidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground px-3 py-2">
                   No unfinished competitors available.
                 </p>
+              ) : matches.length === 0 ? (
+                <p className="text-sm text-muted-foreground px-3 py-2">
+                  No competitor matches that.
+                </p>
               ) : (
-                candidates.map((c) => (
+                matches.map((c, i) => (
                   <button
                     key={c.id}
                     type="button"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-accent text-sm text-left"
+                    // Keep the arrow-key selection in view: with the list
+                    // capped at max-h-52 the highlighted row is otherwise
+                    // walked off the bottom without the box scrolling.
+                    ref={(el) => { if (i === active) el?.scrollIntoView({ block: 'nearest' }); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-accent text-sm text-left ${i === active ? 'bg-accent' : ''}`}
                     onClick={() => onResolveExisting(c.id)}
+                    onMouseEnter={() => setHighlight(i)}
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
                     <span className="flex-1 truncate">{displayCompetitorLabel(c, { enabledCompetitorFields, showCrew })}</span>
