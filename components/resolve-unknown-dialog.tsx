@@ -30,7 +30,9 @@ export interface ResolveUnknownDialogProps {
   primaryFieldLabel: string;
   showCrew: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
-  onResolveExisting: (competitorId: string) => void;
+  /** Link the finish to an existing boat. `recordAlternative` carries the
+   *  scorer's tick to keep the typed number on that boat for later races. */
+  onResolveExisting: (competitorId: string, opts: { recordAlternative: boolean }) => void;
   /** Create a new competitor and resolve to it. Throw to surface an error. */
   onResolveNew: (input: { sailNumber: string; name: string; fleetId: string }) => Promise<void>;
   onCancel: () => void;
@@ -69,11 +71,19 @@ function ResolveUnknownDialogInner({
   // it would open the dialog on an empty list.
   const [filter, setFilter] = useState('');
   const [highlight, setHighlight] = useState(0);
+  // Off by default: alternatives are a registration fact that silently match
+  // later races, so a typo promoted automatically would follow the boat for
+  // the rest of the series. The scorer asks for it.
+  const [recordAlternative, setRecordAlternative] = useState(false);
 
   const matches = candidates.filter((c) => competitorMatchesFilter(c, filter));
   // Arrow keys move within whatever the filter left; a filter edit can shrink
   // the list under the cursor, so clamp rather than trusting the stored index.
   const active = matches.length === 0 ? -1 : Math.min(highlight, matches.length - 1);
+
+  function resolveExisting(competitorId: string) {
+    onResolveExisting(competitorId, { recordAlternative });
+  }
 
   function openAddForm() {
     setSail(unknownSailNumber);
@@ -140,7 +150,7 @@ function ResolveUnknownDialogInner({
                     setHighlight((h) => Math.max(h - 1, 0));
                   } else if (e.key === 'Enter' && active >= 0) {
                     e.preventDefault();
-                    onResolveExisting(matches[active].id);
+                    resolveExisting(matches[active].id);
                   }
                 }}
               />
@@ -164,7 +174,7 @@ function ResolveUnknownDialogInner({
                     // walked off the bottom without the box scrolling.
                     ref={(el) => { if (i === active) el?.scrollIntoView({ block: 'nearest' }); }}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-accent text-sm text-left ${i === active ? 'bg-accent' : ''}`}
-                    onClick={() => onResolveExisting(c.id)}
+                    onClick={() => resolveExisting(c.id)}
                     onMouseEnter={() => setHighlight(i)}
                   >
                     <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
@@ -173,6 +183,26 @@ function ResolveUnknownDialogInner({
                 ))
               )}
             </div>
+            {candidates.length > 0 && (
+              <label className="flex items-start gap-2.5 cursor-pointer text-sm">
+                <input
+                  type="checkbox"
+                  checked={recordAlternative}
+                  onChange={(e) => setRecordAlternative(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                />
+                <span>
+                  Also record <span className="font-mono">{unknownSailNumber}</span> as an
+                  alternative sail number, so this boat matches it in later races.
+                  {!enabledCompetitorFields.includes('alternativeSailNumbers') && (
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      The Alternative sail numbers field will be switched on for this series, so
+                      you can see and edit it on the boat.
+                    </span>
+                  )}
+                </span>
+              </label>
+            )}
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <div className="flex-1 border-t" />
               <span>or</span>

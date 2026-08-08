@@ -11,6 +11,7 @@ import {
   defaultEnabledCompetitorFields,
   formatAlternativeSailNumbers,
   parseAlternativeSailNumbers,
+  addAlternativeSailNumber,
   displayCompetitorLabel,
   isFieldDisabledByPrimary,
   isMultiPersonField,
@@ -384,5 +385,32 @@ describe('parseAlternativeSailNumbers', () => {
 
   it('formats an absent list as an empty field', () => {
     expect(formatAlternativeSailNumbers(undefined)).toBe('');
+  });
+});
+
+describe('addAlternativeSailNumber', () => {
+  it('appends the number the boat actually showed', () => {
+    expect(addAlternativeSailNumber({ sailNumber: 'IRL 1234' }, '890')).toEqual(['890']);
+    expect(
+      addAlternativeSailNumber({ sailNumber: 'IRL 1234', alternativeSailNumbers: ['890'] }, '77'),
+    ).toEqual(['890', '77']);
+  });
+
+  it('records nothing for a number the boat already answers to', () => {
+    expect(
+      addAlternativeSailNumber({ sailNumber: 'IRL 1234', alternativeSailNumbers: ['890'] }, '890'),
+    ).toBeNull();
+    // Matching is case-insensitive, so listing both spellings would be noise.
+    expect(
+      addAlternativeSailNumber({ sailNumber: 'IRL 1234', alternativeSailNumbers: ['irl99'] }, 'IRL99'),
+    ).toBeNull();
+  });
+
+  it('records nothing for the boat\'s own registered number', () => {
+    expect(addAlternativeSailNumber({ sailNumber: 'IRL 1234' }, ' irl 1234 ')).toBeNull();
+  });
+
+  it('records nothing for a blank entry', () => {
+    expect(addAlternativeSailNumber({ sailNumber: 'IRL 1234' }, '   ')).toBeNull();
   });
 });

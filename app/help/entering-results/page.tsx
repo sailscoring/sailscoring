@@ -86,6 +86,14 @@ export default async function Page() {
           the boat actually showed. That tag is stored with the result, so the
           series keeps a record of which sail a boat raced under in each race
           even though results always display and publish the registered number.
+          Resolving an unknown number by hand tags the row the same way, but the
+          tag belongs to that one result — it does not change the boat’s entry.
+          If the boat is on the borrowed sail for the rest of the event, tick{' '}
+          <strong className="text-foreground">Also record … as an alternative
+          sail number</strong> in the resolve dialog and later races match it
+          without asking. Leave it unticked for a one-off: a number recorded
+          against the entry is matched silently from then on, so a mis-called
+          number would keep finding that boat.
         </p>
         <p>
           Rows for fleets without a start time (scratch scoring) show a{' '}

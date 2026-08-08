@@ -143,6 +143,24 @@ export function parseAlternativeSailNumbers(raw: string): string[] {
   return out;
 }
 
+/** Record a number a boat actually raced under on its alternatives list, so
+ *  finish entry matches it from the next race on. Returns the new list, or
+ *  null when there is nothing to record: a blank entry, the boat's own
+ *  registered number, or a number already listed (all compared
+ *  case-insensitively, as matching itself is). */
+export function addAlternativeSailNumber(
+  competitor: Pick<Competitor, 'sailNumber' | 'alternativeSailNumbers'>,
+  entered: string,
+): string[] | null {
+  const value = entered.trim();
+  if (!value) return null;
+  const key = value.toUpperCase();
+  if (key === competitor.sailNumber.trim().toUpperCase()) return null;
+  const existing = competitor.alternativeSailNumbers ?? [];
+  if (existing.some((v) => v.trim().toUpperCase() === key)) return null;
+  return [...existing, value];
+}
+
 /** The inverse of {@link parseAlternativeSailNumbers}, for populating the field. */
 export function formatAlternativeSailNumbers(values: string[] | undefined): string {
   return (values ?? []).join(', ');

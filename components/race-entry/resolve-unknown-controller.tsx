@@ -4,6 +4,8 @@ import { forwardRef, useImperativeHandle, useState } from 'react';
 
 import { ResolveUnknownDialog } from '@/components/resolve-unknown-dialog';
 import { useSaveCompetitor } from '@/hooks/use-competitors';
+import { useUpdateSeries } from '@/hooks/use-series';
+import { ALL_COMPETITOR_FIELDS, addAlternativeSailNumber } from '@/lib/competitor-fields';
 import type { FinishEntry, NonFinisherView } from '@/lib/finish-entry';
 import type { Competitor, CompetitorFieldKey, Finish, Fleet } from '@/lib/types';
 
@@ -41,6 +43,7 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
   ref,
 ) {
   const saveCompetitor = useSaveCompetitor();
+  const updateSeries = useUpdateSeries();
   const [resolvingEntry, setResolvingEntry] = useState<(FinishEntry & { kind: 'unknown' }) | null>(null);
 
   useImperativeHandle(ref, () => ({ open: setResolvingEntry }));
@@ -50,8 +53,11 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
     onClosed();
   }
 
-  function linkUnknownToCompetitor(competitorId: string) {
+  function linkUnknownToCompetitor(competitorId: string, opts: { recordAlternative: boolean }) {
     if (!resolvingEntry) return;
+    if (opts.recordAlternative) {
+      recordAsAlternative(competitorId, resolvingEntry.sailNumber);
+    }
     const finish = finishByEntryKey.get(resolvingEntry.finishId);
     if (finish) {
       // Linking clears unknownSailNumber and the row starts displaying the
@@ -74,6 +80,28 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
       saveFinish.mutate(next);
     }
     closeResolveDialog();
+  }
+
+  /** Keep the number the boat actually showed on its entry, so finish entry
+   *  matches it from the next race on instead of asking again. The field is
+   *  switched on for the series when it isn't already — a stored number the
+   *  scorer can neither see nor remove would be worse than not storing it. */
+  function recordAsAlternative(competitorId: string, entered: string) {
+    const competitor = nonFinishers.find((v) => v.competitor.id === competitorId)?.competitor;
+    if (!competitor) return;
+    const alternativeSailNumbers = addAlternativeSailNumber(competitor, entered);
+    if (!alternativeSailNumbers) return;
+    saveCompetitor.mutate({ ...competitor, alternativeSailNumbers });
+    if (!enabledCompetitorFields.includes('alternativeSailNumbers')) {
+      updateSeries.mutate({
+        id: seriesId,
+        patch: (s) => ({
+          enabledCompetitorFields: ALL_COMPETITOR_FIELDS.filter(
+            (f) => f === 'alternativeSailNumbers' || (s.enabledCompetitorFields ?? []).includes(f),
+          ),
+        }),
+      });
+    }
   }
 
   async function handleResolveNew(input: { sailNumber: string; name: string; fleetId: string }) {

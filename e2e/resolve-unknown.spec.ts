@@ -62,6 +62,34 @@ test('the resolve dialog filters candidates and resolves the highlighted one', a
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 });
 
+test('resolving can record the number as an alternative for later races', async ({ page }) => {
+  await openResolveDialog(page);
+  const dialog = page.getByRole('dialog');
+
+  // The series does not show the Alternative sail numbers field, so the
+  // checkbox says it will be switched on.
+  await expect(dialog.getByText(/Alternative sail numbers field will be switched on/)).toBeVisible();
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: /1002/ }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // The boat now carries 9999, and the field is visible so it can be removed.
+  await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
+  await expect(page.getByRole('columnheader', { name: 'Also sails as' })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Bob Byrne/ })).toContainText('9999');
+
+  // Race 2: the same number now commits straight to Bob, badged with the
+  // number he actually sailed under — no resolve prompt.
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 2').click();
+  await page.getByLabel('Sail number').fill('9999');
+  await page.getByLabel('Sail number').press('Enter');
+  await expect(page.getByTestId('alternative-match-1002')).toBeVisible();
+  await expect(page.getByText('Unknown — not registered')).toHaveCount(0);
+});
+
 test('arrow keys move the resolve highlight', async ({ page }) => {
   await openResolveDialog(page);
   const dialog = page.getByRole('dialog');
