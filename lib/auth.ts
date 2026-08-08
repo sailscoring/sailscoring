@@ -68,6 +68,24 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: false,
   },
+  // Better Auth's default session lifetime is 7 days, which is exactly the
+  // wrong length for this app: club racing is a weekly rhythm, and a scorer
+  // who uses a given machine one evening a week sits right on the boundary.
+  // Worse, the lifetime is per browser — the laptop taken to the club only on
+  // race night is the one always found lapsed. One beta user came back to a
+  // machine after a 60-day gap and was bounced mid-task. 90 days clears a
+  // between-series gap with room to spare. The window slides on use
+  // (`updateAge`), so an active scorer never re-authenticates at all and only
+  // genuine absence expires a session.
+  //
+  // The session cookie's Max-Age follows `expiresIn`, so browser and server
+  // lapse together with no separate cookie config.
+  session: {
+    expiresIn: 60 * 60 * 24 * 90,
+    // Better Auth's default, set explicitly: a session older than a day is
+    // slid forward to a fresh 90 days on its next use.
+    updateAge: 60 * 60 * 24,
+  },
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
