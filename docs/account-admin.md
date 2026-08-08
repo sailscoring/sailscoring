@@ -27,8 +27,13 @@ user id. The next magic-link sign-in goes to the new address; any
 active sessions stay signed in.
 
 Pending magic-link tokens addressed to the old email keep working
-until they expire (default ~5 minutes). If that's a concern, ask the
-user to wait it out before requesting a new link.
+until they expire (30 minutes). If that's a concern, ask the user to
+wait it out before requesting a new link.
+
+Sessions last 90 days and slide forward on use, so a rename does not
+prompt a re-authentication and an active session can be long-lived.
+There is no "sign out other devices" control today: to cut a session
+short, delete the row from the `session` table.
 
 ## Delete a user account
 

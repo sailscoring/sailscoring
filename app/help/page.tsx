@@ -86,7 +86,14 @@ export default async function HelpPage() {
           Sail Scoring uses passwordless email sign-in. From the home screen, click{' '}
           <strong className="text-foreground">Sign in</strong>, enter your email, and click the
           link the app sends you. The link expires after 30 minutes; request a fresh one any
-          time.
+          time. Each link works once, so if you have several sign-in emails in your inbox,
+          only the newest one will let you in.
+        </p>
+        <p>
+          Once you&rsquo;re in, you stay signed in on that browser for 90 days, and every
+          visit resets the clock — so you won&rsquo;t be asked to sign in again between race
+          nights. Signing in is per browser, so a club laptop and a home desktop each need
+          their own link.
         </p>
         <p>
           The first time you sign in we ask for your name. It’s optional — you can skip it —
