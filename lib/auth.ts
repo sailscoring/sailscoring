@@ -85,6 +85,20 @@ export const auth = betterAuth({
     // Better Auth's default, set explicitly: a session older than a day is
     // slid forward to a fresh 90 days on its next use.
     updateAge: 60 * 60 * 24,
+    // `cookieCache` is deliberately absent, so every request resolves the
+    // session against Postgres. Measured before deciding: the drizzle adapter
+    // reads the session row and the user row as two sequential queries, and
+    // require-workspace.ts then reads memberships — so the cache would take
+    // the pre-handler chain from three round-trips to one, about 40-50% of a
+    // page load's queries, worth ~35ms per request against a cross-region
+    // database. What it costs is a window in which a deleted session row keeps
+    // working (the stranding #181 exists to prevent) and in which the
+    // organization plugin's own endpoints read the null activeOrganizationId a
+    // fresh sign-up caches. Not worth it at that price; see #385 for the
+    // measurements and for what a real fix would need. Anything that writes
+    // the session row outside `getSession` must still go through
+    // `setActiveWorkspace` / `refreshSessionCache` in lib/auth-client.ts,
+    // which is what makes turning this on possible at all.
   },
   plugins: [
     magicLink({
