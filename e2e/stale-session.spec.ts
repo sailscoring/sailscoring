@@ -43,3 +43,48 @@ test('stale session cookie redirects to sign-in and self-heals', async ({
   await page.goto('/');
   await expect(page).toHaveURL(/\/sign-in\?callbackURL=%2F$/);
 });
+
+/**
+ * The other half of the same handler (#376): a 401 that isn't backed by a
+ * dead session must not cost the user their session. Signing out and hard-
+ * navigating are irreversible — the cookie is gone and getting back in
+ * needs a fresh magic-link email — so a single bad response is far too
+ * little evidence to spend that on.
+ */
+test('a one-off 401 is re-checked, not treated as a sign-out', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByText(/No series yet/)).toBeVisible();
+
+  const before = await page.context().cookies();
+  const sessionCookie = before.find((c) => c.name.includes('session_token'));
+  expect(sessionCookie).toBeDefined();
+
+  // Exactly one fetch fails, as a blip would. The session behind it is
+  // untouched, so the handler's re-check finds it alive.
+  let failed = false;
+  await page.route('**/api/v1/series', async (route) => {
+    if (failed) return route.fallback();
+    failed = true;
+    await route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'unauthenticated' }),
+    });
+  });
+
+  await page.reload();
+
+  // Recovered in place: the refetch after the re-check renders the list,
+  // and the page never went near sign-in.
+  await expect(page.getByText(/No series yet/)).toBeVisible();
+  expect(failed).toBe(true);
+  await expect(page).toHaveURL(/\/$/);
+
+  // The session cookie is still the one we started with — no sign-out ran.
+  const after = await page.context().cookies();
+  expect(
+    after.find((c) => c.name.includes('session_token'))?.value,
+  ).toBe(sessionCookie!.value);
+});

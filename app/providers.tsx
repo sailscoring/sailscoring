@@ -54,25 +54,105 @@ async function redirectToSignIn(): Promise<void> {
   );
 }
 
-function onApiError(error: unknown): void {
-  if (error instanceof AuthError) void redirectToSignIn();
+/**
+ * Signing out and hard-navigating are both irreversible: the cookie is
+ * gone, whatever was on screen is discarded, and getting back in costs a
+ * fresh magic-link email. One 401 is not enough evidence to spend that, so
+ * ask the session endpoint before believing it.
+ *
+ * Only a definite "no session" is acted on. If the check itself fails —
+ * offline, a blip, the endpoint itself erroring — the session is treated as
+ * intact, because destroying a good session is far worse than leaving a
+ * query in its error state.
+ */
+async function sessionIsGone(): Promise<boolean> {
+  try {
+    // Read through to the database rather than any cached session cookie:
+    // a cache is precisely what can't contradict the 401 we're testing.
+    const { data } = await authClient.getSession({
+      query: { disableCookieCache: true },
+    });
+    return data === null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A page load fans out into a dozen or so parallel fetches, so a dead
+ * session arrives as a dozen simultaneous 401s. One shared check answers
+ * all of them; it is cleared afterwards so a later 401 is checked afresh.
+ */
+let sessionCheck: Promise<void> | null = null;
+
+/**
+ * How many live-session 401s in a row will be forgiven before the queries
+ * are left in their error state. A 401 that keeps coming back while the
+ * session keeps resolving is a server-side fault, and neither refetching
+ * forever nor signing the user out is a useful response to it. Any query
+ * succeeding resets the count, so this bounds a run of failures rather
+ * than a session's lifetime.
+ */
+const MAX_TRANSIENT_RECOVERIES = 2;
+let transientRecoveries = 0;
+
+function handleAuthError(queryClient: QueryClient): void {
+  if (redirectingToSignIn || sessionCheck) return;
+  sessionCheck = sessionIsGone()
+    .then((gone) => {
+      if (gone) {
+        void redirectToSignIn();
+        return;
+      }
+      // The session is fine, so the 401 was transient. Refetch rather than
+      // tear anything down — AuthError is excluded from the retry policy
+      // below, so without this the queries would stay failed.
+      //
+      // Deliberately not awaited: the guard above must be clear again
+      // before those refetches land, or a session that dies in the gap
+      // would have its 401 swallowed and strand the user on a dead page —
+      // the exact failure this whole path exists to prevent.
+      if (transientRecoveries < MAX_TRANSIENT_RECOVERIES) {
+        transientRecoveries += 1;
+        void queryClient.invalidateQueries();
+      }
+    })
+    .finally(() => {
+      sessionCheck = null;
+    });
 }
 
 function createQueryClient(): QueryClient {
-  return new QueryClient({
-    queryCache: new QueryCache({ onError: onApiError }),
+  // The error handlers need the client they're being installed on, which
+  // doesn't exist until the constructor returns.
+  const holder: { client?: QueryClient } = {};
+  const onApiError = (error: unknown): void => {
+    if (error instanceof AuthError && holder.client) {
+      handleAuthError(holder.client);
+    }
+  };
+  holder.client = new QueryClient({
+    queryCache: new QueryCache({
+      onError: onApiError,
+      // A query getting through is proof the 401s were a passing fault, so
+      // the forgiveness budget starts over.
+      onSuccess: () => {
+        transientRecoveries = 0;
+      },
+    }),
     mutationCache: new MutationCache({ onError: onApiError }),
     defaultOptions: {
       queries: {
         staleTime: 1000 * 30,
         refetchOnWindowFocus: false,
-        // A 401 won't heal on retry; fail fast so the sign-in redirect
-        // fires immediately instead of after the default retry cycle.
+        // A 401 won't heal on retry, so fail fast and let the handler above
+        // decide between a re-fetch and a sign-out.
         retry: (failureCount, error) =>
           !(error instanceof AuthError) && failureCount < 3,
       },
     },
   });
+  return holder.client;
 }
 
 export function Providers({ children }: { children: ReactNode }) {
