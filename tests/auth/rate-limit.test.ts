@@ -46,7 +46,19 @@ describe.skipIf(skip)('magic-link rate limiting', () => {
     const c = Math.floor(Math.random() * 256);
     const ip = `10.${a}.${b}.${c}`;
     cleanupKeys.push(`${ip}|/sign-in/magic-link`);
+    cleanupKeys.push(`${ip}|/magic-link/verify`);
     return ip;
+  }
+
+  /** A dead link, which is what every stale sign-in email in an inbox is.
+   *  The token is rejected, but the limiter has already counted the click. */
+  async function getVerify(ip: string): Promise<Response> {
+    return auth.handler(
+      new Request(
+        'http://localhost:3000/api/auth/magic-link/verify?token=dead&callbackURL=%2F',
+        { headers: { 'x-forwarded-for': ip } },
+      ),
+    );
   }
 
   async function postMagicLink(ip: string, email: string): Promise<Response> {
@@ -75,6 +87,34 @@ describe.skipIf(skip)('magic-link rate limiting', () => {
     expect(blocked.status).toBe(429);
     const body = (await blocked.json()) as { message?: string };
     expect(body.message).toMatch(/too many/i);
+  });
+
+  test('verifying is not capped at the send cap', async () => {
+    const ip = uniqueIp();
+
+    // Working through an inbox of stale links used to spend the send budget:
+    // the plugin applies its one rule to both endpoints, so the sixth click
+    // was refused and the good link with it. Well past five here.
+    for (let i = 0; i < 12; i++) {
+      const res = await getVerify(ip);
+      expect(res.status, `verify ${i + 1} of 12`).not.toBe(429);
+    }
+
+    // And the send cap is untouched by all that clicking — separate buckets,
+    // so the user can still ask for a fresh link.
+    const email = `rl-verify-${Date.now()}@sailscoring.test`;
+    expect((await postMagicLink(ip, email)).status).not.toBe(429);
+  });
+
+  test('verifying still has a ceiling, just a much higher one', async () => {
+    const ip = uniqueIp();
+
+    for (let i = 0; i < 60; i++) {
+      const res = await getVerify(ip);
+      expect(res.status, `verify ${i + 1} of 60`).not.toBe(429);
+    }
+
+    expect((await getVerify(ip)).status).toBe(429);
   });
 
   test('the limit is per-IP, so a different client is unaffected', async () => {

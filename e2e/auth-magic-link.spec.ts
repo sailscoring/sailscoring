@@ -77,6 +77,24 @@ test.describe('magic-link sign-in', () => {
     await expect(page.getByText(/expired or already been used/i)).toBeVisible();
   });
 
+  // The suite runs with rate limiting off (one localhost IP signs in dozens
+  // of users), so this navigates straight to the URL a throttled verify is
+  // redirected to rather than trying to trip the limiter. What the redirect
+  // itself produces is pinned in tests/auth/verify-rate-limit.test.ts.
+  test('a throttled verify explains the wait instead of offering the form', async ({
+    page,
+  }) => {
+    await page.goto('/sign-in?error=RATE_LIMITED&retryAfter=240');
+
+    await expect(page.getByTestId('sign-in-throttled')).toBeVisible();
+    await expect(page.getByText(/still good/i)).toBeVisible();
+    await expect(page.getByText(/4 minutes/)).toBeVisible();
+    // Requesting another email would produce a link refused the same way, so
+    // the form is deliberately absent.
+    await expect(page.getByLabel('Email')).toHaveCount(0);
+    await expect(page.getByText(/expired or already been used/i)).toHaveCount(0);
+  });
+
   test('a dead link does not fake a sign-out for a signed-in user', async ({
     page,
   }) => {

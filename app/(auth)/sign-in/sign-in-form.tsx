@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { authClient } from '@/lib/auth-client';
+import { RATE_LIMITED_ERROR } from '@/lib/auth/verify-rate-limit';
 import { encodeNextPath, stripAuthErrorParam } from '@/lib/safe-redirect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,15 @@ export function SignInForm() {
   const callbackURL = stripAuthErrorParam(searchParams.get('callbackURL') ?? '/');
   // A failed verify (expired or already-used link) redirects here with
   // ?error=<code> — see the errorCallbackURL passed below.
-  const failedLink = searchParams.get('error') !== null;
+  const errorCode = searchParams.get('error');
+  // Throttled verify is the one failure where the link is still good: the
+  // limiter answers before the endpoint, so the token was never consumed.
+  const throttled = errorCode === RATE_LIMITED_ERROR;
+  const failedLink = errorCode !== null && !throttled;
+  const retryMinutes = Math.max(
+    1,
+    Math.ceil(Number(searchParams.get('retryAfter') ?? 0) / 60),
+  );
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -46,6 +55,30 @@ export function SignInForm() {
       return;
     }
     setStatus('sent');
+  }
+
+  // No form here on purpose: while the window is open, requesting another
+  // email produces a link that will be refused in exactly the same way. The
+  // only thing that helps is waiting, so that is the whole message.
+  if (throttled) {
+    return (
+      <section
+        className="max-w-sm mx-auto mt-8 bg-card border rounded-lg p-6"
+        data-testid="sign-in-throttled"
+      >
+        <h1 className="text-2xl font-semibold mb-1">Too many attempts</h1>
+        <p className="text-sm text-muted-foreground mb-3">
+          Too many sign-in links have been opened from your network in a short
+          space of time.
+        </p>
+        <p className="text-sm">
+          Your link is still good — it wasn&apos;t used up. Open the most recent
+          sign-in email again in about {retryMinutes}{' '}
+          {retryMinutes === 1 ? 'minute' : 'minutes'} and it will work. Asking
+          for another email won&apos;t make it any quicker.
+        </p>
+      </section>
+    );
   }
 
   return (

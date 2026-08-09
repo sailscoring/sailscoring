@@ -64,7 +64,27 @@ export const auth = betterAuth({
   rateLimit:
     process.env.E2E_DISABLE_RATE_LIMIT === '1'
       ? { enabled: false }
-      : { enabled: true, storage: 'database' },
+      : {
+          enabled: true,
+          storage: 'database',
+          customRules: {
+            // The magicLink plugin applies its single `rateLimit` option to
+            // both of its endpoints, so the send cap silently became a
+            // verify cap too. That is backwards: sending is what burns sender
+            // reputation, while verifying only ever redeems a token this
+            // server already issued. It also punished the exact user it
+            // shouldn't — old sign-in emails are dead links, so working
+            // through an inbox spends the verify budget on links that were
+            // never going to work, and the one good link is refused at the
+            // end of it. A shared club IP hits the same wall with five
+            // scorers signing in on race night.
+            //
+            // Custom rules are resolved after plugin rules, so this wins.
+            // Verify keeps a ceiling — nothing here should be unbounded —
+            // just one no real person reaches.
+            '/magic-link/verify': { window: 600, max: 60 },
+          },
+        },
   emailAndPassword: {
     enabled: false,
   },
