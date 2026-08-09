@@ -77,6 +77,40 @@ test.describe('magic-link sign-in', () => {
     await expect(page.getByText(/expired or already been used/i)).toBeVisible();
   });
 
+  test('a dead link does not fake a sign-out for a signed-in user', async ({
+    page,
+  }) => {
+    const email = freshTestEmail('auth-stale');
+
+    await page.goto('/sign-in');
+    await page.getByLabel('Email').fill(email);
+    await page.getByRole('button', { name: 'Send sign-in link' }).click();
+    const link = await readLatestMagicLink(email);
+    await page.goto(link);
+    await expect(page).toHaveURL(/\/welcome/);
+    await page.getByTestId('welcome-skip').click();
+    await expect(page).toHaveURL(/\/$/);
+
+    // The same link again — single-use, so this is any older sign-in email
+    // still sitting in the inbox. The session is untouched throughout: the
+    // failed verify only redirects.
+    await page.goto(link);
+    await expect(page).toHaveURL(/\/sign-in\?error=/);
+    await expect(page.getByText(/still signed in/i)).toBeVisible();
+    // Emphatically not the sign-in form: offering it here is what sent users
+    // off to request another email they didn't need.
+    await expect(page.getByLabel('Email')).toHaveCount(0);
+    await expect(page.getByText(/expired or already been used/i)).toHaveCount(0);
+
+    await page.getByTestId('already-signed-in-continue').click();
+    await expect(page).toHaveURL(/\/$/);
+
+    // And with no error at all — a bookmark, a back button — straight through
+    // without stopping to explain anything.
+    await page.goto('/sign-in');
+    await expect(page).toHaveURL(/\/$/);
+  });
+
   test('signs out from header user menu', async ({ page }) => {
     const email = freshTestEmail('auth-out');
 
