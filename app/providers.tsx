@@ -122,7 +122,8 @@ function handleAuthError(queryClient: QueryClient): void {
     });
 }
 
-function createQueryClient(): QueryClient {
+/** Exported for the mutation-error tests; `Providers` is the only caller. */
+export function createQueryClient(): QueryClient {
   // The error handlers need the client they're being installed on, which
   // doesn't exist until the constructor returns.
   const holder: { client?: QueryClient } = {};
@@ -140,7 +141,24 @@ function createQueryClient(): QueryClient {
         transientRecoveries = 0;
       },
     }),
-    mutationCache: new MutationCache({ onError: onApiError }),
+    mutationCache: new MutationCache({
+      onError: (error, _vars, _ctx, mutation) => {
+        onApiError(error);
+        // Two failure kinds have somewhere to go already: an AuthError to the
+        // session re-check above, and a 409 to the conflict notice or the
+        // finish-entry row dialog (see ConflictMutationSubscriber below).
+        if (error instanceof AuthError || error instanceof ConflictApiError) return;
+        // Everything else goes nowhere. `mutate` swallows rejections, so a
+        // caller that passes no onError loses the write in silence: the
+        // scorer sees the interaction succeed and the data isn't there. Log
+        // it, so it shows up in the console during development and fails the
+        // e2e suite, which treats a console error as a test failure.
+        console.error(
+          `Mutation failed${mutation.options.mutationKey ? ` (${JSON.stringify(mutation.options.mutationKey)})` : ''}:`,
+          error,
+        );
+      },
+    }),
     defaultOptions: {
       queries: {
         staleTime: 1000 * 30,
