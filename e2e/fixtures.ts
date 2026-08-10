@@ -1,6 +1,6 @@
 import { test as base } from '@playwright/test';
 
-import { signInFreshUser } from './helpers';
+import { hardenNavigation, signInFreshUser } from './helpers';
 
 /**
  * Console errors triggered by in-flight fetches being aborted when the
@@ -27,9 +27,16 @@ function isAbortedFetchNoise(text: string): boolean {
  * any browser console error or uncaught page error. This catches things like
  * React's hooks-order violations, which would otherwise only appear in the
  * browser console and not cause the test to fail.
+ *
+ * The same fixture hardens the page's navigations against transient
+ * environmental failures — see `hardenNavigation`. A host network change (wifi
+ * roam, VPN, link flap) aborts whatever Chromium has in flight, loopback
+ * included, so an otherwise healthy `goto` or `reload` dies with
+ * net::ERR_NETWORK_CHANGED and the test lands in the report as load-sensitive.
  */
 export const test = base.extend({
   page: async ({ page }, use) => {
+    hardenNavigation(page);
     const errors: string[] = [];
 
     page.on('pageerror', (err) => {

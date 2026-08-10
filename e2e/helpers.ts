@@ -107,19 +107,76 @@ export async function signInFreshUser(page: Page, prefix: string): Promise<strin
 }
 
 /**
- * Reload, retrying once if the reload is aborted. Right after sign-in the App
- * Router can still be settling (the welcome step's push, callbackURL
- * redirects); a client-side navigation committing mid-reload cancels it with
- * net::ERR_ABORTED even though the page is healthy. One retry rides out the
- * settle; anything else rethrows.
+ * Chromium navigation failures that mean the environment moved under the
+ * browser rather than that the page is broken:
+ *
+ *  - ERR_ABORTED — a client-side navigation committed mid-reload. Right after
+ *    sign-in the App Router can still be settling (the welcome step's push,
+ *    callbackURL redirects) and cancels the reload under way.
+ *  - ERR_NETWORK_CHANGED / ERR_NETWORK_IO_SUSPENDED — the *host's* network
+ *    interface changed: a wifi roam, a VPN going up or down, a link flap, a
+ *    resume from suspend. Chromium's network-change notifier tears down every
+ *    request in flight when that happens, loopback included, so a laptop on an
+ *    unsteady link loses navigations to a server running on the same machine.
+ *  - ERR_CONNECTION_RESET / ERR_CONNECTION_CLOSED — a keep-alive socket closed
+ *    just as it was being reused.
+ *
+ * Every one of them clears immediately, so repeating the navigation is the
+ * whole fix. Anything else is a real failure and rethrows on the spot.
  */
-async function reloadRetryingAbort(page: Page): Promise<void> {
-  try {
-    await page.reload();
-  } catch (err) {
-    if (!String(err).includes('ERR_ABORTED')) throw err;
-    await page.reload();
+const TRANSIENT_NAV_ERRORS = [
+  'ERR_ABORTED',
+  'ERR_NETWORK_CHANGED',
+  'ERR_NETWORK_IO_SUSPENDED',
+  'ERR_CONNECTION_RESET',
+  'ERR_CONNECTION_CLOSED',
+  'ERR_INTERNET_DISCONNECTED',
+];
+
+function isTransientNavError(err: unknown): boolean {
+  const text = String(err);
+  return TRANSIENT_NAV_ERRORS.some((code) => text.includes(code));
+}
+
+/** Run a navigation, retrying while it fails for one of the reasons above. */
+async function retryTransientNav<T>(navigate: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await navigate();
+    } catch (err) {
+      if (attempt >= 2 || !isTransientNavError(err)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
   }
+}
+
+/**
+ * Wrap `goto` and `reload` on a page so every navigation it makes rides out a
+ * transient environmental failure. Installed by the `page` fixture, which is
+ * why most specs never call the two helpers below directly.
+ */
+export function hardenNavigation(page: Page): void {
+  const goto = page.goto.bind(page);
+  const reload = page.reload.bind(page);
+  page.goto = (url, options) => retryTransientNav(() => goto(url, options));
+  page.reload = (options) => retryTransientNav(() => reload(options));
+}
+
+/**
+ * Reload, riding out a transient navigation failure. Specs that drive their
+ * own pages (`server-mode-org-collab` and the other multi-context specs import
+ * Playwright's `test` directly) don't get the fixture's hardening, so the
+ * helpers here retry in their own right. On a hardened page that nests one
+ * retry loop inside another, which is harmless: each attempt is an ordinary
+ * localhost reload and the outer loop only ever sees the inner one's verdict.
+ */
+export async function reloadRetryingTransient(page: Page): Promise<void> {
+  await retryTransientNav(() => page.reload());
+}
+
+/** `page.goto`, riding out a transient navigation failure. */
+export async function gotoRetryingTransient(page: Page, url: string): Promise<void> {
+  await retryTransientNav(() => page.goto(url));
 }
 
 /**
@@ -720,7 +777,7 @@ export async function setActiveWorkspace(
     });
     if (!res.ok) throw new Error(`set-active failed: ${res.status}`);
   }, organizationId);
-  await reloadRetryingAbort(page);
+  await reloadRetryingTransient(page);
 }
 
 /**
@@ -754,7 +811,7 @@ export async function enableFeatures(
   } finally {
     await close();
   }
-  await reloadRetryingAbort(page);
+  await reloadRetryingTransient(page);
 }
 
 /**
