@@ -33,8 +33,18 @@ export function useCompetitorAudit(id: string | null) {
   });
 }
 
+/**
+ * Mutation key shared by the competitor-row writers. Watched via
+ * `useIsMutating` by UI that reports whether the scorer's work is saved —
+ * finish entry writes competitors as well as finishes (resolving an unknown
+ * sail number records the number on the boat), and a badge that only counted
+ * finish saves would say "All changes saved" over a write still in flight.
+ */
+export const competitorRowMutationKey = ['competitor-row'] as const;
+
 export function useSaveCompetitor() {
   return useVersionedSave<Competitor>({
+    mutationKey: competitorRowMutationKey,
     listKey: (competitor) => queryKeys.competitors.bySeries(competitor.seriesId),
     save: (competitor, opts) => competitorRepo.save(competitor, opts),
     scopeId: 'competitors',

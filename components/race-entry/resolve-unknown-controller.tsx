@@ -56,7 +56,9 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
   function linkUnknownToCompetitor(competitorId: string, opts: { recordAlternative: boolean }) {
     if (!resolvingEntry) return;
     if (opts.recordAlternative) {
-      recordAsAlternative(competitorId, resolvingEntry.sailNumber);
+      // Not awaited: the link below is the primary write and the dialog closes
+      // on it, rather than waiting on the bookkeeping behind it.
+      void recordAsAlternative(competitorId, resolvingEntry.sailNumber);
     }
     const finish = finishByEntryKey.get(resolvingEntry.finishId);
     if (finish) {
@@ -86,12 +88,23 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
    *  matches it from the next race on instead of asking again. The field is
    *  switched on for the series when it isn't already — a stored number the
    *  scorer can neither see nor remove would be worse than not storing it. */
-  function recordAsAlternative(competitorId: string, entered: string) {
+  async function recordAsAlternative(competitorId: string, entered: string) {
     const competitor = nonFinishers.find((v) => v.competitor.id === competitorId)?.competitor;
     if (!competitor) return;
     const alternativeSailNumbers = addAlternativeSailNumber(competitor, entered);
     if (!alternativeSailNumbers) return;
-    saveCompetitor.mutate({ ...competitor, alternativeSailNumbers });
+    // Await the competitor before switching the field on. Saving a competitor
+    // bumps the series row's version server-side and refreshes the cached row
+    // for exactly this reason (see useSaveCompetitor) — firing both at once
+    // sends the series save a token that is already stale, and it spends a
+    // conflict retry it may need for the finish save landing behind it.
+    try {
+      await saveCompetitor.mutateAsync({ ...competitor, alternativeSailNumbers });
+    } catch {
+      // Reported through the mutation cache. There is no field to switch on
+      // if the number it would reveal never saved.
+      return;
+    }
     if (!enabledCompetitorFields.includes('alternativeSailNumbers')) {
       updateSeries.mutate({
         id: seriesId,

@@ -2,13 +2,14 @@
 
 import { use, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useIsMutating } from '@tanstack/react-query';
 import { RowConflictDialog } from '@/components/row-conflict-dialog';
 import { useFinishConflictDialog } from '@/hooks/use-finish-conflict-dialog';
 import { useFinishInput } from '@/hooks/use-finish-input';
 import { useFinishRowOps } from '@/hooks/use-finish-row-ops';
 import { useStartCheckIn } from '@/hooks/use-start-check-in';
-import { useSeries } from '@/hooks/use-series';
-import { useCompetitorsBySeries } from '@/hooks/use-competitors';
+import { seriesRowMutationKey, useSeries } from '@/hooks/use-series';
+import { competitorRowMutationKey, useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useRace, useRacesBySeries, useSaveRace } from '@/hooks/use-races';
 import { useSeriesReadOnly } from '@/components/series-read-only';
@@ -107,6 +108,10 @@ export default function ResultEntryPage({
   const saveFinishes = useSaveFinishes();
   const deleteFinish = useDeleteFinish();
   const saveRace = useSaveRace();
+  // Counted into the autosave badge below — these fire from the resolve
+  // dialog, which owns its own mutations rather than the page's.
+  const competitorSavesInFlight = useIsMutating({ mutationKey: competitorRowMutationKey });
+  const seriesSavesInFlight = useIsMutating({ mutationKey: seriesRowMutationKey });
   const { can } = useWorkspacePermissions();
   // Finish entry is a race-day operation: archived series and roles without
   // score view-only.
@@ -294,8 +299,18 @@ export default function ResultEntryPage({
 
   const unknownCount = finishingOrder.filter((e) => e.kind === 'unknown').length;
 
+  // Finish entry writes more than finishes: resolving an unknown sail number
+  // records the number on the competitor and switches the series' alternative-
+  // numbers field on. Counting only the finish mutations made the badge read
+  // "All changes saved" while those were still in flight, so a scorer could
+  // close the tab — or navigate to a tab rendering off them — over a write
+  // that hadn't landed.
   const isSaving =
-    saveFinish.isPending || saveFinishes.isPending || deleteFinish.isPending;
+    saveFinish.isPending ||
+    saveFinishes.isPending ||
+    deleteFinish.isPending ||
+    competitorSavesInFlight > 0 ||
+    seriesSavesInFlight > 0;
 
   return (
     <div className="space-y-6">
