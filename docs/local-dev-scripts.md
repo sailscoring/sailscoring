@@ -21,7 +21,7 @@ from?", start here.
 | `pnpm test:e2e`          | Playwright, full-stack build (`retries: 2`, so flaky-but-passed exits 0) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:triage`   | `test:e2e` then file each flaky test as a `flake` GitHub issue (pre-push run) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:stress`   | `test:e2e` with CPU burners on half the cores (flake stress test; no triage — read results as an aggregate signal) | Yes — run `pnpm db:up` first   |
-| `pnpm flake:triage`      | Triage the last run's `test-results/report.json` into `flake` issues; `--dry-run` to preview, `--ignore-suspend` to file suspend-spanning ones anyway | No (needs `gh` auth) |
+| `pnpm flake:triage`      | Triage the last run's `test-results/report.json` into `flake` issues; `--dry-run` to preview, `--ignore-environmental` to file suspend / network-change ones anyway | No (needs `gh` auth) |
 | `pnpm db:up`             | Bring up the local Postgres container, idempotent    | (it *is* the DB)|
 | `pnpm db:migrate`        | Apply Drizzle migrations (uses `.env.local`)         | Yes             |
 | `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes — run `pnpm db:up` first   |
@@ -152,7 +152,7 @@ pnpm test:e2e:triage
       ├─ pnpm test:e2e            ← reporters write test-results/
       │   ├─ json          → report.json     (per-test flaky status + attempt times)
       │   └─ clock-watch   → clock-gaps.json (windows where the machine stopped)
-      └─ pnpm flake:triage        ← files `flake` issues, minus the suspend-spanning ones
+      └─ pnpm flake:triage        ← files `flake` issues, minus the environmental ones
 ```
 
 Every filed issue also states what the test **used against what it was allowed**
@@ -172,9 +172,18 @@ against the monotonic clock every two seconds: the wall clock advances across a
 suspend, the monotonic one does not, so their divergence *is* the suspend.
 `flake-triage` then reports rather than files any flaky test whose failed
 attempt overlapped a gap (plus two minutes of socket recovery), and annotates
-any hard failure that did. Re-run the suite for honest data; pass
-`--ignore-suspend` to file them regardless. With no gaps file, an unreadable
-one, or one from a different run, nothing is suppressed.
+any hard failure that did. Re-run the suite for honest data. With no gaps file,
+an unreadable one, or one from a different run, nothing is suppressed.
+
+A change to the **host's network** does the same damage for the same reason: a
+wifi roam, a VPN going up or down, or a link flap fires Chromium's
+network-change notifier, which tears down every request in flight — loopback
+included, so requests to the local test server die with the rest. The tell-tale
+is unrelated specs flaking within seconds of each other, and `net::ERR_NETWORK_CHANGED`
+in at least one of them. `e2e/helpers.ts` retries the navigations it owns, and
+`flake-triage` reports rather than files any flaky test whose error names one of
+these codes. Pass `--ignore-environmental` to file suspend and network-change
+flakes regardless.
 
 ## Working in a second git worktree
 

@@ -23,17 +23,25 @@
  * test was nowhere near its cap. The run summary also names any `test.slow()`
  * that used under half its budget, so the marker doesn't quietly accumulate.
  *
- * Suspend suppression: a laptop suspend mid-run fails whatever was in flight
- * across all workers with hung I/O, which the report records as `flaky` — real
- * enough looking that the fix it invites (marking a healthy test `test.slow()`)
- * is the wrong one. e2e/clock-watch-reporter.ts writes the windows where the
- * machine stopped; any flaky test whose failed attempt overlaps one is reported
- * and NOT filed. `--ignore-suspend` files them anyway.
+ * Environmental suppression: two things fail whatever the workers happen to be
+ * doing, across the whole suite at once, and the report records the lot as
+ * `flaky` — real enough looking that the fix they invite (marking a healthy
+ * test `test.slow()`) is the wrong one.
+ *
+ *   - A laptop suspend mid-run, which leaves every socket dead and the next
+ *     request hanging. e2e/clock-watch-reporter.ts writes the windows where the
+ *     machine stopped; a flaky test whose failed attempt overlaps one is
+ *     reported and NOT filed.
+ *   - A host network change — wifi roam, VPN, link flap — which tears down
+ *     every request in flight, loopback included. Chromium names it in the
+ *     error, so the error text is the detector.
+ *
+ * `--ignore-environmental` files both anyway.
  *
  * Usage:
- *   pnpm flake:triage                   # file/update issues from the last run
- *   pnpm flake:triage --dry-run         # print what it would do, touch nothing
- *   pnpm flake:triage --ignore-suspend  # file even suspend-spanning flakes
+ *   pnpm flake:triage                         # file/update issues from the last run
+ *   pnpm flake:triage --dry-run               # print what it would do, touch nothing
+ *   pnpm flake:triage --ignore-environmental  # file suspend / network-change flakes too
  *
  * Needs the `gh` CLI authenticated. Reads no database.
  */
@@ -46,7 +54,9 @@ const REPORT_PATH = resolve(process.cwd(), 'test-results/report.json');
 const CLOCK_GAPS_PATH = resolve(process.cwd(), 'test-results/clock-gaps.json');
 const LABEL = 'flake';
 const DRY_RUN = process.argv.includes('--dry-run');
-const IGNORE_SUSPEND = process.argv.includes('--ignore-suspend');
+/** `--ignore-suspend` predates the network-change class; both spellings work. */
+const IGNORE_ENVIRONMENTAL =
+  process.argv.includes('--ignore-environmental') || process.argv.includes('--ignore-suspend');
 const TODAY = new Date().toISOString().slice(0, 10);
 
 /**
@@ -62,10 +72,10 @@ const RESUME_GRACE_MS = 120_000;
 const SAME_RUN_SLACK_MS = 120_000;
 
 // ── Playwright JSON report (the slice we read) ────────────────────────────────
-interface PwError {
+export interface PwError {
   message?: string;
 }
-interface PwResult {
+export interface PwResult {
   status: string; // 'passed' | 'failed' | 'timedOut' | 'interrupted' | 'skipped'
   retry: number;
   startTime?: string; // ISO
@@ -160,6 +170,23 @@ export function budgetAdvice(b: Budget): string {
 const ANSI = /\x1b\[[0-9;]*m/g;
 const strip = (s: string): string => s.replace(ANSI, '');
 
+/**
+ * Every error the failed attempt carried, not just the first.
+ *
+ * An attempt routinely ends with more than one: the assertion that gave up,
+ * plus whatever the fixtures found on teardown — the console-error check in
+ * e2e/fixtures.ts being the one that names an app-side failure. Reporting only
+ * the first hid exactly the evidence that would have explained the flake, and
+ * left issues quoting an anonymous timeout with nothing to work from.
+ */
+export function describeErrors(result: PwResult | undefined): string {
+  const messages = (result?.errors ?? []).map((e) => e.message);
+  if (result?.error?.message) messages.unshift(result.error.message);
+  const unique = [...new Set(messages.filter(Boolean).map((m) => strip(m!).trim()))];
+  if (unique.length === 0) return '(no error captured)';
+  return unique.map((m) => m.slice(0, 800)).join('\n\n— and —\n\n').slice(0, 2_000);
+}
+
 function attemptWindow(result: PwResult | undefined): Attempt {
   const from = result?.startTime ? Date.parse(result.startTime) : NaN;
   if (!Number.isFinite(from)) return {};
@@ -228,13 +255,12 @@ function collect(report: PwReport): {
 
         if (test.status === 'flaky') {
           const failed = test.results.find((r) => r.status !== 'passed');
-          const raw = failed?.error?.message ?? failed?.errors?.[0]?.message ?? '(no error captured)';
           flaky.push({
             file: relFile(spec.file || file),
             line: spec.line,
             specTitle: spec.title,
             fullTitle,
-            errorExcerpt: strip(raw).trim().slice(0, 800),
+            errorExcerpt: describeErrors(failed),
             attempt: attemptWindow(failed),
             budget,
           });
@@ -336,6 +362,32 @@ function describeSuspend(windows: SuspendWindow[]): string {
   return windows
     .map((w) => `${w.suspectFrom} → ${w.resumedAt} (${Math.round(w.sleptSeconds / 60)} min)`)
     .join(', ');
+}
+
+// ── host network changes ─────────────────────────────────────────────────────
+
+/**
+ * Chromium errors that mean the host's network moved, not that the test is
+ * load-sensitive. A wifi roam, a VPN going up or down, a link flap or a resume
+ * fires the network-change notifier, and every request in flight is torn down —
+ * loopback included, so requests to the local test server die with it.
+ *
+ * Like a suspend, this hits whatever the workers happened to be doing, so the
+ * report shows unrelated specs flaking within seconds of each other. Filing
+ * them as load-sensitive sends the reader hunting a stall that never happened,
+ * and invites the `test.slow()` non-fix. e2e/helpers.ts retries the navigations
+ * it can; a request torn down mid-flight inside the app can't be retried from
+ * outside, so those still surface here.
+ */
+const NETWORK_CHANGE_ERRORS = [
+  'ERR_NETWORK_CHANGED',
+  'ERR_NETWORK_IO_SUSPENDED',
+  'ERR_INTERNET_DISCONNECTED',
+  'ERR_ADDRESS_UNREACHABLE',
+];
+
+export function isNetworkChange(errorExcerpt: string): boolean {
+  return NETWORK_CHANGE_ERRORS.some((code) => errorExcerpt.includes(code));
 }
 
 // ── gh helpers ────────────────────────────────────────────────────────────────
@@ -450,18 +502,34 @@ function main(): number {
     }
   }
 
-  const slept = IGNORE_SUSPEND ? [] : flaky.filter((f) => spansSuspend(f.attempt, suspends));
-  const toFile = flaky.filter((f) => !slept.includes(f));
+  const slept = IGNORE_ENVIRONMENTAL ? [] : flaky.filter((f) => spansSuspend(f.attempt, suspends));
+  const networkChanged = IGNORE_ENVIRONMENTAL
+    ? []
+    : flaky.filter((f) => !slept.includes(f) && isNetworkChange(f.errorExcerpt));
+  const toFile = flaky.filter((f) => !slept.includes(f) && !networkChanged.includes(f));
 
   if (slept.length > 0) {
     console.log(`\n${slept.length} flaky test(s) suppressed — they ran through the suspend, so NOT filed:`);
     for (const f of slept) console.log(`  · ${f.file} › ${f.fullTitle}`);
-    console.log(`  Pass --ignore-suspend to file them anyway.`);
+    console.log(`  Pass --ignore-environmental to file them anyway.`);
+  }
+
+  if (networkChanged.length > 0) {
+    console.log(
+      `\n${networkChanged.length} flaky test(s) suppressed — the host's network changed under them, so NOT filed:`,
+    );
+    for (const f of networkChanged) console.log(`  · ${f.file} › ${f.fullTitle}`);
+    console.log(
+      `  A wifi roam, a VPN, or a link flap tears down every request in flight, loopback included.\n` +
+        `  That is environmental, not a load-sensitive test. Re-run the suite for honest data.\n` +
+        `  Pass --ignore-environmental to file them anyway.`,
+    );
   }
 
   if (toFile.length === 0) {
-    if (slept.length > 0) console.log('\nNothing left to triage once the suspend-spanning failures are set aside.');
-    else console.log(hardFailed.length ? '\nNo flaky tests to triage.' : '\nNo flaky tests — clean run.');
+    if (slept.length + networkChanged.length > 0) {
+      console.log('\nNothing left to triage once the environmental failures are set aside.');
+    } else console.log(hardFailed.length ? '\nNo flaky tests to triage.' : '\nNo flaky tests — clean run.');
     return 0;
   }
 

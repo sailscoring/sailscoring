@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { budgetAdvice, readSuspendWindows, spansSuspend, type SuspendWindow } from '../scripts/flake-triage';
+import {
+  budgetAdvice,
+  describeErrors,
+  isNetworkChange,
+  readSuspendWindows,
+  spansSuspend,
+  type SuspendWindow,
+} from '../scripts/flake-triage';
 
 /**
  * A laptop suspend mid-suite fails whatever was in flight with hung I/O, which
@@ -128,5 +135,51 @@ describe('budgetAdvice', () => {
 
   it('says nothing rather than guess when there is no data at all', () => {
     expect(budgetAdvice({ markedSlow: false })).toBe('');
+  });
+});
+
+/**
+ * An attempt that times out on one thing and trips the console-error check on
+ * another says far more than either error alone — and the second is often the
+ * one naming the app-side cause.
+ */
+describe('describeErrors', () => {
+  it('carries every error the attempt collected, in order', () => {
+    const text = describeErrors({
+      status: 'failed',
+      retry: 0,
+      error: { message: 'TimeoutError: page.waitForEvent: Timeout 20000ms exceeded' },
+      errors: [
+        { message: 'TimeoutError: page.waitForEvent: Timeout 20000ms exceeded' },
+        { message: 'Browser errors detected:\n[console.error] save failed' },
+      ],
+    });
+    expect(text).toContain('waitForEvent');
+    expect(text).toContain('[console.error] save failed');
+    // `error` repeats `errors[0]`; the excerpt shouldn't say it twice.
+    expect(text.match(/waitForEvent/g)).toHaveLength(1);
+  });
+
+  it('strips ANSI and says so when the report captured nothing', () => {
+    expect(describeErrors({ status: 'failed', retry: 0, error: { message: '\x1b[31mred\x1b[0m' } })).toBe('red');
+    expect(describeErrors(undefined)).toBe('(no error captured)');
+  });
+});
+
+/**
+ * A host network change fails whatever is in flight across every worker, so it
+ * reads as a suite-wide load problem. Filing those as load-sensitive tests
+ * sends the reader hunting a stall that never happened.
+ */
+describe('isNetworkChange', () => {
+  it('recognises the Chromium network-change codes', () => {
+    expect(isNetworkChange('Error: page.reload: net::ERR_NETWORK_CHANGED')).toBe(true);
+    expect(isNetworkChange('net::ERR_INTERNET_DISCONNECTED at /series/1')).toBe(true);
+  });
+
+  it('leaves an ordinary timeout alone', () => {
+    expect(isNetworkChange('TimeoutError: locator.click: Timeout 20000ms exceeded')).toBe(false);
+    // An aborted navigation is the App Router settling, not the network moving.
+    expect(isNetworkChange('page.reload: net::ERR_ABORTED')).toBe(false);
   });
 });
