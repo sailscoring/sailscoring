@@ -77,6 +77,8 @@ The e2e suite runs with `retries: 2` (locally too — see `playwright.config.ts`
 
 If the triage reports that **the machine stopped during the run** (a laptop suspend, detected by `e2e/clock-watch-reporter.ts`), that run's timing data is worthless: suspend kills the browser↔server and server↔Postgres keep-alive sockets, so whatever was in flight across the workers fails on hung I/O and passes on retry. Those flakes are suppressed rather than filed, and any hard failure spanning the gap is annotated as suspect. Re-run the suite before believing either — and never "fix" such a test with `test.slow()`.
 
+A **change to the host's network** — a wifi roam, a VPN going up or down, a link flap — does the same damage for the same reason and is just as much not a flake: Chromium tears down every request in flight when its network-change notifier fires, loopback included, so requests to the local test server die with the rest. The tell-tale is unrelated specs flaking within seconds of each other with `net::ERR_NETWORK_CHANGED` in at least one. The triage suppresses these too, and `e2e/helpers.ts` retries the navigations it owns. Same rule: re-run before believing it, never `test.slow()` it.
+
 If a test or lint check hard-fails due to a code change you made, fix it before pushing — do not defer fixes to a follow-up commit. A *new* flake your change introduced counts as a failure to fix, not to file.
 If a check was already failing before your change, note it explicitly and confirm with the user before pushing.
 
