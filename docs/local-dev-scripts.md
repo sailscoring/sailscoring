@@ -132,17 +132,28 @@ pnpm test:e2e
   ├─ pretest:e2e
   │   └─ pnpm db:migrate:test
   │       └─ scripts/db-migrate.ts  ← applies Drizzle migrations (idempotent)
-  └─ scripts/local-env.sh --local-db playwright test  ← forces DATABASE_URL,
-      │                                                  exports SS_APP_PORT
-      └─ webServer: pnpm start:test
-          └─ scripts/start-test.sh
-              ├─ source .env.test
-              ├─ source scripts/local-env.sh   ← re-derives URLs on a
-              │                                  non-default port
-              ├─ DATABASE_URL inherited from caller
-              ├─ pnpm build
-              └─ pnpm start
+  └─ nice -n 10                     ← whole suite runs at low priority
+      └─ scripts/local-env.sh --local-db playwright test  ← forces DATABASE_URL,
+          │                                                  exports SS_APP_PORT
+          └─ webServer: pnpm start:test
+              └─ scripts/start-test.sh
+                  ├─ source .env.test
+                  ├─ source scripts/local-env.sh   ← re-derives URLs on a
+                  │                                  non-default port
+                  ├─ DATABASE_URL inherited from caller
+                  ├─ pnpm build
+                  └─ pnpm start
 ```
+
+Two settings keep a local run from taking over the machine, both of which
+CI leaves alone. `nice -n 10` covers the whole tree — the workers, their
+headless Chromium processes, and the `next start` under `webServer` all
+inherit it — so an interactive browser keeps winning the scheduler while
+the suite runs; Postgres stays at normal priority, so the database side
+stays responsive. Separately, `playwright.config.ts` pins `workers: 4`
+locally rather than accepting the default of half the cores, which on a
+12-core machine meant six workers and a load average near 27. Override
+the worker count for one run with `pnpm test:e2e --workers=N`.
 
 ### `pnpm test:e2e:triage` and the suspend guard
 

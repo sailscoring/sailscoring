@@ -21,7 +21,7 @@
     "test:unit:db": "./scripts/local-env.sh --local-db vitest run",
     "pretest:unit:db": "./scripts/db-up.sh",
     "test:watch": "vitest",
-    "test:e2e": "./scripts/local-env.sh --local-db playwright test",
+    "test:e2e": "nice -n 10 ./scripts/local-env.sh --local-db playwright test",
     "test:e2e:triage": "./scripts/e2e-with-triage.sh",
     "test:e2e:stress": "./scripts/e2e-stress.sh",
     "flake:triage": "tsx scripts/flake-triage.ts",

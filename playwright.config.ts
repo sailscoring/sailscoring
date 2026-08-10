@@ -49,8 +49,19 @@ export default defineConfig({
   // it per-test is never the answer to a flake. Playwright's `reportSlowTests`
   // still surfaces the slowest tests, which is a better perf guard than a cap.
   timeout: 60_000,
-  // The whole suite runs 4 workers against one `next start` + Postgres on one
-  // machine, so a single save→refetch→render round-trip can exceed the 5s
+  // Pin 4 workers locally instead of taking Playwright's default of half the
+  // cores. Every worker carries its own headless Chromium, but they all queue
+  // behind the single `next start` serving them — which saturates a core by
+  // itself — so concurrency past ~4 buys little wall clock and mostly starves
+  // whatever else is on the machine. An investigation in August 2026 caught a
+  // 12-core laptop at load 27 mid-suite (six workers, 36 Chromium processes),
+  // with the desktop browser unusable; the tighter cap also takes pressure off
+  // the load-sensitive flake classes. CI keeps the default — that runner is
+  // smaller and has nothing else to do, so half its cores is already right.
+  // Override either way for a one-off run with `pnpm test:e2e --workers=N`.
+  workers: process.env.CI ? undefined : 4,
+  // The whole suite runs those workers against one `next start` + Postgres on
+  // one machine, so a single save→refetch→render round-trip can exceed the 5s
   // default under load. 15s only slows assertions that were going to fail;
   // passing runs are unaffected.
   expect: { timeout: 15_000 },

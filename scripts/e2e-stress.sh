@@ -17,6 +17,12 @@
 # start-test.sh runs at full speed and can't trip Playwright's webServer
 # timeout; the load lands on the test phase, which is the part that runs
 # alongside real-world background work.
+#
+# The burners deliberately stay at normal priority while `pnpm test:e2e`
+# runs itself at nice 10. That asymmetry is the point: the background work
+# this harness stands in for — a browser, a build, another checkout's
+# suite — is not niced either, so tests losing the scheduler to it is
+# exactly the condition worth reproducing.
 
 set -uo pipefail
 
