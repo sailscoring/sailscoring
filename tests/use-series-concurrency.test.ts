@@ -188,3 +188,79 @@ describe('useUpdateSeries functional patches', () => {
     expect(current().version).toBe(2);
   });
 });
+
+/**
+ * 3. Concurrent child writes exhausting the conflict retry. Resolving an
+ *    unknown sail number to a competitor dispatches three writes at once — the
+ *    competitor, the series field switch, the finish — and the competitor and
+ *    finish writes each touch the series row server-side. Two touches around a
+ *    single retry exhausted it, the series write was lost, and nothing said so:
+ *    the field stayed off and the "Also sails as" column never appeared.
+ */
+describe('useUpdateSeries under concurrent child writes', () => {
+  /** A repo whose series row is being touched by `childWrites` other writes:
+   *  the first has already landed when the mutation reads its CAS token from
+   *  cache, the rest land in the window between a re-read and its resend. */
+  function makeRacedRepo(childWrites: number): { repo: SeriesRepository; current: () => Series } {
+    const { repo, current } = makeRepo({
+      ...baseSeries,
+      version: childWrites > 0 ? 1 : 0,
+    });
+    let remaining = Math.max(0, childWrites - 1);
+    const get = repo.get.bind(repo);
+    const save = repo.save.bind(repo);
+    const raced: SeriesRepository = {
+      ...repo,
+      get: async (id) => {
+        const row = await get(id);
+        if (remaining > 0) {
+          remaining -= 1;
+          // A child write lands between this read and the resend below.
+          await save({ ...current() }, undefined);
+        }
+        return row;
+      },
+    };
+    return { repo: raced, current };
+  }
+
+  test('one child write lands mid-save: the field switch still sticks', async () => {
+    const { repo, current } = makeRacedRepo(1);
+    const observer = new MutationObserver(qc, buildOptions(qc, repo));
+
+    await observer.mutate({
+      id: baseSeries.id,
+      patch: { enabledCompetitorFields: ['alternativeSailNumbers'] },
+    });
+
+    expect(current().enabledCompetitorFields).toEqual(['alternativeSailNumbers']);
+  });
+
+  test('two child writes land mid-save: the field switch still sticks', async () => {
+    const { repo, current } = makeRacedRepo(2);
+    const observer = new MutationObserver(qc, buildOptions(qc, repo));
+
+    await observer.mutate({
+      id: baseSeries.id,
+      patch: { enabledCompetitorFields: ['alternativeSailNumbers'] },
+    });
+
+    expect(current().enabledCompetitorFields).toEqual(['alternativeSailNumbers']);
+    // And the cache carries it, which is what the competitors tab renders off.
+    expect(
+      qc.getQueryData<Series>(queryKeys.series.detail(baseSeries.id))?.enabledCompetitorFields,
+    ).toEqual(['alternativeSailNumbers']);
+  });
+
+  test('a conflict that never clears still surfaces rather than looping', async () => {
+    const { repo } = makeRacedRepo(99);
+    const observer = new MutationObserver(qc, buildOptions(qc, repo));
+
+    await expect(
+      observer.mutate({
+        id: baseSeries.id,
+        patch: { enabledCompetitorFields: ['alternativeSailNumbers'] },
+      }),
+    ).rejects.toBeInstanceOf(ConflictApiError);
+  });
+});

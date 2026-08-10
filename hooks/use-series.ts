@@ -26,7 +26,20 @@ import { useVersionedSave } from './use-versioned-save';
 import { workspaceListOptions } from './workspace-list-options';
 
 /**
- * Save a series row, retrying once on a version conflict with a re-read row.
+ * How many times to re-read and resend after a version conflict.
+ *
+ * One is not enough. A single interaction can dispatch several child writes
+ * alongside the series save — resolving an unknown sail number to a competitor
+ * saves the competitor, switches on the alternative-numbers field, and saves
+ * the finish, all at once — and each of those touches the series row. Two
+ * touches landing around one retry exhaust it, and the series write is lost.
+ * Four attempts cover any interaction the app actually dispatches, while still
+ * giving up rather than looping on a conflict that isn't going to clear.
+ */
+const SERIES_SAVE_ATTEMPTS = 4;
+
+/**
+ * Save a series row, retrying a version conflict with a re-read row.
  *
  * Every child write (competitor, fleet, race, finish, …) bumps the series
  * row's version server-side, so the series version is a noisy token: a 409
@@ -42,13 +55,20 @@ async function saveSeriesRetryingWith(
   expectedVersion: number | undefined,
   rebuild: (fresh: Series) => Series,
 ): Promise<Series> {
-  try {
-    return await repo.save(payload, { expectedVersion });
-  } catch (err) {
-    if (!(err instanceof ConflictApiError)) throw err;
-    const fresh = await repo.get(id);
-    if (!fresh) throw err;
-    return repo.save(rebuild(fresh), { expectedVersion: fresh.version });
+  let attempt = 0;
+  let next = payload;
+  let version = expectedVersion;
+  for (;;) {
+    try {
+      return await repo.save(next, { expectedVersion: version });
+    } catch (err) {
+      attempt += 1;
+      if (!(err instanceof ConflictApiError) || attempt >= SERIES_SAVE_ATTEMPTS) throw err;
+      const fresh = await repo.get(id);
+      if (!fresh) throw err;
+      next = rebuild(fresh);
+      version = fresh.version;
+    }
   }
 }
 
