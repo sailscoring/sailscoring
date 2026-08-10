@@ -64,11 +64,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Series } from '@/lib/types';
 
+const OPEN_ERROR_TITLE = 'Could not open file';
+const SAVE_ERROR_TITLE = 'Could not save the file';
+
+/** The `error` step reports any of the menu's file actions, save included, so
+ *  it carries its own title rather than assuming the file was being opened. */
 type UpdateFlow =
   | { step: 'idle' }
   | { step: 'confirm'; file: SeriesFile }
   | { step: 'working' }
-  | { step: 'error'; message: string };
+  | { step: 'error'; title: string; message: string };
 
 export function SeriesActionsMenu({ series }: { series: Series }) {
   const seriesId = series.id;
@@ -111,7 +116,14 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
       // "Last saved" label reflects the new state.
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
     } catch (err) {
-      console.error(err);
+      // Say so. The save reads the whole series back over the API before it
+      // can offer a download, so a dropped connection leaves the scorer with
+      // no file and — until this dialog — no sign that anything went wrong.
+      setUpdateFlow({
+        step: 'error',
+        title: SAVE_ERROR_TITLE,
+        message: err instanceof Error ? err.message : 'The series could not be read.',
+      });
     }
   }
 
@@ -143,6 +155,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
     } catch (err) {
       setUpdateFlow({
         step: 'error',
+        title: OPEN_ERROR_TITLE,
         message:
           err instanceof SailwaveImportError
             ? err.message
@@ -163,6 +176,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
       if (parsed.seriesId !== seriesId) {
         setUpdateFlow({
           step: 'error',
+          title: OPEN_ERROR_TITLE,
           message:
             'This file is for a different series. Use "Import Series" on the home screen to open it as a new series.',
         });
@@ -173,6 +187,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
     } catch (err) {
       setUpdateFlow({
         step: 'error',
+        title: OPEN_ERROR_TITLE,
         message: err instanceof Error ? err.message : 'Could not read file.',
       });
     }
@@ -213,7 +228,7 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
       }
     } catch (err) {
       console.error(err);
-      setUpdateFlow({ step: 'error', message: describeOpenSeriesError(err) });
+      setUpdateFlow({ step: 'error', title: OPEN_ERROR_TITLE, message: describeOpenSeriesError(err) });
     }
   }
 
@@ -421,7 +436,9 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Could not open file</DialogTitle>
+            <DialogTitle>
+              {updateFlow.step === 'error' ? updateFlow.title : OPEN_ERROR_TITLE}
+            </DialogTitle>
             <DialogDescription>
               {updateFlow.step === 'error' ? updateFlow.message : ''}
             </DialogDescription>
