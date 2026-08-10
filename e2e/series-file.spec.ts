@@ -1,6 +1,6 @@
 import { signedInTest as test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, openSeriesActionsMenu } from './helpers';
 import { FORMAT_VERSION } from '@/lib/series-file';
 
 /**
@@ -77,12 +77,12 @@ function getSeriesId(page: Page): string {
 
 /** Opens the series-header ⋯ menu, clicks "Save to File", and returns the parsed JSON. */
 async function saveToFile(page: Page): Promise<SeriesFile> {
-  await page.getByRole('button', { name: 'Series actions' }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('menuitem', { name: 'Save to File' }).click(),
-  ]);
-  const stream = await download.createReadStream();
+  await openSeriesActionsMenu(page);
+  const item = page.getByRole('menuitem', { name: 'Save to File' });
+  await expect(item).toBeVisible();
+  const download = page.waitForEvent('download');
+  await item.click();
+  const stream = await (await download).createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   return JSON.parse(Buffer.concat(chunks).toString('utf-8')) as SeriesFile;
@@ -90,11 +90,12 @@ async function saveToFile(page: Page): Promise<SeriesFile> {
 
 /** Opens the ⋯ menu, clicks "Update from File…", and supplies the given object as the file content. */
 async function updateFromFile(page: Page, file: object): Promise<void> {
-  await page.getByRole('button', { name: 'Series actions' }).click();
-  const [fileChooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('menuitem', { name: 'Update from File…' }).click(),
-  ]);
+  await openSeriesActionsMenu(page);
+  const item = page.getByRole('menuitem', { name: 'Update from File…' });
+  await expect(item).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await item.click();
+  const fileChooser = await chooser;
   await fileChooser.setFiles({
     name: 'test.sailscoring',
     mimeType: 'application/json',

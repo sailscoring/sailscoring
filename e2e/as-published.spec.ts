@@ -9,6 +9,7 @@ import { test, expect } from '@playwright/test';
 import {
   addMemberByEmail,
   createOrgWorkspace,
+  openSeriesActionsMenu,
   setActiveWorkspace,
   signInFreshUser,
 } from './helpers';
@@ -174,7 +175,7 @@ test.describe('as-published archives', () => {
       .last();
     await expect(seriesNav.getByRole('link', { name: 'Races' })).toHaveCount(0);
     await expect(seriesNav.getByRole('link', { name: 'Settings' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Series actions' }).click();
+    await openSeriesActionsMenu(page);
     await expect(
       page.getByRole('menuitem', { name: 'Save to File' }),
     ).toHaveCount(0);

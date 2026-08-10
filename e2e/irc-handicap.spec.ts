@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, openSeriesActionsMenu, setScoringMode } from './helpers';
 import { FORMAT_VERSION } from '@/lib/series-file';
 
 /**
@@ -130,7 +130,7 @@ test('series file version is current with IRC fleet scoring system', async ({ pa
   await page.getByRole('button', { name: 'Save' }).click();
 
   // ── 2. Save to file and verify format version ─────────────────────────────
-  await page.getByRole('button', { name: 'Series actions' }).click();
+  await openSeriesActionsMenu(page);
   const download = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'Save to File' }).click();
   const dl = await download;

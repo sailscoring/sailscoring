@@ -20,6 +20,7 @@ import {
   addMemberByEmail,
   createOrgWorkspace,
   createSeriesQuick,
+  openSeriesActionsMenu,
   setActiveWorkspace,
   signInFreshUser,
 } from './helpers';
@@ -136,7 +137,7 @@ test.describe('copy series to workspace', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
 
     // Drive the "Copy to workspace…" action from the series actions menu.
-    await page.getByRole('button', { name: 'Series actions' }).click();
+    await openSeriesActionsMenu(page);
     await page.getByRole('menuitem', { name: 'Copy to workspace…' }).click();
     await page.getByTestId('copy-target-workspace').click();
     await page

@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createSeriesQuick, enableFeatures, openSeriesActionsMenu } from './helpers';
 
 /**
  * Split Fleets smoke (also the demo script): enable the feature, create a
@@ -321,12 +321,12 @@ test('split fleets: the format and rounds survive a file round-trip', async ({
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
 
   // ── Save to file ──────────────────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Series actions' }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('menuitem', { name: 'Save to File' }).click(),
-  ]);
-  const stream = await download.createReadStream();
+  await openSeriesActionsMenu(page);
+  const item = page.getByRole('menuitem', { name: 'Save to File' });
+  await expect(item).toBeVisible();
+  const download = page.waitForEvent('download');
+  await item.click();
+  const stream = await (await download).createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   const saved = JSON.parse(Buffer.concat(chunks).toString('utf-8'));

@@ -196,6 +196,33 @@ export async function createSeriesQuick(
 }
 
 /**
+ * Open the series-header ⋯ menu, returning only once it is really open.
+ *
+ * A single click is not enough on its own. The trigger can be clicked while
+ * the series layout is re-rendering underneath it — a fresh series page, a
+ * router refresh remounting the header — and the click is then swallowed with
+ * the menu still closed. Every caller's next step is a locator inside the
+ * menu, so a swallowed click surfaces as *that* locator timing out, which
+ * points at the wrong thing; where the caller asserts an item is absent, it
+ * makes the assertion pass for the wrong reason.
+ *
+ * Radix marks the trigger `data-state="open"` while its menu is open, so the
+ * state is readable. Click only while it reads closed: a click that arrived
+ * late still counts, and the loop never toggles an open menu shut.
+ *
+ * The trigger is located by attribute rather than by role because the menu is
+ * modal — opening it puts `aria-hidden` on `<main>`, which takes the trigger
+ * out of the accessibility tree with it, and `getByRole` then finds nothing.
+ */
+export async function openSeriesActionsMenu(page: Page): Promise<void> {
+  const trigger = page.locator('button[aria-label="Series actions"]');
+  await expect(async () => {
+    if ((await trigger.getAttribute('data-state')) !== 'open') await trigger.click();
+    await expect(trigger).toHaveAttribute('data-state', 'open', { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+}
+
+/**
  * Create fleets in Settings > Fleets for the current series.
  * Assumes the page is already within a series context (any series tab).
  */

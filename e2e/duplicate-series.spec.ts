@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, openSeriesActionsMenu } from './helpers';
 
 /**
  * "Duplicate…" (#330): copy a series within its own workspace from the
@@ -35,7 +35,7 @@ test('duplicate carries competitors and races; edits stay on the copy', async ({
   await page.waitForURL(new RegExp(`/series/${sourceId}/`));
 
   // Duplicate from the actions menu, accepting the default name.
-  await page.getByRole('button', { name: 'Series actions' }).click();
+  await openSeriesActionsMenu(page);
   await page.getByRole('menuitem', { name: 'Duplicate…' }).click();
   await expect(page.getByLabel('Name')).toHaveValue(`Copy of ${sourceName}`);
   await page.getByTestId('duplicate-series-submit').click();

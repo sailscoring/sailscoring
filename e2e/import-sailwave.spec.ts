@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { signedInTest as test, expect } from './fixtures';
-import { enableFeatures } from './helpers';
+import { enableFeatures, openSeriesActionsMenu } from './helpers';
 
 /**
  * E2E for the Import Series → Sailwave file flow.
@@ -150,7 +150,7 @@ test('update from Sailwave: re-import in place replaces data and keeps the serie
 
   // The "Update from Sailwave file" affordance is offered in the series
   // actions menu for a Sailwave-born series.
-  await page.getByRole('button', { name: 'Series actions' }).click();
+  await openSeriesActionsMenu(page);
   const updateButton = page.getByTestId('update-from-sailwave');
   await expect(updateButton).toBeVisible();
 

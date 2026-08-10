@@ -11,7 +11,7 @@
  */
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { createSeriesQuick, signInFreshUser } from './helpers';
+import { createSeriesQuick, openSeriesActionsMenu, signInFreshUser } from './helpers';
 import { FORMAT_VERSION } from '@/lib/series-file';
 
 // ─── local types matching the file format ────────────────────────────────────
@@ -73,23 +73,29 @@ function getSeriesId(page: Page): string {
 }
 
 async function saveToFile(page: Page): Promise<SeriesFile> {
-  await page.getByRole('button', { name: 'Series actions' }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('menuitem', { name: 'Save to File' }).click(),
-  ]);
-  const stream = await download.createReadStream();
+  await openSeriesActionsMenu(page);
+  // Racing the download against the click alone conflates three failures —
+  // the menu never opened, the click never landed, the save itself hung — into
+  // one 20s timeout with no locator on it. With the menu proven open and the
+  // item proven present, a download that never arrives means the save hung,
+  // which is the only one of the three worth chasing.
+  const item = page.getByRole('menuitem', { name: 'Save to File' });
+  await expect(item).toBeVisible();
+  const download = page.waitForEvent('download');
+  await item.click();
+  const stream = await (await download).createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   return JSON.parse(Buffer.concat(chunks).toString('utf-8')) as SeriesFile;
 }
 
 async function updateFromFile(page: Page, file: object): Promise<void> {
-  await page.getByRole('button', { name: 'Series actions' }).click();
-  const [fileChooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('menuitem', { name: 'Update from File…' }).click(),
-  ]);
+  await openSeriesActionsMenu(page);
+  const item = page.getByRole('menuitem', { name: 'Update from File…' });
+  await expect(item).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await item.click();
+  const fileChooser = await chooser;
   await fileChooser.setFiles({
     name: 'test.sailscoring',
     mimeType: 'application/json',
