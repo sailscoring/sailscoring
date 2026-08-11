@@ -11,7 +11,7 @@ Sail Scoring is a sail racing scoring application for managing regattas, series,
 ## Tech Stack
 
 - **Framework:** Next.js 16 (App Router), React 19, TypeScript
-- **TypeScript is dual-installed** (#287): the `typescript` package is aliased to `@typescript/typescript6` (the TS 6.0 API compat package) so `next build` and typescript-eslint keep working, while `@typescript/native` provides TypeScript 7's native `tsc` — so `pnpm tsc --noEmit` runs the fast Go compiler and `tsc6` is the TS 6 fallback. Collapse to plain `typescript@^7` once TS 7.1's API ships and Next/typescript-eslint support it (#287 tracks this).
+- **TypeScript is dual-installed** (#287): the `typescript` package is aliased to `@typescript/typescript6` (the TS 6.0 API compat package) so `next build` and typescript-eslint keep working, while `@typescript/native` provides TypeScript 7's native `tsc` — so `pnpm tsc --noEmit` runs the fast Go compiler and `tsc6` is the TS 6 fallback. The alias also forces `experimental.useTypeScriptCli: false` in `next.config.ts`: Next 16.3 defaults to spawning `typescript/bin/tsc`, which the compat package doesn't ship (its bin is `tsc6`), so CLI mode fails the build with "typescript is not installed". Collapse to plain `typescript@^7` once TS 7.1's API ships and Next/typescript-eslint support it (#287 tracks this).
 - **Styling:** Tailwind CSS v4, shadcn/ui components (`components/ui/`)
 - **Storage:** Postgres (Neon in production), Drizzle ORM (`lib/db/schema/`, `lib/postgres-repository.ts`)
 - **Package manager:** pnpm; Node 24.x

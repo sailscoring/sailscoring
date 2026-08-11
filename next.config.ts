@@ -8,6 +8,13 @@ if (!process.env.NEXT_PUBLIC_APP_URL) {
 }
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Next 16.3 type-checks by spawning `typescript/bin/tsc` by default. The
+    // `typescript` package here is aliased to the TS 6.0 API compat package,
+    // whose only bin is `tsc6`, so CLI mode reports typescript as missing and
+    // the build fails. Keep the compiler-API path until the alias goes away.
+    useTypeScriptCli: false,
+  },
   // The sign-up hook (auth route) seeds new workspaces from the committed
   // sample `.sailscoring` files, read at runtime via fs from `process.cwd()`
   // (see lib/sample-series/seed.ts). This glob is the *sole* mechanism shipping
