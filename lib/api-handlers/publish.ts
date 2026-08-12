@@ -26,7 +26,7 @@ import {
   upsertPublishedFolder,
 } from '@/lib/published-repository';
 import { seasonLikeSlug, sharedFolderSegment } from '@/lib/published-tree';
-import { producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
+import { groupApplies, producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
 import type {
@@ -230,6 +230,7 @@ export async function publishSeries(
   if (series.publishIndividualFleetPages === false) {
     const liveKeys = new Set([...toBuild.map(pageKey), ...carriedAll.map(pageKey)]);
     const groupNames = resolvePublishingGroups(series.publishingGroups, fleetRows)
+      .filter(({ group }) => groupApplies(group, fleetRows.length > 1))
       .filter(producesPage)
       .map((r) => r.group.name.trim());
     const fleetNames = new Set(fleetRows.map((f) => f.name));

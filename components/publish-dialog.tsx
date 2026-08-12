@@ -21,7 +21,9 @@ import { defaultPageSlug, fleetSubPath, kebab } from '@/lib/publishing';
 import { sharedFolderSegment } from '@/lib/published-tree';
 import {
   describeGroupMembers,
+  describeGroupSections,
   fleetPagesSuppressed,
+  groupApplies,
   producesPage,
   resolvePublishingGroups,
 } from '@/lib/publishing-groups';
@@ -109,15 +111,16 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // `{block}/{leaf}` paths, so the per-fleet URL editors don't apply.
   const { data: subSeriesList } = useSubSeriesBySeries(series.id);
   const hasBlocks = (subSeriesList?.length ?? 0) > 0;
-  // Combined pages (#255): defined on the Settings tab, *reflected* here.
+  // Extra pages (#255, #390): defined on the Settings tab, *reflected* here.
   // Shown whenever config exists — the feature gate hides only the editor.
-  // Single-fleet series have nothing to combine (mirrors the build); on a
-  // block series a group publishes one page per sub-series, like a fleet.
+  // A single-fleet series has nothing to combine but can still section its
+  // fleet by a subdivision axis (mirrors the build); on a block series a
+  // group publishes one page per sub-series, like a fleet.
   const resolvedGroups = useMemo(
     () =>
-      fleets.length > 1
-        ? resolvePublishingGroups(series.publishingGroups, fleets).filter(producesPage)
-        : [],
+      resolvePublishingGroups(series.publishingGroups, fleets)
+        .filter(({ group }) => groupApplies(group, fleets.length > 1))
+        .filter(producesPage),
     [series.publishingGroups, fleets],
   );
   // With individual fleet pages off, every fleet publishes only through the
@@ -257,7 +260,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     const captionByGroupName = new Map(
       resolvedGroups.map((r) => [
         r.group.name.trim(),
-        `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}`,
+        r.group.sectionAxisId != null
+          ? `${describeGroupSections(r.group, series.subdivisionAxes ?? [])} · standings only`
+          : `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}`,
       ]),
     );
     const prizeCount = series.prizes?.length ?? 0;
@@ -271,7 +276,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           ? { caption: `prize list · ${prizeCount} prize${prizeCount === 1 ? '' : 's'}` }
           : {}),
     }));
-  }, [pageNames, resolvedGroups, published, hasPrizes, series.prizes]);
+  }, [pageNames, resolvedGroups, published, hasPrizes, series.prizes, series.subdivisionAxes]);
 
   // Fleets while individual pages are off: listed dimmed so the scorer sees
   // where each fleet went — its combined page(s), or a warning when no

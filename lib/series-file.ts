@@ -260,9 +260,16 @@ export interface SeriesFileRepos {
  *  The parser still reads the old boolean, folding true into `matchedOn:
  *  'bow'`, so v19–v30 files load unchanged; writers emit only the new fields.
  *  The bump exists because an older build reading a v31 file would drop the
- *  alternatives — losing which number a boat actually raced under. */
-export const FORMAT_VERSION = 31;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
+ *  alternatives — losing which number a boat actually raced under.
+ *
+ *  v32 adds optional `series.publishingGroups[*].sectionAxisId` (#390): a page
+ *  whose sections are one subdivision axis's values rather than its member
+ *  fleets — per-division standings beside the overall ones. Additive, sparse
+ *  and purely presentational: axis ids are stable across round-trips, and an
+ *  older build reading a v32 file publishes the same page sectioned by fleet
+ *  instead. */
+export const FORMAT_VERSION = 32;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -338,7 +345,7 @@ interface SeriesFileSeries {
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
   showPerRaceRatingsInSummary?: boolean;
-  publishingGroups?: PublishingGroup[];  // v15+; combined published pages (v30+ carries recentRaces)
+  publishingGroups?: PublishingGroup[];  // v15+; extra published pages (v30+ carries recentRaces, v32+ sectionAxisId)
   publishIndividualFleetPages?: boolean;  // v15+; absent = true
   publishDetail?: 'races';  // v28+; written only when set; absent = full detail
   rrsOrgPush?: RrsOrgPushConfig;  // v16+; rrs.org competitor-push settings

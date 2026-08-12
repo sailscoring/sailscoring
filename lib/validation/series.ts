@@ -89,6 +89,10 @@ export const publishingGroupSchema = z.object({
   // absent = every race. Bounded loosely — the cap is a sanity check, not a
   // rule about series length.
   recentRaces: z.number().int().min(1).max(999).optional(),
+  // Section the page by a subdivision axis's values instead of by fleet
+  // (#390). Optional on the wire; absent = fleet sections. Axis ids are plain
+  // strings like `subdivisionAxes[].id`, not ours.
+  sectionAxisId: z.string().optional(),
 });
 
 /** Protest / redress time limit from the SIs. Minutes are bounded loosely —

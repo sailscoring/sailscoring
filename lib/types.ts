@@ -89,13 +89,20 @@ export interface Category {
 export type SeriesSource = 'sailwave';
 
 /**
- * A combined published page: several fleets' results rendered as sections of
- * one page instead of (or as well as) their standalone per-fleet pages. Covers
- * both the "Overall" page (every fleet's standings on one page, typically
- * without the per-race detail) and the multi-method class page (e.g. one
- * "Puppeteer" page carrying the Scratch and HPH fleets in full, with no
- * individual pages — see `Series.publishIndividualFleetPages`). Composes
- * fleets only — never ad-hoc competitor filters.
+ * An extra published page assembled from sections. Two section sources:
+ *
+ *  - **Fleets** (the default): several fleets' results rendered as sections of
+ *    one page instead of (or as well as) their standalone per-fleet pages.
+ *    Covers both the "Overall" page (every fleet's standings on one page,
+ *    typically without the per-race detail) and the multi-method class page
+ *    (e.g. one "Puppeteer" page carrying the Scratch and HPH fleets in full,
+ *    with no individual pages — see `Series.publishIndividualFleetPages`).
+ *  - **A subdivision axis** (`sectionAxisId`): one section per value of that
+ *    axis — a Gold/Silver/Bronze page beside the overall standings, which is
+ *    the same racing presented the way a division prize-giving reads it.
+ *
+ * Either way the sections are declared groupings, never ad-hoc competitor
+ * filters.
  */
 export interface PublishingGroup {
   id: string;
@@ -107,10 +114,20 @@ export interface PublishingGroup {
    *  added later joins the page automatically. 'chosen' uses `fleetIds`. */
   fleetMode: 'all' | 'chosen';
   /** Member fleets when `fleetMode === 'chosen'`; ignored (and kept empty)
-   *  for 'all'. Sections render in fleet displayOrder either way. */
+   *  for 'all'. Sections render in fleet displayOrder either way. With
+   *  `sectionAxisId` set these still choose the page's competitor pool — the
+   *  sections are then cut from within each member fleet. */
   fleetIds: string[];
+  /** A `SubdivisionAxis.id`: section the page by that axis's values rather
+   *  than by fleet. Absent = fleet sections, the original behaviour. Each
+   *  section renumbers 1..n from its fleet's standings order (so overall ties
+   *  stay tied), and competitors carrying no value for the axis appear in no
+   *  section. Standings only — see `detail`. */
+  sectionAxisId?: string;
   /** 'full' keeps each section's per-race detail tables; 'standings' renders
-   *  only the summary standings tables. */
+   *  only the summary standings tables. Ignored on an axis-sectioned page:
+   *  its sections share one race set, so full detail would print the same
+   *  race tables once per division. */
   detail: 'standings' | 'full';
   /** Publish per-race detail for the last N races only; absent means all of
    *  them. For pages embedded in a fixed-height frame, where a long series

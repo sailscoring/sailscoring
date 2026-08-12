@@ -14,7 +14,13 @@ import {
   type SeriesResultsData,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
-import { resolvePublishingGroups, fleetPagesSuppressed, producesPage } from './publishing-groups';
+import {
+  resolvePublishingGroups,
+  fleetPagesSuppressed,
+  groupApplies,
+  producesPage,
+  subdivisionSections,
+} from './publishing-groups';
 import {
   buildPublicExportFromSnapshot,
   resolveSeriesLogoDefaults,
@@ -27,7 +33,17 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
 import { seriesSlug } from './series-name';
-import type { ResultCode, PenaltyCode } from './types';
+import type { ResultCode, PenaltyCode, Standing } from './types';
+
+/**
+ * Builds one fleet's page data. `section` replaces the standings with a slice
+ * of them under its own heading — how an axis-sectioned page (#390) renders
+ * the same fleet once per subdivision value.
+ */
+type SectionAssembler = (
+  anchorPrefix?: string,
+  section?: { name: string; standings: Standing[]; axisId: string },
+) => SeriesResultsData;
 
 export { seriesSlug };
 
@@ -234,8 +250,8 @@ export async function buildFleetHtmlFiles(
     viewRaces: typeof races,
     subSeriesName?: string,
     skipFleetIds?: Set<string>,
-  ): Map<string, (anchorPrefix?: string) => SeriesResultsData> => {
-  const assemblerByFleetId = new Map<string, (anchorPrefix?: string) => SeriesResultsData>();
+  ): Map<string, SectionAssembler> => {
+  const assemblerByFleetId = new Map<string, SectionAssembler>();
   const viewSeriesInfo = subSeriesName
     ? { ...seriesInfo, name: `${seriesInfo.name} — ${subSeriesName}` }
     : seriesInfo;
@@ -426,23 +442,34 @@ export async function buildFleetHtmlFiles(
         }]))
       : undefined;
 
-    const assemble = (anchorPrefix?: string): SeriesResultsData => {
+    // `section` overrides what the page shows without re-scoring anything: an
+    // axis-sectioned page (#390) renders the same fleet several times over,
+    // once per subdivision value, each with its own heading and its own 1..n
+    // ranks. Everything else — race scores, discards, chrome — is the fleet's.
+    const assemble = (
+      anchorPrefix?: string,
+      section?: { name: string; standings: typeof standings; axisId: string },
+    ): SeriesResultsData => {
       const data = assembleSeriesResultsData(
         viewSeriesInfo,
         viewRaces,
-        standings,
+        section ? section.standings : standings,
         raceScoresByRaceId,
         competitorsById,
         series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
         new Date(),
-        fleetName,
+        section ? section.name : fleetName,
         {
           raceStarts: allRaceStarts,
           fleetId: fleet.id,
           scoringSystem: fleet.scoringSystem,
           primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
           multiPersonFields: series.multiPersonFields ?? [],
-          subdivisionAxes: series.subdivisionAxes ?? [],
+          // The section heading already names the value, so the axis it was
+          // cut on drops its column; any other axis keeps one.
+          subdivisionAxes: (series.subdivisionAxes ?? []).filter(
+            (axis) => axis.id !== section?.axisId,
+          ),
           ...(nhcAggregatesForRender ? { nhcAggregatesByRaceId: nhcAggregatesForRender } : {}),
           ...(echoAggregatesForRender ? { echoAggregatesByRaceId: echoAggregatesForRender } : {}),
           showPerRaceRatings,
@@ -482,22 +509,25 @@ export async function buildFleetHtmlFiles(
   return assemblerByFleetId;
   };
 
-  // Render one view — the whole series, or one block — with its combined
-  // pages (#255) leading the view's page cluster. Groups compose sections
+  // Render one view — the whole series, or one block — with its extra pages
+  // (#255, #390) leading the view's page cluster. Groups compose sections
   // over ONE race set, so on a block series a group applies *within each
   // block*: membership and suppression both resolve against the fleets the
   // view actually scores (block fleet-scoping bounds both), and each block
-  // gets its own combined page. Single-fleet series have nothing to combine.
+  // gets its own page. A single-fleet series has nothing to combine, but can
+  // still section one fleet by a subdivision axis.
   const renderViewWithGroups = (
     viewFleetResults: typeof fleetResults,
     viewRaces: typeof races,
     subSeriesName?: string,
   ) => {
     const viewFleets = viewFleetResults.map((fr) => fr.fleet);
-    const groupsApply = !isSingleDefault;
-    const resolvedGroups = groupsApply
-      ? resolvePublishingGroups(series.publishingGroups, viewFleets).filter(producesPage)
-      : [];
+    const standingsByFleetId = new Map(
+      viewFleetResults.map((fr) => [fr.fleet.id, fr.standings]),
+    );
+    const resolvedGroups = resolvePublishingGroups(series.publishingGroups, viewFleets)
+      .filter(({ group }) => groupApplies(group, !isSingleDefault))
+      .filter(producesPage);
     // With individual fleet pages off, this view's output is exactly its
     // combined pages (inert while the view has none — see fleetPagesSuppressed).
     const suppressed = fleetPagesSuppressed(series.publishIndividualFleetPages, resolvedGroups)
@@ -507,31 +537,58 @@ export async function buildFleetHtmlFiles(
     const clusterStart = results.length;
     const assemblerByFleetId = renderView(viewFleetResults, viewRaces, subSeriesName, suppressed);
 
-    // Combined pages lead the cluster — the series index and preview show
-    // them first, ahead of the per-fleet pages they aggregate.
-    const combined: FleetHtmlFile[] = resolvedGroups.map(({ group, fleets: members }) => {
-      const sections = members.map((f) =>
-        // Per-section anchor prefix so `#r1` links stay unambiguous when
-        // several fleets' race tables share the document.
-        assemblerByFleetId.get(f.id)!(`${seriesSlug(f.name)}-`),
-      );
-      return {
+    // Extra pages lead the cluster — the series index and preview show them
+    // first, ahead of the per-fleet pages they draw on.
+    const combined: FleetHtmlFile[] = [];
+    for (const { group, fleets: members } of resolvedGroups) {
+      const axisId = group.sectionAxisId;
+      const sections = axisId
+        ? members.flatMap((f) =>
+            subdivisionSections(standingsByFleetId.get(f.id) ?? [], axisId).map(
+              (section) =>
+                assemblerByFleetId.get(f.id)!(`${seriesSlug(f.name)}-`, {
+                  // A page covering several fleets keeps them apart in the
+                  // headings: division ranks are never compared across fleets.
+                  name: members.length > 1 ? `${f.name} — ${section.value}` : section.value,
+                  standings: section.standings,
+                  axisId,
+                }),
+            ),
+          )
+        : members.map((f) =>
+            // Per-section anchor prefix so `#r1` links stay unambiguous when
+            // several fleets' race tables share the document.
+            assemblerByFleetId.get(f.id)!(`${seriesSlug(f.name)}-`),
+          );
+      // No competitor carries a value for the axis — publish nothing rather
+      // than a page of chrome around an empty document.
+      if (sections.length === 0) continue;
+      combined.push({
         fleetName: group.name,
         isDefault: false,
         isCombined: true,
         ...(subSeriesName ? { subSeriesName } : {}),
         html: renderCombinedSeriesHtml(sections, {
           pageName: group.name,
-          // A race-results series overrides the group's own detail: a
-          // standings-only combined page of a single-race event is exactly
-          // the table #347 exists to suppress.
-          detail: pageDetail === 'races' ? 'races' : group.detail === 'standings' ? 'standings' : 'full',
+          // An axis-sectioned page is standings-only whatever else is set:
+          // its sections share one race set, so any race detail would print
+          // the same tables once per division. Otherwise a race-results
+          // series overrides the group's own detail — a standings-only
+          // combined page of a single-race event is exactly the table #347
+          // exists to suppress.
+          detail: axisId
+            ? 'standings'
+            : pageDetail === 'races'
+              ? 'races'
+              : group.detail === 'standings'
+                ? 'standings'
+                : 'full',
           // The race-detail limit (#372) is a full-detail concern; the
           // renderer ignores it at the other detail levels.
           ...(group.recentRaces != null ? { recentRaces: group.recentRaces } : {}),
         }),
-      };
-    });
+      });
+    }
     results.splice(clusterStart, 0, ...combined);
   };
 

@@ -5,29 +5,35 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
+import { useCompetitorsBySeries } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { pickableFleets } from '@/lib/split-fleets';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
+import { subdivisionAxes, subdivisionAxisLabel } from '@/lib/competitor-fields';
 import {
   describeGroupMembers,
+  describeGroupSections,
   publishingGroupError,
   resolvePublishingGroups,
   PUBLISHING_GROUP_NAME_MAX_LENGTH,
 } from '@/lib/publishing-groups';
-import type { PublishingGroup, Series } from '@/lib/types';
+import type { Competitor, PublishingGroup, Series } from '@/lib/types';
 
 /**
- * The "Combined pages" card (#255, gated `combined-pages`): define pages that
- * publish several fleets' results as sections of one document — an all-fleets
- * "Overall" page, or a curated multi-method class page that can replace its
- * members' standalone pages. Definitions live on the series
+ * The "Extra pages" card (#255, #390, gated `combined-pages`): define pages
+ * that publish alongside the per-fleet ones, assembled from sections. Sections
+ * come either from fleets — an all-fleets "Overall" page, or a curated
+ * multi-method class page that can replace its members' standalone pages — or
+ * from a subdivision axis's values, which is how a Gold/Silver/Bronze page
+ * gets published beside the overall standings. Definitions live on the series
  * (`publishingGroups`) and are *reflected* by the Publish dialog, following
  * the sub-series precedent: durable config here, publish/skip there.
  */
 export function CombinedPagesCard({ seriesId, series }: { seriesId: string; series: Series }) {
   const updateSeries = useUpdateSeries();
   const { data: fleetsData } = useFleetsBySeries(seriesId);
+  const { data: competitors } = useCompetitorsBySeries(seriesId);
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
   // Round-owned fleets (split-fleet ceremonies) never publish their own
   // pages, so they can't be publishing-group members either.
@@ -49,11 +55,48 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
   // configuration isn't silently discarded when the setting is flipped back.
   const detailOverridden = series.publishDetail === 'races';
 
-  // A single-fleet series has nothing to combine; stay out of the way unless
-  // there's existing config to surface.
-  if (!multiFleet && groups.length === 0) return null;
+  // Axes a page can be sectioned by. Gated on the competitor field being
+  // enabled, the same condition under which the values reach a results table
+  // at all; how many competitors have filled one in is reported per page
+  // rather than hiding the option.
+  const axes = (series.enabledCompetitorFields ?? []).includes('subdivision')
+    ? subdivisionAxes(series)
+    : [];
+
+  function axisLabelFor(axisId: string): string {
+    const axis = axes.find((a) => a.id === axisId);
+    return axis ? subdivisionAxisLabel(axis) : 'value';
+  }
+
+  // A single-fleet series has nothing to combine, but one with divisions can
+  // still section its fleet by them. Stay out of the way when neither applies
+  // and there's no existing config to surface.
+  if (!multiFleet && axes.length === 0 && groups.length === 0) return null;
 
   const resolved = resolvePublishingGroups(groups, fleets);
+
+  /** The competitors a group's page draws on — its member fleets' entries. */
+  function poolFor(group: PublishingGroup): Competitor[] {
+    const all = competitors ?? [];
+    if (group.fleetMode === 'all') return all;
+    return all.filter((c) => c.fleetIds.some((id) => group.fleetIds.includes(id)));
+  }
+
+  /** Distinct values of the axis among a group's pool, plus how many of them
+   *  carry none — the ones that will appear on no section of the page. */
+  function axisValuesFor(group: PublishingGroup, axisId: string): {
+    values: string[];
+    missing: number;
+  } {
+    const byKey = new Map<string, string>();
+    let missing = 0;
+    for (const c of poolFor(group)) {
+      const value = c.subdivisions?.[axisId]?.trim();
+      if (!value) missing += 1;
+      else if (!byKey.has(value.toLowerCase())) byKey.set(value.toLowerCase(), value);
+    }
+    return { values: [...byKey.values()].sort((a, b) => a.localeCompare(b)), missing };
+  }
 
   function patchGroups(update: (current: PublishingGroup[]) => PublishingGroup[]) {
     updateSeries.mutate({
@@ -97,6 +140,7 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
       candidate,
       groups.map((g) => (g.id === group.id ? candidate : g)),
       fleets,
+      subdivisionAxes(series),
     );
     // Membership errors are shown by the fleet picker; only block on name
     // problems here so a name edit isn't held hostage by an empty selection.
@@ -165,9 +209,12 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
 
   const summary =
     groups.length === 0
-      ? 'No combined pages.'
+      ? 'No extra pages.'
       : resolved
           .map((r) => {
+            if (r.group.sectionAxisId != null) {
+              return `${r.group.name.trim() || '(unnamed)'} (${describeGroupSections(r.group, subdivisionAxes(series))})`;
+            }
             const limit =
               r.group.detail === 'full' && r.group.recentRaces != null
                 ? `, last ${r.group.recentRaces} races`
@@ -184,7 +231,7 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
   return (
     <div className="bg-card border rounded-lg p-5 space-y-4" data-testid="combined-pages-card">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">Combined pages</h2>
+        <h2 className="text-sm font-medium">Extra pages</h2>
         {!expanded && (
           <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
             Edit ▸
@@ -197,10 +244,18 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            A combined page publishes several fleets&apos; results together on
-            one page — for example an &ldquo;Overall&rdquo; page with every
-            fleet&apos;s standings, or a single class page covering its scratch
-            and handicap fleets.
+            An extra page publishes alongside the per-fleet ones. It can carry
+            several fleets&apos; results together — an &ldquo;Overall&rdquo;
+            page with every fleet&apos;s standings, or a single class page
+            covering its scratch and handicap fleets.
+            {axes.length > 0 && (
+              <>
+                {' '}It can instead split one set of results by{' '}
+                {axes.map((a) => subdivisionAxisLabel(a)).join(' or ')}, giving
+                a table per value — the same scores presented the way a
+                division prize-giving reads them.
+              </>
+            )}
             {hasBlocks && (
               <>
                 {' '}This series has sub-series, so each sub-series gets its
@@ -261,6 +316,68 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                 </div>
                 {nameError && <p className="text-xs text-destructive">{nameError}</p>}
 
+                {axes.length > 0 && (
+                  <div className="space-y-1.5" data-testid="page-sections">
+                    <div
+                      role="group"
+                      aria-label="Sections on this page"
+                      className="inline-flex rounded-md bg-muted p-0.5 text-xs"
+                    >
+                      {[
+                        { id: null, label: 'One per fleet' },
+                        ...axes.map((axis) => ({
+                          id: axis.id,
+                          label: `One per ${subdivisionAxisLabel(axis)}`,
+                        })),
+                      ].map((option) => {
+                        const active = (group.sectionAxisId ?? null) === option.id;
+                        return (
+                          <button
+                            key={option.id ?? 'fleets'}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => {
+                              if (!active) {
+                                patchGroup(group.id, {
+                                  sectionAxisId: option.id ?? undefined,
+                                });
+                              }
+                            }}
+                            className={`rounded px-2.5 py-1 font-medium transition-colors ${
+                              active
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {group.sectionAxisId != null &&
+                      (() => {
+                        const { values, missing } = axisValuesFor(group, group.sectionAxisId);
+                        return (
+                          <p className="text-xs text-muted-foreground">
+                            {values.length > 0
+                              ? `A table each for ${values.join(', ')}, ranked 1..n within the ${axisLabelFor(group.sectionAxisId)}.`
+                              : `No competitor has a ${axisLabelFor(group.sectionAxisId)} yet, so this page publishes nothing.`}
+                            {missing > 0 && (
+                              <>
+                                {' '}
+                                <span className="text-destructive">
+                                  {missing} competitor{missing === 1 ? '' : 's'} without a{' '}
+                                  {axisLabelFor(group.sectionAxisId)} appear on no table.
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        );
+                      })()}
+                  </div>
+                )}
+
+                {multiFleet && (
                 <div className="space-y-1.5">
                   <div
                     role="group"
@@ -309,7 +426,14 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                     <p className="text-xs text-destructive">Choose at least one fleet.</p>
                   )}
                 </div>
+                )}
 
+                {group.sectionAxisId != null ? (
+                  <p className="text-xs text-muted-foreground">
+                    Standings only: the sections share one set of races, so the
+                    race tables stay on the fleet&rsquo;s own page.
+                  </p>
+                ) : (
                 <div className="space-y-1">
                   <div
                     className={`flex flex-wrap gap-x-5 gap-y-1${detailOverridden ? ' opacity-50' : ''}`}
@@ -385,6 +509,7 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                     </div>
                   )}
                 </div>
+                )}
 
               </div>
             );
@@ -410,9 +535,8 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
               <span>
                 Publish individual per-fleet pages
                 <span className="block text-xs text-muted-foreground">
-                  Untick to publish only the combined pages above. A fleet
-                  that isn&apos;t on any combined page isn&apos;t published
-                  at all.
+                  Untick to publish only the pages above. A fleet that
+                  isn&apos;t on any of them isn&apos;t published at all.
                 </span>
               </span>
             </label>
