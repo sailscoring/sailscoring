@@ -178,15 +178,21 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // mirrors the server. The prize sheet defaults to `prizes` regardless of the
   // fleet count (when co-publishing the server disambiguates to
   // `{series-slug}-prizes`).
+  const groupNames = useMemo(
+    () => new Set(resolvedGroups.map((r) => r.group.name.trim())),
+    [resolvedGroups],
+  );
   const defaultSubPath = useMemo(() => {
-    const single = fleets.length <= 1;
+    // Only the *fleet's* page is the lone default one — an extra page beside
+    // it (#390) is served at its own name, exactly as on a multi-fleet series.
+    const loneFleet = fleets.length <= 1;
     return (name: string) =>
       name === 'Prizes'
         ? 'prizes'
-        : single
+        : loneFleet && !groupNames.has(name)
           ? defaultPageSlug(raceResults)
           : fleetSubPath(name, false);
-  }, [fleets.length, raceResults]);
+  }, [fleets.length, raceResults, groupNames]);
 
   // Load publication state each time the dialog opens, and seed the per-fleet
   // selection + sub-paths from it. Syncing with the external open signal, so the
@@ -253,11 +259,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     updateSeries.mutate({ id: series.id, patch: () => ({ publishMode: next }) });
   }
 
-  const rows = useMemo<FleetRow[]>(() => {
-    const publishedByName = new Map(
-      (published?.pages ?? []).map((p) => [p.fleetName, p.url]),
-    );
-    const captionByGroupName = new Map(
+  /** What each non-fleet page is, for the row's caption — shared by the
+   *  multi-fleet row list and the extra-page rows of a single-fleet series. */
+  const captionByName = useMemo(() => {
+    const captions = new Map(
       resolvedGroups.map((r) => [
         r.group.name.trim(),
         r.group.sectionAxisId != null
@@ -265,18 +270,24 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           : `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}`,
       ]),
     );
-    const prizeCount = series.prizes?.length ?? 0;
+    if (hasPrizes) {
+      const prizeCount = series.prizes?.length ?? 0;
+      captions.set('Prizes', `prize list · ${prizeCount} prize${prizeCount === 1 ? '' : 's'}`);
+    }
+    return captions;
+  }, [resolvedGroups, hasPrizes, series.prizes, series.subdivisionAxes]);
+
+  const rows = useMemo<FleetRow[]>(() => {
+    const publishedByName = new Map(
+      (published?.pages ?? []).map((p) => [p.fleetName, p.url]),
+    );
     return pageNames.map((name) => ({
       name,
       frozen: publishedByName.has(name),
       publishedUrl: publishedByName.get(name) ?? null,
-      ...(captionByGroupName.has(name)
-        ? { caption: captionByGroupName.get(name)! }
-        : hasPrizes && name === 'Prizes'
-          ? { caption: `prize list · ${prizeCount} prize${prizeCount === 1 ? '' : 's'}` }
-          : {}),
+      ...(captionByName.has(name) ? { caption: captionByName.get(name)! } : {}),
     }));
-  }, [pageNames, resolvedGroups, published, hasPrizes, series.prizes, series.subdivisionAxes]);
+  }, [pageNames, published, captionByName]);
 
   // Fleets while individual pages are off: listed dimmed so the scorer sees
   // where each fleet went — its combined page(s), or a warning when no
@@ -369,20 +380,45 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // need at least one, with distinct sub-paths.
   const prizesFrozen = (published?.pages ?? []).some((p) => p.fleetName === 'Prizes');
 
+  /** Whether a page of this name is already live (its URL frozen). */
+  const frozenPage = (name: string) =>
+    (published?.pages ?? []).some((p) => p.fleetName === name);
+
+  // Pages listed beneath the lone results page of a single-fleet series: the
+  // extra pages defined for it (#390) and the prize sheet. A multi-fleet
+  // series lists all of these as ordinary rows above instead.
+  const extraPageNames = multiFleet
+    ? []
+    : [...resolvedGroups.map((r) => r.group.name.trim()), ...(hasPrizes ? ['Prizes'] : [])];
+
   const validation = useMemo(() => {
     if (seasonMode) {
       if (!season) return 'Choose a season.';
       if (!folder.trim()) return 'Give the event a folder.';
     }
     if (!multiFleet) {
-      // The prize sheet makes even a single-fleet series multi-page: its own
-      // (editable) sub-path must be present and distinct from the results page.
-      const prizesTicked = hasPrizes && selected.has('Prizes') && !prizesFrozen;
-      if (prizesTicked && !(subPaths['Prizes'] ?? '')) return 'Give the prize list a URL.';
+      // The prize sheet and any axis-sectioned page make even a single-fleet
+      // series multi-page: each needs an (editable) sub-path of its own,
+      // present and distinct from the results page and from each other.
+      const ticked = extraPageNames.filter(
+        (name) => selected.has(name) && !frozenPage(name),
+      );
+      for (const name of ticked) {
+        if (!(subPaths[name] ?? '')) {
+          return name === 'Prizes' ? 'Give the prize list a URL.' : `Give “${name}” a URL.`;
+        }
+      }
       if (isPublished || hasBlocks) return null;
       if (!singlePath) return 'Give the page a URL.';
-      if (prizesTicked && subPaths['Prizes'] === singlePath) {
-        return 'The prize list and the results page share a URL. Make them unique.';
+      const seenExtra = new Set([singlePath]);
+      for (const name of ticked) {
+        const seg = subPaths[name];
+        if (seenExtra.has(seg)) {
+          return name === 'Prizes' && seg === singlePath
+            ? 'The prize list and the results page share a URL. Make them unique.'
+            : `Two pages share the URL “${seg}”. Make them unique.`;
+        }
+        seenExtra.add(seg);
       }
       return null;
     }
@@ -445,18 +481,28 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           }
         }
         selection = { fleets: fleetNames, subPaths: overrides };
-      } else if (hasPrizes) {
-        // The prize sheet makes a single-fleet series multi-page. The lone
-        // fleet page's name can be synthetic and unknown here, so it can't go
-        // in `fleets` — untick prizes via the dedicated `prizes: false` flag
-        // instead, and pass the prizes sub-path override when edited.
+      } else if (extraPageNames.length > 0) {
+        // A prize sheet or an axis-sectioned page makes a single-fleet series
+        // multi-page. The lone fleet page's name can be synthetic and unknown
+        // here, so it can't go
+        // in `fleets` — name what to leave out instead (`prizes: false` for the
+        // prize sheet, `skipPages` for the rest), and pass each extra page's
+        // sub-path override when edited.
         const overrides: Record<string, string> = {};
-        if (selected.has('Prizes')) {
-          const seg = subPaths['Prizes'] ?? '';
-          if (!prizesFrozen && seg !== defaultSubPath('Prizes')) overrides['Prizes'] = seg;
+        const skipPages: string[] = [];
+        for (const name of extraPageNames) {
+          if (!selected.has(name)) {
+            skipPages.push(name);
+            continue;
+          }
+          const seg = subPaths[name] ?? '';
+          if (!frozenPage(name) && seg !== defaultSubPath(name)) overrides[name] = seg;
         }
         selection = {
-          ...(selected.has('Prizes') ? {} : { prizes: false }),
+          ...(skipPages.includes('Prizes') ? { prizes: false } : {}),
+          ...(skipPages.some((n) => n !== 'Prizes')
+            ? { skipPages: skipPages.filter((n) => n !== 'Prizes') }
+            : {}),
           ...(Object.keys(overrides).length > 0 ? { subPaths: overrides } : {}),
           ...(!isPublished && !hasBlocks ? { defaultSubPath: singlePath } : {}),
         };
@@ -479,10 +525,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
             // `standings` (or whatever the scorer typed) under the folder.
             selection.defaultSubPath = `${folderPrefix}/${singlePath}`;
           }
-          if (hasPrizes && selected.has('Prizes') && !prizesFrozen) {
+          for (const name of extraPageNames) {
+            if (!selected.has(name) || frozenPage(name)) continue;
             selection.subPaths = {
               ...(selection.subPaths ?? {}),
-              Prizes: `${folderPrefix}/${subPaths['Prizes'] || 'prizes'}`,
+              [name]: `${folderPrefix}/${subPaths[name] || defaultSubPath(name)}`,
             };
           }
         }
@@ -884,65 +931,80 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               </div>
             )}
 
-            {/* The prize sheet on a single-fleet series: one extra optional
-                page below the lone results page (multi-fleet series list it
-                as an ordinary row above). */}
-            {!multiFleet && hasPrizes && (() => {
-              const prizesUrl =
-                (published?.pages ?? []).find((p) => p.fleetName === 'Prizes')?.url ??
-                `${urlPrefix}/${subPaths['Prizes'] || 'prizes'}`;
-              const checked = selected.has('Prizes');
+            {/* A single-fleet series' other pages — an axis-sectioned page,
+                the prize sheet — each an optional row below the lone results
+                page (multi-fleet series list them as ordinary rows above). */}
+            {extraPageNames.map((name) => {
+              const frozen = frozenPage(name);
+              const url =
+                (published?.pages ?? []).find((p) => p.fleetName === name)?.url ??
+                `${urlPrefix}/${subPaths[name] || defaultSubPath(name)}`;
+              const checked = selected.has(name);
+              const caption = captionByName.get(name);
               return (
-                <div className={`flex items-center gap-2 ${!checked && !prizesFrozen ? 'opacity-50' : ''}`}>
+                <div
+                  key={name}
+                  className={`flex items-center gap-2 ${!checked && !frozen ? 'opacity-50' : ''}`}
+                >
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => toggle('Prizes')}
+                    onChange={() => toggle(name)}
                     className="h-4 w-4 shrink-0"
-                    aria-label="Publish Prizes"
+                    aria-label={`Publish ${name}`}
                   />
-                  <span className="w-36 shrink-0 truncate text-sm">Prizes</span>
-                  {prizesFrozen ? (
+                  <span className="w-36 shrink-0 truncate text-sm" title={name}>
+                    {name}
+                  </span>
+                  {caption && (
+                    <span
+                      className="shrink-0 max-w-44 truncate text-xs text-muted-foreground"
+                      title={caption}
+                    >
+                      {caption}
+                    </span>
+                  )}
+                  {frozen ? (
                     // Same treatment as the published standings link: the full
                     // URL, rtl-truncated so the distinguishing tail stays
                     // visible when it clips.
                     <a
-                      href={prizesUrl}
+                      href={url}
                       target="_blank"
                       rel="noreferrer"
-                      title={prizesUrl}
+                      title={url}
                       className="flex-1 min-w-0 truncate text-xs font-mono hover:underline"
                       style={{ direction: 'rtl', textAlign: 'left' }}
                     >
-                      {prizesUrl}
+                      {url}
                     </a>
                   ) : (
                     <Input
-                      value={subPaths['Prizes'] ?? ''}
+                      value={subPaths[name] ?? ''}
                       onChange={(e) => {
                         const v = sanitizeSlug(e.target.value);
-                        setSubPaths((p) => ({ ...p, Prizes: v }));
+                        setSubPaths((p) => ({ ...p, [name]: v }));
                         setError(null);
                       }}
                       disabled={!checked}
-                      placeholder="prizes"
-                      aria-label="URL for Prizes"
+                      placeholder={defaultSubPath(name)}
+                      aria-label={`URL for ${name}`}
                       className="flex-1 min-w-0 h-7 text-xs font-mono"
                     />
                   )}
-                  {prizesFrozen && (
+                  {frozen && (
                     <Button
                       size="sm"
                       variant="outline"
                       className="shrink-0"
-                      onClick={() => navigator.clipboard.writeText(prizesUrl)}
+                      onClick={() => navigator.clipboard.writeText(url)}
                     >
                       Copy
                     </Button>
                   )}
                 </div>
               );
-            })()}
+            })}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

@@ -29,6 +29,11 @@ import { z } from 'zod';
  *     no client-known name to put in `fleets`. Like an unticked fleet, a live
  *     prizes page carries over untouched. Multi-fleet selections instead
  *     tick/untick the name-keyed "Prizes" row via `fleets`.
+ *   - `skipPages` — page names to skip this round, the inverse of `fleets` for
+ *     the same reason `prizes` exists: a single-fleet series' extra pages
+ *     (#390) have client-known names, but its lone results page does not, so
+ *     the selection can only be expressed by naming what to leave out. Same
+ *     semantics as an unticked fleet — not rebuilt, a live page carries over.
  *   - `season` — the season the publication files under (ADR-011). Pinned on
  *     the slug's folder metadata at first publish, so a block series
  *     publishing under its own top-level folder still groups into its season.
@@ -44,6 +49,7 @@ export const publishInputSchema = z.object({
   subPaths: z.record(z.string(), z.string()).optional(),
   defaultSubPath: z.string().optional(),
   prizes: z.boolean().optional(),
+  skipPages: z.array(z.string()).optional(),
   season: z.string().trim().max(40).optional(),
   folder: z.string().trim().max(60).optional(),
 });

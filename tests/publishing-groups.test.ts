@@ -7,6 +7,7 @@ import {
   fleetPagesSuppressed,
   describeGroupMembers,
   groupApplies,
+  producesPage,
   publishingGroupError,
   subdivisionSections,
 } from '@/lib/publishing-groups';
@@ -271,5 +272,23 @@ describe('publishingGroupError — axis sections', () => {
   it('rejects a page sectioned by an axis the series no longer has', () => {
     const g = makeGroup({ sectionAxisId: 'axis-gone' });
     expect(publishingGroupError(g, [g], FLEETS, axes)).toMatch(/no longer has/);
+  });
+});
+
+describe('producesPage — a series with no fleet rows', () => {
+  it('publishes an all-fleets axis page, which cuts the synthetic fleet', () => {
+    const [resolved] = resolvePublishingGroups([makeGroup({ sectionAxisId: AXIS })], []);
+    expect(producesPage(resolved)).toBe(true);
+  });
+
+  it('keeps a fleet-sectioned page inert', () => {
+    const [resolved] = resolvePublishingGroups([makeGroup()], []);
+    expect(producesPage(resolved)).toBe(false);
+  });
+
+  it('keeps an axis page whose chosen fleets are gone inert', () => {
+    const group = makeGroup({ sectionAxisId: AXIS, fleetMode: 'chosen', fleetIds: ['f-gone'] });
+    const [resolved] = resolvePublishingGroups([group], FLEETS);
+    expect(producesPage(resolved)).toBe(false);
   });
 });

@@ -200,13 +200,15 @@ export async function publishSeries(
   // client-known name). Same semantics as an unticked fleet: not rebuilt this
   // round, and a live prizes page carries over untouched.
   const skipPrizes = input.prizes === false;
+  // `skipPages` names pages to leave out this round — the same escape hatch as
+  // `prizes: false`, for a single-fleet series' extra pages (#390), which have
+  // names while its lone results page does not.
+  const skipped = new Set(input.skipPages ?? []);
   const tickedHas = (name: string): boolean => !ticked || ticked.has(name);
-  const toBuild = allFiles.filter(
-    (f) => tickedHas(f.fleetName) && !(skipPrizes && f.isPrizes),
-  );
-  const carriedAll = (existing?.pages ?? []).filter(
-    (p) => !tickedHas(p.fleetName) || (skipPrizes && p.isPrizes),
-  );
+  const included = (p: { fleetName: string; isPrizes?: boolean }): boolean =>
+    tickedHas(p.fleetName) && !(skipPrizes && p.isPrizes) && !skipped.has(p.fleetName);
+  const toBuild = allFiles.filter(included);
+  const carriedAll = (existing?.pages ?? []).filter((p) => !included(p));
 
   // Pages are identified by (sub-series, fleet) — a series with blocks
   // publishes one page per block per fleet; a blockless one per fleet.

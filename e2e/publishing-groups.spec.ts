@@ -53,7 +53,7 @@ test('Overall page: all fleets, standings only, alongside the fleet pages', asyn
   await page.getByRole('link', { name: 'Settings' }).click();
   const card = page.getByTestId('combined-pages-card');
   await card.getByRole('button', { name: 'Edit ▸' }).click();
-  await card.getByRole('button', { name: '+ Add combined page' }).click();
+  await card.getByRole('button', { name: '+ Add page' }).click();
   const row = card.getByTestId('combined-page-row');
   await expect(row.getByLabel('Combined page name')).toHaveValue('Overall');
   await card.getByRole('button', { name: 'Done' }).click();
@@ -105,7 +105,7 @@ test('replace-members page: full detail, standalone fleet pages retracted', asyn
   await page.getByRole('link', { name: 'Settings' }).click();
   const card = page.getByTestId('combined-pages-card');
   await card.getByRole('button', { name: 'Edit ▸' }).click();
-  await card.getByRole('button', { name: '+ Add combined page' }).click();
+  await card.getByRole('button', { name: '+ Add page' }).click();
   const row = card.getByTestId('combined-page-row');
   await row.getByLabel('Combined page name').fill('Both Fleets');
   await row.getByLabel('Combined page name').press('Enter');
@@ -186,7 +186,7 @@ test('full-detail page: only the last N races’ results are published', async (
   await page.getByRole('link', { name: 'Settings' }).click();
   const card = page.getByTestId('combined-pages-card');
   await card.getByRole('button', { name: 'Edit ▸' }).click();
-  await card.getByRole('button', { name: '+ Add combined page' }).click();
+  await card.getByRole('button', { name: '+ Add page' }).click();
   const row = card.getByTestId('combined-page-row');
   await row.getByLabel('Combined page name').fill('Recent');
   await row.getByLabel('Combined page name').press('Enter');
@@ -271,7 +271,7 @@ test('block series: each sub-series gets its own combined page', async ({ page, 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   const card = page.getByTestId('combined-pages-card');
   await card.getByRole('button', { name: 'Edit ▸' }).click();
-  await card.getByRole('button', { name: '+ Add combined page' }).click();
+  await card.getByRole('button', { name: '+ Add page' }).click();
   const row = card.getByTestId('combined-page-row');
   await expect(row.getByLabel('Combined page name')).toHaveValue('Overall');
   await card.getByRole('button', { name: 'Done' }).click();
@@ -296,4 +296,86 @@ test('block series: each sub-series gets its own combined page', async ({ page, 
     await expect(page.getByRole('heading', { name: 'Cruiser', exact: true })).toBeVisible();
     await expect(page.locator('table.summarytable')).toHaveCount(2);
   }
+});
+
+test('per-division page: one table per division from a single fleet', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['combined-pages']);
+
+  // One fleet, one scoring pool, three divisions — the GP14 Munsters shape.
+  await createSeriesQuick(page, { name: 'GP14 Munsters 2026', venue: 'Lough Derg' });
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page
+    .getByRole('heading', { name: 'Competitor fields' })
+    .locator('..')
+    .getByRole('button', { name: 'Edit ▸' })
+    .click();
+  await page.getByRole('checkbox', { name: 'Division' }).check();
+  await expect(page.getByLabel('Axis 1 label')).toHaveValue('Division');
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const c of [
+    { sail: '14256', name: 'Ger Owens', division: 'Gold' },
+    { sail: '14203', name: 'David Evans', division: 'Silver' },
+    { sail: '14', name: 'Colman Grimes', division: 'Gold' },
+    { sail: '14171', name: 'Robbie Richardson', division: 'Bronze' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sail);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByLabel('Division', { exact: true }).fill(c.division);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
+  }
+
+  // One race, finishing in the order they were entered.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  for (const sail of ['14256', '14203', '14', '14171']) {
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Section an extra page by Division. The fleet picker and detail radios
+  // don't apply here — one fleet, standings only.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  const card = page.getByTestId('combined-pages-card');
+  await card.getByRole('button', { name: 'Edit ▸' }).click();
+  await card.getByRole('button', { name: '+ Add page' }).click();
+  const row = card.getByTestId('combined-page-row');
+  await row.getByLabel('Combined page name').fill('By division');
+  await row.getByLabel('Combined page name').press('Enter');
+  await row.getByRole('button', { name: 'One per Division' }).click();
+  await expect(row.getByText(/A table each for Bronze, Gold, Silver/)).toBeVisible();
+  await card.getByRole('button', { name: 'Done' }).click();
+  await expect(card.getByText('By division (one section per Division)')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog.getByText('one section per Division · standings only')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  // Two links point at it once live: the publication's page list and the
+  // row's own frozen URL.
+  const link = dialog.getByRole('link', { name: /\/by-division$/ }).first();
+  await expect(link).toBeVisible();
+  const path = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  // The public page: a table per division, best-placed division first, each
+  // ranked among its own boats — and no Division column, the heading has it.
+  await page.goto(path);
+  await expect(page.locator('table.summarytable')).toHaveCount(3);
+  await expect(page.locator('h2').filter({ hasText: /^(Gold|Silver|Bronze)$/ })).toHaveText([
+    'Gold',
+    'Silver',
+    'Bronze',
+  ]);
+  await expect(page.locator('th', { hasText: 'Division' })).toHaveCount(0);
+  // Colman Grimes is 3rd overall but 2nd in Gold.
+  const gold = page.locator('table.summarytable').first();
+  await expect(gold.locator('tr.summaryrow')).toHaveCount(2);
+  await expect(gold.locator('tr.summaryrow').nth(1).locator('td').first()).toHaveText('2nd');
 });

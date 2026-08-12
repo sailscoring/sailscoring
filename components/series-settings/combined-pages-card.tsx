@@ -544,7 +544,7 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={addGroup}>
-              + Add combined page
+              + Add page
             </Button>
             <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
               Done

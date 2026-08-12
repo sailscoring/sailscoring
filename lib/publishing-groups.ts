@@ -64,7 +64,12 @@ export function resolvePublishingGroups(
  *  on scored competitors rather than config — the build path drops such a
  *  page when it resolves to nothing. */
 export function producesPage(resolved: ResolvedPublishingGroup): boolean {
-  return resolved.group.name.trim().length > 0 && resolved.fleets.length > 0;
+  if (resolved.group.name.trim().length === 0) return false;
+  if (resolved.fleets.length > 0) return true;
+  // A series with no fleet rows at all still scores one (synthetic) fleet, and
+  // an 'all'-mode axis page cuts within it — so membership can't be required
+  // here. A 'chosen' group whose fleets were deleted stays inert.
+  return resolved.group.sectionAxisId != null && resolved.group.fleetMode === 'all';
 }
 
 /** Whether a group applies to a series at all. Fleet sections need something
