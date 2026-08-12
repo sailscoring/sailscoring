@@ -987,7 +987,7 @@ const SHOTS: Shot[] = [
       await settle(page);
       const card = page.getByTestId('combined-pages-card');
       await card.getByRole('button', { name: 'Edit ▸' }).click();
-      await card.getByRole('button', { name: '+ Add combined page' }).click();
+      await card.getByRole('button', { name: '+ Add page' }).click();
       await card.getByRole('button', { name: 'Done' }).click();
       await page.goto(`${BASE}/series/${await seriesId()}/standings`);
       await settle(page);
@@ -1007,6 +1007,81 @@ const SHOTS: Shot[] = [
       await pub.goto(new URL(href!, BASE).toString());
       await settle(pub);
       await shot('combined-pages.png', { fullPage: true, page: pub });
+      await pub.close();
+    },
+  },
+  {
+    // Inventory: Per-division pages — give the fleet a Division, publish a
+    // page sectioned by it, and capture the public per-division tables.
+    // LOCAL-only: stages competitor data on the sample series.
+    slug: 'per-division-pages',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      if (!LOCAL) throw new Error('per-division-pages stages data and is local-mode only');
+      const id = await seriesId();
+      // Enabling the Division field seeds its first axis, so no axis editing
+      // is needed — the default label is the one the shot wants.
+      await page.goto(`${BASE}/series/${id}/settings`);
+      await settle(page);
+      const fields = page
+        .getByRole('heading', { name: 'Competitor fields' })
+        .locator('..');
+      await fields.getByRole('button', { name: 'Edit ▸' }).click();
+      const division = fields.getByRole('checkbox', { name: 'Division' });
+      if (!(await division.isChecked())) await division.check();
+      await fields.getByRole('button', { name: 'Done' }).click();
+
+      // Everyone Silver, then the leaders Gold — two passes of the same bulk
+      // editor, which is how a scorer would do it after a prize-giving split.
+      const setDivision = async (value: string, rows: 'all' | number) => {
+        await page.goto(`${BASE}/series/${id}/competitors`);
+        await settle(page);
+        if (rows === 'all') {
+          await page.getByRole('checkbox', { name: 'Select all shown competitors' }).check();
+        } else {
+          const boxes = page.getByRole('checkbox', { name: 'Select row' });
+          for (let i = 0; i < rows; i++) await boxes.nth(i).check();
+        }
+        await page.getByRole('button', { name: /Set field/ }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.waitFor();
+        await dialog.getByLabel('Field').click();
+        await page.getByRole('option', { name: 'Division', exact: true }).click();
+        await dialog.getByLabel('Value').fill(value);
+        await dialog.getByRole('button', { name: /^Apply to/ }).click();
+        await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+      };
+      await setDivision('Silver', 'all');
+      await setDivision('Gold', 4);
+
+      await page.goto(`${BASE}/series/${id}/settings`);
+      await settle(page);
+      const card = page.getByTestId('combined-pages-card');
+      await card.getByRole('button', { name: 'Edit ▸' }).click();
+      await card.getByRole('button', { name: '+ Add page' }).click();
+      const row = card.getByTestId('combined-page-row').last();
+      await row.getByRole('textbox').first().fill('By division');
+      await row.getByRole('textbox').first().press('Enter');
+      await row.getByRole('button', { name: 'One per Division' }).click();
+      await settle(page);
+      await card.getByRole('button', { name: 'Done' }).click();
+
+      await page.goto(`${BASE}/series/${id}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      const byDivision = dialog.getByRole('checkbox', { name: /By division/ });
+      if (!(await byDivision.isChecked())) await byDivision.check();
+      await dialog.getByRole('button', { name: /^(Publish|Re-publish)$/ }).click();
+      const link = dialog.getByRole('link', { name: /\/by-division$/ });
+      await link.waitFor({ timeout: 30_000 });
+      const href = await link.getAttribute('href');
+      await page.keyboard.press('Escape');
+      const pub = await anon.newPage();
+      await pub.goto(new URL(href!, BASE).toString());
+      await settle(pub);
+      await shot('per-division-pages.png', { fullPage: true, page: pub });
       await pub.close();
     },
   },

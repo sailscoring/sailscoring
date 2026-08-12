@@ -165,24 +165,26 @@ export default async function Page() {
         )}
       </Section>
       {has('combined-pages') && (
-        <Section id="combined-pages" title="Combined pages">
+        <Section id="combined-pages" title="Extra pages">
           <HelpShot
             src="/help/shots/combined-pages.webp"
             alt="A combined Overall page carrying every fleet."
             caption="A combined Overall page carrying every fleet."
           />
           <p>
-            A combined page publishes several fleets’ results together as sections of one
-            page. Two common uses: an <strong className="text-foreground">Overall</strong> page
+            An extra page publishes alongside the per-fleet ones, made of sections you choose.
+            Three common uses: an <strong className="text-foreground">Overall</strong> page
             carrying every fleet’s standings, so a multi-class event has a single link to
-            hand out; and a single class page covering all the ways that class is scored — say
+            hand out; a single class page covering all the ways that class is scored — say
             one <em>Puppeteer</em> page with its Scratch and HPH fleets — instead of separate
-            per-fleet pages.
+            per-fleet pages; and a{' '}
+            <strong className="text-foreground">per-division page</strong>, one table per
+            Gold / Silver / Bronze, beside the overall standings.
           </p>
           <p>
-            Define combined pages on the series’{' '}
+            Define extra pages on the series’{' '}
             <strong className="text-foreground">Settings</strong> tab under{' '}
-            <strong className="text-foreground">Combined pages</strong>. Each has a name (which
+            <strong className="text-foreground">Extra pages</strong>. Each has a name (which
             becomes the page title and its URL segment), a fleet selection —{' '}
             <strong className="text-foreground">All fleets</strong> keeps up with fleets you add
             later, or <strong className="text-foreground">Choose fleets</strong> picks a subset —
@@ -211,17 +213,39 @@ export default async function Page() {
             being links.
           </p>
           <p>
-            By default every fleet still publishes its own page and the combined pages are
-            extras. Untick{' '}
+            <strong className="text-foreground">One table per division.</strong> Where a class
+            races as one fleet but is split into divisions — Gold, Silver and Bronze, or an age
+            category — set the page’s{' '}
+            <strong className="text-foreground">Sections</strong> to{' '}
+            <strong className="text-foreground">One per Division</strong> instead of{' '}
+            <strong className="text-foreground">One per fleet</strong>. The page then carries a
+            table per division: the same racing and the same scores as the overall standings,
+            with each division ranked 1, 2, 3 among its own boats, so a sailor can see where
+            they came against their peers as well as against the whole entry. It is the way a
+            division prize-giving reads, and it is what a class will ask you for.
+          </p>
+          <p>
+            Divisions come from the <strong className="text-foreground">Division</strong>{' '}
+            competitor field (rename it under{' '}
+            <strong className="text-foreground">Competitor fields</strong> if your event calls
+            it something else — a Category page works the same way). The division with the
+            leading boat comes first, and boats tied in the series stay tied in their division.
+            Anyone with no division set appears on no table, so the card tells you how many
+            that is before you publish. These pages carry standings only: the race results stay
+            on the fleet’s own page, since every division sailed the same races.
+          </p>
+          <p>
+            By default every fleet still publishes its own page and the extra pages are
+            additions. Untick{' '}
             <strong className="text-foreground">Publish individual per-fleet pages</strong>{' '}
-            to publish <em>only</em> the combined pages — the standalone fleet pages are taken
+            to publish <em>only</em> the extra pages — the standalone fleet pages are taken
             down on the next publish, and the Publish dialog shows each fleet with a note
-            pointing at the combined page(s) it appears on. A fleet on no combined page
-            isn’t published at all while the toggle is off. Combined pages
+            pointing at the page(s) it appears on. A fleet on none of them
+            isn’t published at all while the toggle is off. Extra pages
             appear in the Publish dialog, the series listing page, and Preview alongside the
-            fleet pages. On a series with sub-series, each sub-series gets its own combined
-            page (e.g. <code className="text-foreground text-sm">…/winter/overall</code>)
-            covering the fleets it scores — a combined page always shows one set of races.
+            fleet pages. On a series with sub-series, each sub-series gets its own copy
+            (e.g. <code className="text-foreground text-sm">…/winter/overall</code>)
+            covering the fleets it scores — an extra page always shows one set of races.
           </p>
         </Section>
       )}

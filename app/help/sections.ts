@@ -91,7 +91,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'From standings to public pages your club can link to.',
     sections: [
       { id: 'publishing-results', title: 'Publishing results' },
-      { id: 'combined-pages', title: 'Combined pages', feature: 'combined-pages' },
+      { id: 'combined-pages', title: 'Extra pages', feature: 'combined-pages' },
       { id: 'results-status', title: 'Provisional and final results', feature: 'results-status' },
       { id: 'prizes', title: 'Prizes', feature: 'prizes' },
       { id: 'logo-library', title: 'The logo library', feature: 'logo-library' },
