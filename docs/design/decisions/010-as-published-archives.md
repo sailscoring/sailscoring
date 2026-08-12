@@ -204,6 +204,20 @@ The sub-decisions:
    settings. Keys are per-repo and revocable, provisioned with the raised
    rate limits from day one (the #IODAI bulk-import lesson).
 
+6b. **One result published more than once** (#363, 2026-08). A club sometimes
+   publishes one result twice — Kilrush published the 2024 GP14 Munsters as
+   a single overall standing and, a minute later, split Gold / Silver /
+   Bronze, at the class's request. Both are the racing, so both are carried,
+   in **one series**: the second presentation's tables are extra fleet pages
+   marked `displayOnly`, and their rows join to the structural fleet's
+   competitor rows rather than minting their own. Only structural tables
+   reach `loadAsPublishedPlacements`, so a sailor is one competitor with one
+   place however many times the club published them. Which presentation is
+   structural is a data judgement, curated in the archive repo: for a
+   division split it is the overall standing, because the racing was one
+   start and one scoring pool — reading places off the divisions would make
+   a division a fleet and record a mid-fleet sailor as first of four.
+
 7. **Toolkit home.** Parsers, the PII scrubber, the file generator, and the
    ingest client live in the app repo for now, structured as a coherent unit
    for a clean later spin-out to `sailscoring/archive-kit`. Format
