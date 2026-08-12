@@ -19,6 +19,7 @@ import * as archive from '@/lib/api-handlers/archive';
 import * as competitorsApi from '@/lib/api-handlers/competitors';
 import * as identityApi from '@/lib/api-handlers/competitor-identity';
 import { getCareerArc } from '@/lib/career-arc';
+import { loadAsPublishedPlacements } from '@/lib/archive-kit/places';
 import { computeRankingStandings } from '@/lib/ranking-standings';
 import type { ArchiveSeriesDoc } from '@/lib/archive-kit/format';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
@@ -603,6 +604,102 @@ describe.skipIf(skip)('archive ingest', () => {
     ]);
 
     await archive.deleteArchiveSeries(ctx, combinedSeriesId);
+  });
+
+  test('one result published twice: the second presentation earns no place (#363)', async () => {
+    // Kilrush published the 2024 GP14 Munsters twice a minute apart — once as
+    // one overall standing of the whole entry, once split Gold/Silver. One
+    // start, one scoring pool, two sets of tables.
+    const twiceSeriesId = uuid();
+    const overallId = uuid();
+    const goldId = uuid();
+    const ger = uuid();
+    const david = uuid();
+    const colman = uuid();
+    const results = (
+      rows: Array<{ id: string; rank: number; sail: string; helm: string }>,
+    ) => ({
+      leadColumns: [
+        { key: 'sailno', label: 'Sail Number' },
+        { key: 'helmname', label: 'Helm' },
+      ],
+      raceHeaders: [{ label: 'R1' }],
+      summaryColumns: [{ key: 'nett', label: 'Nett' }],
+      rows: rows.map((r) => ({
+        competitorId: r.id,
+        rank: r.rank,
+        rankLabel: String(r.rank),
+        leadCells: [r.sail, r.helm],
+        raceCells: [{ text: String(r.rank) }],
+        summaryCells: [String(r.rank)],
+      })),
+    });
+    const twiceDoc: ArchiveSeriesDoc = {
+      formatVersion: 1,
+      series: {
+        id: twiceSeriesId,
+        name: 'GP14 Munsters 2024',
+        venue: 'Lough Derg',
+        publishedSlug: 'ksc-2024',
+        source: 'sailwave',
+      },
+      fleets: [
+        {
+          id: overallId,
+          name: 'Overall',
+          subPath: 'overall',
+          results: results([
+            { id: ger, rank: 1, sail: '14256', helm: 'Ger Owens' },
+            { id: david, rank: 2, sail: '14203', helm: 'David Evans' },
+            { id: colman, rank: 3, sail: '14', helm: 'Colman Grimes' },
+          ]),
+        },
+        {
+          // The same racing, split — the sailors are the Overall table's.
+          id: goldId,
+          name: 'Gold Fleet',
+          subPath: 'gold-fleet',
+          displayOnly: true,
+          results: results([
+            { id: ger, rank: 1, sail: '14256', helm: 'Ger Owens' },
+            { id: colman, rank: 2, sail: '14', helm: 'Colman Grimes' },
+          ]),
+        },
+      ],
+      competitors: [
+        { id: ger, fleetIds: [overallId, goldId], sailNumber: '14256', name: 'Ger Owens' },
+        { id: david, fleetIds: [overallId], sailNumber: '14203', name: 'David Evans' },
+        { id: colman, fleetIds: [overallId, goldId], sailNumber: '14', name: 'Colman Grimes' },
+      ],
+    };
+
+    await archive.putArchiveSeries(ctx, twiceSeriesId, twiceDoc);
+
+    // Both tables are stored and both publish; one is flagged.
+    const stored = await db
+      .select()
+      .from(schema.asPublishedResults)
+      .where(eq(schema.asPublishedResults.seriesId, twiceSeriesId));
+    expect(stored).toHaveLength(2);
+    expect(stored.filter((r) => r.displayOnly)).toHaveLength(1);
+
+    // Places come from the overall table alone. Colman is 3rd of 3 — not 2nd
+    // of 2, which is what counting the split would have made of him — and
+    // carries no fleet name, because one structural table is not multi-fleet.
+    const { placements } = await loadAsPublishedPlacements(db, [twiceSeriesId]);
+    const bySeries = placements.get(twiceSeriesId)!;
+    expect(bySeries.get(colman)).toEqual({ rank: 3, fleetSize: 3, fleetName: null });
+    expect(bySeries.get(ger)).toEqual({ rank: 1, fleetSize: 3, fleetName: null });
+    expect(bySeries.size).toBe(3);
+
+    // The Standings tab still shows both, saying which is which.
+    const view = await archive.getAsPublishedResults(ctx, twiceSeriesId);
+    expect(view.fleets.map((f) => [f.fleetName, f.displayOnly])).toEqual([
+      ['Overall', false],
+      ['Gold Fleet', true],
+    ]);
+
+    await archive.deleteArchiveSeries(ctx, twiceSeriesId);
   });
 
   test('jurisdiction: the reconcile surface defers to the archive', async () => {

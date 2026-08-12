@@ -1,0 +1,1 @@
+ALTER TABLE "as_published_results" ADD COLUMN "display_only" boolean DEFAULT false NOT NULL;

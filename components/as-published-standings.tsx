@@ -103,6 +103,12 @@ function FleetTable({ fleet }: { fleet: AsPublishedFleetView }) {
         {results.caption && (
           <span className="text-xs text-muted-foreground">{results.caption}</span>
         )}
+        {fleet.displayOnly && (
+          <span className="text-xs text-muted-foreground">
+            a second presentation of the same racing — the places come from the
+            table it was split from
+          </span>
+        )}
       </div>
       <div className="overflow-x-auto rounded-lg border bg-card">
         <table className="w-full text-sm" data-testid="as-published-standings">

@@ -96,6 +96,15 @@ const fleetSchema = z.object({
    *  section of a combined page (see `combinedPages`); a fleet is published
    *  exactly once, standalone XOR as a member. */
   subPath: subPathSegments.optional(),
+  /** This table renders but feeds nothing: a second presentation of
+   *  competitors another fleet already accounts for. A club that published
+   *  one result twice — an overall standing and the same boats split by
+   *  division — has one scoring pool and two sets of tables, and only one of
+   *  them may reach the identity spine, the rankings and the career arcs, or
+   *  the regatta lands in every sailor's record twice (#363). Sparse; absent
+   *  means the table is structural, which is the ordinary case. Display-only
+   *  tables share their competitor rows with the structural ones. */
+  displayOnly: z.literal(true).optional(),
   results: fleetResultsSchema,
 });
 
@@ -249,6 +258,27 @@ export const archiveSeriesDocSchema = z
       }
       seenFolderPaths.add(f.path);
     });
+    // Display-only tables (#363) are a second presentation of competitors the
+    // structural tables already carry, so at least one fleet must be
+    // structural — a series of nothing but second presentations accounts for
+    // no one.
+    const structuralFleets = doc.fleets.filter((f) => !f.displayOnly);
+    if (structuralFleets.length === 0) {
+      ctx.addIssue({ code: 'custom', message: 'every fleet is displayOnly — nothing feeds the identity spine', path: ['fleets'] });
+    }
+    // …and a display-only table must actually share those rows. Sharing none
+    // is the signature of a generator that minted a second competitor per
+    // sailor instead of joining, which is the doubling this flag prevents.
+    const structuralCompetitorIds = new Set(
+      structuralFleets.flatMap((f) => f.results.rows.map((r) => r.competitorId)),
+    );
+    doc.fleets.forEach((fleet, fi) => {
+      if (!fleet.displayOnly || fleet.results.rows.length === 0) return;
+      if (!fleet.results.rows.some((r) => structuralCompetitorIds.has(r.competitorId))) {
+        ctx.addIssue({ code: 'custom', message: 'displayOnly fleet shares no competitor with any structural fleet', path: ['fleets', fi, 'displayOnly'] });
+      }
+    });
+
     const competitorIds = new Set<string>();
     doc.competitors.forEach((c, i) => {
       if (competitorIds.has(c.id)) {

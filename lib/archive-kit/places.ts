@@ -7,7 +7,7 @@
  * series. Not `server-only` so the CLI-side tooling can share it.
  */
 
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import type { SailScoringDb } from '@/lib/db/client';
 import {
@@ -67,7 +67,16 @@ export async function loadAsPublishedPlacements(
       .from(asPublishedResults)
       .innerJoin(fleets, eq(asPublishedResults.fleetId, fleets.id))
       .innerJoin(series, eq(asPublishedResults.seriesId, series.id))
-      .where(inArray(asPublishedResults.seriesId, [...seriesIds]))
+      .where(
+        and(
+          inArray(asPublishedResults.seriesId, [...seriesIds]),
+          // A second presentation of the same racing renders on its own page
+          // but is not a second result (#363): counting it would give a
+          // sailor two places in one regatta, and the tighter one — a
+          // division of twelve rather than the fleet of twenty-seven.
+          eq(asPublishedResults.displayOnly, false),
+        ),
+      )
   ).filter((row) => matchesFleetFilter(row.fleetName, opts.fleetFilter));
 
   const nationalityById = new Map<string, string | null>();

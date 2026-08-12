@@ -311,6 +311,7 @@ export async function putArchiveSeries(
           seriesId,
           fleetId: fleet.id,
           results: toStoredResults(fleet),
+          displayOnly: fleet.displayOnly ?? false,
           updatedBy: workspace.userId,
         })
         .onConflictDoUpdate({
@@ -320,6 +321,7 @@ export async function putArchiveSeries(
           ],
           set: {
             results: toStoredResults(fleet),
+            displayOnly: fleet.displayOnly ?? false,
             updatedAt: new Date(),
             updatedBy: workspace.userId,
             version: sql`${schema.asPublishedResults.version} + 1`,
@@ -537,6 +539,9 @@ async function publishArchiveSeries(
 export interface AsPublishedFleetView {
   fleetId: string;
   fleetName: string;
+  /** A second presentation of racing another table already accounts for
+   *  (#363) — published and rendered, but feeding no place. */
+  displayOnly: boolean;
   results: import('@/lib/archive-kit/types').AsPublishedFleetResults;
 }
 
@@ -562,6 +567,7 @@ export async function getAsPublishedResults(
       fleetId: schema.asPublishedResults.fleetId,
       fleetName: schema.fleets.name,
       displayOrder: schema.fleets.displayOrder,
+      displayOnly: schema.asPublishedResults.displayOnly,
       results: schema.asPublishedResults.results,
     })
     .from(schema.asPublishedResults)
@@ -575,6 +581,7 @@ export async function getAsPublishedResults(
     fleets: rows.map((r) => ({
       fleetId: r.fleetId,
       fleetName: r.fleetName,
+      displayOnly: r.displayOnly,
       results: r.results,
     })),
   };

@@ -687,6 +687,12 @@ export const asPublishedResults = pgTable(
       .notNull()
       .references(() => fleets.id, { onDelete: 'cascade' }),
     results: jsonb('results').notNull().$type<AsPublishedFleetResults>(),
+    /** This table renders but feeds nothing (#363): a second presentation of
+     *  competitors a structural table already accounts for — one result the
+     *  club published twice, overall and split by division. Denormalised from
+     *  the ingest document rather than derived, because the placement reader
+     *  is a hot path and the ingest rewrites every row of a series anyway. */
+    displayOnly: boolean('display_only').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

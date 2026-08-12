@@ -32,6 +32,12 @@ export interface SailwaveFleetInput {
   /** Publish the race tables alone — a single-race event (#347). The summary
    *  rows are still built: the identity spine reads them. */
   detail?: 'races';
+  /** This table is a second presentation of racing another fleet already
+   *  accounts for (#363) — the Gold/Silver/Bronze split of a result also
+   *  published as one overall standing. Its rows reuse the structural fleets'
+   *  competitor rows rather than minting their own, so a sailor is one
+   *  competitor with one place however many times the club published them. */
+  displayOnly?: true;
 }
 
 /** A combined page grouping several of the series' fleets (by name) as
@@ -138,13 +144,26 @@ function extractCompetitor(
  * Competitor ids derive from (fleet, sail, normalised name) with a
  * deterministic ordinal for exact duplicates, so re-generation is stable and
  * the identity links hanging off the rows survive.
+ *
+ * A `displayOnly` fleet (#363) instead joins to the competitor rows the
+ * structural fleets already minted, matched on sail number and normalised
+ * name — so the second presentation of a result adds tables, not sailors.
+ * Structural fleets are therefore built first, whatever order they are
+ * configured in; the document keeps the configured order.
  */
 export function buildSailwaveArchiveDoc(
   input: SailwaveDocInput,
 ): ArchiveSeriesDoc {
   const competitors: ArchiveSeriesDoc['competitors'] = [];
+  /** Structural competitor rows by (sail, normalised name) — what a
+   *  display-only fleet's rows join to. First occurrence wins, so the join is
+   *  stable when a boat is scored in more than one structural fleet. */
+  const structuralByIdentity = new Map<
+    string,
+    ArchiveSeriesDoc['competitors'][number]
+  >();
 
-  const fleets = input.fleets.map((fleet) => {
+  const buildFleet = (fleet: SailwaveFleetInput) => {
     const fleetId = fleetIdFor(input.seriesId, fleet.name);
     const ordinals = new Map<string, number>();
 
@@ -175,28 +194,45 @@ export function buildSailwaveArchiveDoc(
           : 'Unknown Competitor';
       }
       const nameKey = normalizePersonName(extracted.name).full;
-      const baseKey = `${fleet.name}/${extracted.sailNumber}/${nameKey}`;
-      const ordinal = (ordinals.get(baseKey) ?? 0) + 1;
-      ordinals.set(baseKey, ordinal);
-      const competitorId = competitorIdFor(
-        input.seriesId,
-        ordinal === 1 ? baseKey : `${baseKey}/${ordinal}`,
-      );
-      competitors.push({
-        id: competitorId,
-        fleetIds: [fleetId],
-        sailNumber: extracted.sailNumber,
-        name: extracted.name,
-        ...(extracted.club ? { club: extracted.club } : {}),
-        ...(extracted.nationality ? { nationality: extracted.nationality } : {}),
-        ...(extracted.gender ? { gender: extracted.gender } : {}),
-        ...(extracted.age !== undefined ? { age: extracted.age } : {}),
-        ...(extracted.boatName ? { boatName: extracted.boatName } : {}),
-        ...(extracted.boatClass ? { boatClass: extracted.boatClass } : {}),
-        ...(extracted.crewName ? { crewName: extracted.crewName } : {}),
-        ...(extracted.helm ? { helm: extracted.helm } : {}),
-        ...(extracted.owner ? { owner: extracted.owner } : {}),
-      });
+      const identityKey = `${extracted.sailNumber}|${nameKey}`;
+      // A second presentation joins to the boat the structural tables already
+      // carry; only a boat that appears in no structural table mints a row of
+      // its own, and it ranks in no structural table so it earns no place.
+      const shared = fleet.displayOnly
+        ? structuralByIdentity.get(identityKey)
+        : undefined;
+      let competitorId: string;
+      if (shared) {
+        competitorId = shared.id;
+        if (!shared.fleetIds.includes(fleetId)) shared.fleetIds.push(fleetId);
+      } else {
+        const baseKey = `${fleet.name}/${extracted.sailNumber}/${nameKey}`;
+        const ordinal = (ordinals.get(baseKey) ?? 0) + 1;
+        ordinals.set(baseKey, ordinal);
+        competitorId = competitorIdFor(
+          input.seriesId,
+          ordinal === 1 ? baseKey : `${baseKey}/${ordinal}`,
+        );
+        const competitor = {
+          id: competitorId,
+          fleetIds: [fleetId],
+          sailNumber: extracted.sailNumber,
+          name: extracted.name,
+          ...(extracted.club ? { club: extracted.club } : {}),
+          ...(extracted.nationality ? { nationality: extracted.nationality } : {}),
+          ...(extracted.gender ? { gender: extracted.gender } : {}),
+          ...(extracted.age !== undefined ? { age: extracted.age } : {}),
+          ...(extracted.boatName ? { boatName: extracted.boatName } : {}),
+          ...(extracted.boatClass ? { boatClass: extracted.boatClass } : {}),
+          ...(extracted.crewName ? { crewName: extracted.crewName } : {}),
+          ...(extracted.helm ? { helm: extracted.helm } : {}),
+          ...(extracted.owner ? { owner: extracted.owner } : {}),
+        };
+        competitors.push(competitor);
+        if (!fleet.displayOnly && !structuralByIdentity.has(identityKey)) {
+          structuralByIdentity.set(identityKey, competitor);
+        }
+      }
       return {
         competitorId,
         rank: row.rank,
@@ -229,6 +265,7 @@ export function buildSailwaveArchiveDoc(
       id: fleetId,
       name: fleet.name,
       ...(fleet.subPath ? { subPath: fleet.subPath } : {}),
+      ...(fleet.displayOnly ? { displayOnly: true as const } : {}),
       results: {
         ...(summary.caption ? { caption: summary.caption } : {}),
         ...(fleet.detail ? { detail: fleet.detail } : {}),
@@ -239,7 +276,18 @@ export function buildSailwaveArchiveDoc(
         ...(raceTables.length > 0 ? { raceTables } : {}),
       },
     };
-  });
+  };
+
+  // Structural fleets first so the display-only ones have rows to join to;
+  // the document keeps the configured fleet order, which is page order.
+  const builtByName = new Map<string, ReturnType<typeof buildFleet>>();
+  for (const fleet of input.fleets) {
+    if (!fleet.displayOnly) builtByName.set(fleet.name, buildFleet(fleet));
+  }
+  for (const fleet of input.fleets) {
+    if (fleet.displayOnly) builtByName.set(fleet.name, buildFleet(fleet));
+  }
+  const fleets = input.fleets.map((f) => builtByName.get(f.name)!);
 
   const doc: ArchiveSeriesDoc = {
     formatVersion: 1,

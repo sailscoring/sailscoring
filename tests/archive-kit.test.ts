@@ -212,6 +212,61 @@ describe('sailwave doc builder', () => {
     });
   });
 
+  test('a second presentation joins to the same competitors (#363)', () => {
+    // The Gold/Silver/Bronze split of a result also published as one overall
+    // standing: same boats, second set of tables.
+    const page = parseSailwaveHtml(SAILWAVE_HTML);
+    const doc = buildSailwaveArchiveDoc({
+      seriesId,
+      name: 'GP14 Munsters 2024',
+      publishedSlug: 'ksc-2024',
+      fleets: [
+        { name: 'Overall', subPath: 'overall', summary: page.summaries[0] },
+        {
+          name: 'Gold Fleet',
+          subPath: 'gold-fleet',
+          summary: page.summaries[0],
+          displayOnly: true,
+        },
+      ],
+    });
+    // Two tables, but two sailors — not four.
+    expect(doc.fleets).toHaveLength(2);
+    expect(doc.competitors).toHaveLength(2);
+    expect(doc.fleets[1].displayOnly).toBe(true);
+    // The second presentation's rows point at the structural competitors…
+    expect(doc.fleets[1].results.rows.map((r) => r.competitorId)).toEqual(
+      doc.fleets[0].results.rows.map((r) => r.competitorId),
+    );
+    // …and each sailor belongs to both fleets.
+    expect(doc.competitors[0].fleetIds).toEqual([
+      doc.fleets[0].id,
+      doc.fleets[1].id,
+    ]);
+  });
+
+  test('a second presentation sharing no one fails generation, not ingest', () => {
+    const page = parseSailwaveHtml(SAILWAVE_HTML);
+    expect(() =>
+      buildSailwaveArchiveDoc({
+        seriesId,
+        name: 'GP14 Munsters 2024',
+        publishedSlug: 'ksc-2024',
+        fleets: [
+          { name: 'Overall', subPath: 'overall', summary: page.summaries[0] },
+          // A different section entirely: nobody in it is in the structural
+          // table, which is what a forgotten join looks like.
+          {
+            name: 'Gold Fleet',
+            subPath: 'gold-fleet',
+            summary: page.summaries[1],
+            displayOnly: true,
+          },
+        ],
+      }),
+    ).toThrow(/shares no competitor/);
+  });
+
   test('regeneration is deterministic — same ids, same hash', async () => {
     const a = build();
     const b = build();
@@ -355,6 +410,84 @@ describe('document schema', () => {
       fleets: [{ ...fleet, subPath: 'a/b/c' }],
     };
     expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
+  });
+
+  test('a display-only fleet needs a structural one to account for it (#363)', async () => {
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const competitorId = '33333333-2222-4333-8444-555555555555';
+    const row = {
+      competitorId,
+      rank: 1,
+      rankLabel: '1',
+      leadCells: ['Helm'],
+      raceCells: [{ text: '1' }],
+      summaryCells: ['1'],
+    };
+    const results = {
+      leadColumns: [{ key: 'helmname', label: 'Helm' }],
+      raceHeaders: [{ label: 'R1' }],
+      summaryColumns: [{ key: 'nett', label: 'Nett' }],
+      rows: [row],
+    };
+    const overall = {
+      id: '11111111-2222-4333-8444-555555555555',
+      name: 'Overall',
+      subPath: 'overall',
+      results,
+    };
+    const gold = {
+      id: '22222222-2222-4333-8444-555555555555',
+      name: 'Gold Fleet',
+      subPath: 'gold-fleet',
+      displayOnly: true as const,
+      results,
+    };
+    const doc = {
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'One result, two presentations',
+        publishedSlug: '2024',
+      },
+      fleets: [overall, gold],
+      competitors: [
+        {
+          id: competitorId,
+          fleetIds: [overall.id, gold.id],
+          sailNumber: '14256',
+          name: 'Ger Owens',
+        },
+      ],
+    };
+    expect(archiveSeriesDocSchema.safeParse(doc).success).toBe(true);
+
+    // Nothing structural: the series would account for no one.
+    const allDisplay = {
+      ...doc,
+      fleets: [{ ...overall, displayOnly: true as const }, gold],
+    };
+    expect(archiveSeriesDocSchema.safeParse(allDisplay).success).toBe(false);
+
+    // Structural, but the second presentation shares none of its rows — the
+    // signature of a generator that minted a second competitor per sailor.
+    const otherId = '44444444-2222-4333-8444-555555555555';
+    const unjoined = {
+      ...doc,
+      fleets: [
+        overall,
+        { ...gold, results: { ...results, rows: [{ ...row, competitorId: otherId }] } },
+      ],
+      competitors: [
+        ...doc.competitors,
+        {
+          id: otherId,
+          fleetIds: [gold.id],
+          sailNumber: '14256',
+          name: 'Ger Owens',
+        },
+      ],
+    };
+    expect(archiveSeriesDocSchema.safeParse(unjoined).success).toBe(false);
   });
 
   test('folder labels must name a published segment, once each (ADR-011)', async () => {

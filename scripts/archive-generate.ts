@@ -51,6 +51,12 @@ const fleetSchema = z.object({
    *  single combined page (ADR-010, #321) whose sections are these summaries,
    *  each a member fleet. Takes precedence over `sectionTitle`/`includeRaces`. */
   sections: z.array(sectionSchema).min(1).optional(),
+  /** This page is a second presentation of racing another fleet of the same
+   *  series already accounts for (#363) — a club that published one result
+   *  twice, overall and split by division. Its tables publish and render, but
+   *  its rows join to the structural fleets' competitors and earn no place of
+   *  their own. At least one fleet of the series must be structural. */
+  displayOnly: z.literal(true).optional(),
 });
 
 const seriesSchema = z.object({
@@ -171,6 +177,7 @@ function buildSeries(
     subPath?: string;
     summary: ReturnType<typeof parse>['summaries'][number];
     races?: ReturnType<typeof parse>['races'];
+    displayOnly?: true;
   }> = [];
   const combinedPages: Array<{ subPath: string; name: string; fleetNames: string[] }> = [];
 
@@ -215,6 +222,7 @@ function buildSeries(
           summary: summaryOf(page, section.sectionTitle, fleet.file),
           ...(races ? { races } : {}),
           ...(entry.detail ? { detail: entry.detail } : {}),
+          ...(fleet.displayOnly ? { displayOnly: true as const } : {}),
         });
       }
       combinedPages.push({
@@ -230,6 +238,7 @@ function buildSeries(
       summary: summaryOf(page, fleet.sectionTitle, fleet.file),
       ...(fleet.includeRaces ? { races: page.races } : {}),
       ...(entry.detail ? { detail: entry.detail } : {}),
+      ...(fleet.displayOnly ? { displayOnly: true as const } : {}),
     });
   }
 
