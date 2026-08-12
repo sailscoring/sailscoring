@@ -1018,41 +1018,74 @@ const SHOTS: Shot[] = [
     group: 'Publishing',
     async capture({ page, anon, seriesId, shot }) {
       if (!LOCAL) throw new Error('per-division-pages stages data and is local-mode only');
+      await ensureFeature(page, 'combined-pages');
       const id = await seriesId();
       // Enabling the Division field seeds its first axis, so no axis editing
       // is needed — the default label is the one the shot wants.
       await page.goto(`${BASE}/series/${id}/settings`);
       await settle(page);
-      const fields = page
+      // The heading's parent is the card's header row (which holds Edit), not
+      // the card body the field checkboxes live in — so only Edit is scoped.
+      await page
         .getByRole('heading', { name: 'Competitor fields' })
-        .locator('..');
-      await fields.getByRole('button', { name: 'Edit ▸' }).click();
-      const division = fields.getByRole('checkbox', { name: 'Division' });
+        .locator('..')
+        .getByRole('button', { name: 'Edit ▸' })
+        .click();
+      const division = page.getByRole('checkbox', { name: 'Division' });
       if (!(await division.isChecked())) await division.check();
-      await fields.getByRole('button', { name: 'Done' }).click();
+      // The axis editor appearing is the signal that the field is on and its
+      // first axis is seeded — leaving before that loses both.
+      await page.getByLabel('Axis 1 label').waitFor();
+      await page.getByRole('button', { name: 'Done' }).click();
 
-      // Everyone Silver, then the leaders Gold — two passes of the same bulk
-      // editor, which is how a scorer would do it after a prize-giving split.
-      const setDivision = async (value: string, rows: 'all' | number) => {
+      // Divisions are awarded on merit, and the page leads with the division
+      // of the leading boat — so a sample split by anything other than the
+      // standings would publish "Silver, Bronze, Gold" and read as a bug.
+      // Take the first fleet's standings order and cut it into tiers.
+      await page.goto(`${BASE}/series/${id}/standings`);
+      await settle(page);
+      const standingsRows = page.locator('table').first().locator('tbody tr');
+      const ranked: string[] = [];
+      for (let i = 0; i < (await standingsRows.count()); i++) {
+        const sail = (await standingsRows.nth(i).locator('td').nth(1).innerText()).trim();
+        if (sail) ranked.push(sail);
+      }
+      const tier = Math.max(1, Math.round(ranked.length / 3));
+      const tiers: Array<[string, string[]]> = [
+        ['Gold', ranked.slice(0, tier)],
+        ['Silver', ranked.slice(tier, tier * 2)],
+        ['Bronze', ranked.slice(tier * 2)],
+      ];
+
+      // Row order on the competitors page is stable, so one pass builds the
+      // sail-number → row-index map that every tier then selects through.
+      await page.goto(`${BASE}/series/${id}/competitors`);
+      await settle(page);
+      const rows = page.locator('tbody tr');
+      const rowIndexBySail = new Map<string, number>();
+      for (let i = 0; i < (await rows.count()); i++) {
+        const sail = (await rows.nth(i).locator('td').nth(1).innerText()).trim();
+        if (sail) rowIndexBySail.set(sail, i);
+      }
+
+      const setDivision = async (value: string, sails: string[]) => {
         await page.goto(`${BASE}/series/${id}/competitors`);
         await settle(page);
-        if (rows === 'all') {
-          await page.getByRole('checkbox', { name: 'Select all shown competitors' }).check();
-        } else {
-          const boxes = page.getByRole('checkbox', { name: 'Select row' });
-          for (let i = 0; i < rows; i++) await boxes.nth(i).check();
+        const boxes = page.getByRole('checkbox', { name: 'Select row' });
+        for (const sail of sails) {
+          const i = rowIndexBySail.get(sail);
+          if (i !== undefined) await boxes.nth(i).check();
         }
         await page.getByRole('button', { name: /Set field/ }).click();
         const dialog = page.getByRole('dialog');
         await dialog.waitFor();
-        await dialog.getByLabel('Field').click();
+        await dialog.getByRole('combobox').first().click();
         await page.getByRole('option', { name: 'Division', exact: true }).click();
         await dialog.getByLabel('Value').fill(value);
         await dialog.getByRole('button', { name: /^Apply to/ }).click();
         await dialog.waitFor({ state: 'hidden' }).catch(() => {});
       };
-      await setDivision('Silver', 'all');
-      await setDivision('Gold', 4);
+      for (const [value, sails] of tiers) await setDivision(value, sails);
 
       await page.goto(`${BASE}/series/${id}/settings`);
       await settle(page);
@@ -1063,6 +1096,18 @@ const SHOTS: Shot[] = [
       await row.getByRole('textbox').first().fill('By division');
       await row.getByRole('textbox').first().press('Enter');
       await row.getByRole('button', { name: 'One per Division' }).click();
+      await settle(page);
+      // Scope it to the first fleet: the shot is about the division split, and
+      // a page spanning six fleets would be ten sections of "fleet — value".
+      await row.getByRole('button', { name: 'Choose fleets' }).click();
+      await settle(page);
+      // One click, then wait for the round-trip: `check()` re-clicks when the
+      // state hasn't caught up yet, and each click toggles the member back off.
+      const memberBox = row.getByRole('checkbox').first();
+      await memberBox.click();
+      for (let i = 0; i < 20 && !(await memberBox.isChecked()); i++) {
+        await page.waitForTimeout(250);
+      }
       await settle(page);
       await card.getByRole('button', { name: 'Done' }).click();
 

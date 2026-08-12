@@ -212,6 +212,11 @@ export default async function Page() {
             the page says which races it is showing, and race columns without a table below stop
             being links.
           </p>
+          <HelpShot
+            src="/help/shots/per-division-pages.webp"
+            alt="A published page with a standings table per division."
+            caption="A published page with a standings table per division."
+          />
           <p>
             <strong className="text-foreground">One table per division.</strong> Where a class
             races as one fleet but is split into divisions — Gold, Silver and Bronze, or an age
