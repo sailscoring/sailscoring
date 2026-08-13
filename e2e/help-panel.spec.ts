@@ -76,6 +76,28 @@ test('the panel keeps help links inside itself, and offers the page for a tab', 
   );
 });
 
+test('the docked panel can be widened, and the page keeps its room', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Help' }).click();
+  const panel = page.getByTestId('help-panel');
+  const before = (await panel.boundingBox())!;
+
+  await page.getByTestId('help-resize').focus();
+  await page.keyboard.press('ArrowLeft');
+  const after = (await panel.boundingBox())!;
+  expect(after.width).toBeCloseTo(before.width + 32, 0);
+
+  // The page reserves the panel's width rather than sitting under it, so
+  // the working screen is still fully visible. The reserved padding eases
+  // in, so let it settle before measuring.
+  await expect
+    .poll(async () => {
+      const main = (await page.locator('main').boundingBox())!;
+      return main.x + main.width;
+    })
+    .toBeLessThanOrEqual(after.x + 1);
+});
+
 test('the /help pages keep their plain link and grow no panel', async ({ page }) => {
   await page.goto('/help');
   // On the help pages the header control is the link it always was — a panel

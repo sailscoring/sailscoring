@@ -26,7 +26,7 @@ import { useFeatures } from '@/components/features-provider';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { useHelpPanel } from './provider';
+import { HELP_PANEL_MAX_WIDTH, HELP_PANEL_MIN_WIDTH, useHelpPanel } from './provider';
 
 /** Scrolling to a section has to wait for the chapter's chunk to arrive, so
  *  look for the anchor over a bounded run of frames rather than once. */
@@ -58,6 +58,44 @@ function useScrollToSection(
     look();
     return () => cancelAnimationFrame(raf);
   }, [containerRef, section, seq]);
+}
+
+/** Drags the docked edge. Below lg the panel is full-width, so it's hidden
+ *  there — there is nothing to resize. */
+function ResizeHandle() {
+  const { width, setWidth } = useHelpPanel();
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize help"
+      aria-valuenow={width}
+      aria-valuemin={HELP_PANEL_MIN_WIDTH}
+      aria-valuemax={HELP_PANEL_MAX_WIDTH}
+      tabIndex={0}
+      data-testid="help-resize"
+      className="absolute inset-y-0 -left-1 hidden w-2 cursor-col-resize hover:bg-border focus-visible:bg-border lg:block"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        // Suppresses the page's padding transition and text selection for
+        // the duration of the drag, so the content edge tracks the pointer.
+        document.documentElement.dataset.helpResizing = 'true';
+      }}
+      onPointerMove={(e) => {
+        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+        setWidth(window.innerWidth - e.clientX);
+      }}
+      onPointerUp={(e) => {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        delete document.documentElement.dataset.helpResizing;
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        setWidth(width + (e.key === 'ArrowLeft' ? 32 : -32));
+      }}
+    />
+  );
 }
 
 function ChapterList({
@@ -182,6 +220,7 @@ export function HelpPanel() {
           open ? 'translate-x-0' : 'translate-x-full',
         )}
       >
+        <ResizeHandle />
         <div className="flex items-center gap-2 border-b px-4 py-3">
           {current ? (
             <button

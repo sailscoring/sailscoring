@@ -158,3 +158,13 @@
     padding-right: var(--help-panel-width, 26rem);
   }
 }
+
+/* While the panel edge is being dragged, the page must track the pointer
+   rather than easing after it. */
+html[data-help-resizing] {
+  user-select: none;
+}
+
+html[data-help-resizing] .help-docked {
+  transition: none;
+}

@@ -23,6 +23,13 @@ import {
 import { isInputFocused, useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
 
 const OPEN_KEY = 'sailscoring:help-panel';
+const WIDTH_KEY = 'sailscoring:help-panel-width';
+
+/** Docked width bounds. Narrower than the minimum and the prose stops being
+ *  readable; wider than the maximum and there's no working screen left. */
+export const HELP_PANEL_MIN_WIDTH = 320;
+export const HELP_PANEL_MAX_WIDTH = 720;
+const HELP_PANEL_DEFAULT_WIDTH = 420;
 
 interface HelpPanelContextValue {
   /** False where the panel has no business existing — the /help pages. */
@@ -43,6 +50,13 @@ interface HelpPanelContextValue {
   showChapter: (slug: string, section?: string | null) => void;
   minimise: () => void;
   toggle: () => void;
+  /** Docked width in px. Below lg the panel is full-width and ignores it. */
+  width: number;
+  setWidth: (px: number) => void;
+}
+
+function clampWidth(px: number): number {
+  return Math.min(HELP_PANEL_MAX_WIDTH, Math.max(HELP_PANEL_MIN_WIDTH, Math.round(px)));
 }
 
 const HelpPanelContext = createContext<HelpPanelContextValue | null>(null);
@@ -62,6 +76,7 @@ export function HelpPanelProvider({ children }: { children: ReactNode }) {
   const [chapter, setChapter] = useState<string | null>(null);
   const [section, setSection] = useState<string | null>(null);
   const [seq, setSeq] = useState(0);
+  const [width, setWidthState] = useState(HELP_PANEL_DEFAULT_WIDTH);
   // Focus moves into the panel when it opens; minimising hands it back to
   // whatever the scorer was working in.
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -72,6 +87,9 @@ export function HelpPanelProvider({ children }: { children: ReactNode }) {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
+      // Width outlives the session; where the reader had got to does not.
+      const stored = Number(localStorage.getItem(WIDTH_KEY));
+      if (stored) setWidthState(clampWidth(stored));
       const saved = sessionStorage.getItem(OPEN_KEY);
       if (!saved) return;
       const state = JSON.parse(saved) as { open?: boolean; chapter?: string | null; section?: string | null };
@@ -95,6 +113,22 @@ export function HelpPanelProvider({ children }: { children: ReactNode }) {
       // Private-mode storage failures are not worth surfacing.
     }
   }, [everOpened, open, chapter, section]);
+
+  // The docked width feeds both the panel and the padding the page reserves
+  // for it, so it lives on the root element as a custom property.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--help-panel-width', `${width}px`);
+  }, [width]);
+
+  const setWidth = useCallback((px: number) => {
+    const next = clampWidth(px);
+    setWidthState(next);
+    try {
+      localStorage.setItem(WIDTH_KEY, String(next));
+    } catch {
+      // Private-mode storage failures are not worth surfacing.
+    }
+  }, []);
 
   const openHelp = useCallback((next?: string | null, sectionId?: string | null) => {
     setEverOpened(true);
@@ -158,8 +192,10 @@ export function HelpPanelProvider({ children }: { children: ReactNode }) {
       showChapter,
       minimise,
       toggle,
+      width,
+      setWidth,
     }),
-    [available, everOpened, open, chapter, section, seq, openHelp, showIndex, showChapter, minimise, toggle],
+    [available, everOpened, open, chapter, section, seq, openHelp, showIndex, showChapter, minimise, toggle, width, setWidth],
   );
 
   return <HelpPanelContext.Provider value={value}>{children}</HelpPanelContext.Provider>;
