@@ -71,6 +71,45 @@ export default function Collaboration() {
           the rest of your panel.
         </p>
       </Section>
+      <Section id="reading-help" title="Reading help beside your work">
+        <HelpShot
+          src="/help/shots/help-panel.webp"
+          alt="Help open in a panel beside the standings it describes."
+          caption="Help open in a panel beside the standings it describes."
+        />
+        <p>
+          You don’t have to leave what you’re doing to look something up.
+          Clicking <strong className="text-foreground">Help</strong> in the page
+          header — or pressing <strong className="text-foreground">h</strong> —
+          opens help in a panel beside the screen you’re working on, so the
+          advice and the thing it describes are in front of you at the same
+          time.
+        </p>
+        <p>
+          The panel opens on its index, with the section covering the screen
+          you’re on pinned to the top under{' '}
+          <strong className="text-foreground">For this page</strong>. Links
+          between help sections move the panel rather than the page underneath
+          it, so following a cross-reference never costs you your place.
+        </p>
+        <p>
+          <strong className="text-foreground">Minimise</strong> (the arrows at
+          the top of the panel, or <strong className="text-foreground">Esc</strong>)
+          slides it out of the way and leaves a{' '}
+          <strong className="text-foreground">Help</strong> button in the corner
+          of the screen. Bringing it back returns you to the same chapter,
+          section and scroll position, so you can flick between the problem and
+          the answer as often as you need. Drag the panel’s left edge to give it
+          more or less room; the width is remembered.
+        </p>
+        <p>
+          Every chapter is also a page of its own, at{' '}
+          <span className="font-mono">/help</span> —{' '}
+          <strong className="text-foreground">Open as a page</strong> in the
+          panel opens the section you’re reading in a new tab, which is what you
+          want for printing a chapter or sending a co-scorer a link to it.
+        </p>
+      </Section>
       <Section id="sending-feedback" title="Sending feedback">
         <HelpShot
           src="/help/shots/send-feedback.webp"

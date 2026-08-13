@@ -124,6 +124,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'Working as a panel, and getting help.',
     sections: [
       { id: 'collaboration', title: 'Working with co-scorers' },
+      { id: 'reading-help', title: 'Reading help beside your work' },
       { id: 'sending-feedback', title: 'Sending feedback' },
       { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts' },
     ],

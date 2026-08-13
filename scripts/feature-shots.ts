@@ -1165,6 +1165,26 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Help panel. The point of the shot is that both things are
+    // on screen at once, so it captures the standings with the panel open on
+    // the section covering them.
+    slug: 'help-panel',
+    group: 'Collaboration and accounts',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Help' }).click();
+      const panel = page.getByTestId('help-panel');
+      await panel.getByText('For this page').waitFor();
+      // The pinned For-this-page entry, not the same title in the index below.
+      await panel.getByRole('button', { name: 'Reading the standings' }).first().click();
+      await panel.getByRole('heading', { name: 'Reading the standings' }).waitFor();
+      await settle(page);
+      await shot('help-panel.png');
+      await panel.getByRole('button', { name: 'Minimise help' }).click();
+    },
+  },
+  {
     // Inventory: Send feedback — the dialog with its attached context.
     slug: 'send-feedback',
     group: 'Collaboration and accounts',

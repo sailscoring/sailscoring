@@ -179,6 +179,7 @@ A scoring panel working as one.
 | Live co-scoring (`#collaboration`, `#signing-in`) | core | The whole panel sees edits in close to real time, and simultaneous edits to the same finish produce a conflict prompt naming the other scorer instead of silent overwrites. | The conflict dialog naming the other scorer over a finish both edited. |
 | Workspace requests (`#signing-in`) | core | Request a shared workspace from your Account page and it arrives with you as owner, ready to invite the panel. | Account page workspace-request card with a name filled in. |
 | Feature toggles (`#signing-in`) | core | Owners switch optional features on and off for the whole workspace — several seed a worked demo series when first enabled — keeping the interface as small as the club's racing. | Features card in Workspace settings. |
+| Help beside your work (`#reading-help`) | core | Help opens in a panel next to the screen you're on, pinned to the section covering it, and minimises and returns without losing your place — the advice and the thing it describes stay on screen together. | A series' standings with the help panel open beside them on Reading the standings. |
 | Send feedback (`#sending-feedback`) | core | Send a bug report or suggestion from the user menu, with page and browser context attached and shown before you submit. | Feedback dialog with a message typed and the attached page and browser context shown beneath it. |
 
 ## 10. For the technical

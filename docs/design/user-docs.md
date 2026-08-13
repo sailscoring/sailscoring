@@ -7,6 +7,26 @@ the app for the first time should not need to figure it out from scratch, and
 any feature worth shipping is worth explaining. Docs live in-app so they
 deploy with the app and can never fall out of date with the running version.
 
+## How Docs Are Read
+
+Two surfaces over one set of chapters:
+
+- **The help panel** is the primary way help is read. It opens beside the
+  working screen from the header's Help control or the `h` key, and minimises
+  off-canvas without unmounting, so the reader's chapter, section and scroll
+  position survive the round trip. Its index pins the section covering the
+  current route (`helpSectionForPath`), and links between help sections move
+  the panel rather than navigating the app. It is deliberately absent on
+  `/help` itself, where a second copy would duplicate every section id.
+- **The `/help` routes** remain the shareable, linkable, printable form, and
+  the panel's "Open as a page" leads to them.
+
+Both render the same components: chapter bodies live in `app/help/content/`,
+marked `'use client'` and gating on the `FeaturesProvider` context. The routes
+re-provide the server-computed feature set so their TOC and sections can never
+disagree; the panel loads chapters on demand through `content/index.ts`, which
+keeps the chapter JSX out of every page's bundle.
+
 ## Where Docs Live
 
 User documentation is served in-app at `/help` (`app.sailscoring.ie/help`):

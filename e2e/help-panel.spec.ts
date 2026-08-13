@@ -102,7 +102,7 @@ test('the /help pages keep their plain link and grow no panel', async ({ page })
   await page.goto('/help');
   // On the help pages the header control is the link it always was — a panel
   // here would duplicate every section id in the document.
-  await expect(page.getByRole('link', { name: 'Help' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Help', exact: true })).toBeVisible();
   await page.keyboard.press('h');
   await expect(page.getByTestId('help-panel')).toHaveCount(0);
 });
