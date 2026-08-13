@@ -138,11 +138,14 @@ export function HelpPanelProvider({ children }: { children: ReactNode }) {
       }
       return true;
     });
+    // Only a move to somewhere new bumps `seq`. Re-opening where you left
+    // off must not re-scroll the panel to the top of the section — the place
+    // you had got to in it is the thing worth keeping.
     if (next !== undefined) {
       setChapter(next);
       setSection(sectionId ?? null);
+      setSeq((n) => n + 1);
     }
-    setSeq((n) => n + 1);
   }, []);
 
   const minimise = useCallback(() => {
@@ -175,6 +178,9 @@ export function HelpPanelProvider({ children }: { children: ReactNode }) {
     if (!available) return;
     if (e.key !== 'h' || e.ctrlKey || e.metaKey || e.altKey) return;
     if (isInputFocused()) return;
+    // An open dialog owns the screen and the focus; help belongs behind it,
+    // not under it.
+    if (document.querySelector('[role="dialog"][data-state="open"]')) return;
     e.preventDefault();
     toggle();
   });

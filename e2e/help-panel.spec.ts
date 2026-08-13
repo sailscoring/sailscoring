@@ -32,12 +32,17 @@ test('help opens beside the working screen and minimises back to it', async ({ p
   await expect(page.getByRole('heading', { name: 'Panel Test Series' })).toBeVisible();
 
   // Minimised, the panel keeps its place: bringing it back lands on the same
-  // chapter, not the index.
+  // chapter at the same scroll position, not the index and not the top.
+  const scroller = panel.locator('div.overflow-y-auto');
+  await scroller.evaluate((el) => { el.scrollTop += 240; });
+  const readTo = await scroller.evaluate((el) => el.scrollTop);
+  expect(readTo).toBeGreaterThan(0);
   await panel.getByRole('button', { name: 'Minimise help' }).click();
   await expect(panel).toHaveAttribute('data-state', 'minimised');
   await page.getByTestId('help-restore').click();
   await expect(panel).toHaveAttribute('data-state', 'open');
   await expect(panel.getByRole('heading', { name: 'Redress (RDG)' })).toBeVisible();
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(readTo);
 
   // Back to the index, and out again with the keyboard.
   await panel.getByRole('button', { name: 'Help', exact: true }).click();
