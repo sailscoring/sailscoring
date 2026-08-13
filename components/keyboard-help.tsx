@@ -100,6 +100,7 @@ export function KeyboardHelp({
             title="Global"
             rows={[
               { keys: ['?'], action: 'Show this help' },
+              { keys: ['h'], action: 'Open the help panel' },
               { keys: ['⇧', 'D'], action: 'Toggle dark mode' },
               { keys: ['⌃', 'S'], action: 'Save to file' },
               { keys: ['g', 'c'], action: 'Go to Competitors' },

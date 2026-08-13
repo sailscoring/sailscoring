@@ -142,3 +142,19 @@
     @apply bg-background text-foreground;
     }
 }
+
+/* The help panel, docked beside the working screen at lg and up.
+   Below that there is no room for two columns, so it overlays at full
+   width and the page reserves nothing. */
+.help-panel {
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .help-panel {
+    width: var(--help-panel-width, 26rem);
+  }
+  .help-docked {
+    padding-right: var(--help-panel-width, 26rem);
+  }
+}

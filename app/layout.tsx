@@ -23,6 +23,9 @@ import {
 } from '@/components/workspace-switcher';
 import { WorkspaceMembershipsProvider } from '@/components/workspace-memberships-provider';
 import { FeaturesProvider } from '@/components/features-provider';
+import { HelpPanelFrame } from '@/components/help-panel/frame';
+import { HelpPanelProvider } from '@/components/help-panel/provider';
+import { HelpToggle } from '@/components/help-panel/toggle';
 import { computeEffectiveFeatures, type FeatureKey } from '@/lib/features';
 import { UserMenu } from '@/components/user-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -112,6 +115,8 @@ export default async function RootLayout({
             activeOrganizationId={header?.activeOrganizationId ?? null}
           >
             <FeaturesProvider features={header?.features ?? []}>
+            <HelpPanelProvider>
+            <HelpPanelFrame>
             <div className="h-[3px] bg-brand-red" />
             <header className="border-b px-6 py-3 flex items-center gap-3">
               <Link
@@ -133,12 +138,7 @@ export default async function RootLayout({
                 />
               )}
               <div className="ml-auto flex items-center gap-3">
-                <Link
-                  href="/help"
-                  className="text-sm text-muted-foreground hover:underline"
-                >
-                  Help
-                </Link>
+                <HelpToggle />
                 <ThemeToggle />
                 {header && (
                   <UserMenu
@@ -153,6 +153,8 @@ export default async function RootLayout({
             )}
             <main className="px-6 py-8 bg-muted min-h-[70vh]">{children}</main>
             <Footer />
+            </HelpPanelFrame>
+            </HelpPanelProvider>
             </FeaturesProvider>
           </WorkspaceMembershipsProvider>
         </Providers>

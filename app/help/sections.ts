@@ -139,6 +139,30 @@ export const HELP_GROUPS: HelpGroupDef[] = [
   },
 ];
 
+/**
+ * The two opening sections of the /help landing page. They belong to no
+ * chapter — their ids live on /help itself, which is why
+ * `helpPathForSection` returns null for them — but the help panel needs
+ * them listed like any other chapter, so their titles live here rather
+ * than only in the JSX.
+ */
+export const HELP_INTRODUCTION: HelpGroupDef = {
+  slug: 'introduction',
+  label: 'Getting started',
+  blurb: 'What Sail Scoring is, signing in, and workspaces.',
+  sections: [
+    { id: 'what-is-sail-scoring', title: 'What is Sail Scoring?' },
+    { id: 'signing-in', title: 'Signing in and workspaces' },
+  ],
+};
+
+/** The chapter path a section lives on, for panel links and Open-as-a-page:
+ *  the introduction's sections are anchors on /help itself. */
+export function helpHrefForSection(slug: string, id?: string | null): string {
+  const base = slug === HELP_INTRODUCTION.slug ? '/help' : `/help/${slug}`;
+  return id ? `${base}#${id}` : base;
+}
+
 /** The sections of a chapter this viewer can see. A section gated on a
  *  feature their workspace doesn't have isn't listed and isn't rendered. */
 export function visibleSections(
