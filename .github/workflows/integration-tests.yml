@@ -46,6 +46,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The canonical-logos assets are gitignored and re-fetched from the
+      # pinned GitHub release by `prebuild`. That download is on the critical
+      # path of the build Playwright's webServer starts, so a blip at
+      # github.com fails the e2e step before a test runs. Cache the assets on
+      # the pin: scripts/sync-canonical-logos.ts skips the fetch entirely when
+      # public/canonical-logos/.version already matches.
+      - name: Cache canonical-logos assets
+        uses: actions/cache@v4
+        with:
+          path: public/canonical-logos
+          key: canonical-logos-${{ hashFiles('lib/canonical-logos/dataset-version.txt') }}
+
       - name: Apply Drizzle migrations
         run: pnpm db:migrate
 
