@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 import type { FeatureKey } from '@/lib/features';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell } from '../shell';
+import { Section } from '../ui';
 
 export const metadata: Metadata = {
   title: 'Across series and seasons — Help — Sail Scoring',

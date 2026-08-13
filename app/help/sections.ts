@@ -139,6 +139,23 @@ export const HELP_GROUPS: HelpGroupDef[] = [
   },
 ];
 
+/** The sections of a chapter this viewer can see. A section gated on a
+ *  feature their workspace doesn't have isn't listed and isn't rendered. */
+export function visibleSections(
+  group: HelpGroupDef,
+  features: readonly FeatureKey[],
+): HelpSectionDef[] {
+  return group.sections.filter((s) => !s.feature || features.includes(s.feature));
+}
+
+/** The chapters this viewer can see, each narrowed to its visible sections.
+ *  A chapter whose every section is gated off for them doesn't exist: the
+ *  index omits it and its page 404s (see HelpShell). */
+export function visibleGroups(features: readonly FeatureKey[]): HelpGroupDef[] {
+  return HELP_GROUPS.map((group) => ({ ...group, sections: visibleSections(group, features) }))
+    .filter((group) => group.sections.length > 0);
+}
+
 /** The chapter path a section lives on, for redirecting old /help#id
  *  links — null for ids that stay on the landing page. */
 export function helpPathForSection(id: string): string | null {

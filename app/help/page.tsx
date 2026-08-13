@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 
 import { HashRedirect } from './hash-redirect';
-import { HELP_GROUPS } from './sections';
-import { HelpShot, Section } from './shell';
+import { visibleGroups } from './sections';
+import { HelpShot, Section } from './ui';
 
 export const metadata: Metadata = {
   title: 'Help — Sail Scoring',
@@ -31,32 +31,25 @@ export default async function HelpPage() {
       </div>
 
       <nav className="text-sm space-y-6">
-        {HELP_GROUPS.map((group) => ({
-          ...group,
-          sections: group.sections.filter((s) => !s.feature || features.includes(s.feature)),
-        }))
-          // A chapter whose every section is gated off for this viewer is
-          // omitted entirely (its page 404s too — see HelpShell).
-          .filter((group) => group.sections.length > 0)
-          .map((group) => (
-            <div key={group.slug} className="space-y-1">
-              <p className="font-medium text-foreground">
-                <Link href={`/help/${group.slug}`} className="hover:underline">
-                  {group.label}
+        {visibleGroups(features).map((group) => (
+          <div key={group.slug} className="space-y-1">
+            <p className="font-medium text-foreground">
+              <Link href={`/help/${group.slug}`} className="hover:underline">
+                {group.label}
+              </Link>
+            </p>
+            {group.sections.map((s) => (
+              <div key={s.id}>
+                <Link
+                  href={`/help/${group.slug}#${s.id}`}
+                  className="text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  {s.title}
                 </Link>
-              </p>
-              {group.sections.map((s) => (
-                <div key={s.id}>
-                  <Link
-                    href={`/help/${group.slug}#${s.id}`}
-                    className="text-muted-foreground hover:text-foreground hover:underline"
-                  >
-                    {s.title}
-                  </Link>
-                </div>
-              ))}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
+        ))}
       </nav>
 
       <Section id="what-is-sail-scoring" title="What is Sail Scoring?">

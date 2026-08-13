@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 
 import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 
-import { HelpShell, Section } from '../shell';
+import { HelpShell } from '../shell';
+import { Section } from '../ui';
 
 export const metadata: Metadata = {
   title: 'For the technical — Help — Sail Scoring',

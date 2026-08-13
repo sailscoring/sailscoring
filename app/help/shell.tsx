@@ -3,37 +3,7 @@ import { notFound } from 'next/navigation';
 
 import type { FeatureKey } from '@/lib/features';
 
-import { HELP_GROUPS } from './sections';
-
-export function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return (
-    <section id={id} className="scroll-mt-4 space-y-3 bg-card border rounded-lg p-6">
-      <h2 className="text-xl font-semibold">{title}</h2>
-      <div className="space-y-2 text-muted-foreground leading-relaxed">{children}</div>
-    </section>
-  );
-}
-
-/** A screenshot inside a help section — the same captures the marketing
- *  site uses (scripts/feature-shots.ts writes both), with an instructional
- *  caption. Click opens the image full size. */
-export function HelpShot({ src, alt, caption }: { src: string; alt: string; caption: string }) {
-  return (
-    <figure className="my-4 space-y-2">
-      <a
-        href={src}
-        target="_blank"
-        rel="noreferrer"
-        className="block overflow-hidden rounded-md border"
-      >
-        {/* Plain img: static asset of known quality; next/image adds nothing here. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} loading="lazy" className="w-full" />
-      </a>
-      <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>
-    </figure>
-  );
-}
+import { HELP_GROUPS, visibleSections } from './sections';
 
 /** The frame every help chapter shares: heading, blurb, and a TOC of the
  *  chapter's sections filtered to the viewer's effective features. */
@@ -48,7 +18,7 @@ export function HelpShell({
 }) {
   const group = HELP_GROUPS.find((g) => g.slug === slug);
   if (!group) throw new Error(`unknown help group: ${slug}`);
-  const sections = group.sections.filter((s) => !s.feature || features.includes(s.feature));
+  const sections = visibleSections(group, features);
   // A chapter whose every section is gated off for this viewer doesn't exist
   // for them — the landing index skips it too (see app/help/page.tsx).
   if (sections.length === 0) notFound();
