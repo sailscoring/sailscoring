@@ -35,6 +35,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { setTimeout } from 'node:timers/promises';
 import { extract } from 'tar';
 
 const CANONICAL_DIR = join(__dirname, '..', 'lib', 'canonical-logos');
@@ -66,13 +67,64 @@ function sha256(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex');
 }
 
+/**
+ * Fetch one release asset, retrying transient failures.
+ *
+ * This runs from `prebuild`, so it sits on the critical path of every build —
+ * including the one Playwright's webServer starts. A single dropped connection
+ * to github.com used to fail the build outright, which fails the whole e2e run
+ * before a test executes. Retry the failures that are worth retrying: fetch
+ * itself throwing (DNS, TLS, socket closed mid-request) and the server-side or
+ * throttling status codes. A 404 means the pin is wrong, so fail fast on it.
+ */
+const FETCH_ATTEMPTS = 3;
+const RETRY_BASE_MS = 1000;
+
+function isRetriableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
 async function fetchAsset(version: string, asset: string): Promise<Buffer> {
   const url = `https://github.com/sailscoring/canonical-logos/releases/download/${version}/${asset}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      const delay = RETRY_BASE_MS * 2 ** (attempt - 2);
+      console.log(
+        `Retrying ${asset} in ${delay}ms (attempt ${attempt}/${FETCH_ATTEMPTS}): ${errorSummary(lastError)}`,
+      );
+      await setTimeout(delay);
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch (err) {
+      // fetch only rejects on transport failures — always worth another go.
+      lastError = err;
+      continue;
+    }
+
+    if (res.ok) {
+      return Buffer.from(await res.arrayBuffer());
+    }
+
+    const err = new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+    if (!isRetriableStatus(res.status)) throw err;
+    lastError = err;
   }
-  return Buffer.from(await res.arrayBuffer());
+
+  throw new Error(
+    `Failed to fetch ${url} after ${FETCH_ATTEMPTS} attempts: ${errorSummary(lastError)}`,
+    { cause: lastError },
+  );
+}
+
+function errorSummary(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  // `fetch failed` on its own says nothing; the cause carries the real reason.
+  return err.cause instanceof Error ? `${err.message} (${err.cause.message})` : err.message;
 }
 
 async function extractTarball(tarball: Buffer): Promise<string> {
