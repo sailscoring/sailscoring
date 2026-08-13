@@ -412,9 +412,11 @@ test('home URL is clean after confirming an import and navigating back home', as
   await page.getByRole('button', { name: 'Open series' }).click();
   await expect(page).toHaveURL(/\/standings$/);
 
-  // Navigate away then back home via the header link
-  await page.getByRole('link', { name: 'Help' }).click();
-  await expect(page).toHaveURL('/help');
+  // Navigate away then back home via the header. Help is a panel now, so
+  // Account is the header's remaining route change.
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Account' }).click();
+  await expect(page).toHaveURL('/account');
   await page.getByRole('banner').getByRole('link', { name: 'Sail Scoring' }).click();
 
   // Home page must be clean — no dialog, no stale import params in URL.
@@ -529,8 +531,9 @@ test('home URL is clean after cancelling an import and navigating back home', as
   await expect(page).toHaveURL('/');
 
   // Navigate away then back home
-  await page.getByRole('link', { name: 'Help' }).click();
-  await expect(page).toHaveURL('/help');
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Account' }).click();
+  await expect(page).toHaveURL('/account');
   await page.getByRole('banner').getByRole('link', { name: 'Sail Scoring' }).click();
 
   // Home page must be clean — no dialog, no stale import params in URL.
