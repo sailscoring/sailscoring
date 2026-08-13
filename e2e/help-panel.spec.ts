@@ -20,6 +20,10 @@ test('help opens beside the working screen and minimises back to it', async ({ p
   // The index lists chapters from the manifest. The chapter and its
   // same-named opening section are both buttons; the chapter comes first.
   await expect(panel.getByRole('button', { name: 'Entering results' }).first()).toBeVisible();
+  // The screen the panel is sitting beside is pinned to the top: this is the
+  // competitors tab of a new series.
+  await expect(panel.getByText('For this page')).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Adding competitors' })).toHaveCount(2);
 
   // Into a section — and the working screen has not moved.
   await panel.getByRole('button', { name: 'Redress (RDG)' }).click();

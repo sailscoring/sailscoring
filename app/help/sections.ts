@@ -180,6 +180,65 @@ export function visibleGroups(features: readonly FeatureKey[]): HelpGroupDef[] {
     .filter((group) => group.sections.length > 0);
 }
 
+/**
+ * The section that covers a given app screen, so help can open on what the
+ * scorer is actually looking at rather than on the index. Patterns are
+ * matched longest-first, and `:id` matches one path segment.
+ */
+const SECTION_FOR_ROUTE: Record<string, string> = {
+  '/': 'organising-series',
+  '/account': 'signing-in',
+  '/import': 'json-export',
+  '/series/new': 'creating-a-series',
+  '/series/import-sailwave': 'sailwave-import',
+  '/series/:id': 'adding-competitors',
+  '/series/:id/activity': 'collaboration',
+  '/series/:id/competitors': 'adding-competitors',
+  '/series/:id/history': 'history',
+  '/series/:id/prizes': 'prizes',
+  '/series/:id/races': 'adding-races',
+  '/series/:id/races/:raceId': 'entering-results',
+  '/series/:id/settings': 'discard-rules',
+  '/series/:id/setup': 'creating-a-series',
+  '/series/:id/split-fleets': 'split-fleets',
+  '/series/:id/standings': 'reading-the-standings',
+  '/workspace': 'signing-in',
+  '/workspace/competitors': 'competitor-identity',
+  '/workspace/published': 'publishing-results',
+  '/workspace/rankings': 'rankings',
+  '/workspace/rankings/:id': 'rankings',
+};
+
+function routeMatches(pattern: string, path: string): boolean {
+  const p = pattern.split('/');
+  const a = path.split('/');
+  return p.length === a.length && p.every((seg, i) => seg.startsWith(':') || seg === a[i]);
+}
+
+/**
+ * The manifest entry covering `pathname`, or null where nothing does or
+ * where the section is gated off for this viewer. Returns the chapter too,
+ * since that's what the panel needs to open.
+ */
+export function helpSectionForPath(
+  pathname: string,
+  features: readonly FeatureKey[],
+): { slug: string; section: HelpSectionDef } | null {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  const pattern = Object.keys(SECTION_FOR_ROUTE)
+    .sort((a, b) => b.split('/').length - a.split('/').length)
+    .find((candidate) => routeMatches(candidate, path));
+  if (!pattern) return null;
+  const id = SECTION_FOR_ROUTE[pattern];
+  for (const group of [HELP_INTRODUCTION, ...HELP_GROUPS]) {
+    const section = group.sections.find((s) => s.id === id);
+    if (!section) continue;
+    if (section.feature && !features.includes(section.feature)) return null;
+    return { slug: group.slug, section };
+  }
+  return null;
+}
+
 /** The chapter path a section lives on, for redirecting old /help#id
  *  links — null for ids that stay on the landing page. */
 export function helpPathForSection(id: string): string | null {

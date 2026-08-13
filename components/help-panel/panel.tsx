@@ -10,12 +10,14 @@
  * the whole point of the thing.
  */
 import { ArrowUpRight, ChevronLeft, ChevronsRight, CircleQuestionMark } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, type MouseEvent } from 'react';
 
 import { HELP_CONTENT } from '@/app/help/content';
 import {
   HELP_INTRODUCTION,
   helpHrefForSection,
+  helpSectionForPath,
   visibleGroups,
   visibleSections,
   type HelpGroupDef,
@@ -93,6 +95,7 @@ export function HelpPanel() {
   const { available, everOpened, open, chapter, section, seq, openHelp, showIndex, showChapter, minimise } =
     useHelpPanel();
   const { features } = useFeatures();
+  const pathname = usePathname();
   const asideRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -125,6 +128,10 @@ export function HelpPanel() {
   if (!available || !everOpened) return null;
 
   const groups = [HELP_INTRODUCTION, ...visibleGroups(features)];
+  // The section covering the screen the panel is sitting next to, pinned to
+  // the top of the index so the answer to "what am I looking at" is one
+  // click rather than a hunt through the chapters.
+  const here = helpSectionForPath(pathname ?? '/', features);
   const current = chapter ? groups.find((g) => g.slug === chapter) : null;
   const Content = current ? HELP_CONTENT[current.slug] : null;
 
@@ -240,6 +247,20 @@ export function HelpPanel() {
                 A guide to scoring a series with Sail Scoring, in short chapters. Pick a section
                 and it opens here, beside what you are working on.
               </p>
+              {here && (
+                <div className="rounded-md border bg-muted/50 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    For this page
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => showChapter(here.slug, here.section.id)}
+                    className="mt-1 text-left text-sm font-medium hover:underline"
+                  >
+                    {here.section.title}
+                  </button>
+                </div>
+              )}
               <nav className="space-y-5 text-sm">
                 {groups.map((group) => (
                   <ChapterList key={group.slug} group={group} onOpen={showChapter} />
