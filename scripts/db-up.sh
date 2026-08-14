@@ -33,10 +33,22 @@ if podman-remote container exists "$NAME"; then
   # previously created it with a different mapping (e.g. -p 5433:5432
   # because 5432 was busy), every script downstream that assumes 5432
   # would silently connect to the wrong place. Fail loudly instead.
-  MAPPED=$(podman-remote port "$NAME" 5432/tcp 2>/dev/null | head -1 | awk -F: '{print $NF}')
+  #
+  # Read the *configured* binding rather than `podman port`, which reports
+  # the live mapping and so prints nothing at all for a stopped container —
+  # the normal state here, given this script exists to start one. Reading
+  # the live mapping turned every ordinary "it isn't running" into a drift
+  # report, whose stated remedy is to delete the database.
+  MAPPED=$(podman-remote inspect \
+    --format '{{with index .HostConfig.PortBindings "5432/tcp"}}{{(index . 0).HostPort}}{{end}}' \
+    "$NAME" 2>/dev/null)
   if [ "$MAPPED" != "$PORT" ]; then
-    echo "Container '$NAME' maps host port '$MAPPED', expected '$PORT'." >&2
-    echo "Recreate it with:" >&2
+    if [ -z "$MAPPED" ]; then
+      echo "Container '$NAME' publishes no host port for 5432/tcp, expected '$PORT'." >&2
+    else
+      echo "Container '$NAME' maps host port '$MAPPED', expected '$PORT'." >&2
+    fi
+    echo "Recreate it with (this discards the local database):" >&2
     echo "  podman-remote rm -f $NAME && $0" >&2
     exit 1
   fi
