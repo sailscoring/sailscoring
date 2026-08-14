@@ -159,6 +159,15 @@ export default function RunningASeries() {
           not displayed.
         </p>
         <p>
+          Enable <em>Entry number</em> to record the number the organising
+          authority gave an entry on its own entry list — the one on the entry
+          form and the registration desk’s paperwork, which large championships
+          use to refer to a boat before anyone has seen its sail. It’s free text,
+          it sits in its own column, and the competitor filter matches it, so an
+          entry list is enough to find the boat. Leave it unset where it would
+          simply repeat the bow or sail number.
+        </p>
+        <p>
           Enable <em>Nationality</em> to record each entry’s 3-letter
           country code (RRS Appendix G / IOC, e.g. <em>IRL</em>, <em>GBR</em>,
           <em> FRA</em>). The input suggests codes as you type; common

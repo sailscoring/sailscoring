@@ -4,9 +4,10 @@
  * boat by; a multi-word query requires every word to match somewhere
  * ("j24 smith" narrows to J24s helmed by a Smith).
  *
- * The alternative and bow numbers are searchable too: a scorer holding a
- * finish sheet written in whatever number the boat actually showed needs to
- * find the entry from that number, not only from the registered one.
+ * The alternative, bow, and entry numbers are searchable too: a scorer holding
+ * a finish sheet written in whatever number the boat actually showed, or an
+ * entry list keyed by the organising authority's own numbering, needs to find
+ * the entry from that number, not only from the registered one.
  */
 import type { Competitor } from './types';
 
@@ -15,6 +16,7 @@ function haystack(c: Competitor): string {
     c.sailNumber,
     ...(c.alternativeSailNumbers ?? []),
     c.bowNumber,
+    c.entryNumber,
     c.boatName,
     c.boatClass,
     ...c.names,

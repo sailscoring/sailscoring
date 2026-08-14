@@ -86,6 +86,10 @@ describe('competitorMatchesFilter over the other identifiers', () => {
     expect(competitorMatchesFilter(competitor({ bowNumber: '42' }), '42')).toBe(true);
   });
 
+  test('finds a boat by its entry number', () => {
+    expect(competitorMatchesFilter(competitor({ entryNumber: '108' }), '108')).toBe(true);
+  });
+
   test('does not match a number no identifier carries', () => {
     const c = competitor({ alternativeSailNumbers: ['IRL 99'], bowNumber: '42' });
     expect(competitorMatchesFilter(c, '77')).toBe(false);

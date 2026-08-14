@@ -570,6 +570,7 @@ export default function CompetitorsPage({
     : existingCompetitors;
   const showBow = enabledFields.includes('bowNumber');
   const showAlternatives = enabledFields.includes('alternativeSailNumbers');
+  const showEntryNumber = enabledFields.includes('entryNumber');
   const showSeed = enabledFields.includes('seed');
   const showWorldSailingId = enabledFields.includes('worldSailingId');
   const showBoat = enabledFields.includes('boatName');
@@ -610,6 +611,9 @@ export default function CompetitorsPage({
             formatAlternativeSailNumbers(b.alternativeSailNumbers),
           ),
         )]
+      : []),
+    ...(showEntryNumber
+      ? [col('entryNumber', (a, b) => compareSailNumbers(a.entryNumber ?? '', b.entryNumber ?? ''))]
       : []),
     ...(showSeed ? [col('seed', (a, b) => compareNumeric(a.seed, b.seed))] : []),
     ...(showWorldSailingId ? [col('worldSailingId', (a, b) => compareText(a.worldSailingId, b.worldSailingId))] : []),
@@ -793,6 +797,7 @@ export default function CompetitorsPage({
               <SortableTableHead columnId="sailNumber" sortKeys={sortKeys} onSort={handleSort}>Sail no.</SortableTableHead>
               {showBow && <SortableTableHead columnId="bowNumber" sortKeys={sortKeys} onSort={handleSort}>Bow no.</SortableTableHead>}
               {showAlternatives && <SortableTableHead columnId="alternativeSailNumbers" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Also sails as</SortableTableHead>}
+              {showEntryNumber && <SortableTableHead columnId="entryNumber" sortKeys={sortKeys} onSort={handleSort}>Entry no.</SortableTableHead>}
               {showSeed && <SortableTableHead columnId="seed" sortKeys={sortKeys} onSort={handleSort}>Seeding rank</SortableTableHead>}
               {showWorldSailingId && <SortableTableHead columnId="worldSailingId" sortKeys={sortKeys} onSort={handleSort}>WS ID</SortableTableHead>}
               {showBoat && <SortableTableHead columnId="boatName" sortKeys={sortKeys} onSort={handleSort}>Boat</SortableTableHead>}
@@ -864,6 +869,7 @@ export default function CompetitorsPage({
                     {formatAlternativeSailNumbers(c.alternativeSailNumbers)}
                   </TableCell>
                 )}
+                {showEntryNumber && <TableCell className="font-mono">{c.entryNumber ?? ''}</TableCell>}
                 {showSeed && <TableCell className="font-mono">{c.seed ?? ''}</TableCell>}
                 {showWorldSailingId && (
                   <TableCell className="font-mono">
