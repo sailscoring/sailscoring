@@ -14,7 +14,7 @@ import {
   type IdentityWithArc,
 } from './competitor-identity-repository';
 import { seriesFileReposFor } from './postgres-repository';
-import { getPublishedSlugsBySeries } from './published-repository';
+import { getPublishedPathsBySeries } from './published-repository';
 import { calculateFleetStandings, buildRaceFleetExclusionMap, type FleetStandingsResult } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 
@@ -27,11 +27,12 @@ import { loadSeriesSnapshot } from './series-snapshot';
  */
 
 /** An arc entry plus where the competitor finished in that series, and the
- *  public slug its results are published at. The public arc only includes
- *  published series, so this is non-null in practice; the type keeps `null` for
- *  the field's general shape. */
+ *  public path its results are published at (`{slug}` or `{slug}/{folder}` —
+ *  see `publicationPath`). The public arc only includes published series, so
+ *  this is non-null in practice; the type keeps `null` for the field's general
+ *  shape. */
 export interface CareerArcEntry extends ArcEntry, ArcPlacement {
-  publishedSlug: string | null;
+  publishedPath: string | null;
 }
 
 /** An identity's arc with per-event placements. */
@@ -105,7 +106,7 @@ export async function getCareerArc(
     return scored;
   }
 
-  const publishedSlugs = await getPublishedSlugsBySeries(
+  const publishedPaths = await getPublishedPathsBySeries(
     workspaceId,
     identity.entries.map((e) => e.seriesId),
   );
@@ -115,7 +116,7 @@ export async function getCareerArc(
   // row. Drop the unpublished entries before scoring (so we only load and score
   // the series that will actually appear), and recompute the year span from
   // what survives, since the identity's first/last year span every entry.
-  const published = identity.entries.filter((e) => publishedSlugs.has(e.seriesId));
+  const published = identity.entries.filter((e) => publishedPaths.has(e.seriesId));
 
   // As-published series (ADR-010) carry their places in the stored results —
   // read them there instead of re-scoring; a series in this map never loads a
@@ -145,7 +146,7 @@ export async function getCareerArc(
     entries.push({
       ...entry,
       ...placement,
-      publishedSlug: publishedSlugs.get(entry.seriesId) ?? null,
+      publishedPath: publishedPaths.get(entry.seriesId) ?? null,
     });
   }
 

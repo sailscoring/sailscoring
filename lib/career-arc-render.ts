@@ -113,8 +113,8 @@ export function renderCareerArcHtml(
     const right = `<span class="right">${place}<span class="sail">${esc(e.sailNumber)}</span></span>`;
     // Deep-link the event to its published results when there is a page;
     // unpublished series stay plain text.
-    const name = e.publishedSlug
-      ? `<a href="/p/${esc(workspaceSlug)}/${esc(e.publishedSlug)}">${esc(e.seriesName)}</a>`
+    const name = e.publishedPath
+      ? `<a href="/p/${esc(workspaceSlug)}/${esc(e.publishedPath)}">${esc(e.seriesName)}</a>`
       : esc(e.seriesName);
     return {
       year: e.year,

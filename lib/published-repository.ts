@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from './db/client';
 import * as schema from './db/schema';
 import { humanizeSlug, kebab } from './publishing';
-import { seasonLikeSlug } from './published-tree';
+import { publicationPath, seasonLikeSlug } from './published-tree';
 import type { PublishedSeries } from './types';
 
 /**
@@ -45,10 +45,14 @@ export async function getPublishedBySeries(
   return row ? rowToPublished(row) : null;
 }
 
-/** Map each given series id to the public slug it's published at, omitting any
- *  that aren't published. One query for a whole career arc, so its timeline can
- *  deep-link the events that have a public results page. Workspace-scoped. */
-export async function getPublishedSlugsBySeries(
+/** Map each given series id to the public path its publication lives at,
+ *  omitting any that aren't published. Where a slug holds several publications
+ *  the path descends past it to the event itself (see `publicationPath`), so a
+ *  link lands on the event rather than on the season listing it. Two queries
+ *  for a whole career arc — the publications, then how crowded their slugs
+ *  are — so its timeline can deep-link every event with a public results page.
+ *  Workspace-scoped. */
+export async function getPublishedPathsBySeries(
   workspaceId: string,
   seriesIds: string[],
 ): Promise<Map<string, string>> {
@@ -57,6 +61,7 @@ export async function getPublishedSlugsBySeries(
     .select({
       seriesId: schema.publishedSeries.seriesId,
       slug: schema.publishedSeries.slug,
+      pages: schema.publishedSeries.pages,
     })
     .from(schema.publishedSeries)
     .where(
@@ -65,8 +70,33 @@ export async function getPublishedSlugsBySeries(
         inArray(schema.publishedSeries.seriesId, seriesIds),
       ),
     );
+  if (rows.length === 0) return new Map();
+
+  // How many publications sit in each slug the arc touches. Counted rather
+  // than inferred from `rows`: the other occupants are usually series this
+  // sailor never entered, so the arc's own rows can't see the crowd.
+  const slugs = [...new Set(rows.map((r) => r.slug))];
+  const counts = await getDb()
+    .select({
+      slug: schema.publishedSeries.slug,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(schema.publishedSeries)
+    .where(
+      and(
+        eq(schema.publishedSeries.workspaceId, workspaceId),
+        inArray(schema.publishedSeries.slug, slugs),
+      ),
+    )
+    .groupBy(schema.publishedSeries.slug);
+  const occupants = new Map(counts.map((c) => [c.slug, c.n]));
+
   const map = new Map<string, string>();
-  for (const r of rows) if (r.seriesId) map.set(r.seriesId, r.slug);
+  for (const r of rows) {
+    if (!r.seriesId) continue;
+    const shared = (occupants.get(r.slug) ?? 1) > 1;
+    map.set(r.seriesId, publicationPath(r.slug, r.pages, shared));
+  }
   return map;
 }
 

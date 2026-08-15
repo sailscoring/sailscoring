@@ -329,6 +329,66 @@ test.describe('competitor identity reconcile', () => {
     expect(missing?.status()).toBe(404);
   });
 
+  test('timeline links reach the event, not the season holding it', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'seasonarc');
+    const { id: orgId, slug } = await createOrgWorkspace('Season Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await enableOrgFeatures(orgId, ['competitor-identity']);
+
+    // The archive shape (ADR-011): one season folder holding several events —
+    // so `/p/{ws}/2024` is a season listing, and a row that stopped there
+    // wouldn't name the event it claims to link.
+    const { slug: competitorSlug } = await seedCareerArc(orgId, {
+      label: 'Ger Owens',
+      club: 'KSC',
+      entries: [
+        {
+          year: 2024,
+          eventName: 'GP14 Munsters 2024',
+          sailNumber: '14001',
+          publishAt: {
+            slug: '2024',
+            pages: [
+              { fleetName: 'Overall', subPath: 'gp14-munsters/overall' },
+              { fleetName: 'Gold Fleet', subPath: 'gp14-munsters/gold-fleet' },
+            ],
+          },
+        },
+        {
+          year: 2024,
+          eventName: 'Warmer Series 2024',
+          sailNumber: '14001',
+          publishAt: {
+            slug: '2024',
+            pages: [{ fleetName: 'Default', subPath: 'warmer-series' }],
+          },
+        },
+        // A season of its own: the slug names this event, so the link stops
+        // at the slug — the publication's listing *is* its index.
+        { year: 2025, eventName: 'KSC Spring 2025', sailNumber: '14001', published: true },
+      ],
+    });
+
+    const res = await page.goto(`/p/${slug}/competitor/${competitorSlug}`);
+    expect(res?.status()).toBe(200);
+    await expect(
+      page.getByRole('link', { name: 'GP14 Munsters 2024' }),
+    ).toHaveAttribute('href', `/p/${slug}/2024/gp14-munsters`);
+    await expect(
+      page.getByRole('link', { name: 'Warmer Series 2024' }),
+    ).toHaveAttribute('href', `/p/${slug}/2024/warmer-series`);
+    await expect(
+      page.getByRole('link', { name: 'KSC Spring 2025' }),
+    ).toHaveAttribute('href', /\/p\/[^/]+\/ksc-spring-2025-[0-9a-f]{4}$/);
+    expect(errors).toEqual([]);
+  });
+
   test('a crewing appearance is marked as one, and names whose boat it was', async ({
     page,
   }) => {

@@ -15,6 +15,7 @@ import postgres, { type Sql } from 'postgres';
 
 import { getCareerArc } from '@/lib/career-arc';
 import * as schema from '@/lib/db/schema';
+import type { PublishedSeriesPage } from '@/lib/types';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -162,7 +163,8 @@ describe.skipIf(skip)('getCareerArc placements', () => {
     expect(scored.rank).toBe(1);
     expect(scored.fleetSize).toBe(2);
     expect(scored.fleetName).toBeNull(); // single-fleet series
-    expect(scored.publishedSlug).toBe('leinsters-2018');
+    // The slug is this publication's alone, so its own listing is the event.
+    expect(scored.publishedPath).toBe('leinsters-2018');
     // The year span reflects only the published entries.
     expect(arc!.firstYear).toBe(2018);
     expect(arc!.lastYear).toBe(2018);
@@ -246,6 +248,71 @@ describe.skipIf(skip)('getCareerArc placements', () => {
     expect(arc!.entries).toHaveLength(0);
     expect(arc!.firstYear).toBeNull();
     expect(arc!.lastYear).toBeNull();
+  });
+
+  test('deep-links past a shared season slug to the event itself', async () => {
+    // The archive shape (ADR-011): a season folder holding several events —
+    // one with class pages under its own folder, one a lone page at the root.
+    // `/p/{ws}/2024` lists the whole season, so neither entry may stop there.
+    const id = uuid();
+    await db.insert(schema.competitorIdentities).values({
+      id,
+      workspaceId,
+      label: 'Season Sailor',
+      sailNumber: 'IRL77',
+      club: null,
+    });
+    const seed = async (name: string, pages: PublishedSeriesPage[]) => {
+      const seriesId = uuid();
+      await db.insert(schema.series).values({
+        id: seriesId,
+        workspaceId,
+        name,
+        startDate: '2024-05-01',
+        displayOrder: 20,
+      });
+      const rowId = uuid();
+      await db.insert(schema.competitors).values({
+        id: rowId,
+        seriesId,
+        workspaceId,
+        fleetIds: [],
+        sailNumber: 'IRL77',
+        names: ['Season Sailor'],
+        club: '',
+        gender: '',
+        age: null,
+      });
+      await db.insert(schema.competitorIdentityLinks).values({
+        competitorId: rowId,
+        identityId: id,
+        workspaceId,
+      });
+      await db.insert(schema.publishedSeries).values({
+        id: uuid(),
+        workspaceId,
+        seriesId,
+        slug: '2024',
+        pages,
+        contentHash: 'x',
+        publishedVersion: 1,
+      });
+    };
+    const page = (fleetName: string, subPath: string): PublishedSeriesPage => ({
+      fleetName,
+      subPath,
+      blobUrl: `db:${subPath}`,
+    });
+    await seed('GP14 Munsters 2024', [
+      page('Overall', 'gp14-munsters/overall'),
+      page('Gold Fleet', 'gp14-munsters/gold-fleet'),
+    ]);
+    await seed('Warmer Series 2024', [page('Default', 'warmer-series')]);
+
+    const arc = await getCareerArc(workspaceId, id);
+    const byName = new Map(arc!.entries.map((e) => [e.seriesName, e.publishedPath]));
+    expect(byName.get('GP14 Munsters 2024')).toBe('2024/gp14-munsters');
+    expect(byName.get('Warmer Series 2024')).toBe('2024/warmer-series');
   });
 
   test('returns null for an unknown identity', async () => {

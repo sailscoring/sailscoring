@@ -6,6 +6,7 @@ import {
   injectAfterBodyTag,
   leafLabel,
   pagesInFolder,
+  publicationPath,
   renderFolderIndexHtml,
   renderSeasonIndexHtml,
   renderTreeNav,
@@ -73,6 +74,67 @@ describe('tree derivation', () => {
     expect(pagesInFolder(mixed, 'gp14-munsters').map((p) => p.subPath)).toEqual([
       'gp14-munsters/gold-fleet',
     ]);
+  });
+});
+
+describe('publicationPath', () => {
+  const munsters: TreePage[] = [
+    { fleetName: 'Overall', subPath: 'gp14-munsters/overall' },
+    { fleetName: 'Gold Fleet', subPath: 'gp14-munsters/gold-fleet' },
+  ];
+
+  it('is the bare slug while the publication owns it', () => {
+    // The default first-publish shape: the slug names this event, so its own
+    // listing is the event's index — descending would skip past it.
+    expect(publicationPath('leinsters-2018', [{ fleetName: 'Default', subPath: 'standings' }], false))
+      .toBe('leinsters-2018');
+    expect(publicationPath('ilca-masters', munsters, false)).toBe('ilca-masters');
+  });
+
+  it('descends to the event when the slug holds several publications', () => {
+    // The archive shape: `/p/ksc/2024` lists the whole season, so a link
+    // naming one event has to reach its folder or its lone page.
+    expect(publicationPath('2024', munsters, true)).toBe('2024/gp14-munsters');
+    expect(
+      publicationPath('2024', [{ fleetName: 'Default', subPath: 'warmer-series' }], true),
+    ).toBe('2024/warmer-series');
+  });
+
+  it('stays at the slug for a publication spanning folders', () => {
+    // A block series owns no single address below the slug.
+    expect(
+      publicationPath(
+        '2024',
+        [
+          { fleetName: 'Squibs', subPath: 'spring/squibs' },
+          { fleetName: 'Squibs', subPath: 'summer/squibs' },
+        ],
+        true,
+      ),
+    ).toBe('2024');
+    // Several root pages are likewise several addresses, not one.
+    expect(
+      publicationPath(
+        '2024',
+        [
+          { fleetName: 'RS200', subPath: 'rs200-fleet' },
+          { fleetName: 'RS400', subPath: 'rs400-fleet' },
+        ],
+        true,
+      ),
+    ).toBe('2024');
+  });
+
+  it('ignores the prize sheet when choosing the address', () => {
+    // Prizes published at the slug root beside a foldered event shouldn't
+    // demote the link to the season listing.
+    expect(
+      publicationPath(
+        '2024',
+        [...munsters, { fleetName: 'Prizes', isPrizes: true, subPath: 'prizes' }],
+        true,
+      ),
+    ).toBe('2024/gp14-munsters');
   });
 });
 

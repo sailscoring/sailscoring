@@ -67,6 +67,37 @@ export function sharedFolderSegment(subPaths: string[]): string | null {
   return [...segments][0];
 }
 
+/**
+ * Where a publication's own index lives — the target for a link that names
+ * *that event*, such as a competitor timeline's rows.
+ *
+ * The bare slug is the event's address only while the publication has the slug
+ * to itself (the default first-publish slug, `kebab(series name)`). A slug is a
+ * shared namespace, and where several publications occupy one — the converged
+ * archive shape files a whole season under `{year}/{event}/{class}` — the slug
+ * index lists every event in it, so a link there says "somewhere in 2024"
+ * rather than naming the event. Then the path descends to what the publication
+ * actually owns: its interior folder when its pages share one, or its lone
+ * root-level page. A publication whose pages span folders (a block series) owns
+ * no single address below the slug, so the slug listing stays the landing.
+ * Prize sheets don't get a say — a prizes page beside the results shouldn't
+ * decide where the event's link lands.
+ */
+export function publicationPath(
+  slug: string,
+  pages: SeriesIndexPage[],
+  slugShared: boolean,
+): string {
+  if (!slugShared) return slug;
+  const results = pages.filter((p) => !p.isPrizes);
+  const considered = results.length > 0 ? results : pages;
+  if (considered.length === 0) return slug;
+  const folder = sharedFolderSegment(considered.map((p) => p.subPath));
+  if (folder) return `${slug}/${folder}`;
+  if (considered.length === 1) return `${slug}/${considered[0].subPath}`;
+  return slug;
+}
+
 /** An interior folder implied by the slug's pages. */
 export interface TreeFolder {
   segment: string;

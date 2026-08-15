@@ -20,7 +20,7 @@ function arcEntry(over: Partial<CareerArcEntry>): CareerArcEntry {
     rank: null,
     fleetSize: null,
     fleetName: null,
-    publishedSlug: null,
+    publishedPath: null,
     ...over,
   };
 }
@@ -47,7 +47,7 @@ describe('renderCareerArcHtml deep-links', () => {
     const html = renderCareerArcHtml(
       'iodai',
       'IODAI',
-      arc([arcEntry({ publishedSlug: 'leinsters-2018' })]),
+      arc([arcEntry({ publishedPath: 'leinsters-2018' })]),
     );
     expect(html).toContain(
       '<a href="/p/iodai/leinsters-2018">IODAI Leinsters 2018</a>',
@@ -58,7 +58,7 @@ describe('renderCareerArcHtml deep-links', () => {
     const html = renderCareerArcHtml(
       'iodai',
       'IODAI',
-      arc([arcEntry({ seriesName: 'IODAI Munsters 2019', publishedSlug: null })]),
+      arc([arcEntry({ seriesName: 'IODAI Munsters 2019', publishedPath: null })]),
     );
     expect(html).toContain('IODAI Munsters 2019');
     // No anchor wrapping the event name.

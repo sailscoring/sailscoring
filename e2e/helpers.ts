@@ -323,6 +323,10 @@ export async function seedCareerArc(
       /** Seed a live publication for this series so it appears on the public
        *  timeline / index. Unpublished series stay private (#223). */
       published?: boolean;
+      /** Publish into a named slug with real pages instead of the default
+       *  slug-of-its-own-with-no-pages. Lets a test seed the archive shape,
+       *  where a season folder holds several events. Implies `published`. */
+      publishAt?: { slug: string; pages: Array<{ fleetName: string; subPath: string }> };
       /** Seed this entry as a *crewing* appearance (#348): the boat's primary
        *  name is this person, our sailor is in its crew list, and the
        *  membership is stamped 'crew'. */
@@ -413,7 +417,7 @@ export async function seedCareerArc(
           { id: crypto.randomUUID(), raceId, competitorId: fillerId, sortOrder: 1 },
         ]);
       }
-      if (entry.published) {
+      if (entry.published || entry.publishAt) {
         const pubSlug = `${entry.eventName
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
@@ -422,8 +426,13 @@ export async function seedCareerArc(
           id: crypto.randomUUID(),
           workspaceId,
           seriesId,
-          slug: pubSlug,
-          pages: [],
+          slug: entry.publishAt?.slug ?? pubSlug,
+          // No blob is uploaded — these seeds exist to be listed and linked,
+          // never fetched — so the locator is a marker, not a live URL.
+          pages: (entry.publishAt?.pages ?? []).map((p) => ({
+            ...p,
+            blobUrl: `db:${p.subPath}`,
+          })),
           contentHash: crypto.randomUUID(),
           publishedVersion: 1,
         });
