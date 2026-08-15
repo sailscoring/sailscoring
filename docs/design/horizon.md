@@ -891,6 +891,104 @@ spreadsheet column on competitor import (the in-app assignment dialog covers
 seeding rank, nationality spread, and sail-number orders; a pasted-list entry
 mode was tried and dropped).
 
+### Radio sailing and the Heat Management System (HMS)
+
+Radio sailing (RRS Appendix E) runs big fleets on small ponds by splitting them into
+**heats**. The MYA's [Heat Management System](https://www.mya-uk.org.uk/kb/mya-heat-management-system-hms-current/)
+is the international standard: the fleet is divided into at most 5 heats of at most 24
+boats (84 boats maximum in an event); Race 1 is seeded for mixed ability and scored
+specially; thereafter the fleet is re-divided before *every* race from the running
+standings, heats sail in reverse alphabetical order, and the top 4 (schedule B4) or 6
+(B6) boats in each heat are promoted to sail again immediately in the heat above. So a
+boat can sail twice in one race, and every boat has a path to the top heat.
+
+Scoring is RRS A4 low point with local surgery: A5.2 is replaced in Race 1 by "one point
+more than the number of boats scheduled to sail in the largest heat"; Race 1 is excluded
+from tie-breaks and from redress averages; discards come after 4, 8, 16 races and every
+further 8. Ties are broken on most firsts, then most seconds, and so on.
+
+This is much closer to our model than it first looks — it is low-point fleet racing, and
+the engine already scores races, fleets, discards and codes. The friction is that heat
+membership is **per race, derived from the previous race's standings**, whereas our
+split-fleet work scopes fleets to a round (`splitRoundId`, `RaceStart.stage`). HMS also
+needs the division schedules themselves as data, and a fleet board showing who is in
+which heat before each race.
+
+The tooling situation is the opportunity. The MYA ships a Windows-only Excel `.xlsm`
+driven by VBA, whose own instructions open with "It may not work correctly on a Mac
+computer." The other approved scorers are an Android app (afleet) and a Windows
+application (ANZAM's ARYRM). Sailwave does not appear on the MYA, Australian or New
+Zealand approved lists. A web app that runs anywhere and takes tablet entry on the bank
+answers a real, currently unmet need.
+
+### Vane events (free sailing) — pairwise round-robin, high point
+
+Vane yachts have no radio control: they are trimmed on the bank, released, and self-steer
+across the pond. There is no course to sail round, so the format is a **round-robin of
+two-boat match races**, governed by an entirely separate rulebook — the
+[MYA Free Sailing Yacht Racing Rules](https://www.mya-uk.org.uk/wp-content/uploads/2019/12/2017-05-17-MYA-Free-Sailing-Yacht-Racing-Rules.pdf),
+which do not cite the RRS at all. The vocabulary is precise and worth adopting verbatim:
+a **board** is one crossing of the lake in one direction; a **pair** is two yachts drawn
+to race each other; a **heat** is two boards sailed by the same pair, one each way; a
+**round** is enough heats for every yacht to have sailed every other; an **event** is one
+or more rounds, the last of which may be incomplete.
+
+Scoring (Rule 10.1) is **high point and asymmetric by direction**: the race officer
+nominates which way down the lake counts as windward, a win in that direction scores 3
+points and a win the other way scores 2, and the most points wins. There are no discards.
+Three rules carry most of the complexity: an incomplete final round switches everyone to
+a **percentage of the points they personally sailed for**; a withdrawal deletes scores
+*for and against* that yacht **for the incomplete round only**, so one boat going home
+retroactively rewrites other people's totals; and ties are broken by **sailing more
+boards**, falling back only if time runs out to head-to-head score, then most 3-point
+wins, then most 2-point wins, then a coin toss.
+
+Nor is it one format. The MYA publishes fixture grids for 3–20 boats which also assign
+choice of starting mark and avoid pairing club-mates late in a round. Clubs also sail
+knockout-plus-best-of-three formats (the Yachting Monthly Cup), beats-only events when
+it is too windy for runs, and a two-part team racing schedule.
+
+The friction is real and mostly structural rather than arithmetic. Our `Race` is one
+start sequence with a fleet-wide finish sheet; a board is a two-boat binary decided by a
+line judge, and 14 boats produce 91 heats — 182 boards — per round. Everything downstream
+of the engine is low point, ranked ascending, with discards. Percentage scoring needs a
+per-competitor denominator, which `Standing` has nowhere to put. Rule 10.6's retroactive
+deletion has no analogue at all. And the fixture grid is an **input** the whole day is run
+from, where we have no concept of a schedule.
+
+The attractive half is capture: driven by the fixture list, entry is one tap per board
+("6 beat 3"), and Rule 10.4 already describes competitors keeping their own cards for the
+race officer to reconcile against a master sheet — a natural fit for multi-device entry.
+When this is designed, the likely shape is a **second racing regime** rather than an
+extension of `Race`/`Finish`, in the way [ADR-010](decisions/010-as-published-archives.md)
+made archives a display-only regime.
+
+### Match racing and round-robin formats generally
+
+Three separate horizon entries now want the same missing machinery: knockout medal-series
+brackets from the split-fleet residue above, vane events, and any RRS Appendix C match
+racing or Appendix D team racing a club might ask for. None of them are low-point fleet
+racing, and all of them need the same four things we don't have.
+
+First, a **fixture list** — who sails whom, in what order, on which mark or entry — as an
+input that is authored or generated before racing and then drives the day. Second, a
+**match result** that is a winner and a loser (possibly with a per-match point value, as
+vane's 3-and-2 and medal-series match points both are) rather than a position in a finish
+order. Third, a **results matrix** as the natural output: the who-beat-whom grid is what
+competitors expect to see published, and our results renderer is built around race
+columns. Fourth, **bracket progression** — quarter, semi, final, petit final — where the
+entrants in one stage are computed from the results of the last.
+
+The point of capturing this as its own entry is that it would be a mistake to build any
+one of them alone. If vane or medal brackets ever become real work, the fixture, match
+result, matrix and bracket concepts should be designed once and shared, with the
+individual formats supplying only their scoring rules and tie-breaks on top.
+
+These three entries were prompted by an August 2026 enquiry from a UK club racing eight
+classes — six radio, two vane — across club racing, open meetings and national events,
+currently split between Sailwave, the HMS spreadsheet and hand-built Excel, and looking
+for something their Mac users and their tablet-carrying volunteers can both use.
+
 ---
 
 ## Esoteric scoring engine requirements
