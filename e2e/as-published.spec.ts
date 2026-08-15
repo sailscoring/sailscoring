@@ -159,6 +159,16 @@ test.describe('as-published archives', () => {
       .getByTestId('series-row')
       .filter({ hasText: 'Ulsters 2014 Optimists' });
     await expect(row.getByTestId('as-published-chip')).toBeVisible();
+    // Its row ⋯ menu offers nothing the server would refuse: no delete, no
+    // follow-on — just Unarchive, and a note saying where it *is* managed.
+    await row.getByRole('button', { name: /^Actions for/ }).click();
+    const rowMenu = page.getByRole('menu');
+    await expect(rowMenu.getByTestId('archive-managed-note')).toBeVisible();
+    await expect(rowMenu.getByRole('menuitem', { name: /Delete/ })).toHaveCount(0);
+    await expect(
+      rowMenu.getByRole('menuitem', { name: /follow-on/i }),
+    ).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await row.getByRole('link', { name: /Ulsters 2014 Optimists/ }).click();
     await expect(page).toHaveURL(/\/competitors$/);
     await expect(page.getByTestId('as-published-notice')).toBeVisible({
@@ -185,6 +195,7 @@ test.describe('as-published archives', () => {
     await expect(
       page.getByRole('menuitem', { name: 'Unarchive' }),
     ).toBeVisible();
+    await expect(page.getByTestId('archive-managed-note')).toBeVisible();
     await page.keyboard.press('Escape');
     // The competitor list renders, without add/edit affordances.
     await expect(page.getByText('Aoife Murphy')).toBeVisible();

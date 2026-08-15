@@ -34,6 +34,7 @@ import { formatSaveDate } from '@/lib/format-date';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { OpenSeriesFlow } from '@/components/open-series-flow';
 import { CreateFollowOnSeriesDialog } from '@/components/create-follow-on-series-dialog';
+import { ArchiveManagedNote } from '@/components/archive-managed-note';
 import { useFeatures } from '@/components/features-provider';
 import { useOpenSeriesFile } from '@/hooks/use-open-series-file';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
@@ -88,6 +89,10 @@ function SeriesCard({
   sortable?: SortableRenderProps;
 }) {
   const archived = series.archived ?? false;
+  // As-published archives (ADR-010) belong to the archive that supplies them:
+  // deletion and follow-ons are refused server-side, so the menu doesn't offer
+  // them — it says where the series is managed instead.
+  const asPublished = series.asPublished ?? false;
   const { can } = useWorkspacePermissions();
   return (
     <div
@@ -108,7 +113,7 @@ function SeriesCard({
           {series.asPublished && (
             <span
               className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-normal text-muted-foreground"
-              title="As-published archive — results shown exactly as originally published; read-only"
+              title="As-published archive — results shown exactly as originally published; read-only and managed by the archive that supplies it"
               data-testid="as-published-chip"
             >
               <Landmark className="h-3 w-3" />
@@ -154,20 +159,24 @@ function SeriesCard({
                 <ArchiveRestore className="h-4 w-4" />
                 Unarchive
               </DropdownMenuItem>
-              {onFollowOn && (
+              {onFollowOn && !asPublished && (
                 <DropdownMenuItem onClick={() => onFollowOn(series)}>
                   <CopyPlus className="h-4 w-4" />
                   Create follow-on series…
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => onDeleteClick(series)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete…
-              </DropdownMenuItem>
+              {asPublished ? (
+                <ArchiveManagedNote />
+              ) : (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => onDeleteClick(series)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete…
+                </DropdownMenuItem>
+              )}
             </>
           ) : (
             <>
@@ -192,7 +201,7 @@ function SeriesCard({
                   </DropdownMenuRadioGroup>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              {onFollowOn && (
+              {onFollowOn && !asPublished && (
                 <DropdownMenuItem onClick={() => onFollowOn(series)}>
                   <CopyPlus className="h-4 w-4" />
                   Create follow-on series…
@@ -202,6 +211,7 @@ function SeriesCard({
                 <Archive className="h-4 w-4" />
                 Archive
               </DropdownMenuItem>
+              {asPublished && <ArchiveManagedNote />}
             </>
           )}
         </DropdownMenuContent>

@@ -41,6 +41,7 @@ import { useFeatures } from '@/components/features-provider';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { hasPermission } from '@/lib/auth/permissions';
+import { ArchiveManagedNote } from '@/components/archive-managed-note';
 import { CopySeriesToWorkspaceDialog } from '@/components/copy-series-to-workspace-dialog';
 import { DuplicateSeriesDialog } from '@/components/duplicate-series-dialog';
 import { formatDayStamp } from '@/lib/format-date';
@@ -315,26 +316,32 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
                     <ArchiveRestore className="h-4 w-4" />
                     Unarchive
                   </DropdownMenuItem>
-                  {/* An as-published series is removed through its archive
-                      repo, never here (the server refuses anyway). */}
-                  {!asPublished && (
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => setConfirmDelete(true)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete…
-                  </DropdownMenuItem>
+                  {/* An as-published series is removed through the archive
+                      that supplies it, never here (the server refuses
+                      anyway) — so say so where Delete… would have been. */}
+                  {asPublished ? (
+                    <ArchiveManagedNote />
+                  ) : (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete…
+                    </DropdownMenuItem>
                   )}
                 </>
               ) : (
-                <DropdownMenuItem
-                  disabled={archiveSeries.isPending}
-                  onSelect={() => archiveSeries.mutate({ id: seriesId, archived: true })}
-                >
-                  <Archive className="h-4 w-4" />
-                  Archive series
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem
+                    disabled={archiveSeries.isPending}
+                    onSelect={() => archiveSeries.mutate({ id: seriesId, archived: true })}
+                  >
+                    <Archive className="h-4 w-4" />
+                    Archive series
+                  </DropdownMenuItem>
+                  {asPublished && <ArchiveManagedNote />}
+                </>
               )}
             </>
           )}
