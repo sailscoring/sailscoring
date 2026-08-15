@@ -20,6 +20,7 @@
  * committee puts them.
  */
 
+import { nameTokens, namesAgree } from './person-names';
 import { normalizeWorldSailingId } from './world-sailing';
 
 /** One row of the supplied ranking, already column-mapped. */
@@ -93,6 +94,34 @@ function nameNationKey(name: string, nationality: string | undefined): string {
   return `${name} ${(nationality ?? '').trim().toUpperCase()}`;
 }
 
+function nationKey(nationality: string | undefined): string {
+  return (nationality ?? '').trim().toUpperCase();
+}
+
+/**
+ * When the canonical name key misses, compare the way two lists of the same
+ * sailors actually differ — a middle name in one and not the other, a
+ * shortened given name, a letter of transliteration. A ranking published by
+ * an organising authority and an entry list typed by a club rarely agree on
+ * all of that.
+ *
+ * Nation still has to agree exactly, as it does for the canonical key, and
+ * the result is still only ever a suggestion.
+ */
+function looseNameHits(
+  row: SeedingListRow,
+  candidates: readonly SeedingCandidate[],
+): SeedingCandidate[] {
+  const theirs = nameTokens(row.name);
+  if (theirs.length === 0) return [];
+  const nation = nationKey(row.nationality);
+  return candidates.filter(
+    (c) =>
+      nationKey(c.nationality) === nation &&
+      c.names.some((name) => namesAgree(nameTokens(name), theirs) !== 'different'),
+  );
+}
+
 /**
  * Plan the join. Nothing is written here — the caller decides which
  * suggestions to accept and applies the result.
@@ -162,16 +191,23 @@ export function planSeedingImport(
 
   for (const row of remaining) {
     const key = normalizePersonName(row.name);
-    const hits = key
+    const exact = key
       ? (byNameNation.get(nameNationKey(key, row.nationality)) ?? []).filter(
           (c) => !claimed.has(c.id),
         )
       : [];
+    // The looser comparison only gets a say where the canonical key found
+    // nobody, so an exactly-spelled name is never passed over for a near one.
+    const hits =
+      exact.length > 0 ? exact : looseNameHits(row, competitors.filter((c) => !claimed.has(c.id)));
     // Unique in both directions or not at all — the same conservatism
     // `matchLikelySameBoat` applies. Two sailors sharing a name and a nation
     // is exactly the case a human has to settle.
     if (hits.length === 1) {
       suggested.push({ row, competitorId: hits[0].id, basis: 'name-and-nation' });
+      // Claimed even though it is only a suggestion: one competitor holds one
+      // seed, so a later row must look elsewhere.
+      claimed.add(hits[0].id);
       continue;
     }
     unmatchedRows.push(row);

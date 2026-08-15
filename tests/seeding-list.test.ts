@@ -32,6 +32,48 @@ describe('planSeedingImport', () => {
     expect(plan.matched.every((m) => m.basis === 'world-sailing-id')).toBe(true);
   });
 
+  it('suggests a sailor the ranking spells differently', () => {
+    // The ranking's spelling, the entry list's spelling — same sailor.
+    const entries: SeedingCandidate[] = [
+      { id: 'z', names: ['Zachary Littlewood'], nationality: 'AUS' },
+      { id: 'g', names: ['Philipp Grochtmann'], nationality: 'BRA' },
+    ];
+    const plan = planSeedingImport(
+      [
+        row(1, 4, { name: 'Zac Littlewood', nationality: 'AUS' }),
+        row(2, 9, { name: 'Philipp Andreas Grochtmann', nationality: 'BRA' }),
+      ],
+      entries,
+    );
+    expect(plan.suggested.map((m) => m.competitorId)).toEqual(['z', 'g']);
+    expect(plan.unmatchedRows).toEqual([]);
+  });
+
+  it('will not guess between two sailors a loose name reaches', () => {
+    const brothers: SeedingCandidate[] = [
+      { id: 'a', names: ['Chris Murphy'], nationality: 'IRL' },
+      { id: 'b', names: ['Christopher Murphy'], nationality: 'IRL' },
+    ];
+    const plan = planSeedingImport([row(1, 1, { name: 'Christo Murphy', nationality: 'IRL' })], brothers);
+    expect(plan.suggested).toEqual([]);
+    expect(plan.unmatchedRows).toHaveLength(1);
+  });
+
+  it('gives one competitor to one row, however many rows reach them', () => {
+    const entries: SeedingCandidate[] = [
+      { id: 'z', names: ['Zachary Littlewood'], nationality: 'AUS' },
+    ];
+    const plan = planSeedingImport(
+      [
+        row(1, 4, { name: 'Zac Littlewood', nationality: 'AUS' }),
+        row(2, 5, { name: 'Zachary Littlewood', nationality: 'AUS' }),
+      ],
+      entries,
+    );
+    expect(plan.suggested).toHaveLength(1);
+    expect(plan.unmatchedRows).toHaveLength(1);
+  });
+
   it('reports competitors the ranking never reached', () => {
     const plan = planSeedingImport([row(1, 3, { worldSailingId: 'IRLMM1' })], ENTRIES);
     expect(plan.unrankedCompetitorIds).toEqual(['b', 'c']);
