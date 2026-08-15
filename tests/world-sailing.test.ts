@@ -33,6 +33,7 @@ describe('isValidWorldSailingId', () => {
     expect(isValidWorldSailingId('GBRTT27')).toBe(true);
     expect(isValidWorldSailingId('ESPFE')).toBe(true);   // no disambiguating number
     expect(isValidWorldSailingId('GBRHM15')).toBe(true);
+    expect(isValidWorldSailingId('AINXDK2')).toBe(true); // AINX: Individual Neutral Athletes
   });
 
   it('rejects what is plainly not an ID', () => {

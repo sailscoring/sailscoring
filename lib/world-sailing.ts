@@ -12,7 +12,9 @@
  * The identifier is a nation code, the sailor's initials, and a
  * disambiguating number: `IRLMM1`, `USATS15`, `ESPFE`. Wikidata's property
  * (P11616) states the format as `[A-Z]{5}[0-9]{0,3}`, which matches every
- * example World Sailing publishes.
+ * example World Sailing publishes — but not every nation code is three
+ * letters. Individual Neutral Athletes sail under `AINX`, giving IDs a
+ * letter longer (`AINXDK2`), so the nation code is allowed three or four.
  *
  * Nothing here rejects an ID that doesn't match. Entry lists are transcribed
  * by humans, and refusing an import because one cell looks odd is worse than
@@ -22,7 +24,7 @@
  */
 
 /** Canonical Sailor ID shape: nation code + initials + optional number. */
-export const WORLD_SAILING_ID_PATTERN = /^[A-Z]{5}[0-9]{0,3}$/;
+export const WORLD_SAILING_ID_PATTERN = /^[A-Z]{5,6}[0-9]{0,3}$/;
 
 /** Upper-case and strip incidental whitespace — entry lists arrive with both
  *  ("gbrmi2", "GBR MI2"). Returns undefined for a blank value so callers can
