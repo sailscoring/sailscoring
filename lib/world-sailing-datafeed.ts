@@ -19,6 +19,8 @@
  * can't get on with scoring.
  */
 
+import { nameTokens, namesAgree, type NameAgreement } from '@/lib/person-names';
+
 /** Documented base URL. https works today; the published docs still say http. */
 export const WORLD_SAILING_DATAFEED_URL = 'https://datafeed.sailing.org/query';
 
@@ -37,6 +39,11 @@ export interface DatafeedPerson {
 export type DatafeedOutcome =
   /** The ID resolves, and the name and nation agree with ours. */
   | { status: 'valid'; person: DatafeedPerson }
+  /** The ID resolves to the same sailor, written differently — a middle name
+   *  one list carries and the other doesn't, a shortened given name, a
+   *  transcription difference. Worth showing the scorer, not worth alarming
+   *  them with. */
+  | { status: 'spelling'; person: DatafeedPerson }
   /** The ID resolves to someone else — the case that catches a transposed ID. */
   | { status: 'mismatch'; person: DatafeedPerson; on: ('name' | 'nation')[] }
   /** World Sailing has no such ID. */
@@ -137,19 +144,10 @@ export async function lookupPersonsByName(
   return parsePersonRecords(await res.text());
 }
 
-/** Loose comparison for the mismatch check: accents, case, punctuation and
- *  name order are all differences we don't care about. Reused from the
- *  seeding-list join so "mismatch" means the same thing in both places. */
-function looseName(value: string | undefined): string {
-  return (value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-    .sort()
-    .join(' ');
+/** Nation codes are three letters, except World Sailing's own `AINX` for
+ *  Individual Neutral Athletes, which entry lists write as `AIN`. */
+function nationsAgree(ours: string, theirs: string): boolean {
+  return ours.toUpperCase().slice(0, 3) === theirs.toUpperCase().slice(0, 3);
 }
 
 /**
@@ -165,17 +163,23 @@ export function compareToRecord(
   person: DatafeedPerson,
 ): DatafeedOutcome {
   const on: ('name' | 'nation')[] = [];
-  const theirs = looseName([person.givenName, person.familyName].filter(Boolean).join(' '));
-  const ours = held.names.map(looseName).filter(Boolean);
+  const theirs = nameTokens([person.givenName, person.familyName].filter(Boolean).join(' '));
   // Any of the entry's primary names agreeing is agreement: a two-name entry
   // still only carries one Sailor ID.
-  if (theirs && ours.length > 0 && !ours.includes(theirs)) on.push('name');
+  const agreements = held.names.map((ours) => namesAgree(nameTokens(ours), theirs));
+  const name: NameAgreement = agreements.includes('same')
+    ? 'same'
+    : agreements.includes('variant')
+      ? 'variant'
+      : 'different';
+  if (theirs.length > 0 && held.names.length > 0 && name === 'different') on.push('name');
   if (
     held.nationality &&
     person.nationality &&
-    held.nationality.toUpperCase() !== person.nationality
+    !nationsAgree(held.nationality, person.nationality)
   ) {
     on.push('nation');
   }
-  return on.length > 0 ? { status: 'mismatch', person, on } : { status: 'valid', person };
+  if (on.length > 0) return { status: 'mismatch', person, on };
+  return name === 'variant' ? { status: 'spelling', person } : { status: 'valid', person };
 }

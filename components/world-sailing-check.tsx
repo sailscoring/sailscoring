@@ -16,7 +16,11 @@ import { checkWorldSailingIds } from '@/lib/api-repository';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 import type { Competitor } from '@/lib/types';
 import { worldSailingProfileUrl } from '@/lib/world-sailing';
-import type { DatafeedCheck, WorldSailingCheckResult } from '@/lib/world-sailing-datafeed';
+import type {
+  DatafeedCheck,
+  DatafeedPerson,
+  WorldSailingCheckResult,
+} from '@/lib/world-sailing-datafeed';
 
 export interface WorldSailingCheckHandle {
   open: () => void;
@@ -28,10 +32,18 @@ type State =
   | { step: 'error'; message: string }
   | { step: 'results'; result: WorldSailingCheckResult };
 
+/** Outcomes that need no attention — the ID is the sailor's, however the two
+ *  lists spell them. */
+function checksOut(check: DatafeedCheck): boolean {
+  return check.outcome.status === 'valid' || check.outcome.status === 'spelling';
+}
+
 function outcomeLabel(check: DatafeedCheck): string {
   switch (check.outcome.status) {
     case 'valid':
       return 'Valid';
+    case 'spelling':
+      return 'Valid, spelled differently';
     case 'mismatch':
       return `Doesn't match on ${check.outcome.on.join(' and ')}`;
     case 'unknown':
@@ -41,6 +53,25 @@ function outcomeLabel(check: DatafeedCheck): string {
     case 'unavailable':
       return "Couldn't check";
   }
+}
+
+/** Least to most reassuring, so the rows worth reading come first and the
+ *  spelling differences sit together above the clean ones. */
+function attentionRank(check: DatafeedCheck): number {
+  if (check.outcome.status === 'valid') return 2;
+  if (check.outcome.status === 'spelling') return 1;
+  return 0;
+}
+
+/** The record's name and nation, as one readable phrase. */
+function describe(name: string, nationality: string | undefined): string {
+  return nationality ? `${name} (${nationality})` : name;
+}
+
+/** The person a resolved check found, if it found one. */
+function personOf(check: DatafeedCheck): DatafeedPerson | undefined {
+  const { outcome } = check;
+  return 'person' in outcome ? outcome.person : undefined;
 }
 
 /**
@@ -73,8 +104,7 @@ export const WorldSailingCheck = forwardRef<WorldSailingCheckHandle, {
   /** Competitors whose nationality is blank where World Sailing holds one. */
   const fillableNationalities = (result: WorldSailingCheckResult) =>
     result.checks.flatMap((check) => {
-      if (check.outcome.status !== 'valid' && check.outcome.status !== 'mismatch') return [];
-      const nation = check.outcome.person.nationality;
+      const nation = personOf(check)?.nationality;
       const c = byId.get(check.competitorId);
       if (!nation || !c || c.nationality) return [];
       return [{ competitor: c, nation }];
@@ -92,6 +122,23 @@ export const WorldSailingCheck = forwardRef<WorldSailingCheckHandle, {
   const label = (id: string) => {
     const c = byId.get(id);
     return c ? `${formatPrimaryNames(c.names)} (${c.sailNumber})` : id;
+  };
+
+  /** What World Sailing holds, where that differs from what we hold. A row
+   *  that agrees outright has nothing to compare. */
+  const theirRecord = (check: DatafeedCheck) => {
+    if (check.outcome.status === 'valid') return undefined;
+    const person = personOf(check);
+    if (!person) return undefined;
+    const name = [person.givenName, person.familyName].filter(Boolean).join(' ');
+    return name ? describe(name, person.nationality) : undefined;
+  };
+
+  /** What the entry list holds — worth spelling out beside a mismatch, since
+   *  the nationality that differs isn't otherwise on screen. */
+  const ourRecord = (id: string) => {
+    const c = byId.get(id);
+    return c ? describe(formatPrimaryNames(c.names), c.nationality) : id;
   };
 
   return (
@@ -120,8 +167,8 @@ export const WorldSailingCheck = forwardRef<WorldSailingCheckHandle, {
             <DialogHeader>
               <DialogTitle>Sailor ID check</DialogTitle>
               <DialogDescription>
-                {state.result.checks.filter((c) => c.outcome.status === 'valid').length} of{' '}
-                {state.result.checks.length} checked out.
+                {state.result.checks.filter(checksOut).length} of {state.result.checks.length}{' '}
+                checked out.
                 {state.result.withoutId.length > 0 &&
                   ` ${state.result.withoutId.length} competitor${state.result.withoutId.length === 1 ? ' has' : 's have'} no Sailor ID recorded.`}
               </DialogDescription>
@@ -139,9 +186,7 @@ export const WorldSailingCheck = forwardRef<WorldSailingCheckHandle, {
                   {state.result.checks
                     // Problems first: a clean row needs no attention.
                     .slice()
-                    .sort((a, b) =>
-                      Number(a.outcome.status === 'valid') - Number(b.outcome.status === 'valid'),
-                    )
+                    .sort((a, b) => attentionRank(a) - attentionRank(b))
                     .map((check) => (
                       <tr key={check.competitorId} className="border-t">
                         <td className="py-1">{label(check.competitorId)}</td>
@@ -157,15 +202,11 @@ export const WorldSailingCheck = forwardRef<WorldSailingCheckHandle, {
                         </td>
                         <td className="py-1">
                           {outcomeLabel(check)}
-                          {check.outcome.status === 'mismatch' && (
+                          {theirRecord(check) && (
                             <span className="block text-muted-foreground">
-                              World Sailing has{' '}
-                              {[check.outcome.person.givenName, check.outcome.person.familyName]
-                                .filter(Boolean)
-                                .join(' ')}
-                              {check.outcome.person.nationality
-                                ? ` (${check.outcome.person.nationality})`
-                                : ''}
+                              World Sailing has {theirRecord(check)}
+                              {check.outcome.status === 'mismatch' &&
+                                `, this entry has ${ourRecord(check.competitorId)}`}
                             </span>
                           )}
                         </td>

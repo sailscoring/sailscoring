@@ -120,4 +120,105 @@ describe('compareToRecord', () => {
         .status,
     ).toBe('valid');
   });
+
+  describe('names the same sailor is written under', () => {
+    // Every pair below is a real one: the 2026 ILCA Men's Worlds entry list on
+    // the left, what datafeed.sailing.org returned for that sailor's ID on the
+    // right. All of them read as "doesn't match" before the comparison learned
+    // to tolerate them.
+    const sameSailor: [string, { givenName: string; familyName: string; nationality: string }][] = [
+      ['Zachary Littlewood', { givenName: 'Zac', familyName: 'Littlewood', nationality: 'AUS' }],
+      [
+        'Leopoldo Barreto Haschke',
+        { givenName: 'Leo', familyName: 'Barreto Haschke', nationality: 'ESP' },
+      ],
+      [
+        'Philipp Grochtmann',
+        { givenName: 'Philipp Andreas', familyName: 'Grochtmann', nationality: 'BRA' },
+      ],
+      ['Nooa Laukkanen', { givenName: 'Nooa Henrik', familyName: 'Laukkanen', nationality: 'FIN' }],
+      ['Kenje Sem Werpers', { givenName: 'Kenje', familyName: 'Werpers', nationality: 'ITA' }],
+      ['Sergio Garcia Garrido', { givenName: 'Sergio', familyName: 'Garrido', nationality: 'ESP' }],
+      ['Karol Krupski Teterycz', { givenName: 'Karol', familyName: 'KRUPSKI', nationality: 'ESP' }],
+      ['Dean Mathiot', { givenName: 'Dean,John', familyName: 'Mathiot', nationality: 'SEY' }],
+      [
+        'Sultan Khalid Mohamed Sultan Alowaus',
+        {
+          givenName: 'Sultan Khalid Mohamed Sultan',
+          familyName: 'Alowais',
+          nationality: 'UAE',
+        },
+      ],
+    ];
+
+    it.each(sameSailor)('reads %s as the same sailor, spelled differently', (entry, record) => {
+      const outcome = compareToRecord(
+        { names: [entry], nationality: record.nationality },
+        { worldSailingId: 'TESTX1', ...record },
+      );
+      expect(outcome.status).toBe('spelling');
+    });
+
+    it('reads past a generational suffix as if it weren’t there', () => {
+      expect(
+        compareToRecord(
+          { names: ['Robert Meek'], nationality: 'USA' },
+          {
+            worldSailingId: 'USARM234',
+            givenName: 'Robert',
+            familyName: 'Meek IV',
+            nationality: 'USA',
+          },
+        ).status,
+      ).toBe('valid');
+    });
+
+    it('still says valid when the two agree outright', () => {
+      expect(
+        compareToRecord(
+          { names: ['Louis Hupé'], nationality: 'FRA' },
+          { worldSailingId: 'FRALH16', givenName: 'LOUIS', familyName: 'HUPE', nationality: 'FRA' },
+        ).status,
+      ).toBe('valid');
+    });
+
+    it('does not let a shared family name pass for a sibling', () => {
+      // Nothing else agrees, so nothing here should.
+      expect(
+        compareToRecord(
+          { names: ['Fiachra Geraghty-McDonnell'] },
+          { worldSailingId: 'IRLEG1', givenName: 'Eve', familyName: 'McDonnell' },
+        ).status,
+      ).toBe('mismatch');
+    });
+
+    it('holds the line on a different sailor of the same nation', () => {
+      expect(
+        compareToRecord(
+          { names: ['Sergio Garcia Garrido'], nationality: 'ESP' },
+          {
+            worldSailingId: 'ESPJG1',
+            givenName: 'Javier',
+            familyName: 'Garrido',
+            nationality: 'ESP',
+          },
+        ).status,
+      ).toBe('mismatch');
+    });
+
+    it('treats the neutral-athlete nation code as the nation it stands for', () => {
+      // World Sailing writes it AINX; an entry list writes it AIN.
+      expect(
+        compareToRecord(
+          { names: ['Daniil Krutskikh'], nationality: 'AIN' },
+          {
+            worldSailingId: 'AINXDK2',
+            givenName: 'Daniil',
+            familyName: 'Krutskikh',
+            nationality: 'AINX',
+          },
+        ).status,
+      ).toBe('valid');
+    });
+  });
 });
