@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   planFleetCreation,
+  planKeyFor,
+  NO_OVERRIDES,
   type FleetPlanInput,
+  type FleetPlanOverrides,
   type PlanRow,
   type RatingSystem,
 } from '@/lib/competitor-import-plan';
-import type { Fleet, Competitor } from '@/lib/types';
+import type { Fleet } from '@/lib/types';
 
 // ── Test helpers ────────────────────────────────────────────────────────────
 
@@ -21,19 +24,17 @@ function existingFleet(
   return { id, name, scoringSystem };
 }
 
-function existingCompetitor(boatClass?: string): Pick<Competitor, 'boatClass'> {
-  return boatClass ? { boatClass } : {};
+function planOverrides(partial: Partial<FleetPlanOverrides>): FleetPlanOverrides {
+  return { extraSystems: {}, byFleet: {}, ...partial };
 }
 
-function callPlan(overrides: Partial<FleetPlanInput>) {
+function callPlan(input: Partial<FleetPlanInput>) {
   const defaults: FleetPlanInput = {
     rows: [],
     existingFleets: [],
-    existingCompetitors: [],
-    csvHasClassColumn: false,
-    alsoCreateScratch: {},
+    overrides: NO_OVERRIDES,
   };
-  return planFleetCreation({ ...defaults, ...overrides });
+  return planFleetCreation({ ...defaults, ...input });
 }
 
 // ── Decision-table cases ────────────────────────────────────────────────────
@@ -231,21 +232,23 @@ describe('planFleetCreation — multi-system case', () => {
   });
 });
 
-describe('planFleetCreation — alsoCreateScratch toggle', () => {
+describe('planFleetCreation — extra systems', () => {
   it('appends a scratch sibling containing every row in the group (single-system)', () => {
     const plan = callPlan({
       rows: [
         row(['CR 0'], ['irc']),
         row(['CR 0'], ['irc']),
       ],
-      alsoCreateScratch: { 'CR 0': true },
+      overrides: planOverrides({ extraSystems: { 'CR 0': ['scratch'] } }),
     });
     expect(plan.proposed).toHaveLength(2);
-    const scratch = plan.proposed.find((p) => p.source === 'also-scratch')!;
+    const scratch = plan.proposed.find((p) => p.source === 'added')!;
     expect(scratch).toMatchObject({
       name: 'CR 0 (Scratch)',
       scoringSystem: 'scratch',
       isExisting: false,
+      membership: 'all',
+      canFilterByRating: false,
       rowIndices: [0, 1],
     });
   });
@@ -256,20 +259,24 @@ describe('planFleetCreation — alsoCreateScratch toggle', () => {
         row(['CR 0'], ['irc']),
         row(['CR 0'], ['echo']),
       ],
-      alsoCreateScratch: { 'CR 0': true },
+      overrides: planOverrides({ extraSystems: { 'CR 0': ['scratch'] } }),
     });
     expect(plan.proposed).toHaveLength(3);
-    const scratch = plan.proposed.find((p) => p.source === 'also-scratch')!;
+    const scratch = plan.proposed.find((p) => p.source === 'added')!;
     expect(scratch.rowIndices).toEqual([0, 1]);
   });
 
-  it('ignores the toggle for groups with no ratings', () => {
+  it('adds a scratch sibling to a group with no ratings of its own', () => {
+    // The group's own fleet is scratch under the bare name, so the added
+    // one is suffixed rather than colliding with it.
     const plan = callPlan({
       rows: [row(['CR 0'])],
-      alsoCreateScratch: { 'CR 0': true },
+      overrides: planOverrides({ extraSystems: { 'CR 0': ['scratch'] } }),
     });
-    expect(plan.proposed).toHaveLength(1);
-    expect(plan.proposed[0].source).toBe('no-ratings');
+    expect(plan.proposed.map((p) => [p.name, p.source])).toEqual([
+      ['CR 0', 'no-ratings'],
+      ['CR 0 (Scratch)', 'added'],
+    ]);
   });
 
   it('only fires for the named group, not for siblings', () => {
@@ -278,10 +285,136 @@ describe('planFleetCreation — alsoCreateScratch toggle', () => {
         row(['CR 0'], ['irc']),
         row(['CR 1'], ['irc']),
       ],
-      alsoCreateScratch: { 'CR 0': true },
+      overrides: planOverrides({ extraSystems: { 'CR 0': ['scratch'] } }),
     });
-    expect(plan.proposed.filter((p) => p.source === 'also-scratch')).toHaveLength(1);
-    expect(plan.proposed.find((p) => p.source === 'also-scratch')!.csvFleetName).toBe('CR 0');
+    expect(plan.proposed.filter((p) => p.source === 'added')).toHaveLength(1);
+    expect(plan.proposed.find((p) => p.source === 'added')!.csvFleetName).toBe('CR 0');
+  });
+
+  it('adds a rating fleet the file says nothing about, holding the whole group', () => {
+    // The case the step exists for: an NHC entry list, IRC certificates to
+    // follow. Nothing in the file says who holds one, so everyone joins.
+    const plan = callPlan({
+      rows: [
+        row(['Cruisers 1'], ['nhc']),
+        row(['Cruisers 1'], ['nhc']),
+      ],
+      overrides: planOverrides({ extraSystems: { 'Cruisers 1': ['irc'] } }),
+    });
+    expect(plan.proposed.map((p) => [p.name, p.scoringSystem])).toEqual([
+      ['Cruisers 1', 'nhc'],
+      ['Cruisers 1 (IRC)', 'irc'],
+    ]);
+    const irc = plan.proposed[1];
+    expect(irc.membership).toBe('all');
+    expect(irc.canFilterByRating).toBe(false);
+    expect(irc.rowIndices).toEqual([0, 1]);
+  });
+
+  it('ignores a system the group already has', () => {
+    const plan = callPlan({
+      rows: [row(['CR 0'], ['irc'])],
+      overrides: planOverrides({ extraSystems: { 'CR 0': ['irc'] } }),
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].source).toBe('rating-single');
+  });
+
+  it('reuses an existing fleet under the suffixed name', () => {
+    const plan = callPlan({
+      rows: [row(['CR 0'], ['nhc'])],
+      existingFleets: [existingFleet('CR 0 (IRC)', 'irc', 'f-irc')],
+      overrides: planOverrides({ extraSystems: { 'CR 0': ['irc'] } }),
+    });
+    const irc = plan.proposed.find((p) => p.scoringSystem === 'irc')!;
+    expect(irc).toMatchObject({ isExisting: true, existingFleetId: 'f-irc' });
+  });
+});
+
+describe('planFleetCreation — per-fleet overrides', () => {
+  const ircAndEcho = [row(['CR 0'], ['irc']), row(['CR 0'], ['echo'])];
+
+  it('keys overrides on group and system, not on position', () => {
+    // Adding a system ahead of ECHO in the plan must not shift ECHO's
+    // override onto a different fleet.
+    const key = planKeyFor('CR 0', 'echo');
+    const plan = callPlan({
+      rows: ircAndEcho,
+      overrides: planOverrides({
+        extraSystems: { 'CR 0': ['scratch'] },
+        byFleet: { [key]: { name: 'Renamed' } },
+      }),
+    });
+    expect(plan.proposed.find((p) => p.scoringSystem === 'echo')!.name).toBe('Renamed');
+    expect(plan.proposed.find((p) => p.scoringSystem === 'irc')!.name).toBe('CR 0 (IRC)');
+  });
+
+  it('drops a fleet from the plan', () => {
+    const plan = callPlan({
+      rows: ircAndEcho,
+      overrides: planOverrides({
+        byFleet: { [planKeyFor('CR 0', 'echo')]: { drop: true } },
+      }),
+    });
+    expect(plan.proposed.map((p) => p.scoringSystem)).toEqual(['irc']);
+  });
+
+  it('widens a split fleet to the whole group', () => {
+    const plan = callPlan({
+      rows: ircAndEcho,
+      overrides: planOverrides({
+        byFleet: { [planKeyFor('CR 0', 'irc')]: { membership: 'all' } },
+      }),
+    });
+    const irc = plan.proposed.find((p) => p.scoringSystem === 'irc')!;
+    expect(irc.membership).toBe('all');
+    expect(irc.rowIndices).toEqual([0, 1]);
+  });
+
+  it('narrows a single-system fleet to its rated boats', () => {
+    const plan = callPlan({
+      rows: [row(['CR 0'], ['irc']), row(['CR 0'])],
+      overrides: planOverrides({
+        byFleet: { [planKeyFor('CR 0', 'irc')]: { membership: 'rated' } },
+      }),
+    });
+    // The unrated row still joins: a boat nobody rated belongs wherever its
+    // group is scored, so the missing rating is visible rather than silent.
+    expect(plan.proposed[0].rowIndices).toEqual([0, 1]);
+  });
+
+  it('clamps a rated choice the file cannot honour back to all boats', () => {
+    const plan = callPlan({
+      rows: [row(['CR 0'], ['nhc']), row(['CR 0'], ['nhc'])],
+      overrides: planOverrides({
+        extraSystems: { 'CR 0': ['irc'] },
+        byFleet: { [planKeyFor('CR 0', 'irc')]: { membership: 'rated' } },
+      }),
+    });
+    const irc = plan.proposed.find((p) => p.scoringSystem === 'irc')!;
+    expect(irc.membership).toBe('all');
+    expect(irc.rowIndices).toEqual([0, 1]);
+  });
+
+  it('does not rename a fleet it is reusing rather than creating', () => {
+    const plan = callPlan({
+      rows: [row(['CR 0'], ['irc'])],
+      existingFleets: [existingFleet('CR 0', 'irc', 'f1')],
+      overrides: planOverrides({
+        byFleet: { [planKeyFor('CR 0', 'irc')]: { name: 'Something else' } },
+      }),
+    });
+    expect(plan.proposed[0]).toMatchObject({ name: 'CR 0', isExisting: true });
+  });
+
+  it('ignores a blank rename', () => {
+    const plan = callPlan({
+      rows: [row(['CR 0'], ['irc'])],
+      overrides: planOverrides({
+        byFleet: { [planKeyFor('CR 0', 'irc')]: { name: '   ' } },
+      }),
+    });
+    expect(plan.proposed[0].name).toBe('CR 0');
   });
 });
 
@@ -368,45 +501,17 @@ describe('planFleetCreation — existing fleet reuse', () => {
     });
   });
 
-  it('reuses an existing scratch sibling when the toggle is on', () => {
+  it('reuses an existing scratch sibling when one is added', () => {
     const plan = callPlan({
       rows: [row(['CR 0'], ['irc'])],
       existingFleets: [
         existingFleet('CR 0', 'irc', 'fleet-irc'),
         existingFleet('CR 0 (Scratch)', 'scratch', 'fleet-scratch'),
       ],
-      alsoCreateScratch: { 'CR 0': true },
+      overrides: planOverrides({ extraSystems: { 'CR 0': ['scratch'] } }),
     });
-    const scratch = plan.proposed.find((p) => p.source === 'also-scratch')!;
+    const scratch = plan.proposed.find((p) => p.source === 'added')!;
     expect(scratch.existingFleetId).toBe('fleet-scratch');
-  });
-});
-
-describe('planFleetCreation — boatClass auto-fill flag', () => {
-  it('is true when CSV has no Class column and no existing competitor has boatClass', () => {
-    const plan = callPlan({
-      rows: [row(['CR 0'])],
-      csvHasClassColumn: false,
-      existingCompetitors: [existingCompetitor(), existingCompetitor()],
-    });
-    expect(plan.shouldFillBoatClassFromFleetName).toBe(true);
-  });
-
-  it('is false when the CSV has a Class column', () => {
-    const plan = callPlan({
-      rows: [row(['CR 0'])],
-      csvHasClassColumn: true,
-    });
-    expect(plan.shouldFillBoatClassFromFleetName).toBe(false);
-  });
-
-  it('is false when any existing competitor already has a boatClass', () => {
-    const plan = callPlan({
-      rows: [row(['CR 0'])],
-      csvHasClassColumn: false,
-      existingCompetitors: [existingCompetitor(), existingCompetitor('Sigma 33')],
-    });
-    expect(plan.shouldFillBoatClassFromFleetName).toBe(false);
   });
 });
 

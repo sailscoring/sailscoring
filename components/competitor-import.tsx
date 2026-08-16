@@ -51,6 +51,8 @@ import {
   type RatingSystem,
   type FleetPlan,
   type ProposedFleet,
+  NO_OVERRIDES,
+  type FleetPlanOverrides,
 } from '@/lib/competitor-import-plan';
 import { Button } from '@/components/ui/button';
 import {
@@ -195,9 +197,8 @@ type ImportFlow =
       /** True iff at least one existing competitor in the series has a
        *  boatClass — disables the "fleet name → boatClass" fallback. */
       existingHasBoatClass: boolean;
-      /** User toggle per CSV-fleet-name canonical group: should an extra
-       *  scratch sibling be created (for line honours)? */
-      alsoCreateScratch: Record<string, boolean>;
+      /** The scorer's edits to the proposed fleet plan. */
+      fleetOverrides: FleetPlanOverrides;
       /** Present when the import also pushes to rrs.org. */
       rrs: MappingRrsConfig | null;
     }
@@ -433,6 +434,16 @@ const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
   echoStartingTcf: 'echo',
 };
 
+/** Whether to fall back to writing the original fleet name into boatClass:
+ *  only when nothing else supplies one, so a series genuinely using the
+ *  field is never overwritten. */
+function shouldFillBoatClassFromFleetName(
+  columnMap: ColumnMap,
+  existingHasBoatClass: boolean,
+): boolean {
+  return !Object.values(columnMap).includes('boatClass') && !existingHasBoatClass;
+}
+
 /** Extract per-row planning data: the parsed fleet column values and the
  *  set of rating systems the row has a (non-blank, finite) value for. */
 function extractPlanRows(rows: string[][], columnMap: ColumnMap): PlanRow[] {
@@ -476,7 +487,7 @@ function detectSailNumberChanges(
   columnMap: ColumnMap,
   existing: Competitor[],
   existingFleets: Fleet[],
-  alsoCreateScratch: Record<string, boolean>,
+  overrides: FleetPlanOverrides,
 ): RenameCandidate[] {
   let sailCol = -1;
   let boatNameCol = -1;
@@ -492,13 +503,7 @@ function detectSailNumberChanges(
   if (sailCol < 0) return [];
 
   const planRows = extractPlanRows(rows, columnMap);
-  const plan = planFleetCreation({
-    rows: planRows,
-    existingFleets,
-    existingCompetitors: existing,
-    csvHasClassColumn: Object.values(columnMap).includes('boatClass'),
-    alsoCreateScratch,
-  });
+  const plan = planFleetCreation({ rows: planRows, existingFleets, overrides });
   const fleetIdsByRow: string[][] = rows.map(() => []);
   for (const p of plan.proposed) {
     const fid = p.isExisting && p.existingFleetId ? p.existingFleetId : `new:${p.key}`;
@@ -812,10 +817,10 @@ function MappingDialogBody({
   const toggleAlsoScratch = useCallback((csvFleetName: string, checked: boolean) => {
     setFlow((f) => {
       if (f.step !== 'mapping') return f;
-      const next = { ...f.alsoCreateScratch };
-      if (checked) next[csvFleetName] = true;
+      const next = { ...f.fleetOverrides.extraSystems };
+      if (checked) next[csvFleetName] = ['scratch'];
       else delete next[csvFleetName];
-      return { ...f, alsoCreateScratch: next };
+      return { ...f, fleetOverrides: { ...f.fleetOverrides, extraSystems: next } };
     });
   }, [setFlow]);
 
@@ -827,14 +832,15 @@ function MappingDialogBody({
   // column mappings + the also-scratch toggle, both of which the
   // user edits inside this dialog.
   const planRows = extractPlanRows(flow.rows, flow.columnMap);
-  const csvHasClassColumn = Object.values(flow.columnMap).includes('boatClass');
   const livePlan = planFleetCreation({
     rows: planRows,
     existingFleets: fleets,
-    existingCompetitors: flow.existingHasBoatClass ? [{ boatClass: 'x' }] : [],
-    csvHasClassColumn,
-    alsoCreateScratch: flow.alsoCreateScratch,
+    overrides: flow.fleetOverrides,
   });
+  const fillBoatClassFromFleetName = shouldFillBoatClassFromFleetName(
+    flow.columnMap,
+    flow.existingHasBoatClass,
+  );
   const planGroups = groupProposedByCsvName(livePlan.proposed);
 
   // Pre-slice each column's sample values once — headers and sampleRows are
@@ -956,7 +962,7 @@ function MappingDialogBody({
                     <label className="flex items-center gap-1.5 text-xs pl-3 pt-0.5 cursor-pointer text-muted-foreground">
                       <input
                         type="checkbox"
-                        checked={flow.alsoCreateScratch[csvName] === true}
+                        checked={(flow.fleetOverrides.extraSystems[csvName] ?? []).includes('scratch')}
                         onChange={(e) => toggleAlsoScratch(csvName, e.target.checked)}
                         className="h-3.5 w-3.5"
                       />
@@ -967,7 +973,7 @@ function MappingDialogBody({
               );
             })}
           </div>
-          {livePlan.shouldFillBoatClassFromFleetName && (
+          {fillBoatClassFromFleetName && (
             <p className="text-xs text-muted-foreground border-t pt-2">
               No Class column detected — the original fleet name will be saved
               as each boat&rsquo;s class so the grouping isn&rsquo;t lost when
@@ -1305,7 +1311,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       multiPersonFields: series?.multiPersonFields ?? [],
       seriesScoringMode,
       existingHasBoatClass,
-      alsoCreateScratch: {},
+      fleetOverrides: NO_OVERRIDES,
       rrs: rrs
         ? defaultMappingRrsConfig(rrs.eventUuid, rrs.saved, axes, fleets.length, columnMap, headers)
         : null,
@@ -1322,7 +1328,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       importFlow.columnMap,
       existing,
       fleets,
-      importFlow.alsoCreateScratch,
+      importFlow.fleetOverrides,
     );
     if (candidates.length > 0) {
       setImportFlow({
@@ -1351,7 +1357,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
    *  sail number matched nothing, so an accepted rename updates that
    *  competitor in place (keeping its id, and with it its results). */
   async function executeImport(flow: MappingFlow, renameByRowIndex: Map<number, string>) {
-    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, alsoCreateScratch, rrs, multiPersonFields } = flow;
+    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, fleetOverrides, rrs, multiPersonFields } = flow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
     const existingById = new Map(existing.map((c) => [c.id, c]));
@@ -1368,14 +1374,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     // which CSV rows belong in each. Materialize the plan up-front so the
     // row loop just looks up fleet IDs by row index.
     const planRows = extractPlanRows(rows, columnMap);
-    const csvHasClassColumn = Object.values(columnMap).includes('boatClass');
-    const plan = planFleetCreation({
-      rows: planRows,
-      existingFleets: fleets,
-      existingCompetitors: existing,
-      csvHasClassColumn,
-      alsoCreateScratch,
-    });
+    const plan = planFleetCreation({ rows: planRows, existingFleets: fleets, overrides: fleetOverrides });
+    const fillBoatClassFromFleetName = shouldFillBoatClassFromFleetName(
+      columnMap,
+      existingHasBoatClass,
+    );
 
     // Persist series-level proposals (primary label, additively-enabled
     // fields, and — if the plan produced handicap fleets — flipping the
@@ -1602,7 +1605,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       // boatClass fallback: when neither the CSV nor any existing competitor
       // provides a boatClass, fall back to the original CSV fleet name so
       // grouping like "Cruisers 2" survives even when split into rating fleets.
-      const fleetNameFallback = plan.shouldFillBoatClassFromFleetName
+      const fleetNameFallback = fillBoatClassFromFleetName
         ? (planRows[i].csvFleetNames[0]?.trim() || DEFAULT_FLEET_NAME)
         : '';
       const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || fleetNameFallback || '';

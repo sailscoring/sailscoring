@@ -23,30 +23,69 @@
  * is responsible for flipping the series scoringMode to 'handicap' to
  * match. Anyone wanting a scratch import maps rating columns to (ignore).
  *
- * The optional "also create scratch" toggle (per group, present only when
- * at least one rating system is in play) appends an extra scratch sibling
- * containing every row in the group — for line-honours alongside corrected.
+ * The proposal is a starting point, not the answer. `overrides` carries the
+ * scorer's edits from the wizard's Fleets step: extra systems to score a
+ * group on beyond those the file implies, and per-fleet changes to name,
+ * membership, or whether to create the fleet at all.
+ *
+ * Overrides are keyed on `<group>::<system>` rather than on position. A
+ * proposal's position moves whenever the rating columns change, and the
+ * planner never proposes two fleets with the same (group, system), so the
+ * pair is both stable and unique.
  *
  * Existing fleets are reused by case-insensitive name match. The plan
  * never proposes mutating an existing fleet's scoringSystem; if the bare
  * name is taken by a different system, the new fleet is created with the
  * suffixed name instead. The one exception is the implicit default group
- * (rows with no fleet column): when no fleet is literally named "Default"
- * it reuses the series' sole scratch fleet, so a renamed default fleet is
- * reused rather than duplicated.
- *
- * boatClass auto-fill: when the CSV has no Class column AND no existing
- * competitor in the series carries a boatClass, the wizard will fall back
- * to writing the original CSV fleet name into boatClass. This preserves
- * the practical "fleet name = class label" pattern (e.g. "Cruisers 2")
- * without overloading the field when it's actually being used for boat
- * class data.
+ * (rows with no grouping column): when no fleet is literally named
+ * "Default" it reuses the series' sole scratch fleet, so a renamed default
+ * fleet is reused rather than duplicated.
  */
 
-import type { Competitor, Fleet } from './types';
+import type { Fleet } from './types';
 
 export type RatingSystem = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
 export type ScoringSystem = RatingSystem | 'scratch';
+
+/**
+ * Who joins a proposed fleet.
+ *
+ * - `all`   — every row in the group.
+ * - `rated` — rows carrying a value for this fleet's system, plus rows with
+ *   no rating at all (a boat nobody rated belongs everywhere its group is
+ *   scored, so a placeholder rating draws DNC pressure instead of quietly
+ *   vanishing).
+ *
+ * A scratch fleet is always `all`: line honours has no rating to filter on.
+ */
+export type FleetMembership = 'all' | 'rated';
+
+/** A scorer's edits to one proposed fleet. */
+export type FleetOverride = {
+  /** Rename the fleet the plan would create. Ignored when reusing an
+   *  existing fleet — the plan never renames what it didn't create. */
+  name?: string;
+  membership?: FleetMembership;
+  /** Drop this fleet from the plan entirely. */
+  drop?: boolean;
+};
+
+export type FleetPlanOverrides = {
+  /** Per canonical group name, systems to score the group on beyond those
+   *  its rows imply. A system already inferred for the group is ignored
+   *  rather than duplicated. */
+  extraSystems: Record<string, ScoringSystem[]>;
+  /** Per proposed fleet, keyed by `planKeyFor`. */
+  byFleet: Record<string, FleetOverride>;
+};
+
+export const NO_OVERRIDES: FleetPlanOverrides = { extraSystems: {}, byFleet: {} };
+
+/** Stable identity for a proposed fleet: unique within a plan, and
+ *  unchanged when unrelated column mappings move the proposal around. */
+export function planKeyFor(csvFleetName: string, system: ScoringSystem): string {
+  return `${csvFleetName.toLowerCase()}::${system}`;
+}
 
 const SYSTEM_SUFFIX: Record<ScoringSystem, string> = {
   scratch: 'Scratch',
@@ -72,7 +111,7 @@ export type PlanRow = {
 };
 
 export type ProposedFleet = {
-  /** Stable React key — unique within the plan. */
+  /** Stable identity — see `planKeyFor`. Doubles as the React key. */
   key: string;
   /** Fleet name as it should appear (may be suffixed; matches existing
    *  fleet's stored casing when reusing). */
@@ -82,33 +121,29 @@ export type ProposedFleet = {
   isExisting: boolean;
   /** Set iff isExisting. */
   existingFleetId?: string;
-  /** Where this proposal came from in the decision tree — used for UI
-   *  hints and for the "also create scratch" toggle's scope. */
-  source: 'rating-split' | 'rating-single' | 'no-ratings' | 'also-scratch';
-  /** Original CSV-fleet-name group this proposal belongs to (case
+  /** Where this proposal came from — used for UI hints and for the
+   *  membership default. `added` means the scorer asked for it; the file
+   *  said nothing. */
+  source: 'rating-split' | 'rating-single' | 'no-ratings' | 'added';
+  /** Original grouping-column value this proposal belongs to (case
    *  preserved). Multiple proposals share this when split across systems. */
   csvFleetName: string;
+  membership: FleetMembership;
+  /** False when this fleet's system has no rating column in the file, so
+   *  `rated` membership would select nothing and isn't offered. */
+  canFilterByRating: boolean;
   /** Indices into the input `rows` array that belong in this fleet. */
   rowIndices: number[];
 };
 
 export type FleetPlan = {
   proposed: ProposedFleet[];
-  /** True when the wizard should write the original CSV fleet name into
-   *  boatClass for imported rows that don't have a boatClass column. */
-  shouldFillBoatClassFromFleetName: boolean;
 };
 
 export type FleetPlanInput = {
   rows: PlanRow[];
   existingFleets: Pick<Fleet, 'id' | 'name' | 'scoringSystem'>[];
-  existingCompetitors: Pick<Competitor, 'boatClass'>[];
-  /** True iff the CSV has a column mapped to boatClass. */
-  csvHasClassColumn: boolean;
-  /** Per CSV fleet name (canonical case as it appears in the plan), true
-   *  to also create a scratch sibling for line honours. Ignored for
-   *  no-rating groups (their main fleet is already scratch). */
-  alsoCreateScratch: Record<string, boolean>;
+  overrides: FleetPlanOverrides;
 };
 
 type Group = {
@@ -155,9 +190,9 @@ function findByName(
   return fleets.find((f) => f.name.toLowerCase() === lower);
 }
 
-/** Filter group rows for a multi-system fleet membership: rated boats join
- *  fleets matching their rating; unrated boats join all auto-created
- *  handicap fleets in the group. */
+/** Filter group rows for a rating-filtered membership: rated boats join
+ *  fleets matching their rating; unrated boats join all of the group's
+ *  handicap fleets. */
 function membershipForSystem(
   group: Group,
   rows: PlanRow[],
@@ -169,15 +204,63 @@ function membershipForSystem(
   });
 }
 
+/** Everything a proposal needs before the scorer's overrides are folded in.
+ *  `rowIndices` and `membership` are resolved by `finish`, since an override
+ *  can change which of the two membership rules applies. */
+type Draft = Omit<ProposedFleet, 'key' | 'membership' | 'canFilterByRating' | 'rowIndices'> & {
+  defaultMembership: FleetMembership;
+};
+
 export function planFleetCreation(input: FleetPlanInput): FleetPlan {
-  const { rows, existingFleets, existingCompetitors, csvHasClassColumn, alsoCreateScratch } = input;
+  const { rows, existingFleets, overrides } = input;
 
   const groups = groupRows(rows);
   const proposed: ProposedFleet[] = [];
-  let keyCounter = 0;
-  const nextKey = () => `plan-${keyCounter++}`;
 
-  // Iterate groups in insertion order (= first-appearance order in the CSV).
+  /** Fold the scorer's overrides into a draft. Returns null when the fleet
+   *  was dropped from the plan. */
+  const finish = (draft: Draft, group: Group): ProposedFleet | null => {
+    const key = planKeyFor(draft.csvFleetName, draft.scoringSystem);
+    const override = overrides.byFleet[key];
+    if (override?.drop) return null;
+
+    const system = draft.scoringSystem;
+    const canFilterByRating =
+      system !== 'scratch' && group.presentSystems.has(system);
+    // A `rated` choice the file can't honour falls back to `all` rather than
+    // silently emptying the fleet.
+    const membership: FleetMembership =
+      override?.membership && (override.membership === 'all' || canFilterByRating)
+        ? override.membership
+        : canFilterByRating
+          ? draft.defaultMembership
+          : 'all';
+
+    const renamed = !draft.isExisting && override?.name?.trim();
+
+    return {
+      key,
+      name: renamed || draft.name,
+      scoringSystem: system,
+      isExisting: draft.isExisting,
+      ...(draft.existingFleetId ? { existingFleetId: draft.existingFleetId } : {}),
+      source: draft.source,
+      csvFleetName: draft.csvFleetName,
+      membership,
+      canFilterByRating,
+      rowIndices:
+        membership === 'rated'
+          ? membershipForSystem(group, rows, system as RatingSystem)
+          : group.rowIndices,
+    };
+  };
+
+  const push = (draft: Draft, group: Group) => {
+    const p = finish(draft, group);
+    if (p) proposed.push(p);
+  };
+
+  // Iterate groups in insertion order (= first-appearance order in the file).
   for (const group of groups.values()) {
     const systems: RatingSystem[] = Array.from(group.presentSystems).sort();
 
@@ -192,16 +275,15 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
         const scratchFleets = existingFleets.filter((f) => f.scoringSystem === 'scratch');
         if (scratchFleets.length === 1) existing = scratchFleets[0];
       }
-      proposed.push({
-        key: nextKey(),
+      push({
         name: existing?.name ?? group.canonicalName,
         scoringSystem: existing?.scoringSystem ?? 'scratch',
         isExisting: !!existing,
         ...(existing ? { existingFleetId: existing.id } : {}),
         source: 'no-ratings',
         csvFleetName: group.canonicalName,
-        rowIndices: group.rowIndices,
-      });
+        defaultMembership: 'all',
+      }, group);
     } else if (systems.length === 1) {
       const system = systems[0];
       const bare = findByName(existingFleets, group.canonicalName);
@@ -221,19 +303,17 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
         chosenName = group.canonicalName;
         existing = undefined;
       }
-      proposed.push({
-        key: nextKey(),
+      push({
         name: chosenName,
         scoringSystem: existing?.scoringSystem ?? system,
         isExisting: !!existing,
         ...(existing ? { existingFleetId: existing.id } : {}),
         source: 'rating-single',
         csvFleetName: group.canonicalName,
-        // Single-system groups have presentSystems = {system} ∪ (no-rating
-        // rows). Including all rows is correct: rated boats match the
-        // system, unrated boats are flagged as missing rating later.
-        rowIndices: group.rowIndices,
-      });
+        // The group's only system, so every row belongs: rated boats match
+        // it, unrated boats are flagged as missing a rating later.
+        defaultMembership: 'all',
+      }, group);
     } else {
       // Multi-system: one fleet per system.
       // If the bare name in the DB has a system matching one of ours, reuse
@@ -255,51 +335,51 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
           existing = findByName(existingFleets, chosenName);
           if (existing) chosenName = existing.name;
         }
-        proposed.push({
-          key: nextKey(),
+        push({
           name: chosenName,
           scoringSystem: existing?.scoringSystem ?? system,
           isExisting: !!existing,
           ...(existing ? { existingFleetId: existing.id } : {}),
           source: 'rating-split',
           csvFleetName: group.canonicalName,
-          rowIndices: membershipForSystem(group, rows, system),
-        });
+          defaultMembership: 'rated',
+        }, group);
       }
     }
 
-    // Optional scratch sibling — only when at least one rating system was
-    // in play (a no-rating group's main fleet is already scratch).
-    const wantsScratch =
-      systems.length >= 1 &&
-      alsoCreateScratch[group.canonicalName] === true;
-    if (wantsScratch) {
-      // Reuse priority: exact suffixed name > bare-name scratch fleet.
-      const suffixed = suffixedName(group.canonicalName, 'scratch');
+    // Systems the scorer asked for on top of what the file implies. The
+    // group's inferred fleets already hold the bare name, so these are
+    // always suffixed; an existing fleet under that name is reused, as is a
+    // bare-named fleet that happens to use the same system.
+    const asked = overrides.extraSystems[group.canonicalName] ?? [];
+    const seen = new Set<ScoringSystem>(systems);
+    for (const system of asked) {
+      if (seen.has(system)) continue;
+      seen.add(system);
+
+      const suffixed = suffixedName(group.canonicalName, system);
       let existing = findByName(existingFleets, suffixed);
       let chosenName = existing ? existing.name : suffixed;
       if (!existing) {
         const bare = findByName(existingFleets, group.canonicalName);
-        if (bare && bare.scoringSystem === 'scratch') {
+        if (bare && bare.scoringSystem === system) {
           existing = bare;
           chosenName = bare.name;
         }
       }
-      proposed.push({
-        key: nextKey(),
+      push({
         name: chosenName,
-        scoringSystem: 'scratch',
+        scoringSystem: system,
         isExisting: !!existing,
         ...(existing ? { existingFleetId: existing.id } : {}),
-        source: 'also-scratch',
+        source: 'added',
         csvFleetName: group.canonicalName,
-        rowIndices: group.rowIndices,
-      });
+        // The file said nothing about this system, so it can rarely filter
+        // by rating; `finish` clamps to `all` when it can't.
+        defaultMembership: 'all',
+      }, group);
     }
   }
 
-  const shouldFillBoatClassFromFleetName =
-    !csvHasClassColumn && existingCompetitors.every((c) => !c.boatClass);
-
-  return { proposed, shouldFillBoatClassFromFleetName };
+  return { proposed };
 }
