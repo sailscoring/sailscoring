@@ -196,13 +196,23 @@ that as its boat class through the ordinary path — visible in the mapping
 table, and enabling the Class field by the same rule as any other mapped
 column.
 
+So when a grouping column would otherwise go unmapped and nothing else
+supplies a boat class, the importer proposes mapping it to Class outright —
+visible in the mapping table, droppable there, and enabling the Class field by
+the ordinary rule. Two conditions keep the proposal honest:
+
+- **First import only.** Proposing it later would rewrite classes the scorer
+  has since set, and make re-importing a subset of the entry list look like an
+  edit.
+- **Single-valued cells only.** A boat scored in two fleets has one class, not
+  `PY|M15`, so a column with any multi-fleet cell isn't a class label.
+
 This replaces a derived fallback that wrote the fleet name into `boatClass`
 whenever the file had no Class column and no competitor carried a class. That
 rule existed only because a column could hold one role at a time, so a column
 used for grouping could not also be a Class column. It was invisible to the
-scorer, it did not enable the field it wrote to, and with no fleet column at
-all it wrote the literal string "Default" as every boat's class. Making
-grouping a separate choice removes the need for it.
+scorer, it did not enable the field it wrote to, and with no grouping column
+at all it wrote the literal string "Default" as every boat's class.
 
 ### The proposal
 
@@ -248,11 +258,21 @@ and left every other combination to a three-screen workaround.
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-Per proposed fleet the scorer can change the **name**, change the **scoring
-system**, choose **membership**, or remove the fleet from the plan. Per group
-they can add a fleet for any system the workspace has enabled. A fleet that
-reuses an existing one is marked as such and its system is fixed — the plan
-still never mutates a fleet that already has races behind it.
+Per proposed fleet the scorer can change the **name**, choose **membership**,
+or remove the fleet from the plan. Per group they can add a fleet for any
+system the workspace has enabled. A fleet that reuses an existing one is
+marked as such and cannot be renamed — the plan never renames what it didn't
+create, nor mutates a fleet that already has races behind it.
+
+A fleet's **system is not edited on its row**. For an inferred fleet the
+system *is* the rating column, so the control for it is the rating picker
+above: remap the column and the plan re-infers, keeping the bare name. For an
+added fleet the system is the choice that added it. Offering a third control
+would only introduce a way for the three to disagree.
+
+When every one of a group's own fleets has been dropped, an added fleet takes
+the bare group name rather than a suffix — it is the group's only fleet, so
+there is nothing to distinguish it from.
 
 The system picker honours the same feature gates as the Fleets card
 (`irc-rating`, `rya-py`, `vprs`, `echo`; NHC and scratch ungated), and — as

@@ -182,6 +182,15 @@ export default function RatingSystems() {
           to a fleet mid-series means it is scored <strong className="text-foreground">DNC</strong>{' '}
           for races already sailed in that fleet, so this is opt-in per boat.
         </p>
+        <p>
+          The other direction appears under{' '}
+          <strong className="text-foreground">Not on the rating list</strong>: boats sitting in an
+          IRC fleet that the list doesn’t rate. This is the counterpart of creating an IRC fleet at
+          import time, when the entry list can’t say who holds a certificate and every boat in the
+          group joins — the rating list is the first thing that knows better. Read the names before
+          ticking: a boat the list has simply missed belongs where it is. Boats that have already
+          raced are never offered, since taking one out would drop its scored races.
+        </p>
       </Section>
       )}
       {has('vprs') && (

@@ -33,16 +33,23 @@ export default function DataInAndOut() {
           spreadsheet already dropped.
         </p>
         <p>
-          The importer shows each column in the file alongside a sample of its values. Use the
+          The import has two steps. <strong className="text-foreground">Fleets</strong> comes
+          first — it decides what the import creates — and then{' '}
+          <strong className="text-foreground">map columns</strong> handles the rest of the
+          spreadsheet.
+        </p>
+        <p>
+          The mapping step shows each column in the file alongside a sample of its values. Use the
           dropdown next to each column to map it to a competitor field — sail number, helm name,
-          boat name, class, crew name, club, gender, age, a subdivision axis, or fleet. Columns you
+          boat name, class, crew name, club, gender, age, or a subdivision axis. Columns you
           do not need can be left as <strong className="text-foreground">(ignore)</strong>. Sail
-          number is the only required mapping; all other fields are optional. A column named{' '}
-          <em>Fleet</em> is detected as the fleet; <em>Class</em> maps to boat class, and{' '}
-          <em>Crew</em> to the crew. A <em>Division</em> or <em>Category</em> column maps to a
+          number is the only required mapping; all other fields are optional. A{' '}
+          <em>Division</em> or <em>Category</em> column maps to a
           subdivision axis: it lands on the matching axis if you already have one, or you can pick{' '}
           <strong className="text-foreground">New subdivision axis</strong> to create one from the
           column heading (so a sheet with both a Division and an Age-category column brings in both).
+          The grouping and rating columns are not in this dropdown — they belong to the Fleets step,
+          and are listed there so you can go back and change them.
         </p>
         {has('multi-person-fields') && (
         <p>
@@ -61,28 +68,45 @@ export default function DataInAndOut() {
         )}
         <p>
           A competitor can be assigned to more than one fleet by separating fleet names with a
-          pipe character in the fleet column — for example,{' '}
+          pipe character in the grouping column — for example,{' '}
           <code className="text-foreground text-sm">PY|M15</code> enters a Melges 15 in both the
           PY handicap fleet and the M15 scratch fleet. This matches the convention used by
           Sailwave exports.
         </p>
         <p>
-          In <strong className="text-foreground">handicap</strong> mode, the importer infers each
-          fleet’s scoring system from the rating columns it finds. If every boat in an imported fleet
-          carries one rating system (say IRC), one fleet is created and configured for IRC. If the
-          fleet has a mix — IRC for some boats, ECHO for others — the importer splits it into{' '}
-          <code className="text-foreground text-sm">CR 0 (IRC)</code> and{' '}
-          <code className="text-foreground text-sm">CR 0 (ECHO)</code>; each boat joins the
-          fleet(s) matching their populated ratings. The mapping dialog lists the planned fleets
-          before you confirm, with a per-fleet checkbox to also score the group on{' '}
-          <strong className="text-foreground">scratch</strong> alongside (for line-honours awards).
+          The <strong className="text-foreground">Fleets</strong> step asks two things about the
+          file — which column splits the boats into fleets, and which columns hold ratings — and
+          shows you the fleets that follow. A column named <em>Fleet</em> is used for grouping
+          automatically. If there isn’t one, everybody lands in a single fleet and you are offered
+          the columns that could split them: pick <em>Class</em>, or leave it, since single-fleet
+          series are perfectly normal.
         </p>
         <p>
-          When the spreadsheet has no <em>Class</em> column and no existing competitor in the series has
-          a class set, the importer falls back to writing the original fleet name into{' '}
-          <strong className="text-foreground">Class</strong>. This preserves the practical
-          “Cruisers 2” grouping when the fleet column is being used as a class label
-          and boats end up split across rating fleets.
+          Each fleet’s scoring system comes from the rating columns. If every boat in a group
+          carries one rating system (say IRC), one fleet is created and configured for IRC. If the
+          group has a mix — IRC for some boats, ECHO for others — it splits into{' '}
+          <code className="text-foreground text-sm">CR 0 (IRC)</code> and{' '}
+          <code className="text-foreground text-sm">CR 0 (ECHO)</code>, and each boat joins the
+          fleet matching its ratings.
+        </p>
+        <p>
+          That is a starting point, not the answer. You can rename any proposed fleet, change who
+          is in it (<strong className="text-foreground">All boats</strong> or just the ones with a
+          rating), remove it, or add a fleet the spreadsheet says nothing about with{' '}
+          <strong className="text-foreground">Also score on</strong> — scratch alongside a handicap
+          fleet for line-honours awards, or an IRC fleet when the certificates haven’t arrived yet.
+          An added rating fleet takes the whole group, because the entry list can’t say who holds a
+          certificate; importing the ratings later from{' '}
+          <strong className="text-foreground">Update handicaps</strong> offers to trim it to the
+          boats the rating list actually rates.
+        </p>
+        <p>
+          When the grouping column is doing double duty as a class label — a <em>Fleet</em> column
+          reading “Cruisers 2” with no separate <em>Class</em> column — the first import into a
+          series also proposes mapping it to{' '}
+          <strong className="text-foreground">Class</strong>, so the grouping isn’t lost when boats
+          are split across rating fleets. It shows up in the mapping step like any other column, so
+          you can drop it if the fleet names aren’t classes.
         </p>
         <p>
           Clicking <strong className="text-foreground">Import</strong> adds any new competitors and
