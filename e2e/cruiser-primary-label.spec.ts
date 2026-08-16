@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createSeriesQuick, importMapColumns } from './helpers';
 
 function csvBuffer(content: string) {
   return { name: 'cruiser-entries.csv', mimeType: 'text/csv', buffer: Buffer.from(content) };
@@ -7,6 +7,8 @@ function csvBuffer(content: string) {
 
 async function uploadCsv(page: import('@playwright/test').Page, content: string) {
   await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(content));
+  // These specs are about column mapping; step past the Fleets step.
+  await importMapColumns(page);
 }
 
 /**
@@ -37,6 +39,7 @@ test('cruiser-style CSV import proposes Owner as the primary identifier', async 
   await expect(dialog.getByText(/Competitor\s*→\s*Owner/)).toBeVisible();
 
   // Import button is labelled with the row count and enabled
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 3 rows/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await expect(page.getByText(/3 competitor.* added/i)).toBeVisible();

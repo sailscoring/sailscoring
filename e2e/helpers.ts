@@ -262,6 +262,19 @@ export async function createFleets(page: Page, names: string[]): Promise<void> {
 }
 
 /**
+ * The competitor import dialog opens on its Fleets step; advance it to
+ * column mapping. Idempotent, so a test can call it before each reference to
+ * the mapping screen without tracking which stage it is on.
+ */
+export async function importMapColumns(page: Page): Promise<void> {
+  const heading = page.getByRole('heading', { name: /map columns/i });
+  if (await heading.isVisible().catch(() => false)) return;
+  // Auto-waits for the dialog, which may still be opening after the upload.
+  await page.getByRole('button', { name: /Next: map columns/i }).click();
+  await expect(heading).toBeVisible();
+}
+
+/**
  * Set the series scoring mode in Settings > Scoring Mode.
  * Assumes the page is already within a series context (any series tab).
  */

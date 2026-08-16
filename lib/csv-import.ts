@@ -46,6 +46,9 @@ export type ColumnTarget =
   | typeof NEW_AXIS_TARGET
   | `relay:${RelayField}`;
 
+/** A column-index-keyed map of what each CSV column maps to. */
+export type ColumnMap = Record<number, ColumnTarget>;
+
 /** Sentinel target: create a fresh subdivision axis from this column's header. */
 export const NEW_AXIS_TARGET = 'newaxis';
 
@@ -146,16 +149,6 @@ export function matchSubdivisionAxis(header: string, axisLabels: string[]): numb
   return bestScore > 0 ? best : null;
 }
 
-/**
- * Auto-detect the most-likely field role for a CSV column header.
- *
- * The CSV may use either spaced ("Sail Number"), snake_case, or camelCase
- * ("sailNumber") header conventions. Before matching against the rule
- * library we insert a space at each lowercase→uppercase transition so
- * `\b`-anchored rules fire correctly inside concatenated words — without
- * this, e.g. `boatName` would never match `\bboat\b` and `initialEcho`
- * would never match `\becho\b`.
- */
 /** Normalise a header for rule matching: the CSV may use spaced ("Sail
  *  Number"), snake_case, or camelCase ("sailNumber") conventions, so insert a
  *  space at each lowercase→uppercase transition before lowercasing — without
@@ -179,6 +172,7 @@ export function isGroupingHeader(header: string): boolean {
   return /\bfleet\b/.test(normalizeHeader(header));
 }
 
+/** Auto-detect the most-likely field role for a CSV column header. */
 export function autoDetectField(header: string): CompetitorField {
   const h = normalizeHeader(header);
   // The World Sailing Sailor ID must be checked before `/sail/`: both "World

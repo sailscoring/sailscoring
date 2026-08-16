@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createSeriesQuick, enableFeatures, importMapColumns } from './helpers';
 import { resolve } from 'path';
 
 function csvBuffer(content: string) {
@@ -8,6 +8,8 @@ function csvBuffer(content: string) {
 
 async function uploadCsv(page: import('@playwright/test').Page, content: string) {
   await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(content));
+  // These specs are about column mapping; step past the Fleets step.
+  await importMapColumns(page);
 }
 
 test('import competitors from CSV', async ({ page }) => {
@@ -36,9 +38,11 @@ test('import competitors from CSV', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
 
   // ── 5. Import button shows correct row count ──────────────────────────────
+  await importMapColumns(page);
   await expect(page.getByRole('button', { name: /Import 3 rows/i })).toBeVisible();
 
   // ── 6. Run the import ─────────────────────────────────────────────────────
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 3 rows/i }).click();
 
   // ── 7. Done dialog shows correct counts ──────────────────────────────────
@@ -62,7 +66,9 @@ test('import competitors from CSV', async ({ page }) => {
 
   // ── 9. Re-import the same CSV — all matched rows should be unchanged ───────
   await uploadCsv(page, csv);
+  await importMapColumns(page);
   await expect(page.getByRole('button', { name: /Import 3 rows/i })).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 3 rows/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await expect(page.getByText(/0 competitor.* added/i)).toBeVisible();
@@ -97,6 +103,7 @@ test('import CSV auto-detects the Crew column and stores crew names', async ({ p
 
   // ── 3. Mapping dialog auto-detects Crew → crewName ──────────────────────
   await expect(page.getByRole('dialog')).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -146,6 +153,7 @@ test('import CSV with Crew 1/Crew 2 columns and a semicolon-separated cell', asy
   // Both crew columns auto-detect as Crew; the sample previews the split.
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog')).toContainText('Carol Doyle + Dan Egan');
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -176,6 +184,7 @@ test('import competitors assigned to multiple fleets', async ({ page }) => {
   await expect(page.getByRole('dialog')).toBeVisible();
   // Mapping dialog mentions the pipe syntax
   await expect(page.getByRole('dialog')).toContainText('|');
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
@@ -195,6 +204,7 @@ test('import competitors assigned to multiple fleets', async ({ page }) => {
 
   // ── 4. Reimporting the same CSV reports unchanged (set-equality check) ───
   await uploadCsv(page, csv);
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/0 competitor.* added/i)).toBeVisible();
   await expect(page.getByText(/0 updated/i)).toBeVisible();
@@ -210,6 +220,7 @@ test('import competitors assigned to multiple fleets', async ({ page }) => {
     '3187,Emmet Dalton,HYC,PY',
   ].join('\n');
   await uploadCsv(page, shrunkCsv);
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/1 updated/i)).toBeVisible();
   await expect(page.getByText(/1 unchanged/i)).toBeVisible();
@@ -230,6 +241,7 @@ test('re-importing after renaming the default fleet reuses it instead of duplica
   // ── 1. First import creates the "Default" fleet with both competitors ─────
   await uploadCsv(page, csv);
   await expect(page.getByRole('dialog')).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -251,6 +263,7 @@ test('re-importing after renaming the default fleet reuses it instead of duplica
   // ── 3. Re-import the same list — competitors are unchanged, not moved ─────
   await page.getByRole('link', { name: 'Competitors' }).click();
   await uploadCsv(page, csv);
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/2 unchanged/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -273,6 +286,7 @@ test('re-import detects sail number changes and updates in place', async ({ page
     'IRL200,Sea Biscuit,A. Nother,RCYC',
   ].join('\n');
   await uploadCsv(page, initial);
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -284,6 +298,7 @@ test('re-import detects sail number changes and updates in place', async ({ page
     'IRL200,Sea Biscuit,A. Nother,RCYC',
   ].join('\n');
   await uploadCsv(page, renumbered);
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
 
   // ── 3. The review step lists the suspected change ─────────────────────────
@@ -295,6 +310,7 @@ test('re-import detects sail number changes and updates in place', async ({ page
   // Back returns to the mapping dialog with nothing imported.
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByRole('heading', { name: /sail number changes/i })).toBeVisible();
 
@@ -317,6 +333,7 @@ test('re-import detects sail number changes and updates in place', async ({ page
     'IRL200,Sea Biscuit,A. Nother,RCYC',
   ].join('\n');
   await uploadCsv(page, renumberedAgain);
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText('IRL150 → IRL175')).toBeVisible();
   await page.getByRole('checkbox').uncheck();
@@ -338,8 +355,10 @@ test('import competitors from Excel (.xlsx)', async ({ page }) => {
   await page
     .getByTestId('competitor-import-input')
     .setInputFiles(resolve(__dirname, '../tests/fixtures/xlsx/competitors.xlsx'));
+  await importMapColumns(page);
 
   await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 3 rows/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await expect(page.getByText(/3 competitor.* added/i)).toBeVisible();
@@ -370,7 +389,7 @@ test('multi-sheet workbook offers a sheet picker before mapping', async ({ page 
   await page.getByRole('radio', { name: /Entries/ }).check();
   await page.getByRole('button', { name: 'Continue' }).click();
 
-  await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -399,6 +418,7 @@ test('CSV import maps two columns to distinct subdivision axes', async ({ page }
   await expect(dialog.getByText("New axis: 'Age Category'")).toBeVisible();
 
   // ── 4. Run the import — one axis is minted per column, named from its header
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -416,6 +436,7 @@ test('CSV import maps two columns to distinct subdivision axes', async ({ page }
   // ── 6. Re-importing the same CSV now matches the existing axes by name and
   //     reports every row unchanged (no duplicate axes, values land again). ─
   await uploadCsv(page, csv);
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByText(/0 competitor.* added/i)).toBeVisible();
   await expect(page.getByText(/2 unchanged/i)).toBeVisible();

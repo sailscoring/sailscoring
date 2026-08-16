@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, downloadFleetHtml } from './helpers';
+import { createSeriesQuick, downloadFleetHtml, importMapColumns } from './helpers';
 
 /**
  * E2E coverage for competitor nationality (#142). Exercises the
@@ -14,6 +14,8 @@ function csvBuffer(content: string) {
 
 async function uploadCsv(page: import('@playwright/test').Page, content: string) {
   await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(content));
+  // These specs are about column mapping; step past the Fleets step.
+  await importMapColumns(page);
 }
 
 async function enableNationality(page: import('@playwright/test').Page) {
@@ -65,6 +67,7 @@ test('nationality: CSV import auto-detects nat column and enables the field', as
 
   // Mapping wizard is open; run the import.
   await expect(page.getByRole('dialog')).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 3 rows/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();

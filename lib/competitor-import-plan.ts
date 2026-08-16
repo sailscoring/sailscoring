@@ -347,22 +347,28 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
       }
     }
 
-    // Systems the scorer asked for on top of what the file implies. The
-    // group's inferred fleets already hold the bare name, so these are
-    // always suffixed; an existing fleet under that name is reused, as is a
-    // bare-named fleet that happens to use the same system.
+    // Systems the scorer asked for on top of what the file implies. These
+    // are suffixed, since the group's own fleets hold the bare name — unless
+    // every one of those was dropped, in which case the bare name is free
+    // and an added fleet is the group's only fleet.
     const asked = overrides.extraSystems[group.canonicalName] ?? [];
     const seen = new Set<ScoringSystem>(systems);
+    let groupIsEmpty = !proposed.some((p) => p.csvFleetName === group.canonicalName);
     for (const system of asked) {
       if (seen.has(system)) continue;
       seen.add(system);
 
-      const suffixed = suffixedName(group.canonicalName, system);
-      let existing = findByName(existingFleets, suffixed);
-      let chosenName = existing ? existing.name : suffixed;
-      if (!existing) {
-        const bare = findByName(existingFleets, group.canonicalName);
-        if (bare && bare.scoringSystem === system) {
+      const bare = findByName(existingFleets, group.canonicalName);
+      let chosenName: string;
+      let existing: ReturnType<typeof findByName>;
+      if (groupIsEmpty && !bare) {
+        chosenName = group.canonicalName;
+        existing = undefined;
+      } else {
+        const suffixed = suffixedName(group.canonicalName, system);
+        existing = findByName(existingFleets, suffixed);
+        chosenName = existing ? existing.name : suffixed;
+        if (!existing && bare && bare.scoringSystem === system) {
           existing = bare;
           chosenName = bare.name;
         }
@@ -378,6 +384,7 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
         // by rating; `finish` clamps to `all` when it can't.
         defaultMembership: 'all',
       }, group);
+      groupIsEmpty = !proposed.some((p) => p.csvFleetName === group.canonicalName);
     }
   }
 

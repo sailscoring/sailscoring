@@ -8,6 +8,7 @@ import {
   pushCompetitorsToRrsOrg,
 } from '@/lib/api-repository';
 import { useFeatures } from '@/components/features-provider';
+import { FleetsStepBody } from '@/components/competitor-import-fleets';
 import {
   buildRrsOrgCompetitors,
   type RrsOrgBuildWarning,
@@ -33,6 +34,7 @@ import {
   NEW_AXIS_TARGET,
   RELAY_FIELDS,
   type CompetitorField,
+  type ColumnMap,
   type ColumnTarget,
   type RelayField,
 } from '@/lib/csv-import';
@@ -103,7 +105,7 @@ import { log } from '@/lib/debug';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type ColumnMap = Record<number, ColumnTarget>;
+
 
 /** The rrs.org side of an import, threaded through the flow when the scorer
  *  ticked "Import to rrs.org" (gated by the `rrs-import` feature). */
@@ -194,6 +196,10 @@ type ImportFlow =
        *  only so the importer knows whether to flip the series to
        *  'handicap' on confirm (when the plan produces handicap fleets). */
       seriesScoringMode: 'scratch' | 'handicap';
+      /** Which half of the import dialog is showing. Fleets comes first:
+       *  it settles what the import creates, and it owns the grouping and
+       *  rating columns the plan is derived from. */
+      stage: 'fleets' | 'columns';
       /** Index of the column whose values split competitors into fleets,
        *  or null for a single-fleet import. Held here rather than in
        *  `columnMap` because grouping is not a field role — which is what
@@ -315,13 +321,9 @@ function buildFieldLabels(
     labels[axisColumnTarget(axis.id)] = axis.label.trim() || DEFAULT_SUBDIVISION_LABEL;
   }
   labels[NEW_AXIS_TARGET] = 'New subdivision axis';
-  Object.assign(labels, {
-    tcc: STATIC_FIELD_LABELS.tcc,
-    vprsTcc: STATIC_FIELD_LABELS.vprsTcc,
-    py: STATIC_FIELD_LABELS.py,
-    nhcStartingTcf: STATIC_FIELD_LABELS.nhcStartingTcf,
-    echoStartingTcf: STATIC_FIELD_LABELS.echoStartingTcf,
-  });
+  // The rating roles are deliberately absent: they are set on the Fleets
+  // stage, which is what stops a plan the scorer approved being invalidated
+  // by a remap a screen later. They are restated there read-only.
   if (includeRelay) {
     for (const field of RELAY_FIELDS) {
       labels[relayColumnTarget(field)] = RELAY_FIELD_LABELS[field];
@@ -433,6 +435,17 @@ const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
   py: 'py',
   nhcStartingTcf: 'nhc',
   echoStartingTcf: 'echo',
+};
+
+/** Labels for the rating targets, restated on the mapping screen. Those
+ *  columns are set on the Fleets step, so they are shown there rather than
+ *  offered in the mapping dropdown. */
+const RATING_TARGET_LABEL: Partial<Record<CompetitorField, string>> = {
+  tcc: 'IRC rating',
+  vprsTcc: 'VPRS rating',
+  py: 'PY number',
+  nhcStartingTcf: 'NHC rating',
+  echoStartingTcf: 'ECHO rating',
 };
 
 /** Extract per-row planning data: the parsed fleet column values and the
@@ -551,27 +564,6 @@ function detectSailNumberChanges(
     .sort((a, b) => a.rowIndex - b.rowIndex);
 }
 
-/** Group ProposedFleet entries by their originating CSV fleet name (insertion order). */
-function groupProposedByCsvName(proposed: ProposedFleet[]): [string, ProposedFleet[]][] {
-  const groups = new Map<string, ProposedFleet[]>();
-  for (const p of proposed) {
-    const arr = groups.get(p.csvFleetName);
-    if (arr) arr.push(p);
-    else groups.set(p.csvFleetName, [p]);
-  }
-  return [...groups.entries()];
-}
-
-/** Display name for a fleet's scoring system in the wizard's plan section. */
-const SCORING_SYSTEM_LABEL: Record<ProposedFleet['scoringSystem'], string> = {
-  scratch: 'Scratch',
-  irc: 'IRC',
-  vprs: 'VPRS',
-  py: 'PY',
-  nhc: 'NHC',
-  echo: 'ECHO',
-};
-
 // ── Mapping table ───────────────────────────────────────────────────────────
 
 /** Label for the "create a new subdivision axis" option, naming the axis after
@@ -668,18 +660,22 @@ const MappingTable = memo(function MappingTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {headers.map((header, i) => (
-          <MappingRow
-            key={i}
-            header={header}
-            colIndex={i}
-            columnValue={columnMap[i]}
-            sampleCells={sampleCells[i]}
-            fieldLabels={fieldLabels}
-            multiPersonFields={multiPersonFields}
-            onChange={onChange}
-          />
-        ))}
+        {headers.map((header, i) =>
+          // A rating column is set on the Fleets stage and has no option in
+          // this dropdown, so it gets no row here — it is restated above.
+          RATING_TARGET_LABEL[columnMap[i] as CompetitorField] ? null : (
+            <MappingRow
+              key={i}
+              header={header}
+              colIndex={i}
+              columnValue={columnMap[i]}
+              sampleCells={sampleCells[i]}
+              fieldLabels={fieldLabels}
+              multiPersonFields={multiPersonFields}
+              onChange={onChange}
+            />
+          ),
+        )}
       </TableBody>
     </Table>
   );
@@ -746,11 +742,9 @@ function DivisionSourceSelect({
   );
 }
 
-/** The mapping dialog's body: series-level proposals, the fleet plan
- *  summary, and the column-mapping table. Lifted out of the inline IIFE
- *  it used to live in so it can host the hooks that stabilize the props
- *  passed down to `<MappingTable>`. */
-function MappingDialogBody({
+/** The Fleets stage: binds the import flow to the step's controls and
+ *  re-plans on every edit. */
+function FleetsDialogBody({
   flow,
   setFlow,
   fleets,
@@ -758,6 +752,58 @@ function MappingDialogBody({
   flow: MappingFlow;
   setFlow: React.Dispatch<React.SetStateAction<ImportFlow>>;
   fleets: Fleet[];
+}) {
+  const { has } = useFeatures();
+
+  const plan = planFleetCreation({
+    rows: extractPlanRows(flow.rows, flow.columnMap, flow.groupByColumn),
+    existingFleets: fleets,
+    overrides: flow.fleetOverrides,
+  });
+
+  const setColumn = useCallback((col: number, target: ColumnTarget) => {
+    setFlow((f) =>
+      f.step === 'mapping' ? { ...f, columnMap: { ...f.columnMap, [col]: target } } : f,
+    );
+  }, [setFlow]);
+
+  const setGroupByColumn = useCallback((col: number | null) => {
+    setFlow((f) => (f.step === 'mapping' ? { ...f, groupByColumn: col } : f));
+  }, [setFlow]);
+
+  const setOverrides = useCallback((next: FleetPlanOverrides) => {
+    setFlow((f) => (f.step === 'mapping' ? { ...f, fleetOverrides: next } : f));
+  }, [setFlow]);
+
+  return (
+    <FleetsStepBody
+      headers={flow.headers}
+      rows={flow.rows}
+      columnMap={flow.columnMap}
+      groupByColumn={flow.groupByColumn}
+      overrides={flow.fleetOverrides}
+      plan={plan}
+      fleets={fleets}
+      has={has}
+      onColumnMapChange={setColumn}
+      onGroupByColumnChange={setGroupByColumn}
+      onOverridesChange={setOverrides}
+    />
+  );
+}
+
+/** The mapping dialog's body: series-level proposals, the columns the Fleets
+ *  stage owns, and the column-mapping table. Lifted out of the inline IIFE
+ *  it used to live in so it can host the hooks that stabilize the props
+ *  passed down to `<MappingTable>`. */
+function MappingDialogBody({
+  flow,
+  setFlow,
+  onBackToFleets,
+}: {
+  flow: MappingFlow;
+  setFlow: React.Dispatch<React.SetStateAction<ImportFlow>>;
+  onBackToFleets: () => void;
 }) {
   const fieldLabels = useMemo(
     () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionAxes, flow.rrs !== null),
@@ -809,30 +855,21 @@ function MappingDialogBody({
     });
   }, [setFlow]);
 
-  const toggleAlsoScratch = useCallback((csvFleetName: string, checked: boolean) => {
-    setFlow((f) => {
-      if (f.step !== 'mapping') return f;
-      const next = { ...f.fleetOverrides.extraSystems };
-      if (checked) next[csvFleetName] = ['scratch'];
-      else delete next[csvFleetName];
-      return { ...f, fleetOverrides: { ...f.fleetOverrides, extraSystems: next } };
-    });
-  }, [setFlow]);
-
   const primaryChanged = flow.proposedPrimary !== flow.currentPrimary;
   const fieldAdditions = flow.proposedFields.filter((f) => !flow.currentFields.includes(f));
   const fieldRemovals = flow.currentFields.filter((f) => !flow.proposedFields.includes(f));
 
-  // Recompute the plan on every render — it's cheap and depends on
-  // column mappings + the also-scratch toggle, both of which the
-  // user edits inside this dialog.
-  const planRows = extractPlanRows(flow.rows, flow.columnMap, flow.groupByColumn);
-  const livePlan = planFleetCreation({
-    rows: planRows,
-    existingFleets: fleets,
-    overrides: flow.fleetOverrides,
-  });
-  const planGroups = groupProposedByCsvName(livePlan.proposed);
+  // The columns the Fleets step owns, restated here so the mapping table
+  // isn't silently missing them.
+  const settledColumns = useMemo(() => {
+    const out: { col: number; role: string }[] = [];
+    if (flow.groupByColumn != null) out.push({ col: flow.groupByColumn, role: 'Fleet grouping' });
+    for (const [colStr, target] of Object.entries(flow.columnMap)) {
+      const label = RATING_TARGET_LABEL[target as CompetitorField];
+      if (label) out.push({ col: parseInt(colStr, 10), role: label });
+    }
+    return out.sort((a, b) => a.col - b.col);
+  }, [flow.columnMap, flow.groupByColumn]);
 
   // Pre-slice each column's sample values once — headers and sampleRows are
   // fixed for the import session, so this never recomputes after mount. Rows
@@ -922,48 +959,22 @@ function MappingDialogBody({
         )}
       </div>
 
-      {/* Fleets to create / reuse */}
-      {planGroups.length > 0 && (
-        <div className="rounded-md border p-3 space-y-2 bg-muted/30">
-          <p className="text-sm font-medium">Fleets</p>
-          <div className="space-y-2">
-            {planGroups.map(([csvName, group]) => {
-              // Show the also-scratch toggle only for groups where
-              // at least one rating system was inferred (non-scratch).
-              const hasRatingFleet = group.some((p) => p.scoringSystem !== 'scratch');
-              return (
-                <div key={csvName} className="space-y-0.5">
-                  <p className="text-xs font-mono text-muted-foreground">
-                    {csvName}
-                  </p>
-                  <ul className="text-sm pl-3 space-y-0.5">
-                    {group.map((p) => (
-                      <li key={p.key} className="flex items-baseline gap-2">
-                        <span className="font-medium">{p.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {SCORING_SYSTEM_LABEL[p.scoringSystem]}
-                          {' · '}
-                          {p.rowIndices.length} {p.rowIndices.length === 1 ? 'boat' : 'boats'}
-                          {p.isExisting && ' · existing'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {hasRatingFleet && (
-                    <label className="flex items-center gap-1.5 text-xs pl-3 pt-0.5 cursor-pointer text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={(flow.fleetOverrides.extraSystems[csvName] ?? []).includes('scratch')}
-                        onChange={(e) => toggleAlsoScratch(csvName, e.target.checked)}
-                        className="h-3.5 w-3.5"
-                      />
-                      Also score {csvName} on scratch (line honours)
-                    </label>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+      {/* Columns the Fleets step owns, restated read-only: changing one
+          there re-plans the fleets, so it can't be changed from here. */}
+      {settledColumns.length > 0 && (
+        <div className="rounded-md border p-3 space-y-1 bg-muted/30">
+          <p className="text-sm font-medium">Set on the Fleets step</p>
+          <ul className="text-sm space-y-0.5">
+            {settledColumns.map(({ col, role }) => (
+              <li key={col} className="flex items-baseline gap-2">
+                <span className="font-mono text-xs">{flow.headers[col] || `Column ${col + 1}`}</span>
+                <span className="text-muted-foreground">→ {role}</span>
+              </li>
+            ))}
+          </ul>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 -ml-2" onClick={onBackToFleets}>
+            ◀ Change in Fleets
+          </Button>
         </div>
       )}
 
@@ -1319,6 +1330,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       subdivisionAxes: axes,
       multiPersonFields: series?.multiPersonFields ?? [],
       seriesScoringMode,
+      stage: 'fleets',
       groupByColumn: groupByColumn >= 0 ? groupByColumn : null,
       fleetOverrides: NO_OVERRIDES,
       rrs: rrs
@@ -1976,37 +1988,76 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         </DialogContent>
       </Dialog>
 
-      {/* Mapping dialog */}
+      {/* Fleets, then column mapping — one dialog, two stages. */}
       <Dialog open={importFlow.step === 'mapping'} onOpenChange={(open) => { if (!open) resetImport(); }}>
         <DialogContent className="w-[90vw] max-w-4xl sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Import competitors — map columns</DialogTitle>
-            <DialogDescription>
-              Match each spreadsheet column to a competitor field. Sail number and the
-              primary identifier are required. Use <code>|</code> in the fleet
-              column to assign a competitor to multiple fleets, e.g. <code>PY|M15</code>.
-            </DialogDescription>
-          </DialogHeader>
-          {importFlow.step === 'mapping' && (
-            <MappingDialogBody flow={importFlow} setFlow={setImportFlow} fleets={fleets} />
+          {importFlow.step === 'mapping' && importFlow.stage === 'fleets' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Import competitors — fleets</DialogTitle>
+                <DialogDescription>
+                  Which fleets this import creates, who is in them, and how they
+                  are scored. Use <code>|</code> in the grouping column to put a
+                  boat in several fleets, e.g. <code>PY|M15</code>.
+                </DialogDescription>
+              </DialogHeader>
+              <FleetsDialogBody flow={importFlow} setFlow={setImportFlow} fleets={fleets} />
+              <DialogFooter>
+                <Button variant="outline" onClick={resetImport}>Cancel</Button>
+                <Button
+                  onClick={() =>
+                    setImportFlow((f) => (f.step === 'mapping' ? { ...f, stage: 'columns' } : f))
+                  }
+                >
+                  Next: map columns →
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Import competitors — map columns</DialogTitle>
+                <DialogDescription>
+                  Match each spreadsheet column to a competitor field. Sail number
+                  and the primary identifier are required.
+                </DialogDescription>
+              </DialogHeader>
+              {importFlow.step === 'mapping' && (
+                <MappingDialogBody
+                  flow={importFlow}
+                  setFlow={setImportFlow}
+                  onBackToFleets={() =>
+                    setImportFlow((f) => (f.step === 'mapping' ? { ...f, stage: 'fleets' } : f))
+                  }
+                />
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={resetImport}>Cancel</Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setImportFlow((f) => (f.step === 'mapping' ? { ...f, stage: 'fleets' } : f))
+                  }
+                >
+                  ◀ Fleets
+                </Button>
+                <Button
+                  onClick={handleImport}
+                  disabled={(() => {
+                    if (importFlow.step !== 'mapping') return true;
+                    const t = Object.values(importFlow.columnMap);
+                    const primaryCount = t.filter((v) => v === 'primary').length;
+                    const sailCount = t.filter((v) => v === 'sailNumber').length;
+                    return sailCount !== 1 || primaryCount !== 1;
+                  })()}
+                >
+                  {importFlow.step === 'mapping'
+                    ? `Import ${importFlow.rows.length} row${importFlow.rows.length === 1 ? '' : 's'}${importFlow.rrs ? ' & push' : ''}`
+                    : 'Import'}
+                </Button>
+              </DialogFooter>
+            </>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={resetImport}>Cancel</Button>
-            <Button
-              onClick={handleImport}
-              disabled={(() => {
-                if (importFlow.step !== 'mapping') return true;
-                const t = Object.values(importFlow.columnMap);
-                const primaryCount = t.filter((v) => v === 'primary').length;
-                const sailCount = t.filter((v) => v === 'sailNumber').length;
-                return sailCount !== 1 || primaryCount !== 1;
-              })()}
-            >
-              {importFlow.step === 'mapping'
-                ? `Import ${importFlow.rows.length} row${importFlow.rows.length === 1 ? '' : 's'}${importFlow.rrs ? ' & push' : ''}`
-                : 'Import'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

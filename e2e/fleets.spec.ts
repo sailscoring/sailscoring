@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, downloadFleetHtml, keyboardReorder } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml, importMapColumns, keyboardReorder } from './helpers';
 
 /**
  * E2E tests for fleet support (issue #40).
@@ -169,7 +169,9 @@ test('reorder works after CSV import creates multiple fleets in parallel (#90)',
   await page
     .getByTestId('competitor-import-input')
     .setInputFiles({ name: 'competitors.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await importMapColumns(page);
   await expect(page.getByRole('dialog')).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 1 row/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();

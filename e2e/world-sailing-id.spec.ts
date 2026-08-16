@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createSeriesQuick, enableFeatures, importMapColumns } from './helpers';
 
 /**
  * E2E for the World Sailing Sailor ID (#362): recording the ID from an entry
@@ -51,6 +51,7 @@ test('Sailor IDs come in with the entry list and a seeding list ranks them', asy
     ),
   );
   await expect(page.getByRole('dialog')).toBeVisible();
+  await importMapColumns(page);
   await page.getByRole('button', { name: /Import 3 rows/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
