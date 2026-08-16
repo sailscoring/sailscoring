@@ -41,7 +41,12 @@ import type { Competitor, CompetitorFieldKey, Finish, Fleet } from '@/lib/types'
  *  race's started fleets; an empty set means no starts are recorded, so every
  *  fleet is implied racing and all memberships show. A boat force-entered from
  *  outside the started fleets (no overlap) falls back to all its memberships
- *  rather than rendering blank. Falls back to a single "—" when none resolve. */
+ *  rather than rendering blank. Falls back to a single "—" when none resolve.
+ *
+ *  Badges shrink and ellipsize rather than holding their full width: a long
+ *  fleet name in the narrow non-finishers panel would otherwise push the rest
+ *  of its row out past the panel's right edge. The full name stays available
+ *  as the badge's tooltip. */
 function FleetBadges({
   fleetIds,
   raceFleetIds,
@@ -61,10 +66,10 @@ function FleetBadges({
   const names = competitorFleetNames(inRace.length > 0 ? inRace : fleetIds, fleetById);
   const labels = names.length > 0 ? names : ['—'];
   return (
-    <span data-testid={testId} className="flex items-center gap-1 shrink-0">
+    <span data-testid={testId} className="flex items-center gap-1 min-w-0">
       {labels.map((name, i) => (
-        <Badge key={`${name}-${i}`} variant={variant} className="text-xs shrink-0">
-          {name}
+        <Badge key={`${name}-${i}`} variant={variant} className="text-xs shrink" title={name}>
+          <span className="truncate">{name}</span>
         </Badge>
       ))}
     </span>
@@ -210,7 +215,11 @@ export function FinishTab(props: FinishTabProps) {
       {showFleetBadge && (
         <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
       )}
-      <span className="text-sm flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+      {/* flex-auto, not flex-1: with a zero basis the name is the first thing
+          squeezed to nothing, leaving the fleet badge to overflow the row on
+          its own. Sized from its content, name and badge share the squeeze and
+          both ellipsize. */}
+      <span className="text-sm flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
       {code === 'RDG' && (
         <button
           type="button"
@@ -232,7 +241,7 @@ export function FinishTab(props: FinishTabProps) {
           }
         }}
       >
-        <SelectTrigger className="w-36 h-8 text-xs">
+        <SelectTrigger className="w-36 h-8 text-xs shrink-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -425,7 +434,7 @@ export function FinishTab(props: FinishTabProps) {
                   {showFleetBadge && (
                     <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="secondary" />
                   )}
-                  <span className="flex-1 truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                  <span className="flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 </li>
               ))}
               {showUnknownRow && (
@@ -592,7 +601,7 @@ export function FinishTab(props: FinishTabProps) {
                     testId={`fleet-badge-${competitor.sailNumber}`}
                   />
                 )}
-                <span className="text-sm truncate flex-1">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                <span className="text-sm truncate flex-auto">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
                 {showFinishTimeColumn && (isTimed ? (
                   <input
                     type="text"

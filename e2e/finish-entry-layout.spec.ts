@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick } from './helpers';
+import { createFleets, createSeriesQuick } from './helpers';
 
 /**
  * E2E for the adaptive finish-entry layout (issue #225).
@@ -105,6 +105,46 @@ test('non-finishers: did-not-compete boats sink below recorded results', async (
   const c3Box = await page.getByTestId('non-finisher-C3').boundingBox();
   expect(b2Box!.y).toBeLessThan(dividerBox!.y);
   expect(dividerBox!.y).toBeLessThan(c3Box!.y);
+});
+
+test('non-finishers: a long fleet name stays inside the panel', async ({ page }) => {
+  const longFleet = 'Cruisers 1 IRC White Sail Division';
+
+  await createSeriesQuick(page, { name: 'Long Fleet Label 2026', venue: 'HYC' });
+  await createFleets(page, [longFleet]);
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL 1234');
+  await page.getByLabel('Competitor name').fill('Aoife Ní Mhurchú-Fitzgerald');
+  // Sole fleet — the competitor is auto-assigned to it, so there is no fleet
+  // checkbox to tick.
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL 1234' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // Nobody has finished, so the boat sits in the non-finishers panel — the
+  // narrow half of the split, where the badge used to push the row's contents
+  // out past the right-hand edge.
+  const row = page.getByTestId('non-finisher-IRL 1234');
+  await expect(row).toBeVisible();
+
+  // Narrow viewports squeeze the panel hardest; check the widest and the
+  // narrowest the two-column split is used at.
+  for (const width of [1280, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflow = await row.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow, `row overflows at ${width}px`).toBeLessThanOrEqual(1);
+
+    const rowBox = (await row.boundingBox())!;
+    const badgeBox = (await row.getByText(longFleet).boundingBox())!;
+    expect(badgeBox.x + badgeBox.width, `badge escapes the row at ${width}px`)
+      .toBeLessThanOrEqual(rowBox.x + rowBox.width + 1);
+  }
 });
 
 test('non-finishers: filter narrows the panel to assign a code', async ({ page }) => {
