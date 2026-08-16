@@ -8,7 +8,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createSeriesQuick, enableFeatures, importMapColumns } from './helpers';
 
 const EVENT_UUID = 'd17854ef-f55f-4ab6-8429-3f55527b6e9f';
 const PUSH_LOG = path.join(process.cwd(), 'tests', '.rrs-org.log');
@@ -65,7 +65,7 @@ test('CSV import + push in one step, then a push-only re-push', async ({ page, s
   await page.getByRole('button', { name: 'Continue' }).click();
 
   // ── Mapping dialog: relay columns detected, push section present ─────────
-  await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await importMapColumns(page);
   await expect(page.getByText('Email (rrs.org only)')).toBeVisible();
   await expect(page.getByText('Phone (rrs.org only)')).toBeVisible();
   await expect(page.getByText('Push to rrs.org')).toBeVisible();
