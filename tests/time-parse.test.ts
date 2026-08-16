@@ -34,9 +34,27 @@ describe('normalizeTimeInput', () => {
     expect(normalizeTimeInput('14h32m')).toBeNull();
   });
 
-  it('rejects dot-separated times (Sailwave style)', () => {
-    // Caller must convert "HH.MM.SS" → "HH:MM:SS" before passing in.
-    expect(normalizeTimeInput('14.32.10')).toBeNull();
+  it('accepts dot-separated times (Sailwave style)', () => {
+    expect(normalizeTimeInput('14.32.10')).toBe('14:32:10');
+    expect(normalizeTimeInput('12.39.25')).toBe('12:39:25');
+    expect(normalizeTimeInput('9.05.07')).toBe('09:05:07');
+  });
+
+  it('range-checks dot-separated times too', () => {
+    expect(normalizeTimeInput('14.60.00')).toBeNull();
+    expect(normalizeTimeInput('14.32.60')).toBeNull();
+  });
+
+  it('rejects separators mixed within one time', () => {
+    expect(normalizeTimeInput('14:32.10')).toBeNull();
+    expect(normalizeTimeInput('14.32:10')).toBeNull();
+  });
+
+  it('rejects a decimal fraction of a day', () => {
+    // Excel's raw serial for a time of day — the CSV importer converts these
+    // before they reach here, and they are not times in their own right.
+    expect(normalizeTimeInput('0.4382523')).toBeNull();
+    expect(normalizeTimeInput('.4382523')).toBeNull();
   });
 
   it('rejects empty input', () => {

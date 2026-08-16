@@ -204,7 +204,8 @@ export default function EnteringResults() {
           <li>
             <strong className="text-foreground">Finish time</strong> — optional; accepts{' '}
             <code className="text-foreground text-sm">HH:MM:SS</code>,{' '}
-            <code className="text-foreground text-sm">H:MM:SS</code>, or bare digits like{' '}
+            <code className="text-foreground text-sm">H:MM:SS</code>, dot-separated{' '}
+            <code className="text-foreground text-sm">HH.MM.SS</code>, or bare digits like{' '}
             <code className="text-foreground text-sm">143210</code>.
           </li>
           <li>

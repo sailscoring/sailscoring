@@ -50,6 +50,7 @@ import type { Race, SubSeries } from '@/lib/types';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { generateStarts } from '@/lib/start-sequence';
+import { normalizeTimeInput } from '@/lib/time-parse';
 import { generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 import { RaceScoringOptionsDialog } from '@/components/race-scoring-options-dialog';
@@ -234,17 +235,6 @@ function RaceRow({
       </div>
     </div>
   );
-}
-
-/** Normalize a time input like "140500" or "14:05:00" to "HH:MM:SS". */
-function normalizeTimeInput(input: string): string | null {
-  const trimmed = input.trim();
-  if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) return trimmed;
-  if (/^\d{6}$/.test(trimmed)) {
-    const p = trimmed.padStart(6, '0');
-    return `${p.slice(0, 2)}:${p.slice(2, 4)}:${p.slice(4, 6)}`;
-  }
-  return null;
 }
 
 /** Plural weekday label for an ISO date, e.g. "2026-05-05" → "Tuesdays".
