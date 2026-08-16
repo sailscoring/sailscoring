@@ -139,6 +139,34 @@ trail; no new audit fields needed.
 
 ---
 
+## Fleet membership (planned)
+
+A certificate source knows something no other part of the app does: **which
+boats hold a certificate**. The boats an IRC listing matches are precisely
+the certificated ones — so this flow is the right place to settle who is
+actually in an IRC fleet.
+
+This matters because the two are not the same group. At HYC every boat in
+Cruisers 1 carries an NHC rating but only some buy an IRC certificate, and
+an entry list with no IRC column cannot say which. The competitor importer
+therefore has to create an added IRC fleet holding the whole group and leave
+it over-full (see [competitor-import.md](competitor-import.md), Step 3 —
+Membership: the subset problem). Nothing else ever corrects it.
+
+So when a certificate source runs against a fleet of its own system, step 2
+should offer, alongside the rating diff:
+
+- **Boats matched but not in the fleet** — offer to add them.
+- **Boats in the fleet the source didn't match** — offer to remove them,
+  listed by name so a genuinely-certificated boat the listing missed isn't
+  dropped silently.
+
+Both are opt-in and shown as a diff before the click, like the ratings
+themselves. Membership is never changed without being displayed first, and
+a boat that already has finishes in the fleet is not offered for removal.
+
+---
+
 ## Edge cases
 
 - **Source fleet with no scored races yet.** Unavailable in the
