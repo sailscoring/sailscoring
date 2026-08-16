@@ -167,14 +167,19 @@ export async function bulkUpdateHandicaps(
   const db = getDb();
   const updated: Competitor[] = [];
   let addedToFleet = 0;
+  let removedFromFleet = 0;
   let frozenRaces = 0;
   await db.transaction(async (tx) => {
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
 
     // Validate any fleet-add targets up front: every id must be a fleet of
     // this series (fleetIds is otherwise only shape-validated).
-    const wantsFleetAdd = updates.some((u) => u.addFleetIds && u.addFleetIds.length > 0);
-    const seriesFleetIds = wantsFleetAdd
+    const wantsFleetChange = updates.some(
+      (u) =>
+        (u.addFleetIds && u.addFleetIds.length > 0) ||
+        (u.removeFleetIds && u.removeFleetIds.length > 0),
+    );
+    const seriesFleetIds = wantsFleetChange
       ? new Set((await repos.fleets.listBySeries(seriesId)).map((f) => f.id))
       : new Set<string>();
 
@@ -217,6 +222,19 @@ export async function bulkUpdateHandicaps(
         const merged = new Set([...existing.fleetIds, ...u.addFleetIds]);
         if (merged.size !== existing.fleetIds.length) addedToFleet++;
         fleetIds = [...merged];
+      }
+      // …and subtract any removals, after the additions so a single update
+      // that does both lands on the intended membership.
+      if (u.removeFleetIds && u.removeFleetIds.length > 0) {
+        for (const fid of u.removeFleetIds) {
+          if (!seriesFleetIds.has(fid)) {
+            throw new BadRequestError(`fleet ${fid} is not in this series`);
+          }
+        }
+        const drop = new Set(u.removeFleetIds);
+        const kept = fleetIds.filter((id) => !drop.has(id));
+        if (kept.length !== fleetIds.length) removedFromFleet++;
+        fleetIds = kept;
       }
       // Build the next row by merging only the supplied handicap fields.
       // `undefined` means "not in this update" and leaves the field alone.
@@ -262,6 +280,7 @@ export async function bulkUpdateHandicaps(
   const n = updated.length;
   const parts = [`Updated handicaps for ${n} competitor${n === 1 ? '' : 's'}`];
   if (addedToFleet > 0) parts.push(`added ${addedToFleet} to a fleet`);
+  if (removedFromFleet > 0) parts.push(`removed ${removedFromFleet} from a fleet`);
   if (frozenRaces > 0) parts.push(`froze ${frozenRaces} scored race${frozenRaces === 1 ? '' : 's'} on the old rating`);
   await trackChange(workspace, {
     action: 'competitors.handicaps_updated',

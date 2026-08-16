@@ -616,6 +616,26 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const afterReject = await competitors.getCompetitor(ctxA, seriesId, compId);
     expect(afterReject.fleetIds.sort()).toEqual([scratchId, ircId].sort());
 
+    // …and the counterpart: trimming a boat the rating list doesn't rate out
+    // of the fleet it was put in at import time.
+    const beforeRemove = await competitors.getCompetitor(ctxA, seriesId, compId);
+    const { updated: afterRemove } = await competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+      updates: [
+        { competitorId: compId, expectedVersion: beforeRemove.version ?? 1, removeFleetIds: [ircId] },
+      ],
+    });
+    expect(afterRemove[0].fleetIds).toEqual([scratchId]);
+
+    // A bogus fleet id is rejected on the removal path too.
+    const nowAgain = await competitors.getCompetitor(ctxA, seriesId, compId);
+    await expect(
+      competitors.bulkUpdateHandicaps(ctxA, seriesId, {
+        updates: [
+          { competitorId: compId, expectedVersion: nowAgain.version ?? 1, removeFleetIds: [uuid()] },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+
     await removeSeries(ctxA, seriesId);
   });
 

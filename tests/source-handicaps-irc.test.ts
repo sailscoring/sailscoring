@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   additionKey,
   planIrcFleetAdditions,
+  planIrcFleetRemovals,
   planIrcUpdates,
   type FleetAdditionCandidate,
   type PreviewRow,
@@ -303,5 +304,59 @@ describe('planIrcFleetAdditions', () => {
     const c = addByKey(cands).get(additionKey('c1', 'irc'))!;
     expect(c.proposedTcf).toBe(1.114);
     expect(c.certChoice?.options).toHaveLength(2);
+  });
+});
+
+describe('planIrcFleetRemovals', () => {
+  it('proposes removing a boat in an IRC fleet that the list does not rate', () => {
+    // The over-full fleet an import creates: an entry list with no IRC column
+    // can't say who holds a certificate, so everyone joined.
+    const cands = planIrcFleetRemovals({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-irc']), comp('c2', 'IRL9999', ['f-irc'])],
+      targetFleets: [fleet('f-irc', 'irc')],
+      records: [rec('IRL1431', { ircTcc: 0.932 })],
+    });
+    expect(cands).toEqual([
+      { competitorId: 'c2', fleetId: 'f-irc', fleetName: 'f-irc', system: 'irc' },
+    ]);
+  });
+
+  it('leaves a boat that has already raced alone', () => {
+    // Taking it out would drop scored races — not a tidy-up.
+    const cands = planIrcFleetRemovals({
+      targetCompetitors: [comp('c2', 'IRL9999', ['f-irc'])],
+      targetFleets: [fleet('f-irc', 'irc')],
+      records: [],
+      competitorIdsWithResults: new Set(['c2']),
+    });
+    expect(cands).toEqual([]);
+  });
+
+  it('only touches fleets of its own system', () => {
+    const cands = planIrcFleetRemovals({
+      targetCompetitors: [comp('c2', 'IRL9999', ['f-irc', 'f-nhc', 'f-echo'])],
+      targetFleets: fleets,
+      records: [],
+    });
+    expect(cands.map((c) => c.fleetId)).toEqual(['f-irc']);
+  });
+
+  it('keeps a boat the list rates only for a different system', () => {
+    // An ECHO number is not an IRC certificate.
+    const cands = planIrcFleetRemovals({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-irc'])],
+      targetFleets: [fleet('f-irc', 'irc')],
+      records: [rec('IRL1431', { echo: 0.975 })],
+    });
+    expect(cands.map((c) => c.competitorId)).toEqual(['c1']);
+  });
+
+  it('keeps a boat rated only on its non-spin TCC', () => {
+    const cands = planIrcFleetRemovals({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-irc'])],
+      targetFleets: [fleet('f-irc', 'irc')],
+      records: [rec('IRL1431', { ircNonSpinTcc: 0.918 })],
+    });
+    expect(cands).toEqual([]);
   });
 });

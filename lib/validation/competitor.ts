@@ -118,6 +118,10 @@ export const handicapUpdateSchema = z.object({
   // "add a newly-rated boat to the handicap fleet" path (#170). The handler
   // verifies each id is a fleet of the series.
   addFleetIds: z.array(uuidSchema).optional(),
+  // Fleets to take this competitor out of — the counterpart of addFleetIds,
+  // used to trim a fleet to the boats a certificate list actually rates. The
+  // handler verifies each id is a fleet of the series.
+  removeFleetIds: z.array(uuidSchema).optional(),
 });
 
 export const handicapBulkUpdateSchema = z.object({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { queryKeys } from '@/hooks/query-keys';
-import { raceRepo, type HandicapUpdateRow } from '@/lib/api-repository';
+import { finishRepo, raceRepo, type HandicapUpdateRow } from '@/lib/api-repository';
 import { formatRatingValue } from '@/lib/competitor-ratings';
 import type { IrcTccVariant } from '@/lib/rating-match';
 import type {
   FleetAdditionCandidate,
+  FleetRemovalCandidate,
   HandicapSystem,
   PreviewRow,
   RatingMatch,
@@ -153,6 +154,7 @@ export function buildPreviewUpdateRows(
   changeRows: PreviewRow[],
   additions: FleetAdditionCandidate[],
   competitorById: Map<string, Competitor>,
+  removals: FleetRemovalCandidate[] = [],
 ): HandicapUpdateRow[] {
   const updatesByComp = new Map<string, HandicapUpdateRow>();
   function rowFor(competitorId: string): HandicapUpdateRow | null {
@@ -186,6 +188,12 @@ export function buildPreviewUpdateRows(
     (update as unknown as Record<string, number>)[field] = c.proposedTcf;
   }
 
+  for (const c of removals) {
+    const update = rowFor(c.competitorId);
+    if (!update) continue;
+    update.removeFleetIds = [...new Set([...(update.removeFleetIds ?? []), c.fleetId])];
+  }
+
   return [...updatesByComp.values()];
 }
 
@@ -201,6 +209,8 @@ export function useRatingListSelections() {
   // Add-to-fleet (#170): which candidates are ticked, and each one's target fleet.
   const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
   const [addTargetFleetByKey, setAddTargetFleetByKey] = useState<Record<string, string>>({});
+  // Remove-from-fleet: which unrated boats the scorer has ticked to take out.
+  const [removeSelected, setRemoveSelected] = useState<Set<string>>(new Set());
   const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
 
   return {
@@ -220,6 +230,14 @@ export function useRatingListSelections() {
     addTargetFleetByKey,
     chooseAdditionFleet: (key: string, fleetId: string) =>
       setAddTargetFleetByKey((prev) => ({ ...prev, [key]: fleetId })),
+    removeSelected,
+    toggleRemoval: (key: string, on: boolean) =>
+      setRemoveSelected((prev) => {
+        const next = new Set(prev);
+        if (on) next.add(key);
+        else next.delete(key);
+        return next;
+      }),
     excludedRowIds,
     toggleRow: (key: string, included: boolean) =>
       setExcludedRowIds((prev) => {
@@ -239,6 +257,19 @@ export function useSeriesHasRaces(seriesId: string): boolean {
     queryFn: () => raceRepo.listBySeries(seriesId),
   });
   return (targetRaces.data?.length ?? 0) > 0;
+}
+
+/** Competitors with a result in any race. Taking one out of a fleet would
+ *  drop scored races, so they are never offered for removal. */
+export function useCompetitorIdsWithResults(seriesId: string): ReadonlySet<string> {
+  const finishes = useQuery({
+    queryKey: queryKeys.finishes.bySeries(seriesId),
+    queryFn: () => finishRepo.listBySeries(seriesId),
+  });
+  return useMemo(
+    () => new Set((finishes.data ?? []).map((f) => f.competitorId).filter((id): id is string => !!id)),
+    [finishes.data],
+  );
 }
 
 // ── Small shared UI pieces ──────────────────────────────────────────────────

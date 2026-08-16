@@ -930,6 +930,77 @@ export function planIrcFleetAdditions(input: FleetAdditionInput): FleetAdditionC
   return planFleetAdditions(input, ['irc']);
 }
 
+export interface FleetRemovalCandidate {
+  competitorId: string;
+  fleetId: string;
+  fleetName: string;
+  system: AddableSystem;
+}
+
+/** Stable key for a `(competitor, fleet)` removal candidate. */
+export function removalKey(competitorId: string, fleetId: string): string {
+  return `${competitorId}::remove::${fleetId}`;
+}
+
+export interface FleetRemovalInput extends FleetAdditionInput {
+  /** Competitors that already have a result in some race, by id. Removing a
+   *  boat that has raced would silently drop scored results, so those are
+   *  never offered. */
+  competitorIdsWithResults?: ReadonlySet<string>;
+}
+
+/**
+ * Find boats sitting in a fleet of this source's system that the source list
+ * doesn't rate — candidates to remove.
+ *
+ * This is the counterpart of {@link planFleetAdditions}, and it exists because
+ * the competitor importer cannot know who holds a certificate. An entry list
+ * with no IRC column says nothing about it, so an IRC fleet added at import
+ * time holds the whole group and arrives over-full. A certificate source is
+ * the first thing that knows better: the boats it matches are precisely the
+ * certificated ones.
+ *
+ * Never offered for a boat that already has a result — losing scored races is
+ * not a tidy-up. Nothing is removed without the scorer ticking it.
+ */
+function planFleetRemovals(
+  input: FleetRemovalInput,
+  systems: readonly AddableSystem[],
+): FleetRemovalCandidate[] {
+  const matcher = new RatingMatcher(input.records, input.defaultCountry ?? '');
+  const matchByName = input.matchByName ?? false;
+  const withResults = input.competitorIdsWithResults ?? new Set<string>();
+
+  const fleetById = new Map(input.targetFleets.map((f) => [f.id, f] as const));
+  const out: FleetRemovalCandidate[] = [];
+
+  for (const comp of input.targetCompetitors) {
+    if (withResults.has(comp.id)) continue;
+    const match = matcher.match(comp, matchByName);
+    const rated =
+      match.kind === 'matched' &&
+      match.records.some((r) =>
+        systems.includes('echo') ? r.echo != null : r.ircTcc != null || r.ircNonSpinTcc != null,
+      );
+    if (rated) continue;
+
+    for (const fid of comp.fleetIds) {
+      const fleet = fleetById.get(fid);
+      if (!fleet) continue;
+      const system = fleet.scoringSystem;
+      if (system !== 'irc' && system !== 'echo') continue;
+      if (!systems.includes(system)) continue;
+      out.push({ competitorId: comp.id, fleetId: fid, fleetName: fleet.name, system });
+    }
+  }
+  return out;
+}
+
+/** Boats in an IRC fleet that the IRC list doesn't rate. */
+export function planIrcFleetRemovals(input: FleetRemovalInput): FleetRemovalCandidate[] {
+  return planFleetRemovals(input, ['irc']);
+}
+
 /** Add-to-ECHO-fleet candidates from the Irish Sailing list (#170). */
 export function planEchoFleetAdditions(input: FleetAdditionInput): FleetAdditionCandidate[] {
   return planFleetAdditions(input, ['echo']);

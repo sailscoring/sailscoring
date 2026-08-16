@@ -896,6 +896,9 @@ export interface HandicapUpdateRow {
   /** Fleets to add this competitor to (#170) — unioned with current
    *  membership server-side. */
   addFleetIds?: string[];
+  /** Fleets to take this competitor out of — subtracted from current
+   *  membership server-side, after any additions. */
+  removeFleetIds?: string[];
 }
 
 export async function updateHandicaps(

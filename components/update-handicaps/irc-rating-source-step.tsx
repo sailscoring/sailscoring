@@ -14,12 +14,16 @@ import { defaultSailCountry, type IrcTccVariant } from '@/lib/rating-match';
 import {
   additionKey,
   planIrcFleetAdditions,
+  planIrcFleetRemovals,
   planIrcUpdates,
+  removalKey,
   type FleetAdditionCandidate,
+  type FleetRemovalCandidate,
   type PreviewRow,
 } from '@/lib/source-handicaps';
 
 import { AddToFleetSection } from './add-to-fleet-section';
+import { RemoveFromFleetSection } from './remove-from-fleet-section';
 import { PreviewSection } from './preview-section';
 import {
   FleetVariantSelector,
@@ -28,6 +32,7 @@ import {
   buildPreviewUpdateRows,
   previewOutcome,
   splitPreviewRows,
+  useCompetitorIdsWithResults,
   useRatingListSelections,
   useSeriesHasRaces,
   type SourceStepProps,
@@ -61,6 +66,7 @@ export function IrcRatingSourceStep({
   // parameter — IRL by default). Matters most against the worldwide IRC list.
   const defaultCountry = defaultSailCountry();
   const seriesHasRaces = useSeriesHasRaces(seriesId);
+  const competitorIdsWithResults = useCompetitorIdsWithResults(seriesId);
 
   const previewRows = useMemo<PreviewRow[]>(() => {
     if (!competitors || !fleets || !ircRatings.data) return [];
@@ -89,6 +95,25 @@ export function IrcRatingSourceStep({
     });
   }, [competitors, fleets, ircRatings.data, ircVariantByFleet, sel.matchByName, sel.certChoiceByCompetitor, sel.addTargetFleetByKey, defaultCountry]);
 
+  // The counterpart: boats sitting in an IRC fleet the list doesn't rate.
+  // An IRC fleet created at import time holds a whole group, because an entry
+  // list can't say who holds a certificate — this is where it converges.
+  const removalCandidates = useMemo<FleetRemovalCandidate[]>(() => {
+    if (!competitors || !fleets || !ircRatings.data) return [];
+    return planIrcFleetRemovals({
+      targetCompetitors: competitors,
+      targetFleets: fleets,
+      records: ircRatings.data.records,
+      matchByName: sel.matchByName,
+      competitorIdsWithResults,
+      defaultCountry,
+    });
+  }, [competitors, fleets, ircRatings.data, sel.matchByName, competitorIdsWithResults, defaultCountry]);
+
+  const checkedRemovals = removalCandidates.filter((c) =>
+    sel.removeSelected.has(removalKey(c.competitorId, c.fleetId)),
+  );
+
   // A candidate can actually be applied once it has a target fleet and a value.
   const checkedAdditions = additionCandidates.filter(
     (c) => sel.addSelected.has(additionKey(c.competitorId, c.system)) && c.targetFleetId && c.proposedTcf !== null,
@@ -110,7 +135,12 @@ export function IrcRatingSourceStep({
 
   function handleApply() {
     onApply(
-      buildPreviewUpdateRows(split.appliedChangeRows, checkedAdditions, targetCompetitorById),
+      buildPreviewUpdateRows(
+        split.appliedChangeRows,
+        checkedAdditions,
+        targetCompetitorById,
+        checkedRemovals,
+      ),
       previewOutcome(split, checkedAdditions.length),
     );
   }
@@ -174,6 +204,13 @@ export function IrcRatingSourceStep({
               seriesHasRaces={seriesHasRaces}
             />
 
+            <RemoveFromFleetSection
+              candidates={removalCandidates}
+              selected={sel.removeSelected}
+              onToggle={sel.toggleRemoval}
+              targetCompetitorById={targetCompetitorById}
+            />
+
             {ircRatings.data.updatedAt && (
               <p className="text-xs text-muted-foreground">
                 IRC ratings as of {ircRatings.data.updatedAt}.
@@ -190,11 +227,11 @@ export function IrcRatingSourceStep({
         onApply={handleApply}
         disabled={
           !ircRatings.data ||
-          split.appliedChangeRows.length + checkedAdditions.length === 0 ||
+          split.appliedChangeRows.length + checkedAdditions.length + checkedRemovals.length === 0 ||
           applying
         }
         applying={applying}
-        count={split.appliedChangeRows.length + checkedAdditions.length}
+        count={split.appliedChangeRows.length + checkedAdditions.length + checkedRemovals.length}
       />
     </>
   );
