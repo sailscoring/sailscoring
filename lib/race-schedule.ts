@@ -1,9 +1,11 @@
 /**
- * Recurring race date generator.
+ * Race dates: the recurring generator, and the date a newly added race
+ * should carry.
  *
  * A season is usually a run of races on a fixed weekday at a fixed cadence
- * (weekly or fortnightly). This expands a start date + interval into the list
- * of race dates, either a fixed count or up to an inclusive end date.
+ * (weekly or fortnightly). {@link generateRaceDates} expands a start date +
+ * interval into the list of race dates, either a fixed count or up to an
+ * inclusive end date.
  *
  * Date arithmetic is done on the calendar parts via `Date.UTC`, advancing with
  * `setUTCDate` — never by adding a fixed number of milliseconds. Millisecond
@@ -25,6 +27,61 @@ export interface RaceScheduleOptions {
   untilDate?: string;
   /** Hard cap, applied in either mode. Defaults to {@link MAX_GENERATED_RACES}. */
   maxRaces?: number;
+}
+
+/**
+ * Today's date as "YYYY-MM-DD" from the *local* calendar.
+ *
+ * Not `new Date().toISOString().slice(0, 10)`: that is the UTC date, so
+ * anywhere ahead of UTC — Irish summer time included — the small hours after
+ * midnight still read as yesterday.
+ */
+export function todayIsoDate(now: Date = new Date()): string {
+  const y = String(now.getFullYear()).padStart(4, '0');
+  const mo = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${d}`;
+}
+
+/** Valid "YYYY-MM-DD", or null. */
+function validIsoDate(v: string | null | undefined): string | null {
+  return v && parseIsoDateToUtc(v) !== null ? v : null;
+}
+
+export interface DefaultRaceDateInput {
+  /** Dates of the races already in the series, in series order. */
+  existingDates?: readonly (string | null | undefined)[];
+  /** The series window; either may be empty or unset. */
+  startDate?: string | null;
+  endDate?: string | null;
+  /** Today's local date. Defaults to {@link todayIsoDate}; injectable so
+   *  tests don't depend on when they run. */
+  today?: string;
+}
+
+/**
+ * The date a newly added race should default to, in preference order:
+ *
+ * 1. The last dated race in the series — a scorer entering several races off
+ *    one day's sailing gets the right date on every one after the first.
+ * 2. Today, clamped into the series window: before `startDate` → `startDate`,
+ *    after `endDate` → `endDate`. So a series that ran last week never gets a
+ *    race dated outside itself.
+ * 3. Today, when the series has no usable dates.
+ */
+export function defaultRaceDate(input: DefaultRaceDateInput): string {
+  const today = validIsoDate(input.today) ?? todayIsoDate();
+  const existing = input.existingDates ?? [];
+  for (let i = existing.length - 1; i >= 0; i--) {
+    const date = validIsoDate(existing[i]);
+    if (date) return date;
+  }
+  // ISO dates compare correctly as strings.
+  const start = validIsoDate(input.startDate);
+  if (start && today < start) return start;
+  const end = validIsoDate(input.endDate);
+  if (end && today > end) return end;
+  return today;
 }
 
 /** Parse an ISO "YYYY-MM-DD" string to a UTC-midnight epoch, or null. */

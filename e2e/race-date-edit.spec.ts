@@ -2,9 +2,10 @@ import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick } from './helpers';
 
 /**
- * A scorer can correct a race's date from the race results page. New races
- * default to today's date; this verifies the inline editor persists a change
- * and that it survives a reload and shows up back on the Races list.
+ * A scorer can correct a race's date from the race results page. This verifies
+ * the inline editor persists a change, that it survives a reload, and that it
+ * shows up back on the Races list. (What a new race is dated by default is
+ * race-default-date.spec.ts.)
  */
 test('edit a race date from the race results page', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Tuesday Evening Series', venue: 'Howth Yacht Club' });

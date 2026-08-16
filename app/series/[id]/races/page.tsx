@@ -51,7 +51,7 @@ import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { generateStarts } from '@/lib/start-sequence';
 import { normalizeTimeInput } from '@/lib/time-parse';
-import { generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
+import { defaultRaceDate, generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 import { RaceScoringOptionsDialog } from '@/components/race-scoring-options-dialog';
 import { RaceMetadataDialog } from '@/components/race-metadata-dialog';
@@ -404,20 +404,34 @@ export default function RacesPage({
     reorderRaces.mutate(next);
   }
 
-  // Insert a new (unnamed, today-dated) race at a position: create it appended,
-  // then reorder with its id spliced into place so the tail renumbers. Starts
+  // The date a newly added race carries: the last dated race in the series,
+  // else today clamped into the series window, so a series that ran in the
+  // past never gets a race dated outside itself.
+  function newRaceDate(existing: readonly Race[]) {
+    return defaultRaceDate({
+      existingDates: existing.map((r) => r.date),
+      startDate: series?.startDate,
+      endDate: series?.endDate,
+    });
+  }
+
+  // Insert a new (unnamed) race at a position: create it appended, then
+  // reorder with its id spliced into place so the tail renumbers. Starts
   // can be added on the new race's page.
   async function insertRaceAt(index: number) {
     if (!races || addingRace) return;
     setAddingRace(true);
     try {
       const newId = crypto.randomUUID();
+      // Dated from the races the new one lands after — or, inserting above
+      // the first race, from that first race.
+      const before = index > 0 ? races.slice(0, index) : races.slice(0, 1);
       await saveRace.mutateAsync({
         id: newId,
         seriesId,
         raceNumber: races.length + 1,
         name: null,
-        date: new Date().toISOString().slice(0, 10),
+        date: newRaceDate(before),
         createdAt: Date.now(),
       });
       const ids = races.map((r) => r.id);
@@ -470,7 +484,7 @@ export default function RacesPage({
         seriesId,
         raceNumber: nextNumber,
         name: null,
-        date: new Date().toISOString().slice(0, 10),
+        date: newRaceDate(existingRaces),
         createdAt: Date.now(),
       };
       log('races', 'adding', race);
@@ -501,7 +515,7 @@ export default function RacesPage({
         seriesId,
         raceNumber: nextNumber,
         name: null,
-        date: new Date().toISOString().slice(0, 10),
+        date: newRaceDate(existingRaces),
         createdAt: Date.now(),
       };
       log('races', 'adding with starts', race);
@@ -535,7 +549,9 @@ export default function RacesPage({
   }
 
   function openGenerateDialog() {
-    setGenStartDate('');
+    // Seeded the same way a single added race is dated, so a series with a
+    // start date opens the dialog ready to generate from it.
+    setGenStartDate(newRaceDate(races ?? []));
     setGenInterval('weekly');
     setGenMode('count');
     setGenCount('8');

@@ -5,7 +5,7 @@ import 'server-only';
 // access instead of dedicated repository classes, coarse validation, and
 // round deletion as the undo story.
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
@@ -14,6 +14,7 @@ import * as schema from '@/lib/db/schema';
 import { createRepos, replaceSplitFleetState } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
+import { defaultRaceDate } from '@/lib/race-schedule';
 import { normalizeSplitFleetConfig } from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
@@ -350,6 +351,27 @@ async function assertDisjointFleets(tx: Tx, seriesId: string, fleetIds: string[]
   }
 }
 
+/** The date to stamp on stage races when the caller supplies none: the last
+ *  race in the series, else today clamped into the series window — the same
+ *  rule the Races tab's Add race uses. */
+async function fallbackRaceDate(tx: Tx, seriesId: string): Promise<string> {
+  const [last] = await tx
+    .select({ date: schema.races.date })
+    .from(schema.races)
+    .where(eq(schema.races.seriesId, seriesId))
+    .orderBy(desc(schema.races.raceNumber))
+    .limit(1);
+  const [row] = await tx
+    .select({ startDate: schema.series.startDate, endDate: schema.series.endDate })
+    .from(schema.series)
+    .where(eq(schema.series.id, seriesId));
+  return defaultRaceDate({
+    existingDates: last ? [last.date] : [],
+    startDate: row?.startDate,
+    endDate: row?.endDate,
+  });
+}
+
 async function createStageRaces(
   tx: Tx,
   input: {
@@ -371,7 +393,7 @@ async function createStageRaces(
   let next = maxNumber;
   const raceRows: (typeof schema.races.$inferInsert)[] = [];
   const startRows: (typeof schema.raceStarts.$inferInsert)[] = [];
-  const date = input.date || new Date().toISOString().slice(0, 10);
+  const date = input.date || (await fallbackRaceDate(tx, input.seriesId));
   for (const spec of specs) {
     const raceId = crypto.randomUUID();
     raceRows.push({

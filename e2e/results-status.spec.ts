@@ -37,9 +37,9 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   }
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
 
-  // Pin the race date to the *local* today: the add-race default is the UTC
-  // date, and the recency strip below compares against the local one — which
-  // differ in the hour after local midnight outside UTC.
+  // Pin the race date to the *local* today, which is what the recency strip
+  // below compares against. The add-race default lands there too for a series
+  // with no dates of its own, but say it rather than lean on it.
   const now = new Date();
   const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   await page.getByRole('button', { name: 'Edit date for Race 1' }).click();

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-import { generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
+import {
+  defaultRaceDate,
+  generateRaceDates,
+  todayIsoDate,
+  MAX_GENERATED_RACES,
+} from '@/lib/race-schedule';
 
 describe('generateRaceDates', () => {
   it('generates a weekly run by count', () => {
@@ -124,5 +129,71 @@ describe('generateRaceDates', () => {
       maxRaces: 10,
     });
     expect(dates).toHaveLength(10);
+  });
+});
+
+describe('todayIsoDate', () => {
+  it('reads the local calendar, not the UTC one', () => {
+    // 00:30 on 1 June in a zone an hour ahead of UTC is still 31 May in UTC —
+    // the bug that dated small-hours races to yesterday.
+    const local = new Date(2026, 5, 1, 0, 30);
+    expect(todayIsoDate(local)).toBe('2026-06-01');
+  });
+
+  it('pads a single-digit month and day', () => {
+    expect(todayIsoDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+});
+
+describe('defaultRaceDate', () => {
+  it('uses the last dated race in the series', () => {
+    expect(
+      defaultRaceDate({
+        existingDates: ['2026-05-05', '2026-05-12'],
+        startDate: '2026-05-01',
+        endDate: '2026-08-31',
+        today: '2026-06-20',
+      }),
+    ).toBe('2026-05-12');
+  });
+
+  it('skips undated races to find the last real date', () => {
+    expect(
+      defaultRaceDate({ existingDates: ['2026-05-05', '', null], today: '2026-06-20' }),
+    ).toBe('2026-05-05');
+  });
+
+  it('clamps today back to the start date of a future series', () => {
+    expect(
+      defaultRaceDate({ startDate: '2026-07-01', endDate: '2026-07-08', today: '2026-06-20' }),
+    ).toBe('2026-07-01');
+  });
+
+  it('clamps today forward to the end date of a finished series', () => {
+    expect(
+      defaultRaceDate({ startDate: '2026-06-01', endDate: '2026-06-10', today: '2026-06-20' }),
+    ).toBe('2026-06-10');
+  });
+
+  it('clamps to the start date of a single-day series with no end date', () => {
+    expect(defaultRaceDate({ startDate: '2026-07-01', endDate: '', today: '2026-06-20' })).toBe(
+      '2026-07-01',
+    );
+  });
+
+  it('keeps today when it falls inside the series window', () => {
+    expect(
+      defaultRaceDate({ startDate: '2026-06-01', endDate: '2026-08-31', today: '2026-06-20' }),
+    ).toBe('2026-06-20');
+  });
+
+  it('falls back to today when the series has no usable dates', () => {
+    expect(defaultRaceDate({ startDate: '', endDate: 'not-a-date', today: '2026-06-20' })).toBe(
+      '2026-06-20',
+    );
+  });
+
+  it('defaults to today when nothing at all is known', () => {
+    expect(defaultRaceDate({})).toBe(todayIsoDate());
   });
 });
