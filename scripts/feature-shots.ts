@@ -602,6 +602,10 @@ const SHOTS: Shot[] = [
       });
       await page.getByRole('dialog').waitFor();
       await settle(page);
+      // The import opens on its Fleets step; capture that, then the mapping.
+      await shot('fleet-planning-import.png');
+      await page.getByRole('button', { name: /Next: map columns/i }).click();
+      await settle(page);
       await shot('competitor-import.png');
       await page.keyboard.press('Escape');
     },
