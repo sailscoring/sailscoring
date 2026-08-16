@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { additionKey, type FleetAdditionCandidate } from '@/lib/source-handicaps';
-import type { Competitor } from '@/lib/types';
+import type { Competitor, Fleet } from '@/lib/types';
 
 import { SYSTEM_LABEL, describeMatch } from './shared';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
@@ -22,6 +22,7 @@ export function AddToFleetSection({
   onChooseFleet,
   onChooseCert,
   targetCompetitorById,
+  targetFleetById,
   seriesHasRaces,
 }: {
   candidates: FleetAdditionCandidate[];
@@ -30,6 +31,7 @@ export function AddToFleetSection({
   onChooseFleet: (key: string, fleetId: string) => void;
   onChooseCert: (competitorId: string, certId: string) => void;
   targetCompetitorById: Map<string, Competitor>;
+  targetFleetById: Map<string, Fleet>;
   seriesHasRaces: boolean;
 }) {
   if (candidates.length === 0) return null;
@@ -52,6 +54,7 @@ export function AddToFleetSection({
             <TableHead className="w-8"></TableHead>
             <TableHead>Sail no.</TableHead>
             <TableHead>Boat</TableHead>
+            <TableHead>Currently in</TableHead>
             <TableHead>Add to</TableHead>
             <TableHead className="text-right">Rating</TableHead>
           </TableRow>
@@ -60,6 +63,12 @@ export function AddToFleetSection({
           {candidates.map((c) => {
             const key = additionKey(c.competitorId, c.system);
             const comp = targetCompetitorById.get(c.competitorId);
+            // The fleets the boat is already in are what tell the scorer which
+            // target fleet to pick — a boat in "Cruisers 1 (NHC)" belongs in
+            // "Cruisers 1 (IRC)".
+            const currentFleets = (comp?.fleetIds ?? [])
+              .map((id) => targetFleetById.get(id)?.name)
+              .filter((name): name is string => name !== undefined);
             const checked = selected.has(key);
             const canApply = c.targetFleetId !== null && c.proposedTcf !== null;
             return (
@@ -82,6 +91,9 @@ export function AddToFleetSection({
                       {describeMatch(c.match)}
                     </span>
                   )}
+                </TableCell>
+                <TableCell className={currentFleets.length === 0 ? 'text-muted-foreground' : undefined}>
+                  {currentFleets.length > 0 ? currentFleets.join(', ') : 'No fleet'}
                 </TableCell>
                 <TableCell>
                   <select

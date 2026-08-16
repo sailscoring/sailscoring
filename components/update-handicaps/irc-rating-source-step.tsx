@@ -170,6 +170,7 @@ export function IrcRatingSourceStep({
               onChooseFleet={sel.chooseAdditionFleet}
               onChooseCert={sel.chooseCert}
               targetCompetitorById={targetCompetitorById}
+              targetFleetById={targetFleetById}
               seriesHasRaces={seriesHasRaces}
             />
 

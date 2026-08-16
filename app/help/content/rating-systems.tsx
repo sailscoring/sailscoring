@@ -175,7 +175,10 @@ export default function RatingSystems() {
           If a boat is in the series but not yet in an IRC fleet — say it gained an IRC certificate
           after entry — it appears under{' '}
           <strong className="text-foreground">Add to handicap fleet</strong>. Tick it, choose the
-          target fleet, and it joins that fleet with the rating seeded in one step. Adding a boat
+          target fleet, and it joins that fleet with the rating seeded in one step. Each row lists
+          the fleets the boat is already in, so a boat in{' '}
+          <em>Cruisers 1 (NHC)</em> can be sent to <em>Cruisers 1 (IRC)</em> without leaving the
+          dialog. Adding a boat
           to a fleet mid-series means it is scored <strong className="text-foreground">DNC</strong>{' '}
           for races already sailed in that fleet, so this is opt-in per boat.
         </p>
@@ -235,7 +238,9 @@ export default function RatingSystems() {
         <p>
           If a boat is in the series but not yet in an ECHO fleet, it appears under{' '}
           <strong className="text-foreground">Add to handicap fleet</strong>. Tick it, choose the
-          target fleet, and it joins that fleet with the ECHO handicap seeded in one step. Adding a
+          target fleet, and it joins that fleet with the ECHO handicap seeded in one step. Each row
+          lists the fleets the boat is already in, so the matching handicap fleet is obvious. Adding
+          a
           boat to a fleet mid-series means it is scored{' '}
           <strong className="text-foreground">DNC</strong> for races already sailed in that fleet,
           so this is opt-in per boat.

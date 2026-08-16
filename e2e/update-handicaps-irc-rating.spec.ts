@@ -157,6 +157,11 @@ test('add a newly-rated boat to the IRC fleet (#170)', async ({ page }) => {
     page.getByText('Boats added here are scored DNC for races already sailed'),
   ).toBeVisible();
 
+  // The fleets the boat is already in are listed, so the scorer can pick the
+  // matching handicap fleet.
+  await expect(page.getByRole('columnheader', { name: 'Currently in' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'White Sail' })).toBeVisible();
+
   // Tick the candidate (target IRC fleet auto-selected) and apply.
   await page.getByRole('checkbox').last().check();
   await page.getByRole('button', { name: /^Apply/ }).click();
