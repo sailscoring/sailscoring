@@ -116,19 +116,26 @@ function Step1({
 
 // ── Step 2: Competitors ───────────────────────────────────────────────────────
 
+/** What the last import in this wizard session created. Held by the
+ *  container so the Fleets step can lead with it. */
+type ImportResult = { added: number; fleetsCreated: string[] };
+
 function Step2({
   seriesId,
+  lastImportResult,
+  setLastImportResult,
   onNext,
   onBack,
 }: {
   seriesId: string;
+  lastImportResult: ImportResult | null;
+  setLastImportResult: (r: ImportResult) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
   const { data: competitors } = useCompetitorsBySeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const count = competitors?.length ?? 0;
-  const [lastImportResult, setLastImportResult] = useState<{ added: number; fleetsCreated: string[] } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -179,6 +186,7 @@ function Step2({
 function Step3({
   series,
   seriesId,
+  lastImportResult,
   isSplitFleet,
   onNext,
   onBack,
@@ -186,6 +194,7 @@ function Step3({
 }: {
   series: Series;
   seriesId: string;
+  lastImportResult: ImportResult | null;
   /** The series has a split-fleet format: fleets and scoring rules are the
    *  Format section's business, so this is the last step. */
   isSplitFleet: boolean;
@@ -254,6 +263,14 @@ function Step3({
       {!isSplitFleet && (
         <div className="space-y-2">
           <Label>Fleets</Label>
+          {lastImportResult && lastImportResult.fleetsCreated.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {lastImportResult.fleetsCreated.length} fleet
+              {lastImportResult.fleetsCreated.length === 1 ? '' : 's'} created by the import:{' '}
+              {lastImportResult.fleetsCreated.join(', ')}. Names and scoring systems were
+              settled there — what is left is the order they appear in and their start groups.
+            </p>
+          )}
           <FleetsCard mode="wizard" seriesId={seriesId} series={series} />
         </div>
       )}
@@ -371,6 +388,7 @@ export default function SetupPage({
   const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
   const isSplitFleet = !!sfState?.config;
   const [step, setStep] = useState(1);
+  const [lastImportResult, setLastImportResult] = useState<ImportResult | null>(null);
 
   if (isLoading || series === undefined) {
     return <SeriesTabFallback status="loading" />;
@@ -403,12 +421,19 @@ export default function SetupPage({
         <Step1 series={series} seriesId={seriesId} onNext={() => setStep(2)} />
       )}
       {step === 2 && (
-        <Step2 seriesId={seriesId} onNext={() => setStep(3)} onBack={() => setStep(1)} />
+        <Step2
+          seriesId={seriesId}
+          lastImportResult={lastImportResult}
+          setLastImportResult={setLastImportResult}
+          onNext={() => setStep(3)}
+          onBack={() => setStep(1)}
+        />
       )}
       {step === 3 && (
         <Step3
           series={series}
           seriesId={seriesId}
+          lastImportResult={lastImportResult}
           isSplitFleet={isSplitFleet}
           onNext={() => setStep(4)}
           onBack={() => setStep(2)}
