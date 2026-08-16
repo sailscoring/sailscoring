@@ -24,7 +24,6 @@ export type CompetitorField =
   | 'gender'
   | 'age'
   | 'subdivision'
-  | 'fleet'
   | 'tcc'
   | 'vprsTcc'
   | 'py'
@@ -157,8 +156,31 @@ export function matchSubdivisionAxis(header: string, axisLabels: string[]): numb
  * this, e.g. `boatName` would never match `\bboat\b` and `initialEcho`
  * would never match `\becho\b`.
  */
+/** Normalise a header for rule matching: the CSV may use spaced ("Sail
+ *  Number"), snake_case, or camelCase ("sailNumber") conventions, so insert a
+ *  space at each lowercase→uppercase transition before lowercasing — without
+ *  it, `\b`-anchored rules never fire inside concatenated words. */
+function normalizeHeader(header: string): string {
+  return header.trim().replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+}
+
+/**
+ * Whether a header names the column that splits competitors into fleets.
+ *
+ * Grouping is not a field role — there is no `Competitor.fleet`, only
+ * `fleetIds` — so it is detected separately and never occupies a column's
+ * mapping. That is what lets one "Class" column both group the fleets and
+ * record each boat's class. Only a Fleet header is detected: Class means
+ * boat class and Division means subdivision, and neither stands in for
+ * grouping. A file with neither proposes one fleet, and the importer's
+ * Fleets step offers to split it by any column the scorer picks.
+ */
+export function isGroupingHeader(header: string): boolean {
+  return /\bfleet\b/.test(normalizeHeader(header));
+}
+
 export function autoDetectField(header: string): CompetitorField {
-  const h = header.trim().replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  const h = normalizeHeader(header);
   // The World Sailing Sailor ID must be checked before `/sail/`: both "World
   // Sailing ID" and "Sailor ID" contain it. Sailwave's `HelmID` belongs here
   // too — its user guide is explicit that the *ID fields are for a sailor
@@ -188,11 +210,12 @@ export function autoDetectField(header: string): CompetitorField {
     return /category|division|group|band|subdivision/.test(h) ? 'subdivision' : 'age';
   }
   // Subdivision (Gold/Silver/Bronze, age categories) is a distinct field from
-  // fleet. "division" used to fall through to `fleet`; it is now its own role.
+  // fleet. "division" used to fall through to fleet; it is now its own role.
   // "class" is intentionally left to `boatClass` above — a CSV "Class" column
   // is far more often the boat class than a subdivision label.
   if (/\bsubdivision\b|division|category/.test(h)) return 'subdivision';
-  if (/\bfleet\b/.test(h)) return 'fleet';
+  // A Fleet header has no field of its own; see `isGroupingHeader`.
+  if (/\bfleet\b/.test(h)) return 'ignore';
   // VPRS must be checked before the generic `tcc` rule — a "VPRS TCC" header
   // contains "tcc" and would otherwise be read as an IRC column.
   if (/vprs/.test(h)) return 'vprsTcc';

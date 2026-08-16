@@ -6,7 +6,6 @@ import {
   fleetRepo,
   competitorRepo,
   pushCompetitorsToRrsOrg,
-  DEFAULT_FLEET_NAME,
 } from '@/lib/api-repository';
 import { useFeatures } from '@/components/features-provider';
 import {
@@ -30,6 +29,7 @@ import {
   relayColumnTarget,
   relayFieldOf,
   splitPersonCell,
+  isGroupingHeader,
   NEW_AXIS_TARGET,
   RELAY_FIELDS,
   type CompetitorField,
@@ -194,9 +194,12 @@ type ImportFlow =
        *  only so the importer knows whether to flip the series to
        *  'handicap' on confirm (when the plan produces handicap fleets). */
       seriesScoringMode: 'scratch' | 'handicap';
-      /** True iff at least one existing competitor in the series has a
-       *  boatClass — disables the "fleet name → boatClass" fallback. */
-      existingHasBoatClass: boolean;
+      /** Index of the column whose values split competitors into fleets,
+       *  or null for a single-fleet import. Held here rather than in
+       *  `columnMap` because grouping is not a field role — which is what
+       *  lets a Class column group the fleets and still record each boat's
+       *  class. */
+      groupByColumn: number | null;
       /** The scorer's edits to the proposed fleet plan. */
       fleetOverrides: FleetPlanOverrides;
       /** Present when the import also pushes to rrs.org. */
@@ -259,7 +262,6 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   gender: 'Gender',
   age: 'Age',
   subdivision: 'Division',  // fallback; overridden per-series in buildFieldLabels
-  fleet: 'Fleet',
   tcc: 'IRC TCC',
   vprsTcc: 'VPRS TCC',
   py: 'PY number',
@@ -314,7 +316,6 @@ function buildFieldLabels(
   }
   labels[NEW_AXIS_TARGET] = 'New subdivision axis';
   Object.assign(labels, {
-    fleet: STATIC_FIELD_LABELS.fleet,
     tcc: STATIC_FIELD_LABELS.tcc,
     vprsTcc: STATIC_FIELD_LABELS.vprsTcc,
     py: STATIC_FIELD_LABELS.py,
@@ -434,28 +435,21 @@ const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
   echoStartingTcf: 'echo',
 };
 
-/** Whether to fall back to writing the original fleet name into boatClass:
- *  only when nothing else supplies one, so a series genuinely using the
- *  field is never overwritten. */
-function shouldFillBoatClassFromFleetName(
-  columnMap: ColumnMap,
-  existingHasBoatClass: boolean,
-): boolean {
-  return !Object.values(columnMap).includes('boatClass') && !existingHasBoatClass;
-}
-
 /** Extract per-row planning data: the parsed fleet column values and the
  *  set of rating systems the row has a (non-blank, finite) value for. */
-function extractPlanRows(rows: string[][], columnMap: ColumnMap): PlanRow[] {
+function extractPlanRows(
+  rows: string[][],
+  columnMap: ColumnMap,
+  groupByColumn: number | null,
+): PlanRow[] {
   // Pre-index columns by role so we don't iterate the whole map per row.
-  let fleetCol = -1;
   const ratingCols: { col: number; system: RatingSystem }[] = [];
   for (const [colStr, field] of Object.entries(columnMap)) {
     const col = parseInt(colStr, 10);
-    if (field === 'fleet') fleetCol = col;
     const system = RATING_FIELD_TO_SYSTEM[field as CompetitorField];
     if (system) ratingCols.push({ col, system });
   }
+  const fleetCol = groupByColumn ?? -1;
   return rows.map((row) => {
     const fleetCell = fleetCol >= 0 ? (row[fleetCol]?.trim() ?? '') : '';
     const csvFleetNames = parseFleetCell(fleetCell);
@@ -488,6 +482,7 @@ function detectSailNumberChanges(
   existing: Competitor[],
   existingFleets: Fleet[],
   overrides: FleetPlanOverrides,
+  groupByColumn: number | null,
 ): RenameCandidate[] {
   let sailCol = -1;
   let boatNameCol = -1;
@@ -502,7 +497,7 @@ function detectSailNumberChanges(
   }
   if (sailCol < 0) return [];
 
-  const planRows = extractPlanRows(rows, columnMap);
+  const planRows = extractPlanRows(rows, columnMap, groupByColumn);
   const plan = planFleetCreation({ rows: planRows, existingFleets, overrides });
   const fleetIdsByRow: string[][] = rows.map(() => []);
   for (const p of plan.proposed) {
@@ -831,16 +826,12 @@ function MappingDialogBody({
   // Recompute the plan on every render — it's cheap and depends on
   // column mappings + the also-scratch toggle, both of which the
   // user edits inside this dialog.
-  const planRows = extractPlanRows(flow.rows, flow.columnMap);
+  const planRows = extractPlanRows(flow.rows, flow.columnMap, flow.groupByColumn);
   const livePlan = planFleetCreation({
     rows: planRows,
     existingFleets: fleets,
     overrides: flow.fleetOverrides,
   });
-  const fillBoatClassFromFleetName = shouldFillBoatClassFromFleetName(
-    flow.columnMap,
-    flow.existingHasBoatClass,
-  );
   const planGroups = groupProposedByCsvName(livePlan.proposed);
 
   // Pre-slice each column's sample values once — headers and sampleRows are
@@ -973,13 +964,6 @@ function MappingDialogBody({
               );
             })}
           </div>
-          {fillBoatClassFromFleetName && (
-            <p className="text-xs text-muted-foreground border-t pt-2">
-              No Class column detected — the original fleet name will be saved
-              as each boat&rsquo;s class so the grouping isn&rsquo;t lost when
-              boats are split into rating fleets.
-            </p>
-          )}
         </div>
       )}
 
@@ -1269,7 +1253,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     const currentPrimary = series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
     const currentFields = series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
     const seriesScoringMode = series?.scoringMode ?? 'scratch';
-    const existingHasBoatClass = existingCompetitors.some((c) => !!c.boatClass);
 
     // Propose a primary label. The CSV drives the choice on the first
     // import, and also on later imports when the series is still on the
@@ -1281,6 +1264,32 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       ? proposePrimaryLabel(initialMap, currentPrimary)
       : currentPrimary;
     const columnMap = reconcileColumnMap(initialMap, proposedPrimary);
+
+    // The column that splits competitors into fleets. Not a field role, so
+    // it keeps whatever mapping it has.
+    const groupByColumn = headers.findIndex((h) => isGroupingHeader(h));
+
+    // A grouping column often doubles as the class label ("Cruisers 2",
+    // "Laser"). When nothing else supplies a boat class, propose recording
+    // it as one — visibly, in the mapping table, where the scorer can drop
+    // it, and enabling the Class field by the ordinary rule below.
+    //
+    // Only on a first import, where the series' shape is being established:
+    // proposing it later would rewrite classes the scorer has since set, and
+    // make a re-import of a subset look like an edit. And only when every
+    // cell holds one name — a boat scored in two fleets has one class, not
+    // "PY|M15", so such a column isn't a class label.
+    const groupCellsAreSingleValued =
+      groupByColumn >= 0 &&
+      dataRows.every((r) => parseFleetCell(r[groupByColumn]?.trim() ?? '').length <= 1);
+    if (
+      firstImport &&
+      groupCellsAreSingleValued &&
+      columnMap[groupByColumn] === 'ignore' &&
+      !Object.values(columnMap).includes('boatClass')
+    ) {
+      columnMap[groupByColumn] = 'boatClass';
+    }
 
     // Propose additive enable for any optional field a CSV column targets.
     const targets = new Set(Object.values(columnMap));
@@ -1310,7 +1319,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       subdivisionAxes: axes,
       multiPersonFields: series?.multiPersonFields ?? [],
       seriesScoringMode,
-      existingHasBoatClass,
+      groupByColumn: groupByColumn >= 0 ? groupByColumn : null,
       fleetOverrides: NO_OVERRIDES,
       rrs: rrs
         ? defaultMappingRrsConfig(rrs.eventUuid, rrs.saved, axes, fleets.length, columnMap, headers)
@@ -1329,6 +1338,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       existing,
       fleets,
       importFlow.fleetOverrides,
+      importFlow.groupByColumn,
     );
     if (candidates.length > 0) {
       setImportFlow({
@@ -1357,7 +1367,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
    *  sail number matched nothing, so an accepted rename updates that
    *  competitor in place (keeping its id, and with it its results). */
   async function executeImport(flow: MappingFlow, renameByRowIndex: Map<number, string>) {
-    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, existingHasBoatClass, fleetOverrides, rrs, multiPersonFields } = flow;
+    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, groupByColumn, fleetOverrides, rrs, multiPersonFields } = flow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
     const existingById = new Map(existing.map((c) => [c.id, c]));
@@ -1373,12 +1383,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     // Plan fleet creation: decide which fleets to create (or reuse) and
     // which CSV rows belong in each. Materialize the plan up-front so the
     // row loop just looks up fleet IDs by row index.
-    const planRows = extractPlanRows(rows, columnMap);
+    const planRows = extractPlanRows(rows, columnMap, groupByColumn);
     const plan = planFleetCreation({ rows: planRows, existingFleets: fleets, overrides: fleetOverrides });
-    const fillBoatClassFromFleetName = shouldFillBoatClassFromFleetName(
-      columnMap,
-      existingHasBoatClass,
-    );
 
     // Persist series-level proposals (primary label, additively-enabled
     // fields, and — if the plan produced handicap fleets — flipping the
@@ -1508,7 +1514,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let gender = '';
       let age = '';
       const subdivisionCells: Record<string, string> = {};
-      let fleet = '';
       let tcc = '';
       let vprsTccStr = '';
       let py = '';
@@ -1534,7 +1539,6 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'nationality') nationality = val;
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
-        else if (field === 'fleet') fleet = val;
         else if (field === 'tcc') tcc = val;
         else if (field === 'vprsTcc') vprsTccStr = val;
         else if (field === 'py') py = val;
@@ -1602,13 +1606,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ? alternativeSailNumbers
         : (existingCompetitor?.alternativeSailNumbers ?? []);
       const resolvedBoatName = boatName || existingCompetitor?.boatName || '';
-      // boatClass fallback: when neither the CSV nor any existing competitor
-      // provides a boatClass, fall back to the original CSV fleet name so
-      // grouping like "Cruisers 2" survives even when split into rating fleets.
-      const fleetNameFallback = fillBoatClassFromFleetName
-        ? (planRows[i].csvFleetNames[0]?.trim() || DEFAULT_FLEET_NAME)
-        : '';
-      const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || fleetNameFallback || '';
+      const resolvedBoatClass = boatClass || existingCompetitor?.boatClass || '';
       // A row with any mapped names replaces the whole list; a row with none
       // keeps the existing list (the same fallback the other fields have).
       // Fields not opened to multiple names (#316) keep the pre-list entry

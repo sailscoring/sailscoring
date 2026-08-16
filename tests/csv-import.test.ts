@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, matchSubdivisionAxis, splitPersonCell } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, splitPersonCell } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
   it('returns a single name for a plain cell', () => {
@@ -47,7 +47,6 @@ describe('autoDetectField', () => {
     expect(autoDetectField('Helm')).toBe('helm');
     expect(autoDetectField('Owner')).toBe('owner');
     expect(autoDetectField('Club')).toBe('club');
-    expect(autoDetectField('Fleet')).toBe('fleet');
     expect(autoDetectField('IRC TCC')).toBe('tcc');
     expect(autoDetectField('PY')).toBe('py');
   });
@@ -76,8 +75,22 @@ describe('autoDetectField', () => {
     expect(autoDetectField('division')).toBe('subdivision');
     expect(autoDetectField('Category')).toBe('subdivision');
     expect(autoDetectField('Subdivision')).toBe('subdivision');
-    // Fleet still maps to fleet.
-    expect(autoDetectField('Fleet')).toBe('fleet');
+    // And none of them is mistaken for the grouping column.
+    expect(isGroupingHeader('Division')).toBe(false);
+    expect(isGroupingHeader('Category')).toBe(false);
+  });
+
+  it('detects the grouping column separately from any field role', () => {
+    // Grouping is not a competitor field, so a Fleet header claims no role
+    // and stays free to be mapped — which is how one column can both split
+    // the fleets and record each boat's class.
+    expect(autoDetectField('Fleet')).toBe('ignore');
+    expect(isGroupingHeader('Fleet')).toBe(true);
+    expect(isGroupingHeader('fleet')).toBe(true);
+    expect(isGroupingHeader('Fleet Name')).toBe(true);
+    // Class means boat class and never stands in for grouping.
+    expect(isGroupingHeader('Class')).toBe(false);
+    expect(autoDetectField('Class')).toBe('boatClass');
   });
 
   it('reads age-band headers as a subdivision, not the numeric age field', () => {

@@ -81,24 +81,16 @@ test('handicap-mode CSV import splits a fleet by populated rating systems', asyn
   await expect(charlieRow).not.toContainText('CR 0 (IRC)');
 });
 
-test('handicap-mode CSV import without a Class column saves the fleet name as boatClass', async ({ page }) => {
-  // The "Cruisers 2" common case: the CSV uses the fleet column as a class
-  // label and has no separate Class column. With no existing competitor
-  // carrying boatClass, the importer falls back to writing the original
-  // fleet name into boatClass so the grouping isn't lost when boats split
-  // into rating fleets.
+test('a grouping column with no Class column is proposed as the boat class too', async ({ page }) => {
+  // The "Cruisers 2" common case: the file uses the fleet column as a class
+  // label and has no separate Class column. Grouping is not a field role, so
+  // that column stays free to be mapped — and with nothing else supplying a
+  // boat class, the importer proposes it as one. Visibly, in the mapping
+  // table, rather than as a hidden fallback.
   await createSeriesQuick(page, { name: 'Class Fallback Import' });
   await setScoringMode(page, 'handicap');
 
-  // Make the Class column visible so we can assert on it after import.
-  const settingsLink = page.getByRole('navigation').getByRole('link', { name: 'Settings' });
-  await settingsLink.click();
-  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
-  await page.getByLabel('Class').check();
-  await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('link', { name: 'Competitors' }).click();
-
-  // CSV with no Class column. The fleet name "Cruisers 2" should land in boatClass.
   const csv = [
     'Sail,Helm,Fleet,IRC TCC',
     'IRL10,Eve,Cruisers 2,0.985',
@@ -106,17 +98,18 @@ test('handicap-mode CSV import without a Class column saves the fleet name as bo
   ].join('\n');
   await uploadCsv(page, csv);
 
-  // Hint text in the dialog explains the fallback.
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByText(/No Class column detected/i)).toBeVisible();
+  // The proposal is on screen: the Fleet column is mapped to Class, and the
+  // Class field is enabled by the ordinary "a column targets it" rule.
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('row', { name: /^Fleet/ }).getByRole('combobox')).toHaveText('Class');
+  await expect(dialog.getByText(/Enabling optional fields:.*Class/)).toBeVisible();
 
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
   // The Class column shows "Cruisers 2" for both imported boats.
-  const eveRow = page.getByRole('row', { name: /IRL10/ });
-  const frankRow = page.getByRole('row', { name: /IRL11/ });
-  await expect(eveRow).toContainText('Cruisers 2');
-  await expect(frankRow).toContainText('Cruisers 2');
+  await expect(page.getByRole('row', { name: /IRL10/ })).toContainText('Cruisers 2');
+  await expect(page.getByRole('row', { name: /IRL11/ })).toContainText('Cruisers 2');
 });
