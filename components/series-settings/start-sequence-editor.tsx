@@ -12,6 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Interval offered for the second start group, before the scorer has set one. */
+const DEFAULT_INTERVAL_MINUTES = 3;
+
 export type StartSequenceEditorProps = {
   value: StartGroup[] | undefined;
   fleets: Fleet[];
@@ -39,7 +42,12 @@ export function StartSequenceEditor({ value, fleets, onSave }: StartSequenceEdit
   );
 
   function addGroup() {
-    const intervalMinutes = groups.length === 0 ? 0 : 3;
+    // Carry forward the spacing the scorer last set — a club running 5-minute
+    // starts shouldn't retype 5 on every group. The `||` fallback covers the
+    // second group (the first's interval is fixed at 0, so it says nothing
+    // about the club's spacing) and a momentarily-cleared input.
+    const previous = groups.at(-1);
+    const intervalMinutes = previous ? previous.intervalMinutes || DEFAULT_INTERVAL_MINUTES : 0;
     setGroups([...groups, { fleetIds: [], intervalMinutes }]);
     setDirty(true);
   }

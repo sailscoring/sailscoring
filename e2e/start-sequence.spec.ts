@@ -7,7 +7,8 @@ import { createFleets, createSeriesQuick, setScoringMode } from './helpers';
  * Configures three fleets at 5-minute intervals starting at 14:05:00 and asserts
  * the resolved start times are 14:05 / 14:10 / 14:15 — i.e. that intervals
  * accumulate correctly. Locks the bug from #95 where intervals stored as
- * cumulative offsets produced colliding start times.
+ * cumulative offsets produced colliding start times, and #396 where each added
+ * group reset to the 3-minute default instead of keeping the scorer's spacing.
  */
 
 test('three-start sequence at 5-minute intervals resolves to distinct start times', async ({ page }) => {
@@ -39,7 +40,10 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
   await editor.getByRole('button', { name: '+ Add start group' }).click();
   await editor.getByRole('combobox').last().click();
   await page.getByRole('option', { name: 'Class C' }).click();
-  await editor.locator('input[type="number"]').last().fill('5');
+  // Group 3 inherits the 5 just set on group 2 rather than reverting to the
+  // 3-minute default (#396) — so no fill here, and the 14:15 assertions below
+  // are what prove the inherited value is the one that gets saved.
+  await expect(editor.locator('input[type="number"]').last()).toHaveValue('5');
 
   // Per-step interval label reads correctly after the fix to #95.
   await expect(editor.getByText(/min after Start 1/)).toBeVisible();
