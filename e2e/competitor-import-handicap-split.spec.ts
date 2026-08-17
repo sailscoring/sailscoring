@@ -107,7 +107,7 @@ test('the Fleets step adds an IRC fleet the entry list says nothing about', asyn
 
   // Ask for IRC as well.
   await dialog.getByTestId('add-system-Cruisers 1').click();
-  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('menuitem', { name: 'IRC' }).click();
 
   const ircRow = dialog.getByTestId('fleet-row').filter({ hasText: 'IRC' });
   await expect(ircRow).toContainText('2 boats');

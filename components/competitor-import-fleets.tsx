@@ -44,6 +44,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { X } from 'lucide-react';
 
 /** Display name for a fleet's scoring system. */
@@ -261,7 +267,7 @@ export function FleetsStepBody({
       {/* ── The two column decisions this step owns ─────────────────────── */}
       <div className="rounded-md border p-3 space-y-3 bg-muted/30">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium w-28">Group boats by</span>
+          <span className="text-sm font-medium w-28 shrink-0">Group boats by</span>
           <Select
             value={groupByColumn == null ? NO_GROUPING : String(groupByColumn)}
             onValueChange={(v) => onGroupByColumnChange(v === NO_GROUPING ? null : parseInt(v, 10))}
@@ -287,7 +293,7 @@ export function FleetsStepBody({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium w-28">Ratings</span>
+          <span className="text-sm font-medium w-28 shrink-0">Ratings</span>
           {shownRatings.length === 0 && (
             <span className="text-xs text-muted-foreground">
               No rating columns detected — fleets will be scored on the water.
@@ -317,21 +323,23 @@ export function FleetsStepBody({
             </label>
           ))}
           {addableRatings.length > 0 && (
-            <Select
-              value=""
-              onValueChange={(v) =>
-                setPendingRatings((prev) => [...prev, v as Exclude<ScoringSystem, 'scratch'>])
-              }
-            >
-              <SelectTrigger className="w-36 h-8 text-xs" data-testid="add-rating">
-                <span className="text-muted-foreground">Add a rating…</span>
-              </SelectTrigger>
-              <SelectContent>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" data-testid="add-rating">
+                  Add a rating…
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
                 {addableRatings.map((s) => (
-                  <SelectItem key={s} value={s}>{SCORING_SYSTEM_LABEL[s]}</SelectItem>
+                  <DropdownMenuItem
+                    key={s}
+                    onSelect={() => setPendingRatings((prev) => [...prev, s])}
+                  >
+                    {SCORING_SYSTEM_LABEL[s]}
+                  </DropdownMenuItem>
                 ))}
-              </SelectContent>
-            </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
@@ -360,16 +368,26 @@ export function FleetsStepBody({
                 />
               ))}
               {canAdd.length > 0 && (
-                <Select value="" onValueChange={(v) => addSystem(groupName, v as ScoringSystem)}>
-                  <SelectTrigger className="w-44 h-7 text-xs" data-testid={`add-system-${groupName}`}>
-                    <span className="text-muted-foreground">+ Also score on…</span>
-                  </SelectTrigger>
-                  <SelectContent>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      data-testid={`add-system-${groupName}`}
+                    >
+                      + Also score on…
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
                     {canAdd.map((s) => (
-                      <SelectItem key={s} value={s}>{SCORING_SYSTEM_LABEL[s]}</SelectItem>
+                      <DropdownMenuItem key={s} onSelect={() => addSystem(groupName, s)}>
+                        {SCORING_SYSTEM_LABEL[s]}
+                      </DropdownMenuItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           );
