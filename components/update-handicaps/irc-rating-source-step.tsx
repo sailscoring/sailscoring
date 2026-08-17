@@ -208,6 +208,7 @@ export function IrcRatingSourceStep({
               candidates={removalCandidates}
               selected={sel.removeSelected}
               onToggle={sel.toggleRemoval}
+              onToggleAll={sel.toggleAllRemovals}
               targetCompetitorById={targetCompetitorById}
             />
 

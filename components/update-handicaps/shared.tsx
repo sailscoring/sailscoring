@@ -238,6 +238,15 @@ export function useRatingListSelections() {
         else next.delete(key);
         return next;
       }),
+    toggleAllRemovals: (keys: string[], on: boolean) =>
+      setRemoveSelected((prev) => {
+        const next = new Set(prev);
+        for (const key of keys) {
+          if (on) next.add(key);
+          else next.delete(key);
+        }
+        return next;
+      }),
     excludedRowIds,
     toggleRow: (key: string, included: boolean) =>
       setExcludedRowIds((prev) => {

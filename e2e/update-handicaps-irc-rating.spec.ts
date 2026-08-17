@@ -175,3 +175,106 @@ test('add a newly-rated boat to the IRC fleet (#170)', async ({ page }) => {
   await compRow.click();
   await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('0.932');
 });
+
+test('trim an over-full IRC fleet to the boats the list rates', async ({ page }) => {
+  // The state an import leaves behind: an entry list can't say who holds a
+  // certificate, so an IRC fleet added there holds the whole group.
+  await createSeriesQuick(page, { name: 'IRC Trim Test 2026' });
+  await createFleets(page, ['IRC']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByTestId('fleet-row').filter({ hasText: 'IRC' }).getByRole('combobox').click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Three boats in the IRC fleet; only IRL1431 is on the rating list.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const [sail, name] of [
+    ['IRL1431', '3 Cheers'],
+    ['IRL5555', 'No Cert'],
+    ['IRL6666', 'Also No Cert'],
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByLabel('Competitor name').fill(name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('IRC TCC (international)').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // The two unrated boats are offered; the rated one is not.
+  const section = page.getByText('Not on the rating list').locator('..');
+  await expect(section).toBeVisible();
+  await expect(section.getByRole('row', { name: /IRL5555/ })).toBeVisible();
+  await expect(section.getByRole('row', { name: /IRL6666/ })).toBeVisible();
+  await expect(section.getByRole('row', { name: /IRL1431/ })).toHaveCount(0);
+
+  // Select all takes both in one click.
+  await section.getByRole('checkbox', { name: 'Select all' }).check();
+  await expect(
+    section.getByRole('checkbox', { name: /Remove IRL5555/ }),
+  ).toBeChecked();
+  await expect(
+    section.getByRole('checkbox', { name: /Remove IRL6666/ }),
+  ).toBeChecked();
+
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // A second fleet, so the competitor table shows its Fleet column — a
+  // single-fleet series hides the concept entirely.
+  await createFleets(page, ['White Sail']);
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
+  // The rated boat keeps its fleet; the unrated pair are out of it.
+  await expect(page.getByRole('row').filter({ hasText: 'IRL1431' })).toContainText('IRC');
+  await expect(page.getByRole('row').filter({ hasText: 'IRL5555' })).not.toContainText('IRC');
+  await expect(page.getByRole('row').filter({ hasText: 'IRL6666' })).not.toContainText('IRC');
+});
+
+test('a boat that has already raced is never offered for removal', async ({ page }) => {
+  // Taking it out would drop its scored races, so it stays put whatever the
+  // rating list says.
+  await createSeriesQuick(page, { name: 'IRC Trim Raced 2026' });
+  await createFleets(page, ['IRC']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByTestId('fleet-row').filter({ hasText: 'IRC' }).getByRole('combobox').click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL5555');
+  await page.getByLabel('Competitor name').fill('No Cert');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL5555' })).toBeVisible();
+
+  // Give it a finish.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+  await page.getByText('Race 1').click();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByRole('checkbox', { name: 'IRC' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+  await page.getByLabel('Sail number').fill('IRL5555');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill('14:50:00');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('IRC TCC (international)').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByText('Not on the rating list')).toHaveCount(0);
+});

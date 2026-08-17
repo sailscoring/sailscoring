@@ -188,8 +188,9 @@ export default function RatingSystems() {
           IRC fleet that the list doesn’t rate. This is the counterpart of creating an IRC fleet at
           import time, when the entry list can’t say who holds a certificate and every boat in the
           group joins — the rating list is the first thing that knows better. Read the names before
-          ticking: a boat the list has simply missed belongs where it is. Boats that have already
-          raced are never offered, since taking one out would drop its scored races.
+          ticking: a boat the list has simply missed belongs where it is — the header checkbox
+          takes the lot once you have. Boats that have already raced are never offered, since
+          taking one out would drop its scored races.
         </p>
       </Section>
       )}
