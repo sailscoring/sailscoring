@@ -588,12 +588,17 @@ const SHOTS: Shot[] = [
     async capture({ page, seriesId, shot }) {
       await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
       await settle(page);
+      // A plain club entry list: boats grouped by class, with IRC TCCs. The
+      // Fleets step infers an IRC fleet per group from the rating column,
+      // which is the shape worth teaching — a fleet column that already names
+      // the system ("Class 2 IRC") teaches nothing about how fleets are
+      // decided.
       const csv = [
-        'Sail Number,Boat,Class,Owner,Club,Fleet',
-        'IRL1234,Windshift,J/109,Sarah Byrne,Howth Yacht Club,Class 2 IRC|Class 2 ECHO',
-        'GBR8871R,Meridian Blue,First 40.7,Tom Nolan,Royal Cork Yacht Club,Class 1 IRC|Class 1 ECHO',
-        'IRL355,Slipstream,Sigma 33,Anne Kelly,Howth Yacht Club,Class 3 IRC|Class 3 ECHO',
-        'IRL9021,Tempo,X-332,Mick Dwyer,Royal Irish Yacht Club,Class 2 IRC|Class 2 ECHO',
+        'Sail Number,Boat,Class,Owner,Club,Fleet,IRC TCC',
+        'IRL1234,Windshift,J/109,Sarah Byrne,Howth Yacht Club,Class 1,1.021',
+        'GBR8871R,Meridian Blue,First 40.7,Tom Nolan,Royal Cork Yacht Club,Class 1,1.048',
+        'IRL355,Slipstream,Sigma 33,Anne Kelly,Howth Yacht Club,Class 2,0.912',
+        'IRL9021,Tempo,X-332,Mick Dwyer,Royal Irish Yacht Club,Class 2,0.935',
       ].join('\n');
       await page.getByTestId('competitor-import-input').setInputFiles({
         name: 'entries.csv',

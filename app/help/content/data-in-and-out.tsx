@@ -12,9 +12,9 @@ export default function DataInAndOut() {
     <>
       <Section id="importing-competitors" title="Importing competitors from a spreadsheet">
         <HelpShot
-          src="/help/shots/competitor-import.webp"
-          alt="Column mapping, with a sample of what each column holds."
-          caption="Column mapping, with a sample of what each column holds."
+          src="/help/shots/fleet-planning-import.webp"
+          alt="The Fleets step: the fleets an entry list implies, before the columns are mapped."
+          caption="The Fleets step: the fleets an entry list implies, before the columns are mapped."
         />
         <p>
           If your entry list is already in a spreadsheet, you can import it directly rather than
@@ -38,6 +38,11 @@ export default function DataInAndOut() {
           <strong className="text-foreground">map columns</strong> handles the rest of the
           spreadsheet.
         </p>
+        <HelpShot
+          src="/help/shots/competitor-import.webp"
+          alt="Column mapping, with a sample of what each column holds."
+          caption="Column mapping, with a sample of what each column holds."
+        />
         <p>
           The mapping step shows each column in the file alongside a sample of its values. Use the
           dropdown next to each column to map it to a competitor field — sail number, helm name,
