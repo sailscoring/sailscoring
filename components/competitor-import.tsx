@@ -1696,6 +1696,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         (existingCompetitor.bowNumber ?? '') === (competitor.bowNumber ?? '') &&
         (existingCompetitor.alternativeSailNumbers ?? []).join('\u0000') ===
           (competitor.alternativeSailNumbers ?? []).join('\u0000') &&
+        (existingCompetitor.entryNumber ?? '') === (competitor.entryNumber ?? '') &&
+        (existingCompetitor.seed ?? null) === (competitor.seed ?? null) &&
+        (existingCompetitor.worldSailingId ?? '') === (competitor.worldSailingId ?? '') &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         (existingCompetitor.boatClass ?? '') === (competitor.boatClass ?? '') &&
         samePersonNames(existingCompetitor.names, competitor.names) &&

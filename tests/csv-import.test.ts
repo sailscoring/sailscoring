@@ -219,3 +219,11 @@ describe('autoDetectField — numbered crew columns', () => {
     expect(autoDetectField('2nd Crew')).toBe('crewName');
   });
 });
+
+describe('seeding rank detection', () => {
+  it('detects the seeding-rank column', () => {
+    expect(autoDetectField('Seeding rank')).toBe('seed');
+    expect(autoDetectField('Rank')).toBe('seed');
+    expect(autoDetectField('Seed')).toBe('seed');
+  });
+});
