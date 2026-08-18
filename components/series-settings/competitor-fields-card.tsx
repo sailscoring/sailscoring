@@ -275,8 +275,9 @@ export function CompetitorFieldsCard({ seriesId, series }: { seriesId: string; s
               // feature off would strand a column the scorer can't reach the
               // switch for.
               if (enabledSet.has(f)) return true;
-              // Seeding rank drives split-fleet initial assignment, and is what
-              // the seeding-list import writes.
+              // Seeding rank drives split-fleet initial assignment, and is
+              // where an organising authority's ranking lands — a column on
+              // the entry list a championship imports.
               if (f === 'seed') return has('split-fleets') || has('world-sailing-id');
               if (f === 'worldSailingId') return has('world-sailing-id');
               return true;

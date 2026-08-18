@@ -843,7 +843,8 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
 5. **Sailwave import.** Should `sailwave-import` learn to ingest a
    qualifying/final .blw (flight columns, LE tab, CarriedFwd) — useful
    for adopting an in-progress event or cross-checking against another
-   scorer's file — or is CSV seeding-list import enough for v1?
+   scorer's file — or is a Seeding rank column on the entry list enough
+   for v1?
 6. **The config-editability contract.** SIs get amended mid-event (the 2026
    NoR added a medal series 2025 didn't have; the 2025 IODA scorer applied a
    per-fleet finals code base a year before the SI codified it), so the

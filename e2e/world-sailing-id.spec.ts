@@ -3,8 +3,8 @@ import { createSeriesQuick, enableFeatures, importMapColumns } from './helpers';
 
 /**
  * E2E for the World Sailing Sailor ID (#362): recording the ID from an entry
- * list, and the seeding-list import that joins an organising authority's
- * ranking to that entry list on it.
+ * list, and carrying an organising authority's seed ranking on a later import
+ * of the same list.
  *
  * The datafeed check is deliberately not exercised here — it reaches World
  * Sailing, and an e2e suite that depends on a third party being up is a suite
@@ -15,7 +15,7 @@ function csv(name: string, content: string) {
   return { name, mimeType: 'text/csv', buffer: Buffer.from(content) };
 }
 
-test('Sailor IDs come in with the entry list and a seeding list ranks them', async ({
+test('Sailor IDs come in with the entry list, and a later import ranks them', async ({
   page,
   signedInEmail,
 }) => {
@@ -30,7 +30,8 @@ test('Sailor IDs come in with the entry list and a seeding list ranks them', asy
     .getByRole('button', { name: 'Edit ▸' })
     .click();
   await page.getByRole('checkbox', { name: 'World Sailing ID' }).check();
-  // The seeding rank the import writes is offered by the same feature.
+  // Seeding rank is offered by the same feature, for the ranking that decides
+  // the first day's qualifying fleets.
   await page.getByRole('checkbox', { name: 'Seeding rank' }).check();
   await page.getByRole('button', { name: 'Done' }).click();
 
@@ -64,28 +65,25 @@ test('Sailor IDs come in with the entry list and a seeding list ranks them', asy
     'https://www.sailing.org/sailor/?ref=IRLMM1',
   );
 
-  // ── 3. The organising authority's ranking, joined on the ID ──────────────
-  // Global ranks, one entry the ranking doesn't cover, and one ranked sailor
-  // who isn't entered — all three of which a real ranking has.
-  await page.getByTestId('seeding-list-input').setInputFiles(
+  // ── 3. The seed ranking, as a column on the same entry list ──────────────
+  // The organising authority's ranking arrives after the entries, so it goes
+  // back in the way it came: the same spreadsheet with a rank column added.
+  // One sailor the ranking doesn't cover, as a real ranking has.
+  await page.getByTestId('competitor-import-input').setInputFiles(
     csv(
-      'ranking.csv',
+      'entries-seeded.csv',
       [
-        'Rank,Sailor,NOC,World Sailing ID',
-        '3,Hannah Mills,GBR,GBRHM15',
-        '17,Mark McLoughlin,IRL,IRLMM1',
-        '44,Someone Else,NZL,NZLSE2',
+        'Sail Number,Competitor Name,Nat,World Sailing ID,Seeding rank',
+        'IRL 215,Mark McLoughlin,IRL,IRLMM1,17',
+        'GBR 41,Hannah Mills,GBR,GBRHM15,3',
+        'AUS 7,Tom Burton,AUS,,',
       ].join('\n'),
     ),
   );
-  await expect(page.getByRole('heading', { name: 'Import seeding list' })).toBeVisible();
-  await page.getByRole('button', { name: 'Continue' }).click();
-
-  // The review states the entry the ranking never mentioned.
-  await expect(page.getByRole('heading', { name: /Not in the ranking \(1\)/ })).toBeVisible();
-  await expect(page.getByText('Tom Burton (AUS 7)')).toBeVisible();
-  await page.getByRole('button', { name: 'Apply seeding' }).click();
-  await expect(page.getByText(/2 competitors seeded/)).toBeVisible();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 3 rows/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
   // ── 4. The published ranks are what's stored, not a renumbering ──────────

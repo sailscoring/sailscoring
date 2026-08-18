@@ -53,7 +53,6 @@ import {
 } from '@/components/ui/tooltip';
 import { AlertTriangle } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
-import { SeedingListImport, type SeedingListImportHandle } from '@/components/seeding-list-import';
 import { WorldSailingCheck, type WorldSailingCheckHandle } from '@/components/world-sailing-check';
 import {
   bulkEditFieldOptions,
@@ -186,7 +185,6 @@ export default function CompetitorsPage({
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
-  const seedingImportRef = useRef<SeedingListImportHandle>(null);
   const worldSailingCheckRef = useRef<WorldSailingCheckHandle>(null);
   const updateHandicapsRef = useRef<UpdateHandicapsHandle>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
@@ -353,13 +351,6 @@ export default function CompetitorsPage({
       section: 'Competitors',
       when: () => hasHandicapFleet,
       handler: () => updateHandicapsRef.current?.open(),
-    },
-    {
-      key: 'l',
-      description: 'Import seeding list',
-      section: 'Competitors',
-      when: () => hasWorldSailingId && !readOnly,
-      handler: () => seedingImportRef.current?.trigger(),
     },
     {
       key: 'w',
@@ -677,7 +668,6 @@ export default function CompetitorsPage({
             />
             {hasWorldSailingId && (
               <>
-                <SeedingListImport ref={seedingImportRef} competitors={competitors ?? []} />
                 {(competitors ?? []).some((c) => c.worldSailingId) && (
                   <WorldSailingCheck
                     ref={worldSailingCheckRef}

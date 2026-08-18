@@ -266,15 +266,15 @@ export const FEATURES = {
     demoSample: 'championship.sailscoring',
   },
   'world-sailing-id': {
-    // The World Sailing Sailor ID (#362): the competitor field, the seeding-list
-    // import that joins an organising authority's ranking to the entry list on
-    // it, and the datafeed check that says whether each ID exists. Off by
-    // default and self-service — it is inert at a club, where nobody holds a
-    // Sailor ID, and harmless at an event that does. It is deliberately a gate
-    // and not just a competitor-field checkbox: the ID belongs to a *person*,
-    // and we record it for the primary sailor only, so a keelboat's crew have
-    // nowhere to put theirs. Keeping the field out of sight until a workspace
-    // asks for it stops that limitation reading as a bug.
+    // The World Sailing Sailor ID (#362): the competitor field, and the
+    // datafeed check that says whether each ID exists and names the sailor we
+    // think it does. Off by default and self-service — it is inert at a club,
+    // where nobody holds a Sailor ID, and harmless at an event that does. It is
+    // deliberately a gate and not just a competitor-field checkbox: the ID
+    // belongs to a *person*, and we record it for the primary sailor only, so
+    // a keelboat's crew have nowhere to put theirs. Keeping the field out of
+    // sight until a workspace asks for it stops that limitation reading as a
+    // bug.
     label: 'World Sailing Sailor ID',
     helpSectionIds: ['world-sailing-id'],
   },

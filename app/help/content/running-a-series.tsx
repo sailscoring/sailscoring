@@ -674,32 +674,26 @@ export default function RunningASeries() {
           The ID belongs to a person, and Sail Scoring records it for the{' '}
           <em>primary sailor</em> on each entry. There is nowhere to put a crew’s ID.
         </p>
-        <h3 className="text-foreground font-medium mt-4">Importing a seeding list</h3>
+        <h3 className="text-foreground font-medium mt-4">Seeding ranks</h3>
         <p>
           Championships that split into qualifying fleets assign the first day’s
           fleets from a ranking the organising authority supplies — a World Sailing
-          ranking table for an Olympic class, or a class association’s own list.{' '}
-          <strong className="text-foreground">Import seeding list</strong> on the
-          Competitors tab reads that document and writes each sailor’s{' '}
-          <strong className="text-foreground">Seeding rank</strong>, which the{' '}
-          <strong className="text-foreground">Split Fleets</strong> initial assignment
-          then orders by.
+          ranking table for an Olympic class, or a class association’s own list. That
+          ranking lands in Sail Scoring as a{' '}
+          <strong className="text-foreground">Seeding rank</strong> column on the entry
+          list you import: add the column to your entry spreadsheet, import it again,
+          and the ranks attach to the competitors already there. Headers reading
+          “Seed”, “Seeding” or “Rank” are picked up automatically, and any column can
+          be mapped by hand.
         </p>
         <p>
-          Sailors are matched on their Sailor ID. That matters more than it sounds: a
-          ranking list and an entry list are both lists of <em>people</em>, and at an
-          event sailing chartered boats the sail number is no help at all — so without
-          the ID the only thing left to match on is the spelling of a name. Where an ID
-          is missing, a match on name and nation is offered for you to confirm, never
-          applied on its own.
-        </p>
-        <p>
-          The rank written is the one the ranking states — a global rank of 3, 17 or 240,
-          not renumbered from one — so you can check the import against the document it
-          came from. Sailors the ranking doesn’t list get no seeding rank and sort
-          below those it does; the assignment dialog lets you choose whether that tail
-          goes in sail-number order or spread by nation. Importing again replaces the
-          whole series’ seeding, so a revised ranking can be applied by importing it.
+          Write the rank the ranking states — a global rank of 3, 17 or 240, not
+          renumbered from one. Only the order matters to the{' '}
+          <strong className="text-foreground">Split Fleets</strong> initial assignment,
+          and keeping the published numbers lets you check the entry list against the
+          document it came from. Sailors the ranking doesn’t cover are left with no
+          rank and sort below those it does; the assignment dialog lets you choose
+          whether that tail goes in sail-number order or spread by nation.
         </p>
         <h3 className="text-foreground font-medium mt-4">Checking the IDs</h3>
         <p>
