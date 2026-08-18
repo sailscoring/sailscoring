@@ -48,8 +48,8 @@ replacement base per stage (qualifying / finals).
 | Code | Carry | Finale | Discards | Code base (Q / F) | Reassignment | Split rule | Seen at |
 |---|---|---|---|---|---|---|---|
 | **F1** Addendum-C classic | Continuous points, one line | None | Class ladder (Opti: exactly 1 @5; 420: 1 @3; ILCA: 1/4–9, 2/10+ with max-1-final + lone-final-race caps; Moth: pooled 2–3) | Largest Q fleet / own final fleet (pre-2024 ILCA + pre-2026 Opti: largest fleet both stages) | Daily by rank, 20:00/21:00 freeze | Near-equal blocks, Gold-largest; or fixed Gold (Moth 2025: top 60) | Optimist all years; 420 all years; ILCA 2021-22, 2025; Moth 2021/24/25; WASZP 2022 |
-| **F2** = F1 + medal race(s) | Continuous | Top-10 medal race, ×2 points, never discardable, breaks ties; companion "last race" scored from 11; ILCA 2026: two-race medal series | As F1 + medal exclusions (ILCA 2024: ONE discard total) | As F1; medal base = 10 | As F1 | As F1; skiffs: Gold fixed 25 | ILCA 2024, 2026 (planned); 470 Worlds/Europeans 2021-25; SWC 2023 (all classes); 49er/FX/Nacra 2021-24 (one discard only, F-scores-only tie-break) |
-| **F3** compressed-carry medal series | Continuous through finals, then carried score **transformed** before an additive 2-race medal series (÷2.25 truncated; or chained gap caps 9/18) | 10-boat, 2 races, additive, non-discardable, Appendix MR | Stage-scoped | As F1 | As F1 | Fixed Gold 25 | Skiffs 2026; 470 Europeans 2026 (which also rank-carries into finals — F3+F6) |
+| **F2** = F1 + medal race(s) | Continuous | Top-10 medal race, ×2 points, never discardable, breaks ties; companion "last race" scored from 11 | As F1 + medal exclusions (ILCA 2024: ONE discard total) | As F1; medal base = 10 | As F1 | As F1; skiffs: Gold fixed 25 | ILCA 2024; 470 Worlds/Europeans 2021-25; SWC 2023 (all classes); 49er/FX/Nacra 2021-24 (one discard only, F-scores-only tie-break) |
+| **F3** compressed-carry medal series | Continuous through finals, then carried score **transformed** before an additive 2-race medal series (÷2 rounded half-up — ILCA 2026; ÷2.25 truncated; or chained gap caps 9/18) | 10-boat, 2 races, additive, non-discardable, Appendix MR | Stage-scoped | As F1 | As F1 | Fixed Gold 25 | **ILCA 2026** (2-race final series, ×1 points, no companion offset — the non-qualified sail one more *qualification* race instead); skiffs 2026; 470 Europeans 2026 (which also rank-carries into finals — F3+F6) |
 | **F4** knockout overlay | Continuous opening; bracket **replaces** top 8–10 ranks via placement table | QF→SF→GF; currencies churn (winner-take-all → first-to-3-wins → match-points 1/½, 1-0-0-0, 1-1-0-0); fallback: no medal race → opening stands | Opening: sliding ladder, per-phase caps, max-1-sprint-BFD | Largest group/heat | Daily by rank | G/S/B, fixed-size Gold | iQFOiL all years; Formula Kite all years; skiffs 2025 ("4-Point Race" = winner-takes-title variant) |
 | **F5** net + net | Q net + F net, separately-discarded stages; carry displayed as non-race scalar | None | Per-stage schedules (29er 2023+: 1 @3 per stage) | Largest Q fleet / own final fleet | Daily by rank **with two-race gate** (29er) | Fixed Gold scaled by entries (40/45/50); 4 or 6 fleets | 29er 2022-26; WASZP 2025 (3 fleets, Gold+Silver fixed 70 each); Topper 4.2 2023 (nightly reassignment by rank) |
 | **F6** rank-seed carry | Finals restart; carried score = qualifying **rank**, non-discardable | None (Topper/29er); 470E 2026 adds F3 medal series | Per-stage | Largest start / own fleet | Daily (29er 2021) or frozen (Topper) | 50/50 or banded | Topper 5.3 2022 (only sailed instance); 29er 2021; 470 Europeans 2026 |
@@ -107,7 +107,8 @@ live in the per-class research dossiers this survey summarises.
 | ILCA 7 | 2024 | Worlds, Adelaide ★ | onb.ilca.roms.ar (captured) | jpvm.org | **F2** (+D3, D5) |
 | ILCA 6 | 2024 | Worlds, Mar del Plata | verified | Sailwave | F2 |
 | ILCA both | 2025 | Worlds, Qingdao | verified | Sailwave | F1 → **D1** |
-| ILCA both | 2026 | Worlds, Dun Laoghaire | NoRs verified; SIs pending | — | F2 (2-race medal) |
+| ILCA 7 | 2026 | Worlds, Dun Laoghaire ★ | SIs w/ Amend 2 verified | — (event forthcoming) | **F3** (÷2 carry into a 2-race final series) |
+| ILCA 6 | 2026 | Worlds, Dun Laoghaire (Sept) | NoR verified; SIs pending | — | expect F3 (same class template) |
 | Optimist | 2021–26 | IODA Worlds (Riva, Bodrum, Sant Pere, Mar del Plata, Portorož, Tangier ★) | all 6 years verified | sailti resultsajax, all parsed | **F1** (3-fleet 2024; D5 2021/25; D9 2025) |
 | Optimist | 2025 | Europeans (boys/girls separate) | verified | sailti | F1 ×2 divisions |
 | Topper | 2021 | Worlds (cancelled — COVID) | — | — | — |
@@ -136,10 +137,12 @@ live in the per-class research dossiers this survey summarises.
 Ordered by coverage of events Sail Scoring will actually score:
 
 1. **F1 + F2 with scenarios D1, D3, D5, D6, D8, D10** — covers every ILCA,
-   Optimist, 420, 470, Moth and classic-skiff championship: the 2026 ILCA
-   Worlds target, the IODAI constituency, and the two most common finales
+   Optimist, 420, 470, Moth and classic-skiff championship: the IODAI
+   constituency, the ILCA line through 2025, and the two most common finales
    (none, or a double-points medal race with companion race). This is v1
-   fixture territory and matches the prototype's scope.
+   fixture territory and matches the prototype's scope. It is also the
+   *substrate* of the 2026 target event, whose qualification series is
+   plain F1 — only its finale is not (item 5).
 2. **F5 (net+net)** — one engine feature (per-stage discard pools + carried
    nett scalar) unlocks the 29er's entire modern era and WASZP 2025.
    *Implemented* — the discard ladder applies once per series and the
@@ -155,10 +158,12 @@ Ordered by coverage of events Sail Scoring will actually score:
    synthetic non-discardable carried position that supersedes the
    qualifying race scores (fixture 14); no-carry (a finals-only total)
    remains a small follow-on.
-5. **F3 (compressed carry)** — two class lines converged on it in 2026
-   (skiffs, 470 Europeans); expect more as LA2028 approaches. Needs a
-   carried-score-transform hook. Post-v1, but the hook belongs in the data
-   model conversation now.
+5. **F3 (compressed carry)** — **raised to first priority by the published
+   2026 ILCA SIs**, which halve the qualification score into a two-race final
+   series (SI 18.7.3). Three class lines now use it (ILCA, skiffs, 470
+   Europeans) and it is the format of the target event, not a post-v1
+   curiosity: it needs the carried-score-transform hook plus the sub-series
+   tie-break that the halving's rounding makes load-bearing (SI 18.7.4).
 6. **F8 (Topper's frozen fleets / merged starts)** — one class, but scoring
    it requires merged-start race columns with duplicate ranks and a
    largest-*start* code base. Defer; document as known-unsupported.
@@ -211,6 +216,7 @@ One exemplar per fixture code (SIs + results from the same event), in
 |---|---|---|---|
 | `ilca7-worlds-2022/` | ILCA 7 Worlds, Vallarta | F1 exemplar | SI PDF + Sailwave HTML |
 | `ilca7-worlds-2024/` | ILCA 7 Worlds, Adelaide (SI already captured) | F2 exemplar | + results HTML |
+| `ilca7-worlds-2026/` | ILCA 7 Worlds, Dun Laoghaire | **F3** — the target event | SI w/ Amendment 2 |
 | `optimist-worlds-2026/` | IODA Worlds, Tangier | F1 (Opti parameters) | NoR + SI PDFs + resultsajax HTML |
 | `topper-worlds-2023/` | ITCA Worlds, Royal Cork | F7+F8; F5 (4.2); D9 | NoR + SI + both rigs' results |
 | `topper-worlds-2022/` | ITCA Worlds, Garda | F6 (sailed rank-seed; SIs unlocated) | results PDFs |
@@ -226,5 +232,6 @@ One exemplar per fixture code (SIs + results from the same event), in
 | `moth-worlds-2024/` | Moth Worlds, Manly | F1 (pooled discards) | SI + results PDF |
 
 The Qingdao 2025 no-split results (D1) are already cited from the main design
-doc's references; the 2026 Dun Laoghaire SIs join reference-docs when the ONB
-publishes them.
+doc's references. The 2026 Dun Laoghaire SIs (with Amendment 2) are captured
+at `reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.pdf`; the
+published results join the set after the event.

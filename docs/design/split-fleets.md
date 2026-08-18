@@ -5,8 +5,9 @@ divided into qualifying fleets that are reassigned by series rank after each day
 racing, then locked into Gold / Silver / Bronze fleets for a final series —
 the RRS "Appendix LE Addendum C" format used by ILCA, Optimist, 420,
 29er/49er and Topper world championships, and by big multi-class regattas
-like Kieler Woche. Nothing is implemented yet; this document is the primer,
-the data-model design, the UX outline, and the open questions.
+like Kieler Woche. This document is the primer, the data-model design, the
+UX outline, and the open questions; the engine and the Split Fleets view
+are implemented (#328, #346) behind the `split-fleets` gate.
 
 Sources: the ISAF Appendix LE templates
 (`reference-docs:rrs/Appendix-LE-Expanded-SI-Guide-2006.md`,
@@ -202,7 +203,7 @@ the physical race's fleet.)
 **One continuous points line — usually.** In the dominant model (ILCA,
 IODA, 420, 49er, Kieler Woche, Santander) qualifying scores **carry
 forward as points** into one series total; Q1…Qn and F1…Fn are columns of
-a single line. But three other carry models exist — the engine implements
+a single line. But four other carry models exist — the engine implements
 the first three, and the scorer picks between them in the split-fleet
 settings:
 
@@ -211,11 +212,13 @@ settings:
 | **Continuous points** | ILCA, IODA, 420, 49er, KiWo | One total across Q+F; discards float across the boundary (KiWo makes this explicit: a qualifying discard "may be substituted by a worse score in the final series") |
 | **Net + net** | 29er | Q and F are separately-discarded series; championship score = Q net + F net; F ties broken on F scores only |
 | **Rank as seed** | Topper, 470 Europeans 2026 | Finals restart from a carried, non-discardable score equal to the boat's qualifying **rank**; her qualifying race scores then drop out of the championship total |
+| **Compressed carry** (not implemented) | ILCA 2026, 49er/FX/Nacra 2026, 470 Europeans 2026 | The qualifying-plus-final total is **transformed** before an additive final stage — ILCA 2026 halves it, rounding 0.5 up (SI 18.7.3); the skiffs divide by 2.25 and truncate — so the leaders' gaps compress before the last races |
 | **Knockout bracket** | iQFOiL, Formula Kite | Opening series seeds quarter/semi/grand finals scored on match points — not low-point arithmetic at all (out of scope; see horizon) |
 
 **Stage-aware discard profiles.** The famous "special ILCA discard
-profile" (2025 Worlds SI 18.2, 2026 NoR 15.2): 1 discard from 4 races, 2
-from 10 — but **at most one discard may fall on a final-series race**, a
+profile" (2025 Worlds SI 18.2): 1 discard from 4 races, 2 from 10 — the
+2026 SIs unlock the first a race earlier, at 3 (SI 18.4) — but **at most
+one discard may fall on a final-series race**, a
 lone completed final race may not be discarded at all, and medal-race
 scores are never discardable (and don't advance the race count for discard
 thresholds). Note what this is *not*: the folk description "a discard
@@ -272,25 +275,58 @@ disjointness is the validation rule (Part 2).
 The **2026 ILCA 7 Men's Worlds run 23–30 August 2026 at Dun Laoghaire**
 (National YC / Royal St George YC; entry cap 160, ~141 entered from 45
 nations → 3 qualifying fleets), and the **ILCA 6 Women's Worlds follow
-there 5–12 September** (~100 entries → 2 fleets). Format per the NoRs: 12
-races over 6 days, two per day; qualifying ends once at least 4 races are
-complete at a day boundary (days 1–3 nominally); then
-Gold/Silver(/Bronze); **new for 2026, a two-race medal series** for the
-top 10 on the last day, with one more opening-series race for everyone
-else (expect the companion-race points offset above; confirm from the 2026
-SIs). Codes: largest qualifying fleet + 1 in qualifying, own fleet + 1 in
-finals; discards 1 from 3 (NoR: 3–9 races), 2 from 10, max one from
-finals, medal races excluded. Starts and OCS/BFD calls via Vakaros
-RaceSense (electronic identification replaces visual for 30.3/30.4).
-Races are named **Q1…Qn / F1…Fn** officially. The 2025 Qingdao edition is
-a valuable degenerate fixture: weather meant **neither class ever split**
-— the qualifying ranking became the official result under the "if no
-final race is completed" fallback.
+there 5–12 September** (~100 entries → 2 fleets). The SIs (Amendment 2,
+18 August 2026) are captured at
+`reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.md` and
+settle the questions the NoRs left open. They also use a **three-word
+vocabulary this design does not**: the event has a *Qualification* series
+divided into a **Preliminary** series (SI 7.3 — 5 races over 2 days,
+reassigned nightly) and an **Elimination** series (SI 7.5 — 6 races over
+3 days, Gold/Silver/Bronze), followed by a **Final** series (SI 7.6–7.7 —
+the top ten, two races on the last day). Those map onto our
+qualifying / final / medal stages in that order; the mapping is exact,
+the words are not.
 
-The 2026 SIs (including exact medal-series scoring) publish on the event
-notice board before registration; the format sections above are stable
-class-standard wording, but the medal-series points multiplier and
-companion-race offset need confirming from the SIs when they appear.
+What the SIs confirm, against what this design assumed:
+
+- **The finale is not a doubled medal race.** Final series races score ×1
+  and are simply added (SI 18.7.2), and *the Qualification score is halved
+  first*: "divided by 2 (two), rounded to the nearest whole number (0.5
+  rounded upward)" (SI 18.7.3). That is the survey's **F3 compressed
+  carry**, not F2 — an engine feature we do not have.
+- **There is no companion-race points offset.** The boats who miss the
+  Final series sail "one additional Qualification series race" (SI 7.7) —
+  an ordinary Elimination race in their own fleet, scored from 1,
+  discardable, counting toward the discard ladder — not 2024's race
+  scored from 11. All three fleets sail it; the Gold fleet sails it ten
+  boats short.
+- **A tie-break we don't implement becomes load-bearing.** Halving to
+  whole numbers manufactures ties among the ten, and SI 18.7.4 breaks
+  what survives A8 on the boat's rank in the Elimination series, then the
+  Preliminary series.
+- **Both equalisation modes appear, in contradiction** (a live D9): SI
+  18.3 excludes each boat's most recent extra scores, Addendum A 2.2.7
+  abandons and cancels the extra races.
+- Codes are as expected: largest fleet + 1 in the Preliminary series, own
+  fleet + 1 in the Elimination and Final series (SI 18.5) — so the Final
+  series' base is 11. Discards 1 from 3 races, 2 from 10, at most one
+  from the Elimination series, a lone Elimination race protected, Final
+  races never excluded (SI 18.4). Addendum A 2.2.3's reassignment tables
+  for 2, 3 and 4 fleets are the same down-and-back pattern this design
+  describes.
+- Races are numbered **Q1…Q12 continuously across the Preliminary and
+  Elimination series**, and **F1–F2** for the Final series — so the
+  official name of the first Gold race is not "F1".
+
+Starts and OCS/BFD calls are via Vakaros RaceSense (electronic
+identification replaces visual for 30.3/30.4). The 2025 Qingdao edition
+remains a valuable degenerate fixture: weather meant **neither class ever
+split** — the qualifying ranking became the official result under the "if
+no final race is completed" fallback (here SI 18.6.2).
+
+The gaps between these SIs and the implementation are filed individually;
+[**#403**](https://github.com/sailscoring/sailscoring/issues/403) is the
+umbrella.
 
 ### How Sailwave does it — and where it hurts
 
@@ -929,6 +965,9 @@ naming) remain open.
   toggles, flight-assignment tool, App LE tab, merge/CarriedFwd, unequal-
   races procedures), `reference-docs:tool-manuals/cork/CORK-Results-Management-Manual-V10-Sept2019.md`
   (ch. 5–6: the operational workflow).
+- `reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.md` — the
+  2026 ILCA 7 Worlds SIs (Amendment 2, 18 Aug 2026): the target event's
+  scoring regime (SI 18), format (SI 7) and Addendum A fleet rules.
 - 2026 ILCA 7 Men's Worlds NoR (Amend 3): <https://2026ilca7men.ilca-worlds.org/wp-content/uploads/sites/39/2026/04/NOR-2026-ILCA-7M-IRL-Amend-3.pdf>;
   ILCA 6 Women's: <https://2026ilca6women.ilca-worlds.org/wp-content/uploads/sites/40/2026/04/NOR-2026-ILCA-6W-IRL-Amend-3.pdf>.
 - 2025 Worlds SIs (Qingdao, Amend 2 — SI Addendum A is the class-standard
