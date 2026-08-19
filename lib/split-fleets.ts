@@ -8,6 +8,7 @@
 
 import type { Competitor, Finish, Fleet, Race, RaceStart } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
+import { applyAdditivePenalty } from './scoring';
 
 export type SeriesStage = 'qualifying' | 'final' | 'medal';
 
@@ -397,10 +398,10 @@ export interface SplitStandingRow {
  *    doubled", not the code base).
  *  - Coded finishes and absentees (implicit DNC) score `codeBase`,
  *    undoubled.
- *  - SCP/ZFP add a percentage of the race's DNF score (RRS 44.3(c): % of
- *    codeBase, rounded half-up) on top of the finish; DPI adds stated
- *    points. Penalties apply to finishers only (a coded boat is already at
- *    the base).
+ *  - SCP/ZFP add a percentage of the race's DNF score and DPI adds stated
+ *    points, both through the engine-wide `applyAdditivePenalty` (RRS
+ *    44.3(c) rounding and DNF cap). Penalties apply to finishers only (a
+ *    coded boat is already at the base).
  *  - RDG rows are emitted with `rdg` set and points 0; the standings pass
  *    resolves them per RRS A9 once all other cells exist.
  */
@@ -421,17 +422,12 @@ function scorePhysicalRace(
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const out = new Map<string, { points: number; code: string | null; rdg: Finish | null }>();
   finishers.forEach((f, i) => {
-    let points = (i + 1 + offset) * multiplier;
-    let code: string | null = null;
-    if (f.penaltyCode === 'SCP' || f.penaltyCode === 'ZFP') {
-      const pct = f.penaltyCode === 'ZFP' ? 20 : (f.penaltyOverride ?? 20);
-      points += Math.round((pct / 100) * codeBase);
-      code = f.penaltyCode;
-    } else if (f.penaltyCode === 'DPI') {
-      points += f.penaltyOverride ?? 0;
-      code = 'DPI';
-    }
-    out.set(f.competitorId!, { points, code, rdg: null });
+    const placePoints = (i + 1 + offset) * multiplier;
+    // One implementation of RRS 44.3(c) for both engines: the percentage is of
+    // the race's DNF score, rounded to the nearest tenth (0.05 up), and the
+    // penalty never makes her worse than DNF.
+    const points = applyAdditivePenalty(placePoints, f, codeBase, ref.fleetId);
+    out.set(f.competitorId!, { points, code: f.penaltyCode ?? null, rdg: null });
   });
   for (const f of rows) {
     if (out.has(f.competitorId!)) continue;

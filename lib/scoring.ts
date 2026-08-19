@@ -98,8 +98,20 @@ function resolvePerFleetScalar(
  *  No-op when the finish carries no penalty. Caller restricts this to
  *  finishers. `fleetId` selects the per-fleet DPI points for multi-fleet boats;
  *  a boat in per-fleet mode with no value for this fleet adds nothing (a
- *  penalty is never fabricated — the gap is surfaced separately). */
-function applyAdditivePenalty(
+ *  penalty is never fabricated — the gap is surfaced separately).
+ *
+ *  The cap only stops the *penalty* making her worse than DNF; it never
+ *  improves a score that was already worse. That is unreachable here (a
+ *  finisher scores at most the DNF score minus one) but reachable where a
+ *  race's points are multiplied and its DNF score is not — the split-fleet
+ *  medal race, whose engine shares this function. */
+/** The DNF cap, applied so it can only ever hold a penalty back — never pull
+ *  an unpenalised score that already sits beyond it down to the cap. */
+function capPenalized(basePoints: number, penalized: number, cap: number): number {
+  return Math.min(penalized, Math.max(cap, basePoints));
+}
+
+export function applyAdditivePenalty(
   basePoints: number,
   finish: Finish | undefined,
   cap: number,
@@ -117,11 +129,11 @@ function applyAdditivePenalty(
     const penalty = Math.round((pct * cap) / 10) / 10;
     // roundToTenth on the sum: base is a tenth and so is the penalty, but their
     // float sum (e.g. 2 + 0.6) carries IEEE noise that would surface in the UI.
-    return Math.min(roundToTenth(basePoints + penalty), cap);
+    return capPenalized(basePoints, roundToTenth(basePoints + penalty), cap);
   }
   if (method?.type === 'additive_stated') {
     const { value } = resolvePerFleetScalar(finish.penaltyOverrideByFleet, finish.penaltyOverride, fleetId);
-    return Math.min(roundToTenth(basePoints + (value ?? 0)), cap);
+    return capPenalized(basePoints, roundToTenth(basePoints + (value ?? 0)), cap);
   }
   return basePoints;
 }

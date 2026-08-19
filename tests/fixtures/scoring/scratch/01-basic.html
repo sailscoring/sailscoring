@@ -43,6 +43,10 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
 .override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
+.racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
+/* A combined page's per-fleet race block: the rule and the space above it are
+   what separate one fleet's set of races from the next when scrolling. */
+.fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
@@ -50,6 +54,7 @@ td.nat { font-family: monospace; }
 td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; border: 1px solid #ccc; }
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
 td.nat .nattext { font-size: 0.8em; }
+td.wsid { font-family: monospace; font-size: 0.85em; white-space: nowrap; }
 .print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .print-btn:hover { color: #fb3a3b; }
 @page { margin: 12mm; }
@@ -89,6 +94,7 @@ td.nat .nattext { font-size: 0.8em; }
 Totals: Alice=1+5+4=10, Bob=2+1+5=8, Carol=3+2+1=6, David=4+3+2=9, Eve=5+4+3=12</pre>
 </div>
 <style>div.applicant-break {page-break-after:always;}</style>
+
 
 
 

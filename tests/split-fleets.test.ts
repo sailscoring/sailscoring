@@ -457,3 +457,55 @@ describe('splitFleetStandings', () => {
     expect(medalCell.discardable).toBe(false);
   });
 });
+
+describe('scoring penalties (RRS 44.3(c))', () => {
+  /** One qualifying fleet of `size` boats sailing one race; the first
+   *  finisher carries `penalty`. Returns her points. */
+  function penalizedWinner(size: number, penalty: Partial<Finish>, place = 0): number {
+    const config = defaultSplitFleetConfig(2);
+    const competitors = Array.from({ length: size }, (_, i) =>
+      competitor(`c${i}`, ['fy'], i + 1),
+    );
+    const round: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const data: SplitFleetData = {
+      config,
+      rounds: [round],
+      fleets: [fleet('fy', 'Yellow')],
+      competitors,
+      races: [race('q1')],
+      raceStarts: [start('q1', ['fy'], 'qualifying', 1)],
+      finishes: competitors.map((c, i) => ({
+        ...finish('q1', c.id, i),
+        ...(i === place ? penalty : {}),
+      })),
+    };
+    const row = splitFleetStandings(data).find((r) => r.competitor.id === `c${place}`)!;
+    return row.cells[0].points;
+  }
+
+  it('adds a percentage of the DNF score to the nearest tenth, not the nearest point', () => {
+    // 10 boats → DNF score 11. 10% of 11 is 1.1, so the winner scores 2.1 —
+    // whole-point rounding would say 2.
+    expect(penalizedWinner(10, { penaltyCode: 'SCP', penaltyOverride: 10 })).toBe(2.1);
+    // 30% of 11 = 3.3 (SI 17.10's centreboard-stopper penalty shape).
+    expect(penalizedWinner(10, { penaltyCode: 'SCP', penaltyOverride: 30 })).toBe(4.3);
+  });
+
+  it('never makes a boat worse than the DNF score', () => {
+    // 4 boats → DNF score 5. Last place (4) + 50% of 5 = 6.5, capped at 5.
+    expect(penalizedWinner(4, { penaltyCode: 'SCP', penaltyOverride: 50 }, 3)).toBe(5);
+  });
+
+  it('defaults ZFP to 20% of the DNF score', () => {
+    // 10 boats → DNF score 11; 20% = 2.2.
+    expect(penalizedWinner(10, { penaltyCode: 'ZFP' })).toBe(3.2);
+  });
+
+  it('adds DPI as stated points, still capped at the DNF score', () => {
+    expect(penalizedWinner(10, { penaltyCode: 'DPI', penaltyOverride: 1 })).toBe(2);
+    expect(penalizedWinner(4, { penaltyCode: 'DPI', penaltyOverride: 9 })).toBe(5);
+  });
+});
