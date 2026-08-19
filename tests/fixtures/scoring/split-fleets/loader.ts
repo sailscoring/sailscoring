@@ -114,6 +114,7 @@ export interface SplitFleetFixture {
       raceCount: number;
       multiplier: number;
       carryTransform?: CarryTransform;
+      tieBreak?: 'stage-rank';
     };
   };
   competitors: string[]; // "sail name..." — first token is the sail number

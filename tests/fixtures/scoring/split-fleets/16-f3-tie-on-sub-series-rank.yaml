@@ -1,0 +1,122 @@
+description: "F3 tie-break: the halved carry leaves two boats level, RRS A8 cannot separate them, and the final-series ranking decides the championship"
+provenance:
+  class: "ILCA 7"
+  year: 2026
+  event: "World Championship, Dun Laoghaire IRL"
+  si: "reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.md"
+  results: ""
+  code: F3
+  scenarios: ["D3", "D7"]
+  alternatives: "49er/FX/Nacra Worlds 2026 and 470 Europeans 2026 carry the same compress-then-add shape."
+runnable: true
+notes: |
+  Two SI clauses meet here, and the first is why the second exists:
+
+    18.7.3  … the Qualification series scores are divided by 2 (two), rounded
+            to the nearest whole number (0.5 rounded upward).
+    18.7.4  For boats qualified to compete in the Final series, ties will be
+            broken applying RRS A8. If a tie remains between two or more
+            boats, it will be broken in favour of the boat which was ranked
+            higher in the Elimination series, then Preliminary series.
+
+  Rounding a score to a whole number manufactures ties: any two boats one
+  point apart arrive at the Final series level. That is exactly what happens
+  to y1 and y2 below — 7 points each, so 4 each once halved (3.5 rounds up).
+
+  The Final series is then not sailed at all, which under SI 18.7.5 makes the
+  adjusted scores the event result. So y1 and y2 finish on 4 with a single
+  identical score between them: A8.1 compares two identical lists and A8.2
+  has no race to walk back through. Without SI 18.7.4 the championship's
+  second and third places would be undecided.
+
+  The clause settles it on the Elimination series alone — the final-stage
+  races scored as their own series. y1 sailed them 2nd and 2nd (4 points),
+  y2 3rd and 3rd (6), so y1 takes second overall. Note this reverses their
+  qualifying form: y2 out-scored y1 across the Preliminary series (2 to 3),
+  which is why the clause reaches for the Elimination series *first* and only
+  falls back to the Preliminary series behind it.
+
+  Hand check, DNC base 4 throughout, one discard from 3 races, at most one of
+  them from the final series:
+    b1  Q 1,1,1  F 1,1  -> discard a 1        = 4  -> halved 2
+    y1  Q 1,2,2  F 2,2  -> discard Q2's 2     = 7  -> halved 4
+    y2  Q 2,1,1  F 3,3  -> discard F1's 3     = 7  -> halved 4
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+  maxFinalDiscards: 1
+  protectLoneFinalRace: true
+  medal:
+    size: 3
+    raceCount: 2
+    multiplier: 1
+    carryTransform:
+      kind: divide
+      by: 2
+      rounding: half-up
+    tieBreak: stage-rank
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y2, y1, y3]
+          Blue: [b1, b2, b3]
+      - n: 3
+        results:
+          Yellow: [y2, y1, y3]
+          Blue: [b1, b2, b3]
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [b1, y1, y2]
+      Silver: [b2, b3, y3]
+    races:
+      - n: 1
+        results:
+          Gold: [b1, y1, y2]
+          Silver: [b2, y3, b3]
+      - n: 2
+        results:
+          Gold: [b1, y1, y2]
+          Silver: [b2, y3, b3]
+
+  # The whole Gold fleet qualifies, and then the medal races are never sailed
+  # (SI 18.7.5): the adjusted scores are the event result.
+  - stage: medal
+    from: 1
+    fleets:
+      Medal: [b1, y1, y2]
+
+expected:
+  standings:
+    - { rank: 1, sail: b1, total: 2, net: 2, fleet: Gold, medal: true }
+    # y1 and y2 both carry 4; the Elimination series (4 to 6) separates them.
+    - { rank: 2, sail: y1, total: 4, net: 4, fleet: Gold, medal: true }
+    - { rank: 3, sail: y2, total: 4, net: 4, fleet: Gold, medal: true }
+    - { rank: 4, sail: b2, total: 8, net: 6, fleet: Silver }
+    - { rank: 5, sail: y3, total: 13, net: 10, fleet: Silver }
+    - { rank: 6, sail: b3, total: 15, net: 12, fleet: Silver }

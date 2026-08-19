@@ -605,6 +605,22 @@ export function SplitFleetEditor({
                   </>
                 )}
               </div>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  disabled={!canEdit}
+                  checked={value.medal.tieBreak === 'stage-rank'}
+                  onChange={(e) =>
+                    patch({
+                      medal: {
+                        ...value.medal!,
+                        tieBreak: e.target.checked ? 'stage-rank' : undefined,
+                      },
+                    })
+                  }
+                />
+                Break a remaining tie on final-series rank, then qualifying rank
+              </label>
               <p className={hint}>
                 Never discarded. The rest of {value.finalFleets[0]?.label ?? 'the top fleet'} sail a
                 companion race scored from {value.medal.size + 1}.

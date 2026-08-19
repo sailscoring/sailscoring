@@ -66,6 +66,11 @@ export interface SplitFleetConfig {
     raceCount: number;
     multiplier: number;
     carryTransform?: CarryTransform;
+    /** `stage-rank` adds two steps after RRS A8 for the medal boats: the
+     *  boat ranked higher in the final series alone, then in the qualifying
+     *  series alone, wins the tie (2026 ILCA SI 18.7.4). Absent = A8 as
+     *  written, and a tie A8 cannot break stays a tie. */
+    tieBreak?: 'stage-rank';
   };
 }
 
@@ -574,19 +579,26 @@ function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
   applyDiscardGroup(config, cells.filter((c) => c.stage !== 'qualifying'), { finalCaps: false });
 }
 
-/** Finishing positions in the qualifying series alone — the input to
- *  `rank-seed` carry. Scored over the qualifying cells with the qualifying
- *  ladder, ranked by RRS A8. Boats with no qualifying race at all (a late
- *  entry into the final series) get no position, and so no carried score. */
-function rankQualifyingSeries(
+/** Finishing positions in one stage alone: the stage's cells scored with
+ *  their own discard ladder and ranked by RRS A8. Two callers — the position
+ *  `rank-seed` carry brings forward, and the sub-series steps that break a
+ *  tie A8 leaves standing. Boats with no race in the stage get no position.
+ *
+ *  Reads `counts`, so a caller that blanks cells (the carry transform) must
+ *  rank before it does. */
+function rankStageSeries(
   config: SplitFleetConfig,
   rows: SplitStandingRow[],
+  stage: SeriesStage,
 ): Map<string, number> {
   const scored = rows
     .map((row) => {
+      // Copies with the discards cleared: this ranking applies the ladder to
+      // the stage on its own, so whatever the combined line discarded says
+      // nothing about it.
       const cells = row.cells
-        .filter((c) => c.stage === 'qualifying')
-        .map((c) => ({ ...c }));
+        .filter((c) => c.stage === stage)
+        .map((c) => ({ ...c, discarded: false }));
       applyDiscardGroup(config, cells, { finalCaps: false });
       const counting = cells.filter((c) => c.counts);
       return {
@@ -733,7 +745,7 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
   // each boat in the Qualifying Series shall be carried forward to the Final
   // Series as non-excludable points").
   if (config.carry === 'rank-seed' && splitRound) {
-    const qualifyingPosition = rankQualifyingSeries(config, rows);
+    const qualifyingPosition = rankStageSeries(config, rows, 'qualifying');
     for (const row of rows) {
       for (const cell of row.cells) {
         if (cell.stage !== 'qualifying') continue;
@@ -767,6 +779,16 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
     applyDiscards(config, row.cells);
     totalRow(row);
   }
+
+  // The sub-series tie-break steps, captured before the carry transform
+  // blanks the cells they are computed from.
+  const stageRank =
+    config.medal?.tieBreak === 'stage-rank' && medalRound
+      ? {
+          final: rankStageSeries(config, rows, 'final'),
+          qualifying: rankStageSeries(config, rows, 'qualifying'),
+        }
+      : null;
 
   // Compressed carry: once the medal fleet is selected, each medal boat's
   // opening-series net is divided and rounded, and that one number — not her
@@ -807,13 +829,27 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
 
   // RRS A8: A8.1 (best score lists, excluded scores out) then A8.2 (last
   // race backwards, including excluded scores).
-  const byNet = (a: SplitStandingRow, b: SplitStandingRow) =>
+  const byA8 = (a: SplitStandingRow, b: SplitStandingRow) =>
     a.net - b.net ||
     compareScoreLists(
       a.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
       b.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
     ) ||
     compareLastRace(a.cells, b.cells);
+
+  // A tie A8 cannot break falls to the sub-series steps where the SIs add
+  // them. Scoped to the medal boats, whose scores the carry transform rounds
+  // together — everywhere else A8 stands as written.
+  const byNet = (a: SplitStandingRow, b: SplitStandingRow) => {
+    const a8 = byA8(a, b);
+    if (a8 !== 0 || !stageRank || !a.medal || !b.medal) return a8;
+    for (const stage of ['final', 'qualifying'] as const) {
+      const ra = stageRank[stage].get(a.competitor.id);
+      const rb = stageRank[stage].get(b.competitor.id);
+      if (ra != null && rb != null && ra !== rb) return ra - rb;
+    }
+    return 0;
+  };
 
   // Tier ordering: medal first, then final fleets in order, then the rest.
   const tierIndex = (row: SplitStandingRow): number => {

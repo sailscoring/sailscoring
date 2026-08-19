@@ -47,6 +47,7 @@ export const splitFleetConfigSchema = z.object({
           rounding: z.enum(['half-up', 'truncate']),
         })
         .optional(),
+      tieBreak: z.literal('stage-rank').optional(),
     })
     .optional(),
 });

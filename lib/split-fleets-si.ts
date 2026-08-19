@@ -124,6 +124,11 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
         `Before the medal race, each medal boat's series score will be divided by ${transform.by}, ${rounding}, and the medal race score added to that.`,
       );
     }
+    if (config.medal.tieBreak === 'stage-rank') {
+      lines.push(
+        'For the medal boats, ties will be broken applying rule A8. If a tie remains, it will be broken in favour of the boat ranked higher in the final series, then in the qualifying series.',
+      );
+    }
   }
 
   return lines;
