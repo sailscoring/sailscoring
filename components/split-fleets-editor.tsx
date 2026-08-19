@@ -540,10 +540,79 @@ export function SplitFleetEditor({
             )}
           </div>
           {value.medal && (
-            <p className={hint}>
-              Never discarded. The rest of {value.finalFleets[0]?.label ?? 'the top fleet'} sail a
-              companion race scored from {value.medal.size + 1}.
-            </p>
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    disabled={!canEdit}
+                    checked={!!value.medal.carryTransform}
+                    onChange={(e) =>
+                      patch({
+                        medal: {
+                          ...value.medal!,
+                          carryTransform: e.target.checked
+                            ? { kind: 'divide', by: 2, rounding: 'half-up' }
+                            : undefined,
+                        },
+                      })
+                    }
+                  />
+                  First divide the score so far by
+                </label>
+                {value.medal.carryTransform && (
+                  <>
+                    <input
+                      type="number"
+                      aria-label="Carried score divisor"
+                      min={1}
+                      step="0.25"
+                      className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
+                      disabled={!canEdit}
+                      value={value.medal.carryTransform.by}
+                      onChange={(e) =>
+                        patch({
+                          medal: {
+                            ...value.medal!,
+                            carryTransform: {
+                              ...value.medal!.carryTransform!,
+                              by: Math.max(1, Number(e.target.value)),
+                            },
+                          },
+                        })
+                      }
+                    />
+                    <select
+                      aria-label="Carried score rounding"
+                      className="rounded-md border bg-background px-2 py-1 text-sm"
+                      disabled={!canEdit}
+                      value={value.medal.carryTransform.rounding}
+                      onChange={(e) =>
+                        patch({
+                          medal: {
+                            ...value.medal!,
+                            carryTransform: {
+                              ...value.medal!.carryTransform!,
+                              rounding: e.target.value as 'half-up' | 'truncate',
+                            },
+                          },
+                        })
+                      }
+                    >
+                      <option value="half-up">rounding 0.5 up</option>
+                      <option value="truncate">dropping the fraction</option>
+                    </select>
+                  </>
+                )}
+              </div>
+              <p className={hint}>
+                Never discarded. The rest of {value.finalFleets[0]?.label ?? 'the top fleet'} sail a
+                companion race scored from {value.medal.size + 1}.
+                {value.medal.carryTransform
+                  ? ' Dividing the score so far pulls the leaders together before the last races, so a medal boat’s championship score is that one carried number plus her medal races.'
+                  : ''}
+              </p>
+            </>
           )}
         </div>
       </div>

@@ -25,10 +25,12 @@ function esc(s: string): string {
 
 const STAGE_PREFIX: Record<SeriesStage, string> = { qualifying: 'Q', final: 'F', medal: 'M' };
 
-/** Column heading for a stage race. Stage race 0 in the final series is the
- *  carried qualifying position (`rank-seed` carry), not a race. */
+/** Column heading for a stage race. Stage race 0 is not a race: in the final
+ *  series it is the carried qualifying position (`rank-seed` carry), in the
+ *  medal stage the compressed opening-series score (`medal.carryTransform`). */
 function columnLabel(stage: SeriesStage, n: number): string {
-  return stage === 'final' && n === 0 ? 'QS' : `${STAGE_PREFIX[stage]}${n}`;
+  if (n !== 0) return `${STAGE_PREFIX[stage]}${n}`;
+  return stage === 'medal' ? 'Carried' : 'QS';
 }
 const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
 
@@ -160,9 +162,11 @@ export function renderSplitFleetStandingsPage(
     const title = c.counts
       ? c.carriedRank
         ? ' title="qualifying-series position, carried into the final series"'
-        : ''
+        : c.carriedTransform
+          ? ' title="opening-series score, compressed and carried into the medal races"'
+          : ''
       : c.superseded
-        ? ' title="replaced by the carried qualifying position"'
+        ? ' title="replaced by the carried score"'
         : ' title="does not yet count — race incomplete across fleets"';
     return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${inner}</td>`;
   };

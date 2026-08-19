@@ -13,10 +13,12 @@ block names its real anchor event and links its captured SIs/results in
 |---|---|---|
 | **F1** | Addendum-C classic: one continuous low-point line across qualifying + final; per-fleet finals score-code base; class discard ladder | `01` (ILCA ladder), `02` (IODA single discard) |
 | **F2** | F1 + a medal race: doubled, non-discardable medal points; medal boats ranked above the fleets; non-medal companion "last race" scored from below the medal fleet | `03` (ILCA Adelaide) |
+| **F3** | Compressed carry: the medal boats' opening-series score is divided and rounded before an additive, non-discardable medal series | `15` (ILCA Dun Laoghaire, ÷2 rounding 0.5 up) |
+| **F5** | Net + net: qualifying and final are separately-discarded series and the championship score is their sum | `13` (29er) |
+| **F6** | Rank-seed carry: the qualifying *position* carries into the final series as one non-excludable score and the qualifying race scores drop out | `14` (Topper / 470) |
 
-Not covered here (later priorities, per the survey): **F3** compressed-carry
-medal series, **F4** knockout overlay (record-only), **F5** net+net, **F6**
-rank-seed carry, **F7** no-carry, **F8** frozen fleets / merged starts.
+Not covered here (later priorities, per the survey): **F4** knockout overlay
+(record-only), **F7** no-carry, **F8** frozen fleets / merged starts.
 
 ## Scenario codes (this batch)
 

@@ -59,8 +59,38 @@ export interface SplitFleetConfig {
    *  assignment: registration/seeding order, or LE's fleet-order scatter. */
   reassignmentTieOrder: 'a8-then-entry-order' | 'fleet-order';
   /** Medal config; absent = no medal phase. `raceCount` is a planning hint —
-   *  the medal phase can add races beyond it. */
-  medal?: { size: number; raceCount: number; multiplier: number };
+   *  the medal phase can add races beyond it. `carryTransform` compresses the
+   *  medal boats' opening-series score before the medal races add to it. */
+  medal?: {
+    size: number;
+    raceCount: number;
+    multiplier: number;
+    carryTransform?: CarryTransform;
+  };
+}
+
+/** How a medal boat's opening-series score is compressed before the medal
+ *  races are added to it — the survey's F3 "compressed carry". The scores
+ *  earned so far are divided and rounded, which pulls the leaders together so
+ *  the last races can still change the order.
+ *
+ *  Real instances: the 2026 ILCA 7 Worlds divide by 2 and round to the nearest
+ *  whole number, 0.5 upward (SI 18.7.3); the 2026 skiff Worlds divide by 2.25
+ *  and truncate. */
+export interface CarryTransform {
+  kind: 'divide';
+  by: number;
+  rounding: 'half-up' | 'truncate';
+}
+
+/** Apply a carry transform to an opening-series score. */
+export function applyCarryTransform(points: number, transform: CarryTransform): number {
+  const divided = points / transform.by;
+  // The epsilon keeps a value that is exactly on a boundary in decimal from
+  // falling the wrong way through its binary representation (7.5 / 2.5).
+  return transform.rounding === 'half-up'
+    ? Math.floor(divided + 0.5 + 1e-9)
+    : Math.floor(divided + 1e-9);
 }
 
 export interface SplitRound {
@@ -369,8 +399,12 @@ export interface CellScore {
   /** `rank-seed` carry: this cell is the qualifying-series position carried
    *  into the final series, not a race result. */
   carriedRank?: boolean;
-  /** `rank-seed` carry: a qualifying race score replaced by the carried
-   *  rank. Shown, but out of the championship score. */
+  /** A medal boat's compressed opening-series score, carried into the medal
+   *  races (see `CarryTransform`). Not a race result. */
+  carriedTransform?: boolean;
+  /** A race score replaced by a carried cell — the qualifying scores under
+   *  `rank-seed`, the opening-series scores under a carry transform. Shown,
+   *  but out of the championship score. */
   superseded?: boolean;
   /** The RDG finish awaiting A9 resolution (engine-internal). */
   rdg?: Finish | null;
@@ -723,11 +757,52 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
     }
   }
 
-  for (const row of rows) {
-    applyDiscards(config, row.cells);
+  const totalRow = (row: SplitStandingRow) => {
     const counting = row.cells.filter((c) => c.counts);
     row.total = counting.reduce((s, c) => s + c.points, 0);
     row.net = counting.filter((c) => !c.discarded).reduce((s, c) => s + c.points, 0);
+  };
+
+  for (const row of rows) {
+    applyDiscards(config, row.cells);
+    totalRow(row);
+  }
+
+  // Compressed carry: once the medal fleet is selected, each medal boat's
+  // opening-series net is divided and rounded, and that one number — not her
+  // race scores — is what the medal races add to (2026 ILCA SI 18.7.2/18.7.3).
+  // Applied after the discards because the transform's input is her net, and
+  // as soon as the round exists rather than when a medal race is sailed, so
+  // "if no medal race is completed the adjusted scores decide" (SI 18.7.5)
+  // needs no separate path.
+  const transform = config.medal?.carryTransform;
+  if (transform && medalRound) {
+    for (const row of rows) {
+      if (!row.medal) continue;
+      const opening = row.cells.filter((c) => c.counts && c.stage !== 'medal');
+      if (opening.length === 0) continue;
+      const carried = applyCarryTransform(
+        opening.filter((c) => !c.discarded).reduce((s, c) => s + c.points, 0),
+        transform,
+      );
+      for (const cell of opening) {
+        cell.counts = false;
+        cell.superseded = true;
+      }
+      row.cells.push({
+        stage: 'medal',
+        stageRaceNumber: 0,
+        fleetId: medalFleetId ?? '',
+        raceId: '',
+        points: carried,
+        code: null,
+        counts: true,
+        discardable: false,
+        discarded: false,
+        carriedTransform: true,
+      });
+      totalRow(row);
+    }
   }
 
   // RRS A8: A8.1 (best score lists, excluded scores out) then A8.2 (last

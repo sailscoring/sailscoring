@@ -40,6 +40,13 @@ export const splitFleetConfigSchema = z.object({
       size: z.number().int().positive(),
       raceCount: z.number().int().positive(),
       multiplier: z.number().positive(),
+      carryTransform: z
+        .object({
+          kind: z.literal('divide'),
+          by: z.number().positive(),
+          rounding: z.enum(['half-up', 'truncate']),
+        })
+        .optional(),
     })
     .optional(),
 });

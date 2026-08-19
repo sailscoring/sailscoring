@@ -107,9 +107,23 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
   );
 
   if (config.medal) {
+    const score =
+      config.medal.multiplier === 1
+        ? 'Her medal race score may not be excluded'
+        : `Her medal race score will be multiplied by ${config.medal.multiplier} and may not be excluded`;
     lines.push(
-      `The first ${config.medal.size} boats in the ${topFleet} fleet will sail a medal race. Her medal race score will be multiplied by ${config.medal.multiplier} and may not be excluded; the remaining ${topFleet} boats will sail a final race scored from ${config.medal.size + 1}.`,
+      `The first ${config.medal.size} boats in the ${topFleet} fleet will sail a medal race. ${score}; the remaining ${topFleet} boats will sail a final race scored from ${config.medal.size + 1}.`,
     );
+    const transform = config.medal.carryTransform;
+    if (transform) {
+      const rounding =
+        transform.rounding === 'half-up'
+          ? 'rounded to the nearest whole number (0.5 rounded upward)'
+          : 'with any fraction discarded';
+      lines.push(
+        `Before the medal race, each medal boat's series score will be divided by ${transform.by}, ${rounding}, and the medal race score added to that.`,
+      );
+    }
   }
 
   return lines;

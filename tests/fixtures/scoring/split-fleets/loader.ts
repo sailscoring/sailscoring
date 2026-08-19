@@ -22,6 +22,7 @@ import {
   splitFleetStandings,
 } from '@/lib/split-fleets';
 import type {
+  CarryTransform,
   SplitFleetConfig,
   SplitFleetData,
   SplitRound,
@@ -108,7 +109,12 @@ export interface SplitFleetFixture {
     discardThresholds: { minRaces: number; discardCount: number }[];
     maxFinalDiscards: number;
     protectLoneFinalRace?: boolean;
-    medal?: { size: number; raceCount: number; multiplier: number };
+    medal?: {
+      size: number;
+      raceCount: number;
+      multiplier: number;
+      carryTransform?: CarryTransform;
+    };
   };
   competitors: string[]; // "sail name..." — first token is the sail number
   stages: FixtureStage[];
