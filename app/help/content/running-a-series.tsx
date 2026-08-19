@@ -612,9 +612,14 @@ export default function RunningASeries() {
             one, and the dialog flags rank ties sitting on a boundary. Final fleets race
             independently (they need not sail the same number of races). If the event carries a{' '}
             <strong className="text-foreground">medal race</strong>, select the medal fleet when
-            racing closes: the top boats sail it (points doubled, never discardable) while the rest
-            of the top fleet sail the companion last race, scored from just below the medal group.
-            A redress decision that promotes a boat across the split is the{' '}
+            racing closes: the top boats sail it, never discardable, at whatever points multiplier
+            the sailing instructions set. What the rest of the top fleet then do differs by class.
+            Where they sail a companion last race scored from just below the medal group, that is
+            the race the medal ceremony creates for them. Where instead they sail one more ordinary
+            final-series race — the 2026 ILCA wording — add it from{' '}
+            <strong className="text-foreground">Add next race</strong> as usual: the medal boats
+            have left these fleets’ racing, so they are simply absent from it rather than scored
+            for missing it. A redress decision that promotes a boat across the split is the{' '}
             <strong className="text-foreground">Promote (redress)</strong> action on the split
             round.
           </p>
@@ -625,7 +630,8 @@ export default function RunningASeries() {
             ceremonies and the scoring rules move to the tab’s{' '}
             <strong className="text-foreground">Format</strong> section, which holds the whole
             configuration from then on. Start from a class format — ILCA, IODA, and the
-            two-series and carried-position models — which fills every setting; then read{' '}
+            two-series and carried-position models, with ILCA offered per era since the class
+            rewrote its format for 2026 — which fills every setting; then read{' '}
             <strong className="text-foreground">How this configuration translates to sailing
             instructions</strong>, which restates your settings as SI prose, against the scoring
             section of the sailing instructions you were given. Where a sentence disagrees,
@@ -639,6 +645,29 @@ export default function RunningASeries() {
             <strong className="text-foreground">the qualifying position carried forward</strong>{' '}
             as one score that can never be discarded, replacing the qualifying race scores (470,
             Topper). The standings show a carried position in a <strong className="text-foreground">QS</strong> column.
+          </p>
+          <p>
+            A medal series can also <strong className="text-foreground">compress the score</strong>{' '}
+            it is added to: some classes divide each qualified boat’s series score before the medal
+            races, which pulls the leaders together so the last races can still decide the title.
+            Switch it on under the medal settings, with the divisor and how it rounds; the
+            compressed number appears in a <strong className="text-foreground">Carried</strong>{' '}
+            column and replaces the boat’s earlier race scores in her total. Rounding to whole
+            numbers makes ties, so the same settings offer the sub-series tie-break those classes
+            pair it with — a tie the racing rules can’t break goes to the boat who ranked higher in
+            the final series, then the qualifying series.
+          </p>
+          <p>
+            Three smaller settings are worth checking against your sailing instructions. Give the
+            three stages <strong className="text-foreground">the names and race prefixes your SIs
+            use</strong>, and say whether the second stage’s races number on from the first — a
+            championship whose sailing instructions run Q1–Q12 across both should not publish its
+            sixth race as F1, because a scoring enquiry will cite the number on the notice board.
+            Set the <strong className="text-foreground">races needed to constitute the
+            championship</strong>, and the standings say so plainly until they are sailed rather
+            than reading as a result. And where boats can end qualifying holding different numbers
+            of scores, choose whether the surplus races are abandoned or each boat’s most recent
+            extra scores are excluded on top.
           </p>
           <p>
             The published output is a single{' '}

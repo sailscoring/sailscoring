@@ -92,7 +92,9 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByRole('dialog')).toContainText('The split is frozen once committed');
   await page.getByRole('button', { name: /Commit split \(12 \/ 12\)/ }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
-  await expect(page.getByRole('link', { name: /F1 · enter finishes/ })).toHaveCount(2);
+  // Labelled Q5, not F1: the default ILCA format numbers its final-series
+  // races on from the qualifying series (Q1–Q4 exist), as its SIs do.
+  await expect(page.getByRole('link', { name: /Q5 · enter finishes/ })).toHaveCount(2);
 
   // Tiered standings: one table per final fleet.
   await expect(page.getByRole('heading', { name: /Gold/ })).toBeVisible();
@@ -133,8 +135,9 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.getByRole('button', { name: 'Select medal fleet…' }).click();
   await expect(page.getByRole('dialog')).toContainText('Select the medal fleet');
   await page.getByRole('button', { name: /Commit medal fleet \(top 10\)/ }).click();
-  await expect(page.getByText('Medal races score ×2')).toBeVisible();
-  await expect(page.getByRole('link', { name: /M1/ })).toHaveCount(2);
+  // The ILCA format calls this stage the Final series and scores it ×1.
+  await expect(page.getByText('Final series score ×1')).toBeVisible();
+  await expect(page.getByRole('link', { name: /F1/ })).toHaveCount(2);
 });
 
 /**

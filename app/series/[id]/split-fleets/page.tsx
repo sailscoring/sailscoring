@@ -89,9 +89,8 @@ function computeNextAction(
     .find((ref) => !physicalRaceCompleted(ref, data.competitors, data.finishes));
   if (pending) {
     const fleet = fleetMeta.get(pending.fleetId)?.label ?? '';
-    const prefix = pending.start.stage === 'qualifying' ? 'Q' : pending.start.stage === 'final' ? 'F' : 'M';
     return {
-      label: `enter finishes for ${prefix}${pending.start.stageRaceNumber} · ${fleet}`,
+      label: `enter finishes for ${raceLabel(data, pending.start.stage!, pending.start.stageRaceNumber!)} · ${fleet}`,
       href: `/series/${pending.race.seriesId}/races/${pending.race.id}`,
     };
   }
@@ -120,10 +119,9 @@ function DayStrip({ data, config }: { data: SplitFleetData; config: SplitFleetCo
     seen.add(key);
     const group = sorted.filter((x) => `${x.start.stage}:${x.start.stageRaceNumber}` === key);
     const done = group.filter((x) => physicalRaceCompleted(x, data.competitors, data.finishes)).length;
-    const prefix = ref.start.stage === 'qualifying' ? 'Q' : ref.start.stage === 'final' ? 'F' : 'M';
     chips.push({
       key,
-      label: `${prefix}${ref.start.stageRaceNumber}`,
+      label: raceLabel(data, ref.start.stage!, ref.start.stageRaceNumber!),
       state: done === group.length ? 'done' : done > 0 ? 'part' : 'todo',
     });
   }
@@ -642,7 +640,7 @@ function QualifyingSection({
                   {round.method === 'seeded'
                     ? 'Initial assignment'
                     : round.basis
-                      ? `From ranking after Q${round.basis.throughStageRace} · captured ${new Date(round.basis.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                      ? `From ranking after ${raceLabel(data, 'qualifying', round.basis.throughStageRace)} · captured ${new Date(round.basis.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                       : 'Manual'}
                 </span>
                 {round.publishedAt && (
@@ -722,7 +720,7 @@ function QualifyingSection({
                   })
                 }
               >
-                Add race Q{nextStageRace}
+                Add race {raceLabel(data, 'qualifying', nextStageRace)}
               </Button>
               <Button onClick={() => setDialog('split')} disabled={validCount === 0}>
                 End qualifying → split fleets
@@ -1147,8 +1145,8 @@ function ReassignDialog({
 
   return (
     <CeremonyDialog
-      title={`Assign Round ${roundNumber} · Q${fromStageRace} onward`}
-      description={`From the ranking after Q${throughStageRace} — the races completed by all fleets. Captured now; later rescoring will not change this assignment. Hand-moves (late entries, committee instructions) are recorded as overrides.`}
+      title={`Assign Round ${roundNumber} · ${raceLabel(data, 'qualifying', fromStageRace)} onward`}
+      description={`From the ranking after ${raceLabel(data, 'qualifying', throughStageRace)} — the races completed by all fleets. Captured now; later rescoring will not change this assignment. Hand-moves (late entries, committee instructions) are recorded as overrides.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit Round ${roundNumber} (${preview.moved} boats change fleet)`}
@@ -1244,7 +1242,7 @@ function SplitDialog({
   return (
     <CeremonyDialog
       title="Split into final fleets"
-      description={`Basis: the qualifying ranking after Q${throughStageRace}. The split is frozen once committed — later rescoring will not change it (a redress decision may promote). Creates the final fleets and the first final race.`}
+      description={`Basis: the qualifying ranking after ${raceLabel(data, 'qualifying', throughStageRace)}. The split is frozen once committed — later rescoring will not change it (a redress decision may promote). Creates the final fleets and the first final race.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit split (${preview.sizes.join(' / ')})`}
@@ -1384,7 +1382,8 @@ function FinalSection({
                       backgroundColor: done ? `${meta.color}33` : undefined,
                     }}
                   >
-                    F{ref.start.stageRaceNumber} {done ? '✓' : '· enter finishes'}
+                    {raceLabel(data, 'final', ref.start.stageRaceNumber ?? 0)}{' '}
+                    {done ? '✓' : '· enter finishes'}
                   </Link>
                   {canManage && !done && (
                     <Button
@@ -1422,7 +1421,7 @@ function FinalSection({
                   })
                 }
               >
-                Add F{nextN}
+                Add {raceLabel(data, 'final', nextN)}
               </Button>
             )}
           </div>
@@ -1671,7 +1670,8 @@ function MedalSection({
                     backgroundColor: done ? `${meta.color}33` : undefined,
                   }}
                 >
-                  M{ref.start.stageRaceNumber} {isMedal ? `·×${medalConfig?.multiplier ?? 2}` : ''}{' '}
+                  {raceLabel(data, 'medal', ref.start.stageRaceNumber ?? 0)}{' '}
+                  {isMedal ? `·×${medalConfig?.multiplier ?? 2}` : ''}{' '}
                   {done ? '✓' : '· enter finishes'}
                 </Link>
               );

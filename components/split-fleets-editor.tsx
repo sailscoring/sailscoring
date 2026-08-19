@@ -73,6 +73,9 @@ const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) =>
   },
 };
 
+/** What a new series starts from, and so what the settings below show first. */
+const INITIAL_FORMAT: FormatKey = 'ilca-2026';
+
 const CARRY_OPTIONS: { value: SplitFleetConfig['carry']; label: string; hint: string }[] = [
   {
     value: 'points',
@@ -116,9 +119,11 @@ export function SplitFleetEditor({
   onEnabled?: () => void;
 }) {
   const save = useSaveSplitFleetConfig(seriesId);
-  const [format, setFormat] = useState<FormatKey>('ilca-2026');
+  const [format, setFormat] = useState<FormatKey>(INITIAL_FORMAT);
   const [customised, setCustomised] = useState(false);
-  const [draft, setDraft] = useState<SplitFleetConfig>(() => defaultSplitFleetConfig(3));
+  // The draft must be the format the picker is showing, or the settings below
+  // describe a format nobody chose.
+  const [draft, setDraft] = useState<SplitFleetConfig>(() => FORMATS[INITIAL_FORMAT].build(3));
 
   const value = config ?? draft;
   const isDraft = config === null;
