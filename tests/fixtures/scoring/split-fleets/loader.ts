@@ -57,7 +57,10 @@ export interface FixtureStageRace {
  *   split:         final split by the qualifying ranking (all Q races)
  *   splitAfter:    final split by the qualifying ranking through race N
  *   medalTop:      medal-fleet selection — top N of the opening series (the
- *                  rest of the top final fleet go to the companion fleet)
+ *                  rest of the top final fleet go to the companion fleet),
+ *                  optionally with `medalAfter` naming the last final race
+ *                  sailed when the selection was made (the SIs fix a cutoff,
+ *                  and races may follow it)
  * The engine's rank pattern (`assignByRankPattern`) and block-split
  * (`finalBlockSizes`) do the work; the fixture asserts the result via
  * `expectedFleets`.
@@ -68,6 +71,7 @@ export interface FixtureAssign {
   split?: boolean;
   splitAfter?: number;
   medalTop?: number;
+  medalAfter?: number;
 }
 
 export interface FixtureStage {
@@ -295,7 +299,22 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         const [medalName, companionName] = Object.keys(stage.expectedFleets ?? {});
         const mName = medalName ?? 'Medal';
         const cName = companionName ?? 'Companion';
-        const opening = splitFleetStandings(snapshot());
+        // The selection is a snapshot: `medalAfter` cuts the ranking off at
+        // the final race the SIs' cutoff time fell after, so races sailed
+        // later — the extra race for the boats who did not qualify — cannot
+        // reach back and change who was selected.
+        const base = snapshot();
+        const opening = splitFleetStandings(
+          a.medalAfter == null
+            ? base
+            : {
+                ...base,
+                raceStarts: base.raceStarts.filter(
+                  (st2) =>
+                    st2.stage !== 'final' || (st2.stageRaceNumber ?? 0) <= a.medalAfter!,
+                ),
+              },
+        );
         const top = opening.slice(0, a.medalTop).map((r) => r.competitor.sailNumber);
         // The companion "last race" is for the rest of the top final fleet.
         const goldFinalId = rounds.find((r) => r.stage === 'final')?.fleetIds[0];

@@ -1328,11 +1328,14 @@ function FinalSection({
       <p className="text-xs text-muted-foreground">
         Split committed{' '}
         {round.basis
-          ? `from the qualifying ranking after Q${round.basis.throughStageRace}`
+          ? `from the qualifying ranking after ${raceLabel(data, 'qualifying', round.basis.throughStageRace)}`
           : ''}
         . Final fleets usually start in sequence and finish onto one combined
         sheet, but need not complete the same number of races — a fleet a race
         behind simply sails its own next number in the sequence.
+        {medalRound
+          ? ` The ${stageTitles(data.config).medal.toLowerCase()} boats have left these fleets’ racing, so a race added now is for the rest — which is what sailing instructions mean by one more race for the boats who did not qualify.`
+          : ''}
       </p>
       {canManage && (
         <Button

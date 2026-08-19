@@ -1,0 +1,124 @@
+description: "The last-day extra race for the boats who did not qualify: the medal boats are absent from it, not scored DNC in it"
+provenance:
+  class: "ILCA 7"
+  year: 2026
+  event: "World Championship, Dun Laoghaire IRL"
+  si: "reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.md"
+  results: ""
+  code: F3
+  scenarios: []
+  alternatives: "Contrast the 2024 Adelaide companion race of fixture 03, which is a medal-stage race scored from 11."
+runnable: true
+notes: |
+  On the last day the 2026 ILCA 7 Worlds run two things at once:
+
+    7.7  On the last day two Final series races are scheduled for the boats
+         defined in SI 7.6. One additional Qualification series race is
+         scheduled for the boats who did not qualify to the Final series.
+
+  That extra race is *not* the 2024 companion race scored from 11. It is an
+  ordinary Elimination series race, sailed by all three fleets, scored from 1
+  within each, discardable, and counting toward the discard ladder — which is
+  why the ladder in those SIs runs to twelve races. The Gold fleet sails it
+  ten boats short.
+
+  Here F2 is that race: b1 sails it for Gold while y1 and b2, who made the
+  medal fleet, do not. The point of the fixture is what their rows do NOT
+  contain — selecting the medal fleet does not delete a boat from her final
+  fleet, so without care she reads as a Gold boat who failed to start Gold's
+  last race and collects a DNC at the fleet's score base. She is simply
+  elsewhere, and has no F2 cell at all. (A boat who really did miss a final
+  race still gets an explicit DNC row from the scorer.)
+
+  Note what does not change: Gold's score base for F2 is still its assigned
+  size plus one — SI 18.5.2 counts boats assigned to the fleet, and all
+  three are still assigned to it.
+
+  Hand check, DNC base 4 throughout, one discard from 3 races, at most one
+  from the final series, and a lone final race protected:
+    y1  Q 1,1  F1 1        -> F1 is the lone final race so far; discard Q1 = 2 -> halved 1
+    b2  Q 2,1  F1 2        -> same, discard Q1                                 = 3 -> halved 2
+    b1  Q 1,2  F1 3  F2 1  -> two final races now, so F1's 3 is discardable    = 4
+  then the medal race (base 3, x1): y1 1 -> 2;  b2 2 -> 4.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+  maxFinalDiscards: 1
+  protectLoneFinalRace: true
+  medal:
+    size: 2
+    raceCount: 1
+    multiplier: 1
+    carryTransform:
+      kind: divide
+      by: 2
+      rounding: half-up
+    tieBreak: stage-rank
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b2, b1, b3]
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [b1, b2, y1]
+      Silver: [b3, y2, y3]
+    races:
+      - n: 1
+        results:
+          Gold: [y1, b2, b1]
+          Silver: [y2, y3, b3]
+      # SI 7.7: one more Elimination race, for the boats who did not qualify.
+      # y1 and b2 are in the medal fleet and do not sail it.
+      - n: 2
+        results:
+          Gold: [b1]
+          Silver: [y2, y3, b3]
+
+  - stage: medal
+    from: 1
+    # Selected after F1, before the extra race is sailed.
+    assign: { medalTop: 2, medalAfter: 1 }
+    expectedFleets:
+      Medal: [b2, y1]
+      "Gold last race": [b1]
+    races:
+      - n: 1
+        results:
+          Medal: [y1, b2]
+
+expected:
+  standings:
+    # Medal boats: carried (halved) + the medal race, and no F2 cell at all.
+    - { rank: 1, sail: y1, total: 2, net: 2, fleet: Gold, medal: true }
+    - { rank: 2, sail: b2, total: 4, net: 4, fleet: Gold, medal: true }
+    - { rank: 3, sail: b1, total: 7, net: 4, fleet: Gold, medal: false }
+    - { rank: 4, sail: y2, total: 6, net: 4, fleet: Silver }
+    - { rank: 5, sail: y3, total: 10, net: 7, fleet: Silver }
+    - { rank: 6, sail: b3, total: 12, net: 9, fleet: Silver }

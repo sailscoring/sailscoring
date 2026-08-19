@@ -557,7 +557,9 @@ export interface SplitStandingRow {
  *    (medal doubling applies to finish points only — RRS A4.1 "points ...
  *    doubled", not the code base).
  *  - Coded finishes and absentees (implicit DNC) score `codeBase`,
- *    undoubled.
+ *    undoubled — except for members in `noImplicitDnc`, who are no longer
+ *    sailing this fleet's races and so are simply absent from the race
+ *    rather than scored for missing it. An explicit DNC row still scores.
  *  - SCP/ZFP add a percentage of the race's DNF score and DPI adds stated
  *    points, both through the engine-wide `applyAdditivePenalty` (RRS
  *    44.3(c) rounding and DNF cap). Penalties apply to finishers only (a
@@ -571,6 +573,7 @@ function scorePhysicalRace(
   finishes: Finish[],
   codeBase: number,
   multiplier: number,
+  noImplicitDnc?: ReadonlySet<string> | null,
 ): Map<string, { points: number; code: string | null; rdg: Finish | null }> {
   const offset = ref.start.firstPlaceOffset ?? 0;
   const memberIds = new Set(members.map((m) => m.id));
@@ -598,7 +601,8 @@ function scorePhysicalRace(
     }
   }
   for (const m of members) {
-    if (!out.has(m.id)) out.set(m.id, { points: codeBase, code: 'DNC', rdg: null });
+    if (out.has(m.id) || noImplicitDnc?.has(m.id)) continue;
+    out.set(m.id, { points: codeBase, code: 'DNC', rdg: null });
   }
   return out;
 }
@@ -776,6 +780,10 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
 
   const excludeExtraScores = config.equalization === 'exclude-extra-scores';
 
+  const medalMembers = medalFleetId
+    ? new Set(fleetMembers(competitors, medalFleetId).map((c) => c.id))
+    : null;
+
   const qualifyingRound = roundsForStage(rounds, 'qualifying')[0] ?? null;
   const largestQualifying = qualifyingRound ? largestFleetSize(data, qualifyingRound) : 0;
 
@@ -800,7 +808,20 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
             : members.length + 1;
         const isMedalFleet = stage === 'medal' && fleetId === lr.round.fleetIds[0];
         const multiplier = isMedalFleet ? (config.medal?.multiplier ?? 2) : 1;
-        const scores = scorePhysicalRace(ref, members, data.finishes, codeBase, multiplier);
+        const scores = scorePhysicalRace(
+          ref,
+          members,
+          data.finishes,
+          codeBase,
+          multiplier,
+          // Selecting the medal fleet does not remove a boat from her final
+          // fleet — she is still ranked inside it, and the fleet's assigned
+          // size still sets the score base. It does mean she stops sailing
+          // that fleet's races: where the SIs give the boats who missed the
+          // medal fleet one more race of their own (2026 ILCA SI 7.7), the
+          // medal boats are absent from it, not DNC in it.
+          stage === 'final' ? medalMembers : null,
+        );
         for (const [competitorId, sc] of scores) {
           const row = rowByCompetitor.get(competitorId);
           if (!row) continue;
