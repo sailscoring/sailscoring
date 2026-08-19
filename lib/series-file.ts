@@ -267,9 +267,18 @@ export interface SeriesFileRepos {
  *  fleets — per-division standings beside the overall ones. Additive, sparse
  *  and purely presentational: axis ids are stable across round-trips, and an
  *  older build reading a v32 file publishes the same page sectioned by fleet
- *  instead. */
-export const FORMAT_VERSION = 32;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+ *  instead.
+ *
+ *  v33 adds four optional split-fleet config fields: `minimumRaces` (races
+ *  needed to constitute the championship), `stageNaming` (the SIs' names,
+ *  race prefixes, and whether the final stage numbers on from the qualifying
+ *  one), and on the medal block `carryTransform` (the compressed carry) and
+ *  `tieBreak`. `splitFleets.config` travels verbatim, so no parser change —
+ *  but an older build reading a v33 file would drop them, and dropping
+ *  `carryTransform` silently re-scores the championship rather than
+ *  mislabelling it, which is what the bump makes visible. */
+export const FORMAT_VERSION = 33;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
