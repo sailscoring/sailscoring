@@ -65,6 +65,14 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
     'After each day of racing, boats will be reassigned to the qualifying fleets on the basis of their ranks in the qualifying series.',
   );
   lines.push(
+    'If at the end of the qualifying series some qualifying fleets have more race scores than others, the extra races will be abandoned and cancelled so that all fleets have the same number of race scores.',
+  );
+  if (config.equalization === 'exclude-extra-scores') {
+    lines.push(
+      'If at the end of the qualifying series some boats have more race scores than others, scores for the most recent races will be excluded so that all boats have the same number of race scores.',
+    );
+  }
+  lines.push(
     config.split.kind === 'fixed-top'
       ? `At the end of the qualifying series the first ${config.split.topSize} boats will be assigned to the ${topFleet} fleet on the basis of their ranks, and the remaining boats to the ${config.finalFleets.slice(1).map((f) => f.label).join(' and ') || 'other'} fleet.`
       : `At the end of the qualifying series boats will be assigned on the basis of their ranks to the ${finals} fleets, of, as nearly as possible, equal size.`,

@@ -2,9 +2,9 @@
 // See docs/design/split-fleets.md and docs/design/ux/flows/split-fleets.md.
 // Scope (#328): all three carry modes (continuous points, net+net,
 // carried qualifying rank); RDG average points per RRS A9(a)/(b);
-// SCP/DPI/ZFP penalties; A8.1+A8.2 tie-breaking; the validity gate as the
-// ILCA equalisation (a qualifying race doesn't count until every fleet has
-// completed it — the IODA exclude-most-recent variant is deferred).
+// SCP/DPI/ZFP penalties; A8.1+A8.2 tie-breaking; both end-of-qualifying
+// equalisations (the ILCA validity gate and the LE/IODA exclude-most-recent
+// variant).
 
 import type { Competitor, Finish, Fleet, Race, RaceStart } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
@@ -44,9 +44,20 @@ export interface SplitFleetConfig {
     fixedPoints?: number;
     final: 'own-fleet' | 'largest-qualifying';
   };
-  /** End-of-qualifying equalisation. Only 'abandon-extra-races' (the ILCA
-   *  A2.8 behaviour, expressed by the validity gate) is implemented;
-   *  'exclude-extra-scores' (IODA/LE) is documented and deferred. */
+  /** End-of-qualifying equalisation, when the qualifying series ends with
+   *  boats holding different numbers of race scores.
+   *
+   *  A qualifying race never counts until every fleet of its round has sailed
+   *  it — the validity gate, which is both ILCA A2.8's "abandoned &
+   *  cancelled" surplus (2026 SI Addendum A 2.2.7) and Appendix LE 20.5's
+   *  "those qualifying races completed by all fleets". That equalises the
+   *  fleets, and is all `abandon-extra-races` does.
+   *
+   *  `exclude-extra-scores` adds LE 20.4(a) / 2026 SI 18.3 on top: any boat
+   *  still holding more scores than the rest — a resail sailed by part of a
+   *  fleet, a boat who raced in two fleets for one stage race — drops her most
+   *  recent until all boats hold the same number. The two clauses compose in
+   *  the SIs that carry both; they are not alternative readings of one rule. */
   equalization: 'abandon-extra-races' | 'exclude-extra-scores';
   /** Discard thresholds over the combined line: [{minRaces, discardCount}].
    *  Medal races neither count toward these thresholds nor may be discarded. */
@@ -446,6 +457,10 @@ export interface CellScore {
    *  `rank-seed`, the opening-series scores under a carry transform. Shown,
    *  but out of the championship score. */
   superseded?: boolean;
+  /** A surplus qualifying score dropped so every boat holds the same number
+   *  (`equalization: 'exclude-extra-scores'`). Not a discard: it is out of
+   *  the score entirely and does not consume a discard. */
+  excludedAsExtra?: boolean;
   /** The RDG finish awaiting A9 resolution (engine-internal). */
   rdg?: Finish | null;
 }
@@ -688,6 +703,8 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
     });
   }
 
+  const excludeExtraScores = config.equalization === 'exclude-extra-scores';
+
   const qualifyingRound = roundsForStage(rounds, 'qualifying')[0] ?? null;
   const largestQualifying = qualifyingRound ? largestFleetSize(data, qualifyingRound) : 0;
 
@@ -740,6 +757,36 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
   addStage(mRaces, 'medal');
 
   const rows = [...rowByCompetitor.values()];
+
+  // `exclude-extra-scores`: at the end of the qualifying series, a boat with
+  // more qualifying scores than the rest drops her most recent until everyone
+  // holds the same number (LE 20.4(a); 2026 ILCA SI 18.3). Excluding, not
+  // discarding — the score leaves the series rather than spending a discard.
+  //
+  // The floor is the fewest scores any boat who raced at all holds, which is
+  // what "all boats have the same number of race scores" asks for. It assumes
+  // a settled entry list, as the SIs carrying this clause do: a boat who
+  // entered mid-qualifying legitimately holds fewer, and would pull everyone
+  // down to her count.
+  if (excludeExtraScores && splitRound) {
+    const qualifyingCells = new Map<string, CellScore[]>();
+    for (const row of rows) {
+      const cells = row.cells.filter((c) => c.stage === 'qualifying' && c.counts);
+      if (cells.length > 0) qualifyingCells.set(row.competitor.id, cells);
+    }
+    const counts = [...qualifyingCells.values()].map((c) => c.length);
+    const keep = counts.length > 0 ? Math.min(...counts) : 0;
+    for (const cells of qualifyingCells.values()) {
+      const surplus = cells
+        .slice()
+        .sort((a, b) => b.stageRaceNumber - a.stageRaceNumber)
+        .slice(0, cells.length - keep);
+      for (const cell of surplus) {
+        cell.counts = false;
+        cell.excludedAsExtra = true;
+      }
+    }
+  }
 
   // Resolve RDG cells per RRS A9: average points, to the nearest tenth
   // (0.05 rounded up), over the boat's other counting non-RDG cells --

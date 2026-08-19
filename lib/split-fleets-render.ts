@@ -168,7 +168,9 @@ export function renderSplitFleetStandingsPage(
           : ''
       : c.superseded
         ? ' title="replaced by the carried score"'
-        : ' title="does not yet count — race incomplete across fleets"';
+        : c.excludedAsExtra
+          ? ' title="excluded so every boat has the same number of qualifying scores"'
+          : ' title="does not yet count — race incomplete across fleets"';
     return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${inner}</td>`;
   };
 

@@ -400,6 +400,38 @@ export function SplitFleetEditor({
       </div>
 
       <div className={rowClass}>
+        <label className="font-medium" htmlFor="sf-equalization">
+          Boats end qualifying on different race counts
+        </label>
+        <div className="space-y-1">
+          <select
+            id="sf-equalization"
+            className={selectClass}
+            disabled={!canEdit}
+            value={value.equalization}
+            onChange={(e) =>
+              patch({
+                equalization: e.target.value as SplitFleetConfig['equalization'],
+              })
+            }
+          >
+            <option value="abandon-extra-races">
+              Abandon and cancel the extra races
+            </option>
+            <option value="exclude-extra-scores">
+              Also exclude each boat’s most recent extra scores
+            </option>
+          </select>
+          <p className={hint}>
+            A qualifying race counts for nobody until every fleet has sailed it, either way.
+            {value.equalization === 'exclude-extra-scores'
+              ? ' On top of that, any boat still left holding more scores than the rest drops her most recent until the counts match.'
+              : ''}
+          </p>
+        </div>
+      </div>
+
+      <div className={rowClass}>
         <label className="font-medium" htmlFor="sf-code-q">
           Scoring a boat that doesn’t start or finish
         </label>

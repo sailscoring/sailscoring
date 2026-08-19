@@ -30,12 +30,16 @@ second qualifying race that Blue never did, so that logical race is
 incomplete and counts for nobody — Yellow's Q2 scores are recorded but
 struck from the total. The standings rest on Q1 alone.
 
-This is the common case of the equalisation rule. The per-boat refinement —
-where boats WITHIN a fleet have different counts (a resail), and the
-IODA/420/470 variant excludes each boat's most-recent surplus score rather
-than voiding the whole race — is not exercised by the prototype's validity
-gate and is noted in codes.md as a spec item. `expected` verified against
-the engine: y1/y2/y3 net counts Q1 only (net 1/2/3), not Q1+Q2.</pre>
+This is the common case of the equalisation rule, and it is the whole of
+what `equalization: abandon-extra-races` does. The per-boat refinement —
+Appendix LE 20.4(a) / 2026 ILCA SI 18.3, where a boat still left holding
+more scores than the rest drops her most recent — composes on top of this
+gate rather than replacing it, and is selected with
+`equalization: exclude-extra-scores`. It is covered by unit test rather
+than fixture: with well-formed ceremony data the gate already equalises
+everyone, so the clause only bites on states an assignment override can
+reach. `expected` verified against the engine: y1/y2/y3 net counts Q1 only
+(net 1/2/3), not Q1+Q2.</pre>
 <h2>Fleet assignments</h2>
 <table>
 <thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
