@@ -966,6 +966,7 @@ function buildChampionship(): SeriesFile {
     maxFinalDiscards: 1,
     protectLoneFinalRace: true,
     reassignmentTieOrder: 'a8-then-entry-order',
+    minimumRaces: 3,
     medal: { size: 6, raceCount: 1, multiplier: 2 },
   };
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignByRankPattern,
+  championshipValidity,
+  completedRaceCount,
   defaultSplitFleetConfig,
   finalBlockSizes,
   logicalRaces,
@@ -507,5 +509,66 @@ describe('scoring penalties (RRS 44.3(c))', () => {
   it('adds DPI as stated points, still capped at the DNF score', () => {
     expect(penalizedWinner(10, { penaltyCode: 'DPI', penaltyOverride: 1 })).toBe(2);
     expect(penalizedWinner(4, { penaltyCode: 'DPI', penaltyOverride: 9 })).toBe(5);
+  });
+});
+
+
+describe('championshipValidity', () => {
+  /** Two qualifying fleets sailing `sailed` races each, plus one final race
+   *  for Gold alone (the fleets need not stay in step). */
+  function data(sailed: number, minimumRaces: number, finalRaces = 0): SplitFleetData {
+    const config = { ...defaultSplitFleetConfig(2), minimumRaces };
+    const competitors = [
+      competitor('c1', ['fy', 'fg'], 1),
+      competitor('c2', ['fb'], 2),
+    ];
+    const rounds: SplitRound[] = [
+      { id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+        fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0 },
+      { id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+        fleetIds: ['fg'], method: 'split', basis: null, createdAt: 1 },
+    ];
+    const races: ReturnType<typeof race>[] = [];
+    const raceStarts: RaceStart[] = [];
+    const finishes: Finish[] = [];
+    for (let n = 1; n <= sailed; n++) {
+      races.push(race(`q${n}`));
+      raceStarts.push(start(`q${n}`, ['fy', 'fb'], 'qualifying', n));
+      finishes.push(finish(`q${n}`, 'c1', 0), finish(`q${n}`, 'c2', 1));
+    }
+    for (let n = 1; n <= finalRaces; n++) {
+      races.push(race(`f${n}`));
+      raceStarts.push(start(`f${n}`, ['fg'], 'final', n));
+      finishes.push(finish(`f${n}`, 'c1', 0));
+    }
+    return {
+      config,
+      rounds,
+      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue'), fleet('fg', 'Gold')],
+      competitors,
+      races,
+      raceStarts,
+      finishes,
+    };
+  }
+
+  it('is null when the sailing instructions set no minimum', () => {
+    expect(championshipValidity(data(1, 0))).toBeNull();
+  });
+
+  it('counts a qualifying race only once every fleet has sailed it', () => {
+    const d = data(2, 3);
+    // Strip Blue's rows from Q2: the race is no longer valid across fleets.
+    d.finishes = d.finishes.filter((f) => !(f.raceId === 'q2' && f.competitorId === 'c2'));
+    expect(completedRaceCount(d)).toBe(1);
+    expect(championshipValidity(d)).toEqual({ completed: 1, required: 3, valid: false });
+  });
+
+  it('counts final races that only one fleet has sailed', () => {
+    expect(championshipValidity(data(2, 3, 1))).toEqual({
+      completed: 3,
+      required: 3,
+      valid: true,
+    });
   });
 });

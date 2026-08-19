@@ -109,6 +109,7 @@ export interface SplitFleetFixture {
     discardThresholds: { minRaces: number; discardCount: number }[];
     maxFinalDiscards: number;
     protectLoneFinalRace?: boolean;
+    minimumRaces?: number;
     medal?: {
       size: number;
       raceCount: number;
@@ -214,6 +215,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     maxFinalDiscards: fx.config.maxFinalDiscards,
     protectLoneFinalRace: fx.config.protectLoneFinalRace ?? false,
     reassignmentTieOrder: 'a8-then-entry-order',
+    minimumRaces: fx.config.minimumRaces ?? 0,
     medal: fx.config.medal,
   };
 

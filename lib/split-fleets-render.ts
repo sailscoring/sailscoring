@@ -9,6 +9,7 @@ import { renderFlagDefs } from './results-renderer';
 import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
+  championshipValidity,
   provisionalCutIndexes,
   roundsForStage,
   splitFleetStandings,
@@ -221,6 +222,13 @@ ${body}
   const back = opts.backHref
     ? `<p><a href="${esc(opts.backHref)}">&larr; ${esc(input.seriesName)}</a></p>`
     : '';
+  // Below the SIs' minimum these are a running order, not a championship
+  // result — say so on the page rather than letting it read as one.
+  const validity = championshipValidity(data);
+  const notice =
+    validity && !validity.valid
+      ? `<p style="border-left:3px solid #f59e0b;background:#fffbeb;padding:0.5em 0.75em;color:#92400e">Not yet a valid championship: ${validity.completed} of the ${validity.required} races required have been completed.</p>`
+      : '';
   return `<!doctype html>
 <html lang="en">
 <head><meta name="viewport" content="width=device-width"><title>${esc(input.seriesName)} — Championship standings</title><style>${PAGE_CSS}</style></head>
@@ -228,6 +236,7 @@ ${body}
 ${nat ? flagDefsFor(input) : ''}
 ${back}
 <h1>${esc(input.seriesName)}</h1>
+${notice}
 ${sections}
 <footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
 </body>

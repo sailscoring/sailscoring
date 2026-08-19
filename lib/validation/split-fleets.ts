@@ -35,6 +35,9 @@ export const splitFleetConfigSchema = z.object({
   maxFinalDiscards: z.number().int().min(0),
   protectLoneFinalRace: z.boolean(),
   reassignmentTieOrder: z.enum(['a8-then-entry-order', 'fleet-order']),
+  // Defaulted rather than required: configs stored before the field
+  // existed replay through this schema on every file open.
+  minimumRaces: z.number().int().min(0).default(0),
   medal: z
     .object({
       size: z.number().int().positive(),

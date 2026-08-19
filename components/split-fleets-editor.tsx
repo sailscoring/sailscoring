@@ -499,6 +499,25 @@ export function SplitFleetEditor({
       </div>
 
       <div className={rowClass}>
+        <label className="font-medium" htmlFor="sf-minimum-races">Races for a valid championship</label>
+        <div className="space-y-1">
+          <input
+            id="sf-minimum-races"
+            type="number"
+            min={0}
+            className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
+            disabled={!canEdit}
+            value={value.minimumRaces}
+            onChange={(e) => patch({ minimumRaces: Math.max(0, Number(e.target.value)) })}
+          />
+          <p className={hint}>
+            Below this the standings are marked a running order rather than a result. 0 if the
+            sailing instructions set no minimum.
+          </p>
+        </div>
+      </div>
+
+      <div className={rowClass}>
         <span className="font-medium">Medal race</span>
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">

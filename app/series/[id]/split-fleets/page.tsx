@@ -43,6 +43,7 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
+  championshipValidity,
   finalBlockSizes,
   fleetMembers,
   logicalRaces,
@@ -1753,6 +1754,8 @@ function StandingsSection({
     ? []
     : provisionalCutIndexes(standings.length, data.config.finalFleets.length);
 
+  const validity = championshipValidity(data);
+
   // Code-only in the live UI — flags are reserved for the published pages so
   // this view doesn't pull the flag dataset into the bundle.
   const showNationality =
@@ -1819,6 +1822,15 @@ function StandingsSection({
           )}
         </div>
       </div>
+      {validity && !validity.valid && (
+        <p
+          className="rounded-md border-l-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          data-testid="championship-validity"
+        >
+          Not yet a valid championship: {validity.completed} of the {validity.required} races
+          required by the sailing instructions have been completed.
+        </p>
+      )}
       <div className="overflow-x-auto">
         {splitRound ? (
           splitRound.fleetIds.map((fid) => {

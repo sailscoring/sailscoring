@@ -53,6 +53,11 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
   lines.push(
     'The championship will be sailed as a qualifying series followed by a final series.',
   );
+  if (config.minimumRaces > 0) {
+    lines.push(
+      `A minimum of ${countWord(config.minimumRaces)} races is required to be completed to constitute the championship.`,
+    );
+  }
   lines.push(
     `Boats will be assigned to ${countWord(config.qualifyingFleets.length)} qualifying fleets (${qualifying}) of, as nearly as possible, equal size and ability.`,
   );
