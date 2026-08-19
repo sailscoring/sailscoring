@@ -172,6 +172,34 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
   } as SplitFleetConfig;
 }
 
+/** The ILCA regime through 2025: one discard from 4 races, a second from 10,
+ *  and a single medal race at double points. Distinct from the 2026 regime
+ *  below, and still what rebuilding those years' championships needs. */
+export function ilcaSplitFleetConfig(fleetCount: number): SplitFleetConfig {
+  return defaultSplitFleetConfig(fleetCount);
+}
+
+/** The ILCA regime from 2026 (2026 ILCA 7 Worlds SIs, Dun Laoghaire): the
+ *  first discard comes a race earlier, and the finale is two races at single
+ *  points added to a halved series score, with ties falling to the sub-series
+ *  rankings (SI 18.4, 18.7.2–18.7.4). */
+export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
+  return {
+    ...defaultSplitFleetConfig(fleetCount),
+    discardThresholds: [
+      { minRaces: 3, discardCount: 1 },
+      { minRaces: 10, discardCount: 2 },
+    ],
+    medal: {
+      size: 10,
+      raceCount: 2,
+      multiplier: 1,
+      carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+      tieBreak: 'stage-rank',
+    },
+  };
+}
+
 /** The IODA preset: 4 fleets, one discard unlocked at 5 races (never a
  *  second), no medal race. */
 export function iodaSplitFleetConfig(fleetCount: number): SplitFleetConfig {

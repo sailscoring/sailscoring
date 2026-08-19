@@ -715,7 +715,11 @@ names must not share an initial letter), final fleet names (defaulting
 Gold/Silver/Bronze to match the count), and the carry/discard preset.
 Presets matter more than knobs here: "ILCA World/European Championship",
 "IODA Championship", "Custom" — each filling `SplitFleetConfig` with
-the class-standard values, the way NHC profiles default to SWNHC2015.
+the class-standard values, the way NHC profiles default to SWNHC2015. A
+class that changes its own format needs a preset per era rather than an
+edit in place: ILCA's 2026 rewrite (a race earlier for the first discard, a
+two-race finale at single points on a halved carry) ships alongside the
+2021–2025 regime, which past championships are still rebuilt from.
 
 ### The Split Fleets view
 

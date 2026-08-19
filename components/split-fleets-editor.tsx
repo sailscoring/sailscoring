@@ -22,18 +22,24 @@ import {
   FINAL_FLEET_SET,
   defaultSplitFleetConfig,
   finalBlockSizes,
+  ilca2026SplitFleetConfig,
+  ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
   type SplitFleetConfig,
 } from '@/lib/split-fleets';
 
-type FormatKey = 'ilca' | 'ioda' | 'net-plus-net' | 'rank-seed';
+type FormatKey = 'ilca-2026' | 'ilca-2025' | 'ioda' | 'net-plus-net' | 'rank-seed';
 
 /** Known class formats. Each is a complete configuration; picking one fills
  *  every field below, which the scorer then adjusts to match their SIs. */
 const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) => SplitFleetConfig }> = {
-  ilca: {
-    label: 'ILCA World/European Championship',
-    build: defaultSplitFleetConfig,
+  'ilca-2026': {
+    label: 'ILCA World/European Championship (2026 onward)',
+    build: ilca2026SplitFleetConfig,
+  },
+  'ilca-2025': {
+    label: 'ILCA World/European Championship (through 2025)',
+    build: ilcaSplitFleetConfig,
   },
   ioda: {
     label: 'IODA (Optimist) Championship',
@@ -102,7 +108,7 @@ export function SplitFleetEditor({
   onEnabled?: () => void;
 }) {
   const save = useSaveSplitFleetConfig(seriesId);
-  const [format, setFormat] = useState<FormatKey>('ilca');
+  const [format, setFormat] = useState<FormatKey>('ilca-2026');
   const [customised, setCustomised] = useState(false);
   const [draft, setDraft] = useState<SplitFleetConfig>(() => defaultSplitFleetConfig(3));
 
