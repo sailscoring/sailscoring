@@ -22,6 +22,7 @@ import { join } from 'node:path';
 
 import type { Competitor, Finish, CompetitorFieldKey, PrimaryPersonLabel } from '../lib/types';
 import {
+  DEFAULT_STAGE_NAMING,
   QUALIFYING_COLOR_SETS,
   FINAL_FLEET_SET,
   assignByRankPattern,
@@ -967,6 +968,7 @@ function buildChampionship(): SeriesFile {
     protectLoneFinalRace: true,
     reassignmentTieOrder: 'a8-then-entry-order',
     minimumRaces: 3,
+    stageNaming: DEFAULT_STAGE_NAMING,
     medal: { size: 6, raceCount: 1, multiplier: 2 },
   };
 

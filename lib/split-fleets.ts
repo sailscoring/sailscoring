@@ -73,6 +73,8 @@ export interface SplitFleetConfig {
    *  SI 18.2: three). Below it the standings are a running order, not a
    *  result. 0 = the SIs set no minimum. */
   minimumRaces: number;
+  /** What the SIs call the three stages, and how they number their races. */
+  stageNaming: StageNaming;
   /** Medal config; absent = no medal phase. `raceCount` is a planning hint —
    *  the medal phase can add races beyond it. `carryTransform` compresses the
    *  medal boats' opening-series score before the medal races add to it. */
@@ -87,6 +89,64 @@ export interface SplitFleetConfig {
      *  written, and a tie A8 cannot break stays a tie. */
     tieBreak?: 'stage-rank';
   };
+}
+
+/** The names and race numbering the sailing instructions use for the three
+ *  stages. The engine's own words for them are structural; a notice board,
+ *  a results page and a scoring enquiry all speak the SIs'.
+ *
+ *  The 2026 ILCA 7 Worlds are the case that makes this configuration rather
+ *  than constants: their stages are the Preliminary, Elimination and Final
+ *  series — so their "Final series" is our medal stage — and they number
+ *  Q1…Q12 straight through the first two, with the third restarting at F1.
+ *  Under the default names, that event's Q6 would be published as F1 and its
+ *  F1 as M1. */
+export interface StageNaming {
+  /** Section headings — the SIs' own name for each stage. */
+  labels: Record<SeriesStage, string>;
+  /** Race-label prefixes ("Q3", "F1"). */
+  prefixes: Record<SeriesStage, string>;
+  /** The final stage's races continue the qualifying stage's numbering, under
+   *  the qualifying prefix, instead of restarting at 1. */
+  continuousOpeningNumbers: boolean;
+}
+
+export const DEFAULT_STAGE_NAMING: StageNaming = {
+  labels: {
+    qualifying: 'Qualifying series',
+    final: 'Final series',
+    medal: 'Medal races',
+  },
+  prefixes: { qualifying: 'Q', final: 'F', medal: 'M' },
+  continuousOpeningNumbers: false,
+};
+
+/** The highest qualifying stage race number the series holds — what the final
+ *  stage's numbering continues from. */
+export function qualifyingRaceCount(data: SplitFleetData): number {
+  let max = 0;
+  for (const start of data.raceStarts) {
+    if (start.stage === 'qualifying' && start.stageRaceNumber != null) {
+      max = Math.max(max, start.stageRaceNumber);
+    }
+  }
+  return max;
+}
+
+/** A race's label as the notice board writes it ("Q3", "F1"). Stage race 0 is
+ *  not a race but a carried score: the qualifying position under `rank-seed`,
+ *  the compressed opening-series score under a carry transform. */
+export function stageRaceLabel(
+  config: SplitFleetConfig,
+  stage: SeriesStage,
+  n: number,
+  qualifyingRaces = 0,
+): string {
+  const naming = config.stageNaming ?? DEFAULT_STAGE_NAMING;
+  if (n === 0) return stage === 'medal' ? 'Carried' : 'QS';
+  return stage === 'final' && naming.continuousOpeningNumbers
+    ? `${naming.prefixes.qualifying}${qualifyingRaces + n}`
+    : `${naming.prefixes[stage]}${n}`;
 }
 
 /** How a medal boat's opening-series score is compressed before the medal
@@ -166,6 +226,7 @@ export function defaultSplitFleetConfig(fleetCount: number): SplitFleetConfig {
     protectLoneFinalRace: true,
     reassignmentTieOrder: 'a8-then-entry-order',
     minimumRaces: 0,
+    stageNaming: DEFAULT_STAGE_NAMING,
     medal: { size: 10, raceCount: 1, multiplier: 2 },
   };
 }
@@ -185,6 +246,7 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
     protectLoneFinalRace: raw.protectLoneFinalRace ?? false,
     reassignmentTieOrder: raw.reassignmentTieOrder ?? 'a8-then-entry-order',
     minimumRaces: raw.minimumRaces ?? 0,
+    stageNaming: raw.stageNaming ?? DEFAULT_STAGE_NAMING,
     medal: raw.medal,
   } as SplitFleetConfig;
 }
@@ -208,6 +270,15 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       { minRaces: 10, discardCount: 2 },
     ],
     minimumRaces: 3,
+    stageNaming: {
+      labels: {
+        qualifying: 'Preliminary series',
+        final: 'Elimination series',
+        medal: 'Final series',
+      },
+      prefixes: { qualifying: 'Q', final: 'Q', medal: 'F' },
+      continuousOpeningNumbers: true,
+    },
     medal: {
       size: 10,
       raceCount: 2,

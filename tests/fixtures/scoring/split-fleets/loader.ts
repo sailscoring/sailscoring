@@ -17,6 +17,7 @@ import { parse as parseYaml } from 'yaml';
 
 import {
   assignByRankPattern,
+  DEFAULT_STAGE_NAMING,
   finalBlockSizes,
   seedOrder,
   splitFleetStandings,
@@ -216,6 +217,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     protectLoneFinalRace: fx.config.protectLoneFinalRace ?? false,
     reassignmentTieOrder: 'a8-then-entry-order',
     minimumRaces: fx.config.minimumRaces ?? 0,
+    stageNaming: DEFAULT_STAGE_NAMING,
     medal: fx.config.medal,
   };
 

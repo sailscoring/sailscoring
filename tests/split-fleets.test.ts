@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   assignByRankPattern,
   championshipValidity,
+  ilca2026SplitFleetConfig,
+  stageRaceLabel,
   completedRaceCount,
   defaultSplitFleetConfig,
   finalBlockSizes,
@@ -636,5 +638,32 @@ describe('equalization: exclude-extra-scores', () => {
     const cells = qualifyingCells(data('abandon-extra-races', true), 'c1');
     expect(cells.filter((c) => c.counts)).toHaveLength(4);
     expect(cells.some((c) => c.excludedAsExtra)).toBe(false);
+  });
+});
+
+
+describe('stageRaceLabel', () => {
+  it('restarts each stage under its own prefix by default', () => {
+    const config = defaultSplitFleetConfig(3);
+    expect(stageRaceLabel(config, 'qualifying', 3, 5)).toBe('Q3');
+    expect(stageRaceLabel(config, 'final', 1, 5)).toBe('F1');
+    expect(stageRaceLabel(config, 'medal', 1, 5)).toBe('M1');
+  });
+
+  it('numbers the 2026 ILCA final stage on from the qualifying stage', () => {
+    // Their Preliminary and Elimination series run Q1…Q12 straight through,
+    // and only the Final series restarts — so the first Gold race is Q6, not
+    // F1, and the first Final series race is F1, not M1.
+    const config = ilca2026SplitFleetConfig(3);
+    expect(stageRaceLabel(config, 'qualifying', 5, 5)).toBe('Q5');
+    expect(stageRaceLabel(config, 'final', 1, 5)).toBe('Q6');
+    expect(stageRaceLabel(config, 'final', 6, 5)).toBe('Q11');
+    expect(stageRaceLabel(config, 'medal', 1, 5)).toBe('F1');
+  });
+
+  it('labels the carried scores rather than numbering them', () => {
+    const config = defaultSplitFleetConfig(2);
+    expect(stageRaceLabel(config, 'final', 0)).toBe('QS');
+    expect(stageRaceLabel(config, 'medal', 0)).toBe('Carried');
   });
 });

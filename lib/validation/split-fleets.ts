@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { DEFAULT_STAGE_NAMING } from '@/lib/split-fleets';
 import type { SplitFleetConfig } from '@/lib/split-fleets';
 
 import { uuidSchema } from './common';
@@ -38,6 +39,13 @@ export const splitFleetConfigSchema = z.object({
   // Defaulted rather than required: configs stored before the field
   // existed replay through this schema on every file open.
   minimumRaces: z.number().int().min(0).default(0),
+  stageNaming: z
+    .object({
+      labels: z.object({ qualifying: z.string().min(1), final: z.string().min(1), medal: z.string().min(1) }),
+      prefixes: z.object({ qualifying: z.string().min(1), final: z.string().min(1), medal: z.string().min(1) }),
+      continuousOpeningNumbers: z.boolean(),
+    })
+    .default(DEFAULT_STAGE_NAMING),
   medal: z
     .object({
       size: z.number().int().positive(),

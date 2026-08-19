@@ -10,9 +10,12 @@ import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
   championshipValidity,
+  DEFAULT_STAGE_NAMING,
   provisionalCutIndexes,
+  qualifyingRaceCount,
   roundsForStage,
   splitFleetStandings,
+  stageRaceLabel,
   type CellScore,
   type SeriesStage,
   type SplitFleetConfig,
@@ -24,15 +27,6 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-const STAGE_PREFIX: Record<SeriesStage, string> = { qualifying: 'Q', final: 'F', medal: 'M' };
-
-/** Column heading for a stage race. Stage race 0 is not a race: in the final
- *  series it is the carried qualifying position (`rank-seed` carry), in the
- *  medal stage the compressed opening-series score (`medal.carryTransform`). */
-function columnLabel(stage: SeriesStage, n: number): string {
-  if (n !== 0) return `${STAGE_PREFIX[stage]}${n}`;
-  return stage === 'medal' ? 'Carried' : 'QS';
-}
 const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
 
 /** A round as the render path receives it: wide enough for both the server
@@ -145,6 +139,9 @@ export function renderSplitFleetStandingsPage(
   const splitRound = roundsForStage(data.rounds, 'final')[0] ?? null;
   const nat = showNat(input);
   const wsid = showWsid(input);
+  const qRaces = qualifyingRaceCount(data);
+  const columnLabel = (stage: SeriesStage, n: number) =>
+    stageRaceLabel(data.config, stage, n, qRaces);
 
   const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
   for (const r of rows) for (const c of r.cells) colKeys.set(`${c.stage}:${c.stageRaceNumber}`, { stage: c.stage, n: c.stageRaceNumber });
@@ -254,10 +251,12 @@ export function renderSplitFleetAssignmentsPage(
   const data = assembleSplitFleetData(input);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
   const nat = showNat(input);
+  const qRaces = qualifyingRaceCount(data);
+  const naming = data.config.stageNaming ?? DEFAULT_STAGE_NAMING;
 
   const roundLabel = (r: SplitRound): string => {
-    if (r.stage === 'final') return 'Final series split';
-    if (r.stage === 'medal') return 'Medal fleet';
+    if (r.stage === 'final') return `${naming.labels.final} split`;
+    if (r.stage === 'medal') return `${naming.labels.medal} fleet`;
     const idx = roundsForStage(data.rounds, 'qualifying').indexOf(r) + 1;
     return `Qualifying round ${idx} (Q${r.fromStageRace} onward)`;
   };
@@ -283,7 +282,7 @@ export function renderSplitFleetAssignmentsPage(
         })
         .join('\n');
       const basis = round.basis
-        ? `From the ranking after ${STAGE_PREFIX[round.stage === 'final' ? 'qualifying' : round.stage]}${round.basis.throughStageRace}, captured ${new Date(round.basis.capturedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC.`
+        ? `From the ranking after ${stageRaceLabel(data.config, round.stage === 'final' ? 'qualifying' : round.stage, round.basis.throughStageRace, qRaces)}, captured ${new Date(round.basis.capturedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC.`
         : round.method === 'seeded'
           ? 'Initial seeding.'
           : '';

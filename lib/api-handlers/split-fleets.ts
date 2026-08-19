@@ -15,7 +15,7 @@ import { createRepos, replaceSplitFleetState } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { defaultRaceDate } from '@/lib/race-schedule';
-import { normalizeSplitFleetConfig } from '@/lib/split-fleets';
+import { normalizeSplitFleetConfig, stageRaceLabel } from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitAbandonStartSchema,
@@ -41,11 +41,17 @@ function roundRowToType(row: SplitRoundRow): SplitRound {
   };
 }
 
-const STAGE_PREFIX: Record<SplitRound['stage'], string> = {
-  qualifying: 'Q',
-  final: 'F',
-  medal: 'M',
-};
+/** Race labels follow the series' own numbering: the SIs may run one sequence
+ *  across the qualifying and final stages ("Q1…Q12") rather than restarting.
+ *  `qualifyingRaces` is what a continuous final stage counts on from. */
+function raceLabel(
+  config: SplitFleetConfig,
+  stage: SplitRound['stage'],
+  n: number,
+  qualifyingRaces: number,
+): string {
+  return stageRaceLabel(config, stage, n, qualifyingRaces);
+}
 
 async function getSeriesRow(workspace: WorkspaceContext, seriesId: string) {
   const db = getDb();
@@ -263,7 +269,13 @@ export async function commitSplitRound(
         ? starts.map((s) => ({ stage: input.stage, starts: [s] }))
         : [{ stage: input.stage, starts }];
     });
-    await createStageRaces(tx, { seriesId, workspaceId, specs, date: input.date });
+    await createStageRaces(tx, {
+      seriesId,
+      workspaceId,
+      specs,
+      date: input.date,
+      config: normalizeSplitFleetConfig(row.qfConfig as Partial<SplitFleetConfig>),
+    });
 
     // Editable-preview hand-moves: record which boats were placed by hand
     // and where, as computed-vs-override provenance on the round.
@@ -320,15 +332,19 @@ interface StageRaceSpec {
 
 /** Display name for a sequence: "Q3" (whole sequence), "F2 · Gold" (a
  *  single-fleet race), "F2 · Gold + F1 · Bronze" (out-of-step fleets). */
-function sequenceName(spec: StageRaceSpec): string {
-  const prefix = STAGE_PREFIX[spec.stage];
+function sequenceName(
+  spec: StageRaceSpec,
+  config: SplitFleetConfig,
+  qualifyingRaces: number,
+): string {
+  const label = (n: number) => raceLabel(config, spec.stage, n, qualifyingRaces);
   const nums = [...new Set(spec.starts.map((s) => s.stageRaceNumber))];
   if (nums.length === 1) {
     return spec.starts.length === 1
-      ? `${prefix}${nums[0]} · ${spec.starts[0].label}`
-      : `${prefix}${nums[0]}`;
+      ? `${label(nums[0])} · ${spec.starts[0].label}`
+      : label(nums[0]);
   }
-  return spec.starts.map((s) => `${prefix}${s.stageRaceNumber} · ${s.label}`).join(' + ');
+  return spec.starts.map((s) => `${label(s.stageRaceNumber)} · ${s.label}`).join(' + ');
 }
 
 /** The fleets sharing one race must have pairwise-disjoint membership — a
@@ -379,10 +395,32 @@ async function createStageRaces(
     workspaceId: string;
     specs: StageRaceSpec[];
     date: string;
+    config: SplitFleetConfig;
   },
 ): Promise<void> {
   const specs = input.specs.filter((s) => s.starts.length > 0);
   if (specs.length === 0) return;
+  // What a continuous final stage numbers on from, counted over the starts
+  // already stored plus any qualifying starts about to be written.
+  const [{ qualifyingRaces }] = await tx
+    .select({
+      qualifyingRaces: sql<number>`coalesce(max(${schema.raceStarts.stageRaceNumber}), 0)`,
+    })
+    .from(schema.raceStarts)
+    .innerJoin(schema.races, eq(schema.raceStarts.raceId, schema.races.id))
+    .where(
+      and(
+        eq(schema.races.seriesId, input.seriesId),
+        eq(schema.raceStarts.stage, 'qualifying'),
+      ),
+    );
+  const qRaces = Math.max(
+    qualifyingRaces,
+    ...specs
+      .filter((spec) => spec.stage === 'qualifying')
+      .flatMap((spec) => spec.starts.map((st) => st.stageRaceNumber)),
+    0,
+  );
   for (const spec of specs) {
     await assertDisjointFleets(tx, input.seriesId, spec.starts.map((s) => s.fleetId));
   }
@@ -401,7 +439,7 @@ async function createStageRaces(
       seriesId: input.seriesId,
       workspaceId: input.workspaceId,
       raceNumber: ++next,
-      name: sequenceName(spec),
+      name: sequenceName(spec, input.config, qRaces),
       date,
     });
     for (const s of spec.starts) {
@@ -486,12 +524,14 @@ export async function addStageRaces(
           : [{ stage: roundRow.stage, starts }];
       });
 
+  const seriesRow = await getSeriesRow(workspace, seriesId);
   await db.transaction(async (tx) => {
     await createStageRaces(tx, {
       seriesId,
       workspaceId: workspace.workspaceId,
       specs,
       date: input.date,
+      config: normalizeSplitFleetConfig(seriesRow.qfConfig as Partial<SplitFleetConfig>),
     });
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
     await repos.series.touch(seriesId);

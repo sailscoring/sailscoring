@@ -44,14 +44,17 @@ import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
   championshipValidity,
+  DEFAULT_STAGE_NAMING,
   finalBlockSizes,
   fleetMembers,
   logicalRaces,
   physicalRaceCompleted,
   provisionalCutIndexes,
   roundsForStage,
+  qualifyingRaceCount,
   seedOrder,
   splitFleetStandings,
+  stageRaceLabel,
   stageRaceRefs,
   type SeedOrder,
   type SeedTailOrder,
@@ -207,11 +210,11 @@ function buildDemoCompetitors(seriesId: string, defaultFleetId: string | null): 
 
 // ─── Shared bits ────────────────────────────────────────────────────────────
 
-const STAGE_TITLES: Record<SeriesStage, string> = {
-  qualifying: 'Qualifying series',
-  final: 'Final series',
-  medal: 'Medal races',
-};
+/** The SIs' own name for each stage — the 2026 ILCA Worlds call ours the
+ *  Preliminary, Elimination and Final series. */
+function stageTitles(config: SplitFleetConfig): Record<SeriesStage, string> {
+  return (config.stageNaming ?? DEFAULT_STAGE_NAMING).labels;
+}
 
 /** The Format section's collapsed one-liner. */
 function formatSummary(config: SplitFleetConfig): string {
@@ -224,18 +227,15 @@ function formatSummary(config: SplitFleetConfig): string {
   return [
     `${config.qualifyingFleets.map((f) => f.label).join('/')} → ${config.finalFleets.map((f) => f.label).join('/')}`,
     carry,
-    config.medal ? `medal race ×${config.medal.multiplier}` : 'no medal race',
+    config.medal
+      ? `${stageTitles(config).medal.toLowerCase()} ×${config.medal.multiplier}`
+      : 'no medal race',
   ].join(' · ');
 }
 
-function stagePrefix(stage: SeriesStage): string {
-  return stage === 'qualifying' ? 'Q' : stage === 'final' ? 'F' : 'M';
-}
-
-/** Standings column heading. Stage race 0 in the final series is the carried
- *  qualifying position (`rank-seed` carry), not a race. */
-function columnLabel(stage: SeriesStage, n: number): string {
-  return stage === 'final' && n === 0 ? 'QS' : `${stagePrefix(stage)}${n}`;
+/** A race's label as the notice board writes it, per the series' numbering. */
+function raceLabel(data: SplitFleetData, stage: SeriesStage, n: number): string {
+  return stageRaceLabel(data.config, stage, n, qualifyingRaceCount(data));
 }
 
 interface FleetMeta {
@@ -396,7 +396,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         )}
       </StageSection>
       <StageSection
-        title={STAGE_TITLES.qualifying}
+        title={stageTitles(sfState.config).qualifying}
         status={
           qualifyingRounds.length === 0
             ? 'Not started'
@@ -417,7 +417,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
       </StageSection>
 
       <StageSection
-        title={STAGE_TITLES.final}
+        title={stageTitles(sfState.config).final}
         status={splitRound ? (medalRound ? 'Complete' : 'In progress') : 'Not started'}
         defaultOpen={!!splitRound && !medalRound}
       >
@@ -440,7 +440,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
 
       {sfState.config.medal && (
         <StageSection
-          title={STAGE_TITLES.medal}
+          title={stageTitles(sfState.config).medal}
           status={
             medalRound
               ? medalPhaseComplete(sfData, medalRound, sfState.config)
@@ -634,8 +634,7 @@ function QualifyingSection({
           <div key={round.id} className="space-y-2 rounded-lg border bg-muted/30 p-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">
-                Round {i + 1} · {stagePrefix('qualifying')}
-                {round.fromStageRace}
+                Round {i + 1} · {raceLabel(data, 'qualifying', round.fromStageRace)}
                 {' onward'}
               </h3>
               <div className="flex items-center gap-2">
@@ -800,10 +799,7 @@ function LogicalRaceRow({
       className="flex flex-wrap items-center gap-2 text-sm"
       data-testid={`logical-race-${stage}-${stageRaceNumber}`}
     >
-      <span className="w-8 font-medium">
-        {stagePrefix(stage)}
-        {stageRaceNumber}
-      </span>
+      <span className="w-8 font-medium">{raceLabel(data, stage, stageRaceNumber)}</span>
       {round.fleetIds.map((fid) => {
         const ref = refs.get(fid);
         const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
@@ -856,7 +852,7 @@ function LogicalRaceRow({
                 disabled={abandon.isPending}
                 onClick={async () => {
                   const ok = await confirm({
-                    title: `Abandon ${meta.label}'s ${stagePrefix(stage)}${stageRaceNumber}?`,
+                    title: `Abandon ${meta.label}'s ${raceLabel(data, stage, stageRaceNumber)}?`,
                     description: `This removes ${meta.label} from the start sequence and voids any of its rows on the sheet; the other fleets stand. Re-race it with “Add catch-up race”.`,
                     confirmLabel: 'Abandon',
                     destructive: true,
@@ -1576,7 +1572,7 @@ function MedalSelectDialog({
   return (
     <CeremonyDialog
       title="Select the medal fleet"
-      description={`The top boats of the opening series sail the medal race${medalConfig.raceCount > 1 ? 's' : ''} (points ×${medalConfig.multiplier}, never discardable); the rest of ${goldLabel} sail the companion last race, scored from ${size + 1}. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
+      description={`The top boats of the opening series sail the ${stageTitles(data.config).medal.toLowerCase()} (points ×${medalConfig.multiplier}, never discardable); the rest of ${goldLabel} sail the companion last race, scored from ${size + 1}. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit medal fleet (top ${size})`}
@@ -1639,7 +1635,7 @@ function MedalSection({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Medal races score ×{medalConfig?.multiplier ?? 2} and cannot be discarded; the
+        {stageTitles(data.config).medal} score ×{medalConfig?.multiplier ?? 2} and cannot be discarded; the
         companion race scores from {(medalConfig?.size ?? 10) + 1} points (first
         finisher = {(medalConfig?.size ?? 10) + 1}).
       </p>
@@ -1690,7 +1686,7 @@ function MedalSection({
                   })
                 }
               >
-                Add {isMedal ? `medal race M${nextN}` : 'last race'}
+                Add {isMedal ? `race ${raceLabel(data, 'medal', nextN)}` : 'last race'}
               </Button>
             )}
           </div>
@@ -1842,12 +1838,12 @@ function StandingsSection({
                 <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
                   <FleetChip meta={meta} /> fleet
                 </h3>
-                <StandingsTable columns={columns} showNationality={showNationality}>{renderRows(rows, false)}</StandingsTable>
+                <StandingsTable data={data} columns={columns} showNationality={showNationality}>{renderRows(rows, false)}</StandingsTable>
               </div>
             );
           })
         ) : (
-          <StandingsTable columns={columns} showNationality={showNationality}>{renderRows(standings, true)}</StandingsTable>
+          <StandingsTable data={data} columns={columns} showNationality={showNationality}>{renderRows(standings, true)}</StandingsTable>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -1859,10 +1855,12 @@ function StandingsSection({
 }
 
 function StandingsTable({
+  data,
   columns,
   showNationality,
   children,
 }: {
+  data: SplitFleetData;
   columns: { stage: SeriesStage; n: number }[];
   showNationality: boolean;
   children: React.ReactNode;
@@ -1877,7 +1875,7 @@ function StandingsTable({
           <th className="py-1 pr-2 font-medium">Name</th>
           {columns.map((c) => (
             <th key={`${c.stage}:${c.n}`} className="px-1.5 py-1 text-center font-medium">
-              {columnLabel(c.stage, c.n)}
+              {raceLabel(data, c.stage, c.n)}
             </th>
           ))}
           <th className="px-1.5 py-1 text-right font-medium">Total</th>
