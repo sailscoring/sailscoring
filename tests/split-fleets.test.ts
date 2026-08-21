@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignByRankPattern,
+  ilcaSplitFleetConfig,
+  iodaSplitFleetConfig,
   ilca2026SplitFleetConfig,
   normalizeSplitFleetConfig,
   resolveVocabulary,
@@ -608,5 +610,25 @@ describe('vocabulary', () => {
       expect(config.vocabulary).toBe('opening-medal');
       expect(resolveVocabulary(config).stages.medal.name).toBe('medal races');
     });
+  });
+});
+
+
+describe('presets survive normalisation unchanged', () => {
+  // The config editor decides whether a series is still its class format by
+  // rebuilding the format and comparing. A preset that came back from the
+  // server differing from a freshly built one — a default filled in, a field
+  // reordered into existence — would leave every such series reading
+  // "Custom" the moment it was reopened.
+  const presets = {
+    'ilca-2026': ilca2026SplitFleetConfig(3),
+    'ilca-2025': ilcaSplitFleetConfig(3),
+    ioda: iodaSplitFleetConfig(4),
+    'net-plus-net': { ...defaultSplitFleetConfig(2), carry: 'net-plus-net' as const, medal: undefined },
+    'rank-seed': { ...defaultSplitFleetConfig(2), carry: 'rank-seed' as const, medal: undefined },
+  };
+
+  it.each(Object.entries(presets))('%s', (_name, config) => {
+    expect(normalizeSplitFleetConfig(config)).toEqual(config);
   });
 });
