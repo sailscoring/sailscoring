@@ -287,6 +287,19 @@ describe('planRaceSenseImport', () => {
       expect(races[0].recommended).toBe(false);
     });
 
+    it('names the boats when the race has only this fleet in it', () => {
+      // A series with no fleets at all: 563 is entered and simply isn't on
+      // the sheet. Nothing about that involves another fleet's start.
+      const { races } = plan({
+        races: [sourceRace({ number: 1 })],
+        seriesRaces: [{ id: 'plain-1', name: 'Race 1', raceNumber: 1, starts: [{ fleetIds: [] }] }],
+        fleetId: null,
+      });
+      const roster = races[0].notes.find((n) => n.kind === 'roster');
+      expect(roster?.message).toBe('1 boat entered in this race is not on this sheet: 563.');
+      expect(roster?.message).not.toContain('more than one fleet');
+    });
+
     it('warns about a boat who started and then vanished from the sheet', () => {
       const { races } = plan({
         races: [sourceRace({

@@ -381,21 +381,28 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
       candidates: eligible,
     });
 
-    // A boat entitled to be on this sheet whom RaceSense never saw. On a race
-    // whose fleets share one sheet, this is every other fleet — and importing
-    // one fleet's export over it would wipe theirs.
+    // A boat entitled to be on this sheet whom RaceSense never saw. When the
+    // race carries a fleet this workbook doesn't cover, that's every boat in
+    // it — and importing one fleet's export over the race would wipe theirs,
+    // which is worth saying outright rather than listing 40 sail numbers.
     const onSheet = new Set(source.starters.map((s) => s.sailNumber.toUpperCase()));
     const missing = eligible.filter((c) => !onSheet.has(c.sailNumber.toUpperCase()));
     if (missing.length > 0) {
-      const others = race.starts.filter((s) => !s.fleetIds.includes(fleetId ?? '')).length;
+      const raceFleets = new Set(race.starts.flatMap((s) => s.fleetIds));
+      const otherFleets = fleetId === null
+        ? raceFleets.size > 1
+        : [...raceFleets].some((id) => id !== fleetId);
+      const one = missing.length === 1;
+      const boats = `${missing.length} boat${one ? '' : 's'}`;
+      const are = one ? 'is' : 'are';
       notes.push({
         severity: 'warning',
         kind: 'roster',
         sheet: source.sheetName,
         value: missing.map((c) => c.sailNumber).join(', '),
-        message: others > 0
-          ? `${missing.length} boat${missing.length === 1 ? '' : 's'} in this race are not on this sheet, because the race holds more than one fleet's start. Importing here replaces every fleet's finishes, not just this one's.`
-          : `${missing.length} boat${missing.length === 1 ? '' : 's'} entered in this race are not on this sheet: ${missing.map((c) => c.sailNumber).join(', ')}.`,
+        message: otherFleets
+          ? `${boats} in this race ${are} not on this sheet, because the race holds more than one fleet's start. Importing here replaces every fleet's finishes, not just this one's.`
+          : `${boats} entered in this race ${are} not on this sheet: ${missing.map((c) => c.sailNumber).join(', ')}.`,
       });
     }
 
