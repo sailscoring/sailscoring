@@ -212,6 +212,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     qualifyingFleets: dummy(fx.config.qualifyingFleets),
     finalFleets: dummy(fx.config.finalFleets ?? []),
     plannedDays: [],
+    finishSheets: 'combined',
     carry: fx.config.carry ?? 'points',
     split: { kind: 'equal-blocks' },
     codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },

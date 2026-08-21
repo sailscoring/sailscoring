@@ -953,6 +953,7 @@ function buildChampionship(): SeriesFile {
   const config: SplitFleetConfig = {
     qualifyingFleets: QUALIFYING_COLOR_SETS.slice(0, 2),
     finalFleets: FINAL_FLEET_SET.slice(0, 2),
+    finishSheets: 'combined',
     plannedDays: [
       { label: 'Day 1', races: 2 },
       { label: 'Day 2', races: 2 },

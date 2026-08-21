@@ -144,7 +144,7 @@ export function SplitFleetEditor({
   /** Entries so far, for the "what this means for your event" numbers. */
   competitorCount: number;
   canEdit: boolean;
-  /** Racing has started: the two structural fields are settled. */
+  /** Racing has started: the structural fields are settled. */
   locked?: boolean;
   /** 'wide' uses the full width of the Split Fleets tab's Format section:
    *  settings on the left, the sailing-instruction translation beside them.
@@ -312,6 +312,43 @@ export function SplitFleetEditor({
                   .map((f, i) => `${f.label} ${qualifyingSizes[i]}`)
                   .join(', ')}. Boats are reassigned by series rank after each day of racing.`
               : 'Boats are reassigned by series rank after each day of racing.'}
+          </p>
+        </div>
+      </div>
+
+      <div className={rowClass}>
+        <label className="font-medium" htmlFor="sf-finish-sheets">
+          Finish sheets
+        </label>
+        <div className="space-y-1">
+          {locked ? (
+            <p>
+              {value.finishSheets === 'per-fleet'
+                ? `One per ${vocab.stages.qualifying.fleetNoun}`
+                : 'One per race, all fleets on it'}
+            </p>
+          ) : (
+            <select
+              id="sf-finish-sheets"
+              className={selectClass}
+              disabled={!canEdit}
+              value={value.finishSheets}
+              onChange={(e) =>
+                patch({
+                  finishSheets: e.target.value as SplitFleetConfig['finishSheets'],
+                })
+              }
+            >
+              <option value="combined">One per race, all fleets on it</option>
+              <option value="per-fleet">One per {vocab.stages.qualifying.fleetNoun}</option>
+            </select>
+          )}
+          <p className={hint}>
+            The fleets start in sequence and cross one line, so a race committee writing
+            by hand keeps one sheet with the fleets interleaved. Choose one sheet per{' '}
+            {vocab.stages.qualifying.fleetNoun} when each fleet&rsquo;s finishes come back
+            separately, as electronic timing records them. It changes how the races are
+            laid out, not how they score: a boat is ranked among her own fleet either way.
           </p>
         </div>
       </div>

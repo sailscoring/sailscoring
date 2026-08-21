@@ -47,6 +47,23 @@ export interface SplitFleetConfig {
   finalFleets: { label: string; color: string }[];
   /** Planned schedule: races per day for the day strip. */
   plannedDays: { label: string; races: number }[];
+  /** Whether the fleets of one stage race finish onto a single sheet or onto
+   *  a sheet each.
+   *
+   *  - `combined` — the handwritten case, and the default. The fleets start in
+   *    sequence and cross one finish line, so the race committee keeps one
+   *    sheet with the fleets interleaved: one `Race` per stage race number,
+   *    one start per fleet.
+   *  - `per-fleet` — electronic capture, where each fleet's starts and
+   *    finishes come back as their own export, as RaceSense writes them. Each
+   *    fleet gets its own `Race`, which is what the medal stage has always
+   *    done.
+   *
+   *  Scoring cannot tell the difference: a fleet is ranked among its own
+   *  members by their relative order, so an interleaved sheet and a sheet per
+   *  fleet give the same points. What changes is what an abandonment acts
+   *  on — a race rather than one start within it. */
+  finishSheets: 'combined' | 'per-fleet';
   /** How qualifying results enter the championship score.
    *  - `points` — one continuous series: every qualifying and final race
    *    score totals into the championship, discards over the combined line
@@ -366,6 +383,7 @@ export function defaultSplitFleetConfig(fleetCount: number): SplitFleetConfig {
       label: `Day ${i + 1}`,
       races: 2,
     })),
+    finishSheets: 'combined',
     carry: 'points',
     split: { kind: 'equal-blocks' },
     codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },
@@ -457,6 +475,7 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
   return {
     ...d,
     ...raw,
+    finishSheets: raw.finishSheets ?? 'combined',
     carry: raw.carry ?? 'points',
     split: raw.split ?? { kind: 'equal-blocks' },
     codeBasis: raw.codeBasis ?? { qualifying: 'largest-fleet', final: 'own-fleet' },

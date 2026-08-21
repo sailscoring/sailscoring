@@ -16,6 +16,8 @@ export const splitFleetConfigSchema = z.object({
   plannedDays: z.array(
     z.object({ label: z.string(), races: z.number().int().min(0) }),
   ),
+  // Defaulted: configs written before per-fleet races existed mean 'combined'.
+  finishSheets: z.enum(['combined', 'per-fleet']).default('combined'),
   carry: z.enum(['points', 'net-plus-net', 'rank-seed']),
   split: z.union([
     z.object({ kind: z.literal('equal-blocks') }),

@@ -632,3 +632,91 @@ describe('presets survive normalisation unchanged', () => {
     expect(normalizeSplitFleetConfig(config)).toEqual(config);
   });
 });
+
+describe('one race per fleet scores the same as one combined sheet', () => {
+  /**
+   * `SplitFleetConfig.finishSheets` decides whether a stage race's fleets
+   * share a `Race` or get one each. That is a difference in how the races are
+   * laid out, and it must not be a difference in points: a boat is ranked
+   * among her own fleet by the boats' relative order, so an interleaved sheet
+   * and a sheet per fleet describe the same result.
+   *
+   * The same Q1 below is expressed both ways — combined, where the three
+   * fleets cross one line and hold a single sortOrder sequence 0..8; and per
+   * fleet, where each fleet's sheet starts again at 0.
+   */
+  const config = defaultSplitFleetConfig(3);
+  const competitors = [
+    competitor('y1', ['fy'], 1), competitor('y2', ['fy'], 2), competitor('y3', ['fy'], 3),
+    competitor('b1', ['fb'], 4), competitor('b2', ['fb'], 5), competitor('b3', ['fb'], 6),
+    competitor('r1', ['fr'], 7), competitor('r2', ['fr'], 8), competitor('r3', ['fr'], 9),
+  ];
+  const round: SplitRound = {
+    id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+    fleetIds: ['fy', 'fb', 'fr'], method: 'seeded', basis: null, createdAt: 0,
+  };
+  const fleets = [fleet('fy', 'Yellow'), fleet('fb', 'Blue'), fleet('fr', 'Red')];
+
+  /** One sheet, fleets interleaved as they crossed: b1 y1 r1 y2 … */
+  function combined(): SplitFleetData {
+    return {
+      config, rounds: [round], fleets, competitors,
+      races: [race('q1')],
+      raceStarts: [start('q1', ['fy', 'fb', 'fr'], 'qualifying', 1)],
+      finishes: [
+        finish('q1', 'b1', 0),
+        finish('q1', 'y1', 1),
+        finish('q1', 'r1', 2),
+        finish('q1', 'y2', 3),
+        finish('q1', 'b2', 4),
+        finish('q1', 'r2', 5),
+        finish('q1', 'y3', 6),
+        finish('q1', 'r3', 7),
+        finish('q1', 'b3', null, 'DNF'),
+      ],
+    };
+  }
+
+  /** The same finishing order, split across a race per fleet. */
+  function perFleet(): SplitFleetData {
+    return {
+      config, rounds: [round], fleets, competitors,
+      races: [race('q1y'), race('q1b'), race('q1r')],
+      raceStarts: [
+        start('q1y', ['fy'], 'qualifying', 1),
+        start('q1b', ['fb'], 'qualifying', 1),
+        start('q1r', ['fr'], 'qualifying', 1),
+      ],
+      finishes: [
+        finish('q1y', 'y1', 0), finish('q1y', 'y2', 1), finish('q1y', 'y3', 2),
+        finish('q1b', 'b1', 0), finish('q1b', 'b2', 1), finish('q1b', 'b3', null, 'DNF'),
+        finish('q1r', 'r1', 0), finish('q1r', 'r2', 1), finish('q1r', 'r3', 2),
+      ],
+    };
+  }
+
+  const points = (data: SplitFleetData) =>
+    Object.fromEntries(splitFleetStandings(data).map((r) => [r.competitor.id, r.net]));
+
+  it('gives every boat the same score either way', () => {
+    expect(points(perFleet())).toEqual(points(combined()));
+  });
+
+  it('and the score is the one the fleets’ own orders imply', () => {
+    // Three boats a fleet, so a DNF scores 4 (largest fleet + 1).
+    expect(points(combined())).toEqual({
+      y1: 1, y2: 2, y3: 3,
+      b1: 1, b2: 2, b3: 4,
+      r1: 1, r2: 2, r3: 3,
+    });
+  });
+
+  it('counts the logical race as complete whichever shape it took', () => {
+    for (const data of [combined(), perFleet()]) {
+      const [logical] = logicalRaces(data, 'qualifying');
+      expect(logical.stageRaceNumber).toBe(1);
+      expect([...logical.races.keys()].sort()).toEqual(['fb', 'fr', 'fy']);
+      expect(logical.valid).toBe(true);
+    }
+  });
+});

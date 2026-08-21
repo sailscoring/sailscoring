@@ -252,11 +252,15 @@ export async function commitSplitRound(
         );
     }
 
-    // The stage races. Qualifying and final fleets start in sequence and
-    // finish onto one combined sheet — one race per stage race number, one
-    // start per fleet. Medal-stage fleets race apart (the umpired medal race
-    // and the companion "last race" run on their own courses): one race per
-    // fleet, the companion's first finisher scoring below the medal fleet.
+    // The stage races. Medal-stage fleets always race apart (the umpired
+    // medal race and the companion "last race" run on their own courses):
+    // one race per fleet, the companion's first finisher scoring below the
+    // medal fleet. Qualifying and final fleets start in sequence and finish
+    // onto one combined sheet, so they share a race — unless the series says
+    // its finish sheets come one per fleet, in which case they take the same
+    // shape the medal stage does.
+    const config = normalizeSplitFleetConfig(row.qfConfig as Partial<SplitFleetConfig>);
+    const apart = input.stage === 'medal' || config.finishSheets === 'per-fleet';
     const medalSize = Object.values(input.assignments).filter((idx) => idx === 0).length;
     const specs: StageRaceSpec[] = input.stageRaceNumbers.flatMap((n) => {
       const starts = fleetRows.map((f, i) => ({
@@ -265,7 +269,7 @@ export async function commitSplitRound(
         stageRaceNumber: n,
         ...(input.stage === 'medal' && i > 0 ? { firstPlaceOffset: medalSize } : {}),
       }));
-      return input.stage === 'medal'
+      return apart
         ? starts.map((s) => ({ stage: input.stage, starts: [s] }))
         : [{ stage: input.stage, starts }];
     });
@@ -274,7 +278,7 @@ export async function commitSplitRound(
       workspaceId,
       specs,
       date: input.date,
-      config: normalizeSplitFleetConfig(row.qfConfig as Partial<SplitFleetConfig>),
+      config,
     });
 
     // Editable-preview hand-moves: record which boats were placed by hand
