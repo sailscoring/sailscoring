@@ -227,6 +227,32 @@ export function SplitFleetEditor({
       </div>
 
       <div className={rowClass}>
+        <label className="font-medium" htmlFor="sf-vocabulary">
+          What the sailing instructions call the stages
+        </label>
+        <div className="space-y-1">
+          <select
+            id="sf-vocabulary"
+            className={selectClass}
+            disabled={!canEdit}
+            value={value.vocabulary}
+            onChange={(e) => patch({ vocabulary: e.target.value as VocabularyKey })}
+          >
+            {VOCABULARY_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
+          <p className={hint}>
+            {VOCABULARY_OPTIONS.find((o) => o.key === value.vocabulary)?.terms}. Both sets of
+            words are in use and each borrows the other&rsquo;s for a different stage, so this
+            is one choice rather than a name per stage. Set it first: every setting below is
+            worded in it, as are the standings and the published pages. Races here read{' '}
+            {exampleLabels}.
+          </p>
+        </div>
+      </div>
+
+      <div className={rowClass}>
         <label className="font-medium" htmlFor="sf-fleet-count">
           {capitaliseStage(vocab.stages.qualifying.fleetNoun)}s
         </label>
@@ -424,31 +450,6 @@ export function SplitFleetEditor({
                 : 'Applied across the whole line.'}{' '}
             {capitaliseStage(vocab.stages.medal.name)} never count toward these rules and are
             never excluded.
-          </p>
-        </div>
-      </div>
-
-      <div className={rowClass}>
-        <label className="font-medium" htmlFor="sf-vocabulary">
-          What the sailing instructions call the stages
-        </label>
-        <div className="space-y-1">
-          <select
-            id="sf-vocabulary"
-            className={selectClass}
-            disabled={!canEdit}
-            value={value.vocabulary}
-            onChange={(e) => patch({ vocabulary: e.target.value as VocabularyKey })}
-          >
-            {VOCABULARY_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>{o.label}</option>
-            ))}
-          </select>
-          <p className={hint}>
-            {VOCABULARY_OPTIONS.find((o) => o.key === value.vocabulary)?.terms}. Both sets of
-            words are in use and each borrows the other&rsquo;s, so this is one choice rather
-            than a name per stage: everything below, the standings, and the published pages all
-            follow it. Races here read {exampleLabels}.
           </p>
         </div>
       </div>
