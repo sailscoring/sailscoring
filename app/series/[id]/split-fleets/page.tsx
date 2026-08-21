@@ -1,9 +1,13 @@
 'use client';
 
-// Split Fleets — the guided qualifying/final-series workflow (PROTOTYPE).
-// See docs/design/ux/flows/split-fleets.md. Known prototype shortcuts:
-// finish entry is not fleet-scoped, no equalisation modes, no promotion,
-// no assignment-list publishing, standings ignore penalties/redress.
+// Split Fleets — the guided championship workflow.
+// See docs/design/ux/flows/split-fleets.md.
+//
+// Every stage word on this page comes from `words(config)`: sailing
+// instructions use two vocabularies that share terms for different stages, so
+// writing "qualifying series" or "medal race" into a string here makes the
+// page wrong for half its users. `tests/split-fleets-vocabulary.test.ts`
+// enforces it.
 
 import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -79,7 +83,10 @@ function computeNextAction(
   medalRound: SplitRound | null,
   fleetMeta: Map<string, { label: string; color: string }>,
 ): NextAction | null {
-  if (qualifyingRounds.length === 0) return { label: 'seed Round 1 (create the qualifying fleets)' };
+  const w = words(config);
+  if (qualifyingRounds.length === 0) {
+    return { label: `seed Round 1 (create the ${w.qualifying.fleetNoun}s)` };
+  }
   const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
   const pending = stageRaceRefs(data)
     .sort(
@@ -95,8 +102,12 @@ function computeNextAction(
       href: `/series/${pending.race.seriesId}/races/${pending.race.id}`,
     };
   }
-  if (!splitRound) return { label: 'end qualifying and split into final fleets (when the SIs are satisfied)' };
-  if (config.medal && !medalRound) return { label: 'select the medal fleet' };
+  if (!splitRound) {
+    return {
+      label: `end the ${w.qualifying.name} and split into ${w.final.fleetNoun}s (when the SIs are satisfied)`,
+    };
+  }
+  if (config.medal && !medalRound) return { label: `select the ${w.medal.fleetNoun}` };
   return null;
 }
 
@@ -209,30 +220,33 @@ function buildDemoCompetitors(seriesId: string, defaultFleetId: string | null): 
 
 // ─── Shared bits ────────────────────────────────────────────────────────────
 
-/** The SIs' own name for each stage, as a heading. */
-function stageTitles(config: SplitFleetConfig): Record<SeriesStage, string> {
+/** The stage words this series uses (see `Vocabulary`), plus the two forms
+ *  the page needs: `title` for a heading, and each stage's own nouns. */
+function words(config: SplitFleetConfig) {
   const vocab = resolveVocabulary(config);
   return {
-    qualifying: capitaliseStage(vocab.stages.qualifying.name),
-    final: capitaliseStage(vocab.stages.final.name),
-    medal: capitaliseStage(vocab.stages.medal.name),
+    /** Stages 1 and 2 together. */
+    series: vocab.seriesName,
+    qualifying: vocab.stages.qualifying,
+    final: vocab.stages.final,
+    medal: vocab.stages.medal,
+    title: (stage: SeriesStage) => capitaliseStage(vocab.stages[stage].name),
   };
 }
 
 /** The Format section's collapsed one-liner. */
 function formatSummary(config: SplitFleetConfig): string {
+  const w = words(config);
   const carry =
     config.carry === 'points'
       ? 'one continuous series'
       : config.carry === 'net-plus-net'
         ? 'two series added together'
-        : 'qualifying position carried forward';
+        : `${w.qualifying.name} position carried forward`;
   return [
     `${config.qualifyingFleets.map((f) => f.label).join('/')} → ${config.finalFleets.map((f) => f.label).join('/')}`,
     carry,
-    config.medal
-      ? `${stageTitles(config).medal.toLowerCase()} ×${config.medal.multiplier}`
-      : 'no medal race',
+    config.medal ? `${w.medal.name} ×${config.medal.multiplier}` : `no ${w.medal.raceNoun}`,
   ].join(' · ');
 }
 
@@ -260,7 +274,10 @@ function buildFleetMeta(
           ? data.config.qualifyingFleets
           : round.stage === 'final'
             ? data.config.finalFleets
-            : [{ label: 'Medal', color: '#f59e0b' }, { label: 'Last race', color: '#94a3b8' }];
+            : [
+                { label: capitaliseStage(words(data.config).medal.name), color: '#f59e0b' },
+                { label: 'Last race', color: '#94a3b8' },
+              ];
       meta.set(fid, {
         label: byId.get(fid)?.name ?? palette[i]?.label ?? '?',
         color: palette[Math.min(i, palette.length - 1)]?.color ?? '#94a3b8',
@@ -399,7 +416,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         )}
       </StageSection>
       <StageSection
-        title={stageTitles(sfState.config).qualifying}
+        title={words(sfState.config).title('qualifying')}
         status={
           qualifyingRounds.length === 0
             ? 'Not started'
@@ -420,7 +437,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
       </StageSection>
 
       <StageSection
-        title={stageTitles(sfState.config).final}
+        title={words(sfState.config).title('final')}
         status={splitRound ? (medalRound ? 'Complete' : 'In progress') : 'Not started'}
         defaultOpen={!!splitRound && !medalRound}
       >
@@ -436,14 +453,15 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           />
         ) : (
           <p className="text-sm text-muted-foreground">
-            The final series begins when qualifying ends and the fleet is split.
+            The {words(sfState.config).final.name} begins when the{' '}
+            {words(sfState.config).qualifying.name} ends and the fleet is split.
           </p>
         )}
       </StageSection>
 
       {sfState.config.medal && (
         <StageSection
-          title={stageTitles(sfState.config).medal}
+          title={words(sfState.config).title('medal')}
           status={
             medalRound
               ? medalPhaseComplete(sfData, medalRound, sfState.config)
@@ -463,8 +481,8 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             />
           ) : (
             <p className="text-sm text-muted-foreground">
-              The top {sfState.config.medal.size} after the opening series sail the medal
-              race{sfState.config.medal.raceCount > 1 ? 's' : ''}.
+              The top {sfState.config.medal.size} after the {words(sfState.config).series}{' '}
+              sail the {words(sfState.config).medal.name}.
             </p>
           )}
         </StageSection>
@@ -708,7 +726,9 @@ function QualifyingSection({
       {canManage && !split && (
         <div className="flex flex-wrap items-center gap-2">
           {rounds.length === 0 ? (
-            <Button onClick={() => setDialog('seed')}>Assign qualifying fleets</Button>
+            <Button onClick={() => setDialog('seed')}>
+              Assign {words(data.config).qualifying.fleetNoun}s
+            </Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setDialog('reassign')}>
@@ -728,10 +748,10 @@ function QualifyingSection({
                 Add race {raceLabel(data, 'qualifying', nextStageRace)}
               </Button>
               <Button onClick={() => setDialog('split')} disabled={validCount === 0}>
-                End qualifying → split fleets
+                End the {words(data.config).qualifying.name} → split fleets
               </Button>
               <span className="text-xs text-muted-foreground">
-                {validCount} of {lrs.length} qualifying races count
+                {validCount} of {lrs.length} {words(data.config).qualifying.raceNoun}s count
                 {data.config.discardThresholds[0]
                   ? ` · SIs typically require ≥${data.config.discardThresholds[0].minRaces}`
                   : ''}
@@ -880,11 +900,23 @@ function LogicalRaceRow({
 
 // ─── Ceremony dialogs ───────────────────────────────────────────────────────
 
+/** A ceremony's basis as the dialog knows it — which races the ranking was
+ *  taken over. When it was taken is not the dialog's to say. */
+type CeremonyPayload = Omit<SplitRoundCommit, 'basis'> & {
+  basis: { throughStageRace: number } | null;
+};
+
 function useCommit(seriesId: string, onClose: () => void) {
   const commit = useCommitSplitRound(seriesId);
-  const run = async (payload: SplitRoundCommit) => {
+  /** The snapshot time is stamped here, at the moment of commit — the SIs'
+   *  "the ranking available at 2000 that day". Reading the clock in a dialog
+   *  body instead would put it in render, where a re-render moves it. */
+  const run = async (payload: CeremonyPayload) => {
     try {
-      await commit.mutateAsync(payload);
+      await commit.mutateAsync({
+        ...payload,
+        basis: payload.basis ? { ...payload.basis, capturedAt: Date.now() } : null,
+      });
       onClose();
     } catch {
       // error surfaced via commit.isError below
@@ -1040,7 +1072,7 @@ function SeedRoundDialog({
 
   return (
     <CeremonyDialog
-      title="Assign qualifying fleets (Round 1)"
+      title={`Assign ${words(data.config).qualifying.fleetNoun}s (Round 1)`}
       description="Make the initial assignment — normally from the seeding committee's ranking — and create the first day's races."
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
@@ -1161,7 +1193,7 @@ function ReassignDialog({
           stage: 'qualifying',
           fromStageRace,
           method: 'rank-pattern',
-          basis: { throughStageRace, capturedAt: Date.now() },
+          basis: { throughStageRace },
           fleets: qFleets,
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
@@ -1246,8 +1278,8 @@ function SplitDialog({
 
   return (
     <CeremonyDialog
-      title="Split into final fleets"
-      description={`Basis: the qualifying ranking after ${raceLabel(data, 'qualifying', throughStageRace)}. The split is frozen once committed — later rescoring will not change it (a redress decision may promote). Creates the final fleets and the first final race.`}
+      title={`Split into ${words(data.config).final.fleetNoun}s`}
+      description={`Basis: the ${words(data.config).qualifying.name} ranking after ${raceLabel(data, 'qualifying', throughStageRace)}. The split is frozen once committed — later rescoring will not change it (a redress decision may promote). Creates the ${words(data.config).final.fleetNoun}s and the first ${words(data.config).final.raceNoun}.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit split (${preview.sizes.join(' / ')})`}
@@ -1257,7 +1289,7 @@ function SplitDialog({
           stage: 'final',
           fromStageRace: 1,
           method: 'split',
-          basis: { throughStageRace, capturedAt: Date.now() },
+          basis: { throughStageRace },
           fleets: fFleets,
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
@@ -1298,7 +1330,7 @@ function SplitDialog({
   );
 }
 
-// ─── Final series ───────────────────────────────────────────────────────────
+// ─── Stage 2: fleets locked (the "final"/Elimination series) ────────────────
 
 function FinalSection({
   seriesId,
@@ -1325,19 +1357,20 @@ function FinalSection({
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
   const medalConfig = data.config.medal;
+  const w = words(data.config);
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
         Split committed{' '}
         {round.basis
-          ? `from the qualifying ranking after ${raceLabel(data, 'qualifying', round.basis.throughStageRace)}`
+          ? `from the ${w.qualifying.name} ranking after ${raceLabel(data, 'qualifying', round.basis.throughStageRace)}`
           : ''}
-        . Final fleets usually start in sequence and finish onto one combined
-        sheet, but need not complete the same number of races — a fleet a race
-        behind simply sails its own next number in the sequence.
+        . {capitaliseStage(w.final.fleetNoun)}s usually start in sequence and finish onto
+        one combined sheet, but need not complete the same number of races — a fleet a
+        race behind simply sails its own next number in the sequence.
         {medalRound
-          ? ` The ${stageTitles(data.config).medal.toLowerCase()} boats have left these fleets’ racing, so a race added now is for the rest — which is what sailing instructions mean by one more race for the boats who did not qualify.`
+          ? ` The ${w.medal.name} boats have left these fleets’ racing, so a race added now is for the rest — which is what sailing instructions mean by one more race for the boats who did not qualify.`
           : ''}
       </p>
       {canManage && (
@@ -1435,7 +1468,7 @@ function FinalSection({
       <div className="flex flex-wrap items-center gap-2">
         {canManage && medalConfig && !medalRound && (
           <Button variant="outline" onClick={() => setMedalOpen(true)}>
-            Select medal fleet…
+            Select {words(data.config).medal.fleetNoun}…
           </Button>
         )}
         {canManage && (
@@ -1561,6 +1594,7 @@ function MedalSelectDialog({
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
   const medalConfig = data.config.medal!;
+  const w = words(data.config);
   const [size, setSize] = useState(medalConfig.size);
   const goldId = round.fleetIds[0];
   const goldRows = standings.filter((r) => r.finalFleetId === goldId);
@@ -1578,20 +1612,20 @@ function MedalSelectDialog({
 
   return (
     <CeremonyDialog
-      title="Select the medal fleet"
-      description={`The top boats of the opening series sail the ${stageTitles(data.config).medal.toLowerCase()} (points ×${medalConfig.multiplier}, never discardable); the rest of ${goldLabel} sail the companion last race, scored from ${size + 1}. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
+      title={`Select the ${w.medal.fleetNoun}`}
+      description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); the rest of ${goldLabel} sail their own last race, scored from ${size + 1}. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
-      commitLabel={`Commit medal fleet (top ${size})`}
+      commitLabel={`Commit ${w.medal.fleetNoun} (top ${size})`}
       onClose={onClose}
       onCommit={() =>
         run({
           stage: 'medal',
           fromStageRace: 1,
           method: 'medal-select',
-          basis: { throughStageRace: 0, capturedAt: Date.now() },
+          basis: { throughStageRace: 0 },
           fleets: [
-            { label: 'Medal', color: '#f59e0b' },
+            { label: capitaliseStage(w.medal.name), color: '#f59e0b' },
             { label: `${goldLabel} last race`, color: '#94a3b8' },
           ],
           assignments: medalAssignments,
@@ -1600,7 +1634,9 @@ function MedalSelectDialog({
       }
     >
       <div className="flex items-center gap-2">
-        <label className="text-sm" htmlFor="sf-medal-size">Medal fleet size</label>
+        <label className="text-sm" htmlFor="sf-medal-size">
+          {capitaliseStage(w.medal.fleetNoun)} size
+        </label>
         <input
           id="sf-medal-size"
           type="number"
@@ -1614,7 +1650,7 @@ function MedalSelectDialog({
       </div>
       <AssignmentPreviewTable
         rows={[
-          ...medalists.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: 'Medal' })),
+          ...medalists.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: capitaliseStage(w.medal.name) })),
           ...rest.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: `${goldLabel} last race` })),
         ]}
       />
@@ -1642,7 +1678,7 @@ function MedalSection({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        {stageTitles(data.config).medal} score ×{medalConfig?.multiplier ?? 2} and cannot be discarded; the
+        {words(data.config).title('medal')} score ×{medalConfig?.multiplier ?? 2} and cannot be discarded; the
         companion race scores from {(medalConfig?.size ?? 10) + 1} points (first
         finisher = {(medalConfig?.size ?? 10) + 1}).
       </p>
@@ -1774,6 +1810,7 @@ function StandingsSection({
       return (
         <FragmentRow
           key={row.competitor.id}
+          config={data.config}
           row={row}
           columns={columns}
           cellByKey={cellByKey}
@@ -1782,7 +1819,7 @@ function StandingsSection({
           cutAfter={withCuts && cuts.includes(i)}
           cutLabel={
             withCuts && cuts.includes(i)
-              ? `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut if qualifying ended now`
+              ? `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut if the ${words(data.config).qualifying.name} ended now`
               : null
           }
         />
@@ -1855,8 +1892,9 @@ function StandingsSection({
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        A qualifying race counts only once every fleet has completed it
-        (greyed cells don&rsquo;t count); discarded scores are in parentheses.
+        A {words(data.config).qualifying.raceNoun} counts only once every fleet has
+        completed it (greyed cells don&rsquo;t count); discarded scores are in
+        parentheses.
       </p>
     </section>
   );
@@ -1896,6 +1934,7 @@ function StandingsTable({
 }
 
 function FragmentRow({
+  config,
   row,
   columns,
   cellByKey,
@@ -1904,6 +1943,7 @@ function FragmentRow({
   cutAfter,
   cutLabel,
 }: {
+  config: SplitFleetConfig;
   row: SplitStandingRow;
   columns: { stage: SeriesStage; n: number }[];
   cellByKey: Map<string, import('@/lib/split-fleets').CellScore>;
@@ -1912,6 +1952,7 @@ function FragmentRow({
   cutAfter: boolean;
   cutLabel: string | null;
 }) {
+  const w = words(config);
   return (
     <>
       <tr className="border-t">
@@ -1949,11 +1990,15 @@ function FragmentRow({
               title={
                 cell.counts
                   ? cell.carriedRank
-                    ? 'Qualifying-series position, carried into the final series'
-                    : undefined
+                    ? `${capitaliseStage(w.qualifying.name)} position, carried into the ${w.final.name}`
+                    : cell.carriedTransform
+                      ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
+                      : undefined
                   : cell.superseded
-                    ? 'Replaced by the carried qualifying position'
-                    : 'Does not yet count — race incomplete across fleets'
+                    ? 'Replaced by the carried score'
+                    : cell.excludedAsExtra
+                      ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
+                      : 'Does not yet count — race incomplete across fleets'
               }
             >
               {cell.discarded ? `(${text})` : text}

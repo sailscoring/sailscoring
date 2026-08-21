@@ -9,6 +9,13 @@ import { createSeriesQuick, enableFeatures, openSeriesActionsMenu } from './help
  * reassign Round 2, split into Gold/Silver, check the rehomed standings
  * surfaces (hidden Standings tab, Preview with the championship +
  * assignments pages, the settings card), and select the medal fleet.
+ *
+ * The series takes the default format preset, which is ILCA's 2026 wording:
+ * its stages are the Preliminary, Elimination and Final series, and its races
+ * run Q1…Qn across the first two before restarting at F. So the assertions
+ * below are also the end-to-end check that the vocabulary reaches every
+ * surface — a stage word here reading "qualifying" or "medal" would mean it
+ * had not.
  */
 
 // Mirrors the page's demo data: sails 210001 + i*137, seeded by sail-number
@@ -54,7 +61,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   ).toBeHidden();
 
   // ── Round 1: seeded, Q1–Q2 created ────────────────────────────────────────
-  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await expect(page.getByRole('dialog')).toContainText('Make the initial assignment');
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
@@ -76,10 +83,10 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
 
   await expect(page.getByText('counts', { exact: true })).toBeVisible();
   await expect(page.getByText('does not count yet')).toHaveCount(1); // Q2 only
-  await expect(page.getByText('1 of 2 qualifying races count')).toBeVisible();
+  await expect(page.getByText('1 of 2 Preliminary series races count')).toBeVisible();
 
   // Standings: combined table with the provisional cut line.
-  await expect(page.getByText(/cut if qualifying ended now/)).toBeVisible();
+  await expect(page.getByText(/cut if the Preliminary series ended now/)).toBeVisible();
 
   // ── Round 2: rank-pattern reassignment from the Q1 ranking ────────────────
   await page.getByRole('button', { name: 'Assign Round 2' }).click();
@@ -88,7 +95,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByText('Round 2 · Q3 onward')).toBeVisible();
 
   // ── Split into Gold / Silver ──────────────────────────────────────────────
-  await page.getByRole('button', { name: 'End qualifying → split fleets' }).click();
+  await page.getByRole('button', { name: 'End the Preliminary series → split fleets' }).click();
   await expect(page.getByRole('dialog')).toContainText('The split is frozen once committed');
   await page.getByRole('button', { name: /Commit split \(12 \/ 12\)/ }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
@@ -132,9 +139,9 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   );
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Select medal fleet…' }).click();
-  await expect(page.getByRole('dialog')).toContainText('Select the medal fleet');
-  await page.getByRole('button', { name: /Commit medal fleet \(top 10\)/ }).click();
+  await page.getByRole('button', { name: 'Select Final series fleet…' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Select the Final series fleet');
+  await page.getByRole('button', { name: /Commit Final series fleet \(top 10\)/ }).click();
   // The ILCA format calls this stage the Final series and scores it ×1.
   await expect(page.getByText('Final series score ×1')).toBeVisible();
   await expect(page.getByRole('link', { name: /F1/ })).toHaveCount(2);
@@ -163,7 +170,7 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
   await expect(
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
-  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
 
@@ -193,7 +200,7 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
   await enterFinishes(page, blueSails);
   await page.goBack();
   await expect(page.getByText('counts', { exact: true })).toBeVisible();
-  await expect(page.getByText('1 of 2 qualifying races count')).toBeVisible();
+  await expect(page.getByText('1 of 2 Preliminary series races count')).toBeVisible();
 });
 
 /**
@@ -220,14 +227,14 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   await expect(
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
-  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
 
   const q1Row = page.getByTestId('logical-race-qualifying-1');
   await q1Row.getByRole('link', { name: /Yellow · enter finishes/ }).click();
   await enterFinishes(page, [...yellowSails, ...blueSails]);
   await page.goBack();
-  await expect(page.getByText('1 of 2 qualifying races count')).toBeVisible();
+  await expect(page.getByText('1 of 2 Preliminary series races count')).toBeVisible();
 
   // Publish through the Season + Folder dialog.
   await page.getByRole('button', { name: 'Publish…' }).click();
@@ -253,7 +260,7 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   await expect(page.getByRole('link', { name: 'Championship' })).toBeVisible();
   await page.getByRole('link', { name: 'Fleet assignments' }).click();
   await expect(page).toHaveURL(/\/worlds-26\/fleet-assignments$/);
-  await expect(page.getByText(/Qualifying round 1/)).toBeVisible();
+  await expect(page.getByText(/Preliminary series round 1/)).toBeVisible();
 });
 
 /**
@@ -294,7 +301,7 @@ test('split fleets: set up from the series wizard and land on the tab', async ({
   await page.getByRole('button', { name: /Finish setup/ }).click();
 
   await expect(page).toHaveURL(/\/split-fleets$/);
-  await expect(page.getByRole('button', { name: 'Assign qualifying fleets' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Assign Preliminary fleets' })).toBeVisible();
 });
 
 /**
@@ -319,7 +326,7 @@ test('split fleets: the format and rounds survive a file round-trip', async ({
   await expect(
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
-  await page.getByRole('button', { name: 'Assign qualifying fleets' }).click();
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
 

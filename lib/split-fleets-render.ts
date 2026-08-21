@@ -259,7 +259,7 @@ export function renderSplitFleetAssignmentsPage(
     if (r.stage === 'final') return `${capitaliseStage(vocab.stages.final.name)} split`;
     if (r.stage === 'medal') return capitaliseStage(vocab.stages.medal.fleetNoun);
     const idx = roundsForStage(data.rounds, 'qualifying').indexOf(r) + 1;
-    return `Qualifying round ${idx} (Q${r.fromStageRace} onward)`;
+    return `${capitaliseStage(vocab.stages.qualifying.name)} round ${idx} (${stageRaceLabel(data.config, 'qualifying', r.fromStageRace)} onward)`;
   };
 
   const sections = [...data.rounds]
