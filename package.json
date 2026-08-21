@@ -51,6 +51,7 @@
     "blw-scrub": "tsx scripts/blw-scrub.ts",
     "archive-generate": "tsx scripts/archive-generate.ts",
     "cluster-rows": "tsx scripts/cluster-rows.ts",
+    "racesense:inspect": "tsx scripts/racesense-inspect.ts",
     "deploy": "vercel deploy",
     "deploy:prod": "vercel deploy --prod",
     "generate:fixtures": "tsx scripts/render-scoring-fixtures.ts",

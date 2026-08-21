@@ -43,6 +43,7 @@ from?", start here.
 | `pnpm provision-token:test` | Same, but against the local container             | Yes — run `pnpm db:up` first   |
 | `pnpm cli`               | The `sailscoring` CLI — a pure `/api/v1` client (import/publish/reads); see [cli.md](cli.md) | No (talks to a deployment) |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
+| `pnpm racesense:inspect` | Read a RaceSense regatta export and report what the parser made of it, plus anything it didn't recognise; `--race N`, `--anomalies` | No |
 | `pnpm nationality:sync`  | Regenerate `lib/nationality/generated/` from upstream dataset | No     |
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
@@ -70,6 +71,7 @@ on a runner that doesn't have it.)
 | `scripts/e2e-with-triage.sh`      | Behind `pnpm test:e2e:triage` — run the suite, then triage; exits with the suite's status |
 | `scripts/flake-triage.ts`         | Behind `pnpm flake:triage` — file/update `flake` issues from the last run's report, skipping failures that a laptop suspend caused (see below) |
 | `scripts/render-scoring-fixtures.ts` | Render YAML scoring fixtures to HTML for human review                                  |
+| `scripts/racesense-inspect.ts`    | Behind `pnpm racesense:inspect` — inspect a RaceSense `.xlsx` from a regatta desk, no browser or series needed |
 | `scripts/sync-national-letters.ts` | Refresh `lib/nationality/generated/` from the pinned upstream dataset                   |
 
 `db-up.sh` uses `podman-remote` because the canonical dev environment

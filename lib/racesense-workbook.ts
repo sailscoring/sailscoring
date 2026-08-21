@@ -711,3 +711,35 @@ export function parseRaceSenseWorkbook(sheets: WorkbookSheet[]): RaceSenseWorkbo
     anomalies,
   };
 }
+
+/** One anomaly kind, as it should be read: the same missing Finishes block
+ *  on four sheets is one thing that happened four times, not four things. */
+export interface AnomalyGroup {
+  kind: string;
+  severity: AnomalySeverity;
+  /** The first occurrence's wording, which is representative of the group. */
+  message: string;
+  count: number;
+  sheets: string[];
+  /** Distinct verbatim values, so an unrecognised status can be read off the
+   *  report and added to the tables above without opening the workbook. */
+  values: string[];
+}
+
+/** Group anomalies by kind for a report, warnings first. A 40-race workbook
+ *  with one new column would otherwise repeat itself 40 times. */
+export function groupAnomalies(anomalies: RaceSenseAnomaly[]): AnomalyGroup[] {
+  const groups = new Map<string, AnomalyGroup>();
+  for (const a of anomalies) {
+    let group = groups.get(a.kind);
+    if (!group) {
+      group = { kind: a.kind, severity: a.severity, message: a.message, count: 0, sheets: [], values: [] };
+      groups.set(a.kind, group);
+    }
+    group.count++;
+    if (!group.sheets.includes(a.sheet)) group.sheets.push(a.sheet);
+    if (a.value && !group.values.includes(a.value)) group.values.push(a.value);
+  }
+  return [...groups.values()].sort((a, b) =>
+    a.severity === b.severity ? b.count - a.count : a.severity === 'warning' ? -1 : 1);
+}
