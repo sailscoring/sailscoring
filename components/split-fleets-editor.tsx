@@ -25,10 +25,12 @@ import {
   ilca2026SplitFleetConfig,
   ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
+  capitaliseStage,
   resolveVocabulary,
   VOCABULARY_OPTIONS,
   stageRaceLabel,
   type SplitFleetConfig,
+  type Vocabulary,
   type VocabularyKey,
 } from '@/lib/split-fleets';
 
@@ -59,7 +61,7 @@ const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) =>
     }),
   },
   'rank-seed': {
-    label: 'Qualifying position carried forward (470, Topper)',
+    label: 'First-stage position carried forward (470, Topper)',
     build: (n) => ({
       ...defaultSplitFleetConfig(n),
       carry: 'rank-seed',
@@ -72,23 +74,32 @@ const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) =>
 /** What a new series starts from, and so what the settings below show first. */
 const INITIAL_FORMAT: FormatKey = 'ilca-2026';
 
-const CARRY_OPTIONS: { value: SplitFleetConfig['carry']; label: string; hint: string }[] = [
-  {
-    value: 'points',
-    label: 'One continuous series',
-    hint: 'Qualifying and final race scores are totalled together for the championship, and discards apply across the whole line.',
-  },
-  {
-    value: 'net-plus-net',
-    label: 'Two series, added together',
-    hint: 'The qualifying and final series are each scored as their own series, with their own discards; the championship score is the sum of the two.',
-  },
-  {
-    value: 'rank-seed',
-    label: 'Qualifying position carried forward',
-    hint: 'A boat carries her qualifying finishing position into the final series as one score that can never be discarded; her qualifying race scores drop out.',
-  },
-];
+/** Built from the series' vocabulary rather than fixed, like every other
+ *  stage word here: "the qualifying series" and "the final series" name
+ *  different stages depending on which wording the championship uses. */
+function carryOptions(
+  vocab: Vocabulary,
+): { value: SplitFleetConfig['carry']; label: string; hint: string }[] {
+  const q = vocab.stages.qualifying.name;
+  const f = vocab.stages.final.name;
+  return [
+    {
+      value: 'points',
+      label: 'One continuous series',
+      hint: `${capitaliseStage(q)} and ${f} race scores are totalled together for the championship, and discards apply across the whole line.`,
+    },
+    {
+      value: 'net-plus-net',
+      label: 'Two series, added together',
+      hint: `The ${q} and the ${f} are each scored as their own series, with their own discards; the championship score is the sum of the two.`,
+    },
+    {
+      value: 'rank-seed',
+      label: `${capitaliseStage(q)} position carried forward`,
+      hint: `A boat carries her ${q} finishing position into the ${f} as one score that can never be discarded; her ${q} race scores drop out.`,
+    },
+  ];
+}
 
 export function SplitFleetEditor({
   seriesId,
@@ -216,7 +227,9 @@ export function SplitFleetEditor({
       </div>
 
       <div className={rowClass}>
-        <label className="font-medium" htmlFor="sf-fleet-count">Qualifying fleets</label>
+        <label className="font-medium" htmlFor="sf-fleet-count">
+          {capitaliseStage(vocab.stages.qualifying.fleetNoun)}s
+        </label>
         <div className="space-y-1">
           {locked ? (
             <p>{value.qualifyingFleets.map((f) => f.label).join(', ')}</p>
@@ -250,10 +263,10 @@ export function SplitFleetEditor({
           label column. The shared radio `name` still groups them natively. */}
       <div className={rowClass} role="radiogroup" aria-labelledby="sf-carry-label">
         <span className="font-medium" id="sf-carry-label">
-          How scores carry into the final series
+          How scores carry into the {vocab.stages.final.name}
         </span>
         <div className="space-y-2">
-          {CARRY_OPTIONS.map((opt) => (
+          {carryOptions(vocab).map((opt) => (
             <label key={opt.value} className="flex items-start gap-2">
               <input
                 type="radio"
@@ -276,7 +289,7 @@ export function SplitFleetEditor({
 
       <div className={rowClass}>
         <label className="font-medium" htmlFor="sf-split">
-          How boats are divided for the final series
+          How boats are divided for the {vocab.stages.final.name}
         </label>
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -381,7 +394,7 @@ export function SplitFleetEditor({
                 At most
                 <input
                   type="number"
-                  aria-label="Discards allowed from the final series"
+                  aria-label={`Discards allowed from the ${vocab.stages.final.name}`}
                   min={0}
                   className="w-14 rounded-md border bg-background px-2 py-1 text-sm"
                   disabled={!canEdit}
@@ -390,7 +403,7 @@ export function SplitFleetEditor({
                     patch({ maxFinalDiscards: Math.max(0, Number(e.target.value)) })
                   }
                 />
-                from the final series
+                from the {vocab.stages.final.name}
               </label>
               <label className="flex items-center gap-1.5">
                 <input
@@ -405,11 +418,12 @@ export function SplitFleetEditor({
           )}
           <p className={hint}>
             {value.carry === 'net-plus-net'
-              ? 'Applied separately to the qualifying series and the final series.'
+              ? `Applied separately to the ${vocab.stages.qualifying.name} and the ${vocab.stages.final.name}.`
               : value.carry === 'rank-seed'
-                ? 'Applied to the final series; the carried qualifying position is never excluded.'
+                ? `Applied to the ${vocab.stages.final.name}; the carried ${vocab.stages.qualifying.name} position is never excluded.`
                 : 'Applied across the whole line.'}{' '}
-            Medal races never count toward these rules and are never excluded.
+            {capitaliseStage(vocab.stages.medal.name)} never count toward these rules and are
+            never excluded.
           </p>
         </div>
       </div>
@@ -441,7 +455,7 @@ export function SplitFleetEditor({
 
       <div className={rowClass}>
         <label className="font-medium" htmlFor="sf-equalization">
-          Boats end qualifying on different race counts
+          Boats end the {vocab.stages.qualifying.name} on different race counts
         </label>
         <div className="space-y-1">
           <select
@@ -463,7 +477,8 @@ export function SplitFleetEditor({
             </option>
           </select>
           <p className={hint}>
-            A qualifying race counts for nobody until every fleet has sailed it, either way.
+            A {vocab.stages.qualifying.raceNoun} counts for nobody until every fleet has
+            sailed it, either way.
             {value.equalization === 'exclude-extra-scores'
               ? ' On top of that, any boat still left holding more scores than the rest drops her most recent until the counts match.'
               : ''}
@@ -492,9 +507,12 @@ export function SplitFleetEditor({
               }
             >
               <option value="largest-fleet">
-                Qualifying: boats in the largest qualifying fleet, plus one
+                {capitaliseStage(vocab.stages.qualifying.name)}: boats in the largest{' '}
+                {vocab.stages.qualifying.fleetNoun}, plus one
               </option>
-              <option value="fixed">Qualifying: a fixed number of points</option>
+              <option value="fixed">
+                {capitaliseStage(vocab.stages.qualifying.name)}: a fixed number of points
+              </option>
             </select>
             {value.codeBasis.qualifying === 'fixed' && (
               <input
@@ -524,9 +542,13 @@ export function SplitFleetEditor({
               })
             }
           >
-            <option value="own-fleet">Final series: boats in her own final fleet, plus one</option>
+            <option value="own-fleet">
+              {capitaliseStage(vocab.stages.final.name)}: boats in her own{' '}
+              {vocab.stages.final.fleetNoun}, plus one
+            </option>
             <option value="largest-qualifying">
-              Final series: boats in the largest qualifying fleet, plus one
+              {capitaliseStage(vocab.stages.final.name)}: boats in the largest{' '}
+              {vocab.stages.qualifying.fleetNoun}, plus one
             </option>
           </select>
           {entries > 0 && (
@@ -535,7 +557,7 @@ export function SplitFleetEditor({
               {value.codeBasis.qualifying === 'fixed'
                 ? (value.codeBasis.fixedPoints ?? largestQualifying + 1)
                 : largestQualifying + 1}{' '}
-              in the qualifying series and{' '}
+              in the {vocab.stages.qualifying.name} and{' '}
               {value.codeBasis.final === 'largest-qualifying'
                 ? largestQualifying + 1
                 : goldSize + 1}{' '}
@@ -590,7 +612,7 @@ export function SplitFleetEditor({
       </div>
 
       <div className={rowClass}>
-        <span className="font-medium">Medal race</span>
+        <span className="font-medium">{capitaliseStage(vocab.stages.medal.name)}</span>
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5">
@@ -610,7 +632,7 @@ export function SplitFleetEditor({
               <>
                 <input
                   type="number"
-                  aria-label="Medal fleet size"
+                  aria-label={`${capitaliseStage(vocab.stages.medal.fleetNoun)} size`}
                   min={2}
                   className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
                   disabled={!canEdit}
@@ -622,7 +644,7 @@ export function SplitFleetEditor({
                 <span>boats, scoring ×</span>
                 <input
                   type="number"
-                  aria-label="Medal points multiplier"
+                  aria-label={`${capitaliseStage(vocab.stages.medal.name)} points multiplier`}
                   min={1}
                   className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
                   disabled={!canEdit}
@@ -716,13 +738,14 @@ export function SplitFleetEditor({
                     })
                   }
                 />
-                Break a remaining tie on final-series rank, then qualifying rank
+                Break a remaining tie on {vocab.stages.final.name} rank, then{' '}
+                {vocab.stages.qualifying.name} rank
               </label>
               <p className={hint}>
                 Never discarded. The rest of {value.finalFleets[0]?.label ?? 'the top fleet'} sail a
                 companion race scored from {value.medal.size + 1}.
                 {value.medal.carryTransform
-                  ? ' Dividing the score so far pulls the leaders together before the last races, so a medal boat’s championship score is that one carried number plus her medal races.'
+                  ? ` Dividing the score so far pulls the leaders together before the last races, so a qualified boat’s championship score is that one carried number plus her ${vocab.stages.medal.name}.`
                   : ''}
               </p>
             </>

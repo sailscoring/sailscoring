@@ -141,6 +141,7 @@ export function renderSplitFleetStandingsPage(
   const nat = showNat(input);
   const wsid = showWsid(input);
   const qRaces = qualifyingRaceCount(data);
+  const vocab = resolveVocabulary(data.config);
   const columnLabel = (stage: SeriesStage, n: number) =>
     stageRaceLabel(data.config, stage, n, qRaces);
 
@@ -160,14 +161,14 @@ export function renderSplitFleetStandingsPage(
     const bold = c.discardable ? '' : ';font-weight:bold';
     const title = c.counts
       ? c.carriedRank
-        ? ' title="qualifying-series position, carried into the final series"'
+        ? ` title="${esc(vocab.stages.qualifying.name)} position, carried into the ${esc(vocab.stages.final.name)}"`
         : c.carriedTransform
-          ? ' title="opening-series score, compressed and carried into the medal races"'
+          ? ` title="${esc(vocab.seriesName)} score, compressed and carried into the ${esc(vocab.stages.medal.name)}"`
           : ''
       : c.superseded
         ? ' title="replaced by the carried score"'
         : c.excludedAsExtra
-          ? ' title="excluded so every boat has the same number of qualifying scores"'
+          ? ` title="excluded so every boat has the same number of ${esc(vocab.stages.qualifying.name)} scores"`
           : ' title="does not yet count — race incomplete across fleets"';
     return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${inner}</td>`;
   };
