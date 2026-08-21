@@ -281,6 +281,15 @@ separate sequence, first (LE 7.3(c)). The data model leans on both halves
 of this: the combined sheet is the input to represent faithfully, and the
 disjointness is the validation rule (Part 2).
 
+**Unless the finishes are captured electronically**, in which case each
+fleet's starts and finishes come back as their own export and there is no
+interleaved sheet to represent. `SplitFleetConfig.finishSheets` picks
+between the two: `combined` (the default, one race per stage race number
+with a start per fleet) and `per-fleet` (a race each, which is the shape
+the medal stage has always had). Scoring is indifferent — a boat is ranked
+among her own fleet by the boats' relative order — so the choice is about
+what an abandonment acts on: a race, rather than one start inside it.
+
 ### The 2026 ILCA Worlds — the concrete target
 
 The **2026 ILCA 7 Men's Worlds run 23–30 August 2026 at Dun Laoghaire**
@@ -912,8 +921,10 @@ Since shipped beyond that v1 scope:
 
 Out (horizon): knockout medal-series brackets (iQFOiL / Formula Kite
 match points — not low-point arithmetic); Manage2Sail-style online
-notice-board integration; electronic finish ingestion from
-RaceSense/Vakaros (the existing CSV finish import is the interim answer).
+notice-board integration. Electronic finish ingestion from RaceSense has
+since been built (`lib/racesense-workbook.ts`, `lib/racesense-plan.ts`,
+gated `racesense-import`) and is what `finishSheets: 'per-fleet'` exists
+for.
 
 ### Open questions
 

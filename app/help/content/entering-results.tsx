@@ -229,6 +229,70 @@ export default function EnteringResults() {
         </p>
       </Section>
       )}
+      {has('racesense-import') && (
+      <Section id="racesense-import" title="Importing from RaceSense">
+        <p>
+          <strong className="text-foreground">RaceSense</strong> is Vakaros’ race-committee
+          app. It exports a regatta as one Excel workbook with a sheet per race, and the
+          app reads that workbook straight into your races: on the{' '}
+          <strong className="text-foreground">Races</strong> tab, click{' '}
+          <strong className="text-foreground">Import from RaceSense</strong> (or press{' '}
+          <strong className="text-foreground">i</strong>).
+        </p>
+        <p>
+          RaceSense records which boats started, which were on the course side, which
+          cleared, and the finish times of the boats that finished. It does not record
+          retirements, disqualifications, redress or penalties — those reach you as notes
+          from the race committee and you enter them yourself.
+        </p>
+        <p>
+          The export always contains the <em>whole</em> regatta, so the file you get on the
+          last day still holds the first day’s races. That is why the import asks race by
+          race rather than writing everything:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-2">
+          <li>
+            <strong className="text-foreground">New</strong> — the race has no finishes yet.
+            Ticked for you.
+          </li>
+          <li>
+            <strong className="text-foreground">Unchanged</strong> — the race already holds
+            exactly what the sheet says. Nothing to do, and a useful confirmation that the
+            app and the committee’s device agree.
+          </li>
+          <li>
+            <strong className="text-foreground">Differs</strong> — the race holds something
+            else. Left unticked, with the boats it would change listed, so a correction you
+            entered by hand is never overwritten by accident.
+          </li>
+          <li>
+            <strong className="text-foreground">No race</strong> — there is nothing in this
+            series for that sheet yet.
+          </li>
+        </ul>
+        <p>
+          Two things the workbook can’t tell the app sit at the top of the dialog. If the
+          series has fleets, say which one this export belongs to. And if a race was
+          abandoned and resailed, RaceSense’s numbering will have parted company with your
+          series’ — <strong className="text-foreground">Shift by</strong> moves every sheet
+          along together, or you can point a single sheet at a race yourself.
+        </p>
+        <p>
+          A boat who was over the line and never cleared appears in RaceSense’s finish list
+          as a DNF; only her start status records what really happened. The import scores
+          her <strong className="text-foreground">OCS</strong> — or UFD or BFD, following
+          the race’s preparatory signal. If the signal isn’t one the app recognises it says
+          so and leaves the code to you rather than guessing.
+        </p>
+        <p>
+          Anything else the workbook does that the app didn’t expect is listed before the
+          races are — an unfamiliar column, a status it has never seen, a race whose
+          Summary and race sheet disagree. Importing a ticked race{' '}
+          <strong className="text-foreground">replaces</strong> that race’s finishes and
+          clears any penalties, redress and ties on it; other races are left alone.
+        </p>
+      </Section>
+      )}
       <Section id="redress" title="Redress (RDG)">
         <HelpShot
           src="/help/shots/redress.webp"

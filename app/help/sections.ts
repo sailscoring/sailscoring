@@ -49,6 +49,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'entering-results', title: 'Entering results' },
       { id: 'penalty-codes', title: 'Additive penalty codes' },
       { id: 'importing-finish-sheet', title: 'Importing a finish sheet from a spreadsheet', feature: 'csv-finish-import' },
+      { id: 'racesense-import', title: 'Importing from RaceSense', feature: 'racesense-import' },
       { id: 'redress', title: 'Redress (RDG)' },
       { id: 'start-check-in', title: 'Start check-in' },
     ],

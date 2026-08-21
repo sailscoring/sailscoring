@@ -1164,6 +1164,35 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: RaceSense import — the plan dialog over the sample league.
+    // Operator-gated, so local mode flips the gate at the database. The
+    // workbook is uploaded twice: the first pass imports two of its three
+    // races, so the shot shows what the feature is actually for — two races
+    // reading back Unchanged beside the one still to do.
+    slug: 'racesense-import',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      await dbEnableOperatorFeature('racesense-import');
+      await page.evaluate(() => localStorage.clear());
+      await page.goto(`${BASE}/series/${await seriesId()}/races`);
+      await settle(page);
+
+      const workbook = join(__dirname, '../tests/fixtures/xlsx/racesense-sample-league.xlsx');
+      await page.getByTestId('racesense-input').setInputFiles(workbook);
+      await page.getByTestId('racesense-plan').waitFor();
+      await page.getByRole('checkbox', { name: 'Import Race 3' }).uncheck();
+      await page.getByTestId('racesense-confirm').click();
+      await page.getByTestId('racesense-plan').waitFor({ state: 'hidden' });
+      await settle(page);
+
+      await page.getByTestId('racesense-input').setInputFiles(workbook);
+      await page.getByTestId('racesense-plan').waitFor();
+      await settle(page);
+      await shot('racesense-import.png');
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
     // Inventory: Workspace requests — the Account page's request card.
     slug: 'workspace-request',
     group: 'Collaboration and accounts',

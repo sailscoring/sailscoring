@@ -884,10 +884,8 @@ net-plus-net and Topper rank-as-seed ones the design deferred.
 
 What stays on the horizon: knockout medal-series brackets (iQFOiL / Formula
 Kite quarter/semi/grand finals scored on match points — not low-point
-arithmetic at all); electronic finish/OCS ingestion from race-management
-systems like Vakaros RaceSense (the CSV finish import is the interim
-answer); and manual initial fleet assignment supplied by the committee as a
-spreadsheet column on competitor import (the in-app assignment dialog covers
+arithmetic at all); and manual initial fleet assignment supplied by the
+committee as a spreadsheet column on competitor import (the in-app assignment dialog covers
 seeding rank, nationality spread, and sail-number orders; a pasted-list entry
 mode was tried and dropped).
 
