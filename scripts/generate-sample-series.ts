@@ -967,9 +967,8 @@ function buildChampionship(): SeriesFile {
     maxFinalDiscards: 1,
     protectLoneFinalRace: true,
     reassignmentTieOrder: 'a8-then-entry-order',
-    minimumRaces: 3,
     vocabulary: DEFAULT_VOCABULARY,
-    medal: { size: 6, raceCount: 1, multiplier: 2 },
+    medal: { size: 6, raceCount: 1, multiplier: 2, companionRace: 'scored-below' },
   };
 
   // 24 sailors. `seed` is the OA's pre-event ranking; racing ability tracks

@@ -51,6 +51,10 @@ const BANNED = [
   'medal boat',
   'qualifying fleet',
   'final fleet',
+  'qualifying race',
+  'final race',
+  'preliminary race',
+  'elimination race',
   'preliminary fleet',
   'elimination fleet',
 ];

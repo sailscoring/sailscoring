@@ -95,10 +95,6 @@ export interface SplitFleetConfig {
   /** How ties that survive RRS A8 are ordered when a ranking feeds an
    *  assignment: registration/seeding order, or LE's fleet-order scatter. */
   reassignmentTieOrder: 'a8-then-entry-order' | 'fleet-order';
-  /** Races that must be completed to constitute the championship (2026 ILCA
-   *  SI 18.2: three). Below it the standings are a running order, not a
-   *  result. 0 = the SIs set no minimum. */
-  minimumRaces: number;
   /** Which set of words this championship's sailing instructions use for its
    *  stages and races (see `Vocabulary`). The race prefixes and whether the
    *  second stage numbers on from the first follow from the choice — they are
@@ -121,6 +117,16 @@ export interface SplitFleetConfig {
      *  series alone, wins the tie (2026 ILCA SI 18.7.4). Absent = A8 as
      *  written, and a tie A8 cannot break stays a tie. */
     tieBreak?: 'stage-rank';
+    /** What the boats who miss the cut sail while the medal races run.
+     *  - `scored-below` — a companion race of their own, its first finisher
+     *    scoring just below the medal fleet (2024 ILCA SI 18.3.4: first
+     *    finisher = 11 points). The medal ceremony creates the fleet for it.
+     *  - `none` — nothing of their own here: they stay in their final fleets
+     *    and sail one more ordinary final-series race, which the SIs may
+     *    schedule for the same day (2026 ILCA SI 7.7). Nothing is scored
+     *    below anything, and the medal ceremony creates only the medal
+     *    fleet. */
+    companionRace: 'scored-below' | 'none';
   };
 }
 
@@ -371,9 +377,8 @@ export function defaultSplitFleetConfig(fleetCount: number): SplitFleetConfig {
     maxFinalDiscards: 1,
     protectLoneFinalRace: true,
     reassignmentTieOrder: 'a8-then-entry-order',
-    minimumRaces: 0,
     vocabulary: DEFAULT_VOCABULARY,
-    medal: { size: 10, raceCount: 1, multiplier: 2 },
+    medal: { size: 10, raceCount: 1, multiplier: 2, companionRace: 'scored-below' },
   };
 }
 
@@ -458,9 +463,12 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
     equalization: raw.equalization ?? 'abandon-extra-races',
     protectLoneFinalRace: raw.protectLoneFinalRace ?? false,
     reassignmentTieOrder: raw.reassignmentTieOrder ?? 'a8-then-entry-order',
-    minimumRaces: raw.minimumRaces ?? 0,
     ...resolveStoredVocabulary(raw),
-    medal: raw.medal,
+    // Configs stored before the companion race was configurable all described
+    // the 2024 shape, so that is what they keep.
+    medal: raw.medal
+      ? { ...raw.medal, companionRace: raw.medal.companionRace ?? 'scored-below' }
+      : undefined,
   } as SplitFleetConfig;
 }
 
@@ -482,7 +490,6 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       { minRaces: 3, discardCount: 1 },
       { minRaces: 10, discardCount: 2 },
     ],
-    minimumRaces: 3,
     vocabulary: 'qualification-final',
     medal: {
       size: 10,
@@ -490,6 +497,9 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       multiplier: 1,
       carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
       tieBreak: 'stage-rank',
+      // SI 7.7: the boats who miss the Final series sail one more ordinary
+      // Qualification series race, not a companion race scored from 11.
+      companionRace: 'none',
     },
   };
 }
@@ -1239,35 +1249,6 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
   rows.sort((a, b) => tierIndex(a) - tierIndex(b) || byNet(a, b));
   rows.forEach((row, i) => (row.rank = i + 1));
   return rows;
-}
-
-/** Races completed in the championship so far, as a notice board would count
- *  them: a qualifying race counts once every fleet of its round has sailed it
- *  (the validity gate), a final or medal race as soon as any fleet has —
- *  final fleets need not stay in step with each other. */
-export function completedRaceCount(data: SplitFleetData): number {
-  const stageCount = (stage: SeriesStage): number => {
-    const lrs = logicalRaces(data, stage);
-    if (stage === 'qualifying') return lrs.filter((lr) => lr.valid).length;
-    return lrs.filter((lr) =>
-      [...lr.races.values()].some((ref) =>
-        physicalRaceCompleted(ref, data.competitors, data.finishes),
-      ),
-    ).length;
-  };
-  return stageCount('qualifying') + stageCount('final') + stageCount('medal');
-}
-
-/** Whether enough races have been completed to constitute the championship
- *  (2026 ILCA SI 18.2). `null` when the SIs set no minimum; otherwise the
- *  count so far against the minimum, and whether it has been reached. */
-export function championshipValidity(
-  data: SplitFleetData,
-): { completed: number; required: number; valid: boolean } | null {
-  const required = data.config.minimumRaces;
-  if (!required) return null;
-  const completed = completedRaceCount(data);
-  return { completed, required, valid: completed >= required };
 }
 
 /** Provisional final-series cut boundaries over a pre-split qualifying

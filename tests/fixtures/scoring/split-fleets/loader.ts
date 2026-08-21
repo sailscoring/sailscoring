@@ -114,13 +114,13 @@ export interface SplitFleetFixture {
     discardThresholds: { minRaces: number; discardCount: number }[];
     maxFinalDiscards: number;
     protectLoneFinalRace?: boolean;
-    minimumRaces?: number;
     medal?: {
       size: number;
       raceCount: number;
       multiplier: number;
       carryTransform?: CarryTransform;
       tieBreak?: 'stage-rank';
+      companionRace?: 'scored-below' | 'none';
     };
   };
   competitors: string[]; // "sail name..." — first token is the sail number
@@ -220,9 +220,10 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     maxFinalDiscards: fx.config.maxFinalDiscards,
     protectLoneFinalRace: fx.config.protectLoneFinalRace ?? false,
     reassignmentTieOrder: 'a8-then-entry-order',
-    minimumRaces: fx.config.minimumRaces ?? 0,
     vocabulary: DEFAULT_VOCABULARY,
-    medal: fx.config.medal,
+    medal: fx.config.medal
+      ? { companionRace: 'scored-below' as const, ...fx.config.medal }
+      : undefined,
   };
 
   const competitors = new Map<string, Competitor>();
@@ -321,7 +322,12 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         const companion = opening
           .filter((r) => goldFinalId && r.finalFleetId === goldFinalId && !top.includes(r.competitor.sailNumber))
           .map((r) => r.competitor.sailNumber);
-        membership = { [mName]: top, [cName]: companion };
+        // With no companion race there is no second fleet: the boats who miss
+        // the cut stay in their final fleet and sail on with it.
+        membership =
+          fx.config.medal?.companionRace === 'none'
+            ? { [mName]: top }
+            : { [mName]: top, [cName]: companion };
         method = `medal top ${a.medalTop}`;
       } else {
         throw new Error(`stage ${st}: unsupported assign ${JSON.stringify(a)}`);

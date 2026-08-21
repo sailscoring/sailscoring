@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignByRankPattern,
-  championshipValidity,
   ilca2026SplitFleetConfig,
   normalizeSplitFleetConfig,
   resolveVocabulary,
   stageRaceLabel,
-  completedRaceCount,
   defaultSplitFleetConfig,
   finalBlockSizes,
   logicalRaces,
@@ -513,133 +511,6 @@ describe('scoring penalties (RRS 44.3(c))', () => {
   it('adds DPI as stated points, still capped at the DNF score', () => {
     expect(penalizedWinner(10, { penaltyCode: 'DPI', penaltyOverride: 1 })).toBe(2);
     expect(penalizedWinner(4, { penaltyCode: 'DPI', penaltyOverride: 9 })).toBe(5);
-  });
-});
-
-
-describe('championshipValidity', () => {
-  /** Two qualifying fleets sailing `sailed` races each, plus one final race
-   *  for Gold alone (the fleets need not stay in step). */
-  function data(sailed: number, minimumRaces: number, finalRaces = 0): SplitFleetData {
-    const config = { ...defaultSplitFleetConfig(2), minimumRaces };
-    const competitors = [
-      competitor('c1', ['fy', 'fg'], 1),
-      competitor('c2', ['fb'], 2),
-    ];
-    const rounds: SplitRound[] = [
-      { id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
-        fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0 },
-      { id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
-        fleetIds: ['fg'], method: 'split', basis: null, createdAt: 1 },
-    ];
-    const races: ReturnType<typeof race>[] = [];
-    const raceStarts: RaceStart[] = [];
-    const finishes: Finish[] = [];
-    for (let n = 1; n <= sailed; n++) {
-      races.push(race(`q${n}`));
-      raceStarts.push(start(`q${n}`, ['fy', 'fb'], 'qualifying', n));
-      finishes.push(finish(`q${n}`, 'c1', 0), finish(`q${n}`, 'c2', 1));
-    }
-    for (let n = 1; n <= finalRaces; n++) {
-      races.push(race(`f${n}`));
-      raceStarts.push(start(`f${n}`, ['fg'], 'final', n));
-      finishes.push(finish(`f${n}`, 'c1', 0));
-    }
-    return {
-      config,
-      rounds,
-      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue'), fleet('fg', 'Gold')],
-      competitors,
-      races,
-      raceStarts,
-      finishes,
-    };
-  }
-
-  it('is null when the sailing instructions set no minimum', () => {
-    expect(championshipValidity(data(1, 0))).toBeNull();
-  });
-
-  it('counts a qualifying race only once every fleet has sailed it', () => {
-    const d = data(2, 3);
-    // Strip Blue's rows from Q2: the race is no longer valid across fleets.
-    d.finishes = d.finishes.filter((f) => !(f.raceId === 'q2' && f.competitorId === 'c2'));
-    expect(completedRaceCount(d)).toBe(1);
-    expect(championshipValidity(d)).toEqual({ completed: 1, required: 3, valid: false });
-  });
-
-  it('counts final races that only one fleet has sailed', () => {
-    expect(championshipValidity(data(2, 3, 1))).toEqual({
-      completed: 3,
-      required: 3,
-      valid: true,
-    });
-  });
-});
-
-
-describe('equalization: exclude-extra-scores', () => {
-  /** Qualifying over Q1–Q2 with two fleets, then a final split. `extra`
-   *  additionally puts c1 in the Blue fleet, so she carries a second score for
-   *  each qualifying race — the residual per-boat surplus LE 20.4(a) exists
-   *  for, which reaches the engine through an assignment override rather than
-   *  through a ceremony. */
-  function data(
-    equalization: 'abandon-extra-races' | 'exclude-extra-scores',
-    extra: boolean,
-  ): SplitFleetData {
-    const config = { ...defaultSplitFleetConfig(2), equalization, discardThresholds: [] };
-    const competitors = [
-      competitor('c1', extra ? ['fy', 'fb', 'fg'] : ['fy', 'fg'], 1),
-      competitor('c2', ['fb', 'fg'], 2),
-    ];
-    return {
-      config,
-      rounds: [
-        { id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
-          fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0 },
-        { id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
-          fleetIds: ['fg'], method: 'split', basis: null, createdAt: 1 },
-      ],
-      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue'), fleet('fg', 'Gold')],
-      competitors,
-      races: [race('q1'), race('q2'), race('f1')],
-      raceStarts: [
-        start('q1', ['fy', 'fb'], 'qualifying', 1),
-        start('q2', ['fy', 'fb'], 'qualifying', 2),
-        start('f1', ['fg'], 'final', 1),
-      ],
-      finishes: [
-        finish('q1', 'c1', 0), finish('q1', 'c2', 1),
-        finish('q2', 'c1', 0), finish('q2', 'c2', 1),
-        finish('f1', 'c1', 0), finish('f1', 'c2', 1),
-      ],
-    };
-  }
-
-  const qualifyingCells = (d: SplitFleetData, id: string) =>
-    splitFleetStandings(d)
-      .find((r) => r.competitor.id === id)!
-      .cells.filter((c) => c.stage === 'qualifying');
-
-  it('leaves equal score counts alone', () => {
-    const cells = qualifyingCells(data('exclude-extra-scores', false), 'c1');
-    expect(cells.filter((c) => c.counts)).toHaveLength(2);
-    expect(cells.some((c) => c.excludedAsExtra)).toBe(false);
-  });
-
-  it('drops the surplus boat’s most recent scores down to everyone else’s count', () => {
-    const cells = qualifyingCells(data('exclude-extra-scores', true), 'c1');
-    expect(cells).toHaveLength(4);
-    // Q1 in both fleets survives; both of Q2's go, being the most recent.
-    expect(cells.filter((c) => c.counts).map((c) => c.stageRaceNumber)).toEqual([1, 1]);
-    expect(cells.filter((c) => c.excludedAsExtra)).toHaveLength(2);
-  });
-
-  it('leaves the surplus in place under abandon-extra-races', () => {
-    const cells = qualifyingCells(data('abandon-extra-races', true), 'c1');
-    expect(cells.filter((c) => c.counts)).toHaveLength(4);
-    expect(cells.some((c) => c.excludedAsExtra)).toBe(false);
   });
 });
 

@@ -269,16 +269,20 @@ export interface SeriesFileRepos {
  *  older build reading a v32 file publishes the same page sectioned by fleet
  *  instead.
  *
- *  v33 adds four optional split-fleet config fields: `minimumRaces` (races
- *  needed to constitute the championship), `stageNaming` (superseded by v34's
- *  `vocabulary`), and on the medal block `carryTransform` (the compressed
- *  carry) and `tieBreak`. `splitFleets.config` travels verbatim, so no parser change —
- *  but an older build reading a v33 file would drop them, and dropping
- *  `carryTransform` silently re-scores the championship rather than
- *  mislabelling it, which is what the bump makes visible.
+ *  v33 adds four optional split-fleet config fields: `minimumRaces` and
+ *  `stageNaming` (both superseded by v34), and on the medal block
+ *  `carryTransform` (the compressed carry) and `tieBreak`.
+ *  `splitFleets.config` travels verbatim, so no parser change — but an older
+ *  build reading a v33 file would drop them, and dropping `carryTransform`
+ *  silently re-scores the championship rather than mislabelling it, which is
+ *  what the bump makes visible.
  *
- *  v34 replaces v33's `splitFleets.config.stageNaming` — three authored stage
- *  labels, three race prefixes and a numbering flag — with `vocabulary`, one
+ *  v34 drops v33's `minimumRaces` — the race committee declares a
+ *  championship invalid, not the scoring software — and adds
+ *  `medal.companionRace`, which says whether the boats who miss the medal
+ *  fleet sail a race of their own scored below it or one more ordinary
+ *  final-series race. It also replaces v33's `stageNaming` — three authored
+ *  stage labels, three race prefixes and a numbering flag — with `vocabulary`, one
  *  choice between the tabulated wordings, plus an engine-only
  *  `vocabularyOverride` for anything they don't cover. v33's block is still
  *  read: `normalizeSplitFleetConfig` matches it against the table, and keeps

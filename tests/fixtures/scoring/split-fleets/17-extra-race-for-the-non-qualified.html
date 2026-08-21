@@ -34,13 +34,18 @@ within each, discardable, and counting toward the discard ladder — which is
 why the ladder in those SIs runs to twelve races. The Gold fleet sails it
 ten boats short.
 
-Here F2 is that race: b1 sails it for Gold while y1 and b2, who made the
-medal fleet, do not. The point of the fixture is what their rows do NOT
-contain — selecting the medal fleet does not delete a boat from her final
-fleet, so without care she reads as a Gold boat who failed to start Gold's
-last race and collects a DNC at the fleet's score base. She is simply
-elsewhere, and has no F2 cell at all. (A boat who really did miss a final
-race still gets an explicit DNC row from the scorer.)
+Here F2 is that race: b1 sails it for Gold while y1 and b2, who qualified
+for the Final series, do not. The point of the fixture is what their rows do
+NOT contain — selecting the Final series boats does not delete them from
+their Elimination fleet, so without care they read as Gold boats who failed
+to start Gold's last race and collect a DNC at the fleet's score base. They
+are simply elsewhere, and have no F2 cell at all. (A boat who really did
+miss an Elimination race still gets an explicit DNC row from the scorer.)
+
+`companionRace: none` is what says so: under the 2024 shape the medal
+ceremony gives the boats who miss the cut a race of their own, scored from
+just below the medal fleet. Under these SIs it gives them nothing, because
+the extra race they sail is an ordinary one of their own fleet.
 
 Note what does not change: Gold's score base for F2 is still its assigned
 size plus one — SI 18.5.2 counts boats assigned to the fleet, and all
@@ -58,7 +63,7 @@ then the medal race (base 3, x1): y1 1 -&gt; 2;  b2 2 -&gt; 4.</pre>
 <tbody>
 <tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff3bf;padding:0 4px;border-radius:3px;">Yellow: y1, y2, y3</span>&nbsp; <span style="background:#d0ebff;padding:0 4px;border-radius:3px;">Blue: b1, b2, b3</span></td></tr>
 <tr><td>Final split</td><td>split (qualifying ranking)</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: b1, b2, y1</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: b3, y2, y3</span></td></tr>
-<tr><td>Medal</td><td>medal top 2</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b2, y1</span>&nbsp; <span style="background:#fff;padding:0 4px;border-radius:3px;">Gold last race: b1</span></td></tr>
+<tr><td>Medal</td><td>medal top 2</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b2, y1</span></td></tr>
 </tbody>
 </table>
 <h2>Gold fleet</h2>

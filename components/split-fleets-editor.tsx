@@ -74,6 +74,33 @@ const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) =>
 /** What a new series starts from, and so what the settings below show first. */
 const INITIAL_FORMAT: FormatKey = 'ilca-2026';
 
+/**
+ * Whether a config is still exactly the class format it was built from.
+ *
+ * Compared field by field against a freshly built one rather than tracked as
+ * "has been edited", so undoing an edit restores the format's name instead of
+ * leaving the series marked Custom forever. The fleet count is passed through
+ * because it is a choice of its own, not a departure from the format.
+ */
+function matchesFormat(config: SplitFleetConfig, format: FormatKey): boolean {
+  const built = FORMATS[format].build(config.qualifyingFleets.length);
+  return JSON.stringify(canonical(built)) === JSON.stringify(canonical(config));
+}
+
+/** Key order varies with how a config was assembled; sort it away. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, v]) => v !== undefined)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => [k, canonical(v)]),
+    );
+  }
+  return value;
+}
+
 /** Built from the series' vocabulary rather than fixed, like every other
  *  stage word here: "the qualifying series" and "the final series" name
  *  different stages depending on which wording the championship uses. */
@@ -126,14 +153,21 @@ export function SplitFleetEditor({
   onEnabled?: () => void;
 }) {
   const save = useSaveSplitFleetConfig(seriesId);
-  const [format, setFormat] = useState<FormatKey>(INITIAL_FORMAT);
-  const [customised, setCustomised] = useState(false);
+  const [picked, setPicked] = useState<FormatKey>(INITIAL_FORMAT);
   // The draft must be the format the picker is showing, or the settings below
   // describe a format nobody chose.
   const [draft, setDraft] = useState<SplitFleetConfig>(() => FORMATS[INITIAL_FORMAT].build(3));
 
   const value = config ?? draft;
   const isDraft = config === null;
+  // Which format this *is*, derived rather than remembered. A scorer who
+  // changes a setting and changes it back has the class format again, and
+  // being told otherwise leaves them wondering what else they disturbed. It
+  // also means a series opened later shows the format it matches instead of
+  // whatever the picker happened to default to.
+  const matched = (Object.keys(FORMATS) as FormatKey[]).find((k) => matchesFormat(value, k));
+  const format = matched ?? picked;
+  const customised = matched === undefined;
   const vocab = resolveVocabulary(value);
   const exampleLabels = [
     stageRaceLabel(value, 'qualifying', 1),
@@ -142,14 +176,12 @@ export function SplitFleetEditor({
   ].join(', ');
 
   function patch(p: Partial<SplitFleetConfig>) {
-    setCustomised(true);
     if (isDraft) setDraft({ ...draft, ...p });
     else save.mutate({ ...value, ...p });
   }
 
   function pickFormat(next: FormatKey) {
-    setFormat(next);
-    setCustomised(false);
+    setPicked(next);
     const built = FORMATS[next].build(value.qualifyingFleets.length);
     if (isDraft) setDraft(built);
     else save.mutate(built);
@@ -438,7 +470,7 @@ export function SplitFleetEditor({
                   checked={value.protectLoneFinalRace}
                   onChange={(e) => patch({ protectLoneFinalRace: e.target.checked })}
                 />
-                never exclude a lone final race
+                never exclude a lone {vocab.stages.final.raceNoun}
               </label>
             </div>
           )}
@@ -474,15 +506,18 @@ export function SplitFleetEditor({
               Abandon and cancel the extra races
             </option>
             <option value="exclude-extra-scores">
-              Also exclude each boat’s most recent extra scores
+              Abandon them, and also drop any boat’s leftover extra scores
             </option>
           </select>
           <p className={hint}>
-            A {vocab.stages.qualifying.raceNoun} counts for nobody until every fleet has
-            sailed it, either way.
-            {value.equalization === 'exclude-extra-scores'
-              ? ' On top of that, any boat still left holding more scores than the rest drops her most recent until the counts match.'
-              : ''}
+            Either way, a {vocab.stages.qualifying.raceNoun} counts for nobody until every
+            fleet has sailed it — so a race one fleet sailed and another didn’t is struck for
+            everyone, and the fleets come out level. That is the whole of the first option, and
+            what most sailing instructions say. The second adds the clause a few carry for what
+            might still be left over: a boat holding more scores than the rest drops her most
+            recent until the counts match. It only comes into play if boats within a fleet end
+            up with different counts, so choose the first unless your sailing instructions
+            clearly say otherwise.
           </p>
         </div>
       </div>
@@ -549,7 +584,7 @@ export function SplitFleetEditor({
             </option>
             <option value="largest-qualifying">
               {capitaliseStage(vocab.stages.final.name)}: boats in the largest{' '}
-              {vocab.stages.qualifying.fleetNoun}, plus one
+              {vocab.stages.qualifying.fleetNoun}, plus one — the same score all championship
             </option>
           </select>
           {entries > 0 && (
@@ -594,25 +629,6 @@ export function SplitFleetEditor({
       </div>
 
       <div className={rowClass}>
-        <label className="font-medium" htmlFor="sf-minimum-races">Races for a valid championship</label>
-        <div className="space-y-1">
-          <input
-            id="sf-minimum-races"
-            type="number"
-            min={0}
-            className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
-            disabled={!canEdit}
-            value={value.minimumRaces}
-            onChange={(e) => patch({ minimumRaces: Math.max(0, Number(e.target.value)) })}
-          />
-          <p className={hint}>
-            Below this the standings are marked a running order rather than a result. 0 if the
-            sailing instructions set no minimum.
-          </p>
-        </div>
-      </div>
-
-      <div className={rowClass}>
         <span className="font-medium">{capitaliseStage(vocab.stages.medal.name)}</span>
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -623,7 +639,9 @@ export function SplitFleetEditor({
                 checked={!!value.medal}
                 onChange={(e) =>
                   patch({
-                    medal: e.target.checked ? { size: 10, raceCount: 1, multiplier: 2 } : undefined,
+                    medal: e.target.checked
+                      ? { size: 10, raceCount: 1, multiplier: 2, companionRace: 'scored-below' as const }
+                      : undefined,
                   })
                 }
               />

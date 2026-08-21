@@ -18,6 +18,12 @@ function countWord(n: number): string {
   return COUNT_WORDS[n] ?? String(n);
 }
 
+/** "a Preliminary series", "an opening series" — the SIs' own names start
+ *  with either, and getting it wrong is the first thing a scorer notices. */
+function article(noun: string): string {
+  return `${/^[aeiou]/i.test(noun) ? 'an' : 'a'} ${noun}`;
+}
+
 function listLabels(items: { label: string }[]): string {
   const labels = items.map((f) => f.label);
   if (labels.length <= 1) return labels[0] ?? '';
@@ -58,13 +64,17 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
   const finals = listLabels(config.finalFleets);
   const topFleet = config.finalFleets[0]?.label ?? 'the top fleet';
 
-  lines.push(
-    `The championship will be sailed as a ${q} followed by a ${f}.`,
-  );
-  if (config.minimumRaces > 0) {
-    lines.push(
-      `A minimum of ${countWord(config.minimumRaces)} races is required to be completed to constitute the championship.`,
-    );
+  // With a third stage the event's own structure is the series over stages
+  // one and two, and then that stage — the 2026 ILCA SI 7.1/7.2 shape ("the
+  // event consists of a Qualification series and Final series", the
+  // Qualification series "divided into Preliminary series and Elimination
+  // series"). Without one, stages one and two are the whole event and the
+  // umbrella term would be an empty distinction.
+  if (config.medal) {
+    lines.push(`The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`);
+    lines.push(`The ${vocab.seriesName} will be divided into ${article(q)} and ${article(f)}.`);
+  } else {
+    lines.push(`The championship will be sailed as ${article(q)} followed by ${article(f)}.`);
   }
   lines.push(
     `Boats will be assigned to ${countWord(config.qualifyingFleets.length)} ${qAdj} fleets (${qualifying}) of, as nearly as possible, equal size and ability.`,
@@ -87,20 +97,24 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
   );
 
   if (config.carry === 'points') {
+    // Scoped to the series over stages one and two where a third stage
+    // exists: its own total is the medal block's business (2026 ILCA
+    // SI 18.6.1 says "in the Qualification series", not "in the event").
     lines.push(
-      `The ${q} races and the ${f} races will count for total points in the championship.`,
+      `The ${q} races and the ${f} races will count for total points in the ${config.medal ? vocab.seriesName : 'championship'}.`,
     );
     lines.push(discardClause(config));
-    if (config.maxFinalDiscards >= 0) {
+    const cap =
+      config.maxFinalDiscards === 0
+        ? `No excluded score may come from ${article(`${f} race`)}.`
+        : `No more than ${countWord(config.maxFinalDiscards)} excluded score${config.maxFinalDiscards === 1 ? '' : 's'} may come from the ${f}`;
+    if (config.maxFinalDiscards === 0) {
+      lines.push(cap);
+    } else {
       lines.push(
-        config.maxFinalDiscards === 0
-          ? `No excluded score may come from a ${f} race.`
-          : `No more than ${countWord(config.maxFinalDiscards)} excluded score${config.maxFinalDiscards === 1 ? '' : 's'} may come from the ${f}.`,
-      );
-    }
-    if (config.protectLoneFinalRace) {
-      lines.push(
-        `If only one ${f} race has been completed, that score will not be excluded.`,
+        config.protectLoneFinalRace
+          ? `${cap}, and if only one ${f} race has been completed that score will not be excluded.`
+          : `${cap}.`,
       );
     }
   } else if (config.carry === 'net-plus-net') {
@@ -122,7 +136,7 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
   const finalBase =
     config.codeBasis.final === 'largest-qualifying'
       ? `the number of boats in the largest ${qAdj} fleet, plus one`
-      : `the number of boats in her own ${f} fleet, plus one`;
+      : `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   lines.push(
     `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase} in the ${q}, and ${finalBase} in the ${f}.`,
   );
@@ -130,10 +144,18 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
   if (config.medal) {
     const score =
       config.medal.multiplier === 1
-        ? 'Her score there may not be excluded'
-        : `Her score there will be multiplied by ${config.medal.multiplier} and may not be excluded`;
+        ? 'A boat’s score there may not be excluded'
+        : `A boat’s score there will be multiplied by ${config.medal.multiplier} and may not be excluded`;
+    // The boats who miss the cut either sail a race of their own scored
+    // below the medal fleet, or nothing here at all — in which case the SIs
+    // typically schedule them one more ordinary race of the second stage,
+    // which is not this clause's to describe (2026 ILCA SI 7.7).
+    const rest =
+      config.medal.companionRace === 'scored-below'
+        ? `; the remaining ${topFleet} boats will sail one more race, in which the first boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
+        : '';
     lines.push(
-      `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}; the remaining ${topFleet} boats will sail one more race, scored from ${config.medal.size + 1}.`,
+      `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
     );
     const transform = config.medal.carryTransform;
     if (transform) {

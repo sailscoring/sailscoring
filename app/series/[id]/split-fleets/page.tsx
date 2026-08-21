@@ -47,7 +47,6 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
-  championshipValidity,
   capitaliseStage,
   finalBlockSizes,
   fleetMembers,
@@ -1500,8 +1499,9 @@ function FinalSection({
               <DialogDescription>
                 A redress decision may promote a boat to a higher fleet; nobody
                 is demoted to make room, so fleets may end unequal. Clean before
-                the first final race; after that the boat&rsquo;s existing
-                final scores need the protest committee&rsquo;s direction.
+                the first {w.final.raceNoun}; after that the boat&rsquo;s existing
+                scores in the {w.final.name} need the protest committee&rsquo;s
+                direction.
               </DialogDescription>
             </DialogHeader>
             <PromoteForm
@@ -1602,18 +1602,25 @@ function MedalSelectDialog({
   const rest = goldRows.slice(size);
   const goldLabel = fleetMeta.get(goldId)?.label ?? 'Gold';
 
+  // With no companion race there is no second fleet to assign anyone to: the
+  // boats who miss the cut stay where they are and sail on with their fleet.
+  const companion = medalConfig.companionRace === 'scored-below';
   const medalAssignments = useMemo(() => {
     const assignments: Record<string, number> = {};
     for (const r of medalists) assignments[r.competitor.id] = 0;
-    for (const r of rest) assignments[r.competitor.id] = 1;
+    if (companion) for (const r of rest) assignments[r.competitor.id] = 1;
     return assignments;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [standings, size, goldId]);
+  }, [standings, size, goldId, companion]);
 
   return (
     <CeremonyDialog
       title={`Select the ${w.medal.fleetNoun}`}
-      description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); the rest of ${goldLabel} sail their own last race, scored from ${size + 1}. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
+      description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); ${
+        companion
+          ? `the rest of ${goldLabel} sail their own last race, scored from ${size + 1}`
+          : `the rest of ${goldLabel} stay in their fleet and sail on with it`
+      }. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit ${w.medal.fleetNoun} (top ${size})`}
@@ -1624,10 +1631,12 @@ function MedalSelectDialog({
           fromStageRace: 1,
           method: 'medal-select',
           basis: { throughStageRace: 0 },
-          fleets: [
-            { label: capitaliseStage(w.medal.name), color: '#f59e0b' },
-            { label: `${goldLabel} last race`, color: '#94a3b8' },
-          ],
+          fleets: companion
+            ? [
+                { label: capitaliseStage(w.medal.name), color: '#f59e0b' },
+                { label: `${goldLabel} last race`, color: '#94a3b8' },
+              ]
+            : [{ label: capitaliseStage(w.medal.name), color: '#f59e0b' }],
           assignments: medalAssignments,
           stageRaceNumbers: [1],
         })
@@ -1651,7 +1660,9 @@ function MedalSelectDialog({
       <AssignmentPreviewTable
         rows={[
           ...medalists.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: capitaliseStage(w.medal.name) })),
-          ...rest.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: `${goldLabel} last race` })),
+          ...(companion
+            ? rest.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: `${goldLabel} last race` }))
+            : []),
         ]}
       />
     </CeremonyDialog>
@@ -1794,7 +1805,6 @@ function StandingsSection({
     ? []
     : provisionalCutIndexes(standings.length, data.config.finalFleets.length);
 
-  const validity = championshipValidity(data);
 
   // Code-only in the live UI — flags are reserved for the published pages so
   // this view doesn't pull the flag dataset into the bundle.
@@ -1863,15 +1873,6 @@ function StandingsSection({
           )}
         </div>
       </div>
-      {validity && !validity.valid && (
-        <p
-          className="rounded-md border-l-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-          data-testid="championship-validity"
-        >
-          Not yet a valid championship: {validity.completed} of the {validity.required} races
-          required by the sailing instructions have been completed.
-        </p>
-      )}
       <div className="overflow-x-auto">
         {splitRound ? (
           splitRound.fleetIds.map((fid) => {

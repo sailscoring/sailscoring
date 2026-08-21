@@ -22,13 +22,18 @@ notes: |
   why the ladder in those SIs runs to twelve races. The Gold fleet sails it
   ten boats short.
 
-  Here F2 is that race: b1 sails it for Gold while y1 and b2, who made the
-  medal fleet, do not. The point of the fixture is what their rows do NOT
-  contain — selecting the medal fleet does not delete a boat from her final
-  fleet, so without care she reads as a Gold boat who failed to start Gold's
-  last race and collects a DNC at the fleet's score base. She is simply
-  elsewhere, and has no F2 cell at all. (A boat who really did miss a final
-  race still gets an explicit DNC row from the scorer.)
+  Here F2 is that race: b1 sails it for Gold while y1 and b2, who qualified
+  for the Final series, do not. The point of the fixture is what their rows do
+  NOT contain — selecting the Final series boats does not delete them from
+  their Elimination fleet, so without care they read as Gold boats who failed
+  to start Gold's last race and collect a DNC at the fleet's score base. They
+  are simply elsewhere, and have no F2 cell at all. (A boat who really did
+  miss an Elimination race still gets an explicit DNC row from the scorer.)
+
+  `companionRace: none` is what says so: under the 2024 shape the medal
+  ceremony gives the boats who miss the cut a race of their own, scored from
+  just below the medal fleet. Under these SIs it gives them nothing, because
+  the extra race they sail is an ordinary one of their own fleet.
 
   Note what does not change: Gold's score base for F2 is still its assigned
   size plus one — SI 18.5.2 counts boats assigned to the fleet, and all
@@ -58,6 +63,9 @@ config:
       by: 2
       rounding: half-up
     tieBreak: stage-rank
+    # SI 7.7: nothing of their own here — the boats who miss the cut stay in
+    # their fleet and sail one more ordinary Elimination race with it.
+    companionRace: none
 
 competitors:
   - "y1 Helm Y1"
@@ -107,7 +115,6 @@ stages:
     assign: { medalTop: 2, medalAfter: 1 }
     expectedFleets:
       Medal: [b2, y1]
-      "Gold last race": [b1]
     races:
       - n: 1
         results:

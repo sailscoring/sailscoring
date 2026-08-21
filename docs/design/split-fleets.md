@@ -313,8 +313,9 @@ rather than as a gap list:
   an ordinary Elimination race in their own fleet, scored from 1,
   discardable, counting toward the discard ladder — not 2024's race
   scored from 11. All three fleets sail it; the Gold fleet sails it ten
-  boats short, and the boats who left it for the medal fleet are absent
-  from that race rather than scored DNC in it (fixture 17).
+  boats short, and the boats who left it for the Final series are absent
+  from that race rather than scored DNC in it (`medal.companionRace: 'none'`,
+  fixture 17).
 - **A sub-series tie-break becomes load-bearing.** Halving to whole
   numbers manufactures ties among the ten, and SI 18.7.4 breaks what
   survives A8 on the boat's rank in the Elimination series, then the
@@ -331,8 +332,6 @@ rather than as a gap list:
   races never excluded (SI 18.4). Addendum A 2.2.3's reassignment tables
   for 2, 3 and 4 fleets are the same down-and-back pattern this design
   describes.
-- Three races constitute the championship (SI 18.2): below that the
-  standings say so rather than reading as a result (`minimumRaces`).
 - The whole **vocabulary** differs, not just three headings. These SIs have
   a *Qualification* series made of a Preliminary and an Elimination series,
   then a *Final* series; races run **Q1…Q12 continuously across the first
@@ -538,7 +537,6 @@ export interface SplitFleetConfig {
   reassignmentTieOrder: 'fleet-order' | 'a8-then-entry-order';
   /** Races needed to constitute the championship (2026 ILCA SI 18.2);
    *  0 = the SIs set no minimum. */
-  minimumRaces: number;
   /** What the SIs call the three stages, their race prefixes, and whether
    *  the final stage numbers on from the qualifying one rather than
    *  restarting (2026 ILCA: Q1…Q12 across both, then F1–F2). */
@@ -906,9 +904,11 @@ Since shipped beyond that v1 scope:
   format of the target event.
 - The **per-boat equalisation** clause (LE 20.4(a)), which had been
   documented and deferred while its enum value was already accepted.
-- A **chosen vocabulary**, a minimum-races validity state, and the extra
-  last-day race for the boats who missed the medal fleet (fixture 17) — see
-  the 2026 ILCA section in Part 1.
+- A **chosen vocabulary**, and the extra last-day race for the boats who
+  missed the medal fleet — which is a medal-block setting, since some classes
+  give them a companion race scored below the medal fleet and others give
+  them one more ordinary final-series race (fixture 17). See the 2026 ILCA
+  section in Part 1.
 
 Out (horizon): knockout medal-series brackets (iQFOiL / Formula Kite
 match points — not low-point arithmetic); Manage2Sail-style online
@@ -957,7 +957,7 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
    not-yet-run stage: `discardThresholds`, `maxFinalDiscards`,
    `protectLoneFinalRace`, `codeBasis`, `equalization`, `split` (the rule and
    its top-fleet size, until the split is committed), `reassignmentTieOrder`,
-   `minimumRaces`, `vocabulary` (purely presentational), and the `medal`
+   `vocabulary` (purely presentational), and the `medal`
    block — which now carries the compressed carry and its tie-break, both of
    which only re-score. These live on the Settings card (a series-format
    card like scoring mode): visible always, frozen fields read-only after

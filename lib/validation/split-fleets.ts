@@ -36,9 +36,6 @@ export const splitFleetConfigSchema = z.object({
   maxFinalDiscards: z.number().int().min(0),
   protectLoneFinalRace: z.boolean(),
   reassignmentTieOrder: z.enum(['a8-then-entry-order', 'fleet-order']),
-  // Defaulted rather than required: configs stored before the field
-  // existed replay through this schema on every file open.
-  minimumRaces: z.number().int().min(0).default(0),
   vocabulary: z
     .enum(['opening-medal', 'qualification-final'])
     .default(DEFAULT_VOCABULARY),
@@ -95,6 +92,7 @@ export const splitFleetConfigSchema = z.object({
         })
         .optional(),
       tieBreak: z.literal('stage-rank').optional(),
+      companionRace: z.enum(['scored-below', 'none']).default('scored-below'),
     })
     .optional(),
 });

@@ -16,26 +16,40 @@ const joined = (config: Parameters<typeof describeSplitFleetConfig>[0]) =>
 describe('describeSplitFleetConfig', () => {
   it('states the ILCA-shaped default in SI language', () => {
     const text = joined(defaultSplitFleetConfig(3));
-    expect(text).toContain('qualifying series followed by a final series');
+    // With a medal stage the event's structure is the opening series and then
+    // that stage; the two stages under it are the sentence after (2026 ILCA
+    // SI 7.1/7.2's shape, which the generic vocabulary shares).
+    expect(text).toContain('sailed as an opening series followed by the medal races');
+    expect(text).toContain(
+      'opening series will be divided into a qualifying series and a final series',
+    );
     expect(text).toContain('three qualifying fleets (Yellow, Blue and Red)');
     expect(text).toContain('reassigned to the qualifying fleets on the basis of their ranks');
     expect(text).toContain('Gold, Silver and Bronze');
-    expect(text).toContain('will count for total points in the championship');
+    // Scoped to the opening series, not the championship: the medal races add
+    // to it afterwards (2026 ILCA SI 18.6.1's shape).
+    expect(text).toContain('will count for total points in the opening series');
     expect(text).toContain(
       'excluding her worst score when 4 or more races have been completed, and her two worst scores when 10 or more',
     );
-    expect(text).toContain('No more than one excluded score may come from the final series');
-    expect(text).toContain('If only one final series race has been completed');
+    // The cap and the lone-race protection are one sentence, not two.
+    expect(text).toContain(
+      'No more than one excluded score may come from the final series, and if only one ' +
+        'final series race has been completed that score will not be excluded.',
+    );
     expect(text).toContain('largest qualifying fleet, plus one');
-    expect(text).toContain('own final series fleet, plus one');
+    expect(text).toContain('own final fleet, plus one');
     expect(text).toContain('first 10 boats');
     expect(text).toContain('multiplied by 2 and may not be excluded');
-    expect(text).toContain('scored from 11');
+    expect(text).toContain('the first boat will be scored 11 points');
   });
 
   it('drops the medal sentence when there is no medal race', () => {
     const text = joined(iodaSplitFleetConfig(4));
     expect(text).not.toContain('medal race');
+    // No third stage, so no umbrella term to distinguish it from either.
+    expect(text).toContain('sailed as a qualifying series followed by a final series');
+    expect(text).not.toContain('opening series');
     expect(text).toContain('excluding her worst score when 5 or more races have been completed');
   });
 
