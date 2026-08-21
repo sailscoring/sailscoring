@@ -613,13 +613,14 @@ export default function RunningASeries() {
             independently (they need not sail the same number of races). If the event carries a{' '}
             <strong className="text-foreground">medal race</strong>, select the medal fleet when
             racing closes: the top boats sail it, never discardable, at whatever points multiplier
-            the sailing instructions set. What the rest of the top fleet then do differs by class.
-            Where they sail a companion last race scored from just below the medal group, that is
-            the race the medal ceremony creates for them. Where instead they sail one more ordinary
-            final-series race — the 2026 ILCA wording — add it from{' '}
-            <strong className="text-foreground">Add next race</strong> as usual: the medal boats
-            have left these fleets’ racing, so they are simply absent from it rather than scored
-            for missing it. A redress decision that promotes a boat across the split is the{' '}
+            the sailing instructions set. What the rest of the top fleet then do differs by class,
+            and the medal settings ask which. Where they sail a race of their own scored from just
+            below the medal group, that is the race the medal ceremony creates for them. Where
+            instead they sail one more ordinary race of their own fleet — the 2026 ILCA wording —
+            the ceremony leaves them where they are and you add that race from{' '}
+            <strong className="text-foreground">Add next race</strong> as usual: the boats who
+            qualified have left that fleet’s racing, so they are simply absent from it rather than
+            scored for missing it. A redress decision that promotes a boat across the split is the{' '}
             <strong className="text-foreground">Promote (redress)</strong> action on the split
             round.
           </p>
@@ -673,12 +674,12 @@ export default function RunningASeries() {
             separately.
           </p>
           <p>
-            Two smaller settings are worth checking against your sailing instructions too. Set
-            the <strong className="text-foreground">races needed to constitute the
-            championship</strong>, and the standings say so plainly until they are sailed rather
-            than reading as a result. And where boats can end the first stage holding different
-            numbers of scores, choose whether the surplus races are abandoned or each boat’s
-            most recent extra scores are excluded on top.
+            One more setting is worth a look if the fleets can come out of the first stage
+            having sailed different numbers of races. A race counts for nobody until every
+            fleet has sailed it, which on its own levels the fleets and is what most sailing
+            instructions say; leave the setting alone unless yours also carries the clause for
+            what might be left over after that, where a boat still holding more scores than the
+            rest drops her most recent.
           </p>
           <p>
             The published output is a single{' '}
