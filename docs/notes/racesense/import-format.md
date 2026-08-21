@@ -1,81 +1,168 @@
-# RaceSense regatta export — format and import learnings
+# RaceSense regatta export — format reference
 
-Captured from an experimental "Import RaceSense" spike (a one-shot
-series-creation flow, never merged — the code was discarded, but the format
-knowledge and the import-shape decisions are worth keeping). If RaceSense import
-is ever built for real, start here rather than re-reverse-engineering the export.
+**RaceSense** is Vakaros' iOS app for race-committee timing. It exports a
+regatta as a single `.xlsx` workbook: one **`Race N`** sheet per race,
+followed by a **`Summary`** sheet.
 
-**RaceSense** is an iOS app for race-committee timing. It exports each regatta
-as a single `.xlsx` workbook: one **Summary** sheet plus one **`Race N`** sheet
-per race.
+These notes describe the format as observed. The import design built on
+them is
+[**#412**](https://github.com/sailscoring/sailscoring/issues/412);
+`lib/racesense-workbook.ts` is the parser.
+
+Observations below come from a 40-race club-series export written by App
+Version `0.10.11 (1)`. Where a field varies, that is called out — a
+championship export will differ and the parser reports what it doesn't
+recognise rather than guessing.
+
+## What RaceSense captures
+
+Deliberately narrow: **which boats started, which were OCS, which cleared
+their OCS, and the finish times of the boats that finished.** Retirements,
+disqualifications, redress, penalties and protest outcomes are not in the
+workbook — they reach the scorer as separate notes from the race
+committee.
 
 ## Workbook structure
 
-### `Summary` sheet
+Sheet order is `Race 1` … `Race N`, then `Summary`. Sheet *names* match
+`^Race \d+$`; don't rely on position.
 
-Key/value header rows in columns A/B, then a per-race results grid:
+Every sheet opens with the same four rows:
 
-- `Regatta` → the event name (col B).
-- `Division` → the division/class name (col B).
-- A header row whose col B is `Race 1` marks the start of the results grid.
-- Below it, one row per competitor: col A is the competitor label, columns B+
-  are per-race position codes (`"1."`, `"DNF"`, …).
-- Competitor label is either `"<sail>"` or `"<sail> - <boatName>"` (split on the
-  literal `" - "` separator).
+```
+RaceSense Event Report |   |   | App Version: 0.10.11 (1)
+Regatta                | M15 SATURDAY SERIES
+Division               | M15 NON COACHED
+Regatta Start Date     | 2025-09-20
+```
 
 ### `Race N` sheets
 
-Sheet names match `^Race \d+$`; order by the trailing integer (workbook order is
-normally already correct). Each holds key/value header rows plus two blocks:
+A title row (`Race 13` in col A), then `Starts`, then key/value rows and
+two blocks:
 
-- `Date` (col B) → ISO `YYYY-MM-DD`.
-- `Start Time` (col B) → time of day.
-- **Starts block** — header row with col A `Sail Number` and col D `Status`;
-  rows below list every boat RaceSense knew about for the race.
-- **Finishes block** — a row with col A `Finishes`, then a column-label row,
-  then finisher rows in finishing order. Column layout:
-  `A=position-or-"DNF", B=sail, C=boatName, D=bowNumber, E=totalTime,
-  F=finishingTime (time of day), G=maxSpeed, H=distance`.
+```
+Race 13
+Starts
+Start #                 | 1
+Date                    | 2025-11-01
+Preparatory Signal Used | P
+Start Time              | 11:31
+Boat Location           | 53.3016777, -6.1280121
+Pin Location            | 53.3013895, -6.1277042
 
-## Field semantics and what to discard
+Sail Number | Boat Name | Bow Number | Status | DTL at Start (m)
+1022        |           |            | OCS    | -326.16
+563         |           |            |        | --
+...
 
-- **The Finishes block is authoritative.** It lists finishers in order (with a
-  tail of `DNF` rows) and is the source of truth for results.
-- **The Starts-block `Status` column is ignored entirely.** Observed values:
-  - `OCS (Cleared)` — boat returned and re-crossed; no penalty under RRS, finish
-    stands.
-  - `OCS` — always paired with a `DNF` row in Finishes.
-  - `Not Checked-In` — an operational note from the RC.
+Finishes
 
-  None map to a Sail Scoring concept, so trust the Finishes block and drop
-  Status. (See the `racesense-import` memory note — ignoring `OCS (Cleared)` is
-  the specific footgun: the boat cleared its error, so its finish is valid.)
-- **Discarded RaceSense extras** (no Sail Scoring analogue): distance-to-line,
-  GPS track, max speed, total time, bow number.
+     | Sail Number | Boat Name | Bow Number | Total Time | Finishing Time | Max Speed (kts) | Distance Traveled (km)
+1.   | 1021        |           |            | 14:20.450  | 11:45:20.450   | 14.6            | 2.730
+DNF  | 563         |           |            | ---        | ---            | ---             |
+```
 
-## Edge cases
+**Row positions vary and must never be assumed.** Locate every block by
+content:
 
-- **No finishers.** If a race started but nobody finished, RaceSense omits the
-  Finishes block; every starter becomes a DNF — matching what the Summary tab
-  shows for that race.
-- **Fractional seconds** on times (`"11:11:20.830"`) are truncated to whole
-  seconds. Accept `HH:MM:SS`, `HH:MM`, and unpadded `H:M:S`; zero-pad to
-  `HH:MM:SS`.
+- `Boat Location` / `Pin Location` are absent when no line was recorded,
+  which moves the Starts header row up (3 of 40 sheets).
+- The Starts header carries 4, 5 or 6 columns: `DTL at Start (m)` is
+  absent when no line was recorded, and a **`Protest`** column appears
+  only when at least one boat in that race has one (value `Yes`).
+- The Finishes block is **absent entirely** when nobody finished (4 of 40
+  sheets); the `Summary` tab still shows DNF for everyone in that race.
+- A footnote row **`* cleared manually`** sits in **column A** — the
+  sail-number column — directly below the last starter row whenever the
+  race has an `OCS *` status. It reads like a boat and isn't one.
 
-## Import-shape decisions (from the spike)
+### `Summary` sheet
 
-Worth reusing if the feature is rebuilt:
+Three superlative rows (`Fastest Speed`, `Shortest Race`, `Quickest
+Race`), then a results grid: a header row whose col A is empty and whose
+cols B+ are `Race 1`…`Race N`, then one row per competitor. Col A is the
+competitor label — either `"<sail>"` or `"<sail> - <boatName>"`, split on
+the literal `" - "`.
 
-- One-shot creation from the home page: parse → preview an import plan → commit
-  in one click; the parser stays pure (ArrayBuffer in, plan out, no storage).
-- Series name `"<Regatta> — <Division>"`; series start date = earliest race date.
-- The imported series was **handicap-scored** with **two fleets sharing one
-  start**: a scratch fleet named after the RaceSense Division, plus a *Personal
-  Handicap* fleet scored on NHC with every competitor seeded at starting TCF
-  `1.000` — so the NHC columns and progressive propagation engage immediately.
+The grid encodes only positions and `DNF`. **It does not encode OCS** —
+an uncleared OCS boat reads `DNF` here. Useful as an independent checksum
+of the per-race sheets, not as a source of codes.
+
+## Field semantics
+
+### Status (Starts block) — do not ignore this column
+
+| Status | Meaning |
+|---|---|
+| *(empty)* | Started clean |
+| `OCS` | On the course side and did not return |
+| `OCS (Cleared)` | Returned and re-crossed; RaceSense saw it. No penalty, finish stands |
+| `OCS *` | Cleared **manually** by the race committee (hence the footnote row). No penalty, finish stands |
+| `Not Checked-In` | Operational; see below |
+
+**An uncleared `OCS` boat also appears as a `DNF` row in the Finishes
+tail.** Verified for all five occurrences in the sample (Races 13, 14, 20,
+31, 32). The Status column is the only place the OCS fact survives, so a
+parser that trusts the Finishes block alone silently turns real OCS calls
+into DNFs. An earlier revision of this note recommended exactly that; it
+was wrong.
+
+Which OCS-family code an `OCS` status becomes depends on the preparatory
+signal — P/I → `OCS`, U → `UFD` (RRS 30.3), Black → `BFD` (RRS 30.4), Z →
+the additive `ZFP` penalty (RRS 30.2). Only `P` has been observed, so the
+literal strings RaceSense writes for the others are still unknown.
+
+`Not Checked-In` is most likely about checking the *device* in at
+registration rather than a racing fact — 146 rows carry it in the sample,
+including boats that went on to finish. It is reported and otherwise
+ignored; if it ever warrants a scoring code, that is a race-committee
+call, not a parser's.
+
+Boats with a non-empty status are **hoisted to the top of the Starts
+block**, out of sail-number order.
+
+### Finishes block
+
+Col A is the position (`1.`, `2.`, …) or `DNF`. Finishers come first in
+finishing order, then a DNF tail. `Not Checked-In` boats and uncleared
+`OCS` boats both land in that tail.
+
+`---` is RaceSense's placeholder for "no value" in the Finishes block;
+`--` is the equivalent in `DTL at Start (m)`.
+
+### Cell types
+
+Every value-bearing cell in the sample is a **shared string** — including
+dates and times. There are no Excel date serials and no locale ambiguity,
+so `stringifyCell` passes them through unchanged.
+
+Times need normalising before they reach the app: `Start Time` is `11:03`
+(no seconds) and `Finishing Time` is `11:11:20.830` (fractional seconds).
+`normalizeTimeInput` rejects both, so the RaceSense parser normalises
+them itself rather than the strict global gate being loosened.
+
+### Discarded
+
+No Sail Scoring analogue: distance-to-line, GPS positions, max speed,
+total time, distance travelled.
+
+## Unknowns
+
+Answerable only by a real championship export:
+
+1. The literal strings written for non-`P` preparatory signals.
+2. Whether `Race N` numbering restarts per division, and how it behaves
+   across an abandonment and resail.
+3. What `Start #` means — it is `1` on all 40 sample sheets, so
+   sequence-position and restart-index are indistinguishable.
+4. Whether entries export with national letters (`IRL 214981`) or bare
+   digits, as here.
 
 ## Implementation gotcha
 
-SheetJS (`xlsx`) `read(..., { type: 'array' })` is sensitive to the exact view
-it receives — passing a raw `ArrayBuffer` in some realms (notably jsdom under
-Vitest) yields a stub single-sheet workbook. Wrap in a `Uint8Array` first.
+SheetJS (`xlsx`) `read(..., { type: 'array' })` is sensitive to the exact
+view it receives — passing a raw `ArrayBuffer` in some realms (notably
+jsdom under Vitest) yields a stub single-sheet workbook. Wrap in a
+`Uint8Array` first. This repo reads workbooks with `read-excel-file`
+instead, via `lib/import-table.ts`, and doesn't hit it.
