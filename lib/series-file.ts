@@ -270,15 +270,24 @@ export interface SeriesFileRepos {
  *  instead.
  *
  *  v33 adds four optional split-fleet config fields: `minimumRaces` (races
- *  needed to constitute the championship), `stageNaming` (the SIs' names,
- *  race prefixes, and whether the final stage numbers on from the qualifying
- *  one), and on the medal block `carryTransform` (the compressed carry) and
- *  `tieBreak`. `splitFleets.config` travels verbatim, so no parser change —
+ *  needed to constitute the championship), `stageNaming` (superseded by v34's
+ *  `vocabulary`), and on the medal block `carryTransform` (the compressed
+ *  carry) and `tieBreak`. `splitFleets.config` travels verbatim, so no parser change —
  *  but an older build reading a v33 file would drop them, and dropping
  *  `carryTransform` silently re-scores the championship rather than
- *  mislabelling it, which is what the bump makes visible. */
-export const FORMAT_VERSION = 33;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33];
+ *  mislabelling it, which is what the bump makes visible.
+ *
+ *  v34 replaces v33's `splitFleets.config.stageNaming` — three authored stage
+ *  labels, three race prefixes and a numbering flag — with `vocabulary`, one
+ *  choice between the tabulated wordings, plus an engine-only
+ *  `vocabularyOverride` for anything they don't cover. v33's block is still
+ *  read: `normalizeSplitFleetConfig` matches it against the table, and keeps
+ *  hand-edited wording as an override. The bump is for the other direction —
+ *  an older build reading v34 finds no `stageNaming` and falls back to the
+ *  generic wording, silently relabelling a championship's every stage and
+ *  race. */
+export const FORMAT_VERSION = 34;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----

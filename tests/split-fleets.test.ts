@@ -3,6 +3,8 @@ import {
   assignByRankPattern,
   championshipValidity,
   ilca2026SplitFleetConfig,
+  normalizeSplitFleetConfig,
+  resolveVocabulary,
   stageRaceLabel,
   completedRaceCount,
   defaultSplitFleetConfig,
@@ -665,5 +667,75 @@ describe('stageRaceLabel', () => {
     const config = defaultSplitFleetConfig(2);
     expect(stageRaceLabel(config, 'final', 0)).toBe('QS');
     expect(stageRaceLabel(config, 'medal', 0)).toBe('Carried');
+  });
+});
+
+
+describe('vocabulary', () => {
+  it('gives the generic wording by default and ILCA’s under its preset', () => {
+    expect(resolveVocabulary(defaultSplitFleetConfig(3)).stages).toMatchObject({
+      qualifying: { name: 'qualifying series' },
+      final: { name: 'final series' },
+      medal: { name: 'medal races' },
+    });
+    const ilca = resolveVocabulary(ilca2026SplitFleetConfig(3));
+    expect(ilca.seriesName).toBe('Qualification series');
+    expect(ilca.stages).toMatchObject({
+      qualifying: { name: 'Preliminary series' },
+      final: { name: 'Elimination series' },
+      medal: { name: 'Final series' },
+    });
+  });
+
+  it('never lets the two vocabularies' + "'" + ' shared words mean the same stage', () => {
+    // "final series" exists in both and names a different stage in each —
+    // which is the whole reason this is one choice rather than three labels.
+    const generic = resolveVocabulary(defaultSplitFleetConfig(2));
+    const ilca = resolveVocabulary(ilca2026SplitFleetConfig(2));
+    expect(generic.stages.final.name.toLowerCase()).toBe('final series');
+    expect(ilca.stages.medal.name.toLowerCase()).toBe('final series');
+    expect(ilca.stages.final.name.toLowerCase()).not.toBe('final series');
+  });
+
+  it('derives the carried-score column header from the vocabulary', () => {
+    expect(stageRaceLabel(defaultSplitFleetConfig(2), 'final', 0)).toBe('QS');
+    expect(stageRaceLabel(ilca2026SplitFleetConfig(2), 'final', 0)).toBe('QS');
+    expect(stageRaceLabel(defaultSplitFleetConfig(2), 'medal', 0)).toBe('Carried');
+  });
+
+  describe('reading a v33 config, which authored the words directly', () => {
+    const legacy = (labels: Record<string, string>, prefixes: Record<string, string>, cont: boolean) =>
+      normalizeSplitFleetConfig({
+        ...defaultSplitFleetConfig(2),
+        vocabulary: undefined,
+        stageNaming: { labels, prefixes, continuousOpeningNumbers: cont },
+      } as never);
+
+    it('recognises a block that matches a tabulated vocabulary', () => {
+      const config = legacy(
+        { qualifying: 'Preliminary series', final: 'Elimination series', medal: 'Final series' },
+        { qualifying: 'Q', final: 'Q', medal: 'F' },
+        true,
+      );
+      expect(config.vocabulary).toBe('qualification-final');
+      expect(config.vocabularyOverride).toBeUndefined();
+    });
+
+    it('keeps hand-edited wording as an override rather than losing it', () => {
+      const config = legacy(
+        { qualifying: 'Series A', final: 'Series B', medal: 'Series C' },
+        { qualifying: 'A', final: 'B', medal: 'C' },
+        false,
+      );
+      expect(config.vocabulary).toBe('opening-medal');
+      expect(resolveVocabulary(config).stages.qualifying.name).toBe('Series A');
+      expect(stageRaceLabel(config, 'final', 2)).toBe('B2');
+    });
+
+    it('falls back to the generic wording when there is nothing to read', () => {
+      const config = normalizeSplitFleetConfig({ carry: 'points' });
+      expect(config.vocabulary).toBe('opening-medal');
+      expect(resolveVocabulary(config).stages.medal.name).toBe('medal races');
+    });
   });
 });

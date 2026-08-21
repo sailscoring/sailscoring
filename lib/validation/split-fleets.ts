@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DEFAULT_STAGE_NAMING } from '@/lib/split-fleets';
+import { DEFAULT_VOCABULARY } from '@/lib/split-fleets';
 import type { SplitFleetConfig } from '@/lib/split-fleets';
 
 import { uuidSchema } from './common';
@@ -39,13 +39,49 @@ export const splitFleetConfigSchema = z.object({
   // Defaulted rather than required: configs stored before the field
   // existed replay through this schema on every file open.
   minimumRaces: z.number().int().min(0).default(0),
-  stageNaming: z
+  vocabulary: z
+    .enum(['opening-medal', 'qualification-final'])
+    .default(DEFAULT_VOCABULARY),
+  // Engine-only escape hatch (see `Vocabulary`), and the shape a v33 file's
+  // authored wording upgrades into. Passed through rather than rejected so a
+  // config written by a build that knows a vocabulary this one doesn't still
+  // lands with its words intact.
+  vocabularyOverride: z
     .object({
-      labels: z.object({ qualifying: z.string().min(1), final: z.string().min(1), medal: z.string().min(1) }),
-      prefixes: z.object({ qualifying: z.string().min(1), final: z.string().min(1), medal: z.string().min(1) }),
+      seriesName: z.string().min(1),
+      stages: z.record(
+        z.enum(['qualifying', 'final', 'medal']),
+        z.object({
+          name: z.string().min(1),
+          raceNoun: z.string().min(1),
+          fleetNoun: z.string().min(1),
+        }),
+      ),
+      prefixes: z.object({
+        qualifying: z.string().min(1),
+        final: z.string().min(1),
+        medal: z.string().min(1),
+      }),
       continuousOpeningNumbers: z.boolean(),
     })
-    .default(DEFAULT_STAGE_NAMING),
+    .optional(),
+  /** v33's authored wording, accepted on read and folded into `vocabulary` by
+   *  `normalizeSplitFleetConfig`. Never written. */
+  stageNaming: z
+    .object({
+      labels: z.object({
+        qualifying: z.string().min(1),
+        final: z.string().min(1),
+        medal: z.string().min(1),
+      }),
+      prefixes: z.object({
+        qualifying: z.string().min(1),
+        final: z.string().min(1),
+        medal: z.string().min(1),
+      }),
+      continuousOpeningNumbers: z.boolean(),
+    })
+    .optional(),
   medal: z
     .object({
       size: z.number().int().positive(),

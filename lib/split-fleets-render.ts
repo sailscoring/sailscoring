@@ -9,10 +9,11 @@ import { renderFlagDefs } from './results-renderer';
 import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
+  capitaliseStage,
   championshipValidity,
-  DEFAULT_STAGE_NAMING,
   provisionalCutIndexes,
   qualifyingRaceCount,
+  resolveVocabulary,
   roundsForStage,
   splitFleetStandings,
   stageRaceLabel,
@@ -252,11 +253,11 @@ export function renderSplitFleetAssignmentsPage(
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
   const nat = showNat(input);
   const qRaces = qualifyingRaceCount(data);
-  const naming = data.config.stageNaming ?? DEFAULT_STAGE_NAMING;
+  const vocab = resolveVocabulary(data.config);
 
   const roundLabel = (r: SplitRound): string => {
-    if (r.stage === 'final') return `${naming.labels.final} split`;
-    if (r.stage === 'medal') return `${naming.labels.medal} fleet`;
+    if (r.stage === 'final') return `${capitaliseStage(vocab.stages.final.name)} split`;
+    if (r.stage === 'medal') return capitaliseStage(vocab.stages.medal.fleetNoun);
     const idx = roundsForStage(data.rounds, 'qualifying').indexOf(r) + 1;
     return `Qualifying round ${idx} (Q${r.fromStageRace} onward)`;
   };

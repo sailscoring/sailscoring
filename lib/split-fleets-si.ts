@@ -9,7 +9,7 @@
 // Deliberately our own wording rather than extracts from real events' SIs:
 // those are third-party documents, and this has to stay distributable.
 
-import { DEFAULT_STAGE_NAMING } from './split-fleets';
+import { resolveVocabulary, stageAdjective } from './split-fleets';
 import type { SplitFleetConfig } from './split-fleets';
 
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -49,14 +49,11 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
   const lines: string[] = [];
   // The stages by the names the sailing instructions give them: an SI
   // translation that used our words for them would not be one.
-  const naming = config.stageNaming ?? DEFAULT_STAGE_NAMING;
-  const lower = (label: string) => label.charAt(0).toLowerCase() + label.slice(1);
-  const q = lower(naming.labels.qualifying);
-  const f = lower(naming.labels.final);
-  const m = lower(naming.labels.medal);
-  // "the qualifying series" -> "a qualifying fleet": the stage name works as
-  // an adjective once its trailing "series" is dropped.
-  const qAdj = q.replace(/\s+series$/i, '');
+  const vocab = resolveVocabulary(config);
+  const q = vocab.stages.qualifying.name;
+  const f = vocab.stages.final.name;
+  const m = vocab.stages.medal.name;
+  const qAdj = stageAdjective(q);
   const qualifying = listLabels(config.qualifyingFleets);
   const finals = listLabels(config.finalFleets);
   const topFleet = config.finalFleets[0]?.label ?? 'the top fleet';

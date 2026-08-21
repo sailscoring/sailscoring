@@ -20,21 +20,17 @@ import { describeSplitFleetConfig } from '@/lib/split-fleets-si';
 import {
   QUALIFYING_COLOR_SETS,
   FINAL_FLEET_SET,
-  DEFAULT_STAGE_NAMING,
   defaultSplitFleetConfig,
   finalBlockSizes,
   ilca2026SplitFleetConfig,
   ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
+  resolveVocabulary,
+  VOCABULARY_OPTIONS,
   stageRaceLabel,
   type SplitFleetConfig,
+  type VocabularyKey,
 } from '@/lib/split-fleets';
-
-const STAGE_KEYS = [
-  { key: 'qualifying', hint: 'First stage' },
-  { key: 'final', hint: 'Second stage' },
-  { key: 'medal', hint: 'Medal stage' },
-] as const;
 
 type FormatKey = 'ilca-2026' | 'ilca-2025' | 'ioda' | 'net-plus-net' | 'rank-seed';
 
@@ -127,7 +123,7 @@ export function SplitFleetEditor({
 
   const value = config ?? draft;
   const isDraft = config === null;
-  const naming = value.stageNaming ?? DEFAULT_STAGE_NAMING;
+  const vocab = resolveVocabulary(value);
   const exampleLabels = [
     stageRaceLabel(value, 'qualifying', 1),
     stageRaceLabel(value, 'final', 1, 5),
@@ -146,10 +142,6 @@ export function SplitFleetEditor({
     const built = FORMATS[next].build(value.qualifyingFleets.length);
     if (isDraft) setDraft(built);
     else save.mutate(built);
-  }
-
-  function patchNaming(p: Partial<SplitFleetConfig['stageNaming']>) {
-    patch({ stageNaming: { ...naming, ...p } });
   }
 
   function setFleetCount(n: number) {
@@ -423,44 +415,26 @@ export function SplitFleetEditor({
       </div>
 
       <div className={rowClass}>
-        <span className="font-medium">Stage names and race numbers</span>
-        <div className="space-y-2">
-          {STAGE_KEYS.map(({ key, hint: what }) => (
-            <div key={key} className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                aria-label={`${what} name`}
-                className="w-52 rounded-md border bg-background px-2 py-1 text-sm"
-                disabled={!canEdit}
-                value={naming.labels[key]}
-                onChange={(e) => patchNaming({ labels: { ...naming.labels, [key]: e.target.value } })}
-              />
-              <span className={hint}>races labelled</span>
-              <input
-                type="text"
-                aria-label={`${what} race prefix`}
-                maxLength={2}
-                className="w-12 rounded-md border bg-background px-2 py-1 text-sm"
-                disabled={!canEdit}
-                value={naming.prefixes[key]}
-                onChange={(e) =>
-                  patchNaming({ prefixes: { ...naming.prefixes, [key]: e.target.value } })
-                }
-              />
-            </div>
-          ))}
-          <label className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              disabled={!canEdit}
-              checked={naming.continuousOpeningNumbers}
-              onChange={(e) => patchNaming({ continuousOpeningNumbers: e.target.checked })}
-            />
-            Number the second stage on from the first
-          </label>
+        <label className="font-medium" htmlFor="sf-vocabulary">
+          What the sailing instructions call the stages
+        </label>
+        <div className="space-y-1">
+          <select
+            id="sf-vocabulary"
+            className={selectClass}
+            disabled={!canEdit}
+            value={value.vocabulary}
+            onChange={(e) => patch({ vocabulary: e.target.value as VocabularyKey })}
+          >
+            {VOCABULARY_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
           <p className={hint}>
-            The names the sailing instructions use, so published results and scoring enquiries
-            agree on which race is which. {exampleLabels}
+            {VOCABULARY_OPTIONS.find((o) => o.key === value.vocabulary)?.terms}. Both sets of
+            words are in use and each borrows the other&rsquo;s, so this is one choice rather
+            than a name per stage: everything below, the standings, and the published pages all
+            follow it. Races here read {exampleLabels}.
           </p>
         </div>
       </div>

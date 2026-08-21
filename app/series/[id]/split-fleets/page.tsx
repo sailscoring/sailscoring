@@ -44,7 +44,7 @@ import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
   championshipValidity,
-  DEFAULT_STAGE_NAMING,
+  capitaliseStage,
   finalBlockSizes,
   fleetMembers,
   logicalRaces,
@@ -52,6 +52,7 @@ import {
   provisionalCutIndexes,
   roundsForStage,
   qualifyingRaceCount,
+  resolveVocabulary,
   seedOrder,
   splitFleetStandings,
   stageRaceLabel,
@@ -208,10 +209,14 @@ function buildDemoCompetitors(seriesId: string, defaultFleetId: string | null): 
 
 // ─── Shared bits ────────────────────────────────────────────────────────────
 
-/** The SIs' own name for each stage — the 2026 ILCA Worlds call ours the
- *  Preliminary, Elimination and Final series. */
+/** The SIs' own name for each stage, as a heading. */
 function stageTitles(config: SplitFleetConfig): Record<SeriesStage, string> {
-  return (config.stageNaming ?? DEFAULT_STAGE_NAMING).labels;
+  const vocab = resolveVocabulary(config);
+  return {
+    qualifying: capitaliseStage(vocab.stages.qualifying.name),
+    final: capitaliseStage(vocab.stages.final.name),
+    medal: capitaliseStage(vocab.stages.medal.name),
+  };
 }
 
 /** The Format section's collapsed one-liner. */
