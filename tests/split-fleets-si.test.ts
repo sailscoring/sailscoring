@@ -8,7 +8,11 @@
 import { describe, it, expect } from 'vitest';
 
 import { describeSplitFleetConfig } from '@/lib/split-fleets-si';
-import { defaultSplitFleetConfig, iodaSplitFleetConfig } from '@/lib/split-fleets';
+import {
+  defaultSplitFleetConfig,
+  ilca2026SplitFleetConfig,
+  iodaSplitFleetConfig,
+} from '@/lib/split-fleets';
 
 const joined = (config: Parameters<typeof describeSplitFleetConfig>[0]) =>
   describeSplitFleetConfig(config).join('\n');
@@ -42,6 +46,17 @@ describe('describeSplitFleetConfig', () => {
     expect(text).toContain('first 10 boats');
     expect(text).toContain('multiplied by 2 and may not be excluded');
     expect(text).toContain('the first boat will be scored 11 points');
+  });
+
+  it('says what the boats who miss the cut sail, either way', () => {
+    // Part of the same SI clause, and the first thing a scorer checks after
+    // the medal fleet itself.
+    expect(joined(defaultSplitFleetConfig(3))).toContain(
+      'the remaining Gold boats will sail one more race',
+    );
+    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+      'the boats that do not qualify for it will sail one more Elimination series race in their own fleets',
+    );
   });
 
   it('drops the medal sentence when there is no medal race', () => {

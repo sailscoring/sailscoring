@@ -146,14 +146,15 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): string[] {
       config.medal.multiplier === 1
         ? 'A boat’s score there may not be excluded'
         : `A boat’s score there will be multiplied by ${config.medal.multiplier} and may not be excluded`;
-    // The boats who miss the cut either sail a race of their own scored
-    // below the medal fleet, or nothing here at all — in which case the SIs
-    // typically schedule them one more ordinary race of the second stage,
-    // which is not this clause's to describe (2026 ILCA SI 7.7).
+    // What the boats who miss the cut sail is part of the same clause in the
+    // SIs, and a scorer checking ours against theirs looks for it: either a
+    // race of their own scored below the medal fleet (2024 ILCA SI 7.4 and
+    // 18.3.4), or one more ordinary race of the second stage in their own
+    // fleets (2026 ILCA SI 7.7).
     const rest =
       config.medal.companionRace === 'scored-below'
         ? `; the remaining ${topFleet} boats will sail one more race, in which the first boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
-        : '';
+        : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets`;
     lines.push(
       `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
     );

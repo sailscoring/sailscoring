@@ -1689,9 +1689,11 @@ function MedalSection({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        {words(data.config).title('medal')} score ×{medalConfig?.multiplier ?? 2} and cannot be discarded; the
-        companion race scores from {(medalConfig?.size ?? 10) + 1} points (first
-        finisher = {(medalConfig?.size ?? 10) + 1}).
+        {words(data.config).title('medal')} score ×{medalConfig?.multiplier ?? 2} and cannot be
+        discarded.{' '}
+        {medalConfig?.companionRace === 'scored-below'
+          ? `The companion race scores from ${(medalConfig?.size ?? 10) + 1} points (first finisher = ${(medalConfig?.size ?? 10) + 1}).`
+          : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section.`}
       </p>
       {round.fleetIds.map((fid, i) => {
         const refs = stageRaceRefs(data, 'medal')
@@ -1702,8 +1704,8 @@ function MedalSection({
           ? Math.max(...refs.map((ref) => ref.start.stageRaceNumber ?? 0)) + 1
           : 1;
         const isMedal = i === 0;
-        // raceCount is a planning hint, not a limit: the 2026 two-race medal
-        // series is just two adds. Companion fleets sail one last race.
+        // raceCount is a planning hint, not a limit: a two-race medal series
+        // is just two adds. A companion fleet, where one exists, sails once.
         const canAddMore = isMedal || refs.length < 1;
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">

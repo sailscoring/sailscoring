@@ -135,7 +135,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   const formatSection = page.getByTestId('split-fleets-editor');
   await expect(formatSection).toBeVisible();
   await expect(page.getByTestId('sf-si-translation')).toContainText(
-    'will count for total points in the championship',
+    'will count for total points in the Qualification series',
   );
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
@@ -144,7 +144,12 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.getByRole('button', { name: /Commit Final series fleet \(top 10\)/ }).click();
   // The ILCA format calls this stage the Final series and scores it ×1.
   await expect(page.getByText('Final series score ×1')).toBeVisible();
-  await expect(page.getByRole('link', { name: /F1/ })).toHaveCount(2);
+  // One race, for the Final series fleet alone. These SIs give the boats who
+  // miss the cut one more ordinary Elimination race in their own fleets
+  // (SI 7.7), not a companion race of their own scored below the ten — so no
+  // second fleet is created here and there is nothing else to sail.
+  await expect(page.getByRole('link', { name: /F1/ })).toHaveCount(1);
+  await expect(page.getByText('Gold last race')).toHaveCount(0);
 });
 
 /**
@@ -289,7 +294,7 @@ test('split fleets: set up from the series wizard and land on the tab', async ({
     name: /How this configuration translates to sailing instructions/,
   }).click();
   await expect(page.getByTestId('sf-si-translation')).toContainText(
-    'will count for total points in the championship',
+    'will count for total points in the Qualification series',
   );
   await page.getByRole('button', { name: 'Enable split fleets' }).click();
   await expect(page.getByText(/Split fleets enabled/)).toBeVisible();
