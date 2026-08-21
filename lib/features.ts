@@ -61,6 +61,14 @@ export const FEATURES = {
     label: 'Finish-sheet import (CSV / Excel)',
     helpSectionIds: ['importing-finish-sheet'],
   },
+  'racesense-import': {
+    // Operator-managed: the format is still being learned from real
+    // championship exports, and an import that guesses wrong is worse than
+    // no import. Turn it on for an event, not for everyone.
+    label: 'RaceSense import',
+    helpSectionIds: ['racesense-import'],
+    selfService: false,
+  },
   'ftp-upload': {
     // Operator-managed (not self-service): HYC is the only workspace that needs
     // it, and it's slated for removal with scupper — so we keep it off the

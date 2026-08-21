@@ -31,6 +31,47 @@ export function makeFinish(
 }
 
 /**
+ * The `Finish` rows an imported sheet becomes.
+ *
+ * Finishers first, renumbered 1..n in crossing order, then the coded
+ * non-finishers. A coded row needs a competitor — "DNF for a boat nobody
+ * recognises" isn't a result — so unresolved ones are dropped here; the
+ * parser has already reported them.
+ *
+ * Shared by the per-race CSV import and the RaceSense workbook import, which
+ * differ in how they read a sheet and not at all in what they write.
+ */
+export function finishRowsFromImport(
+  raceId: string,
+  finishes: readonly Omit<Finish, 'id' | 'raceId'>[],
+): Finish[] {
+  const rows: Finish[] = [];
+  finishes
+    .filter((f) => f.sortOrder !== null)
+    .sort((a, b) => a.sortOrder! - b.sortOrder!)
+    .forEach((f, i) => {
+      rows.push(makeFinish(raceId, {
+        id: crypto.randomUUID(),
+        competitorId: f.competitorId,
+        ...(f.competitorId === null ? { unknownSailNumber: f.unknownSailNumber ?? '' } : {}),
+        sortOrder: i + 1,
+        ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+      }));
+    });
+  for (const f of finishes) {
+    if (f.sortOrder === null && f.resultCode && f.competitorId) {
+      rows.push(makeFinish(raceId, {
+        id: crypto.randomUUID(),
+        competitorId: f.competitorId,
+        sortOrder: null,
+        resultCode: f.resultCode,
+      }));
+    }
+  }
+  return rows;
+}
+
+/**
  * Computes the displayed finish position for each competitor in the ordering,
  * accounting for ties. Boats in tiedWithPrevious share the position of the
  * competitor immediately before them; subsequent positions skip numbers to fill

@@ -1,7 +1,7 @@
 'use client';
 
 import { log } from '@/lib/debug';
-import { makeFinish } from '@/lib/finish-entry';
+import { finishRowsFromImport } from '@/lib/finish-entry';
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 import type { Finish } from '@/lib/types';
 
@@ -29,38 +29,7 @@ export function useCsvFinishImport(args: UseCsvFinishImportArgs) {
   const { raceId, savedFinishes, saveFinishes, deleteFinish, patchCache, onApplied } = args;
 
   return async function applyCsvImport(imported: ParseFinishSheetResult) {
-    const finishers = imported.finishes
-      .filter((f) => f.sortOrder !== null)
-      .sort((a, b) => a.sortOrder! - b.sortOrder!);
-    const newRows: Finish[] = [];
-    finishers.forEach((f, i) => {
-      if (f.competitorId !== null) {
-        newRows.push(makeFinish(raceId, {
-          id: crypto.randomUUID(),
-          competitorId: f.competitorId,
-          sortOrder: i + 1,
-          ...(f.finishTime ? { finishTime: f.finishTime } : {}),
-        }));
-      } else {
-        newRows.push(makeFinish(raceId, {
-          id: crypto.randomUUID(),
-          competitorId: null,
-          unknownSailNumber: f.unknownSailNumber ?? '',
-          sortOrder: i + 1,
-          ...(f.finishTime ? { finishTime: f.finishTime } : {}),
-        }));
-      }
-    });
-    for (const f of imported.finishes) {
-      if (f.sortOrder === null && f.resultCode && f.competitorId) {
-        newRows.push(makeFinish(raceId, {
-          id: crypto.randomUUID(),
-          competitorId: f.competitorId,
-          sortOrder: null,
-          resultCode: f.resultCode,
-        }));
-      }
-    }
+    const newRows = finishRowsFromImport(raceId, imported.finishes);
     const existing = savedFinishes ?? [];
     patchCache(() => newRows);
     await Promise.all(

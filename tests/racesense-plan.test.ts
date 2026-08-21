@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { finishRowsFromImport } from '@/lib/finish-entry';
 import { planRaceSenseImport, type SeriesRace } from '@/lib/racesense-plan';
 import type { Candidate } from '@/lib/finish-sheet-csv';
 import type {
@@ -78,29 +79,13 @@ function workbook(races: RaceSenseRace[], anomalies: RaceSenseWorkbook['anomalie
   };
 }
 
-/** Commit a planned race the way `useCsvFinishImport` does, so the next plan
- *  reads back what the app would actually have stored. */
-function commit(raceId: string, result: NonNullable<ReturnType<typeof planRaceSenseImport>['races'][number]['result']>): Finish[] {
-  const blank = {
-    tiedWithPrevious: false, startPresent: null, penaltyCode: null,
-    penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null,
-    redressIncludeRaceIds: null, redressIncludeAllLater: false, redressPoints: null,
-  };
-  const rows: Finish[] = [];
-  result.finishes
-    .filter((f) => f.sortOrder !== null)
-    .sort((a, b) => a.sortOrder! - b.sortOrder!)
-    .forEach((f, i) => {
-      rows.push({
-        ...blank, ...f, id: `f${rows.length}`, raceId, sortOrder: i + 1,
-      } as Finish);
-    });
-  for (const f of result.finishes) {
-    if (f.sortOrder === null && f.resultCode && f.competitorId) {
-      rows.push({ ...blank, ...f, id: `f${rows.length}`, raceId } as Finish);
-    }
-  }
-  return rows;
+/** Commit a planned race exactly as the app does, so the next plan reads back
+ *  what would actually have been stored. */
+function commit(
+  raceId: string,
+  result: NonNullable<ReturnType<typeof planRaceSenseImport>['races'][number]['result']>,
+): Finish[] {
+  return finishRowsFromImport(raceId, result.finishes);
 }
 
 function plan(args: {

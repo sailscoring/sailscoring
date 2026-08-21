@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useRef, useEffect, useState } from 'react';
+import { use, useMemo, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { raceRepo } from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
@@ -16,6 +16,9 @@ import {
   useSaveRace,
 } from '@/hooks/use-races';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
+import { useCompetitorsBySeries } from '@/hooks/use-competitors';
+import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
+import { useRaceSenseImport } from '@/hooks/use-racesense-import';
 import { pickableFleets } from '@/lib/split-fleets';
 import { useFinishesByRace, useFinishesBySeries } from '@/hooks/use-finishes';
 import { LastFinisherStrip } from '@/components/last-finisher-strip';
@@ -47,12 +50,14 @@ import {
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import type { CSSProperties, HTMLAttributes } from 'react';
 import type { Race, SubSeries } from '@/lib/types';
+import type { SeriesRace } from '@/lib/racesense-plan';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { generateStarts } from '@/lib/start-sequence';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import { defaultRaceDate, generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
+import { RaceSenseImport, type RaceSenseImportHandle } from '@/components/racesense-import';
 import { RaceScoringOptionsDialog } from '@/components/race-scoring-options-dialog';
 import { RaceMetadataDialog } from '@/components/race-metadata-dialog';
 import { hasScoringOptions, scoringOptionsSummary } from '@/lib/race-scoring-options';
@@ -310,6 +315,7 @@ export default function RacesPage({
   const deleteSubSeries = useDeleteSubSeries();
   const raceListRef = useRef<HTMLDivElement>(null);
   const didAutoFocus = useRef(false);
+  const raceSenseRef = useRef<RaceSenseImportHandle>(null);
 
   // Handicap race creation dialog state
   const [showNewRaceDialog, setShowNewRaceDialog] = useState(false);
@@ -347,11 +353,37 @@ export default function RacesPage({
   const [subSeriesError, setSubSeriesError] = useState('');
 
   // The last-finisher recency strip (results-status feature) needs the whole
-  // series' finishes; only fetched while the gate is on.
+  // series' finishes; so does the RaceSense import, to tell a race that's
+  // already been entered from one that hasn't. Only fetched while one of the
+  // two gates is on.
   const showResultsStatus = has('results-status');
+  const raceSenseEnabled = has('racesense-import') && !readOnly;
   const { data: allFinishes } = useFinishesBySeries(seriesId, {
-    enabled: showResultsStatus,
+    enabled: showResultsStatus || raceSenseEnabled,
   });
+  const { data: competitors } = useCompetitorsBySeries(seriesId);
+  const { data: raceStarts } = useRaceStartsBySeries(seriesId, {
+    enabled: raceSenseEnabled,
+  });
+  const applyRaceSenseImport = useRaceSenseImport({ seriesId, finishes: allFinishes });
+
+  // The races as the RaceSense planner sees them: each with the starts that
+  // say which fleets sailed it.
+  const raceSenseRaces: SeriesRace[] = useMemo(() => {
+    const startsByRace = new Map<string, SeriesRace['starts']>();
+    for (const s of raceStarts ?? []) {
+      startsByRace.set(s.raceId, [
+        ...(startsByRace.get(s.raceId) ?? []),
+        { fleetIds: s.fleetIds, stage: s.stage ?? null, stageRaceNumber: s.stageRaceNumber ?? null },
+      ]);
+    }
+    return (races ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      raceNumber: r.raceNumber,
+      starts: startsByRace.get(r.id) ?? [],
+    }));
+  }, [races, raceStarts]);
 
   const isHandicap = series?.scoringMode === 'handicap';
   const startSequence = series?.defaultStartSequence;
@@ -464,6 +496,13 @@ export default function RacesPage({
       section: 'Races',
       when: () => !readOnly,
       handler: openGenerateDialog,
+    },
+    {
+      key: 'i',
+      description: 'Import finishes from RaceSense',
+      section: 'Races',
+      when: () => raceSenseEnabled,
+      handler: () => raceSenseRef.current?.trigger(),
     },
   ]);
   // Row-level keys bound on the focused race row itself.
@@ -745,6 +784,21 @@ export default function RacesPage({
             <Button variant="outline" onClick={openCreateSubSeries}>
               New sub-series
             </Button>
+          )}
+          {raceSenseEnabled && (
+            <RaceSenseImport
+              ref={raceSenseRef}
+              races={raceSenseRaces}
+              fleets={fleets ?? []}
+              competitors={competitors ?? []}
+              finishes={allFinishes}
+              onConfirm={applyRaceSenseImport}
+              trigger={
+                <Button variant="outline" onClick={() => raceSenseRef.current?.trigger()}>
+                  Import from RaceSense
+                </Button>
+              }
+            />
           )}
           {!readOnly && (
             <AddRaceMenu
