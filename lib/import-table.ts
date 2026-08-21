@@ -18,6 +18,11 @@
  * A workbook with several non-empty sheets can't be reduced to one table
  * here; it comes back as `kind: 'workbook'` and the importer shows a sheet
  * picker.
+ *
+ * An importer whose format spans the whole workbook — where a sheet's name
+ * and its neighbours carry meaning, as in a RaceSense regatta export — wants
+ * the sheets themselves rather than one table, and calls
+ * `parseWorkbookFile` instead.
  */
 
 import Papa from 'papaparse';
@@ -26,6 +31,11 @@ export interface WorkbookSheet {
   name: string;
   rows: string[][];
 }
+
+/** Every sheet of a workbook, names intact and nothing collapsed away. */
+export type WorkbookParse =
+  | { kind: 'sheets'; sheets: WorkbookSheet[] }
+  | { kind: 'error'; message: string };
 
 export type TabularParse =
   | { kind: 'table'; rows: string[][] }
@@ -44,6 +54,9 @@ export const UNREADABLE_WORKBOOK_MESSAGE =
   "Couldn't read this file as a spreadsheet. Save it as .xlsx or CSV and try again.";
 
 export const EMPTY_WORKBOOK_MESSAGE = 'No data found in this spreadsheet.';
+
+export const NOT_A_WORKBOOK_MESSAGE =
+  "This doesn't look like an Excel workbook. Pick the .xlsx file the app exported.";
 
 /**
  * Cheap content sniff. `.xlsx` is a ZIP archive; legacy `.xls` and
@@ -106,6 +119,35 @@ export function tabularFromWorkbook(sheets: WorkbookSheet[]): TabularParse {
   return { kind: 'workbook', sheets: nonEmpty };
 }
 
+/**
+ * Read every sheet of an .xlsx, keeping sheet names and empty sheets.
+ *
+ * CSV has no equivalent — a workbook format is being asked for by name — so
+ * anything that isn't a ZIP is rejected rather than guessed at.
+ */
+export async function parseWorkbookBytes(bytes: ArrayBuffer): Promise<WorkbookParse> {
+  const kind = sniffTabularKind(new Uint8Array(bytes, 0, Math.min(4, bytes.byteLength)));
+  if (kind === 'ole2') return { kind: 'error', message: OLD_EXCEL_MESSAGE };
+  if (kind !== 'xlsx') return { kind: 'error', message: NOT_A_WORKBOOK_MESSAGE };
+
+  // Lazy-load the xlsx reader so CSV-only users never download it.
+  const { default: readXlsxFile } = await import('read-excel-file/browser');
+  try {
+    const sheets = await readXlsxFile(bytes);
+    return {
+      kind: 'sheets',
+      sheets: sheets.map((s) => ({ name: s.sheet, rows: normalizeSheetRows(s.data) })),
+    };
+  } catch {
+    return { kind: 'error', message: UNREADABLE_WORKBOOK_MESSAGE };
+  }
+}
+
+/** Read every sheet of a picked .xlsx file. */
+export async function parseWorkbookFile(file: Blob): Promise<WorkbookParse> {
+  return parseWorkbookBytes(await file.arrayBuffer());
+}
+
 /** Parse already-read file bytes. Exposed for tests; components use
  *  `parseTabularFile`. */
 export async function parseTabularBytes(bytes: ArrayBuffer): Promise<TabularParse> {
@@ -114,16 +156,8 @@ export async function parseTabularBytes(bytes: ArrayBuffer): Promise<TabularPars
   if (kind === 'ole2') return { kind: 'error', message: OLD_EXCEL_MESSAGE };
 
   if (kind === 'xlsx') {
-    // Lazy-load the xlsx reader so CSV-only users never download it.
-    const { default: readXlsxFile } = await import('read-excel-file/browser');
-    try {
-      const sheets = await readXlsxFile(bytes);
-      return tabularFromWorkbook(
-        sheets.map((s) => ({ name: s.sheet, rows: normalizeSheetRows(s.data) })),
-      );
-    } catch {
-      return { kind: 'error', message: UNREADABLE_WORKBOOK_MESSAGE };
-    }
+    const parsed = await parseWorkbookBytes(bytes);
+    return parsed.kind === 'error' ? parsed : tabularFromWorkbook(parsed.sheets);
   }
 
   // CSV. TextDecoder strips a UTF-8 BOM, matching the old

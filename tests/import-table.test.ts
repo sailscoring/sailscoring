@@ -3,12 +3,14 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
   parseTabularBytes,
+  parseWorkbookBytes,
   sniffTabularKind,
   stringifyCell,
   tabularFromWorkbook,
   OLD_EXCEL_MESSAGE,
   UNREADABLE_WORKBOOK_MESSAGE,
   EMPTY_WORKBOOK_MESSAGE,
+  NOT_A_WORKBOOK_MESSAGE,
 } from '@/lib/import-table';
 
 function fixtureBytes(name: string): ArrayBuffer {
@@ -168,6 +170,40 @@ describe('parseTabularBytes: legacy formats', () => {
   it('rejects OLE2 files (.xls or password-protected) with guidance', async () => {
     const ole = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
     const result = await parseTabularBytes(ole.buffer as ArrayBuffer);
+    expect(result).toEqual({ kind: 'error', message: OLD_EXCEL_MESSAGE });
+  });
+});
+
+describe('parseWorkbookBytes', () => {
+  it('keeps every sheet, named and in workbook order — empty ones included', async () => {
+    const result = await parseWorkbookBytes(fixtureBytes('multi-sheet.xlsx'));
+    expect(result.kind).toBe('sheets');
+    if (result.kind !== 'sheets') return;
+    expect(result.sheets.map((s) => s.name)).toEqual([
+      'Instructions',
+      'Entries',
+      'Empty Sheet',
+    ]);
+    expect(result.sheets[2].rows).toEqual([]);
+  });
+
+  it('does not collapse a single-sheet workbook to a table', async () => {
+    const result = await parseWorkbookBytes(fixtureBytes('competitors.xlsx'));
+    expect(result.kind).toBe('sheets');
+    if (result.kind !== 'sheets') return;
+    expect(result.sheets).toHaveLength(1);
+    expect(result.sheets[0].rows.length).toBeGreaterThan(1);
+  });
+
+  it('rejects CSV — a workbook format was asked for by name', async () => {
+    const result = await parseWorkbookBytes(textBytes('Sail Number,Helm\n101,Alice\n'));
+    expect(result).toEqual({ kind: 'error', message: NOT_A_WORKBOOK_MESSAGE });
+  });
+
+  it('rejects .xls and password-protected workbooks with the usual message', async () => {
+    const result = await parseWorkbookBytes(
+      new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0, 0, 0, 0]).buffer as ArrayBuffer,
+    );
     expect(result).toEqual({ kind: 'error', message: OLD_EXCEL_MESSAGE });
   });
 });
