@@ -158,12 +158,14 @@ Ordered by coverage of events Sail Scoring will actually score:
    synthetic non-discardable carried position that supersedes the
    qualifying race scores (fixture 14); no-carry (a finals-only total)
    remains a small follow-on.
-5. **F3 (compressed carry)** — **raised to first priority by the published
-   2026 ILCA SIs**, which halve the qualification score into a two-race final
-   series (SI 18.7.3). Three class lines now use it (ILCA, skiffs, 470
-   Europeans) and it is the format of the target event, not a post-v1
-   curiosity: it needs the carried-score-transform hook plus the sub-series
-   tie-break that the halving's rounding makes load-bearing (SI 18.7.4).
+5. **F3 (compressed carry)** — raised to first priority by the published
+   2026 ILCA SIs, which halve the qualification score into a two-race final
+   series (SI 18.7.3), and *implemented*: the transform applies to the medal
+   boats' net at the medal boundary, and the sub-series tie-break the
+   halving's rounding makes load-bearing (SI 18.7.4) with it. Fixtures 15
+   and 16. Three class lines now use the format (ILCA, skiffs, 470
+   Europeans); the divide-and-round shape covers two of the three, and the
+   470 Europeans' chained gap caps remain unmodelled.
 6. **F8 (Topper's frozen fleets / merged starts)** — one class, but scoring
    it requires merged-start race columns with duplicate ranks and a
    largest-*start* code base. Defer; document as known-unsupported.
@@ -185,8 +187,10 @@ engine* cannot express natively, exhaustively:
 4. **Merged-start race columns** (Topper F8) — genuinely outside "one
    physical race per fleet"; the only construct that would require
    *extending* the model, and confined to one class.
-5. **Carried-score transforms** (F3) and **rank-seed** (F6) — planned hooks,
-   not incompatibilities.
+5. **Carried-score transforms** (F3) and **rank-seed** (F6) — both since
+   implemented, as this assessment predicted: hooks, not incompatibilities.
+   The one transform shape still unmodelled is the 470 Europeans' chained
+   gap caps, which is arithmetic rather than structure.
 
 Watch-item, not a construct: mid-event **fleet migration** (WASZP Green →
 Silver) — handleable as manual membership edits with round overrides.

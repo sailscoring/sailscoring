@@ -41,9 +41,9 @@ notes: |
 
   Note what the two non-qualified Gold boats do here: nothing. Under these
   SIs they sail one more ordinary Qualification series race (SI 7.7) rather
-  than 2024's companion race scored from 11, which the engine cannot yet
-  model (issue #406) — so this fixture leaves the companion fleet raceless
-  rather than asserting the wrong thing.
+  than 2024's companion race scored from 11 — that clause has a fixture of
+  its own (17), so this one leaves the companion fleet raceless and keeps to
+  the halving.
 
   Verification by hand, with a DNC base of 3 boats + 1 = 4 in qualifying and
   own-fleet + 1 = 4 in the final series, one discard from 3 races, at most
