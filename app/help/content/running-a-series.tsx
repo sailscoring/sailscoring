@@ -658,16 +658,27 @@ export default function RunningASeries() {
             the final series, then the qualifying series.
           </p>
           <p>
-            Three smaller settings are worth checking against your sailing instructions. Give the
-            three stages <strong className="text-foreground">the names and race prefixes your SIs
-            use</strong>, and say whether the second stage’s races number on from the first — a
-            championship whose sailing instructions run Q1–Q12 across both should not publish its
-            sixth race as F1, because a scoring enquiry will cite the number on the notice board.
-            Set the <strong className="text-foreground">races needed to constitute the
+            The first thing to set is{' '}
+            <strong className="text-foreground">what your sailing instructions call the
+            stages</strong>, because two vocabularies are in use and they borrow each other’s
+            words. One has an <em>opening series</em> made of a qualifying series and a final
+            series, with a medal race on top, and numbers its races Q, F and M. The other — the
+            2026 ILCA wording — has a <em>Qualification series</em> made of a Preliminary series
+            and an Elimination series, then a Final series, and runs Q1–Q12 straight through the
+            first two before restarting at F. So “the final series” means the second stage in
+            one and the last stage in the other, and a race the notice board calls Q6 is F1 in
+            the other scheme. Pick the one your SIs use and every heading, dialog,
+            column and published page follows it; nothing anywhere will then use a word from the
+            other scheme. Race prefixes and numbering come with the choice rather than being set
+            separately.
+          </p>
+          <p>
+            Two smaller settings are worth checking against your sailing instructions too. Set
+            the <strong className="text-foreground">races needed to constitute the
             championship</strong>, and the standings say so plainly until they are sailed rather
-            than reading as a result. And where boats can end qualifying holding different numbers
-            of scores, choose whether the surplus races are abandoned or each boat’s most recent
-            extra scores are excluded on top.
+            than reading as a result. And where boats can end the first stage holding different
+            numbers of scores, choose whether the surplus races are abandoned or each boat’s
+            most recent extra scores are excluded on top.
           </p>
           <p>
             The published output is a single{' '}

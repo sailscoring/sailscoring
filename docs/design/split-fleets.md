@@ -26,6 +26,16 @@ The SIs' own vocabulary, which the app should follow. The SIs say "fleet"
 throughout — they never say "flight" (that's Sailwave's word for a
 qualifying fleet; we avoid it in the app).
 
+**Two vocabularies are in circulation, and this document writes in the
+first.** Appendix LE's — opening series, qualifying series, final series,
+medal race — is the one below and the one used throughout this document. The
+2026 ILCA wording renames every one of those (Part 1's 2026 ILCA section has
+the mapping) and, worse, reuses two of the words for different stages. A
+series therefore picks a `vocabulary` and the app speaks only that one; the
+code's `SeriesStage` values (`qualifying` / `final` / `medal`) are structural
+identifiers that happen to read like the first vocabulary and are never
+shown. Read the terms below as roles, not as the words a given event uses.
+
 - **Split-fleet series** — our general name for a series using this format
   (from the SIs' "the event will be split into 3 fleets", "while racing in
   split fleets").
@@ -323,11 +333,12 @@ rather than as a gap list:
   describes.
 - Three races constitute the championship (SI 18.2): below that the
   standings say so rather than reading as a result (`minimumRaces`).
-- Races are numbered **Q1…Q12 continuously across the Preliminary and
-  Elimination series**, and **F1–F2** for the Final series — so the
-  official name of the first Gold race is not "F1", and the stages are the
-  Preliminary, Elimination and Final series rather than our default words
-  (`stageNaming`).
+- The whole **vocabulary** differs, not just three headings. These SIs have
+  a *Qualification* series made of a Preliminary and an Elimination series,
+  then a *Final* series; races run **Q1…Q12 continuously across the first
+  two** and restart at **F1–F2** for the third. Both vocabularies use the
+  words "qualifying/qualification series" and "final series" for different
+  stages, so a series picks one and every word follows (`vocabulary`).
 
 Starts and OCS/BFD calls are via Vakaros RaceSense (electronic
 identification replaces visual for 30.3/30.4). The 2025 Qingdao edition
@@ -531,7 +542,13 @@ export interface SplitFleetConfig {
   /** What the SIs call the three stages, their race prefixes, and whether
    *  the final stage numbers on from the qualifying one rather than
    *  restarting (2026 ILCA: Q1…Q12 across both, then F1–F2). */
-  stageNaming: StageNaming;
+  /** Which set of words this championship's SIs use for its stages and
+   *  races. Prefixes and whether stage 2 numbers on from stage 1 follow from
+   *  the choice — only some combinations mean anything. */
+  vocabulary: VocabularyKey;
+  /** Wording for a class the table doesn't cover. Engine-only; no UI writes
+   *  it. */
+  vocabularyOverride?: Vocabulary;
   /** Medal race(s): fleet size, race count, points multiplier, and whether
    *  the non-medal companion race starts scoring below the medal fleet
    *  (2024 ILCA SI 18.3.4: first finisher = 11 points). */
@@ -889,9 +906,9 @@ Since shipped beyond that v1 scope:
   format of the target event.
 - The **per-boat equalisation** clause (LE 20.4(a)), which had been
   documented and deferred while its enum value was already accepted.
-- **Configured stage names and race numbering**, a minimum-races validity
-  state, and the extra last-day race for the boats who missed the medal
-  fleet (fixture 17) — see the 2026 ILCA section in Part 1.
+- A **chosen vocabulary**, a minimum-races validity state, and the extra
+  last-day race for the boats who missed the medal fleet (fixture 17) — see
+  the 2026 ILCA section in Part 1.
 
 Out (horizon): knockout medal-series brackets (iQFOiL / Formula Kite
 match points — not low-point arithmetic); Manage2Sail-style online
@@ -940,7 +957,7 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
    not-yet-run stage: `discardThresholds`, `maxFinalDiscards`,
    `protectLoneFinalRace`, `codeBasis`, `equalization`, `split` (the rule and
    its top-fleet size, until the split is committed), `reassignmentTieOrder`,
-   `minimumRaces`, `stageNaming` (purely presentational), and the `medal`
+   `minimumRaces`, `vocabulary` (purely presentational), and the `medal`
    block — which now carries the compressed carry and its tie-break, both of
    which only re-score. These live on the Settings card (a series-format
    card like scoring mode): visible always, frozen fields read-only after
@@ -969,12 +986,13 @@ RaceSense/Vakaros (the existing CSV finish import is the interim answer).
 9. **Race naming and numbering.** *Half-decided.* With the race as the
    start sequence, "Q3" is no longer a race name: a race is "Day 2,
    Race 1" holding Yellow Q3 + Blue Q3 + Red Q3 (or Gold F2 + Silver F2 +
-   Bronze F1), and Q3 / F2 are per-start labels. The **labels** are
-   settled: `stageNaming` holds the SIs' stage names, their race prefixes,
-   and whether the final stage numbers on from the qualifying one, and one
-   `stageRaceLabel` derives every label the app shows — the standings
-   headers, the race chips, the ceremony dialogs, and the name a race is
-   created with. What `raceNumber` should *mean* on a split-fleet series
+   Bronze F1), and Q3 / F2 are per-start labels. The **words** are settled,
+   and settled as one choice rather than a naming pass: `vocabulary` picks a
+   whole coherent set (see Part 1's 2026 ILCA section), `stageRaceLabel`
+   derives every race label from it, and a unit test fails the build if a
+   stage word is written into a surface directly. The two vocabularies share
+   terms for different stages, so nothing less than a complete swap would
+   have been safe. What `raceNumber` should *mean* on a split-fleet series
    is still open, and still belongs with open questions 1–2.
 
 ### Feature-checklist mapping
