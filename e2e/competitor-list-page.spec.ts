@@ -41,11 +41,17 @@ test('the competitor list publishes before any race is sailed', async ({ page, s
     await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
   }
 
-  // ── 3. Standings has nothing to show, but says the list can go up ────────
+  // ── 3. Publish from the Competitors tab — the page the list is made of ───
+  await page.getByRole('button', { name: 'Publish…' }).click();
+  await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Publish results' })).toHaveCount(0);
+
+  // ── 4. Standings has nothing to show, but says the list can go up ────────
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page.getByText('The competitor list can be published now.')).toBeVisible();
 
-  // ── 4. Publish it ────────────────────────────────────────────────────────
+  // ── 5. Publish it ────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog).toBeVisible();
@@ -59,7 +65,7 @@ test('the competitor list publishes before any race is sailed', async ({ page, s
   await expect(link).toBeVisible();
   const entriesPath = new URL((await link.getAttribute('href')) ?? '').pathname;
 
-  // ── 5. The public page: the roster, and nothing derived from racing ──────
+  // ── 6. The public page: the roster, and nothing derived from racing ──────
   await page.goto(entriesPath);
   await expect(page.getByRole('columnheader', { name: 'Sail Number' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Tally' })).toBeVisible();
@@ -71,7 +77,7 @@ test('the competitor list publishes before any race is sailed', async ({ page, s
   await expect(page.getByRole('columnheader', { name: 'Rank' })).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Total' })).toHaveCount(0);
 
-  // ── 6. And it is listed on the event index ───────────────────────────────
+  // ── 7. And it is listed on the event index ───────────────────────────────
   await page.goto(entriesPath.replace(/\/entries$/, ''));
   await expect(page.getByRole('link', { name: 'Entries' })).toBeVisible();
 });

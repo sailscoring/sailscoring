@@ -300,6 +300,13 @@ export default function Publishing() {
             the roster settles, and republish it as entries come and go.
           </p>
           <p>
+            Because of that, <strong className="text-foreground">Publish</strong> is on the{' '}
+            <strong className="text-foreground">Competitors</strong> tab as well as on Standings —
+            it is the page the entry list is made of, and the one you are on when the entries
+            settle. Press <strong className="text-foreground">p</strong> there to open the publish
+            dialog.
+          </p>
+          <p>
             The columns are whichever competitor fields your series has enabled — nationality,
             club, tally number, division, and the rest — and any field no entry fills is left out
             rather than published as an empty column. A Fleet column appears when the series has

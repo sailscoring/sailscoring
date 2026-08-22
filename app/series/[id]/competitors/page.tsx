@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/tooltip';
 import { AlertTriangle } from 'lucide-react';
 import { CompetitorImport, type CompetitorImportHandle } from '@/components/competitor-import';
+import { PublishDialog } from '@/components/publish-dialog';
 import { WorldSailingCheck, type WorldSailingCheckHandle } from '@/components/world-sailing-check';
 import {
   bulkEditFieldOptions,
@@ -165,6 +166,7 @@ export default function CompetitorsPage({
 
 
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
   const [filter, setFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -337,6 +339,13 @@ export default function CompetitorsPage({
   const hasHandicapFleet = (fleets ?? []).some((f) => f.scoringSystem !== 'scratch');
   const features = useFeatures();
   const hasRrsImport = features.has('rrs-import');
+  // Publishing the competitor list is reachable from the roster itself: this
+  // is the page whose content the entry list *is*, and the page the scorer is
+  // on when the entries settle. Only offered when there is a competitor list
+  // to publish and the workspace can publish one — otherwise this would just
+  // be a second route to publishing results, which belongs on Standings.
+  const canPublishEntryList =
+    features.has('entry-list') && can('score') && (competitors?.length ?? 0) > 0;
   const hasWorldSailingId = features.has('world-sailing-id');
   // Round-owned fleets (split-fleet ceremonies) stay visible in the table's
   // Fleet column but are never offered for manual assignment or import.
@@ -366,6 +375,9 @@ export default function CompetitorsPage({
       when: () => hasWorldSailingId && (competitors ?? []).some((c) => c.worldSailingId),
       handler: () => worldSailingCheckRef.current?.open(),
     },
+    ...(canPublishEntryList
+      ? [{ key: 'p', description: 'Publish competitor list', section: 'Competitors', handler: () => setShowPublishDialog(true) }]
+      : []),
     { key: '/', description: 'Filter competitors', section: 'Competitors', handler: () => filterInputRef.current?.focus() },
     {
       key: 's',
@@ -699,8 +711,26 @@ export default function CompetitorsPage({
                 )}
               </>
             )}
+            {canPublishEntryList && (
+              <Button variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
+                Publish…
+              </Button>
+            )}
             <Button onClick={() => setShowAddForm(true)}>Add competitor</Button>
           </div>
+        )}
+        {canPublishEntryList && series && (
+          <PublishDialog
+            series={series}
+            // A split-fleet series' round fleets are internal — its published
+            // output is the championship and assignments pages — so the dialog
+            // runs in single-default-page mode there, as it does on the Split
+            // Fleets page.
+            fleets={isSplitFleetSeries ? [] : (fleets ?? [])}
+            open={showPublishDialog}
+            onClose={() => setShowPublishDialog(false)}
+            canFtp={false}
+          />
         )}
         <UpdateHandicaps ref={updateHandicapsRef} seriesId={seriesId} />
       </div>
