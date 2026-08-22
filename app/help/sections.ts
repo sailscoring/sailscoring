@@ -94,6 +94,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'publishing-results', title: 'Publishing results' },
       { id: 'combined-pages', title: 'Extra pages', feature: 'combined-pages' },
       { id: 'results-status', title: 'Provisional and final results', feature: 'results-status' },
+      { id: 'competitor-list', title: 'Publishing the competitor list', feature: 'entry-list' },
       { id: 'prizes', title: 'Prizes', feature: 'prizes' },
       { id: 'logo-library', title: 'The logo library', feature: 'logo-library' },
     ],

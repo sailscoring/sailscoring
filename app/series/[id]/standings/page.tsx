@@ -96,10 +96,52 @@ export default function StandingsPage({
   }
 
   if (races.length === 0) {
+    // No standings to show, but the entry list (#423) is publishable in exactly
+    // this window — before race one, when an event most wants its roster up.
+    // Publish and Preview stay reachable for that page alone.
+    const canPublishEntryList = has('entry-list');
     return (
-      <p className="text-sm text-muted-foreground">
-        No races yet. Add races and record results to see standings.
-      </p>
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          No races yet. Add races and record results to see standings.
+          {canPublishEntryList && ' The competitor list can be published now.'}
+        </p>
+        {canPublishEntryList && (
+          <>
+            <div className="flex gap-2">
+              {canPublish && (
+                <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
+                  Publish
+                </Button>
+              )}
+              <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
+                Preview
+              </Button>
+            </div>
+            <PreviewDialog
+              series={series}
+              fleets={fleets}
+              open={showPreviewDialog}
+              onClose={() => setShowPreviewDialog(false)}
+              onPublish={
+                canPublish
+                  ? () => {
+                      setShowPreviewDialog(false);
+                      setShowPublishDialog(true);
+                    }
+                  : undefined
+              }
+            />
+            <PublishDialog
+              series={series}
+              fleets={fleets}
+              open={showPublishDialog}
+              onClose={() => setShowPublishDialog(false)}
+              canFtp={canFtp}
+            />
+          </>
+        )}
+      </div>
     );
   }
 

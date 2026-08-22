@@ -285,6 +285,28 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      {has('entry-list') && (
+        <Section id="competitor-list" title="Publishing the competitor list">
+          <p>
+            The <strong className="text-foreground">Entries</strong> page publishes your entry
+            list — who is coming, and nothing derived from racing. It appears as one more row in
+            the Publish dialog, alongside the fleet pages, and lands at{' '}
+            <code>/entries</code> under the event folder.
+          </p>
+          <p>
+            It is the one page you can publish before a single race has been sailed, which is the
+            window an event most wants one: competitors and their families are checking whether an
+            entry has been accepted long before there is a result to read. Publish it as soon as
+            the roster settles, and republish it as entries come and go.
+          </p>
+          <p>
+            The columns are whichever competitor fields your series has enabled — nationality,
+            club, tally number, division, and the rest — and any field no entry fills is left out
+            rather than published as an empty column. A Fleet column appears when the series has
+            more than one fleet, and the entries are grouped by fleet in that order.
+          </p>
+        </Section>
+      )}
       {has('prizes') && (
         <Section id="prizes" title="Prizes">
           <p>

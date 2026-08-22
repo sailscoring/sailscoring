@@ -184,7 +184,10 @@ export async function publishSeries(
     `${appBase()}/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`,
     // The prize sheet (#240) publishes only for workspaces with the feature
     // on; a prize list imported into an ungated workspace stays unpublished.
-    { includePrizes: workspace.features.includes('prizes') },
+    {
+      includePrizes: workspace.features.includes('prizes'),
+      includeEntryList: workspace.features.includes('entry-list'),
+    },
   );
   if (!allFiles) throw new NotFoundError('series has no publishable results');
 
@@ -338,7 +341,7 @@ export async function publishSeries(
   // valid segment of its own.
   const derivedFolder =
     breadcrumbFolder && isValidSlugSegment(breadcrumbFolder) ? breadcrumbFolder : null;
-  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean }): string => {
+  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean; isEntryList?: boolean }): string => {
     const existingPath = frozen.get(pageKey(file));
     if (existingPath !== undefined) return existingPath;
     const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
@@ -363,6 +366,10 @@ export async function publishSeries(
       // `prizes` path for a sole contributor, disambiguated by the series'
       // own slug when co-publishing so two prize sheets never both claim it.
       leaf = shared ? `${seriesSlug}-prizes` : 'prizes';
+      if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
+    } else if (file.isEntryList) {
+      // The competitor list follows the prize sheet's convention exactly.
+      leaf = shared ? `${seriesSlug}-entries` : 'entries';
       if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
     } else {
       leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared, raceResults);
@@ -408,7 +415,8 @@ export async function publishSeries(
         fleetName: file.fleetName,
         ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
         ...(file.isPrizes ? { isPrizes: true } : {}),
-        ...(raceResults && !file.isPrizes ? { isRaceResults: true } : {}),
+        ...(file.isEntryList ? { isEntryList: true } : {}),
+        ...(raceResults && !file.isPrizes && !file.isEntryList ? { isRaceResults: true } : {}),
         subPath,
         blobUrl,
       };

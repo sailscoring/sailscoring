@@ -3,6 +3,7 @@ import {
   renderSeriesHtml,
   renderCombinedSeriesHtml,
   renderPrizesHtml,
+  renderCompetitorListHtml,
   assembleSeriesResultsData,
   type SeriesResultsData,
   type RaceData,
@@ -1723,5 +1724,81 @@ describe('renderPrizesHtml', () => {
     );
     expect(multi).toContain('<th>Fleet</th>');
     expect(multi).toContain('<td>ILCA 6</td>');
+  });
+});
+
+// ---- renderCompetitorListHtml (#423) ----
+
+describe('renderCompetitorListHtml', () => {
+  const chrome = {
+    series: { name: 'Worlds', venue: 'Dun Laoghaire' },
+    generatedAt: new Date('2026-08-20T10:00:00Z'),
+  };
+  const row = (over: Partial<Parameters<typeof renderCompetitorListHtml>[1][number]> = {}) => ({
+    sailNumber: 'IRL 215',
+    names: ['Mark McLoughlin'],
+    fleetNames: ['Red'],
+    ...over,
+  });
+
+  it('lists the entries with no results columns on it', () => {
+    const html = renderCompetitorListHtml(chrome, [row(), row({ sailNumber: 'GBR 41', names: ['Hannah Mills'] })], {
+      enabledCompetitorFields: [],
+      multiFleet: false,
+    });
+    expect(html).toContain('<th>Sail Number</th>');
+    expect(html).toContain('IRL 215');
+    expect(html).toContain('Entries: 2');
+    // Nothing derived from racing belongs here.
+    expect(html).not.toContain('<th>Rank</th>');
+    expect(html).not.toContain('<th>Points</th>');
+    expect(html).not.toContain('<th>Total</th>');
+    expect(html).not.toContain('Sailed:');
+  });
+
+  it('titles the page as the competitor list', () => {
+    const html = renderCompetitorListHtml(chrome, [row()], {
+      enabledCompetitorFields: [],
+      multiFleet: false,
+    });
+    expect(html).toContain('Competitor List');
+  });
+
+  it('shows the Fleet column only on a multi-fleet series', () => {
+    const opts = { enabledCompetitorFields: [] as never[], multiFleet: false };
+    expect(renderCompetitorListHtml(chrome, [row()], opts)).not.toContain('<th>Fleet</th>');
+    expect(
+      renderCompetitorListHtml(chrome, [row()], { ...opts, multiFleet: true }),
+    ).toContain('<th>Fleet</th>');
+  });
+
+  it('carries the enabled competitor fields, tally number included', () => {
+    const html = renderCompetitorListHtml(
+      chrome,
+      [row({ tallyNumber: 'T0001', club: 'HYC' })],
+      { enabledCompetitorFields: ['tallyNumber', 'club'], multiFleet: false },
+    );
+    expect(html).toContain('<th>Tally</th>');
+    expect(html).toContain('<td>T0001</td>');
+    expect(html).toContain('<th>Club</th>');
+  });
+
+  it('suppresses an enabled field no entry fills', () => {
+    const html = renderCompetitorListHtml(chrome, [row()], {
+      enabledCompetitorFields: ['tallyNumber', 'club', 'boatName'],
+      multiFleet: false,
+    });
+    expect(html).not.toContain('<th>Tally</th>');
+    expect(html).not.toContain('<th>Club</th>');
+    expect(html).not.toContain('<th>Boat</th>');
+  });
+
+  it('says so rather than rendering an empty table when there are no entries', () => {
+    const html = renderCompetitorListHtml(chrome, [], {
+      enabledCompetitorFields: [],
+      multiFleet: false,
+    });
+    expect(html).toContain('No entries yet.');
+    expect(html).not.toContain('<th>Sail Number</th>');
   });
 });

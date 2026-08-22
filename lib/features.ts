@@ -234,6 +234,15 @@ export const FEATURES = {
     label: 'Prizes',
     helpSectionIds: ['prizes'],
   },
+  'entry-list': {
+    // The published competitor-list page (#423): the entry list, publishable
+    // before any race is sailed, at `{slug}/entries`. Opt-in (default off)
+    // because every series has competitors — unlike the prize sheet, which
+    // only appears once a scorer has defined prizes, an ungated entry list
+    // would add a page to every workspace's next publish unasked.
+    label: 'Published competitor list',
+    helpSectionIds: ['competitor-list'],
+  },
   rankings: {
     // Workspace cross-series rankings (#209): the Rankings tab (bucketed
     // best-N season ladders computed over the workspace's series, grouped by

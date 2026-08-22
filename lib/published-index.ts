@@ -105,10 +105,21 @@ export interface SeriesIndexPage {
   subSeriesName?: string;
   /** The prize sheet (#240) — labelled by its own name, never "Standings". */
   isPrizes?: boolean;
+  /** The competitor list (#423) — likewise labelled by its own name. */
+  isEntryList?: boolean;
   /** Published at race-results detail (#347) — a lone page then reads
    *  "Results", since there are no standings on it. */
   isRaceResults?: boolean;
   subPath: string; // `standings` for a single fleet, else `kebab(fleetName)`
+}
+
+/** Whether a page is one of the publication's supporting pages — the prize
+ *  sheet, the competitor list — rather than a fleet's results. They keep their
+ *  own names in every listing, and never count towards "does this publication
+ *  have exactly one results page", which is what decides whether that page is
+ *  labelled "Standings" instead of by its fleet. */
+export function isAuxiliaryPage(page: { isPrizes?: boolean; isEntryList?: boolean }): boolean {
+  return page.isPrizes === true || page.isEntryList === true;
 }
 
 /** What a publication's lone results page is called: its standings, or — for a
@@ -124,7 +135,7 @@ export function loneResultsPageLabel(page: { isRaceResults?: boolean }): string 
  *  sheet keeps its own name, and a sub-series page carries its block name so
  *  same-named fleets in different blocks stay distinguishable. */
 export function fleetPageLabel(page: SeriesIndexPage, single: boolean): string {
-  const leaf = !page.isPrizes && single ? loneResultsPageLabel(page) : page.fleetName;
+  const leaf = !isAuxiliaryPage(page) && single ? loneResultsPageLabel(page) : page.fleetName;
   return page.subSeriesName ? `${page.subSeriesName} — ${leaf}` : leaf;
 }
 
@@ -267,7 +278,7 @@ type EventPage = TreePage & {
 
 function contributorPages(it: WorkspaceIndexItem): EventPage[] {
   return (it.contributors ?? []).flatMap((c) => {
-    const single = c.pages.filter((p) => !p.isPrizes).length === 1;
+    const single = c.pages.filter((p) => !isAuxiliaryPage(p)).length === 1;
     return c.pages.map((p) => ({
       ...p,
       ownerName: c.title,
@@ -658,11 +669,11 @@ export function renderSeriesIndexHtml(
     // A lone results page reads better as "Standings" than as its (possibly
     // synthetic "Default") fleet name; the prize sheet always keeps its own
     // name, and doesn't stop a lone sibling fleet page reading as standings.
-    const single = pages.filter((p) => !p.isPrizes).length === 1;
+    const single = pages.filter((p) => !isAuxiliaryPage(p)).length === 1;
     return `<ul class="listing">
 ${pages
   .map((p) => {
-    const label = !p.isPrizes && single ? loneResultsPageLabel(p) : p.fleetName;
+    const label = !isAuxiliaryPage(p) && single ? loneResultsPageLabel(p) : p.fleetName;
     return `<li><a href="/p/${esc(workspaceSlug)}/${esc(slug)}/${esc(p.subPath)}">${esc(label)}</a></li>`;
   })
   .join('\n')}

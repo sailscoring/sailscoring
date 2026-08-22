@@ -1,0 +1,137 @@
+/**
+ * The published competitor list (#423): the entry list, which is the one page
+ * a series can publish before any race has been sailed. Opt-in via
+ * `includeEntryList`, so the FTP path — whose per-fleet path mapping has no
+ * slot for a non-fleet page — never sees it.
+ */
+import { describe, it, expect } from 'vitest';
+
+import { buildFleetHtmlFiles } from '@/lib/results-export';
+import type { ExportRepos } from '@/lib/public-export';
+import type { Competitor, Finish, Fleet, Race, Series } from '@/lib/types';
+
+const SERIES: Series = {
+  id: 's1',
+  name: 'Worlds',
+  venue: 'Dun Laoghaire',
+  startDate: '2026-08-23',
+  endDate: '2026-08-30',
+  venueLogoUrl: '',
+  eventLogoUrl: '',
+  venueUrl: '',
+  eventUrl: '',
+  createdAt: 0,
+  lastSavedAt: null,
+  lastModifiedAt: 0,
+  scoringMode: 'scratch',
+  discardThresholds: [],
+  dnfScoring: 'seriesEntries',
+  ftpHost: '',
+  ftpPath: '',
+  ftpPaths: {},
+  includeJsonExport: false,
+  enabledCompetitorFields: ['tallyNumber'],
+  primaryPersonLabel: 'helm',
+  subdivisionAxes: [],
+  publishingGroups: [],
+  publishIndividualFleetPages: true,
+};
+
+const FLEETS: Fleet[] = [
+  { id: 'f-red', seriesId: 's1', name: 'Red', displayOrder: 0, scoringSystem: 'scratch' },
+  { id: 'f-blue', seriesId: 's1', name: 'Blue', displayOrder: 1, scoringSystem: 'scratch' },
+];
+
+function competitor(id: string, sail: string, fleetIds: string[], tallyNumber?: string): Competitor {
+  return {
+    id,
+    seriesId: 's1',
+    fleetIds,
+    sailNumber: sail,
+    names: [`Helm ${sail}`],
+    club: '',
+    gender: '',
+    age: null,
+    createdAt: 0,
+    ...(tallyNumber ? { tallyNumber } : {}),
+  };
+}
+
+// Deliberately listed blue-first so the fleet ordering is actually exercised.
+const COMPETITORS = [
+  competitor('c1', '101', ['f-blue'], 'T0002'),
+  competitor('c2', '201', ['f-red'], 'T0001'),
+];
+
+const RACES: Race[] = [
+  { id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2026-08-24', createdAt: 0 },
+];
+
+const FINISHES: Finish[] = [
+  { id: 'r1-c1', raceId: 'r1', competitorId: 'c1', sortOrder: 1, tiedWithPrevious: false, resultCode: null, startPresent: null, penaltyCode: null, penaltyOverride: null, redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null, redressIncludeAllLater: false, redressPoints: null },
+];
+
+function makeRepos(races: Race[], finishes: Finish[]): ExportRepos {
+  return {
+    seriesRepo: { get: async (id: string) => (id === 's1' ? SERIES : undefined) },
+    competitorRepo: { listBySeries: async () => COMPETITORS },
+    raceRepo: { listBySeries: async () => races },
+    fleetRepo: { listBySeries: async () => FLEETS },
+    subSeriesRepo: { listBySeries: async () => [] },
+    finishRepo: { listBySeries: async () => finishes },
+    raceStartRepo: { listBySeries: async () => [] },
+    raceRatingOverrideRepo: { listBySeries: async () => [] },
+  } as unknown as ExportRepos;
+}
+
+describe('buildFleetHtmlFiles — the competitor list', () => {
+  it('publishes the entry list for a series with no races yet', async () => {
+    const files = await buildFleetHtmlFiles(makeRepos([], []), 's1', undefined, {
+      includeEntryList: true,
+    });
+    expect(files).not.toBeNull();
+    expect(files!.map((f) => f.fleetName)).toEqual(['Entries']);
+    expect(files![0].isEntryList).toBe(true);
+    expect(files![0].html).toContain('Competitor List');
+    expect(files![0].html).toContain('T0001');
+  });
+
+  it('still publishes nothing for a raceless series when not asked for it', async () => {
+    // The FTP path relies on this: its per-fleet path mapping has no slot for
+    // a page that isn't a fleet's.
+    expect(await buildFleetHtmlFiles(makeRepos([], []), 's1')).toBeNull();
+  });
+
+  it('appends the entry list after the results pages once racing starts', async () => {
+    const files = await buildFleetHtmlFiles(makeRepos(RACES, FINISHES), 's1', undefined, {
+      includeEntryList: true,
+    });
+    expect(files!.map((f) => f.fleetName)).toContain('Entries');
+    // Last, after the fleet pages — supplementary to the results, not ahead of them.
+    expect(files![files!.length - 1].fleetName).toBe('Entries');
+  });
+
+  it('leaves the entry list out of an ordinary export', async () => {
+    const files = await buildFleetHtmlFiles(makeRepos(RACES, FINISHES), 's1');
+    expect(files!.map((f) => f.fleetName)).not.toContain('Entries');
+  });
+
+  it('orders entries by fleet display order, then sail number', async () => {
+    const files = await buildFleetHtmlFiles(makeRepos([], []), 's1', undefined, {
+      includeEntryList: true,
+    });
+    const html = files![0].html;
+    // Red is displayOrder 0, so 201 (Red) precedes 101 (Blue) despite the
+    // sail-number order and the order the competitors were listed in.
+    expect(html.indexOf('201')).toBeLessThan(html.indexOf('101'));
+    expect(html).toContain('<th>Fleet</th>');
+  });
+
+  it('publishes nothing at all for a series with no competitors', async () => {
+    const repos = {
+      ...makeRepos([], []),
+      competitorRepo: { listBySeries: async () => [] },
+    } as unknown as ExportRepos;
+    expect(await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true })).toBeNull();
+  });
+});

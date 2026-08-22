@@ -97,12 +97,22 @@ interface SuppressedRow {
  * fleet name ("Puppeteers HPH") point at a disambiguated URL segment
  * ("tuesday-puppeteers-hph") when several series share one slug.
  */
+/** Pages that ride the publish machinery alongside a series' results pages,
+ *  each with its own row in the dialog: the prize sheet (#240) and the
+ *  competitor list (#423). Neither is a fleet's results, so neither counts
+ *  when working out whether a publication has a lone results page. */
+const EXTRA_PAGE_NAMES = new Set(['Prizes', 'Entries']);
+
 export function PublishDialog({ series, fleets, open, onClose, canFtp }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
   const confirm = useConfirm();
   const { has } = useFeatures();
   // The prize sheet (#240) publishes as one more name-keyed page, "Prizes".
   const hasPrizes = has('prizes') && (series.prizes?.length ?? 0) > 0;
+  // The competitor list (#423) publishes the same way, as "Entries". No
+  // per-series condition to check: every series has a roster, which is why
+  // the page is gated rather than always offered.
+  const hasEntryList = has('entry-list');
   // Destination mode. Persisted per-series (`series.publishMode`) so the dialog
   // reopens where the scorer left it; clamped to Sail Scoring when FTP isn't
   // available so a workspace that loses the feature isn't stranded in FTP mode.
@@ -141,8 +151,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
       ...resolvedGroups.map((r) => r.group.name.trim()),
       ...fleets.filter((f) => !suppressed.has(f.id)).map((f) => f.name),
       ...(hasPrizes ? ['Prizes'] : []),
+      ...(hasEntryList ? ['Entries'] : []),
     ],
-    [resolvedGroups, fleets, suppressed, hasPrizes],
+    [resolvedGroups, fleets, suppressed, hasPrizes, hasEntryList],
   );
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
@@ -189,9 +200,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     return (name: string) =>
       name === 'Prizes'
         ? 'prizes'
-        : loneFleet && !groupNames.has(name)
-          ? defaultPageSlug(raceResults)
-          : fleetSubPath(name, false);
+        : name === 'Entries'
+          ? 'entries'
+          : loneFleet && !groupNames.has(name)
+            ? defaultPageSlug(raceResults)
+            : fleetSubPath(name, false);
   }, [fleets.length, raceResults, groupNames]);
 
   // Load publication state each time the dialog opens, and seed the per-fleet
@@ -350,16 +363,19 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // and the prizes page keeps its dedicated row.
   const publishedResultPages = useMemo(() => {
     if (hasBlocks) return null;
-    const pages = (published?.pages ?? []).filter((p) => p.fleetName !== 'Prizes');
+    const pages = (published?.pages ?? []).filter((p) => !EXTRA_PAGE_NAMES.has(p.fleetName));
     return pages.length > 1 ? pages : null;
   }, [published, hasBlocks]);
 
   // The single default page once published — the server's actual live page, used
   // for the frozen read-only link + Copy.
   const singlePreview = useMemo(() => {
-    // The prizes page has its own row below — the preview is the results page.
-    const page =
-      published?.pages.find((p) => p.fleetName !== 'Prizes') ?? published?.pages[0];
+    // The prize sheet and the competitor list have their own rows below — the
+    // preview is the results page. A publication that is *only* those (an
+    // entry list published before race one) has no results page to preview,
+    // and the lone row is left out rather than repeating a row below it.
+    const page = published?.pages.find((p) => !EXTRA_PAGE_NAMES.has(p.fleetName));
+    if (published && !page) return null;
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
       // With sub-series there are several pages; link the series index that
@@ -371,6 +387,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
           `${urlPrefix}/${folderPrefix ? `${folderPrefix}/` : ''}${singlePath || 'standings'}`),
     };
   }, [published, fleets, urlPrefix, singlePath, hasBlocks, folderPrefix]);
+
 
   // Client-side guard so the button reflects what the server would reject. The
   // single default page needs a non-empty sub-path while it's still editable
@@ -389,7 +406,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // series lists all of these as ordinary rows above instead.
   const extraPageNames = multiFleet
     ? []
-    : [...resolvedGroups.map((r) => r.group.name.trim()), ...(hasPrizes ? ['Prizes'] : [])];
+    : [
+        ...resolvedGroups.map((r) => r.group.name.trim()),
+        ...(hasPrizes ? ['Prizes'] : []),
+        ...(hasEntryList ? ['Entries'] : []),
+      ];
 
   const validation = useMemo(() => {
     if (seasonMode) {
@@ -862,7 +883,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               // live results page, not just the first. The prizes page keeps
               // its own row below.
               <div className="space-y-1.5">
-                {(publishedResultPages ?? [singlePreview]).map((p) => (
+                {(publishedResultPages ?? (singlePreview ? [singlePreview] : [])).map((p) => (
                   <div key={p.url} className="flex items-center gap-2">
                     {publishedResultPages && (
                       <span className="w-36 shrink-0 truncate text-sm" title={p.fleetName}>

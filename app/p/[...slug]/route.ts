@@ -31,6 +31,7 @@ import * as schema from '@/lib/db/schema';
 import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
 import { getDb } from '@/lib/db/client';
 import {
+  isAuxiliaryPage,
   renderRankingIndexHtml,
   renderSeriesIndexHtml,
   renderWorkspaceIndexHtml,
@@ -544,6 +545,8 @@ async function seriesIndex(
         fleetName: pg.fleetName,
         ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
         ...(pg.isPrizes ? { isPrizes: true } : {}),
+      ...(pg.isEntryList ? { isEntryList: true } : {}),
+        ...(pg.isEntryList ? { isEntryList: true } : {}),
         ...(pg.isRaceResults ? { isRaceResults: true } : {}),
         subPath: pg.subPath,
       })),
@@ -563,7 +566,7 @@ async function seriesIndex(
       seasonTree,
       currentSlug: seriesSlug,
       pages: groups.flatMap((g) => {
-        const single = g.pages.filter((pg) => !pg.isPrizes).length === 1;
+        const single = g.pages.filter((pg) => !isAuxiliaryPage(pg)).length === 1;
         return g.pages.map((pg) => ({
           ...pg,
           ownerName: g.seriesName,
@@ -708,11 +711,12 @@ async function groupTreePages(group: PublishedSeries[]): Promise<TreePage[]> {
     })),
   );
   return withNames.flatMap((c) => {
-    const single = c.pages.filter((pg) => !pg.isPrizes).length === 1;
+    const single = c.pages.filter((pg) => !isAuxiliaryPage(pg)).length === 1;
     return c.pages.map((pg) => ({
       fleetName: pg.fleetName,
       ...(pg.subSeriesName ? { subSeriesName: pg.subSeriesName } : {}),
       ...(pg.isPrizes ? { isPrizes: true } : {}),
+      ...(pg.isEntryList ? { isEntryList: true } : {}),
       ...(pg.isRaceResults ? { isRaceResults: true } : {}),
       subPath: pg.subPath,
       ownerName: c.ownerName,

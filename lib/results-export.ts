@@ -9,9 +9,11 @@ import {
   renderSeriesHtml,
   renderCombinedSeriesHtml,
   renderPrizesHtml,
+  renderCompetitorListHtml,
   assembleSeriesResultsData,
   type SectionDetail,
   type SeriesResultsData,
+  type CompetitorListRow,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
 import {
@@ -26,14 +28,14 @@ import {
   resolveSeriesLogoDefaults,
   type ExportRepos,
 } from './public-export';
-import { loadSeriesSnapshot } from './series-snapshot';
+import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import { renderSplitFleetAssignmentsPage, renderSplitFleetStandingsPage } from './split-fleets-render';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
 import { seriesSlug } from './series-name';
-import type { ResultCode, PenaltyCode, Standing } from './types';
+import type { Competitor, ResultCode, PenaltyCode, Standing } from './types';
 
 /**
  * Builds one fleet's page data. `section` replaces the standings with a slice
@@ -92,7 +94,87 @@ export interface FleetHtmlFile {
   /** Set on the prize-sheet page (#240); `fleetName` is then "Prizes". The
    *  publish handler special-cases its default sub-path. */
   isPrizes?: boolean;
+  /** Set on the competitor-list page (#423); `fleetName` is then "Entries".
+   *  The only page a series with no races yet can publish. */
+  isEntryList?: boolean;
   html: string;
+}
+
+/**
+ * The competitor-list page (#423) — the entry list, buildable with no races
+ * sailed. Kept separate from the per-fleet build below because it shares none
+ * of its machinery: no standings, no scoring, no JSON export, nothing that
+ * needs a race to exist.
+ */
+async function buildCompetitorListFile(
+  snapshot: SeriesSnapshot,
+  seriesIndexUrl?: string,
+): Promise<FleetHtmlFile> {
+  const { series, competitors, fleets } = snapshot;
+  const fleetNameById = new Map(fleets.map((f) => [f.id, f.name]));
+  const enabledCompetitorFields =
+    series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
+  const flagSvgByCode =
+    enabledCompetitorFields.includes('nationality') && competitors.some((c) => c.nationality)
+      ? (await import('./nationality/flags')).NATIONAL_FLAGS
+      : undefined;
+
+  // Fleet display order, then sail number. The snapshot already sorts
+  // competitors by sail number, so a stable sort on fleet order is enough.
+  const fleetOrder = new Map(fleets.map((f, i) => [f.id, i]));
+  const firstFleetOrder = (c: Competitor): number =>
+    Math.min(...c.fleetIds.map((id) => fleetOrder.get(id) ?? Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
+  const ordered = [...competitors].sort((a, b) => firstFleetOrder(a) - firstFleetOrder(b));
+
+  const rows: CompetitorListRow[] = ordered.map((c) => ({
+    sailNumber: c.sailNumber,
+    ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+    ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+    ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
+    ...(c.boatName ? { boatName: c.boatName } : {}),
+    ...(c.boatClass ? { boatClass: c.boatClass } : {}),
+    names: c.names,
+    ...(c.owners?.length ? { owners: c.owners } : {}),
+    ...(c.helms?.length ? { helms: c.helms } : {}),
+    ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
+    ...(c.club ? { club: c.club } : {}),
+    ...(c.nationality ? { nationality: c.nationality } : {}),
+    ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
+    ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
+      ? { subdivisions: c.subdivisions }
+      : {}),
+    ...(c.gender ? { gender: c.gender } : {}),
+    ...(c.age != null ? { age: c.age } : {}),
+    fleetNames: c.fleetIds
+      .map((id) => fleetNameById.get(id))
+      .filter((n): n is string => !!n),
+  }));
+
+  return {
+    fleetName: 'Entries',
+    isDefault: false,
+    isEntryList: true,
+    html: renderCompetitorListHtml(
+      {
+        series: { name: series.name, venue: series.venue },
+        leftLogoUrl: series.venueLogoUrl || undefined,
+        rightLogoUrl: series.eventLogoUrl || undefined,
+        leftUrl: series.venueUrl || undefined,
+        rightUrl: series.eventUrl || undefined,
+        generatedAt: new Date(),
+        ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
+      },
+      rows,
+      {
+        enabledCompetitorFields,
+        subdivisionAxes: series.subdivisionAxes ?? [],
+        primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
+        ...(series.multiPersonFields ? { multiPersonFields: series.multiPersonFields } : {}),
+        multiFleet: fleets.length > 1,
+        ...(flagSvgByCode ? { flagSvgByCode } : {}),
+      },
+    ),
+  };
 }
 
 /** Build one HTML string per page: per fleet (or per (sub-series, fleet) when
@@ -118,11 +200,17 @@ export async function buildFleetHtmlFiles(
   // the publish path and preview pass the workspace's `prizes` feature state;
   // the FTP path never asks (its per-fleet path mapping has no slot for a
   // non-fleet page).
-  opts?: { includePrizes?: boolean },
+  // `includeEntryList` appends the competitor-list page (#423), gated on the
+  // workspace's `entry-list` feature by the publish path and preview. It is
+  // also the one page a series with no races can publish at all.
+  opts?: { includePrizes?: boolean; includeEntryList?: boolean },
 ): Promise<FleetHtmlFile[] | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
-  if (!snapshot || snapshot.competitors.length === 0 || snapshot.races.length === 0) {
-    return null;
+  if (!snapshot || snapshot.competitors.length === 0) return null;
+  if (snapshot.races.length === 0) {
+    // Before race one there are no results to render, but the entry list is
+    // exactly what an event wants published in that window.
+    return opts?.includeEntryList ? [await buildCompetitorListFile(snapshot, seriesIndexUrl)] : null;
   }
   // Split-fleet series (#328): the published output is the championship
   // standings page (tiered, fleet-tinted, cut line) plus the rolling
@@ -650,6 +738,12 @@ export async function buildFleetHtmlFiles(
         },
       ),
     });
+  }
+
+  // The competitor list (#423) closes the page list: series-wide, and the
+  // only page here that owes nothing to a race having been sailed.
+  if (opts?.includeEntryList) {
+    results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl));
   }
 
   return results.length > 0 ? results : null;

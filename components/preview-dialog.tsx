@@ -49,6 +49,7 @@ export interface PreviewDialogProps {
 export function PreviewDialog({ series, fleets, open, onClose, onPublish }: PreviewDialogProps) {
   const { has } = useFeatures();
   const includePrizes = has('prizes');
+  const includeEntryList = has('entry-list');
   const [files, setFiles] = useState<FleetHtmlFile[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'idle' | 'error'>('loading');
@@ -62,7 +63,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     setPhase('loading');
     setFiles(null);
     setSelected(0);
-    buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes })
+    buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes, includeEntryList })
       .then((built) => {
         if (cancelled) return;
         setFiles(built);
@@ -74,7 +75,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     return () => {
       cancelled = true;
     };
-  }, [open, series.id, includePrizes]);
+  }, [open, series.id, includePrizes, includeEntryList]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = files?.[selected] ?? null;
