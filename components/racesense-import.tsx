@@ -323,10 +323,12 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
                         <td className="p-2 space-y-1">
                           {race.result && (
                             <p>
-                              {race.result.summary.finishers} finished,{' '}
-                              {race.result.summary.coded} coded
-                              {race.result.summary.unresolved > 0 &&
-                                `, ${race.result.summary.unresolved} unresolved`}
+                              {[
+                                `${race.result.summary.finishers} finished`,
+                                race.result.summary.coded > 0 && `${race.result.summary.coded} coded`,
+                                race.result.summary.unresolved > 0 &&
+                                  `${race.result.summary.unresolved} unresolved`,
+                              ].filter(Boolean).join(', ')}
                             </p>
                           )}
                           {warnings.map((note, i) => (

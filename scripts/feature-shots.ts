@@ -1165,10 +1165,14 @@ const SHOTS: Shot[] = [
   },
   {
     // Inventory: RaceSense import — the plan dialog over the sample league.
-    // Operator-gated, so local mode flips the gate at the database. The
-    // workbook is uploaded twice: the first pass imports two of its three
-    // races, so the shot shows what the feature is actually for — two races
-    // reading back Unchanged beside the one still to do.
+    // Operator-gated, so local mode flips the gate at the database.
+    //
+    // The fixture workbook reproduces the sample series' own first three
+    // races, except that race 3's sheet disagrees with what's entered. So the
+    // dialog shows the states the feature exists for — two races confirming
+    // themselves, one that would change three boats and is left unticked —
+    // and the shot mutates nothing: the sample series is already scored, and
+    // importing over it would wreck every standings shot in the run.
     slug: 'racesense-import',
     group: 'Entering results',
     async capture({ page, seriesId, shot }) {
@@ -1177,16 +1181,18 @@ const SHOTS: Shot[] = [
       await page.goto(`${BASE}/series/${await seriesId()}/races`);
       await settle(page);
 
-      const workbook = join(__dirname, '../tests/fixtures/xlsx/racesense-sample-league.xlsx');
-      await page.getByTestId('racesense-input').setInputFiles(workbook);
+      await page
+        .getByTestId('racesense-input')
+        .setInputFiles(join(__dirname, '../tests/fixtures/xlsx/racesense-sample-league.xlsx'));
       await page.getByTestId('racesense-plan').waitFor();
-      await page.getByRole('checkbox', { name: 'Import Race 3' }).uncheck();
-      await page.getByTestId('racesense-confirm').click();
-      await page.getByTestId('racesense-plan').waitFor({ state: 'hidden' });
-      await settle(page);
-
-      await page.getByTestId('racesense-input').setInputFiles(workbook);
-      await page.getByTestId('racesense-plan').waitFor();
+      // Open race 3's diff and tick it: the picture worth having is the
+      // scorer deciding to take a disagreeing sheet, having read what it
+      // would change. Escape closes the dialog without writing any of it.
+      await page
+        .getByTestId('racesense-row-3')
+        .getByRole('button', { name: /^Show \d+ changes?$/ })
+        .click();
+      await page.getByRole('checkbox', { name: 'Import Race 3' }).check();
       await settle(page);
       await shot('racesense-import.png');
       await page.keyboard.press('Escape');

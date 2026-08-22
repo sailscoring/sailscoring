@@ -11,7 +11,7 @@ import e2e specs).
 | `edge-cases.xlsx` | formula with cached result, rich text, boolean, real date, General-format fraction, merged cells, mid-sheet empty row, phantom used-range out to Z50 |
 | `date1904.xlsx` | 1904-date-system workbook (legacy Mac Excel) with a time cell |
 | `racesense-regatta.xlsx` | a RaceSense regatta export in miniature — see below |
-| `racesense-sample-league.xlsx` | the same format at full size, over the sample club league's 45 boats; feeds the `racesense-import` feature shot, not a test |
+| `racesense-sample-league.xlsx` | the same format at full size — it reproduces the sample club league's own first three races, except that race 3's sheet disagrees with what the app holds. Feeds the `racesense-import` feature shot, not a test |
 
 ## `racesense-regatta.xlsx`
 
