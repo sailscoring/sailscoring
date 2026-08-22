@@ -248,6 +248,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
           // Editable sub-path only for not-yet-published pages.
           if (!isPub) initSubPaths[name] = defaultSubPath(name);
         }
+        // Always-published pages are never ticked or skipped, but their URL is
+        // the scorer's to set before it freezes, like every other page's.
+        for (const name of alwaysPublishedPages ?? []) {
+          if (!publishedByName.has(name)) initSubPaths[name] = fleetSubPath(name, false);
+        }
         setStatus(s);
         setSlug(pub?.slug ?? s.suggestedSlug);
         setSeason(s.suggestedSeason);
@@ -545,6 +550,16 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       } else if (!isPublished && !hasBlocks) {
         selection = { defaultSubPath: singlePath };
       }
+      // Always-published pages are never ticked or skipped, so they take no
+      // part in the selection above — but their URL is the scorer's until it
+      // freezes, like every other page's.
+      for (const name of alwaysPublishedPages ?? []) {
+        if (frozenPage(name)) continue;
+        const seg = subPaths[name] ?? '';
+        if (seg && seg !== fleetSubPath(name, false)) {
+          selection.subPaths = { ...(selection.subPaths ?? {}), [name]: seg };
+        }
+      }
       // Season mode (ADR-011): pages land under the event folder — every
       // editable page gets an explicit prefixed override, and a lone results
       // page lives at the folder itself.
@@ -566,6 +581,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
             selection.subPaths = {
               ...(selection.subPaths ?? {}),
               [name]: `${folderPrefix}/${subPaths[name] || defaultSubPath(name)}`,
+            };
+          }
+          for (const name of alwaysPublishedPages ?? []) {
+            if (frozenPage(name)) continue;
+            selection.subPaths = {
+              ...(selection.subPaths ?? {}),
+              [name]: `${folderPrefix}/${subPaths[name] || fleetSubPath(name, false)}`,
             };
           }
         }
@@ -979,9 +1001,16 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                       title="Published alongside the results page"
                     />
                     <span className="w-36 shrink-0 truncate text-sm">{name}</span>
-                    <span className="flex-1 min-w-0 truncate text-xs font-mono text-muted-foreground">
-                      {fleetSubPath(name, false)}
-                    </span>
+                    <Input
+                      value={subPaths[name] ?? ''}
+                      onChange={(e) => {
+                        setSubPaths((prev) => ({ ...prev, [name]: sanitizeSlug(e.target.value) }));
+                        setError(null);
+                      }}
+                      placeholder={fleetSubPath(name, false)}
+                      aria-label={`URL for ${name}`}
+                      className="flex-1 min-w-0 h-7 text-xs font-mono"
+                    />
                   </div>
                 ))}
               </div>

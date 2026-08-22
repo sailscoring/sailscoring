@@ -275,12 +275,17 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   await expect(dialog.getByText('Championship')).toBeVisible();
   await expect(dialog.getByText('Fleet assignments')).toBeVisible();
   await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeDisabled();
+  // Its URL is still the scorer's to set, even though the page itself is not
+  // optional — every other page's segment is editable before it freezes.
+  const assignmentsUrl = dialog.getByLabel('URL for Fleet assignments');
+  await expect(assignmentsUrl).toHaveValue('fleet-assignments');
+  await assignmentsUrl.fill('who-is-in-what-fleet');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
   // Both pages get URLs under /p/{ws}/2026/worlds-26/.
   const champLink = dialog.getByRole('link', { name: /worlds-26\/standings$/ });
   await expect(champLink).toBeVisible();
-  await expect(dialog.getByRole('link', { name: /worlds-26\/fleet-assignments$/ })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: /worlds-26\/who-is-in-what-fleet$/ })).toBeVisible();
   const champPath = new URL((await champLink.getAttribute('href')) ?? '').pathname;
 
   // The public championship page renders the combined qualifying table.
@@ -293,7 +298,7 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   await expect(page.getByRole('heading', { name: 'Publish Worlds' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Championship' })).toBeVisible();
   await page.getByRole('link', { name: 'Fleet assignments' }).click();
-  await expect(page).toHaveURL(/\/worlds-26\/fleet-assignments$/);
+  await expect(page).toHaveURL(/\/worlds-26\/who-is-in-what-fleet$/);
   await expect(page.getByText(/Preliminary series round 1/)).toBeVisible();
 });
 
