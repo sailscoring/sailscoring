@@ -49,12 +49,12 @@ export interface PublishDialogProps {
    *  there, and Preview calls it "Championship". Naming only; the sub-path is
    *  unchanged. */
   lonePageName?: string;
-  /** Pages the build emits alongside the lone results page that the dialog
-   *  cannot work out for itself, because they come from neither a fleet nor a
-   *  publishing group — a split-fleet series' rolling fleet-assignments page.
-   *  Listed so the dialog shows everything that will go public; they are not
-   *  optional, so they get the same fixed checkbox the results page does. */
-  alwaysPublishedPages?: string[];
+  /** Pages the build emits that the dialog cannot work out for itself,
+   *  because they come from neither a fleet nor a publishing group — a
+   *  split-fleet series' rolling fleet-assignments page. Named by the caller,
+   *  then treated like any other page: tickable, with an editable URL until
+   *  the first publish freezes it. */
+  extraPages?: string[];
 }
 
 /** Sanitise free-typed slug / sub-path input to the allowed character set. */
@@ -111,10 +111,11 @@ interface SuppressedRow {
 /** Pages that ride the publish machinery alongside a series' results pages,
  *  each with its own row in the dialog: the prize sheet (#240) and the
  *  competitor list (#423). Neither is a fleet's results, so neither counts
- *  when working out whether a publication has a lone results page. */
-const EXTRA_PAGE_NAMES = new Set(['Prizes', 'Entries']);
+ *  when working out whether a publication has a lone results page — and a
+ *  caller-declared page (`extraPages`) joins them. */
+const BUILT_IN_EXTRA_PAGES = ['Prizes', 'Entries'];
 
-export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageName, alwaysPublishedPages }: PublishDialogProps) {
+export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageName, extraPages }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
   const confirm = useConfirm();
   const { has } = useFeatures();
@@ -161,10 +162,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
     () => [
       ...resolvedGroups.map((r) => r.group.name.trim()),
       ...fleets.filter((f) => !suppressed.has(f.id)).map((f) => f.name),
+      ...(extraPages ?? []),
       ...(hasPrizes ? ['Prizes'] : []),
       ...(hasEntryList ? ['Entries'] : []),
     ],
-    [resolvedGroups, fleets, suppressed, hasPrizes, hasEntryList],
+    [resolvedGroups, fleets, suppressed, hasPrizes, hasEntryList, extraPages],
   );
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
@@ -217,10 +219,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
         ? 'prizes'
         : name === 'Entries'
           ? 'entries'
-          : loneFleet && !groupNames.has(name)
-            ? defaultPageSlug(raceResults)
-            : fleetSubPath(name, false);
-  }, [fleets.length, raceResults, groupNames]);
+          : // A caller-named page is served at its own name, never at the lone
+            // page's slug — it is a page beside the results, not the results.
+            (extraPages ?? []).includes(name)
+            ? fleetSubPath(name, false)
+            : loneFleet && !groupNames.has(name)
+              ? defaultPageSlug(raceResults)
+              : fleetSubPath(name, false);
+  }, [fleets.length, raceResults, groupNames, extraPages]);
 
   // Load publication state each time the dialog opens, and seed the per-fleet
   // selection + sub-paths from it. Syncing with the external open signal, so the
@@ -247,11 +253,6 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
           if (!pub || isPub) initSelected.add(name);
           // Editable sub-path only for not-yet-published pages.
           if (!isPub) initSubPaths[name] = defaultSubPath(name);
-        }
-        // Always-published pages are never ticked or skipped, but their URL is
-        // the scorer's to set before it freezes, like every other page's.
-        for (const name of alwaysPublishedPages ?? []) {
-          if (!publishedByName.has(name)) initSubPaths[name] = fleetSubPath(name, false);
         }
         setStatus(s);
         setSlug(pub?.slug ?? s.suggestedSlug);
@@ -381,11 +382,18 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
   // series' championship + fleet-assignments pages); null means one page and
   // the `singlePreview` link renders alone. Blocks link their index instead,
   // and the prizes page keeps its dedicated row.
+  // Rows the extra-pages block below owns. They must not also be listed as
+  // results pages, or a published page shows up twice.
+  const extraPageSet = useMemo(
+    () => new Set([...BUILT_IN_EXTRA_PAGES, ...(extraPages ?? [])]),
+    [extraPages],
+  );
+
   const publishedResultPages = useMemo(() => {
     if (hasBlocks) return null;
-    const pages = (published?.pages ?? []).filter((p) => !EXTRA_PAGE_NAMES.has(p.fleetName));
+    const pages = (published?.pages ?? []).filter((p) => !extraPageSet.has(p.fleetName));
     return pages.length > 1 ? pages : null;
-  }, [published, hasBlocks]);
+  }, [published, hasBlocks, extraPageSet]);
 
   // The single default page once published — the server's actual live page, used
   // for the frozen read-only link + Copy.
@@ -394,7 +402,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
     // preview is the results page. A publication that is *only* those (an
     // entry list published before race one) has no results page to preview,
     // and the lone row is left out rather than repeating a row below it.
-    const page = published?.pages.find((p) => !EXTRA_PAGE_NAMES.has(p.fleetName));
+    const page = published?.pages.find((p) => !extraPageSet.has(p.fleetName));
     if (published && !page) return null;
     return {
       fleetName: page?.fleetName ?? fleets[0]?.name ?? 'Standings',
@@ -406,7 +414,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
         : (page?.url ??
           `${urlPrefix}/${folderPrefix ? `${folderPrefix}/` : ''}${singlePath || 'standings'}`),
     };
-  }, [published, fleets, urlPrefix, singlePath, hasBlocks, folderPrefix]);
+  }, [published, fleets, urlPrefix, singlePath, hasBlocks, folderPrefix, extraPageSet]);
 
 
   // Client-side guard so the button reflects what the server would reject. The
@@ -428,6 +436,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
     ? []
     : [
         ...resolvedGroups.map((r) => r.group.name.trim()),
+        ...(extraPages ?? []),
         ...(hasPrizes ? ['Prizes'] : []),
         ...(hasEntryList ? ['Entries'] : []),
       ];
@@ -550,16 +559,6 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       } else if (!isPublished && !hasBlocks) {
         selection = { defaultSubPath: singlePath };
       }
-      // Always-published pages are never ticked or skipped, so they take no
-      // part in the selection above — but their URL is the scorer's until it
-      // freezes, like every other page's.
-      for (const name of alwaysPublishedPages ?? []) {
-        if (frozenPage(name)) continue;
-        const seg = subPaths[name] ?? '';
-        if (seg && seg !== fleetSubPath(name, false)) {
-          selection.subPaths = { ...(selection.subPaths ?? {}), [name]: seg };
-        }
-      }
       // Season mode (ADR-011): pages land under the event folder — every
       // editable page gets an explicit prefixed override, and a lone results
       // page lives at the folder itself.
@@ -581,13 +580,6 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
             selection.subPaths = {
               ...(selection.subPaths ?? {}),
               [name]: `${folderPrefix}/${subPaths[name] || defaultSubPath(name)}`,
-            };
-          }
-          for (const name of alwaysPublishedPages ?? []) {
-            if (frozenPage(name)) continue;
-            selection.subPaths = {
-              ...(selection.subPaths ?? {}),
-              [name]: `${folderPrefix}/${subPaths[name] || fleetSubPath(name, false)}`,
             };
           }
         }
@@ -986,33 +978,6 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                     className="flex-1 min-w-0 h-7 text-xs font-mono"
                   />
                 </div>
-                {/* Pages the build emits beside the results page. Shown so the
-                    dialog tells the whole truth about what goes public; their
-                    paths derive from the page name and aren't the scorer's to
-                    edit. */}
-                {(alwaysPublishedPages ?? []).map((name) => (
-                  <div key={name} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked
-                      disabled
-                      className="h-4 w-4 shrink-0"
-                      aria-label={`Publish ${name}`}
-                      title="Published alongside the results page"
-                    />
-                    <span className="w-36 shrink-0 truncate text-sm">{name}</span>
-                    <Input
-                      value={subPaths[name] ?? ''}
-                      onChange={(e) => {
-                        setSubPaths((prev) => ({ ...prev, [name]: sanitizeSlug(e.target.value) }));
-                        setError(null);
-                      }}
-                      placeholder={fleetSubPath(name, false)}
-                      aria-label={`URL for ${name}`}
-                      className="flex-1 min-w-0 h-7 text-xs font-mono"
-                    />
-                  </div>
-                ))}
               </div>
             )}
 

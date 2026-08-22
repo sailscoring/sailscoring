@@ -731,7 +731,7 @@ export default function CompetitorsPage({
             onClose={() => setShowPublishDialog(false)}
             canFtp={false}
             {...(isSplitFleetSeries
-              ? { lonePageName: 'Championship', alwaysPublishedPages: ['Fleet assignments'] }
+              ? { lonePageName: 'Championship', extraPages: ['Fleet assignments'] }
               : {})}
           />
         )}
