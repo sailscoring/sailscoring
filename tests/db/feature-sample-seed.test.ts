@@ -151,7 +151,9 @@ describe.skipIf(skip)('seedFeatureSample', () => {
       .select()
       .from(schema.fleets)
       .where(eq(schema.fleets.seriesId, series.id));
-    expect(fleetRows).toHaveLength(8);
+    // 2 qualifying + 2 reassigned + 2 final + the medal fleet, which the
+    // ceremony deals on its own — nobody else moves.
+    expect(fleetRows).toHaveLength(7);
     const roundIds = new Set(rounds.map((r) => r.id));
     for (const f of fleetRows) {
       expect(f.splitRoundId).toBeTruthy();
