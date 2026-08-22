@@ -170,8 +170,21 @@ function normalizeHeader(header: string): string {
  * Fleets step offers to split it by any column the scorer picks.
  */
 export function isGroupingHeader(header: string): boolean {
-  return /\bfleet\b/.test(normalizeHeader(header));
+  const h = normalizeHeader(header);
+  // "Initial fleet" names one boat's assignment, not the axis the entry list
+  // is split along — it is a field of its own (see `INITIAL_FLEET_HEADER`).
+  return /\bfleet\b/.test(h) && !INITIAL_FLEET_HEADER.test(h);
 }
+
+/**
+ * A header naming the fleet a seeding committee assigned the boat to, rather
+ * than a fleet the entry list is divided into. Qualified spellings only —
+ * a bare "Fleet" column is the grouping column on an ordinary series, and is
+ * read as the assignment only on a split-fleet series, where the fleets
+ * belong to the assignment rounds and there is nothing to group.
+ */
+const INITIAL_FLEET_HEADER =
+  /\b(initial|assigned?|allocated?|seed(ing)?|start(ing)?|preliminary|qualifying)\b.{0,4}\b(fleet|group|colou?r)\b/;
 
 /** Auto-detect the most-likely field role for a CSV column header. */
 export function autoDetectField(header: string): CompetitorField {
@@ -185,6 +198,9 @@ export function autoDetectField(header: string): CompetitorField {
   if (/sail/.test(h)) return 'sailNumber';
   if (/\bbow\b/.test(h)) return 'bowNumber';
   if (/entry\s*(number|no|id|#)?/.test(h)) return 'entryNumber';
+  // Before the seeding rule: "Seeding fleet" carries both words, and it is
+  // the assignment, not the rank.
+  if (INITIAL_FLEET_HEADER.test(h)) return 'initialFleet';
   if (/\bseed(ing)?\b|\brank(ing)?\b/.test(h)) return 'seed';
   if (/\bboat\b/.test(h)) return 'boatName';
   if (/\bclass\b/.test(h)) return 'boatClass';
@@ -220,6 +236,28 @@ export function autoDetectField(header: string): CompetitorField {
   if (/\becho\b|echo.*tcf|echo.*rating|echo.*handicap/.test(h)) return 'echoStartingTcf';
   if (/starting.*tcf/.test(h)) return 'nhcStartingTcf';
   return 'ignore';
+}
+
+/**
+ * What a seeding-ish column on a split-fleet series' entry list actually
+ * carries: the committee's ranking (`seed`) or the assignment it made from
+ * one (`initialFleet`).
+ *
+ * The cells decide, not the header — committees label the column "Fleet",
+ * "Seeding", "Group" and worse, and the two kinds of value look nothing
+ * alike. Every non-blank cell a positive whole number is a ranking; anything
+ * else is a set of fleet labels. Returns null when the column is empty, or
+ * when the caller should leave the header's own detection alone.
+ *
+ * The one case this cannot read is a committee that numbers its fleets
+ * 1/2/3 — indistinguishable from a ranking, and deliberately not guessed at:
+ * the scorer picks the target in the mapping dropdown instead, and the seed
+ * dialog's preview shows the resulting fleet sizes before anything commits.
+ */
+export function routeSeedingColumn(values: readonly string[]): 'seed' | 'initialFleet' | null {
+  const filled = values.map((v) => v.trim()).filter((v) => v.length > 0);
+  if (filled.length === 0) return null;
+  return filled.every((v) => /^\d+$/.test(v) && parseInt(v, 10) > 0) ? 'seed' : 'initialFleet';
 }
 
 /**

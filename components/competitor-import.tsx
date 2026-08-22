@@ -31,6 +31,7 @@ import {
   relayFieldOf,
   splitPersonCell,
   isGroupingHeader,
+  routeSeedingColumn,
   NEW_AXIS_TARGET,
   RELAY_FIELDS,
   type CompetitorField,
@@ -750,10 +751,12 @@ function FleetsDialogBody({
   flow,
   setFlow,
   fleets,
+  splitFleetSeries,
 }: {
   flow: MappingFlow;
   setFlow: React.Dispatch<React.SetStateAction<ImportFlow>>;
   fleets: Fleet[];
+  splitFleetSeries?: boolean;
 }) {
   const { has } = useFeatures();
 
@@ -787,6 +790,7 @@ function FleetsDialogBody({
       plan={plan}
       fleets={fleets}
       has={has}
+      splitFleetSeries={splitFleetSeries}
       onColumnMapChange={setColumn}
       onGroupByColumnChange={setGroupByColumn}
       onOverridesChange={setOverrides}
@@ -1149,6 +1153,7 @@ export interface CompetitorImportHandle {
  * @param onComplete - Called after import completes (with results) or is dismissed
  * @param trigger - Optional custom trigger element. If omitted, renders a default button.
  * @param csvOnly - Keep the plain CSV flow even when rrs-import is on (the new-series setup wizard).
+ * @param splitFleetSeries - The series is a split-fleet championship: a fleet column is the seeding committee's assignment, not an axis to create fleets along.
  */
 export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   seriesId: string;
@@ -1156,7 +1161,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   onComplete?: (result: ImportResult | null) => void;
   trigger?: React.ReactNode;
   csvOnly?: boolean;
-}>(function CompetitorImport({ seriesId, fleets, onComplete, trigger, csvOnly }, ref) {
+  splitFleetSeries?: boolean;
+}>(function CompetitorImport({ seriesId, fleets, onComplete, trigger, csvOnly, splitFleetSeries }, ref) {
   const updateSeries = useUpdateSeries();
   const saveFleets = useSaveFleets();
   const saveCompetitors = useSaveCompetitors();
@@ -1261,6 +1267,19 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       }
     });
 
+    // On a split-fleet series the entry list carries whatever the seeding
+    // committee handed over — a ranking or the assignment it made from one —
+    // and committees label that column every way there is. So for the columns
+    // that could be either, the cells decide.
+    if (splitFleetSeries) {
+      headers.forEach((h, i) => {
+        const detected = initialMap[i];
+        if (detected !== 'seed' && detected !== 'initialFleet' && !isGroupingHeader(h)) return;
+        const routed = routeSeedingColumn(dataRows.map((r) => r[i] ?? ''));
+        if (routed) initialMap[i] = routed;
+      });
+    }
+
     const existingCompetitors = await competitorRepo.listBySeries(seriesId);
     const firstImport = existingCompetitors.length === 0;
     const currentPrimary = series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL;
@@ -1279,8 +1298,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     const columnMap = reconcileColumnMap(initialMap, proposedPrimary);
 
     // The column that splits competitors into fleets. Not a field role, so
-    // it keeps whatever mapping it has.
-    const groupByColumn = headers.findIndex((h) => isGroupingHeader(h));
+    // it keeps whatever mapping it has. A split-fleet series has no such
+    // column: its fleets are created and filled by the assignment rounds, so
+    // a fleet column there is the committee's assignment (routed above) and
+    // the import creates no fleets at all.
+    const groupByColumn = splitFleetSeries ? -1 : headers.findIndex((h) => isGroupingHeader(h));
 
     // A grouping column often doubles as the class label ("Cruisers 2",
     // "Laser"). When nothing else supplies a boat class, propose recording
@@ -2012,7 +2034,12 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                   boat in several fleets, e.g. <code>PY|M15</code>.
                 </DialogDescription>
               </DialogHeader>
-              <FleetsDialogBody flow={importFlow} setFlow={setImportFlow} fleets={fleets} />
+              <FleetsDialogBody
+                flow={importFlow}
+                setFlow={setImportFlow}
+                fleets={fleets}
+                splitFleetSeries={splitFleetSeries}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={resetImport}>Cancel</Button>
                 <Button

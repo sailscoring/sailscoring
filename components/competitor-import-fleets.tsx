@@ -131,6 +131,7 @@ export function FleetsStepBody({
   plan,
   fleets,
   has,
+  splitFleetSeries,
   onColumnMapChange,
   onGroupByColumnChange,
   onOverridesChange,
@@ -144,6 +145,9 @@ export function FleetsStepBody({
   /** Fleets already in the series, for the "existing" hint. */
   fleets: Fleet[];
   has: (key: FeatureKey) => boolean;
+  /** A split-fleet championship: the fleets are the assignment rounds' to
+   *  create and fill, so this step groups nothing. */
+  splitFleetSeries?: boolean;
   onColumnMapChange: (col: number, target: ColumnTarget) => void;
   onGroupByColumnChange: (col: number | null) => void;
   onOverridesChange: (next: FleetPlanOverrides) => void;
@@ -266,6 +270,17 @@ export function FleetsStepBody({
     <div className="space-y-4 overflow-y-auto max-h-[60vh]">
       {/* ── The two column decisions this step owns ─────────────────────── */}
       <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+        {splitFleetSeries ? (
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="text-sm font-medium w-28 shrink-0">Fleets</span>
+            <span className="text-xs text-muted-foreground">
+              Assigned, not imported — the qualifying fleets are created when
+              you assign the first round. A fleet column on this sheet is read
+              as the seeding committee&rsquo;s assignment, and you can seed the
+              round from it there.
+            </span>
+          </div>
+        ) : (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium w-28 shrink-0">Group boats by</span>
           <Select
@@ -291,6 +306,7 @@ export function FleetsStepBody({
             </span>
           )}
         </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium w-28 shrink-0">Ratings</span>

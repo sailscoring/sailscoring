@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, splitPersonCell } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
   it('returns a single name for a plain cell', () => {
@@ -225,5 +225,63 @@ describe('seeding rank detection', () => {
     expect(autoDetectField('Seeding rank')).toBe('seed');
     expect(autoDetectField('Rank')).toBe('seed');
     expect(autoDetectField('Seed')).toBe('seed');
+  });
+});
+
+describe('initial-fleet detection', () => {
+  it('detects a header naming the fleet the committee assigned', () => {
+    expect(autoDetectField('Initial fleet')).toBe('initialFleet');
+    expect(autoDetectField('Assigned fleet')).toBe('initialFleet');
+    expect(autoDetectField('Seeding fleet')).toBe('initialFleet');
+    expect(autoDetectField('Qualifying group')).toBe('initialFleet');
+    expect(autoDetectField('Starting colour')).toBe('initialFleet');
+  });
+
+  it('reads a qualified fleet header as the assignment, not as grouping', () => {
+    expect(isGroupingHeader('Initial fleet')).toBe(false);
+    expect(isGroupingHeader('Assigned Fleet')).toBe(false);
+  });
+
+  it('leaves a bare fleet column as the grouping column', () => {
+    // On an ordinary series that column splits the entry list into fleets;
+    // a split-fleet series routes it by its cells instead.
+    expect(isGroupingHeader('Fleet')).toBe(true);
+    expect(autoDetectField('Fleet')).toBe('ignore');
+  });
+});
+
+describe('routeSeedingColumn', () => {
+  it('reads whole numbers as a ranking', () => {
+    expect(routeSeedingColumn(['1', '2', '3', '4'])).toBe('seed');
+  });
+
+  it('reads labels as an assignment', () => {
+    expect(routeSeedingColumn(['Yellow', 'Blue', 'Red', 'Yellow'])).toBe('initialFleet');
+  });
+
+  it('reads a single non-numeric cell as an assignment', () => {
+    // A partly-filled column still says which kind it is.
+    expect(routeSeedingColumn(['', 'Yellow', '', ''])).toBe('initialFleet');
+  });
+
+  it('ignores blanks when deciding', () => {
+    expect(routeSeedingColumn(['1', '', ' 2 ', ''])).toBe('seed');
+  });
+
+  it('reads a mixed column as an assignment', () => {
+    // "Yellow / 2" is not a ranking, whatever else it is.
+    expect(routeSeedingColumn(['1', 'Yellow'])).toBe('initialFleet');
+  });
+
+  it('declines to decide an empty column', () => {
+    expect(routeSeedingColumn(['', '  ', ''])).toBeNull();
+    expect(routeSeedingColumn([])).toBeNull();
+  });
+
+  it('reads fleets numbered 1/2/3 as a ranking — the case it cannot see', () => {
+    // Documented, not desired: the scorer re-points the column in the
+    // mapping dropdown, and the seed dialog shows the fleet sizes before
+    // anything commits.
+    expect(routeSeedingColumn(['1', '2', '3', '1', '2', '3'])).toBe('seed');
   });
 });

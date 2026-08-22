@@ -66,6 +66,7 @@ import {
 } from '@/components/competitor-form';
 import { UpdateHandicaps, type UpdateHandicapsHandle } from '@/components/update-handicaps';
 import { pickableFleets } from '@/lib/split-fleets';
+import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import type { Competitor, Fleet, CompetitorFieldKey, Finish, PrimaryPersonLabel, RaceRatingOverride } from '@/lib/types';
 import {
   missingRatings,
@@ -340,6 +341,12 @@ export default function CompetitorsPage({
   // Round-owned fleets (split-fleet ceremonies) stay visible in the table's
   // Fleet column but are never offered for manual assignment or import.
   const assignableFleets = pickableFleets(fleets ?? []);
+  // A split-fleet series' entry list carries the seeding committee's work —
+  // a ranking or the assignment itself — and creates no fleets on import.
+  const { data: splitFleetState } = useSplitFleetState(seriesId, {
+    enabled: features.has('split-fleets'),
+  });
+  const isSplitFleetSeries = !!splitFleetState?.config;
   const bulkFieldOptions = bulkEditFieldOptions(enabledFields, axes, assignableFleets);
 
   useShortcuts([
@@ -672,6 +679,7 @@ export default function CompetitorsPage({
               ref={importRef}
               seriesId={seriesId}
               fleets={assignableFleets}
+              splitFleetSeries={isSplitFleetSeries}
             />
             {hasWorldSailingId && (
               <>
