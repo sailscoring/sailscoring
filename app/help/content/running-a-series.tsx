@@ -596,6 +596,20 @@ export default function RunningASeries() {
             decided that evening re-scores the standings but never re-deals fleets already racing.
           </p>
           <p>
+            Often the committee hands over the assignment already made rather than an order to
+            deal from — each boat down as Yellow, Blue or Red on the entry list. Import that
+            list with the fleet column on it and Round 1 offers{' '}
+            <strong className="text-foreground">the entry list’s initial fleet</strong> as the
+            source, taking the fleets exactly as given. On a split-fleet championship the
+            importer creates no fleets of its own — the rounds own them — so a fleet column
+            there is read as the assignment, and a seeding column of ranks still lands on{' '}
+            <strong className="text-foreground">Seeding rank</strong> as before; whichever kind
+            of column it is, the import tells them apart by what is in the cells. Anyone the
+            list places nowhere, or places in a fleet the championship doesn’t have, is listed
+            with no fleet and named in the dialog — the round won’t commit until you have put
+            them somewhere.
+          </p>
+          <p>
             A qualifying race <strong className="text-foreground">counts only once every fleet
             has completed it</strong> — until then its column is greyed in the standings, matching
             the abandon-and-cancel rule in championship sailing instructions. The fleets start in

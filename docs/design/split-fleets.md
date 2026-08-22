@@ -624,9 +624,21 @@ exist, but an externally-supplied ranking is a distinct value with nowhere
 to live — which is exactly why Sailwave carries a dedicated Seeding field.
 The seed order function therefore reads one of: `seed` (when the OA supplied
 a ranking), nationality-then-sail (spread), or plain sail number. The CSV
-import's seeding column (below) populates `seed`. It is workspace-local like
-the other assignment inputs — carried in the file format but not the public
-export (the seeding list is operational, not a result).
+import's seeding column (below) populates `seed`. It is carried in the file
+format and in the public export — a published assignment is unexplainable
+without the ranking it was dealt from.
+
+**`Competitor` gains an optional `initialFleet?: string`** — the qualifying
+fleet the committee assigned the boat to, as they wrote it. A sibling of
+`seed`, not a second meaning for it: a committee that hands over the
+assignment rather than an order has made a judgment ("equal size **and
+ability**") no ordering reproduces, and fleet labels are free text, so a
+committee numbering its fleets 1/2/3 would make one overloaded column
+indistinguishable from a ranking. The two also coexist — a committee can
+supply the ranking and the colours it drew from it. Round 1 can be assigned
+straight from it (`assignFromInitialFleet`), committing as `manual`; the CSV
+import routes a seeding-ish column to one field or the other by what its
+cells hold.
 
 **`Competitor` also gains an optional `entryNumber?: string`** — the OA's
 registration/admin number on the entry list. It sits alongside the existing
@@ -759,8 +771,8 @@ recomputable. Two consequences:
   starts already do); omitting any of it is silent data loss.
 - **Public JSON export** carries the same (fleet assignments are public
   information — they're on every published results page); CSV import
-  should accept a seeding column (Sailwave-compatible ingest of an OA
-  seeding list).
+  accepts a seeding column (Sailwave-compatible ingest of an OA seeding
+  list) and an initial-fleet column (the assignment itself).
 
 ## Part 3 — UX (high level)
 
@@ -794,9 +806,9 @@ captured 20:00"), per-fleet rosters, overrides, and published state, with
 these actions:
 
 - **Seed initial fleets** — order-source choice (`seed` column from CSV,
-  nationality-spread, sail number) *or* the committee's named lists entered
-  directly; an editable preview (drag a boat, recorded as an override),
-  saved as round 1.
+  nationality-spread, sail number) *or* the committee's assignment as
+  imported (`initialFleet`); an editable preview (move a boat, recorded as
+  an override), saved as round 1.
 - **Reassign for tomorrow** — the rank-pattern reassignment over current
   standings, with a side-by-side preview (who moves where) before
   committing; the snapshot basis is recorded automatically. The tool
@@ -956,8 +968,8 @@ for.
 5. **Sailwave import.** Should `sailwave-import` learn to ingest a
    qualifying/final .blw (flight columns, LE tab, CarriedFwd) — useful
    for adopting an in-progress event or cross-checking against another
-   scorer's file — or is a Seeding rank column on the entry list enough
-   for v1?
+   scorer's file — or are the entry list's own seeding and initial-fleet
+   columns enough for v1?
 6. **The config-editability contract.** SIs get amended mid-event (the 2026
    NoR added a medal series 2025 didn't have; the 2025 IODA scorer applied a
    per-fleet finals code base a year before the SI codified it), so the

@@ -909,14 +909,13 @@ fleets, then Gold/Silver/Bronze final fleets — is designed in
 [`docs/design/split-fleets.md`](split-fleets.md) (primer,
 data model, UX, rollout), and shipped behind the `split-fleets` gate. All
 three carry modes are now scored and authorable, including the 29er
-net-plus-net and Topper rank-as-seed ones the design deferred.
+net-plus-net and Topper rank-as-seed ones the design deferred, and the
+committee's own initial assignment now arrives as a column on the entry list
+(`Competitor.initialFleet`), which Round 1 can be assigned from directly.
 
 What stays on the horizon: knockout medal-series brackets (iQFOiL / Formula
 Kite quarter/semi/grand finals scored on match points — not low-point
-arithmetic at all); and manual initial fleet assignment supplied by the
-committee as a spreadsheet column on competitor import (the in-app assignment dialog covers
-seeding rank, nationality spread, and sail-number orders; a pasted-list entry
-mode was tried and dropped).
+arithmetic at all).
 
 ### Radio sailing and the Heat Management System (HMS)
 

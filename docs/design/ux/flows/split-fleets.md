@@ -180,19 +180,28 @@ this boat in Blue?" is always one glance away:
 
 `[ Create Round 1 ]` opens the seeding dialog:
 
-1. Choose the order source: the competitors' seeding column (the `seed`
-   field, imported via CSV), nationality-spread, or sail-number order — or
-   **enter the assignment directly**. A seeding committee doesn't always
-   hand over an *order*; the SI is "as nearly as possible, equal size **and
-   ability**", and the ability judgment is human, so the dialog also accepts
-   the committee's named lists (paste/import per colour, Sailwave-style). The
-   chosen source is recorded on the round.
-2. Preview: the full assignment table (rank order → fleet), with fleet-size
-   totals and a per-nation spread summary when nationality-spread is used.
-   **The preview is editable** — the scorer can drag a boat between fleets
-   before committing (the committee's ability tweaks, a hull that must join a
-   compatriot's fleet), and those hand-moves are recorded as overrides on top
-   of the computed order.
+1. Choose where the assignment comes from. Three of the four are *orders*,
+   dealt through the reassignment pattern: the competitors' seeding column
+   (the `seed` field, imported via CSV), nationality-spread, or sail-number
+   order. The fourth is not an order at all — **the entry list's initial
+   fleet** (`Competitor.initialFleet`, imported the same way), the assignment
+   the committee already made, taken as given. It exists because a seeding
+   committee doesn't always hand over an *order*: the SI is "as nearly as
+   possible, equal size **and ability**", and the ability judgment is human,
+   so no order reproduces it. It leads the list when the entry list carries
+   one, and the round then commits as `manual` rather than `seeded` — the app
+   performed no seeding.
+2. Preview: the full assignment table, with fleet-size totals and a per-nation
+   spread summary when nationality-spread is used. Ordered by rank under the
+   three order sources, and by fleet then sail number under the imported one,
+   which is how the committee's own lists read. **The preview is editable** —
+   the scorer can move a boat between fleets before committing (the
+   committee's ability tweaks, a hull that must join a compatriot's fleet),
+   and those hand-moves are recorded as overrides on top of the computed
+   assignment. Under the imported source a boat the entry list placed nowhere,
+   or placed in a fleet the championship doesn't have, sits in the table with
+   no fleet — the unmatched labels are named above it and the commit is held
+   until every boat has one.
 3. Commit. The automation then: creates the round's fleets ("Yellow",
    "Blue", "Red"), assigns every competitor, creates the physical races the
    round covers (Q1·Y, Q1·B, Q1·R, Q2·Y, …) each with its fleet-scoped
