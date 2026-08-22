@@ -228,6 +228,18 @@ describe('seeding rank detection', () => {
   });
 });
 
+describe('tally-number detection', () => {
+  it('detects a header naming the safety tally', () => {
+    expect(autoDetectField('Tally')).toBe('tallyNumber');
+    expect(autoDetectField('Tally number')).toBe('tallyNumber');
+    expect(autoDetectField('Tally No.')).toBe('tallyNumber');
+  });
+
+  it('does not claim an unrelated header that merely contains the letters', () => {
+    expect(autoDetectField('Totally Awesome')).not.toBe('tallyNumber');
+  });
+});
+
 describe('initial-fleet detection', () => {
   it('detects a header naming the fleet the committee assigned', () => {
     expect(autoDetectField('Initial fleet')).toBe('initialFleet');

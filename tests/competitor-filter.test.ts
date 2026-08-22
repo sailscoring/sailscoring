@@ -90,6 +90,10 @@ describe('competitorMatchesFilter over the other identifiers', () => {
     expect(competitorMatchesFilter(competitor({ entryNumber: '108' }), '108')).toBe(true);
   });
 
+  test('finds a boat by its tally number', () => {
+    expect(competitorMatchesFilter(competitor({ tallyNumber: 'T0042' }), 'T0042')).toBe(true);
+  });
+
   test('does not match a number no identifier carries', () => {
     const c = competitor({ alternativeSailNumbers: ['IRL 99'], bowNumber: '42' });
     expect(competitorMatchesFilter(c, '77')).toBe(false);

@@ -259,6 +259,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   bowNumber: 'Bow number',
   alternativeSailNumbers: 'Alternative sail numbers',
   entryNumber: 'Entry number',
+  tallyNumber: 'Tally number',
   seed: 'Seeding rank',
   initialFleet: 'Initial fleet',
   worldSailingId: 'World Sailing ID',
@@ -304,6 +305,7 @@ function buildFieldLabels(
     bowNumber: STATIC_FIELD_LABELS.bowNumber,
     alternativeSailNumbers: STATIC_FIELD_LABELS.alternativeSailNumbers,
     entryNumber: STATIC_FIELD_LABELS.entryNumber,
+    tallyNumber: STATIC_FIELD_LABELS.tallyNumber,
     seed: STATIC_FIELD_LABELS.seed,
     initialFleet: STATIC_FIELD_LABELS.initialFleet,
     worldSailingId: STATIC_FIELD_LABELS.worldSailingId,
@@ -1537,6 +1539,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let bowNumber = '';
       let alternativeSailNumbers: string[] = [];
       let entryNumber = '';
+      let tallyNumber = '';
       let seed: number | undefined;
       let initialFleet = '';
       let worldSailingId: string | undefined;
@@ -1564,6 +1567,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'bowNumber') bowNumber = val;
         else if (field === 'alternativeSailNumbers') alternativeSailNumbers = parseAlternativeSailNumbers(val);
         else if (field === 'entryNumber') entryNumber = val;
+        else if (field === 'tallyNumber') tallyNumber = val;
         else if (field === 'seed') seed = parseInt(val, 10) || undefined;
         else if (field === 'initialFleet') initialFleet = val;
         else if (field === 'worldSailingId') worldSailingId = normalizeWorldSailingId(val);
@@ -1684,6 +1688,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(entryNumber || existingCompetitor?.entryNumber
           ? { entryNumber: entryNumber || existingCompetitor?.entryNumber }
           : {}),
+        ...(tallyNumber || existingCompetitor?.tallyNumber
+          ? { tallyNumber: tallyNumber || existingCompetitor?.tallyNumber }
+          : {}),
         ...(seed != null || existingCompetitor?.seed != null
           ? { seed: seed ?? existingCompetitor?.seed }
           : {}),
@@ -1726,6 +1733,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         (existingCompetitor.alternativeSailNumbers ?? []).join('\u0000') ===
           (competitor.alternativeSailNumbers ?? []).join('\u0000') &&
         (existingCompetitor.entryNumber ?? '') === (competitor.entryNumber ?? '') &&
+        (existingCompetitor.tallyNumber ?? '') === (competitor.tallyNumber ?? '') &&
         (existingCompetitor.seed ?? null) === (competitor.seed ?? null) &&
         (existingCompetitor.initialFleet ?? '') === (competitor.initialFleet ?? '') &&
         (existingCompetitor.worldSailingId ?? '') === (competitor.worldSailingId ?? '') &&

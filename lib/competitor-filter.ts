@@ -17,6 +17,7 @@ function haystack(c: Competitor): string {
     ...(c.alternativeSailNumbers ?? []),
     c.bowNumber,
     c.entryNumber,
+    c.tallyNumber,
     c.boatName,
     c.boatClass,
     ...c.names,

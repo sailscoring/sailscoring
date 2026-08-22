@@ -48,6 +48,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
       'bowNumber',
       'alternativeSailNumbers',
       'entryNumber',
+      'tallyNumber',
       'seed',
       'initialFleet',
       'worldSailingId',

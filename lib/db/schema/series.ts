@@ -427,6 +427,7 @@ export const competitors = pgTable(
     // Split-fleet championships: the OA's registration number and seeding
     // rank (docs/design/split-fleets.md). Sparse; both nullable.
     entryNumber: text('entry_number'),
+    tallyNumber: text('tally_number'),
     seed: integer('seed'),
     // The qualifying fleet the seeding committee assigned the boat to, in
     // their own spelling — the assignment itself, where `seed` is the order

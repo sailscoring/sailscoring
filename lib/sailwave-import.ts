@@ -51,6 +51,10 @@ export interface SailwaveCompetitorRaw {
   comphelmname?: string;
   compcrewname?: string;
   compclub?: string;
+  /** Sailwave's built-in tally field. Free text — bare integers in club files,
+   *  zero-padded ("T0001") at championships. Its title is renameable, so a
+   *  scorer may have repurposed the column; we import the value as-is. */
+  comptally?: string;
   compnat?: string;
   compfleet?: string;
   compclass?: string;
@@ -1262,6 +1266,7 @@ interface CompetitorBuild {
   fleetIds: string[];
   sailNumber: string;
   alternativeSailNumbers?: string[];
+  tallyNumber?: string;
   boatName?: string;
   boatClass?: string;
   name: string;
@@ -1468,6 +1473,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.alternativeSailNumbers?.length
         ? { alternativeSailNumbers: c.alternativeSailNumbers }
         : {}),
+      ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: [c.name],
@@ -1646,6 +1652,7 @@ function buildCompetitors(
       age: null,
     };
     if (v.compboat?.trim()) built.boatName = v.compboat.trim();
+    if (v.comptally?.trim()) built.tallyNumber = v.comptally.trim();
     // Sailwave's alternate sail number: one value, often blank. It maps onto
     // the list, which is the same idea with room for more than one. Dropped
     // when it merely repeats the registered number.
@@ -1898,6 +1905,7 @@ function groupResultsByRace(
  *  will see populated — leaving Helm/Class/Club enabled on a file that never
  *  fills them in just gives blank columns to clean up. */
 interface CompetitorDataFlags {
+  hasTallyNumber: boolean;
   hasBoatName: boolean;
   hasBoatClass: boolean;
   hasHelm: boolean;
@@ -1910,6 +1918,7 @@ interface CompetitorDataFlags {
 
 function dataFlagsFor(competitors: ReadonlyArray<CompetitorBuild>): CompetitorDataFlags {
   return {
+    hasTallyNumber: competitors.some((c) => !!c.tallyNumber),
     hasBoatName: competitors.some((c) => !!c.boatName),
     hasBoatClass: competitors.some((c) => !!c.boatClass),
     // Helm is stored on `name` (the primary identifier slot); only flag it
@@ -1932,6 +1941,7 @@ function buildEnabledFields(
   // label: 'helm'/'owner' as the primary slot means the matching role field
   // would duplicate the primary, so it stays disabled.
   const fields: SeriesFile['series']['enabledCompetitorFields'] = [];
+  if (flags.hasTallyNumber) fields.push('tallyNumber');
   if (flags.hasBoatName) fields.push('boatName');
   if (flags.hasBoatClass) fields.push('boatClass');
   if (flags.hasHelm && primary !== 'helm' && primary !== 'owner') fields.push('helm');

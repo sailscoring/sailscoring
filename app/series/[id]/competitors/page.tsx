@@ -424,6 +424,7 @@ export default function CompetitorsPage({
         return alts.length ? { alternativeSailNumbers: alts } : {};
       })(),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
+      ...(data.tallyNumber.trim() ? { tallyNumber: data.tallyNumber.trim() } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
       ...(data.initialFleet.trim() ? { initialFleet: data.initialFleet.trim() } : {}),
       ...((): { worldSailingId?: string } => {
@@ -478,6 +479,7 @@ export default function CompetitorsPage({
         return alts.length ? { alternativeSailNumbers: alts } : {};
       })(),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
+      ...(data.tallyNumber.trim() ? { tallyNumber: data.tallyNumber.trim() } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
       ...(data.initialFleet.trim() ? { initialFleet: data.initialFleet.trim() } : {}),
       ...((): { worldSailingId?: string } => {
@@ -523,6 +525,7 @@ export default function CompetitorsPage({
       delete updated.alternativeSailNumbers;
     }
     if (!data.entryNumber.trim()) delete updated.entryNumber;
+    if (!data.tallyNumber.trim()) delete updated.tallyNumber;
     if (!(parseInt(data.seed, 10) > 0)) delete updated.seed;
     if (!data.initialFleet.trim()) delete updated.initialFleet;
     if (!normalizeWorldSailingId(data.worldSailingId)) delete updated.worldSailingId;
@@ -572,6 +575,7 @@ export default function CompetitorsPage({
   const showBow = enabledFields.includes('bowNumber');
   const showAlternatives = enabledFields.includes('alternativeSailNumbers');
   const showEntryNumber = enabledFields.includes('entryNumber');
+  const showTallyNumber = enabledFields.includes('tallyNumber');
   const showSeed = enabledFields.includes('seed');
   const showInitialFleet = enabledFields.includes('initialFleet');
   const showWorldSailingId = enabledFields.includes('worldSailingId');
@@ -616,6 +620,9 @@ export default function CompetitorsPage({
       : []),
     ...(showEntryNumber
       ? [col('entryNumber', (a, b) => compareSailNumbers(a.entryNumber ?? '', b.entryNumber ?? ''))]
+      : []),
+    ...(showTallyNumber
+      ? [col('tallyNumber', (a, b) => compareSailNumbers(a.tallyNumber ?? '', b.tallyNumber ?? ''))]
       : []),
     ...(showSeed ? [col('seed', (a, b) => compareNumeric(a.seed, b.seed))] : []),
     ...(showInitialFleet
@@ -803,6 +810,7 @@ export default function CompetitorsPage({
               {showBow && <SortableTableHead columnId="bowNumber" sortKeys={sortKeys} onSort={handleSort}>Bow no.</SortableTableHead>}
               {showAlternatives && <SortableTableHead columnId="alternativeSailNumbers" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Also sails as</SortableTableHead>}
               {showEntryNumber && <SortableTableHead columnId="entryNumber" sortKeys={sortKeys} onSort={handleSort}>Entry no.</SortableTableHead>}
+              {showTallyNumber && <SortableTableHead columnId="tallyNumber" sortKeys={sortKeys} onSort={handleSort}>Tally</SortableTableHead>}
               {showSeed && <SortableTableHead columnId="seed" sortKeys={sortKeys} onSort={handleSort}>Seeding rank</SortableTableHead>}
               {showInitialFleet && <SortableTableHead columnId="initialFleet" sortKeys={sortKeys} onSort={handleSort}>Initial fleet</SortableTableHead>}
               {showWorldSailingId && <SortableTableHead columnId="worldSailingId" sortKeys={sortKeys} onSort={handleSort}>WS ID</SortableTableHead>}
@@ -876,6 +884,7 @@ export default function CompetitorsPage({
                   </TableCell>
                 )}
                 {showEntryNumber && <TableCell className="font-mono">{c.entryNumber ?? ''}</TableCell>}
+                {showTallyNumber && <TableCell className="font-mono">{c.tallyNumber ?? ''}</TableCell>}
                 {showSeed && <TableCell className="font-mono">{c.seed ?? ''}</TableCell>}
                 {showInitialFleet && <TableCell>{c.initialFleet ?? ''}</TableCell>}
                 {showWorldSailingId && (
@@ -1063,6 +1072,7 @@ export default function CompetitorsPage({
                   editingCompetitor.alternativeSailNumbers,
                 ),
                 entryNumber: editingCompetitor.entryNumber ?? '',
+                tallyNumber: editingCompetitor.tallyNumber ?? '',
                 seed: editingCompetitor.seed != null ? String(editingCompetitor.seed) : '',
                 initialFleet: editingCompetitor.initialFleet ?? '',
                 worldSailingId: editingCompetitor.worldSailingId ?? '',

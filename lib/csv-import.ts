@@ -11,6 +11,7 @@ export type CompetitorField =
   | 'bowNumber'
   | 'alternativeSailNumbers'
   | 'entryNumber'
+  | 'tallyNumber'
   | 'seed'
   | 'initialFleet'
   | 'worldSailingId'
@@ -198,6 +199,7 @@ export function autoDetectField(header: string): CompetitorField {
   if (/sail/.test(h)) return 'sailNumber';
   if (/\bbow\b/.test(h)) return 'bowNumber';
   if (/entry\s*(number|no|id|#)?/.test(h)) return 'entryNumber';
+  if (/\btall(y|ies)\b/.test(h)) return 'tallyNumber';
   // Before the seeding rule: "Seeding fleet" carries both words, and it is
   // the assignment, not the rank.
   if (INITIAL_FLEET_HEADER.test(h)) return 'initialFleet';

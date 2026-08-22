@@ -27,6 +27,7 @@ export type CompetitorFieldKey =
   | 'bowNumber'
   | 'alternativeSailNumbers'
   | 'entryNumber'
+  | 'tallyNumber'
   | 'seed'
   | 'initialFleet'
   | 'worldSailingId'
@@ -462,6 +463,7 @@ export interface Competitor {
   bowNumber?: string; // bow number, when it differs from the registered sail number (e.g. a borrowed hull); optional, used for finish-entry matching
   alternativeSailNumbers?: string[]; // other sail numbers this boat may show — a replacement or borrowed sail mid-event. Lookup keys for finish entry only: the boat is still identified, displayed, and published under `sailNumber`. Sparse.
   entryNumber?: string; // the OA's registration/admin number on the entry list (split-fleet championships); distinct from bowNumber, often coincident — leave unset when they match
+  tallyNumber?: string; // the safety tally token issued at registration and handed over when launching (e.g. "T0001", or a bare "17"); free text, stored verbatim
   seed?: number;      // OA seeding rank for split-fleet initial assignment (Sailwave's "Seeding" column); not derivable from entry order/sail/nationality
   initialFleet?: string; // the qualifying fleet the seeding committee assigned this boat to, as they wrote it ("Yellow"); matched against the split-fleet config's labels when Round 1 is assigned from it. Distinct from `seed`: an assignment already made, not an order to deal
   worldSailingId?: string; // World Sailing Sailor ID of the primary sailor (see lib/world-sailing.ts); the join key for an OA's seed ranking

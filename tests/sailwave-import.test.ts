@@ -617,8 +617,8 @@ describe('buildSeriesFileFromSailwave: Tues Series 1', () => {
   });
 
   it('enables only the competitor fields Sailwave actually populated', () => {
-    // Tues file: boat names yes; class no; club no; crew no.
-    expect(file.series.enabledCompetitorFields).toEqual(['boatName']);
+    // Tues file: tally numbers and boat names yes; class no; club no; crew no.
+    expect(file.series.enabledCompetitorFields).toEqual(['tallyNumber', 'boatName']);
   });
 });
 
@@ -643,7 +643,9 @@ describe('buildSeriesFileFromSailwave: Wed Series 1', () => {
   });
 
   it('enables boat name, boat class, and nationality (Sailwave has all three here)', () => {
-    expect(file.series.enabledCompetitorFields).toEqual(['boatName', 'boatClass', 'nationality']);
+    expect(file.series.enabledCompetitorFields).toEqual([
+      'tallyNumber', 'boatName', 'boatClass', 'nationality',
+    ]);
   });
 });
 
@@ -1207,6 +1209,51 @@ describe('inferBareNameSystem', () => {
   });
   it('returns nhc when ratings are a mix of decimals and integers', () => {
     expect(inferBareNameSystem([1156, 1.35])).toBe('nhc');
+  });
+});
+
+describe('tally number import (comptally)', () => {
+  const raw = loadFile(`${FIXTURES}/2026 ILCA Leinsters results.blw`);
+  const file = buildSeriesFileFromSailwave(raw, DEFAULT_OPTS);
+
+  it('carries a tally number for every Leinsters competitor', () => {
+    const withTally = file.competitors.filter((c) => c.tallyNumber);
+    expect(withTally).toHaveLength(file.competitors.length);
+  });
+
+  it('enables the tally field when Sailwave populated it', () => {
+    expect(file.series.enabledCompetitorFields).toContain('tallyNumber');
+  });
+
+  it('leaves the field disabled on a file with no tally column', () => {
+    const bare = buildSeriesFileFromSailwave(
+      loadFile(`${FIXTURES}/branding-sample.blw`),
+      DEFAULT_OPTS,
+    );
+    expect(bare.series.enabledCompetitorFields).not.toContain('tallyNumber');
+    expect(bare.competitors.every((c) => c.tallyNumber === undefined)).toBe(true);
+  });
+
+  it('stores the value verbatim, whether a bare integer or zero-padded', () => {
+    const parsed = parseSailwaveBlw(blw([
+      ['sercompcount', '2', '', ''],
+      ['compsailno', 'IRL 1', '1', ''],
+      ['comptally', '7', '1', ''],
+      ['compsailno', 'IRL 2', '2', ''],
+      ['comptally', 'T0042', '2', ''],
+    ]));
+    const built = buildSeriesFileFromSailwave(parsed, DEFAULT_OPTS);
+    expect(built.competitors.map((c) => c.tallyNumber).sort()).toEqual(['7', 'T0042']);
+  });
+
+  it('ignores a blank tally cell rather than storing an empty string', () => {
+    const parsed = parseSailwaveBlw(blw([
+      ['sercompcount', '1', '', ''],
+      ['compsailno', 'IRL 1', '1', ''],
+      ['comptally', '  ', '1', ''],
+    ]));
+    const built = buildSeriesFileFromSailwave(parsed, DEFAULT_OPTS);
+    expect(built.competitors[0].tallyNumber).toBeUndefined();
   });
 });
 

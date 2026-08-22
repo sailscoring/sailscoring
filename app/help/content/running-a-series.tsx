@@ -168,6 +168,22 @@ export default function RunningASeries() {
           simply repeat the bow or sail number.
         </p>
         <p>
+          Enable <em>Tally number</em> to record the safety tally a competitor
+          is issued at registration and hands over when launching, so race
+          management can tell who is still afloat. It’s free text and stored
+          exactly as given — clubs often use a bare number, championships a
+          padded one like <em>T0001</em> — and the competitor filter matches
+          it, which is what you want when race management sends a note about a
+          tally rather than a sail number. Sailwave has the same field, and a
+          file imported from it brings its tally numbers with it.
+        </p>
+        <p>
+          Nothing is scored from a tally number. Where the sailing instructions
+          penalise a competitor for failing to tally in or out, race management
+          decides the penalty and you enter it yourself, the same as any other
+          discretionary penalty.
+        </p>
+        <p>
           Enable <em>Nationality</em> to record each entry’s 3-letter
           country code (RRS Appendix G / IOC, e.g. <em>IRL</em>, <em>GBR</em>,
           <em> FRA</em>). The input suggests codes as you type; common

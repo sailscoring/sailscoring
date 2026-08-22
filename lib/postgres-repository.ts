@@ -161,6 +161,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
       ? { alternativeSailNumbers: row.alternativeSailNumbers }
       : {}),
     ...(row.entryNumber ? { entryNumber: row.entryNumber } : {}),
+    ...(row.tallyNumber ? { tallyNumber: row.tallyNumber } : {}),
     ...(row.seed != null ? { seed: row.seed } : {}),
     ...(row.initialFleet ? { initialFleet: row.initialFleet } : {}),
     ...(row.worldSailingId ? { worldSailingId: row.worldSailingId } : {}),
@@ -959,6 +960,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     bowNumber: c.bowNumber ?? null,
     alternativeSailNumbers: c.alternativeSailNumbers?.length ? c.alternativeSailNumbers : null,
     entryNumber: c.entryNumber ?? null,
+    tallyNumber: c.tallyNumber ?? null,
     seed: c.seed ?? null,
     initialFleet: c.initialFleet ?? null,
     worldSailingId: c.worldSailingId ?? null,
@@ -983,7 +985,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 }
 
 const competitorUpdateColumns = [
-  'fleetIds', 'sailNumber', 'bowNumber', 'alternativeSailNumbers', 'entryNumber', 'seed', 'initialFleet', 'worldSailingId',
+  'fleetIds', 'sailNumber', 'bowNumber', 'alternativeSailNumbers', 'entryNumber', 'tallyNumber', 'seed', 'initialFleet', 'worldSailingId',
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',

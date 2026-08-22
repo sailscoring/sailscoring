@@ -33,6 +33,7 @@ export interface CompetitorFormData {
   /** Comma-separated; parsed on save (see parseAlternativeSailNumbers). */
   alternativeSailNumbers: string;
   entryNumber: string;
+  tallyNumber: string;
   seed: string;
   initialFleet: string;
   worldSailingId: string;
@@ -60,6 +61,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   bowNumber: '',
   alternativeSailNumbers: '',
   entryNumber: '',
+  tallyNumber: '',
   seed: '',
   initialFleet: '',
   worldSailingId: '',
@@ -347,6 +349,16 @@ export function CompetitorForm({
               id="entryNumber"
               value={data.entryNumber}
               onChange={(e) => set('entryNumber', e.target.value)}
+            />
+          </div>
+        )}
+        {enabledFields.includes('tallyNumber') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="tallyNumber">Tally number</Label>
+            <Input
+              id="tallyNumber"
+              value={data.tallyNumber}
+              onChange={(e) => set('tallyNumber', e.target.value)}
             />
           </div>
         )}

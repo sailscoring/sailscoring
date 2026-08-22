@@ -203,6 +203,8 @@ export interface PublicSeriesExport {
     alternativeSailNumbers?: string[];
     /** OA registration number (split-fleet championships). */
     entryNumber?: string;
+    /** Safety tally token issued at registration; free text, verbatim. */
+    tallyNumber?: string;
     /** The OA's seeding rank. Carried so a reader can reproduce a split-fleet
      *  series' initial assignment, which is unexplainable without it. */
     seed?: number;
@@ -865,6 +867,7 @@ export function buildPublicExportFromSnapshot(
         ? { alternativeSailNumbers: c.alternativeSailNumbers }
         : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+      ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
       ...(c.seed != null ? { seed: c.seed } : {}),
       ...(c.initialFleet ? { initialFleet: c.initialFleet } : {}),
       ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
@@ -1120,6 +1123,7 @@ export async function importPublicExport(
           ? { alternativeSailNumbers: c.alternativeSailNumbers }
           : {}),
         ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+        ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
         ...(c.seed != null ? { seed: c.seed } : {}),
         ...(c.initialFleet ? { initialFleet: c.initialFleet } : {}),
         ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
