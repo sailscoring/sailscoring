@@ -56,6 +56,7 @@ import {
   roundsForStage,
   qualifyingRaceCount,
   resolveVocabulary,
+  assignFromInitialFleet,
   seedOrder,
   splitFleetStandings,
   stageRaceLabel,
@@ -69,6 +70,7 @@ import {
   type SplitStandingRow,
   type StageRaceRef,
 } from '@/lib/split-fleets';
+import { compareSailNumbersIgnoringPrefix } from '@/lib/sail-number-sort';
 
 interface NextAction { label: string; href?: string }
 
@@ -661,9 +663,11 @@ function QualifyingSection({
                 <span className="text-xs text-muted-foreground">
                   {round.method === 'seeded'
                     ? 'Initial assignment'
-                    : round.basis
-                      ? `From ranking after ${raceLabel(data, 'qualifying', round.basis.throughStageRace)} · captured ${new Date(round.basis.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                      : 'Manual'}
+                    : round.method === 'manual' && !round.basis
+                      ? 'Initial assignment · from the entry list'
+                      : round.basis
+                        ? `From ranking after ${raceLabel(data, 'qualifying', round.basis.throughStageRace)} · captured ${new Date(round.basis.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                        : 'Manual'}
                 </span>
                 {round.publishedAt && (
                   <span
@@ -930,6 +934,7 @@ function CeremonyDialog({
   error,
   pending,
   commitLabel,
+  blockedReason,
   onCommit,
   onClose,
   children,
@@ -939,6 +944,9 @@ function CeremonyDialog({
   error: string | null;
   pending: boolean;
   commitLabel: string;
+  /** Why the ceremony can't commit yet — shown by the button, which is
+   *  disabled while it is set. */
+  blockedReason?: string | null;
   onCommit: () => void;
   onClose: () => void;
   children: React.ReactNode;
@@ -953,10 +961,15 @@ function CeremonyDialog({
         <div className="max-h-[50vh] space-y-3 overflow-y-auto">{children}</div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
+          {blockedReason && (
+            <p className="mr-auto self-center text-sm text-amber-700 dark:text-amber-400">
+              {blockedReason}
+            </p>
+          )}
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={pending} onClick={onCommit}>
+          <Button disabled={pending || !!blockedReason} onClick={onCommit}>
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             {commitLabel}
           </Button>
@@ -969,12 +982,16 @@ function CeremonyDialog({
 function AssignmentPreviewTable({
   rows,
   fleetLabels,
+  allowUnassigned,
   onMove,
 }: {
   rows: { id: string; sail: string; name: string; from?: string; to: string; moved?: boolean; overridden?: boolean }[];
   /** When set (with onMove), each row gets a fleet select — the editable
    *  preview: hand-moves are recorded as overrides on commit. */
   fleetLabels?: string[];
+  /** Offer an empty choice, for a boat the entry list placed nowhere. Such a
+   *  row carries `to: ''` until the scorer picks. */
+  allowUnassigned?: boolean;
   onMove?: (competitorId: string, toLabel: string) => void;
 }) {
   const hasFrom = rows.some((r) => r.from !== undefined);
@@ -999,11 +1016,14 @@ function AssignmentPreviewTable({
             <td className={`py-1 ${r.moved ? 'font-semibold' : ''}`}>
               {fleetLabels && onMove ? (
                 <select
-                  className="rounded border bg-background px-1 py-0.5 text-xs"
+                  className={`rounded border bg-background px-1 py-0.5 text-xs${
+                    r.to ? '' : ' border-amber-500 text-amber-700 dark:text-amber-400'
+                  }`}
                   aria-label={`Fleet for ${r.sail}`}
                   value={r.to}
                   onChange={(e) => onMove(r.id, e.target.value)}
                 >
+                  {allowUnassigned && <option value="">— not assigned —</option>}
                   {fleetLabels.map((l) => (
                     <option key={l} value={l}>{l}</option>
                   ))}
@@ -1034,7 +1054,14 @@ function SeedRoundDialog({
   onClose: () => void;
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
-  const [order, setOrder] = useState<SeedOrder>('seed-rank');
+  /** Where the assignment comes from. `imported` is not an order at all — it
+   *  is the assignment the seeding committee already made, carried on the
+   *  entry list; the rest are orders dealt through the reassignment
+   *  pattern. */
+  const [source, setSource] = useState<'imported' | SeedOrder>(() =>
+    data.competitors.some((c) => c.initialFleet) ? 'imported' : 'seed-rank',
+  );
+  const order: SeedOrder = source === 'imported' ? 'seed-rank' : source;
   // Sailors the ranking didn't reach sort below it either way; this decides
   // the order within that tail. Defaulted to sail number to agree with
   // `seedOrder` — when *no one* carries a seeding rank, "seeding rank" order
@@ -1042,32 +1069,60 @@ function SeedRoundDialog({
   // different assignment on a scorer. Spreading by nation is the better
   // choice at a charter event, so it's offered, not assumed.
   const [tailOrder, setTailOrder] = useState<SeedTailOrder>('sail-number');
-  const [moves, setMoves] = useState<Record<string, number>>({});
+  const [moves, setMoves] = useState<Record<string, number | null>>({});
   const qFleets = data.config.qualifyingFleets;
+  const anyImported = data.competitors.some((c) => c.initialFleet);
 
   const preview = useMemo(() => {
     const byId = new Map(data.competitors.map((c) => [c.id, c]));
-    let assignments: Record<string, number> = {};
-    const ordered = seedOrder(data.competitors, order, tailOrder);
-    const byFleet = assignByRankPattern(ordered, qFleets.length);
-    byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
-    // Hand-moves layer on top.
-    assignments = { ...assignments, ...moves };
+    const computed: Record<string, number> = {};
+    let ordered: string[];
+    let unknownLabels: string[] = [];
+    if (source === 'imported') {
+      const read = assignFromInitialFleet(data.competitors, qFleets);
+      Object.assign(computed, read.assignments);
+      unknownLabels = read.unknownLabels;
+      // Fleet order, then sail number within each — how the committee's own
+      // lists read, and how the scorer checks them. Boats it placed nowhere
+      // come last, where they can't be missed.
+      ordered = [...data.competitors]
+        .sort(
+          (a, b) =>
+            (computed[a.id] ?? qFleets.length) - (computed[b.id] ?? qFleets.length) ||
+            compareSailNumbersIgnoringPrefix(a.sailNumber, b.sailNumber),
+        )
+        .map((c) => c.id);
+    } else {
+      ordered = seedOrder(data.competitors, order, tailOrder);
+      assignByRankPattern(ordered, qFleets.length).forEach((ids, i) =>
+        ids.forEach((cid) => (computed[cid] = i)),
+      );
+    }
+    // Hand-moves layer on top; a move to "not assigned" is stored as null.
+    const assignments: Record<string, number> = { ...computed };
+    for (const [cid, idx] of Object.entries(moves)) {
+      if (idx == null) delete assignments[cid];
+      else assignments[cid] = idx;
+    }
+    const unassigned = ordered.filter((cid) => assignments[cid] == null);
     return {
       assignments,
+      unassigned,
+      unknownLabels,
       rows: ordered.map((cid) => {
         const c = byId.get(cid)!;
+        const idx = assignments[cid];
         return {
           id: cid,
           sail: c.sailNumber,
           name: c.names.join(' & '),
-          to: qFleets[assignments[cid]].label,
-          overridden: moves[cid] != null,
+          to: idx == null ? '' : qFleets[idx].label,
+          overridden: moves[cid] !== undefined,
         };
       }),
       sizes: qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length),
     };
-  }, [data.competitors, order, tailOrder, moves, qFleets]);
+  }, [data.competitors, source, order, tailOrder, moves, qFleets]);
 
   return (
     <CeremonyDialog
@@ -1076,35 +1131,48 @@ function SeedRoundDialog({
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit Round 1 (${preview.sizes.join(' / ')})`}
+      blockedReason={
+        preview.unassigned.length > 0
+          ? `${preview.unassigned.length} ${preview.unassigned.length === 1 ? 'boat is' : 'boats are'} in no fleet — place ${preview.unassigned.length === 1 ? 'it' : 'them'} to commit.`
+          : null
+      }
       onClose={onClose}
       onCommit={() =>
         run({
           stage: 'qualifying',
           fromStageRace: 1,
-          method: 'seeded',
+          // The committee's own assignment is not a seeding this app
+          // performed, and the round says so.
+          method: source === 'imported' ? 'manual' : 'seeded',
           basis: null,
           fleets: qFleets,
           assignments: preview.assignments,
-          overrideCompetitorIds: Object.keys(moves),
+          overrideCompetitorIds: Object.keys(moves).filter((cid) => moves[cid] != null),
           stageRaceNumbers: plannedFirstRaces(data.config),
         })
       }
     >
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm" htmlFor="sf-seed-order">
-          Seeding order
+          Assign from
         </label>
         <select
           id="sf-seed-order"
           className="rounded-md border bg-background px-2 py-1 text-sm"
-          value={order}
-          onChange={(e) => { setOrder(e.target.value as SeedOrder); setMoves({}); }}
+          value={source}
+          onChange={(e) => { setSource(e.target.value as 'imported' | SeedOrder); setMoves({}); }}
         >
+          {anyImported && <option value="imported">The entry list&rsquo;s initial fleet</option>}
           <option value="seed-rank">Seeding rank</option>
           <option value="nationality-spread">Nationality, then sail number</option>
           <option value="sail-number">Sail number</option>
         </select>
-        {order === 'seed-rank' && data.competitors.some((c) => c.seed == null) && (
+        {source === 'imported' && (
+          <span className="text-xs text-muted-foreground">
+            Taken as given — the pattern deals the other three.
+          </span>
+        )}
+        {source === 'seed-rank' && data.competitors.some((c) => c.seed == null) && (
           <>
             <label className="text-sm" htmlFor="sf-seed-tail">
               Sailors with no seeding rank
@@ -1121,11 +1189,23 @@ function SeedRoundDialog({
           </>
         )}
       </div>
+      {source === 'imported' && preview.unknownLabels.length > 0 && (
+        <p className="rounded-md border border-amber-400 bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          No fleet is called{' '}
+          {preview.unknownLabels.map((l) => `“${l}”`).join(', ')} — those boats
+          are listed below with no fleet. Place them by hand, or rename the
+          fleets on the Settings tab to match the entry list.
+        </p>
+      )}
       <AssignmentPreviewTable
         rows={preview.rows}
         fleetLabels={qFleets.map((f) => f.label)}
+        allowUnassigned={source === 'imported'}
         onMove={(cid, label) =>
-          setMoves((m) => ({ ...m, [cid]: qFleets.findIndex((f) => f.label === label) }))
+          setMoves((m) => ({
+            ...m,
+            [cid]: label ? qFleets.findIndex((f) => f.label === label) : null,
+          }))
         }
       />
     </CeremonyDialog>

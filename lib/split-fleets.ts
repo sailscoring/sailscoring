@@ -566,6 +566,67 @@ export function pickableFleets<T extends { splitRoundId?: string }>(fleets: T[])
   return fleets.filter((f) => !f.splitRoundId);
 }
 
+/**
+ * The assignment a seeding committee already made, read off the entry list.
+ *
+ * A committee's fleets are "as nearly as possible, equal size *and ability*",
+ * and the ability half is a human judgment — so when they hand over the
+ * assignment rather than an order to deal from, no ordering reproduces it and
+ * the labels themselves are the input. `Competitor.initialFleet` carries them
+ * as written; this matches them against the configured fleets.
+ *
+ * Matching is case- and spacing-insensitive. A cell holding a plain number is
+ * taken as a 1-based position in the fleet list, which is how a committee that
+ * numbers its fleets writes them — unambiguous here, where the scorer has
+ * already said this column is the assignment.
+ *
+ * Nothing is guessed at beyond that: a label matching no fleet, and a boat
+ * carrying none at all, are both reported for the scorer to place by hand.
+ */
+export interface ImportedAssignment {
+  /** competitorId → index into `fleets`. Boats with no usable label are absent. */
+  assignments: Record<string, number>;
+  /** Competitors the entry list assigned nowhere, in the order given. */
+  unassigned: string[];
+  /** Labels the entry list carried that no fleet matches, first-seen order. */
+  unknownLabels: string[];
+}
+
+function normalizeFleetLabel(label: string): string {
+  return label.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+export function assignFromInitialFleet(
+  competitors: Competitor[],
+  fleets: { label: string }[],
+): ImportedAssignment {
+  const indexByLabel = new Map(fleets.map((f, i) => [normalizeFleetLabel(f.label), i]));
+  const assignments: Record<string, number> = {};
+  const unassigned: string[] = [];
+  const unknownLabels: string[] = [];
+  for (const c of competitors) {
+    const raw = c.initialFleet?.trim() ?? '';
+    if (!raw) {
+      unassigned.push(c.id);
+      continue;
+    }
+    let index = indexByLabel.get(normalizeFleetLabel(raw));
+    if (index == null && /^\d+$/.test(raw)) {
+      const position = parseInt(raw, 10);
+      if (position >= 1 && position <= fleets.length) index = position - 1;
+    }
+    if (index == null) {
+      unassigned.push(c.id);
+      if (!unknownLabels.some((l) => normalizeFleetLabel(l) === normalizeFleetLabel(raw))) {
+        unknownLabels.push(raw);
+      }
+      continue;
+    }
+    assignments[c.id] = index;
+  }
+  return { assignments, unassigned, unknownLabels };
+}
+
 /** How sailors the seeding rank doesn't reach are ordered among themselves.
  *  They sort below every ranked sailor either way; this decides the order
  *  within that tail. At a championship where boats are chartered the sail

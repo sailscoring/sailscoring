@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignByRankPattern,
+  assignFromInitialFleet,
   ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
   ilca2026SplitFleetConfig,
@@ -110,6 +111,76 @@ describe('assignByRankPattern', () => {
     expect(fleets.map((f) => f.length)).toEqual([47, 47, 47]);
     expect(fleets[0][0]).toBe('c0'); // rank 1 → Yellow
     expect(fleets[2][1]).toBe('c3'); // rank 4 → Red
+  });
+});
+
+describe('assignFromInitialFleet', () => {
+  const QUALIFYING = [
+    { label: 'Yellow', color: '' },
+    { label: 'Blue', color: '' },
+    { label: 'Red', color: '' },
+  ];
+
+  function assigned(id: string, sail: number, initialFleet?: string): Competitor {
+    const c = competitor(id, [], sail);
+    return { ...c, ...(initialFleet != null ? { initialFleet } : {}) };
+  }
+
+  it('matches the committee\u2019s labels to the configured fleets', () => {
+    const { assignments, unassigned, unknownLabels } = assignFromInitialFleet(
+      [assigned('c1', 1, 'Yellow'), assigned('c2', 2, 'Red'), assigned('c3', 3, 'Blue')],
+      QUALIFYING,
+    );
+    expect(assignments).toEqual({ c1: 0, c2: 2, c3: 1 });
+    expect(unassigned).toEqual([]);
+    expect(unknownLabels).toEqual([]);
+  });
+
+  it('ignores case and spacing, which an entry list never keeps consistent', () => {
+    const { assignments } = assignFromInitialFleet(
+      [assigned('c1', 1, ' yellow '), assigned('c2', 2, 'BLUE')],
+      QUALIFYING,
+    );
+    expect(assignments).toEqual({ c1: 0, c2: 1 });
+  });
+
+  it('reads a plain number as a position in the fleet list', () => {
+    const { assignments, unassigned } = assignFromInitialFleet(
+      [assigned('c1', 1, '1'), assigned('c2', 2, '3'), assigned('c3', 3, '4')],
+      QUALIFYING,
+    );
+    expect(assignments).toEqual({ c1: 0, c2: 2 });
+    // 4 is past the end of a three-fleet championship — not a fleet at all.
+    expect(unassigned).toEqual(['c3']);
+  });
+
+  it('a fleet label wins over the positional reading', () => {
+    const numbered = [
+      { label: '3', color: '' },
+      { label: '2', color: '' },
+      { label: '1', color: '' },
+    ];
+    const { assignments } = assignFromInitialFleet([assigned('c1', 1, '1')], numbered);
+    expect(assignments).toEqual({ c1: 2 });
+  });
+
+  it('reports a boat the entry list placed nowhere', () => {
+    const { assignments, unassigned, unknownLabels } = assignFromInitialFleet(
+      [assigned('c1', 1, 'Yellow'), assigned('c2', 2), assigned('c3', 3, '  ')],
+      QUALIFYING,
+    );
+    expect(assignments).toEqual({ c1: 0 });
+    expect(unassigned).toEqual(['c2', 'c3']);
+    expect(unknownLabels).toEqual([]);
+  });
+
+  it('reports a label no fleet answers to, once, as written', () => {
+    const { unassigned, unknownLabels } = assignFromInitialFleet(
+      [assigned('c1', 1, 'Green'), assigned('c2', 2, 'green'), assigned('c3', 3, 'Yellow')],
+      QUALIFYING,
+    );
+    expect(unassigned).toEqual(['c1', 'c2']);
+    expect(unknownLabels).toEqual(['Green']);
   });
 });
 
