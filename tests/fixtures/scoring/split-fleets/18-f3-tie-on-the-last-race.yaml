@@ -1,0 +1,123 @@
+description: "F3 tie-break: the halved carry leaves two boats level and the sailing instructions replace RRS A8 outright — the last race alone decides, against what A8 would have said"
+provenance:
+  class: "ILCA 7"
+  year: 2026
+  event: "World Championship, Dun Laoghaire IRL"
+  si: "reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-3.md"
+  results: ""
+  code: F3
+  scenarios: ["D3", "D7"]
+  alternatives: "Fixture 16 is the same tie under the superseded Amendment 2 wording, which kept A8 and added sub-series steps behind it."
+runnable: true
+notes: |
+  Amendment 3 replaced the tie-break these sailing instructions had:
+
+    18.7.4  If there is a tie between two or more boats, they shall be ranked
+            in order of their scores in the last race. This changes RRS A8.
+
+  That sentence is RRS A8.2's first half standing in for the whole of A8.
+  Two things go with "this changes RRS A8" and both matter here:
+
+    - A8.1 does not run first. The count-of-places comparison is gone, so a
+      boat with the better spread of scores does not win the tie on that.
+    - Nothing runs after. A8.2's walk back to the next-to-last race is gone
+      too, so a tie the last race cannot break stays a tie.
+
+  The fixture is built so the two rules disagree, because a fixture where
+  they agree proves nothing. b1 and y1 both finish on 7:
+
+    y1   carried 3   M1 1   M2 3      score list 1, 3, 3
+    b1   carried 2   M1 3   M2 2      score list 2, 2, 3
+
+  Under RRS A8.1 y1 takes second: her best score is a 1 and b1's is a 2. The
+  clause that replaced A8 asks a different question and gets the other
+  answer — in M2, the last race, b1 scored 2 and y1 scored 3, so b1 is second
+  and y1 third.
+
+  Hand check, one discard from 3 races, at most one of them from the final
+  series, DNC base 4 throughout:
+    b1  Q 1,1  F 1,1  -> discard Q1's 1     = 3 -> halved 2
+    y2  Q 2,1  F 3,2  -> discard F1's 3     = 5 -> halved 3
+    y1  Q 1,2  F 2,3  -> discard F2's 3     = 5 -> halved 3
+  then the two final-series races, at single points, added to the carry.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+  maxFinalDiscards: 1
+  protectLoneFinalRace: true
+  medal:
+    size: 3
+    raceCount: 2
+    multiplier: 1
+    carryTransform:
+      kind: divide
+      by: 2
+      rounding: half-up
+    tieBreak: last-race
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y2, y1, y3]
+          Blue: [b1, b2, b3]
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [b1, y1, y2]
+      Silver: [b2, b3, y3]
+    races:
+      - n: 1
+        results:
+          Gold: [b1, y1, y2]
+          Silver: [b2, y3, b3]
+      - n: 2
+        results:
+          Gold: [b1, y2, y1]
+          Silver: [b2, y3, b3]
+
+  - stage: medal
+    from: 1
+    assign: { medalTop: 3 }
+    expectedFleets:
+      Medal: [b1, y1, y2]
+    races:
+      - n: 1
+        results:
+          Medal: [y1, y2, b1]
+      - n: 2
+        results:
+          Medal: [y2, b1, y1]
+
+expected:
+  standings:
+    - { rank: 1, sail: y2, total: 6, net: 6, fleet: Gold, medal: true }
+    # 7 each. A8.1 would have put y1 here; the last race puts b1 here.
+    - { rank: 2, sail: b1, total: 7, net: 7, fleet: Gold, medal: true }
+    - { rank: 3, sail: y1, total: 7, net: 7, fleet: Gold, medal: true }
+    - { rank: 4, sail: b2, total: 6, net: 4, fleet: Silver }
+    - { rank: 5, sail: y3, total: 10, net: 7, fleet: Silver }
+    - { rank: 6, sail: b3, total: 12, net: 9, fleet: Silver }

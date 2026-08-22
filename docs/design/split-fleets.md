@@ -325,10 +325,15 @@ rather than as a gap list:
   boats short, and the boats who left it for the Final series are absent
   from that race rather than scored DNC in it (`medal.companionRace: 'none'`,
   fixture 17).
-- **A sub-series tie-break becomes load-bearing.** Halving to whole
-  numbers manufactures ties among the ten, and SI 18.7.4 breaks what
-  survives A8 on the boat's rank in the Elimination series, then the
-  Preliminary series (`medal.tieBreak`, fixture 16).
+- **A tie-break of the SIs' own becomes load-bearing.** Halving to whole
+  numbers manufactures ties among the ten, so SI 18.7.4 carries the weight
+  of deciding the title. Amendment 3 rewrote it: where the clause used to
+  keep RRS A8 and add the boat's rank in the Elimination series, then the
+  Preliminary series, behind it, it now replaces A8 altogether with "ranked
+  in order of their scores in the last race" (`medal.tieBreak: 'last-race'`,
+  fixture 18). Both shapes are supported — `'stage-rank'` is the superseded
+  wording, which other championships still use, and fixture 16 keeps it
+  honest.
 - **Both equalisation clauses appear**, and read together they compose
   rather than contradict, in the Appendix LE shape: Addendum A 2.2.7
   abandons the fleet-level surplus (LE 20.5's "races completed by all
@@ -566,9 +571,11 @@ export interface SplitFleetConfig {
     /** Compress the opening-series net before the medal races add to it
      *  (2026 ILCA SI 18.7.3 halves it, 0.5 up). */
     carryTransform?: { kind: 'divide'; by: number; rounding: 'half-up' | 'truncate' };
-    /** Add the sub-series steps after A8 for the medal boats: higher rank
-     *  in the final series, then the qualifying series (SI 18.7.4). */
-    tieBreak?: 'stage-rank';
+    /** How a tie between two medal boats is settled: `stage-rank` adds two
+     *  steps after A8 (higher rank in the final series, then the qualifying
+     *  series); `last-race` replaces A8 outright with a single comparison of
+     *  the boats' scores in the last race. */
+    tieBreak?: 'stage-rank' | 'last-race';
   };
 }
 ```
@@ -702,11 +709,17 @@ standings:
   carried score that supersedes her race cells. It applies from the moment
   the medal round is committed, not when a medal race is sailed, so "if no
   medal race is completed the adjusted scores decide" needs no second path.
-- **Ties.** A8.1 then A8.2, and where `medal.tieBreak` is set, two further
-  steps for the medal boats: rank in the final series alone, then the
-  qualifying series alone. Ranking a stage on its own re-applies the
-  discard ladder to that stage, which is also how `rank-seed` gets its
-  carried position.
+- **Ties.** A8.1 then A8.2, and where `medal.tieBreak` is set, the medal
+  boats get the tie-break their sailing instructions give them instead.
+  `stage-rank` adds two steps behind A8 — rank in the final series alone,
+  then the qualifying series alone; ranking a stage on its own re-applies
+  the discard ladder to that stage, which is also how `rank-seed` gets its
+  carried position. `last-race` is not a step behind A8 but a replacement
+  for it: no count-of-places comparison first and no next-to-last race
+  behind, so a tie the last race cannot break stays a tie. It reads the
+  boats' real race scores rather than their counting cells, because where
+  no race of the last stage has been sailed the last race is one a carry
+  transform has already superseded.
 - **Medal scoring:** points × multiplier, never discarded; a start whose
   `RaceStart.firstPlaceOffset` is set scores its fleet's first finisher
   `offset + 1` and so on (like ZW's "First As") — the companion "last

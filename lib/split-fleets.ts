@@ -129,11 +129,17 @@ export interface SplitFleetConfig {
     raceCount: number;
     multiplier: number;
     carryTransform?: CarryTransform;
-    /** `stage-rank` adds two steps after RRS A8 for the medal boats: the
-     *  boat ranked higher in the final series alone, then in the qualifying
-     *  series alone, wins the tie (2026 ILCA SI 18.7.4). Absent = A8 as
-     *  written, and a tie A8 cannot break stays a tie. */
-    tieBreak?: 'stage-rank';
+    /** How a tie between two medal boats is settled. Absent = RRS A8 as
+     *  written, and a tie A8 cannot break stays a tie.
+     *  - `stage-rank` adds two steps after A8: the boat ranked higher in the
+     *    final series alone, then in the qualifying series alone, wins.
+     *  - `last-race` replaces A8 outright with its own single comparison —
+     *    the boats' scores in the last race, with no count-of-places step
+     *    before it and nothing behind it.
+     *  Both are real sailing-instruction clauses, and a championship that
+     *  compresses the carry needs one of them: rounding scores to whole
+     *  numbers manufactures ties among the very boats deciding the title. */
+    tieBreak?: 'stage-rank' | 'last-race';
     /** What the boats who miss the cut sail while the medal races run.
      *  - `scored-below` — a companion race of their own, its first finisher
      *    scoring just below the medal fleet (2024 ILCA SI 18.3.4: first
@@ -500,8 +506,8 @@ export function ilcaSplitFleetConfig(fleetCount: number): SplitFleetConfig {
 
 /** The ILCA regime from 2026 (2026 ILCA 7 Worlds SIs, Dun Laoghaire): the
  *  first discard comes a race earlier, and the finale is two races at single
- *  points added to a halved series score, with ties falling to the sub-series
- *  rankings (SI 18.4, 18.7.2–18.7.4). */
+ *  points added to a halved series score, with ties among the qualified boats
+ *  settled on the last race alone (SI 18.4, 18.7.2–18.7.4). */
 export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
   return {
     ...defaultSplitFleetConfig(fleetCount),
@@ -515,7 +521,8 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       raceCount: 2,
       multiplier: 1,
       carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
-      tieBreak: 'stage-rank',
+      // SI 18.7.4: rule A8 replaced outright by the last race.
+      tieBreak: 'last-race',
       // SI 7.7: the boats who miss the Final series sail one more ordinary
       // Qualification series race, not a companion race scored from 11.
       companionRace: 'none',
@@ -913,11 +920,15 @@ function compareScoreLists(a: number[], b: number[]): number {
   return 0;
 }
 
+/** Sort key putting a row's cells in the order they were sailed. */
+function stageRaceKey(c: CellScore): number {
+  return STAGES.indexOf(c.stage) * 1000 + c.stageRaceNumber;
+}
+
 /** RRS A8.2: last race, then next-to-last, and so on — over counting cells
  *  in stage/race order, including discarded scores. */
 function compareLastRace(a: CellScore[], b: CellScore[]): number {
-  const order: SeriesStage[] = ['qualifying', 'final', 'medal'];
-  const key = (c: CellScore) => order.indexOf(c.stage) * 1000 + c.stageRaceNumber;
+  const key = stageRaceKey;
   const la = a.filter((c) => c.counts).sort((x, y) => key(x) - key(y));
   const lb = b.filter((c) => c.counts).sort((x, y) => key(x) - key(y));
   for (let i = 0; i < Math.min(la.length, lb.length); i++) {
@@ -926,6 +937,33 @@ function compareLastRace(a: CellScore[], b: CellScore[]): number {
     if (ca.points !== cb.points) return ca.points - cb.points;
   }
   return 0;
+}
+
+/** The last race and nothing else — the tie-break some sailing instructions
+ *  put in place of RRS A8 rather than after it ("If there is a tie between
+ *  two or more boats, they shall be ranked in order of their scores in the
+ *  last race. This changes RRS A8.").
+ *
+ *  Two departures from `compareLastRace`, both of them that sentence read
+ *  literally:
+ *
+ *  - It stops after one race. A8 is gone, so a tie the last race cannot
+ *    break — two boats coded alike in it — stays a tie rather than falling
+ *    back to the race before.
+ *  - It reads real race scores, superseded ones included. Where a carry
+ *    transform has replaced a boat's earlier cells with one carried number
+ *    and no race of the last stage has been sailed, the last race is still a
+ *    race she sailed, and the transform must not hide it.
+ */
+function compareLastRaceOnly(a: CellScore[], b: CellScore[]): number {
+  const last = (cells: CellScore[]) => {
+    const sailed = cells.filter((c) => c.raceId).sort((x, y) => stageRaceKey(x) - stageRaceKey(y));
+    return sailed[sailed.length - 1] ?? null;
+  };
+  const ca = last(a);
+  const cb = last(b);
+  if (!ca || !cb) return 0;
+  return ca.points - cb.points;
 }
 
 function discardCount(config: SplitFleetConfig, countedRaces: number): number {
@@ -1306,10 +1344,15 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
     ) ||
     compareLastRace(a.cells, b.cells);
 
-  // A tie A8 cannot break falls to the sub-series steps where the SIs add
-  // them. Scoped to the medal boats, whose scores the carry transform rounds
-  // together — everywhere else A8 stands as written.
+  // The medal boats' own tie-break, where the SIs give them one. Scoped to
+  // them because they are the boats a carry transform rounds together;
+  // everywhere else A8 stands as written.
   const byNet = (a: SplitStandingRow, b: SplitStandingRow) => {
+    // `last-race` is not a step after A8 but a replacement for it: no
+    // count-of-places comparison first, and no next-to-last race behind.
+    if (config.medal?.tieBreak === 'last-race' && a.medal && b.medal) {
+      return a.net - b.net || compareLastRaceOnly(a.cells, b.cells);
+    }
     const a8 = byA8(a, b);
     if (a8 !== 0 || !stageRank || !a.medal || !b.medal) return a8;
     for (const stage of ['final', 'qualifying'] as const) {

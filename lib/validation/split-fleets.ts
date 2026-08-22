@@ -93,7 +93,7 @@ export const splitFleetConfigSchema = z.object({
           rounding: z.enum(['half-up', 'truncate']),
         })
         .optional(),
-      tieBreak: z.literal('stage-rank').optional(),
+      tieBreak: z.enum(['stage-rank', 'last-race']).optional(),
       companionRace: z.enum(['scored-below', 'none']).default('scored-below'),
     })
     .optional(),

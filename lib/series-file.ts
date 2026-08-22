@@ -306,9 +306,16 @@ export interface SeriesFileRepos {
  *  v37 adds `finishes[*].penaltyLabel` — what a DPI was given for, in the
  *  scorer's own words. Additive and sparse, and a label only: the points come
  *  from `penaltyOverride`, so an older build reading a v37 file scores every
- *  race identically and loses only the reason shown beside the penalty. */
-export const FORMAT_VERSION = 37;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37];
+ *  race identically and loses only the reason shown beside the penalty.
+ *
+ *  v38 lets the split-fleet `medal.tieBreak` say `last-race` as well as
+ *  `stage-rank`: some sailing instructions replace rule A8 for the boats in
+ *  the medal fleet rather than adding steps behind it. `splitFleets.config`
+ *  travels verbatim, so no parser change — but an older build reading one
+ *  drops the field and settles those ties under A8, which is the wrong
+ *  answer to the question that decides the championship. */
+export const FORMAT_VERSION = 38;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----

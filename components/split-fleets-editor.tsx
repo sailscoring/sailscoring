@@ -813,22 +813,32 @@ export function SplitFleetEditor({
                   </>
                 )}
               </div>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
+              <label className="flex flex-wrap items-center gap-1.5">
+                Ties between these boats
+                <select
+                  className="rounded-md border bg-background px-2 py-1 text-sm"
+                  aria-label="How ties between the top boats are broken"
                   disabled={!canEdit}
-                  checked={value.medal.tieBreak === 'stage-rank'}
+                  value={value.medal.tieBreak ?? 'a8'}
                   onChange={(e) =>
                     patch({
                       medal: {
                         ...value.medal!,
-                        tieBreak: e.target.checked ? 'stage-rank' : undefined,
+                        tieBreak:
+                          e.target.value === 'a8'
+                            ? undefined
+                            : (e.target.value as 'stage-rank' | 'last-race'),
                       },
                     })
                   }
-                />
-                Break a remaining tie on {vocab.stages.final.name} rank, then{' '}
-                {vocab.stages.qualifying.name} rank
+                >
+                  <option value="a8">break under rule A8 alone</option>
+                  <option value="stage-rank">
+                    fall to {vocab.stages.final.name} rank, then{' '}
+                    {vocab.stages.qualifying.name} rank
+                  </option>
+                  <option value="last-race">break on the last race, in place of rule A8</option>
+                </select>
               </label>
               <p className={hint}>
                 Never discarded. The rest of {value.finalFleets[0]?.label ?? 'the top fleet'} sail a

@@ -324,9 +324,11 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
           .filter((r) => goldFinalId && r.finalFleetId === goldFinalId && !top.includes(r.competitor.sailNumber))
           .map((r) => r.competitor.sailNumber);
         // With no companion race there is no second fleet: the boats who miss
-        // the cut stay in their final fleet and sail on with it.
+        // the cut stay in their final fleet and sail on with it. Nor is there
+        // one when nobody misses the cut — a medal fleet the size of the top
+        // final fleet leaves no boat to put in it.
         membership =
-          fx.config.medal?.companionRace === 'none'
+          fx.config.medal?.companionRace === 'none' || companion.length === 0
             ? { [mName]: top }
             : { [mName]: top, [cName]: companion };
         method = `medal top ${a.medalTop}`;

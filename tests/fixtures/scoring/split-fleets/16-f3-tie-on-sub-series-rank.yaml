@@ -7,9 +7,16 @@ provenance:
   results: ""
   code: F3
   scenarios: ["D3", "D7"]
-  alternatives: "49er/FX/Nacra Worlds 2026 and 470 Europeans 2026 carry the same compress-then-add shape."
+  alternatives: "49er/FX/Nacra Worlds 2026 and 470 Europeans 2026 carry the same compress-then-add shape. Fixture 18 is the same tie decided the other way, under the wording that replaced this one."
 runnable: true
 notes: |
+  This is the Amendment 2 text. Amendment 3 (22 August 2026) replaced SI
+  18.7.4 with a plain last-race comparison in place of RRS A8, which is
+  fixture 18 — so what follows is no longer how this particular championship
+  breaks its ties. It stays because the clause itself is not unusual: an
+  SI that keeps A8 and adds sub-series steps behind it is a shape a scorer
+  still meets, and `medal.tieBreak: stage-rank` still means it.
+
   Two SI clauses meet here, and the first is why the second exists:
 
     18.7.3  … the Qualification series scores are divided by 2 (two), rounded

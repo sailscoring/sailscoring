@@ -248,6 +248,13 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
         'medal-tie-break',
         `For the boats in the ${m}, ties will be broken applying rule A8. If a tie remains, it will be broken in favour of the boat ranked higher in the ${f}, then in the ${q}.`,
       );
+    } else if (config.medal.tieBreak === 'last-race') {
+      // Not a step after A8 but a replacement for it, so the sentence says so
+      // rather than reading as an addition.
+      push(
+        'medal-tie-break',
+        `For the boats in the ${m}, a tie will be broken in favour of the boat with the better score in the last race. This changes rule A8.`,
+      );
     }
   }
 
