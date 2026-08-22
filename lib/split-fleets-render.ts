@@ -278,7 +278,9 @@ export function renderSplitFleetAssignmentsPage(
         ? `From the ranking after ${stageRaceLabel(data.config, round.stage === 'final' ? 'qualifying' : round.stage, round.basis.throughStageRace, qRaces)}, captured ${new Date(round.basis.capturedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC.`
         : round.method === 'seeded'
           ? 'Initial seeding.'
-          : '';
+          : round.method === 'manual'
+            ? 'Initial assignment as supplied by the organising authority.'
+            : '';
       return `<section style="margin:1.5em 0;padding:1em;border:1px solid #ddd;border-radius:8px">
 <h2 style="margin:0">${esc(roundLabel(round))}</h2>
 <p style="color:#555;font-size:0.9em">${esc(basis)}</p>

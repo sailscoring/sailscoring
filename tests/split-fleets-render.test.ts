@@ -124,4 +124,16 @@ describe('renderSplitFleetAssignmentsPage', () => {
     // Newest first: the split section renders above the seeded round.
     expect(finalPos).toBeLessThan(round1Pos);
   });
+
+  it('says where a round assigned from the entry list got its fleets', () => {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    // The committee's own assignment, committed as `manual` — it must not
+    // publish a blank provenance line where a seeded round explains itself.
+    const rounds = input.rounds.map((r) =>
+      r.method === 'seeded' ? { ...r, method: 'manual' } : r,
+    );
+    const html = renderSplitFleetAssignmentsPage({ ...input, rounds });
+    expect(html).toContain('as supplied by the organising authority');
+    expect(html).not.toContain('Initial seeding');
+  });
 });
