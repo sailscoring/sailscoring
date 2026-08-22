@@ -529,7 +529,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         onClose={() => setShowPublish(false)}
         canFtp={false}
         lonePageName="Championship"
-        alwaysPublishedPages={['Fleet assignments']}
+        extraPages={['Fleet assignments']}
       />
       <FinaliseResultsDialog
         series={data.series}
@@ -1689,6 +1689,7 @@ function MedalSelectDialog({
   const goldId = round.fleetIds[0];
   const goldRows = standings.filter((r) => r.finalFleetId === goldId);
   const medalists = goldRows.slice(0, size);
+  const goldLabel = fleetMeta.get(goldId)?.label ?? 'Gold';
 
   // The ceremony deals one fleet and one only. Selecting the medal boats
   // does not move anyone else: the boats who miss the cut stay in the fleet
@@ -1705,7 +1706,7 @@ function MedalSelectDialog({
     <CeremonyDialog
       title={`Select the ${w.medal.fleetNoun}`}
       description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); everyone else stays in their fleet and sails its remaining races${
-        scoredBelow ? `, scored from ${size + 1}` : ''
+        scoredBelow ? `, ${goldLabel}'s scored from ${size + 1}` : ''
       }. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
@@ -1774,7 +1775,7 @@ function MedalSection({
         discarded.{' '}
         {`The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section.`}
         {medalConfig?.companionRace === 'scored-below'
-          ? ` Its first finisher scores ${(medalConfig?.size ?? 10) + 1} points, the second ${(medalConfig?.size ?? 10) + 2}, and so on.`
+          ? ` In the fleet they left it scores from ${(medalConfig?.size ?? 10) + 1} — first finisher ${(medalConfig?.size ?? 10) + 1}, second ${(medalConfig?.size ?? 10) + 2}, and so on — since that many boats are elsewhere; the other fleets score it from 1.`
           : ''}
       </p>
       {round.fleetIds.map((fid, i) => {

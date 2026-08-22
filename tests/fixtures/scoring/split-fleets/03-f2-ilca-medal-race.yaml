@@ -32,16 +32,20 @@ notes: |
   not move anybody else. So Gold sails this one two boats short, the medal
   boats have no cell in it at all rather than a DNC, and Silver sails its own.
 
-  And it is "those not assigned to the Medal race", which is every boat
-  outside the medal ten — Silver and Bronze included, not just the top
-  fleet's remainder. Adelaide never sailed it: the published results give
-  Gold eleven columns (the last of them "M / F5") and Silver and Bronze ten,
-  with every Gold boat from 11th down blank in that column. So the clause
-  itself, rather than a published example, is what fixes the reading.
+  And every fleet sails it — "those not assigned to the Medal race" is every
+  boat outside the medal ten, Silver and Bronze included — but only the fleet
+  they left is offset. The offset is what accounts for the boats removed from
+  a fleet: it lands on finish places only, while the A5.2 base stays the
+  fleet's assigned size plus one (SI 18.3.3), so Gold's remaining starters
+  score from 11 up to the fleet's size, exactly as if the ten had taken the
+  places above them. In Silver nobody was removed, so its boats score from 1
+  against the same base they always had; offsetting them would put a
+  mid-fleet finisher past her own fleet's DNF score.
 
-  The offset lands on finish places only. A boat coded in that race still
-  scores her fleet's A5.2 base, because the boats who left for the medal
-  fleet are still assigned to the fleet (SI 18.3.3).
+  Adelaide never sailed it: the published results give Gold eleven columns
+  (the last of them "M / F5") and Silver and Bronze ten, with every Gold boat
+  from 11th down blank in that column. So the clause itself, rather than a
+  published example, is what fixes the reading.
 
   Real Adelaide: 3 fleets → G/S/B, medal fleet = top 10, extra race first =
   11, champion Matt Wearn 24 net (medal win scored 2.0). Reduced here to 2
@@ -104,7 +108,7 @@ stages:
       - n: 2
         results:
           Gold: [y2]                   # first finisher: place 1 + offset 2 = 3
-          Silver: [b2, y3, b3]         # 3, 4, 5 — Silver takes the offset too
+          Silver: [b2, y3, b3]         # 1, 2, 3 — no boat left Silver, so no offset
 
   - stage: medal
     from: 1
@@ -122,11 +126,11 @@ stages:
 expected:
   # Medal boats (y1, b1) are pinned to the top. y1's medal cell is 2 (place 1
   # doubled); y2's extra-race cell is 3 (first finisher = medal size 2 + 1),
-  # and so is b2's.
+  # while b2 wins Silver's for 1 — two boats left Gold and none left Silver.
   standings:
     - { rank: 1, sail: y1, total: 5, net: 5, fleet: Gold, medal: true }
     - { rank: 2, sail: b1, total: 8, net: 8, fleet: Gold, medal: true }
     - { rank: 3, sail: y2, total: 10, net: 10, fleet: Gold, medal: false }
-    - { rank: 4, sail: b2, total: 8, net: 8, fleet: Silver }
-    - { rank: 5, sail: y3, total: 12, net: 12, fleet: Silver }
-    - { rank: 6, sail: b3, total: 14, net: 14, fleet: Silver }
+    - { rank: 4, sail: b2, total: 6, net: 6, fleet: Silver }
+    - { rank: 5, sail: y3, total: 10, net: 10, fleet: Silver }
+    - { rank: 6, sail: b3, total: 12, net: 12, fleet: Silver }

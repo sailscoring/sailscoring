@@ -843,7 +843,7 @@ export function SplitFleetEditor({
               <p className={hint}>
                 Never discarded. Everyone else stays in their fleet and sails its remaining races
                 {value.medal.companionRace === 'scored-below'
-                  ? `, the first finisher of the last one scoring ${value.medal.size + 1}`
+                  ? `, and in the fleet they left the last one scores from ${value.medal.size + 1}`
                   : ''}
                 .
                 {value.medal.carryTransform

@@ -227,7 +227,7 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     const rest =
       `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets` +
       (config.medal.companionRace === 'scored-below'
-        ? `, in which the first boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
+        ? `, in which the first ${topFleet} boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
         : '');
     push(
       'medal',

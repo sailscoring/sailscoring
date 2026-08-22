@@ -149,13 +149,23 @@ export interface SplitFleetConfig {
      *  other, and the medal boats are absent from it rather than scored for
      *  missing it.
      *
-     *  - `scored-below` — its finishers are offset by the medal fleet, so
-     *    the first of them scores `size + 1` (2024 ILCA SI 18.3.4 and, from
+     *  - `scored-below` — a fleet's finishers are offset by however many of
+     *    its own boats left for the medal fleet, so the top fleet's first
+     *    finisher scores `size + 1` (2024 ILCA SI 18.3.4 and, from
      *    Amendment 3, 2026 ILCA SI 18.5.3, both "first finisher … 11
-     *    points, second 12 points and so on"). The offset lands on finish
-     *    places only: the RRS A5.2 base stays the fleet's assigned size plus
-     *    one, because the boats who left for the medal fleet are still
-     *    assigned to it.
+     *    points, second 12 points and so on"). A fleet nobody left is
+     *    scored from 1: the clause is written over every boat outside the
+     *    medal fleet, but the offset is what accounts for the boats removed
+     *    from a fleet, and a fleet that lost none has none to account for.
+     *    Applying it there would put a mid-fleet finisher past her own
+     *    fleet's DNF score — 11 to 57 against a base of 48 in a 47-boat
+     *    Silver — which is the reading breaking the race it scores.
+     *
+     *    The offset lands on finish places only: the RRS A5.2 base stays the
+     *    fleet's assigned size plus one, because the boats who left for the
+     *    medal fleet are still assigned to it. That is what lines the race
+     *    up — the top fleet's 37 starters score 11 to 47 against a base of
+     *    48, exactly as if the ten had taken the places above them.
      *  - `none` — scored from 1, like every other race of the stage. */
     companionRace: 'scored-below' | 'none';
   };

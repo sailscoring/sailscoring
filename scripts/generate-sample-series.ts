@@ -1261,16 +1261,21 @@ function buildChampionship(): SeriesFile {
   );
   runSequence('medal', [{ n: 1, fleetId: medalFleets[0], memberIds: medalTop }], '2026-06-14');
   // Selecting the medal fleet moves nobody: the boats who missed the cut sail
-  // one more race of their own final fleet, its finishers offset by the ones
-  // who left, and the medal boats are absent from it rather than DNC in it.
+  // one more race of their own final fleet, and the medal boats are absent
+  // from it rather than DNC in it. A fleet's finishers are offset by however
+  // many of its own boats left — all six came from Gold, so Silver is scored
+  // from 1 like any other race.
   runSequence(
     'final',
-    fin.map((fid, i) => ({
-      n: 3,
-      fleetId: fid,
-      memberIds: splitMembership[i].filter((id) => !medalTop.includes(id)),
-      opts: { firstPlaceOffset: config.medal!.size },
-    })),
+    fin.map((fid, i) => {
+      const gone = splitMembership[i].filter((id) => medalTop.includes(id)).length;
+      return {
+        n: 3,
+        fleetId: fid,
+        memberIds: splitMembership[i].filter((id) => !medalTop.includes(id)),
+        ...(gone > 0 ? { opts: { firstPlaceOffset: gone } } : {}),
+      };
+    }),
     '2026-06-14',
   );
 

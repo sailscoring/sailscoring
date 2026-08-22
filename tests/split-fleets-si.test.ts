@@ -49,21 +49,21 @@ describe('describeSplitFleetConfig', () => {
     expect(text).toContain('own final fleet, plus one');
     expect(text).toContain('first 10 boats');
     expect(text).toContain('multiplied by 2 and may not be excluded');
-    expect(text).toContain('the first boat will be scored 11 points');
+    expect(text).toContain('the first Gold boat will be scored 11 points');
   });
 
   it('says what the boats who miss the cut sail, and how it is scored', () => {
     // Part of the same SI clause, and the first thing a scorer checks after
     // the medal fleet itself. The race is the same either way — one more of
-    // the second stage, in their own fleets — and what varies is whether its
-    // finishers start below the medal fleet.
+    // the second stage, in their own fleets — and what varies is whether the
+    // fleet the medal boats left starts scoring below them.
     expect(joined(defaultSplitFleetConfig(3))).toContain(
       'the boats that do not qualify for it will sail one more final series race in their own fleets, ' +
-        'in which the first boat will be scored 11 points, the second 12, and so on',
+        'in which the first Gold boat will be scored 11 points, the second 12, and so on',
     );
     expect(joined(ilca2026SplitFleetConfig(3))).toContain(
       'the boats that do not qualify for it will sail one more Elimination series race in their own fleets, ' +
-        'in which the first boat will be scored 11 points, the second 12, and so on',
+        'in which the first Gold boat will be scored 11 points, the second 12, and so on',
     );
     expect(
       joined({

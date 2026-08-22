@@ -653,9 +653,10 @@ export default function RunningASeries() {
             you add from <strong className="text-foreground">Add next race</strong> as usual. The
             boats who qualified have left that fleet’s racing, so they are simply absent from that
             race rather than scored for missing it. What differs by class is how it scores, and
-            the medal settings ask which: from 1 like any other race, or from just below the medal
-            group — first finisher eleven points where ten boats went to the medal race — which is
-            the ILCA wording in both eras. A redress decision that promotes a boat across the split is the{' '}
+            the medal settings ask which: from 1 like any other race, or — the ILCA wording in
+            both eras — from just below the medal group in the fleet they left, so that where ten
+            boats went to the medal race its first finisher scores eleven. Only that fleet is
+            offset. The others are a boat short of nobody and score from 1. A redress decision that promotes a boat across the split is the{' '}
             <strong className="text-foreground">Promote (redress)</strong> action on the split
             round.
           </p>

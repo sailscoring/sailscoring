@@ -26,9 +26,9 @@ notes: |
   discard ladder — which is why the ladder in those SIs runs to twelve
   races. What Amendment 3 changed is where its finishers start. They are
   offset by the ten boats who left for the Final series, so the first of
-  them scores 11 rather than 1. Every fleet takes the offset, not only the
-  one they left: the clause is written over every boat not in the Final
-  series.
+  them scores 11 rather than 1. Every fleet sails the race, but only the one
+  they left is offset: the offset is what accounts for the boats removed
+  from a fleet, and none were removed from Silver or Bronze.
 
   Here F2 is that race: b1 sails it for Gold while y1 and b2, who qualified
   for the Final series, do not. The point of the fixture is what their rows do
@@ -40,8 +40,10 @@ notes: |
 
   Note what the offset does not touch: Gold's score base for F2 is still its
   assigned size plus one — SI 18.5.2 counts boats assigned to the fleet, and
-  all three are still assigned to it. So a boat coded in that race scores 4
-  while its first finisher scores 3, which is what the words say.
+  all three are still assigned to it. That is what lines the race up: its one
+  starter scores 3 against a base of 4, in the place the two who left would
+  have pushed her to. Silver, which lost nobody, scores from 1 against the
+  same base.
 
   Hand check, DNC base 4 throughout, one discard from 3 races, at most one
   from the final series, and a lone final race protected:
@@ -108,8 +110,8 @@ stages:
           Gold: [y1, b2, b1]
           Silver: [y2, y3, b3]
       # SI 7.7: one more Elimination race, for the boats who did not qualify,
-      # its finishers offset by the two who left (SI 18.5.3). y1 and b2 are in
-      # the medal fleet and do not sail it.
+      # Gold's finishers offset by the two who left it (SI 18.5.3). y1 and b2
+      # are in the medal fleet and do not sail it.
       - n: 2
         results:
           Gold: [b1]
@@ -133,7 +135,7 @@ expected:
     - { rank: 1, sail: y1, total: 2, net: 2, fleet: Gold, medal: true }
     - { rank: 2, sail: b2, total: 4, net: 4, fleet: Gold, medal: true }
     - { rank: 3, sail: b1, total: 9, net: 6, fleet: Gold, medal: false }
-    # Silver takes the offset too, and every Silver boat then discards it.
-    - { rank: 4, sail: y2, total: 8, net: 5, fleet: Silver }
-    - { rank: 5, sail: y3, total: 12, net: 8, fleet: Silver }
-    - { rank: 6, sail: b3, total: 14, net: 9, fleet: Silver }
+    # Silver lost nobody to the Final series, so its F2 is scored from 1.
+    - { rank: 4, sail: y2, total: 6, net: 4, fleet: Silver }
+    - { rank: 5, sail: y3, total: 10, net: 7, fleet: Silver }
+    - { rank: 6, sail: b3, total: 12, net: 9, fleet: Silver }

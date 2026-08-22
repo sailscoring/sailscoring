@@ -254,14 +254,24 @@ Adelaide results published is a single last column headed "M / F5" for
 the Gold fleet — the medal race and the fifth final-series race in the
 same slot — with every Gold boat from 11th down blank in it, and Silver
 and Bronze a column short. So it discards like any other final-series
-race. And it is for "those not assigned to the Medal race", which is
-every boat outside the medal ten, Silver and Bronze included — every
-final fleet takes the offset, not just the one they left.
+race. And every fleet sails it — "those not assigned to the Medal race"
+is every boat outside the medal ten, Silver and Bronze included.
+
+But only the fleet they left is offset, and the arithmetic is what says
+so. The offset lands on finish places only, so the A5.2 base stays the
+fleet's assigned size plus one — the ten who left are still assigned to
+it. Offsetting Gold's remaining 37 starters to 11–47 against a base of
+48 lines the race up exactly as if the ten had taken the places above
+them. Silver has all 47 sailing against that same base and scores 1–47
+already; adding ten would give 11–57, putting every finisher past 38th
+beyond her own fleet's DNF score. The clause is written over every boat
+outside the medal fleet, but what the offset expresses is the boats
+removed from a fleet, and a fleet that lost none has none to account
+for. So the offset is per fleet: however many of its own boats left for
+the medal fleet.
 
 The offset itself is a per-race points offset, which ZW models with a
-"First As" race attribute; ours is `RaceStart.firstPlaceOffset`. It lands
-on finish places only, so a boat coded in that race still scores her
-fleet's A5.2 base.
+"First As" race attribute; ours is `RaceStart.firstPlaceOffset`.
 
 **Redress.** Three interlocking rules: reassignment/split snapshots ignore
 pending protests; a later redress decision may promote (only promote) a
@@ -335,9 +345,10 @@ rather than as a gap list:
   an ordinary Elimination race in their own fleet, discardable, counting
   toward the discard ladder, and (SI 18.5.3, added at Amendment 3) with
   its finishers offset by the ten who left, so the first of them scores
-  11. All three fleets sail it and all three take the offset; the Gold
-  fleet sails it ten boats short, and the boats who left it for the Final
-  series are absent from that race rather than scored DNC in it
+  11. All three fleets sail it, but only Gold is offset — the ten came
+  from Gold and nobody left Silver or Bronze. Gold sails it ten boats
+  short, and the boats who left it for the Final series are absent from
+  that race rather than scored DNC in it
   (`medal.companionRace: 'scored-below'`, fixture 17). Amendment 2 scored
   the same race from 1, which is what `'none'` still means.
 - **A tie-break of the SIs' own becomes load-bearing.** Halving to whole
@@ -602,10 +613,11 @@ a config change:
 - **Scoring a race from below the medal fleet is a per-start primitive,
   not a medal flag.** A `RaceStart.firstPlaceOffset?: number` (first
   finisher scores `offset + 1`) lives on the start, so *any* started fleet
-  can be scored that way — the common case (every final fleet's last race,
+  can be scored that way — the common case (the top fleet's last race,
   first = medal size + 1) is what the app fills in when the race is added
-  after the medal fleet is committed, but a one-off follows the same
-  primitive with no new pattern to encode. It sits on the start rather
+  after the medal fleet is committed, offsetting each fleet by however
+  many of its own boats left; a one-off follows the same primitive with no
+  new pattern to encode. It sits on the start rather
   than the race because the final fleets sailing it are one start sequence
   — one race, several starts, one sheet.
 - **`medal.raceCount` is a planning hint, not a limit.** It seeds the day

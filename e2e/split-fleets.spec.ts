@@ -171,7 +171,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByText('Gold last race')).toHaveCount(0);
   // And the section says where that race comes from, and what it scores.
   await expect(page.getByText('add that race from the Elimination series section')).toBeVisible();
-  await expect(page.getByText('Its first finisher scores 11 points')).toBeVisible();
+  await expect(page.getByText('In the fleet they left it scores from 11')).toBeVisible();
 });
 
 /**
@@ -274,9 +274,10 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   // assignments page rides with it, neither of them optional.
   await expect(dialog.getByText('Championship')).toBeVisible();
   await expect(dialog.getByText('Fleet assignments')).toBeVisible();
-  await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeDisabled();
-  // Its URL is still the scorer's to set, even though the page itself is not
-  // optional — every other page's segment is editable before it freezes.
+  // Tickable like any other page — a scorer may publish a subset — and ticked
+  // by default on a first publish.
+  await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeChecked();
+  await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeEnabled();
   const assignmentsUrl = dialog.getByLabel('URL for Fleet assignments');
   await expect(assignmentsUrl).toHaveValue('fleet-assignments');
   await assignmentsUrl.fill('who-is-in-what-fleet');
@@ -285,7 +286,9 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   // Both pages get URLs under /p/{ws}/2026/worlds-26/.
   const champLink = dialog.getByRole('link', { name: /worlds-26\/standings$/ });
   await expect(champLink).toBeVisible();
-  await expect(dialog.getByRole('link', { name: /worlds-26\/who-is-in-what-fleet$/ })).toBeVisible();
+  // Exactly one row per page: the assignments page is listed by the extra-pages
+  // block, not also as a results page.
+  await expect(dialog.getByRole('link', { name: /worlds-26\/who-is-in-what-fleet$/ })).toHaveCount(1);
   const champPath = new URL((await champLink.getAttribute('href')) ?? '').pathname;
 
   // The public championship page renders the combined qualifying table.

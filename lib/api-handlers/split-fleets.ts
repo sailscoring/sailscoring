@@ -492,9 +492,8 @@ export async function addStageRaces(
 
   // The boats who missed the medal fleet sail one more race of their own
   // final fleet, and where the sailing instructions score it below the medal
-  // fleet its finishers are offset by the boats who left. Every final fleet
-  // takes the offset, not just the one they left: the clause is written over
-  // every boat not in the medal fleet.
+  // fleet its finishers are offset by the boats who left *that* fleet — a
+  // fleet nobody left is scored from 1 like any other race of the stage.
   const [medalRound] =
     roundRow.stage === 'final' && config.medal?.companionRace === 'scored-below'
       ? await db
@@ -509,21 +508,22 @@ export async function addStageRaces(
           )
       : [];
   const medalFleetId = medalRound?.fleetIds[0] ?? null;
-  const offset = medalFleetId
-    ? (
-        await db
-          .select({ fleetIds: schema.competitors.fleetIds })
-          .from(schema.competitors)
-          .where(
-            and(
-              eq(schema.competitors.seriesId, seriesId),
-              eq(schema.competitors.workspaceId, workspace.workspaceId),
-            ),
-          )
-      ).filter((c) => c.fleetIds.includes(medalFleetId)).length
-    : 0;
-  const offsetFor = (): { firstPlaceOffset?: number } =>
-    offset > 0 ? { firstPlaceOffset: offset } : {};
+  const medalMembers = medalFleetId
+    ? await db
+        .select({ fleetIds: schema.competitors.fleetIds })
+        .from(schema.competitors)
+        .where(
+          and(
+            eq(schema.competitors.seriesId, seriesId),
+            eq(schema.competitors.workspaceId, workspace.workspaceId),
+          ),
+        )
+        .then((rows) => rows.filter((c) => c.fleetIds.includes(medalFleetId)))
+    : [];
+  const offsetFor = (fleetId: string): { firstPlaceOffset?: number } => {
+    const gone = medalMembers.filter((c) => c.fleetIds.includes(fleetId)).length;
+    return gone > 0 ? { firstPlaceOffset: gone } : {};
+  };
 
   // In the round's fleet order, each start's own stage race number.
   const orderStarts = (starts: { fleetId: string; stageRaceNumber: number }[]) =>
@@ -533,7 +533,7 @@ export async function addStageRaces(
         fleetId: fid,
         label: byId.get(fid)?.name ?? '?',
         stageRaceNumber: starts.find((s) => s.fleetId === fid)!.stageRaceNumber,
-        ...offsetFor(),
+        ...offsetFor(fid),
       }));
 
   // The shape a race added now takes is the shape the ceremony gave the round:

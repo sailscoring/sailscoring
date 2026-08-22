@@ -229,18 +229,28 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
 
   // The one more race the boats who missed the medal fleet sail is an
   // ordinary race of their own final fleet, and where the sailing
-  // instructions score it below the medal fleet its finishers are offset by
-  // the boats who left. `medalAfter` is what says which final races come
-  // after the cut: everything later than it is that race.
-  const medalCutAfter =
-    fx.stages.find((s) => s.stage === 'medal')?.medalAfter ?? null;
-  const offsetFor = (st: SeriesStage, n: number): { firstPlaceOffset?: number } =>
-    config.medal?.companionRace === 'scored-below' &&
-    st === 'final' &&
-    medalCutAfter != null &&
-    n > medalCutAfter
-      ? { firstPlaceOffset: config.medal.size }
-      : {};
+  // instructions score it below the medal fleet a fleet's finishers are
+  // offset by however many of its own boats left for the medal fleet — so
+  // the top fleet's, and nobody else's. `medalAfter` is what says which
+  // final races come after the cut: everything later than it is that race.
+  const medalCutAfter = fx.stages.find((s) => s.stage === 'medal')?.medalAfter ?? null;
+  const medalMembership = (() => {
+    const medal = fx.stages.find((s) => s.stage === 'medal');
+    const named = medal?.fleets ?? medal?.expectedFleets;
+    return new Set((named ? Object.values(named)[0] : []).map(String));
+  })();
+  const offsetFor = (
+    st: SeriesStage,
+    n: number,
+    fleetName: string,
+  ): { firstPlaceOffset?: number } => {
+    if (config.medal?.companionRace !== 'scored-below') return {};
+    if (st !== 'final' || medalCutAfter == null || n <= medalCutAfter) return {};
+    const stage = fx.stages.find((s2) => s2.stage === 'final');
+    const members = (stage?.fleets ?? stage?.expectedFleets)?.[fleetName] ?? [];
+    const gone = members.map(String).filter((sail) => medalMembership.has(sail)).length;
+    return gone > 0 ? { firstPlaceOffset: gone } : {};
+  };
 
   const competitors = new Map<string, Competitor>();
   for (const [i, entry] of fx.competitors.entries()) {
@@ -378,7 +388,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         raceStarts.push({
           id: `start:${raceId}`, raceId, fleetIds: [fid(name)],
           stage: st, stageRaceNumber: r.n,
-          ...offsetFor(st, r.n),
+          ...offsetFor(st, r.n, name),
         });
         // Fixtures model each fleet's sheet as its own race; combined
         // sequences are covered by the engine unit tests.

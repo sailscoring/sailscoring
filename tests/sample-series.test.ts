@@ -255,14 +255,18 @@ describe('sample series files', () => {
       row.cells.find((c) => c.stage === 'final' && c.stageRaceNumber === 3);
     expect(rows.slice(0, 6).every((r) => f3(r) == null)).toBe(true);
 
-    // Everyone else sailed F3 with their own fleet, its finishers offset by
-    // the six who left — so its best score is medal size + 1.
-    const lastRaceCells = rows
-      .slice(6)
-      .map(f3)
-      .filter((c) => c != null && c.counts && !c.code);
-    expect(lastRaceCells.length).toBeGreaterThan(0);
-    expect(Math.min(...lastRaceCells.map((c) => c!.points))).toBe(sf.config.medal!.size + 1);
+    // Everyone else sailed F3 with their own fleet. Gold's finishers are
+    // offset by the six who left it, so its best score is medal size + 1;
+    // Silver lost nobody and is scored from 1.
+    const bestF3 = (rowsIn: typeof rows) =>
+      Math.min(
+        ...rowsIn
+          .map(f3)
+          .filter((c) => c != null && c.counts && !c.code)
+          .map((c) => c!.points),
+      );
+    expect(bestF3(rows.slice(6, 12))).toBe(sf.config.medal!.size + 1);
+    expect(bestF3(rows.slice(12))).toBe(1);
 
     // The sprinkled result codes survived generation: one BFD, one DNF.
     expect(finishes.filter((f) => f.resultCode === 'BFD')).toHaveLength(1);
