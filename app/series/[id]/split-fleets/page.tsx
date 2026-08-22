@@ -497,6 +497,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         enabledFields={data.series.enabledCompetitorFields ?? []}
         onPublish={can('manage-workspace') || can('score') ? () => setShowPublish(true) : undefined}
         onPreview={() => setShowPreview(true)}
+        entryListPublishable={has('entry-list')}
         resultsStatus={
           showResultsStatus
             ? {
@@ -1850,6 +1851,7 @@ function StandingsSection({
   enabledFields,
   onPublish,
   onPreview,
+  entryListPublishable,
   resultsStatus,
 }: {
   data: SplitFleetData;
@@ -1859,6 +1861,11 @@ function StandingsSection({
   enabledFields: CompetitorFieldKey[];
   onPublish?: () => void;
   onPreview?: () => void;
+  /** Whether the competitor list can be published. A split-fleet series has no
+   *  Standings tab, so this section is the only place publishing is reachable
+   *  — including before the first race, when the entry list is the sole page
+   *  there is to publish. */
+  entryListPublishable?: boolean;
   /** Results-lifecycle surface (the Standings tab is hidden on split-fleet
    *  series, so the chip + finalise affordance live here instead). */
   resultsStatus?: { isFinal: boolean; finalisedAt?: number; onMarkFinal?: () => void };
@@ -1881,11 +1888,22 @@ function StandingsSection({
 
   if (columns.length === 0) {
     return (
-      <section className="bg-card border rounded-lg p-5">
+      <section className="bg-card border rounded-lg p-5 space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide">Standings</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Standings appear once the first race is sailed.
+          {entryListPublishable && ' The competitor list can be published now.'}
         </p>
+        {entryListPublishable && (
+          <div className="flex gap-2">
+            {onPreview && (
+              <Button variant="outline" size="sm" onClick={onPreview}>Preview</Button>
+            )}
+            {onPublish && (
+              <Button size="sm" onClick={onPublish}>Publish…</Button>
+            )}
+          </div>
+        )}
       </section>
     );
   }

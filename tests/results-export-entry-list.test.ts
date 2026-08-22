@@ -127,6 +127,25 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('<th>Fleet</th>');
   });
 
+  it('publishes the entry list for a split-fleet series with no races', async () => {
+    // A split-fleet series has no Standings tab, so the Split Fleets page is
+    // the only place publishing is reachable — and before race one the entry
+    // list is the only page there is. The no-races path runs ahead of the
+    // split-fleet branch, which needs races to produce anything.
+    const repos = {
+      ...makeRepos([], []),
+      splitFleets: {
+        get: async () => ({
+          config: { qualifying: {}, finalFleets: [] },
+          rounds: [{ id: 'r1', roundNumber: 1, fleetIds: [] }],
+        }),
+      },
+    } as unknown as ExportRepos;
+    const files = await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true });
+    expect(files!.map((f) => f.fleetName)).toEqual(['Entries']);
+    expect(files![0].html).toContain('Competitor List');
+  });
+
   it('publishes nothing at all for a series with no competitors', async () => {
     const repos = {
       ...makeRepos([], []),
