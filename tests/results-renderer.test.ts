@@ -251,6 +251,59 @@ describe('renderSeriesHtml', () => {
     expect(renderSeriesHtml(data)).not.toContain('<th>World Sailing ID</th>');
   });
 
+  it('publishes the identifier numbers a boat carries besides its sail number', () => {
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['bowNumber', 'entryNumber', 'tallyNumber'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [
+        {
+          ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]),
+          bowNumber: '14',
+          entryNumber: '108',
+          tallyNumber: 'T0042',
+        },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('<th>Bow</th>');
+    expect(html).toContain('<th>Entry</th>');
+    expect(html).toContain('<th>Tally</th>');
+    expect(html).toContain('<td>T0042</td>');
+    // Immediately after the sail number, ahead of everything descriptive.
+    expect(html).toMatch(/<th>Sail Number<\/th>\s*<th>Bow<\/th>\s*<th>Entry<\/th>\s*<th>Tally<\/th>/);
+  });
+
+  it('carries the identifier numbers into the per-race tables too', () => {
+    const race = makeRace(1, [['1', 'Alice', 1, null]]);
+    race.results[0].tallyNumber = 'T0042';
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['tallyNumber'],
+      races: [race],
+      standings: [
+        { ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), tallyNumber: 'T0042' },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    // Once in the summary table, once in the race table.
+    expect(html.match(/<th>Tally<\/th>/g)).toHaveLength(2);
+  });
+
+  it('suppresses an identifier column when enabled but nobody has a value', () => {
+    // Same treatment as Club, Nat and World Sailing ID.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['bowNumber', 'entryNumber', 'tallyNumber'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }])],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('<th>Bow</th>');
+    expect(html).not.toContain('<th>Entry</th>');
+    expect(html).not.toContain('<th>Tally</th>');
+  });
+
   it('suppresses Age and Gender columns when enabled but no competitor has a value', () => {
     const data: SeriesResultsData = {
       series: { name: 'S', venue: '' },

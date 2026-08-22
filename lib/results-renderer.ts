@@ -186,6 +186,12 @@ export interface EchoHeaderData {
 
 export interface RaceResultData {
   sailNumber: string;
+  /** Bow number, when the boat carries one distinct from its sail number. */
+  bowNumber?: string;
+  /** The OA's registration number for the entry. */
+  entryNumber?: string;
+  /** The safety tally token issued at registration. */
+  tallyNumber?: string;
   boatName?: string;
   boatClass?: string;
   /** Primary person(s) — labelled per `SeriesResultsData.primaryPersonLabel`. */
@@ -271,6 +277,12 @@ export interface EchoCellData {
 export interface StandingRowData {
   rank: number;
   sailNumber: string;
+  /** Bow number, when the boat carries one distinct from its sail number. */
+  bowNumber?: string;
+  /** The OA's registration number for the entry. */
+  entryNumber?: string;
+  /** The safety tally token issued at registration. */
+  tallyNumber?: string;
   boatName?: string;
   boatClass?: string;
   /** Primary person(s) — labelled per `SeriesResultsData.primaryPersonLabel`. */
@@ -327,6 +339,9 @@ export interface RaceScoreData {
  *  computes one per fleet section, so each fleet keeps its own column set. */
 interface SectionView {
   hasDiscards: boolean;
+  showBowNumber: boolean;
+  showEntryNumber: boolean;
+  showTallyNumber: boolean;
   showBoatName: boolean;
   showBoatClass: boolean;
   showHelm: boolean;
@@ -355,6 +370,18 @@ function computeSectionView(data: SeriesResultsData): SectionView {
   const ownerHeader = personFieldHeader('owner', multiPersonFields);
   const crewHeader = personFieldHeader('crewName', multiPersonFields);
   const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
+  // The identifier numbers a boat carries besides its sail number. Each is
+  // suppressed when no competitor has one, the same rule the Club and Nat
+  // columns follow — enabling a field shouldn't publish a dead column.
+  const identifierShown = (
+    key: 'bowNumber' | 'entryNumber' | 'tallyNumber',
+    of: (row: { bowNumber?: string; entryNumber?: string; tallyNumber?: string }) => string | undefined,
+  ): boolean =>
+    enabledCompetitorFields.includes(key) &&
+    (standings.some((s) => !!of(s)) || races.some((r) => r.results.some((x) => !!of(x))));
+  const showBowNumber = identifierShown('bowNumber', (r) => r.bowNumber);
+  const showEntryNumber = identifierShown('entryNumber', (r) => r.entryNumber);
+  const showTallyNumber = identifierShown('tallyNumber', (r) => r.tallyNumber);
   const showBoatName = enabledCompetitorFields.includes('boatName');
   const showBoatClass = enabledCompetitorFields.includes('boatClass');
   const showHelm = enabledCompetitorFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel);
@@ -395,6 +422,9 @@ function computeSectionView(data: SeriesResultsData): SectionView {
 
   return {
     hasDiscards,
+    showBowNumber,
+    showEntryNumber,
+    showTallyNumber,
     showBoatName,
     showBoatClass,
     showHelm,
@@ -969,16 +999,19 @@ function renderSummaryTable(
   linkedAnchorIds: ReadonlySet<string>,
   flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
 ): string {
-  const { hasDiscards, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader, summaryRatingSystem: ratingSystem } = view;
+  const { hasDiscards, showBowNumber, showEntryNumber, showTallyNumber, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader, summaryRatingSystem: ratingSystem } = view;
   const hasSeedCol = ratingSystem !== null;
   const seedHeader = ratingSystem === 'nhc' ? 'NHC1' : (ratingSystem === 'echo' ? 'ECHO' : '');
-  const extraCols = (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
-  // rank + sail [+ boat] [+ class] + primary [+ helm] [+ owner] [+ club] [+ nat] [+ subdivision] [+ age] [+ gender] [+ seed] + races + total [+ nett]
+  const extraCols = (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
+  // rank + sail [+ bow] [+ entry] [+ tally] [+ boat] [+ class] + primary [+ helm] [+ owner] [+ club] [+ nat] [+ wsid] [+ subdivision] [+ age] [+ gender] [+ seed] + races + total [+ nett]
   const colCount = 3 + extraCols + (hasSeedCol ? 1 : 0) + races.length + (hasDiscards ? 2 : 1);
 
   const cols = [
     '<col class="rank" />',
     '<col class="sailno" />',
+    ...(showBowNumber ? ['<col class="bowno" />'] : []),
+    ...(showEntryNumber ? ['<col class="entryno" />'] : []),
+    ...(showTallyNumber ? ['<col class="tally" />'] : []),
     ...(showBoatName ? ['<col class="boatname" />'] : []),
     ...(showBoatClass ? ['<col class="boatclass" />'] : []),
     '<col class="helmname" />',
@@ -999,6 +1032,9 @@ function renderSummaryTable(
   const headerCells = [
     '<th>Rank</th>',
     '<th>Sail Number</th>',
+    ...(showBowNumber ? ['<th>Bow</th>'] : []),
+    ...(showEntryNumber ? ['<th>Entry</th>'] : []),
+    ...(showTallyNumber ? ['<th>Tally</th>'] : []),
     ...(showBoatName ? ['<th>Boat</th>'] : []),
     ...(showBoatClass ? ['<th>Class</th>'] : []),
     `<th>${esc(showCrewName ? `${primaryHeader} / ${crewHeader}` : primaryHeader)}</th>`,
@@ -1059,6 +1095,9 @@ function renderSummaryTable(
         `<tr class="${rowClass} summaryrow">`,
         `<td>${ordinal(s.rank)}</td>`,
         `<td>${esc(s.sailNumber)}</td>`,
+        ...(showBowNumber ? [`<td>${esc(s.bowNumber ?? '')}</td>`] : []),
+        ...(showEntryNumber ? [`<td>${esc(s.entryNumber ?? '')}</td>`] : []),
+        ...(showTallyNumber ? [`<td>${esc(s.tallyNumber ?? '')}</td>`] : []),
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
         `<td>${renderHelmCell(s.helm, s.crewNames, showCrewName)}</td>`,
@@ -1114,7 +1153,7 @@ function renderRaceTable(
   // lone race of a race-results page, where the numbering says nothing.
   opts?: { suppressLabel?: boolean },
 ): string {
-  const { showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader } = view;
+  const { showBowNumber, showEntryNumber, showTallyNumber, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader } = view;
   const dateStr = formatIsoDate(race.date);
   const startStr = race.startTime ? ` &mdash; Start: ${esc(race.startTime)}` : '';
   const isNhc = race.isNhc === true || race.nhcHeader != null;
@@ -1161,6 +1200,9 @@ function renderRaceTable(
         `<tr class="${rowClass} racerow">`,
         `<td${podiumClass}>${rankText}</td>`,
         `<td>${esc(r.sailNumber)}</td>`,
+        ...(showBowNumber ? [`<td>${esc(r.bowNumber ?? '')}</td>`] : []),
+        ...(showEntryNumber ? [`<td>${esc(r.entryNumber ?? '')}</td>`] : []),
+        ...(showTallyNumber ? [`<td>${esc(r.tallyNumber ?? '')}</td>`] : []),
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
         `<td>${renderHelmCell(r.helm, r.crewNames, showCrewName)}</td>`,
@@ -1183,7 +1225,7 @@ function renderRaceTable(
     })
     .join('\n');
 
-  const baseColCount = 4 + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
+  const baseColCount = 4 + (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
   const colCount = baseColCount
     + (hasHandicapCols ? 4 : 0)
     + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
@@ -1251,7 +1293,7 @@ ${optionsSubheading}${conditionsSubheading}${officialsSubheading}${nhcSubheading
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
-${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
+${showBowNumber ? '<col class="bowno" />\n' : ''}${showEntryNumber ? '<col class="entryno" />\n' : ''}${showTallyNumber ? '<col class="tally" />\n' : ''}${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
 ${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${showClub ? '<col class="club" />\n' : ''}${showNationality ? '<col class="nat" />\n' : ''}${showWorldSailingId ? '<col class="wsid" />\n' : ''}${subdivisionAxes.map(() => '<col class="subdivision" />\n').join('')}${showAge ? '<col class="age" />\n' : ''}${showGender ? '<col class="gender" />\n' : ''}${handicapCols}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
 <col class="points" />
 </colgroup>
@@ -1259,7 +1301,7 @@ ${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail Number</th>
-${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? `\n<th>${esc(helmHeader)}</th>` : ''}${showOwner ? `\n<th>${esc(ownerHeader)}</th>` : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
+${showBowNumber ? '<th>Bow</th>\n' : ''}${showEntryNumber ? '<th>Entry</th>\n' : ''}${showTallyNumber ? '<th>Tally</th>\n' : ''}${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? `\n<th>${esc(helmHeader)}</th>` : ''}${showOwner ? `\n<th>${esc(ownerHeader)}</th>` : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
 <th>Points</th>
 </tr>
 </thead>
@@ -1542,7 +1584,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
   standings: Array<{
     rank: number;
-    competitor: { id: string; sailNumber: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
+    competitor: { id: string; sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -1554,7 +1596,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -1695,6 +1737,9 @@ export function assembleSeriesResultsData(
 
       results.push({
         sailNumber: competitor.sailNumber,
+        ...(competitor.bowNumber ? { bowNumber: competitor.bowNumber } : {}),
+        ...(competitor.entryNumber ? { entryNumber: competitor.entryNumber } : {}),
+        ...(competitor.tallyNumber ? { tallyNumber: competitor.tallyNumber } : {}),
         ...(competitor.boatName ? { boatName: competitor.boatName } : {}),
         ...(competitor.boatClass ? { boatClass: competitor.boatClass } : {}),
         helm: competitor.names,
@@ -1777,7 +1822,9 @@ export function assembleSeriesResultsData(
       rank: s.rank,
       sailNumber: s.competitor.sailNumber,
       ...(s.competitor.boatName ? { boatName: s.competitor.boatName } : {}),
-      ...(s.competitor.boatClass ? { boatClass: s.competitor.boatClass } : {}),
+      ...(s.competitor.bowNumber ? { bowNumber: s.competitor.bowNumber } : {}),
+      ...(s.competitor.entryNumber ? { entryNumber: s.competitor.entryNumber } : {}),
+      ...(s.competitor.tallyNumber ? { tallyNumber: s.competitor.tallyNumber } : {}),
       helm: s.competitor.names,
       ...(s.competitor.owners?.length ? { owner: s.competitor.owners } : {}),
       ...(s.competitor.helms?.length ? { helmRole: s.competitor.helms } : {}),
