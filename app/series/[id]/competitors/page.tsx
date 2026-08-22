@@ -730,7 +730,9 @@ export default function CompetitorsPage({
             open={showPublishDialog}
             onClose={() => setShowPublishDialog(false)}
             canFtp={false}
-            {...(isSplitFleetSeries ? { lonePageName: 'Championship' } : {})}
+            {...(isSplitFleetSeries
+              ? { lonePageName: 'Championship', alwaysPublishedPages: ['Fleet assignments'] }
+              : {})}
           />
         )}
         <UpdateHandicaps ref={updateHandicapsRef} seriesId={seriesId} />

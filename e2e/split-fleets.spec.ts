@@ -268,6 +268,13 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog.getByLabel('Season')).toHaveValue('2026');
   await dialog.getByLabel('Folder').fill('worlds-26');
+  // Before publishing, the dialog names both pages it is about to put out.
+  // The championship is the lone results page — called "Championship" here as
+  // it is in Preview, not the generic "Standings" — and the rolling
+  // assignments page rides with it, neither of them optional.
+  await expect(dialog.getByText('Championship')).toBeVisible();
+  await expect(dialog.getByText('Fleet assignments')).toBeVisible();
+  await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeDisabled();
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
   // Both pages get URLs under /p/{ws}/2026/worlds-26/.

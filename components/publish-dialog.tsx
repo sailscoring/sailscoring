@@ -49,6 +49,12 @@ export interface PublishDialogProps {
    *  there, and Preview calls it "Championship". Naming only; the sub-path is
    *  unchanged. */
   lonePageName?: string;
+  /** Pages the build emits alongside the lone results page that the dialog
+   *  cannot work out for itself, because they come from neither a fleet nor a
+   *  publishing group — a split-fleet series' rolling fleet-assignments page.
+   *  Listed so the dialog shows everything that will go public; they are not
+   *  optional, so they get the same fixed checkbox the results page does. */
+  alwaysPublishedPages?: string[];
 }
 
 /** Sanitise free-typed slug / sub-path input to the allowed character set. */
@@ -108,7 +114,7 @@ interface SuppressedRow {
  *  when working out whether a publication has a lone results page. */
 const EXTRA_PAGE_NAMES = new Set(['Prizes', 'Entries']);
 
-export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageName }: PublishDialogProps) {
+export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageName, alwaysPublishedPages }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
   const confirm = useConfirm();
   const { has } = useFeatures();
@@ -958,6 +964,26 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                     className="flex-1 min-w-0 h-7 text-xs font-mono"
                   />
                 </div>
+                {/* Pages the build emits beside the results page. Shown so the
+                    dialog tells the whole truth about what goes public; their
+                    paths derive from the page name and aren't the scorer's to
+                    edit. */}
+                {(alwaysPublishedPages ?? []).map((name) => (
+                  <div key={name} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked
+                      disabled
+                      className="h-4 w-4 shrink-0"
+                      aria-label={`Publish ${name}`}
+                      title="Published alongside the results page"
+                    />
+                    <span className="w-36 shrink-0 truncate text-sm">{name}</span>
+                    <span className="flex-1 min-w-0 truncate text-xs font-mono text-muted-foreground">
+                      {fleetSubPath(name, false)}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
 
