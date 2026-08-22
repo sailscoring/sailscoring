@@ -631,8 +631,13 @@ export default function RunningASeries() {
             the abandon-and-cancel rule in championship sailing instructions. The fleets start in
             sequence and finish onto <strong className="text-foreground">one combined sheet</strong>:
             enter it exactly as it comes off the water, interleaved, and each boat scores her
-            place within her own fleet. If one fleet’s race is abandoned, abandon just that
-            fleet’s start from the race row — the rest of the sheet stands — and add its{' '}
+            place within her own fleet. Where each fleet’s finishes come back separately
+            instead — as electronic timing records them — set{' '}
+            <strong className="text-foreground">Finish sheets</strong> to one per fleet in the
+            championship settings, and every stage race is laid out as a race per fleet, whether
+            the ceremony creates it or you add it later. It changes the layout, not the scoring.
+            If one fleet’s race is abandoned, abandon just that fleet’s start from the race row —
+            the rest of the sheet stands — and add its{' '}
             <strong className="text-foreground">catch-up race</strong> (its own sheet, usually
             sailed first the next day) from the same row.
           </p>
