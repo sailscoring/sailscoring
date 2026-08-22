@@ -580,6 +580,17 @@ async function unpublish(published: PublishedSeries): Promise<void> {
     await deletePublishedHtml(page.blobUrl);
   }
   await deletePublished(published.id);
+  // Split-fleet series (#328): publishing stamps each round so the Split
+  // Fleets page can badge which assignments are public. Taking the pages down
+  // has to clear the stamp, or a round reads "Published" with nothing behind
+  // it. Display state only — nothing is frozen by it. An orphaned publication
+  // (series deleted) has no rounds left to clear.
+  if (published.seriesId) {
+    const splitRounds = createRepos({ workspaceId: published.workspaceId }).splitRounds;
+    for (const round of await splitRounds.listBySeries(published.seriesId)) {
+      if (round.publishedAt) await splitRounds.setPublishedAt(round.id, null);
+    }
+  }
 }
 
 /** Unpublish by publication id — the management page's canonical path, the only

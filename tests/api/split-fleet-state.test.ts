@@ -209,6 +209,24 @@ describe.skipIf(skip)('split-fleet state replay (#365)', () => {
     expect(row.overrides).toEqual({ [competitorIds[0]]: fleetIds[1] });
   });
 
+  test('the published stamp on a round can be set and cleared', async () => {
+    // The Split Fleets page badges a round "Published" from this column, and
+    // unpublishing has to take the badge down with the pages — otherwise a
+    // round reads Published with nothing behind it.
+    const { seriesId, fleetIds } = await seedSeries('Stamp');
+    const r = round(fleetIds);
+    await putSplitFleetState(ctx, seriesId, { config: CONFIG, rounds: [r] });
+
+    const { createRepos } = await import('@/lib/postgres-repository');
+    const rounds = createRepos({ workspaceId: ctx.workspaceId }).splitRounds;
+
+    await rounds.setPublishedAt(r.id, Date.now());
+    expect((await rounds.listBySeries(seriesId))[0].publishedAt).toBeTruthy();
+
+    await rounds.setPublishedAt(r.id, null);
+    expect((await rounds.listBySeries(seriesId))[0].publishedAt).toBeFalsy();
+  });
+
   test('refuses a series in another workspace and an archived one', async () => {
     await expect(
       putSplitFleetState(ctx, uuid(), { config: CONFIG, rounds: [] }),

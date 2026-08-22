@@ -2439,10 +2439,13 @@ export class PostgresSplitRoundRepository {
       .where(and(eq(schema.splitRounds.id, roundId), eq(schema.splitRounds.workspaceId, this.workspaceId)));
   }
 
-  async setPublishedAt(roundId: string, when: number): Promise<void> {
+  /** Stamp when a round's assignment list went public, or clear the stamp
+   *  with `null` when the publication comes down. Display state only — the
+   *  Split Fleets page's "Published" badge reads it, and nothing else does. */
+  async setPublishedAt(roundId: string, when: number | null): Promise<void> {
     await this.db
       .update(schema.splitRounds)
-      .set({ publishedAt: new Date(when) })
+      .set({ publishedAt: when === null ? null : new Date(when) })
       .where(and(eq(schema.splitRounds.id, roundId), eq(schema.splitRounds.workspaceId, this.workspaceId)));
   }
 
