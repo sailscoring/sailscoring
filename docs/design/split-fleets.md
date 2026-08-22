@@ -55,9 +55,10 @@ shown. Read the terms below as roles, not as the words a given event uses.
   ranking: every Gold boat ranks above every Silver boat.
 - **Medal fleet / medal race** — the top boats (usually ten) after the
   opening series, sailing one or two extra races that usually score double
-  points and cannot be discarded. Non-medal boats may sail a companion
-  "last race" scored from below the medal fleet (first finisher = 11 points
-  when the medal fleet is ten boats).
+  points and cannot be discarded. Selecting them does not move anyone else:
+  the boats who miss the cut stay in their final fleets and sail one more
+  race there, which the SIs often score from below the medal fleet (first
+  finisher = 11 points when the medal fleet is ten boats).
 - **Round** — one assignment of competitors to fleets, covering a span of
   races: the initial seeding, each qualifying reassignment, the final-fleet
   split, and medal-fleet selection are all rounds. Not "day": a round's
@@ -98,8 +99,8 @@ groups never meet. The qualifying/final format solves this in two phases:
 
 Some events add the medal race on top; the 2024 ILCA 7 Worlds shape was: 10
 opening-series races over 5 days, then on the last day one umpired medal
-race for the top ten plus one companion opening-series race for everyone
-else.
+race for the top ten, with one more opening-series race for everyone else
+sailed alongside it in their own fleets.
 
 ### Where the rules live — the strange story of Appendix LE
 
@@ -236,20 +237,31 @@ thresholds). Note what this is *not*: the folk description "a discard
 earned in qualifying can't be used in the finals" is wrong — discards
 float across the whole line, subject to those per-stage caps.
 
-**The medal race and its companion race.** Where a medal race exists
-(2024 ILCA SI 18.6): the medal boat's score is "double the number of
-points specified in RRS Appendix A4", non-discardable, and the medal race
-doesn't trigger additional discards. The non-medal boats' extra
-opening-series race has its own scoring quirk (2024 SI 18.3.4):
+**The medal race, and the race everyone else sails.** Where a medal race
+exists (2024 ILCA SI 18.6): the medal boat's score is "double the number
+of points specified in RRS Appendix A4", non-discardable, and the medal
+race doesn't trigger additional discards. Alongside it the boats who
+missed the cut sail one more race, and it has its own scoring quirk (2024
+SI 18.3.4, reproduced word for word as 2026 SI 18.5.3 at Amendment 3):
 
 > For those competitors not assigned to the Medal race and scheduled to an
 > additional Opening series race as detailed in SI 7.4, the first finisher
 > will be scored 11 points, second 12 points and so on.
 
-That is: the companion race's points start immediately below the ten medal
-boats — a race whose first place is worth 11 points. (ZW models this with
-a "First As" race attribute; our model needs an equivalent per-race points
-offset.)
+Two things the words settle. It is an **opening-series race in the boats'
+own fleets**, not a race of its own with a fleet dealt for it: what the
+Adelaide results published is a single last column headed "M / F5" for
+the Gold fleet — the medal race and the fifth final-series race in the
+same slot — with every Gold boat from 11th down blank in it, and Silver
+and Bronze a column short. So it discards like any other final-series
+race. And it is for "those not assigned to the Medal race", which is
+every boat outside the medal ten, Silver and Bronze included — every
+final fleet takes the offset, not just the one they left.
+
+The offset itself is a per-race points offset, which ZW models with a
+"First As" race attribute; ours is `RaceStart.firstPlaceOffset`. It lands
+on finish places only, so a boat coded in that race still scores her
+fleet's A5.2 base.
 
 **Redress.** Three interlocking rules: reassignment/split snapshots ignore
 pending protests; a later redress decision may promote (only promote) a
@@ -272,8 +284,9 @@ tail of the fleet ahead. The finish team therefore records **one
 interleaved sheet across every fleet in the sequence**, not one sheet per
 fleet. Which fleets share a sequence varies session by session: all of
 Q3's fleets on a qualifying day; Gold F2 + Silver F2 + Bronze F1 when the
-final fleets are a race out of step; the medal race and its companion
-race. The one combination a sequence never contains is two fleets that
+final fleets are a race out of step; the final fleets' last race while
+the medal race runs elsewhere. The one combination a sequence never
+contains is two fleets that
 share a boat — she cannot be on two start lines five minutes apart —
 which is why a catch-up race for a lagging fleet (whose old-round
 membership cuts across every new-round fleet) is always run as its own
@@ -317,14 +330,16 @@ rather than as a gap list:
   first*: "divided by 2 (two), rounded to the nearest whole number (0.5
   rounded upward)" (SI 18.7.3). That is the survey's **F3 compressed
   carry**, not F2 — `medal.carryTransform`, fixture 15.
-- **There is no companion-race points offset.** The boats who miss the
+- **The last day's extra race is scored from 11.** The boats who miss the
   Final series sail "one additional Qualification series race" (SI 7.7) —
-  an ordinary Elimination race in their own fleet, scored from 1,
-  discardable, counting toward the discard ladder — not 2024's race
-  scored from 11. All three fleets sail it; the Gold fleet sails it ten
-  boats short, and the boats who left it for the Final series are absent
-  from that race rather than scored DNC in it (`medal.companionRace: 'none'`,
-  fixture 17).
+  an ordinary Elimination race in their own fleet, discardable, counting
+  toward the discard ladder, and (SI 18.5.3, added at Amendment 3) with
+  its finishers offset by the ten who left, so the first of them scores
+  11. All three fleets sail it and all three take the offset; the Gold
+  fleet sails it ten boats short, and the boats who left it for the Final
+  series are absent from that race rather than scored DNC in it
+  (`medal.companionRace: 'scored-below'`, fixture 17). Amendment 2 scored
+  the same race from 1, which is what `'none'` still means.
 - **A tie-break of the SIs' own becomes load-bearing.** Halving to whole
   numbers manufactures ties among the ten, so SI 18.7.4 carries the weight
   of deciding the title. Amendment 3 rewrote it: where the clause used to
@@ -465,7 +480,7 @@ Walk the 2024 Adelaide event through Sail Scoring concepts:
   physically run — combining an old-round catch-up fleet with new-round
   fleets that overlap it — and permits everything it can: same-round
   qualifying fleets, final fleets in any stage-number combination, the
-  medal race with its companion race.
+  medal fleet apart from the fleets it was drawn from.
 - What no existing concept expresses is the relationships *between* those
   pieces: which fleets belong to which round and stage, which physical
   races make up qualifying race Q3, and the event-level scoring regime
@@ -562,8 +577,9 @@ export interface SplitFleetConfig {
    *  it. */
   vocabularyOverride?: Vocabulary;
   /** Medal race(s): fleet size, race count, points multiplier, and whether
-   *  the non-medal companion race starts scoring below the medal fleet
-   *  (2024 ILCA SI 18.3.4: first finisher = 11 points). */
+   *  the one more race the boats who miss the cut sail starts scoring below
+   *  the medal fleet (2024 ILCA SI 18.3.4, 2026 ILCA SI 18.5.3: first
+   *  finisher = 11 points). */
   medal?: {
     size: number;
     raceCount: number;
@@ -583,15 +599,15 @@ export interface SplitFleetConfig {
 Two of these are deliberately *not* hard-wired, so unusual events don't need
 a config change:
 
-- **The companion "last race" is a per-start primitive, not a medal flag.**
-  A `RaceStart.firstPlaceOffset?: number` (first finisher scores
-  `offset + 1`) lives on the start, so *any* started fleet can sail a
-  companion race — the common case (non-medal Gold, first = medal size + 1)
-  is just what the medal ceremony pre-fills, but a Silver last race or a
-  one-off follows the same primitive with no new pattern to encode. It sits
-  on the start rather than the race because the medal race and its
-  companion race are typically one start sequence — one race, two starts,
-  one sheet.
+- **Scoring a race from below the medal fleet is a per-start primitive,
+  not a medal flag.** A `RaceStart.firstPlaceOffset?: number` (first
+  finisher scores `offset + 1`) lives on the start, so *any* started fleet
+  can be scored that way — the common case (every final fleet's last race,
+  first = medal size + 1) is what the app fills in when the race is added
+  after the medal fleet is committed, but a one-off follows the same
+  primitive with no new pattern to encode. It sits on the start rather
+  than the race because the final fleets sailing it are one start sequence
+  — one race, several starts, one sheet.
 - **`medal.raceCount` is a planning hint, not a limit.** It seeds the day
   strip; the medal phase lets the scorer add M1, M2, … like final races (the
   2026 two-race medal series is two adds, not a special mode).
@@ -605,7 +621,7 @@ stage?: SeriesStage;
 stageRaceNumber?: number;   // Q3 → ('qualifying', 3), per start; final/medal
                             // numbering is per fleet and needs no cross-fleet
                             // pairing
-firstPlaceOffset?: number;  // companion-race offset (see above)
+firstPlaceOffset?: number;  // first finisher scores offset + 1 (see above)
 ```
 
 `Race` itself carries nothing split-fleet-specific: its number, name, and
@@ -722,8 +738,9 @@ standings:
   transform has already superseded.
 - **Medal scoring:** points × multiplier, never discarded; a start whose
   `RaceStart.firstPlaceOffset` is set scores its fleet's first finisher
-  `offset + 1` and so on (like ZW's "First As") — the companion "last
-  race" pre-filled with `offset = medal.size`, but usable on any start.
+  `offset + 1` and so on (like ZW's "First As") — pre-filled with
+  `offset = medal.size` on a final race added after the medal fleet is
+  committed, but usable on any start.
 - **Event ranking.** Overall order: medal fleet first (where the stage
   exists), then Gold block, Silver block, … — each block internally by net
   points + A8 — with the RRS 6/69 carve-out surfaced as a per-boat flag
@@ -742,7 +759,7 @@ standings:
   to any scoring desk (it's an RC/jury observation, resolved by protest
   or an RC-sanctioned assignment override on the round). Only when her
   own fleet is in a *different* race — a catch-up day, or the medal race
-  vs the companion race — is her number rejected at the desk, and there
+  vs her fleet's own last race — is her number rejected at the desk, and there
   the SI-default outcome falls out with no action: leaving her off the
   sheet scores her implicit DNC in her own fleet's race, and the
   gate-crashed race ignores non-members. A dedicated in-wizard
@@ -907,7 +924,7 @@ Validation plan, in order:
 
 1. **Fixtures from published history:** rebuild the 2024 ILCA 7 Worlds
    (Adelaide — 152 boats, 3 qualifying fleets, Gold/Silver/Bronze, medal
-   race + companion race, SPI/SCP codes; SIs at
+   race + the last day's extra race, SPI/SCP codes; SIs at
    `reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.md`) and the
    2025 Qingdao editions (including the never-split degenerate case) as
    scoring fixtures from the published Sailwave HTML, exact to the point —
@@ -925,7 +942,7 @@ fixed-top splits, both code bases + fixed, both equalisation modes,
 stage-aware discard caps, rank-pattern + seeded assignment + manual
 overrides, the Split Fleets view, combined/tiered standings, fleet-coloured
 published pages, assignment-list publishing, medal race as config
-(`size` / `raceCount` / `multiplier` / companion-race offset).
+(`size` / `raceCount` / `multiplier` / last-race points offset).
 
 Since shipped beyond that v1 scope:
 
@@ -938,11 +955,10 @@ Since shipped beyond that v1 scope:
   format of the target event.
 - The **per-boat equalisation** clause (LE 20.4(a)), which had been
   documented and deferred while its enum value was already accepted.
-- A **chosen vocabulary**, and the extra last-day race for the boats who
-  missed the medal fleet — which is a medal-block setting, since some classes
-  give them a companion race scored below the medal fleet and others give
-  them one more ordinary final-series race (fixture 17). See the 2026 ILCA
-  section in Part 1.
+- A **chosen vocabulary**, and how the extra last-day race for the boats
+  who missed the medal fleet is scored — a medal-block setting, since some
+  classes score it from below the medal fleet and others from 1 like any
+  other race (fixture 17). See the 2026 ILCA section in Part 1.
 
 Out (horizon): knockout medal-series brackets (iQFOiL / Formula Kite
 match points — not low-point arithmetic); Manage2Sail-style online

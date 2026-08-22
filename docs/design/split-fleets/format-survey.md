@@ -31,7 +31,7 @@ Three findings shape the fixture plan:
    finals stage of 1–2 races with zero discards (29er 2025), a **void**
    championship (Moth 2023 — 2 races in 7 days, no title awarded), three
    scheduled finales that never sailed (49erFX 2023 medal race, 470 2024
-   medal race, ILCA 2024's companion race), a world title decided on an
+   medal race, ILCA 2024's last-day race scored from 11), a world title decided on an
    unmodified A8 tie at equal points (ILCA 6 2021), and final fleets ending
    5 races apart (29er 2026). Every "esoteric" scenario in the fixture list
    below actually happened.
@@ -53,8 +53,8 @@ replacement base per stage (qualifying / finals).
 | Code | Carry | Finale | Discards | Code base (Q / F) | Reassignment | Split rule | Seen at |
 |---|---|---|---|---|---|---|---|
 | **F1** Addendum-C classic | Continuous points, one line | None | Class ladder (Opti: exactly 1 @5; 420: 1 @3; ILCA: 1/4–9, 2/10+ with max-1-final + lone-final-race caps; Moth: pooled 2–3) | Largest Q fleet / own final fleet (pre-2024 ILCA + pre-2026 Opti: largest fleet both stages) | Daily by rank, 20:00/21:00 freeze | Near-equal blocks, Gold-largest; or fixed Gold (Moth 2025: top 60) | Optimist all years; 420 all years; ILCA 2021-22, 2025; Moth 2021/24/25; WASZP 2022 |
-| **F2** = F1 + medal race(s) | Continuous | Top-10 medal race, ×2 points, never discardable, breaks ties; companion "last race" scored from 11 | As F1 + medal exclusions (ILCA 2024: ONE discard total) | As F1; medal base = 10 | As F1 | As F1; skiffs: Gold fixed 25 | ILCA 2024; 470 Worlds/Europeans 2021-25; SWC 2023 (all classes); 49er/FX/Nacra 2021-24 (one discard only, F-scores-only tie-break) |
-| **F3** compressed-carry medal series | Continuous through finals, then carried score **transformed** before an additive 2-race medal series (÷2 rounded half-up — ILCA 2026; ÷2.25 truncated; or chained gap caps 9/18) | 10-boat, 2 races, additive, non-discardable, Appendix MR | Stage-scoped | As F1 | As F1 | Fixed Gold 25 | **ILCA 2026** (2-race final series, ×1 points, no companion offset — the non-qualified sail one more *qualification* race instead); skiffs 2026; 470 Europeans 2026 (which also rank-carries into finals — F3+F6) |
+| **F2** = F1 + medal race(s) | Continuous | Top-10 medal race, ×2 points, never discardable, breaks ties; the boats outside it sail one more race of their own fleets, scored from 11 | As F1 + medal exclusions (ILCA 2024: ONE discard total) | As F1; medal base = 10 | As F1 | As F1; skiffs: Gold fixed 25 | ILCA 2024; 470 Worlds/Europeans 2021-25; SWC 2023 (all classes); 49er/FX/Nacra 2021-24 (one discard only, F-scores-only tie-break) |
+| **F3** compressed-carry medal series | Continuous through finals, then carried score **transformed** before an additive 2-race medal series (÷2 rounded half-up — ILCA 2026; ÷2.25 truncated; or chained gap caps 9/18) | 10-boat, 2 races, additive, non-discardable, Appendix MR | Stage-scoped | As F1 | As F1 | Fixed Gold 25 | **ILCA 2026** (2-race final series, ×1 points; the non-qualified sail one more *qualification* race in their own fleets, scored from 11 since Amendment 3); skiffs 2026; 470 Europeans 2026 (which also rank-carries into finals — F3+F6) |
 | **F4** knockout overlay | Continuous opening; bracket **replaces** top 8–10 ranks via placement table | QF→SF→GF; currencies churn (winner-take-all → first-to-3-wins → match-points 1/½, 1-0-0-0, 1-1-0-0); fallback: no medal race → opening stands | Opening: sliding ladder, per-phase caps, max-1-sprint-BFD | Largest group/heat | Daily by rank | G/S/B, fixed-size Gold | iQFOiL all years; Formula Kite all years; skiffs 2025 ("4-Point Race" = winner-takes-title variant) |
 | **F5** net + net | Q net + F net, separately-discarded stages; carry displayed as non-race scalar | None | Per-stage schedules (29er 2023+: 1 @3 per stage) | Largest Q fleet / own final fleet | Daily by rank **with two-race gate** (29er) | Fixed Gold scaled by entries (40/45/50); 4 or 6 fleets | 29er 2022-26; WASZP 2025 (3 fleets, Gold+Silver fixed 70 each); Topper 4.2 2023 (nightly reassignment by rank) |
 | **F6** rank-seed carry | Finals restart; carried score = qualifying **rank**, non-discardable | None (Topper/29er); 470E 2026 adds F3 medal series | Per-stage | Largest start / own fleet | Daily (29er 2021) or frozen (Topper) | 50/50 or banded | Topper 5.3 2022 (only sailed instance); 29er 2021; 470 Europeans 2026 |
@@ -86,7 +86,7 @@ Each is a fixture over some format code, asserting the fallback behaviour:
 |---|---|---|
 | D1 | **No split** — qualifying ranking becomes the official result | ILCA 2025 Qingdao (4 zero-race days; W 6 races, M 5; SI 18.4.2 invoked). Explicit fallback clauses now in ILCA, Opti (2024+), WASZP SIs |
 | D2 | **Void championship** — minimum races not reached, no title | Moth 2023 Weymouth (2 races in 7 days; needed 4; scored as a plain single series). Validity minimum relaxed 6→4 in the class's next SIs |
-| D3 | **Finale scheduled, never sailed** | 49erFX 2023 medal race (no wind — title stood on opening series); 470 2024 Palma medal race; ILCA 2024 Silver/Bronze companion race |
+| D3 | **Finale scheduled, never sailed** | 49erFX 2023 medal race (no wind — title stood on opening series); 470 2024 Palma medal race; ILCA 2024 Silver/Bronze last race |
 | D4 | **Finals stage nearly void** — 1–2 F races, zero discards, qualifying decides podium | 29er 2025 Porto (F: 2/2/1/1 races) |
 | D5 | **Unequal final-fleet race counts** (normal, not exceptional) | 29er 2026 (9/9/6/4/5/5); ILCA 2022 (Gold 12/Silver 11); Opti 2021+2025; WASZP 2025 (Gold 8 / Silver+Bronze 6); 420 divisions ending 10/9/8 |
 | D6 | **Qualifying closed early / extended** at the day boundary | SWC 2023 (closed at 4 races after abandoned days); ILCA A2.7 extension rule; Qingdao's mid-event schedule amendments (4-per-day notice, superseded next day) |
@@ -144,7 +144,8 @@ Ordered by coverage of events Sail Scoring will actually score:
 1. **F1 + F2 with scenarios D1, D3, D5, D6, D8, D10** — covers every ILCA,
    Optimist, 420, 470, Moth and classic-skiff championship: the IODAI
    constituency, the ILCA line through 2025, and the two most common finales
-   (none, or a double-points medal race with companion race). This is v1
+   (none, or a double-points medal race with a last race for everyone
+   else). This is v1
    fixture territory and matches the prototype's scope. It is also the
    *substrate* of the 2026 target event, whose qualification series is
    plain F1 — only its finale is not (item 5).
