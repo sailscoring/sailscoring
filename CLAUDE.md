@@ -66,6 +66,24 @@ A few supporting repos are not public; `CLAUDE.local.md` (not committed) maps th
 
 The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
+### Every commit that works on an issue must name it
+
+If there is an issue for the work — including one filed moments earlier in the
+same session — **the commit message says so**, as a trailer above
+`Co-Authored-By`:
+
+- `Closes #425` on the commit that finishes the issue.
+- `Issue #425` on a commit that advances it without closing it (a follow-up doc
+  or test commit, one step of a multi-commit feature).
+
+Related-but-separate issues go in the body as prose (`Publishing the column is
+#422; the entry-list page is #423.`). Issue numbers belong in commit messages,
+never in code comments — see the memory note on self-contained comments.
+
+This is consistently forgotten. Before `git commit`, ask whether an issue
+exists for what is being committed; if one does and the message doesn't name
+it, the message is not finished.
+
 ## MANDATORY: Run Tests Before Every Push
 
 **ALWAYS run `pnpm lint`, `pnpm test:unit`, and the e2e suite before `git push`.** Do not push unless all pass.
