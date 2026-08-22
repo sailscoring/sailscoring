@@ -8,15 +8,19 @@
 // or two, from an SI or NoR someone else wrote — so every field says what it
 // does in words, shows what it means for the boats actually entered, and the
 // whole configuration is restated as sailing-instruction prose to check
-// against that document. Second, a class format is a *filler*: picking one
-// writes the fields below, which stay visible and editable.
+// against that document — and reaching a setting, by pointer or by keyboard,
+// marks the sentences that setting writes, so which clause a checkbox governs
+// doesn't have to be discovered by flipping it. Second, a class format is a
+// *filler*: picking one writes the fields below, which stay visible and
+// editable.
 
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
-import { describeSplitFleetConfig } from '@/lib/split-fleets-si';
+import { describeSplitFleetConfig, SENTENCES_BY_SETTING } from '@/lib/split-fleets-si';
+import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import {
   QUALIFYING_COLOR_SETS,
   FINAL_FLEET_SET,
@@ -154,6 +158,12 @@ export function SplitFleetEditor({
 }) {
   const save = useSaveSplitFleetConfig(seriesId);
   const [picked, setPicked] = useState<FormatKey>(INITIAL_FORMAT);
+  // Which sentences the setting the scorer has reached writes. Hover and
+  // focus are held apart so that focus can win: someone tabbing through the
+  // fields should see the field they are on, not wherever the pointer came to
+  // rest.
+  const [hovered, setHovered] = useState<readonly SplitFleetSentenceId[] | null>(null);
+  const [focused, setFocused] = useState<readonly SplitFleetSentenceId[] | null>(null);
   // The draft must be the format the picker is showing, or the settings below
   // describe a format nobody chose.
   const [draft, setDraft] = useState<SplitFleetConfig>(() => FORMATS[INITIAL_FORMAT].build(3));
@@ -230,6 +240,29 @@ export function SplitFleetEditor({
   const goldSize = finalSizes[0] ?? 0;
 
   const rowClass = 'grid gap-1.5 sm:grid-cols-[13rem_1fr] sm:items-baseline sm:gap-3';
+  const marked = focused ?? hovered;
+
+  /**
+   * A settings row that marks the sentences it writes while the scorer is on
+   * it. Rows are the unit rather than individual controls: a row is one
+   * heading's worth of settings, and its sentences are that heading's.
+   *
+   * A row for settings the prose doesn't state — finish sheets, the
+   * reassignment tie order, and the two pickers that rewrite everything —
+   * takes plain `rowClass` instead, and marks nothing.
+   */
+  function row(...settings: (keyof typeof SENTENCES_BY_SETTING)[]) {
+    const ids = settings.flatMap((k) => SENTENCES_BY_SETTING[k] as SplitFleetSentenceId[]);
+    return {
+      className: rowClass,
+      onMouseEnter: () => setHovered(ids),
+      onMouseLeave: () => setHovered(null),
+      // React's onFocus and onBlur are focusin and focusout, so the controls
+      // inside the row report through it without wiring each one.
+      onFocus: () => setFocused(ids),
+      onBlur: () => setFocused(null),
+    };
+  }
   const selectClass = 'w-full max-w-full rounded-md border bg-background px-2 py-1 text-sm';
   const hint = 'text-xs text-muted-foreground';
 
@@ -284,7 +317,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <div className={rowClass}>
+      <div {...row('fleetCount')}>
         <label className="font-medium" htmlFor="sf-fleet-count">
           {capitaliseStage(vocab.stages.qualifying.fleetNoun)}s
         </label>
@@ -356,7 +389,7 @@ export function SplitFleetEditor({
       {/* Not a fieldset/legend: a legend is rendered as the fieldset's caption,
           outside the grid flow, which would drop the options into the narrow
           label column. The shared radio `name` still groups them natively. */}
-      <div className={rowClass} role="radiogroup" aria-labelledby="sf-carry-label">
+      <div {...row('carry')} role="radiogroup" aria-labelledby="sf-carry-label">
         <span className="font-medium" id="sf-carry-label">
           How scores carry into the {vocab.stages.final.name}
         </span>
@@ -382,7 +415,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <div className={rowClass}>
+      <div {...row('split')}>
         <label className="font-medium" htmlFor="sf-split">
           How boats are divided for the {vocab.stages.final.name}
         </label>
@@ -432,7 +465,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <div className={rowClass}>
+      <div {...row('discards', 'finalDiscardCap')}>
         <span className="font-medium">Discards</span>
         <div className="space-y-2">
           {value.discardThresholds.length === 0 ? (
@@ -523,7 +556,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <div className={rowClass}>
+      <div {...row('equalization')}>
         <label className="font-medium" htmlFor="sf-equalization">
           Boats end the {vocab.stages.qualifying.name} on different race counts
         </label>
@@ -559,7 +592,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <div className={rowClass}>
+      <div {...row('codeBasis')}>
         <label className="font-medium" htmlFor="sf-code-q">
           Scoring a boat that doesn’t start or finish
         </label>
@@ -665,7 +698,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      <div className={rowClass}>
+      <div {...row('medal', 'medalCarryTransform', 'medalTieBreak')}>
         <span className="font-medium">{capitaliseStage(vocab.stages.medal.name)}</span>
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -830,14 +863,14 @@ export function SplitFleetEditor({
     return (
       <div className="grid gap-6 text-sm lg:grid-cols-2" data-testid="split-fleets-editor">
         {fields}
-        <SiTranslation config={value} alwaysOpen />
+        <SiTranslation config={value} marked={marked} alwaysOpen />
       </div>
     );
   }
   return (
     <div className="space-y-4 text-sm" data-testid="split-fleets-editor">
       {fields}
-      <SiTranslation config={value} />
+      <SiTranslation config={value} marked={marked} />
     </div>
   );
 }
@@ -846,9 +879,14 @@ export function SplitFleetEditor({
  *  against the document the scorer was handed. */
 function SiTranslation({
   config,
+  marked,
   alwaysOpen = false,
 }: {
   config: SplitFleetConfig;
+  /** Sentences written by the setting the scorer is on, if any. Marking is
+   *  only ever an answer to a question the panel is already open for, so a
+   *  collapsed panel is left collapsed rather than opened underneath them. */
+  marked?: readonly SplitFleetSentenceId[] | null;
   alwaysOpen?: boolean;
 }) {
   const [userOpen, setUserOpen] = useState(false);
@@ -872,9 +910,26 @@ function SiTranslation({
       {open && (
         <>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-muted-foreground">
-            {lines.map((line) => (
-              <li key={line.id}>{line.text}</li>
-            ))}
+            {lines.map((line) => {
+              const isMarked = !!marked?.includes(line.id);
+              return (
+                <li
+                  key={line.id}
+                  data-sentence={line.id}
+                  data-marked={isMarked || undefined}
+                  // A ring as well as a wash, so the mark isn't hue alone —
+                  // and neither shifts the sentence a pixel, which matters
+                  // when the scorer is reading down the list.
+                  className={
+                    isMarked
+                      ? '-mx-1 rounded-sm bg-primary/10 px-1 text-foreground ring-1 ring-primary/40'
+                      : undefined
+                  }
+                >
+                  {line.text}
+                </li>
+              );
+            })}
           </ol>
           <p className="mt-2 text-xs text-muted-foreground">
             Read this against the scoring section of your sailing instructions. Where it

@@ -134,8 +134,28 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.getByRole('button', { name: /^Format/ }).click();
   const formatSection = page.getByTestId('split-fleets-editor');
   await expect(formatSection).toBeVisible();
-  await expect(page.getByTestId('sf-si-translation')).toContainText(
-    'will count for total points in the Qualification series',
+  const si = page.getByTestId('sf-si-translation');
+  await expect(si).toContainText('will count for total points in the Qualification series');
+
+  // Reaching a setting marks the sentences it writes, so which clause a field
+  // governs doesn't have to be found by flipping it.
+  await formatSection.locator('#sf-equalization').hover();
+  await expect(si.locator('[data-sentence="fleet-equalisation"]')).toHaveAttribute(
+    'data-marked',
+    'true',
+  );
+  await expect(si.locator('[data-sentence="discards"]')).not.toHaveAttribute('data-marked', 'true');
+  // Focus wins over the pointer: the mouse is still resting on the setting
+  // above, but the scorer is typing in this one.
+  await formatSection.getByLabel('Scores excluded').first().focus();
+  await expect(si.locator('[data-sentence="discards"]')).toHaveAttribute('data-marked', 'true');
+  await expect(si.locator('[data-sentence="final-discard-cap"]')).toHaveAttribute(
+    'data-marked',
+    'true',
+  );
+  await expect(si.locator('[data-sentence="fleet-equalisation"]')).not.toHaveAttribute(
+    'data-marked',
+    'true',
   );
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
