@@ -237,6 +237,35 @@ its reconciliation are explicitly *not* this issue's concern (that's #212 below)
 
 ---
 
+### Deep-link tally numbers to Sailwave Tally
+
+Sailwave Tally is an NFC sign-out / sign-in system for on-water safety:
+competitors tap a token at readers on the slip, and a web app shows race
+management who is still afloat. The 2026 ILCA 7 Men's World Championship
+trialled it, and the entry list Sailwave published for that event carries a
+Tally column. Findings are in
+[`docs/notes/sailwave-tally/`](../notes/sailwave-tally/).
+
+Once we carry the tally number ourselves, each one on a published entry list
+could link to that competitor's status and movement history on the Tally
+service.
+
+It is not buildable against the service as it stands. There is no API — the
+HTML pages are the whole surface — and the per-competitor page is keyed by the
+service's own global row id, not by the tally number. That id is derivable from
+nothing we hold, and its offset from the tally number drifts even within a
+single event, so obtaining the mapping means either scraping a session-stateful
+form or enumerating a guessed integer range, afresh for every event.
+
+What would make it viable is a lookup keyed on something we already know: a
+documented URL of the form `/Map?EID={event}&Tally={number}`, served from a host
+that isn't named after a test environment, with some commitment to the URL
+shape. That is a small change on the Tally side and it answers every objection
+above — a conversation to have with whoever maintains the service, not a feature
+to build around them. Until an event asks for it, this stays here.
+
+---
+
 ## Competitor roster
 
 ### Competitors on the list but not in the racing
