@@ -33,9 +33,9 @@ export interface PenaltyEditorDialogProps {
   /** When non-null, the dialog is open. */
   competitor: { id: string; sailNumber: string } | null;
   initialPenalty: { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; label?: string } | null;
-  /** Labels already used on DPIs elsewhere in this series, offered as
-   *  suggestions. A penalty like a tally offence lands on several boats at
-   *  once, and re-typing it is how one reason acquires three spellings. */
+  /** Labels already used on DPIs in this race, offered as suggestions. A
+   *  penalty like a tally offence lands on several boats at once, and
+   *  re-typing it is how one reason acquires three spellings. */
   knownLabels?: string[];
   /** The fleets this competitor is entered in. More than one enables
    *  per-fleet DPI points. */

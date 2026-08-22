@@ -18,7 +18,6 @@ import {
   useDeleteFinish,
   useFinishCachePatch,
   useFinishesByRace,
-  useFinishesBySeries,
   useSaveFinish,
   useSaveFinishes,
 } from '@/hooks/use-finishes';
@@ -84,10 +83,6 @@ export default function ResultEntryPage({
     PRIMARY_PERSON_LABEL_TEXT[series?.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL];
   const { data: race } = useRace(raceId);
   const { data: savedFinishes } = useFinishesByRace(raceId);
-  // Series-wide finishes, read only for the penalty editor's
-  // labels-used-already suggestions: a reason like a tally offence recurs
-  // across race days, not just within one race.
-  const { data: seriesFinishes } = useFinishesBySeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: allSeriesRaces } = useRacesBySeries(seriesId);
   const { data: raceStartsData } = useRaceStartsByRace(raceId);
@@ -477,7 +472,7 @@ export default function ResultEntryPage({
         fleets={fleets ?? []}
         patchCache={patchCache}
         saveFinish={saveFinish}
-        seriesFinishes={seriesFinishes ?? []}
+        raceFinishes={savedFinishes ?? []}
       />
 
       <RedressController

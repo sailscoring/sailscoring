@@ -26,10 +26,14 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
   fleets: Fleet[];
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
-  /** Every finish in the series, for the labels-used-already suggestions. */
-  seriesFinishes?: Finish[];
+  /** This race's finishes, for the labels-used-already suggestions.
+   *  Deliberately race-scoped rather than series-scoped: the series-wide
+   *  finishes query is never invalidated on save (see `useSaveFinish`), so the
+   *  standings page depends on mounting it fresh. Mounting it here would hand
+   *  that page a cache from before any result was entered. */
+  raceFinishes?: Finish[];
 }>(function PenaltyEditorController(
-  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish, seriesFinishes },
+  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish, raceFinishes },
   ref,
 ) {
   // competitorId of the row being edited, or null.
@@ -73,7 +77,7 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
       })()}
       knownLabels={[
         ...new Set(
-          (seriesFinishes ?? [])
+          (raceFinishes ?? [])
             .map((f) => f.penaltyLabel?.trim())
             .filter((l): l is string => !!l),
         ),
