@@ -172,6 +172,19 @@ export default function EnteringResults() {
           </li>
         </ul>
         <p>
+          A <strong className="text-foreground">DPI</strong> can also carry a short note of{' '}
+          <em>what it was for</em> — <em>TPO</em> for a missed tally, say, or whatever the
+          sailing instructions call it. The published results then show that word in place of{' '}
+          <em>DPI</em>, with a line beneath the table saying it is a discretionary points
+          penalty, so a reader can tell one penalty from another instead of seeing three
+          identical <em>DPI</em>s. Notes you have already used in the series are offered as you
+          type, which keeps one reason from acquiring three spellings.
+        </p>
+        <p>
+          The note changes nothing about the score: the points come from the amount you enter,
+          and the penalty is discardable and A6.2-compliant either way.
+        </p>
+        <p>
           Per RRS A6.2, additive penalties do not change other competitors’ scores —
           two boats may legitimately share the same score. The penalised score is capped at
           the DNF score for that race. Penalty codes are shown in amber in the standings table,

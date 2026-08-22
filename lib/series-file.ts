@@ -301,9 +301,14 @@ export interface SeriesFileRepos {
  *  v36 adds `competitors[*].tallyNumber` — the safety tally token issued at
  *  registration. Additive and sparse. An older build reading a v36 file would
  *  drop it; nothing is scored from it, so the loss is of a roster detail
- *  rather than of anything that changes results. */
-export const FORMAT_VERSION = 36;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36];
+ *  rather than of anything that changes results.
+ *
+ *  v37 adds `finishes[*].penaltyLabel` — what a DPI was given for, in the
+ *  scorer's own words. Additive and sparse, and a label only: the points come
+ *  from `penaltyOverride`, so an older build reading a v37 file scores every
+ *  race identically and loses only the reason shown beside the penalty. */
+export const FORMAT_VERSION = 37;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -448,6 +453,7 @@ interface SeriesFileFinish {
   penaltyCode: PenaltyCode | null;
   penaltyOverride: number | null;
   penaltyOverrideByFleet?: Record<string, number>;
+  penaltyLabel?: string;  // v37+; scorer's label for a DPI
   redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated';
   redressExcludeRaces?: number[];
   redressIncludeRaces?: number[];
@@ -630,6 +636,7 @@ export async function buildSeriesFile(
       penaltyCode: f.penaltyCode ?? null,
       penaltyOverride: f.penaltyOverride ?? null,
       ...(f.penaltyOverrideByFleet && Object.keys(f.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: f.penaltyOverrideByFleet } : {}),
+      ...(f.penaltyLabel ? { penaltyLabel: f.penaltyLabel } : {}),
       ...(f.redressMethod ? { redressMethod: f.redressMethod } : {}),
       ...(excludeNumbers.length ? { redressExcludeRaces: excludeNumbers } : {}),
       ...(includeNumbers.length ? { redressIncludeRaces: includeNumbers } : {}),
@@ -1736,6 +1743,7 @@ async function writeFleetsCompetitorsRaces(
           startPresent: f.startPresent,
           penaltyCode: f.penaltyCode,
           penaltyOverride: f.penaltyOverride,
+          ...(f.penaltyLabel ? { penaltyLabel: f.penaltyLabel } : {}),
           ...(() => {
             const m = remapPerFleetPoints(f.penaltyOverrideByFleet, fleetIdMap);
             return m ? { penaltyOverrideByFleet: m } : {};

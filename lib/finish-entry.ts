@@ -145,7 +145,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   nonFinisherCodes: Map<string, ResultCode>;
   finishTimes: Map<string, string>;
   tiedWithPrevious: Set<string>;
-  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null }>;
+  finisherPenalties: Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; label?: string }>;
   redressEntries: Map<string, RedressEntry>;
   finishByEntryKey: Map<string, Finish>;
   finishByCompetitorId: Map<string, Finish>;
@@ -176,13 +176,14 @@ export function deriveFinishState(savedFinishes: Finish[]): {
     }
   }
 
-  const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null }>();
+  const finisherPenalties = new Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; label?: string }>();
   for (const finish of savedFinishes) {
     if (finish.penaltyCode && finish.competitorId && finishedIds.has(finish.competitorId)) {
       finisherPenalties.set(finish.competitorId, {
         code: finish.penaltyCode,
         override: finish.penaltyOverride ?? null,
         overrideByFleet: finish.penaltyOverrideByFleet ?? null,
+        ...(finish.penaltyLabel ? { label: finish.penaltyLabel } : {}),
       });
     }
   }

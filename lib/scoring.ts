@@ -981,6 +981,7 @@ interface PerCompetitorSeries {
   raceCodes: Map<string, (ResultCode | null)[]>;
   racePenaltyCodes: Map<string, (PenaltyCode | null)[]>;
   racePenaltyOverrides: Map<string, (number | null)[]>;
+  racePenaltyLabels: Map<string, (string | null)[]>;
   raceRedressFlags: Map<string, boolean[]>;
 }
 
@@ -991,6 +992,7 @@ function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries
     raceCodes: new Map(),
     racePenaltyCodes: new Map(),
     racePenaltyOverrides: new Map(),
+    racePenaltyLabels: new Map(),
     raceRedressFlags: new Map(),
   };
   for (const c of competitors) {
@@ -999,6 +1001,7 @@ function initPerCompetitorSeries(competitors: Competitor[]): PerCompetitorSeries
     per.raceCodes.set(c.id, []);
     per.racePenaltyCodes.set(c.id, []);
     per.racePenaltyOverrides.set(c.id, []);
+    per.racePenaltyLabels.set(c.id, []);
     per.raceRedressFlags.set(c.id, []);
   }
   return per;
@@ -1024,6 +1027,7 @@ function emptyStandings(competitors: Competitor[]): Standing[] {
     raceCodes: [],
     racePenaltyCodes: [],
     racePenaltyOverrides: [],
+    racePenaltyLabels: [],
     raceRedressFlags: [],
     totalPoints: 0,
     netPoints: 0,
@@ -1175,6 +1179,7 @@ function assembleStandings(
     const raceCodes = per.raceCodes.get(competitor.id)!;
     const racePenaltyCodes = per.racePenaltyCodes.get(competitor.id)!;
     const racePenaltyOverrides = per.racePenaltyOverrides.get(competitor.id)!;
+    const racePenaltyLabels = per.racePenaltyLabels.get(competitor.id)!;
     const raceRedressFlags = per.raceRedressFlags.get(competitor.id)!;
     // roundToTenth on the series totals: every per-race score is a multiple of
     // 0.1, so summing them is exact in principle but accumulates IEEE noise
@@ -1218,7 +1223,7 @@ function assembleStandings(
       0,
     ));
 
-    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
+    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, racePenaltyLabels, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
   });
 }
 
@@ -1304,6 +1309,7 @@ export function calculateStandings(
       per.raceCodes.get(competitor.id)!.push(code);
       per.racePenaltyCodes.get(competitor.id)!.push(finish?.penaltyCode ?? null);
       per.racePenaltyOverrides.get(competitor.id)!.push(finish?.penaltyOverride ?? null);
+      per.racePenaltyLabels.get(competitor.id)!.push(finish?.penaltyLabel ?? null);
       per.raceRedressFlags.get(competitor.id)!.push(false);
     }
   }
@@ -1576,6 +1582,7 @@ function calculateHandicapStandings(
       per.raceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
       per.racePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
       per.racePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
+      per.racePenaltyLabels.get(competitor.id)!.push(isFinisher ? (finish?.penaltyLabel ?? null) : null);
       per.raceRedressFlags.get(competitor.id)!.push(false);
     }
   }

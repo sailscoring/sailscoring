@@ -624,6 +624,13 @@
       "when": 1787404008253,
       "tag": "0088_faulty_thunderbolts",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1787406091549,
+      "tag": "0089_mixed_champions",
+      "breakpoints": true
     }
   ]
 }

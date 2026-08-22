@@ -25,12 +25,18 @@ export interface PenaltyDraft {
   code: PenaltyCode | null;
   override: number | null;
   overrideByFleet: Record<string, number> | null;
+  /** DPI only: what the penalty was given for, in the scorer's words. */
+  label: string | null;
 }
 
 export interface PenaltyEditorDialogProps {
   /** When non-null, the dialog is open. */
   competitor: { id: string; sailNumber: string } | null;
-  initialPenalty: { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null } | null;
+  initialPenalty: { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; label?: string } | null;
+  /** Labels already used on DPIs elsewhere in this series, offered as
+   *  suggestions. A penalty like a tally offence lands on several boats at
+   *  once, and re-typing it is how one reason acquires three spellings. */
+  knownLabels?: string[];
   /** The fleets this competitor is entered in. More than one enables
    *  per-fleet DPI points. */
   competitorFleets: { id: string; name: string }[];
@@ -54,6 +60,7 @@ function PenaltyEditorDialogInner({
   competitor,
   initialPenalty,
   competitorFleets,
+  knownLabels,
   onApply,
   onCancel,
 }: PenaltyEditorDialogProps & { competitor: { id: string; sailNumber: string } }) {
@@ -63,6 +70,7 @@ function PenaltyEditorDialogInner({
   const [override, setOverride] = useState<string>(
     initialPenalty?.override != null ? String(initialPenalty.override) : '',
   );
+  const [label, setLabel] = useState<string>(initialPenalty?.label ?? '');
   const fleetIds = competitorFleets.map((f) => f.id);
   const [dpiPoints, setDpiPoints] = useState<PerFleetPointsValue>(
     seedFromFinish(
@@ -74,18 +82,24 @@ function PenaltyEditorDialogInner({
 
   function apply() {
     if (code === 'none') {
-      onApply({ code: null, override: null, overrideByFleet: null });
+      onApply({ code: null, override: null, overrideByFleet: null, label: null });
       return;
     }
     if (code === 'DPI') {
       const { scalar, byFleet } = toStorage(dpiPoints, fleetIds);
-      onApply({ code, override: scalar, overrideByFleet: byFleet ?? null });
+      onApply({
+        code,
+        override: scalar,
+        overrideByFleet: byFleet ?? null,
+        label: label.trim() || null,
+      });
       return;
     }
     onApply({
       code,
       override: override.trim() ? Number(override) : null,
       overrideByFleet: null,
+      label: null,
     });
   }
 
@@ -103,7 +117,7 @@ function PenaltyEditorDialogInner({
             <label className="text-sm font-medium">Penalty</label>
             <Select
               value={code}
-              onValueChange={(v) => { setCode(v as PenaltyCode | 'none'); setOverride(''); setDpiPoints({ mode: 'uniform', value: '' }); }}
+              onValueChange={(v) => { setCode(v as PenaltyCode | 'none'); setOverride(''); setLabel(''); setDpiPoints({ mode: 'uniform', value: '' }); }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -132,16 +146,42 @@ function PenaltyEditorDialogInner({
             </div>
           )}
           {code === 'DPI' && (
-            <PerFleetPoints
-              label="Points to add"
-              fleets={competitorFleets}
-              value={dpiPoints}
-              onChange={setDpiPoints}
-              min={1}
-              placeholder="e.g. 2"
-              autoFocus
-              onSubmit={apply}
-            />
+            <>
+              <PerFleetPoints
+                label="Points to add"
+                fleets={competitorFleets}
+                value={dpiPoints}
+                onChange={setDpiPoints}
+                min={1}
+                placeholder="e.g. 2"
+                autoFocus
+                onSubmit={apply}
+              />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="penalty-label">
+                  What it was for (optional)
+                </label>
+                <Input
+                  id="penalty-label"
+                  list={knownLabels?.length ? 'penalty-label-suggestions' : undefined}
+                  maxLength={24}
+                  placeholder="e.g. TPO"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } }}
+                />
+                {knownLabels?.length ? (
+                  <datalist id="penalty-label-suggestions">
+                    {knownLabels.map((l) => <option key={l} value={l} />)}
+                  </datalist>
+                ) : null}
+                <p className="text-xs text-muted-foreground">
+                  Shown on the results in place of DPI, with a note beneath the table
+                  saying what it is. The score comes from the points above — the label
+                  only explains it.
+                </p>
+              </div>
+            </>
           )}
         </div>
         <div className="flex gap-2">

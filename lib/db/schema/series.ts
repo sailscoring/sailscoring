@@ -998,6 +998,7 @@ export const finishes = pgTable(
     penaltyOverride: real('penalty_override'),
     // Per-fleet DPI points (fleetId → added points) for multi-fleet boats.
     penaltyOverrideByFleet: jsonb('penalty_override_by_fleet').$type<Record<string, number>>(),
+    penaltyLabel: text('penalty_label'),
     redressMethod: text('redress_method'),
     redressExcludeRaceIds: jsonb('redress_exclude_race_ids').$type<string[]>(),
     redressIncludeRaceIds: jsonb('redress_include_race_ids').$type<string[]>(),

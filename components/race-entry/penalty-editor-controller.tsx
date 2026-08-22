@@ -26,8 +26,10 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
   fleets: Fleet[];
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
+  /** Every finish in the series, for the labels-used-already suggestions. */
+  seriesFinishes?: Finish[];
 }>(function PenaltyEditorController(
-  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish },
+  { finishByCompetitorId, finisherPenalties, competitorMap, fleets, patchCache, saveFinish, seriesFinishes },
   ref,
 ) {
   // competitorId of the row being edited, or null.
@@ -47,6 +49,7 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
       penaltyCode: draft.code,
       penaltyOverride: draft.override,
       penaltyOverrideByFleet: draft.overrideByFleet ?? undefined,
+      penaltyLabel: draft.label ?? undefined,
     };
     patchCache((rows) => rows.map((r) => (r.id === finish.id ? next : r)));
     saveFinish.mutate(next);
@@ -68,6 +71,13 @@ export const PenaltyEditorController = forwardRef<PenaltyEditorHandle, {
           .filter((f) => c.fleetIds.includes(f.id))
           .map((f) => ({ id: f.id, name: f.name }));
       })()}
+      knownLabels={[
+        ...new Set(
+          (seriesFinishes ?? [])
+            .map((f) => f.penaltyLabel?.trim())
+            .filter((l): l is string => !!l),
+        ),
+      ].sort()}
       onApply={applyPenalty}
       onCancel={() => setEditingPenaltyEntryId(null)}
     />

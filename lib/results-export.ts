@@ -362,6 +362,7 @@ export async function buildFleetHtmlFiles(
       resultCode: ResultCode | null;
       penaltyCode: PenaltyCode | null;
       penaltyOverride: number | null;
+      penaltyLabel?: string;
       finishTime: string | null;
       tcfApplied?: number | null;
       newTcf?: number | null;
@@ -400,6 +401,9 @@ export async function buildFleetHtmlFiles(
                   resultCode: s.resultCode,
                   penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
                   penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                  ...(finishByCompetitorId.get(id)?.penaltyLabel
+                    ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
+                    : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
@@ -425,6 +429,9 @@ export async function buildFleetHtmlFiles(
                   resultCode: s.resultCode,
                   penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
                   penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                  ...(finishByCompetitorId.get(id)?.penaltyLabel
+                    ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
+                    : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
@@ -478,6 +485,9 @@ export async function buildFleetHtmlFiles(
                 resultCode: s.resultCode,
                 penaltyCode: finishByCompetitorId.get(id)?.penaltyCode ?? null,
                 penaltyOverride: finishByCompetitorId.get(id)?.penaltyOverride ?? null,
+                ...(finishByCompetitorId.get(id)?.penaltyLabel
+                  ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
+                  : {}),
                 finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
                 ...('tcfApplied' in s ? { tcfApplied: (s as { tcfApplied: number | null }).tcfApplied } : {}),
                 ...(overrideByComp.has(id) ? { tccOverride: true } : {}),

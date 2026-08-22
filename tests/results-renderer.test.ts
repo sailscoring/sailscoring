@@ -1802,3 +1802,47 @@ describe('renderCompetitorListHtml', () => {
     expect(html).not.toContain('<th>Sail Number</th>');
   });
 });
+
+// ---- Named DPI penalties (#424) ----
+
+describe('a scorer-named DPI penalty', () => {
+  function withPenalty(label?: string): SeriesResultsData {
+    const race = makeRace(1, [['1', 'Alice', 3, null]]);
+    race.results[0].penaltyCode = 'DPI';
+    race.results[0].penaltyOverride = 2;
+    if (label) race.results[0].penaltyLabel = label;
+    const standing = makeStanding(1, '1', 'Alice', [{ points: 3 }]);
+    standing.raceScores[0].penaltyCode = 'DPI';
+    standing.raceScores[0].penaltyOverride = 2;
+    if (label) standing.raceScores[0].penaltyLabel = label;
+    return {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [race],
+      standings: [standing],
+    };
+  }
+
+  it('shows the scorer\'s name in place of the code, keeping the points', () => {
+    const html = renderSeriesHtml(withPenalty('TPO'));
+    expect(html).toContain('TPO(2pts)');
+    expect(html).not.toContain('DPI(2pts)');
+  });
+
+  it('explains what the name means beneath the table', () => {
+    const html = renderSeriesHtml(withPenalty('TPO'));
+    expect(html).toContain('TPO: discretionary points penalty (DPI), the points as shown.');
+  });
+
+  it('falls back to DPI when the scorer named nothing, with no legend', () => {
+    const html = renderSeriesHtml(withPenalty());
+    expect(html).toContain('DPI(2pts)');
+    expect(html).not.toContain('discretionary points penalty (DPI)');
+  });
+
+  it('escapes a label rather than letting it reach the page as markup', () => {
+    const html = renderSeriesHtml(withPenalty('<b>x'));
+    expect(html).not.toContain('<b>x');
+    expect(html).toContain('&lt;b&gt;x');
+  });
+});

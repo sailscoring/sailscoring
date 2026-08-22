@@ -473,6 +473,17 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect(byRace).toHaveLength(1);
     expect(byRace[0]).toMatchObject({ id: finish.id, sortOrder: 1, startPresent: true });
 
+    // A named DPI (#424): the label is a stored column, not derived, so it has
+    // to survive the round trip like any other finish field.
+    const named: Finish = {
+      ...finish,
+      penaltyCode: 'DPI', penaltyOverride: 2, penaltyLabel: 'TPO',
+      version: byRace[0].version,
+    };
+    await repos.finishes.save(named);
+    const afterLabel = await repos.finishes.listByRace(race.id);
+    expect(afterLabel[0]).toMatchObject({ penaltyCode: 'DPI', penaltyOverride: 2, penaltyLabel: 'TPO' });
+
     // An unknown-sail crossing (null competitorId) must come back from the
     // whole-series read alongside the resolved finish.
     const unknown: Finish = {

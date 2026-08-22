@@ -660,6 +660,12 @@ export interface Finish {
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
   penaltyOverride: number | null;     // SCP: explicit %; DPI: explicit points; null = use default
+  // What a DPI was given for, in the scorer's own words ("TPO", "Safety
+  // briefing"). Published in place of the code, with a legend beneath the
+  // table saying it is a discretionary points penalty. Purely a label: the
+  // points come from penaltyOverride and nothing here reaches the engine.
+  // DPI only — ZFP and SCP are RRS codes whose meaning is already fixed.
+  penaltyLabel?: string;
   // Per-fleet DPI points for a boat scored in more than one fleet. When present
   // (non-empty) the boat is in per-fleet mode: each key is a fleetId → added
   // points for that fleet, and a fleet absent from the map is a gap (no penalty
@@ -866,6 +872,9 @@ export interface PublishedSeriesPage {
   // The prize sheet (#240) — `fleetName` is then "Prizes". Lets the listing
   // label the page as prizes rather than as a fleet's standings.
   isPrizes?: boolean;
+  // The competitor list (#423) — `fleetName` is then "Entries". Like the prize
+  // sheet, it is labelled by its own name and never counts as a results page.
+  isEntryList?: boolean;
   // Published at race-results detail (#347). Lets a listing call a lone page
   // "Results" rather than "Standings"; the page itself carries no summary.
   // Sparse — absent on every full-detail page, and on prize sheets.
@@ -996,6 +1005,10 @@ export interface Standing {
   raceCodes: (ResultCode | null)[];      // result code per race (null = normal finish)
   racePenaltyCodes: (PenaltyCode | null)[];        // additive penalty per race (null = no penalty)
   racePenaltyOverrides: (number | null)[];          // override value per race (SCP %  or DPI pts; null = no override / no penalty)
+  // Scorer's label for a DPI per race (null in a slot with none, or a
+  // non-DPI penalty). Optional: sparse, and a Standing built outside the
+  // engine has nothing to say about labels.
+  racePenaltyLabels?: (string | null)[];
   totalPoints: number;
   netPoints: number;                     // totalPoints minus discarded points
   raceDiscards: boolean[];               // true = this race is discarded from series total

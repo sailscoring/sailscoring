@@ -37,6 +37,9 @@ export const finishSchema = z.object({
   penaltyCode: penaltyCodeSchema.nullable(),
   penaltyOverride: z.number().nullable(),
   penaltyOverrideByFleet: z.record(z.string(), z.number()).optional(),
+  // Free text, capped so a published race cell stays a cell. DPI only; the
+  // engine never reads it.
+  penaltyLabel: z.string().max(24).optional(),
   redressMethod: redressMethodSchema.nullable(),
   redressExcludeRaceIds: z.array(uuidSchema).nullable(),
   redressIncludeRaceIds: z.array(uuidSchema).nullable(),

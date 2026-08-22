@@ -317,6 +317,8 @@ export interface PublicSeriesExport {
       penaltyOverride?: number | null;
       /** Per-fleet DPI points (fleetId → points) for multi-fleet boats. */
       penaltyOverrideByFleet?: Record<string, number>;
+      /** What a DPI was given for, in the scorer's words. */
+      penaltyLabel?: string;
       /** Redress (RDG) configuration — all fields together reproduce
        *  the A9 average. Present iff resultCode === 'RDG'. */
       redressMethod?: 'all_races' | 'all_races_excl_dnc' | 'races_before' | 'stated' | null;
@@ -696,6 +698,7 @@ export function buildPublicExportFromSnapshot(
         ...(finish?.penaltyCode ? { penaltyCode: finish.penaltyCode } : {}),
         ...(finish?.penaltyOverride != null ? { penaltyOverride: finish.penaltyOverride } : {}),
         ...(finish?.penaltyOverrideByFleet && Object.keys(finish.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: perFleetByName(finish.penaltyOverrideByFleet) } : {}),
+        ...(finish?.penaltyLabel ? { penaltyLabel: finish.penaltyLabel } : {}),
         ...(finish?.resultCode === 'RDG' ? {
           redressMethod: finish.redressMethod,
           ...(finish.redressExcludeRaceIds?.length ? { redressExcludeRaces: toRaceNumbers(finish.redressExcludeRaceIds) } : {}),
@@ -1249,6 +1252,7 @@ export async function importPublicExport(
         startPresent: finish.startPresent,
         penaltyCode: finish.penaltyCode ?? null,
         penaltyOverride: finish.penaltyOverride ?? null,
+        ...(finish.penaltyLabel ? { penaltyLabel: finish.penaltyLabel } : {}),
         ...(finish.penaltyOverrideByFleet ? { penaltyOverrideByFleet: perFleetToNewIds(finish.penaltyOverrideByFleet) } : {}),
         redressMethod: finish.redressMethod ?? null,
         redressExcludeRaceIds: toRaceIds(finish.redressExcludeRaces),

@@ -219,6 +219,8 @@ export interface RaceResultData {
   resultCode: ResultCode | null;
   penaltyCode: PenaltyCode | null;
   penaltyOverride: number | null;
+  /** DPI only: the scorer's own name for the penalty (#424). */
+  penaltyLabel?: string;
   // Handicap fields — only set for IRC/PY fleets
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY)
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
@@ -318,6 +320,9 @@ export interface RaceScoreData {
   resultCode: ResultCode | null;
   penaltyCode: PenaltyCode | null;
   penaltyOverride: number | null;
+  /** DPI only: the scorer's own name for the penalty, shown instead of the
+   *  code, with a legend beneath the table explaining it. */
+  penaltyLabel?: string;
   isDiscard: boolean;
   isRedress: boolean;
   /** True when the race had no finishers and was excluded from scoring (issue #129). */
@@ -1014,6 +1019,7 @@ td.discard.rank1, td.discard.rank2, td.discard.rank3 { background: #f2f2f2; }
 td.excluded { color: #888; text-align: center; }
 .override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
+.penaltylabels { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
 /* A combined page's per-fleet race block: the rule and the space above it are
    what separate one fleet's set of races from the next when scrolling. */
@@ -1270,7 +1276,7 @@ function renderSummaryTable(
           ]
             .filter(Boolean)
             .join(' ');
-          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.penaltyOverride, score.isDiscard, score.isRedress);
+          const text = renderScoreText(score.points, score.resultCode, score.penaltyCode, score.penaltyOverride, score.isDiscard, score.isRedress, score.penaltyLabel);
           const ratingSpan = hasSeedCol && score.appliedRating != null
             ? `<span class="rating">${score.appliedRating.toFixed(3)}</span>`
             : '';
@@ -1318,6 +1324,11 @@ function renderSummaryTable(
   const optionsLegend = optionNotes.length > 0
     ? `\n<p class="raceoptions">${esc(optionNotes.join(' '))}</p>`
     : '';
+  // A named DPI shows the scorer's word instead of the code, so the page has
+  // to say what that word means (#424).
+  const labelsLegend = penaltyLabelLegend(
+    standings.flatMap((s) => s.raceScores.map((sc) => sc.penaltyLabel ?? '')),
+  );
 
   return `<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
@@ -1331,7 +1342,7 @@ ${headerCells}
 <tbody>
 ${rows}
 </tbody>
-</table></div>${optionsLegend}`;
+</table></div>${optionsLegend}${labelsLegend ? `\n${labelsLegend}` : ''}`;
 }
 
 // ---- Race detail table ----
@@ -1371,7 +1382,7 @@ function renderRaceTable(
       const podiumClass = r.rank !== null && r.rank >= 1 && r.rank <= 3 ? ` class="rank${r.rank}"` : '';
       const codeSuffix = r.resultCode && r.resultCode !== 'RDG' ? ` ${r.resultCode}` : '';
       const pointsText = r.penaltyCode
-        ? `${formatPoints(r.points)} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride)}`
+        ? `${formatPoints(r.points)} ${formatPenaltyLabel(r.penaltyCode, r.penaltyOverride, r.penaltyLabel)}`
         : r.resultCode === 'RDG'
           ? `${formatPoints(r.points)} RDG`
           : `${formatPoints(r.points)}${codeSuffix}`;
@@ -1466,6 +1477,7 @@ function renderRaceTable(
   // The Points column here is the race's own score at face value; the
   // multiplier applies in the series total, so say so where the two differ.
   const optionsNote = hasScoringOptions(race) ? scoringOptionsLegend(race, 'This race') : '';
+  const labelsLegend = penaltyLabelLegend(race.results.map((r) => r.penaltyLabel ?? ''));
   const optionsSubheading = optionsNote
     ? `<p class="raceoptions" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(optionsNote)}</p>\n`
     : '';
@@ -1499,7 +1511,7 @@ ${showBowNumber ? '<th>Bow</th>\n' : ''}${showEntryNumber ? '<th>Entry</th>\n' :
 <tbody>
 ${rows}
 </tbody>
-</table></div>`;
+</table></div>${labelsLegend ? `\n${labelsLegend}` : ''}`;
 }
 
 /** Emit one `<symbol>` per referenced nationality code, deduped, so 200
@@ -1651,10 +1663,27 @@ function renderHelmCell(helm: string[], crewNames: string[] | undefined, showCre
 
 // ---- Helpers ----
 
-function formatPenaltyLabel(code: PenaltyCode, override: number | null): string {
-  if (override === null) return code;
-  if (code === 'DPI') return `${code}(${override}pts)`;
-  return `${code}(${override}%)`;
+/** The penalty as it reads in a score cell: `SCP(30%)`, `DPI(2pts)`, or — when
+ *  the scorer named a DPI — their name in place of the code, `TPO(2pts)`. The
+ *  legend beneath the table says what a named one is; see
+ *  {@link penaltyLabelLegend}. */
+function formatPenaltyLabel(code: PenaltyCode, override: number | null, label?: string): string {
+  // Escaped here rather than at the call sites: both of them interpolate the
+  // result straight into a cell, and unlike a result code this half is the
+  // scorer's free text.
+  const shown = code === 'DPI' && label?.trim() ? esc(label.trim()) : code;
+  if (override === null) return shown;
+  if (code === 'DPI') return `${shown}(${override}pts)`;
+  return `${shown}(${override}%)`;
+}
+
+/** A sentence naming every scorer-named DPI on a page, so a reader meeting
+ *  "TPO" in a score cell can find out what it is. Empty when none is named. */
+function penaltyLabelLegend(labels: Iterable<string>): string {
+  const named = [...new Set([...labels].map((l) => l.trim()).filter(Boolean))].sort();
+  if (named.length === 0) return '';
+  const list = named.map(esc).join(', ');
+  return `<p class="penaltylabels">${list}: discretionary points penalty (DPI), the points as shown.</p>`;
 }
 
 /** Format a score, total, or nett to one decimal place — the low-point
@@ -1670,6 +1699,7 @@ function renderScoreText(
   penaltyOverride: number | null,
   isDiscard: boolean,
   isRedress: boolean,
+  penaltyLabel?: string,
 ): string {
   let text: string;
   if (isRedress) {
@@ -1677,7 +1707,7 @@ function renderScoreText(
   } else if (resultCode) {
     text = `${formatPoints(points)} ${resultCode}`;
   } else if (penaltyCode) {
-    text = `${formatPoints(points)} ${formatPenaltyLabel(penaltyCode, penaltyOverride)}`;
+    text = `${formatPoints(points)} ${formatPenaltyLabel(penaltyCode, penaltyOverride, penaltyLabel)}`;
   } else {
     text = formatPoints(points);
   }
@@ -1780,13 +1810,14 @@ export function assembleSeriesResultsData(
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
     racePenaltyOverrides?: (number | null)[];
+    racePenaltyLabels?: (string | null)[];
     raceRedressFlags?: boolean[];
     totalPoints: number;
     netPoints: number;
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -1951,6 +1982,7 @@ export function assembleSeriesResultsData(
         resultCode: score.resultCode,
         penaltyCode: score.penaltyCode ?? null,
         penaltyOverride: score.penaltyOverride ?? null,
+        ...(score.penaltyLabel ? { penaltyLabel: score.penaltyLabel } : {}),
         ...(tcc != null ? { tcc } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
         ...(score.finishTime && isHandicap ? { finishTime: score.finishTime } : {}),
@@ -2033,6 +2065,7 @@ export function assembleSeriesResultsData(
         const resultCode = s.raceCodes[i] ?? null;
         const penaltyCode = s.racePenaltyCodes?.[i] ?? null;
         const penaltyOverride = s.racePenaltyOverrides?.[i] ?? null;
+        const penaltyLabel = s.racePenaltyLabels?.[i] ?? null;
         const isRedress = s.raceRedressFlags?.[i] ?? false;
         const race = races[i];
         const raceNumber = race?.raceNumber ?? i + 1;
@@ -2051,6 +2084,7 @@ export function assembleSeriesResultsData(
           resultCode,
           penaltyCode,
           penaltyOverride,
+          ...(penaltyLabel ? { penaltyLabel } : {}),
           isDiscard: s.raceDiscards[i] ?? false,
           isRedress,
           isExcluded: s.raceExcluded?.[i] ?? false,
