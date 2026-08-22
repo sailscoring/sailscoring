@@ -44,6 +44,11 @@ export interface PublishDialogProps {
   /** Whether FTP upload is available (feature-gated + manage-workspace). When
    *  true the dialog offers a persistent switch to the FTP destination. */
   canFtp: boolean;
+  /** What to call the lone default page, when the caller knows better than the
+   *  generic "Standings" — a split-fleet series publishes its championship
+   *  there, and Preview calls it "Championship". Naming only; the sub-path is
+   *  unchanged. */
+  lonePageName?: string;
 }
 
 /** Sanitise free-typed slug / sub-path input to the allowed character set. */
@@ -103,7 +108,7 @@ interface SuppressedRow {
  *  when working out whether a publication has a lone results page. */
 const EXTRA_PAGE_NAMES = new Set(['Prizes', 'Entries']);
 
-export function PublishDialog({ series, fleets, open, onClose, canFtp }: PublishDialogProps) {
+export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageName }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
   const confirm = useConfirm();
   const { has } = useFeatures();
@@ -182,7 +187,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // A single-race event's lone page is its race result (#347), so it is named
   // and served as one.
   const raceResults = series.publishDetail === 'races';
-  const lonePageLabel = raceResults ? 'Results' : 'Standings';
+  // A split-fleet series' lone default page is its championship standings, and
+  // Preview names it "Championship" — so the caller passes that name rather
+  // than letting the two surfaces disagree about what the page is called. The
+  // URL is unaffected: it stays `standings`, which is already published.
+  const lonePageLabel = lonePageName ?? (raceResults ? 'Results' : 'Standings');
 
   // Derived default sub-path for an unpublished fleet: `standings` (or
   // `results`) for a lone (default) fleet, otherwise the kebab-cased name —

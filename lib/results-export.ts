@@ -250,6 +250,13 @@ export async function buildFleetHtmlFiles(
         isDefault: false,
         html: renderSplitFleetAssignmentsPage(input, { backHref: seriesIndexUrl }),
       },
+      // The entry list rides along here too. This branch returns early, so
+      // the append at the end of the per-fleet path below never runs for a
+      // championship — and a championship is the regime most likely to want
+      // its entry list published.
+      ...(opts?.includeEntryList
+        ? [await buildCompetitorListFile(snapshot, seriesIndexUrl)]
+        : []),
     ];
   }
   // Publish-time fallback: empty venue/event logo slots inherit the workspace

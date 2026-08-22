@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
 import type { Competitor, Finish, Fleet, Race, Series } from '@/lib/types';
+import { defaultSplitFleetConfig } from '@/lib/split-fleets';
 
 const SERIES: Series = {
   id: 's1',
@@ -84,6 +85,10 @@ function makeRepos(races: Race[], finishes: Finish[]): ExportRepos {
   } as unknown as ExportRepos;
 }
 
+/** The stock two-fleet championship; the shape of its pages is
+ *  `split-fleets-render`'s business, not this test's. */
+const SPLIT_CONFIG = defaultSplitFleetConfig(2);
+
 describe('buildFleetHtmlFiles — the competitor list', () => {
   it('publishes the entry list for a series with no races yet', async () => {
     const files = await buildFleetHtmlFiles(makeRepos([], []), 's1', undefined, {
@@ -144,6 +149,54 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     const files = await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true });
     expect(files!.map((f) => f.fleetName)).toEqual(['Entries']);
     expect(files![0].html).toContain('Competitor List');
+  });
+
+  it('appends the entry list to a split-fleet series that has raced', async () => {
+    // The split-fleet branch returns its own pages and never reaches the
+    // append at the end of the per-fleet path, so it has to carry the entry
+    // list itself. Without this the publish dialog offers an Entries page the
+    // build never produces: ticking it publishes the championship pages and
+    // leaves Entries permanently unpublished.
+    const repos = {
+      ...makeRepos(RACES, FINISHES),
+      splitFleets: {
+        get: async () => ({
+          config: SPLIT_CONFIG,
+          rounds: [
+            {
+              id: 'r1', seriesId: 's1', stage: 'qualifying', roundNumber: 1,
+              fromStageRace: 1, fleetIds: ['f-red', 'f-blue'], method: 'seeded',
+              basis: null, overrides: {}, createdAt: 0,
+            },
+          ],
+        }),
+      },
+    } as unknown as ExportRepos;
+    const files = await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true });
+    const names = files!.map((f) => f.fleetName);
+    expect(names).toContain('Championship');
+    expect(names).toContain('Entries');
+    expect(files!.find((f) => f.fleetName === 'Entries')!.isEntryList).toBe(true);
+  });
+
+  it('leaves a split-fleet series alone when the entry list is not asked for', async () => {
+    const repos = {
+      ...makeRepos(RACES, FINISHES),
+      splitFleets: {
+        get: async () => ({
+          config: SPLIT_CONFIG,
+          rounds: [
+            {
+              id: 'r1', seriesId: 's1', stage: 'qualifying', roundNumber: 1,
+              fromStageRace: 1, fleetIds: ['f-red', 'f-blue'], method: 'seeded',
+              basis: null, overrides: {}, createdAt: 0,
+            },
+          ],
+        }),
+      },
+    } as unknown as ExportRepos;
+    const files = await buildFleetHtmlFiles(repos, 's1');
+    expect(files!.map((f) => f.fleetName)).not.toContain('Entries');
   });
 
   it('publishes nothing at all for a series with no competitors', async () => {

@@ -730,6 +730,7 @@ export default function CompetitorsPage({
             open={showPublishDialog}
             onClose={() => setShowPublishDialog(false)}
             canFtp={false}
+            {...(isSplitFleetSeries ? { lonePageName: 'Championship' } : {})}
           />
         )}
         <UpdateHandicaps ref={updateHandicapsRef} seriesId={seriesId} />
