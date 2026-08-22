@@ -199,6 +199,46 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(files!.map((f) => f.fleetName)).not.toContain('Entries');
   });
 
+  it('never shows the app\'s own fleet names to a reader', async () => {
+    // A split-fleet assignment appends the round fleet and leaves the
+    // series-creation "Default" membership in place, so a boat carries both.
+    // The page must read "Yellow", not "Default, Yellow".
+    const fleets: Fleet[] = [
+      { id: 'f-default', seriesId: 's1', name: 'Default', displayOrder: 0, scoringSystem: 'scratch' },
+      ...FLEETS,
+    ];
+    const repos = {
+      ...makeRepos([], []),
+      fleetRepo: { listBySeries: async () => fleets },
+      competitorRepo: {
+        listBySeries: async () => [
+          competitor('c1', '101', ['f-default', 'f-blue']),
+          competitor('c2', '201', ['f-default', 'f-red']),
+        ],
+      },
+    } as unknown as ExportRepos;
+    const html = (await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    expect(html).not.toContain('Default');
+    expect(html).toContain('<td>Blue</td>');
+    expect(html).toContain('<td>Red</td>');
+  });
+
+  it('drops the Fleet column when only the synthetic fleet would fill it', async () => {
+    const repos = {
+      ...makeRepos([], []),
+      fleetRepo: {
+        listBySeries: async () => [
+          { id: 'f-default', seriesId: 's1', name: 'Default', displayOrder: 0, scoringSystem: 'scratch' },
+        ],
+      },
+      competitorRepo: {
+        listBySeries: async () => [competitor('c1', '101', ['f-default'])],
+      },
+    } as unknown as ExportRepos;
+    const html = (await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    expect(html).not.toContain('<th>Fleet</th>');
+  });
+
   it('publishes nothing at all for a series with no competitors', async () => {
     const repos = {
       ...makeRepos([], []),

@@ -18,7 +18,7 @@
  */
 
 import { escapeHtml as esc } from './html';
-import { humanizeSlug } from './publishing';
+import { humanizeSlug, isSyntheticFleetName } from './publishing';
 import { renderPublicHero, renderPublicShell } from './published-shell';
 import { isAuxiliaryPage, loneResultsPageLabel, type SeriesIndexPage } from './published-index';
 
@@ -164,11 +164,6 @@ export function pagesInFolder(pages: TreePage[], segment: string): TreePage[] {
   return pages.filter((p) => folderSegmentOf(p.subPath) === segment);
 }
 
-/** The single-fleet placeholder names a publication's lone page can carry:
- *  the series-creation default fleet and the scoring engine's fleetless
- *  bucket. Neither is a name worth showing a viewer. */
-const SYNTHETIC_FLEET_NAMES = new Set(['Default', 'Unknown']);
-
 function baseLeafLabel(page: TreePage, soleContributor: boolean): string {
   if (isAuxiliaryPage(page)) return page.fleetName;
   // A synthetic name is never shown: such a page is its publication's (or
@@ -176,7 +171,7 @@ function baseLeafLabel(page: TreePage, soleContributor: boolean): string {
   // call it that, by the series' name when the slug is shared, since the bare
   // word wouldn't say whose.
   const lone = loneResultsPageLabel(page);
-  if (SYNTHETIC_FLEET_NAMES.has(page.fleetName)) {
+  if (isSyntheticFleetName(page.fleetName)) {
     return soleContributor ? lone : (page.ownerName ?? lone);
   }
   if (page.ownerSingle && soleContributor) return lone;

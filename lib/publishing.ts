@@ -89,7 +89,20 @@ export function publicationSubPath(
   // The synthetic single fleet ("Default") falls back to the series slug so
   // co-published single-fleet series don't collide; a named lone fleet uses
   // its own name.
-  return fleetName === 'Default' ? seriesSlug : kebab(fleetName);
+  return isSyntheticFleetName(fleetName) && fleetName === 'Default'
+    ? seriesSlug
+    : kebab(fleetName);
+}
+
+/** Fleet names the app mints for itself rather than taking from a scorer:
+ *  `Default` is the fleet every series is created with, `Unknown` the scoring
+ *  engine's fleetless bucket. Neither means anything to a reader, so neither
+ *  is ever shown on a public page — as a page's label, or as a boat's fleet on
+ *  the competitor list. A boat keeps its `Default` membership after being
+ *  assigned to a split-fleet round (assignment appends, it does not replace),
+ *  so filtering on display is what keeps "Default, Yellow" off the page. */
+export function isSyntheticFleetName(name: string): boolean {
+  return name === 'Default' || name === 'Unknown';
 }
 
 /**

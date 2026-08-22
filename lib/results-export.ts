@@ -34,6 +34,7 @@ import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
+import { isSyntheticFleetName } from './publishing';
 import { seriesSlug } from './series-name';
 import type { Competitor, ResultCode, PenaltyCode, Standing } from './types';
 
@@ -145,9 +146,12 @@ async function buildCompetitorListFile(
       : {}),
     ...(c.gender ? { gender: c.gender } : {}),
     ...(c.age != null ? { age: c.age } : {}),
+    // `Default` and `Unknown` are the app's own names, not the scorer's, and
+    // a boat assigned to a split-fleet round keeps its `Default` membership —
+    // so without this the page reads "Default, Yellow".
     fleetNames: c.fleetIds
       .map((id) => fleetNameById.get(id))
-      .filter((n): n is string => !!n),
+      .filter((n): n is string => !!n && !isSyntheticFleetName(n)),
   }));
 
   return {
@@ -170,7 +174,10 @@ async function buildCompetitorListFile(
         subdivisionAxes: series.subdivisionAxes ?? [],
         primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
         ...(series.multiPersonFields ? { multiPersonFields: series.multiPersonFields } : {}),
-        multiFleet: fleets.length > 1,
+        // The column earns its place only when the roster is actually
+        // split across fleets a reader would recognise — counting the
+        // synthetic ones would show a column of blanks.
+        multiFleet: new Set(rows.flatMap((r) => r.fleetNames)).size > 1,
         ...(flagSvgByCode ? { flagSvgByCode } : {}),
       },
     ),
