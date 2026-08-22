@@ -1038,8 +1038,9 @@ export async function addSplitStageRaces(
   payload: {
     stageRaceNumbers?: number[];
     fleetIds?: string[];
-    /** One combined race with per-fleet stage race numbers (out-of-step
-     *  fleets sharing a start sequence). */
+    /** Each fleet's own stage race number, for fleets that are out of step.
+     *  Whether they share one race or take a race each is the round's shape,
+     *  not the caller's. */
     starts?: { fleetId: string; stageRaceNumber: number }[];
     date?: string;
   },

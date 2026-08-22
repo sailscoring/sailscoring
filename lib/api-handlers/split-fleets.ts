@@ -518,24 +518,30 @@ export async function addStageRaces(
         ...offsetFor(fid),
       }));
 
-  const specs: StageRaceSpec[] = input.starts?.length
-    ? [{ stage: roundRow.stage, starts: orderStarts(input.starts) }]
-    : input.stageRaceNumbers.flatMap((n) => {
-        const starts = orderStarts(requestedIds.map((fid) => ({ fleetId: fid, stageRaceNumber: n })));
-        // Medal-stage fleets race apart (own courses) — one race per fleet.
-        return roundRow.stage === 'medal'
-          ? starts.map((s) => ({ stage: roundRow.stage, starts: [s] }))
-          : [{ stage: roundRow.stage, starts }];
-      });
-
+  // The shape a race added now takes is the shape the ceremony gave the round:
+  // medal-stage fleets always race apart (own courses), and so does every
+  // stage when the series says its finish sheets come one per fleet.
   const seriesRow = await getSeriesRow(workspace, seriesId);
+  const config = normalizeSplitFleetConfig(seriesRow.qfConfig as Partial<SplitFleetConfig>);
+  const apart = roundRow.stage === 'medal' || config.finishSheets === 'per-fleet';
+  const asSpecs = (starts: StageRaceSpec['starts']): StageRaceSpec[] =>
+    apart
+      ? starts.map((s) => ({ stage: roundRow.stage, starts: [s] }))
+      : [{ stage: roundRow.stage, starts }];
+
+  const specs: StageRaceSpec[] = input.starts?.length
+    ? asSpecs(orderStarts(input.starts))
+    : input.stageRaceNumbers.flatMap((n) =>
+        asSpecs(orderStarts(requestedIds.map((fid) => ({ fleetId: fid, stageRaceNumber: n })))),
+      );
+
   await db.transaction(async (tx) => {
     await createStageRaces(tx, {
       seriesId,
       workspaceId: workspace.workspaceId,
       specs,
       date: input.date,
-      config: normalizeSplitFleetConfig(seriesRow.qfConfig as Partial<SplitFleetConfig>),
+      config,
     });
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
     await repos.series.touch(seriesId);

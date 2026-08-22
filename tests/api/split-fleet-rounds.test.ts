@@ -1,8 +1,10 @@
 // @vitest-environment node
 
 /**
- * Integration tests for `commitSplitRound` — the assignment ceremony that
- * creates a round's fleets, memberships and stage races.
+ * Integration tests for the two functions that write a round's stage races:
+ * `commitSplitRound` — the assignment ceremony, which creates the round's
+ * fleets, memberships and first races — and `addStageRaces`, which adds a
+ * race to a round that already exists.
  *
  * The shape those races take is `SplitFleetConfig.finishSheets`: the fleets
  * of one stage race either share a race (they cross one line onto one
@@ -29,7 +31,12 @@ vi.mock('@/lib/auth/require-workspace', async (importOriginal) => {
 
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as series from '@/lib/api-handlers/series';
-import { commitSplitRound, putSplitFleetState } from '@/lib/api-handlers/split-fleets';
+import {
+  addStageRaces,
+  commitSplitRound,
+  putSplitFleetConfig,
+  putSplitFleetState,
+} from '@/lib/api-handlers/split-fleets';
 import { defaultSplitFleetConfig } from '@/lib/split-fleets';
 import { requireWorkspace } from '@/lib/auth/require-workspace';
 
@@ -224,5 +231,73 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     const races = await racesWithStarts(seriesId);
     expect(races).toHaveLength(1);
     expect(races[0].starts).toHaveLength(3);
+  });
+
+  // A race added to a round that already exists has to take the same shape the
+  // ceremony gave that round — the scorer chose the shape once, in the config.
+
+  test('per-fleet: a race added later is a race per fleet too', async () => {
+    const { seriesId, competitorIds } = await seedSeries('per-fleet');
+    const round = await commit(seriesId, competitorIds, [1]);
+
+    await addStageRaces(ctx, seriesId, round.id, {
+      stageRaceNumbers: [2],
+      date: '2026-08-25',
+    });
+
+    const races = await racesWithStarts(seriesId);
+    expect(races).toHaveLength(6);
+    expect(races.every((r) => r.starts.length === 1)).toBe(true);
+    expect(races.filter((r) => r.starts[0].stageRaceNumber === 2)).toHaveLength(3);
+  });
+
+  test('combined: a race added later still carries every fleet', async () => {
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    const round = await commit(seriesId, competitorIds, [1]);
+
+    await addStageRaces(ctx, seriesId, round.id, {
+      stageRaceNumbers: [2],
+      date: '2026-08-25',
+    });
+
+    const races = await racesWithStarts(seriesId);
+    expect(races).toHaveLength(2);
+    expect(races[1].starts).toHaveLength(3);
+  });
+
+  test('per-fleet: a whole sequence added at once becomes a race per start', async () => {
+    const { seriesId, competitorIds } = await seedSeries('per-fleet');
+    const round = await commit(seriesId, competitorIds, [1]);
+
+    // The final stage's "next race for every fleet" button: explicit starts,
+    // each fleet at its own next number.
+    await addStageRaces(ctx, seriesId, round.id, {
+      starts: round.fleetIds.map((fleetId) => ({ fleetId, stageRaceNumber: 2 })),
+      date: '2026-08-25',
+    });
+
+    const races = await racesWithStarts(seriesId);
+    expect(races.filter((r) => r.starts[0].stageRaceNumber === 2)).toHaveLength(3);
+  });
+
+  test('switching to per-fleet before racing changes the shape of the next race', async () => {
+    // The reported path: fleets assigned while the sheets were combined, the
+    // races that produced deleted, the setting changed, the races re-added.
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    const round = await commit(seriesId, competitorIds, [1, 2]);
+    await db.delete(schema.races).where(eq(schema.races.seriesId, seriesId));
+
+    await putSplitFleetConfig(ctx, seriesId, {
+      ...defaultSplitFleetConfig(3),
+      finishSheets: 'per-fleet',
+    });
+    await addStageRaces(ctx, seriesId, round.id, {
+      stageRaceNumbers: [1, 2],
+      date: '2026-08-24',
+    });
+
+    const races = await racesWithStarts(seriesId);
+    expect(races).toHaveLength(6);
+    expect(races.every((r) => r.starts.length === 1)).toBe(true);
   });
 });

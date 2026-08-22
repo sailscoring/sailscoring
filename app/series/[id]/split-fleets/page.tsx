@@ -1436,6 +1436,7 @@ function FinalSection({
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
   const medalConfig = data.config.medal;
+  const perFleet = data.config.finishSheets === 'per-fleet';
   const w = words(data.config);
 
   return (
@@ -1445,9 +1446,12 @@ function FinalSection({
         {round.basis
           ? `from the ${w.qualifying.name} ranking after ${raceLabel(data, 'qualifying', round.basis.throughStageRace)}`
           : ''}
-        . {capitaliseStage(w.final.fleetNoun)}s usually start in sequence and finish onto
-        one combined sheet, but need not complete the same number of races — a fleet a
-        race behind simply sails its own next number in the sequence.
+        . {capitaliseStage(w.final.fleetNoun)}s{' '}
+        {perFleet
+          ? 'start in sequence and each finishes onto a sheet of its own'
+          : 'usually start in sequence and finish onto one combined sheet'}
+        , but need not complete the same number of races — a fleet a race behind simply
+        sails its own next number in the sequence.
         {medalRound
           ? ` The ${w.medal.name} boats have left these fleets’ racing, so a race added now is for the rest — which is what sailing instructions mean by one more race for the boats who did not qualify.`
           : ''}
@@ -1460,8 +1464,11 @@ function FinalSection({
           onClick={() =>
             addRaces.mutate({
               roundId: round.id,
-              // One race, all fleets in sequence — each start at its own next
-              // stage race number, so out-of-step fleets stay out of step.
+              // Every fleet's next race at once — each start at its own next
+              // stage race number, so out-of-step fleets stay out of step. One
+              // race carrying them all, or a race each where the sheets are
+              // per-fleet; the handler gives the round the shape it was
+              // committed with.
               starts: round.fleetIds.map((fid) => {
                 const ns = stageRaceRefs(data, 'final')
                   .filter((ref) => ref.fleetId === fid)
@@ -1471,7 +1478,7 @@ function FinalSection({
             })
           }
         >
-          Add next race · all fleets in one sequence
+          {perFleet ? 'Add next race · one for each fleet' : 'Add next race · all fleets in one sequence'}
         </Button>
       )}
       {round.fleetIds.map((fid) => {

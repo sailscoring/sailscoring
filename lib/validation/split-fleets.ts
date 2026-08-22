@@ -150,10 +150,11 @@ export const splitRoundCommitSchema = z.object({
 });
 
 /** Body for POST …/rounds/:roundId/races — add stage races to a round.
- *  Each stage race number becomes one race (a start sequence) covering the
- *  given fleets. Alternatively `starts` names each fleet's own stage race
- *  number and creates a single combined race — the out-of-step case (Gold
- *  F2 + Silver F2 + Bronze F1 in one sequence). */
+ *  Each stage race number becomes a start per fleet; alternatively `starts`
+ *  names each fleet's own stage race number, for fleets that are out of step
+ *  (Gold F2 + Silver F2 + Bronze F1). Either way the round's own shape says
+ *  whether those starts share one race or take a race each — the medal stage
+ *  and `finishSheets: 'per-fleet'` race apart. */
 export const splitStageRacesSchema = z
   .object({
     stageRaceNumbers: z.array(z.number().int().positive()).default([]),
