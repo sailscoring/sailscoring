@@ -36,7 +36,7 @@ import {
 } from './competitor-fields';
 import { isSyntheticFleetName } from './publishing';
 import { seriesSlug } from './series-name';
-import type { Competitor, ResultCode, PenaltyCode, Standing } from './types';
+import type { Competitor, Fleet, ResultCode, PenaltyCode, Standing } from './types';
 
 /**
  * Builds one fleet's page data. `section` replaces the standings with a slice
@@ -112,7 +112,38 @@ async function buildCompetitorListFile(
   seriesIndexUrl?: string,
 ): Promise<FleetHtmlFile> {
   const { series, competitors, fleets } = snapshot;
-  const fleetNameById = new Map(fleets.map((f) => [f.id, f.name]));
+  const fleetById = new Map(fleets.map((f) => [f.id, f]));
+
+  /**
+   * The fleets worth naming beside a boat on a public entry list.
+   *
+   * Two things have to be filtered out. `Default` and `Unknown` are the app's
+   * own names, never a scorer's. And a split-fleet series mints a fresh set of
+   * fleets per assignment round, reusing the same labels — round 2's Blue is a
+   * different row to round 1's Blue — while membership is appended rather than
+   * replaced, so a boat two rounds in is in `[Default, Yellow, Blue]`. Listing
+   * those verbatim reads as though the boat is in two fleets at once, and says
+   * nothing about which one it is actually racing in.
+   *
+   * So round fleets collapse to the latest one the boat holds — the fleet it
+   * races in now, which is what a competitor reading the list wants — while
+   * ordinary fleets, which a boat can genuinely be scored in several of, are
+   * all kept. Rounds mint their fleets with an increasing `displayOrder`, so
+   * that is the ordering.
+   */
+  const displayFleetNames = (c: Competitor): string[] => {
+    const own = c.fleetIds
+      .map((id) => fleetById.get(id))
+      .filter((f): f is Fleet => !!f && !isSyntheticFleetName(f.name));
+    const rounds = own.filter((f) => f.splitRoundId);
+    const latestRound = rounds.reduce<Fleet | null>(
+      (best, f) => (best === null || f.displayOrder > best.displayOrder ? f : best),
+      null,
+    );
+    return own
+      .filter((f) => !f.splitRoundId || f.id === latestRound?.id)
+      .map((f) => f.name);
+  };
   const enabledCompetitorFields =
     series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
   const flagSvgByCode =
@@ -146,12 +177,7 @@ async function buildCompetitorListFile(
       : {}),
     ...(c.gender ? { gender: c.gender } : {}),
     ...(c.age != null ? { age: c.age } : {}),
-    // `Default` and `Unknown` are the app's own names, not the scorer's, and
-    // a boat assigned to a split-fleet round keeps its `Default` membership —
-    // so without this the page reads "Default, Yellow".
-    fleetNames: c.fleetIds
-      .map((id) => fleetNameById.get(id))
-      .filter((n): n is string => !!n && !isSyntheticFleetName(n)),
+    fleetNames: displayFleetNames(c),
   }));
 
   return {

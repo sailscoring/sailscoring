@@ -223,6 +223,37 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('<td>Red</td>');
   });
 
+  it('names the round a boat is racing in now, not every round it has been in', async () => {
+    // Each assignment round mints its own fleets, reusing the labels, and
+    // membership is appended — so two rounds in, a boat is in Yellow *and*
+    // Blue. The page should say Blue: the fleet it is in now.
+    const fleets: Fleet[] = [
+      { id: 'f-default', seriesId: 's1', name: 'Default', displayOrder: 0, scoringSystem: 'scratch' },
+      { id: 'r1-yellow', seriesId: 's1', name: 'Yellow', displayOrder: 1, scoringSystem: 'scratch', splitRoundId: 'round-1' },
+      { id: 'r1-blue', seriesId: 's1', name: 'Blue', displayOrder: 2, scoringSystem: 'scratch', splitRoundId: 'round-1' },
+      { id: 'r2-yellow', seriesId: 's1', name: 'Yellow', displayOrder: 3, scoringSystem: 'scratch', splitRoundId: 'round-2' },
+      { id: 'r2-blue', seriesId: 's1', name: 'Blue', displayOrder: 4, scoringSystem: 'scratch', splitRoundId: 'round-2' },
+    ];
+    const repos = {
+      ...makeRepos([], []),
+      fleetRepo: { listBySeries: async () => fleets },
+      competitorRepo: {
+        listBySeries: async () => [
+          // Yellow in round 1, moved to Blue for round 2.
+          competitor('c1', '101', ['f-default', 'r1-yellow', 'r2-blue']),
+          // Yellow throughout — still one name, not "Yellow, Yellow".
+          competitor('c2', '201', ['f-default', 'r1-yellow', 'r2-yellow']),
+        ],
+      },
+    } as unknown as ExportRepos;
+    const html = (await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    expect(html).toContain('<td>Blue</td>');
+    expect(html).toContain('<td>Yellow</td>');
+    expect(html).not.toContain('Yellow, Blue');
+    expect(html).not.toContain('Yellow, Yellow');
+    expect(html).not.toContain('Default');
+  });
+
   it('drops the Fleet column when only the synthetic fleet would fill it', async () => {
     const repos = {
       ...makeRepos([], []),
