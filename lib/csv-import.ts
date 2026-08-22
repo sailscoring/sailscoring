@@ -12,6 +12,7 @@ export type CompetitorField =
   | 'alternativeSailNumbers'
   | 'entryNumber'
   | 'seed'
+  | 'initialFleet'
   | 'worldSailingId'
   | 'boatName'
   | 'boatClass'

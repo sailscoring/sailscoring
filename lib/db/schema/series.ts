@@ -428,6 +428,10 @@ export const competitors = pgTable(
     // rank (docs/design/split-fleets.md). Sparse; both nullable.
     entryNumber: text('entry_number'),
     seed: integer('seed'),
+    // The qualifying fleet the seeding committee assigned the boat to, in
+    // their own spelling — the assignment itself, where `seed` is the order
+    // to deal from. Read when Round 1 is assigned from the imported column.
+    initialFleet: text('initial_fleet'),
     // World Sailing Sailor ID of the primary sailor — the join key for an OA's
     // seed ranking, and a profile link in published results.
     worldSailingId: text('world_sailing_id'),

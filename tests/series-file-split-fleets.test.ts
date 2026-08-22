@@ -224,3 +224,32 @@ describe('split-fleet block on file import', () => {
     expect(repos.replaceCalls[1]).toEqual({ config: null, rounds: [] });
   });
 });
+
+describe('the seeding committee\u2019s fields on file import', () => {
+  it('carries the seeding rank and the initial fleet onto the saved competitors', async () => {
+    const file = makeFile();
+    file.competitors[0].seed = 3;
+    file.competitors[0].initialFleet = 'Yellow';
+    file.competitors[1].initialFleet = 'Blue';
+
+    const repos = makeRepos();
+    await openSeriesFromFile(file, repos);
+
+    const bySail = new Map(repos.savedCompetitors.map((c) => [c.sailNumber, c]));
+    expect(bySail.get('IRL1')?.seed).toBe(3);
+    expect(bySail.get('IRL1')?.initialFleet).toBe('Yellow');
+    // The assignment is the committee's, not a fleet reference: it is the
+    // label as written, and survives even though IRL2 carries no rank.
+    expect(bySail.get('IRL2')?.seed).toBeUndefined();
+    expect(bySail.get('IRL2')?.initialFleet).toBe('Blue');
+  });
+
+  it('leaves both absent when the file carries neither', async () => {
+    const repos = makeRepos();
+    await openSeriesFromFile(makeFile(), repos);
+    for (const c of repos.savedCompetitors) {
+      expect(c.seed).toBeUndefined();
+      expect(c.initialFleet).toBeUndefined();
+    }
+  });
+});

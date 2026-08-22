@@ -259,6 +259,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   alternativeSailNumbers: 'Alternative sail numbers',
   entryNumber: 'Entry number',
   seed: 'Seeding rank',
+  initialFleet: 'Initial fleet',
   worldSailingId: 'World Sailing ID',
   boatName: 'Boat name',
   boatClass: 'Class',
@@ -303,6 +304,7 @@ function buildFieldLabels(
     alternativeSailNumbers: STATIC_FIELD_LABELS.alternativeSailNumbers,
     entryNumber: STATIC_FIELD_LABELS.entryNumber,
     seed: STATIC_FIELD_LABELS.seed,
+    initialFleet: STATIC_FIELD_LABELS.initialFleet,
     worldSailingId: STATIC_FIELD_LABELS.worldSailingId,
     boatName: STATIC_FIELD_LABELS.boatName,
     boatClass: STATIC_FIELD_LABELS.boatClass,
@@ -1514,6 +1516,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let alternativeSailNumbers: string[] = [];
       let entryNumber = '';
       let seed: number | undefined;
+      let initialFleet = '';
       let worldSailingId: string | undefined;
       let boatName = '';
       let boatClass = '';
@@ -1540,6 +1543,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'alternativeSailNumbers') alternativeSailNumbers = parseAlternativeSailNumbers(val);
         else if (field === 'entryNumber') entryNumber = val;
         else if (field === 'seed') seed = parseInt(val, 10) || undefined;
+        else if (field === 'initialFleet') initialFleet = val;
         else if (field === 'worldSailingId') worldSailingId = normalizeWorldSailingId(val);
         else if (field === 'boatName') boatName = val;
         else if (field === 'boatClass') boatClass = val;
@@ -1661,6 +1665,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(seed != null || existingCompetitor?.seed != null
           ? { seed: seed ?? existingCompetitor?.seed }
           : {}),
+        ...(initialFleet || existingCompetitor?.initialFleet
+          ? { initialFleet: initialFleet || existingCompetitor?.initialFleet }
+          : {}),
         ...(worldSailingId || existingCompetitor?.worldSailingId
           ? { worldSailingId: worldSailingId || existingCompetitor?.worldSailingId }
           : {}),
@@ -1698,6 +1705,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           (competitor.alternativeSailNumbers ?? []).join('\u0000') &&
         (existingCompetitor.entryNumber ?? '') === (competitor.entryNumber ?? '') &&
         (existingCompetitor.seed ?? null) === (competitor.seed ?? null) &&
+        (existingCompetitor.initialFleet ?? '') === (competitor.initialFleet ?? '') &&
         (existingCompetitor.worldSailingId ?? '') === (competitor.worldSailingId ?? '') &&
         (existingCompetitor.boatName ?? '') === (competitor.boatName ?? '') &&
         (existingCompetitor.boatClass ?? '') === (competitor.boatClass ?? '') &&

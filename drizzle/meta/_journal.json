@@ -610,6 +610,13 @@
       "when": 1786571771419,
       "tag": "0086_bright_blockbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1787401330687,
+      "tag": "0087_furry_lake",
+      "breakpoints": true
     }
   ]
 }

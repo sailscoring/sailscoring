@@ -34,6 +34,7 @@ export interface CompetitorFormData {
   alternativeSailNumbers: string;
   entryNumber: string;
   seed: string;
+  initialFleet: string;
   worldSailingId: string;
   boatName: string;
   boatClass: string;
@@ -60,6 +61,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   alternativeSailNumbers: '',
   entryNumber: '',
   seed: '',
+  initialFleet: '',
   worldSailingId: '',
   boatName: '',
   boatClass: '',
@@ -357,6 +359,17 @@ export function CompetitorForm({
               min={1}
               value={data.seed}
               onChange={(e) => set('seed', e.target.value)}
+            />
+          </div>
+        )}
+        {enabledFields.includes('initialFleet') && (
+          <div className="space-y-1.5">
+            <Label htmlFor="initialFleet">Initial fleet</Label>
+            <Input
+              id="initialFleet"
+              value={data.initialFleet}
+              onChange={(e) => set('initialFleet', e.target.value)}
+              placeholder="e.g. Yellow"
             />
           </div>
         )}

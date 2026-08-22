@@ -49,6 +49,7 @@ describe('ALL_COMPETITOR_FIELDS', () => {
       'alternativeSailNumbers',
       'entryNumber',
       'seed',
+      'initialFleet',
       'worldSailingId',
       'boatName',
       'boatClass',

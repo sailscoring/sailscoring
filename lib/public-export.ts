@@ -206,6 +206,11 @@ export interface PublicSeriesExport {
     /** The OA's seeding rank. Carried so a reader can reproduce a split-fleet
      *  series' initial assignment, which is unexplainable without it. */
     seed?: number;
+    /** The qualifying fleet the seeding committee assigned the boat to, when
+     *  it supplied the assignment rather than an order to deal from. Carried
+     *  for the same reason as `seed`, and it is the stronger record of the
+     *  two: the committee's judgment is not reconstructible from anything. */
+    initialFleet?: string;
     /** World Sailing Sailor ID of the primary sailor. */
     worldSailingId?: string;
     boatName?: string;
@@ -861,6 +866,7 @@ export function buildPublicExportFromSnapshot(
         : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
       ...(c.seed != null ? { seed: c.seed } : {}),
+      ...(c.initialFleet ? { initialFleet: c.initialFleet } : {}),
       ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
@@ -1115,6 +1121,7 @@ export async function importPublicExport(
           : {}),
         ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
         ...(c.seed != null ? { seed: c.seed } : {}),
+        ...(c.initialFleet ? { initialFleet: c.initialFleet } : {}),
         ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
