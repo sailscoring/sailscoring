@@ -7,15 +7,19 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { describeSplitFleetConfig } from '@/lib/split-fleets-si';
+import { describeSplitFleetConfig, SENTENCES_BY_SETTING } from '@/lib/split-fleets-si';
+import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import {
   defaultSplitFleetConfig,
   ilca2026SplitFleetConfig,
   iodaSplitFleetConfig,
+  type SplitFleetConfig,
 } from '@/lib/split-fleets';
 
-const joined = (config: Parameters<typeof describeSplitFleetConfig>[0]) =>
-  describeSplitFleetConfig(config).join('\n');
+const joined = (config: SplitFleetConfig) =>
+  describeSplitFleetConfig(config)
+    .map((s) => s.text)
+    .join('\n');
 
 describe('describeSplitFleetConfig', () => {
   it('states the ILCA-shaped default in SI language', () => {
@@ -99,5 +103,55 @@ describe('describeSplitFleetConfig', () => {
     });
     expect(text).toContain('scored 60 points in the qualifying series');
     expect(text).toContain('largest qualifying fleet, plus one in the final series');
+  });
+});
+
+/**
+ * The sentence ids exist so the editor can point a setting at the sentences it
+ * writes. Two things have to hold for that to keep working as the prose is
+ * edited: a config never emits the same id twice (or a mark would land on two
+ * sentences claiming to be the same clause), and every id a setting claims is
+ * one some configuration actually produces (or the setting marks nothing and
+ * the scorer concludes it does nothing).
+ */
+describe('sentence ids', () => {
+  // Enough configurations between them to reach every branch of the prose.
+  const configs: SplitFleetConfig[] = [
+    defaultSplitFleetConfig(3),
+    ilca2026SplitFleetConfig(3),
+    iodaSplitFleetConfig(4),
+    { ...defaultSplitFleetConfig(2), carry: 'net-plus-net' },
+    { ...defaultSplitFleetConfig(2), carry: 'rank-seed' },
+    { ...defaultSplitFleetConfig(2), maxFinalDiscards: 0 },
+    { ...defaultSplitFleetConfig(2), equalization: 'exclude-extra-scores' },
+    {
+      ...defaultSplitFleetConfig(2),
+      medal: {
+        size: 10,
+        raceCount: 1,
+        multiplier: 2,
+        companionRace: 'scored-below',
+        carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+        tieBreak: 'stage-rank',
+      },
+    },
+  ];
+
+  it('gives each sentence of a configuration its own id', () => {
+    for (const config of configs) {
+      const ids = describeSplitFleetConfig(config).map((s) => s.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  it('emits every id the editor points a setting at', () => {
+    const emitted = new Set<SplitFleetSentenceId>(
+      configs.flatMap((config) => describeSplitFleetConfig(config).map((s) => s.id)),
+    );
+    for (const [setting, ids] of Object.entries(SENTENCES_BY_SETTING)) {
+      for (const id of ids) {
+        expect(`${setting} → ${id}`).toBe(`${setting} → ${emitted.has(id) ? id : 'never written'}`);
+      }
+    }
   });
 });

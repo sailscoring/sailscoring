@@ -873,7 +873,7 @@ function SiTranslation({
         <>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-muted-foreground">
             {lines.map((line) => (
-              <li key={line}>{line}</li>
+              <li key={line.id}>{line.text}</li>
             ))}
           </ol>
           <p className="mt-2 text-xs text-muted-foreground">
