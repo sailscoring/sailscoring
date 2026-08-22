@@ -11,6 +11,11 @@ reference-docs (see the capture table at the end).
 Classes: ILCA, Optimist, Topper, 49er/49erFX, Nacra 17, 29er, 470, 420,
 Moth, WASZP, iQFOiL, Formula Kite.
 
+A companion survey, `champions-cup-survey.md`, covers the one family this one
+deliberately excludes: Irish Sailing's Champions' Cup events, where the split
+eliminates most of the fleet rather than banding it, and the qualifying scores
+are discarded outright. Its provisional archetype is **F9**.
+
 ## The headline
 
 Three findings shape the fixture plan:
