@@ -253,21 +253,17 @@ export async function commitSplitRound(
     }
 
     // The stage races. Medal-stage fleets always race apart (the umpired
-    // medal race and the companion "last race" run on their own courses):
-    // one race per fleet, the companion's first finisher scoring below the
-    // medal fleet. Qualifying and final fleets start in sequence and finish
-    // onto one combined sheet, so they share a race — unless the series says
-    // its finish sheets come one per fleet, in which case they take the same
-    // shape the medal stage does.
+    // medal race runs on its own course): one race per fleet. Qualifying and
+    // final fleets start in sequence and finish onto one combined sheet, so
+    // they share a race — unless the series says its finish sheets come one
+    // per fleet, in which case they take the same shape the medal stage does.
     const config = normalizeSplitFleetConfig(row.qfConfig as Partial<SplitFleetConfig>);
     const apart = input.stage === 'medal' || config.finishSheets === 'per-fleet';
-    const medalSize = Object.values(input.assignments).filter((idx) => idx === 0).length;
     const specs: StageRaceSpec[] = input.stageRaceNumbers.flatMap((n) => {
-      const starts = fleetRows.map((f, i) => ({
+      const starts = fleetRows.map((f) => ({
         fleetId: f.id,
         label: f.name,
         stageRaceNumber: n,
-        ...(input.stage === 'medal' && i > 0 ? { firstPlaceOffset: medalSize } : {}),
       }));
       return apart
         ? starts.map((s) => ({ stage: input.stage, starts: [s] }))
@@ -491,21 +487,43 @@ export async function addStageRaces(
     .from(schema.fleets)
     .where(inArray(schema.fleets.id, requestedIds));
   const byId = new Map(fleetRows.map((f) => [f.id, f]));
-  // The medal round's non-medal fleets sail the companion "last race": first
-  // finisher scores just below the committed medal fleet.
-  const medalSize =
-    roundRow.stage === 'medal'
-      ? (
-          await db
-            .select({ fleetIds: schema.competitors.fleetIds })
-            .from(schema.competitors)
-            .where(eq(schema.competitors.seriesId, seriesId))
-        ).filter((c) => c.fleetIds.includes(roundRow.fleetIds[0])).length
-      : 0;
-  const offsetFor = (fleetId: string): { firstPlaceOffset?: number } =>
-    roundRow.stage === 'medal' && fleetId !== roundRow.fleetIds[0]
-      ? { firstPlaceOffset: medalSize }
-      : {};
+  const seriesRow = await getSeriesRow(workspace, seriesId);
+  const config = normalizeSplitFleetConfig(seriesRow.qfConfig as Partial<SplitFleetConfig>);
+
+  // The boats who missed the medal fleet sail one more race of their own
+  // final fleet, and where the sailing instructions score it below the medal
+  // fleet its finishers are offset by the boats who left. Every final fleet
+  // takes the offset, not just the one they left: the clause is written over
+  // every boat not in the medal fleet.
+  const [medalRound] =
+    roundRow.stage === 'final' && config.medal?.companionRace === 'scored-below'
+      ? await db
+          .select({ fleetIds: schema.splitRounds.fleetIds })
+          .from(schema.splitRounds)
+          .where(
+            and(
+              eq(schema.splitRounds.seriesId, seriesId),
+              eq(schema.splitRounds.workspaceId, workspace.workspaceId),
+              eq(schema.splitRounds.stage, 'medal'),
+            ),
+          )
+      : [];
+  const medalFleetId = medalRound?.fleetIds[0] ?? null;
+  const offset = medalFleetId
+    ? (
+        await db
+          .select({ fleetIds: schema.competitors.fleetIds })
+          .from(schema.competitors)
+          .where(
+            and(
+              eq(schema.competitors.seriesId, seriesId),
+              eq(schema.competitors.workspaceId, workspace.workspaceId),
+            ),
+          )
+      ).filter((c) => c.fleetIds.includes(medalFleetId)).length
+    : 0;
+  const offsetFor = (): { firstPlaceOffset?: number } =>
+    offset > 0 ? { firstPlaceOffset: offset } : {};
 
   // In the round's fleet order, each start's own stage race number.
   const orderStarts = (starts: { fleetId: string; stageRaceNumber: number }[]) =>
@@ -515,14 +533,12 @@ export async function addStageRaces(
         fleetId: fid,
         label: byId.get(fid)?.name ?? '?',
         stageRaceNumber: starts.find((s) => s.fleetId === fid)!.stageRaceNumber,
-        ...offsetFor(fid),
+        ...offsetFor(),
       }));
 
   // The shape a race added now takes is the shape the ceremony gave the round:
   // medal-stage fleets always race apart (own courses), and so does every
   // stage when the series says its finish sheets come one per fleet.
-  const seriesRow = await getSeriesRow(workspace, seriesId);
-  const config = normalizeSplitFleetConfig(seriesRow.qfConfig as Partial<SplitFleetConfig>);
   const apart = roundRow.stage === 'medal' || config.finishSheets === 'per-fleet';
   const asSpecs = (starts: StageRaceSpec['starts']): StageRaceSpec[] =>
     apart

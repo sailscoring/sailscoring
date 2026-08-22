@@ -1,4 +1,4 @@
-description: "D3 finale scheduled but never sailed: the companion 'last race' does not run, and the opening series stands"
+description: "D3 finale scheduled but never sailed: the extra race for the boats outside the medal fleet does not run, and the opening series stands"
 provenance:
   class: "ILCA 7"
   year: 2024
@@ -11,17 +11,17 @@ provenance:
 runnable: true
 notes: |
   A scheduled finale that never sails must leave the results resting on what
-  was sailed. At Adelaide the non-medal Gold boats were scheduled a companion
-  "last race" (SI 7.4) that never ran — so those boats simply carry no
-  companion score, and the medal race alone decides the top. (The sibling case:
+  was sailed. At Adelaide the boats outside the medal fleet were scheduled one
+  more opening-series race (SI 7.4) that never ran — so those boats simply
+  carry no score for it, and the medal race alone decides the top. (The
+  sibling case:
   49erFX 2023's medal race was abandoned for lack of wind and the title stood
   on the opening series.)
 
-  This fixture is fixture 03 with the companion "last race" NOT sailed: the
-  medal fleet (y1, b1) sails its medal race, but the remaining Gold boat y2
-  has no companion race at all. y2 therefore keeps only her opening total —
-  the finale that was scheduled for her never happened. `expected` verified
-  against the engine.
+  This fixture is fixture 03 with that extra race NOT sailed: the medal fleet
+  (y1, b1) sails its medal race, and no F2 is entered for anyone. y2 therefore
+  keeps only her opening total — the finale that was scheduled for her never
+  happened. `expected` verified against the engine.
 
 config:
   qualifyingFleets: [Yellow, Blue]
@@ -73,17 +73,16 @@ stages:
     from: 1
     assign: { medalTop: 2 }
     expectedFleets:
-      Medal: [y1, b1]
-      "Gold last race": [y2]
+      Medal: [b1, y1]
     races:
       - n: 1
         results:
           Medal: [y1, b1]              # medal race sails
-          # companion "Gold last race" was scheduled for y2 but never ran
+          # F2 was scheduled for everyone else but never ran
 
 expected:
   standings:
-    # y2's companion race never ran: she keeps only her opening total (7).
+    # y2's extra race never ran: she keeps only her opening total (7).
     - { rank: 1, sail: y1, total: 5, net: 5, fleet: Gold, medal: true }
     - { rank: 2, sail: b1, total: 8, net: 8, fleet: Gold, medal: true }
     - { rank: 3, sail: y2, total: 7, net: 7, fleet: Gold, medal: false }

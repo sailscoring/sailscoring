@@ -140,15 +140,23 @@ export interface SplitFleetConfig {
      *  compresses the carry needs one of them: rounding scores to whole
      *  numbers manufactures ties among the very boats deciding the title. */
     tieBreak?: 'stage-rank' | 'last-race';
-    /** What the boats who miss the cut sail while the medal races run.
-     *  - `scored-below` — a companion race of their own, its first finisher
-     *    scoring just below the medal fleet (2024 ILCA SI 18.3.4: first
-     *    finisher = 11 points). The medal ceremony creates the fleet for it.
-     *  - `none` — nothing of their own here: they stay in their final fleets
-     *    and sail one more ordinary final-series race, which the SIs may
-     *    schedule for the same day (2026 ILCA SI 7.7). Nothing is scored
-     *    below anything, and the medal ceremony creates only the medal
-     *    fleet. */
+    /** How the one more race the boats who miss the cut sail is scored.
+     *
+     *  Whichever this says, that race is an ordinary race of the second
+     *  stage, sailed by each boat with her own fleet: selecting the medal
+     *  fleet takes those boats out of their fleet's remaining races, it does
+     *  not deal anyone a new fleet. So the race is discardable like any
+     *  other, and the medal boats are absent from it rather than scored for
+     *  missing it.
+     *
+     *  - `scored-below` — its finishers are offset by the medal fleet, so
+     *    the first of them scores `size + 1` (2024 ILCA SI 18.3.4 and, from
+     *    Amendment 3, 2026 ILCA SI 18.5.3, both "first finisher … 11
+     *    points, second 12 points and so on"). The offset lands on finish
+     *    places only: the RRS A5.2 base stays the fleet's assigned size plus
+     *    one, because the boats who left for the medal fleet are still
+     *    assigned to it.
+     *  - `none` — scored from 1, like every other race of the stage. */
     companionRace: 'scored-below' | 'none';
   };
 }
@@ -523,9 +531,9 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
       // SI 18.7.4: rule A8 replaced outright by the last race.
       tieBreak: 'last-race',
-      // SI 7.7: the boats who miss the Final series sail one more ordinary
-      // Qualification series race, not a companion race scored from 11.
-      companionRace: 'none',
+      // SI 7.7 schedules the boats who miss the Final series one more
+      // Qualification series race, and SI 18.5.3 scores it from 11.
+      companionRace: 'scored-below',
     },
   };
 }

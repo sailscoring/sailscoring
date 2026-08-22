@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width">
-<title>F2 medal race: doubled non-discardable medal points; companion 'last race' scored from below the medal fleet — Sail Scoring</title>
+<title>F2 medal race: doubled non-discardable medal points, and the extra race for everyone else scored below the medal fleet — Sail Scoring</title>
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; margin-bottom: 0.2em; }
@@ -18,37 +18,64 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 </head>
 <body>
 <p><a href="../">&larr; All split-fleet examples</a></p>
-<h1>F2 medal race: doubled non-discardable medal points; companion 'last race' scored from below the medal fleet</h1>
+<h1>F2 medal race: doubled non-discardable medal points, and the extra race for everyone else scored below the medal fleet</h1>
 <p style="color:#555;">ILCA 7 2024 — World Championship, Adelaide AUS &middot; <strong>F2</strong> &middot; SI (<code>reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.pdf</code>) &middot; results (<code>reference-docs:events/ilca7-worlds-2024/results-sailwave.html</code>)</p>
 
 <div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: No discards. &middot; medal race ×2</div>
 <pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">Adds a medal race to F1 (SI 18.6): the medal race scores double Appendix-A4
 points and is never discardable, and its boats are ranked at the top of the
-championship regardless of opening-series points. Non-medal boats sail one
-further opening-series race scored &quot;first finisher 11, second 12, and so on&quot;
-(SI 18.3.4) — a companion race whose points start immediately below the ten
-medal boats.
+championship regardless of opening-series points.
 
-Real Adelaide: 3 fleets → G/S/B, medal fleet = top 10, companion first = 11,
-Gold 11 races / Silver-Bronze 10, champion Matt Wearn 24 net (medal win
-scored 2.0). Reduced here to 2 fleets of 3, medal size 2 (so companion
-first = size + 1 = 3), no series discard (discardThresholds empty) so the
-medal arithmetic is transparent. `expected` verified against the engine.
+On the same day everyone else sails one more race:
+
+  7.4  On the last day one medal race is scheduled, with one further
+       opening series race for those not assigned to the medal race.
+
+  18.3.4  For those competitors not assigned to the Medal race and
+          scheduled to an additional Opening series race as detailed in
+          SI 7.4, the first finisher will be scored 11 points, second 12
+          points and so on.
+
+Two things follow from the words, and both are what this fixture pins.
+
+It is an *opening series* race, sailed by each boat with her own fleet —
+not a race of its own that the medal ceremony deals a fleet for. Selecting
+the medal boats takes them out of their fleet's remaining races; it does
+not move anybody else. So Gold sails this one two boats short, the medal
+boats have no cell in it at all rather than a DNC, and Silver sails its own.
+
+And it is &quot;those not assigned to the Medal race&quot;, which is every boat
+outside the medal ten — Silver and Bronze included, not just the top
+fleet's remainder. Adelaide never sailed it: the published results give
+Gold eleven columns (the last of them &quot;M / F5&quot;) and Silver and Bronze ten,
+with every Gold boat from 11th down blank in that column. So the clause
+itself, rather than a published example, is what fixes the reading.
+
+The offset lands on finish places only. A boat coded in that race still
+scores her fleet's A5.2 base, because the boats who left for the medal
+fleet are still assigned to the fleet (SI 18.3.3).
+
+Real Adelaide: 3 fleets → G/S/B, medal fleet = top 10, extra race first =
+11, champion Matt Wearn 24 net (medal win scored 2.0). Reduced here to 2
+fleets of 3, medal size 2 (so the extra race's first finisher = size + 1 =
+3), no series discard (discardThresholds empty) so the medal arithmetic is
+transparent. `expected` verified against the engine.
 
 Structure: Q1–Q2 -&gt; split Gold(3)/Silver(3) -&gt; F1 -&gt; medal fleet = top 2 of
-Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&quot;.</pre>
+Gold (y1, b1) -&gt; F2, sailed by y2 for Gold and by all of Silver, alongside
+the medal race.</pre>
 <h2>Fleet assignments</h2>
 <table>
 <thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
 <tbody>
 <tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff3bf;padding:0 4px;border-radius:3px;">Yellow: y1, y2, y3</span>&nbsp; <span style="background:#d0ebff;padding:0 4px;border-radius:3px;">Blue: b1, b2, b3</span></td></tr>
 <tr><td>Final split</td><td>split (qualifying ranking)</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: b1, y1, y2</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: b2, b3, y3</span></td></tr>
-<tr><td>Medal</td><td>medal top 2</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b1, y1</span>&nbsp; <span style="background:#fff;padding:0 4px;border-radius:3px;">Gold last race: y2</span></td></tr>
+<tr><td>Medal</td><td>medal top 2</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b1, y1</span></td></tr>
 </tbody>
 </table>
 <h2>Gold fleet</h2>
 <table>
-<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>M1</th><th>Total</th><th>Nett</th></tr></thead>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>F2</th><th>M1</th><th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 <tr>
   <td>1</td>
@@ -57,6 +84,7 @@ Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&
   <td style="background:#fff3bf;text-align:center">1</td>
   <td style="background:#fff3bf;text-align:center">1</td>
   <td style="background:#ffec99;text-align:center">1</td>
+  <td></td>
   <td style="background:#ffe066;text-align:center;font-weight:bold">2</td>
   <td style="text-align:right">5</td>
   <td style="text-align:right;font-weight:bold">5</td>
@@ -68,6 +96,7 @@ Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&
   <td style="background:#d0ebff;text-align:center">1</td>
   <td style="background:#d0ebff;text-align:center">1</td>
   <td style="background:#ffec99;text-align:center">2</td>
+  <td></td>
   <td style="background:#ffe066;text-align:center;font-weight:bold">4</td>
   <td style="text-align:right">8</td>
   <td style="text-align:right;font-weight:bold">8</td>
@@ -79,7 +108,8 @@ Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&
   <td style="background:#fff3bf;text-align:center">2</td>
   <td style="background:#fff3bf;text-align:center">2</td>
   <td style="background:#ffec99;text-align:center">3</td>
-  <td style="background:#fff;text-align:center;font-weight:bold">3</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td></td>
   <td style="text-align:right">10</td>
   <td style="text-align:right;font-weight:bold">10</td>
 </tr>
@@ -87,7 +117,7 @@ Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&
 </table>
 <h2>Silver fleet</h2>
 <table>
-<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>M1</th><th>Total</th><th>Nett</th></tr></thead>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>F2</th><th>M1</th><th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 <tr>
   <td>4</td>
@@ -96,9 +126,10 @@ Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&
   <td style="background:#d0ebff;text-align:center">2</td>
   <td style="background:#d0ebff;text-align:center">2</td>
   <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
   <td></td>
-  <td style="text-align:right">5</td>
-  <td style="text-align:right;font-weight:bold">5</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right;font-weight:bold">8</td>
 </tr>
 <tr>
   <td>5</td>
@@ -107,9 +138,10 @@ Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&
   <td style="background:#fff3bf;text-align:center">3</td>
   <td style="background:#fff3bf;text-align:center">3</td>
   <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">4</td>
   <td></td>
-  <td style="text-align:right">8</td>
-  <td style="text-align:right;font-weight:bold">8</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">12</td>
 </tr>
 <tr>
   <td>6</td>
@@ -118,9 +150,10 @@ Gold (y1, b1); the remaining Gold boat (y2) sails the companion &quot;last race&
   <td style="background:#d0ebff;text-align:center">3</td>
   <td style="background:#d0ebff;text-align:center">3</td>
   <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">5</td>
   <td></td>
-  <td style="text-align:right">9</td>
-  <td style="text-align:right;font-weight:bold">9</td>
+  <td style="text-align:right">14</td>
+  <td style="text-align:right;font-weight:bold">14</td>
 </tr>
 </tbody>
 </table>

@@ -56,11 +56,7 @@ export interface FixtureStageRace {
  *   reassignAfter: qualifying reassignment by the standings after race N
  *   split:         final split by the qualifying ranking (all Q races)
  *   splitAfter:    final split by the qualifying ranking through race N
- *   medalTop:      medal-fleet selection — top N of the opening series (the
- *                  rest of the top final fleet go to the companion fleet),
- *                  optionally with `medalAfter` naming the last final race
- *                  sailed when the selection was made (the SIs fix a cutoff,
- *                  and races may follow it)
+ *   medalTop:      medal-fleet selection — top N of the opening series
  * The engine's rank pattern (`assignByRankPattern`) and block-split
  * (`finalBlockSizes`) do the work; the fixture asserts the result via
  * `expectedFleets`.
@@ -71,7 +67,6 @@ export interface FixtureAssign {
   split?: boolean;
   splitAfter?: number;
   medalTop?: number;
-  medalAfter?: number;
 }
 
 export interface FixtureStage {
@@ -85,6 +80,11 @@ export interface FixtureStage {
   /** Assert the computed assignment (membership per fleet; order within a
    *  fleet is not asserted). */
   expectedFleets?: Record<string, string[]>;
+  /** Medal stage only: the last final race sailed when the medal fleet was
+   *  picked. The SIs fix a cutoff time and races follow it, so this says
+   *  both which ranking the selection saw and which final races are the one
+   *  more race the boats who missed the cut sail. */
+  medalAfter?: number;
   races?: FixtureStageRace[];
 }
 
@@ -227,6 +227,21 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
       : undefined,
   };
 
+  // The one more race the boats who missed the medal fleet sail is an
+  // ordinary race of their own final fleet, and where the sailing
+  // instructions score it below the medal fleet its finishers are offset by
+  // the boats who left. `medalAfter` is what says which final races come
+  // after the cut: everything later than it is that race.
+  const medalCutAfter =
+    fx.stages.find((s) => s.stage === 'medal')?.medalAfter ?? null;
+  const offsetFor = (st: SeriesStage, n: number): { firstPlaceOffset?: number } =>
+    config.medal?.companionRace === 'scored-below' &&
+    st === 'final' &&
+    medalCutAfter != null &&
+    n > medalCutAfter
+      ? { firstPlaceOffset: config.medal.size }
+      : {};
+
   const competitors = new Map<string, Competitor>();
   for (const [i, entry] of fx.competitors.entries()) {
     const [sail, ...rest] = entry.trim().split(/\s+/);
@@ -298,39 +313,27 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         names.forEach((n, i) => { membership[n] = ordered.slice(idx, idx + sizes[i]); idx += sizes[i]; });
         method = a.splitAfter != null ? `split after Q${a.splitAfter}` : 'split (qualifying ranking)';
       } else if (st === 'medal' && a.medalTop != null) {
-        const [medalName, companionName] = Object.keys(stage.expectedFleets ?? {});
-        const mName = medalName ?? 'Medal';
-        const cName = companionName ?? 'Companion';
+        const mName = Object.keys(stage.expectedFleets ?? {})[0] ?? 'Medal';
         // The selection is a snapshot: `medalAfter` cuts the ranking off at
         // the final race the SIs' cutoff time fell after, so races sailed
         // later — the extra race for the boats who did not qualify — cannot
         // reach back and change who was selected.
         const base = snapshot();
         const opening = splitFleetStandings(
-          a.medalAfter == null
+          medalCutAfter == null
             ? base
             : {
                 ...base,
                 raceStarts: base.raceStarts.filter(
                   (st2) =>
-                    st2.stage !== 'final' || (st2.stageRaceNumber ?? 0) <= a.medalAfter!,
+                    st2.stage !== 'final' || (st2.stageRaceNumber ?? 0) <= medalCutAfter,
                 ),
               },
         );
         const top = opening.slice(0, a.medalTop).map((r) => r.competitor.sailNumber);
-        // The companion "last race" is for the rest of the top final fleet.
-        const goldFinalId = rounds.find((r) => r.stage === 'final')?.fleetIds[0];
-        const companion = opening
-          .filter((r) => goldFinalId && r.finalFleetId === goldFinalId && !top.includes(r.competitor.sailNumber))
-          .map((r) => r.competitor.sailNumber);
-        // With no companion race there is no second fleet: the boats who miss
-        // the cut stay in their final fleet and sail on with it. Nor is there
-        // one when nobody misses the cut — a medal fleet the size of the top
-        // final fleet leaves no boat to put in it.
-        membership =
-          fx.config.medal?.companionRace === 'none' || companion.length === 0
-            ? { [mName]: top }
-            : { [mName]: top, [cName]: companion };
+        // One fleet and one only: the boats who miss the cut stay in the
+        // final fleet they are in and sail its remaining races there.
+        membership = { [mName]: top };
         method = `medal top ${a.medalTop}`;
       } else {
         throw new Error(`stage ${st}: unsupported assign ${JSON.stringify(a)}`);
@@ -368,11 +371,6 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     for (const r of stage.races ?? []) {
       for (const name of Object.keys(r.results)) {
         const raceId = `${st}${r.n}:${name}`;
-        // A medal-stage race for a non-medal fleet is the companion "last
-        // race": first finisher scores medal size + 1 (the start's
-        // firstPlaceOffset). Fixtures model each fleet's sheet as its own
-        // race; combined sequences are covered by the engine unit tests.
-        const isCompanion = st === 'medal' && name !== fleetNames[0];
         races.push({
           id: raceId, seriesId: 's', raceNumber: races.length + 1,
           name: `${PREFIX[st]}${r.n} ${name}`, date: '2020-01-01', createdAt: createdAt++,
@@ -380,8 +378,10 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         raceStarts.push({
           id: `start:${raceId}`, raceId, fleetIds: [fid(name)],
           stage: st, stageRaceNumber: r.n,
-          ...(isCompanion && fx.config.medal ? { firstPlaceOffset: fx.config.medal.size } : {}),
+          ...offsetFor(st, r.n),
         });
+        // Fixtures model each fleet's sheet as its own race; combined
+        // sequences are covered by the engine unit tests.
         enterResults(raceId, r.results[name]);
       }
     }

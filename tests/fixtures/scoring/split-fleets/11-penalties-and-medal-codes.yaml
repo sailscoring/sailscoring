@@ -75,17 +75,22 @@ stages:
         results:
           Gold: ["b1 DPI 1", y1, b2]      # b1 1st + 1 DPI point = 2
           Silver: [y2, b3, y3]
+      # The one more race the boats outside the medal fleet sail, alongside
+      # the medal race. b1 and y1 are in the medal fleet and are not in it;
+      # Silver's was scheduled too and, as at Adelaide, never ran.
+      - n: 2
+        results:
+          Gold: [b2]                      # first = medal size 2 + 1 = 3
 
   - stage: medal
     from: 1
     fleets:
       Medal: [b1, y1]
-      "Gold last race": [b2]
+    medalAfter: 1
     races:
       - n: 1
         results:
           Medal: [b1, "y1 BFD"]           # b1 1x2=2; y1 BFD = base 3, NOT doubled
-          "Gold last race": [b2]           # first = medal size 2 + 1 = 3
 
 expected:
   standings:

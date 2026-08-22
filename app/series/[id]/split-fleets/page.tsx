@@ -1687,27 +1687,23 @@ function MedalSelectDialog({
   const goldId = round.fleetIds[0];
   const goldRows = standings.filter((r) => r.finalFleetId === goldId);
   const medalists = goldRows.slice(0, size);
-  const rest = goldRows.slice(size);
-  const goldLabel = fleetMeta.get(goldId)?.label ?? 'Gold';
 
-  // With no companion race there is no second fleet to assign anyone to: the
-  // boats who miss the cut stay where they are and sail on with their fleet.
-  const companion = medalConfig.companionRace === 'scored-below';
+  // The ceremony deals one fleet and one only. Selecting the medal boats
+  // does not move anyone else: the boats who miss the cut stay in the fleet
+  // they are in and sail its remaining race there.
+  const scoredBelow = medalConfig.companionRace === 'scored-below';
   const medalAssignments = useMemo(() => {
     const assignments: Record<string, number> = {};
     for (const r of medalists) assignments[r.competitor.id] = 0;
-    if (companion) for (const r of rest) assignments[r.competitor.id] = 1;
     return assignments;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [standings, size, goldId, companion]);
+  }, [standings, size, goldId]);
 
   return (
     <CeremonyDialog
       title={`Select the ${w.medal.fleetNoun}`}
-      description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); ${
-        companion
-          ? `the rest of ${goldLabel} sail their own last race, scored from ${size + 1}`
-          : `the rest of ${goldLabel} stay in their fleet and sail on with it`
+      description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); everyone else stays in their fleet and sails its remaining races${
+        scoredBelow ? `, scored from ${size + 1}` : ''
       }. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
@@ -1719,12 +1715,7 @@ function MedalSelectDialog({
           fromStageRace: 1,
           method: 'medal-select',
           basis: { throughStageRace: 0 },
-          fleets: companion
-            ? [
-                { label: capitaliseStage(w.medal.name), color: '#f59e0b' },
-                { label: `${goldLabel} last race`, color: '#94a3b8' },
-              ]
-            : [{ label: capitaliseStage(w.medal.name), color: '#f59e0b' }],
+          fleets: [{ label: capitaliseStage(w.medal.name), color: '#f59e0b' }],
           assignments: medalAssignments,
           stageRaceNumbers: [1],
         })
@@ -1746,12 +1737,12 @@ function MedalSelectDialog({
         <span className="text-xs text-muted-foreground">SIs usually say ten; juries vary it</span>
       </div>
       <AssignmentPreviewTable
-        rows={[
-          ...medalists.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: capitaliseStage(w.medal.name) })),
-          ...(companion
-            ? rest.map((r) => ({ id: r.competitor.id, sail: r.competitor.sailNumber, name: r.competitor.names.join(' & '), to: `${goldLabel} last race` }))
-            : []),
-        ]}
+        rows={medalists.map((r) => ({
+          id: r.competitor.id,
+          sail: r.competitor.sailNumber,
+          name: r.competitor.names.join(' & '),
+          to: capitaliseStage(w.medal.name),
+        }))}
       />
     </CeremonyDialog>
   );
@@ -1779,9 +1770,10 @@ function MedalSection({
       <p className="text-xs text-muted-foreground">
         {words(data.config).title('medal')} score ×{medalConfig?.multiplier ?? 2} and cannot be
         discarded.{' '}
+        {`The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section.`}
         {medalConfig?.companionRace === 'scored-below'
-          ? `The companion race scores from ${(medalConfig?.size ?? 10) + 1} points (first finisher = ${(medalConfig?.size ?? 10) + 1}).`
-          : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section.`}
+          ? ` Its first finisher scores ${(medalConfig?.size ?? 10) + 1} points, the second ${(medalConfig?.size ?? 10) + 2}, and so on.`
+          : ''}
       </p>
       {round.fleetIds.map((fid, i) => {
         const refs = stageRaceRefs(data, 'medal')
@@ -1793,7 +1785,7 @@ function MedalSection({
           : 1;
         const isMedal = i === 0;
         // raceCount is a planning hint, not a limit: a two-race medal series
-        // is just two adds. A companion fleet, where one exists, sails once.
+        // is just two adds.
         const canAddMore = isMedal || refs.length < 1;
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">

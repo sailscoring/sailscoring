@@ -841,8 +841,11 @@ export function SplitFleetEditor({
                 </select>
               </label>
               <p className={hint}>
-                Never discarded. The rest of {value.finalFleets[0]?.label ?? 'the top fleet'} sail a
-                companion race scored from {value.medal.size + 1}.
+                Never discarded. Everyone else stays in their fleet and sails its remaining races
+                {value.medal.companionRace === 'scored-below'
+                  ? `, the first finisher of the last one scoring ${value.medal.size + 1}`
+                  : ''}
+                .
                 {value.medal.carryTransform
                   ? ` Dividing the score so far pulls the leaders together before the last races, so a qualified boat’s championship score is that one carried number plus her ${vocab.stages.medal.name}.`
                   : ''}

@@ -648,14 +648,14 @@ export default function RunningASeries() {
             independently (they need not sail the same number of races). If the event carries a{' '}
             <strong className="text-foreground">medal race</strong>, select the medal fleet when
             racing closes: the top boats sail it, never discardable, at whatever points multiplier
-            the sailing instructions set. What the rest of the top fleet then do differs by class,
-            and the medal settings ask which. Where they sail a race of their own scored from just
-            below the medal group, that is the race the medal ceremony creates for them. Where
-            instead they sail one more ordinary race of their own fleet — the 2026 ILCA wording —
-            the ceremony leaves them where they are and you add that race from{' '}
-            <strong className="text-foreground">Add next race</strong> as usual: the boats who
-            qualified have left that fleet’s racing, so they are simply absent from it rather than
-            scored for missing it. A redress decision that promotes a boat across the split is the{' '}
+            the sailing instructions set. Selecting them moves nobody else: everyone outside the
+            medal fleet stays where they are and sails one more race with their own fleet, which
+            you add from <strong className="text-foreground">Add next race</strong> as usual. The
+            boats who qualified have left that fleet’s racing, so they are simply absent from that
+            race rather than scored for missing it. What differs by class is how it scores, and
+            the medal settings ask which: from 1 like any other race, or from just below the medal
+            group — first finisher eleven points where ten boats went to the medal race — which is
+            the ILCA wording in both eras. A redress decision that promotes a boat across the split is the{' '}
             <strong className="text-foreground">Promote (redress)</strong> action on the split
             round.
           </p>
@@ -689,9 +689,12 @@ export default function RunningASeries() {
             Switch it on under the medal settings, with the divisor and how it rounds; the
             compressed number appears in a <strong className="text-foreground">Carried</strong>{' '}
             column and replaces the boat’s earlier race scores in her total. Rounding to whole
-            numbers makes ties, so the same settings offer the sub-series tie-break those classes
-            pair it with — a tie the racing rules can’t break goes to the boat who ranked higher in
-            the final series, then the qualifying series.
+            numbers makes ties, so the same settings offer the tie-breaks those classes pair it
+            with. One keeps rule A8 and adds steps behind it: a tie the racing rules can’t break
+            goes to the boat who ranked higher in the final series, then the qualifying series.
+            The other replaces A8 outright — the boats are ranked on their scores in the last
+            race, and nothing else. Which one your event uses is a sentence in its sailing
+            instructions, and the wrong one decides the title differently.
           </p>
           <p>
             The first thing to set is{' '}

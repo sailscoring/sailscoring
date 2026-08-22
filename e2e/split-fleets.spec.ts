@@ -164,12 +164,14 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.getByRole('button', { name: /Commit Final series fleet \(top 10\)/ }).click();
   // The ILCA format calls this stage the Final series and scores it ×1.
   await expect(page.getByText('Final series score ×1')).toBeVisible();
-  // One race, for the Final series fleet alone. These SIs give the boats who
-  // miss the cut one more ordinary Elimination race in their own fleets
-  // (SI 7.7), not a companion race of their own scored below the ten — so no
-  // second fleet is created here and there is nothing else to sail.
+  // One race, for the Final series fleet alone. The boats who miss the cut
+  // sail one more Elimination race with their own fleet (SI 7.7), added from
+  // the Elimination series section — the ceremony deals no second fleet here.
   await expect(page.getByRole('link', { name: /F1/ })).toHaveCount(1);
   await expect(page.getByText('Gold last race')).toHaveCount(0);
+  // And the section says where that race comes from, and what it scores.
+  await expect(page.getByText('add that race from the Elimination series section')).toBeVisible();
+  await expect(page.getByText('Its first finisher scores 11 points')).toBeVisible();
 });
 
 /**

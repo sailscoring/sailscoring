@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width">
-<title>The last-day extra race for the boats who did not qualify: the medal boats are absent from it, not scored DNC in it — Sail Scoring</title>
+<title>The last-day extra race for the boats who did not qualify: scored from just below the Final series, with the qualified boats absent from it rather than scored DNC in it — Sail Scoring</title>
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; margin-bottom: 0.2em; }
@@ -18,8 +18,8 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 </head>
 <body>
 <p><a href="../">&larr; All split-fleet examples</a></p>
-<h1>The last-day extra race for the boats who did not qualify: the medal boats are absent from it, not scored DNC in it</h1>
-<p style="color:#555;">ILCA 7 2026 — World Championship, Dun Laoghaire IRL &middot; <strong>F3</strong> &middot; SI (<code>reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.md</code>)</p>
+<h1>The last-day extra race for the boats who did not qualify: scored from just below the Final series, with the qualified boats absent from it rather than scored DNC in it</h1>
+<p style="color:#555;">ILCA 7 2026 — World Championship, Dun Laoghaire IRL &middot; <strong>F3</strong> &middot; SI (<code>reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-3.md</code>)</p>
 
 <div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 3. &middot; medal race ×1</div>
 <pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">On the last day the 2026 ILCA 7 Worlds run two things at once:
@@ -28,11 +28,19 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
        defined in SI 7.6. One additional Qualification series race is
        scheduled for the boats who did not qualify to the Final series.
 
-That extra race is *not* the 2024 companion race scored from 11. It is an
-ordinary Elimination series race, sailed by all three fleets, scored from 1
-within each, discardable, and counting toward the discard ladder — which is
-why the ladder in those SIs runs to twelve races. The Gold fleet sails it
-ten boats short.
+  18.5.3  For those boats not assigned to the Medal series and scheduled
+          to an additional Qualification series race as detailed in SI
+          7.7, the first finisher will be scored 11 points, second 12
+          points and so on.  [Amendment 3]
+
+That race is an ordinary Elimination series race in every way but its
+scoring: sailed by all three fleets, discardable, counting toward the
+discard ladder — which is why the ladder in those SIs runs to twelve
+races. What Amendment 3 changed is where its finishers start. They are
+offset by the ten boats who left for the Final series, so the first of
+them scores 11 rather than 1. Every fleet takes the offset, not only the
+one they left: the clause is written over every boat not in the Final
+series.
 
 Here F2 is that race: b1 sails it for Gold while y1 and b2, who qualified
 for the Final series, do not. The point of the fixture is what their rows do
@@ -42,21 +50,18 @@ to start Gold's last race and collect a DNC at the fleet's score base. They
 are simply elsewhere, and have no F2 cell at all. (A boat who really did
 miss an Elimination race still gets an explicit DNC row from the scorer.)
 
-`companionRace: none` is what says so: under the 2024 shape the medal
-ceremony gives the boats who miss the cut a race of their own, scored from
-just below the medal fleet. Under these SIs it gives them nothing, because
-the extra race they sail is an ordinary one of their own fleet.
-
-Note what does not change: Gold's score base for F2 is still its assigned
-size plus one — SI 18.5.2 counts boats assigned to the fleet, and all
-three are still assigned to it.
+Note what the offset does not touch: Gold's score base for F2 is still its
+assigned size plus one — SI 18.5.2 counts boats assigned to the fleet, and
+all three are still assigned to it. So a boat coded in that race scores 4
+while its first finisher scores 3, which is what the words say.
 
 Hand check, DNC base 4 throughout, one discard from 3 races, at most one
 from the final series, and a lone final race protected:
   y1  Q 1,1  F1 1        -&gt; F1 is the lone final race so far; discard Q1 = 2 -&gt; halved 1
   b2  Q 2,1  F1 2        -&gt; same, discard Q1                                 = 3 -&gt; halved 2
-  b1  Q 1,2  F1 3  F2 1  -&gt; two final races now, so F1's 3 is discardable    = 4
-then the medal race (base 3, x1): y1 1 -&gt; 2;  b2 2 -&gt; 4.</pre>
+  b1  Q 1,2  F1 3  F2 3  -&gt; two final races now, so F1's 3 is discardable    = 6
+where b1's F2 is her place of 1 plus the offset of 2. Then the medal race
+(base 3, x1): y1 1 -&gt; 2;  b2 2 -&gt; 4.</pre>
 <h2>Fleet assignments</h2>
 <table>
 <thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
@@ -103,11 +108,11 @@ then the medal race (base 3, x1): y1 1 -&gt; 2;  b2 2 -&gt; 4.</pre>
   <td style="background:#d0ebff;text-align:center">1</td>
   <td style="background:#d0ebff;text-align:center">2</td>
   <td style="background:#ffec99;text-align:center">(3)</td>
-  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">3</td>
   <td></td>
   <td></td>
-  <td style="text-align:right">7</td>
-  <td style="text-align:right;font-weight:bold">4</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">6</td>
 </tr>
 </tbody>
 </table>
@@ -119,39 +124,39 @@ then the medal race (base 3, x1): y1 1 -&gt; 2;  b2 2 -&gt; 4.</pre>
   <td>4</td>
   <td class="mono">y2</td>
   <td>Helm Y2</td>
-  <td style="background:#fff3bf;text-align:center">(2)</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
   <td style="background:#fff3bf;text-align:center">2</td>
   <td style="background:#e9ecef;text-align:center">1</td>
-  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="background:#e9ecef;text-align:center">(3)</td>
   <td></td>
   <td></td>
-  <td style="text-align:right">6</td>
-  <td style="text-align:right;font-weight:bold">4</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right;font-weight:bold">5</td>
 </tr>
 <tr>
   <td>5</td>
   <td class="mono">y3</td>
   <td>Helm Y3</td>
-  <td style="background:#fff3bf;text-align:center">(3)</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
   <td style="background:#fff3bf;text-align:center">3</td>
   <td style="background:#e9ecef;text-align:center">2</td>
-  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">(4)</td>
   <td></td>
   <td></td>
-  <td style="text-align:right">10</td>
-  <td style="text-align:right;font-weight:bold">7</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">8</td>
 </tr>
 <tr>
   <td>6</td>
   <td class="mono">b3</td>
   <td>Helm B3</td>
-  <td style="background:#d0ebff;text-align:center">(3)</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
   <td style="background:#d0ebff;text-align:center">3</td>
   <td style="background:#e9ecef;text-align:center">3</td>
-  <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">(5)</td>
   <td></td>
   <td></td>
-  <td style="text-align:right">12</td>
+  <td style="text-align:right">14</td>
   <td style="text-align:right;font-weight:bold">9</td>
 </tr>
 </tbody>

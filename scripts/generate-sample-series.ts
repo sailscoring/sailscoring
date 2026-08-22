@@ -1253,27 +1253,24 @@ function buildChampionship(): SeriesFile {
     '2026-06-13',
   );
 
-  // ── Day 4: medal race for the top six + the companion last race ────────────
+  // ── Day 4: the medal race, and one more final race for everyone else ───────
   const opening = splitFleetStandings(engineData()).map((row) => row.competitor.id);
   const medalTop = opening.slice(0, config.medal!.size);
-  const companion = splitMembership[0].filter((id) => !medalTop.includes(id));
   const medalFleets = addRound(
-    'medal', 1, 'medal-select',
-    [{ label: 'Medal' }, { label: 'Last race' }],
-    [medalTop, companion],
-    null,
+    'medal', 1, 'medal-select', [{ label: 'Medal' }], [medalTop], null,
   );
-  // The medal race and the companion last race run on their own courses —
-  // two separate races, not one sequence.
   runSequence('medal', [{ n: 1, fleetId: medalFleets[0], memberIds: medalTop }], '2026-06-14');
+  // Selecting the medal fleet moves nobody: the boats who missed the cut sail
+  // one more race of their own final fleet, its finishers offset by the ones
+  // who left, and the medal boats are absent from it rather than DNC in it.
   runSequence(
-    'medal',
-    [{
-      n: 1,
-      fleetId: medalFleets[1],
-      memberIds: companion,
+    'final',
+    fin.map((fid, i) => ({
+      n: 3,
+      fleetId: fid,
+      memberIds: splitMembership[i].filter((id) => !medalTop.includes(id)),
       opts: { firstPlaceOffset: config.medal!.size },
-    }],
+    })),
     '2026-06-14',
   );
 

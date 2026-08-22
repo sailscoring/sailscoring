@@ -1,4 +1,4 @@
-description: "F2 medal race: doubled non-discardable medal points; companion 'last race' scored from below the medal fleet"
+description: "F2 medal race: doubled non-discardable medal points, and the extra race for everyone else scored below the medal fleet"
 provenance:
   class: "ILCA 7"
   year: 2024
@@ -7,24 +7,51 @@ provenance:
   results: "reference-docs:events/ilca7-worlds-2024/results-sailwave.html"
   code: F2
   scenarios: []
-  alternatives: "470 Worlds/Europeans 2021–25; skiff Worlds 2022–24 (Gold-25 template)."
+  alternatives: "470 Worlds/Europeans 2021–25; skiff Worlds 2022–24 (Gold-25 template). The 2026 ILCA 7 Worlds reach the same shape by amendment — fixture 17."
 runnable: true
 notes: |
   Adds a medal race to F1 (SI 18.6): the medal race scores double Appendix-A4
   points and is never discardable, and its boats are ranked at the top of the
-  championship regardless of opening-series points. Non-medal boats sail one
-  further opening-series race scored "first finisher 11, second 12, and so on"
-  (SI 18.3.4) — a companion race whose points start immediately below the ten
-  medal boats.
+  championship regardless of opening-series points.
 
-  Real Adelaide: 3 fleets → G/S/B, medal fleet = top 10, companion first = 11,
-  Gold 11 races / Silver-Bronze 10, champion Matt Wearn 24 net (medal win
-  scored 2.0). Reduced here to 2 fleets of 3, medal size 2 (so companion
-  first = size + 1 = 3), no series discard (discardThresholds empty) so the
-  medal arithmetic is transparent. `expected` verified against the engine.
+  On the same day everyone else sails one more race:
+
+    7.4  On the last day one medal race is scheduled, with one further
+         opening series race for those not assigned to the medal race.
+
+    18.3.4  For those competitors not assigned to the Medal race and
+            scheduled to an additional Opening series race as detailed in
+            SI 7.4, the first finisher will be scored 11 points, second 12
+            points and so on.
+
+  Two things follow from the words, and both are what this fixture pins.
+
+  It is an *opening series* race, sailed by each boat with her own fleet —
+  not a race of its own that the medal ceremony deals a fleet for. Selecting
+  the medal boats takes them out of their fleet's remaining races; it does
+  not move anybody else. So Gold sails this one two boats short, the medal
+  boats have no cell in it at all rather than a DNC, and Silver sails its own.
+
+  And it is "those not assigned to the Medal race", which is every boat
+  outside the medal ten — Silver and Bronze included, not just the top
+  fleet's remainder. Adelaide never sailed it: the published results give
+  Gold eleven columns (the last of them "M / F5") and Silver and Bronze ten,
+  with every Gold boat from 11th down blank in that column. So the clause
+  itself, rather than a published example, is what fixes the reading.
+
+  The offset lands on finish places only. A boat coded in that race still
+  scores her fleet's A5.2 base, because the boats who left for the medal
+  fleet are still assigned to the fleet (SI 18.3.3).
+
+  Real Adelaide: 3 fleets → G/S/B, medal fleet = top 10, extra race first =
+  11, champion Matt Wearn 24 net (medal win scored 2.0). Reduced here to 2
+  fleets of 3, medal size 2 (so the extra race's first finisher = size + 1 =
+  3), no series discard (discardThresholds empty) so the medal arithmetic is
+  transparent. `expected` verified against the engine.
 
   Structure: Q1–Q2 -> split Gold(3)/Silver(3) -> F1 -> medal fleet = top 2 of
-  Gold (y1, b1); the remaining Gold boat (y2) sails the companion "last race".
+  Gold (y1, b1) -> F2, sailed by y2 for Gold and by all of Silver, alongside
+  the medal race.
 
 config:
   qualifyingFleets: [Yellow, Blue]
@@ -35,6 +62,7 @@ config:
     size: 2
     raceCount: 1
     multiplier: 2
+    companionRace: scored-below
 
 competitors:
   - "y1 Helm Y1"
@@ -64,36 +92,41 @@ stages:
     from: 1
     assign: { split: true }
     expectedFleets:
-      Gold: [y1, b1, y2]
-      Silver: [b2, y3, b3]
+      Gold: [b1, y1, y2]
+      Silver: [b2, b3, y3]
     races:
       - n: 1
         results:
           Gold: [y1, b1, y2]
           Silver: [b2, y3, b3]
+      # The extra race, sailed while the medal race runs. y1 and b1 are in
+      # the medal fleet and are simply not in it.
+      - n: 2
+        results:
+          Gold: [y2]                   # first finisher: place 1 + offset 2 = 3
+          Silver: [b2, y3, b3]         # 3, 4, 5 — Silver takes the offset too
 
   - stage: medal
     from: 1
-    # Medal fleet = top 2 of the opening series (y1 = 3, b1 = 4). The remaining
-    # Gold boat y2 sails the companion "last race".
+    # Medal fleet = top 2 of the opening series (y1 = 3, b1 = 4), taken at the
+    # cutoff after F1 so the extra race cannot reach back and change it.
     assign: { medalTop: 2 }
+    medalAfter: 1
     expectedFleets:
-      Medal: [y1, b1]
-      "Gold last race": [y2]
+      Medal: [b1, y1]
     races:
       - n: 1
         results:
           Medal: [y1, b1]              # y1 wins the medal race: 1 x2 = 2 pts
-          "Gold last race": [y2]       # y2 first: (place 1 + offset 2) = 3 pts
 
 expected:
-  # Medal boats (y1, b1) are pinned to the top: y1 ties b2 on net 5 but ranks
-  # 1st because medal boats outrank the fleets. y1's medal cell is 2 (place 1
-  # doubled); y2's companion cell is 3 (first finisher = medal size 2 + 1).
+  # Medal boats (y1, b1) are pinned to the top. y1's medal cell is 2 (place 1
+  # doubled); y2's extra-race cell is 3 (first finisher = medal size 2 + 1),
+  # and so is b2's.
   standings:
     - { rank: 1, sail: y1, total: 5, net: 5, fleet: Gold, medal: true }
     - { rank: 2, sail: b1, total: 8, net: 8, fleet: Gold, medal: true }
     - { rank: 3, sail: y2, total: 10, net: 10, fleet: Gold, medal: false }
-    - { rank: 4, sail: b2, total: 5, net: 5, fleet: Silver }
-    - { rank: 5, sail: y3, total: 8, net: 8, fleet: Silver }
-    - { rank: 6, sail: b3, total: 9, net: 9, fleet: Silver }
+    - { rank: 4, sail: b2, total: 8, net: 8, fleet: Silver }
+    - { rank: 5, sail: y3, total: 12, net: 12, fleet: Silver }
+    - { rank: 6, sail: b3, total: 14, net: 14, fleet: Silver }

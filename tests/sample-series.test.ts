@@ -246,17 +246,23 @@ describe('sample series files', () => {
     expect(rows.slice(0, 12).every((r) => r.finalFleetId === goldId)).toBe(true);
 
     // The top six carry the medal flag and a doubled, non-discardable medal
-    // cell; the companion race scores from just below the medal group.
+    // cell, and are absent from F3 rather than scored for missing it.
     expect(rows.slice(0, 6).every((r) => r.medal)).toBe(true);
     expect(rows.slice(6).every((r) => !r.medal)).toBe(true);
     const medalCell = rows[0].cells.find((c) => c.stage === 'medal')!;
     expect(medalCell.discardable).toBe(false);
-    const companionCells = rows
-      .slice(6, 12)
-      .map((r) => r.cells.find((c) => c.stage === 'medal')!)
-      .filter((c) => c.counts && !c.code);
-    expect(companionCells.length).toBeGreaterThan(0);
-    expect(Math.min(...companionCells.map((c) => c.points))).toBe(sf.config.medal!.size + 1);
+    const f3 = (row: (typeof rows)[number]) =>
+      row.cells.find((c) => c.stage === 'final' && c.stageRaceNumber === 3);
+    expect(rows.slice(0, 6).every((r) => f3(r) == null)).toBe(true);
+
+    // Everyone else sailed F3 with their own fleet, its finishers offset by
+    // the six who left — so its best score is medal size + 1.
+    const lastRaceCells = rows
+      .slice(6)
+      .map(f3)
+      .filter((c) => c != null && c.counts && !c.code);
+    expect(lastRaceCells.length).toBeGreaterThan(0);
+    expect(Math.min(...lastRaceCells.map((c) => c!.points))).toBe(sf.config.medal!.size + 1);
 
     // The sprinkled result codes survived generation: one BFD, one DNF.
     expect(finishes.filter((f) => f.resultCode === 'BFD')).toHaveLength(1);

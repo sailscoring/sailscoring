@@ -39,11 +39,9 @@ notes: |
   the halved score, and the championship total is that number plus the two
   medal races. Every other boat's row is an ordinary continuous line.
 
-  Note what the two non-qualified Gold boats do here: nothing. Under these
-  SIs they sail one more ordinary Qualification series race (SI 7.7) rather
-  than 2024's companion race scored from 11 — that clause has a fixture of
-  its own (17), so this one leaves the companion fleet raceless and keeps to
-  the halving.
+  Note what the boat who missed the cut does here: nothing. The one more race
+  the SIs schedule for her (SI 7.7) has a fixture of its own — 17 — so this
+  one leaves it unsailed and keeps to the halving.
 
   Verification by hand, with a DNC base of 3 boats + 1 = 4 in qualifying and
   own-fleet + 1 = 4 in the final series, one discard from 3 races, at most
@@ -119,7 +117,6 @@ stages:
     assign: { medalTop: 2 }
     expectedFleets:
       Medal: [b2, y1]
-      "Gold last race": [b1]
     races:
       - n: 1
         results:

@@ -71,12 +71,6 @@
       "name": "Medal",
       "displayOrder": 6,
       "scoringSystem": "scratch"
-    },
-    {
-      "id": "chf-08",
-      "name": "Last race",
-      "displayOrder": 7,
-      "scoringSystem": "scratch"
     }
   ],
   "competitors": [
@@ -199,8 +193,7 @@
       "fleetIds": [
         "chf-02",
         "chf-03",
-        "chf-05",
-        "chf-08"
+        "chf-05"
       ],
       "sailNumber": "218718",
       "seed": 7,
@@ -218,8 +211,7 @@
       "fleetIds": [
         "chf-01",
         "chf-03",
-        "chf-05",
-        "chf-08"
+        "chf-05"
       ],
       "sailNumber": "206797",
       "seed": 8,
@@ -237,8 +229,7 @@
       "fleetIds": [
         "chf-01",
         "chf-04",
-        "chf-05",
-        "chf-08"
+        "chf-05"
       ],
       "sailNumber": "217744",
       "seed": 9,
@@ -256,8 +247,7 @@
       "fleetIds": [
         "chf-02",
         "chf-04",
-        "chf-05",
-        "chf-08"
+        "chf-05"
       ],
       "sailNumber": "214798",
       "seed": 10,
@@ -275,8 +265,7 @@
       "fleetIds": [
         "chf-02",
         "chf-03",
-        "chf-05",
-        "chf-08"
+        "chf-05"
       ],
       "sailNumber": "208691",
       "seed": 11,
@@ -294,8 +283,7 @@
       "fleetIds": [
         "chf-01",
         "chf-04",
-        "chf-05",
-        "chf-08"
+        "chf-05"
       ],
       "sailNumber": "215671",
       "seed": 12,
@@ -2064,18 +2052,28 @@
     {
       "id": "chr-race-8",
       "raceNumber": 8,
-      "name": "M1 · Last race",
+      "name": "F3",
       "date": "2026-06-14",
-      "lastFinisherTime": "11:52:00",
+      "lastFinisherTime": "12:01:25",
       "starts": [
         {
           "id": "chstart-8-1",
           "fleetIds": [
-            "chf-08"
+            "chf-05"
           ],
           "startTime": "11:00:00",
-          "stage": "medal",
-          "stageRaceNumber": 1,
+          "stage": "final",
+          "stageRaceNumber": 3,
+          "firstPlaceOffset": 6
+        },
+        {
+          "id": "chstart-8-2",
+          "fleetIds": [
+            "chf-06"
+          ],
+          "startTime": "11:05:00",
+          "stage": "final",
+          "stageRaceNumber": 3,
           "firstPlaceOffset": 6
         }
       ],
@@ -2133,6 +2131,114 @@
           "startPresent": null,
           "penaltyCode": null,
           "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-15",
+          "competitorId": "chc-15",
+          "sortOrder": 7,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-13",
+          "competitorId": "chc-13",
+          "sortOrder": 8,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-16",
+          "competitorId": "chc-16",
+          "sortOrder": 9,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-14",
+          "competitorId": "chc-14",
+          "sortOrder": 10,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-19",
+          "competitorId": "chc-19",
+          "sortOrder": 11,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-20",
+          "competitorId": "chc-20",
+          "sortOrder": 12,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-21",
+          "competitorId": "chc-21",
+          "sortOrder": 13,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-17",
+          "competitorId": "chc-17",
+          "sortOrder": 14,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-18",
+          "competitorId": "chc-18",
+          "sortOrder": 15,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-24",
+          "competitorId": "chc-24",
+          "sortOrder": 16,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-22",
+          "competitorId": "chc-22",
+          "sortOrder": 17,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "chfin-8-chc-23",
+          "competitorId": "chc-23",
+          "sortOrder": 18,
+          "resultCode": null,
+          "startPresent": null,
+          "penaltyCode": null,
+          "penaltyOverride": null
         }
       ]
     }
@@ -2159,6 +2265,7 @@
           "color": "#94a3b8"
         }
       ],
+      "finishSheets": "combined",
       "plannedDays": [
         {
           "label": "Day 1",
@@ -2195,10 +2302,12 @@
       "maxFinalDiscards": 1,
       "protectLoneFinalRace": true,
       "reassignmentTieOrder": "a8-then-entry-order",
+      "vocabulary": "opening-medal",
       "medal": {
         "size": 6,
         "raceCount": 1,
-        "multiplier": 2
+        "multiplier": 2,
+        "companionRace": "scored-below"
       }
     },
     "rounds": [
@@ -2249,8 +2358,7 @@
         "stage": "medal",
         "fromStageRace": 1,
         "fleetIds": [
-          "chf-07",
-          "chf-08"
+          "chf-07"
         ],
         "method": "medal-select",
         "basis": null,

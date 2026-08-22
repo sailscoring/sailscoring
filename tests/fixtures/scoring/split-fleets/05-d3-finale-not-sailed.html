@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width">
-<title>D3 finale scheduled but never sailed: the companion 'last race' does not run, and the opening series stands — Sail Scoring</title>
+<title>D3 finale scheduled but never sailed: the extra race for the boats outside the medal fleet does not run, and the opening series stands — Sail Scoring</title>
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; margin-bottom: 0.2em; }
@@ -18,29 +18,29 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 </head>
 <body>
 <p><a href="../">&larr; All split-fleet examples</a></p>
-<h1>D3 finale scheduled but never sailed: the companion 'last race' does not run, and the opening series stands</h1>
+<h1>D3 finale scheduled but never sailed: the extra race for the boats outside the medal fleet does not run, and the opening series stands</h1>
 <p style="color:#555;">ILCA 7 2024 — World Championship, Adelaide AUS &middot; <strong>F2</strong> &middot; D3 &middot; SI (<code>reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.pdf</code>) &middot; results (<code>reference-docs:events/ilca7-worlds-2024/results-sailwave.html</code>)</p>
 
 <div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: No discards. &middot; medal race ×2</div>
 <pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">A scheduled finale that never sails must leave the results resting on what
-was sailed. At Adelaide the non-medal Gold boats were scheduled a companion
-&quot;last race&quot; (SI 7.4) that never ran — so those boats simply carry no
-companion score, and the medal race alone decides the top. (The sibling case:
+was sailed. At Adelaide the boats outside the medal fleet were scheduled one
+more opening-series race (SI 7.4) that never ran — so those boats simply
+carry no score for it, and the medal race alone decides the top. (The
+sibling case:
 49erFX 2023's medal race was abandoned for lack of wind and the title stood
 on the opening series.)
 
-This fixture is fixture 03 with the companion &quot;last race&quot; NOT sailed: the
-medal fleet (y1, b1) sails its medal race, but the remaining Gold boat y2
-has no companion race at all. y2 therefore keeps only her opening total —
-the finale that was scheduled for her never happened. `expected` verified
-against the engine.</pre>
+This fixture is fixture 03 with that extra race NOT sailed: the medal fleet
+(y1, b1) sails its medal race, and no F2 is entered for anyone. y2 therefore
+keeps only her opening total — the finale that was scheduled for her never
+happened. `expected` verified against the engine.</pre>
 <h2>Fleet assignments</h2>
 <table>
 <thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
 <tbody>
 <tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff3bf;padding:0 4px;border-radius:3px;">Yellow: y1, y2, y3</span>&nbsp; <span style="background:#d0ebff;padding:0 4px;border-radius:3px;">Blue: b1, b2, b3</span></td></tr>
 <tr><td>Final split</td><td>split (qualifying ranking)</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: b1, y1, y2</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: b2, b3, y3</span></td></tr>
-<tr><td>Medal</td><td>medal top 2</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b1, y1</span>&nbsp; <span style="background:#fff;padding:0 4px;border-radius:3px;">Gold last race: y2</span></td></tr>
+<tr><td>Medal</td><td>medal top 2</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b1, y1</span></td></tr>
 </tbody>
 </table>
 <h2>Gold fleet</h2>
