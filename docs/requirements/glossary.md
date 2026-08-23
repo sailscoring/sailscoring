@@ -57,7 +57,10 @@ be defined are collected at the bottom.
 | Scratch | Racing without any handicap adjustment. A scratch boat is the fastest-rated boat in a fleet, to which all time allowances are relative. Scratch results are the uncorrected finishing order. |
 | One-design | A class where all boats are built to identical specifications, so handicap adjustment is optional rather than necessary. One-design fleets are usually scored scratch on finishing order alone, but may additionally be scored under a handicap system (e.g. HYC scores its Squib and Howth 17 fleets on both scratch and HPH). |
 | Time on Time (ToT) | A handicap method that corrects elapsed time by a multiplier (TCF/TCC): corrected time = elapsed time × TCF. Independent of course length. Used by IRC's time-on-time option, ECHO, NHC, and PY. |
-| Time on Distance (ToD) | A handicap method that allows each boat a time allowance per unit of course distance, subtracted from elapsed time. Requires a measured course length, unlike Time on Time. |
+| Time on Distance (ToD) | A handicap method that allows each boat a time allowance per unit of course distance, subtracted from elapsed time. Requires a measured course length, unlike Time on Time. ORC's form (rule 403.2) subtracts each boat's allowance relative to the scratch boat's: CT = ET − (ToD − ToD of the scratch boat) × distance, which anchors the scratch boat's corrected time at its elapsed time without changing the finishing order. |
+| Time allowance (TA) | A boat's predicted time need expressed in seconds per nautical mile — the native rating unit of time-on-distance systems. Lower is faster. ORC certificates tabulate time allowances across wind speeds and angles; a single allowance and a course distance turn elapsed time into corrected time. |
+| Rating certificate | A document issued by a rating authority recording a boat's measured or declared data and the rating(s) derived from it. IRC, VPRS, and ORC are certificate-based; certificates normally expire annually and are reissued, so the certificate in force on race day is what a boat is scored on. |
+| Rating file | A machine-readable listing of ratings for many boats at once, published by a rating authority and used to import or verify ratings in bulk — e.g. the TopYacht club listing for IRC, or ORC's per-country certificate files (RMS, JSON, or CSV; only the JSON form carries the full certificate data including national scoring options). |
 | Progressive handicap | A handicap system in which a boat's rating (TCF) is recalculated after each race based on performance, rather than staying fixed for the series. NHC, ECHO, and HPH are progressive; IRC, PY, and VPRS are static. Informally a "golf handicap". |
 | Starting TCF | The initial rating that seeds a competitor in a progressive handicap system before any race is sailed. Taken from a base list (see Base Number) or carried forward from a prior series (see Club Number, Follow-on series). |
 | Base Number | The starting rating a boat is seeded with in a progressive handicap system when it has no prior history, taken from a published base list (e.g. the RYA NHC base list). The seed for a boat's first series. |
@@ -74,8 +77,36 @@ be defined are collected at the bottom.
 | ECHO | A progressive, performance-based handicap system administered by Irish Sailing, widely used for cruiser racing in Ireland. Like NHC, ratings adjust race-by-race; often scored alongside IRC (see Dual scoring). |
 | VPRS | Velocity Performance Rating System (Stoneways) — a measurement-based handicap rating system for cruisers. Like IRC it is static, and certificates carry spinnaker and non-spinnaker coefficients; ratings are sourced from per-club listings. |
 | HPH | Howth Performance Handicap — Howth Yacht Club's progressive, performance-based handicap system applied to its keelboat and one-design fleets. An HYC-specific cousin of NHC. |
+| ORC | Offshore Racing Congress — a measurement-based rating system whose certificates publish the boat's VPP-predicted time allowances across a matrix of wind speeds and angles, rather than blending them into one number. A race is scored time-on-time or time-on-distance using a number chosen — or, under PCS, computed — for that race's course and conditions. Static, with annually expiring certificates. See `docs/design/orc-scoring.md`. |
 
-### Race
+### ORC Concepts
+
+| Term | Definition |
+|------|------------|
+| Velocity Prediction Program (VPP) | The published model ORC uses to predict a measured boat's speed at each combination of true wind speed and angle. The VPP's output is the certificate's time-allowance matrix; certificates state their VPP year, and all boats in an event must be rated by the same one. |
+| Certificate family | Which crew/sail configuration an ORC certificate rates: standard fully-crewed, Non-Spinnaker, or Double-Handed. A Non-Spinnaker or Double-Handed certificate may co-exist with the fully-crewed one, but a boat enters an event on exactly one family and is scored on it. The nearest IRC analogue is the spinnaker / non-spinnaker TCC pair, except each ORC family is a whole separate certificate. |
+| All Purpose Handicap (APH) | The certificate's wind-averaged single-number rating over an all-purpose course, published as a time allowance (APHD, s/NM) and its time-on-time form (APHT = 600 / APHD). Scoring on APHT is operationally identical to IRC. Also used, like CDL, to divide an entry list into classes. |
+| GPH | General Purpose Handicap — the legacy name for the certificate's wind-averaged single-number time allowance, still printed on certificates and widely used for class splits and fleet comparisons. Treat as a synonym of APH; the 2026 rulebook defines only APH. |
+| Class Division Length (CDL) | A certificate value combining effective sailing length and rated length (derived from upwind speed at 12 kt TWS), expressed in metres. Race management uses CDL to split a large entry into classes of comparable theoretical performance — the role an IRC rating sort plays in IRC events. |
+| Performance curve | A boat's predicted seconds-per-mile over a specific course, as a function of true wind speed — built by mixing the certificate's time allowances according to the course's wind angles. The curve PCS inverts to find implied wind. The certificate carries pre-computed curves for the standard course models; constructed courses get one computed per race. |
+| Polar Curve Scoring (PCS) | ORC's scoring method (rule 402, also called Performance Curve Scoring) in which the wind speed used for correction is derived from the race itself: each boat's elapsed time is placed on its own performance curve to yield an implied wind, the winner is the boat with the highest implied wind, and the winner's value becomes the scoring wind that fixes everyone's time allowance. Usable with the standard course models or, most accurately, a constructed course. |
+| Implied wind | The per-boat output of PCS: the true wind speed at which the boat's performance curve predicts the seconds-per-mile it actually achieved — "she sailed as if the wind were X knots". The faster a boat sailed relative to its predictions, the higher its implied wind; clamped to the certificate's 4–24 kt range. The 2026 rulebook calls this the boat's "Scoring Wind" (402.8); ORC Scorer and published results call it Implied Wind, and Sail Scoring reserves each term for one meaning — see Scoring wind. |
+| Scoring wind | The single wind speed a PCS race is corrected at: the winning boat's implied wind (rule 402.9), unless the race committee overrides it as unrepresentative (402.12). Each boat's time allowance at the scoring wind, read off its own performance curve, becomes its time-on-distance coefficient for the race. |
+| Triple number | A certificate's pre-computed low / medium / high wind rating set (published in both ToD and ToT forms, inshore and offshore). The race committee records which band best reflects the race's average wind; scoring then reads that band's number. National offices may publish finer sets — the Irish office's five-band windward/leeward options among them. |
+| Wind band | One entry of a banded rating set (triple-number or a national multi-band option): a wind-speed range mapped to a pre-computed rating. Band selection is a per-race race-committee decision — announced, and changeable if conditions materially change — not series configuration. |
+| National scoring options | Extra rating fields a national rating office publishes on page 2 of its certificates (rule 403.4) — banded sets, predominant-direction numbers, or custom course models. The NoR/SIs must name the option in use. The certificate JSON's ScoringOptions catalog describes every such field, which is what lets an import/scoring UI treat them as data. |
+| Weather Routing Scoring (WRS) | An ORC offshore method in which pre-race routing simulations of every entry's polars over the actual course and forecast produce per-boat ToD/ToT coefficients for that race. Out of Sail Scoring's scope. |
+
+### Courses and Conditions
+
+| Term | Definition |
+|------|------------|
+| True Wind Speed (TWS) | The wind speed over the water, in knots, independent of any boat's motion — the wind-strength axis of ORC's time-allowance matrix and the quantity a race's wind band or scoring wind estimates. |
+| True Wind Angle (TWA) | The angle between the true wind direction and a boat's course, 0° dead upwind to 180° dead downwind — the wind-angle axis of ORC's time-allowance matrix. On a constructed course each leg's TWA is the difference between the wind direction and the leg's bearing. |
+| Course distance | The length of the course actually sailed, in nautical miles (recorded to 0.01 NM for ORC). A required scoring input for time-on-distance and PCS, not just descriptive metadata; on a constructed course it is the sum of the leg distances. May differ per fleet in the same race. |
+| Windward/leeward course | A course of upwind and downwind legs only, modelled by ORC as 50% beat VMG and 50% run VMG. One of the certificate's standard course models, with pre-computed single-number and performance-curve ratings. |
+| All-purpose course | ORC's standard course model averaging all wind angles equally — a hypothetical circumnavigation of a circular island in constant wind (hence its other name, circular random). The basis of APH. |
+| Constructed course | A per-race course description — for each leg, its distance, bearing, and the wind direction (legs may split into sub-legs on a wind shift, with optional current) — from which each boat's performance curve is computed instead of using a standard course model. The most accurate PCS input, at the cost of the race committee recording the course accurately. |
 
 | Term | Definition |
 |------|------------|
@@ -183,8 +214,6 @@ changes (per RRS A6.2, other boats' scores are not recalculated).
 | 1 | Low Point scoring | Appendix A scoring |
 | 2 | High Point scoring | |
 | 3 | Bonus Point scoring | |
-| 4 | Polar Curve Scoring (PCS) | |
-| 5 | Weather Routing Scoring (WRS) | |
 
 ### Handicap and Rating Systems
 
@@ -192,25 +221,17 @@ changes (per RRS A6.2, other boats' scores are not recalculated).
 |---|------|---------------|
 | 1 | Portsmouth Yardstick (PY) | |
 | 2 | PHRF | |
-| 3 | ORC | |
-| 4 | CYCA | |
-| 5 | YTC | |
-| 6 | ASY | Australian Sailing Yardstick |
-| 7 | SCHRS | Small Craft Handicap Rating System |
-| 8 | Texel Rating | |
+| 3 | CYCA | |
+| 4 | YTC | |
+| 5 | ASY | Australian Sailing Yardstick |
+| 6 | SCHRS | Small Craft Handicap Rating System |
+| 7 | Texel Rating | |
 
 ### Rating Concepts
 
 | # | Term | Also known as |
 |---|------|---------------|
-| 1 | Rating certificate | |
-| 2 | All Purpose Handicap (APH) | |
-| 3 | Class Division Length (CDL) | |
-| 4 | Performance curve | speed polar |
-| 5 | Velocity Prediction Program (VPP) | |
-| 6 | Time allowance | |
-| 7 | Dynamic Allowance (DA) | |
-| 8 | Rating file | |
+| 1 | Dynamic Allowance (DA) | |
 
 ### Time and Finishing
 
@@ -218,9 +239,6 @@ changes (per RRS A6.2, other boats' scores are not recalculated).
 |---|------|---------------|
 | 1 | Finishing window | |
 | 2 | Sailed time | |
-| 3 | Scoring Wind | |
-| 4 | True Wind Speed (TWS) | |
-| 5 | True Wind Angle (TWA) | |
 
 ### Series Scoring
 
@@ -278,15 +296,6 @@ changes (per RRS A6.2, other boats' scores are not recalculated).
 | 4 | Results | |
 | 5 | Provisional results | |
 | 6 | Scoring inquiry | |
-
-### Courses and Conditions
-
-| # | Term | Also known as |
-|---|------|---------------|
-| 1 | Constructed course | |
-| 2 | Windward/leeward course | |
-| 3 | All-purpose course | |
-| 4 | Course distance | |
 
 ### Publishing and Output
 
