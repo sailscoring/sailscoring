@@ -1,0 +1,73 @@
+description: "ORC — all-purpose time-on-time (APHT), the IRC-equivalent option"
+rrs_notes: "ORC Rating Systems 403.3: CT = ToT × ET, where ToT = 600 / ToD. APHT is the certificate's all-purpose single number; a higher APHT (faster boat) gives time away."
+
+# APHT values from the boats' real 2026 IRL ORC certificates:
+#   Impetuous (Corby 25)  APHT 0.9631
+#   Mojo (J-80)           APHT 1.0089
+#
+# Start 14:00:00. Mojo crosses two minutes ahead but corrects out behind:
+#   Mojo:      finish 14:58:00  ET = 3480 s  CT = 3480 × 1.0089 = 3510.97 → 3511 → 2nd
+#   Impetuous: finish 15:00:00  ET = 3600 s  CT = 3600 × 0.9631 = 3467.16 → 3467 → 1st
+#
+# Corrected times round half-up to whole seconds (ORC 401.2 — the same
+# convention as IRC scoring here).
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: orc
+  orcOption:
+    option: APHT
+    kind: tot
+
+competitors:
+  - sailNumber: "IRL 2507"
+    name: "Impetuous"
+    orcCertFields:
+      APHT: 0.9631
+      APHD: 623.0
+  - sailNumber: "IRL 1551"
+    name: "Mojo"
+    orcCertFields:
+      APHT: 1.0089
+      APHD: 594.7
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "IRL 1551"
+        finishTime: "14:58:00"
+      - sailor: "IRL 2507"
+        finishTime: "15:00:00"
+    expected:
+      - sailor: "IRL 2507"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3600
+        correctedTime: 3467
+        tcfApplied: 0.9631
+      - sailor: "IRL 1551"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3480
+        correctedTime: 3511
+        tcfApplied: 1.0089
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL 2507"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "IRL 1551"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2

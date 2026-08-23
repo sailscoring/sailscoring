@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>ORC — all-purpose time-on-distance (APHD) over a recorded course length — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All ORC handicap examples</a></p>
+<h1>ORC — all-purpose time-on-distance (APHD) over a recorded course length</h1>
+<p style="font-style:italic; color:#444;">ORC Rating Systems 403.2: CT = ET − (ToD − ToD of the scratch boat) × distance. The scratch boat is the fleet's lowest allowance; its corrected time equals its elapsed time. Distance is recorded to 0.01 NM (401.3).</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> ORC
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">APHD values from the boats' real 2026 IRL ORC certificates:
+  Mojo (J-80)           APHD 594.7 s/NM — the scratch boat
+  Impetuous (Corby 25)  APHD 623.0 s/NM
+
+A 3.24 NM course (the length of AL 2025 race 2), start 15:15:00.
+Impetuous is owed (623.0 − 594.7) × 3.24 = 28.3 × 3.24 = 91.692 s:
+  Mojo:      finish 15:50:51  ET = 2151 s  CT = 2151 − 0      = 2151    → 2nd
+  Impetuous: finish 15:51:49  ET = 2209 s  CT = 2209 − 91.692 = 2117.31 → 2117 → 1st
+
+Impetuous crosses nearly a minute behind and wins on corrected time.
+Cross-checked against the ZW manual's worked ToD example for the
+rounding convention (half-up to whole seconds).</pre>
+<h2 style="margin-top:1.5em;">Race arithmetic</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 15:15:00 &nbsp; <strong>Course:</strong> 3.24 NM
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>APHD</th><th>Finish time</th><th>ET</th><th>ToD</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Impetuous</td>
+  <td class="mono">IRL 2507</td>
+  <td class="mono">623.0</td>
+  <td class="mono">15:51:49</td>
+  <td class="mono">36m 49s</td>
+  <td class="mono">623.0</td>
+  <td class="mono">35m 17s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Mojo</td>
+  <td class="mono">IRL 1551</td>
+  <td class="mono">594.7</td>
+  <td class="mono">15:50:51</td>
+  <td class="mono">35m 51s</td>
+  <td class="mono">594.7</td>
+  <td class="mono">35m 51s</td>
+  <td>2</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Impetuous</td>
+  <td class="mono">IRL 2507</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+  <td class="mono">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Mojo</td>
+  <td class="mono">IRL 1551</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+  <td class="mono">2</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

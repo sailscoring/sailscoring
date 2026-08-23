@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
+import { orcFleetProfile, orcTodRating, orcTotRating } from '@/lib/orc-certificate';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 import type { Finish } from '@/lib/types';
@@ -33,11 +34,16 @@ describe('TCC handicap scoring fixtures', () => {
       const fleet = fleets[0];
 
       // Build the static applied-TCF map (callers are now responsible for this).
+      const isOrcTod = fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod';
       const tcfMap = new Map<string, number>();
       for (const c of competitors) {
         if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
         else if (fleet.scoringSystem === 'vprs' && c.vprsTcc != null) tcfMap.set(c.id, c.vprsTcc);
         else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
+        else if (fleet.scoringSystem === 'orc') {
+          const rating = isOrcTod ? orcTodRating(c, fleet) : orcTotRating(c, fleet);
+          if (rating != null) tcfMap.set(c.id, rating);
+        }
       }
       const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
 
@@ -51,7 +57,10 @@ describe('TCC handicap scoring fixtures', () => {
         if (!raceStart) throw new Error(`${yamlPath}: race ${ri + 1} has no startTime`);
         const raceFinishes: Finish[] = finishes.filter((f) => f.raceId === raceId);
 
-        const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, dnfScoring);
+        const todContext = isOrcTod && raceStart.distanceNm != null && tcfMap.size > 0
+          ? { distanceNm: raceStart.distanceNm, scratchTod: Math.min(...tcfMap.values()) }
+          : undefined;
+        const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, dnfScoring, todContext);
 
         for (const exp of fixtureRace.expected) {
           const cid = sailToId.get(exp.sailor);
