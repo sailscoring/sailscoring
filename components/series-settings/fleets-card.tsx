@@ -12,7 +12,8 @@ import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '
 import { useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
-import type { Fleet, Series } from '@/lib/types';
+import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile } from '@/lib/orc-certificate';
+import type { Fleet, OrcProfile, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -141,6 +142,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       scoringSystem: system,
       ...(system === 'echo' ? { echoAlpha: fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA } : { echoAlpha: undefined }),
       ...(system === 'nhc' ? {} : { nhcProfile: undefined }),
+      ...(system === 'orc' ? {} : { orcProfile: undefined }),
     };
 
     if (wasScratch === willBeScratch) {
@@ -372,6 +374,36 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                         title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
                       />
                     </label>
+                  )}
+                  {fleet.scoringSystem === 'orc' && (
+                    <Select
+                      value={JSON.stringify(orcFleetProfile(fleet))}
+                      onValueChange={(v) => {
+                        const profile = JSON.parse(v) as OrcProfile;
+                        // The APHT default stays implicit (no stored profile),
+                        // matching how absent has always meant APHT.
+                        void saveFleet.mutateAsync({
+                          ...fleet,
+                          orcProfile:
+                            profile.option === DEFAULT_ORC_PROFILE.option ? undefined : profile,
+                        });
+                      }}
+                    >
+                      <SelectTrigger
+                        className="w-56 h-7 text-xs"
+                        title="Which certificate rating scores this fleet. Time-on-distance options need a course length on each race start."
+                        data-testid={`orc-option-${fleet.id}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORC_STANDARD_OPTIONS.map((o) => (
+                          <SelectItem key={o.option} value={JSON.stringify({ option: o.option, kind: o.kind })}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                   {/* Custom NHC parameters are experimental/gated (#155); NHC
                       scoring with stock SWNHC2015 stays GA. Keep the button for

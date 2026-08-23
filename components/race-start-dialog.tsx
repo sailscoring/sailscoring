@@ -20,6 +20,8 @@ export interface RaceStartDraft {
   editingId: string | null;
   startTime?: string;  // omitted for a membership-only start (fleets, no gun time)
   fleetIds: string[];
+  /** Course length in NM — a scoring input for time-on-distance fleets. */
+  distanceNm?: number;
 }
 
 export interface RaceStartDialogProps {
@@ -53,7 +55,15 @@ function RaceStartDialogInner({
   const seed = mode.kind === 'edit' ? mode.start : null;
   const [startTimeInput, setStartTimeInput] = useState(seed?.startTime ?? '');
   const [fleetIds, setFleetIds] = useState<string[]>(seed?.fleetIds ?? []);
+  const [distanceInput, setDistanceInput] = useState(
+    seed?.distanceNm != null ? String(seed.distanceNm) : '',
+  );
   const [error, setError] = useState('');
+
+  // Course distance is a scoring input for ORC time-on-distance (and shown
+  // whenever the series scores ORC at all, so the habit forms before the
+  // first ToD race rather than during it).
+  const offerDistance = fleets.some((f) => f.scoringSystem === 'orc');
 
   function handleSave() {
     // A blank time is allowed: a membership-only start declares which fleets
@@ -72,6 +82,15 @@ function RaceStartDialogInner({
       setError('Select at least one fleet.');
       return;
     }
+    let distanceNm: number | undefined;
+    if (distanceInput.trim()) {
+      const parsed = Number(distanceInput.trim());
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        setError('Enter the course length as a positive number of nautical miles, e.g. 3.24.');
+        return;
+      }
+      distanceNm = parsed;
+    }
     const editingId = mode.kind === 'edit' ? mode.start.id : null;
     const otherStarts = raceStarts.filter((s) => s.id !== editingId);
     const usedFleetIds = new Set(otherStarts.flatMap((s) => s.fleetIds));
@@ -81,7 +100,7 @@ function RaceStartDialogInner({
       setError(`Fleet "${name}" is already in another start group.`);
       return;
     }
-    void onSave({ editingId, startTime: normalizedStart, fleetIds });
+    void onSave({ editingId, startTime: normalizedStart, fleetIds, ...(distanceNm != null ? { distanceNm } : {}) });
   }
 
   return (
@@ -106,6 +125,25 @@ function RaceStartDialogInner({
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             />
           </div>
+          {offerDistance && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="start-distance-nm">
+                Course length <span className="font-normal text-muted-foreground">(NM, optional)</span>
+              </label>
+              <input
+                id="start-distance-nm"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
+                value={distanceInput}
+                onChange={(e) => { setDistanceInput(e.target.value); setError(''); }}
+                placeholder="3.24"
+                inputMode="decimal"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Required to score a time-on-distance fleet; record it to 0.01 NM.
+              </p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Fleets in this start</label>
             <div className="space-y-1.5">

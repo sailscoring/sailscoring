@@ -100,6 +100,22 @@ export function orcRecordNumber(record: OrcRmsRecord, field: string): number | u
  *  all-purpose time-on-time — operationally the IRC-equivalent path. */
 export const DEFAULT_ORC_PROFILE: OrcProfile = { option: 'APHT', kind: 'tot' };
 
+/**
+ * The internationally published single-number options every certificate
+ * carries (rule 403.1's two course models, ToD and ToT each, plus the
+ * coastal/long-distance pair) — the fleet-settings picker's fixed choices.
+ * National options (banded sets, predominant directions) are certificate
+ * data, offered by the certificate-driven picker instead.
+ */
+export const ORC_STANDARD_OPTIONS: ReadonlyArray<OrcProfile & { label: string }> = [
+  { option: 'APHT', kind: 'tot', label: 'All-purpose · time-on-time (APHT)' },
+  { option: 'APHD', kind: 'tod', label: 'All-purpose · time-on-distance (APHD)' },
+  { option: 'TMF_Inshore', kind: 'tot', label: 'Windward/leeward · time-on-time' },
+  { option: 'ILCWA', kind: 'tod', label: 'Windward/leeward · time-on-distance' },
+  { option: 'TMF_Offshore', kind: 'tot', label: 'Coastal/long-distance · time-on-time' },
+  { option: 'OSN', kind: 'tod', label: 'Coastal/long-distance · time-on-distance' },
+];
+
 export function orcFleetProfile(fleet: { orcProfile?: OrcProfile }): OrcProfile {
   return fleet.orcProfile ?? DEFAULT_ORC_PROFILE;
 }

@@ -61,6 +61,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
       raceId,
       fleetIds: draft.fleetIds,
       startTime: draft.startTime,
+      ...(draft.distanceNm != null ? { distanceNm: draft.distanceNm } : {}),
     };
     await saveRaceStart.mutateAsync(raceStart);
     setStartDialogMode(null);
@@ -101,6 +102,9 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                   <span className={s.startTime ? 'font-mono' : 'italic'}>
                     {s.startTime ?? 'No gun time'}
                   </span>
+                  {s.distanceNm != null && (
+                    <span className="font-mono"> · {s.distanceNm.toFixed(2)} NM</span>
+                  )}
                   {' — '}
                   {s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}
                 </p>
@@ -117,6 +121,9 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                 <span className={s.startTime ? 'font-mono font-medium' : 'italic text-muted-foreground'}>
                   {s.startTime ?? 'No gun time'}
                 </span>
+                {s.distanceNm != null && (
+                  <span className="font-mono text-muted-foreground">{s.distanceNm.toFixed(2)} NM</span>
+                )}
                 <span className="text-muted-foreground">—</span>
                 <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStart(s)}>
