@@ -23,9 +23,10 @@ import {
   subdivisionAxisLabel,
 } from '@/lib/competitor-fields';
 import { requiredForFleetsHint } from '@/lib/competitor-ratings';
+import { orcCertificatePageUrl } from '@/lib/orc-certificate';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { isValidWorldSailingId, normalizeWorldSailingId } from '@/lib/world-sailing';
-import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
+import type { CompetitorFieldKey, Fleet, MultiPersonFieldKey, OrcCertData, PrimaryPersonLabel, SubdivisionAxis } from '@/lib/types';
 
 export interface CompetitorFormData {
   sailNumber: string;
@@ -186,6 +187,7 @@ export function CompetitorForm({
   primaryLabel,
   subdivisionAxes,
   multiPersonFields,
+  orcCert,
 }: {
   initial: CompetitorFormData;
   onSave: (data: CompetitorFormData) => Promise<void>;
@@ -198,6 +200,9 @@ export function CompetitorForm({
   subdivisionAxes: SubdivisionAxis[];
   /** Person fields opened to multiple names (#316); [] = all single. */
   multiPersonFields: MultiPersonFieldKey[];
+  /** The boat's stored ORC certificate, shown read-only when editing — the
+   *  certificate itself is imported via Update handicaps, never typed in. */
+  orcCert?: OrcCertData;
 }) {
   const [data, setData] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -224,8 +229,10 @@ export function CompetitorForm({
   const pyFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'py').map((f) => f.name);
   const nhcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'nhc').map((f) => f.name);
   const echoFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'echo').map((f) => f.name);
+  const orcFleetNames = selectedFleets.filter((f) => f.scoringSystem === 'orc').map((f) => f.name);
   const needsIrcTcc = ircFleetNames.length > 0;
   const needsVprsTcc = vprsFleetNames.length > 0;
+  const showOrcSection = orcFleetNames.length > 0 || orcCert != null;
   const needsPyNumber = pyFleetNames.length > 0;
   const needsNhcStartingTcf = nhcFleetNames.length > 0;
   const needsEchoStartingTcf = echoFleetNames.length > 0;
@@ -619,6 +626,35 @@ export function CompetitorForm({
             />
             {!data.vprsTcc.trim() && (
               <p className="text-sm text-amber-600">{requiredForFleetsHint(vprsFleetNames)}</p>
+            )}
+          </div>
+        )}
+        {showOrcSection && (
+          <div className="space-y-1.5">
+            <Label>ORC certificate</Label>
+            {orcCert ? (
+              <p className="text-sm text-muted-foreground">
+                {orcCert.record.RefNo ? (
+                  <a
+                    href={orcCertificatePageUrl(orcCert.record.RefNo)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    {orcCert.record.RefNo}
+                  </a>
+                ) : 'No reference number'}
+                {orcCert.record.C_Type ? ` · ${orcCert.record.C_Type}` : ''}
+                {orcCert.record.APHT != null ? ` · APHT ${orcCert.record.APHT.toFixed(4)}` : ''}
+                {orcCert.expiryDate
+                  ? ` · expires ${orcCert.expiryDate.slice(0, 10)}`
+                  : ''}
+              </p>
+            ) : (
+              <p className="text-sm text-amber-600">
+                {requiredForFleetsHint(orcFleetNames)} Import it from the ORC
+                database via Update handicaps.
+              </p>
             )}
           </div>
         )}
