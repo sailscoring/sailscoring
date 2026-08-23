@@ -255,28 +255,47 @@ yet validated against a full season). The `race-management-metadata` gate's
 standing note applies: wind becomes a scoring input under ORC, so that gate
 is split or defaulted on when ORC lands.
 
-## Phasing
+## Milestones
 
-Implementation detail lives in the phase issues; the order is driven by the
-Autumn League target (first gun early September 2026), so PCS comes before
-the band methods:
+Implementation detail lives in the milestone issues (#429 is the umbrella);
+the order is built backwards from the Autumn League calendar (entries ~end
+of August, first gun ~12 September 2026), so PCS comes before the band
+methods:
 
-1. **Certificates** — import, storage, expiry/VPP validation, CDL/GPH/APH
-   columns; `'orc'` fleet system scoring `APHT` time-on-time (the
-   IRC-equivalent path, end-to-end plumbing).
-2. **Time-on-distance** — the engine path, `RaceStart.distanceNm`, finish
-   page entry; single-number ToD options.
-3. **PCS** — native module port; pre-defined course models; implied wind,
-   scoring wind, RC override; explainability and published transparency.
-4. **Constructed courses** — per-leg entry on the race, curve construction
-   from legs, sub-legs and current.
-5. **Band methods** — per-race band selection over the `ScoringOptions`
-   catalog (triple-number, IRL 5-band, predominant).
-6. **Course library and visualization** — marks, course cards, published
-   course rendering.
+1. **Certificates** (#431, ~31 Aug) — import, storage, expiry/VPP
+   validation, CDL/GPH/APH columns; `'orc'` fleet system scoring `APHT`
+   time-on-time (the IRC-equivalent path, end-to-end plumbing).
+2. **Time-on-distance** (#432, ~4 Sept) — the engine path,
+   `RaceStart.distanceNm`, finish page entry; single-number ToD options.
+3. **PCS** (#433, ~4 Sept; starts immediately, in parallel) — native module
+   port with pre-defined course models, implied wind, scoring wind, RC
+   override. Built as a hermetic module — own directory, own README, its
+   own parity fixtures, no imports from the rest of `lib/` — and **spun out
+   to a standalone repo under the `sailscoring` org once the parity suite
+   is green and the API has survived integration** (the archive-kit
+   pattern): standalone validation mirrors ORC's own module-shaped
+   ecosystem and is the credibility artifact for ORC and other tools.
+4. **Constructed courses** (#434, first gun) — per-leg entry on the start,
+   curve construction from legs, sub-legs and current; gated by the dry
+   run: reproduce the full AL 2025 Class 2 series and match ORC Scorer's
+   published results.
+5. **Published transparency** (#435, iterating weekly from race 1) — the
+   PCS audit trail on published pages, help chapter, feature-checklist
+   tail.
+6. **Band methods** (#436, post-league) — per-race band selection over the
+   `ScoringOptions` catalog (triple-number, IRL 5-band, predominant).
+7. **Course library** (#437, kickoff any time; designer product
+   post-league) — a standalone, format-first repo under the org: a
+   versioned marks / course-cards / race-infrastructure format maturing
+   the `markmate` model, a leg-computation + rendering library consumed by
+   the app (course-number lookup filling a start's legs, published course
+   rendering), and later a club-facing course-card designer. Raw leg entry
+   (milestone 4) remains the interchange floor either way.
 
-Phases 1–4 are the Autumn League critical path; shadow-scoring alongside
-ORC Scorer mid-series is the fallback if 3–4 land late.
+Milestones 1–4 are the Autumn League critical path; shadow-scoring
+alongside ORC Scorer mid-series is the fallback if 3–4 land late, and
+windward/leeward races can be scored on the pre-defined model from
+milestone 3 alone if 4 slips.
 
 ## Out of scope (deferred)
 
