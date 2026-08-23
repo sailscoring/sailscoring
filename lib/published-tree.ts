@@ -20,7 +20,7 @@
 import { escapeHtml as esc } from './html';
 import { humanizeSlug, isSyntheticFleetName } from './publishing';
 import { renderPublicHero, renderPublicShell } from './published-shell';
-import { isAuxiliaryPage, loneResultsPageLabel, type SeriesIndexPage } from './published-index';
+import { isAuxiliaryPage, keepsItsName, loneResultsPageLabel, type SeriesIndexPage } from './published-index';
 
 /** A page in a slug group, with its contributing series named so labels can
  *  distinguish same-named pages from different series on a shared slug. */
@@ -165,7 +165,7 @@ export function pagesInFolder(pages: TreePage[], segment: string): TreePage[] {
 }
 
 function baseLeafLabel(page: TreePage, soleContributor: boolean): string {
-  if (isAuxiliaryPage(page)) return page.fleetName;
+  if (keepsItsName(page)) return page.fleetName;
   // A synthetic name is never shown: such a page is its publication's (or
   // block's) standings — its race result, on a single-race event (#347) — so
   // call it that, by the series' name when the slug is shared, since the bare

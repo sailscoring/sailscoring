@@ -102,6 +102,9 @@ export interface FleetHtmlFile {
    *  its own — a split-fleet series' fleet assignments. Keeps listings from
    *  labelling it as the publication's standings. */
   isAuxiliary?: boolean;
+  /** Set on a results page whose name is its own rather than a fleet's — a
+   *  championship's standings page. Keeps listings from relabelling it. */
+  isNamedPage?: boolean;
   html: string;
 }
 
@@ -302,6 +305,7 @@ export async function buildFleetHtmlFiles(
       {
         fleetName: 'Championship',
         isDefault: true,
+        isNamedPage: true,
         html: renderSplitFleetStandingsPage(input, splitChrome),
       },
       {

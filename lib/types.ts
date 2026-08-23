@@ -883,6 +883,10 @@ export interface PublishedSeriesPage {
   // fleet assignments. Listings label it by its own name and never count it
   // when deciding whether a publication has a lone results page.
   isAuxiliary?: boolean;
+  // The page's name is its own rather than a fleet's, so listings show it
+  // verbatim — a championship's standings page is called "Championship". It
+  // still counts as the publication's results page, unlike an auxiliary one.
+  isNamedPage?: boolean;
   // Published at race-results detail (#347). Lets a listing call a lone page
   // "Results" rather than "Standings"; the page itself carries no summary.
   // Sparse — absent on every full-detail page, and on prize sheets.

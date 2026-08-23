@@ -167,6 +167,19 @@ describe('leafLabel', () => {
     expect(leafLabel(pages[0], pages, true)).toBe('Standings');
   });
 
+  it('keeps both names on a championship publication', () => {
+    // The two halves have to hold together. The assignments page must not be
+    // read as the results (it is auxiliary), and the championship page must
+    // not be relabelled "Standings" for being the only results page left —
+    // "Championship" is what the publish dialog and Preview both call it.
+    const pages: TreePage[] = [
+      { fleetName: 'Championship', isNamedPage: true, subPath: 'standings', ownerSingle: true },
+      { fleetName: 'Fleet assignments', isAuxiliary: true, subPath: 'fleet-assignments', ownerSingle: true },
+    ];
+    expect(leafLabel(pages[0], pages, true)).toBe('Championship');
+    expect(leafLabel(pages[1], pages, true)).toBe('Fleet assignments');
+  });
+
   it('keeps the fleet-assignments name when it is the only page left', () => {
     // A championship whose scorer withheld the standings publishes its
     // assignments page and its entry list. Neither is a fleet's results, so

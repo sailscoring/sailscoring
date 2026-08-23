@@ -261,6 +261,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         isEntryList?: boolean;
         isDefault?: boolean;
         isAuxiliary?: boolean;
+        isNamedPage?: boolean;
         isRaceResults?: boolean;
         subPath: string;
       }[];
@@ -306,6 +307,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     isEntryList?: boolean;
     isDefault?: boolean;
     isAuxiliary?: boolean;
+    isNamedPage?: boolean;
     isRaceResults?: boolean;
     subPath: string;
   };
@@ -368,6 +370,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         ...(p.isEntryList ? { isEntryList: true } : {}),
         ...(p.isDefault ? { isDefault: true } : {}),
         ...(p.isAuxiliary ? { isAuxiliary: true } : {}),
+        ...(p.isNamedPage ? { isNamedPage: true } : {}),
         ...(p.isRaceResults ? { isRaceResults: true } : {}),
         subPath: p.subPath,
       })),

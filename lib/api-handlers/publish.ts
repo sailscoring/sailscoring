@@ -428,6 +428,7 @@ export async function publishSeries(
         ...(file.isEntryList ? { isEntryList: true } : {}),
         ...(file.isDefault ? { isDefault: true } : {}),
         ...(file.isAuxiliary ? { isAuxiliary: true } : {}),
+        ...(file.isNamedPage ? { isNamedPage: true } : {}),
         ...(raceResults && !file.isPrizes && !file.isEntryList && !file.isAuxiliary
           ? { isRaceResults: true }
           : {}),
