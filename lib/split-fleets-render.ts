@@ -282,6 +282,15 @@ export function renderSplitFleetAssignmentsPage(
   const sections = [...data.rounds]
     .sort((a, b) => b.createdAt - a.createdAt)
     .map((round) => {
+      // The provenance column only earns its place when the committee actually
+      // moved someone. Judged per round, not per fleet, so a round's tables
+      // keep the same shape as each other. An unconditional column showed as a
+      // few pixels of empty cells on every ordinary assignment.
+      const anyOverride = round.fleetIds.some((fid) =>
+        data.competitors.some(
+          (c) => c.fleetIds.includes(fid) && round.overrides?.[c.id] === fid,
+        ),
+      );
       const fleets = round.fleetIds
         .map((fid) => {
           const members = data.competitors
@@ -291,12 +300,16 @@ export function renderSplitFleetAssignmentsPage(
             .map(
               (c, i) =>
                 `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">${nat ? natCell(c.nationality, input.flagSvgByCode) : ''}<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(c.names.join(' & '))}</td>${
-                  round.overrides?.[c.id] === fid ? '<td>placed by the committee</td>' : '<td></td>'
+                  anyOverride
+                    ? round.overrides?.[c.id] === fid
+                      ? '<td>placed by the committee</td>'
+                      : '<td></td>'
+                    : ''
                 }</tr>`,
             )
             .join('\n');
           return `<h3>${esc(fleetName.get(fid) ?? '')} (${members.length})</h3>
-<div class="tablewrap"><table class="summarytable"><thead><tr>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+<div class="tablewrap"><table class="summarytable"><thead><tr>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${anyOverride ? '<th></th>' : ''}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
         })
         .join('\n');
       const basis = round.basis

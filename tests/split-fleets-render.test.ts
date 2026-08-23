@@ -183,6 +183,28 @@ describe('split-fleet pages use the standard published-page look', () => {
     }
   });
 
+  it('leaves out the provenance column when nobody was hand-placed', () => {
+    // It was rendered unconditionally, so an ordinary assignment carried a
+    // few pixels of empty cells after Helm.
+    const input = renderInputFor(FIXTURE);
+    const plain = renderSplitFleetAssignmentsPage(input, chrome);
+    expect(plain).not.toContain('placed by the committee');
+    expect(plain).not.toContain('<th>Helm</th><th></th>');
+
+    // With one boat moved by hand, the column is back and says so.
+    const moved = input.rounds[0];
+    const member = input.competitors.find((c) =>
+      c.fleetIds.some((fid) => moved.fleetIds.includes(fid)),
+    )!;
+    const fid = member.fleetIds.find((f) => moved.fleetIds.includes(f))!;
+    const html = renderSplitFleetAssignmentsPage(
+      { ...input, rounds: [{ ...moved, overrides: { [member.id]: fid } }] },
+      chrome,
+    );
+    expect(html).toContain('placed by the committee');
+    expect(html).toContain('<th>Helm</th><th></th>');
+  });
+
   it('says so when no fleets have been assigned yet', () => {
     const html = renderSplitFleetAssignmentsPage({ ...renderInputFor(FIXTURE), rounds: [] }, chrome);
     expect(html).toContain('No fleets have been assigned yet.');
