@@ -165,3 +165,53 @@ test('ORC fleet: standings ordered by APHT corrected time', async ({ page }) => 
   await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 1551');
 });
+
+test('ORC fleet: time-on-distance over the start course length', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC ToD Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+
+  // Switch the fleet's rating option to all-purpose time-on-distance (APHD).
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
+  await page.getByRole('option', { name: 'All-purpose · time-on-distance (APHD)' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await importCertificates(page, 2);
+
+  // A 3.24 NM course, start 15:15:00 (the 16-orc-aphd-tod fixture numbers):
+  //   Mojo (APHD 594.7, scratch) ET 2151 → CT 2151
+  //   Impetuous (APHD 623.0)     ET 2209 → CT 2209 − 28.3 × 3.24 = 2117 — wins.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('15:15:00');
+  await page.getByLabel(/Course length/).fill('3.24');
+  await page.getByRole('checkbox', { name: 'Class 2' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('15:15:00')).toBeVisible();
+  await expect(page.getByText('3.24 NM')).toBeVisible();
+
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRL 1551', finishTime: '15:50:51' },
+    { sailNumber: 'IRL 2507', finishTime: '15:51:49' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
+  await expect(page.getByRole('row').nth(2)).toContainText('IRL 1551');
+});
