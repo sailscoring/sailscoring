@@ -259,6 +259,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         subSeriesName?: string;
         isPrizes?: boolean;
         isEntryList?: boolean;
+        isDefault?: boolean;
         isRaceResults?: boolean;
         subPath: string;
       }[];
@@ -302,6 +303,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     subSeriesName?: string;
     isPrizes?: boolean;
     isEntryList?: boolean;
+    isDefault?: boolean;
     isRaceResults?: boolean;
     subPath: string;
   };
@@ -362,6 +364,7 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
         ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
         ...(p.isPrizes ? { isPrizes: true } : {}),
         ...(p.isEntryList ? { isEntryList: true } : {}),
+        ...(p.isDefault ? { isDefault: true } : {}),
         ...(p.isRaceResults ? { isRaceResults: true } : {}),
         subPath: p.subPath,
       })),

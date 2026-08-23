@@ -203,13 +203,20 @@ export async function publishSeries(
   // client-known name). Same semantics as an unticked fleet: not rebuilt this
   // round, and a live prizes page carries over untouched.
   const skipPrizes = input.prizes === false;
+  // `defaultPage: false` leaves the lone default page out this round — the
+  // scorer publishing only an entry list before the first race, say. Flagged
+  // rather than named, because the dialog often cannot name that page.
+  const skipDefault = input.defaultPage === false;
   // `skipPages` names pages to leave out this round — the same escape hatch as
   // `prizes: false`, for a single-fleet series' extra pages (#390), which have
   // names while its lone results page does not.
   const skipped = new Set(input.skipPages ?? []);
   const tickedHas = (name: string): boolean => !ticked || ticked.has(name);
-  const included = (p: { fleetName: string; isPrizes?: boolean }): boolean =>
-    tickedHas(p.fleetName) && !(skipPrizes && p.isPrizes) && !skipped.has(p.fleetName);
+  const included = (p: { fleetName: string; isPrizes?: boolean; isDefault?: boolean }): boolean =>
+    tickedHas(p.fleetName) &&
+    !(skipPrizes && p.isPrizes) &&
+    !(skipDefault && p.isDefault) &&
+    !skipped.has(p.fleetName);
   const toBuild = allFiles.filter(included);
   const carriedAll = (existing?.pages ?? []).filter((p) => !included(p));
 
@@ -282,7 +289,10 @@ export async function publishSeries(
     // Superseded = the pages being rebuilt this round; a page that carries
     // (unticked fleet, or the prizes page under `prizes: false`) keeps its blob.
     supersededPages = existing.pages.filter(
-      (p) => tickedHas(p.fleetName) && !(skipPrizes && p.isPrizes),
+      (p) =>
+        tickedHas(p.fleetName) &&
+        !(skipPrizes && p.isPrizes) &&
+        !(skipDefault && p.isDefault),
     );
     const supersededUrls = new Set(supersededPages.map((p) => p.blobUrl));
     supersededPages.push(...retracted.filter((p) => !supersededUrls.has(p.blobUrl)));
@@ -416,6 +426,7 @@ export async function publishSeries(
         ...(file.subSeriesName ? { subSeriesName: file.subSeriesName } : {}),
         ...(file.isPrizes ? { isPrizes: true } : {}),
         ...(file.isEntryList ? { isEntryList: true } : {}),
+        ...(file.isDefault ? { isDefault: true } : {}),
         ...(raceResults && !file.isPrizes && !file.isEntryList ? { isRaceResults: true } : {}),
         subPath,
         blobUrl,

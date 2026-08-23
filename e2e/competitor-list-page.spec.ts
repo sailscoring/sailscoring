@@ -81,3 +81,56 @@ test('the competitor list publishes before any race is sailed', async ({ page, s
   await page.goto(entriesPath.replace(/\/entries$/, ''));
   await expect(page.getByRole('link', { name: 'Entries' })).toBeVisible();
 });
+
+/**
+ * Which pages go public is the scorer's call, including the results page. A
+ * series with a race sailed can still publish its entry list alone — the
+ * standings stay unpublished until the scorer wants them out.
+ */
+test('the results page can be left unpublished while the entry list goes out', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['entry-list']);
+  await createSeriesQuick(page, { name: 'Entries Only' });
+
+  for (const c of entries) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+
+  // A sailed race, so standings genuinely exist to be withheld.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+  await page.getByText('Race 1').click();
+  for (const c of entries) {
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByRole('button', { name: 'Add' }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog).toBeVisible();
+
+  // Untick the results page; publish the entry list on its own.
+  const standings = dialog.getByRole('checkbox', { name: 'Publish Standings' });
+  await expect(standings).toBeChecked();
+  await standings.uncheck();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  const link = dialog.getByRole('link', { name: /\/entries$/ });
+  await expect(link).toBeVisible();
+  const entriesPath = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  // The entry list is public; the standings page was never created.
+  await page.goto(entriesPath);
+  await expect(page.getByText('Entries: 2')).toBeVisible();
+  const res = await page.request.get(entriesPath.replace(/\/entries$/, '/standings'));
+  expect(res.status()).toBe(404);
+});

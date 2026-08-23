@@ -875,6 +875,10 @@ export interface PublishedSeriesPage {
   // The competitor list (#423) — `fleetName` is then "Entries". Like the prize
   // sheet, it is labelled by its own name and never counts as a results page.
   isEntryList?: boolean;
+  // The publication's lone default page. Recorded so a re-publish that skips
+  // it can recognise it: its fleet name may be the synthetic "Default" or
+  // "Unknown", so the name is not a reliable handle.
+  isDefault?: boolean;
   // Published at race-results detail (#347). Lets a listing call a lone page
   // "Results" rather than "Standings"; the page itself carries no summary.
   // Sparse — absent on every full-detail page, and on prize sheets.

@@ -183,6 +183,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
   // separate from `subPaths` because that page's fleet name can be synthetic
   // ("Unknown") and isn't a reliable key; the server applies it by `isDefault`.
   const [singlePath, setSinglePath] = useState('standings');
+  // Whether the lone default page publishes this round. Its own state because
+  // it is not in `pageNames` — the dialog often cannot name it (its fleet may
+  // be the synthetic "Default"/"Unknown"), which is why the server skips it by
+  // flag rather than by name.
+  const [loneSelected, setLoneSelected] = useState(true);
   const [phase, setPhase] = useState<
     'loading' | 'idle' | 'publishing' | 'unpublishing'
   >('loading');
@@ -261,6 +266,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
         setSelected(initSelected);
         setSubPaths(initSubPaths);
         setSinglePath('standings');
+        setLoneSelected(true);
         setPhase('idle');
       })
       .catch(() => {
@@ -458,7 +464,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
           return name === 'Prizes' ? 'Give the prize list a URL.' : `Give “${name}” a URL.`;
         }
       }
+      // Something has to go out. A page already live counts: leaving it
+      // unticked keeps it up rather than taking it down.
+      const liveAfter =
+        (loneSelected || (isPublished && singlePreview !== null)) ||
+        extraPageNames.some((name) => selected.has(name) || frozenPage(name));
+      if (!liveAfter) return 'Select at least one page to publish.';
       if (isPublished || hasBlocks) return null;
+      if (!loneSelected) return null;
       if (!singlePath) return 'Give the page a URL.';
       const seenExtra = new Set([singlePath]);
       for (const name of ticked) {
@@ -484,7 +497,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [multiFleet, isPublished, hasBlocks, singlePath, rows, selected, subPaths, published, seasonMode, season, folder]);
+  }, [multiFleet, isPublished, hasBlocks, singlePath, rows, selected, subPaths, published, seasonMode, season, folder, loneSelected, extraPageNames, singlePreview]);
 
   const pendingEdits = published
     ? Math.max(0, (series.version ?? 1) - published.publishedVersion)
@@ -519,6 +532,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
         fleets?: string[];
         subPaths?: Record<string, string>;
         defaultSubPath?: string;
+        defaultPage?: boolean;
       } = {};
       if (multiFleet) {
         const fleetNames = rows.filter((r) => selected.has(r.name)).map((r) => r.name);
@@ -559,6 +573,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       } else if (!isPublished && !hasBlocks) {
         selection = { defaultSubPath: singlePath };
       }
+      // Unticking the lone results page leaves it out this round; a live one
+      // carries over untouched, exactly as an unticked fleet does.
+      if (!multiFleet && !loneSelected) {
+        selection = { ...selection, defaultPage: false };
+        delete selection.defaultSubPath;
+      }
       // Season mode (ADR-011): pages land under the event folder — every
       // editable page gets an explicit prefixed override, and a lone results
       // page lives at the folder itself.
@@ -571,7 +591,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
           }
           selection = { ...selection, subPaths: overrides };
         } else {
-          if (!isPublished) {
+          if (!isPublished && loneSelected) {
             // `standings` (or whatever the scorer typed) under the folder.
             selection.defaultSubPath = `${folderPrefix}/${singlePath}`;
           }
@@ -960,11 +980,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked
-                    disabled
+                    checked={loneSelected}
+                    onChange={(e) => { setLoneSelected(e.target.checked); setError(null); }}
                     className="h-4 w-4 shrink-0"
                     aria-label={`Publish ${lonePageLabel}`}
-                    title="The results page always publishes"
                   />
                   <span className="w-36 shrink-0 truncate text-sm">{lonePageLabel}</span>
                   <Input
