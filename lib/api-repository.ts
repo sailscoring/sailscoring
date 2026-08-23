@@ -698,6 +698,19 @@ export function loadIrcRatings(): Promise<IrcRatings> {
 }
 
 /**
+ * One country + family's active ORC certificates — the ORC handicap source
+ * for the Update Handicaps dialog. Server-fetched from the ORC database and
+ * cached; gated behind the `orc` feature.
+ */
+export function loadOrcCertificates(
+  countryId: string,
+  family: import('./orc-certificate').OrcFamily,
+): Promise<import('./orc-certificate').OrcCertListing> {
+  const params = new URLSearchParams({ country: countryId, family });
+  return apiFetch(`/api/v1/handicap-sources/orc?${params}`);
+}
+
+/**
  * The VPRS club index — the list of clubs that publish VPRS rating listings.
  * Server-fetched from vprs.org/ratings.html and cached; gated behind the `vprs`
  * feature (#175).

@@ -117,6 +117,10 @@ export const queryKeys = {
   ircRatings: {
     all: ['ircRatings'] as const,
   },
+  orcCertificates: {
+    byCountryFamily: (countryId: string, family: string) =>
+      ['orcCertificates', countryId, family] as const,
+  },
   vprsClubs: {
     all: ['vprsClubs'] as const,
   },

@@ -25,7 +25,7 @@ import type {
 } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
-export type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'vprs-rating' | 'rya-py';
+export type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'vprs-rating' | 'rya-py' | 'orc';
 
 export const SYSTEM_LABEL: Record<HandicapSystem, string> = {
   nhc: 'NHC',
@@ -33,10 +33,13 @@ export const SYSTEM_LABEL: Record<HandicapSystem, string> = {
   irc: 'IRC',
   vprs: 'VPRS',
   py: 'PY',
+  orc: 'ORC',
 };
 
-/** The TCF field on `Competitor` written for each handicap system. */
-export const SYSTEM_FIELD: Record<HandicapSystem, keyof Pick<Competitor, 'nhcStartingTcf' | 'echoStartingTcf' | 'ircTcc' | 'vprsTcc' | 'pyNumber'>> = {
+/** The TCF field on `Competitor` written for each handicap system. ORC is
+ *  absent by design: its rating is a whole certificate, carried on the row
+ *  as `orcCert` — see {@link buildPreviewUpdateRows}. */
+export const SYSTEM_FIELD: Record<Exclude<HandicapSystem, 'orc'>, keyof Pick<Competitor, 'nhcStartingTcf' | 'echoStartingTcf' | 'ircTcc' | 'vprsTcc' | 'pyNumber'>> = {
   nhc: 'nhcStartingTcf',
   echo: 'echoStartingTcf',
   irc: 'ircTcc',
@@ -171,6 +174,11 @@ export function buildPreviewUpdateRows(
   for (const row of changeRows) {
     const update = rowFor(row.competitorId);
     if (!update) continue;
+    if (row.system === 'orc') {
+      // An ORC rating is the whole certificate, carried on the row.
+      if (row.orcCert) update.orcCert = row.orcCert;
+      continue;
+    }
     const field = SYSTEM_FIELD[row.system];
     // Mutate via an unknown-cast index access — TS can't see that the
     // field name is statically one of the four optional number fields
@@ -184,6 +192,10 @@ export function buildPreviewUpdateRows(
     const update = rowFor(c.competitorId);
     if (!update || !c.targetFleetId || c.proposedTcf === null) continue;
     update.addFleetIds = [...new Set([...(update.addFleetIds ?? []), c.targetFleetId])];
+    if (c.system === 'orc') {
+      if (c.orcCert) update.orcCert = c.orcCert;
+      continue;
+    }
     const field = SYSTEM_FIELD[c.system];
     (update as unknown as Record<string, number>)[field] = c.proposedTcf;
   }
