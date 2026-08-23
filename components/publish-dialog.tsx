@@ -266,7 +266,13 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
         setSelected(initSelected);
         setSubPaths(initSubPaths);
         setSinglePath('standings');
-        setLoneSelected(true);
+        // Same rule as the named pages: everything on a first publish, only
+        // what is already live on a re-publish, so re-publishing never
+        // silently puts out a page the scorer had left back.
+        const extraNames = new Set([...BUILT_IN_EXTRA_PAGES, ...(extraPages ?? [])]);
+        setLoneSelected(
+          !pub || (pub.pages ?? []).some((pg) => !extraNames.has(pg.fleetName)),
+        );
         setPhase('idle');
       })
       .catch(() => {
@@ -528,6 +534,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       // send the lone page's sub-path explicitly so its URL is exactly what the
       // dialog shows, never the server's silent shared-slug rename. Re-publish
       // sends neither (the path is frozen). The slug is honoured only on first publish.
+      // Whether the server needs telling where the lone results page goes:
+      // it is going out, and has no frozen path to reuse — a first publish, or
+      // a page held back until now.
+      const needsDefaultPath =
+        !multiFleet && !hasBlocks && loneSelected && (!isPublished || singlePreview === null);
       let selection: {
         fleets?: string[];
         subPaths?: Record<string, string>;
@@ -578,6 +589,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       if (!multiFleet && !loneSelected) {
         selection = { ...selection, defaultPage: false };
         delete selection.defaultSubPath;
+      } else if (needsDefaultPath) {
+        // Ticked, but never published: the server has no frozen path to reuse,
+        // so say where it goes. (First publish already set this above.)
+        selection = { ...selection, defaultSubPath: singlePath };
       }
       // Season mode (ADR-011): pages land under the event folder — every
       // editable page gets an explicit prefixed override, and a lone results
@@ -591,7 +606,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
           }
           selection = { ...selection, subPaths: overrides };
         } else {
-          if (!isPublished && loneSelected) {
+          if (needsDefaultPath) {
             // `standings` (or whatever the scorer typed) under the folder.
             selection.defaultSubPath = `${folderPrefix}/${singlePath}`;
           }
@@ -927,13 +942,27 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
               </>
             ) : isPublished ? (
               // A publication can carry pages the dialog cannot enumerate
-              // before publishing — a split-fleet series' championship and
-              // fleet-assignments pages — so the published view lists every
-              // live results page, not just the first. The prizes page keeps
-              // its own row below.
+              // before publishing, so the published view lists every live
+              // results page, not just the first. The prize sheet and the
+              // other extra pages keep their own rows below.
               <div className="space-y-1.5">
                 {(publishedResultPages ?? (singlePreview ? [singlePreview] : [])).map((p) => (
                   <div key={p.url} className="flex items-center gap-2">
+                    {/* Re-publishing is per page here as much as anywhere: a
+                        live page left unticked stays up untouched rather than
+                        being rebuilt. Only the lone default page can be
+                        singled out — the others reach the server by name, and
+                        this branch is where the dialog does not reliably know
+                        them. */}
+                    <input
+                      type="checkbox"
+                      checked={publishedResultPages ? true : loneSelected}
+                      disabled={!!publishedResultPages}
+                      onChange={(e) => { setLoneSelected(e.target.checked); setError(null); }}
+                      className="h-4 w-4 shrink-0"
+                      aria-label={`Publish ${publishedResultPages ? p.fleetName : lonePageLabel}`}
+                      title={publishedResultPages ? undefined : 'Untick to leave this page as it is'}
+                    />
                     {publishedResultPages && (
                       <span className="w-36 shrink-0 truncate text-sm" title={p.fleetName}>
                         {p.fleetName}
@@ -960,6 +989,30 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                     </Button>
                   </div>
                 ))}
+                {/* The results page has never gone out — the publication is an
+                    entry list, or a prize sheet, alone. Offer it here, unticked
+                    and with an editable URL, exactly as a not-yet-live extra
+                    page is offered below; otherwise there is no way to publish
+                    it later. */}
+                {!publishedResultPages && !singlePreview && (
+                  <div className={`flex items-center gap-2 ${loneSelected ? '' : 'opacity-50'}`}>
+                    <input
+                      type="checkbox"
+                      checked={loneSelected}
+                      onChange={(e) => { setLoneSelected(e.target.checked); setError(null); }}
+                      className="h-4 w-4 shrink-0"
+                      aria-label={`Publish ${lonePageLabel}`}
+                    />
+                    <span className="w-36 shrink-0 truncate text-sm">{lonePageLabel}</span>
+                    <Input
+                      value={singlePath}
+                      onChange={(e) => { setSinglePath(sanitizeSlug(e.target.value)); setError(null); }}
+                      placeholder={defaultPageSlug(raceResults)}
+                      aria-label="Page URL"
+                      className="flex-1 min-w-0 h-7 text-xs font-mono"
+                    />
+                  </div>
+                )}
               </div>
             ) : hasBlocks ? (
               <p className="text-xs text-muted-foreground truncate" title={`${urlPrefix}/`}>

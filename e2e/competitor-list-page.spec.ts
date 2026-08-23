@@ -128,9 +128,32 @@ test('the results page can be left unpublished while the entry list goes out', a
   await expect(link).toBeVisible();
   const entriesPath = new URL((await link.getAttribute('href')) ?? '').pathname;
 
-  // The entry list is public; the standings page was never created.
+  // The choice survives into the published view: the row is still tickable,
+  // so the scorer can go on withholding the standings.
+  const liveStandings = dialog.getByRole('checkbox', { name: 'Publish Standings' });
+  await expect(liveStandings).toBeVisible();
+  await expect(liveStandings).toBeEnabled();
+  await expect(liveStandings).not.toBeChecked();
+
+  // The entry list is public; the standings page was never created. Checked
+  // over HTTP rather than by navigating, which would close the dialog.
+  const standingsPath = entriesPath.replace(/\/entries$/, '/standings');
+  expect((await page.request.get(standingsPath)).status()).toBe(404);
+
+  // ...and it can be published later. A page held back is offered again,
+  // unticked, rather than disappearing once a publication exists.
+  await liveStandings.check();
+  await dialog.getByRole('button', { name: 'Re-publish' }).click();
+  const standingsLink = dialog.getByRole('link', { name: /\/standings$/ });
+  await expect(standingsLink).toBeVisible();
+  // It lands beside the entry list, in the same event folder — not adrift at
+  // the top of the season.
+  const livePath = new URL((await standingsLink.getAttribute('href')) ?? '').pathname;
+  expect(livePath).toBe(standingsPath);
+
   await page.goto(entriesPath);
   await expect(page.getByText('Entries: 2')).toBeVisible();
-  const res = await page.request.get(entriesPath.replace(/\/entries$/, '/standings'));
-  expect(res.status()).toBe(404);
+  await page.goto(standingsPath);
+  // The sail number appears in the summary table and again in the race table.
+  await expect(page.getByRole('cell', { name: entries[0].sailNumber }).first()).toBeVisible();
 });
