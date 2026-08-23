@@ -104,6 +104,12 @@ const config = [
   },
   {
     ignores: [
+      // Agent worktrees: a second checkout of this repo living inside it.
+      // Everything below is path-anchored, so a worktree's copy of `e2e/` or
+      // `tests/` escapes the entries beneath and gets linted under rules those
+      // directories are exempt from — every warning doubled, plus errors from
+      // files that lint clean where they actually live.
+      '.claude/**',
       'e2e/**',
       'tests/**',
       'public/**',
