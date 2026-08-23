@@ -137,3 +137,44 @@ describe('renderSplitFleetAssignmentsPage', () => {
     expect(html).not.toContain('Initial seeding');
   });
 });
+
+// ---- The shared published-page shell (#428) ----
+
+describe('split-fleet pages use the standard published-page look', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+  const chrome = {
+    venue: 'Dun Laoghaire',
+    leftLogoUrl: 'https://example.test/venue.png',
+    rightLogoUrl: 'https://example.test/event.png',
+    seriesIndexUrl: '/p/ws/2026/worlds',
+    generatedAt: new Date('2026-08-23T10:00:00Z'),
+  };
+
+  for (const [label, render] of [
+    ['championship', renderSplitFleetStandingsPage],
+    ['fleet assignments', renderSplitFleetAssignmentsPage],
+  ] as const) {
+    it(`gives the ${label} page the house chrome`, () => {
+      const html = render(renderInputFor(FIXTURE), chrome);
+      // The shell, not a hand-rolled document: house font, the logos, the
+      // breadcrumb up to the event, and the credit line.
+      expect(html).toContain('Poppins');
+      expect(html).toContain('https://example.test/venue.png');
+      expect(html).toContain('https://example.test/event.png');
+      expect(html).toContain('/p/ws/2026/worlds');
+      expect(html).toContain('sailscoring.ie');
+      // And not the shell-less body rule these pages used to carry.
+      expect(html).not.toContain('font: 100% arial');
+    });
+
+    it(`renders the ${label} page without chrome too`, () => {
+      // Preview and download pass no `/p/` parent.
+      expect(render(renderInputFor(FIXTURE), {})).toContain('<!doctype html>');
+    });
+  }
+
+  it('says so when no fleets have been assigned yet', () => {
+    const html = renderSplitFleetAssignmentsPage({ ...renderInputFor(FIXTURE), rounds: [] }, chrome);
+    expect(html).toContain('No fleets have been assigned yet.');
+  });
+});

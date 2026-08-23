@@ -245,6 +245,11 @@ export async function buildFleetHtmlFiles(
     // exactly what an event wants published in that window.
     return opts?.includeEntryList ? [await buildCompetitorListFile(snapshot, seriesIndexUrl)] : null;
   }
+  // Empty venue/event logo slots inherit the workspace defaults, so the
+  // rendered header and the embedded JSON both carry them. Ahead of the
+  // split-fleet branch: a championship's pages take the same header as
+  // everything else, so they need the same resolution.
+  snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
   // Split-fleet series (#328): the published output is the championship
   // standings page (tiered, fleet-tinted, cut line) plus the rolling
   // fleet-assignments page — the per-round fleets never get their own pages.
@@ -258,6 +263,23 @@ export async function buildFleetHtmlFiles(
     const wantsFlags =
       enabledCompetitorFields.includes('nationality') &&
       snapshot.competitors.some((c) => c.nationality);
+    const splitChrome = {
+      venue: snapshot.series.venue,
+      ...(snapshot.series.venueLogoUrl ? { leftLogoUrl: snapshot.series.venueLogoUrl } : {}),
+      ...(snapshot.series.eventLogoUrl ? { rightLogoUrl: snapshot.series.eventLogoUrl } : {}),
+      ...(snapshot.series.venueUrl ? { leftUrl: snapshot.series.venueUrl } : {}),
+      ...(snapshot.series.eventUrl ? { rightUrl: snapshot.series.eventUrl } : {}),
+      generatedAt: new Date(),
+      ...(snapshot.series.resultsStatus === 'final'
+        ? {
+            resultsFinal: true,
+            ...(snapshot.series.finalisedAt
+              ? { finalisedAt: new Date(snapshot.series.finalisedAt) }
+              : {}),
+          }
+        : {}),
+      ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
+    };
     const input = {
       seriesName: snapshot.series.name,
       config: splitFleets.config,
@@ -276,12 +298,12 @@ export async function buildFleetHtmlFiles(
       {
         fleetName: 'Championship',
         isDefault: true,
-        html: renderSplitFleetStandingsPage(input, { backHref: seriesIndexUrl }),
+        html: renderSplitFleetStandingsPage(input, splitChrome),
       },
       {
         fleetName: 'Fleet assignments',
         isDefault: false,
-        html: renderSplitFleetAssignmentsPage(input, { backHref: seriesIndexUrl }),
+        html: renderSplitFleetAssignmentsPage(input, splitChrome),
       },
       // The entry list rides along here too. This branch returns early, so
       // the append at the end of the per-fleet path below never runs for a
@@ -292,9 +314,6 @@ export async function buildFleetHtmlFiles(
         : []),
     ];
   }
-  // Publish-time fallback: empty venue/event logo slots inherit the workspace
-  // defaults, so the rendered header and the embedded JSON both carry them.
-  snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
   const {
     series,
     competitors,

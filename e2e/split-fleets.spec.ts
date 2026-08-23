@@ -291,9 +291,13 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   await expect(dialog.getByRole('link', { name: /worlds-26\/who-is-in-what-fleet$/ })).toHaveCount(1);
   const champPath = new URL((await champLink.getAttribute('href')) ?? '').pathname;
 
-  // The public championship page renders the combined qualifying table.
+  // The public championship page renders the combined qualifying table, in the
+  // same shell as every other published page — including the cascade to its
+  // sibling pages, which a hand-rolled document had no way to show (#428).
   await page.goto(champPath);
   await expect(page.getByText('Publish Worlds').first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /Publish Worlds/ }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save as PDF' })).toBeVisible();
   await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
 
   // The event folder lists both pages; assignments shows the round's fleets.

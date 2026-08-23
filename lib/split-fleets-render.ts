@@ -5,7 +5,7 @@
 // HTML strings, no React — mirrors lib/results-renderer.ts conventions.
 
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
-import { renderFlagDefs } from './results-renderer';
+import { renderFlagDefs, renderHtmlDocument, type DocumentChrome } from './results-renderer';
 import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
@@ -72,17 +72,17 @@ export function assembleSplitFleetData(input: SplitFleetRenderInput): SplitFleet
   };
 }
 
-const PAGE_CSS = `body { font: 100% arial, helvetica, sans-serif; max-width: 1000px; margin: 24px auto; padding: 0 16px; color: #222; }
-td.nat { text-align: center; }
-td.nat .flag svg { width: 1.5em; height: 1em; display: block; margin: 0 auto; }
-td.nat .nattext { font-size: 0.75em; letter-spacing: 0.03em; }
-h1 { font-size: 1.4em; margin-bottom: 0.2em; }
-h2 { font-size: 1.05em; margin: 1.4em 0 0.3em; }
-table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
-td, th { padding: 5px 7px; border: 1px solid #ddd; }
-th { background: #f5f5f0; text-align: left; }
-.wrap { overflow-x: auto; }
-footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }`;
+/** Rules these pages need on top of the shared published-page styles: the
+ *  fleet tints and the round cards have no equivalent in the results shell.
+ *  Everything else — the body font, the table look, the Nat cell, the footer —
+ *  comes from `renderHtmlDocument`, so that a championship's pages sit beside
+ *  the competitor list and the standings without looking like another site. */
+const PAGE_CSS = `<style>
+.sfnote { color: #555; font-size: 0.9em; }
+.sfround { margin: 1.5em 0; padding: 1em; border: 1px solid #ddd; border-radius: 8px; text-align: left; }
+.sfround h2 { margin: 0; font-size: 1.05em; }
+.sfround h3 { margin: 0.8em 0 0.2em; font-size: 1em; }
+</style>`;
 
 function showNat(input: SplitFleetRenderInput): boolean {
   return (
@@ -114,6 +114,36 @@ function natCell(
   return `<td class="nat">${flag}<span class="nattext">${esc(code)}</span></td>`;
 }
 
+/** The published-page chrome a caller supplies for these two pages. The same
+ *  fields `renderHtmlDocument` takes, minus the ones the renderers know
+ *  themselves (the series name, and which page this is). */
+export interface SplitFleetPageChrome {
+  venue?: string;
+  leftLogoUrl?: string;
+  rightLogoUrl?: string;
+  leftUrl?: string;
+  rightUrl?: string;
+  generatedAt?: Date;
+  resultsFinal?: boolean;
+  finalisedAt?: Date;
+  /** The event index, rendered as the shell's breadcrumb. */
+  seriesIndexUrl?: string;
+}
+
+function chromeFor(input: SplitFleetRenderInput, opts: SplitFleetPageChrome): DocumentChrome {
+  return {
+    series: { name: input.seriesName, venue: opts.venue ?? '' },
+    ...(opts.leftLogoUrl ? { leftLogoUrl: opts.leftLogoUrl } : {}),
+    ...(opts.rightLogoUrl ? { rightLogoUrl: opts.rightLogoUrl } : {}),
+    ...(opts.leftUrl ? { leftUrl: opts.leftUrl } : {}),
+    ...(opts.rightUrl ? { rightUrl: opts.rightUrl } : {}),
+    generatedAt: opts.generatedAt ?? new Date(0),
+    ...(opts.resultsFinal ? { resultsFinal: true } : {}),
+    ...(opts.finalisedAt ? { finalisedAt: opts.finalisedAt } : {}),
+    ...(opts.seriesIndexUrl ? { seriesIndexUrl: opts.seriesIndexUrl } : {}),
+  };
+}
+
 function flagDefsFor(input: SplitFleetRenderInput): string {
   const codes = [...new Set(input.competitors.map((c) => c.nationality).filter((n): n is string => !!n))].sort();
   return renderFlagDefs(codes, input.flagSvgByCode);
@@ -131,7 +161,7 @@ function fleetTint(config: SplitFleetConfig, label: string | undefined): string 
  *  detect no-op re-publishes. */
 export function renderSplitFleetStandingsPage(
   input: SplitFleetRenderInput,
-  opts: { backHref?: string } = {},
+  opts: SplitFleetPageChrome = {},
 ): string {
   const data = assembleSplitFleetData(input);
   const rows = splitFleetStandings(data);
@@ -195,7 +225,7 @@ export function renderSplitFleetStandingsPage(
         return tr + cut;
       })
       .join('\n');
-    return `<div class="wrap"><table>
+    return `<div class="tablewrap"><table class="summarytable">
 <thead><tr><th>Rank</th>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 ${body}
@@ -219,27 +249,22 @@ ${body}
     sections = table(rows, data.config.finalFleets.length > 1 ? cuts : []);
   }
 
-  const back = opts.backHref
-    ? `<p><a href="${esc(opts.backHref)}">&larr; ${esc(input.seriesName)}</a></p>`
-    : '';
-  return `<!doctype html>
-<html lang="en">
-<head><meta name="viewport" content="width=device-width"><title>${esc(input.seriesName)} — Championship standings</title><style>${PAGE_CSS}</style></head>
-<body>
-${nat ? flagDefsFor(input) : ''}
-${back}
-<h1>${esc(input.seriesName)}</h1>
-${sections}
-<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
-</body>
-</html>
-`;
+  return renderHtmlDocument(
+    { ...chromeFor(input, opts), fleetName: 'Championship' },
+    `${PAGE_CSS}\n${sections}`,
+    {
+      fontPercent: 72,
+      hasNhcDetail: false,
+      hasEchoDetail: false,
+      flagDefs: nat ? flagDefsFor(input) : '',
+    },
+  );
 }
 
 /** The rolling fleet-assignments page: every round, newest first. */
 export function renderSplitFleetAssignmentsPage(
   input: SplitFleetRenderInput,
-  opts: { backHref?: string } = {},
+  opts: SplitFleetPageChrome = {},
 ): string {
   const data = assembleSplitFleetData(input);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
@@ -270,8 +295,8 @@ export function renderSplitFleetAssignmentsPage(
                 }</tr>`,
             )
             .join('\n');
-          return `<h3 style="margin:0.8em 0 0.2em">${esc(fleetName.get(fid) ?? '')} (${members.length})</h3>
-<div class="wrap"><table><thead><tr>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+          return `<h3>${esc(fleetName.get(fid) ?? '')} (${members.length})</h3>
+<div class="tablewrap"><table class="summarytable"><thead><tr>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
         })
         .join('\n');
       const basis = round.basis
@@ -281,30 +306,27 @@ export function renderSplitFleetAssignmentsPage(
           : round.method === 'manual'
             ? 'Initial assignment as supplied by the organising authority.'
             : '';
-      return `<section style="margin:1.5em 0;padding:1em;border:1px solid #ddd;border-radius:8px">
-<h2 style="margin:0">${esc(roundLabel(round))}</h2>
-<p style="color:#555;font-size:0.9em">${esc(basis)}</p>
+      return `<section class="sfround">
+<h2>${esc(roundLabel(round))}</h2>
+<p class="sfnote">${esc(basis)}</p>
 ${fleets}
 </section>`;
     })
     .join('\n');
 
-  const back = opts.backHref
-    ? `<p><a href="${esc(opts.backHref)}">&larr; ${esc(input.seriesName)}</a></p>`
-    : '';
   const note =
-    '<p style="color:#555;font-size:0.9em">Newest assignment first. Assignments are frozen when made; later scoring changes never change a published round.</p>';
-  return `<!doctype html>
-<html lang="en">
-<head><meta name="viewport" content="width=device-width"><title>${esc(input.seriesName)} — Fleet assignments</title><style>${PAGE_CSS}</style></head>
-<body>
-${nat ? flagDefsFor(input) : ''}
-${back}
-<h1>${esc(input.seriesName)} — Fleet assignments</h1>
-${note}
-${sections}
-<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
-</body>
-</html>
-`;
+    '<p class="sfnote">Newest assignment first. Assignments are frozen when made; later scoring changes never change a published round.</p>';
+  const body = sections.trim()
+    ? `${note}\n${sections}`
+    : '<p class="sfnote">No fleets have been assigned yet.</p>';
+  return renderHtmlDocument(
+    { ...chromeFor(input, opts), fleetName: 'Fleet assignments' },
+    `${PAGE_CSS}\n${body}`,
+    {
+      fontPercent: 72,
+      hasNhcDetail: false,
+      hasEchoDetail: false,
+      flagDefs: nat ? flagDefsFor(input) : '',
+    },
+  );
 }
