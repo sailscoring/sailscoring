@@ -631,6 +631,13 @@
       "when": 1787406091549,
       "tag": "0089_mixed_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1787523346244,
+      "tag": "0090_noisy_magma",
+      "breakpoints": true
     }
   ]
 }

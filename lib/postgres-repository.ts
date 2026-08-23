@@ -34,6 +34,7 @@ import type {
   LogoClass,
   LogoDefaults,
   NhcProfile,
+  OrcProfile,
   PenaltyCode,
   Race,
   RaceStart,
@@ -145,6 +146,7 @@ function fleetRowToType(row: FleetRow): Fleet {
     scoringSystem: row.scoringSystem as Fleet['scoringSystem'],
     ...(row.echoAlpha != null ? { echoAlpha: row.echoAlpha } : {}),
     ...(row.nhcProfile != null ? { nhcProfile: row.nhcProfile } : {}),
+    ...(row.orcProfile != null ? { orcProfile: row.orcProfile } : {}),
     ...(row.splitRoundId != null ? { splitRoundId: row.splitRoundId } : {}),
     version: row.version,
   };
@@ -184,6 +186,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.pyNumber != null ? { pyNumber: row.pyNumber } : {}),
     ...(row.nhcStartingTcf != null ? { nhcStartingTcf: row.nhcStartingTcf } : {}),
     ...(row.echoStartingTcf != null ? { echoStartingTcf: row.echoStartingTcf } : {}),
+    ...(row.orcCert != null ? { orcCert: row.orcCert } : {}),
     version: row.version,
   };
 }
@@ -752,12 +755,13 @@ function fleetToRow(f: Fleet, workspaceId: string) {
     scoringSystem: f.scoringSystem,
     echoAlpha: f.echoAlpha ?? null,
     nhcProfile: f.nhcProfile ?? null,
+    orcProfile: f.orcProfile ?? null,
     splitRoundId: f.splitRoundId ?? null,
   };
 }
 
 const fleetUpdateColumns = [
-  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile', 'splitRoundId',
+  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile', 'orcProfile', 'splitRoundId',
 ] as const satisfies readonly (keyof ReturnType<typeof fleetToRow>)[];
 
 export class PostgresFleetRepository implements FleetRepository {
@@ -873,6 +877,7 @@ export class PostgresFleetRepository implements FleetRepository {
       scoringSystem?: Fleet['scoringSystem'];
       echoAlpha?: number;
       nhcProfile?: NhcProfile;
+      orcProfile?: OrcProfile;
       updatedBy?: string;
     },
   ): Promise<string> {
@@ -942,6 +947,10 @@ export class PostgresFleetRepository implements FleetRepository {
           scoringSystem === 'nhc' && options?.nhcProfile
             ? options.nhcProfile
             : null,
+        orcProfile:
+          scoringSystem === 'orc' && options?.orcProfile
+            ? options.orcProfile
+            : null,
         updatedBy: options?.updatedBy ?? null,
       });
       return id;
@@ -982,6 +991,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     pyNumber: c.pyNumber ?? null,
     nhcStartingTcf: c.nhcStartingTcf ?? null,
     echoStartingTcf: c.echoStartingTcf ?? null,
+    orcCert: c.orcCert ?? null,
   };
 }
 
@@ -990,7 +1000,7 @@ const competitorUpdateColumns = [
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
-  'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',
+  'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
 
 export class PostgresCompetitorRepository implements CompetitorRepository {

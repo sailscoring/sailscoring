@@ -1,5 +1,6 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
 import { getCodeDefinition } from './scoring-codes';
+import { orcTotRating } from './orc-certificate';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
 
@@ -269,6 +270,9 @@ export function calculateRaceScores(
  * IRC:  TCF = TCC (stored directly on the competitor).
  * VPRS: TCF = TCC (same static time-on-time shape as IRC).
  * PY:   TCF = 1000 / pyNumber.
+ * ORC:  the fleet's configured time-on-time rating field, read off the
+ *       stored certificate (default APHT — ToT ratings are 600/ToD, so a
+ *       TCF-shaped multiplier just like a TCC).
  * Returns null if the competitor has no rating for the fleet's scoring system.
  */
 /**
@@ -306,6 +310,9 @@ function getTCF(competitor: Competitor, fleet: Fleet): number | null {
   }
   if (fleet.scoringSystem === 'py') {
     return competitor.pyNumber != null ? 1000 / competitor.pyNumber : null;
+  }
+  if (fleet.scoringSystem === 'orc') {
+    return orcTotRating(competitor, fleet);
   }
   return null;
 }

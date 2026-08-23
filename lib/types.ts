@@ -391,12 +391,90 @@ export interface Series {
   version?: number;
 }
 
+/**
+ * One ORC certificate's `rms` record as served by the ORC database, stored
+ * verbatim — the certificate is the rating, and modelling every field would
+ * only lose information. Only the identity and headline-rating fields the
+ * app reads are typed; the rest (hull data, the ~250 national scoring-option
+ * fields, the time-allowance matrix) rides along untouched and is read by
+ * field name where needed (see lib/orc-certificate.ts).
+ */
+export interface OrcRmsRecord {
+  RefNo?: string;
+  NatAuth?: string;
+  CertNo?: string;
+  SailNo?: string;
+  YachtName?: string;
+  Class?: string;
+  Builder?: string;
+  Designer?: string;
+  /** Certificate type: INTL / CLUB (standard), NSIN / NSCL, DHIN / DHCL. */
+  C_Type?: string;
+  /** Certificate family: 'ORC' (standard), 'NS', or 'DH'. */
+  Family?: string;
+  IssueDate?: string;
+  LOA?: number;
+  CDL?: number;
+  GPH?: number;
+  APHD?: number;
+  APHT?: number;
+  OSN?: number;
+  ILCWA?: number;
+  TMF_Inshore?: number;
+  TMF_Offshore?: number;
+  Allowances?: OrcAllowances;
+  [key: string]: unknown;
+}
+
+/**
+ * The certificate's time-allowance matrix: seconds per nautical mile at each
+ * tabulated true wind speed, per true wind angle column (`R52` … `R150`),
+ * plus optimum beat/run VMG allowances and their angles, and the
+ * pre-composed course rows (windward/leeward, circular random, ocean).
+ * Every array is indexed by `WindSpeeds`.
+ */
+export interface OrcAllowances {
+  WindSpeeds?: number[];
+  WindAngles?: number[];
+  Beat?: number[];
+  Run?: number[];
+  BeatAngle?: number[];
+  GybeAngle?: number[];
+  WL?: number[];
+  CR?: number[];
+  OC?: number[];
+  [key: string]: unknown;
+}
+
+/** An ORC certificate as stored on a competitor: the verbatim record plus
+ *  the index fields only the database's `activecerts` feed carries. */
+export interface OrcCertData {
+  record: OrcRmsRecord;
+  /** ISO date the certificate expires (normally 31 Dec of the VPP year). */
+  expiryDate?: string;
+  vppYear?: number;
+  /** When the scorer imported it (epoch ms). */
+  importedAt: number;
+}
+
+/**
+ * How an ORC fleet is scored: which certificate-published rating field
+ * applies (by its JSON field name, e.g. 'APHT' or 'IRL_5B_WL_M_TOT') and
+ * how — time-on-time (CT = rating × ET) or time-on-distance
+ * (CT = ET − Δrating × distance). Absent means the default: 'APHT'
+ * time-on-time, the all-purpose single number.
+ */
+export interface OrcProfile {
+  option: string;
+  kind: 'tot' | 'tod';
+}
+
 export interface Fleet {
   id: string;
   seriesId: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
   echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
   // Inline (unshared) NHC profile override. Present iff scoringSystem === 'nhc'
   // AND the scorer has customised the parameters away from the SWNHC2015
@@ -406,6 +484,10 @@ export interface Fleet {
   // (see docs/design/horizon.md); the inline shape is forward-compatible with
   // that migration.
   nhcProfile?: NhcProfile;
+  // ORC scoring configuration. Present iff scoringSystem === 'orc' AND the
+  // scorer has picked a rating option other than the default (APHT
+  // time-on-time). See OrcProfile.
+  orcProfile?: OrcProfile;
   // The split round that created this fleet (round-scoped identity: a
   // round-1 "Yellow" is a different fleet from a round-2 "Yellow").
   // Round-owned fleets are filtered from general-purpose fleet pickers —
@@ -484,6 +566,11 @@ export interface Competitor {
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
   echoStartingTcf?: number; // initial TCF for ECHO fleets; required for ECHO competitors
+  // The boat's ORC certificate, stored verbatim as imported from the ORC
+  // database; required for ORC competitors. Scoring reads rating fields off
+  // the record per the fleet's OrcProfile. Kept out of the public JSON
+  // export (only a summary travels — see lib/public-export.ts).
+  orcCert?: OrcCertData;
   version?: number;         // server-side concurrency token (see Series.version)
 }
 

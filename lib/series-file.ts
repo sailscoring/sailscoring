@@ -11,6 +11,8 @@ import type {
   PrimaryPersonLabel,
   StartGroup,
   NhcProfile,
+  OrcCertData,
+  OrcProfile,
   TcfRecord,
   SubdivisionAxis,
   RaceConditions,
@@ -313,9 +315,17 @@ export interface SeriesFileRepos {
  *  the medal fleet rather than adding steps behind it. `splitFleets.config`
  *  travels verbatim, so no parser change — but an older build reading one
  *  drops the field and settles those ties under A8, which is the wrong
- *  answer to the question that decides the championship. */
-export const FORMAT_VERSION = 38;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38];
+ *  answer to the question that decides the championship.
+ *
+ *  v39 adds the `orc` fleet scoring system (with optional
+ *  `fleets[*].orcProfile` — which certificate rating field scores the fleet,
+ *  time-on-time or time-on-distance) and `competitors[*].orcCert` — the
+ *  boat's ORC certificate stored verbatim. An older build reading a v39 file
+ *  would drop the certificates and refuse the fleet system, losing the
+ *  ratings entirely, so this is a hard bump rather than a sparse-field
+ *  ride-along. */
+export const FORMAT_VERSION = 39;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -351,12 +361,15 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
   echoAlpha?: number; // present iff scoringSystem === 'echo'
   // Inline NHC profile override (per-fleet). Present iff scoringSystem === 'nhc'
   // AND parameters differ from the SWNHC2015 defaults; absent means "use
   // DEFAULT_NHC_PROFILE". Additive optional field — older parsers ignore it.
   nhcProfile?: NhcProfile;
+  // v39+: which ORC certificate rating field scores the fleet; absent means
+  // the APHT time-on-time default.
+  orcProfile?: OrcProfile;
 }
 
 interface SeriesFileSeries {
@@ -435,6 +448,7 @@ interface SeriesFileCompetitor {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
+  orcCert?: OrcCertData;  // v39+: the boat's ORC certificate, verbatim
 }
 
 /** v19–v30 recorded only "this row was entered by bow number"; v31 records
@@ -683,6 +697,7 @@ export async function buildSeriesFile(
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
+      ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
     })),
     series: {
       id: series.id,
@@ -763,6 +778,7 @@ export async function buildSeriesFile(
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
+      ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
@@ -1632,6 +1648,7 @@ async function writeFleetsCompetitorsRaces(
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
+      ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
     })),
   );
 
@@ -1672,6 +1689,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
+        ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
       };
     }),
   );

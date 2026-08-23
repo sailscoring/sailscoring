@@ -11,7 +11,16 @@ export const scoringSystemSchema = z.enum([
   'nhc',
   'echo',
   'vprs',
+  'orc',
 ]);
+
+// ORC scoring configuration: which certificate rating field the fleet scores
+// on, applied time-on-time or time-on-distance. The field name is validated
+// as shape only — which names exist is certificate data, not code.
+export const orcProfileSchema = z.object({
+  option: z.string().min(1).max(64),
+  kind: z.enum(['tot', 'tod']),
+});
 
 // Inline NHC profile (per-fleet override of the stock SWNHC2015 parameters).
 // All seven numeric parameters are validated to the ranges the algorithm
@@ -37,6 +46,7 @@ export const fleetSchema = z.object({
   scoringSystem: scoringSystemSchema,
   echoAlpha: z.number().optional(),
   nhcProfile: nhcProfileSchema.optional(),
+  orcProfile: orcProfileSchema.optional(),
   // Server-set at round commit; accepted here so a client save round-trips
   // it rather than stripping the marker off a renamed round fleet.
   splitRoundId: uuidSchema.optional(),
@@ -57,6 +67,7 @@ export const ensureFleetInputSchema = z.object({
   scoringSystem: scoringSystemSchema.optional(),
   echoAlpha: z.number().optional(),
   nhcProfile: nhcProfileSchema.optional(),
+  orcProfile: orcProfileSchema.optional(),
 });
 
 const _fleetFromZod: Fleet = undefined as unknown as z.infer<typeof fleetSchema>;

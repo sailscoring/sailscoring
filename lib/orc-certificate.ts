@@ -26,6 +26,10 @@
  * any event (rule 303.2).
  */
 
+import type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord } from './types';
+
+export type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord };
+
 /** DownRMS `Family` parameter values (the JSON records carry the same codes). */
 export type OrcFamily = 'ORC' | 'NS' | 'DH';
 
@@ -59,58 +63,6 @@ export function orcCertificatePageUrl(refNo: string): string {
   return `${ORC_DATA_BASE}/CC/${encodeURIComponent(refNo)}`;
 }
 
-/**
- * One certificate's `rms` record, as served. Only the fields the app reads
- * are typed; everything else (hull data, the ~250 national scoring-option
- * fields) rides along untyped and untouched — the record is stored verbatim
- * and scoring reads rating fields by name via `orcRecordNumber`.
- */
-export interface OrcRmsRecord {
-  RefNo?: string;
-  NatAuth?: string;
-  CertNo?: string;
-  SailNo?: string;
-  YachtName?: string;
-  Class?: string;
-  Builder?: string;
-  Designer?: string;
-  /** Certificate type: INTL / CLUB (standard), NSIN / NSCL, DHIN / DHCL. */
-  C_Type?: string;
-  Family?: string;
-  IssueDate?: string;
-  LOA?: number;
-  CDL?: number;
-  GPH?: number;
-  APHD?: number;
-  APHT?: number;
-  OSN?: number;
-  ILCWA?: number;
-  TMF_Inshore?: number;
-  TMF_Offshore?: number;
-  Allowances?: OrcAllowances;
-  [key: string]: unknown;
-}
-
-/**
- * The certificate's time-allowance matrix: seconds per nautical mile at each
- * of the tabulated true wind speeds, per true wind angle column (`R52` …
- * `R150`), plus optimum beat/run VMG allowances and their angles, and the
- * pre-composed course rows (windward/leeward, circular random, ocean).
- * Every array is indexed by `WindSpeeds`.
- */
-export interface OrcAllowances {
-  WindSpeeds?: number[];
-  WindAngles?: number[];
-  Beat?: number[];
-  Run?: number[];
-  BeatAngle?: number[];
-  GybeAngle?: number[];
-  WL?: number[];
-  CR?: number[];
-  OC?: number[];
-  [key: string]: unknown;
-}
-
 /** One entry of the payload's `ScoringOptions` catalog: which rating fields
  *  exist, what each is called, and how it is applied. */
 export interface OrcScoringOption {
@@ -120,17 +72,6 @@ export interface OrcScoringOption {
   Kind?: 'TOD' | 'TOT' | 'PCS';
   Fieldname?: string;
   Name?: string;
-}
-
-/** A certificate as stored on a competitor: the verbatim record plus the
- *  index fields that only the `activecerts` feed carries. */
-export interface OrcCertData {
-  record: OrcRmsRecord;
-  /** ISO date the certificate expires (normally 31 Dec of the VPP year). */
-  expiryDate?: string;
-  vppYear?: number;
-  /** When the scorer imported it (epoch ms). */
-  importedAt: number;
 }
 
 export interface OrcCertEntry {
@@ -153,6 +94,30 @@ export interface OrcCertListing {
 export function orcRecordNumber(record: OrcRmsRecord, field: string): number | undefined {
   const v = record[field];
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+/** The rating option an ORC fleet scores on when none is configured:
+ *  all-purpose time-on-time — operationally the IRC-equivalent path. */
+export const DEFAULT_ORC_PROFILE: OrcProfile = { option: 'APHT', kind: 'tot' };
+
+export function orcFleetProfile(fleet: { orcProfile?: OrcProfile }): OrcProfile {
+  return fleet.orcProfile ?? DEFAULT_ORC_PROFILE;
+}
+
+/**
+ * The time-on-time rating (a TCF-shaped multiplier: CT = rating × ET) an ORC
+ * competitor scores on under `fleet`'s profile. Null when the fleet's option
+ * is not time-on-time, or the competitor holds no certificate, or the
+ * certificate lacks the field.
+ */
+export function orcTotRating(
+  competitor: { orcCert?: OrcCertData },
+  fleet: { orcProfile?: OrcProfile },
+): number | null {
+  const profile = orcFleetProfile(fleet);
+  if (profile.kind !== 'tot') return null;
+  if (!competitor.orcCert) return null;
+  return orcRecordNumber(competitor.orcCert.record, profile.option) ?? null;
 }
 
 /**
@@ -289,4 +254,61 @@ export function isOrcCertExpired(cert: { expiryDate?: string }, now: number): bo
  *  distinct value is a warning at import time. */
 export function orcVppYears(certs: Array<{ vppYear?: number }>): number[] {
   return [...new Set(certs.map((c) => c.vppYear).filter((y): y is number => y != null))].sort();
+}
+
+/**
+ * The compact certificate summary carried in the public JSON export in place
+ * of the full document: identity, the headline single numbers, and the
+ * class-division sort keys. Enough to display and to score the single-number
+ * time-on-time/time-on-distance options on re-import; the matrix and the
+ * national options need the certificate itself.
+ */
+export interface OrcCertSummary {
+  refNo?: string;
+  family?: string;
+  certType?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  vppYear?: number;
+  cdl?: number;
+  gph?: number;
+  aphd?: number;
+  apht?: number;
+}
+
+export function orcCertSummary(cert: OrcCertData): OrcCertSummary {
+  const r = cert.record;
+  return {
+    ...(r.RefNo ? { refNo: r.RefNo } : {}),
+    ...(r.Family ? { family: r.Family } : {}),
+    ...(r.C_Type ? { certType: r.C_Type } : {}),
+    ...(r.IssueDate ? { issueDate: r.IssueDate } : {}),
+    ...(cert.expiryDate ? { expiryDate: cert.expiryDate } : {}),
+    ...(cert.vppYear != null ? { vppYear: cert.vppYear } : {}),
+    ...(r.CDL != null ? { cdl: r.CDL } : {}),
+    ...(r.GPH != null ? { gph: r.GPH } : {}),
+    ...(r.APHD != null ? { aphd: r.APHD } : {}),
+    ...(r.APHT != null ? { apht: r.APHT } : {}),
+  };
+}
+
+/** Rebuild a (partial) stored certificate from an export summary — the
+ *  re-import degrades to the headline numbers rather than losing the rating
+ *  entirely. */
+export function orcCertFromSummary(summary: OrcCertSummary, importedAt: number): OrcCertData {
+  return {
+    record: {
+      ...(summary.refNo ? { RefNo: summary.refNo } : {}),
+      ...(summary.family ? { Family: summary.family } : {}),
+      ...(summary.certType ? { C_Type: summary.certType } : {}),
+      ...(summary.issueDate ? { IssueDate: summary.issueDate } : {}),
+      ...(summary.cdl != null ? { CDL: summary.cdl } : {}),
+      ...(summary.gph != null ? { GPH: summary.gph } : {}),
+      ...(summary.aphd != null ? { APHD: summary.aphd } : {}),
+      ...(summary.apht != null ? { APHT: summary.apht } : {}),
+    },
+    ...(summary.expiryDate ? { expiryDate: summary.expiryDate } : {}),
+    ...(summary.vppYear != null ? { vppYear: summary.vppYear } : {}),
+    importedAt,
+  };
 }

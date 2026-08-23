@@ -339,6 +339,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       {(has('vprs') || fleet.scoringSystem === 'vprs') && (
                         <SelectItem value="vprs">VPRS</SelectItem>
                       )}
+                      {/* ORC is experimental/gated; still offer it for a fleet
+                          that already uses it if a workspace opts out. */}
+                      {(has('orc') || fleet.scoringSystem === 'orc') && (
+                        <SelectItem value="orc">ORC</SelectItem>
+                      )}
                       <SelectItem value="nhc">NHC</SelectItem>
                       {/* ECHO is experimental/gated (#155); still offer it for a
                           fleet that already uses it so the control isn't broken. */}

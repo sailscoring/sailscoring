@@ -1835,7 +1835,7 @@ export function assembleSeriesResultsData(
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
     /** When set (NHC fleets only), per-race aggregates that drive the
      *  rating-calculation fleet header line above each race table and the
      *  per-row explainability columns. Pass undefined to suppress the
@@ -1869,7 +1869,7 @@ export function assembleSeriesResultsData(
   },
 ): SeriesResultsData {
   const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
-  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
+  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
 
@@ -1909,7 +1909,10 @@ export function assembleSeriesResultsData(
         } else if (scoringSystem === 'py') {
           tcc = score.tcfApplied
             ?? (competitor.pyNumber != null && competitor.pyNumber > 0 ? 1000 / competitor.pyNumber : undefined);
-        } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo') && score.tcfApplied != null) {
+        } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc') && score.tcfApplied != null) {
+          // ORC: the applied rating depends on the fleet's configured
+          // certificate option, which the engine resolved — there is no
+          // meaningful competitor-level fallback here.
           tcc = score.tcfApplied;
         }
         if (tcc != null && score.finishTime) {

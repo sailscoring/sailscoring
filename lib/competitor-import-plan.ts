@@ -44,7 +44,10 @@
 
 import type { Fleet } from './types';
 
-export type RatingSystem = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+// 'orc' appears here for fleet-reuse only: an existing ORC fleet can be the
+// target of an import, but certificates never arrive by CSV, so no CSV
+// column ever presents the system.
+export type RatingSystem = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
 export type ScoringSystem = RatingSystem | 'scratch';
 
 /**
@@ -94,6 +97,7 @@ const SYSTEM_SUFFIX: Record<ScoringSystem, string> = {
   py: 'PY',
   nhc: 'NHC',
   echo: 'ECHO',
+  orc: 'ORC',
 };
 
 /** Default fleet name used when a row has no fleet column value at all. */

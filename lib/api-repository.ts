@@ -890,6 +890,9 @@ export interface HandicapUpdateRow {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
+  /** The whole certificate, written by the ORC source — an ORC rating is a
+   *  document, not a number. */
+  orcCert?: import('./types').OrcCertData;
   /** Canonical class name to write — the RYA PY source normalises a boat's
    *  class to the register spelling alongside its PY number. */
   boatClass?: string;
@@ -977,9 +980,10 @@ export async function ensureFleet(
   seriesId: string,
   name: string,
   options?: {
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
     echoAlpha?: number;
     nhcProfile?: import('./types').NhcProfile;
+    orcProfile?: import('./types').OrcProfile;
   },
 ): Promise<string> {
   const { fleetId } = await apiFetch<{ fleetId: string }>(

@@ -462,6 +462,7 @@ export async function copySeries(
           scoringSystem: f.scoringSystem,
           echoAlpha: f.echoAlpha ?? null,
           nhcProfile: f.nhcProfile ?? null,
+          orcProfile: f.orcProfile ?? null,
         })),
       );
     }
@@ -492,6 +493,7 @@ export async function copySeries(
           pyNumber: c.pyNumber ?? null,
           nhcStartingTcf: c.nhcStartingTcf ?? null,
           echoStartingTcf: c.echoStartingTcf ?? null,
+          orcCert: c.orcCert ?? null,
         })),
       );
     }
@@ -854,6 +856,7 @@ export async function createFollowOnSeries(
       pyNumber: c.pyNumber ?? null,
       nhcStartingTcf: nhcSeed ?? c.nhcStartingTcf ?? null,
       echoStartingTcf: echoSeed ?? c.echoStartingTcf ?? null,
+      orcCert: c.orcCert ?? null,
     };
   });
 
@@ -927,6 +930,7 @@ export async function createFollowOnSeries(
           scoringSystem: f.scoringSystem,
           echoAlpha: f.echoAlpha ?? null,
           nhcProfile: f.nhcProfile ?? null,
+          orcProfile: f.orcProfile ?? null,
         })),
       );
     }

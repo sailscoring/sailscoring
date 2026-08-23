@@ -16,6 +16,7 @@ import {
   type CompetitorListRow,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
+import { orcTotRating } from './orc-certificate';
 import {
   resolvePublishingGroups,
   fleetPagesSuppressed,
@@ -525,6 +526,9 @@ export async function buildFleetHtmlFiles(
             } else if (fleet.scoringSystem === 'py') {
               const py = overrideByComp.get(c.id) ?? c.pyNumber;
               if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
+            } else if (fleet.scoringSystem === 'orc') {
+              const rating = orcTotRating(c, fleet);
+              if (rating != null) tcfMap.set(c.id, rating);
             }
           }
           const ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));

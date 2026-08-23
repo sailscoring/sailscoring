@@ -259,6 +259,10 @@ function systemForFleet(fleet: Fleet): HandicapSystem | null {
       return fleet.scoringSystem;
     case 'scratch':
       return null;
+    case 'orc':
+      // ORC ratings are whole certificates from the ORC database source, not
+      // numbers the generic rating-list planners can propose.
+      return null;
   }
 }
 

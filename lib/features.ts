@@ -132,6 +132,15 @@ export const FEATURES = {
     label: 'VPRS scoring',
     helpSectionIds: ['update-handicaps-vprs'],
   },
+  orc: {
+    // Gates the ORC scoring system *and* the ORC certificate-database source
+    // in the Update-handicaps dialog. Opt-in (default off): new and being
+    // proven against the HYC Autumn League before any wider audience, per the
+    // containment model. Help sections arrive with the published-transparency
+    // milestone.
+    label: 'ORC scoring',
+    helpSectionIds: [],
+  },
   'results-status': {
     // The results lifecycle (Provisional vs Final): per-race last-finisher
     // times with computed protest time limits, the finalise checklist on the

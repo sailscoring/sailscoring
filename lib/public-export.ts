@@ -27,6 +27,7 @@ import type {
   SeriesRepository,
   SubSeriesRepository,
 } from './repository';
+import { orcCertFromSummary, orcCertSummary } from './orc-certificate';
 import { hasConditions } from './race-conditions';
 import { isOfficialRole, namedOfficials } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
@@ -189,11 +190,13 @@ export interface PublicSeriesExport {
   fleets: {
     name: string;
     displayOrder: number;
-    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
     /** ECHO blend rate α (present iff scoringSystem === 'echo'). */
     echoAlpha?: number;
     /** Inline NHC profile (present iff scoringSystem === 'nhc' and parameters differ from SWNHC2015 defaults). */
     nhcProfile?: import('./types').NhcProfile;
+    /** ORC rating option (present iff scoringSystem === 'orc' and not the APHT default). */
+    orcProfile?: import('./types').OrcProfile;
   }[];
   competitors: {
     sailNumber: string;
@@ -252,6 +255,10 @@ export interface PublicSeriesExport {
     nhcStartingTcf?: number;
     /** ECHO starting handicap (race-1 input). */
     echoStartingTcf?: number;
+    /** ORC certificate summary. The full certificate deliberately stays out
+     *  of the export (published pages embed this JSON); re-import rebuilds a
+     *  partial certificate from the summary. */
+    orc?: import('./orc-certificate').OrcCertSummary;
   }[];
   races: {
     raceNumber: number;
@@ -862,6 +869,7 @@ export function buildPublicExportFromSnapshot(
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
+      ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
     })),
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
@@ -893,6 +901,7 @@ export function buildPublicExportFromSnapshot(
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
+      ...(c.orcCert != null ? { orc: orcCertSummary(c.orcCert) } : {}),
     })),
     races: exportedRaces,
     standings: exportedStandings,
@@ -1158,6 +1167,7 @@ export async function importPublicExport(
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
+        ...(c.orc != null ? { orcCert: orcCertFromSummary(c.orc, now) } : {}),
       });
     }),
   );
