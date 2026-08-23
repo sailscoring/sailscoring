@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ROOT>
+  <DATA>
+<ROW RowNum="32">
+      <Family>1</Family>
+      <CountryId>IRL</CountryId>
+      <dxtID>238791</dxtID>
+      <RefNo>051800048F1</RefNo>
+      <dxtDate>2026-02-04T21:57:50.000Z</dxtDate>
+      <dxtName>IRL1551.dxt</dxtName>
+      <YachtName>MOJO</YachtName>
+      <SailNo>IRL-1551</SailNo>
+      <VPPYear>2026</VPPYear>
+      <CertType>2</CertType>
+      <Expiry>2026-12-31T00:00:00.000Z</Expiry>
+      <IsOd>True</IsOd>
+      <Class>J 80</Class>
+      <CertName>International</CertName>
+      <FamilyName>ORC Standard</FamilyName>
+    </ROW>
+<ROW RowNum="38">
+      <Family>1</Family>
+      <CountryId>IRL</CountryId>
+      <dxtID>238789</dxtID>
+      <RefNo>051800048EW</RefNo>
+      <dxtDate>2026-02-04T21:54:31.000Z</dxtDate>
+      <dxtName>IRL7495.dxt</dxtName>
+      <YachtName>MAXIMUS</YachtName>
+      <SailNo>IRL7495</SailNo>
+      <VPPYear>2026</VPPYear>
+      <CertType>3</CertType>
+      <Expiry>2026-12-31T00:00:00.000Z</Expiry>
+      <IsOd>False</IsOd>
+      <Class>X-302</Class>
+      <CertName>Club</CertName>
+      <FamilyName>ORC Standard</FamilyName>
+    </ROW>
+<ROW RowNum="62">
+      <Family>1</Family>
+      <CountryId>IRL</CountryId>
+      <dxtID>262457</dxtID>
+      <RefNo>05180004WJU</RefNo>
+      <dxtDate>2026-08-19T13:08:30.000Z</dxtDate>
+      <dxtName>IRL4115.dxt</dxtName>
+      <YachtName>JAMBALYA</YachtName>
+      <SailNo>IRL 4263</SailNo>
+      <VPPYear>2026</VPPYear>
+      <CertType>2</CertType>
+      <Expiry>2026-12-31T00:00:00.000Z</Expiry>
+      <IsOd>True</IsOd>
+      <Class>J 24</Class>
+      <CertName>International</CertName>
+      <FamilyName>ORC Standard</FamilyName>
+    </ROW>
+<ROW RowNum="68">
+      <Family>1</Family>
+      <CountryId>IRL</CountryId>
+      <dxtID>238793</dxtID>
+      <RefNo>051800048F3</RefNo>
+      <dxtDate>2026-02-04T22:02:24.000Z</dxtDate>
+      <dxtName>IRL1972.dxt</dxtName>
+      <YachtName>NO EXCUSE</YachtName>
+      <SailNo>IRL1972</SailNo>
+      <VPPYear>2026</VPPYear>
+      <CertType>3</CertType>
+      <Expiry>2026-12-31T00:00:00.000Z</Expiry>
+      <IsOd>False</IsOd>
+      <Class>X-302 MK II</Class>
+      <CertName>Club</CertName>
+      <FamilyName>ORC Standard</FamilyName>
+    </ROW>
+<ROW RowNum="76">
+      <Family>1</Family>
+      <CountryId>IRL</CountryId>
+      <dxtID>238979</dxtID>
+      <RefNo>051800048LU</RefNo>
+      <dxtDate>2026-02-05T17:20:11.000Z</dxtDate>
+      <dxtName>IRL2507.dxt</dxtName>
+      <YachtName>IMPETUOUS</YachtName>
+      <SailNo>IRL 2507</SailNo>
+      <VPPYear>2026</VPPYear>
+      <CertType>3</CertType>
+      <Expiry>2026-12-31T00:00:00.000Z</Expiry>
+      <IsOd>False</IsOd>
+      <Class>CORBY 25</Class>
+      <CertName>Club</CertName>
+      <FamilyName>ORC Standard</FamilyName>
+    </ROW>
+  </DATA>
+</ROOT>
