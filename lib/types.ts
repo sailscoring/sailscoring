@@ -879,6 +879,10 @@ export interface PublishedSeriesPage {
   // it can recognise it: its fleet name may be the synthetic "Default" or
   // "Unknown", so the name is not a reliable handle.
   isDefault?: boolean;
+  // A supporting page that is not a fleet's results — a split-fleet series'
+  // fleet assignments. Listings label it by its own name and never count it
+  // when deciding whether a publication has a lone results page.
+  isAuxiliary?: boolean;
   // Published at race-results detail (#347). Lets a listing call a lone page
   // "Results" rather than "Standings"; the page itself carries no summary.
   // Sparse — absent on every full-detail page, and on prize sheets.

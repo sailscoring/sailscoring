@@ -98,6 +98,10 @@ export interface FleetHtmlFile {
   /** Set on the competitor-list page (#423); `fleetName` is then "Entries".
    *  The only page a series with no races yet can publish. */
   isEntryList?: boolean;
+  /** Set on a supporting page that is not a fleet's results and has no flag of
+   *  its own — a split-fleet series' fleet assignments. Keeps listings from
+   *  labelling it as the publication's standings. */
+  isAuxiliary?: boolean;
   html: string;
 }
 
@@ -303,6 +307,7 @@ export async function buildFleetHtmlFiles(
       {
         fleetName: 'Fleet assignments',
         isDefault: false,
+        isAuxiliary: true,
         html: renderSplitFleetAssignmentsPage(input, splitChrome),
       },
       // The entry list rides along here too. This branch returns early, so

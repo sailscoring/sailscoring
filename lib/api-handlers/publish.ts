@@ -427,7 +427,10 @@ export async function publishSeries(
         ...(file.isPrizes ? { isPrizes: true } : {}),
         ...(file.isEntryList ? { isEntryList: true } : {}),
         ...(file.isDefault ? { isDefault: true } : {}),
-        ...(raceResults && !file.isPrizes && !file.isEntryList ? { isRaceResults: true } : {}),
+        ...(file.isAuxiliary ? { isAuxiliary: true } : {}),
+        ...(raceResults && !file.isPrizes && !file.isEntryList && !file.isAuxiliary
+          ? { isRaceResults: true }
+          : {}),
         subPath,
         blobUrl,
       };

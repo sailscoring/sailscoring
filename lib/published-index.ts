@@ -107,6 +107,8 @@ export interface SeriesIndexPage {
   isPrizes?: boolean;
   /** The competitor list (#423) — likewise labelled by its own name. */
   isEntryList?: boolean;
+  /** Any other supporting page — a split-fleet series' fleet assignments. */
+  isAuxiliary?: boolean;
   /** Published at race-results detail (#347) — a lone page then reads
    *  "Results", since there are no standings on it. */
   isRaceResults?: boolean;
@@ -118,8 +120,14 @@ export interface SeriesIndexPage {
  *  own names in every listing, and never count towards "does this publication
  *  have exactly one results page", which is what decides whether that page is
  *  labelled "Standings" instead of by its fleet. */
-export function isAuxiliaryPage(page: { isPrizes?: boolean; isEntryList?: boolean }): boolean {
-  return page.isPrizes === true || page.isEntryList === true;
+export function isAuxiliaryPage(page: {
+  isPrizes?: boolean;
+  isEntryList?: boolean;
+  isAuxiliary?: boolean;
+}): boolean {
+  // `isAuxiliary` is the general marker; the two named flags predate it and
+  // are still what already-published rows carry.
+  return page.isAuxiliary === true || page.isPrizes === true || page.isEntryList === true;
 }
 
 /** What a publication's lone results page is called: its standings, or — for a

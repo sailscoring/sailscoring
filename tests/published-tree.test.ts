@@ -167,6 +167,19 @@ describe('leafLabel', () => {
     expect(leafLabel(pages[0], pages, true)).toBe('Standings');
   });
 
+  it('keeps the fleet-assignments name when it is the only page left', () => {
+    // A championship whose scorer withheld the standings publishes its
+    // assignments page and its entry list. Neither is a fleet's results, so
+    // neither may be relabelled "Standings" — and the assignments page has no
+    // flag of its own, which is what `isAuxiliary` is for.
+    const pages: TreePage[] = [
+      { fleetName: 'Fleet assignments', isAuxiliary: true, subPath: 'fleet-assignments', ownerSingle: true },
+      { fleetName: 'Entries', isEntryList: true, subPath: 'entries', ownerSingle: true },
+    ];
+    expect(leafLabel(pages[0], pages, true)).toBe('Fleet assignments');
+    expect(leafLabel(pages[1], pages, true)).toBe('Entries');
+  });
+
   it('reads a single-race event\'s lone page as "Results" (#347)', () => {
     const pages: TreePage[] = [
       { fleetName: 'Default', subPath: 'results', isRaceResults: true, ownerSingle: true },
