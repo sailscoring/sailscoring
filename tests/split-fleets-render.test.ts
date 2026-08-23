@@ -173,6 +173,16 @@ describe('split-fleet pages use the standard published-page look', () => {
     });
   }
 
+  it('stripes its rows like every other published table', () => {
+    // The shell paints `.odd`/`.even`; without those classes the tables came
+    // out flat white beside the competitor list and the standings.
+    for (const render of [renderSplitFleetStandingsPage, renderSplitFleetAssignmentsPage]) {
+      const html = render(renderInputFor(FIXTURE), chrome);
+      expect(html).toContain('<tr class="odd summaryrow"');
+      expect(html).toContain('<tr class="even summaryrow"');
+    }
+  });
+
   it('says so when no fleets have been assigned yet', () => {
     const html = renderSplitFleetAssignmentsPage({ ...renderInputFor(FIXTURE), rounds: [] }, chrome);
     expect(html).toContain('No fleets have been assigned yet.');

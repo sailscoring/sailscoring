@@ -209,7 +209,7 @@ export function renderSplitFleetStandingsPage(
         const medal = row.medal
           ? ' <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span>'
           : '';
-        const tr = `<tr>
+        const tr = `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">
   <td>${row.rank}</td>
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   <td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>
@@ -289,8 +289,8 @@ export function renderSplitFleetAssignmentsPage(
             .sort(bySailNumber);
           const rowsHtml = members
             .map(
-              (c) =>
-                `<tr>${nat ? natCell(c.nationality, input.flagSvgByCode) : ''}<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(c.names.join(' & '))}</td>${
+              (c, i) =>
+                `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">${nat ? natCell(c.nationality, input.flagSvgByCode) : ''}<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(c.names.join(' & '))}</td>${
                   round.overrides?.[c.id] === fid ? '<td>placed by the committee</td>' : '<td></td>'
                 }</tr>`,
             )
