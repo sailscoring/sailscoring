@@ -514,6 +514,13 @@ export interface RaceStart {
   // Companion "last race": this start's first finisher scores offset + 1
   // (e.g. the non-medal race scored from 11 when the medal fleet is 10).
   firstPlaceOffset?: number;
+  // Course length in nautical miles for this start's fleets — a required
+  // scoring input for time-on-distance correction (ORC records it to
+  // 0.01 NM), not descriptive metadata. Per start, not per race: fleets
+  // sharing a gun but sailing different courses split into two same-time
+  // starts. A ToD-scored race with no distance falls back to scratch, the
+  // way a timeless start does.
+  distanceNm?: number;
   version?: number;     // server-side concurrency token (see Series.version)
 }
 

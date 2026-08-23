@@ -16,7 +16,7 @@ import {
   type CompetitorListRow,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
-import { orcTotRating } from './orc-certificate';
+import { orcFleetProfile, orcTodRating, orcTotRating } from './orc-certificate';
 import {
   resolvePublishingGroups,
   fleetPagesSuppressed,
@@ -426,6 +426,8 @@ export async function buildFleetHtmlFiles(
       finishTime: string | null;
       tcfApplied?: number | null;
       newTcf?: number | null;
+      elapsedTime?: number | null;
+      correctedTime?: number | null;
       nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number };
       echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
     };
@@ -512,7 +514,11 @@ export async function buildFleetHtmlFiles(
             if (o.raceId === race.id && o.field === overrideField) overrideByComp.set(o.competitorId, o.value);
           }
         }
-        if (isHandicap && raceStart) {
+        // ORC on a time-on-distance option needs the start's course distance
+        // as well as a gun; without one the race falls back to scratch, the
+        // same way the engine scores it.
+        const isOrcTod = fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod';
+        if (isHandicap && raceStart && (!isOrcTod || raceStart.distanceNm != null)) {
           // Applied-TCF map from each competitor's static rating, honouring any
           // per-race override (IRC/PY only — NHC/ECHO took the early returns).
           const tcfMap = new Map<string, number>();
@@ -527,12 +533,15 @@ export async function buildFleetHtmlFiles(
               const py = overrideByComp.get(c.id) ?? c.pyNumber;
               if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
             } else if (fleet.scoringSystem === 'orc') {
-              const rating = orcTotRating(c, fleet);
+              const rating = isOrcTod ? orcTodRating(c, fleet) : orcTotRating(c, fleet);
               if (rating != null) tcfMap.set(c.id, rating);
             }
           }
           const ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
-          scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries').scores;
+          const todContext = isOrcTod && tcfMap.size > 0
+            ? { distanceNm: raceStart.distanceNm!, scratchTod: Math.min(...tcfMap.values()) }
+            : undefined;
+          scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries', todContext).scores;
         } else {
           scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries', fleet.id);
         }
@@ -553,6 +562,10 @@ export async function buildFleetHtmlFiles(
                   : {}),
                 finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
                 ...('tcfApplied' in s ? { tcfApplied: (s as { tcfApplied: number | null }).tcfApplied } : {}),
+                // Engine times, preferred by the renderer over its ET × TCF
+                // recompute — required for time-on-distance corrected times.
+                ...('elapsedTime' in s ? { elapsedTime: (s as { elapsedTime: number | null }).elapsedTime } : {}),
+                ...('correctedTime' in s ? { correctedTime: (s as { correctedTime: number | null }).correctedTime } : {}),
                 ...(overrideByComp.has(id) ? { tccOverride: true } : {}),
               },
             ]),
@@ -624,6 +637,9 @@ export async function buildFleetHtmlFiles(
           raceStarts: allRaceStarts,
           fleetId: fleet.id,
           scoringSystem: fleet.scoringSystem,
+          ...(fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod'
+            ? { orcTod: true }
+            : {}),
           primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
           multiPersonFields: series.multiPersonFields ?? [],
           // The section heading already names the value, so the axis it was

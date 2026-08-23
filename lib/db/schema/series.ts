@@ -938,6 +938,7 @@ export const raceStarts = pgTable(
     stage: text('stage').$type<'qualifying' | 'final' | 'medal'>(),
     stageRaceNumber: integer('stage_race_number'),
     firstPlaceOffset: integer('first_place_offset'),
+    distanceNm: real('distance_nm'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

@@ -76,6 +76,57 @@ describe('ORC time-on-time scoring (APHT default)', () => {
   });
 });
 
+describe('ORC time-on-distance scoring (403.2)', () => {
+  const todFleet: Fleet = { ...fleet, orcProfile: { option: 'APHD', kind: 'tod' } };
+
+  it('reproduces the ZW manual worked example, rounding included', () => {
+    // reference-docs:tool-manuals/zw/Manual-ZW-6.md: fleet-lowest ToD 621.8;
+    // boat ToD 681.7, elapsed 00:46:51 = 2811 s, course 5.15 NM →
+    // Δ 59.9 × 5.15 = 308.485 → CT 2502.515 → 00:41:43 (2503 s).
+    const boats: Competitor[] = [
+      { ...baseComp, id: 'scr', sailNumber: 'S1', orcCert: { record: { APHD: 621.8 }, importedAt: 0 } },
+      { ...baseComp, id: 'b', sailNumber: 'S2', orcCert: { record: { APHD: 681.7 }, importedAt: 0 } },
+    ];
+    const start14: RaceStart = { ...start, distanceNm: 5.15 };
+    const finishes = [finish('scr', 1, '14:40:00'), finish('b', 2, '14:46:51')];
+    const tcfMap = new Map([['scr', 621.8], ['b', 681.7]]);
+    const { scores } = calculateHandicapRaceScores(finishes, boats, start14, tcfMap, 'seriesEntries', {
+      distanceNm: 5.15,
+      scratchTod: 621.8,
+    });
+    // The scratch boat's CT is its elapsed time.
+    expect(scores.get('scr')?.correctedTime).toBe(2400);
+    expect(scores.get('b')?.correctedTime).toBe(2503);
+    expect(scores.get('b')?.tcfApplied).toBe(681.7);
+  });
+
+  it('standings: corrects against the scratch boat over the start distance', () => {
+    // APHD: Mojo 594.7 (scratch), Impetuous 623.0; a 3.24 NM course.
+    // Mojo crosses first (ET 2151 → CT 2151); Impetuous ET 2209 −
+    // 28.3 × 3.24 = 2117.308 → 2117 — wins on corrected time.
+    const todStart: RaceStart = { ...start, startTime: '15:15:00', distanceNm: 3.24 };
+    const finishes = [finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49')];
+    const result = calculateFleetStandings([todFleet], [impetuous, mojo], races, finishes, [], 'seriesEntries', [todStart]);
+    const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
+    expect(byRank).toEqual(['imp', 'mojo']);
+  });
+
+  it('standings: a ToD race with no recorded distance falls back to scratch', () => {
+    const finishes = [finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49')];
+    const result = calculateFleetStandings([todFleet], [impetuous, mojo], races, finishes, [], 'seriesEntries', [{ ...start, startTime: '15:15:00' }]);
+    // Crossing order: Mojo first.
+    const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
+    expect(byRank).toEqual(['mojo', 'imp']);
+  });
+
+  it('a certificate lacking the ToD field leaves the boat unrated', () => {
+    const noField: Competitor = { ...baseComp, id: 'nf', sailNumber: 'X', orcCert: { record: { APHT: 0.95 }, importedAt: 0 } };
+    const todStart: RaceStart = { ...start, distanceNm: 3.24 };
+    const result = calculateFleetStandings([todFleet], [impetuous, noField], races, [finish('imp', 1, '15:00:00')], [], 'seriesEntries', [todStart]);
+    expect(result.fleetStandings[0].rejections.some((r) => r.competitorId === 'nf')).toBe(true);
+  });
+});
+
 describe('orcFleetProfile / orcTotRating', () => {
   it('defaults to APHT time-on-time', () => {
     expect(orcFleetProfile(fleet)).toEqual({ option: 'APHT', kind: 'tot' });

@@ -121,6 +121,22 @@ export function orcTotRating(
 }
 
 /**
+ * The time-on-distance allowance (seconds per nautical mile: CT = ET −
+ * Δrating × distance) an ORC competitor scores on under `fleet`'s profile.
+ * Null when the fleet's option is not time-on-distance, or the competitor
+ * holds no certificate, or the certificate lacks the field.
+ */
+export function orcTodRating(
+  competitor: { orcCert?: OrcCertData },
+  fleet: { orcProfile?: OrcProfile },
+): number | null {
+  const profile = orcFleetProfile(fleet);
+  if (profile.kind !== 'tod') return null;
+  if (!competitor.orcCert) return null;
+  return orcRecordNumber(competitor.orcCert.record, profile.option) ?? null;
+}
+
+/**
  * Parse a DownRMS JSON payload. The feed is served with a UTF-8 BOM, which
  * JSON.parse rejects, so it is stripped here.
  */

@@ -237,6 +237,7 @@ function raceStartRowToType(row: RaceStartRow): RaceStart {
     ...(row.stage ? { stage: row.stage } : {}),
     ...(row.stageRaceNumber != null ? { stageRaceNumber: row.stageRaceNumber } : {}),
     ...(row.firstPlaceOffset != null ? { firstPlaceOffset: row.firstPlaceOffset } : {}),
+    ...(row.distanceNm != null ? { distanceNm: row.distanceNm } : {}),
     version: row.version,
   };
 }
@@ -1608,11 +1609,12 @@ function raceStartToRow(s: RaceStart) {
     stage: s.stage ?? null,
     stageRaceNumber: s.stageRaceNumber ?? null,
     firstPlaceOffset: s.firstPlaceOffset ?? null,
+    distanceNm: s.distanceNm ?? null,
   };
 }
 
 const raceStartUpdateColumns = [
-  'fleetIds', 'startTime', 'stage', 'stageRaceNumber', 'firstPlaceOffset',
+  'fleetIds', 'startTime', 'stage', 'stageRaceNumber', 'firstPlaceOffset', 'distanceNm',
 ] as const satisfies readonly (keyof ReturnType<typeof raceStartToRow>)[];
 
 export class PostgresRaceStartRepository implements RaceStartRepository {

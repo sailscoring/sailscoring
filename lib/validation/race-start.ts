@@ -15,6 +15,9 @@ export const raceStartSchema = z.object({
   stage: z.enum(['qualifying', 'final', 'medal']).optional(),
   stageRaceNumber: z.number().int().positive().optional(),
   firstPlaceOffset: z.number().int().min(0).optional(),
+  // Course length in NM — a time-on-distance scoring input, recorded to
+  // 0.01 NM by convention (not enforced; the value is what the RC states).
+  distanceNm: z.number().positive().max(9999).optional(),
   version: versionSchema,
 });
 

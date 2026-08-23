@@ -1,6 +1,6 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
 import { getCodeDefinition } from './scoring-codes';
-import { orcTotRating } from './orc-certificate';
+import { orcFleetProfile, orcTodRating, orcTotRating } from './orc-certificate';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
 
@@ -285,6 +285,11 @@ export function hasFleetRating(competitor: Competitor, fleet: Fleet): boolean {
   if (fleet.scoringSystem === 'scratch') return true;
   if (fleet.scoringSystem === 'nhc') return competitor.nhcStartingTcf != null;
   if (fleet.scoringSystem === 'echo') return competitor.echoStartingTcf != null;
+  if (fleet.scoringSystem === 'orc') {
+    // Whichever kind the fleet's option is, the certificate either carries
+    // the field or the boat is unrated here.
+    return (orcTotRating(competitor, fleet) ?? orcTodRating(competitor, fleet)) !== null;
+  }
   return getTCF(competitor, fleet) !== null;
 }
 
@@ -317,6 +322,14 @@ function getTCF(competitor: Competitor, fleet: Fleet): number | null {
   return null;
 }
 
+/** See the `todContext` parameter of {@link calculateHandicapRaceScores}. */
+export interface TodCorrectionContext {
+  /** Course length in nautical miles (ORC records it to 0.01 NM). */
+  distanceNm: number;
+  /** The lowest allowance among the fleet's rated boats — the scratch boat. */
+  scratchTod: number;
+}
+
 /**
  * Phase A — race scoring. Calculates per-race scores for a time-corrected fleet
  * (IRC, PY, or any progressive system) using time-on-time correction:
@@ -344,8 +357,15 @@ function getTCF(competitor: Competitor, fleet: Fleet): number | null {
  * @param finishes  All Finish records for this race (may span multiple fleets)
  * @param competitors  Rated competitors in this fleet only (callers filter non-rated)
  * @param raceStart  The RaceStart that covers this fleet (provides gun time)
- * @param appliedTcfByCompetitorId  Per-competitor TCF used this race
+ * @param appliedTcfByCompetitorId  Per-competitor rating used this race — a
+ *   TCF multiplier normally, or a time-on-distance allowance in s/NM when
+ *   `todContext` is given
  * @param dnfScoring  'seriesEntries' (A5.2, default) or 'startingArea' (A5.3)
+ * @param todContext  Present for a time-on-distance fleet (ORC rule 403.2):
+ *   the map's values are allowances in seconds per nautical mile and
+ *   CT = ET − (allowance − scratch allowance) × distance, anchoring the
+ *   scratch (fastest-rated) boat's corrected time at its elapsed time
+ *   without changing the finishing order
  */
 export function calculateHandicapRaceScores(
   finishes: Finish[],
@@ -353,6 +373,7 @@ export function calculateHandicapRaceScores(
   raceStart: RaceStart,
   appliedTcfByCompetitorId: Map<string, number>,
   dnfScoring: DnfScoring = 'seriesEntries',
+  todContext?: TodCorrectionContext,
 ): { scores: Map<string, HandicapRaceScore> } {
   const startSeconds = parseHmsToSeconds(raceStart.startTime);
 
@@ -416,7 +437,11 @@ export function calculateHandicapRaceScores(
       continue;
     }
     const et = finishSeconds - startSeconds;
-    const ct = roundCorrectedSecs(et, tcf);
+    // Both forms round half-up to whole seconds (ORC rule 401.2 states the
+    // same convention the engine has always used for time-on-time).
+    const ct = todContext
+      ? Math.floor(et - (tcf - todContext.scratchTod) * todContext.distanceNm + 0.5)
+      : roundCorrectedSecs(et, tcf);
     candidates.push({ competitorId: competitor.id, elapsedTime: et, correctedTime: ct, tcfApplied: tcf, resultCode: null, isFinisher: true });
   }
 
@@ -1390,6 +1415,10 @@ function calculateHandicapStandings(
   const isProgressive = config !== null;
   const isNhc = fleet.scoringSystem === 'nhc';
   const isEcho = fleet.scoringSystem === 'echo';
+  // An ORC fleet on a time-on-distance option: the applied-rating map holds
+  // allowances in s/NM instead of TCF multipliers, and each race corrects
+  // against the scratch boat over the start's recorded distance.
+  const isOrcTod = fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod';
 
   // Build the initial applied-TCF map and emit rejections for missing ratings.
   // For static fleets this map never changes; for progressive fleets it gets
@@ -1399,7 +1428,11 @@ function calculateHandicapStandings(
   const rejectedIds = new Set<string>();
   const noTcfReason: ScoringRejection['reason'] = isProgressive ? 'no_starting_tcf' : 'no_rating';
   for (const c of competitors) {
-    const tcf = isProgressive ? getProgressiveStartingTcf(c, fleet) : getTCF(c, fleet);
+    const tcf = isProgressive
+      ? getProgressiveStartingTcf(c, fleet)
+      : isOrcTod
+        ? orcTodRating(c, fleet)
+        : getTCF(c, fleet);
     if (tcf == null) {
       rejectedIds.add(c.id);
       allRejections.push({ competitorId: c.id, reason: noTcfReason });
@@ -1407,6 +1440,12 @@ function calculateHandicapStandings(
       appliedTcfMap.set(c.id, tcf);
     }
   }
+
+  // The scratch boat's allowance (ORC 403.2: the lowest ToD in the fleet),
+  // fixed across the series like any other static rating.
+  const scratchTod = isOrcTod && appliedTcfMap.size > 0
+    ? Math.min(...appliedTcfMap.values())
+    : null;
 
   // Series-initial base ratings, snapshotted before the race loop starts
   // mutating appliedTcfMap. SWNHC2015's Step 6 realignment anchors to these
@@ -1462,9 +1501,11 @@ function calculateHandicapStandings(
   // this fleet. A membership-only start (no gun time) only scopes which fleets
   // are in the race — it carries no elapsed-time basis, so it's skipped here
   // and the race falls back to scratch scoring (the no-start branch below).
+  // Time-on-distance additionally needs the start's course distance; a
+  // ToD-scored race without one falls back the same way.
   const startsByRaceId = new Map<string, RaceStart>();
   for (const rs of raceStarts) {
-    if (rs.fleetIds.includes(fleet.id) && rs.startTime) {
+    if (rs.fleetIds.includes(fleet.id) && rs.startTime && (!isOrcTod || rs.distanceNm != null)) {
       startsByRaceId.set(rs.raceId, rs);
     }
   }
@@ -1508,7 +1549,10 @@ function calculateHandicapStandings(
           if (appliedTcfMap.has(cid)) effectiveTcfMap.set(cid, tcf);
         }
       }
-      const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring);
+      const todContext = isOrcTod && scratchTod !== null
+        ? { distanceNm: raceStart.distanceNm!, scratchTod }
+        : undefined;
+      const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring, todContext);
       let raceScores = phaseA.scores;
 
       // Phase B — handicap adjustment (progressive fleets only). Skipped for a

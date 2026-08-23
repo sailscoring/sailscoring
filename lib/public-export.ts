@@ -298,6 +298,9 @@ export interface PublicSeriesExport {
       stage?: 'qualifying' | 'final' | 'medal';
       stageRaceNumber?: number;
       firstPlaceOffset?: number;
+      /** Course length in NM — carried because it is a scoring input for
+       *  time-on-distance fleets, and course facts belong in public results. */
+      distanceNm?: number;
     }[];
     finishes: {
       sailNumber: string;
@@ -738,6 +741,7 @@ export function buildPublicExportFromSnapshot(
         ...(rs.stage ? { stage: rs.stage } : {}),
         ...(rs.stageRaceNumber != null ? { stageRaceNumber: rs.stageRaceNumber } : {}),
         ...(rs.firstPlaceOffset != null ? { firstPlaceOffset: rs.firstPlaceOffset } : {}),
+        ...(rs.distanceNm != null ? { distanceNm: rs.distanceNm } : {}),
       }));
     const nhcByFleetMap = nhcByFleetByRaceId.get(race.id);
     const nhcByFleet = nhcByFleetMap && nhcByFleetMap.size > 0
@@ -1227,6 +1231,7 @@ export async function importPublicExport(
             ...((s.firstPlaceOffset ?? race.firstPlaceOffset) != null
               ? { firstPlaceOffset: s.firstPlaceOffset ?? race.firstPlaceOffset }
               : {}),
+            ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
           }),
         ),
     );

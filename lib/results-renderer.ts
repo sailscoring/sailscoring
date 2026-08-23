@@ -137,6 +137,10 @@ export interface RaceData {
    *  explainability columns (1/T_E, PI, Adjustment, New H) hidden under
    *  the ECHO viewer toggle. */
   isEcho?: boolean;
+  /** True for an ORC fleet scored time-on-distance: the rating column holds
+   *  allowances in s/NM (labelled "ToD", printed to 1 dp) and corrected
+   *  times come from the engine rather than an ET × TCF recompute. */
+  isOrcTod?: boolean;
   /** NHC fleet-race-level aggregates. When set, renders the rating-calculation
    *  fleet header line above the race table and extra explainability columns
    *  (CT ratio, Fair TCF, Adjustment, New TCF) under the viewer toggle. */
@@ -1363,8 +1367,11 @@ function renderRaceTable(
   const hasExplain = race.nhcHeader != null;
   const hasEchoExplain = race.echoHeader != null;
   const hasHandicapCols = race.results.some((r) => r.tcc != null);
-  // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap fleets use "TCC".
-  const ratingLabel = isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC');
+  // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap
+  // fleets use "TCC" — except ORC time-on-distance, whose rating is an
+  // allowance in seconds per nautical mile.
+  const isOrcTod = race.isOrcTod === true;
+  const ratingLabel = isOrcTod ? 'ToD' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC'));
   const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
@@ -1390,7 +1397,7 @@ function renderRaceTable(
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
             `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
-            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
+            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
             `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
@@ -1817,7 +1824,7 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -1836,6 +1843,9 @@ export function assembleSeriesResultsData(
     fleetId?: string;
     /** Scoring system of the fleet */
     scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
+    /** ORC fleets only: the fleet's option is time-on-distance, so rating
+     *  cells hold s/NM allowances and race tables label them "ToD". */
+    orcTod?: boolean;
     /** When set (NHC fleets only), per-race aggregates that drive the
      *  rating-calculation fleet header line above each race table and the
      *  per-row explainability columns. Pass undefined to suppress the
@@ -1868,7 +1878,7 @@ export function assembleSeriesResultsData(
     publishOfficials?: boolean;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, orcTod, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -1917,8 +1927,12 @@ export function assembleSeriesResultsData(
         }
         if (tcc != null && score.finishTime) {
           const finishSecs = parseHmsToSeconds(score.finishTime) ?? NaN;
-          elapsedTimeSecs = finishSecs - startSecs;
-          correctedTimeSecs = roundCorrectedSecs(elapsedTimeSecs, tcc);
+          const et = score.elapsedTime ?? finishSecs - startSecs;
+          elapsedTimeSecs = et;
+          // Prefer the engine's corrected time when the score carries one —
+          // for time-on-distance the ET × TCF recompute would be wrong, and
+          // for time-on-time the two are identical by construction.
+          correctedTimeSecs = score.correctedTime ?? roundCorrectedSecs(et, tcc);
         }
       }
 
@@ -2020,6 +2034,7 @@ export function assembleSeriesResultsData(
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
+      ...(scoringSystem === 'orc' && orcTod ? { isOrcTod: true } : {}),
       results,
       ...(nhcHeader ? { nhcHeader } : {}),
       ...(echoHeader ? { echoHeader } : {}),

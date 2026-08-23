@@ -319,10 +319,11 @@ export interface SeriesFileRepos {
  *
  *  v39 adds the `orc` fleet scoring system (with optional
  *  `fleets[*].orcProfile` — which certificate rating field scores the fleet,
- *  time-on-time or time-on-distance) and `competitors[*].orcCert` — the
- *  boat's ORC certificate stored verbatim. An older build reading a v39 file
- *  would drop the certificates and refuse the fleet system, losing the
- *  ratings entirely, so this is a hard bump rather than a sparse-field
+ *  time-on-time or time-on-distance), `competitors[*].orcCert` — the boat's
+ *  ORC certificate stored verbatim — and `starts[*].distanceNm`, the course
+ *  length a time-on-distance race corrects over. An older build reading a
+ *  v39 file would drop the certificates and refuse the fleet system, losing
+ *  the ratings entirely, so this is a hard bump rather than a sparse-field
  *  ride-along. */
 export const FORMAT_VERSION = 39;
 export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
@@ -490,6 +491,7 @@ interface SeriesFileRaceStart {
   stage?: 'qualifying' | 'final' | 'medal';  // v24+; split-fleet stage, per start
   stageRaceNumber?: number;  // v24+; logical race number this start's fleets sail
   firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
+  distanceNm?: number;  // v39+; course length in NM (time-on-distance scoring input)
 }
 
 interface SeriesFileRatingOverride {
@@ -677,6 +679,7 @@ export async function buildSeriesFile(
       ...(s.stage ? { stage: s.stage } : {}),
       ...(s.stageRaceNumber != null ? { stageRaceNumber: s.stageRaceNumber } : {}),
       ...(s.firstPlaceOffset != null ? { firstPlaceOffset: s.firstPlaceOffset } : {}),
+      ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
     });
   }
 
@@ -1732,6 +1735,7 @@ async function writeFleetsCompetitorsRaces(
         ...((s.firstPlaceOffset ?? r.firstPlaceOffset) != null
           ? { firstPlaceOffset: s.firstPlaceOffset ?? r.firstPlaceOffset }
           : {}),
+        ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
       })),
     );
 
