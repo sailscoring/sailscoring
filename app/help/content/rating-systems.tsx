@@ -138,6 +138,18 @@ export default function RatingSystems() {
           fleet’s fastest-rated (<em>scratch</em>) boat.
         </p>
         <p>
+          Between the single number and full performance curves sit the{' '}
+          <strong className="text-foreground">wind bands</strong>: certificates
+          also publish their ratings per wind strength — the triple numbers, and
+          national sets like the Irish five-band windward/leeward options. Set a
+          fleet&apos;s default option to a band field on the Settings tab, and pick
+          the band the race committee announced per race with the{' '}
+          <strong className="text-foreground">Wind band</strong> select on the race
+          start — every band field the imported certificates carry is offered.
+          Changing the band later re-scores the race without re-entering finishes,
+          and the published race table names the field applied.
+        </p>
+        <p>
           <strong className="text-foreground">Performance curve scoring (PCS)</strong>{' '}
           goes further: instead of one number, it uses the certificate’s whole
           prediction matrix, so each race’s handicap reflects the wind that actually
