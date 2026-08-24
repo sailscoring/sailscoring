@@ -70,8 +70,10 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'Scratch, IRC, ECHO, PY, NHC and VPRS — and keeping ratings up to date.',
     sections: [
       { id: 'rating-systems', title: 'Rating systems' },
+      { id: 'scoring-orc', title: 'ORC scoring and performance curves', feature: 'orc' },
       { id: 'updating-handicaps', title: 'Updating handicaps from another series' },
       { id: 'update-handicaps-irc-rating', title: 'Updating IRC TCCs from the rating list', feature: 'irc-rating' },
+      { id: 'update-handicaps-orc', title: 'Importing ORC certificates', feature: 'orc' },
       { id: 'update-handicaps-vprs', title: 'Updating VPRS TCCs from a club list', feature: 'vprs' },
       { id: 'update-handicaps-irish-sailing', title: 'Updating ECHO from Irish Sailing', feature: 'echo' },
       { id: 'update-handicaps-rya-py', title: 'Updating PY numbers from the RYA list', feature: 'rya-py' },
