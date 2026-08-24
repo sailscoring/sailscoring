@@ -170,7 +170,7 @@ function RaceStartDialogInner({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]">
         <DialogHeader>
           <DialogTitle>{mode.kind === 'edit' ? 'Edit start' : 'Add start'}</DialogTitle>
           <DialogDescription>
@@ -178,7 +178,9 @@ function RaceStartDialogInner({
             declare which fleets are in this race.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        {/* The body scrolls: a constructed-course legs list can outgrow the
+            viewport, and Save must stay reachable. */}
+        <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Gun time <span className="font-normal text-muted-foreground">(optional)</span></label>
             <input

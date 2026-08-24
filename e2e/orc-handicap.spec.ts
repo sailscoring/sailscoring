@@ -207,6 +207,72 @@ test('ORC fleet: performance curve scoring over the W/L model', async ({ page })
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 2507');
 });
 
+test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC CC Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
+  await page.getByRole('option', { name: 'Constructed course · performance curve (PCS)' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await importCertificates(page, 2);
+
+  // The ORC Race Management Guide's sample constructed course (8.11 NM),
+  // start 14:00:00. From the boats' curves: Impetuous implied wind 18.06 kt
+  // (the scoring wind), corrected 5009 vs Mojo 5190 — Impetuous wins on
+  // corrected time despite crossing well behind.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+
+  const legs: Array<[string, string, string]> = [
+    ['2.09', '162', '160'],
+    ['0.06', '60', '155'],
+    ['1.91', '340', '155'],
+    ['1.89', '161', '160'],
+    ['0.06', '60', '160'],
+    ['1.91', '340', '160'],
+    ['0.19', '316', '160'],
+  ];
+  for (let i = 0; i < legs.length; i++) {
+    await page.getByRole('button', { name: 'Add leg' }).click();
+    const [distance, bearing, wind] = legs[i];
+    await page.getByLabel(`Leg ${i + 1} distance`).fill(distance);
+    await page.getByLabel(`Leg ${i + 1} bearing`).fill(bearing);
+    await page.getByLabel(`Leg ${i + 1} wind direction`).fill(wind);
+  }
+  await expect(page.getByText('8.11 NM total')).toBeVisible();
+  await page.getByRole('checkbox', { name: 'Class 2' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('8.11 NM · 7 legs')).toBeVisible();
+
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRL 1551', finishTime: '15:26:30' },
+    { sailNumber: 'IRL 2507', finishTime: '15:28:11' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
+  await expect(page.getByRole('row').nth(2)).toContainText('IRL 1551');
+});
+
 test('ORC fleet: time-on-distance over the start course length', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC ToD Test 2026' });
   await setUpOrcFleet(page, [
