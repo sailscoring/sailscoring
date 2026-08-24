@@ -16,7 +16,8 @@ import { compareSailNumbers } from './sail-number-sort';
 import { roundCorrectedSecs } from './scoring';
 import { seriesSlug } from './series-name';
 import { worldSailingProfileUrl } from './world-sailing';
-import { describePrizeClauses, ordinal, type PrizeAllocation } from './prizes';
+import { ordinal } from './ordinal';
+import { describePrizeClauses, type PrizeAllocation } from './prizes';
 import {
   formatMultiplier,
   hasScoringOptions,

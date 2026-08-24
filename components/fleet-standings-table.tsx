@@ -38,7 +38,7 @@ import {
   racePolicy,
   scoringOptionsLegend,
 } from '@/lib/race-scoring-options';
-import { ordinal } from '@/lib/prizes';
+import { ordinal } from '@/lib/ordinal';
 
 export interface FleetStandingsTableProps {
   standings: Standing[];

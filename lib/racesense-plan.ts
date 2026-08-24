@@ -32,6 +32,7 @@ import {
   type FinishSheetColumnMap,
   type ParseFinishSheetResult,
 } from './finish-sheet-csv';
+import { ordinal } from './ordinal';
 import {
   startStatusCode,
   type RaceSenseAnomaly,
@@ -253,12 +254,7 @@ function describe(
   if (!f) return '—';
   if (f.resultCode) return f.resultCode;
   const at = f.finishTime ? ` at ${f.finishTime}` : '';
-  return place === null ? `finished${at}` : `${place}${ordinal(place)}${at}`;
-}
-
-function ordinal(n: number): string {
-  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
-  return ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
+  return place === null ? `finished${at}` : `${ordinal(place)}${at}`;
 }
 
 interface Sided {
