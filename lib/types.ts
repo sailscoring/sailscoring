@@ -463,10 +463,37 @@ export interface OrcCertData {
  * how — time-on-time (CT = rating × ET) or time-on-distance
  * (CT = ET − Δrating × distance). Absent means the default: 'APHT'
  * time-on-time, the all-purpose single number.
+ *
+ * kind 'pcs' is Performance Curve Scoring (rule 402): `option` then names
+ * the course model — 'WL', 'CR' (all-purpose), or 'OC' (coastal) — and the
+ * per-race allowance is computed from the certificate's matrix at the
+ * race's scoring wind rather than read from a field.
  */
 export interface OrcProfile {
   option: string;
-  kind: 'tot' | 'tod';
+  kind: 'tot' | 'tod' | 'pcs';
+}
+
+/**
+ * Per-boat ORC scoring audit for one race — the transparency payload behind
+ * a PCS (or ToD) corrected time: what allowance was applied, against which
+ * scratch allowance, over what distance, and — for PCS — the boat's implied
+ * wind and the race's scoring wind (with its source).
+ */
+export interface OrcRaceCalc {
+  /** The applied allowance in s/NM (equals HandicapRaceScore.tcfApplied). */
+  todApplied: number;
+  /** The scratch boat's allowance the fleet corrected against. */
+  scratchTod: number;
+  distanceNm: number;
+  /** PCS only: this boat's implied wind (finishers). */
+  impliedWind?: number;
+  /** PCS only: the wind corrected times were computed at. */
+  scoringWind?: number;
+  /** PCS only: true when the race committee overrode the scoring wind. */
+  scoringWindOverridden?: boolean;
+  /** PCS only: the course model the curves were built over. */
+  courseModel?: string;
 }
 
 export interface Fleet {
@@ -521,6 +548,11 @@ export interface RaceStart {
   // starts. A ToD-scored race with no distance falls back to scratch, the
   // way a timeless start does.
   distanceNm?: number;
+  // ORC PCS: the race committee's scoring wind (kt), replacing the winner's
+  // implied wind when the implied value doesn't fairly represent the race
+  // (rule 402.12). Per start, like the distance, so each fleet group carries
+  // its own. Sparse — normally unset.
+  orcScoringWind?: number;
   version?: number;     // server-side concurrency token (see Series.version)
 }
 
@@ -804,6 +836,7 @@ export interface HandicapRaceScore extends RaceScore {
   newTcf: number | null;         // TCF for race N+1; null for static systems (IRC/PY) or no rating
   nhc?: NhcRaceCalc;             // present iff fleet.scoringSystem === 'nhc' AND finisher
   echo?: EchoRaceCalc;           // present iff fleet.scoringSystem === 'echo' AND finisher
+  orc?: OrcRaceCalc;             // present on ORC time-on-distance/PCS fleets
 }
 
 // NHC per-finisher intermediate calculations (for explainability).

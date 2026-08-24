@@ -1,6 +1,7 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
 import { getCodeDefinition } from './scoring-codes';
-import { orcFleetProfile, orcTodRating, orcTotRating } from './orc-certificate';
+import { orcFleetProfile, orcPcsRatable, orcTodRating, orcTotRating } from './orc-certificate';
+import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
 
@@ -287,7 +288,9 @@ export function hasFleetRating(competitor: Competitor, fleet: Fleet): boolean {
   if (fleet.scoringSystem === 'echo') return competitor.echoStartingTcf != null;
   if (fleet.scoringSystem === 'orc') {
     // Whichever kind the fleet's option is, the certificate either carries
-    // the field or the boat is unrated here.
+    // what it needs — the named field, or the allowance matrix for PCS — or
+    // the boat is unrated here.
+    if (orcFleetProfile(fleet).kind === 'pcs') return orcPcsRatable(competitor);
     return (orcTotRating(competitor, fleet) ?? orcTodRating(competitor, fleet)) !== null;
   }
   return getTCF(competitor, fleet) !== null;
@@ -328,6 +331,10 @@ export interface TodCorrectionContext {
   distanceNm: number;
   /** The lowest allowance among the fleet's rated boats — the scratch boat. */
   scratchTod: number;
+  /** Round each ToD × distance product to whole seconds before combining,
+   *  instead of rounding the corrected time once — the convention ORC's PCS
+   *  module uses, kept for exact parity on PCS races. */
+  roundEachProduct?: boolean;
 }
 
 /**
@@ -440,7 +447,9 @@ export function calculateHandicapRaceScores(
     // Both forms round half-up to whole seconds (ORC rule 401.2 states the
     // same convention the engine has always used for time-on-time).
     const ct = todContext
-      ? Math.floor(et - (tcf - todContext.scratchTod) * todContext.distanceNm + 0.5)
+      ? todContext.roundEachProduct
+        ? et - Math.round(tcf * todContext.distanceNm) + Math.round(todContext.scratchTod * todContext.distanceNm)
+        : Math.floor(et - (tcf - todContext.scratchTod) * todContext.distanceNm + 0.5)
       : roundCorrectedSecs(et, tcf);
     candidates.push({ competitorId: competitor.id, elapsedTime: et, correctedTime: ct, tcfApplied: tcf, resultCode: null, isFinisher: true });
   }
@@ -505,6 +514,91 @@ export function calculateHandicapRaceScores(
   }
 
   return { scores };
+}
+
+/** What {@link computeOrcPcsRace} hands the standings orchestration (and
+ *  the render paths): the per-boat allowances at the scoring wind — phase
+ *  A's applied-rating map for the race — plus the ToD context and the
+ *  per-boat audit blocks. */
+export interface OrcPcsRaceComputation {
+  todByCompetitorId: Map<string, number>;
+  todContext: TodCorrectionContext;
+  calcByCompetitorId: Map<string, OrcRaceCalc>;
+}
+
+/**
+ * Run ORC Performance Curve Scoring for one race of an ORC fleet whose
+ * option is a pre-defined course model: each rated boat's performance curve
+ * over the model, the finishers' implied winds, the race's scoring wind
+ * (the best implied wind, or the start's race-committee override — rule
+ * 402.12), and every boat's allowance at that wind, which then flows
+ * through the ordinary time-on-distance correction. Returns null when the
+ * start lacks a gun time or course distance, or no boat carries a matrix.
+ */
+export function computeOrcPcsRace(
+  competitors: Competitor[],
+  raceStart: RaceStart,
+  raceFinishes: Finish[],
+  courseModel: PcsCourseModel,
+): OrcPcsRaceComputation | null {
+  const startSeconds = parseHmsToSeconds(raceStart.startTime);
+  const distanceNm = raceStart.distanceNm;
+  if (startSeconds === null || distanceNm == null) return null;
+
+  const finishByCompetitorId = new Map(
+    raceFinishes
+      .filter((f): f is Finish & { competitorId: string } => f.competitorId !== null)
+      .map((f) => [f.competitorId, f]),
+  );
+  const boats = competitors.filter(orcPcsRatable).map((c) => {
+    const finish = finishByCompetitorId.get(c.id);
+    let elapsedSeconds: number | undefined;
+    if (finish && finish.resultCode === null) {
+      const finishSeconds = parseHmsToSeconds(finish.finishTime);
+      if (finishSeconds !== null && finishSeconds > startSeconds) {
+        elapsedSeconds = finishSeconds - startSeconds;
+      }
+    }
+    return {
+      id: c.id,
+      allowances: c.orcCert!.record.Allowances as PcsAllowances,
+      ...(elapsedSeconds != null ? { elapsedSeconds } : {}),
+    };
+  });
+  if (boats.length === 0) return null;
+
+  const result = scorePcsRace({
+    course: { model: courseModel, distanceNm },
+    boats,
+    ...(raceStart.orcScoringWind != null ? { scoringWindOverride: raceStart.orcScoringWind } : {}),
+  });
+
+  const todByCompetitorId = new Map<string, number>();
+  const calcByCompetitorId = new Map<string, OrcRaceCalc>();
+  for (const boat of result.boats) {
+    if (boat.error || !Number.isFinite(boat.todAtScoringWind)) continue;
+    todByCompetitorId.set(boat.id, boat.todAtScoringWind);
+    calcByCompetitorId.set(boat.id, {
+      todApplied: boat.todAtScoringWind,
+      scratchTod: result.scratchTod,
+      distanceNm,
+      ...(boat.impliedWind != null ? { impliedWind: boat.impliedWind } : {}),
+      scoringWind: result.scoringWind,
+      ...(raceStart.orcScoringWind != null ? { scoringWindOverridden: true } : {}),
+      courseModel,
+    });
+  }
+  return {
+    todByCompetitorId,
+    todContext: { distanceNm, scratchTod: result.scratchTod, roundEachProduct: true },
+    calcByCompetitorId,
+  };
+}
+
+/** The pre-defined course model behind an ORC PCS profile; WL when the
+ *  stored option isn't one of the certificate's three models. */
+export function orcPcsCourseModel(option: string): PcsCourseModel {
+  return option === 'CR' || option === 'OC' ? option : 'WL';
 }
 
 /**
@@ -1408,6 +1502,8 @@ function calculateHandicapStandings(
   nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
   echoRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
   echoAggregatesByRaceId?: Map<string, EchoRaceAggregates>;
+  /** ORC ToD/PCS fleets: per-race scores carrying the `orc` audit block. */
+  orcRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
   tcfHistory?: TcfRecord[];
   circularRedressRaces: number[];
 } {
@@ -1417,8 +1513,12 @@ function calculateHandicapStandings(
   const isEcho = fleet.scoringSystem === 'echo';
   // An ORC fleet on a time-on-distance option: the applied-rating map holds
   // allowances in s/NM instead of TCF multipliers, and each race corrects
-  // against the scratch boat over the start's recorded distance.
-  const isOrcTod = fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod';
+  // against the scratch boat over the start's recorded distance. On a PCS
+  // option the allowances are computed per race at the race's scoring wind
+  // instead of read from the certificate, then corrected the same way.
+  const orcProfile = fleet.scoringSystem === 'orc' ? orcFleetProfile(fleet) : null;
+  const isOrcTod = orcProfile?.kind === 'tod';
+  const isOrcPcs = orcProfile?.kind === 'pcs';
 
   // Build the initial applied-TCF map and emit rejections for missing ratings.
   // For static fleets this map never changes; for progressive fleets it gets
@@ -1430,9 +1530,14 @@ function calculateHandicapStandings(
   for (const c of competitors) {
     const tcf = isProgressive
       ? getProgressiveStartingTcf(c, fleet)
-      : isOrcTod
-        ? orcTodRating(c, fleet)
-        : getTCF(c, fleet);
+      : isOrcPcs
+        // PCS ratings are computed per race; here only ratability matters.
+        // The placeholder never reaches a corrected time — every PCS race
+        // replaces the map with that race's computed allowances.
+        ? (orcPcsRatable(c) ? 1 : null)
+        : isOrcTod
+          ? orcTodRating(c, fleet)
+          : getTCF(c, fleet);
     if (tcf == null) {
       rejectedIds.add(c.id);
       allRejections.push({ competitorId: c.id, reason: noTcfReason });
@@ -1492,6 +1597,7 @@ function calculateHandicapStandings(
       rejections: allRejections,
       ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map() } : {}),
       ...(isEcho ? { echoRaceScoresByRaceId: new Map(), echoAggregatesByRaceId: new Map() } : {}),
+      ...(isOrcTod || isOrcPcs ? { orcRaceScoresByRaceId: new Map() } : {}),
       ...(isProgressive ? { tcfHistory: [] } : {}),
       circularRedressRaces: [],
     };
@@ -1505,7 +1611,7 @@ function calculateHandicapStandings(
   // ToD-scored race without one falls back the same way.
   const startsByRaceId = new Map<string, RaceStart>();
   for (const rs of raceStarts) {
-    if (rs.fleetIds.includes(fleet.id) && rs.startTime && (!isOrcTod || rs.distanceNm != null)) {
+    if (rs.fleetIds.includes(fleet.id) && rs.startTime && (!(isOrcTod || isOrcPcs) || rs.distanceNm != null)) {
       startsByRaceId.set(rs.raceId, rs);
     }
   }
@@ -1520,6 +1626,7 @@ function calculateHandicapStandings(
   const nhcRaceScoresByRaceId = new Map<string, Map<string, HandicapRaceScore>>();
   const nhcAggregatesByRaceId = new Map<string, NhcRaceAggregates>();
   const echoRaceScoresByRaceId = new Map<string, Map<string, HandicapRaceScore>>();
+  const orcRaceScoresByRaceId = new Map<string, Map<string, HandicapRaceScore>>();
   const echoAggregatesByRaceId = new Map<string, EchoRaceAggregates>();
   const tcfHistory: TcfRecord[] = [];
 
@@ -1541,7 +1648,7 @@ function calculateHandicapStandings(
       // Phase A — race scoring (applies to both static and progressive fleets).
       // For static fleets, apply this race's rating overrides over the base map.
       const raceOverrides = overrideTcfByRace.get(race.id);
-      const effectiveTcfMap = raceOverrides && raceOverrides.size > 0
+      let effectiveTcfMap = raceOverrides && raceOverrides.size > 0
         ? new Map(appliedTcfMap)
         : appliedTcfMap;
       if (raceOverrides && effectiveTcfMap !== appliedTcfMap) {
@@ -1549,11 +1656,46 @@ function calculateHandicapStandings(
           if (appliedTcfMap.has(cid)) effectiveTcfMap.set(cid, tcf);
         }
       }
-      const todContext = isOrcTod && scratchTod !== null
+      let todContext = isOrcTod && scratchTod !== null
         ? { distanceNm: raceStart.distanceNm!, scratchTod }
         : undefined;
+      let orcCalcById: Map<string, OrcRaceCalc> | undefined;
+      if (isOrcPcs) {
+        const pcs = computeOrcPcsRace(
+          ratedCompetitors,
+          raceStart,
+          raceFinishes,
+          orcPcsCourseModel(orcProfile!.option),
+        );
+        if (pcs) {
+          effectiveTcfMap = pcs.todByCompetitorId;
+          todContext = pcs.todContext;
+          orcCalcById = pcs.calcByCompetitorId;
+        } else {
+          // No usable PCS inputs after all — score nobody rather than run
+          // the placeholder ratings through a time-on-time correction.
+          effectiveTcfMap = new Map();
+        }
+      }
       const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring, todContext);
       let raceScores = phaseA.scores;
+
+      // Attach the ORC audit block: the PCS computation's per-boat calc, or
+      // the plain ToD ingredients for a certificate-field ToD fleet.
+      if (todContext) {
+        const ctx = todContext;
+        const merged = new Map<string, HandicapRaceScore>();
+        for (const [cid, s] of raceScores) {
+          const calc =
+            orcCalcById?.get(cid) ??
+            (s.tcfApplied != null
+              ? { todApplied: s.tcfApplied, scratchTod: ctx.scratchTod, distanceNm: ctx.distanceNm }
+              : undefined);
+          merged.set(cid, calc ? { ...s, orc: calc } : s);
+        }
+        raceScores = merged;
+        orcRaceScoresByRaceId.set(race.id, raceScores);
+      }
 
       // Phase B — handicap adjustment (progressive fleets only). Skipped for a
       // struck race so its results never update the chain.
@@ -1667,6 +1809,7 @@ function calculateHandicapStandings(
     rejections: allRejections,
     ...(isNhc ? { nhcRaceScoresByRaceId, nhcAggregatesByRaceId } : {}),
     ...(isEcho ? { echoRaceScoresByRaceId, echoAggregatesByRaceId } : {}),
+    ...(isOrcTod || isOrcPcs ? { orcRaceScoresByRaceId } : {}),
     ...(isProgressive ? { tcfHistory } : {}),
     circularRedressRaces,
   };
@@ -1681,6 +1824,8 @@ export interface FleetStandingsEntry {
   nhcAggregatesByRaceId?: Map<string, NhcRaceAggregates>;
   echoRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
   echoAggregatesByRaceId?: Map<string, EchoRaceAggregates>;
+  /** ORC ToD/PCS fleets: per-race scores carrying the `orc` audit block. */
+  orcRaceScoresByRaceId?: Map<string, Map<string, HandicapRaceScore>>;
   tcfHistory?: TcfRecord[];
 }
 
@@ -1822,7 +1967,7 @@ export function calculateFleetStandings(
     // fleets — does not advance the handicap chain. Other fleets still score it.
     const excluded = excludedRaceIdsByFleet?.get(fleet.id);
     if (fleet.scoringSystem !== 'scratch') {
-      const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory, circularRedressRaces } = calculateHandicapStandings(
+      const { standings, rejections, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, orcRaceScoresByRaceId, tcfHistory, circularRedressRaces } = calculateHandicapStandings(
         fleetCompetitors,
         races,
         allFinishes,
@@ -1836,7 +1981,7 @@ export function calculateFleetStandings(
         proportionalDiscard,
       );
       allCircular.push(...circularRedressRaces);
-      return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, tcfHistory };
+      return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, orcRaceScoresByRaceId, tcfHistory };
     }
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,

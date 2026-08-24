@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { orcFleetProfile, orcTotRating } from '@/lib/orc-certificate';
+import { orcFleetProfile, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
+import { scorePcsRace, type PcsAllowances } from '@/lib/orc-pcs';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import type { Competitor, Finish, Fleet, OrcCertData, Race, RaceStart } from '@/lib/types';
 
@@ -124,6 +128,75 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     const todStart: RaceStart = { ...start, distanceNm: 3.24 };
     const result = calculateFleetStandings([todFleet], [impetuous, noField], races, [finish('imp', 1, '15:00:00')], [], 'seriesEntries', [todStart]);
     expect(result.fleetStandings[0].rejections.some((r) => r.competitorId === 'nf')).toBe(true);
+  });
+});
+
+describe('ORC Performance Curve Scoring in the standings engine', () => {
+  // Real certificates with the full allowance matrix.
+  const { rms } = parseOrcRmsJson(
+    readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+  );
+  const certComp = (id: string, sail: string, yachtName: string): Competitor => ({
+    ...baseComp,
+    id,
+    sailNumber: sail,
+    orcCert: { record: rms.find((r) => r.YachtName === yachtName)!, importedAt: 0 },
+  });
+  const impFull = certComp('imp', 'IRL 2507', 'IMPETUOUS');
+  const mojoFull = certComp('mojo', 'IRL 1551', 'MOJO');
+  const pcsFleet: Fleet = { ...fleet, orcProfile: { option: 'WL', kind: 'pcs' } };
+  const pcsStart: RaceStart = { ...start, distanceNm: 3.9 };
+  const finishes = [finish('mojo', 1, '14:56:30'), finish('imp', 2, '14:58:00')];
+
+  it('per-race scores match the PCS module, scratch anchored at its elapsed time', () => {
+    const result = calculateFleetStandings([pcsFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [pcsStart]);
+    const entry = result.fleetStandings[0];
+    const scores = entry.orcRaceScoresByRaceId?.get('r1');
+    expect(scores).toBeDefined();
+
+    // The same race scored by the module directly must agree exactly.
+    const reference = scorePcsRace({
+      course: { model: 'WL', distanceNm: 3.9 },
+      boats: [
+        { id: 'imp', allowances: impFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 3480 },
+        { id: 'mojo', allowances: mojoFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 3390 },
+      ],
+    });
+    for (const id of ['imp', 'mojo'] as const) {
+      const want = reference.boats.find((b) => b.id === id)!;
+      const got = scores!.get(id)!;
+      expect(got.correctedTime).toBe(want.correctedSeconds);
+      expect(got.tcfApplied).toBeCloseTo(want.todAtScoringWind, 9);
+      expect(got.orc?.impliedWind).toBeCloseTo(want.impliedWind!, 9);
+      expect(got.orc?.scoringWind).toBeCloseTo(reference.scoringWind, 9);
+      expect(got.orc?.courseModel).toBe('WL');
+    }
+    // The scratch boat's corrected time is its elapsed time.
+    const scratchId = reference.scratchBoatId!;
+    const scratchScore = scores!.get(scratchId)!;
+    expect(scratchScore.correctedTime).toBe(scratchScore.elapsedTime);
+  });
+
+  it('the start-level scoring-wind override (402.12) is applied and flagged', () => {
+    const overridden: RaceStart = { ...pcsStart, orcScoringWind: 12 };
+    const result = calculateFleetStandings([pcsFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [overridden]);
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId?.get('r1');
+    const imp = scores?.get('imp');
+    expect(imp?.orc?.scoringWind).toBe(12);
+    expect(imp?.orc?.scoringWindOverridden).toBe(true);
+  });
+
+  it('a PCS race with no recorded distance falls back to scratch', () => {
+    const result = calculateFleetStandings([pcsFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [start]);
+    const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
+    // Crossing order: Mojo first.
+    expect(byRank).toEqual(['mojo', 'imp']);
+  });
+
+  it('a certificate without the allowance matrix is rejected on a PCS fleet', () => {
+    const bare: Competitor = { ...baseComp, id: 'bare', sailNumber: 'X', orcCert: { record: { APHT: 0.95 }, importedAt: 0 } };
+    const result = calculateFleetStandings([pcsFleet], [impFull, bare], races, [finish('imp', 1, '14:58:00')], [], 'seriesEntries', [pcsStart]);
+    expect(result.fleetStandings[0].rejections.some((r) => r.competitorId === 'bare')).toBe(true);
   });
 });
 

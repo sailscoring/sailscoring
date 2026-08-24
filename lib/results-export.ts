@@ -4,6 +4,8 @@ import {
   calculateHandicapRaceScores,
   calculateSubSeriesFleetStandings,
   buildRaceFleetExclusionMap,
+  computeOrcPcsRace,
+  orcPcsCourseModel,
 } from './scoring';
 import {
   renderSeriesHtml,
@@ -16,7 +18,7 @@ import {
   type CompetitorListRow,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
-import { orcFleetProfile, orcTodRating, orcTotRating } from './orc-certificate';
+import { orcFleetProfile, orcPcsRatable, orcTodRating, orcTotRating } from './orc-certificate';
 import {
   resolvePublishingGroups,
   fleetPagesSuppressed,
@@ -37,7 +39,7 @@ import {
 } from './competitor-fields';
 import { isSyntheticFleetName } from './publishing';
 import { seriesSlug } from './series-name';
-import type { Competitor, Fleet, ResultCode, PenaltyCode, Standing } from './types';
+import type { Competitor, Fleet, OrcRaceCalc, ResultCode, PenaltyCode, Standing } from './types';
 
 /**
  * Builds one fleet's page data. `section` replaces the standings with a slice
@@ -428,6 +430,7 @@ export async function buildFleetHtmlFiles(
       newTcf?: number | null;
       elapsedTime?: number | null;
       correctedTime?: number | null;
+      orc?: OrcRaceCalc;
       nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number };
       echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number };
     };
@@ -505,6 +508,8 @@ export async function buildFleetHtmlFiles(
         }
 
         let scores;
+        // ORC audit blocks for this race's cells (ToD/PCS fleets only).
+        let orcCalcByComp: Map<string, OrcRaceCalc> | undefined;
         // Per-race static-rating overrides (mid-series rating change) for this
         // fleet's system, keyed by competitor.
         const overrideField = fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'vprs' ? 'vprsTcc' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
@@ -514,14 +519,16 @@ export async function buildFleetHtmlFiles(
             if (o.raceId === race.id && o.field === overrideField) overrideByComp.set(o.competitorId, o.value);
           }
         }
-        // ORC on a time-on-distance option needs the start's course distance
-        // as well as a gun; without one the race falls back to scratch, the
-        // same way the engine scores it.
-        const isOrcTod = fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod';
-        if (isHandicap && raceStart && (!isOrcTod || raceStart.distanceNm != null)) {
+        // ORC on a time-on-distance or PCS option needs the start's course
+        // distance as well as a gun; without one the race falls back to
+        // scratch, the same way the engine scores it.
+        const orcProfile = fleet.scoringSystem === 'orc' ? orcFleetProfile(fleet) : null;
+        const isOrcTod = orcProfile?.kind === 'tod';
+        const isOrcPcs = orcProfile?.kind === 'pcs';
+        if (isHandicap && raceStart && (!(isOrcTod || isOrcPcs) || raceStart.distanceNm != null)) {
           // Applied-TCF map from each competitor's static rating, honouring any
           // per-race override (IRC/PY only — NHC/ECHO took the early returns).
-          const tcfMap = new Map<string, number>();
+          let tcfMap = new Map<string, number>();
           for (const c of fleetCompetitors) {
             if (fleet.scoringSystem === 'irc') {
               const tcc = overrideByComp.get(c.id) ?? c.ircTcc;
@@ -533,14 +540,43 @@ export async function buildFleetHtmlFiles(
               const py = overrideByComp.get(c.id) ?? c.pyNumber;
               if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
             } else if (fleet.scoringSystem === 'orc') {
-              const rating = isOrcTod ? orcTodRating(c, fleet) : orcTotRating(c, fleet);
+              const rating = isOrcPcs
+                ? (orcPcsRatable(c) ? 1 : null)
+                : isOrcTod
+                  ? orcTodRating(c, fleet)
+                  : orcTotRating(c, fleet);
               if (rating != null) tcfMap.set(c.id, rating);
             }
           }
-          const ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
-          const todContext = isOrcTod && tcfMap.size > 0
+          let ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
+          let todContext = isOrcTod && tcfMap.size > 0
             ? { distanceNm: raceStart.distanceNm!, scratchTod: Math.min(...tcfMap.values()) }
             : undefined;
+          if (isOrcPcs) {
+            const pcs = computeOrcPcsRace(
+              ratedFleetCompetitors,
+              raceStart,
+              finishesForRace,
+              orcPcsCourseModel(orcProfile!.option),
+            );
+            if (pcs) {
+              tcfMap = pcs.todByCompetitorId;
+              todContext = pcs.todContext;
+              orcCalcByComp = pcs.calcByCompetitorId;
+              ratedFleetCompetitors = ratedFleetCompetitors.filter((c) => tcfMap.has(c.id));
+            } else {
+              tcfMap = new Map();
+              ratedFleetCompetitors = [];
+            }
+          } else if (todContext) {
+            const ctx = todContext;
+            orcCalcByComp = new Map(
+              [...tcfMap.entries()].map(([cid, tod]) => [
+                cid,
+                { todApplied: tod, scratchTod: ctx.scratchTod, distanceNm: ctx.distanceNm },
+              ]),
+            );
+          }
           scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries', todContext).scores;
         } else {
           scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries', fleet.id);
@@ -566,6 +602,7 @@ export async function buildFleetHtmlFiles(
                 // recompute — required for time-on-distance corrected times.
                 ...('elapsedTime' in s ? { elapsedTime: (s as { elapsedTime: number | null }).elapsedTime } : {}),
                 ...('correctedTime' in s ? { correctedTime: (s as { correctedTime: number | null }).correctedTime } : {}),
+                ...(orcCalcByComp?.has(id) ? { orc: orcCalcByComp.get(id) } : {}),
                 ...(overrideByComp.has(id) ? { tccOverride: true } : {}),
               },
             ]),

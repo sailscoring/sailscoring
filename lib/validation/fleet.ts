@@ -19,7 +19,7 @@ export const scoringSystemSchema = z.enum([
 // as shape only — which names exist is certificate data, not code.
 export const orcProfileSchema = z.object({
   option: z.string().min(1).max(64),
-  kind: z.enum(['tot', 'tod']),
+  kind: z.enum(['tot', 'tod', 'pcs']),
 });
 
 // Inline NHC profile (per-fleet override of the stock SWNHC2015 parameters).

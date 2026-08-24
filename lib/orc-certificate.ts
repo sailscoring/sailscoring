@@ -114,7 +114,17 @@ export const ORC_STANDARD_OPTIONS: ReadonlyArray<OrcProfile & { label: string }>
   { option: 'ILCWA', kind: 'tod', label: 'Windward/leeward · time-on-distance' },
   { option: 'TMF_Offshore', kind: 'tot', label: 'Coastal/long-distance · time-on-time' },
   { option: 'OSN', kind: 'tod', label: 'Coastal/long-distance · time-on-distance' },
+  { option: 'WL', kind: 'pcs', label: 'Windward/leeward · performance curve (PCS)' },
+  { option: 'CR', kind: 'pcs', label: 'All-purpose · performance curve (PCS)' },
+  { option: 'OC', kind: 'pcs', label: 'Coastal · performance curve (PCS)' },
 ];
+
+/** Whether the certificate can drive Performance Curve Scoring: it must
+ *  carry the time-allowance matrix. */
+export function orcPcsRatable(competitor: { orcCert?: OrcCertData }): boolean {
+  const allowances = competitor.orcCert?.record.Allowances;
+  return Array.isArray(allowances?.WindSpeeds) && allowances.WindSpeeds.length >= 2;
+}
 
 export function orcFleetProfile(fleet: { orcProfile?: OrcProfile }): OrcProfile {
   return fleet.orcProfile ?? DEFAULT_ORC_PROFILE;

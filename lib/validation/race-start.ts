@@ -18,6 +18,8 @@ export const raceStartSchema = z.object({
   // Course length in NM — a time-on-distance scoring input, recorded to
   // 0.01 NM by convention (not enforced; the value is what the RC states).
   distanceNm: z.number().positive().max(9999).optional(),
+  // Race-committee PCS scoring-wind override (kt), ORC rule 402.12.
+  orcScoringWind: z.number().positive().max(99).optional(),
   version: versionSchema,
 });
 

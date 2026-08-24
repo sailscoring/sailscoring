@@ -492,6 +492,7 @@ interface SeriesFileRaceStart {
   stageRaceNumber?: number;  // v24+; logical race number this start's fleets sail
   firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
   distanceNm?: number;  // v39+; course length in NM (time-on-distance scoring input)
+  orcScoringWind?: number;  // v39+; RC PCS scoring-wind override in kt (ORC 402.12)
 }
 
 interface SeriesFileRatingOverride {
@@ -680,6 +681,7 @@ export async function buildSeriesFile(
       ...(s.stageRaceNumber != null ? { stageRaceNumber: s.stageRaceNumber } : {}),
       ...(s.firstPlaceOffset != null ? { firstPlaceOffset: s.firstPlaceOffset } : {}),
       ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
+      ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
     });
   }
 
@@ -1736,6 +1738,7 @@ async function writeFleetsCompetitorsRaces(
           ? { firstPlaceOffset: s.firstPlaceOffset ?? r.firstPlaceOffset }
           : {}),
         ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
+        ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
       })),
     );
 

@@ -939,6 +939,7 @@ export const raceStarts = pgTable(
     stageRaceNumber: integer('stage_race_number'),
     firstPlaceOffset: integer('first_place_offset'),
     distanceNm: real('distance_nm'),
+    orcScoringWind: real('orc_scoring_wind'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

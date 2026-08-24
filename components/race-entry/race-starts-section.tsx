@@ -62,6 +62,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
       fleetIds: draft.fleetIds,
       startTime: draft.startTime,
       ...(draft.distanceNm != null ? { distanceNm: draft.distanceNm } : {}),
+      ...(draft.orcScoringWind != null ? { orcScoringWind: draft.orcScoringWind } : {}),
     };
     await saveRaceStart.mutateAsync(raceStart);
     setStartDialogMode(null);

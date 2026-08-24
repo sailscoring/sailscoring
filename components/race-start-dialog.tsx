@@ -22,6 +22,8 @@ export interface RaceStartDraft {
   fleetIds: string[];
   /** Course length in NM — a scoring input for time-on-distance fleets. */
   distanceNm?: number;
+  /** RC PCS scoring-wind override in kt (ORC rule 402.12). */
+  orcScoringWind?: number;
 }
 
 export interface RaceStartDialogProps {
@@ -58,12 +60,20 @@ function RaceStartDialogInner({
   const [distanceInput, setDistanceInput] = useState(
     seed?.distanceNm != null ? String(seed.distanceNm) : '',
   );
+  const [scoringWindInput, setScoringWindInput] = useState(
+    seed?.orcScoringWind != null ? String(seed.orcScoringWind) : '',
+  );
   const [error, setError] = useState('');
 
   // Course distance is a scoring input for ORC time-on-distance (and shown
   // whenever the series scores ORC at all, so the habit forms before the
-  // first ToD race rather than during it).
+  // first ToD race rather than during it). The scoring-wind override only
+  // applies to Performance Curve Scoring, so it appears only for a PCS
+  // fleet — or when a value is already stored.
   const offerDistance = fleets.some((f) => f.scoringSystem === 'orc');
+  const offerScoringWind =
+    fleets.some((f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs') ||
+    seed?.orcScoringWind != null;
 
   function handleSave() {
     // A blank time is allowed: a membership-only start declares which fleets
@@ -91,6 +101,15 @@ function RaceStartDialogInner({
       }
       distanceNm = parsed;
     }
+    let orcScoringWind: number | undefined;
+    if (scoringWindInput.trim()) {
+      const parsed = Number(scoringWindInput.trim());
+      if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 100) {
+        setError('Enter the scoring wind as knots, e.g. 14 — or leave blank to use the implied wind.');
+        return;
+      }
+      orcScoringWind = parsed;
+    }
     const editingId = mode.kind === 'edit' ? mode.start.id : null;
     const otherStarts = raceStarts.filter((s) => s.id !== editingId);
     const usedFleetIds = new Set(otherStarts.flatMap((s) => s.fleetIds));
@@ -100,7 +119,13 @@ function RaceStartDialogInner({
       setError(`Fleet "${name}" is already in another start group.`);
       return;
     }
-    void onSave({ editingId, startTime: normalizedStart, fleetIds, ...(distanceNm != null ? { distanceNm } : {}) });
+    void onSave({
+      editingId,
+      startTime: normalizedStart,
+      fleetIds,
+      ...(distanceNm != null ? { distanceNm } : {}),
+      ...(orcScoringWind != null ? { orcScoringWind } : {}),
+    });
   }
 
   return (
@@ -141,6 +166,26 @@ function RaceStartDialogInner({
               />
               <p className="text-xs text-muted-foreground">
                 Required to score a time-on-distance fleet; record it to 0.01 NM.
+              </p>
+            </div>
+          )}
+          {offerScoringWind && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="start-scoring-wind">
+                Scoring wind <span className="font-normal text-muted-foreground">(kt, optional)</span>
+              </label>
+              <input
+                id="start-scoring-wind"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
+                value={scoringWindInput}
+                onChange={(e) => { setScoringWindInput(e.target.value); setError(''); }}
+                placeholder="14"
+                inputMode="decimal"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Overrides the winner&apos;s implied wind for performance-curve scoring
+                — set only when the implied wind doesn&apos;t fairly represent the race.
               </p>
             </div>
           )}
