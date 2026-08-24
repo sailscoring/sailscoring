@@ -140,6 +140,30 @@ export function useFinishInput(args: UseFinishInputArgs) {
       })
     : [];
 
+  // Already-finished boats matching the typed prefix, in finishing order. The
+  // committable suggestions above are filtered to non-finishers, which used to
+  // mean a duplicate number was met with an empty dropdown — silence a scorer
+  // reads as "did I mistype?". These render as muted rows tagged with their
+  // position; activating one reveals its row rather than committing anything.
+  type AlreadyEnteredMatch = {
+    competitor: Competitor;
+    matchedOn: MatchTier;
+    entered: string;
+    position: number;
+    rowKey: string;
+  };
+  const alreadyEntered: AlreadyEnteredMatch[] = suggestionQuery
+    ? finishingOrder.flatMap((entry, index): AlreadyEnteredMatch[] => {
+        if (entry.kind !== 'known') return [];
+        const competitor = competitorMap.get(entry.competitorId);
+        if (!competitor) return [];
+        const match = matchIdentifierPrefix(competitor, suggestionQuery);
+        return match
+          ? [{ competitor, ...match, position: index + 1, rowKey: entryKey(entry) }]
+          : [];
+      })
+    : [];
+
   /** Flash a finishing-order row and bring it into view. Rows carry their
    *  entry-key as a data attribute (see FinishTab), so the scorer is pointed
    *  at the existing entry rather than left to hunt for it. */
@@ -404,6 +428,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
       cancel: cancelPendingTime,
     },
     suggestions,
+    /** Already-finished boats matching the typed prefix — the dropdown's
+     *  muted "already entered" rows. */
+    alreadyEntered,
+    /** Flash a finishing-order row and scroll it into view. */
+    revealFinishedRow,
     /** True when the typed text can be filed as an unknown boat (non-empty,
      *  no exact sail match) — gates the dropdown row and Shift+Enter path. */
     canRecordUnknown,

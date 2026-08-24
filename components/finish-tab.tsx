@@ -24,6 +24,7 @@ import { useFeatures } from '@/components/features-provider';
 import { cn } from '@/lib/utils';
 import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-fields';
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
+import { ordinal } from '@/lib/ordinal';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import {
@@ -134,14 +135,18 @@ export function FinishTab(props: FinishTabProps) {
   // Alias-destructure the two hooks back to the local names the JSX below
   // has always used — the markup is unchanged from the single-hook days.
   const {
-    suggestions, canRecordUnknown, needsFinishTime,
+    suggestions, alreadyEntered, revealFinishedRow, canRecordUnknown, needsFinishTime,
     addFinisher, commitCompetitor, recordAsUnknown, recordCurrentAsUnknown,
   } = finishInput;
+  // The dropdown opens for committable suggestions and for already-entered
+  // matches alike — typing a number that's already in the order must answer
+  // with the existing row, never with silence.
+  const showDropdown = suggestions.length > 0 || alreadyEntered.length > 0;
   // The suggestions dropdown gains a trailing "record as unknown" row when the
   // typed text isn't an exact sail; it sits at index === suggestions.length for
-  // keyboard navigation. Only offered alongside real suggestions — a fully
-  // unmatched number still goes through the not-found confirmation panel below.
-  const showUnknownRow = suggestions.length > 0 && canRecordUnknown;
+  // keyboard navigation. Only offered alongside real rows — a fully unmatched
+  // number still goes through the not-found confirmation panel below.
+  const showUnknownRow = showDropdown && canRecordUnknown;
   const maxHighlightIndex = suggestions.length - 1 + (showUnknownRow ? 1 : 0);
   const {
     value: sailInput, setValue: setSailInput,
@@ -408,7 +413,7 @@ export function FinishTab(props: FinishTabProps) {
           {pendingTimeError && (
             <p className="text-sm text-destructive mt-1">{pendingTimeError}</p>
           )}
-          {suggestions.length > 0 && !pendingTimeEntry && (
+          {showDropdown && !pendingTimeEntry && (
             <ul
               role="listbox"
               className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md"
@@ -437,6 +442,34 @@ export function FinishTab(props: FinishTabProps) {
                     <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="secondary" />
                   )}
                   <span className="flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                </li>
+              ))}
+              {alreadyEntered.map(({ competitor, matchedOn, entered, position, rowKey }, i) => (
+                <li
+                  key={`already-${rowKey}`}
+                  role="option"
+                  aria-selected={false}
+                  data-testid={`already-entered-${competitor.sailNumber}`}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 cursor-pointer text-sm text-muted-foreground hover:bg-accent',
+                    i === 0 && suggestions.length > 0 && 'border-t',
+                  )}
+                  title="Show the existing row"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    revealFinishedRow(rowKey);
+                  }}
+                >
+                  <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
+                  {matchedOn !== 'sail' && (
+                    <Badge variant="outline" className="shrink-0">
+                      {matchedOn === 'bow' ? 'matched on bow' : 'sails as'} {entered}
+                    </Badge>
+                  )}
+                  <span className="flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                  <Badge variant="secondary" className="shrink-0">
+                    already entered — {ordinal(position)}
+                  </Badge>
                 </li>
               ))}
               {showUnknownRow && (
