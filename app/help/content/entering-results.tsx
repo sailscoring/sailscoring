@@ -33,6 +33,15 @@ export default function EnteringResults() {
           the series.
         </p>
         <p>
+          Paper finish sheets sometimes record the same boat twice. If you type a number that
+          is already in the finishing order, the suggestions show it as a muted{' '}
+          <strong className="text-foreground">already entered</strong> row with its position,
+          and pressing <strong className="text-foreground">Enter</strong> highlights the
+          existing entry and tells you where the boat finished rather than adding it again —
+          so you can compare the entry against the sheet and decide which of the recorded
+          positions is the right one.
+        </p>
+        <p>
           If a sail number is not yet registered in the series, the app will offer to{' '}
           <strong className="text-foreground">Record as unknown</strong>. When the number you
           have typed is also the start of a registered boat’s sail number — an unknown{' '}
