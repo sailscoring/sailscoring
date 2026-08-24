@@ -3,7 +3,7 @@ provenance:
   class: "ILCA 7"
   year: 2026
   event: "World Championship, Dun Laoghaire IRL"
-  si: "reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-3.md"
+  si: "reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-4.md"
   results: ""
   code: F3
   scenarios: []
@@ -16,10 +16,12 @@ notes: |
          defined in SI 7.6. One additional Qualification series race is
          scheduled for the boats who did not qualify to the Final series.
 
-    18.5.3  For those boats not assigned to the Medal series and scheduled
+    18.5.3  For those boats not assigned to the Final series and scheduled
             to an additional Qualification series race as detailed in SI
             7.7, the first finisher will be scored 11 points, second 12
-            points and so on.  [Amendment 3]
+            points and so on.  [Amendment 3; Amendment 4 replaced "Medal
+            series" with "Final series", which is what these SIs call the
+            stage — wording, not scoring]
 
   That race is an ordinary Elimination series race in every way but its
   scoring: sailed by all three fleets, discardable, counting toward the
