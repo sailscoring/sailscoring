@@ -306,6 +306,8 @@ export interface PublicSeriesExport {
       /** Constructed-course legs (ORC 402.5) — the course record competitors
        *  check their tracks against, so it belongs in public results. */
       courseLegs?: import('./types').OrcCourseLeg[];
+      /** ORC wind-band field selection for this start — a scoring input. */
+      orcOption?: string;
     }[];
     finishes: {
       sailNumber: string;
@@ -749,6 +751,7 @@ export function buildPublicExportFromSnapshot(
         ...(rs.distanceNm != null ? { distanceNm: rs.distanceNm } : {}),
         ...(rs.orcScoringWind != null ? { orcScoringWind: rs.orcScoringWind } : {}),
         ...(rs.courseLegs?.length ? { courseLegs: rs.courseLegs } : {}),
+        ...(rs.orcOption ? { orcOption: rs.orcOption } : {}),
       }));
     const nhcByFleetMap = nhcByFleetByRaceId.get(race.id);
     const nhcByFleet = nhcByFleetMap && nhcByFleetMap.size > 0
@@ -1241,6 +1244,7 @@ export async function importPublicExport(
             ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
             ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
             ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+            ...(s.orcOption ? { orcOption: s.orcOption } : {}),
           }),
         ),
     );

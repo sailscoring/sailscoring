@@ -20,6 +20,8 @@ export const raceStartSchema = z.object({
   distanceNm: z.number().positive().max(9999).optional(),
   // Race-committee PCS scoring-wind override (kt), ORC rule 402.12.
   orcScoringWind: z.number().positive().max(99).optional(),
+  // ORC wind-band selection: the certificate rating field for this start.
+  orcOption: z.string().min(1).max(64).optional(),
   // Constructed-course legs (ORC rule 402.5), in sailing order.
   courseLegs: z
     .array(

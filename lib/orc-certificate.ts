@@ -127,6 +127,55 @@ export function orcPcsRatable(competitor: { orcCert?: OrcCertData }): boolean {
   return Array.isArray(allowances?.WindSpeeds) && allowances.WindSpeeds.length >= 2;
 }
 
+/**
+ * How a certificate rating field is applied, from its name: the national
+ * options and the internationally published extras end `_TOT` / `_TOD`, and
+ * the triple numbers use the `TN_`/`TND_` prefixes. Null for a field that
+ * isn't a recognisable rating (or is one of the headline fields the static
+ * option list already covers by its own name).
+ */
+/** How any selectable option is applied: the static international list by
+ *  membership, everything else by the field-name conventions. */
+export function orcOptionKind(field: string): 'tot' | 'tod' | 'pcs' | null {
+  const standard = ORC_STANDARD_OPTIONS.find((o) => o.option === field);
+  if (standard) return standard.kind;
+  return orcFieldKind(field);
+}
+
+export function orcFieldKind(field: string): 'tot' | 'tod' | null {
+  if (/_TOT$/.test(field)) return 'tot';
+  if (/_TOD$/.test(field)) return 'tod';
+  if (/^TN_(Inshore|Offshore)_(Low|Medium|High)$/.test(field)) return 'tot';
+  if (/^TND_(Inshore|Offshore)_(Low|Medium|High)$/.test(field)) return 'tod';
+  return null;
+}
+
+/**
+ * Every additional single-number rating the stored certificates actually
+ * carry — the banded sets (triple numbers, national five-bands) and
+ * predominant-direction numbers, discovered from the records themselves
+ * rather than a hardcoded catalog, so any national office's options are
+ * selectable the day its certificates carry them. Sorted by field name;
+ * the wind-band choice is then just picking a sibling field per race.
+ */
+export function orcSelectableOptions(
+  competitors: ReadonlyArray<{ orcCert?: OrcCertData }>,
+): Array<OrcProfile> {
+  const byField = new Map<string, 'tot' | 'tod'>();
+  for (const competitor of competitors) {
+    const record = competitor.orcCert?.record;
+    if (!record) continue;
+    for (const [field, value] of Object.entries(record)) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) continue;
+      const kind = orcFieldKind(field);
+      if (kind) byField.set(field, kind);
+    }
+  }
+  return [...byField.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([option, kind]) => ({ option, kind }));
+}
+
 export function orcFleetProfile(fleet: { orcProfile?: OrcProfile }): OrcProfile {
   return fleet.orcProfile ?? DEFAULT_ORC_PROFILE;
 }

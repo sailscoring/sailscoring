@@ -481,11 +481,15 @@ export interface OrcProfile {
  * wind and the race's scoring wind (with its source).
  */
 export interface OrcRaceCalc {
-  /** The applied allowance in s/NM (equals HandicapRaceScore.tcfApplied). */
-  todApplied: number;
-  /** The scratch boat's allowance the fleet corrected against. */
-  scratchTod: number;
-  distanceNm: number;
+  /** The certificate rating field applied this race — set when it isn't the
+   *  fleet's default (a per-start wind-band selection), and always for ToD. */
+  option?: string;
+  /** ToD/PCS: the applied allowance in s/NM (equals tcfApplied). */
+  todApplied?: number;
+  /** ToD/PCS: the scratch boat's allowance the fleet corrected against. */
+  scratchTod?: number;
+  /** ToD/PCS: the course length corrected over. */
+  distanceNm?: number;
   /** PCS only: this boat's implied wind (finishers). */
   impliedWind?: number;
   /** PCS only: the wind corrected times were computed at. */
@@ -572,6 +576,12 @@ export interface RaceStart {
   // the legs' sum and `distanceNm` is ignored for PCS. Course facts are
   // published — this is the record competitors check their tracks against.
   courseLegs?: OrcCourseLeg[];
+  // ORC wind-band selection: a certificate rating field overriding the
+  // fleet's configured option for this start's races — the race committee's
+  // per-race band choice (announced by VHF in the DBSC pattern, changeable
+  // if conditions materially changed). Must apply the same way (ToT/ToD) as
+  // the fleet's option; a mismatched field is ignored. Sparse.
+  orcOption?: string;
   version?: number;     // server-side concurrency token (see Series.version)
 }
 

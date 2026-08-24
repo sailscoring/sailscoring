@@ -564,6 +564,7 @@ export async function copySeries(
           distanceNm: s.distanceNm ?? null,
           orcScoringWind: s.orcScoringWind ?? null,
           courseLegs: s.courseLegs?.length ? s.courseLegs : null,
+          orcOption: s.orcOption ?? null,
         })),
       );
     }

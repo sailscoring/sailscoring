@@ -1,6 +1,6 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
 import { getCodeDefinition } from './scoring-codes';
-import { orcFleetProfile, orcPcsRatable, orcTodRating, orcTotRating } from './orc-certificate';
+import { orcFleetProfile, orcOptionKind, orcPcsRatable, orcRecordNumber, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
@@ -1637,7 +1637,7 @@ function calculateHandicapStandings(
       rejections: allRejections,
       ...(isNhc ? { nhcRaceScoresByRaceId: new Map(), nhcAggregatesByRaceId: new Map() } : {}),
       ...(isEcho ? { echoRaceScoresByRaceId: new Map(), echoAggregatesByRaceId: new Map() } : {}),
-      ...(isOrcTod || isOrcPcs ? { orcRaceScoresByRaceId: new Map() } : {}),
+      ...(fleet.scoringSystem === 'orc' ? { orcRaceScoresByRaceId: new Map() } : {}),
       ...(isProgressive ? { tcfHistory: [] } : {}),
       circularRedressRaces: [],
     };
@@ -1700,6 +1700,29 @@ function calculateHandicapStandings(
         ? { distanceNm: raceStart.distanceNm!, scratchTod }
         : undefined;
       let orcCalcById: Map<string, OrcRaceCalc> | undefined;
+      // ORC wind-band selection: the start names a sibling certificate field
+      // — the race committee's per-race band — which overrides the fleet's
+      // option for this race, provided it applies the same way (ToT stays
+      // ToT, ToD stays ToD). Re-banding recomputes; finishes stay put.
+      let orcAppliedOption: string | undefined;
+      if (
+        orcProfile && orcProfile.kind !== 'pcs' &&
+        raceStart.orcOption && raceStart.orcOption !== orcProfile.option &&
+        orcOptionKind(raceStart.orcOption) === orcProfile.kind
+      ) {
+        const bandMap = new Map<string, number>();
+        for (const c of ratedCompetitors) {
+          const value = c.orcCert ? orcRecordNumber(c.orcCert.record, raceStart.orcOption) : undefined;
+          if (value != null) bandMap.set(c.id, value);
+        }
+        if (bandMap.size > 0) {
+          effectiveTcfMap = bandMap;
+          orcAppliedOption = raceStart.orcOption;
+          if (isOrcTod) {
+            todContext = { distanceNm: raceStart.distanceNm!, scratchTod: Math.min(...bandMap.values()) };
+          }
+        }
+      }
       if (isOrcPcs) {
         const pcs = computeOrcPcsRace(
           ratedCompetitors,
@@ -1720,17 +1743,26 @@ function calculateHandicapStandings(
       const phaseA = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, effectiveTcfMap, dnfScoring, todContext);
       let raceScores = phaseA.scores;
 
-      // Attach the ORC audit block: the PCS computation's per-boat calc, or
-      // the plain ToD ingredients for a certificate-field ToD fleet.
-      if (todContext) {
+      // Attach the ORC audit block: the PCS computation's per-boat calc, the
+      // plain ToD ingredients, or — for a ToT race scored on a per-start
+      // band — just the field that was applied.
+      if (todContext || orcAppliedOption) {
         const ctx = todContext;
+        const appliedOption = orcAppliedOption ?? (isOrcTod ? orcProfile!.option : undefined);
         const merged = new Map<string, HandicapRaceScore>();
         for (const [cid, s] of raceScores) {
-          const calc =
+          const calc: OrcRaceCalc | undefined =
             orcCalcById?.get(cid) ??
-            (s.tcfApplied != null
-              ? { todApplied: s.tcfApplied, scratchTod: ctx.scratchTod, distanceNm: ctx.distanceNm }
-              : undefined);
+            (ctx && s.tcfApplied != null
+              ? {
+                  ...(appliedOption ? { option: appliedOption } : {}),
+                  todApplied: s.tcfApplied,
+                  scratchTod: ctx.scratchTod,
+                  distanceNm: ctx.distanceNm,
+                }
+              : orcAppliedOption
+                ? { option: orcAppliedOption }
+                : undefined);
           merged.set(cid, calc ? { ...s, orc: calc } : s);
         }
         raceScores = merged;
@@ -1849,7 +1881,7 @@ function calculateHandicapStandings(
     rejections: allRejections,
     ...(isNhc ? { nhcRaceScoresByRaceId, nhcAggregatesByRaceId } : {}),
     ...(isEcho ? { echoRaceScoresByRaceId, echoAggregatesByRaceId } : {}),
-    ...(isOrcTod || isOrcPcs ? { orcRaceScoresByRaceId } : {}),
+    ...(fleet.scoringSystem === 'orc' ? { orcRaceScoresByRaceId } : {}),
     ...(isProgressive ? { tcfHistory } : {}),
     circularRedressRaces,
   };

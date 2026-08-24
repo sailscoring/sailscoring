@@ -161,9 +161,14 @@ export interface RaceData {
 }
 
 export interface OrcHeaderData {
-  /** The scratch boat's allowance (s/NM) the fleet corrected against. */
-  scratchTod: number;
-  distanceNm: number;
+  /** The certificate rating field applied — names the wind band on a
+   *  band-scored race. */
+  option?: string;
+  /** ToD/PCS: the scratch boat's allowance (s/NM) the fleet corrected
+   *  against. Absent on a ToT band race, which has no correction header
+   *  beyond the field name. */
+  scratchTod?: number;
+  distanceNm?: number;
   /** PCS: the wind corrected times were computed at. */
   scoringWind?: number;
   /** PCS: the scoring wind was set by the race committee (rule 402.12). */
@@ -1506,22 +1511,35 @@ function renderRaceTable(
   const orcSubheading = race.orcHeader
     ? (() => {
         const h = race.orcHeader;
-        const model =
-          h.courseModel === 'CC'
-            ? `Constructed course &middot; ${h.distanceNm.toFixed(2)} NM${h.legs?.length ? ` &middot; ${h.legs.length} legs` : ''}`
-            : h.courseModel
-              ? `${h.courseModel === 'WL' ? 'Windward/leeward' : h.courseModel === 'CR' ? 'All-purpose' : 'Coastal'} course model &middot; ${h.distanceNm.toFixed(2)} NM`
-              : `Course ${h.distanceNm.toFixed(2)} NM`;
-        const wind =
+        const parts: string[] = [];
+        if (h.distanceNm != null) {
+          parts.push(
+            h.courseModel === 'CC'
+              ? `Constructed course &middot; ${h.distanceNm.toFixed(2)} NM${h.legs?.length ? ` &middot; ${h.legs.length} legs` : ''}`
+              : h.courseModel
+                ? `${h.courseModel === 'WL' ? 'Windward/leeward' : h.courseModel === 'CR' ? 'All-purpose' : 'Coastal'} course model &middot; ${h.distanceNm.toFixed(2)} NM`
+                : `Course ${h.distanceNm.toFixed(2)} NM`,
+          );
+        }
+        if (h.option) parts.push(`Rating field ${esc(h.option)}`);
+        if (h.scoringWind != null) {
+          parts.push(
+            `Scoring wind ${h.scoringWind.toFixed(2)} kt (${h.scoringWindOverridden ? 'set by the race committee' : "winner's implied wind"})`,
+          );
+        }
+        if (h.scratchTod != null) parts.push(`Scratch allowance ${h.scratchTod.toFixed(1)} s/NM`);
+        const regime =
           h.scoringWind != null
-            ? ` &middot; Scoring wind ${h.scoringWind.toFixed(2)} kt (${h.scoringWindOverridden ? 'set by the race committee' : "winner's implied wind"})`
-            : '';
+            ? 'performance curves'
+            : h.scratchTod != null
+              ? 'time-on-distance'
+              : 'a certificate rating';
         const legsLine = h.legs?.length
           ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
               .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;)`)
               .join(' &middot; ')}</p>`
           : '';
-        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Scored on ORC ${h.scoringWind != null ? 'performance curves' : 'time-on-distance'} &middot; ${model}${wind} &middot; Scratch allowance ${h.scratchTod.toFixed(1)} s/NM</p>${legsLine}\n`;
+        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Scored on ORC ${regime}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}\n`;
       })()
     : '';
   const echoHeaders = hasEchoExplain
@@ -1962,8 +1980,9 @@ export function assembleSeriesResultsData(
           ? raceStarts?.find((rs) => rs.raceId === race.id && rs.fleetIds.includes(fleetId))
           : undefined;
         orcHeaderData = {
-          scratchTod: firstOrc.scratchTod,
-          distanceNm: firstOrc.distanceNm,
+          ...(firstOrc.option ? { option: firstOrc.option } : {}),
+          ...(firstOrc.scratchTod != null ? { scratchTod: firstOrc.scratchTod } : {}),
+          ...(firstOrc.distanceNm != null ? { distanceNm: firstOrc.distanceNm } : {}),
           ...(firstOrc.scoringWind != null ? { scoringWind: firstOrc.scoringWind } : {}),
           ...(firstOrc.scoringWindOverridden ? { scoringWindOverridden: true } : {}),
           ...(firstOrc.courseModel ? { courseModel: firstOrc.courseModel } : {}),

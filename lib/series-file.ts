@@ -495,6 +495,7 @@ interface SeriesFileRaceStart {
   distanceNm?: number;  // v39+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v39+; RC PCS scoring-wind override in kt (ORC 402.12)
   courseLegs?: OrcCourseLeg[];  // v39+; constructed-course legs (ORC 402.5)
+  orcOption?: string;  // v39+; ORC wind-band field selection for this start
 }
 
 interface SeriesFileRatingOverride {
@@ -685,6 +686,7 @@ export async function buildSeriesFile(
       ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
       ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
       ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+      ...(s.orcOption ? { orcOption: s.orcOption } : {}),
     });
   }
 
@@ -1743,6 +1745,7 @@ async function writeFleetsCompetitorsRaces(
         ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
         ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
         ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+        ...(s.orcOption ? { orcOption: s.orcOption } : {}),
       })),
     );
 

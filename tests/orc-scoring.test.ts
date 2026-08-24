@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { orcFleetProfile, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
+import { orcFieldKind, orcFleetProfile, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
 import { scorePcsRace, type PcsAllowances } from '@/lib/orc-pcs';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import type { Competitor, Finish, Fleet, OrcCertData, Race, RaceStart } from '@/lib/types';
@@ -242,6 +242,80 @@ describe('ORC Performance Curve Scoring in the standings engine', () => {
     const bare: Competitor = { ...baseComp, id: 'bare', sailNumber: 'X', orcCert: { record: { APHT: 0.95 }, importedAt: 0 } };
     const result = calculateFleetStandings([pcsFleet], [impFull, bare], races, [finish('imp', 1, '14:58:00')], [], 'seriesEntries', [pcsStart]);
     expect(result.fleetStandings[0].rejections.some((r) => r.competitorId === 'bare')).toBe(true);
+  });
+});
+
+describe('ORC wind-band selection (per-start option)', () => {
+  const { rms } = parseOrcRmsJson(
+    readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+  );
+  const certComp = (id: string, sail: string, yachtName: string): Competitor => ({
+    ...baseComp,
+    id,
+    sailNumber: sail,
+    orcCert: { record: rms.find((r) => r.YachtName === yachtName)!, importedAt: 0 },
+  });
+  const impFull = certComp('imp', 'IRL 2507', 'IMPETUOUS');
+  const mojoFull = certComp('mojo', 'IRL 1551', 'MOJO');
+  // Mojo 14:58:00 (ET 3480), Impetuous 15:00:00 (ET 3600).
+  const finishes = [finish('mojo', 1, '14:58:00'), finish('imp', 2, '15:00:00')];
+
+  function rankOrder(fleetUnderTest: Fleet, raceStart: RaceStart): string[] {
+    const result = calculateFleetStandings([fleetUnderTest], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [raceStart]);
+    return [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
+  }
+
+  it('the start-selected band replaces the fleet option and can flip the race', () => {
+    // Default APHT (Imp 0.9631, Mojo 1.0089): Impetuous wins 3467 to 3511.
+    expect(rankOrder(fleet, start)).toEqual(['imp', 'mojo']);
+    // The IRL five-band W/L Medium band (Imp 0.8211, Mojo 0.8383): Mojo
+    // corrects to 2917 against Impetuous's 2956 — the band flips the race.
+    const banded: RaceStart = { ...start, orcOption: 'IRL_5B_WL_M_TOT' };
+    expect(rankOrder(fleet, banded)).toEqual(['mojo', 'imp']);
+    // The audit block names the applied band.
+    const result = calculateFleetStandings([fleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [banded]);
+    const score = result.fleetStandings[0].orcRaceScoresByRaceId?.get('r1')?.get('imp');
+    expect(score?.orc?.option).toBe('IRL_5B_WL_M_TOT');
+    expect(score?.tcfApplied).toBe(0.8211);
+  });
+
+  it('a band that applies the other way (ToT fleet, ToD field) is ignored', () => {
+    const mismatched: RaceStart = { ...start, orcOption: 'IRL_5B_WL_M_TOD' };
+    expect(rankOrder(fleet, mismatched)).toEqual(['imp', 'mojo']);
+  });
+
+  it('a time-on-distance fleet takes ToD bands, scratch per race', () => {
+    const todFleet: Fleet = { ...fleet, orcProfile: { option: 'APHD', kind: 'tod' } };
+    const banded: RaceStart = { ...start, distanceNm: 3.9, orcOption: 'IRL_5B_WL_M_TOD' };
+    const result = calculateFleetStandings([todFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [banded]);
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId?.get('r1');
+    const imp = scores?.get('imp');
+    expect(imp?.orc?.option).toBe('IRL_5B_WL_M_TOD');
+    // The band's own values set the per-race scratch allowance.
+    const impTod = impFull.orcCert!.record.IRL_5B_WL_M_TOD as number;
+    const mojoTod = mojoFull.orcCert!.record.IRL_5B_WL_M_TOD as number;
+    expect(imp?.orc?.scratchTod).toBe(Math.min(impTod, mojoTod));
+    expect(imp?.tcfApplied).toBe(impTod);
+  });
+
+  it('orcSelectableOptions discovers band fields from the stored certificates', () => {
+    const options = orcSelectableOptions([impFull, mojoFull]);
+    const byOption = new Map(options.map((o) => [o.option, o.kind]));
+    expect(byOption.get('IRL_5B_WL_M_TOT')).toBe('tot');
+    expect(byOption.get('IRL_5B_WL_M_TOD')).toBe('tod');
+    expect(byOption.get('TN_Inshore_Low')).toBe('tot');
+    expect(byOption.get('TND_Inshore_Low')).toBe('tod');
+    expect(byOption.has('APHT')).toBe(false);
+    expect(byOption.has('YachtName')).toBe(false);
+  });
+
+  it('orcFieldKind reads the naming conventions', () => {
+    expect(orcFieldKind('IRL_5B_WL_H_TOT')).toBe('tot');
+    expect(orcFieldKind('US_CHIMAC_UP_L_TOD')).toBe('tod');
+    expect(orcFieldKind('TN_Offshore_High')).toBe('tot');
+    expect(orcFieldKind('TND_Offshore_High')).toBe('tod');
+    expect(orcFieldKind('APHT')).toBeNull();
+    expect(orcFieldKind('CDL')).toBeNull();
   });
 });
 

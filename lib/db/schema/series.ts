@@ -942,6 +942,7 @@ export const raceStarts = pgTable(
     distanceNm: real('distance_nm'),
     orcScoringWind: real('orc_scoring_wind'),
     courseLegs: jsonb('course_legs').$type<OrcCourseLeg[]>(),
+    orcOption: text('orc_option'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

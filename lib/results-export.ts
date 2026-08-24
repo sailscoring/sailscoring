@@ -18,7 +18,7 @@ import {
   type CompetitorListRow,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
-import { orcFleetProfile, orcPcsRatable, orcTodRating, orcTotRating } from './orc-certificate';
+import { orcFleetProfile, orcOptionKind, orcPcsRatable, orcRecordNumber, orcTodRating, orcTotRating } from './orc-certificate';
 import {
   resolvePublishingGroups,
   fleetPagesSuppressed,
@@ -549,6 +549,25 @@ export async function buildFleetHtmlFiles(
             }
           }
           let ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
+          // ORC wind-band selection: the start's field overrides the fleet's
+          // option for this race when it applies the same way.
+          let orcAppliedOption: string | undefined;
+          if (
+            orcProfile && orcProfile.kind !== 'pcs' &&
+            raceStart.orcOption && raceStart.orcOption !== orcProfile.option &&
+            orcOptionKind(raceStart.orcOption) === orcProfile.kind
+          ) {
+            const bandMap = new Map<string, number>();
+            for (const c of ratedFleetCompetitors) {
+              const value = c.orcCert ? orcRecordNumber(c.orcCert.record, raceStart.orcOption) : undefined;
+              if (value != null) bandMap.set(c.id, value);
+            }
+            if (bandMap.size > 0) {
+              tcfMap = bandMap;
+              orcAppliedOption = raceStart.orcOption;
+              ratedFleetCompetitors = ratedFleetCompetitors.filter((c) => tcfMap.has(c.id));
+            }
+          }
           let todContext = isOrcTod && tcfMap.size > 0
             ? { distanceNm: raceStart.distanceNm!, scratchTod: Math.min(...tcfMap.values()) }
             : undefined;
@@ -570,11 +589,17 @@ export async function buildFleetHtmlFiles(
             }
           } else if (todContext) {
             const ctx = todContext;
+            const appliedOption = orcAppliedOption ?? orcProfile!.option;
             orcCalcByComp = new Map(
               [...tcfMap.entries()].map(([cid, tod]) => [
                 cid,
-                { todApplied: tod, scratchTod: ctx.scratchTod, distanceNm: ctx.distanceNm },
+                { option: appliedOption, todApplied: tod, scratchTod: ctx.scratchTod, distanceNm: ctx.distanceNm },
               ]),
+            );
+          } else if (orcAppliedOption) {
+            const applied = orcAppliedOption;
+            orcCalcByComp = new Map(
+              [...tcfMap.keys()].map((cid) => [cid, { option: applied }]),
             );
           }
           scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries', todContext).scores;
