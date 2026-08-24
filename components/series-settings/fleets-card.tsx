@@ -9,10 +9,10 @@ import {
   raceStartRepo,
 } from '@/lib/api-repository';
 import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '@/hooks/use-fleets';
-import { useSaveCompetitors } from '@/hooks/use-competitors';
+import { useCompetitorsBySeries, useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
-import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile } from '@/lib/orc-certificate';
+import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcSelectableOptions } from '@/lib/orc-certificate';
 import type { Fleet, OrcProfile, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,6 +48,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const { has } = useFeatures();
   const isWizard = mode === 'wizard';
   const { data: fleetsData } = useFleetsBySeries(seriesId);
+  // The ORC option picker offers, beyond the internationally published
+  // single numbers, whatever banded and national fields the stored
+  // certificates actually carry.
+  const { data: fleetCompetitors } = useCompetitorsBySeries(seriesId);
+  const orcCertificateOptions = orcSelectableOptions(fleetCompetitors ?? []);
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
   const saveFleets = useSaveFleets();
@@ -402,6 +407,24 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                             {o.label}
                           </SelectItem>
                         ))}
+                        {orcCertificateOptions.map((o) => (
+                          <SelectItem key={o.option} value={JSON.stringify({ option: o.option, kind: o.kind })}>
+                            <span className="font-mono text-xs">{o.option}</span>
+                          </SelectItem>
+                        ))}
+                        {(() => {
+                          // A stored option no certificate carries any more
+                          // still renders, so the control isn't broken.
+                          const current = orcFleetProfile(fleet);
+                          const known =
+                            ORC_STANDARD_OPTIONS.some((o) => o.option === current.option) ||
+                            orcCertificateOptions.some((o) => o.option === current.option);
+                          return known ? null : (
+                            <SelectItem value={JSON.stringify(current)}>
+                              <span className="font-mono text-xs">{current.option}</span>
+                            </SelectItem>
+                          );
+                        })()}
                       </SelectContent>
                     </Select>
                   )}

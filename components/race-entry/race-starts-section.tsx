@@ -10,7 +10,7 @@ import {
   type RaceStartDraft,
 } from '@/components/race-start-dialog';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
-import type { Fleet, RaceStart } from '@/lib/types';
+import type { Competitor, Fleet, RaceStart } from '@/lib/types';
 
 export interface RaceStartsSectionHandle {
   /** Expand the section and open the add-start dialog (the `s` shortcut). */
@@ -31,9 +31,12 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
   raceStarts: RaceStart[];
   fleets: Fleet[];
   fleetById: Map<string, Fleet>;
+  /** The series' competitors — the ORC wind-band picker derives its options
+   *  from the stored certificates. */
+  competitors?: Competitor[];
   /** Whether to render the card itself (finish tab of a handicap series). */
   visible: boolean;
-}>(function RaceStartsSection({ raceId, raceStarts, fleets, fleetById, visible }, ref) {
+}>(function RaceStartsSection({ raceId, raceStarts, fleets, fleetById, competitors, visible }, ref) {
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStartMutation = useDeleteRaceStart();
   const [startsExpanded, setStartsExpanded] = useState(false);
@@ -64,6 +67,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
       ...(draft.distanceNm != null ? { distanceNm: draft.distanceNm } : {}),
       ...(draft.orcScoringWind != null ? { orcScoringWind: draft.orcScoringWind } : {}),
       ...(draft.courseLegs?.length ? { courseLegs: draft.courseLegs } : {}),
+      ...(draft.orcOption ? { orcOption: draft.orcOption } : {}),
     };
     await saveRaceStart.mutateAsync(raceStart);
     setStartDialogMode(null);
@@ -151,6 +155,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
         mode={startDialogMode}
         raceStarts={raceStarts}
         fleets={fleets}
+        competitors={competitors}
         onSave={handleSaveStart}
         onCancel={() => setStartDialogMode(null)}
       />

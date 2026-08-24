@@ -9,8 +9,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { orcFleetProfile, orcSelectableOptions } from '@/lib/orc-certificate';
 import { normalizeTimeInput } from '@/lib/time-parse';
-import type { Fleet, OrcCourseLeg, RaceStart } from '@/lib/types';
+import type { Competitor, Fleet, OrcCourseLeg, RaceStart } from '@/lib/types';
 
 export type RaceStartDialogMode =
   | { kind: 'add' }
@@ -26,6 +34,8 @@ export interface RaceStartDraft {
   orcScoringWind?: number;
   /** Constructed-course legs (ORC rule 402.5), in sailing order. */
   courseLegs?: OrcCourseLeg[];
+  /** ORC wind-band selection: the certificate rating field for this start. */
+  orcOption?: string;
 }
 
 export interface RaceStartDialogProps {
@@ -33,6 +43,9 @@ export interface RaceStartDialogProps {
   mode: RaceStartDialogMode | null;
   raceStarts: RaceStart[];
   fleets: Fleet[];
+  /** The series' competitors, when the caller has them — the ORC wind-band
+   *  picker derives its options from the stored certificates. */
+  competitors?: Competitor[];
   onSave: (draft: RaceStartDraft) => void | Promise<void>;
   onCancel: () => void;
 }
@@ -53,6 +66,7 @@ function RaceStartDialogInner({
   mode,
   raceStarts,
   fleets,
+  competitors,
   onSave,
   onCancel,
 }: RaceStartDialogProps & { mode: RaceStartDialogMode }) {
@@ -81,6 +95,18 @@ function RaceStartDialogInner({
     fleets.some(
       (f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs' && f.orcProfile.option === 'CC',
     ) || Boolean(seed?.courseLegs?.length);
+  // The wind-band picker: sibling certificate fields applying the same way
+  // as some ORC fleet's option, discovered from the stored certificates.
+  const bandKinds = new Set(
+    fleets
+      .filter((f) => f.scoringSystem === 'orc' && orcFleetProfile(f).kind !== 'pcs')
+      .map((f) => orcFleetProfile(f).kind),
+  );
+  const bandOptions = bandKinds.size > 0
+    ? orcSelectableOptions(competitors ?? []).filter((o) => bandKinds.has(o.kind))
+    : [];
+  const [orcOptionValue, setOrcOptionValue] = useState(seed?.orcOption ?? '');
+  const offerBand = bandOptions.length > 0 || Boolean(seed?.orcOption);
   interface LegRow { distance: string; bearing: string; wind: string }
   const [legRows, setLegRows] = useState<LegRow[]>(
     (seed?.courseLegs ?? []).map((leg) => ({
@@ -165,6 +191,7 @@ function RaceStartDialogInner({
       ...(distanceNm != null ? { distanceNm } : {}),
       ...(orcScoringWind != null ? { orcScoringWind } : {}),
       ...(courseLegs ? { courseLegs } : {}),
+      ...(orcOptionValue ? { orcOption: orcOptionValue } : {}),
     });
   }
 
@@ -275,6 +302,40 @@ function RaceStartDialogInner({
               <p className="text-xs text-muted-foreground">
                 One row per leg, in sailing order; split a leg into two rows when
                 the wind shifts along it. The course distance is the total.
+              </p>
+            </div>
+          )}
+          {offerBand && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Wind band <span className="font-normal text-muted-foreground">(this start)</span>
+              </label>
+              <Select
+                value={orcOptionValue || '__default__'}
+                onValueChange={(v) => { setOrcOptionValue(v === '__default__' ? '' : v); setError(''); }}
+              >
+                <SelectTrigger className="w-full" data-testid="start-orc-option">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">Fleet default</SelectItem>
+                  {bandOptions.map((o) => (
+                    <SelectItem key={o.option} value={o.option}>
+                      <span className="font-mono text-xs">{o.option}</span>
+                    </SelectItem>
+                  ))}
+                  {orcOptionValue && !bandOptions.some((o) => o.option === orcOptionValue) && (
+                    <SelectItem value={orcOptionValue}>
+                      <span className="font-mono text-xs">{orcOptionValue}</span>
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                The certificate rating field this start&apos;s races are scored on —
+                the band the race committee announced. It must apply the same way
+                as the fleet&apos;s option; changing it later re-scores without
+                re-entering finishes.
               </p>
             </div>
           )}
