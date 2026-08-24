@@ -149,11 +149,27 @@ function flagDefsFor(input: SplitFleetRenderInput): string {
   return renderFlagDefs(codes, input.flagSvgByCode);
 }
 
-function fleetTint(config: SplitFleetConfig, label: string | undefined): string {
+/** Fleet colour at low alpha, as 8-digit hex. `alpha` defaults to the race
+ *  cell's; a whole tinted row reads much stronger than one cell, so the
+ *  assignment list asks for less. The organising authority's own assignment
+ *  sheets use the colours flat — pure yellow, #FF3300 — which is legible on
+ *  paper and hard going on a screen. */
+function fleetTint(
+  config: SplitFleetConfig,
+  label: string | undefined,
+  alpha = '2e',
+): string {
   const all = [...config.qualifyingFleets, ...config.finalFleets];
   const hit = all.find((f) => f.label === label);
-  // Soft tint: fleet colour at low alpha via 8-digit hex when possible.
-  return hit ? `${hit.color}2e` : '#ffffff';
+  if (!hit) return '#ffffff';
+  // Widen `#abc` to `#aabbcc` first: the alpha is a suffix, and appending it
+  // to a short hex yields a seven-character value the browser drops on the
+  // floor, leaving the row untinted with nothing to show for it.
+  const hex = hit.color.trim();
+  const six = /^#[0-9a-f]{3}$/i.test(hex)
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+  return /^#[0-9a-f]{6}$/i.test(six) ? `${six}${alpha}` : '#ffffff';
 }
 
 /** The championship standings page. Returns full HTML. Deliberately carries
@@ -283,35 +299,58 @@ export function renderSplitFleetAssignmentsPage(
     .sort((a, b) => b.createdAt - a.createdAt)
     .map((round) => {
       // The provenance column only earns its place when the committee actually
-      // moved someone. Judged per round, not per fleet, so a round's tables
-      // keep the same shape as each other. An unconditional column showed as a
-      // few pixels of empty cells on every ordinary assignment.
+      // moved someone. Judged per round, so a round's rows keep one shape.
       const anyOverride = round.fleetIds.some((fid) =>
         data.competitors.some(
           (c) => c.fleetIds.includes(fid) && round.overrides?.[c.id] === fid,
         ),
       );
-      const fleets = round.fleetIds
-        .map((fid) => {
-          const members = data.competitors
+      // One list for the whole round, fleet first, in nationality order, each
+      // row tinted by the fleet the boat drew. This is the shape the ILCA 7
+      // Men's Worlds organising authority publishes, and it is the one a
+      // competitor actually scans: you look for your own country, not for your
+      // fleet's table. The fleet is named as well as coloured, so the page
+      // survives mono printing and readers who cannot separate the tints.
+      const assigned = round.fleetIds
+        .flatMap((fid) =>
+          data.competitors
             .filter((c) => c.fleetIds.includes(fid))
-            .sort(bySailNumber);
-          const rowsHtml = members
-            .map(
-              (c, i) =>
-                `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">${nat ? natCell(c.nationality, input.flagSvgByCode) : ''}<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(c.names.join(' & '))}</td>${
-                  anyOverride
-                    ? round.overrides?.[c.id] === fid
-                      ? '<td>placed by the committee</td>'
-                      : '<td></td>'
-                    : ''
-                }</tr>`,
-            )
-            .join('\n');
-          return `<h3>${esc(fleetName.get(fid) ?? '')} (${members.length})</h3>
-<div class="tablewrap"><table class="summarytable"><thead><tr>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${anyOverride ? '<th></th>' : ''}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+            .map((c) => ({ competitor: c, fleetId: fid })),
+        )
+        .sort(
+          (a, b) =>
+            // Nationality, then sail number. A boat with no nationality sorts
+            // last rather than leading the list.
+            (a.competitor.nationality || '\uffff').localeCompare(
+              b.competitor.nationality || '\uffff',
+            ) || bySailNumber(a.competitor, b.competitor),
+        );
+      const rowsHtml = assigned
+        .map(({ competitor: c, fleetId }) => {
+          const label = fleetName.get(fleetId) ?? '';
+          return `<tr style="background:${fleetTint(data.config, label, '1f')}"><td>${esc(label)}</td>${
+            nat ? natCell(c.nationality, input.flagSvgByCode) : ''
+          }<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(
+            c.names.join(' & '),
+          )}</td>${
+            anyOverride
+              ? round.overrides?.[c.id] === fleetId
+                ? '<td>placed by the committee</td>'
+                : '<td></td>'
+              : ''
+          }</tr>`;
         })
         .join('\n');
+      const sizes = round.fleetIds
+        .map(
+          (fid) =>
+            `${fleetName.get(fid) ?? ''} ${assigned.filter((a) => a.fleetId === fid).length}`,
+        )
+        .join(' \u00b7 ');
+      const fleets = `<p class="sfnote">${esc(sizes)}</p>
+<div class="tablewrap"><table class="summarytable"><thead><tr><th>Fleet</th>${
+        nat ? '<th>Nat</th>' : ''
+      }<th>Sail</th><th>Helm</th>${anyOverride ? '<th></th>' : ''}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
       const basis = round.basis
         ? `From the ranking after ${stageRaceLabel(data.config, round.stage === 'final' ? 'qualifying' : round.stage, round.basis.throughStageRace, qRaces)}, captured ${new Date(round.basis.capturedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC.`
         : round.method === 'seeded'
@@ -321,7 +360,7 @@ export function renderSplitFleetAssignmentsPage(
             : '';
       return `<section class="sfround">
 <h2>${esc(roundLabel(round))}</h2>
-<p class="sfnote">${esc(basis)}</p>
+${basis ? `<p class="sfnote">${esc(basis)}</p>` : ''}
 ${fleets}
 </section>`;
     })

@@ -173,14 +173,65 @@ describe('split-fleet pages use the standard published-page look', () => {
     });
   }
 
-  it('stripes its rows like every other published table', () => {
-    // The shell paints `.odd`/`.even`; without those classes the tables came
-    // out flat white beside the competitor list and the standings.
-    for (const render of [renderSplitFleetStandingsPage, renderSplitFleetAssignmentsPage]) {
-      const html = render(renderInputFor(FIXTURE), chrome);
-      expect(html).toContain('<tr class="odd summaryrow"');
-      expect(html).toContain('<tr class="even summaryrow"');
-    }
+  it('stripes the championship rows like every other published table', () => {
+    // The shell paints `.odd`/`.even`; without those classes the table came
+    // out flat white beside the competitor list and the standings. The
+    // assignments page is the exception: its rows carry the fleet tint, which
+    // is its banding.
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE), chrome);
+    expect(html).toContain('<tr class="odd summaryrow"');
+    expect(html).toContain('<tr class="even summaryrow"');
+  });
+
+  it('lists a round as one nationality-ordered table, fleet first', () => {
+    // The shape the ILCA 7 Men's Worlds organising authority publishes: not a
+    // table per fleet, but one list a competitor can scan for their own
+    // country, with the fleet named and coloured on each row.
+    const base = renderInputFor(FIXTURE);
+    const nats = ['NZL', 'IRL', 'AUS', 'IRL', 'AUS', 'FRA'];
+    const input: SplitFleetRenderInput = {
+      ...base,
+      enabledCompetitorFields: ['nationality'],
+      competitors: base.competitors.map((c, i) => ({ ...c, nationality: nats[i] })),
+      config: {
+        ...base.config,
+        qualifyingFleets: [
+          { label: 'Yellow', color: '#eab308' },
+          { label: 'Blue', color: '#3b82f6' },
+        ],
+      },
+    };
+    const html = renderSplitFleetAssignmentsPage(input, chrome);
+
+    // One table per round, not one per fleet: no per-fleet headings.
+    expect(html).toContain('<th>Fleet</th>');
+    expect(html).not.toContain('<h3>');
+
+    // Fleet leads each row, and is named as well as coloured — the page has to
+    // survive mono printing and readers who cannot separate the tints.
+    expect(html).toMatch(/<tr style="background:#[0-9a-f]{8}"><td>(Yellow|Blue)<\/td>/);
+
+    // Nationality order — within a round's table. The page carries one table
+    // per round, so the concatenation of them all is not sorted.
+    // Anchored on the first data table: the shell's own header is a table too,
+    // and its <tbody> comes first in the document.
+    const from = html.indexOf('<table class="summarytable"');
+    const firstTable = html.slice(from, html.indexOf('</tbody>', from));
+    const order = [...firstTable.matchAll(/<td class="nat"[^>]*>.*?>([A-Z]{3})</g)].map((m) => m[1]);
+    expect(order.length).toBeGreaterThan(1);
+    expect(order).toEqual([...order].sort());
+    const tints = new Set([...html.matchAll(/background:(#[0-9a-f]{8})/g)].map((m) => m[1]));
+    expect(tints.size).toBeGreaterThan(1);
+    for (const t of tints) expect(t.endsWith('1f')).toBe(true);
+  });
+
+  it('widens a short fleet colour before adding the tint alpha', () => {
+    // `#abc` + alpha is seven characters, which a browser discards — the row
+    // would silently lose its colour.
+    const base = renderInputFor(FIXTURE);
+    const html = renderSplitFleetAssignmentsPage(base, chrome);
+    expect(html).not.toMatch(/background:#[0-9a-f]{5}"/);
+    expect(html).toContain('background:#0000001f');
   });
 
   it('leaves out the provenance column when nobody was hand-placed', () => {
