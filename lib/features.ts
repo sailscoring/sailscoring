@@ -324,11 +324,14 @@ export const FEATURES = {
     // series that already carries a record keeps it in its file and export
     // regardless, per the containment model.
     //
-    // One thing to revisit: wind is a *scoring* input for ORC
-    // performance-curve work, not only a display field. If that work starts
-    // before this feature is generally available, a gate that hides the wind
-    // inputs would be hiding a required input — at which point either split
-    // the gate or default it on.
+    // Revisited when ORC landed: the worry that wind would become a scoring
+    // input trapped behind this gate didn't materialise. Performance-curve
+    // scoring derives its own wind from finish times, and every ORC scoring
+    // input the race committee sets — course length, constructed-course
+    // legs, the scoring-wind override — lives on the race start, ungated.
+    // The record here stays what it always was: the published account of the
+    // day. It becomes a *default* for ORC band selection if that ever wants
+    // one, which is a convenience, not a dependency.
     label: 'Race conditions and management team',
     helpSectionIds: ['race-management-metadata'],
   },

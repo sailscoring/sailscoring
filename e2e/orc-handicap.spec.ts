@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { signedInTest as test, expect } from './fixtures';
-import { createFleets, createSeriesQuick, enableFeatures, setScoringMode } from './helpers';
+import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, setScoringMode } from './helpers';
 
 /**
  * E2E for ORC certificate import and scoring — APHT time-on-time and
@@ -271,6 +271,20 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 1551');
+
+  // The published page carries the full audit trail: how the corrected
+  // times were arrived at, and the course record itself.
+  const download = await downloadFleetHtml(page);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const html = Buffer.concat(chunks).toString('utf-8');
+  expect(html).toContain('Scored on ORC performance curves');
+  expect(html).toContain('Constructed course');
+  expect(html).toContain('8.11 NM');
+  expect(html).toContain("Scoring wind 18.06 kt (winner's implied wind)");
+  expect(html).toContain('<th>Implied wind</th>');
+  expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg;)');
 });
 
 test('ORC fleet: time-on-distance over the start course length', async ({ page }) => {
