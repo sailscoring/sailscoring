@@ -1,45 +1,34 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { signedInTest as test, expect } from './fixtures';
 import { createFleets, createSeriesQuick, enableFeatures, setScoringMode } from './helpers';
 
 /**
- * E2E for ORC certificate import and APHT time-on-time scoring. The ORC
- * database fetch is stubbed from a fixture so the test is hermetic. APHT
- * values are the boats' real 2026 IRL certificates (the AL 2025 report's
- * Class 2 boats): Impetuous 0.9631, Mojo 1.0089.
+ * E2E for ORC certificate import and scoring — APHT time-on-time and
+ * windward/leeward Performance Curve Scoring. The ORC database fetch is
+ * stubbed from the boats' real 2026 IRL certificates (the AL 2025 report's
+ * Class 2 boats — Impetuous APHT 0.9631, Mojo 1.0089 — complete with their
+ * time-allowance matrices, which PCS needs).
  *
  * ORC is a gated, opt-in feature, so the workspace enables it first.
  */
 
-function cert(
-  sailNo: string,
-  yachtName: string,
-  refNo: string,
-  fields: Record<string, number>,
-) {
-  return {
-    record: {
-      SailNo: sailNo,
-      YachtName: yachtName,
-      RefNo: refNo,
-      CertNo: refNo,
-      C_Type: 'CLUB',
-      Family: 'ORC',
-      IssueDate: '2026-03-01T00:00:00.000Z',
-      ...fields,
-    },
-    expiryDate: '2026-12-31T00:00:00.000Z',
-    vppYear: 2026,
-  };
+const SAMPLE = JSON.parse(
+  readFileSync(join(__dirname, '../tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8').replace(/^﻿/, ''),
+) as { rms: Array<Record<string, unknown>> };
+
+function cert(yachtName: string) {
+  const record = SAMPLE.rms.find((r) => r.YachtName === yachtName);
+  if (!record) throw new Error(`no fixture certificate for ${yachtName}`);
+  return { record, expiryDate: '2026-12-31T00:00:00.000Z', vppYear: 2026 };
 }
 
 const LISTING_FIXTURE = {
   updatedAt: '19/08/2026',
   countryId: 'IRL',
   family: 'ORC',
-  records: [
-    cert('IRL 2507', 'IMPETUOUS', '051800048LU', { APHT: 0.9631, APHD: 623.0, CDL: 6.989, GPH: 675.4 }),
-    cert('IRL 1551', 'MOJO', '051800048F1', { APHT: 1.0089, APHD: 594.7, CDL: 7.125, GPH: 645.2 }),
-  ],
+  records: [cert('IMPETUOUS'), cert('MOJO')],
   scoringOptions: [],
 };
 
@@ -105,7 +94,8 @@ test('import seeds whole certificates by sail number', async ({ page }) => {
   await expect(page.getByText('ORC certificates as of 19/08/2026')).toBeVisible();
   await expect(page.getByRole('cell', { name: '— → 0.9631' })).toBeVisible();
   await expect(page.getByRole('cell', { name: '— → 1.0089' })).toBeVisible();
-  await expect(page.getByText('matched without country code → IRL 1551')).toBeVisible();
+  // Mojo's certificate registers the hyphenated form of its sail number.
+  await expect(page.getByText('matched without country code → IRL-1551')).toBeVisible();
 
   await page.getByRole('button', { name: /^Apply/ }).click();
   await expect(page.getByText('Handicaps updated')).toBeVisible();
@@ -164,6 +154,57 @@ test('ORC fleet: standings ordered by APHT corrected time', async ({ page }) => 
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 1551');
+});
+
+test('ORC fleet: performance curve scoring over the W/L model', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC PCS Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+
+  // Windward/leeward performance-curve scoring.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
+  await page.getByRole('option', { name: 'Windward/leeward · performance curve (PCS)' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await importCertificates(page, 2);
+
+  // A 3.9 NM W/L race, start 14:00:00. From the boats' performance curves:
+  // Mojo's implied wind 7.70 kt is the scoring wind; corrected times
+  // Mojo 3390 (scratch — its elapsed), Impetuous 3402 — Mojo wins.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByLabel(/Course length/).fill('3.9');
+  // The PCS-only scoring-wind override field is offered (and left blank).
+  await expect(page.getByLabel(/Scoring wind/)).toBeVisible();
+  await page.getByRole('checkbox', { name: 'Class 2' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRL 1551', finishTime: '14:56:30' },
+    { sailNumber: 'IRL 2507', finishTime: '14:58:00' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('row').nth(1)).toContainText('IRL 1551');
+  await expect(page.getByRole('row').nth(2)).toContainText('IRL 2507');
 });
 
 test('ORC fleet: time-on-distance over the start course length', async ({ page }) => {
