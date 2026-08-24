@@ -146,6 +146,7 @@ export function FinishTab(props: FinishTabProps) {
   const {
     value: sailInput, setValue: setSailInput,
     error: inputError, setError: setInputError,
+    notice: inputNotice, setNotice: setInputNotice,
     pendingUnknownSail, setPendingUnknownSail,
     highlightedIndex, setHighlightedIndex,
     ref: inputRef,
@@ -346,6 +347,7 @@ export function FinishTab(props: FinishTabProps) {
                 onChange={(e) => {
                   setSailInput(e.target.value);
                   setInputError('');
+                  setInputNotice('');
                   setHighlightedIndex(-1);
                   setPendingUnknownSail(null);
                 }}
@@ -463,6 +465,11 @@ export function FinishTab(props: FinishTabProps) {
         {inputError && !pendingUnknownSail && (
           <p className="text-sm text-destructive">{inputError}</p>
         )}
+        {inputNotice && !inputError && !pendingUnknownSail && (
+          <p className="text-sm text-amber-600 dark:text-amber-500" data-testid="already-entered-notice">
+            {inputNotice}
+          </p>
+        )}
         {pendingUnknownSail && (
           <div className="space-y-2">
             <p className="text-sm text-destructive">
@@ -515,6 +522,7 @@ export function FinishTab(props: FinishTabProps) {
                 <li
                   ref={ref}
                   style={style}
+                  data-entry-key={eid}
                   className={cn(
                     'flex items-center gap-3 border border-amber-400 rounded-lg px-4 py-2.5 bg-amber-50 dark:bg-amber-950 transition-colors hover:bg-amber-100 dark:hover:bg-amber-900',
                     isFlashed && 'ring-2 ring-primary',
@@ -557,6 +565,7 @@ export function FinishTab(props: FinishTabProps) {
               <li
                 ref={ref}
                 style={style}
+                data-entry-key={eid}
                 className={cn(
                   'flex items-center gap-3 border rounded-lg px-4 py-2.5 transition-colors',
                   // Hover highlight anchors the eye across the now-wider row when
