@@ -7,6 +7,7 @@ import {
   deriveNonFinishers,
   finishedCompetitorIds,
   makeFinish,
+  matchIdentifierPrefix,
   partitionNonFinishers,
   resolveSailEntry,
 } from '@/lib/finish-entry';
@@ -229,9 +230,12 @@ describe('resolveSailEntry', () => {
     expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'sail', entered: 'IRL101' });
   });
 
-  it('reports an exact match already in the finishing order', () => {
+  it('reports an exact match already in the finishing order, carrying the boat', () => {
     const boats = [competitor('a', '101')];
-    expect(resolveSailEntry('101', boats, new Set(['a'])).kind).toBe('already-finished');
+    expect(resolveSailEntry('101', boats, new Set(['a']))).toEqual({
+      kind: 'already-finished',
+      competitors: [boats[0]],
+    });
   });
 
   it('reports duplicate sail numbers among unfinished boats', () => {
@@ -309,9 +313,19 @@ describe('resolveSailEntry', () => {
     expect(res).toEqual({ kind: 'commit', competitor: boats[0], matchedOn: 'bow', entered: 'BOW9' });
   });
 
-  it('ignores a finished boat’s bow number', () => {
+  it('reports a finished boat’s exact bow number as already entered', () => {
+    // The bow number is registered and its boat is in the order — offering
+    // to record it as a new unknown boat would invite a duplicate.
     const boats = [competitor('a', '567', '1234')];
-    expect(resolveSailEntry('1234', boats, new Set(['a'])).kind).toBe('unknown');
+    expect(resolveSailEntry('1234', boats, new Set(['a']))).toEqual({
+      kind: 'already-finished',
+      competitors: [boats[0]],
+    });
+  });
+
+  it('still reports unknown for a mere prefix of a finished boat’s bow number', () => {
+    const boats = [competitor('a', '567', '1234')];
+    expect(resolveSailEntry('12', boats, new Set(['a'])).kind).toBe('unknown');
   });
 
   it('does not treat an empty bow number as a match for empty-ish input', () => {
@@ -382,9 +396,12 @@ describe('resolveSailEntry', () => {
     expect(resolveSailEntry('99', boats, new Set()).kind).toBe('ambiguous-prefix');
   });
 
-  it('ignores a finished boat’s alternatives', () => {
+  it('reports a finished boat’s exact alternative as already entered', () => {
     const boats = [withAlts('a', '567', ['99'])];
-    expect(resolveSailEntry('99', boats, new Set(['a'])).kind).toBe('unknown');
+    expect(resolveSailEntry('99', boats, new Set(['a']))).toEqual({
+      kind: 'already-finished',
+      competitors: [boats[0]],
+    });
   });
 
   it('ignores blank entries in the list', () => {
@@ -398,6 +415,39 @@ describe('resolveSailEntry', () => {
     expect(resolveSailEntry('1234', boats, new Set())).toMatchObject({
       matchedOn: 'bow',
       entered: '1234',
+    });
+  });
+
+  describe('matchIdentifierPrefix', () => {
+    it('matches a sail-number prefix, returning the full number', () => {
+      expect(matchIdentifierPrefix(competitor('a', 'IRL218456'), 'IRL218')).toEqual({
+        matchedOn: 'sail',
+        entered: 'IRL218456',
+      });
+    });
+
+    it('falls back to alternatives, then bow, in tier order', () => {
+      const boat = withAlts('a', '567', ['IRL99'], 'BOW9');
+      expect(matchIdentifierPrefix(boat, 'IRL9')).toEqual({
+        matchedOn: 'alternative',
+        entered: 'IRL99',
+      });
+      expect(matchIdentifierPrefix(boat, 'BOW')).toEqual({
+        matchedOn: 'bow',
+        entered: 'BOW9',
+      });
+    });
+
+    it('lets the registered sail number shadow a bow match on the same boat', () => {
+      const boat = competitor('a', '1234', '12');
+      expect(matchIdentifierPrefix(boat, '12')).toEqual({
+        matchedOn: 'sail',
+        entered: '1234',
+      });
+    });
+
+    it('ignores blank alternatives and returns null when nothing matches', () => {
+      expect(matchIdentifierPrefix(withAlts('a', '567', ['', '   ']), '99')).toBeNull();
     });
   });
 });

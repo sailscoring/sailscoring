@@ -400,6 +400,34 @@ export function partitionNonFinishers(views: NonFinisherView[]): {
  *  only rescue an entry the registered number could not match. */
 export type MatchTier = 'sail' | 'alternative' | 'bow';
 
+/**
+ * Match a typed value against one competitor's identifiers as a prefix, in
+ * the same tier order the Enter resolution uses: registered sail number,
+ * then alternative sail numbers, then bow number. Returns which identifier
+ * matched and its full value (as the competitor spells it), or null.
+ * Drives the suggestions dropdown — both the committable rows and the
+ * already-entered ones. `query` must be trimmed, uppercased and non-empty.
+ */
+export function matchIdentifierPrefix(
+  competitor: Competitor,
+  query: string,
+): { matchedOn: MatchTier; entered: string } | null {
+  if (competitor.sailNumber.toUpperCase().startsWith(query)) {
+    return { matchedOn: 'sail', entered: competitor.sailNumber };
+  }
+  const alt = (competitor.alternativeSailNumbers ?? []).find(
+    (v) => v.trim() !== '' && v.trim().toUpperCase().startsWith(query),
+  );
+  if (alt !== undefined) {
+    return { matchedOn: 'alternative', entered: alt };
+  }
+  const bow = (competitor.bowNumber ?? '').toUpperCase();
+  if (bow !== '' && bow.startsWith(query)) {
+    return { matchedOn: 'bow', entered: competitor.bowNumber! };
+  }
+  return null;
+}
+
 /** What a plain Enter in the sail-number box should do with the typed text. */
 export type SailEntryResolution =
   | { kind: 'empty' }
@@ -415,8 +443,12 @@ export type SailEntryResolution =
       matchedOn: MatchTier;
       entered: string;
     }
-  /** Exact sail match, but every boat carrying it is already in the order. */
-  | { kind: 'already-finished' }
+  /** Exact identifier match, but every boat carrying it is already in the
+   *  order. Carries those boats so the UI can point at the existing rows —
+   *  duplicate entries on a paper finish sheet are a recorder error the
+   *  scorer discovers here, so the response must say where the boat already
+   *  is, not just refuse. */
+  | { kind: 'already-finished'; competitors: Competitor[] }
   /** Exact sail match shared by more than one unfinished boat. */
   | { kind: 'duplicate-sail' }
   /** No exact match, and the input is a prefix of two or more unfinished
@@ -462,7 +494,7 @@ export function resolveSailEntry(
   const exact = competitors.filter((c) => c.sailNumber.toUpperCase() === sail);
   if (exact.length > 0) {
     const unfinished = exact.filter((c) => !finishedIds.has(c.id));
-    if (unfinished.length === 0) return { kind: 'already-finished' };
+    if (unfinished.length === 0) return { kind: 'already-finished', competitors: exact };
     if (unfinished.length > 1) return { kind: 'duplicate-sail' };
     return {
       kind: 'commit',
@@ -521,6 +553,21 @@ export function resolveSailEntry(
     }
     if (tierPrefix.length > 1) return { kind: 'ambiguous-prefix' };
   }
+
+  // The typed value is an exact alternative or bow number of a boat that has
+  // already finished — the registered-sail case returned above. Report it as
+  // already entered rather than unknown: the number is registered, and
+  // offering to record it as a new unknown boat would invite a duplicate.
+  // A mere prefix of a finished boat's identifier still falls through to
+  // unknown, since it could genuinely be a different boat.
+  const finishedExact = competitors.filter(
+    (c) =>
+      finishedIds.has(c.id) &&
+      [...(c.alternativeSailNumbers ?? []), ...(c.bowNumber ? [c.bowNumber] : [])].some(
+        (v) => v.trim().toUpperCase() === sail,
+      ),
+  );
+  if (finishedExact.length > 0) return { kind: 'already-finished', competitors: finishedExact };
 
   return { kind: 'unknown' };
 }

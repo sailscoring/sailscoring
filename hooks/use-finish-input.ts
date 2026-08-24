@@ -7,6 +7,7 @@ import {
   deriveFinishState,
   entryKey,
   makeFinish,
+  matchIdentifierPrefix,
   resolveSailEntry,
   type FinishEntry,
   type MatchTier,
@@ -129,20 +130,8 @@ export function useFinishInput(args: UseFinishInputArgs) {
   type MatchedSuggestion = NonFinisherView & { matchedOn: MatchTier; entered: string };
   const suggestions: MatchedSuggestion[] = suggestionQuery
     ? nonFinishers.flatMap((view): MatchedSuggestion[] => {
-        if (view.competitor.sailNumber.toUpperCase().startsWith(suggestionQuery)) {
-          return [{ ...view, matchedOn: 'sail', entered: view.competitor.sailNumber }];
-        }
-        const alt = (view.competitor.alternativeSailNumbers ?? []).find(
-          (v) => v.trim() !== '' && v.trim().toUpperCase().startsWith(suggestionQuery),
-        );
-        if (alt !== undefined) {
-          return [{ ...view, matchedOn: 'alternative', entered: alt }];
-        }
-        const bow = (view.competitor.bowNumber ?? '').toUpperCase();
-        if (bow !== '' && bow.startsWith(suggestionQuery)) {
-          return [{ ...view, matchedOn: 'bow', entered: view.competitor.bowNumber! }];
-        }
-        return [];
+        const match = matchIdentifierPrefix(view.competitor, suggestionQuery);
+        return match ? [{ ...view, ...match }] : [];
       })
     : [];
 
