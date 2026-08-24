@@ -559,6 +559,11 @@ export async function copySeries(
           raceId: raceIdMap.get(s.raceId)!,
           fleetIds: s.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
           startTime: s.startTime,
+          // Course facts are scoring inputs (ORC ToD/PCS) and copy with the
+          // race data.
+          distanceNm: s.distanceNm ?? null,
+          orcScoringWind: s.orcScoringWind ?? null,
+          courseLegs: s.courseLegs?.length ? s.courseLegs : null,
         })),
       );
     }
