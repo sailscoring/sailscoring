@@ -193,6 +193,51 @@ describe('ORC Performance Curve Scoring in the standings engine', () => {
     expect(byRank).toEqual(['mojo', 'imp']);
   });
 
+  it('scores a constructed course from the start legs, matching the module', () => {
+    const ccFleet: Fleet = { ...fleet, orcProfile: { option: 'CC', kind: 'pcs' } };
+    // The ORC Race Management Guide's sample constructed course, 8.11 NM.
+    const legs = [
+      { distanceNm: 2.09, bearingDeg: 162, windDirectionDeg: 160 },
+      { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 155 },
+      { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 155 },
+      { distanceNm: 1.89, bearingDeg: 161, windDirectionDeg: 160 },
+      { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 160 },
+      { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 160 },
+      { distanceNm: 0.19, bearingDeg: 316, windDirectionDeg: 160 },
+    ];
+    const ccStart: RaceStart = { ...start, courseLegs: legs };
+    // Elapsed: Impetuous 1:28:11, Mojo 1:26:30 (the parity fixture's times).
+    const ccFinishes = [finish('mojo', 1, '15:26:30'), finish('imp', 2, '15:28:11')];
+    const ccStartTimed = { ...ccStart, startTime: '14:00:00' };
+    const result = calculateFleetStandings([ccFleet], [impFull, mojoFull], races, ccFinishes, [], 'seriesEntries', [ccStartTimed]);
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId?.get('r1');
+    expect(scores).toBeDefined();
+
+    const reference = scorePcsRace({
+      course: { legs: legs.map((l) => ({ distanceNm: l.distanceNm, courseDeg: l.bearingDeg, windDirectionDeg: l.windDirectionDeg })) },
+      boats: [
+        { id: 'imp', allowances: impFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 5291 },
+        { id: 'mojo', allowances: mojoFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 5190 },
+      ],
+    });
+    for (const id of ['imp', 'mojo'] as const) {
+      const want = reference.boats.find((b) => b.id === id)!;
+      const got = scores!.get(id)!;
+      expect(got.correctedTime).toBe(want.correctedSeconds);
+      expect(got.orc?.impliedWind).toBeCloseTo(want.impliedWind!, 9);
+      expect(got.orc?.courseModel).toBe('CC');
+      expect(got.orc?.distanceNm).toBeCloseTo(8.11, 9);
+    }
+  });
+
+  it('a constructed-course race with no recorded legs falls back to scratch', () => {
+    const ccFleet: Fleet = { ...fleet, orcProfile: { option: 'CC', kind: 'pcs' } };
+    // A distance alone is not a constructed course.
+    const result = calculateFleetStandings([ccFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [pcsStart]);
+    const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
+    expect(byRank).toEqual(['mojo', 'imp']);
+  });
+
   it('a certificate without the allowance matrix is rejected on a PCS fleet', () => {
     const bare: Competitor = { ...baseComp, id: 'bare', sailNumber: 'X', orcCert: { record: { APHT: 0.95 }, importedAt: 0 } };
     const result = calculateFleetStandings([pcsFleet], [impFull, bare], races, [finish('imp', 1, '14:58:00')], [], 'seriesEntries', [pcsStart]);

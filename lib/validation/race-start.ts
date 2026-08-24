@@ -20,6 +20,19 @@ export const raceStartSchema = z.object({
   distanceNm: z.number().positive().max(9999).optional(),
   // Race-committee PCS scoring-wind override (kt), ORC rule 402.12.
   orcScoringWind: z.number().positive().max(99).optional(),
+  // Constructed-course legs (ORC rule 402.5), in sailing order.
+  courseLegs: z
+    .array(
+      z.object({
+        distanceNm: z.number().positive().max(999),
+        bearingDeg: z.number().min(0).max(360),
+        windDirectionDeg: z.number().min(0).max(360),
+        currentSpeedKts: z.number().min(0).max(20).optional(),
+        currentDirectionDeg: z.number().min(0).max(360).optional(),
+      }),
+    )
+    .max(60)
+    .optional(),
   version: versionSchema,
 });
 

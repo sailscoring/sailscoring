@@ -652,6 +652,13 @@
       "when": 1787529995558,
       "tag": "0092_even_cardiac",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1787531674754,
+      "tag": "0093_red_power_man",
+      "breakpoints": true
     }
   ]
 }

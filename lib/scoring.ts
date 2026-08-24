@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
 import { getCodeDefinition } from './scoring-codes';
 import { orcFleetProfile, orcPcsRatable, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
@@ -539,11 +539,26 @@ export function computeOrcPcsRace(
   competitors: Competitor[],
   raceStart: RaceStart,
   raceFinishes: Finish[],
-  courseModel: PcsCourseModel,
+  option: string,
 ): OrcPcsRaceComputation | null {
   const startSeconds = parseHmsToSeconds(raceStart.startTime);
-  const distanceNm = raceStart.distanceNm;
-  if (startSeconds === null || distanceNm == null) return null;
+  if (startSeconds === null) return null;
+
+  // 'CC' scores over the start's constructed course (ORC 402.5) — the
+  // distance is the legs' sum. The pre-defined models need the recorded
+  // course distance instead.
+  let course: { model: PcsCourseModel; distanceNm: number } | { legs: NonNullable<ReturnType<typeof orcPcsLegs>> };
+  let distanceNm: number;
+  if (option === 'CC') {
+    const legs = orcPcsLegs(raceStart);
+    if (!legs) return null;
+    course = { legs };
+    distanceNm = legs.reduce((sum, leg) => sum + leg.distanceNm, 0);
+  } else {
+    if (raceStart.distanceNm == null) return null;
+    distanceNm = raceStart.distanceNm;
+    course = { model: orcPcsCourseModel(option), distanceNm };
+  }
 
   const finishByCompetitorId = new Map(
     raceFinishes
@@ -568,7 +583,7 @@ export function computeOrcPcsRace(
   if (boats.length === 0) return null;
 
   const result = scorePcsRace({
-    course: { model: courseModel, distanceNm },
+    course,
     boats,
     ...(raceStart.orcScoringWind != null ? { scoringWindOverride: raceStart.orcScoringWind } : {}),
   });
@@ -585,7 +600,7 @@ export function computeOrcPcsRace(
       ...(boat.impliedWind != null ? { impliedWind: boat.impliedWind } : {}),
       scoringWind: result.scoringWind,
       ...(raceStart.orcScoringWind != null ? { scoringWindOverridden: true } : {}),
-      courseModel,
+      courseModel: option === 'CC' ? 'CC' : orcPcsCourseModel(option),
     });
   }
   return {
@@ -599,6 +614,31 @@ export function computeOrcPcsRace(
  *  stored option isn't one of the certificate's three models. */
 export function orcPcsCourseModel(option: string): PcsCourseModel {
   return option === 'CR' || option === 'OC' ? option : 'WL';
+}
+
+/** The start's constructed course as PCS legs, or null when none is
+ *  recorded. */
+function orcPcsLegs(raceStart: RaceStart) {
+  const legs = raceStart.courseLegs;
+  if (!legs || legs.length === 0) return null;
+  return legs.map((leg) => ({
+    distanceNm: leg.distanceNm,
+    courseDeg: leg.bearingDeg,
+    windDirectionDeg: leg.windDirectionDeg,
+    ...(leg.currentSpeedKts != null ? { currentSpeedKts: leg.currentSpeedKts } : {}),
+    ...(leg.currentDirectionDeg != null ? { currentDirectionDeg: leg.currentDirectionDeg } : {}),
+  }));
+}
+
+/** Whether a start carries what an ORC ToD/PCS fleet needs to score: a
+ *  course distance — or, for constructed-course PCS, the legs (whose sum is
+ *  the distance). Non-ORC and ToT/plain fleets need nothing extra. */
+export function orcStartHasCourse(profile: OrcProfile | null, raceStart: RaceStart): boolean {
+  if (!profile || profile.kind === 'tot') return true;
+  if (profile.kind === 'pcs' && profile.option === 'CC') {
+    return (raceStart.courseLegs?.length ?? 0) > 0;
+  }
+  return raceStart.distanceNm != null;
 }
 
 /**
@@ -1611,7 +1651,7 @@ function calculateHandicapStandings(
   // ToD-scored race without one falls back the same way.
   const startsByRaceId = new Map<string, RaceStart>();
   for (const rs of raceStarts) {
-    if (rs.fleetIds.includes(fleet.id) && rs.startTime && (!(isOrcTod || isOrcPcs) || rs.distanceNm != null)) {
+    if (rs.fleetIds.includes(fleet.id) && rs.startTime && orcStartHasCourse(orcProfile, rs)) {
       startsByRaceId.set(rs.raceId, rs);
     }
   }
@@ -1665,7 +1705,7 @@ function calculateHandicapStandings(
           ratedCompetitors,
           raceStart,
           raceFinishes,
-          orcPcsCourseModel(orcProfile!.option),
+          orcProfile!.option,
         );
         if (pcs) {
           effectiveTcfMap = pcs.todByCompetitorId;

@@ -5,7 +5,7 @@ import {
   calculateSubSeriesFleetStandings,
   buildRaceFleetExclusionMap,
   computeOrcPcsRace,
-  orcPcsCourseModel,
+  orcStartHasCourse,
 } from './scoring';
 import {
   renderSeriesHtml,
@@ -525,7 +525,7 @@ export async function buildFleetHtmlFiles(
         const orcProfile = fleet.scoringSystem === 'orc' ? orcFleetProfile(fleet) : null;
         const isOrcTod = orcProfile?.kind === 'tod';
         const isOrcPcs = orcProfile?.kind === 'pcs';
-        if (isHandicap && raceStart && (!(isOrcTod || isOrcPcs) || raceStart.distanceNm != null)) {
+        if (isHandicap && raceStart && orcStartHasCourse(orcProfile, raceStart)) {
           // Applied-TCF map from each competitor's static rating, honouring any
           // per-race override (IRC/PY only — NHC/ECHO took the early returns).
           let tcfMap = new Map<string, number>();
@@ -557,7 +557,7 @@ export async function buildFleetHtmlFiles(
               ratedFleetCompetitors,
               raceStart,
               finishesForRace,
-              orcPcsCourseModel(orcProfile!.option),
+              orcProfile!.option,
             );
             if (pcs) {
               tcfMap = pcs.todByCompetitorId;

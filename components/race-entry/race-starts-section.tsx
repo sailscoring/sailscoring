@@ -63,6 +63,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
       startTime: draft.startTime,
       ...(draft.distanceNm != null ? { distanceNm: draft.distanceNm } : {}),
       ...(draft.orcScoringWind != null ? { orcScoringWind: draft.orcScoringWind } : {}),
+      ...(draft.courseLegs?.length ? { courseLegs: draft.courseLegs } : {}),
     };
     await saveRaceStart.mutateAsync(raceStart);
     setStartDialogMode(null);
@@ -122,8 +123,14 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                 <span className={s.startTime ? 'font-mono font-medium' : 'italic text-muted-foreground'}>
                   {s.startTime ?? 'No gun time'}
                 </span>
-                {s.distanceNm != null && (
-                  <span className="font-mono text-muted-foreground">{s.distanceNm.toFixed(2)} NM</span>
+                {(s.distanceNm != null || s.courseLegs?.length) && (
+                  <span className="font-mono text-muted-foreground">
+                    {(s.courseLegs?.length
+                      ? s.courseLegs.reduce((sum, leg) => sum + leg.distanceNm, 0)
+                      : s.distanceNm!
+                    ).toFixed(2)} NM
+                    {s.courseLegs?.length ? ` · ${s.courseLegs.length} legs` : ''}
+                  </span>
                 )}
                 <span className="text-muted-foreground">—</span>
                 <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>

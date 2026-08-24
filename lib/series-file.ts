@@ -12,6 +12,7 @@ import type {
   StartGroup,
   NhcProfile,
   OrcCertData,
+  OrcCourseLeg,
   OrcProfile,
   TcfRecord,
   SubdivisionAxis,
@@ -493,6 +494,7 @@ interface SeriesFileRaceStart {
   firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
   distanceNm?: number;  // v39+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v39+; RC PCS scoring-wind override in kt (ORC 402.12)
+  courseLegs?: OrcCourseLeg[];  // v39+; constructed-course legs (ORC 402.5)
 }
 
 interface SeriesFileRatingOverride {
@@ -682,6 +684,7 @@ export async function buildSeriesFile(
       ...(s.firstPlaceOffset != null ? { firstPlaceOffset: s.firstPlaceOffset } : {}),
       ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
       ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
+      ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
     });
   }
 
@@ -1739,6 +1742,7 @@ async function writeFleetsCompetitorsRaces(
           : {}),
         ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
         ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
+        ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
       })),
     );
 

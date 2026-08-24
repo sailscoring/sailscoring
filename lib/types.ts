@@ -523,6 +523,20 @@ export interface Fleet {
   version?: number;   // server-side concurrency token (see Series.version)
 }
 
+/**
+ * One leg of a constructed course (ORC rule 402.5): its length, compass
+ * bearing, and the wind direction on the leg — a leg is split into sub-legs
+ * by entering separate rows when the wind shifts mid-leg. Current is
+ * optional per leg.
+ */
+export interface OrcCourseLeg {
+  distanceNm: number;
+  bearingDeg: number;
+  windDirectionDeg: number;
+  currentSpeedKts?: number;
+  currentDirectionDeg?: number;
+}
+
 export interface RaceStart {
   id: string;
   raceId: string;
@@ -553,6 +567,11 @@ export interface RaceStart {
   // (rule 402.12). Per start, like the distance, so each fleet group carries
   // its own. Sparse — normally unset.
   orcScoringWind?: number;
+  // The constructed course this start's fleets sailed (ORC rule 402.5): one
+  // entry per leg, in sailing order. When present, the course distance is
+  // the legs' sum and `distanceNm` is ignored for PCS. Course facts are
+  // published — this is the record competitors check their tracks against.
+  courseLegs?: OrcCourseLeg[];
   version?: number;     // server-side concurrency token (see Series.version)
 }
 

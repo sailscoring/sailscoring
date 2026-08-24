@@ -117,6 +117,7 @@ export const ORC_STANDARD_OPTIONS: ReadonlyArray<OrcProfile & { label: string }>
   { option: 'WL', kind: 'pcs', label: 'Windward/leeward · performance curve (PCS)' },
   { option: 'CR', kind: 'pcs', label: 'All-purpose · performance curve (PCS)' },
   { option: 'OC', kind: 'pcs', label: 'Coastal · performance curve (PCS)' },
+  { option: 'CC', kind: 'pcs', label: 'Constructed course · performance curve (PCS)' },
 ];
 
 /** Whether the certificate can drive Performance Curve Scoring: it must

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { normalizeTimeInput } from '@/lib/time-parse';
-import type { Fleet, RaceStart } from '@/lib/types';
+import type { Fleet, OrcCourseLeg, RaceStart } from '@/lib/types';
 
 export type RaceStartDialogMode =
   | { kind: 'add' }
@@ -24,6 +24,8 @@ export interface RaceStartDraft {
   distanceNm?: number;
   /** RC PCS scoring-wind override in kt (ORC rule 402.12). */
   orcScoringWind?: number;
+  /** Constructed-course legs (ORC rule 402.5), in sailing order. */
+  courseLegs?: OrcCourseLeg[];
 }
 
 export interface RaceStartDialogProps {
@@ -74,6 +76,24 @@ function RaceStartDialogInner({
   const offerScoringWind =
     fleets.some((f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs') ||
     seed?.orcScoringWind != null;
+  // Constructed-course legs, for a fleet scored PCS over the actual course.
+  const offerLegs =
+    fleets.some(
+      (f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs' && f.orcProfile.option === 'CC',
+    ) || Boolean(seed?.courseLegs?.length);
+  interface LegRow { distance: string; bearing: string; wind: string }
+  const [legRows, setLegRows] = useState<LegRow[]>(
+    (seed?.courseLegs ?? []).map((leg) => ({
+      distance: String(leg.distanceNm),
+      bearing: String(leg.bearingDeg),
+      wind: String(leg.windDirectionDeg),
+    })),
+  );
+  const legsTotal = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
+  function setLegRow(i: number, field: keyof LegRow, value: string) {
+    setLegRows((rows) => rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
+    setError('');
+  }
 
   function handleSave() {
     // A blank time is allowed: a membership-only start declares which fleets
@@ -101,6 +121,25 @@ function RaceStartDialogInner({
       }
       distanceNm = parsed;
     }
+    let courseLegs: OrcCourseLeg[] | undefined;
+    const nonEmptyLegs = legRows.filter((r) => r.distance.trim() || r.bearing.trim() || r.wind.trim());
+    if (nonEmptyLegs.length > 0) {
+      courseLegs = [];
+      for (const row of nonEmptyLegs) {
+        const distance = Number(row.distance.trim());
+        const bearing = Number(row.bearing.trim());
+        const wind = Number(row.wind.trim());
+        if (
+          !Number.isFinite(distance) || distance <= 0 ||
+          !Number.isFinite(bearing) || bearing < 0 || bearing > 360 ||
+          !Number.isFinite(wind) || wind < 0 || wind > 360
+        ) {
+          setError('Each course leg needs a distance in NM and bearings in degrees (0–360).');
+          return;
+        }
+        courseLegs.push({ distanceNm: distance, bearingDeg: bearing, windDirectionDeg: wind });
+      }
+    }
     let orcScoringWind: number | undefined;
     if (scoringWindInput.trim()) {
       const parsed = Number(scoringWindInput.trim());
@@ -125,6 +164,7 @@ function RaceStartDialogInner({
       fleetIds,
       ...(distanceNm != null ? { distanceNm } : {}),
       ...(orcScoringWind != null ? { orcScoringWind } : {}),
+      ...(courseLegs ? { courseLegs } : {}),
     });
   }
 
@@ -166,6 +206,73 @@ function RaceStartDialogInner({
               />
               <p className="text-xs text-muted-foreground">
                 Required to score a time-on-distance fleet; record it to 0.01 NM.
+              </p>
+            </div>
+          )}
+          {offerLegs && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Course legs</label>
+              <div className="space-y-1">
+                <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1 text-xs text-muted-foreground">
+                  <span>Distance (NM)</span>
+                  <span>Bearing (°)</span>
+                  <span>Wind dir (°)</span>
+                  <span />
+                </div>
+                {legRows.map((row, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1">
+                    <input
+                      aria-label={`Leg ${i + 1} distance`}
+                      className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                      value={row.distance}
+                      inputMode="decimal"
+                      onChange={(e) => setLegRow(i, 'distance', e.target.value)}
+                    />
+                    <input
+                      aria-label={`Leg ${i + 1} bearing`}
+                      className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                      value={row.bearing}
+                      inputMode="decimal"
+                      onChange={(e) => setLegRow(i, 'bearing', e.target.value)}
+                    />
+                    <input
+                      aria-label={`Leg ${i + 1} wind direction`}
+                      className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                      value={row.wind}
+                      inputMode="decimal"
+                      onChange={(e) => setLegRow(i, 'wind', e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      aria-label={`Remove leg ${i + 1}`}
+                      onClick={() => setLegRows((rows) => rows.filter((_, j) => j !== i))}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLegRows((rows) => [...rows, { distance: '', bearing: '', wind: '' }])}
+                  >
+                    Add leg
+                  </Button>
+                  {legsTotal > 0 && (
+                    <span className="text-xs text-muted-foreground font-mono">
+                      {legsTotal.toFixed(2)} NM total
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                One row per leg, in sailing order; split a leg into two rows when
+                the wind shifts along it. The course distance is the total.
               </p>
             </div>
           )}
