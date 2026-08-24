@@ -674,7 +674,10 @@ export async function buildFleetHtmlFiles(
           raceStarts: allRaceStarts,
           fleetId: fleet.id,
           scoringSystem: fleet.scoringSystem,
-          ...(fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod'
+          // ToD and PCS both apply s/NM allowances, so both label the rating
+          // column "ToD"; PCS additionally gets its implied-wind column via
+          // the per-race audit blocks.
+          ...(fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind !== 'tot'
             ? { orcTod: true }
             : {}),
           primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
