@@ -287,6 +287,60 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg;)');
 });
 
+test('ORC fleet: the wind band picked on the start re-scores the race', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC Band Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+  await importCertificates(page, 2);
+
+  // A race on the APHT default: Impetuous wins 3467 to 3511.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByRole('checkbox', { name: 'Class 2' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRL 1551', finishTime: '14:58:00' },
+    { sailNumber: 'IRL 2507', finishTime: '15:00:00' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
+
+  // The race committee announces the Medium band: pick it on the start.
+  // The certificates' IRL five-band W/L Medium values flip the race —
+  // Mojo corrects to 2917 against Impetuous's 2956 — with no finish
+  // re-entered.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Edit start' }).click();
+  await page.getByTestId('start-orc-option').click();
+  await page.getByRole('option', { name: 'IRL_5B_WL_M_TOT' }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('row').nth(1)).toContainText('IRL 1551');
+  await expect(page.getByRole('row').nth(2)).toContainText('IRL 2507');
+});
+
 test('ORC fleet: time-on-distance over the start course length', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC ToD Test 2026' });
   await setUpOrcFleet(page, [

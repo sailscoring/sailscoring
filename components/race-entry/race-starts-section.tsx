@@ -138,10 +138,10 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                 )}
                 <span className="text-muted-foreground">—</span>
                 <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStart(s)}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Edit start" onClick={() => openEditStart(s)}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteStart(s.id)}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Delete start" onClick={() => handleDeleteStart(s.id)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
