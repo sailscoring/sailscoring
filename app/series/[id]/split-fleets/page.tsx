@@ -1347,20 +1347,22 @@ function SplitDialog({
       to: fFleets[assignments[r.competitor.id]].label,
       overridden: moves[r.competitor.id] != null,
     }));
-    // Boundary-tie diagnostics: equal nets across a fleet boundary.
+    // Boundary-tie diagnostics: equal nets across a fleet boundary. A shared
+    // rank means RRS A8 could not separate the boats — the boundary between
+    // them is a choice, not a ranking, and the scorer must see that.
     const boundaryTies: string[] = [];
     let cum = 0;
     for (let i = 0; i < sizes.length - 1; i++) {
       cum += sizes[i];
       const a = rows[cum - 1];
       const b = rows[cum];
-      if (a && b && a.net === b.net) {
-        boundaryTies.push(
-          `Ranks ${cum}/${cum + 1} (${a.competitor.sailNumber}, ${b.competitor.sailNumber}) tie on ${a.net} — separated by RRS A8 (then ${
-            data.config.reassignmentTieOrder === 'fleet-order' ? 'fleet order' : 'entry order'
-          }); the ${fFleets[i].label}/${fFleets[i + 1].label} boundary depends on it.`,
-        );
-      }
+      if (!a || !b || a.net !== b.net) continue;
+      const boundary = `${fFleets[i].label}/${fFleets[i + 1].label}`;
+      boundaryTies.push(
+        a.rank === b.rank
+          ? `${a.competitor.sailNumber} and ${b.competitor.sailNumber} tie on ${a.net} and RRS A8 cannot separate them — which takes the last ${boundary} place is not decided by the ranking. Check what the SIs direct, or move a boat by hand.`
+          : `Ranks ${cum}/${cum + 1} (${a.competitor.sailNumber}, ${b.competitor.sailNumber}) tie on ${a.net} — separated by RRS A8; the ${boundary} boundary depends on it.`,
+      );
     }
     const counted = Object.values(assignments);
     return {
@@ -1369,7 +1371,7 @@ function SplitDialog({
       sizes: fFleets.map((_, i) => counted.filter((v) => v === i).length),
       boundaryTies,
     };
-  }, [rows, topSize, moves, fFleets, data.config.reassignmentTieOrder]);
+  }, [rows, topSize, moves, fFleets]);
 
   return (
     <CeremonyDialog
@@ -1964,7 +1966,13 @@ function StandingsSection({
           cutAfter={withCuts && cuts.includes(i)}
           cutLabel={
             withCuts && cuts.includes(i)
-              ? `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut if the ${words(data.config).qualifying.name} ended now`
+              ? `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut if the ${words(data.config).qualifying.name} ended now${
+                  // A shared rank across the line: the ranking does not place
+                  // this cut, and the line must not pretend it does.
+                  rows[i + 1]?.rank === row.rank
+                    ? ' — the boats either side are tied; the ranking does not decide this cut'
+                    : ''
+                }`
               : null
           }
         />

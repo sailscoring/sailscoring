@@ -80,6 +80,24 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(html).not.toContain('Gold fleet');
   });
 
+  it('says so when the boats either side of the cut line are tied', () => {
+    // Fixture 08's Yellow/Blue pairs share ranks, and the Gold/Silver cut
+    // falls inside one of them: the line must not silently resolve the tie.
+    const tied = renderSplitFleetStandingsPage(
+      renderInputFor('08-d8-incomplete-qualifying-race.yaml'),
+    );
+    expect(tied).toContain(
+      'provisional split if qualifying ended now — the boats either side are tied; the ranking does not decide this cut',
+    );
+
+    // Fixture 19's cut lines fall between settled ranks: no tie note.
+    const settled = renderSplitFleetStandingsPage(
+      renderInputFor('19-tie-a8-cannot-break.yaml'),
+    );
+    expect(settled).toContain('provisional split');
+    expect(settled).not.toContain('either side are tied');
+  });
+
   it('renders the Nat column with inline flags when nationality is enabled', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
     input.competitors.forEach((c, i) => {
