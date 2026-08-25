@@ -396,7 +396,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                     >
                       <SelectTrigger
                         className="w-56 h-7 text-xs"
-                        title="Which certificate rating scores this fleet. Time-on-distance options need a course length on each race start."
+                        title="The fleet's default scoring option — each race start can override it. Time-on-distance options need a course length on the race start."
                         data-testid={`orc-option-${fleet.id}`}
                       >
                         <SelectValue />

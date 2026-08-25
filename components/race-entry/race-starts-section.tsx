@@ -136,6 +136,11 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                     {s.courseLegs?.length ? ` · ${s.courseLegs.length} legs` : ''}
                   </span>
                 )}
+                {s.orcOption && (
+                  <span className="font-mono text-xs text-muted-foreground" title="ORC scoring option for this start (overrides the fleet default)">
+                    {s.orcOption}
+                  </span>
+                )}
                 <span className="text-muted-foreground">—</span>
                 <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
                 <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Edit start" onClick={() => openEditStart(s)}>

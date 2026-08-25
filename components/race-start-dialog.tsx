@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { orcFleetProfile, orcSelectableOptions } from '@/lib/orc-certificate';
+import { ORC_STANDARD_OPTIONS, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import type { Competitor, Fleet, OrcCourseLeg, RaceStart } from '@/lib/types';
 
@@ -34,7 +34,8 @@ export interface RaceStartDraft {
   orcScoringWind?: number;
   /** Constructed-course legs (ORC rule 402.5), in sailing order. */
   courseLegs?: OrcCourseLeg[];
-  /** ORC wind-band selection: the certificate rating field for this start. */
+  /** The ORC scoring option for this start's races — overrides the fleet
+   *  default, and decides the method (single number, band, or PCS). */
   orcOption?: string;
 }
 
@@ -43,8 +44,9 @@ export interface RaceStartDialogProps {
   mode: RaceStartDialogMode | null;
   raceStarts: RaceStart[];
   fleets: Fleet[];
-  /** The series' competitors, when the caller has them — the ORC wind-band
-   *  picker derives its options from the stored certificates. */
+  /** The series' competitors, when the caller has them — the ORC
+   *  scoring-option picker offers the certificate-derived rating fields
+   *  alongside the standard set. */
   competitors?: Competitor[];
   onSave: (draft: RaceStartDraft) => void | Promise<void>;
   onCancel: () => void;
@@ -81,32 +83,31 @@ function RaceStartDialogInner({
   );
   const [error, setError] = useState('');
 
+  // The scoring-option picker: the start's option decides how its races are
+  // scored, overriding each ORC fleet's default. Offered whenever the series
+  // scores ORC at all; the catalog is the international standard set plus
+  // the single-number fields the stored certificates carry.
+  const hasOrcFleet = fleets.some((f) => f.scoringSystem === 'orc');
+  const certificateOptions = hasOrcFleet ? orcSelectableOptions(competitors ?? []) : [];
+  const [orcOptionValue, setOrcOptionValue] = useState(seed?.orcOption ?? '');
+  const offerOption = hasOrcFleet || Boolean(seed?.orcOption);
+  const selectedKind = orcOptionValue ? orcOptionKind(orcOptionValue) : null;
   // Course distance is a scoring input for ORC time-on-distance (and shown
   // whenever the series scores ORC at all, so the habit forms before the
   // first ToD race rather than during it). The scoring-wind override only
-  // applies to Performance Curve Scoring, so it appears only for a PCS
-  // fleet — or when a value is already stored.
-  const offerDistance = fleets.some((f) => f.scoringSystem === 'orc');
+  // applies to Performance Curve Scoring, so it appears when this start or
+  // some fleet's default resolves to PCS — or when a value is stored.
+  const offerDistance = hasOrcFleet;
   const offerScoringWind =
+    selectedKind === 'pcs' ||
     fleets.some((f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs') ||
     seed?.orcScoringWind != null;
-  // Constructed-course legs, for a fleet scored PCS over the actual course.
+  // Constructed-course legs, for races scored PCS over the actual course.
   const offerLegs =
+    orcOptionValue === 'CC' ||
     fleets.some(
       (f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs' && f.orcProfile.option === 'CC',
     ) || Boolean(seed?.courseLegs?.length);
-  // The wind-band picker: sibling certificate fields applying the same way
-  // as some ORC fleet's option, discovered from the stored certificates.
-  const bandKinds = new Set(
-    fleets
-      .filter((f) => f.scoringSystem === 'orc' && orcFleetProfile(f).kind !== 'pcs')
-      .map((f) => orcFleetProfile(f).kind),
-  );
-  const bandOptions = bandKinds.size > 0
-    ? orcSelectableOptions(competitors ?? []).filter((o) => bandKinds.has(o.kind))
-    : [];
-  const [orcOptionValue, setOrcOptionValue] = useState(seed?.orcOption ?? '');
-  const offerBand = bandOptions.length > 0 || Boolean(seed?.orcOption);
   interface LegRow { distance: string; bearing: string; wind: string }
   const [legRows, setLegRows] = useState<LegRow[]>(
     (seed?.courseLegs ?? []).map((leg) => ({
@@ -116,6 +117,15 @@ function RaceStartDialogInner({
     })),
   );
   const legsTotal = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
+  // A gentle nudge when the chosen option needs course data the start lacks;
+  // saving is still allowed — the race falls back to scratch until the
+  // course is recorded, matching how the engine scores it.
+  const optionHint =
+    orcOptionValue === 'CC' && legsTotal === 0
+      ? 'Constructed-course scoring needs the course legs below.'
+      : (selectedKind === 'tod' || (selectedKind === 'pcs' && orcOptionValue !== 'CC')) && !distanceInput.trim()
+        ? 'This option needs the course length below to score.'
+        : null;
   function setLegRow(i: number, field: keyof LegRow, value: string) {
     setLegRows((rows) => rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
     setError('');
@@ -219,6 +229,48 @@ function RaceStartDialogInner({
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             />
           </div>
+          {offerOption && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Scoring option <span className="font-normal text-muted-foreground">(this start)</span>
+              </label>
+              <Select
+                value={orcOptionValue || '__default__'}
+                onValueChange={(v) => { setOrcOptionValue(v === '__default__' ? '' : v); setError(''); }}
+              >
+                <SelectTrigger className="w-full" data-testid="start-orc-option">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">Fleet default</SelectItem>
+                  {ORC_STANDARD_OPTIONS.map((o) => (
+                    <SelectItem key={o.option} value={o.option}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                  {certificateOptions.map((o) => (
+                    <SelectItem key={o.option} value={o.option}>
+                      <span className="font-mono text-xs">{o.option}</span>
+                    </SelectItem>
+                  ))}
+                  {orcOptionValue
+                    && !ORC_STANDARD_OPTIONS.some((o) => o.option === orcOptionValue)
+                    && !certificateOptions.some((o) => o.option === orcOptionValue) && (
+                    <SelectItem value={orcOptionValue}>
+                      <span className="font-mono text-xs">{orcOptionValue}</span>
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                How this start&apos;s races are scored — the option the race
+                committee announced: a certificate single number, a wind band,
+                or performance curves. Overrides the fleet&apos;s default;
+                changing it later re-scores without re-entering finishes.
+              </p>
+              {optionHint && <p className="text-xs text-amber-600 dark:text-amber-500">{optionHint}</p>}
+            </div>
+          )}
           {offerDistance && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="start-distance-nm">
@@ -302,40 +354,6 @@ function RaceStartDialogInner({
               <p className="text-xs text-muted-foreground">
                 One row per leg, in sailing order; split a leg into two rows when
                 the wind shifts along it. The course distance is the total.
-              </p>
-            </div>
-          )}
-          {offerBand && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                Wind band <span className="font-normal text-muted-foreground">(this start)</span>
-              </label>
-              <Select
-                value={orcOptionValue || '__default__'}
-                onValueChange={(v) => { setOrcOptionValue(v === '__default__' ? '' : v); setError(''); }}
-              >
-                <SelectTrigger className="w-full" data-testid="start-orc-option">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Fleet default</SelectItem>
-                  {bandOptions.map((o) => (
-                    <SelectItem key={o.option} value={o.option}>
-                      <span className="font-mono text-xs">{o.option}</span>
-                    </SelectItem>
-                  ))}
-                  {orcOptionValue && !bandOptions.some((o) => o.option === orcOptionValue) && (
-                    <SelectItem value={orcOptionValue}>
-                      <span className="font-mono text-xs">{orcOptionValue}</span>
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                The certificate rating field this start&apos;s races are scored on —
-                the band the race committee announced. It must apply the same way
-                as the fleet&apos;s option; changing it later re-scores without
-                re-entering finishes.
               </p>
             </div>
           )}
