@@ -96,6 +96,35 @@ test.describe('workspace switcher', () => {
     // Org workspace has no series yet → empty-state copy is visible.
     await expect(page.getByText(/No series yet/i)).toBeVisible();
   });
+
+  test('a series URL in a non-active workspace offers a switch instead of a dead-end', async ({
+    page,
+  }) => {
+    const email = await signInFreshUser(page, 'elsewhere');
+    const seriesName = `Elsewhere Series ${Date.now()}`;
+    await createSeriesQuick(page, { name: seriesName });
+    const seriesUrl = page.url();
+
+    // Move the session's active workspace to a second workspace — the state
+    // a switch made in another tab leaves behind. The helper reloads the
+    // series page we are sitting on, which is exactly the stranded-tab case:
+    // the scoped GET can no longer see the series.
+    const org = await createOrgWorkspace(`Elsewhere Org ${Date.now()}`);
+    await addMemberByEmail(org.id, email, 'owner');
+    await setActiveWorkspace(page, org.id);
+
+    // Instead of "Series not found.", the page resolves the owning workspace
+    // and offers an explicit switch back.
+    const notice = page.getByTestId('series-elsewhere-notice');
+    await expect(notice).toBeVisible();
+    // The owning workspace is the user's personal one, named "My Workspace".
+    await expect(notice).toContainText('My Workspace');
+    await notice.getByRole('button', { name: 'Switch to My Workspace' }).click();
+
+    // The switch reloads in place and the series page comes up.
+    await expect(page.getByRole('heading', { name: seriesName })).toBeVisible();
+    await expect(page).toHaveURL(seriesUrl);
+  });
 });
 
 test.describe('copy series to workspace', () => {
