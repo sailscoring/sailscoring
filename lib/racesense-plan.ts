@@ -28,6 +28,7 @@
 
 import {
   parseFinishSheetCsv,
+  sailNumberKeys,
   type Candidate,
   type FinishSheetColumnMap,
   type ParseFinishSheetResult,
@@ -382,7 +383,9 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
     // it — and importing one fleet's export over the race would wipe theirs,
     // which is worth saying outright rather than listing 40 sail numbers.
     const onSheet = new Set(source.starters.map((s) => s.sailNumber.toUpperCase()));
-    const missing = eligible.filter((c) => !onSheet.has(c.sailNumber.toUpperCase()));
+    const missing = eligible.filter(
+      (c) => !sailNumberKeys(c).some((k) => onSheet.has(k.toUpperCase())),
+    );
     if (missing.length > 0) {
       const raceFleets = new Set(race.starts.flatMap((s) => s.fleetIds));
       const otherFleets = fleetId === null

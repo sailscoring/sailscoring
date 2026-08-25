@@ -399,3 +399,73 @@ describe('parseFinishSheetCsv alternative sail numbers', () => {
     ]);
   });
 });
+
+describe('parseFinishSheetCsv nationality-qualified sail numbers', () => {
+  const irish: Candidate[] = [
+    { id: 'a', sailNumber: '224529', nationality: 'IRL', fleetIds: ['f1'] },
+    { id: 'b', sailNumber: '215417', nationality: 'SEY', fleetIds: ['f1'] },
+  ];
+
+  it('resolves a qualified number silently, as the registered number', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['IRL 224529', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: irish,
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'a' });
+    expect(result.finishes[0].matchedOn).toBeUndefined();
+    expect(result.summary.matchedOnBow).toBe(0);
+  });
+
+  it('accepts the unspaced form, case-insensitively', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['irl224529', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: irish,
+    });
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'a' });
+  });
+
+  it('still matches the bare number', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['224529', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: irish,
+    });
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'a' });
+  });
+
+  it('keeps boats sharing a number under different letters distinct', () => {
+    const shared: Candidate[] = [
+      { id: 'a', sailNumber: '1234', nationality: 'IRL', fleetIds: ['f1'] },
+      { id: 'b', sailNumber: '1234', nationality: 'GBR', fleetIds: ['f1'] },
+    ];
+    const result = parseFinishSheetCsv({
+      rows: [
+        ['IRL 1234', '11:00:00', ''],
+        ['GBR 1234', '11:00:30', ''],
+      ],
+      columnMap: defaultMap,
+      candidates: shared,
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes.map((f) => f.competitorId)).toEqual(['a', 'b']);
+  });
+
+  it('reports the bare form of a shared number as ambiguous', () => {
+    const shared: Candidate[] = [
+      { id: 'a', sailNumber: '1234', nationality: 'IRL', fleetIds: ['f1'] },
+      { id: 'b', sailNumber: '1234', nationality: 'GBR', fleetIds: ['f1'] },
+    ];
+    const result = parseFinishSheetCsv({
+      rows: [['1234', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: shared,
+    });
+    expect(result.errors).toEqual([
+      { rowIndex: 2, reason: 'sail 1234 is ambiguous — multiple competitors share this number' },
+    ]);
+  });
+});

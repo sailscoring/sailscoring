@@ -67,9 +67,29 @@ export interface ParseFinishSheetResult {
 export interface Candidate {
   id: string;
   sailNumber: string;
+  /** 3-letter national-letters code ("IRL"). When present, the qualified
+   *  forms of the sail number ("IRL 224529", "IRL224529") resolve to this
+   *  boat too — that is how championship sheets and RaceSense exports write
+   *  sail numbers. */
+  nationality?: string;
   bowNumber?: string;
   alternativeSailNumbers?: string[];
   fleetIds: string[];
+}
+
+/**
+ * Every string that names this boat's registered sail number: the number as
+ * entered, plus the nationality-qualified forms when the boat carries
+ * national letters. All are first-tier — a qualified number is the registered
+ * number written in full, not an alternative — so a match on any of them is
+ * silent. Callers comparing sail numbers themselves should compare against
+ * all of these, case-insensitively.
+ */
+export function sailNumberKeys(c: Candidate): string[] {
+  const sail = c.sailNumber.trim();
+  const nationality = c.nationality?.trim() ?? '';
+  if (!sail || !nationality) return [sail];
+  return [sail, `${nationality} ${sail}`, `${nationality}${sail}`];
 }
 
 export interface ParseFinishSheetInput {
@@ -77,7 +97,8 @@ export interface ParseFinishSheetInput {
   columnMap: FinishSheetColumnMap;
   /** Candidates eligible to be finishers in this race. Caller filters to
    *  competitors in the race's fleets; matching is case-insensitive on sail
-   *  number, falling back to bow number (see {@link parseFinishSheetCsv}). */
+   *  number (bare or nationality-qualified — see {@link sailNumberKeys}),
+   *  falling back to bow number (see {@link parseFinishSheetCsv}). */
   candidates: Candidate[];
 }
 
@@ -147,7 +168,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     }
     return map;
   };
-  const sailMap = index((c) => [c.sailNumber]);
+  const sailMap = index(sailNumberKeys);
   // Tiers below the registered sail number, in the order they are tried.
   const fallbackTiers: { matchedOn: 'alternative' | 'bow'; map: Map<string, Candidate[]> }[] = [
     { matchedOn: 'alternative', map: index((c) => c.alternativeSailNumbers ?? []) },

@@ -300,6 +300,30 @@ describe('planRaceSenseImport', () => {
       expect(roster?.message).not.toContain('more than one fleet');
     });
 
+    it('recognises entered boats when the sheet writes nationality-qualified sails', () => {
+      // A championship export writes "IRL 1021" where the competitor list
+      // says sail 1021, nationality IRL. That is the same boat: she resolves,
+      // and the roster check doesn't report her missing.
+      const qualified: Candidate[] = [
+        { id: 'c1', sailNumber: '1021', nationality: 'IRL', fleetIds: [YELLOW] },
+        { id: 'c2', sailNumber: '1023', nationality: 'GBR', fleetIds: [YELLOW] },
+      ];
+      const { races } = planRaceSenseImport({
+        workbook: workbook([sourceRace({
+          number: 1,
+          starters: [starter('IRL 1021'), starter('GBR 1023')],
+          finishes: [finisher(1, 'IRL 1021', '11:45:20'), finisher(2, 'GBR 1023', '11:46:20')],
+        })]),
+        fleetId: YELLOW,
+        races: [seriesRace(1)],
+        competitors: qualified,
+        finishes: [],
+      });
+      expect(warnings(races[0].notes)).toEqual([]);
+      expect(races[0].recommended).toBe(true);
+      expect(races[0].result!.finishes.map((f) => f.competitorId)).toEqual(['c1', 'c2']);
+    });
+
     it('warns about a boat who started and then vanished from the sheet', () => {
       const { races } = plan({
         races: [sourceRace({
