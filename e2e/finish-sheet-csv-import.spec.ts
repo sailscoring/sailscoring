@@ -7,8 +7,9 @@ import { resolve } from 'path';
  *
  * Covers: the happy path (map → preview → confirm), auto-detection of headers,
  * result codes for non-finishers, unregistered sail numbers importing as
- * unresolved crossings, replace-all semantics, and the same flow fed from an
- * Excel workbook with real time-formatted cells.
+ * unresolved crossings, place-only sheets (no times — row order alone is the
+ * result), replace-all semantics, and the same flow fed from an Excel workbook
+ * with real time-formatted cells.
  *
  * Finish-sheet import is a gated experimental feature (#155); enable it so
  * the Import sheet control appears.
@@ -45,14 +46,14 @@ test('import per-race finish sheet from CSV', async ({ page }) => {
   await page.getByText('Race 1').click();
   await expect(page.getByText('Race 1 — results')).toBeVisible();
 
-  // ── 3. Upload a CSV with headers — 3 finishers, 1 DNF, 1 unregistered sail ─
+  // ── 3. Upload a CSV with headers — 4 finishers, 1 DNF, 1 unregistered sail ─
   const csv = [
     'sailNumber,finishTime,resultCode',
     '6413,11:55:09,',      // finisher 1
     '15,11:57:37,',        // finisher 2
     '9999,11:58:00,',      // unregistered — imports as unresolved
     '22,,DNF',             // coded non-finisher
-    '254,,',               // malformed — should be reported in preview errors
+    '254,,',               // place-only — untimed finisher, flagged in preview
   ].join('\n');
 
   await page
@@ -66,11 +67,10 @@ test('import per-race finish sheet from CSV', async ({ page }) => {
 
   // ── 5. Preview dialog — summary counts and errors ──────────────────────────
   await expect(page.getByRole('heading', { name: /confirm finish sheet import/i })).toBeVisible();
-  await expect(page.getByText(/3 finishers/i)).toBeVisible();
+  await expect(page.getByText(/4 finishers/i)).toBeVisible();
   await expect(page.getByText(/1 coded entry/i)).toBeVisible();
   await expect(page.getByText(/1 unresolved sail number/i)).toBeVisible();
-  await expect(page.getByText(/1 row will be skipped/i)).toBeVisible();
-  await expect(page.getByText(/Row 6.*neither finish time nor result code/i)).toBeVisible();
+  await expect(page.getByText(/1 finisher has no finish time/i)).toBeVisible();
 
   await page.getByRole('button', { name: /import and replace/i }).click();
 
@@ -83,6 +83,7 @@ test('import per-race finish sheet from CSV', async ({ page }) => {
   await expect(items.nth(1)).toContainText('15');
   await expect(items.nth(2)).toContainText('9999');
   await expect(items.nth(2)).toContainText(/not registered|Unknown/i);
+  await expect(items.nth(3)).toContainText('254');
 
   // DNF competitor appears in non-finisher list
   const nonFinisher = page.getByTestId('non-finisher-22');
@@ -93,7 +94,7 @@ test('import per-race finish sheet from CSV', async ({ page }) => {
   await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
   await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
-  await expect(page.getByText(/3 finishers/)).toBeVisible();
+  await expect(page.getByText(/4 finishers/)).toBeVisible();
 
   // Re-open the race; imported data should still be there.
   await page.getByText('Race 1').click();
@@ -181,7 +182,7 @@ test('finish sheet CSV import replaces existing finishes', async ({ page }) => {
   await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
 
-  // ── 3. Re-open; import a CSV in REVERSE order ──────────────────────────────
+  // ── 3. Re-open; preview a place-only CSV in REVERSE order, then cancel ─────
   await page.getByText('Race 1').click();
   const reverseCsv = [
     'sailNumber,finishTime,resultCode',
@@ -190,13 +191,16 @@ test('finish sheet CSV import replaces existing finishes', async ({ page }) => {
     'A,,',
   ].join('\n');
 
-  // All three rows miss both time AND code, so they'll all be rejected.
-  // That's useful: it proves the preview dialog shows errors without mutating state.
+  // A place-only sheet (no times, no codes) is valid: row order is the
+  // crossing order. Preview shows the untimed count, and cancelling must not
+  // mutate state.
   await page
     .getByTestId('finish-sheet-csv-input')
     .setInputFiles(csvBuffer(reverseCsv));
   await page.getByRole('button', { name: /Preview 3 rows/i }).click();
-  await expect(page.getByText(/3 rows will be skipped/i)).toBeVisible();
+  await expect(page.getByText(/3 finishers, 0 coded entries/i)).toBeVisible();
+  await expect(page.getByText(/3 finishers have no finish time/i)).toBeVisible();
+  await expect(page.getByText(/replace the 3 existing finishes/i)).toBeVisible();
 
   // Cancel — existing state must be untouched.
   await page.getByRole('button', { name: 'Cancel' }).click();
@@ -204,17 +208,10 @@ test('finish sheet CSV import replaces existing finishes', async ({ page }) => {
   await expect(page.getByRole('listitem').nth(1)).toContainText('B');
   await expect(page.getByRole('listitem').nth(2)).toContainText('C');
 
-  // ── 4. Now import a valid CSV that reverses the order ─────────────────────
-  const validReverseCsv = [
-    'sailNumber,finishTime,resultCode',
-    'C,12:00:00,',
-    'B,12:01:00,',
-    'A,12:02:00,',
-  ].join('\n');
-
+  // ── 4. Import the same place-only sheet for real ───────────────────────────
   await page
     .getByTestId('finish-sheet-csv-input')
-    .setInputFiles(csvBuffer(validReverseCsv));
+    .setInputFiles(csvBuffer(reverseCsv));
   await page.getByRole('button', { name: /Preview 3 rows/i }).click();
   await expect(page.getByText(/replace the 3 existing finishes/i)).toBeVisible();
   await page.getByRole('button', { name: /import and replace/i }).click();

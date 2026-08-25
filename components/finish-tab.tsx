@@ -297,6 +297,7 @@ export function FinishTab(props: FinishTabProps) {
             <FinishSheetImport
               ref={finishSheetImportRef}
               candidates={competitors}
+              needsFinishTime={needsFinishTime}
               existingFinishCount={savedFinishes?.filter((f) => f.sortOrder !== null || f.resultCode !== null).length ?? 0}
               onConfirm={applyCsvImport}
               trigger={

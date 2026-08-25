@@ -14,7 +14,10 @@
  *   - a finisher: sortOrder = rank among finishers (1-based by row order); finishTime may be set
  *   - a coded non-finisher: sortOrder = null, resultCode set
  *
- * Rows with neither finishTime nor resultCode are rejected.
+ * Rows with neither finishTime nor resultCode are plain finishers ranked by
+ * row position — a place-only sheet is how scratch racing is normally
+ * recorded, since crossing order alone scores the race. Entirely blank rows
+ * (trailing empty lines) are skipped without an error.
  * Unknown sail numbers produce unresolved-crossing finishes (competitorId=null,
  * unknownSailNumber=<raw>) — the race editor UI already supports these.
  *
@@ -53,6 +56,7 @@ export interface ParseFinishSheetResult {
   /** Summary counts for the preview dialog. */
   summary: {
     finishers: number;
+    untimed: number;     // finishers with no finish time (place-only rows)
     coded: number;
     unresolved: number;  // finishers with an unknown sail number
     /** Rows resolved via an alternative or bow number, not the registered sail number. */
@@ -156,6 +160,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
   const usedCompetitorIds = new Set<string>();
 
   let finisherCount = 0;
+  let untimedCount = 0;
   let codedCount = 0;
   let unresolvedCount = 0;
   let fallbackMatchCount = 0;
@@ -163,6 +168,10 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const csvRowNumber = i + 2; // +1 for header, +1 for 1-based
+
+    // An entirely blank row is not data — sheets routinely end with empty
+    // lines. Skip it rather than reporting a missing sail number.
+    if (row.every((cell) => !cell || cell.trim() === '')) continue;
 
     const rawSail = cols.sail >= 0 ? (row[cols.sail]?.trim() ?? '') : '';
     const rawTime = cols.time >= 0 ? (row[cols.time]?.trim() ?? '') : '';
@@ -175,17 +184,9 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
 
     // Decide finisher vs coded. A row with both a time and a code is treated as coded
     // (the code wins) — the scorer was probably recording why a finish time shouldn't
-    // count. But warn, since that's ambiguous.
+    // count. A row with neither is a plain finisher: its place comes from row order.
     const hasTime = rawTime.length > 0;
     const hasCode = rawCode.length > 0;
-
-    if (!hasTime && !hasCode) {
-      errors.push({
-        rowIndex: csvRowNumber,
-        reason: 'row has neither finish time nor result code',
-      });
-      continue;
-    }
 
     let normalizedTime: string | null = null;
     if (hasTime) {
@@ -277,6 +278,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     } else {
       // Finisher
       finisherCount++;
+      if (!normalizedTime) untimedCount++;
       const sortOrder = finisherCount;
       if (resolved) {
         usedCompetitorIds.add(competitor.id);
@@ -312,6 +314,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     warnings,
     summary: {
       finishers: finisherCount,
+      untimed: untimedCount,
       coded: codedCount,
       unresolved: unresolvedCount,
       matchedOnBow: fallbackMatchCount,

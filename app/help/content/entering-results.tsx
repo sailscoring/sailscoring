@@ -238,8 +238,12 @@ export default function EnteringResults() {
         </ul>
         <p>
           Row order in the sheet is the crossing order — the importer assigns finish positions
-          in the order rows appear. A preview dialog shows how many finishers and coded
-          entries will be imported and how many existing finishes will be replaced.
+          in the order rows appear. Times are entirely optional: a sheet with nothing but sail
+          numbers in finishing order imports as untimed finishes, which is all scratch scoring
+          needs. A preview dialog shows how many finishers and coded entries will be imported
+          and how many existing finishes will be replaced — including how many finishers have
+          no time, and a warning if any of those are in a handicap fleet that needs times to
+          score.
         </p>
         <p>
           The import is <strong className="text-foreground">replace-all</strong>: confirming

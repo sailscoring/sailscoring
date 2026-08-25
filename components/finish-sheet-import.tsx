@@ -80,9 +80,13 @@ export interface FinishSheetImportHandle {
 export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
   candidates: Candidate[];
   existingFinishCount: number;
+  /** Keyboard finish entry's gate, passed through: true when the competitor's
+   *  fleet scores on handicap over a timed start, so a finish without a time
+   *  cannot be scored on corrected time. Used to warn on place-only imports. */
+  needsFinishTime?: (competitorId: string) => boolean;
   onConfirm: (result: ParseFinishSheetResult) => void;
   trigger?: React.ReactNode;
-}>(function FinishSheetImport({ candidates, existingFinishCount, onConfirm, trigger }, ref) {
+}>(function FinishSheetImport({ candidates, existingFinishCount, needsFinishTime, onConfirm, trigger }, ref) {
   const [flow, setFlow] = useState<ImportFlow>({ step: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,6 +148,19 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
   const mapping = flow.step === 'mapping' ? flow : null;
   const hasSailMapping =
     mapping != null && Object.values(mapping.columnMap).includes('sailNumber');
+
+  // Untimed finishers whose fleet actually needs a time (handicap scoring over
+  // a timed start) — a place-only sheet is fine for scratch, not for these.
+  const untimedHandicapCount =
+    flow.step === 'preview' && needsFinishTime
+      ? flow.result.finishes.filter(
+          (f) =>
+            f.sortOrder !== null &&
+            !f.finishTime &&
+            f.competitorId != null &&
+            needsFinishTime(f.competitorId),
+        ).length
+      : 0;
 
   return (
     <>
@@ -279,6 +296,22 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
                   {flow.result.summary.matchedOnBow} row
                   {flow.result.summary.matchedOnBow === 1 ? '' : 's'} matched on a bow
                   number rather than a sail number.
+                </p>
+              )}
+              {flow.result.summary.untimed > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {flow.result.summary.untimed} finisher
+                  {flow.result.summary.untimed === 1 ? ' has' : 's have'} no finish
+                  time. If the sheet records times, check the Finish time column
+                  mapping.
+                </p>
+              )}
+              {untimedHandicapCount > 0 && (
+                <p className="text-sm font-medium text-destructive">
+                  {untimedHandicapCount} untimed finisher
+                  {untimedHandicapCount === 1 ? ' is' : 's are'} in a handicap fleet
+                  with a timed start — a finish without a time cannot be scored on
+                  corrected time.
                 </p>
               )}
               <p className="text-sm text-muted-foreground">
