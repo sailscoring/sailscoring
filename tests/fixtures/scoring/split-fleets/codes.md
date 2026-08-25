@@ -30,8 +30,8 @@ Not covered here (later priorities, per the survey): **F4** knockout overlay
 | **D6** | Qualifying closed early at the day boundary | `07` | SWC 2023 The Hague (split at the 4-race minimum) |
 | **D8** | Equalisation of a qualifying race not completed by all fleets | `08` | ILCA A2.8 (abandon & cancel the surplus) |
 | **D10** | Redress across the split — A9(a) fractional average points + promotion | `09` (spec-only) | ILCA 6 2021 Oman ("14.8 RDGc"); IODA promote-only refleeting |
-
 | **D7** | Title places decided on a tie-break | `16` | 2026 ILCA SI 18.7.4 (the halved carry manufactures the ties); ILCA 6 2021 Oman, decided on unmodified A8 |
+| **D11** | A tie RRS A8 cannot break — the boats share the rank | `19` | 2026 ILCA 7 Dun Laoghaire (identical DNC lines in different qualifying fleets, published joint 140th) |
 
 The remaining survey scenarios (D2 void championship, D4 finals near-void,
 D9 SI/practice divergence) are not in this batch.

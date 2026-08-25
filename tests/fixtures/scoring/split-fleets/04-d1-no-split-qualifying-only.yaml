@@ -61,12 +61,15 @@ stages:
 
 expected:
   standings:
+    # Each rank group holds identical score lists sailed in different fleets:
+    # RRS A8.1 compares equal and the A8.2 count-back compares equal, so the
+    # boats stay tied on a shared rank and the next rank skips past them.
     - { rank: 1, sail: y1, total: 2, net: 2 }
-    - { rank: 2, sail: b1, total: 2, net: 2 }
-    - { rank: 3, sail: r1, total: 2, net: 2 }
+    - { rank: 1, sail: b1, total: 2, net: 2 }
+    - { rank: 1, sail: r1, total: 2, net: 2 }
     - { rank: 4, sail: y2, total: 4, net: 4 }
-    - { rank: 5, sail: b2, total: 4, net: 4 }
-    - { rank: 6, sail: r2, total: 4, net: 4 }
+    - { rank: 4, sail: b2, total: 4, net: 4 }
+    - { rank: 4, sail: r2, total: 4, net: 4 }
     - { rank: 7, sail: b3, total: 6, net: 6 }
-    - { rank: 8, sail: r3, total: 6, net: 6 }
+    - { rank: 7, sail: r3, total: 6, net: 6 }
     - { rank: 9, sail: y3, total: 7, net: 7 }  # race-2 DNC = largest fleet 3 + 1

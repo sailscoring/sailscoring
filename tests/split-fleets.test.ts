@@ -301,6 +301,84 @@ describe('splitFleetStandings', () => {
     expect(rows[2].competitor.id).toBe('c2');
   });
 
+  it('a tie RRS A8 cannot break shares the rank, and the next boat skips it', () => {
+    const rows = splitFleetStandings(qualifyingData());
+    const rank = Object.fromEntries(rows.map((r) => [r.competitor.id, r.rank]));
+    // c1 (1st in Yellow) and c4 (1st in Blue) hold identical score lists and
+    // count back equal, as do c3 (DNC 4) and c5 (DNF 4): joint 1st and joint
+    // 4th, with c2 alone on 3rd.
+    expect(rank).toEqual({ c1: 1, c4: 1, c2: 3, c3: 4, c5: 4 });
+  });
+
+  it('a tie A8.2 breaks does not share the rank', () => {
+    const competitors = [competitor('c1', ['fy'], 1), competitor('c2', ['fy'], 2)];
+    const round: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const data: SplitFleetData = {
+      config,
+      rounds: [round],
+      fleets: [fleet('fy', 'Yellow')],
+      competitors,
+      races: [race('q1'), race('q2')],
+      raceStarts: [start('q1', ['fy'], 'qualifying', 1), start('q2', ['fy'], 'qualifying', 2)],
+      finishes: [
+        // c1: 1, 2 — c2: 2, 1. Equal nets, equal sorted lists; the last race
+        // separates them.
+        finish('q1', 'c1', 0), finish('q1', 'c2', 1),
+        finish('q2', 'c2', 0), finish('q2', 'c1', 1),
+      ],
+    };
+    const rows = splitFleetStandings(data);
+    expect(rows.map((r) => [r.competitor.id, r.rank])).toEqual([
+      ['c2', 1],
+      ['c1', 2],
+    ]);
+  });
+
+  it('boats in different tiers never share a rank, even on identical scores', () => {
+    const competitors = [
+      competitor('c1', ['fy', 'fg'], 1),
+      competitor('c2', ['fy', 'fg'], 2),
+      competitor('c3', ['fy', 'fs'], 3),
+    ];
+    const qRound: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const fRound: SplitRound = {
+      id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+      fleetIds: ['fg', 'fs'], method: 'split', basis: null, createdAt: 1,
+    };
+    const data: SplitFleetData = {
+      config,
+      rounds: [qRound, fRound],
+      fleets: [fleet('fy', 'Yellow'), fleet('fg', 'Gold'), fleet('fs', 'Silver')],
+      competitors,
+      races: [race('f1g'), race('f1s')],
+      raceStarts: [
+        start('f1g', ['fg'], 'final', 1),
+        // Silver scored below Gold: its winner takes 2 — the same score line
+        // as Gold's second place.
+        start('f1s', ['fs'], 'final', 1, 1),
+      ],
+      finishes: [
+        finish('f1g', 'c1', 0),
+        finish('f1g', 'c2', 1),
+        finish('f1s', 'c3', 0),
+      ],
+    };
+    const rows = splitFleetStandings(data);
+    const c2 = rows.find((r) => r.competitor.id === 'c2')!;
+    const c3 = rows.find((r) => r.competitor.id === 'c3')!;
+    // Identical nets and score lines, but Gold ranks above Silver: no shared
+    // rank across the tier boundary.
+    expect(c2.net).toBe(c3.net);
+    expect(c2.rank).toBe(2);
+    expect(c3.rank).toBe(3);
+  });
+
   it('caps final-series discards at maxFinalDiscards', () => {
     // One competitor, 4 counting races (3 qualifying + 2 final would exceed
     // threshold): worst scores are the final ones, but only one final race

@@ -1387,8 +1387,15 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
     if (!splitRound || !row.finalFleetId) return splitRound ? 999 : 0;
     return splitRound.fleetIds.indexOf(row.finalFleetId);
   };
-  rows.sort((a, b) => tierIndex(a) - tierIndex(b) || byNet(a, b));
-  rows.forEach((row, i) => (row.rank = i + 1));
+  const byOverall = (a: SplitStandingRow, b: SplitStandingRow) =>
+    tierIndex(a) - tierIndex(b) || byNet(a, b);
+  rows.sort(byOverall);
+  // A tie the tie-break steps cannot separate stays a tie: the boats share
+  // the rank and the next boat skips past it. The comparator leads with the
+  // tier, so boats in different tiers never share even when their scores do.
+  rows.forEach((row, i) => {
+    row.rank = i > 0 && byOverall(rows[i - 1], row) === 0 ? rows[i - 1].rank : i + 1;
+  });
   return rows;
 }
 
