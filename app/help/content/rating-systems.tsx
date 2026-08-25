@@ -126,9 +126,15 @@ export default function RatingSystems() {
       <Section id="scoring-orc" title="ORC scoring and performance curves">
         <p>
           An ORC certificate is imported whole — see{' '}
-          <em>Importing ORC certificates</em> below — and each ORC fleet picks how to
-          score from it on the <strong className="text-foreground">Settings</strong>{' '}
-          tab. The simple options read one published number off the certificate:{' '}
+          <em>Importing ORC certificates</em> below — and each ORC fleet picks its{' '}
+          default <strong className="text-foreground">scoring option</strong> on the{' '}
+          <strong className="text-foreground">Settings</strong> tab. The option is a
+          per-race choice in the end: each race start can name the option the race
+          committee announced for that race — a coastal race scored on a single
+          number in a series otherwise on curves, say — with the{' '}
+          <strong className="text-foreground">Scoring option</strong> select on the
+          race start; the fleet setting simply fills in when a start doesn’t
+          say. The simple options read one published number off the certificate:{' '}
           <strong className="text-foreground">all-purpose time-on-time</strong> (APHT)
           works exactly like an IRC TCC, and the{' '}
           <strong className="text-foreground">time-on-distance</strong> options instead
@@ -141,13 +147,12 @@ export default function RatingSystems() {
           Between the single number and full performance curves sit the{' '}
           <strong className="text-foreground">wind bands</strong>: certificates
           also publish their ratings per wind strength — the triple numbers, and
-          national sets like the Irish five-band windward/leeward options. Set a
-          fleet&apos;s default option to a band field on the Settings tab, and pick
-          the band the race committee announced per race with the{' '}
-          <strong className="text-foreground">Wind band</strong> select on the race
-          start — every band field the imported certificates carry is offered.
-          Changing the band later re-scores the race without re-entering finishes,
-          and the published race table names the field applied.
+          national sets like the Irish five-band windward/leeward options. Every
+          band field the imported certificates carry is offered in the same
+          scoring-option selects, so picking the band the race committee announced
+          is just picking that race’s option. Changing a start’s option
+          later re-scores the race without re-entering finishes, and the published
+          race table names the option applied.
         </p>
         <p>
           <strong className="text-foreground">Performance curve scoring (PCS)</strong>{' '}
