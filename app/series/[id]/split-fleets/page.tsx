@@ -51,6 +51,7 @@ import {
   finalBlockSizes,
   fleetMembers,
   logicalRaces,
+  orderForAssignment,
   physicalRaceCompleted,
   provisionalCutIndexes,
   roundsForStage,
@@ -1249,7 +1250,7 @@ function ReassignDialog({
   const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
   const preview = useMemo(() => {
-    const rows = splitFleetStandings(data);
+    const rows = orderForAssignment(splitFleetStandings(data), data);
     const ordered = rows.map((r) => r.competitor.id);
     const byFleet = assignByRankPattern(ordered, qFleets.length);
     let assignments: Record<string, number> = {};
@@ -1329,18 +1330,21 @@ function SplitDialog({
   const [moves, setMoves] = useState<Record<string, number>>({});
 
   const preview = useMemo(() => {
-    // Top fleet takes `topSize`; the remainder splits near-equally.
+    // Top fleet takes `topSize`; the remainder splits near-equally. The deal
+    // runs over the assignment order: the ranking, with each shared rank
+    // ordered per the configured tie order.
+    const dealt = orderForAssignment(rows, data);
     const rest = finalBlockSizes(Math.max(0, rows.length - topSize), Math.max(1, fFleets.length - 1));
     const sizes = [topSize, ...rest];
     let assignments: Record<string, number> = {};
     let idx = 0;
     sizes.forEach((size, fleetIdx) => {
-      for (let k = 0; k < size && idx < rows.length; k++, idx++) {
-        assignments[rows[idx].competitor.id] = fleetIdx;
+      for (let k = 0; k < size && idx < dealt.length; k++, idx++) {
+        assignments[dealt[idx].competitor.id] = fleetIdx;
       }
     });
     assignments = { ...assignments, ...moves };
-    const table = rows.map((r) => ({
+    const table = dealt.map((r) => ({
       id: r.competitor.id,
       sail: r.competitor.sailNumber,
       name: r.competitor.names.join(' & '),
@@ -1349,18 +1353,23 @@ function SplitDialog({
     }));
     // Boundary-tie diagnostics: equal nets across a fleet boundary. A shared
     // rank means RRS A8 could not separate the boats — the boundary between
-    // them is a choice, not a ranking, and the scorer must see that.
+    // them is a choice, not a ranking, and the scorer must see which rule
+    // made it.
     const boundaryTies: string[] = [];
     let cum = 0;
     for (let i = 0; i < sizes.length - 1; i++) {
       cum += sizes[i];
-      const a = rows[cum - 1];
-      const b = rows[cum];
+      const a = dealt[cum - 1];
+      const b = dealt[cum];
       if (!a || !b || a.net !== b.net) continue;
       const boundary = `${fFleets[i].label}/${fFleets[i + 1].label}`;
       boundaryTies.push(
         a.rank === b.rank
-          ? `${a.competitor.sailNumber} and ${b.competitor.sailNumber} tie on ${a.net} and RRS A8 cannot separate them — which takes the last ${boundary} place is not decided by the ranking. Check what the SIs direct, or move a boat by hand.`
+          ? `${a.competitor.sailNumber} and ${b.competitor.sailNumber} tie on ${a.net} and RRS A8 cannot separate them — the last ${boundary} place is dealt by ${
+              data.config.reassignmentTieOrder === 'fleet-order'
+                ? 'current fleet order'
+                : 'entry order'
+            }, not by the ranking. Move a boat by hand if the SIs direct otherwise.`
           : `Ranks ${cum}/${cum + 1} (${a.competitor.sailNumber}, ${b.competitor.sailNumber}) tie on ${a.net} — separated by RRS A8; the ${boundary} boundary depends on it.`,
       );
     }
@@ -1371,7 +1380,7 @@ function SplitDialog({
       sizes: fFleets.map((_, i) => counted.filter((v) => v === i).length),
       boundaryTies,
     };
-  }, [rows, topSize, moves, fFleets]);
+  }, [rows, data, topSize, moves, fFleets]);
 
   return (
     <CeremonyDialog

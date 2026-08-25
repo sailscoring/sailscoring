@@ -1399,6 +1399,44 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
   return rows;
 }
 
+/** Order standings rows for dealing into fleets, applying the configured
+ *  `reassignmentTieOrder` to each run of boats on a shared rank — the boats
+ *  RRS A8 could not separate, whose relative order the ranking does not
+ *  define but a deal must still choose.
+ *
+ *  - `a8-then-entry-order` keeps the standings order: within a shared rank
+ *    that is the order the boats were entered.
+ *  - `fleet-order` applies LE Addendum C 7.3(a) — "if two or more boats have
+ *    the same rank, they will be entered in the left column in the order of
+ *    fleets in instruction 7.2" — so a tied run is ordered by each boat's
+ *    current qualifying fleet's position in the fleet list, scattering the
+ *    tie across the new fleets. */
+export function orderForAssignment(
+  rows: SplitStandingRow[],
+  data: SplitFleetData,
+): SplitStandingRow[] {
+  if (data.config.reassignmentTieOrder !== 'fleet-order') return rows;
+  const currentRound = roundsForStage(data.rounds, 'qualifying').at(-1);
+  if (!currentRound) return rows;
+  const fleetIndex = (row: SplitStandingRow): number => {
+    const idx = currentRound.fleetIds.findIndex((fid) =>
+      row.competitor.fleetIds.includes(fid),
+    );
+    return idx === -1 ? currentRound.fleetIds.length : idx;
+  };
+  const out = [...rows];
+  for (let i = 0; i < out.length; ) {
+    let j = i + 1;
+    while (j < out.length && out[j].rank === out[i].rank) j++;
+    if (j - i > 1) {
+      const group = out.slice(i, j).sort((a, b) => fleetIndex(a) - fleetIndex(b));
+      out.splice(i, j - i, ...group);
+    }
+    i = j;
+  }
+  return out;
+}
+
 /** Provisional final-series cut boundaries over a pre-split qualifying
  *  ranking: returns the 0-based row indexes after which a cut line renders. */
 export function provisionalCutIndexes(total: number, fleetCount: number): number[] {

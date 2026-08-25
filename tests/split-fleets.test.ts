@@ -11,6 +11,7 @@ import {
   defaultSplitFleetConfig,
   finalBlockSizes,
   logicalRaces,
+  orderForAssignment,
   physicalRaceCompleted,
   provisionalCutIndexes,
   rankPatternFleetIndex,
@@ -234,6 +235,59 @@ describe('finalBlockSizes / provisionalCutIndexes', () => {
 
   it('cut indexes fall after each block', () => {
     expect(provisionalCutIndexes(8, 3)).toEqual([2, 5]);
+  });
+});
+
+describe('orderForAssignment', () => {
+  // Blue's boat enters first, but Yellow leads the round's fleet list. Each
+  // boat wins her own one-boat fleet: identical score lines A8 cannot break.
+  function tiedPairData(
+    reassignmentTieOrder: 'a8-then-entry-order' | 'fleet-order',
+    opts: { tied?: boolean } = { tied: true },
+  ): SplitFleetData {
+    const round: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    return {
+      config: { ...defaultSplitFleetConfig(2), reassignmentTieOrder },
+      rounds: [round],
+      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue')],
+      competitors: [competitor('cb', ['fb'], 1), competitor('cy', ['fy'], 2)],
+      races: [race('q1')],
+      raceStarts: [
+        start('q1', ['fy'], 'qualifying', 1),
+        start('q1', ['fb'], 'qualifying', 1),
+      ],
+      finishes: opts.tied
+        ? [finish('q1', 'cy', 0), finish('q1', 'cb', 1)]
+        // Yellow's boat DNF: the ranking separates them, Blue's boat ahead.
+        : [finish('q1', 'cb', 0), finish('q1', 'cy', null, 'DNF')],
+    };
+  }
+
+  it('keeps the standings order under a8-then-entry-order', () => {
+    const data = tiedPairData('a8-then-entry-order');
+    const rows = splitFleetStandings(data);
+    expect(rows.map((r) => r.rank)).toEqual([1, 1]);
+    expect(orderForAssignment(rows, data).map((r) => r.competitor.id)).toEqual(['cb', 'cy']);
+  });
+
+  it('orders a shared rank by current fleet order per LE 7.3(a)', () => {
+    const data = tiedPairData('fleet-order');
+    const rows = splitFleetStandings(data);
+    // The standings leave the tied pair in entry order; the deal scatters
+    // them down the fleet list — Yellow's boat first.
+    expect(rows.map((r) => r.competitor.id)).toEqual(['cb', 'cy']);
+    expect(orderForAssignment(rows, data).map((r) => r.competitor.id)).toEqual(['cy', 'cb']);
+  });
+
+  it('never reorders boats the ranking separates', () => {
+    const data = tiedPairData('fleet-order', { tied: false });
+    const rows = splitFleetStandings(data);
+    expect(rows.map((r) => r.rank)).toEqual([1, 2]);
+    // Blue's boat leads on rank; fleet order (Yellow first) must not move her.
+    expect(orderForAssignment(rows, data).map((r) => r.competitor.id)).toEqual(['cb', 'cy']);
   });
 });
 
