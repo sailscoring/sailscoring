@@ -169,9 +169,15 @@ export function useFinishInput(args: UseFinishInputArgs) {
    *  at the existing entry rather than left to hunt for it. */
   function revealFinishedRow(rowKey: string) {
     flashRow(rowKey);
-    document
-      .querySelector(`[data-entry-key="${rowKey}"]`)
-      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    // Scroll on the next frame, not synchronously: the notice line set by the
+    // caller renders above the list, so a scroll measured against the current
+    // layout would leave the row shifted just below the fold. Centering keeps
+    // the row clear of both viewport edges.
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-entry-key="${rowKey}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
   }
 
   /** The typed number belongs to a boat already in the order — most often a
