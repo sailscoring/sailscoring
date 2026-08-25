@@ -181,8 +181,42 @@ export function orcFleetProfile(fleet: { orcProfile?: OrcProfile }): OrcProfile 
 }
 
 /**
+ * The scoring option one race of an ORC fleet applies: the covering start's
+ * option when it names a recognisable one, else the fleet's default. The
+ * option alone determines how the race is scored — a certificate single
+ * number, a wind band, or performance curves — so choosing an option per
+ * race is choosing the method per race; there is no cross-kind restriction.
+ */
+export function orcRaceProfile(
+  fleet: { orcProfile?: OrcProfile },
+  raceStart?: { orcOption?: string },
+): OrcProfile {
+  const option = raceStart?.orcOption;
+  const kind = option ? orcOptionKind(option) : null;
+  return option && kind ? { option, kind } : orcFleetProfile(fleet);
+}
+
+/**
+ * The single-number rating a competitor scores on under a resolved profile:
+ * a time-on-time multiplier or a time-on-distance allowance, by the
+ * profile's kind. Null for a PCS profile (allowances are computed per race,
+ * not read off the certificate), when the boat holds no certificate, or
+ * when the certificate lacks the field — a zero or negative value counts as
+ * absent, matching how the option discovery reads the records.
+ */
+export function orcProfileRating(
+  competitor: { orcCert?: OrcCertData },
+  profile: OrcProfile,
+): number | null {
+  if (profile.kind === 'pcs') return null;
+  if (!competitor.orcCert) return null;
+  const value = orcRecordNumber(competitor.orcCert.record, profile.option);
+  return value != null && value > 0 ? value : null;
+}
+
+/**
  * The time-on-time rating (a TCF-shaped multiplier: CT = rating × ET) an ORC
- * competitor scores on under `fleet`'s profile. Null when the fleet's option
+ * competitor scores on under `fleet`'s default profile. Null when that option
  * is not time-on-time, or the competitor holds no certificate, or the
  * certificate lacks the field.
  */
@@ -191,15 +225,13 @@ export function orcTotRating(
   fleet: { orcProfile?: OrcProfile },
 ): number | null {
   const profile = orcFleetProfile(fleet);
-  if (profile.kind !== 'tot') return null;
-  if (!competitor.orcCert) return null;
-  return orcRecordNumber(competitor.orcCert.record, profile.option) ?? null;
+  return profile.kind === 'tot' ? orcProfileRating(competitor, profile) : null;
 }
 
 /**
  * The time-on-distance allowance (seconds per nautical mile: CT = ET −
- * Δrating × distance) an ORC competitor scores on under `fleet`'s profile.
- * Null when the fleet's option is not time-on-distance, or the competitor
+ * Δrating × distance) an ORC competitor scores on under `fleet`'s default
+ * profile. Null when that option is not time-on-distance, or the competitor
  * holds no certificate, or the certificate lacks the field.
  */
 export function orcTodRating(
@@ -207,9 +239,7 @@ export function orcTodRating(
   fleet: { orcProfile?: OrcProfile },
 ): number | null {
   const profile = orcFleetProfile(fleet);
-  if (profile.kind !== 'tod') return null;
-  if (!competitor.orcCert) return null;
-  return orcRecordNumber(competitor.orcCert.record, profile.option) ?? null;
+  return profile.kind === 'tod' ? orcProfileRating(competitor, profile) : null;
 }
 
 /**

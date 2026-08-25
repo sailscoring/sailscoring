@@ -279,9 +279,21 @@ describe('ORC wind-band selection (per-start option)', () => {
     expect(score?.tcfApplied).toBe(0.8211);
   });
 
-  it('a band that applies the other way (ToT fleet, ToD field) is ignored', () => {
+  it('an option of another kind switches the race to that method', () => {
+    // A ToD option on a ToT-default fleet scores the race time-on-distance —
+    // the option decides the method, not the fleet default.
+    const todStart: RaceStart = { ...start, distanceNm: 3.9, orcOption: 'IRL_5B_WL_M_TOD' };
+    const result = calculateFleetStandings([fleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [todStart]);
+    const imp = result.fleetStandings[0].orcRaceScoresByRaceId?.get('r1')?.get('imp');
+    expect(imp?.orc?.option).toBe('IRL_5B_WL_M_TOD');
+    expect(imp?.tcfApplied).toBe(impFull.orcCert!.record.IRL_5B_WL_M_TOD as number);
+    expect(imp?.orc?.distanceNm).toBe(3.9);
+  });
+
+  it('a race switched to time-on-distance without a course distance falls back to scratch', () => {
     const mismatched: RaceStart = { ...start, orcOption: 'IRL_5B_WL_M_TOD' };
-    expect(rankOrder(fleet, mismatched)).toEqual(['imp', 'mojo']);
+    // Crossing order: Mojo first.
+    expect(rankOrder(fleet, mismatched)).toEqual(['mojo', 'imp']);
   });
 
   it('a time-on-distance fleet takes ToD bands, scratch per race', () => {
@@ -316,6 +328,107 @@ describe('ORC wind-band selection (per-start option)', () => {
     expect(orcFieldKind('TND_Offshore_High')).toBe('tod');
     expect(orcFieldKind('APHT')).toBeNull();
     expect(orcFieldKind('CDL')).toBeNull();
+  });
+});
+
+describe('ORC per-race scoring options (the method is a per-fleet-per-race choice)', () => {
+  const { rms } = parseOrcRmsJson(
+    readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+  );
+  const certComp = (id: string, sail: string, yachtName: string): Competitor => ({
+    ...baseComp,
+    id,
+    sailNumber: sail,
+    orcCert: { record: rms.find((r) => r.YachtName === yachtName)!, importedAt: 0 },
+  });
+  const impFull = certComp('imp', 'IRL 2507', 'IMPETUOUS');
+  const mojoFull = certComp('mojo', 'IRL 1551', 'MOJO');
+  const twoRaces: Race[] = [
+    { id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2026-09-12', createdAt: 0 },
+    { id: 'r2', seriesId: 's1', raceNumber: 2, name: null, date: '2026-09-12', createdAt: 0 },
+  ];
+  const raceFinish = (raceId: string, competitorId: string, sortOrder: number, finishTime: string): Finish => ({
+    ...finish(competitorId, sortOrder, finishTime), id: `${raceId}-${competitorId}`, raceId,
+  });
+
+  it('a ToT-default fleet scores one race on constructed-course PCS via the start option', () => {
+    // The ORC Race Management Guide's sample constructed course, 8.11 NM.
+    const legs = [
+      { distanceNm: 2.09, bearingDeg: 162, windDirectionDeg: 160 },
+      { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 155 },
+      { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 155 },
+      { distanceNm: 1.89, bearingDeg: 161, windDirectionDeg: 160 },
+      { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 160 },
+      { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 160 },
+      { distanceNm: 0.19, bearingDeg: 316, windDirectionDeg: 160 },
+    ];
+    const starts: RaceStart[] = [
+      { id: 'rs1', raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00' },
+      { id: 'rs2', raceId: 'r2', fleetIds: ['f1'], startTime: '14:00:00', orcOption: 'CC', courseLegs: legs },
+    ];
+    const finishes = [
+      raceFinish('r1', 'mojo', 1, '14:58:00'), raceFinish('r1', 'imp', 2, '15:00:00'),
+      raceFinish('r2', 'mojo', 1, '15:26:30'), raceFinish('r2', 'imp', 2, '15:28:11'),
+    ];
+    const result = calculateFleetStandings([fleet], [impFull, mojoFull], twoRaces, finishes, [], 'seriesEntries', starts);
+    const byRace = result.fleetStandings[0].orcRaceScoresByRaceId;
+
+    // Race 1: the fleet default (APHT time-on-time), named in the audit.
+    const r1Imp = byRace?.get('r1')?.get('imp');
+    expect(r1Imp?.orc?.option).toBe('APHT');
+    expect(r1Imp?.tcfApplied).toBe(0.9631);
+    expect(r1Imp?.correctedTime).toBe(3467);
+
+    // Race 2: the start's option — full PCS over the constructed course,
+    // matching the module scored directly.
+    const reference = scorePcsRace({
+      course: { legs: legs.map((l) => ({ distanceNm: l.distanceNm, courseDeg: l.bearingDeg, windDirectionDeg: l.windDirectionDeg })) },
+      boats: [
+        { id: 'imp', allowances: impFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 5291 },
+        { id: 'mojo', allowances: mojoFull.orcCert!.record.Allowances as PcsAllowances, elapsedSeconds: 5190 },
+      ],
+    });
+    for (const id of ['imp', 'mojo'] as const) {
+      const want = reference.boats.find((b) => b.id === id)!;
+      const got = byRace!.get('r2')!.get(id)!;
+      expect(got.correctedTime).toBe(want.correctedSeconds);
+      expect(got.orc?.impliedWind).toBeCloseTo(want.impliedWind!, 9);
+      expect(got.orc?.option).toBe('CC');
+      expect(got.orc?.courseModel).toBe('CC');
+    }
+  });
+
+  it('a PCS-default fleet scores one race on a certificate single number via the start option', () => {
+    const pcsFleet: Fleet = { ...fleet, orcProfile: { option: 'WL', kind: 'pcs' } };
+    const aphtStart: RaceStart = { ...start, orcOption: 'APHT' };
+    const finishes = [finish('mojo', 1, '14:58:00'), finish('imp', 2, '15:00:00')];
+    const result = calculateFleetStandings([pcsFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [aphtStart]);
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId?.get('r1');
+    const imp = scores?.get('imp');
+    // Plain APHT time-on-time: 3600 × 0.9631 → 3467, beating Mojo's 3511.
+    expect(imp?.orc?.option).toBe('APHT');
+    expect(imp?.tcfApplied).toBe(0.9631);
+    expect(imp?.correctedTime).toBe(3467);
+    expect(scores?.get('mojo')?.correctedTime).toBe(3511);
+    // No PCS ingredients on a single-number race.
+    expect(imp?.orc?.impliedWind).toBeUndefined();
+    expect(imp?.orc?.scoringWind).toBeUndefined();
+  });
+
+  it('a boat missing the race option\'s field goes unscored that race, not rejected from the series', () => {
+    // Mojo's trimmed certificate carries APHT but no IRL five-band fields.
+    const mojoTrimmed: Competitor = { ...baseComp, id: 'mojo', sailNumber: 'IRL 1551', orcCert: mojoCert };
+    const banded: RaceStart = { ...start, orcOption: 'IRL_5B_WL_M_TOT' };
+    const finishes = [finish('mojo', 1, '14:58:00'), finish('imp', 2, '15:00:00')];
+    const result = calculateFleetStandings([fleet], [impFull, mojoTrimmed], races, finishes, [], 'seriesEntries', [banded]);
+    const entry = result.fleetStandings[0];
+    // Rated for the series (APHT default), so not rejected…
+    expect(entry.rejections).toEqual([]);
+    expect(entry.standings.map((s) => s.competitor.id)).toContain('mojo');
+    // …but unscored in the banded race, where Impetuous scores alone.
+    const scores = entry.orcRaceScoresByRaceId?.get('r1');
+    expect(scores?.get('imp')?.rank).toBe(1);
+    expect(scores?.has('mojo')).toBe(false);
   });
 });
 
