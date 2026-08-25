@@ -36,6 +36,29 @@ function renderInputFor(file: string): SplitFleetRenderInput {
   };
 }
 
+/** Strip the final round + final-stage races/finishes so the event is
+ *  mid-qualifying: the combined table, cut line, and Fleet column render. */
+function midQualifying(input: SplitFleetRenderInput): SplitFleetRenderInput {
+  const finalFleetIds = new Set(
+    input.rounds.filter((r) => r.stage !== 'qualifying').flatMap((r) => r.fleetIds),
+  );
+  const qualRaceIds = new Set(
+    input.raceStarts.filter((s) => s.stage === 'qualifying').map((s) => s.raceId),
+  );
+  return {
+    ...input,
+    rounds: input.rounds.filter((r) => r.stage === 'qualifying'),
+    races: input.races.filter((r) => qualRaceIds.has(r.id)),
+    raceStarts: input.raceStarts.filter((s) => qualRaceIds.has(s.raceId)),
+    finishes: input.finishes.filter((f) => qualRaceIds.has(f.raceId)),
+    fleets: input.fleets.filter((f) => !finalFleetIds.has(f.id)),
+    competitors: input.competitors.map((c) => ({
+      ...c,
+      fleetIds: c.fleetIds.filter((id) => !finalFleetIds.has(id)),
+    })),
+  };
+}
+
 describe('renderSplitFleetStandingsPage', () => {
   it('renders tiered sections after the split, with cells and totals', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
@@ -51,27 +74,7 @@ describe('renderSplitFleetStandingsPage', () => {
   });
 
   it('marks the provisional cut line while still in qualifying', () => {
-    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
-    // Strip the final round + final-stage races/finishes: the event is now
-    // mid-qualifying, so the combined table carries the cut line.
-    const finalFleetIds = new Set(
-      input.rounds.filter((r) => r.stage !== 'qualifying').flatMap((r) => r.fleetIds),
-    );
-    const qualRaceIds = new Set(
-      input.raceStarts.filter((s) => s.stage === 'qualifying').map((s) => s.raceId),
-    );
-    const mid: SplitFleetRenderInput = {
-      ...input,
-      rounds: input.rounds.filter((r) => r.stage === 'qualifying'),
-      races: input.races.filter((r) => qualRaceIds.has(r.id)),
-      raceStarts: input.raceStarts.filter((s) => qualRaceIds.has(s.raceId)),
-      finishes: input.finishes.filter((f) => qualRaceIds.has(f.raceId)),
-      fleets: input.fleets.filter((f) => !finalFleetIds.has(f.id)),
-      competitors: input.competitors.map((c) => ({
-        ...c,
-        fleetIds: c.fleetIds.filter((id) => !finalFleetIds.has(id)),
-      })),
-    };
+    const mid = midQualifying(renderInputFor('01-f1-ilca-continuous-carry.yaml'));
     const html = renderSplitFleetStandingsPage(mid);
     expect(html).toContain('provisional split');
     expect(html).not.toContain('Gold fleet');
@@ -108,6 +111,48 @@ describe('renderSplitFleetStandingsPage', () => {
     const html = renderSplitFleetStandingsPage(input);
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+});
+
+describe('fleet markers on the championship standings', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+
+  it('marks each race cell with a fleet dot and names the fleet in the tooltip', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    // The dot rides inside the score cell, per cell — after a reassignment a
+    // row's qualifying cells can carry different fleets race by race.
+    expect(html).toMatch(/<td[^>]*title="Yellow fleet"[^>]*>|title="Yellow fleet"/);
+    expect(html).toContain('class="sfdot"');
+    // The tooltip keeps the scoring note when the cell has one — rank-seed
+    // carry supersedes the qualifying scores, so those cells carry both.
+    const rankSeed = renderSplitFleetStandingsPage(
+      renderInputFor('14-f6-rank-seed-carry.yaml'),
+    );
+    expect(rankSeed).toMatch(/title="[^"]+ fleet — replaced by the carried score"/);
+  });
+
+  it('keys the dots with a legend naming every fleet that appears', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    const legend = html.match(/<p class="sfnote sflegend">[\s\S]*?<\/p>/)?.[0] ?? '';
+    expect(legend).toContain('Race cells are marked with the fleet the race was sailed in');
+    for (const label of ['Yellow', 'Blue', 'Gold', 'Silver']) {
+      expect(legend).toContain(label);
+    }
+  });
+
+  it('carries a Fleet column while combined, and drops it once split', () => {
+    const mid = midQualifying(renderInputFor(FIXTURE));
+    const combined = renderSplitFleetStandingsPage(mid);
+    expect(combined).toContain('<th>Fleet</th>');
+    // The column names the current round's assignment, dot first.
+    expect(combined).toMatch(
+      /<td style="white-space:nowrap"><span class="sfdot"[^>]*><\/span>(Yellow|Blue)<\/td>/,
+    );
+
+    // After the split the per-fleet section headings say it instead.
+    const post = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    expect(post).not.toContain('<th>Fleet</th>');
+    expect(post).toContain('Gold fleet');
   });
 });
 

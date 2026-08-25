@@ -288,6 +288,18 @@ function buildFleetMeta(
   return meta;
 }
 
+/** The bare fleet marker: a small flat-colour dot, bordered so pale fleet
+ *  colours hold up against the cell tint behind it. */
+function FleetDot({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="mr-1 inline-block h-1.5 w-1.5 rounded-full border border-foreground/30 align-middle"
+      style={{ backgroundColor: color }}
+    />
+  );
+}
+
 function FleetChip({ meta, count }: { meta: FleetMeta; count?: number }) {
   return (
     <span
@@ -1914,6 +1926,25 @@ function StandingsSection({
     enabledFields.includes('nationality') &&
     standings.some((r) => r.competitor.nationality);
 
+  // Pre-split, the combined table carries a Fleet column with the current
+  // round's assignment; after the split the per-fleet headings say it.
+  const latestRound = splitRound
+    ? null
+    : ([...data.rounds].sort((a, b) => b.createdAt - a.createdAt)[0] ?? null);
+  const currentFleetOf = (row: SplitStandingRow): FleetMeta | null => {
+    const fid = latestRound?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
+    return fid ? (fleetMeta.get(fid) ?? null) : null;
+  };
+
+  // The legend: one chip per fleet that actually appears in the cells, deduped
+  // by label (a later round's fleets reuse the labels under new ids).
+  const cellFleetIds = new Set(standings.flatMap((r) => r.cells.map((c) => c.fleetId)));
+  const legendLabels = new Set<string>();
+  const legendFleets = [...fleetMeta.entries()].filter(
+    ([fid, meta]) =>
+      cellFleetIds.has(fid) && !legendLabels.has(meta.label) && !!legendLabels.add(meta.label),
+  );
+
   const renderRows = (rows: SplitStandingRow[], withCuts: boolean) =>
     rows.map((row, i) => {
       const cellByKey = new Map(
@@ -1927,6 +1958,7 @@ function StandingsSection({
           columns={columns}
           cellByKey={cellByKey}
           fleetMeta={fleetMeta}
+          currentFleet={latestRound ? currentFleetOf(row) : undefined}
           showNationality={showNationality}
           cutAfter={withCuts && cuts.includes(i)}
           cutLabel={
@@ -1975,6 +2007,14 @@ function StandingsSection({
           )}
         </div>
       </div>
+      {legendFleets.length > 0 && (
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          Race cells are marked with the fleet the race was sailed in:
+          {legendFleets.map(([fid, meta]) => (
+            <FleetChip key={fid} meta={meta} />
+          ))}
+        </p>
+      )}
       <div className="overflow-x-auto">
         {splitRound ? (
           splitRound.fleetIds.map((fid) => {
@@ -1991,7 +2031,7 @@ function StandingsSection({
             );
           })
         ) : (
-          <StandingsTable data={data} columns={columns} showNationality={showNationality}>{renderRows(standings, true)}</StandingsTable>
+          <StandingsTable data={data} columns={columns} showNationality={showNationality} showFleet={latestRound !== null}>{renderRows(standings, true)}</StandingsTable>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -2007,11 +2047,13 @@ function StandingsTable({
   data,
   columns,
   showNationality,
+  showFleet,
   children,
 }: {
   data: SplitFleetData;
   columns: { stage: SeriesStage; n: number }[];
   showNationality: boolean;
+  showFleet?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -2019,6 +2061,7 @@ function StandingsTable({
       <thead>
         <tr className="text-left text-xs text-muted-foreground">
           <th className="py-1 pr-2 font-medium">Rank</th>
+          {showFleet && <th className="py-1 pr-2 font-medium">Fleet</th>}
           {showNationality && <th className="py-1 pr-2 font-medium">Nat</th>}
           <th className="py-1 pr-2 font-medium">Sail</th>
           <th className="py-1 pr-2 font-medium">Name</th>
@@ -2042,6 +2085,7 @@ function FragmentRow({
   columns,
   cellByKey,
   fleetMeta,
+  currentFleet,
   showNationality,
   cutAfter,
   cutLabel,
@@ -2051,6 +2095,10 @@ function FragmentRow({
   columns: { stage: SeriesStage; n: number }[];
   cellByKey: Map<string, import('@/lib/split-fleets').CellScore>;
   fleetMeta: Map<string, FleetMeta>;
+  /** The current round's assignment, shown as a Fleet column on the combined
+   *  qualifying table. Undefined = no column (post-split, the section heading
+   *  names the fleet instead). */
+  currentFleet?: FleetMeta | null;
   showNationality: boolean;
   cutAfter: boolean;
   cutLabel: string | null;
@@ -2060,6 +2108,12 @@ function FragmentRow({
     <>
       <tr className="border-t">
         <td className="py-1 pr-2">{row.rank}</td>
+        {currentFleet !== undefined && (
+          <td className="py-1 pr-2 whitespace-nowrap">
+            {currentFleet && <FleetDot color={currentFleet.color} />}
+            {currentFleet?.label ?? ''}
+          </td>
+        )}
         {showNationality && (
           <td className="py-1 pr-2 font-mono text-xs">{row.competitor.nationality ?? ''}</td>
         )}
@@ -2081,8 +2135,20 @@ function FragmentRow({
               </td>
             );
           }
-          const color = fleetMeta.get(cell.fleetId)?.color ?? '#888';
+          const meta = fleetMeta.get(cell.fleetId);
+          const color = meta?.color ?? '#888';
           const text = `${cell.points}${cell.code ? ` ${cell.code}` : ''}`;
+          const note = cell.counts
+            ? cell.carriedRank
+              ? `${capitaliseStage(w.qualifying.name)} position, carried into the ${w.final.name}`
+              : cell.carriedTransform
+                ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
+                : undefined
+            : cell.superseded
+              ? 'Replaced by the carried score'
+              : cell.excludedAsExtra
+                ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
+                : 'Does not yet count — race incomplete across fleets';
           return (
             <td
               key={`${c.stage}:${c.n}`}
@@ -2091,19 +2157,11 @@ function FragmentRow({
               }`}
               style={{ backgroundColor: `${color}${cell.counts ? '2e' : '14'}` }}
               title={
-                cell.counts
-                  ? cell.carriedRank
-                    ? `${capitaliseStage(w.qualifying.name)} position, carried into the ${w.final.name}`
-                    : cell.carriedTransform
-                      ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
-                      : undefined
-                  : cell.superseded
-                    ? 'Replaced by the carried score'
-                    : cell.excludedAsExtra
-                      ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
-                      : 'Does not yet count — race incomplete across fleets'
+                [meta ? `${meta.label} fleet` : null, note].filter(Boolean).join(' — ') ||
+                undefined
               }
             >
+              {meta && <FleetDot color={color} />}
               {cell.discarded ? `(${text})` : text}
             </td>
           );
@@ -2113,7 +2171,12 @@ function FragmentRow({
       </tr>
       {cutAfter && (
         <tr aria-hidden>
-          <td colSpan={columns.length + (showNationality ? 6 : 5)} className="py-0">
+          <td
+            colSpan={
+              columns.length + (showNationality ? 6 : 5) + (currentFleet !== undefined ? 1 : 0)
+            }
+            className="py-0"
+          >
             <div className="my-0.5 border-t-2 border-dashed border-amber-400 text-center text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
               {cutLabel}
             </div>

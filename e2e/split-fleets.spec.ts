@@ -88,6 +88,16 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // Standings: combined table with the provisional cut line.
   await expect(page.getByText(/cut if the Preliminary series ended now/)).toBeVisible();
 
+  // Fleet markers: the combined table carries a Fleet column with the current
+  // round's assignment, and a legend keys the per-cell dots.
+  const standingsSection = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Standings', exact: true }) });
+  await expect(
+    standingsSection.getByText('Race cells are marked with the fleet the race was sailed in'),
+  ).toBeVisible();
+  await expect(standingsSection.getByRole('columnheader', { name: 'Fleet' })).toBeVisible();
+
   // ── Round 2: rank-pattern reassignment from the Q1 ranking ────────────────
   await page.getByRole('button', { name: 'Assign Round 2' }).click();
   await expect(page.getByRole('dialog')).toContainText('From the ranking after Q1');
@@ -103,9 +113,11 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // races on from the qualifying series (Q1–Q4 exist), as its SIs do.
   await expect(page.getByRole('link', { name: /Q5 · enter finishes/ })).toHaveCount(2);
 
-  // Tiered standings: one table per final fleet.
+  // Tiered standings: one table per final fleet. The Fleet column is gone —
+  // the per-fleet headings name it instead.
   await expect(page.getByRole('heading', { name: /Gold/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Silver/ })).toBeVisible();
+  await expect(standingsSection.getByRole('columnheader', { name: 'Fleet' })).toHaveCount(0);
 
   // ── Rehomed standings surfaces ────────────────────────────────────────────
   // The regular Standings tab is hidden for a split-fleet series; preview and
