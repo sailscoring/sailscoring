@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
-import { orcFleetProfile, orcTodRating, orcTotRating } from '@/lib/orc-certificate';
+import { orcProfileRating, orcRaceProfile } from '@/lib/orc-certificate';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import { buildFixtureInputs, loadFixturesFromDir } from './fixtures/scoring/types';
 import type { Finish } from '@/lib/types';
@@ -33,19 +33,24 @@ describe('TCC handicap scoring fixtures', () => {
         buildFixtureInputs(fixture);
       const fleet = fleets[0];
 
-      // Build the static applied-TCF map (callers are now responsible for this).
-      const isOrcTod = fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind === 'tod';
-      const tcfMap = new Map<string, number>();
-      for (const c of competitors) {
-        if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
-        else if (fleet.scoringSystem === 'vprs' && c.vprsTcc != null) tcfMap.set(c.id, c.vprsTcc);
-        else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
-        else if (fleet.scoringSystem === 'orc') {
-          const rating = isOrcTod ? orcTodRating(c, fleet) : orcTotRating(c, fleet);
-          if (rating != null) tcfMap.set(c.id, rating);
+      // Build the applied-TCF map (callers are now responsible for this).
+      // For ORC the scoring option — and so the rating field, and whether the
+      // map holds multipliers or s/NM allowances — resolves per race from the
+      // start's option, falling back to the fleet default.
+      const buildTcfMap = (raceStart?: { orcOption?: string }) => {
+        const orcProfile = fleet.scoringSystem === 'orc' ? orcRaceProfile(fleet, raceStart) : null;
+        const tcfMap = new Map<string, number>();
+        for (const c of competitors) {
+          if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
+          else if (fleet.scoringSystem === 'vprs' && c.vprsTcc != null) tcfMap.set(c.id, c.vprsTcc);
+          else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
+          else if (orcProfile) {
+            const rating = orcProfileRating(c, orcProfile);
+            if (rating != null) tcfMap.set(c.id, rating);
+          }
         }
-      }
-      const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
+        return { tcfMap, isOrcTod: orcProfile?.kind === 'tod' };
+      };
 
       // ─── Per-race arithmetic (CT, TCF, rank) ────────────────────────────
       for (let ri = 0; ri < fixture.races.length; ri++) {
@@ -57,6 +62,8 @@ describe('TCC handicap scoring fixtures', () => {
         if (!raceStart) throw new Error(`${yamlPath}: race ${ri + 1} has no startTime`);
         const raceFinishes: Finish[] = finishes.filter((f) => f.raceId === raceId);
 
+        const { tcfMap, isOrcTod } = buildTcfMap(raceStart);
+        const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
         const todContext = isOrcTod && raceStart.distanceNm != null && tcfMap.size > 0
           ? { distanceNm: raceStart.distanceNm, scratchTod: Math.min(...tcfMap.values()) }
           : undefined;

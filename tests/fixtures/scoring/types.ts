@@ -104,6 +104,10 @@ export interface FixtureRace {
   /** Course length in NM — the time-on-distance scoring input, set on the
    *  race's start. */
   distanceNm?: number;
+  /** ORC only — the scoring option for this race, set on the race's start.
+   *  Overrides the fleet's default option (a certificate field name or a
+   *  standard option identifier); absent means the fleet default applies. */
+  orcOption?: string;
   /** Per-race scoring options (Race.discardPolicy / Race.pointsMultiplier).
    *  Absent means an ordinary, discardable race counting once. */
   discardPolicy?: 'normal' | 'mustCount' | 'discardFirst';
@@ -156,8 +160,9 @@ export interface FixtureFleet {
   // NHC only — full inline profile override (mapped to fleet.nhcProfile).
   // Absent means the engine falls back to DEFAULT_NHC_PROFILE.
   nhcProfile?: import('@/lib/types').NhcProfile;
-  // ORC only — which certificate rating field scores the fleet and how
-  // (mapped to fleet.orcProfile). Absent means APHT time-on-time.
+  // ORC only — the fleet's default scoring option: which certificate rating
+  // field scores it and how (mapped to fleet.orcProfile). Absent means APHT
+  // time-on-time. Races override it via their own `orcOption`.
   orcOption?: import('@/lib/types').OrcProfile;
 }
 
@@ -404,6 +409,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         fleetIds: fleets.map((f) => f.id),
         startTime: fr.startTime,
         ...(fr.distanceNm != null ? { distanceNm: fr.distanceNm } : {}),
+        ...(fr.orcOption ? { orcOption: fr.orcOption } : {}),
       });
     }
     for (const f of fr.finishes) {

@@ -23,7 +23,7 @@ import {
   calculateHandicapRaceScores,
 } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
-import { orcFleetProfile, orcTodRating, orcTotRating } from '../lib/orc-certificate';
+import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
@@ -273,20 +273,22 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
   const { competitors, races, finishes, raceStarts, fleets } = buildFixtureInputs(fixture);
   const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
   const fleet = fleets[0];
-  const orcProfile = sys === 'orc' ? orcFleetProfile(fleet) : null;
-  const isOrcTod = orcProfile?.kind === 'tod';
 
   const raceSections = fixture.races.map((fixtureRace, ri) => {
     const raceId = races[ri].id;
     const raceStart = raceStarts.find((rs) => rs.raceId === raceId);
     if (!raceStart) return '';
+    // The scoring option resolves per race: the start's option (a fixture
+    // race's `orcOption`), else the fleet default.
+    const orcProfile = sys === 'orc' ? orcRaceProfile(fleet, raceStart) : null;
+    const isOrcTod = orcProfile?.kind === 'tod';
     const raceFinishes = finishes.filter((f) => f.raceId === raceId);
     const tcfMap = new Map<string, number>();
     for (const c of competitors) {
       if (sys === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
       else if (sys === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
-      else if (sys === 'orc') {
-        const rating = isOrcTod ? orcTodRating(c, fleet) : orcTotRating(c, fleet);
+      else if (orcProfile) {
+        const rating = orcProfileRating(c, orcProfile);
         if (rating != null) tcfMap.set(c.id, rating);
       }
     }
