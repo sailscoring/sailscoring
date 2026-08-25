@@ -16,7 +16,6 @@ import type { OrcRaceCalc } from '@/lib/types';
 function assemble(options: {
   orc: (id: string) => OrcRaceCalc;
   raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: Array<{ distanceNm: number; bearingDeg: number; windDirectionDeg: number }> }>;
-  orcTod?: boolean;
 }) {
   const scores = new Map([
     ['c1', { points: 1, place: 1, rank: 1, resultCode: null, finishTime: '15:00:00', tcfApplied: options.orc('c1').todApplied, elapsedTime: 3600, correctedTime: 3591, orc: options.orc('c1') }],
@@ -45,7 +44,6 @@ function assemble(options: {
       raceStarts: options.raceStarts ?? [{ raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00' }],
       fleetId: 'f1',
       scoringSystem: 'orc',
-      ...(options.orcTod ? { orcTod: true } : {}),
     },
   );
 }
@@ -59,8 +57,9 @@ describe('published ORC transparency', () => {
       impliedWind: id === 'c1' ? 7.70327 : 7.66196,
       scoringWind: 7.70327,
       courseModel: 'WL',
+      option: 'WL',
     });
-    const html = renderSeriesHtml(assemble({ orc: calc, orcTod: true }));
+    const html = renderSeriesHtml(assemble({ orc: calc }));
     expect(html).toContain('Scored on ORC performance curves');
     expect(html).toContain('Windward/leeward course model');
     expect(html).toContain('3.90 NM');
@@ -72,6 +71,9 @@ describe('published ORC transparency', () => {
     // The rating column is the applied allowance, labelled ToD at 1 dp.
     expect(html).toContain('<th>ToD</th>');
     expect(html).toContain('>889.2</td>');
+    // The stored option duplicates the course model on a PCS race, so the
+    // rating-field part stays out of the header.
+    expect(html).not.toContain('Rating field');
   });
 
   it('a race-committee scoring wind is attributed', () => {
@@ -84,7 +86,7 @@ describe('published ORC transparency', () => {
       scoringWindOverridden: true,
       courseModel: 'WL',
     });
-    const html = renderSeriesHtml(assemble({ orc: calc, orcTod: true }));
+    const html = renderSeriesHtml(assemble({ orc: calc }));
     expect(html).toContain('Scoring wind 15.50 kt (set by the race committee)');
   });
 
@@ -100,7 +102,6 @@ describe('published ORC transparency', () => {
     const html = renderSeriesHtml(
       assemble({
         orc: calc,
-        orcTod: true,
         raceStarts: [{
           raceId: 'r1',
           fleetIds: ['f1'],
@@ -120,15 +121,55 @@ describe('published ORC transparency', () => {
 
   it('a plain time-on-distance race states the correction ingredients without a scoring wind', () => {
     const calc = (id: string): OrcRaceCalc => ({
+      option: 'APHD',
       todApplied: id === 'c1' ? 594.7 : 623.0,
       scratchTod: 594.7,
       distanceNm: 3.24,
     });
-    const html = renderSeriesHtml(assemble({ orc: calc, orcTod: true }));
+    const html = renderSeriesHtml(assemble({ orc: calc }));
     expect(html).toContain('Scored on ORC time-on-distance');
     expect(html).toContain('Course 3.24 NM');
+    expect(html).toContain('Rating field APHD');
     expect(html).toContain('Scratch allowance 594.7 s/NM');
     expect(html).not.toContain('Scoring wind');
+    expect(html).not.toContain('<th>Implied wind</th>');
+  });
+
+  it('a certificate single-number race names its rating field with the TCC presentation', () => {
+    // A time-on-time race carries only the option in its audit block — the
+    // header names the field, and the rating column stays a 3-dp TCC.
+    const calc = (): OrcRaceCalc => ({ option: 'APHT' });
+    const scores = new Map([
+      ['c1', { points: 1, place: 1, rank: 1, resultCode: null, finishTime: '15:00:00', tcfApplied: 0.9631, elapsedTime: 3600, correctedTime: 3467, orc: calc() }],
+      ['c2', { points: 2, place: 2, rank: 2, resultCode: null, finishTime: '14:58:00', tcfApplied: 1.0089, elapsedTime: 3480, correctedTime: 3511, orc: calc() }],
+    ]);
+    const data = assembleSeriesResultsData(
+      { name: 'ORC Render Test', venue: '' },
+      [{ id: 'r1', raceNumber: 1, date: '2026-09-12', name: null }],
+      [
+        { rank: 1, competitor: { id: 'c1', sailNumber: 'IRL 2507', names: ['Impetuous'] }, racePoints: [1], raceCodes: [null], totalPoints: 1, netPoints: 1, raceDiscards: [false] },
+        { rank: 2, competitor: { id: 'c2', sailNumber: 'IRL 1551', names: ['Mojo'] }, racePoints: [2], raceCodes: [null], totalPoints: 2, netPoints: 2, raceDiscards: [false] },
+      ],
+      new Map([['r1', scores]]),
+      new Map([
+        ['c1', { sailNumber: 'IRL 2507', names: ['Impetuous'] }],
+        ['c2', { sailNumber: 'IRL 1551', names: ['Mojo'] }],
+      ]),
+      [],
+      new Date('2026-09-12T18:00:00Z'),
+      'Class 2',
+      {
+        raceStarts: [{ raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00' }],
+        fleetId: 'f1',
+        scoringSystem: 'orc',
+      },
+    );
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('Scored on an ORC certificate rating');
+    expect(html).toContain('Rating field APHT');
+    expect(html).toContain('<th>TCC</th>');
+    expect(html).toContain('>0.963</td>');
+    expect(html).not.toContain('Scratch allowance');
     expect(html).not.toContain('<th>Implied wind</th>');
   });
 });

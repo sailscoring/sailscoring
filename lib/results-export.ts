@@ -18,7 +18,7 @@ import {
   type CompetitorListRow,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
-import { orcFleetProfile, orcOptionKind, orcPcsRatable, orcRecordNumber, orcTodRating, orcTotRating } from './orc-certificate';
+import { orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
 import {
   resolvePublishingGroups,
   fleetPagesSuppressed,
@@ -508,7 +508,7 @@ export async function buildFleetHtmlFiles(
         }
 
         let scores;
-        // ORC audit blocks for this race's cells (ToD/PCS fleets only).
+        // ORC audit blocks for this race's cells (every scored ORC race).
         let orcCalcByComp: Map<string, OrcRaceCalc> | undefined;
         // Per-race static-rating overrides (mid-series rating change) for this
         // fleet's system, keyed by competitor.
@@ -519,10 +519,15 @@ export async function buildFleetHtmlFiles(
             if (o.raceId === race.id && o.field === overrideField) overrideByComp.set(o.competitorId, o.value);
           }
         }
-        // ORC on a time-on-distance or PCS option needs the start's course
-        // distance as well as a gun; without one the race falls back to
-        // scratch, the same way the engine scores it.
-        const orcProfile = fleet.scoringSystem === 'orc' ? orcFleetProfile(fleet) : null;
+        // ORC scoring options resolve per race: the start's option (else the
+        // fleet default) decides the method — a certificate single number, a
+        // wind band, or performance curves. A race resolved to
+        // time-on-distance or PCS needs the start's course as well as a gun;
+        // without one it falls back to scratch, the same way the engine
+        // scores it.
+        const orcProfile = fleet.scoringSystem === 'orc' && raceStart
+          ? orcRaceProfile(fleet, raceStart)
+          : null;
         const isOrcTod = orcProfile?.kind === 'tod';
         const isOrcPcs = orcProfile?.kind === 'pcs';
         if (isHandicap && raceStart && orcStartHasCourse(orcProfile, raceStart)) {
@@ -539,35 +544,14 @@ export async function buildFleetHtmlFiles(
             } else if (fleet.scoringSystem === 'py') {
               const py = overrideByComp.get(c.id) ?? c.pyNumber;
               if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
-            } else if (fleet.scoringSystem === 'orc') {
+            } else if (orcProfile) {
               const rating = isOrcPcs
                 ? (orcPcsRatable(c) ? 1 : null)
-                : isOrcTod
-                  ? orcTodRating(c, fleet)
-                  : orcTotRating(c, fleet);
+                : orcProfileRating(c, orcProfile);
               if (rating != null) tcfMap.set(c.id, rating);
             }
           }
           let ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
-          // ORC wind-band selection: the start's field overrides the fleet's
-          // option for this race when it applies the same way.
-          let orcAppliedOption: string | undefined;
-          if (
-            orcProfile && orcProfile.kind !== 'pcs' &&
-            raceStart.orcOption && raceStart.orcOption !== orcProfile.option &&
-            orcOptionKind(raceStart.orcOption) === orcProfile.kind
-          ) {
-            const bandMap = new Map<string, number>();
-            for (const c of ratedFleetCompetitors) {
-              const value = c.orcCert ? orcRecordNumber(c.orcCert.record, raceStart.orcOption) : undefined;
-              if (value != null) bandMap.set(c.id, value);
-            }
-            if (bandMap.size > 0) {
-              tcfMap = bandMap;
-              orcAppliedOption = raceStart.orcOption;
-              ratedFleetCompetitors = ratedFleetCompetitors.filter((c) => tcfMap.has(c.id));
-            }
-          }
           let todContext = isOrcTod && tcfMap.size > 0
             ? { distanceNm: raceStart.distanceNm!, scratchTod: Math.min(...tcfMap.values()) }
             : undefined;
@@ -587,19 +571,16 @@ export async function buildFleetHtmlFiles(
               tcfMap = new Map();
               ratedFleetCompetitors = [];
             }
-          } else if (todContext) {
+          } else if (orcProfile) {
             const ctx = todContext;
-            const appliedOption = orcAppliedOption ?? orcProfile!.option;
+            const option = orcProfile.option;
             orcCalcByComp = new Map(
-              [...tcfMap.entries()].map(([cid, tod]) => [
+              [...tcfMap.entries()].map(([cid, rating]) => [
                 cid,
-                { option: appliedOption, todApplied: tod, scratchTod: ctx.scratchTod, distanceNm: ctx.distanceNm },
+                ctx
+                  ? { option, todApplied: rating, scratchTod: ctx.scratchTod, distanceNm: ctx.distanceNm }
+                  : { option },
               ]),
-            );
-          } else if (orcAppliedOption) {
-            const applied = orcAppliedOption;
-            orcCalcByComp = new Map(
-              [...tcfMap.keys()].map((cid) => [cid, { option: applied }]),
             );
           }
           scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries', todContext).scores;
@@ -699,12 +680,6 @@ export async function buildFleetHtmlFiles(
           raceStarts: allRaceStarts,
           fleetId: fleet.id,
           scoringSystem: fleet.scoringSystem,
-          // ToD and PCS both apply s/NM allowances, so both label the rating
-          // column "ToD"; PCS additionally gets its implied-wind column via
-          // the per-race audit blocks.
-          ...(fleet.scoringSystem === 'orc' && orcFleetProfile(fleet).kind !== 'tot'
-            ? { orcTod: true }
-            : {}),
           primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
           multiPersonFields: series.multiPersonFields ?? [],
           // The section heading already names the value, so the axis it was

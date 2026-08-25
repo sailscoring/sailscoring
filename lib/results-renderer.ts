@@ -137,17 +137,19 @@ export interface RaceData {
    *  explainability columns (1/T_E, PI, Adjustment, New H) hidden under
    *  the ECHO viewer toggle. */
   isEcho?: boolean;
-  /** True for an ORC fleet scored time-on-distance: the rating column holds
-   *  allowances in s/NM (labelled "ToD", printed to 1 dp) and corrected
-   *  times come from the engine rather than an ET × TCF recompute. Also set
-   *  for PCS fleets — their applied rating is a ToD at the scoring wind. */
+  /** True for an ORC race scored time-on-distance (the option resolves per
+   *  race): the rating column holds allowances in s/NM (labelled "ToD",
+   *  printed to 1 dp) and corrected times come from the engine rather than
+   *  an ET × TCF recompute. Also set for PCS races — their applied rating
+   *  is a ToD at the scoring wind. */
   isOrcTod?: boolean;
-  /** True for an ORC fleet scored by performance curves: adds the implied
+  /** True for an ORC race scored by performance curves: adds the implied
    *  wind column so competitors can check the scoring wind derivation. */
   isOrcPcs?: boolean;
-  /** ORC ToD/PCS fleet-race header: the correction ingredients — and, for
-   *  PCS, the scoring wind with its source and the course record. Always
-   *  rendered when present: the audit trail is the point. */
+  /** ORC fleet-race header: the option the race was scored on and the
+   *  correction ingredients — and, for PCS, the scoring wind with its
+   *  source and the course record. Always rendered when present: the audit
+   *  trail is the point. */
   orcHeader?: OrcHeaderData;
   /** NHC fleet-race-level aggregates. When set, renders the rating-calculation
    *  fleet header line above the race table and extra explainability columns
@@ -161,8 +163,8 @@ export interface RaceData {
 }
 
 export interface OrcHeaderData {
-  /** The certificate rating field applied — names the wind band on a
-   *  band-scored race. */
+  /** The scoring option the race resolved to — names the certificate
+   *  rating field on a single-number or band-scored race. */
   option?: string;
   /** ToD/PCS: the scratch boat's allowance (s/NM) the fleet corrected
    *  against. Absent on a ToT band race, which has no correction header
@@ -1521,25 +1523,28 @@ function renderRaceTable(
                 : `Course ${h.distanceNm.toFixed(2)} NM`,
           );
         }
-        if (h.option) parts.push(`Rating field ${esc(h.option)}`);
+        // On a PCS race the course model already names the method, and the
+        // stored option duplicates it — the field name is only meaningful
+        // for certificate single numbers and bands.
+        if (h.option && h.scoringWind == null) parts.push(`Rating field ${esc(h.option)}`);
         if (h.scoringWind != null) {
           parts.push(
             `Scoring wind ${h.scoringWind.toFixed(2)} kt (${h.scoringWindOverridden ? 'set by the race committee' : "winner's implied wind"})`,
           );
         }
         if (h.scratchTod != null) parts.push(`Scratch allowance ${h.scratchTod.toFixed(1)} s/NM`);
-        const regime =
+        const lead =
           h.scoringWind != null
-            ? 'performance curves'
+            ? 'Scored on ORC performance curves'
             : h.scratchTod != null
-              ? 'time-on-distance'
-              : 'a certificate rating';
+              ? 'Scored on ORC time-on-distance'
+              : 'Scored on an ORC certificate rating';
         const legsLine = h.legs?.length
           ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
               .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;)`)
               .join(' &middot; ')}</p>`
           : '';
-        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Scored on ORC ${regime}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}\n`;
+        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}\n`;
       })()
     : '';
   const echoHeaders = hasEchoExplain
@@ -1916,9 +1921,6 @@ export function assembleSeriesResultsData(
     fleetId?: string;
     /** Scoring system of the fleet */
     scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
-    /** ORC fleets only: the fleet's option is time-on-distance, so rating
-     *  cells hold s/NM allowances and race tables label them "ToD". */
-    orcTod?: boolean;
     /** When set (NHC fleets only), per-race aggregates that drive the
      *  rating-calculation fleet header line above each race table and the
      *  per-row explainability columns. Pass undefined to suppress the
@@ -1951,7 +1953,7 @@ export function assembleSeriesResultsData(
     publishOfficials?: boolean;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, orcTod, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -2015,9 +2017,9 @@ export function assembleSeriesResultsData(
           tcc = score.tcfApplied
             ?? (competitor.pyNumber != null && competitor.pyNumber > 0 ? 1000 / competitor.pyNumber : undefined);
         } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc') && score.tcfApplied != null) {
-          // ORC: the applied rating depends on the fleet's configured
-          // certificate option, which the engine resolved — there is no
-          // meaningful competitor-level fallback here.
+          // ORC: the applied rating depends on the option the race resolved
+          // to, which the engine recorded — there is no meaningful
+          // competitor-level fallback here.
           tcc = score.tcfApplied;
         }
         if (tcc != null && score.finishTime) {
@@ -2130,7 +2132,10 @@ export function assembleSeriesResultsData(
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
-      ...(scoringSystem === 'orc' && orcTod ? { isOrcTod: true } : {}),
+      // The scoring option resolves per race, so the ToD presentation (s/NM
+      // rating column, engine corrected times) is a per-race property too,
+      // read off the audit block rather than the fleet configuration.
+      ...(orcHeaderData?.scratchTod != null ? { isOrcTod: true } : {}),
       ...(orcHeaderData ? { orcHeader: orcHeaderData } : {}),
       ...(orcHeaderData?.scoringWind != null ? { isOrcPcs: true } : {}),
       results,
