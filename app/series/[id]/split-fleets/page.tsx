@@ -1002,7 +1002,7 @@ function AssignmentPreviewTable({
   allowUnassigned,
   onMove,
 }: {
-  rows: { id: string; sail: string; name: string; from?: string; to: string; moved?: boolean; overridden?: boolean }[];
+  rows: { id: string; sail: string; name: string; rank?: number; from?: string; to: string; moved?: boolean; overridden?: boolean }[];
   /** When set (with onMove), each row gets a fleet select — the editable
    *  preview: hand-moves are recorded as overrides on commit. */
   fleetLabels?: string[];
@@ -1026,7 +1026,11 @@ function AssignmentPreviewTable({
       <tbody>
         {rows.map((r, i) => (
           <tr key={r.id}>
-            <td className="py-1 pr-2 text-muted-foreground">{i + 1}</td>
+            {/* The standings rank where one exists (shared on a tie A8 could
+                not break); the row's list position otherwise — a seeding has
+                no ranking yet. Never the deal position: numbering a tied pair
+                140/141 here would present the deal's choice as a ranking. */}
+            <td className="py-1 pr-2 text-muted-foreground">{r.rank ?? i + 1}</td>
             <td className="py-1 pr-2 whitespace-nowrap">{r.sail}</td>
             <td className="py-1 pr-2">{r.name}</td>
             {hasFrom && <td className="py-1 pr-2 text-muted-foreground">{r.from}</td>}
@@ -1253,9 +1257,29 @@ function ReassignDialog({
     const rows = orderForAssignment(splitFleetStandings(data), data);
     const ordered = rows.map((r) => r.competitor.id);
     const byFleet = assignByRankPattern(ordered, qFleets.length);
-    let assignments: Record<string, number> = {};
-    byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
-    assignments = { ...assignments, ...moves };
+    const dealt: Record<string, number> = {};
+    byFleet.forEach((ids, i) => ids.forEach((cid) => (dealt[cid] = i)));
+    // A shared rank the pattern splits across fleets: the boats' order within
+    // the tie — not the ranking — decided who got which, and the scorer must
+    // see that before committing.
+    const tieWarnings: string[] = [];
+    for (let i = 0; i < rows.length; ) {
+      let j = i + 1;
+      while (j < rows.length && rows[j].rank === rows[i].rank) j++;
+      const group = rows.slice(i, j);
+      const fleets = [...new Set(group.map((r) => qFleets[dealt[r.competitor.id]].label))];
+      if (group.length > 1 && fleets.length > 1) {
+        tieWarnings.push(
+          `${group.map((r) => r.competitor.sailNumber).join(', ')} share rank ${rows[i].rank} and RRS A8 cannot separate them — ${
+            data.config.reassignmentTieOrder === 'fleet-order'
+              ? 'current fleet order'
+              : 'entry order'
+          } decides who is dealt ${fleets.join('/')}, not the ranking. Move a boat by hand if the committee assigns otherwise.`,
+        );
+      }
+      i = j;
+    }
+    const assignments: Record<string, number> = { ...dealt, ...moves };
     let moved = 0;
     const table = rows.map((r) => {
       const currentFleetId = r.competitor.fleetIds.findLast((fid) => fleetMeta.has(fid));
@@ -1267,13 +1291,14 @@ function ReassignDialog({
         id: r.competitor.id,
         sail: r.competitor.sailNumber,
         name: r.competitor.names.join(' & '),
+        rank: r.rank,
         from,
         to,
         moved: didMove,
         overridden: moves[r.competitor.id] != null,
       };
     });
-    return { assignments, table, moved };
+    return { assignments, table, moved, tieWarnings };
   }, [data, qFleets, fleetMeta, moves]);
 
   return (
@@ -1297,6 +1322,11 @@ function ReassignDialog({
         })
       }
     >
+      {preview.tieWarnings.map((t) => (
+        <p key={t} className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          ⚠ {t}
+        </p>
+      ))}
       <AssignmentPreviewTable
         rows={preview.table}
         fleetLabels={qFleets.map((f) => f.label)}
@@ -1348,6 +1378,7 @@ function SplitDialog({
       id: r.competitor.id,
       sail: r.competitor.sailNumber,
       name: r.competitor.names.join(' & '),
+      rank: r.rank,
       to: fFleets[assignments[r.competitor.id]].label,
       overridden: moves[r.competitor.id] != null,
     }));

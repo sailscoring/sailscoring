@@ -101,6 +101,12 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // ── Round 2: rank-pattern reassignment from the Q1 ranking ────────────────
   await page.getByRole('button', { name: 'Assign Round 2' }).click();
   await expect(page.getByRole('dialog')).toContainText('From the ranking after Q1');
+  // With one counted race, each fleet's Nth boats hold identical score lines
+  // RRS A8 cannot separate: the preview numbers such a pair by its shared
+  // rank and warns that the deal — not the ranking — split them across fleets.
+  await expect(page.getByRole('dialog')).toContainText(
+    `${sails[0]}, ${sails[1]} share rank 1 and RRS A8 cannot separate them`,
+  );
   await page.getByRole('button', { name: /Commit Round 2/ }).click();
   await expect(page.getByText('Round 2 · Q3 onward')).toBeVisible();
 
