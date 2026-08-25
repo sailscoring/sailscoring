@@ -14,9 +14,11 @@ import {
   createFollowOnSeries,
   deleteSeriesCascade,
   listSeriesNames,
+  locateSeries,
   setSeriesCategory,
   setSeriesResultsStatus,
 } from '@/lib/api-repository';
+import type { SeriesLocation } from '@/lib/api-handlers/series';
 import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
 
@@ -96,6 +98,19 @@ export function useSeries(
     // would visibly revert.
     structuralSharing: keepNewerVersionedRow,
     ...options,
+  });
+}
+
+/**
+ * Which of the caller's workspaces holds a series id, `null` when none of
+ * them do. The recovery lookup behind the "series is in another workspace"
+ * notice, so it is only worth querying after the workspace-scoped detail
+ * GET has come back empty.
+ */
+export function useSeriesLocation(id: string) {
+  return useQuery<SeriesLocation | null>({
+    queryKey: queryKeys.series.location(id),
+    queryFn: () => locateSeries(id),
   });
 }
 

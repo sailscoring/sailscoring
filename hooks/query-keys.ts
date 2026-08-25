@@ -14,6 +14,7 @@ export const queryKeys = {
     all: ['series'] as const,
     list: () => ['series', 'list'] as const,
     detail: (id: string) => ['series', 'detail', id] as const,
+    location: (id: string) => ['series', 'location', id] as const,
     asPublishedResults: (id: string) =>
       ['series', 'asPublishedResults', id] as const,
   },

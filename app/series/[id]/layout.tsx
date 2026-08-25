@@ -16,6 +16,7 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { Button } from '@/components/ui/button';
+import { SeriesNotFound } from '@/components/series-not-found';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 const baseTabs = [
@@ -98,7 +99,7 @@ export default function SeriesLayout({
   }
 
   if (series === null) {
-    return <SeriesTabFallback status="missing" />;
+    return <SeriesNotFound seriesId={id} />;
   }
 
   const isFinal = series.resultsStatus === 'final';

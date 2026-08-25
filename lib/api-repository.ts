@@ -5,6 +5,7 @@
 import { apiFetch } from './api-client';
 import type { FeatureKey } from './features';
 import type { MergeSuggestion } from './api-handlers/competitor-identity';
+import type { SeriesLocation } from './api-handlers/series';
 import type { StaleLink } from './competitor-identity-reconcile';
 import type { AsPublishedFleetView } from './api-handlers/archive';
 import type { RankingDto } from './api-handlers/rankings';
@@ -658,6 +659,24 @@ export function archiveSeries(seriesId: string, archived: boolean): Promise<Seri
     method: 'POST',
     body: { archived },
   });
+}
+
+/**
+ * Resolve which of the caller's workspaces holds a series id, or `null` when
+ * it isn't in any of them. The recovery lookup behind the "series is in
+ * another workspace" notice: the scoped series GET 404s once the session's
+ * active workspace points elsewhere, and this answers where the series
+ * actually lives so the UI can offer an explicit switch.
+ */
+export async function locateSeries(
+  seriesId: string,
+): Promise<SeriesLocation | null> {
+  return (
+    (await apiFetch<SeriesLocation | undefined>(
+      `/api/v1/series/${seriesId}/workspace`,
+      { allow404: true },
+    )) ?? null
+  );
 }
 
 /** Mark the series' results final, or reopen them as provisional. */
