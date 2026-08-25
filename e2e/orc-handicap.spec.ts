@@ -341,6 +341,77 @@ test('ORC fleet: the wind band picked on the start re-scores the race', async ({
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 2507');
 });
 
+test('ORC fleet: the start option switches one race to performance curves', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC Option Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+  await importCertificates(page, 2);
+
+  // A 3.9 NM race scored on the fleet default (APHT time-on-time):
+  //   Impetuous ET 3480 × 0.9631 → CT 3352 — wins
+  //   Mojo      ET 3390 × 1.0089 → CT 3420
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 1')).toBeVisible();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByLabel(/Course length/).fill('3.9');
+  await page.getByRole('checkbox', { name: 'Class 2' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRL 1551', finishTime: '14:56:30' },
+    { sailNumber: 'IRL 2507', finishTime: '14:58:00' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
+
+  // The race committee had announced performance-curve scoring for this
+  // race: pick the W/L PCS option on the start. The whole method switches —
+  // Mojo's implied wind 7.70 kt becomes the scoring wind and it corrects
+  // out ahead (3390 scratch vs 3402) — with no finish re-entered.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Edit start' }).click();
+  await page.getByTestId('start-orc-option').click();
+  await page.getByRole('option', { name: 'Windward/leeward · performance curve (PCS)' }).click();
+  // Choosing a PCS option surfaces the scoring-wind override field.
+  await expect(page.getByLabel(/Scoring wind/)).toBeVisible();
+  await page.getByRole('button', { name: 'Save' }).click();
+  // The start listing names the option it overrides the fleet default with.
+  await expect(
+    page.getByTitle('ORC scoring option for this start (overrides the fleet default)'),
+  ).toHaveText('WL');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByRole('row').nth(1)).toContainText('IRL 1551');
+  await expect(page.getByRole('row').nth(2)).toContainText('IRL 2507');
+
+  // The published page states the method the race was actually scored on.
+  const download = await downloadFleetHtml(page);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const html = Buffer.concat(chunks).toString('utf-8');
+  expect(html).toContain('Scored on ORC performance curves');
+  expect(html).toContain("Scoring wind 7.70 kt (winner's implied wind)");
+});
+
 test('ORC fleet: time-on-distance over the start course length', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC ToD Test 2026' });
   await setUpOrcFleet(page, [
