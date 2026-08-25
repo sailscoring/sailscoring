@@ -39,6 +39,7 @@ import {
   scoringOptionsLegend,
 } from '@/lib/race-scoring-options';
 import { ordinal } from '@/lib/ordinal';
+import { worldSailingProfileUrl } from '@/lib/world-sailing';
 
 export interface FleetStandingsTableProps {
   standings: Standing[];
@@ -292,7 +293,26 @@ function StandingRow({
       <TableCell className="font-mono">{competitor.sailNumber}</TableCell>
       {showBoat && <TableCell>{competitor.boatName ?? ''}</TableCell>}
       {showClass && <TableCell>{competitor.boatClass ?? ''}</TableCell>}
-      <TableCell>{competitor.names.filter((n) => n.trim()).map((n, i) => <div key={i}>{n}</div>)}</TableCell>
+      {/* No WS ID column on this table — with an ID on file, the name links
+          to the World Sailing bio instead. */}
+      <TableCell>
+        {competitor.names.filter((n) => n.trim()).map((n, i) => (
+          <div key={i}>
+            {competitor.worldSailingId ? (
+              <a
+                href={worldSailingProfileUrl(competitor.worldSailingId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {n}
+              </a>
+            ) : (
+              n
+            )}
+          </div>
+        ))}
+      </TableCell>
       {showHelm && <TableCell>{(competitor.helms ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
       {showOwner && <TableCell>{(competitor.owners ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
       {showCrew && <TableCell>{(competitor.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}

@@ -253,12 +253,19 @@ export function renderSplitFleetStandingsPage(
           ? ' <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span>'
           : '';
         const fleet = withFleetCol ? fleetOf(row) : undefined;
+        // No WS ID column on the table → the name carries the bio link
+        // instead, so the profile is still one click away.
+        const helm = esc(row.competitor.names.join(' & '));
+        const helmHtml =
+          !wsid && row.competitor.worldSailingId
+            ? `<a href="${esc(worldSailingProfileUrl(row.competitor.worldSailingId))}" target="_blank" rel="noopener noreferrer">${helm}</a>`
+            : helm;
         const tr = `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">
   <td>${row.rank}</td>
   ${withFleetCol ? `<td style="white-space:nowrap">${fleetDot(data.config, fleet)}${esc(fleet ?? '')}</td>` : ''}
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   <td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>
-  <td>${esc(row.competitor.names.join(' & '))}${medal}</td>
+  <td>${helmHtml}${medal}</td>
   ${wsid ? wsidCell(row.competitor.worldSailingId) : ''}
   ${columns.map((c) => cellHtml(row, c)).join('\n  ')}
   <td style="text-align:right">${row.total}</td>

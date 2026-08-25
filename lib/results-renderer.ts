@@ -913,7 +913,7 @@ export function renderCompetitorListHtml(
         ...(showTallyNumber ? [`<td>${esc(r.tallyNumber ?? '')}</td>`] : []),
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
-        `<td>${renderHelmCell(r.names, r.crewNames, showCrewName)}</td>`,
+        `<td>${renderHelmCell(r.names, r.crewNames, showCrewName, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
         ...(showHelm ? [`<td>${renderPersonCell(r.helms)}</td>`] : []),
         ...(showOwner ? [`<td>${renderPersonCell(r.owners)}</td>`] : []),
         ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
@@ -1298,7 +1298,7 @@ function renderSummaryTable(
         ...(showTallyNumber ? [`<td>${esc(s.tallyNumber ?? '')}</td>`] : []),
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
-        `<td>${renderHelmCell(s.helm, s.crewNames, showCrewName)}</td>`,
+        `<td>${renderHelmCell(s.helm, s.crewNames, showCrewName, helmBioUrl(s.worldSailingId, showWorldSailingId))}</td>`,
         ...(showHelm ? [`<td>${renderPersonCell(s.helmRole)}</td>`] : []),
         ...(showOwner ? [`<td>${renderPersonCell(s.owner)}</td>`] : []),
         ...(showClub ? [`<td>${esc(s.club ?? '')}</td>`] : []),
@@ -1408,7 +1408,7 @@ function renderRaceTable(
         ...(showTallyNumber ? [`<td>${esc(r.tallyNumber ?? '')}</td>`] : []),
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
-        `<td>${renderHelmCell(r.helm, r.crewNames, showCrewName)}</td>`,
+        `<td>${renderHelmCell(r.helm, r.crewNames, showCrewName, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
         ...(showHelm ? [`<td>${renderPersonCell(r.helmRole)}</td>`] : []),
         ...(showOwner ? [`<td>${renderPersonCell(r.owner)}</td>`] : []),
         ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
@@ -1653,13 +1653,33 @@ function renderPersonCell(names: string[] | undefined): string {
 /** Compose the combined primary/crew cell. The single-person, single-crew
  *  case keeps the classic one-line "Helm / Crew"; any more people — a
  *  syndicate primary or a keelboat crew — stack one name per line, primary
- *  first. Returns escaped HTML — callers embed it as-is. */
-function renderHelmCell(helm: string[], crewNames: string[] | undefined, showCrewName: boolean): string {
+ *  first. With `bioUrl`, the primary name(s) link there (crew stay plain).
+ *  Returns escaped HTML — callers embed it as-is. */
+function renderHelmCell(
+  helm: string[],
+  crewNames: string[] | undefined,
+  showCrewName: boolean,
+  bioUrl?: string,
+): string {
   const primary = helm.filter((n) => n.trim());
   const crew = showCrewName ? (crewNames ?? []).filter((n) => n.trim()) : [];
-  if (primary.length <= 1 && crew.length === 0) return esc(primary[0] ?? '');
-  if (primary.length === 1 && crew.length === 1) return esc(`${primary[0]} / ${crew[0]}`);
-  return [...primary, ...crew].map(esc).join('<br>');
+  const name = (n: string) =>
+    bioUrl
+      ? `<a href="${esc(bioUrl)}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`
+      : esc(n);
+  if (primary.length <= 1 && crew.length === 0) return primary[0] ? name(primary[0]) : '';
+  if (primary.length === 1 && crew.length === 1) return `${name(primary[0])} / ${esc(crew[0])}`;
+  return [...primary.map(name), ...crew.map(esc)].join('<br>');
+}
+
+/** The helm cell's link target: the World Sailing bio, but only when the WS
+ *  ID column is not on the table — when it is, the ID carries the link and
+ *  the name stays plain, so a row never links to the profile twice. */
+function helmBioUrl(
+  worldSailingId: string | undefined,
+  showWorldSailingId: boolean,
+): string | undefined {
+  return !showWorldSailingId && worldSailingId ? worldSailingProfileUrl(worldSailingId) : undefined;
 }
 
 // ---- Helpers ----

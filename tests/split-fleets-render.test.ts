@@ -112,6 +112,25 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain('&lt;script&gt;');
   });
+
+  it('links the helm name to the World Sailing bio only while the WS ID column is off', () => {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    input.competitors[0].worldSailingId = 'IRLMM1';
+
+    // Column off → the name carries the bio link instead.
+    const noCol = renderSplitFleetStandingsPage(input);
+    expect(noCol).not.toContain('<th>WS ID</th>');
+    expect(noCol).toMatch(/<td><a href="[^"]*ref=IRLMM1"[^>]*>[^<]+<\/a><\/td>/);
+
+    // Column on → the ID cell links and the name stays plain; one link per row.
+    const withCol = renderSplitFleetStandingsPage({
+      ...input,
+      enabledCompetitorFields: ['worldSailingId'],
+    });
+    expect(withCol).toContain('<th>WS ID</th>');
+    expect(withCol).toMatch(/<td class="wsid"[^>]*><a href="[^"]*ref=IRLMM1"/);
+    expect((withCol.match(/<a href="[^"]*ref=IRLMM1"/g) ?? []).length).toBe(1);
+  });
 });
 
 describe('fleet markers on the championship standings', () => {

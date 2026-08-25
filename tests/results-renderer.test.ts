@@ -240,6 +240,38 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('>IRLMM1</a>');
   });
 
+  it('links the helm name to the sailor biography when the WS ID column is not shown', () => {
+    // ID on file but the field switched off → no column. The name carries the
+    // bio link instead, so the profile stays one click away.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [
+        { ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), worldSailingId: 'IRLMM1' },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('<th>World Sailing ID</th>');
+    expect(html).toMatch(/<a href="https:\/\/www\.sailing\.org\/sailor\/\?ref=IRLMM1"[^>]*>Alice<\/a>/);
+  });
+
+  it('keeps the helm name plain while the WS ID column carries the link', () => {
+    // A row never links to the profile twice.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['worldSailingId'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [
+        { ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), worldSailingId: 'IRLMM1' },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('<th>World Sailing ID</th>');
+    expect(html).toContain('<td>Alice</td>');
+    expect(html).not.toMatch(/>Alice<\/a>/);
+  });
+
   it('suppresses the World Sailing ID column when enabled but nobody has one', () => {
     // Same treatment as Club and Nat: a club series that switches the field on
     // shouldn't publish a dead column.

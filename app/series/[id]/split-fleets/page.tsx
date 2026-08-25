@@ -71,6 +71,7 @@ import {
   type StageRaceRef,
 } from '@/lib/split-fleets';
 import { compareSailNumbersIgnoringPrefix } from '@/lib/sail-number-sort';
+import { worldSailingProfileUrl } from '@/lib/world-sailing';
 
 interface NextAction { label: string; href?: string }
 
@@ -2119,7 +2120,20 @@ function FragmentRow({
         )}
         <td className="py-1 pr-2 whitespace-nowrap">{row.competitor.sailNumber}</td>
         <td className="py-1 pr-2 whitespace-nowrap">
-          {row.competitor.names.join(' & ')}
+          {/* No WS ID column on this table — with an ID on file, the name
+              links to the World Sailing bio instead. */}
+          {row.competitor.worldSailingId ? (
+            <a
+              href={worldSailingProfileUrl(row.competitor.worldSailingId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {row.competitor.names.join(' & ')}
+            </a>
+          ) : (
+            row.competitor.names.join(' & ')
+          )}
           {row.medal && (
             <span className="ml-1 rounded-full border border-amber-400 px-1.5 text-[10px] text-amber-600 dark:text-amber-400">
               medal
