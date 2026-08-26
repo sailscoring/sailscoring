@@ -106,6 +106,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             scoringSystem: f.scoringSystem,
             echoAlpha: f.echoAlpha ?? null,
             nhcProfile: f.nhcProfile ?? null,
+            orcProfile: f.orcProfile ?? null,
           })),
         );
       },
@@ -137,6 +138,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             pyNumber: c.pyNumber ?? null,
             nhcStartingTcf: c.nhcStartingTcf ?? null,
             echoStartingTcf: c.echoStartingTcf ?? null,
+            orcCert: c.orcCert ?? null,
           })),
         );
       },
@@ -224,6 +226,11 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             stage: s.stage ?? null,
             stageRaceNumber: s.stageRaceNumber ?? null,
             firstPlaceOffset: s.firstPlaceOffset ?? null,
+            // ORC race facts (the ORC sample): course, option, scoring wind.
+            distanceNm: s.distanceNm ?? null,
+            orcScoringWind: s.orcScoringWind ?? null,
+            courseLegs: s.courseLegs ?? null,
+            orcOption: s.orcOption ?? null,
           })),
         );
       },

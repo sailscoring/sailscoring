@@ -139,6 +139,9 @@ export const FEATURES = {
     // containment model.
     label: 'ORC scoring',
     helpSectionIds: ['scoring-orc', 'update-handicaps-orc'],
+    // Enabling it drops a worked ORC series (real certificates, every
+    // scoring method across its races) into the series list.
+    demoSample: 'orc.sailscoring',
   },
   'results-status': {
     // The results lifecycle (Provisional vs Final): per-race last-finisher
