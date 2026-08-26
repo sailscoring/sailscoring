@@ -53,6 +53,7 @@ import {
   logicalRaces,
   orderForAssignment,
   physicalRaceCompleted,
+  pickableFleets,
   provisionalCutIndexes,
   roundsForStage,
   qualifyingRaceCount,
@@ -72,6 +73,7 @@ import {
   type StageRaceRef,
 } from '@/lib/split-fleets';
 import { compareSailNumbersIgnoringPrefix } from '@/lib/sail-number-sort';
+import { isSyntheticFleetName } from '@/lib/publishing';
 import { worldSailingProfileUrl } from '@/lib/world-sailing';
 
 interface NextAction { label: string; href?: string }
@@ -996,6 +998,55 @@ function CeremonyDialog({
   );
 }
 
+/** Non-round fleets a ceremony may offer to delete: owned by no round and
+ *  referenced by no race start (a series converted to a championship after
+ *  racing keeps its old starts, and those fleets must stay). */
+function deletableLeftoverFleets(data: SplitFleetData): Fleet[] {
+  return pickableFleets(data.fleets).filter(
+    (f) => !data.raceStarts.some((s) => s.fleetIds.includes(f.id)),
+  );
+}
+
+/** A ceremony's offer to shed pre-championship fleets — the "Default" an
+ *  entry-list import leaves behind, or a converted series' old fleets. The
+ *  server strips memberships and deletes the rows in the same transaction as
+ *  the round commit. Offered on every ceremony until the series is clean. */
+function DeleteLeftoverFleetsChoice({
+  fleets,
+  checked,
+  onChange,
+}: {
+  fleets: Fleet[];
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  if (fleets.length === 0) return null;
+  const names = fleets.map((f) => `“${f.name}”`).join(', ');
+  return (
+    <label className="flex items-start gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5"
+      />
+      <span>
+        Also remove the {fleets.length === 1 ? 'fleet' : 'fleets'} {names}.
+        Assignment rounds deal this championship&rsquo;s fleets, so{' '}
+        {fleets.length === 1 ? 'it' : 'they'} would sit unused; no boat loses a
+        round assignment.
+      </span>
+    </label>
+  );
+}
+
+/** Whether every leftover carries one of the app's own synthetic names — the
+ *  case the offer pre-checks. Real fleet names (a series that raced as fleets
+ *  before becoming a championship) start unchecked: the scorer's call. */
+function allSyntheticNames(fleets: Fleet[]): boolean {
+  return fleets.length > 0 && fleets.every((f) => isSyntheticFleetName(f.name));
+}
+
 function AssignmentPreviewTable({
   rows,
   fleetLabels,
@@ -1093,6 +1144,8 @@ function SeedRoundDialog({
   const [moves, setMoves] = useState<Record<string, number | null>>({});
   const qFleets = data.config.qualifyingFleets;
   const anyImported = data.competitors.some((c) => c.initialFleet);
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
 
   const preview = useMemo(() => {
     const byId = new Map(data.competitors.map((c) => [c.id, c]));
@@ -1170,6 +1223,7 @@ function SeedRoundDialog({
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves).filter((cid) => moves[cid] != null),
           stageRaceNumbers: plannedFirstRaces(data.config),
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
@@ -1218,6 +1272,11 @@ function SeedRoundDialog({
           fleets on the Settings tab to match the entry list.
         </p>
       )}
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
       <AssignmentPreviewTable
         rows={preview.rows}
         fleetLabels={qFleets.map((f) => f.label)}
@@ -1253,6 +1312,8 @@ function ReassignDialog({
   const { commit, run } = useCommit(seriesId, onClose);
   const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
   const preview = useMemo(() => {
     const rows = orderForAssignment(splitFleetStandings(data), data);
     const ordered = rows.map((r) => r.competitor.id);
@@ -1319,9 +1380,15 @@ function ReassignDialog({
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: [fromStageRace, fromStageRace + 1],
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
       {preview.tieWarnings.map((t) => (
         <p key={t} className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           ⚠ {t}
@@ -1358,6 +1425,8 @@ function SplitDialog({
       : finalBlockSizes(rows.length, fFleets.length)[0];
   const [topSize, setTopSize] = useState(defaultTop);
   const [moves, setMoves] = useState<Record<string, number>>({});
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
 
   const preview = useMemo(() => {
     // Top fleet takes `topSize`; the remainder splits near-equally. The deal
@@ -1431,9 +1500,15 @@ function SplitDialog({
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: [1],
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
       <div className="flex items-center gap-2">
         <label className="text-sm" htmlFor="sf-top-size">
           {fFleets[0]?.label ?? 'Gold'} fleet size
@@ -1741,6 +1816,8 @@ function MedalSelectDialog({
   const medalConfig = data.config.medal!;
   const w = words(data.config);
   const [size, setSize] = useState(medalConfig.size);
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
   const goldId = round.fleetIds[0];
   const goldRows = standings.filter((r) => r.finalFleetId === goldId);
   const medalists = goldRows.slice(0, size);
@@ -1776,9 +1853,15 @@ function MedalSelectDialog({
           fleets: [{ label: capitaliseStage(w.medal.name), color: '#f59e0b' }],
           assignments: medalAssignments,
           stageRaceNumbers: [1],
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
       <div className="flex items-center gap-2">
         <label className="text-sm" htmlFor="sf-medal-size">
           {capitaliseStage(w.medal.fleetNoun)} size
