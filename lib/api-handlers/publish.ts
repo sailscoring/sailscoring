@@ -60,6 +60,19 @@ function appBase(): string {
   return (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 }
 
+/** `to`'s URL relative to `from`'s document, both slug-rooted sub-paths
+ *  (`folder/leaf`). Pages of a publication usually share one folder, making
+ *  this the bare leaf, but an override can put them in different ones. */
+export function relativeSubPath(from: string, to: string): string {
+  const fromDir = from.split('/').slice(0, -1);
+  const toSegments = to.split('/');
+  while (fromDir.length > 0 && toSegments.length > 1 && fromDir[0] === toSegments[0]) {
+    fromDir.shift();
+    toSegments.shift();
+  }
+  return [...fromDir.map(() => '..'), ...toSegments].join('/');
+}
+
 function toResult(
   workspaceSlug: string,
   published: PublishedSeries,
@@ -178,6 +191,121 @@ export async function publishSeries(
   const breadcrumbFolder = existing
     ? sharedFolderSegment(existing.pages.map((p) => p.subPath))
     : (input.folder?.trim() || null);
+
+  // Other publications sharing this slug (the slug is a shared namespace), with
+  // this series' own row excluded. Drives the join confirmation and the
+  // sub-path collision guard — both apply to first publish and re-publish.
+  const others = (
+    await getPublishedGroupByWorkspaceSlug(workspace.workspaceId, slug)
+  ).filter((p) => p.seriesId !== seriesId);
+
+  // First publish into an occupied slug needs explicit confirmation, so two
+  // unrelated events never merge by accident. Publishing into a *season*
+  // folder is the intended sharing (ADR-011) — a season-like slug, or one
+  // matching a workspace season, joins without ceremony.
+  if (!existing && others.length > 0 && !input.join) {
+    const seasonSegments = new Set(
+      (await getPublishedSeasonTree(workspace.workspaceId)).seasons.map(
+        (s) => s.segment,
+      ),
+    );
+    if (!seasonLikeSlug(slug) && !seasonSegments.has(slug)) {
+      throw new BadRequestError('slug already in use by other series', {
+        code: 'slug-shared',
+        sharedWith: await contributorNames(others),
+      });
+    }
+  }
+
+  // Pages are identified by (sub-series, fleet) — a series with blocks
+  // publishes one page per block per fleet; a blockless one per fleet.
+  const pageKey = (p: { fleetName: string; subSeriesName?: string }): string =>
+    `${p.subSeriesName ?? ''}\u0000${p.fleetName}`;
+
+  // Sub-paths are frozen per page: a fleet that was already published keeps its
+  // existing path, so a publication's URLs never shift when another series later
+  // joins (or leaves) the slug — or when the scorer overrides a sibling's path.
+  // Resolution order: frozen (immutable once published) → caller override (only
+  // for a not-yet-frozen fleet) → derived default. Only genuinely new fleets get
+  // a fresh path, and only those accept an override. Sub-series pages live one
+  // segment down — `kebab(block)/{leaf}` — so each block reads as its own
+  // little series under the slug.
+  //
+  // All of this resolves before the build: a split-fleet championship page
+  // writes deep links into its per-race results page at render time, so both
+  // pages' final locations have to be known first.
+  const frozen = new Map(
+    (existing?.pages ?? []).map((p) => [pageKey(p), p.subPath]),
+  );
+  const shared = others.length > 0;
+  const seriesSlug = deriveSeriesSlug(series.name);
+  // A single-race event's lone page is a race result, not standings (#347):
+  // it is served at `results` and labelled as such. Only newly derived paths
+  // are affected — a page published before the setting was flipped keeps the
+  // frozen path it announced.
+  const raceResults = series.publishDetail === 'races';
+  const overrides = input.subPaths ?? {};
+  // The lone default page is overridden via `defaultSubPath` (keyed by
+  // `isDefault`), since its fleet name can be synthetic and unknown to the
+  // client; named fleets use `subPaths[fleetName]`.
+  const defaultOverride = input.defaultSubPath?.trim();
+  // The event folder derived pages land under (see below). `breadcrumbFolder`
+  // is caller input on first publish, so it only prefixes paths when it is a
+  // valid segment of its own.
+  const derivedFolder =
+    breadcrumbFolder && isValidSlugSegment(breadcrumbFolder) ? breadcrumbFolder : null;
+  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean; isEntryList?: boolean }): string => {
+    const existingPath = frozen.get(pageKey(file));
+    if (existingPath !== undefined) return existingPath;
+    const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
+    let leaf: string;
+    if (override) {
+      // An override may carry a folder prefix (`spring-regatta/irc`,
+      // ADR-011) — one extra segment, and never on a sub-series page, whose
+      // block segment already takes that slot.
+      const segments = override.split('/');
+      const ok =
+        segments.every(isValidSlugSegment) &&
+        segments.length <= (file.subSeriesName ? 1 : 2);
+      if (!ok) {
+        throw new BadRequestError('invalid fleet sub-path', {
+          code: 'invalid-subpath',
+          fleetName: file.fleetName,
+        });
+      }
+      leaf = override;
+    } else if (file.isPrizes) {
+      // The prize sheet mirrors the default fleet's convention: the clean
+      // `prizes` path for a sole contributor, disambiguated by the series'
+      // own slug when co-publishing so two prize sheets never both claim it.
+      leaf = shared ? `${seriesSlug}-prizes` : 'prizes';
+      if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
+    } else if (file.isEntryList) {
+      // The competitor list follows the prize sheet's convention exactly.
+      leaf = shared ? `${seriesSlug}-entries` : 'entries';
+      if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
+    } else {
+      leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared, raceResults);
+      // A derived page lands in the publication's event folder like every
+      // overridden one (ADR-011: a publication's pages share one folder).
+      // This is how server-built pages the dialog cannot enumerate — a
+      // split-fleet series' championship, race-results and fleet-assignments
+      // pages — stay inside the folder the scorer chose. A sub-series page's
+      // block segment already takes the extra path slot.
+      if (derivedFolder && !file.subSeriesName) leaf = `${derivedFolder}/${leaf}`;
+    }
+    return file.subSeriesName ? `${kebab(file.subSeriesName)}/${leaf}` : leaf;
+  };
+
+  // Where the split-fleet per-race results page will be served, relative to
+  // the championship standings page — the deep-link target the build writes
+  // into the standings HTML. Resolvable for any series (the two page shapes
+  // are fixed), and simply unused by a non-split one.
+  const raceResultsHref = relativeSubPath(
+    subPathFor({ fleetName: 'Championship', isDefault: true }),
+    subPathFor({ fleetName: 'Race results', isDefault: false }),
+  );
+
   const allFiles = await buildFleetHtmlFiles(
     exportReposFor(workspace.workspaceId),
     seriesId,
@@ -187,6 +315,7 @@ export async function publishSeries(
     {
       includePrizes: workspace.features.includes('prizes'),
       includeEntryList: workspace.features.includes('entry-list'),
+      raceResultsHref,
     },
   );
   if (!allFiles) throw new NotFoundError('series has no publishable results');
@@ -219,11 +348,6 @@ export async function publishSeries(
     !skipped.has(p.fleetName);
   const toBuild = allFiles.filter(included);
   const carriedAll = (existing?.pages ?? []).filter((p) => !included(p));
-
-  // Pages are identified by (sub-series, fleet) — a series with blocks
-  // publishes one page per block per fleet; a blockless one per fleet.
-  const pageKey = (p: { fleetName: string; subSeriesName?: string }): string =>
-    `${p.subSeriesName ?? ''}\u0000${p.fleetName}`;
 
   // With individual fleet pages switched off (#255), the published output is
   // exactly the combined pages. The build above emits no standalone fleet
@@ -297,102 +421,6 @@ export async function publishSeries(
     const supersededUrls = new Set(supersededPages.map((p) => p.blobUrl));
     supersededPages.push(...retracted.filter((p) => !supersededUrls.has(p.blobUrl)));
   }
-
-  // Other publications sharing this slug (the slug is a shared namespace), with
-  // this series' own row excluded. Drives the join confirmation and the
-  // sub-path collision guard — both apply to first publish and re-publish.
-  const others = (
-    await getPublishedGroupByWorkspaceSlug(workspace.workspaceId, slug)
-  ).filter((p) => p.seriesId !== seriesId);
-
-  // First publish into an occupied slug needs explicit confirmation, so two
-  // unrelated events never merge by accident. Publishing into a *season*
-  // folder is the intended sharing (ADR-011) — a season-like slug, or one
-  // matching a workspace season, joins without ceremony.
-  if (!existing && others.length > 0 && !input.join) {
-    const seasonSegments = new Set(
-      (await getPublishedSeasonTree(workspace.workspaceId)).seasons.map(
-        (s) => s.segment,
-      ),
-    );
-    if (!seasonLikeSlug(slug) && !seasonSegments.has(slug)) {
-      throw new BadRequestError('slug already in use by other series', {
-        code: 'slug-shared',
-        sharedWith: await contributorNames(others),
-      });
-    }
-  }
-
-  // Sub-paths are frozen per page: a fleet that was already published keeps its
-  // existing path, so a publication's URLs never shift when another series later
-  // joins (or leaves) the slug — or when the scorer overrides a sibling's path.
-  // Resolution order: frozen (immutable once published) → caller override (only
-  // for a not-yet-frozen fleet) → derived default. Only genuinely new fleets get
-  // a fresh path, and only those accept an override. Sub-series pages live one
-  // segment down — `kebab(block)/{leaf}` — so each block reads as its own
-  // little series under the slug.
-  const frozen = new Map(
-    (existing?.pages ?? []).map((p) => [pageKey(p), p.subPath]),
-  );
-  const shared = others.length > 0;
-  const seriesSlug = deriveSeriesSlug(series.name);
-  // A single-race event's lone page is a race result, not standings (#347):
-  // it is served at `results` and labelled as such. Only newly derived paths
-  // are affected — a page published before the setting was flipped keeps the
-  // frozen path it announced.
-  const raceResults = series.publishDetail === 'races';
-  const overrides = input.subPaths ?? {};
-  // The lone default page is overridden via `defaultSubPath` (keyed by
-  // `isDefault`), since its fleet name can be synthetic and unknown to the
-  // client; named fleets use `subPaths[fleetName]`.
-  const defaultOverride = input.defaultSubPath?.trim();
-  // The event folder derived pages land under (see below). `breadcrumbFolder`
-  // is caller input on first publish, so it only prefixes paths when it is a
-  // valid segment of its own.
-  const derivedFolder =
-    breadcrumbFolder && isValidSlugSegment(breadcrumbFolder) ? breadcrumbFolder : null;
-  const subPathFor = (file: { fleetName: string; isDefault: boolean; subSeriesName?: string; isPrizes?: boolean; isEntryList?: boolean }): string => {
-    const existingPath = frozen.get(pageKey(file));
-    if (existingPath !== undefined) return existingPath;
-    const override = file.isDefault ? defaultOverride : overrides[file.fleetName]?.trim();
-    let leaf: string;
-    if (override) {
-      // An override may carry a folder prefix (`spring-regatta/irc`,
-      // ADR-011) — one extra segment, and never on a sub-series page, whose
-      // block segment already takes that slot.
-      const segments = override.split('/');
-      const ok =
-        segments.every(isValidSlugSegment) &&
-        segments.length <= (file.subSeriesName ? 1 : 2);
-      if (!ok) {
-        throw new BadRequestError('invalid fleet sub-path', {
-          code: 'invalid-subpath',
-          fleetName: file.fleetName,
-        });
-      }
-      leaf = override;
-    } else if (file.isPrizes) {
-      // The prize sheet mirrors the default fleet's convention: the clean
-      // `prizes` path for a sole contributor, disambiguated by the series'
-      // own slug when co-publishing so two prize sheets never both claim it.
-      leaf = shared ? `${seriesSlug}-prizes` : 'prizes';
-      if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
-    } else if (file.isEntryList) {
-      // The competitor list follows the prize sheet's convention exactly.
-      leaf = shared ? `${seriesSlug}-entries` : 'entries';
-      if (derivedFolder) leaf = `${derivedFolder}/${leaf}`;
-    } else {
-      leaf = publicationSubPath(file.fleetName, file.isDefault, seriesSlug, shared, raceResults);
-      // A derived page lands in the publication's event folder like every
-      // overridden one (ADR-011: a publication's pages share one folder).
-      // This is how server-built pages the dialog cannot enumerate — the
-      // split-fleet championship and fleet-assignments pages — stay inside
-      // the folder the scorer chose. A sub-series page's block segment
-      // already takes the extra path slot.
-      if (derivedFolder && !file.subSeriesName) leaf = `${derivedFolder}/${leaf}`;
-    }
-    return file.subSeriesName ? `${kebab(file.subSeriesName)}/${leaf}` : leaf;
-  };
 
   // Resolve each built page's path once, then guard uniqueness on two fronts:
   // no two of this series' own live pages may share a path (overrides — and

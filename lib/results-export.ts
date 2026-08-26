@@ -29,7 +29,11 @@ import {
   type ExportRepos,
 } from './public-export';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
-import { renderSplitFleetAssignmentsPage, renderSplitFleetStandingsPage } from './split-fleets-render';
+import {
+  renderSplitFleetAssignmentsPage,
+  renderSplitFleetRaceResultsPage,
+  renderSplitFleetStandingsPage,
+} from './split-fleets-render';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -243,7 +247,11 @@ export async function buildFleetHtmlFiles(
   // `includeEntryList` appends the competitor-list page (#423), gated on the
   // workspace's `entry-list` feature by the publish path and preview. It is
   // also the one page a series with no races can publish at all.
-  opts?: { includePrizes?: boolean; includeEntryList?: boolean },
+  // `raceResultsHref` is the split-fleet per-race results page's URL relative
+  // to the championship standings page; only the publish handler knows where
+  // both will be served, so only it passes one — preview, download and FTP
+  // leave the championship's race columns unlinked.
+  opts?: { includePrizes?: boolean; includeEntryList?: boolean; raceResultsHref?: string },
 ): Promise<FleetHtmlFile[] | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0) return null;
@@ -258,9 +266,11 @@ export async function buildFleetHtmlFiles(
   // everything else, so they need the same resolution.
   snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
   // Split-fleet series (#328): the published output is the championship
-  // standings page (tiered, fleet-tinted, cut line) plus the rolling
-  // fleet-assignments page — the per-round fleets never get their own pages.
-  // Shared by preview, download, and publish, like the per-fleet path below.
+  // standings page (tiered, fleet-tinted, cut line), the per-race results
+  // page (every stage race, one table per fleet), and the rolling
+  // fleet-assignments page — the per-round fleets never get standings pages
+  // of their own. Shared by preview, download, and publish, like the
+  // per-fleet path below.
   const splitFleets = await repos.splitFleets?.get(seriesId);
   if (splitFleets && splitFleets.rounds.length > 0) {
     // Same on-demand flag loading as the per-fleet path below: the ~2.5 MB
@@ -301,13 +311,31 @@ export async function buildFleetHtmlFiles(
         ? { flagSvgByCode: (await import('./nationality/flags')).NATIONAL_FLAGS }
         : {}),
     };
+    // Null while no stage race has sheet rows — the championship page then
+    // has nothing to link to either.
+    const raceResultsHtml = renderSplitFleetRaceResultsPage(input, splitChrome);
     return [
       {
         fleetName: 'Championship',
         isDefault: true,
         isNamedPage: true,
-        html: renderSplitFleetStandingsPage(input, splitChrome),
+        html: renderSplitFleetStandingsPage(input, {
+          ...splitChrome,
+          ...(raceResultsHtml && opts?.raceResultsHref
+            ? { raceResultsHref: opts.raceResultsHref }
+            : {}),
+        }),
       },
+      ...(raceResultsHtml
+        ? [
+            {
+              fleetName: 'Race results',
+              isDefault: false,
+              isNamedPage: true,
+              html: raceResultsHtml,
+            },
+          ]
+        : []),
       {
         fleetName: 'Fleet assignments',
         isDefault: false,
