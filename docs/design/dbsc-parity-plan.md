@@ -8,6 +8,14 @@
 > (`lib/scoring.ts`) stays here and is imported across repos. This doc remains
 > the design/status record.
 
+> **Note (archive seasons superseded):** per
+> [ADR-010](decisions/010-as-published-archives.md), the 2022–2025
+> reconstructed seasons were retired as product — DBSC's published history at
+> `/p/dbsc/{year}` is now the as-published ingest from `dbsc-archive`. The
+> reconstruction and the parity results below stand as validation of the
+> engine and as provenance, not as the live corpus. The **2026 live parity
+> loop remains current** — proving the engine is the point there.
+
 ## Goal
 
 Demonstrate that Sail Scoring can reproduce Dublin Bay Sailing Club's
@@ -608,12 +616,13 @@ fixed, so it's a poor demonstrator right now.
 5. **ECHO chains are per sub-series** (`startingHandicapSource`), as HalSail
    recomputes per series.
 
-### Status — COMPLETE (2022–2026 reconstructed, imported, published)
+### Status — COMPLETE (2022–2026 reconstructed; 2022–2025 since superseded by ADR-010)
 
 Phase 2 is done, and further than first scoped: **all four archived seasons
-(2022–2025) are reconstructed and the live 2026 season is refreshed** off the
-same tooling, all **imported into the DBSC workspace and published** at
-`app.sailscoring.ie/p/dbsc/{year}`.
+(2022–2025) were reconstructed and the live 2026 season is refreshed** off the
+same tooling, all imported into the DBSC workspace and published at
+`app.sailscoring.ie/p/dbsc/{year}`. (The 2022–2025 pages have since been
+replaced by the as-published ingest — see the note at the top.)
 
 **Model refinement — per-day-group, not one-series-per-season.** The mapping above
 holds, but the *unit* is a finish-sheet **day-group**, not the whole season: each
