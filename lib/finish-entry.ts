@@ -19,6 +19,7 @@ export function makeFinish(
     startPresent: overrides.startPresent ?? null,
     penaltyCode: overrides.penaltyCode ?? null,
     penaltyOverride: overrides.penaltyOverride ?? null,
+    ...(overrides.penaltyLabel != null ? { penaltyLabel: overrides.penaltyLabel } : {}),
     ...(overrides.penaltyOverrideByFleet != null ? { penaltyOverrideByFleet: overrides.penaltyOverrideByFleet } : {}),
     redressMethod: overrides.redressMethod ?? null,
     redressExcludeRaceIds: overrides.redressExcludeRaceIds ?? null,
@@ -30,6 +31,94 @@ export function makeFinish(
   };
 }
 
+/** A finish as an imported sheet produces it: everything but the identity the
+ *  committing race supplies. */
+export type ImportedFinish = Omit<Finish, 'id' | 'raceId'>;
+
+/** Identify a finish across the stored and incoming sides of an import. An
+ *  unresolved crossing has no competitor, so it goes by the number written
+ *  down. */
+function importKey(f: { competitorId: string | null; unknownSailNumber?: string | null }): string {
+  return f.competitorId ?? `?${f.unknownSailNumber ?? ''}`;
+}
+
+/** Each finisher's immediate predecessor in crossing order, by import key —
+ *  the fact a tie marker hangs off. */
+function predecessors(
+  rows: readonly { competitorId: string | null; unknownSailNumber?: string | null; sortOrder: number | null }[],
+): Map<string, string | null> {
+  const order = rows
+    .filter((f) => f.sortOrder !== null)
+    .sort((a, b) => a.sortOrder! - b.sortOrder!);
+  const map = new Map<string, string | null>();
+  order.forEach((f, i) => map.set(importKey(f), i === 0 ? null : importKey(order[i - 1])));
+  return map;
+}
+
+/**
+ * Carry across what an imported sheet cannot express.
+ *
+ * Replacing a race's finishes with a sheet would otherwise clear its
+ * penalties, redress, ties and start check-ins — state that reaches the
+ * scorer as separate notes from the jury or race committee and can never be
+ * re-derived from a sheet. So each imported row picks those up from the
+ * stored finish for the same boat, wherever they still attach:
+ *
+ * - a penalty carries onto a boat who is still a finisher — additive
+ *   penalties don't depend on her place. A boat the sheet now codes (DNF,
+ *   DSQ…) doesn't get one: the penalty only means something on a finish.
+ * - redress carries onto a still-finishing boat, whether the stored grant was
+ *   on her finish or on a coded row. Redress that would land on an incoming
+ *   coded row is not carried — the stored grant may have replaced the very
+ *   code the sheet holds, and which of the two stands is the scorer's call.
+ * - a tie carries when the boat and the boat immediately ahead of her are
+ *   the same pair on both sides; a reshuffled order breaks the fact the
+ *   marker recorded.
+ * - a start check-in carries whenever the boat appears on the sheet at all.
+ *
+ * What cannot carry is left off, so the diff between the stored race and the
+ * carried result shows exactly what an import would lose.
+ */
+export function carryAcrossImport(
+  stored: readonly Finish[],
+  imported: readonly ImportedFinish[],
+): ImportedFinish[] {
+  const storedByKey = new Map(stored.map((f) => [importKey(f), f]));
+  const storedPredecessor = predecessors(stored);
+  const importedPredecessor = predecessors(imported);
+
+  return imported.map((f) => {
+    const key = importKey(f);
+    const prior = storedByKey.get(key);
+    if (!prior) return f;
+
+    const out: ImportedFinish = { ...f };
+    if (out.startPresent === null) out.startPresent = prior.startPresent;
+    if (out.sortOrder === null) return out;
+
+    if (prior.penaltyCode) {
+      out.penaltyCode = prior.penaltyCode;
+      out.penaltyOverride = prior.penaltyOverride;
+      if (prior.penaltyLabel) out.penaltyLabel = prior.penaltyLabel;
+      if (prior.penaltyOverrideByFleet) out.penaltyOverrideByFleet = { ...prior.penaltyOverrideByFleet };
+    }
+    if (prior.resultCode === 'RDG') {
+      out.resultCode = 'RDG';
+      out.redressMethod = prior.redressMethod;
+      out.redressExcludeRaceIds = prior.redressExcludeRaceIds ? [...prior.redressExcludeRaceIds] : null;
+      out.redressIncludeRaceIds = prior.redressIncludeRaceIds ? [...prior.redressIncludeRaceIds] : null;
+      out.redressIncludeAllLater = prior.redressIncludeAllLater;
+      out.redressPoints = prior.redressPoints;
+      if (prior.redressPointsByFleet) out.redressPointsByFleet = { ...prior.redressPointsByFleet };
+    }
+    if (prior.tiedWithPrevious) {
+      const ahead = storedPredecessor.get(key);
+      if (ahead != null && ahead === importedPredecessor.get(key)) out.tiedWithPrevious = true;
+    }
+    return out;
+  });
+}
+
 /**
  * The `Finish` rows an imported sheet becomes.
  *
@@ -38,12 +127,16 @@ export function makeFinish(
  * recognises" isn't a result — so unresolved ones are dropped here; the
  * parser has already reported them.
  *
+ * Everything else on a row is kept as given, so the state
+ * {@link carryAcrossImport} attached — penalties, redress, ties, start
+ * check-ins — survives the commit.
+ *
  * Shared by the per-race CSV import and the RaceSense workbook import, which
  * differ in how they read a sheet and not at all in what they write.
  */
 export function finishRowsFromImport(
   raceId: string,
-  finishes: readonly Omit<Finish, 'id' | 'raceId'>[],
+  finishes: readonly ImportedFinish[],
 ): Finish[] {
   const rows: Finish[] = [];
   finishes
@@ -51,20 +144,17 @@ export function finishRowsFromImport(
     .sort((a, b) => a.sortOrder! - b.sortOrder!)
     .forEach((f, i) => {
       rows.push(makeFinish(raceId, {
+        ...f,
         id: crypto.randomUUID(),
-        competitorId: f.competitorId,
         ...(f.competitorId === null ? { unknownSailNumber: f.unknownSailNumber ?? '' } : {}),
         sortOrder: i + 1,
-        ...(f.finishTime ? { finishTime: f.finishTime } : {}),
       }));
     });
   for (const f of finishes) {
     if (f.sortOrder === null && f.resultCode && f.competitorId) {
       rows.push(makeFinish(raceId, {
+        ...f,
         id: crypto.randomUUID(),
-        competitorId: f.competitorId,
-        sortOrder: null,
-        resultCode: f.resultCode,
       }));
     }
   }

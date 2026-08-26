@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  carryAcrossImport,
+  finishRowsFromImport,
   reorderFinisher,
   reorderWithTies,
   computePositions,
@@ -11,8 +13,8 @@ import {
   partitionNonFinishers,
   resolveSailEntry,
 } from '@/lib/finish-entry';
-import type { Competitor } from '@/lib/types';
-import type { NonFinisherCode, NonFinisherView } from '@/lib/finish-entry';
+import type { Competitor, Finish } from '@/lib/types';
+import type { ImportedFinish, NonFinisherCode, NonFinisherView } from '@/lib/finish-entry';
 
 describe('reorderFinisher', () => {
   const base = ['A', 'B', 'C', 'D'];
@@ -499,5 +501,194 @@ describe('partitionNonFinishers', () => {
     ]);
     expect(recorded.map((v) => v.competitor.id)).toEqual(['a', 'c']);
     expect(didNotCompete.map((v) => v.competitor.id)).toEqual(['b', 'd']);
+  });
+});
+
+describe('carryAcrossImport', () => {
+  /** An imported row as the finish-sheet parser produces it: fully defaulted,
+   *  nothing a sheet can't express. */
+  function row(
+    over: Partial<ImportedFinish> & Pick<ImportedFinish, 'competitorId' | 'sortOrder' | 'resultCode'>,
+  ): ImportedFinish {
+    return {
+      tiedWithPrevious: false,
+      startPresent: null,
+      penaltyCode: null,
+      penaltyOverride: null,
+      redressMethod: null,
+      redressExcludeRaceIds: null,
+      redressIncludeRaceIds: null,
+      redressIncludeAllLater: false,
+      redressPoints: null,
+      ...over,
+    };
+  }
+
+  function stored(over: Partial<Finish> & Pick<Finish, 'id' | 'competitorId'>): Finish {
+    return makeFinish('race-1', over);
+  }
+
+  it('carries a penalty onto a boat who is still a finisher, whatever her place', () => {
+    const prior = [stored({ id: 'f1', competitorId: 'c1', sortOrder: 24, penaltyCode: 'SCP', penaltyOverride: 10 })];
+    const [out] = carryAcrossImport(prior, [
+      row({ competitorId: 'c1', sortOrder: 23, resultCode: null, finishTime: '13:42:07' }),
+    ]);
+    expect(out.penaltyCode).toBe('SCP');
+    expect(out.penaltyOverride).toBe(10);
+    expect(out.sortOrder).toBe(23);
+    expect(out.finishTime).toBe('13:42:07');
+  });
+
+  it('carries a DPI label and per-fleet points as copies', () => {
+    const prior = [stored({
+      id: 'f1', competitorId: 'c1', sortOrder: 1,
+      penaltyCode: 'DPI', penaltyOverride: 3, penaltyLabel: 'TPO',
+      penaltyOverrideByFleet: { fleet: 3 },
+    })];
+    const [out] = carryAcrossImport(prior, [row({ competitorId: 'c1', sortOrder: 1, resultCode: null })]);
+    expect(out.penaltyLabel).toBe('TPO');
+    expect(out.penaltyOverrideByFleet).toEqual({ fleet: 3 });
+    expect(out.penaltyOverrideByFleet).not.toBe(prior[0].penaltyOverrideByFleet);
+  });
+
+  it('does not carry a penalty onto a boat the sheet now codes', () => {
+    const prior = [stored({ id: 'f1', competitorId: 'c1', sortOrder: 24, penaltyCode: 'SCP', penaltyOverride: 10 })];
+    const [out] = carryAcrossImport(prior, [row({ competitorId: 'c1', sortOrder: null, resultCode: 'DNF' })]);
+    expect(out.penaltyCode).toBeNull();
+    expect(out.resultCode).toBe('DNF');
+  });
+
+  it('carries redress granted on a finish onto the boat’s new finish', () => {
+    const prior = [stored({
+      id: 'f1', competitorId: 'c1', sortOrder: 4, resultCode: 'RDG',
+      redressMethod: 'stated', redressPoints: 2, redressExcludeRaceIds: ['r9'],
+    })];
+    const [out] = carryAcrossImport(prior, [
+      row({ competitorId: 'c1', sortOrder: 4, resultCode: null, finishTime: '11:45:20' }),
+    ]);
+    expect(out.resultCode).toBe('RDG');
+    expect(out.redressMethod).toBe('stated');
+    expect(out.redressPoints).toBe(2);
+    expect(out.redressExcludeRaceIds).toEqual(['r9']);
+    expect(out.redressExcludeRaceIds).not.toBe(prior[0].redressExcludeRaceIds);
+    expect(out.sortOrder).toBe(4);
+  });
+
+  it('carries redress granted on a coded row onto a boat the sheet says finished', () => {
+    const prior = [stored({
+      id: 'f1', competitorId: 'c1', sortOrder: null, resultCode: 'RDG',
+      redressMethod: 'all_races', redressIncludeAllLater: true,
+    })];
+    const [out] = carryAcrossImport(prior, [row({ competitorId: 'c1', sortOrder: 3, resultCode: null })]);
+    expect(out.resultCode).toBe('RDG');
+    expect(out.redressMethod).toBe('all_races');
+    expect(out.redressIncludeAllLater).toBe(true);
+  });
+
+  it('does not carry redress onto an incoming coded row', () => {
+    const prior = [stored({
+      id: 'f1', competitorId: 'c1', sortOrder: null, resultCode: 'RDG',
+      redressMethod: 'stated', redressPoints: 5,
+    })];
+    const [out] = carryAcrossImport(prior, [row({ competitorId: 'c1', sortOrder: null, resultCode: 'DNF' })]);
+    expect(out.resultCode).toBe('DNF');
+    expect(out.redressMethod).toBeNull();
+  });
+
+  it('carries a tie when the boat ahead is the same boat on both sides', () => {
+    const prior = [
+      stored({ id: 'f1', competitorId: 'c1', sortOrder: 1 }),
+      stored({ id: 'f2', competitorId: 'c2', sortOrder: 2, tiedWithPrevious: true }),
+    ];
+    const out = carryAcrossImport(prior, [
+      row({ competitorId: 'c1', sortOrder: 1, resultCode: null }),
+      row({ competitorId: 'c2', sortOrder: 2, resultCode: null }),
+    ]);
+    expect(out.map((f) => f.tiedWithPrevious)).toEqual([false, true]);
+  });
+
+  it('drops a tie when the order reshuffles the pair', () => {
+    const prior = [
+      stored({ id: 'f1', competitorId: 'c1', sortOrder: 1 }),
+      stored({ id: 'f2', competitorId: 'c2', sortOrder: 2, tiedWithPrevious: true }),
+      stored({ id: 'f3', competitorId: 'c3', sortOrder: 3 }),
+    ];
+    const out = carryAcrossImport(prior, [
+      row({ competitorId: 'c1', sortOrder: 1, resultCode: null }),
+      row({ competitorId: 'c3', sortOrder: 2, resultCode: null }),
+      row({ competitorId: 'c2', sortOrder: 3, resultCode: null }),
+    ]);
+    expect(out.every((f) => f.tiedWithPrevious === false)).toBe(true);
+  });
+
+  it('carries a start check-in whether the boat finished or is coded', () => {
+    const prior = [
+      stored({ id: 'f1', competitorId: 'c1', sortOrder: 1, startPresent: true }),
+      stored({ id: 'f2', competitorId: 'c2', sortOrder: null, resultCode: 'DNF', startPresent: true }),
+    ];
+    const out = carryAcrossImport(prior, [
+      row({ competitorId: 'c1', sortOrder: 1, resultCode: null }),
+      row({ competitorId: 'c2', sortOrder: null, resultCode: 'RET' }),
+    ]);
+    expect(out.map((f) => f.startPresent)).toEqual([true, true]);
+  });
+
+  it('matches unresolved crossings by the number written down', () => {
+    const prior = [
+      makeFinish('race-1', { id: 'f1', competitorId: null, unknownSailNumber: '99', sortOrder: 1 }),
+      makeFinish('race-1', { id: 'f2', competitorId: null, unknownSailNumber: '77', sortOrder: 2, tiedWithPrevious: true }),
+    ];
+    const out = carryAcrossImport(prior, [
+      row({ competitorId: null, unknownSailNumber: '99', sortOrder: 1, resultCode: null }),
+      row({ competitorId: null, unknownSailNumber: '77', sortOrder: 2, resultCode: null }),
+    ]);
+    expect(out[1].tiedWithPrevious).toBe(true);
+  });
+
+  it('leaves a boat with no stored counterpart untouched', () => {
+    const prior = [stored({ id: 'f1', competitorId: 'c1', sortOrder: 1, penaltyCode: 'ZFP' })];
+    const incoming = [row({ competitorId: 'c2', sortOrder: 1, resultCode: null })];
+    expect(carryAcrossImport(prior, incoming)).toEqual(incoming);
+  });
+});
+
+describe('finishRowsFromImport', () => {
+  it('keeps carried penalties, redress, ties and check-ins on the committed rows', () => {
+    const rows = finishRowsFromImport('race-1', [
+      {
+        competitorId: 'c1', sortOrder: 1, resultCode: null, finishTime: '11:45:20',
+        tiedWithPrevious: false, startPresent: true,
+        penaltyCode: 'SCP', penaltyOverride: 10, penaltyLabel: undefined,
+        redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
+        redressIncludeAllLater: false, redressPoints: null,
+      },
+      {
+        competitorId: 'c2', sortOrder: 2, resultCode: 'RDG',
+        tiedWithPrevious: true, startPresent: null,
+        penaltyCode: null, penaltyOverride: null,
+        redressMethod: 'stated', redressExcludeRaceIds: null, redressIncludeRaceIds: null,
+        redressIncludeAllLater: false, redressPoints: 2,
+      },
+      {
+        competitorId: 'c3', sortOrder: null, resultCode: 'DNF',
+        tiedWithPrevious: false, startPresent: true,
+        penaltyCode: null, penaltyOverride: null,
+        redressMethod: null, redressExcludeRaceIds: null, redressIncludeRaceIds: null,
+        redressIncludeAllLater: false, redressPoints: null,
+      },
+    ]);
+    expect(rows).toHaveLength(3);
+    const [first, second, coded] = rows;
+    expect(first.penaltyCode).toBe('SCP');
+    expect(first.penaltyOverride).toBe(10);
+    expect(first.startPresent).toBe(true);
+    expect(second.resultCode).toBe('RDG');
+    expect(second.sortOrder).toBe(2);
+    expect(second.tiedWithPrevious).toBe(true);
+    expect(second.redressMethod).toBe('stated');
+    expect(second.redressPoints).toBe(2);
+    expect(coded.resultCode).toBe('DNF');
+    expect(coded.sortOrder).toBeNull();
+    expect(coded.startPresent).toBe(true);
   });
 });
