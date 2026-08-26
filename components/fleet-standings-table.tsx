@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+'use client';
+
+import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import {
   Table,
@@ -10,12 +12,26 @@ import {
 } from '@/components/ui/table';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { SortableTableHead } from '@/components/sortable-table-head';
+import {
+  comparatorFor,
+  compareNumeric,
+  compareText,
+  sortDirectionFor,
+  sortPositionFor,
+  toggleSortKey,
+  type SortableColumn,
+  type SortDirection,
+  type SortKey,
+} from '@/lib/table-sort';
+import { compareSailNumbers } from '@/lib/sail-number-sort';
 import { cn } from '@/lib/utils';
 import {
   isFieldDisabledByPrimary,
@@ -120,27 +136,86 @@ export function FleetStandingsTable({
     .map((r) => scoringOptionsLegend(r, `R${r.raceNumber}`))
     .filter(Boolean);
 
+  // Sorting is view state over the rank order the engine produced — the Rank
+  // column keeps showing the series rank, so a re-sorted table still reads
+  // correctly, and clearing the sort restores the ranking. Race columns join
+  // in through their header menu, since their header click opens the menu.
+  const [sortKeys, setSortKeys] = useState<SortKey[]>([]);
+  const joinNames = (ns: string[] | undefined) =>
+    (ns ?? []).filter((n) => n.trim()).join(' ');
+  const sortColumns: SortableColumn<Standing>[] = [
+    { id: 'rank', compare: (a, b) => compareNumeric(a.rank, b.rank) },
+    {
+      id: 'sailNumber',
+      compare: (a, b) => compareSailNumbers(a.competitor.sailNumber, b.competitor.sailNumber),
+    },
+    { id: 'boatName', compare: (a, b) => compareText(a.competitor.boatName, b.competitor.boatName) },
+    { id: 'boatClass', compare: (a, b) => compareText(a.competitor.boatClass, b.competitor.boatClass) },
+    { id: 'primary', compare: (a, b) => compareText(joinNames(a.competitor.names), joinNames(b.competitor.names)) },
+    { id: 'helm', compare: (a, b) => compareText(joinNames(a.competitor.helms), joinNames(b.competitor.helms)) },
+    { id: 'owner', compare: (a, b) => compareText(joinNames(a.competitor.owners), joinNames(b.competitor.owners)) },
+    { id: 'crew', compare: (a, b) => compareText(joinNames(a.competitor.crewNames), joinNames(b.competitor.crewNames)) },
+    { id: 'club', compare: (a, b) => compareText(a.competitor.club, b.competitor.club) },
+    { id: 'nationality', compare: (a, b) => compareText(a.competitor.nationality, b.competitor.nationality) },
+    ...visibleAxes.map(
+      (axis): SortableColumn<Standing> => ({
+        id: `axis-${axis.id}`,
+        compare: (a, b) =>
+          compareText(a.competitor.subdivisions?.[axis.id], b.competitor.subdivisions?.[axis.id]),
+      }),
+    ),
+    { id: 'age', compare: (a, b) => compareNumeric(a.competitor.age, b.competitor.age) },
+    { id: 'gender', compare: (a, b) => compareText(a.competitor.gender, b.competitor.gender) },
+    // A race column compares points, with excluded cells blank — past every
+    // real score, like any other blank.
+    ...races.map(
+      (race, i): SortableColumn<Standing> => ({
+        id: `race-${race.id}`,
+        compare: (a, b) =>
+          compareNumeric(
+            a.raceExcluded?.[i] ? null : a.racePoints[i],
+            b.raceExcluded?.[i] ? null : b.racePoints[i],
+          ),
+      }),
+    ),
+    { id: 'total', compare: (a, b) => compareNumeric(a.totalPoints, b.totalPoints) },
+    { id: 'nett', compare: (a, b) => compareNumeric(a.netPoints, b.netPoints) },
+  ];
+  const comparator = comparatorFor(sortKeys, sortColumns);
+  const displayStandings = comparator ? [...standings].sort(comparator) : standings;
+  const handleSort = (columnId: string, additive: boolean) =>
+    setSortKeys((keys) => toggleSortKey(keys, columnId, additive));
+  // Menu-driven, so it replaces the stack; picking the active direction again
+  // clears it — the menu's equivalent of the header's third click.
+  const sortRace = (columnId: string, dir: SortDirection) =>
+    setSortKeys((keys) =>
+      sortDirectionFor(keys, columnId) === dir ? [] : [{ columnId, dir }],
+    );
+  // The header row paints itself primary; the sort buttons must keep that
+  // colour on hover rather than fall back to the default header treatment.
+  const headClass = 'font-semibold hover:text-primary-foreground/80';
+
   return (
     <>
     <div className="overflow-x-auto rounded-lg border bg-card">
     <Table>
       <TableHeader>
         <TableRow className="bg-primary hover:bg-primary [&>th]:text-primary-foreground [&>th]:font-semibold">
-          <TableHead className="w-12 text-center">Rank</TableHead>
-          <TableHead className="w-20">Sail no.</TableHead>
-          {showBoat && <TableHead>Boat</TableHead>}
-          {showClass && <TableHead>Class</TableHead>}
-          <TableHead>{primaryPersonHeader(primaryLabel, multiPersonFields)}</TableHead>
-          {showHelm && <TableHead>{personFieldHeader('helm', multiPersonFields)}</TableHead>}
-          {showOwner && <TableHead>{personFieldHeader('owner', multiPersonFields)}</TableHead>}
-          {showCrew && <TableHead>{personFieldHeader('crewName', multiPersonFields)}</TableHead>}
-          {showClub && <TableHead>Club</TableHead>}
-          {showNationality && <TableHead>Nat</TableHead>}
+          <SortableTableHead columnId="rank" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-12 justify-center')}>Rank</SortableTableHead>
+          <SortableTableHead columnId="sailNumber" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20')}>Sail no.</SortableTableHead>
+          {showBoat && <SortableTableHead columnId="boatName" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Boat</SortableTableHead>}
+          {showClass && <SortableTableHead columnId="boatClass" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Class</SortableTableHead>}
+          <SortableTableHead columnId="primary" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{primaryPersonHeader(primaryLabel, multiPersonFields)}</SortableTableHead>
+          {showHelm && <SortableTableHead columnId="helm" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{personFieldHeader('helm', multiPersonFields)}</SortableTableHead>}
+          {showOwner && <SortableTableHead columnId="owner" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{personFieldHeader('owner', multiPersonFields)}</SortableTableHead>}
+          {showCrew && <SortableTableHead columnId="crew" sortKeys={sortKeys} onSort={handleSort} className={headClass}>{personFieldHeader('crewName', multiPersonFields)}</SortableTableHead>}
+          {showClub && <SortableTableHead columnId="club" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Club</SortableTableHead>}
+          {showNationality && <SortableTableHead columnId="nationality" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Nat</SortableTableHead>}
           {visibleAxes.map((axis) => (
-            <TableHead key={axis.id}>{subdivisionAxisLabel(axis)}</TableHead>
+            <SortableTableHead key={axis.id} columnId={`axis-${axis.id}`} sortKeys={sortKeys} onSort={handleSort} className={headClass}>{subdivisionAxisLabel(axis)}</SortableTableHead>
           ))}
-          {showAge && <TableHead>Age</TableHead>}
-          {showGender && <TableHead>Gender</TableHead>}
+          {showAge && <SortableTableHead columnId="age" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Age</SortableTableHead>}
+          {showGender && <SortableTableHead columnId="gender" sortKeys={sortKeys} onSort={handleSort} className={headClass}>Gender</SortableTableHead>}
           {races.map((race, i) => {
             // "R4 ×2 *" — the weighting numerically, an asterisk for a race
             // whose discard behaviour differs. Both are spelled out in the
@@ -168,52 +243,82 @@ export function FleetStandingsTable({
             const headTitle =
               `${raceTitle}${dateLabel ? ` · ${dateLabel}` : ''}${reason ? ` — ${reason}` : ''}` +
               (optionsNote ? ` — ${optionsNote}` : '');
+            // The header click is taken — it opens this menu — so the race
+            // column's sort lives inside it, for every viewer; only the
+            // exclusion toggle stays editor-only.
+            const columnId = `race-${race.id}`;
+            const dir = sortDirectionFor(sortKeys, columnId);
+            const position = sortPositionFor(sortKeys, columnId);
             return (
               <TableHead
                 key={race.id}
                 className={cn('w-16 text-center', isColumnExcluded && 'line-through opacity-70')}
-                title={onToggleExclude ? undefined : headTitle}
+                aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'}
               >
-                {onToggleExclude ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="mx-auto inline-flex items-center gap-0.5 outline-none hover:underline focus-visible:underline">
-                      {label}
-                      <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center">
-                      <DropdownMenuLabel className="font-normal">
-                        <span className="font-semibold">{raceTitle}</span>
-                        {dateLabel && (
-                          <span className="block text-xs text-muted-foreground">{dateLabel}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    title={headTitle}
+                    className="mx-auto inline-flex items-center gap-0.5 outline-none hover:underline focus-visible:underline"
+                  >
+                    {label}
+                    {dir && (
+                      <span aria-hidden="true" className="opacity-80">
+                        {dir === 'asc' ? '▲' : '▼'}
+                        {position !== undefined && (
+                          <span className="ml-0.5 text-[0.65rem] align-super">{position}</span>
                         )}
-                        {fleetName && (
-                          <span className="block text-xs text-muted-foreground">{fleetName}</span>
-                        )}
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {isAuto ? (
-                        <DropdownMenuItem disabled>No entrants — excluded automatically</DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem onSelect={() => onToggleExclude(race.id)}>
-                          {isManual ? 'Include in this fleet' : 'Exclude from this fleet'}
-                        </DropdownMenuItem>
+                      </span>
+                    )}
+                    <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center">
+                    <DropdownMenuLabel className="font-normal">
+                      <span className="font-semibold">{raceTitle}</span>
+                      {dateLabel && (
+                        <span className="block text-xs text-muted-foreground">{dateLabel}</span>
                       )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  label
-                )}
+                      {fleetName && (
+                        <span className="block text-xs text-muted-foreground">{fleetName}</span>
+                      )}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      checked={dir === 'asc'}
+                      onSelect={() => sortRace(columnId, 'asc')}
+                    >
+                      Sort low to high
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={dir === 'desc'}
+                      onSelect={() => sortRace(columnId, 'desc')}
+                    >
+                      Sort high to low
+                    </DropdownMenuCheckboxItem>
+                    {onToggleExclude && (
+                      <>
+                        <DropdownMenuSeparator />
+                        {isAuto ? (
+                          <DropdownMenuItem disabled>No entrants — excluded automatically</DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onSelect={() => onToggleExclude(race.id)}>
+                            {isManual ? 'Include in this fleet' : 'Exclude from this fleet'}
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableHead>
             );
           })}
-          <TableHead className="w-20 text-center font-semibold">Total</TableHead>
+          <SortableTableHead columnId="total" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20 justify-center')}>Total</SortableTableHead>
           {hasDiscards && (
-            <TableHead className="w-20 text-center font-semibold">Nett</TableHead>
+            <SortableTableHead columnId="nett" sortKeys={sortKeys} onSort={handleSort} className={cn(headClass, 'w-20 justify-center')}>Nett</SortableTableHead>
           )}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {standings.map((standing) => (
+        {displayStandings.map((standing) => (
           <StandingRow
             key={standing.competitor.id}
             standing={standing}

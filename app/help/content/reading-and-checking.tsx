@@ -45,6 +45,14 @@ export default function ReadingAndChecking() {
           are shown struck through. The standings are ordered by nett total.
         </p>
         <p>
+          The table sorts like the competitor list: click any column heading to sort by it,
+          again to reverse, a third time to return to the ranking; hold{' '}
+          <strong className="text-foreground">Shift</strong> to stack columns. A race column
+          sorts from its header menu — <em>Sort low to high</em> or <em>Sort high to low</em> —
+          since clicking that header opens the race’s menu. Sorting is view-only: the Rank
+          column keeps each boat’s series rank, and nothing about the scoring changes.
+        </p>
+        <p>
           In a multi-fleet series you can strike a single race from one fleet’s scoring right
           from the standings — the usual case is a heat only one boat sailed. Click a race
           column header and choose{' '}
