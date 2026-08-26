@@ -5,11 +5,14 @@
  * A RaceSense export is a snapshot of the whole regatta, not a delta: the
  * export taken on the last day of a championship still contains the first
  * day's races. Applying finishes is destructive — it replaces a race's
- * finishes wholesale, and clears what the format can't express (ties,
- * penalties, redress) — and everything RaceSense doesn't capture reaches the
+ * finishes wholesale — and everything RaceSense doesn't capture reaches the
  * scorer as separate notes from the race committee, entered by hand. So an
  * import that wrote every sheet would erase each day's retirements,
- * disqualifications and redress on the next day's upload.
+ * disqualifications and redress on the next day's upload. What the format
+ * can't express at all — penalties, redress, ties, start check-ins — is
+ * carried across from the stored race wherever it still attaches (see
+ * `carryAcrossImport`), so re-importing a sheet doesn't quietly shed the
+ * jury's work; what can't carry shows in the race's change list.
  *
  * The workbook is therefore a proposal. Every race arrives in one of four
  * states — `new`, `unchanged`, `differs`, `unmatched` — and only `new` races
@@ -26,6 +29,7 @@
  * already exists.
  */
 
+import { carryAcrossImport } from './finish-entry';
 import {
   parseFinishSheetCsv,
   sailNumberKeys,
@@ -248,18 +252,55 @@ function keyOf(f: { competitorId: string | null; unknownSailNumber?: string | nu
   return f.competitorId ?? `?${f.unknownSailNumber ?? ''}`;
 }
 
-function describe(
-  f: { sortOrder: number | null; finishTime?: string | null; resultCode: string | null } | undefined,
-  place: number | null,
-): string {
+/** The slice of a finish the preview reads. The signature is built from the
+ *  very strings `describe` renders, so any difference that can make a race
+ *  `differs` is by construction one the change list can show. */
+interface DiffFinish {
+  sortOrder: number | null;
+  finishTime: string | null;
+  resultCode: string | null;
+  tiedWithPrevious: boolean;
+  penaltyCode: string | null;
+  penaltyOverride: number | null;
+  redressMethod: string | null;
+  redressPoints: number | null;
+}
+
+function penaltyText(f: DiffFinish): string {
+  if (f.penaltyCode === 'SCP' && f.penaltyOverride !== null) return `SCP ${f.penaltyOverride}%`;
+  if (f.penaltyCode === 'DPI' && f.penaltyOverride !== null) return `DPI +${f.penaltyOverride}`;
+  return f.penaltyCode ?? '';
+}
+
+function redressText(f: DiffFinish): string {
+  const detail =
+    f.redressMethod === 'stated' && f.redressPoints !== null ? `${f.redressPoints} pts`
+      : f.redressMethod === 'all_races' ? 'average of other races'
+      : f.redressMethod === 'all_races_excl_dnc' ? 'average excl. DNC'
+      : f.redressMethod === 'races_before' ? 'average of earlier races'
+      : '';
+  return detail ? `RDG (${detail})` : 'RDG';
+}
+
+function describe(f: DiffFinish | undefined, place: number | null): string {
   if (!f) return '—';
-  if (f.resultCode) return f.resultCode;
+  if (f.sortOrder === null && f.resultCode) {
+    return f.resultCode === 'RDG' ? redressText(f) : f.resultCode;
+  }
+  // A row with neither a place nor a code records a start check-in only.
+  if (f.sortOrder === null) return 'checked in at the start';
   const at = f.finishTime ? ` at ${f.finishTime}` : '';
-  return place === null ? `finished${at}` : `${ordinal(place)}${at}`;
+  const base = place === null ? `finished${at}` : `${ordinal(place)}${at}`;
+  return [
+    base,
+    ...(f.tiedWithPrevious ? ['tied'] : []),
+    ...(f.penaltyCode ? [penaltyText(f)] : []),
+    ...(f.resultCode === 'RDG' ? [redressText(f)] : []),
+  ].join(', ');
 }
 
 interface Sided {
-  byKey: Map<Key, { sortOrder: number | null; finishTime?: string | null; resultCode: string | null }>;
+  byKey: Map<Key, DiffFinish>;
   /** Key → 1-based finishing place, for phrasing. */
   place: Map<Key, number>;
   /** The full ordered signature: finishers in order, then codes sorted. */
@@ -272,14 +313,24 @@ function side(finishes: readonly {
   sortOrder: number | null;
   finishTime?: string | null;
   resultCode: string | null;
+  tiedWithPrevious: boolean;
+  penaltyCode: string | null;
+  penaltyOverride: number | null;
+  redressMethod: string | null;
+  redressPoints: number | null;
 }[]): Sided {
-  const byKey = new Map<Key, { sortOrder: number | null; finishTime?: string | null; resultCode: string | null }>();
+  const byKey = new Map<Key, DiffFinish>();
   const place = new Map<Key, number>();
   for (const f of finishes) {
     byKey.set(keyOf(f), {
       sortOrder: f.sortOrder,
       finishTime: f.finishTime ?? null,
       resultCode: f.resultCode,
+      tiedWithPrevious: f.tiedWithPrevious,
+      penaltyCode: f.penaltyCode,
+      penaltyOverride: f.penaltyOverride,
+      redressMethod: f.redressMethod,
+      redressPoints: f.redressPoints,
     });
   }
   const finishers = finishes
@@ -287,14 +338,14 @@ function side(finishes: readonly {
     .sort((a, b) => a.sortOrder! - b.sortOrder!);
   finishers.forEach((f, i) => place.set(keyOf(f), i + 1));
 
-  const coded = finishes
-    .filter((f) => f.sortOrder === null)
-    .map((f) => `${keyOf(f)}=${f.resultCode ?? ''}`)
-    .sort();
+  const rendered = (f: { competitorId: string | null; unknownSailNumber?: string | null }) => {
+    const key = keyOf(f);
+    return `${key}:${describe(byKey.get(key), place.get(key) ?? null)}`;
+  };
   const signature = [
-    ...finishers.map((f) => `${keyOf(f)}@${f.finishTime ?? ''}`),
+    ...finishers.map(rendered),
     '|',
-    ...coded,
+    ...finishes.filter((f) => f.sortOrder === null).map(rendered).sort(),
   ].join(',');
   return { byKey, place, signature };
 }
@@ -372,11 +423,21 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
     notes.push(...built.notes);
 
     const eligible = candidatesFor(race, competitors, fleetId);
-    const result = parseFinishSheetCsv({
+    const parsed = parseFinishSheetCsv({
       rows: built.rows,
       columnMap: COLUMN_MAP,
       candidates: eligible,
     });
+    // What the workbook can't express — penalties, redress, ties, start
+    // check-ins — is carried across from the stored race before diffing: a
+    // race whose only distinguishing state carries cleanly still reads back
+    // `unchanged`, and one whose state can't carry shows that in the change
+    // list rather than shedding it silently on commit.
+    const storedFinishes = finishesByRace.get(race.id) ?? [];
+    const result: ParseFinishSheetResult = {
+      ...parsed,
+      finishes: carryAcrossImport(storedFinishes, parsed.finishes),
+    };
 
     // A boat entitled to be on this sheet whom RaceSense never saw. When the
     // race carries a fleet this workbook doesn't cover, that's every boat in
@@ -405,7 +466,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
       });
     }
 
-    const stored = side(finishesByRace.get(race.id) ?? []);
+    const stored = side(storedFinishes);
     const incoming = side(result.finishes);
     const state: RaceMatchState = stored.byKey.size === 0
       ? 'new'
