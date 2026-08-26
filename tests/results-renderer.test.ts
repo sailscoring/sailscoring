@@ -97,6 +97,19 @@ describe('renderSeriesHtml', () => {
     expect(html).toMatch(/class="credit"[^]*Save as PDF[^]*<\/p>/);
   });
 
+  it('includes the column-sorter script and its indicator styles', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    // The inline sorter wires every summary and race table; the sort state
+    // lives in aria-sort, which the stylesheet turns into indicator arrows.
+    expect(html).toContain("querySelectorAll('table.summarytable,table.racetable')");
+    expect(html).toContain('aria-sort');
+    expect(html).toContain('th[aria-sort="ascending"]::after');
+    expect(html).toContain('th[aria-sort="descending"]::after');
+    // The served rows stay in rank order — sorting is view state applied by
+    // the viewer's browser, never baked into the file.
+    expect(html).not.toContain('<th aria-sort');
+  });
+
   it('includes series name in title and heading', () => {
     const html = renderSeriesHtml(MINIMAL);
     expect(html).toContain('Test Series');

@@ -1035,6 +1035,9 @@ td.nat .nattext { font-size: 0.8em; }
 td.wsid { font-family: monospace; font-size: 0.85em; white-space: nowrap; }
 .print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .print-btn:hover { color: #fb3a3b; }
+th[data-sortable] { cursor: pointer; }
+th[aria-sort="ascending"]::after { content: " ▲"; font-size: 0.75em; }
+th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
 @page { margin: 12mm; }
 @media print {
   body { border-top: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1081,6 +1084,7 @@ ${content}
 <p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''} &mdash; ${renderPrintButton()}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
+${renderSortScript()}
 </body>
 </html>`;
 }
@@ -1093,6 +1097,112 @@ ${hasEchoDetail ? renderEchoToggleScript() : ''}
  *  via its Download menu, so this is its public-page counterpart. */
 function renderPrintButton(): string {
   return `<button type="button" class="print-btn" onclick="window.print()">Save as PDF</button>`;
+}
+
+/** Inline column sorter for every results table on the page.
+ *
+ *  Published pages are self-contained single files, so this is hand-rolled
+ *  rather than a CDN-loaded tablesorter. Click a header to sort ascending,
+ *  again for descending, a third time for the original (rank) order — the
+ *  same cycle the in-app tables use. `aria-sort` carries the state; the
+ *  indicator arrows come from the stylesheet.
+ *
+ *  Cell values: `H:MM:SS` / `M:SS` strings compare as durations; otherwise
+ *  the first number in the cell decides — which reads through discard
+ *  parentheses ("(4.0)"), result codes ("146.0 BFD"), redress ("RDG(5.0)"),
+ *  ordinals ("1st"), tied ranks ("3="), and prefixed sail numbers
+ *  ("IRL 1234"). A column compares numerically only when every non-blank
+ *  cell yields a number; otherwise as text, with the same collation the
+ *  in-app sorter uses. Blank cells sort past every real value.
+ *
+ *  Rows remember their served position: it breaks ties, and it is how the
+ *  third click restores rank order. Full-width marker rows (the split-fleet
+ *  provisional cut line) hide while a sort is active — they annotate a
+ *  position in the rank order, not a boat. Links inside a header (the race
+ *  anchors) keep navigating; the rest of the cell sorts. Printing restores
+ *  the served order first — the PDF artifact is the official ranking — and
+ *  the viewer's sort comes back afterwards. With scripting off the page is
+ *  simply the static ranking. */
+function renderSortScript(): string {
+  return `<script>(function(){
+var collator=null;
+try{collator=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});}catch(e){}
+function keyOf(text){
+  var t=text.replace(/\\s+/g,' ').trim();
+  if(t===''||t==='\\u2014')return null;
+  var p=/^(\\d+):(\\d\\d)(?::(\\d\\d))?$/.exec(t);
+  if(p)return{num:p[3]!=null?(+p[1])*3600+(+p[2])*60+(+p[3]):(+p[1])*60+(+p[2]),text:t};
+  var m=/-?\\d+(?:\\.\\d+)?/.exec(t);
+  return m?{num:parseFloat(m[0]),text:t}:{text:t};
+}
+function initTable(table){
+  var head=table.tHead,body=table.tBodies[0];
+  if(!head||!body||head.rows.length===0)return;
+  var hrow=head.rows[head.rows.length-1];
+  var rows=[].slice.call(body.rows);
+  var dataRows=[],markerRows=[];
+  for(var i=0;i<rows.length;i++){
+    rows[i].ssOrig=i;
+    var marker=false;
+    for(var j=0;j<rows[i].cells.length;j++)if(rows[i].cells[j].colSpan>1)marker=true;
+    (marker?markerRows:dataRows).push(rows[i]);
+  }
+  if(dataRows.length<2)return;
+  var col=-1,dir=0;
+  function apply(activeCol,activeDir){
+    var i;
+    if(activeDir===0){
+      var all=rows.slice().sort(function(a,b){return a.ssOrig-b.ssOrig;});
+      for(i=0;i<all.length;i++){all[i].style.display='';body.appendChild(all[i]);}
+    }else{
+      for(i=0;i<markerRows.length;i++)markerRows[i].style.display='none';
+      var keyed=dataRows.map(function(r){
+        var cell=r.cells[activeCol];
+        return{r:r,k:cell?keyOf(cell.textContent||''):null};
+      });
+      var numeric=true;
+      for(i=0;i<keyed.length;i++)if(keyed[i].k&&keyed[i].k.num===undefined)numeric=false;
+      keyed.sort(function(a,b){
+        var c;
+        if(a.k===null||b.k===null)c=a.k===b.k?0:a.k===null?1:-1;
+        else if(numeric)c=a.k.num-b.k.num;
+        else if(collator)c=collator.compare(a.k.text,b.k.text);
+        else c=a.k.text<b.k.text?-1:a.k.text>b.k.text?1:0;
+        return activeDir*c||a.r.ssOrig-b.r.ssOrig;
+      });
+      for(i=0;i<keyed.length;i++)body.appendChild(keyed[i].r);
+    }
+    for(i=0;i<hrow.cells.length;i++){
+      if(i===activeCol&&activeDir!==0)hrow.cells[i].setAttribute('aria-sort',activeDir===1?'ascending':'descending');
+      else hrow.cells[i].removeAttribute('aria-sort');
+    }
+  }
+  function toggle(i){
+    if(col===i&&dir===1)dir=-1;
+    else if(col===i){col=-1;dir=0;}
+    else{col=i;dir=1;}
+    apply(col,dir);
+  }
+  table.ssPrint=function(printing){apply(printing?-1:col,printing?0:dir);};
+  [].forEach.call(hrow.cells,function(th,i){
+    th.setAttribute('data-sortable','');
+    th.tabIndex=0;
+    if(!th.title)th.title='Click to sort';
+    th.addEventListener('click',function(e){
+      var n=e.target;
+      while(n&&n!==th){if(n.tagName==='A')return;n=n.parentNode;}
+      toggle(i);
+    });
+    th.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle(i);}
+    });
+  });
+}
+var tables=document.querySelectorAll('table.summarytable,table.racetable');
+[].forEach.call(tables,initTable);
+window.addEventListener('beforeprint',function(){[].forEach.call(tables,function(t){if(t.ssPrint)t.ssPrint(true);});});
+window.addEventListener('afterprint',function(){[].forEach.call(tables,function(t){if(t.ssPrint)t.ssPrint(false);});});
+})();</script>`;
 }
 
 /** Viewer-facing toggle for NHC rating-calculation columns. Only emitted when
