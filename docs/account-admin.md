@@ -1,8 +1,8 @@
 # Account admin
 
-Self-service account settings (change email, list and add alternate
-emails) land later — see ADR-008 Phase 10. Until then, account-level
-fixes are handled from the database via admin scripts.
+There is no self-service email management (change email, alternate
+emails) — account-level fixes are handled from the database via admin
+scripts.
 
 ## Change a user's login email
 

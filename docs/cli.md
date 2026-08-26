@@ -25,17 +25,18 @@ sailscoring --help
 
 > The linked `sailscoring` runs the TypeScript through tsx at runtime, so it
 > relies on this repo's `node_modules`. A standalone, dependency-free
-> executable (and `npx sailscoring`) is the M7 packaging step; until then,
-> `pnpm link --global` from a checkout is the way to get the bare command.
+> executable (and `npx sailscoring`) is the M7 packaging step, deferred to
+> `docs/design/horizon.md`; `pnpm link --global` from a checkout is the way
+> to get the bare command.
 
 The examples below use `sailscoring`; substitute `pnpm cli` if you haven't
 linked.
 
 ## Getting a token
 
-The CLI authenticates with a Bearer API key. Until the in-app "API keys" UI
-lands (M5), mint one with the admin script (run by whoever has database
-access):
+The CLI authenticates with a Bearer API key. There is no in-app "API keys"
+UI (that's the M5 milestone, deferred to `docs/design/horizon.md`); mint one
+with the admin script (run by whoever has database access):
 
 ```sh
 pnpm provision-token create you@example.com --name "laptop" --workspace <slug>

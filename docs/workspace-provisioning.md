@@ -1,10 +1,12 @@
 # Workspace provisioning
 
-ADR-008 Phase 7 ships the **safety floor** for panel collaboration —
-shared workspaces, actor attribution on conflicts, copy-to-workspace —
-without the self-service org admin UI that lands in Phase 10. Until
-then, organization workspaces are provisioned by hand using
-`scripts/provision-org.ts` against the production database.
+Organization workspaces are provisioned by the operator using
+`scripts/provision-org.ts` against the production database — either
+directly, or to fulfil a self-service request submitted from `/account`
+(ADR-008 Phase 10's admin-approved request flow). Everything else about
+running a shared workspace — invitations, members management, feature
+toggles, the activity log — is self-service in the app; creating the
+org workspace itself is the deliberate operator step this doc covers.
 
 ## When to use
 
@@ -87,8 +89,9 @@ workspace-switcher data attributes.
 Personal workspaces are single-user: the app refuses invitations to them
 on both create and accept, and `/workspace` doesn't render the Members
 card there at all — membership isn't a concept on a workspace that holds
-one person. Someone who wants co-scorers asks for a club workspace, which
-is the approval step this whole document exists for.
+one person. Someone who wants co-scorers requests a club workspace from
+`/account`, and fulfilling that request is the approval step this whole
+document exists for.
 
 That means clearing one out is an operator job — deliberately, since it
 should only ever come up for the workspaces that picked up members before
@@ -250,13 +253,14 @@ DATABASE_URL=$PROD_DATABASE_URL pnpm provision-org create-org "…" --slug …
 present — that's the local dev / test loop. Don't accidentally point
 local commands at production.
 
-## What's deliberately out of scope (Phase 7)
+## What Phase 7 deliberately left out (since shipped in Phase 10)
 
-- **Self-service org creation.** Lands in Phase 10 as an admin-approved
-  request flow from `/account`.
-- **Invitations and members management UI.** Same — Phase 10.
-- **Activity log.** Phase 7 captures `updated_by` on every mutable row;
-  the per-series Activity tab and recency strips land in Phase 10.
+- **Self-service org creation.** Landed as the admin-approved request
+  flow from `/account`, fulfilled with `provision-org fulfil-request`.
+- **Invitations and members management UI.** Landed as the Members card
+  on `/workspace` plus `/accept-invitation`.
+- **Activity log.** Phase 7 captured `updated_by` on every mutable row;
+  the per-series Activity tab and recency strips landed in Phase 10.
 
-See [ADR-008 Phase 7](design/decisions/008-full-stack-transition.md)
-for the full scope and rationale.
+See [ADR-008](design/decisions/008-full-stack-transition.md) for the
+full scope and rationale.
