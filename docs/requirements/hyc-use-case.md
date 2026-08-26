@@ -3,6 +3,13 @@
 Target use case for introducing handicap-adjusted scoring to the MVP:
 the Autumn League series at Howth Yacht Club.
 
+> **Status.** This is the requirements record that drove Milestone 2.
+> Everything in the MVP priority lists below has shipped — IRC and PY in
+> handicap Phase 1, the NHC progressive handicap (reverse-engineered as
+> the SWNHC2015 variant) and ECHO in Phase 2 — and HYC's scoring panel
+> now runs on a shared workspace in the app rather than on Sailwave. The
+> rest of the document is kept as written.
+
 ## Why the Autumn League?
 
 The HYC Autumn League introduces key scoring concepts not present in the
@@ -268,12 +275,13 @@ when the Score/Rescore button is clicked. The algorithm:
 - Does not adjust boats that did not race (in 2014+ versions)
 - The exact formula is proprietary to the RYA/Sailwave implementation
 
-**For the MVP**, the NHC adjustment algorithm must be implemented. This is
-core to the HPH system -- every boat's rating changes after every race,
-and the scorer expects this to happen automatically. Implementing this
-requires either obtaining the RYA NHC specification or reverse-engineering
-the algorithm from the Sailwave/SWHelper implementation. The RYA NHC
-Rules and Guidance document is available in
+**For the MVP**, the NHC adjustment algorithm had to be implemented. This
+is core to the HPH system -- every boat's rating changes after every race,
+and the scorer expects this to happen automatically. It was
+reverse-engineered from the Sailwave/SWHelper implementation and
+identified as the SWNHC2015 variant (see
+[`../notes/sailwave/nhc1-reverse-engineering.md`](../notes/sailwave/nhc1-reverse-engineering.md)).
+The RYA NHC Rules and Guidance document is available in
 `reference-docs:handicap-systems/rya-nhc/`.
 
 ### Per-Race Ratings

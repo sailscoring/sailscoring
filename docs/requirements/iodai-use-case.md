@@ -3,6 +3,13 @@
 Target use case for the MVP: scoring events for the International Optimist
 Dinghy Association in Ireland (IODAI).
 
+> **Status.** This is the requirements record that drove Milestone 1.
+> Everything in the MVP priority lists below has shipped, and IODAI now
+> scores its events in the app (the `iodai` workspace, with its
+> as-published historical archive per ADR-010). Some "Won't Have (MVP)"
+> items later shipped as their own features — noted inline. The rest of
+> the document is kept as written.
+
 ## Why IODAI?
 
 IODAI is an ideal MVP target because it combines real-world complexity with
@@ -31,7 +38,8 @@ the country's biggest one-design class, with active racing fleets in 18+
 venues. IODAI runs approximately 7 events per year. A single scorer manages
 competitor data, result entry, and publication for each event.
 
-IODAI currently uses Sailwave for scoring.
+IODAI used Sailwave for scoring when this was written; it now scores in
+Sail Scoring.
 
 ## Event Types
 
@@ -147,7 +155,8 @@ outside of any single event.
 - Publication happens as soon as each race is scored, from the finish boat.
 - Notification is sent via WhatsApp when results are available.
 - Prize tables are published after the final race.
-- IODAI currently publishes via Sailwave's results hosting.
+- At the time of writing IODAI published via Sailwave's results hosting;
+  results now publish in-app at `/p/iodai/...`.
 
 ## Edge Cases and Complexities
 
@@ -165,11 +174,12 @@ verification.
 
 **This is a niche scenario that should not be a requirement for the MVP.**
 
-### National Ranking (out of scope for MVP)
+### National Ranking (out of scope for MVP; since shipped)
 
 IODAI maintains a season-long national ranking across the regional
 championships (best 3 of 5 events). This is a series-of-series concept
-and is deferred to a later iteration.
+and was deferred from the MVP; it has since shipped as workspace
+cross-series rankings (#209).
 
 ## MVP Feature Priorities
 
@@ -210,12 +220,14 @@ Based on this use case, the MVP must support:
 
 - Handicap calculations (not needed for one-design)
 - Time-based result entry
-- National ranking / series-of-series
+- National ranking / series-of-series *(since shipped — #209)*
 - Held-ashore split-series scoring
 - Automatic division upgrades
 - Registration integration
 - WhatsApp integration
-- Historical competitor database across events
+- Historical competitor database across events *(since shipped — the
+  competitor identity spine, #212, and the as-published archives,
+  ADR-010)*
 
 ## Data Model Implications
 

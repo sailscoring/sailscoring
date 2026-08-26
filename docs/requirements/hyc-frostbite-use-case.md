@@ -4,6 +4,12 @@ Target use case for introducing Portsmouth Yardstick (PY) handicap scoring
 alongside scratch dinghy racing. Read `hyc-use-case.md` (HYC Autumn League)
 first -- this document covers only what is different or new.
 
+> **Status.** This requirements record is delivered: PY scoring, the
+> ADR-007 finish-sheet model for mixed timed/untimed entry, multi-fleet
+> competitors, class-based PY numbers, configurable discard thresholds,
+> and crew names have all shipped. TLE as a distinct result code remains
+> unimplemented, as scoped. The document is kept as written.
+
 ## Why the Frostbites?
 
 The Autumn League use case introduces time-based finish recording, handicap
