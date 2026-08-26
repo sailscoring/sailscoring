@@ -419,11 +419,14 @@ export default function CompetitorsPage({
   }
 
   async function handleAdd(data: CompetitorFormData) {
-    // Use selected fleet IDs, falling back to the first available fleet
+    // Use selected fleet IDs, falling back to the first assignable fleet.
+    // Round-owned fleets are never a fallback: membership in those is dealt
+    // by assignment rounds, so a boat added without a fleet stays fleetless.
+    const addFallback = pickableFleets(fleets ?? []);
     let fleetIds = data.fleetIds.length > 0
       ? data.fleetIds
-      : (fleets ?? []).length > 0
-        ? [(fleets ?? [])[0].id]
+      : addFallback.length > 0
+        ? [addFallback[0].id]
         : [];
     const competitor: Competitor = {
       id: crypto.randomUUID(),
@@ -475,11 +478,13 @@ export default function CompetitorsPage({
 
   async function handleEdit(data: CompetitorFormData) {
     if (!editingCompetitor) return;
-    // Use selected fleet IDs, falling back to the first available fleet
+    // Use selected fleet IDs, falling back to the first assignable fleet
+    // (never a round-owned fleet — see handleAdd).
+    const editFallback = pickableFleets(fleets ?? []);
     let newFleetIds = data.fleetIds.length > 0
       ? data.fleetIds
-      : (fleets ?? []).length > 0
-        ? [(fleets ?? [])[0].id]
+      : editFallback.length > 0
+        ? [editFallback[0].id]
         : [];
     const updated: Competitor = {
       ...editingCompetitor,
