@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import {
   renderSplitFleetStandingsPage,
   renderSplitFleetAssignmentsPage,
+  renderSplitFleetRaceResultsPage,
   type SplitFleetRenderInput,
 } from '@/lib/split-fleets-render';
 import type { RaceStart } from '@/lib/types';
@@ -193,6 +194,122 @@ describe('fleet markers on the championship standings', () => {
   });
 });
 
+describe('renderSplitFleetRaceResultsPage', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+
+  /** One stage race's slice of the page: its anchored heading up to the next. */
+  function section(html: string, anchor: string): string {
+    const start = html.indexOf(`<h2 id="${anchor}">`);
+    expect(start).toBeGreaterThan(-1);
+    const next = html.indexOf('<h2 id=', start + 1);
+    return next === -1 ? html.slice(start) : html.slice(start, next);
+  }
+
+  /** The data rows of a slice, in order: rank, sail, code, points. */
+  function tableRows(slice: string): { rank: string; sail: string; code: string; points: string }[] {
+    return [
+      ...slice.matchAll(
+        /<tr class="(?:odd|even)">\s*<td style="text-align:center">([^<]*)<\/td>\s*<td style="font-family:monospace">([^<]+)<\/td>\s*<td>[\s\S]*?<\/td>\s*<td style="text-align:center">([^<]*)<\/td>\s*<td style="text-align:right">([^<]+)<\/td>/g,
+      ),
+    ].map((m) => ({ rank: m[1], sail: m[2], code: m[3], points: m[4] }));
+  }
+
+  it('renders one section per stage race with a table per fleet, ranked within it', () => {
+    const html = renderSplitFleetRaceResultsPage(renderInputFor(FIXTURE))!;
+    expect(html).toContain('<title>');
+    for (const anchor of ['q1', 'q2', 'f1', 'f2']) {
+      expect(html).toContain(`<h2 id="${anchor}">`);
+    }
+    // The heading is the notice-board label, from the vocabulary.
+    expect(section(html, 'q1')).toContain('>Q1</h2>');
+
+    // Q1: Yellow's table before Blue's (round fleet order), each fleet ranked
+    // 1..n on its own — the start sequence's interleaving pulled apart.
+    const q1 = section(html, 'q1');
+    expect(q1.indexOf('Yellow fleet')).toBeGreaterThan(-1);
+    expect(q1.indexOf('Yellow fleet')).toBeLessThan(q1.indexOf('Blue fleet'));
+    const q1Rows = tableRows(q1);
+    expect(q1Rows.map((r) => r.sail)).toEqual(['s1', 's4', 's5', 's2', 's3', 's6']);
+    expect(q1Rows.map((r) => r.rank)).toEqual(['1', '2', '3', '1', '2', '3']);
+
+    // Each race ranks its own sheet: Q2's Yellow order differs from Q1's.
+    expect(tableRows(section(html, 'q2')).map((r) => r.sail).slice(0, 3)).toEqual([
+      's4', 's1', 's5',
+    ]);
+
+    // After the split, the tables are the final fleets'.
+    const f1 = section(html, 'f1');
+    expect(f1.indexOf('Gold fleet')).toBeLessThan(f1.indexOf('Silver fleet'));
+    expect(tableRows(f1).map((r) => r.sail)).toEqual(['s1', 's2', 's4', 's3', 's5', 's6']);
+  });
+
+  it('shows penalties, codes and the medal multiplier as scored', () => {
+    const html = renderSplitFleetRaceResultsPage(
+      renderInputFor('11-penalties-and-medal-codes.yaml'),
+    )!;
+    // Q1 Yellow: y2's SCP rides on her finish points; y3's is capped at the
+    // race's DNF score. Both keep their crossing-order rank.
+    const q1 = tableRows(section(html, 'q1'));
+    expect(q1.find((r) => r.sail === 'y2')).toMatchObject({ rank: '2', code: 'SCP', points: '3.2' });
+    expect(q1.find((r) => r.sail === 'y3')).toMatchObject({ rank: '3', code: 'SCP', points: '4' });
+    // F2 is the one-more-race for the boats outside the medal fleet: first
+    // place scores medal size + 1, and the medal boats are absent, not DNC.
+    expect(tableRows(section(html, 'f2'))).toEqual([
+      { rank: '1', sail: 'b2', code: '', points: '3' },
+    ]);
+    // M1: finish points doubled; the coded boat at the base, undoubled,
+    // unranked, after the finishers.
+    expect(tableRows(section(html, 'm1'))).toEqual([
+      { rank: '1', sail: 'b1', code: '', points: '2' },
+      { rank: '', sail: 'y1', code: 'BFD', points: '3' },
+    ]);
+  });
+
+  it('leaves implicit DNCs off the race table', () => {
+    const input = renderInputFor(FIXTURE);
+    const q1RaceIds = new Set(
+      input.raceStarts
+        .filter((s) => s.stage === 'qualifying' && s.stageRaceNumber === 1)
+        .map((s) => s.raceId),
+    );
+    // s5 has no row on Q1's sheet: she scores DNC in the standings, but the
+    // race's own page lists only the boats on the sheet (a crossing or a code).
+    const html = renderSplitFleetRaceResultsPage({
+      ...input,
+      finishes: input.finishes.filter(
+        (f) => !(q1RaceIds.has(f.raceId) && f.competitorId === 's5'),
+      ),
+    })!;
+    expect(tableRows(section(html, 'q1')).map((r) => r.sail)).not.toContain('s5');
+    expect(tableRows(section(html, 'q2')).map((r) => r.sail)).toContain('s5');
+  });
+
+  it('treats a carried score as a score, not a race', () => {
+    // Rank-seed carry mints stage race 0 cells; they are positions, not races,
+    // and get no section — while the superseded qualifying races keep theirs.
+    const html = renderSplitFleetRaceResultsPage(renderInputFor('14-f6-rank-seed-carry.yaml'))!;
+    expect(html).not.toContain('id="f0"');
+    expect(html).not.toContain('id="m0"');
+    expect(html).toContain('id="q1"');
+  });
+
+  it('notes a race the championship score cannot yet use', () => {
+    // Fixture 08's Q2 was sailed by Yellow alone: the results stand on the
+    // page, flagged rather than hidden.
+    const html = renderSplitFleetRaceResultsPage(
+      renderInputFor('08-d8-incomplete-qualifying-race.yaml'),
+    )!;
+    expect(section(html, 'q2')).toContain('Does not yet count — race incomplete across fleets.');
+    expect(section(html, 'q1')).not.toContain('Does not yet count');
+    expect(tableRows(section(html, 'q2')).length).toBeGreaterThan(0);
+  });
+
+  it('returns null while no race has sheet rows', () => {
+    const input = renderInputFor(FIXTURE);
+    expect(renderSplitFleetRaceResultsPage({ ...input, finishes: [] })).toBeNull();
+  });
+});
+
 describe('renderSplitFleetAssignmentsPage', () => {
   it('lists every round, newest first, with fleet membership', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
@@ -234,6 +351,7 @@ describe('split-fleet pages use the standard published-page look', () => {
 
   for (const [label, render] of [
     ['championship', renderSplitFleetStandingsPage],
+    ['race results', (i: SplitFleetRenderInput, c?: Parameters<typeof renderSplitFleetRaceResultsPage>[1]) => renderSplitFleetRaceResultsPage(i, c)!],
     ['fleet assignments', renderSplitFleetAssignmentsPage],
   ] as const) {
     it(`gives the ${label} page the house chrome`, () => {

@@ -1,7 +1,8 @@
 // Published-page rendering for split-fleet series (#328): the championship
 // standings page (combined qualifying table before the split, tiered
 // Gold/Silver/... tables after, fleet-tinted race cells, provisional cut
-// line) and the rolling fleet-assignments page (newest round first). Plain
+// line), the per-race results page (every stage race, one table per fleet),
+// and the rolling fleet-assignments page (newest round first). Plain
 // HTML strings, no React — mirrors lib/results-renderer.ts conventions.
 
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
@@ -10,12 +11,14 @@ import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
   capitaliseStage,
+  logicalRaces,
   provisionalCutIndexes,
   qualifyingRaceCount,
   resolveVocabulary,
   roundsForStage,
   splitFleetStandings,
   stageRaceLabel,
+  STAGES,
   type CellScore,
   type SeriesStage,
   type SplitFleetConfig,
@@ -320,6 +323,146 @@ ${body}
   return renderHtmlDocument(
     { ...chromeFor(input, opts), fleetName: 'Championship' },
     `${PAGE_CSS}\n${legendHtml()}\n${sections}`,
+    {
+      fontPercent: 72,
+      hasNhcDetail: false,
+      hasEchoDetail: false,
+      flagDefs: nat ? flagDefsFor(input) : '',
+    },
+  );
+}
+
+/** Anchor id for one stage race on the per-race results page. Structural
+ *  (`q3`, `f1`, `m1`), never rendered as text — so deep links survive a
+ *  vocabulary change, which renames every visible label. */
+export function stageRaceAnchor(stage: SeriesStage, n: number): string {
+  return `${stage[0]}${n}`;
+}
+
+/** The per-race results page: every stage race in sailed order, one table per
+ *  race per fleet — the fleets a start sequence interleaves pulled apart the
+ *  way the racing actually happened, each ranked within its own fleet. Points
+ *  come from the standings engine's cells, so redress, penalties, the medal
+ *  multiplier and any first-place offset are already applied.
+ *
+ *  Returns null while no stage race has sheet rows — nothing to page yet. */
+export function renderSplitFleetRaceResultsPage(
+  input: SplitFleetRenderInput,
+  opts: SplitFleetPageChrome = {},
+): string | null {
+  const data = assembleSplitFleetData(input);
+  const rows = splitFleetStandings(data);
+  const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
+  const nat = showNat(input);
+  const wsid = showWsid(input);
+  const qRaces = qualifyingRaceCount(data);
+
+  // Each row's cell for one (stage race, fleet), joined back to its
+  // competitor. Carried cells have no race id: they are scores, not races.
+  const entriesByRaceFleet = new Map<string, { competitor: Competitor; cell: CellScore }[]>();
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      if (!cell.raceId) continue;
+      const key = `${cell.stage} ${cell.stageRaceNumber} ${cell.fleetId}`;
+      let list = entriesByRaceFleet.get(key);
+      if (!list) entriesByRaceFleet.set(key, (list = []));
+      list.push({ competitor: row.competitor, cell });
+    }
+  }
+
+  // Per-race tables list only boats with a row on the race's sheet — a
+  // crossing or a code. An implicit DNC scores in the standings but has no
+  // place on the race's own page, same as an ordinary series' race tables.
+  const sheetKey = (raceId: string, competitorId: string) => `${raceId} ${competitorId}`;
+  const onSheet = new Set<string>();
+  const crossingOrder = new Map<string, number>();
+  for (const f of data.finishes) {
+    if (!f.competitorId) continue;
+    if (f.sortOrder === null && f.resultCode === null) continue;
+    onSheet.add(sheetKey(f.raceId, f.competitorId));
+    if (f.sortOrder !== null && !f.resultCode) {
+      crossingOrder.set(sheetKey(f.raceId, f.competitorId), f.sortOrder);
+    }
+  }
+
+  const fleetTable = (entries: { competitor: Competitor; cell: CellScore }[]): string => {
+    // Scored order: finishers by points (crossing order between equals), then
+    // the coded boats, worst score last, sail number between equals.
+    const sorted = entries
+      .filter(({ competitor, cell }) => onSheet.has(sheetKey(cell.raceId, competitor.id)))
+      .sort((a, b) => {
+        const ca = crossingOrder.get(sheetKey(a.cell.raceId, a.competitor.id));
+        const cb = crossingOrder.get(sheetKey(b.cell.raceId, b.competitor.id));
+        if ((ca !== undefined) !== (cb !== undefined)) return ca !== undefined ? -1 : 1;
+        if (a.cell.points !== b.cell.points) return a.cell.points - b.cell.points;
+        return ca !== undefined && cb !== undefined
+          ? ca - cb
+          : bySailNumber(a.competitor, b.competitor);
+      });
+    if (sorted.length === 0) return '';
+    let place = 0;
+    const body = sorted
+      .map(({ competitor, cell }, i) => {
+        const finisher = crossingOrder.has(sheetKey(cell.raceId, competitor.id));
+        const helm = esc(competitor.names.join(' & '));
+        const helmHtml =
+          !wsid && competitor.worldSailingId
+            ? `<a href="${esc(worldSailingProfileUrl(competitor.worldSailingId))}" target="_blank" rel="noopener noreferrer">${helm}</a>`
+            : helm;
+        return `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">
+  <td style="text-align:center">${finisher ? ++place : ''}</td>
+  ${nat ? natCell(competitor.nationality, input.flagSvgByCode) : ''}
+  <td style="font-family:monospace">${esc(competitor.sailNumber)}</td>
+  <td>${helmHtml}</td>
+  ${wsid ? wsidCell(competitor.worldSailingId) : ''}
+  <td style="text-align:center">${esc(cell.code ?? '')}</td>
+  <td style="text-align:right">${cell.points}</td>
+</tr>`;
+      })
+      .join('\n');
+    return `<div class="tablewrap"><table class="summarytable">
+<thead><tr><th>Rank</th>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${wsid ? '<th>WS ID</th>' : ''}<th>Code</th><th>Points</th></tr></thead>
+<tbody>
+${body}
+</tbody>
+</table></div>`;
+  };
+
+  const sections: string[] = [];
+  for (const stage of STAGES) {
+    for (const lr of logicalRaces(data, stage)) {
+      // No covering round means the engine scored nothing for the race, so
+      // there are no cells to page (same guard as the standings pass).
+      if (!lr.round) continue;
+      const tables = lr.round.fleetIds
+        .map((fid) => {
+          const entries =
+            entriesByRaceFleet.get(`${stage} ${lr.stageRaceNumber} ${fid}`) ?? [];
+          const table = fleetTable(entries);
+          if (!table) return '';
+          const label = fleetName.get(fid) ?? '';
+          return `<h3>${fleetDot(data.config, label)}${esc(label)} fleet</h3>\n${table}`;
+        })
+        .filter(Boolean);
+      if (tables.length === 0) continue;
+      // The standings page dims a race the championship score can't yet use;
+      // the race's own results still stand, so here it is a note, not a veil.
+      const note =
+        stage === 'qualifying' && !lr.valid
+          ? '<p class="sfnote">Does not yet count — race incomplete across fleets.</p>\n'
+          : '';
+      sections.push(
+        `<h2 id="${stageRaceAnchor(stage, lr.stageRaceNumber)}">${esc(
+          stageRaceLabel(data.config, stage, lr.stageRaceNumber, qRaces),
+        )}</h2>\n${note}${tables.join('\n')}`,
+      );
+    }
+  }
+  if (sections.length === 0) return null;
+
+  return renderHtmlDocument(
+    { ...chromeFor(input, opts), fleetName: 'Race results' },
+    `${PAGE_CSS}\n${sections.join('\n')}`,
     {
       fontPercent: 72,
       hasNhcDetail: false,
