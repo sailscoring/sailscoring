@@ -146,3 +146,62 @@ test('a sheet that would overwrite a different race comes unticked, with the cha
   await page.getByText('Race 2', { exact: true }).click();
   await expect(page.getByTestId('non-finisher-22')).toContainText('OCS');
 });
+
+test('publish the track data the import recorded, behind the series opt-in', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Track Data Regatta' });
+
+  for (const c of [
+    { sail: '15', name: 'Alice Pearson' },
+    { sail: '22', name: 'Bob Dickson' },
+    { sail: '254', name: 'Carol Walls' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sail);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  for (let i = 1; i <= 3; i++) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(`Race ${i}`, { exact: true })).toBeVisible();
+  }
+
+  await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
+  const plan = page.getByTestId('racesense-plan');
+  await expect(plan).toBeVisible();
+  await page.getByTestId('racesense-confirm').click();
+  await expect(plan).toBeHidden();
+
+  // Imported but not opted in: the preview carries no track columns.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  let frame = page.frameLocator('iframe[title="Results preview"]');
+  await expect(frame.getByRole('columnheader', { name: 'Points' }).first()).toBeVisible();
+  await expect(frame.getByRole('columnheader', { name: 'DTL (m)' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // The opt-in lives on the Publishing card, shown only under the feature.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  const publishing = page.getByTestId('publishing-card');
+  await publishing.getByRole('button', { name: 'Edit ▸' }).click();
+  // The control auto-saves: the click round-trips through the series PATCH
+  // before the checked state lands, so poll rather than check().
+  const toggle = page.getByRole('checkbox', { name: 'Publish RaceSense track data on race results' });
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await publishing.getByRole('button', { name: 'Done' }).click();
+  await expect(publishing.getByText('track data published')).toBeVisible();
+
+  // Now the per-race tables carry the columns — values as the device wrote
+  // them, average speed derived (1.188 km in 500.83 s is 4.61 kn).
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  frame = page.frameLocator('iframe[title="Results preview"]');
+  await expect(frame.getByRole('columnheader', { name: 'DTL (m)' }).first()).toBeVisible();
+  await expect(frame.getByRole('columnheader', { name: 'Avg speed (kn)' }).first()).toBeVisible();
+  await expect(frame.getByText('1.188')).toBeVisible();
+  await expect(frame.getByText('4.61')).toBeVisible();
+});

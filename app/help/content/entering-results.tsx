@@ -327,6 +327,20 @@ export default function EnteringResults() {
           <strong className="text-foreground">Differs</strong> with the loss spelled out in
           its change list.
         </p>
+        <p>
+          The import also keeps what the export says about{' '}
+          <strong className="text-foreground">how each boat sailed the race</strong>:
+          finish and elapsed times, distance sailed, max speed, and distance to the line
+          at the starting signal. None of it touches scoring, and none of it is published
+          until you switch on{' '}
+          <strong className="text-foreground">Publish RaceSense track data</strong> in the
+          series’ Publishing settings — then the per-race tables carry the figures, with
+          average speed derived from distance and elapsed time, as sortable columns:
+          click any of them and the table ranks the fleet by that measure. A metric the
+          export didn’t record (a race with no line has no distances to it) simply has no
+          column. Re-uploading a workbook records the data for races imported before it
+          was kept — they come back as Differs with the addition listed.
+        </p>
       </Section>
       )}
       <Section id="redress" title="Redress (RDG)">
