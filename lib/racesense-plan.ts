@@ -45,7 +45,7 @@ import {
   type RaceSenseWorkbook,
 } from './racesense-workbook';
 import type { SeriesStage } from './split-fleets';
-import type { Finish } from './types';
+import type { Finish, FinishTrackData } from './types';
 
 /** Columns of the rows this module builds for the finish-sheet parser. */
 const COLUMN_MAP: FinishSheetColumnMap = {
@@ -218,6 +218,73 @@ function buildRows(race: RaceSenseRace): BuiltRows {
 }
 
 // ---------------------------------------------------------------------------
+// Track data
+// ---------------------------------------------------------------------------
+
+const secsOf = (time: string): number => {
+  const [h, m, s] = time.split(':').map(Number);
+  return h * 3600 + m * 60 + s;
+};
+
+/**
+ * Everything a race sheet says about how each boat sailed, keyed by upper-cased
+ * sail number: DTL from the Starts block, distance / elapsed / max speed from
+ * the Finishes block. When the sheet has no Total Time but both times of day
+ * are known, elapsed is their difference — coarser (whole seconds) but real.
+ */
+function trackDataFor(source: RaceSenseRace): Map<string, FinishTrackData> {
+  const bySail = new Map<string, FinishTrackData>();
+  const put = (sail: string, patch: FinishTrackData) => {
+    const entries = Object.entries(patch).filter(([, v]) => v != null);
+    if (entries.length === 0) return;
+    const key = sail.toUpperCase();
+    bySail.set(key, { ...bySail.get(key), ...Object.fromEntries(entries) });
+  };
+  for (const s of source.starters) {
+    if (s.dtlAtStartM !== null) put(s.sailNumber, { dtlAtStartM: s.dtlAtStartM });
+  }
+  for (const f of source.finishes ?? []) {
+    // Elapsed alone is no track data — it is derivable from the times the
+    // app already stores. The fallback only completes a row that carries a
+    // real measurement whose Total Time cell happened to be unreadable.
+    const hasMetrics = f.totalTimeSecs !== null || f.distanceKm !== null || f.maxSpeedKts !== null;
+    const elapsed = f.totalTimeSecs
+      ?? (hasMetrics && f.finishTime && source.startTime && secsOf(f.finishTime) > secsOf(source.startTime)
+        ? secsOf(f.finishTime) - secsOf(source.startTime)
+        : null);
+    put(f.sailNumber, {
+      ...(f.distanceKm !== null ? { distanceKm: f.distanceKm } : {}),
+      ...(elapsed !== null ? { elapsedSecs: elapsed } : {}),
+      ...(f.maxSpeedKts !== null ? { maxSpeedKts: f.maxSpeedKts } : {}),
+    });
+  }
+  return bySail;
+}
+
+/** Hang each boat's track data on her parsed finish row. The rows come out of
+ *  the finish-sheet parser keyed by competitor, so the sail number is read
+ *  back through the same keys the parser matched on. */
+function attachTrackData(
+  finishes: readonly Omit<Finish, 'id' | 'raceId'>[],
+  bySail: Map<string, FinishTrackData>,
+  eligible: Candidate[],
+): Omit<Finish, 'id' | 'raceId'>[] {
+  if (bySail.size === 0) return [...finishes];
+  const byId = new Map(eligible.map((c) => [c.id, c]));
+  return finishes.map((f) => {
+    const candidate = f.competitorId ? byId.get(f.competitorId) : undefined;
+    const keys = candidate
+      ? sailNumberKeys(candidate)
+      : f.unknownSailNumber ? [f.unknownSailNumber] : [];
+    for (const key of keys) {
+      const trackData = bySail.get(key.toUpperCase());
+      if (trackData) return { ...f, trackData };
+    }
+    return f;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Matching a sheet to a race
 // ---------------------------------------------------------------------------
 
@@ -264,6 +331,7 @@ interface DiffFinish {
   penaltyOverride: number | null;
   redressMethod: string | null;
   redressPoints: number | null;
+  trackData: FinishTrackData | null;
 }
 
 function penaltyText(f: DiffFinish): string {
@@ -282,21 +350,35 @@ function redressText(f: DiffFinish): string {
   return detail ? `RDG (${detail})` : 'RDG';
 }
 
+function trackText(t: FinishTrackData): string {
+  return [
+    ...(t.distanceKm != null ? [`${t.distanceKm} km sailed`] : []),
+    ...(t.elapsedSecs != null ? [`${t.elapsedSecs}s elapsed`] : []),
+    ...(t.maxSpeedKts != null ? [`max ${t.maxSpeedKts} kn`] : []),
+    ...(t.dtlAtStartM != null ? [`DTL ${t.dtlAtStartM} m`] : []),
+  ].join(', ');
+}
+
 function describe(f: DiffFinish | undefined, place: number | null): string {
   if (!f) return '—';
+  // The track data rides along so that recording it for an already-imported
+  // race reads `differs` (with the addition on show) rather than being
+  // unwritable: `unchanged` races are never re-applied.
+  const track = f.trackData ? trackText(f.trackData) : '';
+  const withTrack = (text: string) => (track ? `${text}, ${track}` : text);
   if (f.sortOrder === null && f.resultCode) {
-    return f.resultCode === 'RDG' ? redressText(f) : f.resultCode;
+    return withTrack(f.resultCode === 'RDG' ? redressText(f) : f.resultCode);
   }
   // A row with neither a place nor a code records a start check-in only.
-  if (f.sortOrder === null) return 'checked in at the start';
+  if (f.sortOrder === null) return withTrack('checked in at the start');
   const at = f.finishTime ? ` at ${f.finishTime}` : '';
   const base = place === null ? `finished${at}` : `${ordinal(place)}${at}`;
-  return [
+  return withTrack([
     base,
     ...(f.tiedWithPrevious ? ['tied'] : []),
     ...(f.penaltyCode ? [penaltyText(f)] : []),
     ...(f.resultCode === 'RDG' ? [redressText(f)] : []),
-  ].join(', ');
+  ].join(', '));
 }
 
 interface Sided {
@@ -318,6 +400,7 @@ function side(finishes: readonly {
   penaltyOverride: number | null;
   redressMethod: string | null;
   redressPoints: number | null;
+  trackData?: FinishTrackData | null;
 }[]): Sided {
   const byKey = new Map<Key, DiffFinish>();
   const place = new Map<Key, number>();
@@ -331,6 +414,7 @@ function side(finishes: readonly {
       penaltyOverride: f.penaltyOverride,
       redressMethod: f.redressMethod,
       redressPoints: f.redressPoints,
+      trackData: f.trackData ?? null,
     });
   }
   const finishers = finishes
@@ -436,7 +520,11 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
     const storedFinishes = finishesByRace.get(race.id) ?? [];
     const result: ParseFinishSheetResult = {
       ...parsed,
-      finishes: carryAcrossImport(storedFinishes, parsed.finishes),
+      finishes: attachTrackData(
+        carryAcrossImport(storedFinishes, parsed.finishes),
+        trackDataFor(source),
+        eligible,
+      ),
     };
 
     // A boat entitled to be on this sheet whom RaceSense never saw. When the

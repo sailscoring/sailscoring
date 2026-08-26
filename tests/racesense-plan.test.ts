@@ -491,3 +491,76 @@ describe('planRaceSenseImport', () => {
     expect(workbookNotes.map((n) => n.kind)).toEqual(['app-version', 'summary-mismatch']);
   });
 });
+
+describe('track data', () => {
+  const tracked = (
+    position: number,
+    sailNumber: string,
+    finishTime: string,
+    track: { total?: number; speed?: number; distance?: number },
+  ): RaceSenseFinish => ({
+    position, code: null, sailNumber, boatName: '', bowNumber: '', finishTime,
+    totalTimeSecs: track.total ?? null,
+    maxSpeedKts: track.speed ?? null,
+    distanceKm: track.distance ?? null,
+  });
+
+  const trackedRace = (number: number): RaceSenseRace => sourceRace({
+    number,
+    starters: [
+      { ...starter('1021'), dtlAtStartM: 8.45 },
+      { ...starter('1023'), dtlAtStartM: 4.36 },
+      { ...starter('1022', 'OCS', 'ocs'), dtlAtStartM: -326.16 },
+    ],
+    finishes: [
+      tracked(1, '1021', '11:45:20', { total: 860.45, speed: 14.6, distance: 2.73 }),
+      tracked(2, '1023', '11:46:20', { total: 920.987, speed: 11.1, distance: 2.705 }),
+      coded('DNF', '1022'),
+    ],
+  });
+
+  it('hangs each boat’s track data on her planned finish row', () => {
+    const { races } = plan({ races: [trackedRace(1)] });
+    const byId = new Map(races[0].result!.finishes.map((f) => [f.competitorId, f]));
+    expect(byId.get('c1')?.trackData).toEqual({
+      dtlAtStartM: 8.45, distanceKm: 2.73, elapsedSecs: 860.45, maxSpeedKts: 14.6,
+    });
+    // The coded boat keeps what the device knows about her: the DTL alone.
+    expect(byId.get('c3')?.trackData).toEqual({ dtlAtStartM: -326.16 });
+  });
+
+  it('falls back to finish − start for elapsed when Total Time is absent', () => {
+    const { races } = plan({
+      races: [sourceRace({
+        number: 1,
+        finishes: [
+          tracked(1, '1021', '11:45:20', { distance: 2.73 }),
+          finisher(2, '1023', '11:46:20'),
+          coded('DNF', '1022'),
+        ],
+      })],
+    });
+    const boat = races[0].result!.finishes.find((f) => f.competitorId === 'c1');
+    expect(boat?.trackData).toEqual({ distanceKm: 2.73, elapsedSecs: 860 });
+  });
+
+  it('reads back unchanged when the same tracked workbook is uploaded again', () => {
+    const first = plan({ races: [trackedRace(1)] });
+    const stored = commit(first.races[0].race!.id, first.races[0].result!);
+    const second = plan({ races: [trackedRace(1)], finishes: stored });
+    expect(second.races[0].state).toBe('unchanged');
+  });
+
+  it('reads a race imported before track data existed as differs, showing the addition', () => {
+    const first = plan({ races: [trackedRace(1)] });
+    const stored = commit(first.races[0].race!.id, first.races[0].result!)
+      .map(({ trackData: _dropped, ...f }) => f as Finish);
+    const second = plan({ races: [trackedRace(1)], finishes: stored });
+    expect(second.races[0].state).toBe('differs');
+    const change = second.races[0].changes.find((c) => c.sailNumber === '1021');
+    expect(change?.stored).toBe('1st at 11:45:20');
+    expect(change?.incoming).toContain('2.73 km sailed');
+    expect(change?.incoming).toContain('max 14.6 kn');
+    expect(change?.incoming).toContain('DTL 8.45 m');
+  });
+});

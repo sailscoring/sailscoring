@@ -15,6 +15,7 @@ export function makeFinish(
     sortOrder: overrides.sortOrder ?? null,
     tiedWithPrevious: overrides.tiedWithPrevious ?? false,
     ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
+    ...(overrides.trackData != null ? { trackData: overrides.trackData } : {}),
     resultCode: overrides.resultCode ?? null,
     startPresent: overrides.startPresent ?? null,
     penaltyCode: overrides.penaltyCode ?? null,
