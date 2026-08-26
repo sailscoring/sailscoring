@@ -124,6 +124,11 @@ export default function RatingSystems() {
       </Section>
       {has('orc') && (
       <Section id="scoring-orc" title="ORC scoring and performance curves">
+        <HelpShot
+          src="/help/shots/orc.webp"
+          alt="A published ORC performance-curve race: the scoring-wind audit header, each boat's implied wind, and the constructed course's leg record."
+          caption="A published performance-curve race: the audit header, each boat's implied wind, and the course record."
+        />
         <p>
           An ORC certificate is imported whole — see{' '}
           <em>Importing ORC certificates</em> below — and each ORC fleet picks its{' '}

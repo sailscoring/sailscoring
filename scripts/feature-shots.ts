@@ -563,6 +563,43 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: ORC — the published performance-curve race table of the
+    // seeded demo: the audit header (constructed course, scoring wind and
+    // its source, scratch allowance), the ToD and Implied wind columns, and
+    // the leg-by-leg course record.
+    slug: 'orc',
+    group: 'Rating and handicap systems',
+    async capture({ page, anon, shot }) {
+      await ensureFeature(page, 'orc');
+      if (LOCAL) await publishSeries(page, 'Sample ORC Series 2026');
+      // Find the fleet page from the public workspace index, where each
+      // event row links its results tables.
+      await page.goto(`${BASE}/workspace/published`);
+      await settle(page);
+      const anyHref = await page
+        .locator('a[href*="/p/"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!anyHref) throw new Error('no published pages found');
+      const ws = new URL(anyHref, BASE).pathname.split('/')[2];
+      const pub = await anon.newPage();
+      await pub.goto(`${BASE}/p/${ws}`);
+      await settle(pub);
+      const orcHref = await pub
+        .locator('a[href*="cruisers-orc"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!orcHref) throw new Error('no cruisers-orc link on the public index');
+      await pub.goto(new URL(orcHref, BASE).toString());
+      await settle(pub);
+      // Frame the constructed-course race: its audit header and race table.
+      await pub.locator('#r3').scrollIntoViewIfNeeded();
+      await settle(pub);
+      await shot('orc.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: Provisional and final results — the finalise checklist,
     // cancelled unconfirmed.
     slug: 'results-status-final',

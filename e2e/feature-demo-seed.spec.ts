@@ -54,4 +54,40 @@ test.describe('feature demo seeding (#256)', () => {
     await expect(page.getByRole('tab', { name: 'Season Overall' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Summer Series' })).toBeVisible();
   });
+
+  test('enabling ORC seeds the worked ORC series, scored end to end', async ({ page }) => {
+    await page.goto('/');
+    await expect(
+      page.getByRole('link', { name: 'Sample ORC Series 2026' }),
+    ).toHaveCount(0);
+
+    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+    await expect(page).toHaveURL(/\/workspace$/);
+    const toggle = page.getByTestId('feature-toggle-orc');
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+
+    await page.getByRole('navigation').getByRole('link', { name: 'Series' }).click();
+    const demo = page.getByRole('link', { name: 'Sample ORC Series 2026' });
+    await expect(demo).toBeVisible();
+    await demo.click();
+
+    // The races carry their course facts: the constructed-course race lists
+    // its legs total on the start.
+    await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+    await expect(page).toHaveURL(/\/races$/);
+    await page.getByText('Race 3').click();
+    await expect(page.getByRole('heading', { name: 'Race starts' })).toBeVisible();
+    await expect(page.getByText('8.11 NM')).toBeVisible();
+    // The scripted DNF is on the sheet.
+    await expect(page.getByRole('heading', { name: 'Non-finishers (1)' })).toBeVisible();
+
+    // Both fleets score: the ORC fleet ranks all eight boats, and the IRC
+    // comparison fleet its dual-certificated three.
+    await page.getByRole('navigation').getByRole('link', { name: 'Standings' }).click();
+    await expect(page).toHaveURL(/\/standings$/);
+    await expect(page.getByText('Cruisers ORC')).toBeVisible();
+    await expect(page.getByText('Cruisers IRC')).toBeVisible();
+    await expect(page.getByText('Impetuous').first()).toBeVisible();
+  });
 });

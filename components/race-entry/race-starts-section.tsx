@@ -108,8 +108,14 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                   <span className={s.startTime ? 'font-mono' : 'italic'}>
                     {s.startTime ?? 'No gun time'}
                   </span>
-                  {s.distanceNm != null && (
-                    <span className="font-mono"> · {s.distanceNm.toFixed(2)} NM</span>
+                  {(s.distanceNm != null || s.courseLegs?.length) && (
+                    <span className="font-mono">
+                      {' · '}
+                      {(s.courseLegs?.length
+                        ? s.courseLegs.reduce((sum, leg) => sum + leg.distanceNm, 0)
+                        : s.distanceNm!
+                      ).toFixed(2)} NM
+                    </span>
                   )}
                   {' — '}
                   {s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}
