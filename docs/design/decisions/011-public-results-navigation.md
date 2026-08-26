@@ -1,6 +1,10 @@
 # ADR-011: Public results navigation and the publication tree
 
-**Status:** Accepted — implementation tracked in #320
+**Status:** Accepted — implemented; all four stages below have shipped
+(the cascade, interior index pages, seasons + the workspace-index
+rework, and the publish-dialog/CLI reframing), with the redirect table
+maintained via `pnpm redirects`. The Context describes the
+pre-implementation state that #320's picker left behind.
 
 **Date:** 2026-07-28
 
@@ -255,7 +259,7 @@ Adopt the **publication tree**. The sub-decisions:
    with docs recast in folder terms. Code-level renames follow the same
    staged path rather than a big-bang sweep.
 
-Implementation stages, each independently shippable: (1) the cascade on
+Implementation stages, each independently shipped: (1) the cascade on
 every page plus wording fixes — read-path only; (2) interior index pages
 with titleised labels; (3) folder metadata + seasons + the workspace-index
 rework, and the archive emitters drop `category = year`; (4) publish
@@ -316,7 +320,7 @@ dialog/CLI/vocabulary reframing.
 - [ADR-004](004-results-publishing.md): superseded (historical); its
   prefix-listing instinct — one shareable URL above the individual pages —
   is what interior index pages finally deliver properly.
-- [ADR-006](006-testing-and-debug-logging.md): the cascade and index pages
+- [ADR-006](006-testing-and-logging.md): the cascade and index pages
   are covered by unit tests over the pure renderers plus e2e over the
   public routes, as today.
 

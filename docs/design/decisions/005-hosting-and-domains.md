@@ -1,6 +1,12 @@
 # ADR-005: Hosting and Domain Structure
 
-**Status:** Accepted
+**Status:** Accepted — still current for `sailscoring.ie` and
+`app.sailscoring.ie`. Everything below concerning `bilge.sailscoring.ie`
+is historical: bilge was decommissioned in ADR-008 Phase 9 and that
+subdomain is now a redirect-only stub, with published results served at
+`app.sailscoring.ie/p/...`
+([ADR-011](011-public-results-navigation.md)). The app is also no longer
+local-first (ADR-008).
 
 **Date:** 2026-03-22
 

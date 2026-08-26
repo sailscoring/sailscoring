@@ -1,6 +1,16 @@
 # ADR-006: Testing and Debug Logging Strategy
 
-**Status:** Accepted
+**Status:** Accepted — the core decisions (Vitest + Playwright, no
+mocking of the storage layer, table-driven scoring tests, gated debug
+logging) all stand. The storage substrate they were written against
+does not: ADR-008 replaced Dexie/IndexedDB with Postgres, so repository
+tests now run against a real Postgres (`tests/db/`, `pnpm test:unit:db`)
+and e2e seeds state through the server rather than `page.evaluate()`.
+The client logger sketched below ships as `lib/debug.ts`; server-side
+logging exists (the "full-stack phase" arrived); e2e runs `retries: 2`
+locally as well as on CI. The bilge repo the References point at has
+been archived. Dexie- and bilge-era specifics below are retained as the
+decision-time record.
 
 **Date:** 2026-03-22
 

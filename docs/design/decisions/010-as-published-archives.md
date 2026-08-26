@@ -1,6 +1,10 @@
 # ADR-010: As-published archives
 
-**Status:** Accepted — implementation tracked in #283
+**Status:** Accepted — executed (#283). The production migration ran:
+the IODAI corpus and DBSC 2022–2025 were replaced by as-published
+ingests with the URL set verified, and archive-repo CI is armed — a
+push to an archive repo's main applies its series and identity
+manifest.
 
 **Date:** 2026-07-13
 
@@ -48,10 +52,11 @@ and hang the competitor-identity spine off them, not to re-derive them. Only
 current seasons (IODAI 2026 onward; the series clubs actually score in-app)
 need the full re-scoreable model.
 
-Timing constraint: the career-arc feature — including archived results — is
-announced at the IODAI event of ~2026-07-19, on the corpus already in
-production. This decision must therefore not sit on the event's critical
-path, and the later migration must not break any URL announced at it.
+Timing constraint at decision time: the career-arc feature — including
+archived results — was announced at the IODAI event of ~2026-07-19, on the
+corpus already in production. This decision therefore could not sit on the
+event's critical path, and the later migration could not break any URL
+announced at it.
 
 ## Decision Drivers
 
@@ -231,8 +236,8 @@ The sub-decisions:
    The DBSC reconstruction work is retired as product but keeps its value as
    provenance and as the crucible that shaped sub-series. DBSC 2026 stays on
    the live parity/compare loop — there the point *is* proving our engine.
-   None of this is on the 2026-07-19 event's critical path; the event runs
-   on the existing corpus and shipped features.
+   None of this was on the 2026-07-19 event's critical path; the event ran
+   on the then-existing corpus and shipped features.
 
 ## Consequences
 

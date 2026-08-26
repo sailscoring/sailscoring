@@ -9,7 +9,7 @@ bilge was decommissioned in ADR-008 Phase 9 (2026-05-25).
 
 > **Retirement note.** Superseded by ADR-008. The in-app publish-to-Vercel-
 > Blob replacement (`/p/{workspaceSlug}/{seriesSlug}/...`) shipped in Phase 9
-> (#153), and bilge was decommissioned (#152): its Blob, KV, QStash, and
+> and bilge was decommissioned, both under #152: its Blob, KV, QStash, and
 > Resend resources were deleted, the repository was archived, and
 > `bilge.sailscoring.ie` is now a redirect-only stub — the one still-referenced
 > URL (`/r/2026-m15-westerns/standings`) 301s to the app and every other path
