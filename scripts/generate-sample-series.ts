@@ -13,13 +13,18 @@
  * series draws *real* boats (names, owners, IRC TCC, ECHO rating) from the Irish
  * Sailing listing in `scripts/data/irc-echo-ratings.csv`.
  *
- * Pure data generation — no DB, no scoring engine. The engine recomputes
- * standings when the file is opened. Run via `pnpm generate:sample-series`.
+ * Pure data generation — no DB, and no scoring engine except one deliberate
+ * borrow: the ORC sample computes each boat's elapsed time FROM the PCS
+ * module's own performance-curve predictions (still deterministic — fixed
+ * PRNG, pure math), so the finishes carry coherent, realistic implied winds.
+ * The engine recomputes standings when the file is opened. Run via
+ * `pnpm generate:sample-series`.
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { scorePcsRace, type PcsAllowances, type PcsCourse } from '../lib/orc-pcs';
 import type { Competitor, Finish, CompetitorFieldKey, PrimaryPersonLabel } from '../lib/types';
 import {
   DEFAULT_VOCABULARY,
@@ -72,7 +77,7 @@ interface FileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'orc';
   echoAlpha?: number;
 }
 interface FileCompetitor {
@@ -95,6 +100,8 @@ interface FileCompetitor {
   subdivision?: string;
   ircTcc?: number;
   echoStartingTcf?: number;
+  /** v39+ — the boat's ORC certificate, stored verbatim (the ORC sample). */
+  orcCert?: { record: Record<string, unknown>; expiryDate?: string; vppYear?: number; importedAt: number };
 }
 interface FileFinish {
   id: string;
@@ -116,6 +123,12 @@ interface FileRaceStart {
   stage?: 'qualifying' | 'final' | 'medal';
   stageRaceNumber?: number;
   firstPlaceOffset?: number;
+  /** v39+ ORC race facts (the ORC sample): course length, constructed-course
+   *  legs, the race's scoring option, and the RC scoring-wind override. */
+  distanceNm?: number;
+  courseLegs?: { distanceNm: number; bearingDeg: number; windDirectionDeg: number }[];
+  orcOption?: string;
+  orcScoringWind?: number;
 }
 interface FileRace {
   id: string;
@@ -1334,6 +1347,229 @@ function buildChampionship(): SeriesFile {
   };
 }
 
+// ─── Sample 5: the ORC series (seeded on feature enable) ─────────────────────
+//
+// A four-Saturday cruiser series showing every ORC scoring method through the
+// per-race scoring option, on real 2026 IRL certificates (frozen with their
+// full time-allowance matrices in scripts/data/orc-sample-certs.json):
+//
+//   R1 — windward/leeward on the fleet default (APHT time-on-time), light air.
+//   R2 — short W/L on the race committee's announced wind band (the Irish
+//        five-band W/L Medium field), picked on the start.
+//   R3 — round the cans on the ORC Race Management Guide's 8.11 NM
+//        constructed course, scored on performance curves, fresh breeze.
+//   R4 — W/L performance curves with the scoring wind set by the race
+//        committee (the implied winds overstate the day — marks laid short).
+//
+// The three boats holding current IRC certificates also race an IRC fleet on
+// the same starts and finishes, so the published pages show the two systems
+// scoring the same sailing side by side.
+//
+// Finish times are computed FROM the boats' own performance curves: each boat
+// gets a target implied wind (the race's true wind plus stable per-boat form
+// and per-race jitter), its curve gives the s/NM allowance at that wind, and
+// elapsed = allowance × distance. Scoring then recovers implied winds right
+// around the targets — the sample's numbers hang together by construction.
+
+interface OrcSampleBoat {
+  yacht: string;      // YachtName key into the frozen certificates
+  display: string;
+  owner?: string;     // from scripts/data/irc-echo-ratings.csv where dual-rated
+  club: string;
+  ircTcc?: number;    // 2026 IRC TCC (same source); absent = ORC-only boat
+  formKts: number;    // stable "sailed well" bias, in knots of implied wind
+}
+
+const ORC_SAMPLE_BOATS: OrcSampleBoat[] = [
+  { yacht: 'IMPETUOUS', display: 'Impetuous', owner: 'Fergal Noonan', club: 'HYC', ircTcc: 0.920, formKts: 0.5 },
+  { yacht: 'MOJO', display: 'Mojo', owner: "Patrick O'Neill", club: 'HYC', ircTcc: 0.951, formKts: 0.3 },
+  { yacht: 'MAXIMUS', display: 'Maximus', owner: 'Patrick Kyne', club: 'HYC', ircTcc: 0.919, formKts: 0.0 },
+  { yacht: 'NO EXCUSE', display: 'No Excuse', club: 'HYC', formKts: -0.2 },
+  { yacht: 'JAMBALYA', display: 'Jambalya', club: 'RCYC', formKts: -0.4 },
+  { yacht: 'CHINOOK', display: 'Chinook', club: 'HYC', formKts: 0.1 },
+  { yacht: 'INDIAN', display: 'Indian', club: 'HYC', formKts: 0.2 },
+  { yacht: 'BANDERSNATCH OF HOWTH', display: 'Bandersnatch of Howth', club: 'HYC', formKts: -0.3 },
+];
+
+/** The ORC Race Management Guide's sample constructed course, 8.11 NM. */
+const ORC_SAMPLE_LEGS = [
+  { distanceNm: 2.09, bearingDeg: 162, windDirectionDeg: 160 },
+  { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 155 },
+  { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 155 },
+  { distanceNm: 1.89, bearingDeg: 161, windDirectionDeg: 160 },
+  { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 160 },
+  { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 160 },
+  { distanceNm: 0.19, bearingDeg: 316, windDirectionDeg: 160 },
+];
+
+interface OrcRaceSpec {
+  raceNumber: number;
+  date: string;
+  /** The day's true wind (kt) — the centre the implied winds scatter around. */
+  trueWindKts: number;
+  distanceNm?: number;
+  legs?: typeof ORC_SAMPLE_LEGS;
+  orcOption?: string;
+  orcScoringWind?: number;
+  codes?: Record<string, string>; // yacht → result code
+}
+
+const ORC_SAMPLE_RACES: OrcRaceSpec[] = [
+  { raceNumber: 1, date: '2026-09-12', trueWindKts: 8, distanceNm: 3.9 },
+  { raceNumber: 2, date: '2026-09-19', trueWindKts: 12, distanceNm: 3.2, orcOption: 'IRL_5B_WL_M_TOT' },
+  { raceNumber: 3, date: '2026-09-26', trueWindKts: 18, legs: ORC_SAMPLE_LEGS, orcOption: 'CC', codes: { CHINOOK: 'DNF' } },
+  { raceNumber: 4, date: '2026-10-03', trueWindKts: 14, distanceNm: 3.9, orcOption: 'WL', orcScoringWind: 12, codes: { JAMBALYA: 'DNC' } },
+];
+
+function buildOrcSample(): SeriesFile {
+  const rng = makeRng(0x02c5);
+  const certsFile = JSON.parse(
+    readFileSync(join(ROOT, 'scripts', 'data', 'orc-sample-certs.json'), 'utf8'),
+  ) as { records: { record: Record<string, unknown>; expiryDate?: string; vppYear?: number }[] };
+  const certByYacht = new Map(
+    certsFile.records.map((e) => [String(e.record.YachtName).toUpperCase(), e]),
+  );
+  const importedAt = Date.parse(EXPORTED_AT);
+
+  const IRC_FLEET = 'of-irc';
+  const ORC_FLEET = 'of-orc';
+  const fleets: FileFleet[] = [
+    // The ORC fleet's default option stays implicit (APHT) — race starts
+    // carry each race's announced option.
+    { id: ORC_FLEET, name: 'Cruisers ORC', displayOrder: 0, scoringSystem: 'orc' },
+    { id: IRC_FLEET, name: 'Cruisers IRC', displayOrder: 1, scoringSystem: 'irc' },
+  ];
+
+  const competitors: FileCompetitor[] = ORC_SAMPLE_BOATS.map((b, i) => {
+    const entry = certByYacht.get(b.yacht);
+    if (!entry) throw new Error(`no frozen certificate for ${b.yacht}`);
+    const r = entry.record;
+    return {
+      id: `oc-${String(i + 1).padStart(2, '0')}`,
+      fleetIds: b.ircTcc != null ? [ORC_FLEET, IRC_FLEET] : [ORC_FLEET],
+      sailNumber: String(r.SailNo ?? '').trim(),
+      boatName: b.display,
+      boatClass: String(r.Class ?? ''),
+      name: b.owner ?? b.display,
+      names: [b.owner ?? b.display],
+      club: b.club,
+      nationality: 'IRL',
+      gender: '' as const,
+      age: null,
+      ...(b.ircTcc != null ? { ircTcc: b.ircTcc } : {}),
+      orcCert: {
+        record: r,
+        ...(entry.expiryDate ? { expiryDate: entry.expiryDate } : {}),
+        ...(entry.vppYear != null ? { vppYear: entry.vppYear } : {}),
+        importedAt,
+      },
+    };
+  });
+  const compByYacht = new Map(ORC_SAMPLE_BOATS.map((b, i) => [b.yacht, competitors[i]]));
+
+  const GUN = 10 * 3600 + 35 * 60; // 10:35:00 each Saturday
+
+  const races: FileRace[] = ORC_SAMPLE_RACES.map((spec) => {
+    const course: PcsCourse = spec.legs
+      ? { legs: spec.legs.map((l) => ({ distanceNm: l.distanceNm, courseDeg: l.bearingDeg, windDirectionDeg: l.windDirectionDeg })) }
+      : { model: 'WL', distanceNm: spec.distanceNm! };
+
+    interface Crossing { comp: FileCompetitor; finishSecondsOfDay: number; code?: string }
+    const crossings: Crossing[] = [];
+    for (const b of ORC_SAMPLE_BOATS) {
+      const comp = compByYacht.get(b.yacht)!;
+      const code = spec.codes?.[b.yacht];
+      if (code === 'DNC') {
+        crossings.push({ comp, finishSecondsOfDay: Number.POSITIVE_INFINITY, code });
+        continue;
+      }
+      // Target implied wind: the day's wind, the boat's form, race-day luck.
+      const target = Math.min(23.5, Math.max(4.5, spec.trueWindKts + b.formKts + noise(rng) * 1.1));
+      const scored = scorePcsRace({
+        course,
+        boats: [{ id: b.yacht, allowances: comp.orcCert!.record.Allowances as PcsAllowances }],
+        scoringWindOverride: target,
+      });
+      const elapsed = Math.round(scored.boats[0].todAtScoringWind * scored.distanceNm);
+      if (code) {
+        // A DNF sailed most of the day but records no time.
+        crossings.push({ comp, finishSecondsOfDay: Number.POSITIVE_INFINITY, code });
+      } else {
+        crossings.push({ comp, finishSecondsOfDay: GUN + elapsed });
+      }
+    }
+
+    const placed = crossings.filter((x) => !x.code).sort((a, b) => a.finishSecondsOfDay - b.finishSecondsOfDay);
+    const finishes: FileFinish[] = [];
+    let sortOrder = 0;
+    for (const x of placed) {
+      sortOrder++;
+      finishes.push({
+        id: `ofin-${spec.raceNumber}-${x.comp.id}`,
+        competitorId: x.comp.id,
+        sortOrder,
+        finishTime: hms(x.finishSecondsOfDay),
+        resultCode: null,
+        startPresent: true,
+        penaltyCode: null,
+        penaltyOverride: null,
+      });
+    }
+    for (const x of crossings.filter((c) => c.code)) {
+      finishes.push({
+        id: `ofin-${spec.raceNumber}-${x.comp.id}`,
+        competitorId: x.comp.id,
+        sortOrder: null,
+        resultCode: x.code!,
+        startPresent: x.code !== 'DNC',
+        penaltyCode: null,
+        penaltyOverride: null,
+      });
+    }
+
+    const starts: FileRaceStart[] = [{
+      id: `ors-${spec.raceNumber}`,
+      fleetIds: [ORC_FLEET, IRC_FLEET],
+      startTime: hms(GUN),
+      ...(spec.distanceNm != null ? { distanceNm: spec.distanceNm } : {}),
+      ...(spec.legs ? { courseLegs: spec.legs } : {}),
+      ...(spec.orcOption ? { orcOption: spec.orcOption } : {}),
+      ...(spec.orcScoringWind != null ? { orcScoringWind: spec.orcScoringWind } : {}),
+    }];
+
+    return { id: `or-${spec.raceNumber}`, raceNumber: spec.raceNumber, date: spec.date, starts, finishes };
+  });
+
+  return {
+    formatVersion: 39,
+    seriesId: 'sample-orc',
+    exportedAt: EXPORTED_AT,
+    series: {
+      id: 'sample-orc',
+      name: 'Sample ORC Series 2026',
+      venue: 'Howth Yacht Club',
+      startDate: ORC_SAMPLE_RACES[0].date,
+      endDate: ORC_SAMPLE_RACES[ORC_SAMPLE_RACES.length - 1].date,
+      venueLogoUrl: '',
+      eventLogoUrl: '',
+      venueUrl: '',
+      eventUrl: '',
+      discardThresholds: [{ minRaces: 4, discardCount: 1 }],
+      dnfScoring: 'seriesEntries',
+      ftpHost: '',
+      ftpPath: '',
+      includeJsonExport: true,
+      enabledCompetitorFields: ['boatName', 'boatClass', 'club'],
+      primaryPersonLabel: 'owner',
+      subdivisionAxes: [],
+      scoringMode: 'handicap',
+    },
+    fleets,
+    competitors,
+    races,
+  };
+}
+
 // ─── Emit ─────────────────────────────────────────────────────────────────────
 
 function write(name: string, file: SeriesFile) {
@@ -1350,3 +1586,4 @@ write('regatta.sailscoring', buildRegatta());
 write('club-racing.sailscoring', buildClubRacing());
 write('club-league.sailscoring', buildClubLeague());
 write('championship.sailscoring', buildChampionship());
+write('orc.sailscoring', buildOrcSample());
