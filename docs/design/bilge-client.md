@@ -3,7 +3,13 @@
 A standalone web app for scorers to publish and update HTML results via
 [bilge](https://github.com/sailscoring/bilge), the MVP results-publishing service.
 
-**Status:** Design complete — ready to implement
+**Status:** Superseded — never built. In-app publishing (ADR-008
+Phase 9, #152, and the [ADR-011](decisions/011-public-results-navigation.md)
+publication tree) covered this need before implementation started, and
+bilge itself was decommissioned to a redirect-only stub (its repo is
+archived). The `bilge-client` repo below was never created, and the
+Dexie/IndexedDB storage it assumes is gone from the app. Kept as a
+historical record of the design.
 
 **Related:** [ADR-004: Results Publishing](decisions/004-results-publishing.md),
 [Issue #11](https://github.com/sailscoring/sailscoring/issues/11)

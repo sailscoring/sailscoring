@@ -6,16 +6,22 @@ A quick-and-dirty implementation of the Split Fleets design
 review it, extract the lessons, then discard the implementation.** Nothing
 here is production-quality; see Shortcuts below.
 
-> **Status (July 2026).** The review happened and #328 hardened the
-> prototype in place rather than discarding it: the findings below are
-> implemented (event ending + Mark as final, settings card, hidden
-> Standings tab with rehomed publish/preview, real medal dialog with a
-> chosen size, day strip, promotion, assignment publishing, full config
-> surface, file format / export / revision carriage, repositories + Zod,
-> and the engine shortcuts — penalties, redress, A8.2, medal doubling —
-> undone). This document stays as the review's evidence trail; the
-> Shortcuts section describes the prototype as reviewed, not the current
-> branch.
+> **Status (July 2026, updated August 2026).** The review happened and
+> #328 hardened the prototype in place rather than discarding it: the
+> findings below are implemented (event ending + Mark as final, settings
+> card, hidden Standings tab with rehomed publish/preview, real medal
+> dialog with a chosen size, day strip, promotion, assignment publishing,
+> full config surface, file format / export / revision carriage,
+> repositories + Zod, and the engine shortcuts — penalties, redress,
+> A8.2, medal doubling — undone). The work then **merged to main on
+> 2026-07-31** behind the `split-fleets` gate, and the start-sequence
+> revision (#346) replaced the one-Race-per-fleet model shown here: a
+> Race is now one start sequence with a combined interleaved finish
+> sheet, so the per-fleet slot rows and fleet-scoped finish entry below
+> are historical. The "wrong-fleet exception flow" listed as a gap was
+> dropped outright (#329). This document stays as the review's evidence
+> trail; the Shortcuts section describes the prototype as reviewed, not
+> the current code.
 
 ## Demo
 

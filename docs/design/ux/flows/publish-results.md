@@ -3,6 +3,12 @@
 Detailed user flow for S-08: Series Standings — publishing results to bilge,
 the MVP results-publishing service.
 
+> **Superseded.** This entire flow — bilge, the UUID/email-verification
+> protocol, and the IndexedDB-stored publishing state — was replaced by
+> in-app publishing (ADR-008 Phase 9, #152) to `/p/{workspace}/...`
+> URLs and the ADR-011 publication tree, and bilge was decommissioned.
+> Kept as a historical record; nothing below describes the current app.
+
 ---
 
 ## Overview

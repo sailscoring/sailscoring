@@ -14,6 +14,15 @@ Where a screenshot demonstrates a design behaviour or exposed a finding,
 that's noted inline — this doubles as the evidence trail for the findings
 list.
 
+> **Historical record.** This walkthrough shows the prototype as reviewed
+> on 2026-07-22. The findings it surfaced were fixed by #328, the work
+> merged to main on 2026-07-31 behind the `split-fleets` gate, and the
+> start-sequence revision (#346) replaced the one-Race-per-fleet model
+> pictured here (per-fleet slot rows, fleet-scoped finish entry) with one
+> start sequence and a combined interleaved sheet per race. Nothing below
+> describes the current UI — see `prototype.md`'s status note and
+> `docs/design/split-fleets.md`.
+
 ## 1. Setup
 
 ![Setup card](walkthrough/01-setup.png)

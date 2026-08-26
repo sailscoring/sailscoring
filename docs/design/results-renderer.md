@@ -1,14 +1,21 @@
 # Results Renderer
 
 The results renderer is a pure TypeScript function that produces a self-contained
-HTML results page from series scoring data. It is the shared rendering layer for
-both local HTML export (issue #13) and future in-app bilge publishing.
+HTML results page from series scoring data.
 
-**Status:** Implemented
+**Status:** Historical — the renderer itself (`lib/results-renderer.ts`)
+is very much alive, but this spec describes its first, scratch-only,
+Dexie-era incarnation. Since then: data comes from Postgres via
+`lib/results-export.ts`, the output feeds in-app publishing
+(ADR-008 Phase 9 / ADR-011) and Preview rather than a manual
+export-and-upload flow, and discards, handicap columns (IRC / PY / NHC /
+ECHO / VPRS with rating explainability), per-fleet and combined pages,
+per-race pages, and PDF export have all shipped. The bilge sections and
+the "Out of scope" table below are decision-time records; read
+`lib/results-renderer.ts` and `lib/results-export.ts` for current truth.
 
-**Related:** [issue #13](https://github.com/sailscoring/sailscoring/issues/13),
-[Sailwave HTML template analysis](../notes/sailwave/html-template.md),
-[Publish Results flow](ux/flows/publish-results.md)
+**Related:** [Sailwave HTML template analysis](../notes/sailwave/html-template.md),
+[Publish Results flow](ux/flows/publish-results.md) (itself superseded)
 
 ---
 
