@@ -119,6 +119,45 @@ export function carryAcrossImport(
   });
 }
 
+/** One piece of inexpressible state {@link carryAcrossImport} either kept or
+ *  couldn't: the penalty code itself, `redress`, `tie`, or `start check-in`,
+ *  against the boat it sits on. */
+export interface CarryOutcomeItem {
+  competitorId: string | null;
+  unknownSailNumber?: string;
+  what: string;
+}
+
+/**
+ * What {@link carryAcrossImport} did with each piece of stored state a sheet
+ * can't express, phrased for a confirm dialog: `kept` rode across onto the
+ * imported rows; `cleared` had nowhere to attach and dies with the replaced
+ * finishes unless the scorer re-enters it. Start check-ins are only reported
+ * when cleared — they carry whenever the boat appears at all, and losing one
+ * quietly turns her DNF default into a DNC.
+ */
+export function carryOutcome(
+  stored: readonly Finish[],
+  carried: readonly ImportedFinish[],
+): { kept: CarryOutcomeItem[]; cleared: CarryOutcomeItem[] } {
+  const carriedByKey = new Map(carried.map((f) => [importKey(f), f]));
+  const kept: CarryOutcomeItem[] = [];
+  const cleared: CarryOutcomeItem[] = [];
+  for (const f of stored) {
+    const after = carriedByKey.get(importKey(f));
+    const item = (what: string): CarryOutcomeItem => ({
+      competitorId: f.competitorId,
+      ...(f.competitorId === null ? { unknownSailNumber: f.unknownSailNumber ?? '' } : {}),
+      what,
+    });
+    if (f.penaltyCode) (after?.penaltyCode ? kept : cleared).push(item(f.penaltyCode));
+    if (f.resultCode === 'RDG') (after?.resultCode === 'RDG' ? kept : cleared).push(item('redress'));
+    if (f.tiedWithPrevious) (after?.tiedWithPrevious ? kept : cleared).push(item('tie'));
+    if (f.startPresent === true && !after) cleared.push(item('start check-in'));
+  }
+  return { kept, cleared };
+}
+
 /**
  * The `Finish` rows an imported sheet becomes.
  *

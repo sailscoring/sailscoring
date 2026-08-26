@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   carryAcrossImport,
+  carryOutcome,
   finishRowsFromImport,
   reorderFinisher,
   reorderWithTies,
@@ -690,5 +691,56 @@ describe('finishRowsFromImport', () => {
     expect(coded.resultCode).toBe('DNF');
     expect(coded.sortOrder).toBeNull();
     expect(coded.startPresent).toBe(true);
+  });
+});
+
+describe('carryOutcome', () => {
+  const finisher = (over: Partial<ImportedFinish> & Pick<ImportedFinish, 'competitorId' | 'sortOrder'>): ImportedFinish => ({
+    tiedWithPrevious: false,
+    startPresent: null,
+    penaltyCode: null,
+    penaltyOverride: null,
+    redressMethod: null,
+    redressExcludeRaceIds: null,
+    redressIncludeRaceIds: null,
+    redressIncludeAllLater: false,
+    redressPoints: null,
+    resultCode: null,
+    ...over,
+  });
+
+  it('reports each stored item as kept or cleared', () => {
+    const stored = [
+      makeFinish('r1', { id: 'f1', competitorId: 'c1', sortOrder: 1, penaltyCode: 'SCP', penaltyOverride: 10 }),
+      makeFinish('r1', { id: 'f2', competitorId: 'c2', sortOrder: 2, tiedWithPrevious: true }),
+      makeFinish('r1', { id: 'f3', competitorId: 'c3', sortOrder: null, resultCode: 'RDG', redressMethod: 'stated', redressPoints: 5 }),
+    ];
+    const carried = carryAcrossImport(stored, [
+      finisher({ competitorId: 'c1', sortOrder: 1 }),          // penalty carries
+      finisher({ competitorId: 'c3', sortOrder: 2 }),          // redress carries, c2's tie can't
+      finisher({ competitorId: 'c2', sortOrder: 3 }),
+    ]);
+    const { kept, cleared } = carryOutcome(stored, carried);
+    expect(kept.map((i) => [i.competitorId, i.what])).toEqual([
+      ['c1', 'SCP'],
+      ['c3', 'redress'],
+    ]);
+    expect(cleared.map((i) => [i.competitorId, i.what])).toEqual([['c2', 'tie']]);
+  });
+
+  it('reports state on a boat absent from the sheet as cleared, check-in included', () => {
+    const stored = [
+      makeFinish('r1', { id: 'f1', competitorId: 'c1', sortOrder: 1, penaltyCode: 'ZFP', startPresent: true }),
+    ];
+    const carried = carryAcrossImport(stored, [finisher({ competitorId: 'c2', sortOrder: 1 })]);
+    const { kept, cleared } = carryOutcome(stored, carried);
+    expect(kept).toEqual([]);
+    expect(cleared.map((i) => i.what)).toEqual(['ZFP', 'start check-in']);
+  });
+
+  it('says nothing about a race with nothing inexpressible on it', () => {
+    const stored = [makeFinish('r1', { id: 'f1', competitorId: 'c1', sortOrder: 1, finishTime: '11:00:00' })];
+    const carried = carryAcrossImport(stored, [finisher({ competitorId: 'c1', sortOrder: 1 })]);
+    expect(carryOutcome(stored, carried)).toEqual({ kept: [], cleared: [] });
   });
 });

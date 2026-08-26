@@ -28,9 +28,11 @@
  * watching each suggestion, and an imported sheet carries whole numbers with
  * nobody reading the rows one at a time.
  *
- * v1 scope intentionally excludes ties, penalties (ZFP/SCP/DPI),
- * redress (RDG), equal-position sortOrder overrides, and startPresent.
- * Those are rare and can be set in the editor after import.
+ * The format intentionally excludes ties, penalties (ZFP/SCP/DPI), redress
+ * (RDG), equal-position sortOrder overrides, and startPresent. Those are
+ * rare and are set in the editor — and on a re-import, the ones already
+ * stored are carried across rather than cleared (see `carryAcrossImport`
+ * in lib/finish-entry.ts).
  */
 
 import type { Finish, ResultCode } from './types';
