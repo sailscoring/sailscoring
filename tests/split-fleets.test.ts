@@ -17,6 +17,7 @@ import {
   rankPatternFleetIndex,
   seedOrder,
   splitFleetStandings,
+  type SplitFleetConfig,
   type SplitFleetData,
   type SplitRound,
 } from '@/lib/split-fleets';
@@ -921,5 +922,153 @@ describe('one race per fleet scores the same as one combined sheet', () => {
       expect([...logical.races.keys()].sort()).toEqual(['fb', 'fr', 'fy']);
       expect(logical.valid).toBe(true);
     }
+  });
+});
+
+describe('a stage position a tie cannot separate is shared', () => {
+  /** Two qualifying fleets of three, two races — below the discard
+   *  threshold, so every score counts. y1 and b1 win every race of their
+   *  own fleets: identical score lists in different fleets, which nothing
+   *  in RRS A8 separates. b2 (2,3) and b3 (3,2) tie on net but the A8.2
+   *  count-back breaks them on the last race. */
+  function qualifyingRankSeedData(): SplitFleetData {
+    const config: SplitFleetConfig = {
+      ...defaultSplitFleetConfig(2),
+      carry: 'rank-seed',
+    };
+    const competitors = [
+      competitor('y1', ['fy', 'fg'], 1), competitor('y2', ['fy', 'fg'], 2),
+      competitor('y3', ['fy', 'fg'], 3), competitor('b1', ['fb', 'fg'], 4),
+      competitor('b2', ['fb', 'fg'], 5), competitor('b3', ['fb', 'fg'], 6),
+    ];
+    const qRound: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const fRound: SplitRound = {
+      id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+      fleetIds: ['fg'], method: 'split', basis: null, createdAt: 1,
+    };
+    return {
+      config,
+      rounds: [qRound, fRound],
+      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue'), fleet('fg', 'Gold')],
+      competitors,
+      races: [race('q1'), race('q2')],
+      raceStarts: [
+        start('q1', ['fy', 'fb'], 'qualifying', 1),
+        start('q2', ['fy', 'fb'], 'qualifying', 2),
+      ],
+      finishes: [
+        finish('q1', 'y1', 0), finish('q1', 'b1', 1), finish('q1', 'y2', 2),
+        finish('q1', 'b2', 3), finish('q1', 'y3', 4), finish('q1', 'b3', 5),
+        finish('q2', 'y1', 0), finish('q2', 'b1', 1), finish('q2', 'y2', 2),
+        finish('q2', 'b3', 3), finish('q2', 'y3', 4), finish('q2', 'b2', 5),
+      ],
+    };
+  }
+
+  it('rank-seed carries the shared qualifying position, skipping past it', () => {
+    const rows = splitFleetStandings(qualifyingRankSeedData());
+    const carried = Object.fromEntries(
+      rows.map((r) => [r.competitor.id, r.cells.find((c) => c.carriedRank)!.points]),
+    );
+    // y1 and b1 hold the qualifying position nothing can separate: both
+    // carry 1 and nobody carries 2. b2 and b3 tie on net but the count-back
+    // separates them, so their carried positions stay distinct.
+    expect(carried).toEqual({ y1: 1, b1: 1, y2: 3, b3: 4, b2: 5, y3: 6 });
+  });
+
+  it('and the carried positions rank the final series the same way', () => {
+    const rows = splitFleetStandings(qualifyingRankSeedData());
+    const rank = Object.fromEntries(rows.map((r) => [r.competitor.id, r.rank]));
+    expect(rank).toEqual({ y1: 1, b1: 1, y2: 3, b3: 4, b2: 5, y3: 6 });
+  });
+
+  /** The stage-rank medal tie-break, with the sub-series steps themselves
+   *  tied. The compressed carry manufactures the overall tie (nets 7 and 8
+   *  both halve to 4); both medal boats hold DNF in every final race —
+   *  identical lists the final series cannot separate — so the final-series
+   *  step must fall through instead of deciding.
+   *
+   *  `blueQ3` sets the third qualifying race's Blue order: with b1 second
+   *  the qualifying series separates the boats on the count-back; with b1
+   *  first their qualifying lists are identical too and nothing is left. */
+  function stageRankData(blueQ3: 'b1-behind' | 'b1-ahead'): SplitFleetData {
+    const config: SplitFleetConfig = {
+      ...defaultSplitFleetConfig(2),
+      medal: {
+        size: 2,
+        raceCount: 1,
+        multiplier: 1,
+        carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+        tieBreak: 'stage-rank',
+        companionRace: 'none',
+      },
+    };
+    const competitors = [
+      competitor('y1', ['fy', 'fg', 'fm'], 1), competitor('y2', ['fy', 'fg'], 2),
+      competitor('b1', ['fb', 'fg', 'fm'], 3), competitor('b2', ['fb'], 4),
+    ];
+    const qRound: SplitRound = {
+      id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+      fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0,
+    };
+    const fRound: SplitRound = {
+      id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+      fleetIds: ['fg'], method: 'split', basis: null, createdAt: 1,
+    };
+    const mRound: SplitRound = {
+      id: 'r3', seriesId: 's1', stage: 'medal', fromStageRace: 1,
+      fleetIds: ['fm'], method: 'seeded', basis: null, createdAt: 2,
+    };
+    const q3Blue =
+      blueQ3 === 'b1-behind'
+        ? [finish('q3', 'b2', 1), finish('q3', 'b1', 2)]
+        : [finish('q3', 'b1', 1), finish('q3', 'b2', 2)];
+    return {
+      config,
+      rounds: [qRound, fRound, mRound],
+      fleets: [
+        fleet('fy', 'Yellow'), fleet('fb', 'Blue'),
+        fleet('fg', 'Gold'), fleet('fm', 'Medal'),
+      ],
+      competitors,
+      races: [race('q1'), race('q2'), race('q3'), race('f1'), race('f2')],
+      raceStarts: [
+        start('q1', ['fy', 'fb'], 'qualifying', 1),
+        start('q2', ['fy', 'fb'], 'qualifying', 2),
+        start('q3', ['fy', 'fb'], 'qualifying', 3),
+        start('f1', ['fg'], 'final', 1),
+        start('f2', ['fg'], 'final', 2),
+      ],
+      finishes: [
+        finish('q1', 'y1', 0), finish('q1', 'b1', 1), finish('q1', 'y2', 2), finish('q1', 'b2', 3),
+        finish('q2', 'y1', 0), finish('q2', 'b1', 1), finish('q2', 'y2', 2), finish('q2', 'b2', 3),
+        finish('q3', 'y1', 0), finish('q3', 'y2', 3), ...q3Blue,
+        // The medal boats hold DNF in both final races: identical score
+        // lists the final-series ranking cannot separate.
+        finish('f1', 'y2', 0), finish('f1', 'y1', null, 'DNF'), finish('f1', 'b1', null, 'DNF'),
+        finish('f2', 'y2', 0), finish('f2', 'y1', null, 'DNF'), finish('f2', 'b1', null, 'DNF'),
+      ],
+    };
+  }
+
+  it('a tied final-series step falls through to the qualifying series', () => {
+    // Overall: y1 nets 7 and b1 nets 8, both carried as 4 — tied, and A8
+    // compares two identical carried scores. Final series: DNF 4,4 against
+    // DNF 4,4 — tied. Qualifying series: y1 3 against b1 4 — decided.
+    const rows = splitFleetStandings(stageRankData('b1-behind'));
+    const rank = Object.fromEntries(rows.map((r) => [r.competitor.id, r.rank]));
+    expect(rank).toEqual({ y1: 1, b1: 2, y2: 3, b2: 4 });
+  });
+
+  it('a tie neither sub-series step can break stays a tie', () => {
+    // As above, but b1 also wins every Blue qualifying race: both boats
+    // tied overall, in the final series, and in the qualifying series —
+    // every step falls through and the medal rank is shared.
+    const rows = splitFleetStandings(stageRankData('b1-ahead'));
+    const rank = Object.fromEntries(rows.map((r) => [r.competitor.id, r.rank]));
+    expect(rank).toEqual({ y1: 1, b1: 1, y2: 3, b2: 4 });
   });
 });

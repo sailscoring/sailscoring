@@ -15,7 +15,7 @@ block names its real anchor event and links its captured SIs/results in
 | **F2** | F1 + a medal race: doubled, non-discardable medal points; medal boats ranked above the fleets; non-medal companion "last race" scored from below the medal fleet | `03` (ILCA Adelaide) |
 | **F3** | Compressed carry: the medal boats' opening-series score is divided and rounded before an additive, non-discardable medal series | `15` (ILCA Dun Laoghaire, ÷2 rounding 0.5 up), `16` (its sub-series tie-break), `17` (the extra race for the boats who did not qualify) |
 | **F5** | Net + net: qualifying and final are separately-discarded series and the championship score is their sum | `13` (29er) |
-| **F6** | Rank-seed carry: the qualifying *position* carries into the final series as one non-excludable score and the qualifying race scores drop out | `14` (Topper / 470) |
+| **F6** | Rank-seed carry: the qualifying *position* carries into the final series as one non-excludable score and the qualifying race scores drop out | `14` (Topper / 470), `20` (a qualifying tie A8 cannot break, carried shared) |
 
 Not covered here (later priorities, per the survey): **F4** knockout overlay
 (record-only), **F7** no-carry, **F8** frozen fleets / merged starts.
@@ -31,7 +31,7 @@ Not covered here (later priorities, per the survey): **F4** knockout overlay
 | **D8** | Equalisation of a qualifying race not completed by all fleets | `08` | ILCA A2.8 (abandon & cancel the surplus) |
 | **D10** | Redress across the split — A9(a) fractional average points + promotion | `09` (spec-only) | ILCA 6 2021 Oman ("14.8 RDGc"); IODA promote-only refleeting |
 | **D7** | Title places decided on a tie-break | `16` | 2026 ILCA SI 18.7.4 (the halved carry manufactures the ties); ILCA 6 2021 Oman, decided on unmodified A8 |
-| **D11** | A tie RRS A8 cannot break — the boats share the rank | `19` | 2026 ILCA 7 Dun Laoghaire (identical DNC lines in different qualifying fleets, published joint 140th) |
+| **D11** | A tie RRS A8 cannot break — the boats share the rank | `19`, `20` | 2026 ILCA 7 Dun Laoghaire (identical DNC lines in different qualifying fleets, published joint 140th) |
 
 The remaining survey scenarios (D2 void championship, D4 finals near-void,
 D9 SI/practice divergence) are not in this batch.

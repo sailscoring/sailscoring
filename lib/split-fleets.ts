@@ -132,7 +132,9 @@ export interface SplitFleetConfig {
     /** How a tie between two medal boats is settled. Absent = RRS A8 as
      *  written, and a tie A8 cannot break stays a tie.
      *  - `stage-rank` adds two steps after A8: the boat ranked higher in the
-     *    final series alone, then in the qualifying series alone, wins.
+     *    final series alone, then in the qualifying series alone, wins. A
+     *    step where the boats are tied in that sub-series too decides
+     *    nothing and falls through.
      *  - `last-race` replaces A8 outright with its own single comparison —
      *    the boats' scores in the last race, with no count-of-places step
      *    before it and nothing behind it.
@@ -1085,17 +1087,25 @@ function rankStageSeries(
       };
     })
     .filter((r) => r.sailed);
-  scored.sort(
-    (a, b) =>
-      a.net - b.net ||
-      compareScoreLists(
-        a.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
-        b.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
-      ) ||
-      compareLastRace(a.cells, b.cells),
-  );
+  const byStage = (a: (typeof scored)[number], b: (typeof scored)[number]) =>
+    a.net - b.net ||
+    compareScoreLists(
+      a.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
+      b.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
+    ) ||
+    compareLastRace(a.cells, b.cells);
+  scored.sort(byStage);
+  // A tie the stage's own A8 steps cannot break stays a tie: the boats share
+  // the position and the next boat skips past it. A shared position means the
+  // `stage-rank` tie-break step falls through instead of deciding, and the
+  // `rank-seed` carry gives both boats the same non-excludable points.
   const positions = new Map<string, number>();
-  scored.forEach((r, i) => positions.set(r.id, i + 1));
+  scored.forEach((r, i) => {
+    positions.set(
+      r.id,
+      i > 0 && byStage(scored[i - 1], r) === 0 ? positions.get(scored[i - 1].id)! : i + 1,
+    );
+  });
   return positions;
 }
 
