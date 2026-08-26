@@ -194,6 +194,37 @@ describe('fleet markers on the championship standings', () => {
   });
 });
 
+describe('the championship links to the per-race results page', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+
+  it('deep-links each race column header when the page location is known', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE), {
+      raceResultsHref: 'race-results',
+    });
+    expect(html).toContain('<th><a href="race-results#q1">Q1</a></th>');
+    expect(html).toContain('<th><a href="race-results#f2">F2</a></th>');
+    // And says so in prose too, above the tables.
+    expect(html).toMatch(/<a href="race-results">Race results<\/a>/);
+  });
+
+  it('leaves a carried-score column unlinked — it is a score, not a race', () => {
+    // Rank-seed carry mints a stage-race-0 column; no race section exists
+    // for it, so a link would 404 into the page.
+    const html = renderSplitFleetStandingsPage(renderInputFor('14-f6-rank-seed-carry.yaml'), {
+      raceResultsHref: 'race-results',
+    });
+    expect(html).not.toContain('#f0');
+    expect(html).not.toContain('#m0');
+    expect(html).toContain('<th><a href="race-results#q1">Q1</a></th>');
+  });
+
+  it('renders plain headers when the location is unknown (preview, download, FTP)', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    expect(html).toContain('<th>Q1</th>');
+    expect(html).not.toContain('Race results</a>');
+  });
+});
+
 describe('renderSplitFleetRaceResultsPage', () => {
   const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
 

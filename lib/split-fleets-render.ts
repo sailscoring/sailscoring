@@ -132,6 +132,11 @@ export interface SplitFleetPageChrome {
   finalisedAt?: Date;
   /** The event index, rendered as the shell's breadcrumb. */
   seriesIndexUrl?: string;
+  /** The per-race results page's URL relative to this page, when the caller
+   *  knows where both will be served (the publish path does; preview,
+   *  download and FTP do not). On the championship standings it turns each
+   *  race column header into a deep link and adds a legend line. */
+  raceResultsHref?: string;
 }
 
 function chromeFor(input: SplitFleetRenderInput, opts: SplitFleetPageChrome): DocumentChrome {
@@ -248,8 +253,18 @@ export function renderSplitFleetStandingsPage(
     return fid ? fleetName.get(fid) : undefined;
   };
 
+  // With the race page's location known, each race column header deep-links
+  // to that race's own tables. A carried-score column (stage race 0) is a
+  // score, not a race: no section exists for it, so no link.
+  const headerCell = (c: { stage: SeriesStage; n: number }): string => {
+    const label = columnLabel(c.stage, c.n);
+    return opts.raceResultsHref && c.n > 0
+      ? `<th><a href="${esc(opts.raceResultsHref)}#${stageRaceAnchor(c.stage, c.n)}">${label}</a></th>`
+      : `<th>${label}</th>`;
+  };
+
   const table = (rowsIn: typeof rows, cuts: number[] = [], withFleetCol = false): string => {
-    const head = columns.map((c) => `<th>${columnLabel(c.stage, c.n)}</th>`).join('');
+    const head = columns.map(headerCell).join('');
     const body = rowsIn
       .map((row, i) => {
         const medal = row.medal
@@ -320,9 +335,13 @@ ${body}
     sections = table(rows, data.config.finalFleets.length > 1 ? cuts : [], true);
   }
 
+  const raceLink = opts.raceResultsHref
+    ? `<p class="sfnote"><a href="${esc(opts.raceResultsHref)}">Race results</a> — each race&#39;s own tables, fleet by fleet.</p>`
+    : '';
+
   return renderHtmlDocument(
     { ...chromeFor(input, opts), fleetName: 'Championship' },
-    `${PAGE_CSS}\n${legendHtml()}\n${sections}`,
+    `${PAGE_CSS}\n${raceLink}\n${legendHtml()}\n${sections}`,
     {
       fontPercent: 72,
       hasNhcDetail: false,
