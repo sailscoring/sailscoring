@@ -43,11 +43,10 @@ marginal gain.
 | `/results` | Sample results | One or two published results sheets embedded from bilge, demonstrating the end product |
 | `/legal/terms` | Terms of Service | — |
 | `/legal/privacy` | Privacy Policy | — |
-| `/legal/cookies` | Cookie Policy | Minimal: no analytics, no tracking cookies during stealth beta |
+| `/legal/cookies` | Cookie Policy | Minimal: no analytics, no tracking cookies |
 | `/legal/acceptable-use` | Acceptable Use Policy | — |
 
-Legal pages should be reviewed by a solicitor before any public-facing usage beyond
-stealth beta.
+Legal pages should be reviewed by a solicitor as adoption grows.
 
 ## Design Direction
 
@@ -72,7 +71,7 @@ features described concisely in plain language.
   This is the only conversion goal for the foreseeable future.
 - **No dark mode toggle.** Not needed for a mostly-static marketing site at this stage.
 - **No cookies banner.** If no analytics or tracking are present, no banner is needed.
-  That is the intended state during stealth beta.
+  That remains the intended state.
 
 ### Colour and type palette (proposed, not final)
 
@@ -128,6 +127,8 @@ at Vercel via apex-domain DNS configuration (per ADR-005).
 
 ## Launch Criteria
 
-The site should be live before the stealth beta begins. Minimum viable means: Home,
-About, and Contact. The sample results page and the CTA to the app can follow once
-bilge is live.
+**Met.** The site went live ahead of the 2026 stealth beta with Home, About, and
+Contact; the sample results and the CTA to the app followed. Since August 2026 the
+site describes the service as generally available to clubs and class associations
+in Ireland, with individuals elsewhere encouraged to trial it using a personal
+workspace.

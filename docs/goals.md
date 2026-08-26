@@ -28,7 +28,7 @@ Not all parts of a scoring system are equally important. Some can be replaced by
 
 **Finish recording** — entering the order or time at which boats cross the line — is already being disrupted. GPS trackers, transponders, and purpose-built mobile apps are increasingly capable of capturing finish data with less friction than a scorer typing into a form. Sail Scoring does not need to own this. A mobile finish-recording app, a GPS integration, or a data feed from another system can all supply the same inputs. The channel matters less than the data arriving correctly.
 
-**Publishing and display** are similarly peripheral. Results can be consumed by any number of tools: a club's existing website, a third-party app, a federation's results platform. As long as Sail Scoring exposes a well-documented API, the display layer is replaceable. The **bilge** service (see [ADR-004](design/decisions/004-results-publishing.md)) is an explicit acknowledgement of this: a deliberately temporary publishing tool, designed to be replaced rather than grown into a permanent dependency.
+**Publishing and display** are similarly peripheral. Results can be consumed by any number of tools: a club's existing website, a third-party app, a federation's results platform. As long as Sail Scoring exposes a well-documented API, the display layer is replaceable. The **bilge** service (see [ADR-004](design/decisions/004-results-publishing.md)) was an explicit acknowledgement of this: a deliberately temporary publishing tool, designed to be replaced rather than grown into a permanent dependency — and duly replaced by in-app publishing in ADR-008 Phase 9.
 
 **The irreplaceable core is scoring itself.** Given a series configuration, a list of competitors, and per-race finishes — assign scores, apply discards, and produce standings. This is the hard, rule-governed, trust-requiring part. It is the part that must be bullet-proof. Competitors and protest committees need to believe the results are correct; that belief rests entirely on the scoring engine.
 
@@ -40,7 +40,7 @@ This framing has a practical implication for prioritisation: the scoring engine 
 
 ## Near-Term Goals
 
-The near-term goal is to build a Minimum Viable Product and validate it with real users during a stealth beta period.
+The near-term goal was to build a Minimum Viable Product and validate it with real users during a stealth beta period. Both are done: since August 2026 the service is generally available to clubs and class associations in Ireland, with individuals elsewhere encouraged to trial it using a personal workspace.
 
 ### MVP
 
@@ -54,7 +54,7 @@ The MVP must demonstrate that Sail Scoring can handle both of these use cases en
 
 ### Stealth Beta
 
-**Status: in progress.** The stealth beta has begun with scorers at HYC, who are currently reviewing historical events in the application. Live race-day scoring has not yet been attempted.
+**Status: complete.** The stealth beta ran with Irish clubs and class associations — HYC's scoring panel on a shared workspace, IODAI scoring live events — through the first half of the 2026 season. In August 2026 the beta closed and the service became generally available in Ireland; outside Ireland, individuals are encouraged to trial it using a personal workspace and send feedback.
 
 The intent of this phase is to introduce the application to a small number of carefully chosen early adopters:
 
@@ -65,13 +65,13 @@ The intent of this phase is to introduce the application to a small number of ca
 
 ### Full-Stack Transition
 
-**Status: largely complete.** The MVP began as a local-first web application with data stored in the browser via IndexedDB ([ADR-003](design/decisions/003-application-architecture.md)). [ADR-008](design/decisions/008-full-stack-transition.md) committed to and sequenced the transition; Phases 1–8 are landed — Better Auth + Neon Postgres + the server-side data layer is the only runtime, the Dexie/IndexedDB code is gone, and HYC's scoring panel is on a shared workspace with actor-attributed concurrency. The migration was a swap of layers rather than a rewrite, as ADR-003 designed for: the repository pattern, the pure scoring engine, shared TypeScript types, and the JSON export/import format all carried across unchanged.
+**Status: complete.** The MVP began as a local-first web application with data stored in the browser via IndexedDB ([ADR-003](design/decisions/003-application-architecture.md)). [ADR-008](design/decisions/008-full-stack-transition.md) committed to and sequenced the transition; all ten phases are landed — Better Auth + Neon Postgres + the server-side data layer is the only runtime, the Dexie/IndexedDB code is gone, and HYC's scoring panel is on a shared workspace with actor-attributed concurrency. The migration was a swap of layers rather than a rewrite, as ADR-003 designed for: the repository pattern, the pure scoring engine, shared TypeScript types, and the JSON export/import format all carried across unchanged.
 
-Two phases remain: Phase 9 replaces bilge with an integrated publish-to-blob-storage path at `/p/{slug}`, with a redirect window for existing bilge URLs; Phase 10 delivers self-service org administration, the full activity log, and vanity URLs. Both are scheduled in ADR-008 and tracked in `docs/design/horizon.md`.
+Phase 9 replaced bilge with in-app publishing at workspace-namespaced `/p/...` URLs (bilge is decommissioned to a redirect-only stub), and Phase 10 delivered the activity log, the invitation and member-management UI, and self-service workspace requests. The remaining residue (field-level activity diffs, vanity URLs) is tracked in `docs/design/horizon.md`.
 
 ### Near-Term Non-Goals
 
-- Broad public availability or marketing.
+- Marketing or availability push beyond Ireland. Outside Ireland the service is open for individual trials via personal workspaces, but clubs and classes are not yet being courted.
 - Feature parity with Sailwave. The MVP deliberately covers a narrow slice of Sailwave's functionality.
 - Mobile-native applications. A responsive web application accessed through a browser is sufficient.
 - Offline-first operation. Connectivity at race venues is generally adequate; offline support can be revisited later.
