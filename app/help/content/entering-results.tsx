@@ -247,10 +247,14 @@ export default function EnteringResults() {
         </p>
         <p>
           The import is <strong className="text-foreground">replace-all</strong>: confirming
-          replaces the race’s finishing order entirely and clears any penalties, redress,
-          and tied-finish markers — the importer only covers the basic sheet, so re-apply
-          those in the editor after import if needed. Existing start check-ins are preserved.
-          Click <strong className="text-foreground">Save results</strong> after importing to
+          replaces the race’s finishing order entirely. What the sheet can’t express —
+          penalties, redress, tied-finish markers, start check-ins — is carried across from
+          the race’s existing finishes wherever it still fits: a penalty or redress stays
+          with a boat who is still a finisher, a tie stays while the pair of boats it marks
+          is unchanged, a check-in stays as long as the boat appears on the sheet. The
+          preview says what carries and, in red, what this import clears — re-enter anything
+          from that list in the editor afterwards if it should survive. Click{' '}
+          <strong className="text-foreground">Save results</strong> after importing to
           persist the change.
         </p>
       </Section>
@@ -314,8 +318,14 @@ export default function EnteringResults() {
           Anything else the workbook does that the app didn’t expect is listed before the
           races are — an unfamiliar column, a status it has never seen, a race whose
           Summary and race sheet disagree. Importing a ticked race{' '}
-          <strong className="text-foreground">replaces</strong> that race’s finishes and
-          clears any penalties, redress and ties on it; other races are left alone.
+          <strong className="text-foreground">replaces</strong> that race’s finishes; other
+          races are left alone. Penalties, redress, ties and start check-ins the workbook
+          can’t express are carried across from what the race already holds wherever they
+          still fit — a race whose only extra state carries cleanly still reads back{' '}
+          <strong className="text-foreground">Unchanged</strong> — and anything that can’t
+          carry (a penalty on a boat the sheet now codes DNF, say) puts the race in{' '}
+          <strong className="text-foreground">Differs</strong> with the loss spelled out in
+          its change list.
         </p>
       </Section>
       )}
