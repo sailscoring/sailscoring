@@ -7,6 +7,7 @@ import type {
   ProportionalDiscard,
   DnfScoring,
   Finish,
+  FinishTrackData,
   CompetitorFieldKey,
   PrimaryPersonLabel,
   StartGroup,
@@ -313,9 +314,16 @@ export interface SeriesFileRepos {
  *  the medal fleet rather than adding steps behind it. `splitFleets.config`
  *  travels verbatim, so no parser change — but an older build reading one
  *  drops the field and settles those ties under A8, which is the wrong
- *  answer to the question that decides the championship. */
-export const FORMAT_VERSION = 38;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38];
+ *  answer to the question that decides the championship.
+ *
+ *  v39 adds `finishes[*].trackData` — how the boat sailed the race (elapsed
+ *  time, distance sailed, speeds, distance to line at the start), as captured
+ *  by RaceSense — and `series.publishTrackData`, the off-by-default opt-in
+ *  that puts those columns on published per-race tables. Additive and sparse;
+ *  nothing is scored from either, so an older build reading a v39 file loses
+ *  the captured record and the opt-in, never a result. */
+export const FORMAT_VERSION = 39;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -401,6 +409,7 @@ interface SeriesFileSeries {
   protestTimeLimit?: ProtestTimeLimit;  // v20+; SI time-limit config
   officials?: RaceOfficial[];  // v27+; the standing race management team
   publishOfficials?: boolean;  // v27+; absent = not published
+  publishTrackData?: boolean;  // v39+; RaceSense track data on published per-race tables; absent = not published
 }
 
 interface SeriesFileCompetitor {
@@ -455,6 +464,7 @@ interface SeriesFileFinish {
   /** Optional in the file format — older files default to `false` on import. */
   tiedWithPrevious?: boolean;
   finishTime?: string;
+  trackData?: FinishTrackData;  // v39+; RaceSense track data, carried verbatim
   resultCode: ResultCode | null;
   startPresent: boolean | null;
   penaltyCode: PenaltyCode | null;
@@ -638,6 +648,7 @@ export async function buildSeriesFile(
       sortOrder: f.sortOrder,
       ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+      ...(f.trackData ? { trackData: f.trackData } : {}),
       resultCode: f.resultCode,
       startPresent: f.startPresent,
       penaltyCode: f.penaltyCode ?? null,
@@ -731,6 +742,7 @@ export async function buildSeriesFile(
       ...(series.protestTimeLimit ? { protestTimeLimit: series.protestTimeLimit } : {}),
       ...(series.officials?.length ? { officials: series.officials } : {}),
       ...(series.publishOfficials ? { publishOfficials: true } : {}),
+      ...(series.publishTrackData ? { publishTrackData: true } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -1211,6 +1223,7 @@ export async function openSeriesFromFile(
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1304,6 +1317,7 @@ export async function restoreSeriesFromFile(
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1406,6 +1420,7 @@ async function updateSeriesFromFileInner(
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1574,6 +1589,7 @@ async function updateSeriesFromSailwaveInner(
     // with no team to publish.
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     lastModifiedAt: now,
   });
 
@@ -1746,6 +1762,7 @@ async function writeFleetsCompetitorsRaces(
           sortOrder: f.sortOrder,
           tiedWithPrevious: f.tiedWithPrevious ?? false,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+          ...(f.trackData ? { trackData: f.trackData } : {}),
           resultCode: f.resultCode,
           startPresent: f.startPresent,
           penaltyCode: f.penaltyCode,

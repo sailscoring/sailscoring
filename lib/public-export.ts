@@ -8,6 +8,7 @@ import type {
   MultiPersonFieldKey,
   PrimaryPersonLabel,
   Finish,
+  FinishTrackData,
   SubdivisionAxis,
   LogoDefaults,
   Series,
@@ -185,6 +186,10 @@ export interface PublicSeriesExport {
     /** The opt-in itself, carried so a re-import keeps the decision rather
      *  than silently reverting a publishing series to unpublished. */
     publishOfficials?: boolean;
+    /** Whether RaceSense track data is published. Same contract as
+     *  `publishOfficials`: the per-finish `trackData` appears only when this
+     *  is set, and the flag itself is carried so a re-import keeps it. */
+    publishTrackData?: boolean;
   };
   fleets: {
     name: string;
@@ -309,6 +314,9 @@ export interface PublicSeriesExport {
        *  in the export; older exports default to false on import. */
       tiedWithPrevious?: boolean;
       finishTime?: string;
+      /** RaceSense track data. Present only when the series publishes it
+       *  (`series.publishTrackData`) — this export is published output. */
+      trackData?: FinishTrackData;
       resultCode: ResultCode | null;
       startPresent: boolean | null;
       /** Additive penalty applied on top of the finish (ZFP/SCP/DPI). */
@@ -556,6 +564,9 @@ export function buildPublicExportFromSnapshot(
   // every published page, so leaving officials out of it is what "not
   // published" actually means for named non-competitors.
   const publishOfficials = series.publishOfficials === true;
+  // Same shape of opt-in for track data: leaving it out of the embedded
+  // export is what "not published" means for the captured record.
+  const publishTrackData = series.publishTrackData === true;
   const subSeriesNamesByRaceId = new Map<string, string[]>();
   for (const ss of subSeries) {
     for (const rid of ss.raceIds) {
@@ -693,6 +704,7 @@ export function buildPublicExportFromSnapshot(
         sortOrder: finish?.sortOrder ?? null,
         ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
+        ...(publishTrackData && finish?.trackData ? { trackData: finish.trackData } : {}),
         resultCode: score.resultCode,
         startPresent: finish?.startPresent ?? null,
         ...(finish?.penaltyCode ? { penaltyCode: finish.penaltyCode } : {}),
@@ -719,6 +731,7 @@ export function buildPublicExportFromSnapshot(
         sortOrder: f.sortOrder ?? null,
         ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+        ...(publishTrackData && f.trackData ? { trackData: f.trackData } : {}),
         resultCode: f.resultCode,
         startPresent: f.startPresent ?? null,
       } as (typeof finishes)[number]);
@@ -852,6 +865,7 @@ export function buildPublicExportFromSnapshot(
       ...(series.protestTimeLimit ? { protestTimeLimit: series.protestTimeLimit } : {}),
       ...(exportOfficials(series.officials, publishOfficials)),
       ...(publishOfficials ? { publishOfficials: true } : {}),
+      ...(publishTrackData ? { publishTrackData: true } : {}),
       // NB: `categoryId`/`archived` (#154) and `previousSeriesId` are
       // deliberately not exported — workspace-local organisation and
       // lineage, not series data.
@@ -1064,6 +1078,9 @@ export async function importPublicExport(
     // in, so the flag comes back with them rather than quietly resetting a
     // publishing series to unpublished on re-import.
     ...(data.series.publishOfficials ? { publishOfficials: true } : {}),
+    // Likewise for track data: the export only carries it when the source
+    // series published it, so the flag comes back with the data.
+    ...(data.series.publishTrackData ? { publishTrackData: true } : {}),
     // Axis ids are series-local opaque keys; carried verbatim so the imported
     // competitors' `subdivisions` maps still resolve.
     subdivisionAxes: data.series.subdivisionAxes ?? [],
@@ -1248,6 +1265,7 @@ export async function importPublicExport(
         sortOrder: finish.sortOrder,
         tiedWithPrevious: finish.tiedWithPrevious ?? false,
         ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),
+        ...(finish.trackData ? { trackData: finish.trackData } : {}),
         resultCode: finish.resultCode,
         startPresent: finish.startPresent,
         penaltyCode: finish.penaltyCode ?? null,

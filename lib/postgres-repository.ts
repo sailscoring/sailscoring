@@ -122,6 +122,7 @@ function seriesRowToType(row: SeriesRow): Series {
     ...(row.protestTimeLimit ? { protestTimeLimit: row.protestTimeLimit } : {}),
     ...(row.officials?.length ? { officials: row.officials } : {}),
     ...(row.publishOfficials ? { publishOfficials: true } : {}),
+    ...(row.publishTrackData ? { publishTrackData: true } : {}),
     enabledCompetitorFields: row.enabledCompetitorFields,
     ...(row.multiPersonFields?.length ? { multiPersonFields: row.multiPersonFields } : {}),
     primaryPersonLabel: row.primaryPersonLabel,
@@ -264,6 +265,7 @@ function finishRowToType(row: FinishRow): Finish {
     sortOrder: row.sortOrder,
     tiedWithPrevious: row.tiedWithPrevious,
     ...(row.finishTime != null ? { finishTime: row.finishTime } : {}),
+    ...(row.trackData != null ? { trackData: row.trackData } : {}),
     resultCode: row.resultCode as ResultCode | null,
     startPresent: row.startPresent,
     penaltyCode: row.penaltyCode as PenaltyCode | null,
@@ -613,6 +615,7 @@ function seriesToRow(s: Series, workspaceId: string) {
     protestTimeLimit: s.protestTimeLimit ?? null,
     officials: s.officials ?? [],
     publishOfficials: s.publishOfficials ?? false,
+    publishTrackData: s.publishTrackData ?? false,
     enabledCompetitorFields: s.enabledCompetitorFields,
     multiPersonFields: s.multiPersonFields?.length ? s.multiPersonFields : null,
     primaryPersonLabel: s.primaryPersonLabel,
@@ -637,7 +640,7 @@ const seriesUpdateColumns = [
   'ftpLastUploadedAt', 'ftpUploadedVersion', 'includeJsonExport',
   'publishRatingCalculations', 'showPerRaceRatingsInSummary',
   'publishingGroups', 'publishIndividualFleetPages', 'publishDetail', 'rrsOrgPush', 'prizes',
-  'resultsStatus', 'finalisedAt', 'protestTimeLimit', 'officials', 'publishOfficials',
+  'resultsStatus', 'finalisedAt', 'protestTimeLimit', 'officials', 'publishOfficials', 'publishTrackData',
   'enabledCompetitorFields', 'multiPersonFields', 'primaryPersonLabel', 'subdivisionAxes',
   'categoryId', 'archived', 'source',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];
@@ -1835,6 +1838,7 @@ function finishToRow(f: Finish) {
     sortOrder: f.sortOrder,
     tiedWithPrevious: f.tiedWithPrevious,
     finishTime: f.finishTime ?? null,
+    trackData: f.trackData ?? null,
     resultCode: f.resultCode,
     startPresent: f.startPresent,
     penaltyCode: f.penaltyCode,
@@ -1852,7 +1856,7 @@ function finishToRow(f: Finish) {
 
 const finishUpdateColumns = [
   'competitorId', 'unknownSailNumber', 'matchedOn', 'enteredSailNumber', 'sortOrder', 'tiedWithPrevious',
-  'finishTime', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
+  'finishTime', 'trackData', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
   'penaltyLabel', 'penaltyOverrideByFleet', 'redressMethod', 'redressExcludeRaceIds', 'redressIncludeRaceIds',
   'redressIncludeAllLater', 'redressPoints', 'redressPointsByFleet',
 ] as const satisfies readonly (keyof ReturnType<typeof finishToRow>)[];

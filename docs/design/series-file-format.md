@@ -4,7 +4,7 @@ The format used when saving a series to a file or opening a series from a file.
 The file is a JSON document with a `.sailscoring` extension.
 
 > **Currency note.** This doc describes format version 1;
-> **`lib/series-file.ts` is the source of truth** (`FORMAT_VERSION` is 38
+> **`lib/series-file.ts` is the source of truth** (`FORMAT_VERSION` is 39
 > at the time of this note). The concepts here still hold, but two things
 > below are historical: the snapshot-lineage mechanism (`snapshotId` /
 > `snapshotHistory`) was removed in #127 — re-import matches on
