@@ -414,10 +414,11 @@ describe('split-fleet pages use the standard published-page look', () => {
     expect(html).toContain('<tr class="even summaryrow"');
   });
 
-  it('lists a round as one nationality-ordered table, fleet first', () => {
-    // The shape the ILCA 7 Men's Worlds organising authority publishes: not a
-    // table per fleet, but one list a competitor can scan for their own
-    // country, with the fleet named and coloured on each row.
+  it('lays a round out as one table per fleet, in country order', () => {
+    // The shape the ILCA 7 Men's Worlds organising authority posts on the
+    // official notice board: the fleets side by side, each block in its
+    // fleet's colour with the fleet named in a header band, rows sorted by
+    // country code then sail number.
     const base = renderInputFor(FIXTURE);
     const nats = ['NZL', 'IRL', 'AUS', 'IRL', 'AUS', 'FRA'];
     const input: SplitFleetRenderInput = {
@@ -434,26 +435,28 @@ describe('split-fleet pages use the standard published-page look', () => {
     };
     const html = renderSplitFleetAssignmentsPage(input, chrome);
 
-    // One table per round, not one per fleet: no per-fleet headings.
-    expect(html).toContain('<th>Fleet</th>');
-    expect(html).not.toContain('<h3>');
+    // One table per fleet under a tinted band naming the fleet and its size —
+    // not one combined table with a Fleet column. The name is in text, so the
+    // page survives mono printing and readers who cannot separate the tints.
+    expect(html).not.toContain('<th>Fleet</th>');
+    expect(html).toMatch(
+      /<th colspan="3" class="sffleethead" style="background:#[0-9a-f]{8}">(Yellow|Blue) \(\d+\)<\/th>/,
+    );
 
-    // Fleet leads each row, and is named as well as coloured — the page has to
-    // survive mono printing and readers who cannot separate the tints.
-    expect(html).toMatch(/<tr style="background:#[0-9a-f]{8}"><td>(Yellow|Blue)<\/td>/);
-
-    // Nationality order — within a round's table. The page carries one table
-    // per round, so the concatenation of them all is not sorted.
-    // Anchored on the first data table: the shell's own header is a table too,
-    // and its <tbody> comes first in the document.
-    const from = html.indexOf('<table class="summarytable"');
-    const firstTable = html.slice(from, html.indexOf('</tbody>', from));
-    const order = [...firstTable.matchAll(/<td class="nat"[^>]*>.*?>([A-Z]{3})</g)].map((m) => m[1]);
+    // Country order within a fleet's block, not across the round.
+    const from = html.indexOf('class="sffleets"');
+    const firstBlock = html.slice(html.indexOf('<tbody>', from), html.indexOf('</tbody>', from));
+    const order = [...firstBlock.matchAll(/<td class="nat"[^>]*>.*?>([A-Z]{3})</g)].map((m) => m[1]);
     expect(order.length).toBeGreaterThan(1);
     expect(order).toEqual([...order].sort());
-    const tints = new Set([...html.matchAll(/background:(#[0-9a-f]{8})/g)].map((m) => m[1]));
-    expect(tints.size).toBeGreaterThan(1);
-    for (const t of tints) expect(t.endsWith('1f')).toBe(true);
+
+    // Rows carry the fleet tint at low alpha; the header band sits stronger.
+    const rowTints = new Set(
+      [...html.matchAll(/<tr style="background:(#[0-9a-f]{8})"/g)].map((m) => m[1]),
+    );
+    expect(rowTints.size).toBeGreaterThan(1);
+    for (const t of rowTints) expect(t.endsWith('1f')).toBe(true);
+    expect(html).toContain('background:#eab30855');
   });
 
   it('widens a short fleet colour before adding the tint alpha', () => {
@@ -465,15 +468,15 @@ describe('split-fleet pages use the standard published-page look', () => {
     expect(html).toContain('background:#0000001f');
   });
 
-  it('leaves out the provenance column when nobody was hand-placed', () => {
-    // It was rendered unconditionally, so an ordinary assignment carried a
-    // few pixels of empty cells after Helm.
+  it('marks hand-placed boats with a footnoted asterisk, only when there are any', () => {
+    // The narrow side-by-side blocks have no room for a provenance column: a
+    // moved boat carries a marker on her row, explained once per round.
     const input = renderInputFor(FIXTURE);
     const plain = renderSplitFleetAssignmentsPage(input, chrome);
     expect(plain).not.toContain('placed by the committee');
-    expect(plain).not.toContain('<th>Helm</th><th></th>');
+    expect(plain).not.toContain('title="Placed by the committee"');
 
-    // With one boat moved by hand, the column is back and says so.
+    // With one boat moved by hand, the marker and the footnote appear.
     const moved = input.rounds[0];
     const member = input.competitors.find((c) =>
       c.fleetIds.some((fid) => moved.fleetIds.includes(fid)),
@@ -483,8 +486,8 @@ describe('split-fleet pages use the standard published-page look', () => {
       { ...input, rounds: [{ ...moved, overrides: { [member.id]: fid } }] },
       chrome,
     );
-    expect(html).toContain('placed by the committee');
-    expect(html).toContain('<th>Helm</th><th></th>');
+    expect(html).toContain('<span class="override-marker" title="Placed by the committee">*</span>');
+    expect(html).toContain('<p class="sfnote">* placed by the committee</p>');
   });
 
   it('says so when no fleets have been assigned yet', () => {

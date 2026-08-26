@@ -91,6 +91,9 @@ const PAGE_CSS = `<style>
 .sfround h2 { margin: 0; font-size: 1.05em; }
 .sfround h3 { margin: 0.8em 0 0.2em; font-size: 1em; }
 .sfdot { display: inline-block; width: 0.55em; height: 0.55em; border-radius: 50%; border: 1px solid rgba(0,0,0,0.25); margin-right: 0.3em; }
+.sffleets { display: flex; flex-wrap: wrap; gap: 0 1.2em; justify-content: center; align-items: flex-start; }
+.sffleets .tablewrap { margin: 0 0 1em 0; }
+.sffleethead { color: #073358; text-align: center; }
 </style>`;
 
 function showNat(input: SplitFleetRenderInput): boolean {
@@ -533,59 +536,56 @@ export function renderSplitFleetAssignmentsPage(
   const sections = [...data.rounds]
     .sort((a, b) => b.createdAt - a.createdAt)
     .map((round) => {
-      // The provenance column only earns its place when the committee actually
-      // moved someone. Judged per round, so a round's rows keep one shape.
+      // The hand-placement footnote only earns its place when the committee
+      // actually moved someone; each moved boat carries the marker on her row.
       const anyOverride = round.fleetIds.some((fid) =>
         data.competitors.some(
           (c) => c.fleetIds.includes(fid) && round.overrides?.[c.id] === fid,
         ),
       );
-      // One list for the whole round, fleet first, in nationality order, each
-      // row tinted by the fleet the boat drew. This is the shape the ILCA 7
-      // Men's Worlds organising authority publishes, and it is the one a
-      // competitor actually scans: you look for your own country, not for your
-      // fleet's table. The fleet is named as well as coloured, so the page
-      // survives mono printing and readers who cannot separate the tints.
-      const assigned = round.fleetIds
-        .flatMap((fid) =>
-          data.competitors
+      // One table per fleet, side by side, each in nationality order \u2014 the
+      // shape the ILCA 7 Men's Worlds organising authority posts on the
+      // official notice board. Side by side rather than stacked, so a whole
+      // round fits one printed page and within your fleet you scan for your
+      // own country. Each block is tinted in its fleet's colour, with the
+      // fleet named in the header band as well, so the page survives mono
+      // printing and readers who cannot separate the tints.
+      const cols = nat ? 3 : 2;
+      const fleets = round.fleetIds
+        .map((fid) => {
+          const label = fleetName.get(fid) ?? '';
+          const members = data.competitors
             .filter((c) => c.fleetIds.includes(fid))
-            .map((c) => ({ competitor: c, fleetId: fid })),
-        )
-        .sort(
-          (a, b) =>
-            // Nationality, then sail number. A boat with no nationality sorts
-            // last rather than leading the list.
-            (a.competitor.nationality || '\uffff').localeCompare(
-              b.competitor.nationality || '\uffff',
-            ) || bySailNumber(a.competitor, b.competitor),
-        );
-      const rowsHtml = assigned
-        .map(({ competitor: c, fleetId }) => {
-          const label = fleetName.get(fleetId) ?? '';
-          return `<tr style="background:${fleetTint(data.config, label, '1f')}"><td>${esc(label)}</td>${
-            nat ? natCell(c.nationality, input.flagSvgByCode) : ''
-          }<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(
-            c.names.join(' & '),
-          )}</td>${
-            anyOverride
-              ? round.overrides?.[c.id] === fleetId
-                ? '<td>placed by the committee</td>'
-                : '<td></td>'
-              : ''
-          }</tr>`;
+            .sort(
+              (a, b) =>
+                // Nationality, then sail number. A boat with no nationality
+                // sorts last rather than leading the list.
+                (a.nationality || '\uffff').localeCompare(b.nationality || '\uffff') ||
+                bySailNumber(a, b),
+            );
+          const rowsHtml = members
+            .map(
+              (c) =>
+                `<tr style="background:${fleetTint(data.config, label, '1f')}">${
+                  nat ? natCell(c.nationality, input.flagSvgByCode) : ''
+                }<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(
+                  c.names.join(' & '),
+                )}${
+                  round.overrides?.[c.id] === fid
+                    ? '<span class="override-marker" title="Placed by the committee">*</span>'
+                    : ''
+                }</td></tr>`,
+            )
+            .join('\n');
+          return `<div class="tablewrap"><table class="summarytable"><thead><tr><th colspan="${cols}" class="sffleethead" style="background:${fleetTint(
+            data.config,
+            label,
+            '55',
+          )}">${esc(label)} (${members.length})</th></tr><tr>${
+            nat ? '<th>Nat</th>' : ''
+          }<th>Sail</th><th>Helm</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
         })
         .join('\n');
-      const sizes = round.fleetIds
-        .map(
-          (fid) =>
-            `${fleetName.get(fid) ?? ''} ${assigned.filter((a) => a.fleetId === fid).length}`,
-        )
-        .join(' \u00b7 ');
-      const fleets = `<p class="sfnote">${esc(sizes)}</p>
-<div class="tablewrap"><table class="summarytable"><thead><tr><th>Fleet</th>${
-        nat ? '<th>Nat</th>' : ''
-      }<th>Sail</th><th>Helm</th>${anyOverride ? '<th></th>' : ''}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
       const basis = round.basis
         ? `From the ranking after ${stageRaceLabel(data.config, round.stage === 'final' ? 'qualifying' : round.stage, round.basis.throughStageRace, qRaces)}, captured ${new Date(round.basis.capturedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC.`
         : round.method === 'seeded'
@@ -596,7 +596,8 @@ export function renderSplitFleetAssignmentsPage(
       return `<section class="sfround">
 <h2>${esc(roundLabel(round))}</h2>
 ${basis ? `<p class="sfnote">${esc(basis)}</p>` : ''}
-${fleets}
+<div class="sffleets">${fleets}</div>
+${anyOverride ? '<p class="sfnote">* placed by the committee</p>' : ''}
 </section>`;
     })
     .join('\n');
