@@ -32,6 +32,7 @@ const SERIES: Series = {
   ftpPath: '',
   ftpPaths: {},
   includeJsonExport: false,
+  enabledCompetitorFields: [],
   primaryPersonLabel: 'helm',
   subdivisionAxes: [],
   publishingGroups: [],
