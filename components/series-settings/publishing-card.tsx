@@ -103,9 +103,9 @@ export function PublishingCard({
                 Include data export in published results
               </label>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Embeds a JSON snapshot of the results in every exported HTML file, with a
-                &ldquo;Download results (JSON)&rdquo; link in the footer. Disable if you prefer
-                to share results without the underlying data.
+                Embeds a JSON snapshot of the results in every exported HTML file, powering
+                the &ldquo;Open in Sail Scoring&rdquo; link in the footer. Disable if you prefer
+                to share results without the underlying data; the footer link goes with it.
               </p>
             </div>
           </div>
