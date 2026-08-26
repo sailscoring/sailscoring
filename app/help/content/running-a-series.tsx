@@ -725,11 +725,14 @@ export default function RunningASeries() {
             rest drops her most recent.
           </p>
           <p>
-            The published output is a single{' '}
+            The published output is a{' '}
             <strong className="text-foreground">championship standings</strong> page — combined
             with a provisional cut line during qualifying, tiered Gold/Silver tables after the
-            split — plus a rolling <strong className="text-foreground">fleet assignments</strong>{' '}
-            page, newest round first, so competitors always know which start they’re in.
+            split — plus a <strong className="text-foreground">race results</strong> page with
+            every race as its own tables, one per fleet, ranked the way the racing actually
+            happened (the standings page’s race column headings link straight into it), and a
+            rolling <strong className="text-foreground">fleet assignments</strong> page, newest
+            round first, so competitors always know which start they’re in.
             Preview, publish, and <strong className="text-foreground">Mark as final</strong> all
             live on the Split Fleets tab (the regular Standings tab is hidden for these series).
           </p>

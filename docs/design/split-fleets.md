@@ -899,6 +899,12 @@ above.
   n+1…, visibly tiered — with Q columns (fleet-tinted) followed by F
   columns, carried-score column for the rank-seed mode, and medal column
   where present.
+- **Per-race results** publish as their own page (Sailwave's layout, the
+  one competitors look for after each day's racing): every stage race in
+  sailed order, one table per fleet, ranked within the fleet, with the
+  standings page's race column headers deep-linking into it. Points come
+  from the standings engine's cells, so redress, penalties and the medal
+  multiplier are already applied.
 - **Assignment lists** become a publishable artifact: per-fleet rosters
   for the notice board and the boat park, published to a single rolling
   page under the series' `/p/` slug with the latest round at the top,
