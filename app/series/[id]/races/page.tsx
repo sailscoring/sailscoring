@@ -491,7 +491,7 @@ export default function RacesPage({
       handler: handleAddRaceClick,
     },
     {
-      key: 'g',
+      key: 'm',
       description: 'Add multiple races',
       section: 'Races',
       when: () => !readOnly,

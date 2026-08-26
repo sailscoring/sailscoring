@@ -418,7 +418,7 @@ export default function RunningASeries() {
           For a season of races on a fixed weekday — a weekly Tuesday series, a fortnightly
           league — use the chevron beside{' '}
           <strong className="text-foreground">Add race ▸ Add multiple races…</strong> (or press{' '}
-          <kbd>g</kbd>). Pick the first race’s date, choose weekly or fortnightly, and set either a
+          <kbd>m</kbd>). Pick the first race’s date, choose weekly or fortnightly, and set either a
           number of races or an end date; the dialog previews the dates before you commit. An
           optional name is applied to every race, and for handicap series with a start sequence the
           first start time runs that sequence in each one. The races are appended after any existing

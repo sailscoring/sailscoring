@@ -27,6 +27,11 @@ export function useGlobalKeyDown(handler: (e: KeyboardEvent) => void) {
   }, []);
 }
 
+/** The go-to chord prefix. Reserved app-wide: a page must not bind it as a
+ *  single-key shortcut, or pressing it would both fire the page action and
+ *  arm the chord. `useShortcuts` enforces this. */
+export const CHORD_PREFIX = 'g';
+
 /**
  * Two-key chord shortcut: press `g` then a second key within 1 second.
  * Chords are ignored when focus is inside an input, textarea, or select.
@@ -54,7 +59,7 @@ export function useChordShortcut(chords: Record<string, () => void>) {
         }
         pendingRef.current = false;
         if (timerRef.current) clearTimeout(timerRef.current);
-      } else if (e.key === 'g') {
+      } else if (e.key === CHORD_PREFIX) {
         pendingRef.current = true;
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
@@ -162,6 +167,18 @@ export function useShortcuts(specs: ShortcutSpec[]): void {
   });
 
   useRegisterShortcuts(specs);
+
+  // Surfaced as a console error so the offending page's own e2e test fails
+  // (console errors fail tests automatically).
+  useEffect(() => {
+    for (const s of specsRef.current) {
+      if (s.key === CHORD_PREFIX) {
+        console.error(
+          `Shortcut "${s.description ?? s.key}" binds "${CHORD_PREFIX}", which is reserved as the go-to chord prefix — pick another key.`,
+        );
+      }
+    }
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
