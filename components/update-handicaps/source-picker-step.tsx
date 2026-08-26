@@ -54,6 +54,7 @@ export function SourcePickerStep({
     ircRating: boolean;
     ryaPy: boolean;
     vprsRating: boolean;
+    orc: boolean;
   };
   onNext: () => void;
   onCancel: () => void;
@@ -91,6 +92,15 @@ export function SourcePickerStep({
             onSelect={onSelect}
             title="VPRS TCC"
             description="Pull each boat's current VPRS TCC from a club's published rating list, matched by sail number."
+          />
+        )}
+        {gates.orc && (
+          <SourceOption
+            value="orc"
+            current={source}
+            onSelect={onSelect}
+            title="ORC certificates"
+            description="Import each boat's active ORC certificate from the ORC database — ratings, class-division numbers, and the time-allowance matrix — matched by sail number."
           />
         )}
         {gates.irishSailing && (

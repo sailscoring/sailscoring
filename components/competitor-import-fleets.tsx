@@ -60,10 +60,13 @@ export const SCORING_SYSTEM_LABEL: Record<ScoringSystem, string> = {
   py: 'PY',
   nhc: 'NHC',
   echo: 'ECHO',
+  orc: 'ORC',
 };
 
-/** Which CSV column target holds each rating system's numbers. */
-const SYSTEM_TO_RATING_FIELD: Record<Exclude<ScoringSystem, 'scratch'>, CompetitorField> = {
+/** Which CSV column target holds each rating system's numbers. ORC is absent
+ *  by design: its rating is a whole certificate, imported from the ORC
+ *  database rather than a CSV column, so the importer never offers it. */
+const SYSTEM_TO_RATING_FIELD: Record<Exclude<ScoringSystem, 'scratch' | 'orc'>, CompetitorField> = {
   irc: 'tcc',
   vprs: 'vprsTcc',
   py: 'py',
@@ -71,7 +74,7 @@ const SYSTEM_TO_RATING_FIELD: Record<Exclude<ScoringSystem, 'scratch'>, Competit
   echo: 'echoStartingTcf',
 };
 
-const RATING_SYSTEMS = Object.keys(SYSTEM_TO_RATING_FIELD) as Exclude<ScoringSystem, 'scratch'>[];
+const RATING_SYSTEMS = Object.keys(SYSTEM_TO_RATING_FIELD) as Exclude<ScoringSystem, 'scratch' | 'orc'>[];
 
 /** The feature key gating each system, matching the Fleets card. NHC and
  *  scratch are ungated. */
@@ -186,7 +189,7 @@ export function FleetsStepBody({
     (s) => !shownRatings.includes(s) && offerable.includes(s),
   );
 
-  function setRatingColumn(system: Exclude<ScoringSystem, 'scratch'>, col: number | null) {
+  function setRatingColumn(system: Exclude<ScoringSystem, 'scratch' | 'orc'>, col: number | null) {
     const field = SYSTEM_TO_RATING_FIELD[system];
     const current = ratingColumns.get(system) ?? null;
     // Releasing a column returns it to the mapping screen as unmapped.

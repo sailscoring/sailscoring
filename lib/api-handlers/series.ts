@@ -507,6 +507,7 @@ export async function copySeries(
           scoringSystem: f.scoringSystem,
           echoAlpha: f.echoAlpha ?? null,
           nhcProfile: f.nhcProfile ?? null,
+          orcProfile: f.orcProfile ?? null,
         })),
       );
     }
@@ -537,6 +538,7 @@ export async function copySeries(
           pyNumber: c.pyNumber ?? null,
           nhcStartingTcf: c.nhcStartingTcf ?? null,
           echoStartingTcf: c.echoStartingTcf ?? null,
+          orcCert: c.orcCert ?? null,
         })),
       );
     }
@@ -602,6 +604,12 @@ export async function copySeries(
           raceId: raceIdMap.get(s.raceId)!,
           fleetIds: s.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
           startTime: s.startTime,
+          // Course facts are scoring inputs (ORC ToD/PCS) and copy with the
+          // race data.
+          distanceNm: s.distanceNm ?? null,
+          orcScoringWind: s.orcScoringWind ?? null,
+          courseLegs: s.courseLegs?.length ? s.courseLegs : null,
+          orcOption: s.orcOption ?? null,
         })),
       );
     }
@@ -899,6 +907,7 @@ export async function createFollowOnSeries(
       pyNumber: c.pyNumber ?? null,
       nhcStartingTcf: nhcSeed ?? c.nhcStartingTcf ?? null,
       echoStartingTcf: echoSeed ?? c.echoStartingTcf ?? null,
+      orcCert: c.orcCert ?? null,
     };
   });
 
@@ -972,6 +981,7 @@ export async function createFollowOnSeries(
           scoringSystem: f.scoringSystem,
           echoAlpha: f.echoAlpha ?? null,
           nhcProfile: f.nhcProfile ?? null,
+          orcProfile: f.orcProfile ?? null,
         })),
       );
     }

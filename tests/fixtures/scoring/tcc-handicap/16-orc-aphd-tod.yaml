@@ -1,0 +1,76 @@
+description: "ORC — all-purpose time-on-distance (APHD) over a recorded course length"
+rrs_notes: "ORC Rating Systems 403.2: CT = ET − (ToD − ToD of the scratch boat) × distance. The scratch boat is the fleet's lowest allowance; its corrected time equals its elapsed time. Distance is recorded to 0.01 NM (401.3)."
+
+# APHD values from the boats' real 2026 IRL ORC certificates:
+#   Mojo (J-80)           APHD 594.7 s/NM — the scratch boat
+#   Impetuous (Corby 25)  APHD 623.0 s/NM
+#
+# A 3.24 NM course (the length of AL 2025 race 2), start 15:15:00.
+# Impetuous is owed (623.0 − 594.7) × 3.24 = 28.3 × 3.24 = 91.692 s:
+#   Mojo:      finish 15:50:51  ET = 2151 s  CT = 2151 − 0      = 2151    → 2nd
+#   Impetuous: finish 15:51:49  ET = 2209 s  CT = 2209 − 91.692 = 2117.31 → 2117 → 1st
+#
+# Impetuous crosses nearly a minute behind and wins on corrected time.
+# Cross-checked against the ZW manual's worked ToD example for the
+# rounding convention (half-up to whole seconds).
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: orc
+  orcOption:
+    option: APHD
+    kind: tod
+
+competitors:
+  - sailNumber: "IRL 2507"
+    name: "Impetuous"
+    orcCertFields:
+      APHT: 0.9631
+      APHD: 623.0
+  - sailNumber: "IRL 1551"
+    name: "Mojo"
+    orcCertFields:
+      APHT: 1.0089
+      APHD: 594.7
+
+races:
+  - number: 1
+    startTime: "15:15:00"
+    distanceNm: 3.24
+    finishes:
+      - sailor: "IRL 1551"
+        finishTime: "15:50:51"
+      - sailor: "IRL 2507"
+        finishTime: "15:51:49"
+    expected:
+      - sailor: "IRL 2507"
+        rank: 1
+        points: 1.0
+        elapsedTime: 2209
+        correctedTime: 2117
+        tcfApplied: 623.0
+      - sailor: "IRL 1551"
+        rank: 2
+        points: 2.0
+        elapsedTime: 2151
+        correctedTime: 2151
+        tcfApplied: 594.7
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL 2507"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "IRL 1551"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2

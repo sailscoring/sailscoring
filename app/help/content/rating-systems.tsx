@@ -71,6 +71,17 @@ export default function RatingSystems() {
               measuring the boat’s performance relative to the fleet.
             </li>
           )}
+          {has('orc') && (
+            <li>
+              <strong className="text-foreground">ORC</strong> — a measurement rating
+              whose certificate publishes the boat’s predicted performance across a
+              whole matrix of wind speeds and angles, rather than one blended number.
+              A fleet picks which published rating scores it — the all-purpose
+              time-on-time number behaves exactly like an IRC TCC — or scores on{' '}
+              <em>performance curves</em>, where each race gets its own allowance
+              from the conditions actually sailed. See the ORC section below.
+            </li>
+          )}
         </ul>
         <p>
           For NHC and ECHO, every per-race table includes a{' '}
@@ -111,6 +122,80 @@ export default function RatingSystems() {
           in the same Publishing card.
         </p>
       </Section>
+      {has('orc') && (
+      <Section id="scoring-orc" title="ORC scoring and performance curves">
+        <HelpShot
+          src="/help/shots/orc.webp"
+          alt="A published ORC performance-curve race: the scoring-wind audit header, each boat's implied wind, and the constructed course's leg record."
+          caption="A published performance-curve race: the audit header, each boat's implied wind, and the course record."
+        />
+        <p>
+          An ORC certificate is imported whole — see{' '}
+          <em>Importing ORC certificates</em> below — and each ORC fleet picks its{' '}
+          default <strong className="text-foreground">scoring option</strong> on the{' '}
+          <strong className="text-foreground">Settings</strong> tab. The option is a
+          per-race choice in the end: each race start can name the option the race
+          committee announced for that race — a coastal race scored on a single
+          number in a series otherwise on curves, say — with the{' '}
+          <strong className="text-foreground">Scoring option</strong> select on the
+          race start; the fleet setting simply fills in when a start doesn’t
+          say. The simple options read one published number off the certificate:{' '}
+          <strong className="text-foreground">all-purpose time-on-time</strong> (APHT)
+          works exactly like an IRC TCC, and the{' '}
+          <strong className="text-foreground">time-on-distance</strong> options instead
+          give each boat an allowance in seconds per nautical mile — those need the
+          course length recorded on each race start, and the corrected time is the
+          elapsed time less the boat’s allowance over the course, measured against the
+          fleet’s fastest-rated (<em>scratch</em>) boat.
+        </p>
+        <p>
+          Between the single number and full performance curves sit the{' '}
+          <strong className="text-foreground">wind bands</strong>: certificates
+          also publish their ratings per wind strength — the triple numbers, and
+          national sets like the Irish five-band windward/leeward options. Every
+          band field the imported certificates carry is offered in the same
+          scoring-option selects, so picking the band the race committee announced
+          is just picking that race’s option. Changing a start’s option
+          later re-scores the race without re-entering finishes, and the published
+          race table names the option applied.
+        </p>
+        <p>
+          <strong className="text-foreground">Performance curve scoring (PCS)</strong>{' '}
+          goes further: instead of one number, it uses the certificate’s whole
+          prediction matrix, so each race’s handicap reflects the wind that actually
+          blew. Each boat’s finish time is placed on its own <em>performance curve</em>{' '}
+          — the certificate’s prediction of how fast that boat covers this course at
+          each wind speed — to find the boat’s{' '}
+          <strong className="text-foreground">implied wind</strong>: the wind in which
+          the boat would have sailed exactly to its predictions (“she sailed as if it
+          blew 12 knots”). Sailing <em>better</em> than your predictions means a{' '}
+          <em>higher</em> implied wind, and{' '}
+          <strong className="text-foreground">the boat with the highest implied wind
+          wins the race</strong>. That winner’s implied wind becomes the race’s{' '}
+          <strong className="text-foreground">scoring wind</strong>, every boat’s
+          allowance is read off its own curve at that wind, and corrected times follow
+          as in time-on-distance. If the implied wind clearly misrepresents the day —
+          say the marks were laid short — the race committee can set the scoring wind
+          itself, and the published page says so.
+        </p>
+        <p>
+          PCS runs over a standard course shape — windward/leeward, all-purpose, or
+          coastal — or, most accurately, over the{' '}
+          <strong className="text-foreground">constructed course</strong>: the actual
+          legs sailed, entered on the race start as distance, bearing, and wind
+          direction per leg (split a leg in two when the wind shifts along it).
+        </p>
+        <p>
+          Everything needed to check a PCS result is published with it: the race table
+          opens with the course, the scoring wind and where it came from, and the
+          scratch allowance; each boat’s row carries its applied allowance and implied
+          wind; and a constructed course lists its legs. With your own certificate’s
+          allowance table you can reproduce your corrected time to the second — that
+          transparency is deliberate, because implied wind is the part of ORC scoring
+          competitors ask about most.
+        </p>
+      </Section>
+      )}
       <Section id="updating-handicaps" title="Updating handicaps from another series">
         <p>
           For NHC, ECHO, IRC, and PY fleets, the{' '}
@@ -191,6 +276,34 @@ export default function RatingSystems() {
           ticking: a boat the list has simply missed belongs where it is — the header checkbox
           takes the lot once you have. Boats that have already raced are never offered, since
           taking one out would drop its scored races.
+        </p>
+      </Section>
+      )}
+      {has('orc') && (
+      <Section id="update-handicaps-orc" title="Importing ORC certificates">
+        <p>
+          The <strong className="text-foreground">Update handicaps</strong> dialog can
+          import ORC certificates straight from the ORC database’s active-certificates
+          listing, matched by sail number. Choose <em>ORC certificates</em> as the
+          source, pick the issuing country (a certificate from any country’s rating
+          office is valid — run the source once per country for visiting boats), and
+          set each ORC fleet’s <strong className="text-foreground">certificate
+          family</strong>: standard fully-crewed, non-spinnaker, or double-handed. A
+          boat may hold a non-spinnaker or double-handed certificate alongside its
+          standard one; it is scored on the family its fleet races under.
+        </p>
+        <p>
+          What’s imported is the <em>whole certificate</em> — the published ratings,
+          the class-division numbers (CDL and GPH, shown as sortable columns on the
+          Competitors tab), the expiry date, and the full time-allowance matrix that
+          performance-curve scoring runs on. The preview shows each boat’s
+          time-on-time number as the <code className="font-mono text-xs">current →
+          new</code> delta, flags certificates that have expired or mix VPP years
+          (ORC requires all boats in an event on the same VPP year), and a boat’s row
+          in the edit dialog links to the printable certificate on the ORC site.
+          Re-running the source after a boat is re-rated picks up the new certificate
+          issue; unmatched boats are left unchanged, and the add-to-fleet /
+          not-on-the-list sections work as they do for IRC.
         </p>
       </Section>
       )}

@@ -717,6 +717,19 @@ export function loadIrcRatings(): Promise<IrcRatings> {
 }
 
 /**
+ * One country + family's active ORC certificates — the ORC handicap source
+ * for the Update Handicaps dialog. Server-fetched from the ORC database and
+ * cached; gated behind the `orc` feature.
+ */
+export function loadOrcCertificates(
+  countryId: string,
+  family: import('./orc-certificate').OrcFamily,
+): Promise<import('./orc-certificate').OrcCertListing> {
+  const params = new URLSearchParams({ country: countryId, family });
+  return apiFetch(`/api/v1/handicap-sources/orc?${params}`);
+}
+
+/**
  * The VPRS club index — the list of clubs that publish VPRS rating listings.
  * Server-fetched from vprs.org/ratings.html and cached; gated behind the `vprs`
  * feature (#175).
@@ -909,6 +922,9 @@ export interface HandicapUpdateRow {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
+  /** The whole certificate, written by the ORC source — an ORC rating is a
+   *  document, not a number. */
+  orcCert?: import('./types').OrcCertData;
   /** Canonical class name to write — the RYA PY source normalises a boat's
    *  class to the register spelling alongside its PY number. */
   boatClass?: string;
@@ -996,9 +1012,10 @@ export async function ensureFleet(
   seriesId: string,
   name: string,
   options?: {
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
     echoAlpha?: number;
     nhcProfile?: import('./types').NhcProfile;
+    orcProfile?: import('./types').OrcProfile;
   },
 ): Promise<string> {
   const { fleetId } = await apiFetch<{ fleetId: string }>(

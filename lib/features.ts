@@ -132,6 +132,17 @@ export const FEATURES = {
     label: 'VPRS scoring',
     helpSectionIds: ['update-handicaps-vprs'],
   },
+  orc: {
+    // Gates the ORC scoring system *and* the ORC certificate-database source
+    // in the Update-handicaps dialog. Opt-in (default off): new and being
+    // proven against the HYC Autumn League before any wider audience, per the
+    // containment model.
+    label: 'ORC scoring',
+    helpSectionIds: ['scoring-orc', 'update-handicaps-orc'],
+    // Enabling it drops a worked ORC series (real certificates, every
+    // scoring method across its races) into the series list.
+    demoSample: 'orc.sailscoring',
+  },
   'results-status': {
     // The results lifecycle (Provisional vs Final): per-race last-finisher
     // times with computed protest time limits, the finalise checklist on the
@@ -316,11 +327,14 @@ export const FEATURES = {
     // series that already carries a record keeps it in its file and export
     // regardless, per the containment model.
     //
-    // One thing to revisit: wind is a *scoring* input for ORC
-    // performance-curve work, not only a display field. If that work starts
-    // before this feature is generally available, a gate that hides the wind
-    // inputs would be hiding a required input — at which point either split
-    // the gate or default it on.
+    // Revisited when ORC landed: the worry that wind would become a scoring
+    // input trapped behind this gate didn't materialise. Performance-curve
+    // scoring derives its own wind from finish times, and every ORC scoring
+    // input the race committee sets — course length, constructed-course
+    // legs, the scoring-wind override — lives on the race start, ungated.
+    // The record here stays what it always was: the published account of the
+    // day. It becomes a *default* for ORC band selection if that ever wants
+    // one, which is a convenience, not a dependency.
     label: 'Race conditions and management team',
     helpSectionIds: ['race-management-metadata'],
   },

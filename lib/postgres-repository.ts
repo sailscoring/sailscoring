@@ -34,6 +34,7 @@ import type {
   LogoClass,
   LogoDefaults,
   NhcProfile,
+  OrcProfile,
   PenaltyCode,
   Race,
   RaceStart,
@@ -146,6 +147,7 @@ function fleetRowToType(row: FleetRow): Fleet {
     scoringSystem: row.scoringSystem as Fleet['scoringSystem'],
     ...(row.echoAlpha != null ? { echoAlpha: row.echoAlpha } : {}),
     ...(row.nhcProfile != null ? { nhcProfile: row.nhcProfile } : {}),
+    ...(row.orcProfile != null ? { orcProfile: row.orcProfile } : {}),
     ...(row.splitRoundId != null ? { splitRoundId: row.splitRoundId } : {}),
     version: row.version,
   };
@@ -185,6 +187,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.pyNumber != null ? { pyNumber: row.pyNumber } : {}),
     ...(row.nhcStartingTcf != null ? { nhcStartingTcf: row.nhcStartingTcf } : {}),
     ...(row.echoStartingTcf != null ? { echoStartingTcf: row.echoStartingTcf } : {}),
+    ...(row.orcCert != null ? { orcCert: row.orcCert } : {}),
     version: row.version,
   };
 }
@@ -235,6 +238,10 @@ function raceStartRowToType(row: RaceStartRow): RaceStart {
     ...(row.stage ? { stage: row.stage } : {}),
     ...(row.stageRaceNumber != null ? { stageRaceNumber: row.stageRaceNumber } : {}),
     ...(row.firstPlaceOffset != null ? { firstPlaceOffset: row.firstPlaceOffset } : {}),
+    ...(row.distanceNm != null ? { distanceNm: row.distanceNm } : {}),
+    ...(row.orcScoringWind != null ? { orcScoringWind: row.orcScoringWind } : {}),
+    ...(row.courseLegs?.length ? { courseLegs: row.courseLegs } : {}),
+    ...(row.orcOption ? { orcOption: row.orcOption } : {}),
     version: row.version,
   };
 }
@@ -755,12 +762,13 @@ function fleetToRow(f: Fleet, workspaceId: string) {
     scoringSystem: f.scoringSystem,
     echoAlpha: f.echoAlpha ?? null,
     nhcProfile: f.nhcProfile ?? null,
+    orcProfile: f.orcProfile ?? null,
     splitRoundId: f.splitRoundId ?? null,
   };
 }
 
 const fleetUpdateColumns = [
-  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile', 'splitRoundId',
+  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile', 'orcProfile', 'splitRoundId',
 ] as const satisfies readonly (keyof ReturnType<typeof fleetToRow>)[];
 
 export class PostgresFleetRepository implements FleetRepository {
@@ -876,6 +884,7 @@ export class PostgresFleetRepository implements FleetRepository {
       scoringSystem?: Fleet['scoringSystem'];
       echoAlpha?: number;
       nhcProfile?: NhcProfile;
+      orcProfile?: OrcProfile;
       updatedBy?: string;
     },
   ): Promise<string> {
@@ -945,6 +954,10 @@ export class PostgresFleetRepository implements FleetRepository {
           scoringSystem === 'nhc' && options?.nhcProfile
             ? options.nhcProfile
             : null,
+        orcProfile:
+          scoringSystem === 'orc' && options?.orcProfile
+            ? options.orcProfile
+            : null,
         updatedBy: options?.updatedBy ?? null,
       });
       return id;
@@ -985,6 +998,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     pyNumber: c.pyNumber ?? null,
     nhcStartingTcf: c.nhcStartingTcf ?? null,
     echoStartingTcf: c.echoStartingTcf ?? null,
+    orcCert: c.orcCert ?? null,
   };
 }
 
@@ -993,7 +1007,7 @@ const competitorUpdateColumns = [
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
-  'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf',
+  'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
 
 export class PostgresCompetitorRepository implements CompetitorRepository {
@@ -1601,11 +1615,15 @@ function raceStartToRow(s: RaceStart) {
     stage: s.stage ?? null,
     stageRaceNumber: s.stageRaceNumber ?? null,
     firstPlaceOffset: s.firstPlaceOffset ?? null,
+    distanceNm: s.distanceNm ?? null,
+    orcScoringWind: s.orcScoringWind ?? null,
+    courseLegs: s.courseLegs?.length ? s.courseLegs : null,
+    orcOption: s.orcOption ?? null,
   };
 }
 
 const raceStartUpdateColumns = [
-  'fleetIds', 'startTime', 'stage', 'stageRaceNumber', 'firstPlaceOffset',
+  'fleetIds', 'startTime', 'stage', 'stageRaceNumber', 'firstPlaceOffset', 'distanceNm', 'orcScoringWind', 'courseLegs', 'orcOption',
 ] as const satisfies readonly (keyof ReturnType<typeof raceStartToRow>)[];
 
 export class PostgresRaceStartRepository implements RaceStartRepository {

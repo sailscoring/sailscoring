@@ -27,6 +27,7 @@ from?", start here.
 | `pnpm db:migrate:test`   | Apply Drizzle migrations to the local container      | Yes — run `pnpm db:up` first   |
 | `pnpm db:psql:test`      | `psql` against the local container; pass `-c "..."` for one-shot SQL | Yes — run `pnpm db:up` first |
 | `pnpm db:generate`       | Generate Drizzle migrations from schema              | No              |
+| `pnpm db:generate:test`  | Same, in a checkout with no `.env.local` (drizzle-kit insists on a `DATABASE_URL` even though generate never connects; this supplies the local-container one) | No |
 | `pnpm db:studio`         | Drizzle Studio against `.env.local`'s `DATABASE_URL` | Yes             |
 | `pnpm db:auth:generate`  | Regenerate `lib/db/schema/auth.ts` from Better Auth  | No              |
 | `pnpm provision-org`     | Admin CLI: create orgs, add members (uses `.env.local`) | Yes          |

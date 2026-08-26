@@ -9,9 +9,10 @@ import {
   raceStartRepo,
 } from '@/lib/api-repository';
 import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '@/hooks/use-fleets';
-import { useSaveCompetitors } from '@/hooks/use-competitors';
+import { useCompetitorsBySeries, useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
+import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
 import type { Fleet, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +48,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const { has } = useFeatures();
   const isWizard = mode === 'wizard';
   const { data: fleetsData } = useFleetsBySeries(seriesId);
+  // The ORC option picker offers, beyond the internationally published
+  // single numbers, whatever banded and national fields the stored
+  // certificates actually carry.
+  const { data: fleetCompetitors } = useCompetitorsBySeries(seriesId);
+  const orcCertificateOptions = orcSelectableOptions(fleetCompetitors ?? []);
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
   const saveFleets = useSaveFleets();
@@ -141,6 +147,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       scoringSystem: system,
       ...(system === 'echo' ? { echoAlpha: fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA } : { echoAlpha: undefined }),
       ...(system === 'nhc' ? {} : { nhcProfile: undefined }),
+      ...(system === 'orc' ? {} : { orcProfile: undefined }),
     };
 
     if (wasScratch === willBeScratch) {
@@ -339,6 +346,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       {(has('vprs') || fleet.scoringSystem === 'vprs') && (
                         <SelectItem value="vprs">VPRS</SelectItem>
                       )}
+                      {/* ORC is experimental/gated; still offer it for a fleet
+                          that already uses it if a workspace opts out. */}
+                      {(has('orc') || fleet.scoringSystem === 'orc') && (
+                        <SelectItem value="orc">ORC</SelectItem>
+                      )}
                       <SelectItem value="nhc">NHC</SelectItem>
                       {/* ECHO is experimental/gated (#155); still offer it for a
                           fleet that already uses it so the control isn't broken. */}
@@ -367,6 +379,61 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                         title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
                       />
                     </label>
+                  )}
+                  {fleet.scoringSystem === 'orc' && (
+                    <Select
+                      // Keyed by the option name alone — the option determines
+                      // the kind. (A serialized-object value would break here:
+                      // the stored profile round-trips through jsonb, which
+                      // re-orders object keys, so the string wouldn't match.)
+                      value={orcFleetProfile(fleet).option}
+                      onValueChange={(option) => {
+                        const current = orcFleetProfile(fleet);
+                        const kind = option === current.option
+                          ? current.kind
+                          : (orcOptionKind(option) ?? 'tot');
+                        // The APHT default stays implicit (no stored profile),
+                        // matching how absent has always meant APHT.
+                        void saveFleet.mutateAsync({
+                          ...fleet,
+                          orcProfile:
+                            option === DEFAULT_ORC_PROFILE.option ? undefined : { option, kind },
+                        });
+                      }}
+                    >
+                      <SelectTrigger
+                        className="w-56 h-7 text-xs"
+                        title="The fleet's default scoring option — each race start can override it. Time-on-distance options need a course length on the race start."
+                        data-testid={`orc-option-${fleet.id}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORC_STANDARD_OPTIONS.map((o) => (
+                          <SelectItem key={o.option} value={o.option}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                        {orcCertificateOptions.map((o) => (
+                          <SelectItem key={o.option} value={o.option}>
+                            <span className="font-mono text-xs">{o.option}</span>
+                          </SelectItem>
+                        ))}
+                        {(() => {
+                          // A stored option no certificate carries any more
+                          // still renders, so the control isn't broken.
+                          const current = orcFleetProfile(fleet);
+                          const known =
+                            ORC_STANDARD_OPTIONS.some((o) => o.option === current.option) ||
+                            orcCertificateOptions.some((o) => o.option === current.option);
+                          return known ? null : (
+                            <SelectItem value={current.option}>
+                              <span className="font-mono text-xs">{current.option}</span>
+                            </SelectItem>
+                          );
+                        })()}
+                      </SelectContent>
+                    </Select>
                   )}
                   {/* Custom NHC parameters are experimental/gated (#155); NHC
                       scoring with stock SWNHC2015 stays GA. Keep the button for

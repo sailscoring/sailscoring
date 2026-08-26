@@ -176,13 +176,12 @@ Nearly every ORC method reduces to *"per race, pick a number off the
 certificate; apply it ToT or ToD"*. Only PCS computes a number instead of
 reading one. So:
 
-- **Tier 1 — certificate-field scoring.** The fleet's ORC config names a
-  scoring-option family from the cert's own `ScoringOptions` catalog (e.g.
-  "IRL 5-band W/L ToT", or plain `APHT`). Single-number options need no
-  per-race input beyond what ToD already needs (distance); band options add
-  one per-race choice — the band — defaulted from the race conditions'
-  average wind and editable. This covers APH, W/L, triple-number, 5-band,
-  and predominant options uniformly, including national options we've never
+- **Tier 1 — certificate-field scoring.** A scoring option names a rating
+  field from the cert's own `ScoringOptions` catalog (e.g. "IRL 5-band W/L
+  ToT", or plain `APHT`). Single-number options need no per-race input
+  beyond what ToD already needs (distance); band options add one per-race
+  choice — the band. This covers APH, W/L, triple-number, 5-band, and
+  predominant options uniformly, including national options we've never
   heard of, because the catalog is data.
 - **Tier 2 — PCS.** A native TypeScript port of the public-domain module:
   course curve construction (pre-defined W/L, all-purpose, and coastal
@@ -192,6 +191,17 @@ reading one. So:
   per-race ToD and implied-wind columns for Class 2). Owning the
   implementation is what makes the transparency goal achievable — neither
   Sailwave nor HalSail supports PCS or constructed courses at all.
+
+**The option resolves per fleet per race** (#440). The fleet's ORC config
+is only the *default* option; each race start may name the option its races
+are scored under, from either tier — it is entirely normal for one fleet to
+score its windward/leeward days on curves, a coastal race on
+time-on-distance, and a race under an announced band. The start's option
+decides the whole method (there is no same-kind restriction — choosing the
+option *is* choosing the method), the engine resolves ratings and the
+scratch allowance per race, and the published audit header names the option
+on every race. A boat whose certificate lacks the chosen field goes
+unscored in that race only; series-level ratability follows the default.
 
 ### Certificates: import and storage
 

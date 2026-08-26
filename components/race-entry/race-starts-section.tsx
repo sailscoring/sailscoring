@@ -10,7 +10,7 @@ import {
   type RaceStartDraft,
 } from '@/components/race-start-dialog';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
-import type { Fleet, RaceStart } from '@/lib/types';
+import type { Competitor, Fleet, RaceStart } from '@/lib/types';
 
 export interface RaceStartsSectionHandle {
   /** Expand the section and open the add-start dialog (the `s` shortcut). */
@@ -31,9 +31,12 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
   raceStarts: RaceStart[];
   fleets: Fleet[];
   fleetById: Map<string, Fleet>;
+  /** The series' competitors — the ORC wind-band picker derives its options
+   *  from the stored certificates. */
+  competitors?: Competitor[];
   /** Whether to render the card itself (finish tab of a handicap series). */
   visible: boolean;
-}>(function RaceStartsSection({ raceId, raceStarts, fleets, fleetById, visible }, ref) {
+}>(function RaceStartsSection({ raceId, raceStarts, fleets, fleetById, competitors, visible }, ref) {
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStartMutation = useDeleteRaceStart();
   const [startsExpanded, setStartsExpanded] = useState(false);
@@ -61,6 +64,10 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
       raceId,
       fleetIds: draft.fleetIds,
       startTime: draft.startTime,
+      ...(draft.distanceNm != null ? { distanceNm: draft.distanceNm } : {}),
+      ...(draft.orcScoringWind != null ? { orcScoringWind: draft.orcScoringWind } : {}),
+      ...(draft.courseLegs?.length ? { courseLegs: draft.courseLegs } : {}),
+      ...(draft.orcOption ? { orcOption: draft.orcOption } : {}),
     };
     await saveRaceStart.mutateAsync(raceStart);
     setStartDialogMode(null);
@@ -101,6 +108,15 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                   <span className={s.startTime ? 'font-mono' : 'italic'}>
                     {s.startTime ?? 'No gun time'}
                   </span>
+                  {(s.distanceNm != null || s.courseLegs?.length) && (
+                    <span className="font-mono">
+                      {' · '}
+                      {(s.courseLegs?.length
+                        ? s.courseLegs.reduce((sum, leg) => sum + leg.distanceNm, 0)
+                        : s.distanceNm!
+                      ).toFixed(2)} NM
+                    </span>
+                  )}
                   {' — '}
                   {s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}
                 </p>
@@ -117,12 +133,26 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                 <span className={s.startTime ? 'font-mono font-medium' : 'italic text-muted-foreground'}>
                   {s.startTime ?? 'No gun time'}
                 </span>
+                {(s.distanceNm != null || s.courseLegs?.length) && (
+                  <span className="font-mono text-muted-foreground">
+                    {(s.courseLegs?.length
+                      ? s.courseLegs.reduce((sum, leg) => sum + leg.distanceNm, 0)
+                      : s.distanceNm!
+                    ).toFixed(2)} NM
+                    {s.courseLegs?.length ? ` · ${s.courseLegs.length} legs` : ''}
+                  </span>
+                )}
+                {s.orcOption && (
+                  <span className="font-mono text-xs text-muted-foreground" title="ORC scoring option for this start (overrides the fleet default)">
+                    {s.orcOption}
+                  </span>
+                )}
                 <span className="text-muted-foreground">—</span>
                 <span className="flex-1">{s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStart(s)}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Edit start" onClick={() => openEditStart(s)}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteStart(s.id)}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Delete start" onClick={() => handleDeleteStart(s.id)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -136,6 +166,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
         mode={startDialogMode}
         raceStarts={raceStarts}
         fleets={fleets}
+        competitors={competitors}
         onSave={handleSaveStart}
         onCancel={() => setStartDialogMode(null)}
       />

@@ -18,6 +18,7 @@ import type { HandicapUpdateRow } from '@/lib/api-repository';
 import type { HandicapSystem } from '@/lib/source-handicaps';
 
 import { IrcRatingSourceStep } from './irc-rating-source-step';
+import { OrcSourceStep } from './orc-source-step';
 import { IrishSailingSourceStep } from './irish-sailing-source-step';
 import { RyaPySourceStep } from './rya-py-source-step';
 import { SeriesSourceStep } from './series-source-step';
@@ -47,6 +48,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
   const ircRatingEnabled = has('irc-rating');
   const ryaPyEnabled = has('rya-py');
   const vprsRatingEnabled = has('vprs');
+  const orcEnabled = has('orc');
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<
@@ -56,6 +58,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
     | 'source-irc-rating'
     | 'source-vprs'
     | 'source-rya-py'
+    | 'source-orc'
     | 'done'
   >('source-picker');
   const [source, setSource] = useState<HandicapSource>('series');
@@ -130,6 +133,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
               ircRating: ircRatingEnabled,
               ryaPy: ryaPyEnabled,
               vprsRating: vprsRatingEnabled,
+              orc: orcEnabled,
             }}
             onNext={() =>
               setStep(
@@ -141,7 +145,9 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
                       ? 'source-irish-sailing'
                       : source === 'rya-py'
                         ? 'source-rya-py'
-                        : 'source-series',
+                        : source === 'orc'
+                          ? 'source-orc'
+                          : 'source-series',
               )
             }
             onCancel={() => setOpen(false)}
@@ -159,6 +165,7 @@ export const UpdateHandicaps = forwardRef<UpdateHandicapsHandle, {
         {step === 'source-vprs' && <VprsSourceStep {...stepProps} />}
         {step === 'source-irish-sailing' && <IrishSailingSourceStep {...stepProps} />}
         {step === 'source-rya-py' && <RyaPySourceStep {...stepProps} />}
+        {step === 'source-orc' && <OrcSourceStep {...stepProps} />}
 
         {step === 'done' && result && (
           <>

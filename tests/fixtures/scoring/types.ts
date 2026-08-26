@@ -101,6 +101,13 @@ export interface FixtureRejection {
 export interface FixtureRace {
   number?: number;
   startTime?: string;
+  /** Course length in NM — the time-on-distance scoring input, set on the
+   *  race's start. */
+  distanceNm?: number;
+  /** ORC only — the scoring option for this race, set on the race's start.
+   *  Overrides the fleet's default option (a certificate field name or a
+   *  standard option identifier); absent means the fleet default applies. */
+  orcOption?: string;
   /** Per-race scoring options (Race.discardPolicy / Race.pointsMultiplier).
    *  Absent means an ordinary, discardable race counting once. */
   discardPolicy?: 'normal' | 'mustCount' | 'discardFirst';
@@ -141,14 +148,22 @@ export interface FixtureCompetitor {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
+  // ORC only — the certificate's rating fields as {fieldName: value}, e.g.
+  // { APHT: 0.9631, APHD: 623.0 }. Becomes the stored certificate record;
+  // the fleet's orcOption names which field scores.
+  orcCertFields?: Record<string, number>;
 }
 
 export interface FixtureFleet {
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
   alpha?: number;            // ECHO only (mapped to echoAlpha); NHC ignores
   // NHC only — full inline profile override (mapped to fleet.nhcProfile).
   // Absent means the engine falls back to DEFAULT_NHC_PROFILE.
   nhcProfile?: import('@/lib/types').NhcProfile;
+  // ORC only — the fleet's default scoring option: which certificate rating
+  // field scores it and how (mapped to fleet.orcProfile). Absent means APHT
+  // time-on-time. Races override it via their own `orcOption`.
+  orcOption?: import('@/lib/types').OrcProfile;
 }
 
 /** Expected standings for one sub-series, matched to the block by name. */
@@ -243,6 +258,9 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       ...(topFleet.scoringSystem === 'nhc' && topFleet.nhcProfile != null
         ? { nhcProfile: topFleet.nhcProfile }
         : {}),
+      ...(topFleet.scoringSystem === 'orc' && topFleet.orcOption != null
+        ? { orcProfile: topFleet.orcOption }
+        : {}),
     }];
     fleetIdByName = new Map([['Fleet', 'fl-0']]);
   } else if (hasPerCompetitorFleet) {
@@ -286,6 +304,9 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
+      ...(c.orcCertFields != null
+        ? { orcCert: { record: c.orcCertFields, importedAt: 0 } }
+        : {}),
     };
   });
 
@@ -387,6 +408,8 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         raceId,
         fleetIds: fleets.map((f) => f.id),
         startTime: fr.startTime,
+        ...(fr.distanceNm != null ? { distanceNm: fr.distanceNm } : {}),
+        ...(fr.orcOption ? { orcOption: fr.orcOption } : {}),
       });
     }
     for (const f of fr.finishes) {

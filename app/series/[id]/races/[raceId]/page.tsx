@@ -410,6 +410,7 @@ export default function ResultEntryPage({
         raceStarts={raceStarts}
         fleets={fleets ?? []}
         fleetById={fleetById}
+        competitors={competitors ?? []}
         visible={activeTab === 'finish' && canManageStarts}
       />
 

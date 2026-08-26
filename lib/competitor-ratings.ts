@@ -1,4 +1,5 @@
 import type { Competitor, Fleet } from '@/lib/types';
+import { orcTotRating } from '@/lib/orc-certificate';
 import { hasFleetRating } from '@/lib/scoring';
 
 export type MissingRating = { fleetName: string; ratingLabel: string };
@@ -9,6 +10,7 @@ export function fleetRatingLabel(fleet: Fleet): string | null {
   if (fleet.scoringSystem === 'py') return 'PY number';
   if (fleet.scoringSystem === 'nhc') return 'NHC starting TCF';
   if (fleet.scoringSystem === 'echo') return 'ECHO starting handicap';
+  if (fleet.scoringSystem === 'orc') return 'ORC certificate';
   return null;
 }
 
@@ -41,7 +43,7 @@ export function requiredForFleetsHint(fleetNames: string[]): string {
   return `Required for ${fleetNames.join(', ')} ${suffix}.`;
 }
 
-export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
 
 export type RatingDisplay = {
   system: RatingSystemCode;
@@ -55,23 +57,26 @@ const RATING_LABEL: Record<RatingSystemCode, string> = {
   py: 'PY',
   nhc: 'NHC',
   echo: 'ECHO',
+  orc: 'ORC',
 };
 
 /** Render a rating for display. The multiplier-style ratings — IRC TCC, VPRS
  *  TCC, NHC starting TCF, ECHO starting handicap — always carry three decimal
  *  places, the way certificates print them, so 1.13 reads as 1.130 and a
- *  column of them lines up on the decimal point. PY numbers are whole and
- *  print as stored; `Number(toFixed(3))` only strips the float noise a
- *  subtraction leaves behind (4.899999999999977 → 4.9). */
+ *  column of them lines up on the decimal point. ORC time-on-time ratings are
+ *  published to four places (APHT 0.9216) and print as the certificate does.
+ *  PY numbers are whole and print as stored; `Number(toFixed(3))` only strips
+ *  the float noise a subtraction leaves behind (4.899999999999977 → 4.9). */
 export function formatRatingValue(
   value: number | null | undefined,
   system: RatingSystemCode,
 ): string {
   if (value == null) return '—';
-  return system === 'py' ? String(Number(value.toFixed(3))) : value.toFixed(3);
+  if (system === 'py') return String(Number(value.toFixed(3)));
+  return system === 'orc' ? value.toFixed(4) : value.toFixed(3);
 }
 
-function ratingValueFor(competitor: Competitor, system: RatingSystemCode): string {
+function ratingValueFor(competitor: Competitor, system: RatingSystemCode, fleet?: Fleet): string {
   switch (system) {
     case 'irc':
       return formatRatingValue(competitor.ircTcc, 'irc');
@@ -83,6 +88,15 @@ function ratingValueFor(competitor: Competitor, system: RatingSystemCode): strin
       return formatRatingValue(competitor.nhcStartingTcf, 'nhc');
     case 'echo':
       return formatRatingValue(competitor.echoStartingTcf, 'echo');
+    case 'orc':
+      // The fleet's configured time-on-time rating off the certificate
+      // (default APHT). A time-on-distance option has no TCF-shaped value;
+      // fall back to APHT so the column still identifies the certificate.
+      return formatRatingValue(
+        (fleet ? orcTotRating(competitor, fleet) : null)
+          ?? orcTotRating(competitor, {}),
+        'orc',
+      );
   }
 }
 
@@ -102,7 +116,7 @@ export function competitorRatings(
     out.push({
       system: f.scoringSystem,
       label: RATING_LABEL[f.scoringSystem],
-      value: ratingValueFor(competitor, f.scoringSystem),
+      value: ratingValueFor(competitor, f.scoringSystem, f),
     });
   }
   return out;

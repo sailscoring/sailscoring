@@ -1,0 +1,101 @@
+description: "ORC — the scoring option is chosen per race (ToT default, one race switched to ToD)"
+rrs_notes: "ORC Rating Systems 401.1: the scoring method and type of course are the organizer's choice, defined in the NoR/SIs — which may vary them by race type. Race 1 scores on the fleet's default (APHT time-on-time, 403.3); race 2's start names APHD, so that race alone scores time-on-distance (403.2) over its recorded course length."
+
+# The same boats and certificates as fixtures 15 and 16:
+#   Impetuous (Corby 25)  APHT 0.9631  APHD 623.0
+#   Mojo (J-80)           APHT 1.0089  APHD 594.7
+#
+# Race 1 — fleet default (APHT, time-on-time), gun 14:00:00:
+#   Mojo:      finish 14:58:00  ET = 3480 s  CT = 3480 × 1.0089 = 3510.97 → 3511 → 2nd
+#   Impetuous: finish 15:00:00  ET = 3600 s  CT = 3600 × 0.9631 = 3467.16 → 3467 → 1st
+#
+# Race 2 — the start names APHD (time-on-distance), gun 15:15:00, 3.24 NM.
+# Mojo is the scratch boat (lowest allowance, 594.7 s/NM):
+#   Mojo:      finish 15:50:51  ET = 2151 s  CT = 2151 (scratch anchor)
+#   Impetuous: finish 15:51:49  ET = 2209 s
+#              CT = 2209 − (623.0 − 594.7) × 3.24 = 2209 − 91.692 = 2117.308 → 2117 → 1st
+#
+# The rating applied flips with the option: a TCC-like multiplier in race 1,
+# an allowance in seconds per nautical mile in race 2.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: orc
+  orcOption:
+    option: APHT
+    kind: tot
+
+competitors:
+  - sailNumber: "IRL 2507"
+    name: "Impetuous"
+    orcCertFields:
+      APHT: 0.9631
+      APHD: 623.0
+  - sailNumber: "IRL 1551"
+    name: "Mojo"
+    orcCertFields:
+      APHT: 1.0089
+      APHD: 594.7
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "IRL 1551"
+        finishTime: "14:58:00"
+      - sailor: "IRL 2507"
+        finishTime: "15:00:00"
+    expected:
+      - sailor: "IRL 2507"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3600
+        correctedTime: 3467
+        tcfApplied: 0.9631
+      - sailor: "IRL 1551"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3480
+        correctedTime: 3511
+        tcfApplied: 1.0089
+  - number: 2
+    startTime: "15:15:00"
+    orcOption: APHD
+    distanceNm: 3.24
+    finishes:
+      - sailor: "IRL 1551"
+        finishTime: "15:50:51"
+      - sailor: "IRL 2507"
+        finishTime: "15:51:49"
+    expected:
+      - sailor: "IRL 2507"
+        rank: 1
+        points: 1.0
+        elapsedTime: 2209
+        correctedTime: 2117
+        tcfApplied: 623.0
+      - sailor: "IRL 1551"
+        rank: 2
+        points: 2.0
+        elapsedTime: 2151
+        correctedTime: 2151
+        tcfApplied: 594.7
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL 2507"
+      racePoints: [1, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 2
+      sailor: "IRL 1551"
+      racePoints: [2, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4

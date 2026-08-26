@@ -12,6 +12,9 @@ import type {
   PrimaryPersonLabel,
   StartGroup,
   NhcProfile,
+  OrcCertData,
+  OrcCourseLeg,
+  OrcProfile,
   TcfRecord,
   SubdivisionAxis,
   RaceConditions,
@@ -321,9 +324,20 @@ export interface SeriesFileRepos {
  *  by RaceSense — and `series.publishTrackData`, the off-by-default opt-in
  *  that puts those columns on published per-race tables. Additive and sparse;
  *  nothing is scored from either, so an older build reading a v39 file loses
- *  the captured record and the opt-in, never a result. */
-export const FORMAT_VERSION = 39;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
+ *  the captured record and the opt-in, never a result.
+ *
+ *  v40 adds the `orc` fleet scoring system (with optional
+ *  `fleets[*].orcProfile` — the fleet's default scoring option),
+ *  `competitors[*].orcCert` — the boat's ORC certificate stored verbatim —
+ *  and the ORC race facts on starts: `distanceNm` (the course length a
+ *  time-on-distance race corrects over), `courseLegs` (a constructed
+ *  course), `orcOption` (the race's scoring option), and `orcScoringWind`
+ *  (the race committee's rule 402.12 override). An older build reading a
+ *  v40 file would drop the certificates and refuse the fleet system, losing
+ *  the ratings entirely, so this is a hard bump rather than a sparse-field
+ *  ride-along. */
+export const FORMAT_VERSION = 40;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -359,12 +373,15 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
   echoAlpha?: number; // present iff scoringSystem === 'echo'
   // Inline NHC profile override (per-fleet). Present iff scoringSystem === 'nhc'
   // AND parameters differ from the SWNHC2015 defaults; absent means "use
   // DEFAULT_NHC_PROFILE". Additive optional field — older parsers ignore it.
   nhcProfile?: NhcProfile;
+  // v40+: the fleet's default ORC scoring option; absent means
+  // the APHT time-on-time default.
+  orcProfile?: OrcProfile;
 }
 
 interface SeriesFileSeries {
@@ -444,6 +461,7 @@ interface SeriesFileCompetitor {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
+  orcCert?: OrcCertData;  // v40+: the boat's ORC certificate, verbatim
 }
 
 /** v19–v30 recorded only "this row was entered by bow number"; v31 records
@@ -486,6 +504,10 @@ interface SeriesFileRaceStart {
   stage?: 'qualifying' | 'final' | 'medal';  // v24+; split-fleet stage, per start
   stageRaceNumber?: number;  // v24+; logical race number this start's fleets sail
   firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
+  distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
+  orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
+  courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5)
+  orcOption?: string;  // v40+; the ORC scoring option for this start's races
 }
 
 interface SeriesFileRatingOverride {
@@ -674,6 +696,10 @@ export async function buildSeriesFile(
       ...(s.stage ? { stage: s.stage } : {}),
       ...(s.stageRaceNumber != null ? { stageRaceNumber: s.stageRaceNumber } : {}),
       ...(s.firstPlaceOffset != null ? { firstPlaceOffset: s.firstPlaceOffset } : {}),
+      ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
+      ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
+      ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+      ...(s.orcOption ? { orcOption: s.orcOption } : {}),
     });
   }
 
@@ -694,6 +720,7 @@ export async function buildSeriesFile(
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
+      ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
     })),
     series: {
       id: series.id,
@@ -775,6 +802,7 @@ export async function buildSeriesFile(
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
+      ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
@@ -1648,6 +1676,7 @@ async function writeFleetsCompetitorsRaces(
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
+      ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
     })),
   );
 
@@ -1688,6 +1717,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
+        ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
       };
     }),
   );
@@ -1730,6 +1760,10 @@ async function writeFleetsCompetitorsRaces(
         ...((s.firstPlaceOffset ?? r.firstPlaceOffset) != null
           ? { firstPlaceOffset: s.firstPlaceOffset ?? r.firstPlaceOffset }
           : {}),
+        ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
+        ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
+        ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+        ...(s.orcOption ? { orcOption: s.orcOption } : {}),
       })),
     );
 

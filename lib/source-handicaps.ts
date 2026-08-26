@@ -35,7 +35,15 @@ import {
   type ClassMatcher,
 } from './rya-py/class-match';
 import type { RyaPyClass } from './rya-py/types';
-import type { Competitor, Fleet, Race, TcfRecord } from './types';
+import {
+  isOrcCertExpired,
+  orcFleetProfile,
+  orcRecordNumber,
+  orcTotRating,
+  type OrcCertEntry,
+  type OrcFamily,
+} from './orc-certificate';
+import type { Competitor, Fleet, OrcCertData, Race, TcfRecord } from './types';
 
 /**
  * The progressive-handicap systems whose end-of-series TCF we can read
@@ -150,7 +158,7 @@ export function endOfSeriesTcfs(
  * systems (`irc`, `py`) are sourced directly from the source competitor
  * record.
  */
-export type HandicapSystem = 'nhc' | 'echo' | 'irc' | 'py' | 'vprs';
+export type HandicapSystem = 'nhc' | 'echo' | 'irc' | 'py' | 'vprs' | 'orc';
 
 export type NotFoundReason =
   /** Target fleet was not mapped to a source fleet — the scorer picked
@@ -215,6 +223,10 @@ export interface PreviewRow {
    *  configurations). Lets the dialog offer a per-boat switch; we default to
    *  the higher TCC. */
   certChoice?: CertChoice;
+  /** ORC rows only: the certificate an apply writes — the rating is the
+   *  whole document, so the payload rides with the row rather than through
+   *  the numeric-field machinery. */
+  orcCert?: OrcCertData;
 }
 
 /** One selectable certificate for a boat that holds more than one. */
@@ -259,6 +271,10 @@ function systemForFleet(fleet: Fleet): HandicapSystem | null {
       return fleet.scoringSystem;
     case 'scratch':
       return null;
+    case 'orc':
+      // ORC ratings are whole certificates from the ORC database source, not
+      // numbers the generic rating-list planners can propose.
+      return null;
   }
 }
 
@@ -274,6 +290,10 @@ function currentTcfFor(competitor: Competitor, system: HandicapSystem): number |
       return competitor.vprsTcc ?? null;
     case 'py':
       return competitor.pyNumber ?? null;
+    case 'orc':
+      // The certificate's all-purpose time-on-time number — the comparable
+      // scalar for preview deltas; the ORC planner recomputes per-fleet.
+      return orcTotRating(competitor, {});
   }
 }
 
@@ -790,8 +810,8 @@ function pickCertIndex(
 // ─── Add-to-fleet candidates (#170) ──────────────────────────────────────────
 
 /** The handicap systems a boat can be *added* to a fleet for: IRC from the
- *  international list, ECHO from Irish Sailing. */
-export type AddableSystem = 'irc' | 'echo';
+ *  international list, ECHO from Irish Sailing, ORC from the ORC database. */
+export type AddableSystem = 'irc' | 'echo' | 'orc';
 
 export interface FleetAdditionInput {
   targetCompetitors: readonly Competitor[];
@@ -826,6 +846,8 @@ export interface FleetAdditionCandidate {
   match?: RatingMatch;
   /** IRC primary/secondary switch (reused). */
   certChoice?: CertChoice;
+  /** ORC candidates only: the certificate the addition writes. */
+  orcCert?: OrcCertData;
 }
 
 /** Stable key for a `(competitor, system)` addition candidate. */
@@ -856,7 +878,7 @@ function planFleetAdditions(
   const targetFleetByKey = input.targetFleetByKey ?? {};
 
   const fleetSystemById = new Map<string, Fleet['scoringSystem']>();
-  const fleetsBySystem: Record<AddableSystem, { fleetId: string; name: string }[]> = { irc: [], echo: [] };
+  const fleetsBySystem: Record<AddableSystem, { fleetId: string; name: string }[]> = { irc: [], echo: [], orc: [] };
   for (const f of input.targetFleets) {
     fleetSystemById.set(f.id, f.scoringSystem);
     if (f.scoringSystem === 'irc' || f.scoringSystem === 'echo') {
@@ -1134,4 +1156,284 @@ export function planRyaPyUpdates(input: RyaPyPlanInput): PyClassProposal[] {
 
   proposals.sort((a, b) => a.enteredClass.localeCompare(b.enteredClass));
   return proposals;
+}
+
+// ─── ORC certificate source ──────────────────────────────────────────────────
+//
+// The ORC database serves one active certificate per boat per family
+// (standard / non-spinnaker / double-handed; rule 303.5's last-issued-wins is
+// applied upstream), so unlike the IRC list there is no primary/secondary
+// choice — but there *is* a family choice, made per fleet the way the IRC
+// spin/non-spin variant is. And the value written is the whole certificate,
+// not a number: the preview's TCF columns show the fleet's configured
+// time-on-time rating purely as the human-comparable delta.
+
+/** Adapter giving an ORC certificate entry the shape {@link RatingMatcher}
+ *  indexes (sail number + boat name). */
+interface OrcMatchRecord {
+  sailNumber: string;
+  boatName?: string;
+  entry: OrcCertEntry;
+}
+
+function orcMatchRecords(entries: readonly OrcCertEntry[]): OrcMatchRecord[] {
+  const out: OrcMatchRecord[] = [];
+  for (const entry of entries) {
+    const sailNumber = entry.record.SailNo?.trim();
+    if (!sailNumber) continue;
+    out.push({ sailNumber, boatName: entry.record.YachtName, entry });
+  }
+  return out;
+}
+
+/** Among several certificates for the same boat (shouldn't happen within a
+ *  family, but the feed is not ours), the last-issued wins — rule 303.5. */
+function latestOrcEntry(records: readonly OrcMatchRecord[]): OrcCertEntry {
+  let best = records[0];
+  for (const r of records) {
+    const a = Date.parse(best.entry.record.IssueDate ?? '') || 0;
+    const b = Date.parse(r.entry.record.IssueDate ?? '') || 0;
+    if (b > a) best = r;
+  }
+  return best.entry;
+}
+
+export interface OrcPlanInput {
+  targetCompetitors: readonly Competitor[];
+  targetFleets: readonly Fleet[];
+  /** The fetched listings, keyed by certificate family. A family absent here
+   *  (still loading, or not needed) produces no rows for its fleets. */
+  entriesByFamily: Partial<Record<OrcFamily, readonly OrcCertEntry[]>>;
+  /** Certificate family per ORC fleet; a fleet absent from the map uses the
+   *  standard fully-crewed family. */
+  familyByFleet?: Readonly<Record<string, OrcFamily>>;
+  matchByName?: boolean;
+  defaultCountry?: string;
+  /** Epoch ms — stamped as `importedAt` on planned certificates and used for
+   *  expiry checks. Passed in so planning is deterministic. */
+  now: number;
+}
+
+function orcFamilyForFleet(
+  fleetId: string,
+  familyByFleet: Readonly<Record<string, OrcFamily>> | undefined,
+): OrcFamily {
+  return familyByFleet?.[fleetId] ?? 'ORC';
+}
+
+/** The preview's comparable scalar for a certificate under a fleet's
+ *  configured option: the time-on-time rating, falling back to APHT for a
+ *  time-on-distance option so the row still shows the certificate. */
+function orcPreviewRating(entry: OrcCertEntry, fleet: Fleet): number | null {
+  const profile = orcFleetProfile(fleet);
+  const field = profile.kind === 'tot' ? profile.option : 'APHT';
+  return orcRecordNumber(entry.record, field) ?? orcRecordNumber(entry.record, 'APHT') ?? null;
+}
+
+function orcCertDataFor(entry: OrcCertEntry, now: number): OrcCertData {
+  return {
+    record: entry.record,
+    ...(entry.expiryDate ? { expiryDate: entry.expiryDate } : {}),
+    ...(entry.vppYear != null ? { vppYear: entry.vppYear } : {}),
+    importedAt: now,
+  };
+}
+
+/** Whether the competitor's stored certificate is the same certificate issue
+ *  as the incoming one — reference number and issue date both equal. */
+function sameOrcCert(current: OrcCertData | undefined, entry: OrcCertEntry): boolean {
+  if (!current) return false;
+  return (
+    current.record.RefNo != null &&
+    current.record.RefNo === entry.record.RefNo &&
+    current.record.IssueDate === entry.record.IssueDate
+  );
+}
+
+/**
+ * Preview rows for the ORC certificate source. One row per target ORC fleet
+ * membership, matched by sail number against the fleet's family listing
+ * (with the usual country-default and opt-in name fallback). A changed row
+ * carries the whole certificate as its payload.
+ */
+export function planOrcUpdates(input: OrcPlanInput): PreviewRow[] {
+  const matchByName = input.matchByName ?? false;
+  const matcherByFamily = new Map<OrcFamily, RatingMatcher<OrcMatchRecord>>();
+  for (const [family, entries] of Object.entries(input.entriesByFamily)) {
+    if (entries) {
+      matcherByFamily.set(
+        family as OrcFamily,
+        new RatingMatcher(orcMatchRecords(entries), input.defaultCountry ?? ''),
+      );
+    }
+  }
+  const fleetById = new Map(input.targetFleets.map((f) => [f.id, f] as const));
+
+  const rows: PreviewRow[] = [];
+  for (const comp of input.targetCompetitors) {
+    for (const fleetId of comp.fleetIds) {
+      const fleet = fleetById.get(fleetId);
+      if (!fleet || fleet.scoringSystem !== 'orc') continue;
+      const family = orcFamilyForFleet(fleetId, input.familyByFleet);
+      const matcher = matcherByFamily.get(family);
+      if (!matcher) continue; // listing not loaded — no rows rather than noise
+
+      const base = {
+        competitorId: comp.id,
+        targetFleetId: fleetId,
+        system: 'orc' as const,
+        currentTcf: orcTotRating(comp, fleet),
+      };
+
+      const match = matcher.match(comp, matchByName);
+      if (match.kind === 'none') {
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-competitor' });
+        continue;
+      }
+      if (match.kind === 'ambiguous') {
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'ambiguous-match' });
+        continue;
+      }
+
+      const matched = match.records as readonly OrcMatchRecord[];
+      const entry = latestOrcEntry(matched);
+      const matchAnno: RatingMatch | undefined =
+        match.method === 'exact-sail'
+          ? undefined
+          : { method: match.method, sail: entry.record.SailNo ?? '', name: entry.record.YachtName };
+
+      const newTcf = orcPreviewRating(entry, fleet);
+      if (newTcf === null) {
+        rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-value', match: matchAnno });
+        continue;
+      }
+
+      rows.push({
+        ...base,
+        newTcf,
+        status: sameOrcCert(comp.orcCert, entry) ? 'unchanged' : 'change',
+        match: matchAnno,
+        orcCert: orcCertDataFor(entry, input.now),
+      });
+    }
+  }
+  return rows;
+}
+
+/**
+ * Boats holding a certificate in some fleet's family listing but sitting in
+ * no ORC fleet — candidates to add. When the series' ORC fleets span more
+ * than one family, a boat is offered once, for the first family (in fleet
+ * display order) whose listing rates it.
+ */
+export function planOrcFleetAdditions(
+  input: OrcPlanInput & { targetFleetByKey?: Readonly<Record<string, string>> },
+): FleetAdditionCandidate[] {
+  const matchByName = input.matchByName ?? false;
+  const targetFleetByKey = input.targetFleetByKey ?? {};
+
+  const orcFleets = input.targetFleets.filter((f) => f.scoringSystem === 'orc');
+  if (orcFleets.length === 0) return [];
+  const fleetById = new Map(input.targetFleets.map((f) => [f.id, f] as const));
+  // Families in fleet display order, each with its fleets and matcher.
+  const familiesInOrder: OrcFamily[] = [];
+  const fleetsByFamily = new Map<OrcFamily, { fleetId: string; name: string }[]>();
+  for (const f of [...orcFleets].sort((a, b) => a.displayOrder - b.displayOrder)) {
+    const family = orcFamilyForFleet(f.id, input.familyByFleet);
+    if (!fleetsByFamily.has(family)) {
+      familiesInOrder.push(family);
+      fleetsByFamily.set(family, []);
+    }
+    fleetsByFamily.get(family)!.push({ fleetId: f.id, name: f.name });
+  }
+  const matcherByFamily = new Map<OrcFamily, RatingMatcher<OrcMatchRecord>>();
+  for (const family of familiesInOrder) {
+    const entries = input.entriesByFamily[family];
+    if (entries) {
+      matcherByFamily.set(family, new RatingMatcher(orcMatchRecords(entries), input.defaultCountry ?? ''));
+    }
+  }
+
+  const candidates: FleetAdditionCandidate[] = [];
+  for (const comp of input.targetCompetitors) {
+    const inOrcFleet = comp.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'orc');
+    if (inOrcFleet) continue;
+
+    for (const family of familiesInOrder) {
+      const matcher = matcherByFamily.get(family);
+      if (!matcher) continue;
+      const match = matcher.match(comp, matchByName);
+      if (match.kind !== 'matched') continue;
+
+      const entry = latestOrcEntry(match.records as readonly OrcMatchRecord[]);
+      const fleetOptions = fleetsByFamily.get(family)!;
+      const chosen =
+        targetFleetByKey[additionKey(comp.id, 'orc')] ??
+        (fleetOptions.length === 1 ? fleetOptions[0].fleetId : null);
+      const chosenFleet = chosen ? fleetById.get(chosen) : undefined;
+
+      candidates.push({
+        competitorId: comp.id,
+        system: 'orc',
+        fleetOptions,
+        targetFleetId: chosen,
+        proposedTcf: chosenFleet ? orcPreviewRating(entry, chosenFleet) : null,
+        ...(match.method === 'exact-sail'
+          ? {}
+          : { match: { method: match.method, sail: entry.record.SailNo ?? '', name: entry.record.YachtName } }),
+        orcCert: orcCertDataFor(entry, input.now),
+      });
+      break; // one candidate per boat
+    }
+  }
+  return candidates;
+}
+
+/** Boats in an ORC fleet that the fleet's family listing doesn't rate. */
+export function planOrcFleetRemovals(
+  input: OrcPlanInput & { competitorIdsWithResults?: ReadonlySet<string> },
+): FleetRemovalCandidate[] {
+  const matchByName = input.matchByName ?? false;
+  const withResults = input.competitorIdsWithResults ?? new Set<string>();
+  const fleetById = new Map(input.targetFleets.map((f) => [f.id, f] as const));
+  const matcherByFamily = new Map<OrcFamily, RatingMatcher<OrcMatchRecord>>();
+
+  const out: FleetRemovalCandidate[] = [];
+  for (const comp of input.targetCompetitors) {
+    if (withResults.has(comp.id)) continue;
+    for (const fid of comp.fleetIds) {
+      const fleet = fleetById.get(fid);
+      if (!fleet || fleet.scoringSystem !== 'orc') continue;
+      const family = orcFamilyForFleet(fid, input.familyByFleet);
+      const entries = input.entriesByFamily[family];
+      if (!entries) continue; // listing not loaded — never propose removal
+      let matcher = matcherByFamily.get(family);
+      if (!matcher) {
+        matcher = new RatingMatcher(orcMatchRecords(entries), input.defaultCountry ?? '');
+        matcherByFamily.set(family, matcher);
+      }
+      if (matcher.match(comp, matchByName).kind === 'matched') continue;
+      out.push({ competitorId: comp.id, fleetId: fid, fleetName: fleet.name, system: 'orc' });
+    }
+  }
+  return out;
+}
+
+/** Import-time sanity summary over the planned ORC rows: how many incoming
+ *  certificates are already expired, and the distinct VPP years — all boats
+ *  in an event must be rated by the same VPP year (rule 303.4). */
+export function orcPlanChecks(
+  rows: readonly PreviewRow[],
+  now: number,
+): { expiredCount: number; vppYears: number[] } {
+  const certs = rows
+    .map((r) => r.orcCert)
+    .filter((c): c is OrcCertData => c != null);
+  const years = new Set<number>();
+  let expiredCount = 0;
+  for (const cert of certs) {
+    if (isOrcCertExpired(cert, now)) expiredCount++;
+    if (cert.vppYear != null) years.add(cert.vppYear);
+  }
+  return { expiredCount, vppYears: [...years].sort() };
 }

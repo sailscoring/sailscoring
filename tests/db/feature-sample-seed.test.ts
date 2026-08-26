@@ -114,6 +114,55 @@ describe.skipIf(skip)('seedFeatureSample', () => {
     expect(withExclusion[0].excludedFleetIds).toEqual(champ.fleetIds);
   });
 
+  test('seeds the ORC demo with verbatim certificates and per-start options', async () => {
+    const seeded = await seedFeatureSample('orc', workspaceId, db);
+    expect(seeded).toBe(true);
+
+    const [series] = await db
+      .select()
+      .from(schema.series)
+      .where(
+        and(
+          eq(schema.series.workspaceId, workspaceId),
+          eq(schema.series.name, 'Sample ORC Series 2026'),
+        ),
+      );
+    expect(series).toBeDefined();
+
+    // Every boat's certificate survives the jsonb round-trip whole — the
+    // allowance matrix is what performance-curve scoring runs on.
+    const compRows = await db
+      .select()
+      .from(schema.competitors)
+      .where(eq(schema.competitors.seriesId, series.id));
+    expect(compRows).toHaveLength(8);
+    for (const c of compRows) {
+      const allowances = c.orcCert?.record?.Allowances as { WindSpeeds?: unknown[] } | undefined;
+      expect(Array.isArray(allowances?.WindSpeeds)).toBe(true);
+    }
+
+    // The per-race scoring options land on the starts: the fleet-default
+    // race, the band, the constructed course (with its legs), and the W/L
+    // curves race with the RC scoring wind.
+    const raceRows = await db
+      .select()
+      .from(schema.races)
+      .where(eq(schema.races.seriesId, series.id));
+    expect(raceRows).toHaveLength(4);
+    const startRows = await db
+      .select()
+      .from(schema.raceStarts)
+      .where(inArray(schema.raceStarts.raceId, raceRows.map((r) => r.id)));
+    expect(startRows).toHaveLength(4);
+    const options = startRows.map((s) => s.orcOption);
+    expect(options.filter((o) => o != null).sort()).toEqual(['CC', 'IRL_5B_WL_M_TOT', 'WL']);
+    expect(options.filter((o) => o == null)).toHaveLength(1);
+    const cc = startRows.find((s) => s.orcOption === 'CC')!;
+    expect(cc.courseLegs).toHaveLength(7);
+    const wl = startRows.find((s) => s.orcOption === 'WL')!;
+    expect(wl.orcScoringWind).toBe(12);
+  });
+
   test('returns false for a feature with no demo sample', async () => {
     const seeded = await seedFeatureSample('prizes', workspaceId, db);
     expect(seeded).toBe(false);

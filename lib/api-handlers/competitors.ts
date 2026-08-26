@@ -246,6 +246,7 @@ export async function bulkUpdateHandicaps(
         ...(u.pyNumber !== undefined ? { pyNumber: u.pyNumber } : {}),
         ...(u.nhcStartingTcf !== undefined ? { nhcStartingTcf: u.nhcStartingTcf } : {}),
         ...(u.echoStartingTcf !== undefined ? { echoStartingTcf: u.echoStartingTcf } : {}),
+        ...(u.orcCert !== undefined ? { orcCert: u.orcCert } : {}),
         ...(u.boatClass !== undefined ? { boatClass: u.boatClass } : {}),
       };
       // Freeze-past: for each static rating that actually changes, pin the

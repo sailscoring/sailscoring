@@ -12,6 +12,7 @@ import { useTcfHistoryBySeries } from '@/hooks/use-tcf-history';
 import type { Competitor, Fleet, RaceRatingOverride, RatingField } from '@/lib/types';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { formatRatingValue, type RatingSystemCode } from '@/lib/competitor-ratings';
+import { orcTotRating } from '@/lib/orc-certificate';
 import { bySailNumber } from '@/lib/sail-number-sort';
 
 export interface RatingsTabProps {
@@ -74,8 +75,13 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
           base, applied: override?.value ?? base, override,
         });
       } else {
-        // Progressive (nhc/echo) — read-only; rating evolves per race.
-        const base = (fleet.scoringSystem === 'echo' ? c.echoStartingTcf : c.nhcStartingTcf) ?? null;
+        // Read-only rows: progressive systems (nhc/echo) evolve per race, and
+        // an ORC rating is the certificate — changed by re-import, not edits.
+        const base = (fleet.scoringSystem === 'echo'
+          ? c.echoStartingTcf
+          : fleet.scoringSystem === 'orc'
+            ? orcTotRating(c, fleet)
+            : c.nhcStartingTcf) ?? null;
         rows.push({
           key: `${c.id}:${fleetId}`,
           competitor: c, fleet, system: fleet.scoringSystem, field: null,

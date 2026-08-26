@@ -397,12 +397,121 @@ export interface Series {
   version?: number;
 }
 
+/**
+ * One ORC certificate's `rms` record as served by the ORC database, stored
+ * verbatim — the certificate is the rating, and modelling every field would
+ * only lose information. Only the identity and headline-rating fields the
+ * app reads are typed; the rest (hull data, the ~250 national scoring-option
+ * fields, the time-allowance matrix) rides along untouched and is read by
+ * field name where needed (see lib/orc-certificate.ts).
+ */
+export interface OrcRmsRecord {
+  RefNo?: string;
+  NatAuth?: string;
+  CertNo?: string;
+  SailNo?: string;
+  YachtName?: string;
+  Class?: string;
+  Builder?: string;
+  Designer?: string;
+  /** Certificate type: INTL / CLUB (standard), NSIN / NSCL, DHIN / DHCL. */
+  C_Type?: string;
+  /** Certificate family: 'ORC' (standard), 'NS', or 'DH'. */
+  Family?: string;
+  IssueDate?: string;
+  LOA?: number;
+  CDL?: number;
+  GPH?: number;
+  APHD?: number;
+  APHT?: number;
+  OSN?: number;
+  ILCWA?: number;
+  TMF_Inshore?: number;
+  TMF_Offshore?: number;
+  Allowances?: OrcAllowances;
+  [key: string]: unknown;
+}
+
+/**
+ * The certificate's time-allowance matrix: seconds per nautical mile at each
+ * tabulated true wind speed, per true wind angle column (`R52` … `R150`),
+ * plus optimum beat/run VMG allowances and their angles, and the
+ * pre-composed course rows (windward/leeward, circular random, ocean).
+ * Every array is indexed by `WindSpeeds`.
+ */
+export interface OrcAllowances {
+  WindSpeeds?: number[];
+  WindAngles?: number[];
+  Beat?: number[];
+  Run?: number[];
+  BeatAngle?: number[];
+  GybeAngle?: number[];
+  WL?: number[];
+  CR?: number[];
+  OC?: number[];
+  [key: string]: unknown;
+}
+
+/** An ORC certificate as stored on a competitor: the verbatim record plus
+ *  the index fields only the database's `activecerts` feed carries. */
+export interface OrcCertData {
+  record: OrcRmsRecord;
+  /** ISO date the certificate expires (normally 31 Dec of the VPP year). */
+  expiryDate?: string;
+  vppYear?: number;
+  /** When the scorer imported it (epoch ms). */
+  importedAt: number;
+}
+
+/**
+ * How an ORC fleet is scored: which certificate-published rating field
+ * applies (by its JSON field name, e.g. 'APHT' or 'IRL_5B_WL_M_TOT') and
+ * how — time-on-time (CT = rating × ET) or time-on-distance
+ * (CT = ET − Δrating × distance). Absent means the default: 'APHT'
+ * time-on-time, the all-purpose single number.
+ *
+ * kind 'pcs' is Performance Curve Scoring (rule 402): `option` then names
+ * the course model — 'WL', 'CR' (all-purpose), or 'OC' (coastal) — and the
+ * per-race allowance is computed from the certificate's matrix at the
+ * race's scoring wind rather than read from a field.
+ */
+export interface OrcProfile {
+  option: string;
+  kind: 'tot' | 'tod' | 'pcs';
+}
+
+/**
+ * Per-boat ORC scoring audit for one race — the transparency payload behind
+ * a PCS (or ToD) corrected time: what allowance was applied, against which
+ * scratch allowance, over what distance, and — for PCS — the boat's implied
+ * wind and the race's scoring wind (with its source).
+ */
+export interface OrcRaceCalc {
+  /** The certificate rating field applied this race — set when it isn't the
+   *  fleet's default (a per-start wind-band selection), and always for ToD. */
+  option?: string;
+  /** ToD/PCS: the applied allowance in s/NM (equals tcfApplied). */
+  todApplied?: number;
+  /** ToD/PCS: the scratch boat's allowance the fleet corrected against. */
+  scratchTod?: number;
+  /** ToD/PCS: the course length corrected over. */
+  distanceNm?: number;
+  /** PCS only: this boat's implied wind (finishers). */
+  impliedWind?: number;
+  /** PCS only: the wind corrected times were computed at. */
+  scoringWind?: number;
+  /** PCS only: true when the race committee overrode the scoring wind. */
+  scoringWindOverridden?: boolean;
+  /** PCS only: the course model the curves were built over. */
+  courseModel?: string;
+}
+
 export interface Fleet {
   id: string;
   seriesId: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
   echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
   // Inline (unshared) NHC profile override. Present iff scoringSystem === 'nhc'
   // AND the scorer has customised the parameters away from the SWNHC2015
@@ -412,12 +521,30 @@ export interface Fleet {
   // (see docs/design/horizon.md); the inline shape is forward-compatible with
   // that migration.
   nhcProfile?: NhcProfile;
+  // ORC scoring configuration. Present iff scoringSystem === 'orc' AND the
+  // scorer has picked a rating option other than the default (APHT
+  // time-on-time). See OrcProfile.
+  orcProfile?: OrcProfile;
   // The split round that created this fleet (round-scoped identity: a
   // round-1 "Yellow" is a different fleet from a round-2 "Yellow").
   // Round-owned fleets are filtered from general-purpose fleet pickers —
   // their membership is managed by the Split Fleets ceremonies.
   splitRoundId?: string;
   version?: number;   // server-side concurrency token (see Series.version)
+}
+
+/**
+ * One leg of a constructed course (ORC rule 402.5): its length, compass
+ * bearing, and the wind direction on the leg — a leg is split into sub-legs
+ * by entering separate rows when the wind shifts mid-leg. Current is
+ * optional per leg.
+ */
+export interface OrcCourseLeg {
+  distanceNm: number;
+  bearingDeg: number;
+  windDirectionDeg: number;
+  currentSpeedKts?: number;
+  currentDirectionDeg?: number;
 }
 
 export interface RaceStart {
@@ -438,6 +565,29 @@ export interface RaceStart {
   // Companion "last race": this start's first finisher scores offset + 1
   // (e.g. the non-medal race scored from 11 when the medal fleet is 10).
   firstPlaceOffset?: number;
+  // Course length in nautical miles for this start's fleets — a required
+  // scoring input for time-on-distance correction (ORC records it to
+  // 0.01 NM), not descriptive metadata. Per start, not per race: fleets
+  // sharing a gun but sailing different courses split into two same-time
+  // starts. A ToD-scored race with no distance falls back to scratch, the
+  // way a timeless start does.
+  distanceNm?: number;
+  // ORC PCS: the race committee's scoring wind (kt), replacing the winner's
+  // implied wind when the implied value doesn't fairly represent the race
+  // (rule 402.12). Per start, like the distance, so each fleet group carries
+  // its own. Sparse — normally unset.
+  orcScoringWind?: number;
+  // The constructed course this start's fleets sailed (ORC rule 402.5): one
+  // entry per leg, in sailing order. When present, the course distance is
+  // the legs' sum and `distanceNm` is ignored for PCS. Course facts are
+  // published — this is the record competitors check their tracks against.
+  courseLegs?: OrcCourseLeg[];
+  // ORC wind-band selection: a certificate rating field overriding the
+  // fleet's configured option for this start's races — the race committee's
+  // per-race band choice (announced by VHF in the DBSC pattern, changeable
+  // if conditions materially changed). Must apply the same way (ToT/ToD) as
+  // the fleet's option; a mismatched field is ignored. Sparse.
+  orcOption?: string;
   version?: number;     // server-side concurrency token (see Series.version)
 }
 
@@ -490,6 +640,11 @@ export interface Competitor {
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
   echoStartingTcf?: number; // initial TCF for ECHO fleets; required for ECHO competitors
+  // The boat's ORC certificate, stored verbatim as imported from the ORC
+  // database; required for ORC competitors. Scoring reads rating fields off
+  // the record per the fleet's OrcProfile. Kept out of the public JSON
+  // export (only a summary travels — see lib/public-export.ts).
+  orcCert?: OrcCertData;
   version?: number;         // server-side concurrency token (see Series.version)
 }
 
@@ -733,6 +888,7 @@ export interface HandicapRaceScore extends RaceScore {
   newTcf: number | null;         // TCF for race N+1; null for static systems (IRC/PY) or no rating
   nhc?: NhcRaceCalc;             // present iff fleet.scoringSystem === 'nhc' AND finisher
   echo?: EchoRaceCalc;           // present iff fleet.scoringSystem === 'echo' AND finisher
+  orc?: OrcRaceCalc;             // present on ORC time-on-distance/PCS fleets
 }
 
 // NHC per-finisher intermediate calculations (for explainability).

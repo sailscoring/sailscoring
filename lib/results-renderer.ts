@@ -1,4 +1,4 @@
-import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
+import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
 import { parseHmsToSeconds } from './time-parse';
 import {
@@ -138,6 +138,20 @@ export interface RaceData {
    *  explainability columns (1/T_E, PI, Adjustment, New H) hidden under
    *  the ECHO viewer toggle. */
   isEcho?: boolean;
+  /** True for an ORC race scored time-on-distance (the option resolves per
+   *  race): the rating column holds allowances in s/NM (labelled "ToD",
+   *  printed to 1 dp) and corrected times come from the engine rather than
+   *  an ET × TCF recompute. Also set for PCS races — their applied rating
+   *  is a ToD at the scoring wind. */
+  isOrcTod?: boolean;
+  /** True for an ORC race scored by performance curves: adds the implied
+   *  wind column so competitors can check the scoring wind derivation. */
+  isOrcPcs?: boolean;
+  /** ORC fleet-race header: the option the race was scored on and the
+   *  correction ingredients — and, for PCS, the scoring wind with its
+   *  source and the course record. Always rendered when present: the audit
+   *  trail is the point. */
+  orcHeader?: OrcHeaderData;
   /** NHC fleet-race-level aggregates. When set, renders the rating-calculation
    *  fleet header line above the race table and extra explainability columns
    *  (CT ratio, Fair TCF, Adjustment, New TCF) under the viewer toggle. */
@@ -147,6 +161,25 @@ export interface RaceData {
    *  table and the ECHO explainability columns (1/T_E, PI, Adjustment,
    *  New H) under the ECHO viewer toggle. */
   echoHeader?: EchoHeaderData;
+}
+
+export interface OrcHeaderData {
+  /** The scoring option the race resolved to — names the certificate
+   *  rating field on a single-number or band-scored race. */
+  option?: string;
+  /** ToD/PCS: the scratch boat's allowance (s/NM) the fleet corrected
+   *  against. Absent on a ToT band race, which has no correction header
+   *  beyond the field name. */
+  scratchTod?: number;
+  distanceNm?: number;
+  /** PCS: the wind corrected times were computed at. */
+  scoringWind?: number;
+  /** PCS: the scoring wind was set by the race committee (rule 402.12). */
+  scoringWindOverridden?: boolean;
+  /** PCS: 'WL' | 'CR' | 'OC' | 'CC'. */
+  courseModel?: string;
+  /** Constructed-course legs, published as the course record. */
+  legs?: OrcCourseLeg[];
 }
 
 export interface NhcHeaderData {
@@ -225,6 +258,7 @@ export interface RaceResultData {
   // Handicap fields — only set for IRC/PY fleets
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY)
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
+  impliedWind?: number;      // ORC PCS: the boat's implied wind (kt)
   finishTime?: string;       // "HH:MM:SS"; also set for scratch fleets when track data is published
   elapsedTimeSecs?: number;  // integer seconds (finishTime − startTime)
   correctedTimeSecs?: number; // integer seconds, rounded half-up (elapsedTimeSecs × tcc)
@@ -1559,8 +1593,12 @@ function renderRaceTable(
   const trackColumns = TRACK_DATA_COLUMNS.filter(
     (col) => !(col.time && hasHandicapCols) && race.results.some((r) => col.value(r) !== ''),
   );
-  // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap fleets use "TCC".
-  const ratingLabel = isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC');
+  // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap
+  // fleets use "TCC" — except ORC time-on-distance, whose rating is an
+  // allowance in seconds per nautical mile.
+  const isOrcTod = race.isOrcTod === true;
+  const isOrcPcs = race.isOrcPcs === true;
+  const ratingLabel = isOrcTod ? 'ToD' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC'));
   const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
@@ -1586,9 +1624,12 @@ function renderRaceTable(
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
             `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
-            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
+            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
             `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
           ]
+        : [];
+      const orcIwCell = isOrcPcs
+        ? [`<td class="mono"${r.impliedWind != null ? ` title="${r.impliedWind.toFixed(5)} kt"` : ''}>${r.impliedWind != null ? r.impliedWind.toFixed(2) : ''}</td>`]
         : [];
       const nhcNewTcfCell = isNhc ? [renderNhcNewTcfCell(r)] : [];
       const echoNewHCell = isEcho ? [renderEchoNewHCell(r)] : [];
@@ -1613,6 +1654,7 @@ function renderRaceTable(
         ...(showAge ? [`<td>${r.age != null ? r.age : ''}</td>`] : []),
         ...(showGender ? [`<td>${esc(r.gender ?? '')}</td>`] : []),
         ...handicapCells,
+        ...orcIwCell,
         ...nhcNewTcfCell,
         ...echoNewHCell,
         ...nhcCells,
@@ -1627,6 +1669,7 @@ function renderRaceTable(
   const baseColCount = 4 + (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
   const colCount = baseColCount
     + (hasHandicapCols ? 4 : 0)
+    + (isOrcPcs ? 1 : 0)
     + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
     + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0)
     + trackColumns.length;
@@ -1664,6 +1707,48 @@ function renderRaceTable(
   // reproduces the IS-formula inputs.
   const echoNewHHeader = isEcho ? '\n<th>New H</th>' : '';
   const echoNewHCol = isEcho ? '\n<col class="newh" />' : '';
+  const orcIwHeader = isOrcPcs ? '\n<th>Implied wind</th>' : '';
+  const orcIwCol = isOrcPcs ? '\n<col class="iw" />' : '';
+  // The ORC audit line: how this race's corrected times were arrived at —
+  // the scoring wind and its source, the course, and the scratch allowance.
+  // Always visible: making PCS checkable by competitors is the point.
+  const orcSubheading = race.orcHeader
+    ? (() => {
+        const h = race.orcHeader;
+        const parts: string[] = [];
+        if (h.distanceNm != null) {
+          parts.push(
+            h.courseModel === 'CC'
+              ? `Constructed course &middot; ${h.distanceNm.toFixed(2)} NM${h.legs?.length ? ` &middot; ${h.legs.length} legs` : ''}`
+              : h.courseModel
+                ? `${h.courseModel === 'WL' ? 'Windward/leeward' : h.courseModel === 'CR' ? 'All-purpose' : 'Coastal'} course model &middot; ${h.distanceNm.toFixed(2)} NM`
+                : `Course ${h.distanceNm.toFixed(2)} NM`,
+          );
+        }
+        // On a PCS race the course model already names the method, and the
+        // stored option duplicates it — the field name is only meaningful
+        // for certificate single numbers and bands.
+        if (h.option && h.scoringWind == null) parts.push(`Rating field ${esc(h.option)}`);
+        if (h.scoringWind != null) {
+          parts.push(
+            `Scoring wind ${h.scoringWind.toFixed(2)} kt (${h.scoringWindOverridden ? 'set by the race committee' : "winner's implied wind"})`,
+          );
+        }
+        if (h.scratchTod != null) parts.push(`Scratch allowance ${h.scratchTod.toFixed(1)} s/NM`);
+        const lead =
+          h.scoringWind != null
+            ? 'Scored on ORC performance curves'
+            : h.scratchTod != null
+              ? 'Scored on ORC time-on-distance'
+              : 'Scored on an ORC certificate rating';
+        const legsLine = h.legs?.length
+          ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
+              .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;)`)
+              .join(' &middot; ')}</p>`
+          : '';
+        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}\n`;
+      })()
+    : '';
   const echoHeaders = hasEchoExplain
     ? '\n<th class="echo-detail">1/T_E</th>\n<th class="echo-detail">PI</th>\n<th class="echo-detail">Adjustment</th>'
     : '';
@@ -1694,19 +1779,19 @@ function renderRaceTable(
     : '';
   const labelStr = opts?.suppressLabel ? '' : `${esc(race.label)}&nbsp;&mdash;&nbsp;`;
   return `<h3 class="racetitle" id="${esc(race.anchorId)}">${labelStr}${nameStr}${dateStr}${startStr}</h3>
-${optionsSubheading}${conditionsSubheading}${officialsSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
+${optionsSubheading}${conditionsSubheading}${officialsSubheading}${orcSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />
 <col class="sailno" />
 ${showBowNumber ? '<col class="bowno" />\n' : ''}${showEntryNumber ? '<col class="entryno" />\n' : ''}${showTallyNumber ? '<col class="tally" />\n' : ''}${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
-${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${showClub ? '<col class="club" />\n' : ''}${showNationality ? '<col class="nat" />\n' : ''}${showWorldSailingId ? '<col class="wsid" />\n' : ''}${subdivisionAxes.map(() => '<col class="subdivision" />\n').join('')}${showAge ? '<col class="age" />\n' : ''}${showGender ? '<col class="gender" />\n' : ''}${handicapCols}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
+${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${showClub ? '<col class="club" />\n' : ''}${showNationality ? '<col class="nat" />\n' : ''}${showWorldSailingId ? '<col class="wsid" />\n' : ''}${subdivisionAxes.map(() => '<col class="subdivision" />\n').join('')}${showAge ? '<col class="age" />\n' : ''}${showGender ? '<col class="gender" />\n' : ''}${handicapCols}${orcIwCol}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
 <col class="points" />${trackCols}
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail Number</th>
-${showBowNumber ? '<th>Bow</th>\n' : ''}${showEntryNumber ? '<th>Entry</th>\n' : ''}${showTallyNumber ? '<th>Tally</th>\n' : ''}${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? `\n<th>${esc(helmHeader)}</th>` : ''}${showOwner ? `\n<th>${esc(ownerHeader)}</th>` : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
+${showBowNumber ? '<th>Bow</th>\n' : ''}${showEntryNumber ? '<th>Entry</th>\n' : ''}${showTallyNumber ? '<th>Tally</th>\n' : ''}${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? `\n<th>${esc(helmHeader)}</th>` : ''}${showOwner ? `\n<th>${esc(ownerHeader)}</th>` : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${orcIwHeader}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
 <th>Points</th>${trackHeaders}
 </tr>
 </thead>
@@ -2039,7 +2124,7 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -2053,11 +2138,11 @@ export function assembleSeriesResultsData(
     /** Named subdivision axes; one prize-giving column each. */
     subdivisionAxes?: SubdivisionAxis[];
     /** RaceStart records for all races — used to find the gun time for this fleet */
-    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string }>;
+    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: OrcCourseLeg[] }>;
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
     /** When set (NHC fleets only), per-race aggregates that drive the
      *  rating-calculation fleet header line above each race table and the
      *  per-row explainability columns. Pass undefined to suppress the
@@ -2096,7 +2181,7 @@ export function assembleSeriesResultsData(
   },
 ): SeriesResultsData {
   const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData } = options ?? {};
-  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
+  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
 
@@ -2114,6 +2199,28 @@ export function assembleSeriesResultsData(
     const scoresForRace = raceScoresByRaceId.get(race.id) ?? new Map();
     const startTime = startTimeByRaceId.get(race.id);
     const startSecs = startTime ? parseHmsToSeconds(startTime) ?? NaN : null;
+    // The ORC audit header: correction ingredients from any scored cell's
+    // audit block, plus the constructed-course record off the covering start.
+    let orcHeaderData: OrcHeaderData | undefined;
+    if (scoringSystem === 'orc') {
+      const firstOrc = [...(scoresForRace as Map<string, { orc?: OrcRaceCalc }>).values()].find((s) => s.orc)?.orc;
+      if (firstOrc) {
+        const coveringStart = fleetId
+          ? raceStarts?.find((rs) => rs.raceId === race.id && rs.fleetIds.includes(fleetId))
+          : undefined;
+        orcHeaderData = {
+          ...(firstOrc.option ? { option: firstOrc.option } : {}),
+          ...(firstOrc.scratchTod != null ? { scratchTod: firstOrc.scratchTod } : {}),
+          ...(firstOrc.distanceNm != null ? { distanceNm: firstOrc.distanceNm } : {}),
+          ...(firstOrc.scoringWind != null ? { scoringWind: firstOrc.scoringWind } : {}),
+          ...(firstOrc.scoringWindOverridden ? { scoringWindOverridden: true } : {}),
+          ...(firstOrc.courseModel ? { courseModel: firstOrc.courseModel } : {}),
+          ...(firstOrc.courseModel === 'CC' && coveringStart?.courseLegs?.length
+            ? { legs: coveringStart.courseLegs }
+            : {}),
+        };
+      }
+    }
     const results: RaceResultData[] = [];
 
     for (const [competitorId, score] of scoresForRace) {
@@ -2136,13 +2243,20 @@ export function assembleSeriesResultsData(
         } else if (scoringSystem === 'py') {
           tcc = score.tcfApplied
             ?? (competitor.pyNumber != null && competitor.pyNumber > 0 ? 1000 / competitor.pyNumber : undefined);
-        } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo') && score.tcfApplied != null) {
+        } else if ((scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc') && score.tcfApplied != null) {
+          // ORC: the applied rating depends on the option the race resolved
+          // to, which the engine recorded — there is no meaningful
+          // competitor-level fallback here.
           tcc = score.tcfApplied;
         }
         if (tcc != null && score.finishTime) {
           const finishSecs = parseHmsToSeconds(score.finishTime) ?? NaN;
-          elapsedTimeSecs = finishSecs - startSecs;
-          correctedTimeSecs = roundCorrectedSecs(elapsedTimeSecs, tcc);
+          const et = score.elapsedTime ?? finishSecs - startSecs;
+          elapsedTimeSecs = et;
+          // Prefer the engine's corrected time when the score carries one —
+          // for time-on-distance the ET × TCF recompute would be wrong, and
+          // for time-on-time the two are identical by construction.
+          correctedTimeSecs = score.correctedTime ?? roundCorrectedSecs(et, tcc);
         }
       }
 
@@ -2212,6 +2326,7 @@ export function assembleSeriesResultsData(
         ...(score.penaltyLabel ? { penaltyLabel: score.penaltyLabel } : {}),
         ...(tcc != null ? { tcc } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
+        ...(score.orc?.impliedWind != null ? { impliedWind: score.orc.impliedWind } : {}),
         ...(score.finishTime && (isHandicap || showTrackData) ? { finishTime: score.finishTime } : {}),
         ...(showTrackData && score.trackData ? { trackData: score.trackData } : {}),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
@@ -2245,6 +2360,12 @@ export function assembleSeriesResultsData(
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
+      // The scoring option resolves per race, so the ToD presentation (s/NM
+      // rating column, engine corrected times) is a per-race property too,
+      // read off the audit block rather than the fleet configuration.
+      ...(orcHeaderData?.scratchTod != null ? { isOrcTod: true } : {}),
+      ...(orcHeaderData ? { orcHeader: orcHeaderData } : {}),
+      ...(orcHeaderData?.scoringWind != null ? { isOrcPcs: true } : {}),
       results,
       ...(nhcHeader ? { nhcHeader } : {}),
       ...(echoHeader ? { echoHeader } : {}),

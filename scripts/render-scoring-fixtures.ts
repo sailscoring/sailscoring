@@ -23,6 +23,7 @@ import {
   calculateHandicapRaceScores,
 } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
+import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
@@ -264,26 +265,38 @@ function renderStandingsTable(fixture: Fixture): string {
 // ─── IRC / PY renderer ───────────────────────────────────────────────────────
 
 function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  if (!fixture.fleet || (fixture.fleet.scoringSystem !== 'irc' && fixture.fleet.scoringSystem !== 'py')) {
+  if (!fixture.fleet || (fixture.fleet.scoringSystem !== 'irc' && fixture.fleet.scoringSystem !== 'py' && fixture.fleet.scoringSystem !== 'orc')) {
     throw new Error(`Expected handicap fleet, got ${fixture.fleet?.scoringSystem}`);
   }
   const sys = fixture.fleet.scoringSystem;
   const sysUpper = sys.toUpperCase();
-  const { competitors, races, finishes, raceStarts } = buildFixtureInputs(fixture);
+  const { competitors, races, finishes, raceStarts, fleets } = buildFixtureInputs(fixture);
   const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
+  const fleet = fleets[0];
 
   const raceSections = fixture.races.map((fixtureRace, ri) => {
     const raceId = races[ri].id;
     const raceStart = raceStarts.find((rs) => rs.raceId === raceId);
     if (!raceStart) return '';
+    // The scoring option resolves per race: the start's option (a fixture
+    // race's `orcOption`), else the fleet default.
+    const orcProfile = sys === 'orc' ? orcRaceProfile(fleet, raceStart) : null;
+    const isOrcTod = orcProfile?.kind === 'tod';
     const raceFinishes = finishes.filter((f) => f.raceId === raceId);
     const tcfMap = new Map<string, number>();
     for (const c of competitors) {
       if (sys === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
       else if (sys === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
+      else if (orcProfile) {
+        const rating = orcProfileRating(c, orcProfile);
+        if (rating != null) tcfMap.set(c.id, rating);
+      }
     }
     const ratedCompetitors = competitors.filter((c) => tcfMap.has(c.id));
-    const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap);
+    const todContext = isOrcTod && raceStart.distanceNm != null && tcfMap.size > 0
+      ? { distanceNm: raceStart.distanceNm, scratchTod: Math.min(...tcfMap.values()) }
+      : undefined;
+    const { scores } = calculateHandicapRaceScores(raceFinishes, ratedCompetitors, raceStart, tcfMap, 'seriesEntries', todContext);
 
     const finishTimeByCompetitorId = new Map(
       raceFinishes.filter((f) => f.competitorId && f.finishTime).map((f) => [f.competitorId!, f.finishTime!]),
@@ -300,7 +313,9 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
       const c = competitorByIdMap.get(cId)!;
       const ratingDisplay = sys === 'irc'
         ? (c.ircTcc?.toFixed(3) ?? '—')
-        : (c.pyNumber?.toString() ?? '—');
+        : sys === 'orc'
+          ? (tcfMap.has(cId) ? tcfMap.get(cId)!.toFixed(isOrcTod ? 1 : 4) : '—')
+          : (c.pyNumber?.toString() ?? '—');
       const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
       const rankDisplay = score.rank !== null ? score.rank.toString() : '—';
       return `<tr>
@@ -310,22 +325,25 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
   <td class="mono">${esc(ratingDisplay)}</td>
   <td class="mono">${esc(finishTimeDisplay)}</td>
   <td class="mono">${esc(fmtSeconds(score.elapsedTime))}</td>
-  <td class="mono">${esc(fmtTcf(score.tcfApplied, sys))}</td>
+  <td class="mono">${esc(sys === 'orc' && isOrcTod ? (score.tcfApplied?.toFixed(1) ?? '—') : fmtTcf(score.tcfApplied, sys === 'orc' ? 'irc' : sys))}</td>
   <td class="mono">${esc(fmtSeconds(score.correctedTime))}</td>
   <td>${esc(fmtPoints(score.points))}</td>
 </tr>`;
     }).join('\n');
 
-    const ratingHeader = sys === 'irc' ? 'TCC' : 'PY';
+    const ratingHeader = sys === 'irc' ? 'TCC' : sys === 'orc' ? (orcProfile?.option ?? 'APHT') : 'PY';
     const raceLabel = fixture.races.length > 1 ? `Race ${fixtureRace.number ?? ri + 1}` : 'Race arithmetic';
+    const distanceNote = raceStart.distanceNm != null
+      ? ` &nbsp; <strong>Course:</strong> ${esc(raceStart.distanceNm.toFixed(2))} NM`
+      : '';
 
     return `<h2 style="margin-top:1.5em;">${esc(raceLabel)}</h2>
 <div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
-  <strong>Gun time:</strong> ${esc(fixtureRace.startTime ?? '')}
+  <strong>Gun time:</strong> ${esc(fixtureRace.startTime ?? '')}${distanceNote}
 </div>
 <table>
 <thead>
-<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>${esc(ratingHeader)}</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>${esc(ratingHeader)}</th><th>Finish time</th><th>ET</th><th>${sys === 'orc' && isOrcTod ? 'ToD' : 'TCF'}</th><th>CT</th><th>Points</th></tr>
 </thead>
 <tbody>
 ${rows}
@@ -729,7 +747,7 @@ function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
   const sys = fixture.fleet?.scoringSystem ?? 'scratch';
   if (sys === 'nhc') return generateNhcFixtureHtml(fixture, yamlSource);
   if (sys === 'echo') return generateEchoFixtureHtml(fixture, yamlSource);
-  if (sys === 'irc' || sys === 'py') return generateHandicapFixtureHtml(fixture, yamlSource);
+  if (sys === 'irc' || sys === 'py' || sys === 'orc') return generateHandicapFixtureHtml(fixture, yamlSource);
   return generateScratchFixtureHtml(fixture, yamlSource);
 }
 

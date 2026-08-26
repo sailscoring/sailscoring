@@ -77,11 +77,18 @@ export function useSaveFinish() {
       // Splice the saved row into the per-race cache so the next save
       // in the serialized queue reads the bumped version (no 409) and
       // the UI reflects server truth. New rows (no cache hit) are
-      // appended. Don't invalidate: a refetch races the queued saves
-      // and overwrites the optimistic order with a stale server
-      // snapshot. The standings page reads from `finishes.bySeries`
-      // which refreshes on tab-revisit via TanStack Query staleTime.
+      // appended. Don't invalidate the per-race key: a refetch races the
+      // queued saves and overwrites the optimistic order with a stale
+      // server snapshot.
       bumpPatchEpoch(saved.raceId);
+      // The standings page reads `finishes.bySeries`. Waiting for its
+      // staleTime to lapse isn't enough: anything that fetched the series
+      // list just before entry (the Update-handicaps dialog does) leaves a
+      // fresh-but-empty cache, and a standings visit straight after entry
+      // then scores the race as having no finishers. Mark every series-wide
+      // list stale — the per-race key above deliberately stays untouched,
+      // and with no standings page mounted this is a no-op until one opens.
+      void qc.invalidateQueries({ queryKey: ['finishes', 'bySeries'] });
       qc.setQueryData<Finish[] | undefined>(
         queryKeys.finishes.byRace(saved.raceId),
         (rows) => {

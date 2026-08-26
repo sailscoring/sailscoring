@@ -31,6 +31,9 @@ import type {
   DiscardThreshold,
   ProportionalDiscard,
   NhcProfile,
+  OrcCertData,
+  OrcCourseLeg,
+  OrcProfile,
   PrimaryPersonLabel,
   PublishingGroup,
   ProtestTimeLimit,
@@ -397,6 +400,7 @@ export const fleets = pgTable(
     scoringSystem: text('scoring_system').notNull(),
     echoAlpha: real('echo_alpha'),
     nhcProfile: jsonb('nhc_profile').$type<NhcProfile>(),
+    orcProfile: jsonb('orc_profile').$type<OrcProfile>(),
     splitRoundId: uuid('split_round_id'),
     version: versionCol,
     updatedAt: updatedAtCol,
@@ -407,7 +411,7 @@ export const fleets = pgTable(
     index('fleets_workspace_idx').on(table.workspaceId),
     check(
       'fleets_scoring_system_chk',
-      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo','vprs')`,
+      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo','vprs','orc')`,
     ),
   ],
 );
@@ -461,6 +465,8 @@ export const competitors = pgTable(
     pyNumber: real('py_number'),
     nhcStartingTcf: real('nhc_starting_tcf'),
     echoStartingTcf: real('echo_starting_tcf'),
+    // The boat's ORC certificate, verbatim as imported (see OrcCertData).
+    orcCert: jsonb('orc_cert').$type<OrcCertData>(),
     // Cross-series competitor-identity link (#212). Workspace-local: the row a
     // sailor's identity collapses onto across series. Nullable; written only by
     // the reconcile pass — batch (CLI) or the lazy after-write hook (#222) —
@@ -937,6 +943,10 @@ export const raceStarts = pgTable(
     stage: text('stage').$type<'qualifying' | 'final' | 'medal'>(),
     stageRaceNumber: integer('stage_race_number'),
     firstPlaceOffset: integer('first_place_offset'),
+    distanceNm: real('distance_nm'),
+    orcScoringWind: real('orc_scoring_wind'),
+    courseLegs: jsonb('course_legs').$type<OrcCourseLeg[]>(),
+    orcOption: text('orc_option'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

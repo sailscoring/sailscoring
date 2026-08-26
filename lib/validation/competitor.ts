@@ -6,6 +6,16 @@ import { epochMsSchema, uuidSchema, versionSchema } from './common';
 
 export const genderSchema = z.enum(['M', 'F', '']);
 
+// An ORC certificate as stored on a competitor: the verbatim record from the
+// ORC database plus the activecerts index fields. The record is validated as
+// shape only — its ~280 fields are certificate data the app stores untouched.
+export const orcCertDataSchema = z.object({
+  record: z.record(z.string(), z.unknown()),
+  expiryDate: z.string().optional(),
+  vppYear: z.number().int().optional(),
+  importedAt: epochMsSchema,
+});
+
 export const competitorSchema = z.object({
   id: uuidSchema,
   seriesId: uuidSchema,
@@ -38,6 +48,7 @@ export const competitorSchema = z.object({
   pyNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
+  orcCert: orcCertDataSchema.optional(),
   version: versionSchema,
 });
 
@@ -114,6 +125,9 @@ export const handicapUpdateSchema = z.object({
   pyNumber: z.number().optional(),
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
+  // The whole certificate, written by the ORC source (the certificate is the
+  // rating — there is no single number to update).
+  orcCert: orcCertDataSchema.optional(),
   // Canonical class name written by the RYA PY source alongside the PY number.
   boatClass: z.string().optional(),
   // Fleets to add this competitor to (union with current membership) — the

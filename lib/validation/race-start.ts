@@ -15,6 +15,26 @@ export const raceStartSchema = z.object({
   stage: z.enum(['qualifying', 'final', 'medal']).optional(),
   stageRaceNumber: z.number().int().positive().optional(),
   firstPlaceOffset: z.number().int().min(0).optional(),
+  // Course length in NM — a time-on-distance scoring input, recorded to
+  // 0.01 NM by convention (not enforced; the value is what the RC states).
+  distanceNm: z.number().positive().max(9999).optional(),
+  // Race-committee PCS scoring-wind override (kt), ORC rule 402.12.
+  orcScoringWind: z.number().positive().max(99).optional(),
+  // ORC wind-band selection: the certificate rating field for this start.
+  orcOption: z.string().min(1).max(64).optional(),
+  // Constructed-course legs (ORC rule 402.5), in sailing order.
+  courseLegs: z
+    .array(
+      z.object({
+        distanceNm: z.number().positive().max(999),
+        bearingDeg: z.number().min(0).max(360),
+        windDirectionDeg: z.number().min(0).max(360),
+        currentSpeedKts: z.number().min(0).max(20).optional(),
+        currentDirectionDeg: z.number().min(0).max(360).optional(),
+      }),
+    )
+    .max(60)
+    .optional(),
   version: versionSchema,
 });
 

@@ -66,6 +66,11 @@ function load(name: string) {
       ...((s.firstPlaceOffset ?? r.firstPlaceOffset) != null
         ? { firstPlaceOffset: s.firstPlaceOffset ?? r.firstPlaceOffset }
         : {}),
+      // ORC race facts (the ORC sample): course, option, RC scoring wind.
+      ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
+      ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+      ...(s.orcOption ? { orcOption: s.orcOption } : {}),
+      ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
     })),
   );
 
@@ -153,6 +158,7 @@ describe('sample series files', () => {
     'club-racing.sailscoring',
     'club-league.sailscoring',
     'championship.sailscoring',
+    'orc.sailscoring',
   ])(
     '%s imports through the /api/v1 schemas without a validation error',
     async (name) => {
@@ -213,6 +219,56 @@ describe('sample series files', () => {
       expect(fs.standings).toHaveLength(15);
       expect(fs.standings[0].netPoints).toBeGreaterThan(0);
     }
+  });
+
+  it('orc: every method scores through the per-race option, PCS numbers coherent', () => {
+    const { file, fleets, competitors, races, raceStarts, finishes } = load('orc.sailscoring');
+
+    expect(file.formatVersion).toBe(40);
+    const orcFleet = fleets.find((f) => f.scoringSystem === 'orc')!;
+    const ircFleet = fleets.find((f) => f.scoringSystem === 'irc')!;
+    expect(orcFleet).toBeDefined();
+    expect(ircFleet).toBeDefined();
+    // Every boat carries a whole certificate with its allowance matrix.
+    expect(competitors).toHaveLength(8);
+    expect(competitors.every((c) => Array.isArray(c.orcCert?.record.Allowances?.WindSpeeds))).toBe(true);
+    // The IRC comparison fleet is the dual-certificated subset.
+    expect(competitors.filter((c) => c.fleetIds.includes(ircFleet.id))).toHaveLength(3);
+
+    const { fleetStandings } = calculateFleetStandings(
+      fleets, competitors, races, finishes, file.series.discardThresholds, file.series.dnfScoring, raceStarts,
+    );
+    const orc = fleetStandings.find((fs) => fs.fleet.id === orcFleet.id)!;
+    const irc = fleetStandings.find((fs) => fs.fleet.id === ircFleet.id)!;
+    expect(orc.rejections).toEqual([]);
+    expect(irc.rejections).toEqual([]);
+    expect(orc.standings).toHaveLength(8);
+    expect(irc.standings).toHaveLength(3);
+
+    // Each race's audit block names the option it was scored on — the fleet
+    // default, the announced band, the constructed course, and W/L curves.
+    const optionOf = (raceId: string) => {
+      const scores = orc.orcRaceScoresByRaceId?.get(raceId);
+      const first = scores && [...scores.values()].find((s) => s.orc);
+      return first?.orc;
+    };
+    expect(optionOf('or-1')?.option).toBe('APHT');
+    expect(optionOf('or-2')?.option).toBe('IRL_5B_WL_M_TOT');
+    const r3 = optionOf('or-3');
+    expect(r3?.option).toBe('CC');
+    expect(r3?.courseModel).toBe('CC');
+    expect(r3?.distanceNm).toBeCloseTo(8.11, 2);
+    // Implied winds recover the generation's fresh-breeze targets.
+    expect(r3?.scoringWind).toBeGreaterThan(16);
+    expect(r3?.scoringWind).toBeLessThan(21);
+    const r4 = optionOf('or-4');
+    expect(r4?.option).toBe('WL');
+    expect(r4?.scoringWind).toBe(12);
+    expect(r4?.scoringWindOverridden).toBe(true);
+
+    // The scripted non-finishers survive the round-trip.
+    const codes = finishes.filter((f) => f.resultCode != null).map((f) => f.resultCode);
+    expect(codes.sort()).toEqual(['DNC', 'DNF']);
   });
 
   it('championship: the split-fleet sample scores as a complete F2 event', () => {
