@@ -1,6 +1,6 @@
 # ADR-008: Full-Stack Transition
 
-**Status:** Accepted
+**Status:** Accepted — executed; all ten phases are complete
 
 **Date:** 2026-04-26
 
@@ -173,7 +173,8 @@ in Phase 7.
 The interfaces in `lib/repository.ts` survive unchanged. Implementations
 are swapped:
 
-- `lib/dexie-repository.ts` — retained briefly for the import flow only.
+- `lib/dexie-repository.ts` — retained briefly for the import flow only,
+  then deleted in the post-cutover pass (see Phase 8).
 - `lib/postgres-repository.ts` — new, Drizzle-backed, server-only.
 - `lib/api-repository.ts` — new, client-side wrapper that calls route
   handlers (preferred) or server actions for UI-only operations; the UI
@@ -181,9 +182,9 @@ are swapped:
   same surface available to a future public API — see Public API
   forward-compatibility below.
 
-Direct `db.` imports in UI files (currently ~10 places — `app/page.tsx`,
+Direct `db.` imports in UI files (~10 places at decision time — `app/page.tsx`,
 `app/series/[id]/**`, `components/series-settings/*`,
-`components/competitor-import.tsx`) are removed as part of the swap; the
+`components/competitor-import.tsx`) were removed as part of the swap; the
 repository pattern is enforced as an actual boundary, not a convention.
 
 The pure scoring engine (`lib/scoring.ts`) is untouched.
@@ -367,10 +368,10 @@ to retrofit later:
 | Idempotency-key header on write endpoints | Required for mobile / flaky-network clients |
 | Authorization at the repository layer, keyed on workspace | One check, applies to both UI and API |
 
-A dedicated public-API ADR will follow when a real third-party use case
-(most likely the finish-recording app) is ready to exercise it. OAuth
-provider details, webhooks, rate-limiting policies, and a typed SDK are
-deferred to that ADR.
+That dedicated public-API ADR followed as
+[ADR-009](009-api-and-cli.md), with the first-party CLI as its first
+keyed client. OAuth provider details, webhooks, rate-limiting policies,
+and a typed SDK are covered or deferred there.
 
 ## Migration of local-first data
 
@@ -484,7 +485,7 @@ entry hole this leaves is closed by the autosave refactor below
 Local-first build unchanged. Tracked by #103, closed `2026-05-02`,
 landed `fd3e1f0`.
 
-### Phase 5 — Migration UX *(in flight)*
+### Phase 5 — Migration UX *(complete)*
 
 **Goal.** Existing beta users can move their local data into a personal
 workspace without losing anything.
@@ -590,7 +591,7 @@ workspace; local-first build unchanged.
 landed `b0d856f`.
 **Rollback.** Org features hide behind a flag; manual data unaffected.
 
-### Phase 8 — Cutover
+### Phase 8 — Cutover *(complete)*
 
 **Goal.** Production runs against Postgres; local-first mode is no
 longer the default. Both IODAI and HYC are on the new stack — IODAI as
@@ -625,7 +626,7 @@ and the lint carve-outs were removed. The series file format and
 archive" view referenced above never shipped — the migration banner
 covered the same ground and was deleted with the rest.
 
-### Phase 9 — Bilge replacement and decommission
+### Phase 9 — Bilge replacement and decommission *(complete)*
 
 **Goal.** The new publish-to-blob-storage path is live; bilge is
 retired.
@@ -654,11 +655,18 @@ served from Vercel Blob. `…/r/2026-m15-westerns/standings` 301s to the
 new URL; all other bilge slugs return 410. The bilge Blob/KV/Resend
 resources are deleted and the repo is archived to a redirect-only stub.
 
-**Size.** ~1–2 weeks of build, plus the ~6-month calendar window before
-final decommission. **Rollback.** Final 410 cutover is irreversible;
-the build phase rolls back like any other (revert the deploy).
+**Size.** ~1–2 weeks of build (the ~6-month drain window originally
+planned here was dropped in favour of immediate decommission, per #152).
+**Rollback.** Final 410 cutover is irreversible; the build phase rolls
+back like any other (revert the deploy).
 
-### Phase 10 — Publishing-coupled and self-service collaboration
+**Outcome.** Shipped as #152; the publishing follow-ups #162 (static
+read path + public listings), #163 (Preview), and #164 (workspace
+publish management / Unpublish) landed after, and
+[ADR-011](011-public-results-navigation.md) later reshaped the flat
+`/p/{slug}` URLs into the workspace publication tree.
+
+### Phase 10 — Publishing-coupled and self-service collaboration *(complete)*
 
 **Goal.** Everything from the original Phase 8 backlog that was either
 deferred from Phase 7 or genuinely depends on Phase 9's `/p/{slug}`
@@ -699,6 +707,11 @@ from the original Phase 8 estimate).
 **Rollback.** Activity log + slug surfaces hide behind flags; Phase 7
 collaboration remains usable independently.
 
+**Outcome.** Shipped as #153: the activity log, the invitation /
+member-management UI, and self-service org-creation requests. The slug
+claim flows and vanity URLs were deferred to
+`docs/design/horizon.md`, along with field-level activity diffs.
+
 ### Sequencing notes
 
 The original ADR ordered cutover → bilge replacement → org
@@ -710,33 +723,33 @@ Phase 8. The collaboration phase split into a safety-critical half
 safety-critical half landing *before* cutover. The autosave refactor
 that Phase 4 deferred became a standalone Phase 6.
 
-Current order: **5 → 6 (#111) → 7 (#112) → 8 → 9 → 10.**
+Final order: **5 → 6 (#111) → 7 (#112) → 8 → 9 → 10** — all ten
+phases are complete.
 
-- Phases 1–4, 6, and 7 are complete; 5 is in flight in parallel.
-- Phase 6 (#111) closes the silent-overwrite hole on
-  `FinishRepository.saveMany` that Phase 4 deferred. It also fixes the
-  long-standing Save-button UX wart on finish entry. Lands as a
-  standalone refactor before Phase 7 so the org-sharing work can focus
+- Phase 6 (#111) closed the silent-overwrite hole on
+  `FinishRepository.saveMany` that Phase 4 deferred. It also fixed the
+  long-standing Save-button UX wart on finish entry. It landed as a
+  standalone refactor before Phase 7 so the org-sharing work could focus
   on infrastructure rather than a finish-entry rewrite.
-- Phase 5 is gated on Phase 2's import endpoint and was developed in
+- Phase 5 was gated on Phase 2's import endpoint and was developed in
   parallel with Phase 4.
-- Phase 7 is gated on Phase 6 (autosave + row-scoped conflict dialog)
-  and on Phase 5 being far enough along that beta users can move
+- Phase 7 was gated on Phase 6 (autosave + row-scoped conflict dialog)
+  and on Phase 5 being far enough along that beta users could move
   existing series into the new org workspace.
-- Phase 8 should not happen mid-series — pick a quiet point in the
-  racing calendar. With Phase 7 in place, cutover delivers
+- Phase 8 was not to happen mid-series — cutover was timed for a quiet
+  point in the racing calendar. With Phase 7 in place, cutover delivered
   server-of-record *and* panel collaboration in the same flag flip.
-- Phase 9 (bilge replacement and decommission) lands after cutover:
-  the new publishing path is a pre-requisite for Phase 10's org-slug
+- Phase 9 (bilge replacement and decommission) landed after cutover:
+  the new publishing path was a pre-requisite for Phase 10's org-slug
   vanity URLs and listed/unlisted toggle.
-- Phase 10 lands when the residual collaboration UX (full activity log,
-  self-service org admin, vanity URLs) becomes the next priority. Not
+- Phase 10 landed when the residual collaboration UX (full activity log,
+  self-service org admin, vanity URLs) became the next priority. Not
   blocked on the calendar gate for final bilge takedown.
 
-**Total active engineering: ~10–13 weeks of focused work** before final
-bilge takedown — unchanged in aggregate, redistributed in order.
-Phase 8 (cutover) is the only phase with a hard external timing
-constraint; the rest ladder cleanly.
+**Total active engineering was estimated at ~10–13 weeks of focused
+work** before final bilge takedown — unchanged in aggregate,
+redistributed in order. Phase 8 (cutover) was the only phase with a hard
+external timing constraint; the rest laddered cleanly.
 
 ## Sustainability posture
 
@@ -792,8 +805,8 @@ duplicated here.
   must be tested and reviewed.
 - Replacing `useLiveQuery` is a UI-wide change touching every data-bearing
   page.
-- Existing bilge URLs need a redirect mechanism for the transition
-  window; old links are otherwise broken.
+- Existing bilge URLs need a redirect mechanism; resolved in Phase 9 as
+  a single 301 for the one live URL plus a 410 catch-all (#152).
 
 ### Risks
 
@@ -816,38 +829,38 @@ duplicated here.
 ## Open questions
 
 - **Workspace creation UX.** Personal workspace is auto-created on
-  signup (settled — Phase 1). Org creation is manual via CLI in Phase 7
+  signup (settled — Phase 1). Org creation was manual via CLI in Phase 7
   (a small admin script over the Better Auth organization API);
-  self-service request + admin-approved review lands in Phase 10.
-  Renaming, ownership transfer, and members management are all
-  Phase 10.
+  self-service request + admin-approved review landed in Phase 10, as
+  did members management.
 - **Public workspace index.** A workspace has a public landing page
-  listing its listed series — lands in Phase 10 alongside the
-  listed/unlisted toggle. Replaces what bilge's `/l/` prefix listing
-  does today.
-- **Pricing.** Free during beta. Pricing model deferred to a separate
-  ADR (tied to ADR-003's open-source-vs-commercial question).
+  listing its listed series — landed in Phase 10 alongside the
+  listed/unlisted toggle, replacing bilge's `/l/` prefix listing.
+- **Pricing.** The service is free to use. The
+  open-source-vs-commercial question was settled in July 2026 (MIT —
+  see `docs/goals.md`); any pricing model remains deferred to a
+  separate ADR.
 - **Scorer attribution in scoring history.** Down-payment in Phase 7
   via an `updated_by` text column on every mutable row, surfaced in the
-  409 envelope and the row-scoped conflict dialog. Full activity log
-  (per-series Activity tab, recency strips, per-record stamps) lands in
+  409 envelope and the row-scoped conflict dialog. The full activity log
+  (per-series Activity tab, recency strips, per-record stamps) landed in
   Phase 10 on top of that foundation.
 
 ## Related Decisions
 
 - [ADR-001: Database Choice](001-database-choice.md) — the Postgres half
-  of the hybrid is now scheduled.
+  of the hybrid is now in production.
 - [ADR-003: Application Architecture](003-application-architecture.md) —
   this ADR is the transition ADR-003 anticipated. ADR-003's "Future
   Decisions Pre-resolved" section is largely ratified here. ADR-008
   supersedes ADR-003's transition table by committing to specific
   technologies and a phased plan.
 - [ADR-004: Results Publishing](004-results-publishing.md) — ADR-004's
-  retirement trigger fires when this transition ships. The full-stack
-  app's publishing path replaces bilge; bilge URLs are redirected for a
-  transition window and then taken offline. The migration record
-  (`publishing.uuid` and `publishing.pages` in the JSON export) is the
-  basis for the redirect mappings, exactly as ADR-004 anticipated.
+  retirement trigger fired when this transition shipped. The full-stack
+  app's publishing path replaced bilge. The transition-window redirect
+  machinery ADR-004 anticipated (mappings built from `publishing.uuid` /
+  `publishing.pages`) was scoped down per #152 to a single 301 plus a
+  410 catch-all, and was never needed.
 - [ADR-006: Testing and Logging](006-testing-and-logging.md) — unchanged;
   Vitest and Playwright remain the test stack.
 
