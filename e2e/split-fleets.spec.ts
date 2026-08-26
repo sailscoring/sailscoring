@@ -133,6 +133,16 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(
     page.getByRole('navigation').getByRole('link', { name: 'Standings' }),
   ).toHaveCount(0);
+
+  // The `?` shortcut dialog tracks the visible tabs: Split Fleets gets its
+  // go-to chord row, the hidden Standings tab gets none.
+  await page.keyboard.press('?');
+  const shortcutHelp = page.getByRole('dialog');
+  await expect(shortcutHelp.getByText('Go to Split Fleets')).toBeVisible();
+  await expect(shortcutHelp.getByText('Go to Standings')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(shortcutHelp).toBeHidden();
+
   await page.getByRole('button', { name: 'Preview' }).click();
   const preview = page.getByRole('dialog');
   await expect(preview).toContainText('Preview results');

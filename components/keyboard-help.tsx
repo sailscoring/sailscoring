@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useActiveShortcuts } from '@/hooks/use-keyboard-shortcut';
-import { useFeatures } from '@/components/features-provider';
 
 function Shortcut({ keys }: { keys: string[] }) {
   return (
@@ -61,18 +60,20 @@ function Section({
  * The `?` dialog. The shortcut registry (`useShortcuts` / `useShortcutHelp`
  * in hooks/use-keyboard-shortcut.ts) is the source of truth: pages register
  * their shortcuts and the dialog shows whatever is active right now. Only
- * the app-wide items — the `?` key itself, the raw-handler globals, and the
- * `g` chords from `useChordShortcut` — stay static here.
+ * the app-wide items — the `?` key itself and the raw-handler globals — stay
+ * static here. The `g`-chord tab rows come in via `tabChords` from whoever
+ * binds `useChordShortcut`, so the dialog always matches the visible tabs.
  */
 export function KeyboardHelp({
   open,
   onClose,
+  tabChords,
 }: {
   open: boolean;
   onClose: () => void;
+  tabChords?: { label: string; chord: string }[];
 }) {
   const active = useActiveShortcuts();
-  const { has } = useFeatures();
 
   // Group registered entries by section, preserving first-seen section order
   // and per-section registration order.
@@ -103,12 +104,10 @@ export function KeyboardHelp({
               { keys: ['h'], action: 'Open the help panel' },
               { keys: ['⇧', 'D'], action: 'Toggle dark mode' },
               { keys: ['⌃', 'S'], action: 'Save to file' },
-              { keys: ['g', 'c'], action: 'Go to Competitors' },
-              { keys: ['g', 'r'], action: 'Go to Races' },
-              { keys: ['g', 's'], action: 'Go to Standings' },
-              ...(has('prizes') ? [{ keys: ['g', 'p'], action: 'Go to Prizes' }] : []),
-              { keys: ['g', 't'], action: 'Go to Settings' },
-              { keys: ['g', 'h'], action: 'Go to History' },
+              ...(tabChords ?? []).map((t) => ({
+                keys: ['g', t.chord],
+                action: `Go to ${t.label}`,
+              })),
             ]}
           />
 
