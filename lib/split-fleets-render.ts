@@ -6,7 +6,7 @@
 // HTML strings, no React — mirrors lib/results-renderer.ts conventions.
 
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
-import { renderFlagDefs, renderHtmlDocument, type DocumentChrome } from './results-renderer';
+import { renderFlagDefs, renderHtmlDocument, TRACK_DATA_COLUMNS, type DocumentChrome } from './results-renderer';
 import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
@@ -363,59 +363,6 @@ export function stageRaceAnchor(stage: SeriesStage, n: number): string {
   return `${stage[0]}${n}`;
 }
 
-/** Elapsed seconds as `M:SS` / `H:MM:SS`, whole seconds — the fraction is
- *  real data but sub-second precision is noise in a results column. */
-function formatElapsed(secs: number): string {
-  const whole = Math.round(secs);
-  const h = Math.floor(whole / 3600);
-  const m = Math.floor((whole % 3600) / 60);
-  const s = whole % 60;
-  const mmss = `${h > 0 ? String(m).padStart(2, '0') : m}:${String(s).padStart(2, '0')}`;
-  return h > 0 ? `${h}:${mmss}` : mmss;
-}
-
-/** Average speed in knots from the stored pair; the one derived figure. */
-function avgSpeedKn(t: { distanceKm?: number; elapsedSecs?: number }): number | null {
-  if (t.distanceKm == null || t.elapsedSecs == null || t.elapsedSecs <= 0) return null;
-  return (t.distanceKm / 1.852) / (t.elapsedSecs / 3600);
-}
-
-/** The finish-time and track-data columns, in display order. Each renders
- *  only when at least one boat in the table carries the value; the numbers
- *  are shown as stored, so they read back exactly what the device wrote. */
-const TRACK_COLUMNS: {
-  header: string;
-  title?: string;
-  value: (f: Finish | undefined) => string;
-}[] = [
-  { header: 'Finish time', value: (f) => f?.finishTime ?? '' },
-  {
-    header: 'Elapsed',
-    value: (f) =>
-      f?.trackData?.elapsedSecs != null ? formatElapsed(f.trackData.elapsedSecs) : '',
-  },
-  {
-    header: 'Distance (km)',
-    title: 'Distance sailed',
-    value: (f) => (f?.trackData?.distanceKm != null ? String(f.trackData.distanceKm) : ''),
-  },
-  {
-    header: 'Avg speed (kn)',
-    value: (f) => {
-      const kn = f?.trackData ? avgSpeedKn(f.trackData) : null;
-      return kn != null ? kn.toFixed(2) : '';
-    },
-  },
-  {
-    header: 'Max speed (kn)',
-    value: (f) => (f?.trackData?.maxSpeedKts != null ? String(f.trackData.maxSpeedKts) : ''),
-  },
-  {
-    header: 'DTL (m)',
-    title: 'Distance to line at the starting signal',
-    value: (f) => (f?.trackData?.dtlAtStartM != null ? String(f.trackData.dtlAtStartM) : ''),
-  },
-];
 
 /** The per-race results page: every stage race in sailed order, one table per
  *  race per fleet — the fleets a start sequence interleaves pulled apart the
@@ -483,7 +430,7 @@ export function renderSplitFleetRaceResultsPage(
     // A track column appears only when some boat in this table has the
     // value: a race with no line recorded gets no DTL column at all.
     const trackColumns = input.showTrackData
-      ? TRACK_COLUMNS.filter((col) =>
+      ? TRACK_DATA_COLUMNS.filter((col) =>
           sorted.some(({ competitor, cell }) =>
             col.value(finishByKey.get(sheetKey(cell.raceId, competitor.id))) !== ''),
         )

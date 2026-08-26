@@ -1,4 +1,4 @@
-import type { Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
+import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
 import { parseHmsToSeconds } from './time-parse';
 import {
@@ -225,9 +225,11 @@ export interface RaceResultData {
   // Handicap fields — only set for IRC/PY fleets
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY)
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
-  finishTime?: string;       // "HH:MM:SS"
+  finishTime?: string;       // "HH:MM:SS"; also set for scratch fleets when track data is published
   elapsedTimeSecs?: number;  // integer seconds (finishTime − startTime)
   correctedTimeSecs?: number; // integer seconds, rounded half-up (elapsedTimeSecs × tcc)
+  /** RaceSense track data (published only on the series' opt-in). */
+  trackData?: FinishTrackData;
   // NHC fields — only set for NHC fleets when explainability is enabled
   nhc?: NhcCellData;
   // ECHO fields — only set for ECHO fleets when explainability is enabled
@@ -1458,6 +1460,65 @@ ${rows}
 
 // ---- Race detail table ----
 
+/** What a track-data column reads from a row: the finish time riding on the
+ *  finish itself, and the metrics the RaceSense import recorded. */
+export interface TrackDataCell {
+  finishTime?: string | null;
+  trackData?: FinishTrackData | null;
+}
+
+/** Average speed in knots from the stored pair; the one derived figure. */
+function avgSpeedKn(t: FinishTrackData): number | null {
+  if (t.distanceKm == null || t.elapsedSecs == null || t.elapsedSecs <= 0) return null;
+  return (t.distanceKm / 1.852) / (t.elapsedSecs / 3600);
+}
+
+/**
+ * The finish-time and track-data columns, in display order. Shared by the
+ * ordinary race tables and the split-fleet per-race page. Each column renders
+ * only when at least one boat in its table carries the value, and the numbers
+ * are shown as stored, so they read back exactly what the device wrote. The
+ * two `time` columns are skipped on handicap tables, which already show
+ * Finish/ET.
+ */
+export const TRACK_DATA_COLUMNS: {
+  header: string;
+  title?: string;
+  time?: boolean;
+  value: (c: TrackDataCell | undefined) => string;
+}[] = [
+  { header: 'Finish time', time: true, value: (c) => c?.finishTime ?? '' },
+  {
+    header: 'Elapsed',
+    time: true,
+    value: (c) =>
+      c?.trackData?.elapsedSecs != null
+        ? formatDurationSecs(Math.round(c.trackData.elapsedSecs))
+        : '',
+  },
+  {
+    header: 'Distance (km)',
+    title: 'Distance sailed',
+    value: (c) => (c?.trackData?.distanceKm != null ? String(c.trackData.distanceKm) : ''),
+  },
+  {
+    header: 'Avg speed (kn)',
+    value: (c) => {
+      const kn = c?.trackData ? avgSpeedKn(c.trackData) : null;
+      return kn != null ? kn.toFixed(2) : '';
+    },
+  },
+  {
+    header: 'Max speed (kn)',
+    value: (c) => (c?.trackData?.maxSpeedKts != null ? String(c.trackData.maxSpeedKts) : ''),
+  },
+  {
+    header: 'DTL (m)',
+    title: 'Distance to line at the starting signal',
+    value: (c) => (c?.trackData?.dtlAtStartM != null ? String(c.trackData.dtlAtStartM) : ''),
+  },
+];
+
 function renderRaceTable(
   race: RaceData,
   view: SectionView,
@@ -1474,6 +1535,13 @@ function renderRaceTable(
   const hasExplain = race.nhcHeader != null;
   const hasEchoExplain = race.echoHeader != null;
   const hasHandicapCols = race.results.some((r) => r.tcc != null);
+  // Track-data columns are purely data-driven: the assembler only attaches
+  // the fields when the series publishes them, and a column with no value in
+  // this table (no line recorded → no DTL) simply isn't rendered. Handicap
+  // tables skip the two time columns they already carry as Finish/ET.
+  const trackColumns = TRACK_DATA_COLUMNS.filter(
+    (col) => !(col.time && hasHandicapCols) && race.results.some((r) => col.value(r) !== ''),
+  );
   // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap fleets use "TCC".
   const ratingLabel = isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC');
   const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
@@ -1533,6 +1601,7 @@ function renderRaceTable(
         ...nhcCells,
         ...echoCells,
         `<td>${pointsText}</td>`,
+        ...trackColumns.map((col) => `<td class="mono">${esc(col.value(r))}</td>`),
         `</tr>`,
       ].join('\n');
     })
@@ -1542,7 +1611,12 @@ function renderRaceTable(
   const colCount = baseColCount
     + (hasHandicapCols ? 4 : 0)
     + (isNhc ? 1 : 0) + (hasExplain ? 5 : 0)
-    + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0);
+    + (isEcho ? 1 : 0) + (hasEchoExplain ? 3 : 0)
+    + trackColumns.length;
+  const trackHeaders = trackColumns
+    .map((col) => `\n<th${col.title ? ` title="${esc(col.title)}"` : ''}>${esc(col.header)}</th>`)
+    .join('');
+  const trackCols = trackColumns.map(() => '\n<col class="trackdata" />').join('');
   const handicapHeaders = hasHandicapCols
     ? `\n<th>Finish</th>\n<th>ET</th>\n<th>${ratingLabel}</th>\n<th>CT</th>`
     : '';
@@ -1609,14 +1683,14 @@ ${optionsSubheading}${conditionsSubheading}${officialsSubheading}${nhcSubheading
 <col class="sailno" />
 ${showBowNumber ? '<col class="bowno" />\n' : ''}${showEntryNumber ? '<col class="entryno" />\n' : ''}${showTallyNumber ? '<col class="tally" />\n' : ''}${showBoatName ? '<col class="boatname" />\n' : ''}${showBoatClass ? '<col class="boatclass" />\n' : ''}<col class="helmname" />
 ${showHelm ? '<col class="helm" />\n' : ''}${showOwner ? '<col class="owner" />\n' : ''}${showClub ? '<col class="club" />\n' : ''}${showNationality ? '<col class="nat" />\n' : ''}${showWorldSailingId ? '<col class="wsid" />\n' : ''}${subdivisionAxes.map(() => '<col class="subdivision" />\n').join('')}${showAge ? '<col class="age" />\n' : ''}${showGender ? '<col class="gender" />\n' : ''}${handicapCols}${nhcNewTcfCol}${echoNewHCol}${nhcCols}${echoCols}
-<col class="points" />
+<col class="points" />${trackCols}
 </colgroup>
 <thead>
 <tr class="titlerow">
 <th>Rank</th>
 <th>Sail Number</th>
 ${showBowNumber ? '<th>Bow</th>\n' : ''}${showEntryNumber ? '<th>Entry</th>\n' : ''}${showTallyNumber ? '<th>Tally</th>\n' : ''}${showBoatName ? '<th>Boat</th>\n' : ''}${showBoatClass ? '<th>Class</th>\n' : ''}<th>${primaryTh}</th>${showHelm ? `\n<th>${esc(helmHeader)}</th>` : ''}${showOwner ? `\n<th>${esc(ownerHeader)}</th>` : ''}${showClub ? '\n<th>Club</th>' : ''}${showNationality ? '\n<th>Nationality</th>' : ''}${showWorldSailingId ? '\n<th>World Sailing ID</th>' : ''}${subdivisionAxes.map((axis) => `\n<th>${esc(axisHeader(axis))}</th>`).join('')}${showAge ? '\n<th>Age</th>' : ''}${showGender ? '\n<th>Gender</th>' : ''}${handicapHeaders}${nhcNewTcfHeader}${echoNewHHeader}${nhcHeaders}${echoHeaders}
-<th>Points</th>
+<th>Points</th>${trackHeaders}
 </tr>
 </thead>
 <tbody>
@@ -1948,7 +2022,7 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -1997,9 +2071,14 @@ export function assembleSeriesResultsData(
     officials?: RaceOfficial[];
     /** Whether per-race teams reach the page, on the same opt-in. */
     publishOfficials?: boolean;
+    /** Attach RaceSense track data (and scratch finish times) to the race
+     *  results. Callers resolve the whole opt-in — the workspace feature and
+     *  the series' publishTrackData — before setting this, so the renderer's
+     *  columns can stay purely data-driven. */
+    showTrackData?: boolean;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -2116,7 +2195,8 @@ export function assembleSeriesResultsData(
         ...(score.penaltyLabel ? { penaltyLabel: score.penaltyLabel } : {}),
         ...(tcc != null ? { tcc } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
-        ...(score.finishTime && isHandicap ? { finishTime: score.finishTime } : {}),
+        ...(score.finishTime && (isHandicap || showTrackData) ? { finishTime: score.finishTime } : {}),
+        ...(showTrackData && score.trackData ? { trackData: score.trackData } : {}),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),
         ...(nhcCell ? { nhc: nhcCell } : {}),

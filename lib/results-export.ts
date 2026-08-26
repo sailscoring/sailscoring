@@ -40,7 +40,7 @@ import {
 } from './competitor-fields';
 import { isSyntheticFleetName } from './publishing';
 import { seriesSlug } from './series-name';
-import type { Competitor, Fleet, ResultCode, PenaltyCode, Standing } from './types';
+import type { Competitor, FinishTrackData, Fleet, ResultCode, PenaltyCode, Standing } from './types';
 
 /**
  * Builds one fleet's page data. `section` replaces the standings with a slice
@@ -471,6 +471,7 @@ export async function buildFleetHtmlFiles(
       penaltyOverride: number | null;
       penaltyLabel?: string;
       finishTime: string | null;
+      trackData?: FinishTrackData | null;
       tcfApplied?: number | null;
       newTcf?: number | null;
       nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number };
@@ -512,6 +513,7 @@ export async function buildFleetHtmlFiles(
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
                   ...(s.nhc ? { nhc: s.nhc } : {}),
@@ -540,6 +542,7 @@ export async function buildFleetHtmlFiles(
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
                   ...(s.echo ? { echo: s.echo } : {}),
@@ -596,6 +599,7 @@ export async function buildFleetHtmlFiles(
                   ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                   : {}),
                 finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                 ...('tcfApplied' in s ? { tcfApplied: (s as { tcfApplied: number | null }).tcfApplied } : {}),
                 ...(overrideByComp.has(id) ? { tccOverride: true } : {}),
               },
@@ -693,6 +697,7 @@ export async function buildFleetHtmlFiles(
           ...(series.publishOfficials
             ? { publishOfficials: true, ...(series.officials?.length ? { officials: series.officials } : {}) }
             : {}),
+          ...(opts?.includeTrackData && series.publishTrackData ? { showTrackData: true } : {}),
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;
