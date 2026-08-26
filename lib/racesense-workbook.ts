@@ -189,6 +189,9 @@ export interface RaceSenseStarter {
   meaning: StartStatus | null;
   /** RaceSense knows a protest was flagged; nothing downstream imports it. */
   protest: boolean;
+  /** Metres to the line at the starting signal, sign verbatim. `null` when
+   *  the sheet has no DTL column (no line recorded) or the cell is blank. */
+  dtlAtStartM: number | null;
 }
 
 export interface RaceSenseFinish {
@@ -201,6 +204,11 @@ export interface RaceSenseFinish {
   bowNumber: string;
   /** Time of day, `HH:MM:SS`, fractional seconds truncated. */
   finishTime: string | null;
+  /** Elapsed time in seconds, fractional part kept. */
+  totalTimeSecs: number | null;
+  maxSpeedKts: number | null;
+  /** Distance sailed, km — the unit the export uses. */
+  distanceKm: number | null;
 }
 
 export interface RaceSenseRace {
@@ -267,6 +275,24 @@ export function normalizeRaceSenseTime(raw: string): string | null {
   const [, h, m, s] = match;
   if (Number(h) > 23 || Number(m) > 59 || (s !== undefined && Number(s) > 59)) return null;
   return `${h.padStart(2, '0')}:${m}:${s ?? '00'}`;
+}
+
+/**
+ * Parse a `Total Time` elapsed value to seconds, fractional part kept.
+ *
+ * The reference export writes `14:20.450` (minutes:seconds); a longer race
+ * would need an hours group, so `1:14:20.450` is accepted too. Distinct from
+ * `normalizeRaceSenseTime`, which reads times of day and truncates fractions
+ * — an elapsed time's fraction is the measurement, not noise.
+ */
+export function normalizeRaceSenseElapsed(raw: string): number | null {
+  const value = raw.trim();
+  if (isBlank(value)) return null;
+  const match = /^(?:(\d+):)?(\d{1,2}):(\d{2}(?:\.\d+)?)$/.exec(value);
+  if (!match) return null;
+  const [, h, m, s] = match;
+  if (Number(m) > 59 || Number(s) >= 60) return null;
+  return Number(h ?? 0) * 3600 + Number(m) * 60 + Number(s);
 }
 
 /** Which scoring code an uncleared OCS becomes under this race's preparatory
@@ -348,6 +374,24 @@ function columnIndex(
   return out;
 }
 
+/** Read a numeric cell (a DTL, a speed, a distance), flattening RaceSense's
+ *  placeholders to null and flagging anything that is neither. */
+function parseMetric(
+  ctx: Ctx,
+  raw: string,
+  label: string,
+  where: string,
+): number | null {
+  const value = valueOrNull(raw);
+  if (value === null) return null;
+  if (!/^-?\d+(\.\d+)?$/.test(value)) {
+    flag(ctx, 'warning', 'unreadable-number', `Couldn’t read the ${label} "${value}".`,
+      { where, value });
+    return null;
+  }
+  return Number(value);
+}
+
 function parseStarters(
   ctx: Ctx,
   rows: string[][],
@@ -358,6 +402,7 @@ function parseStarters(
   const sailAt = cols.get('Sail Number') ?? 0;
   const statusAt = cols.get('Status');
   const protestAt = cols.get('Protest');
+  const dtlAt = cols.get('DTL at Start (m)');
 
   if (statusAt === undefined) {
     flag(ctx, 'warning', 'missing-column',
@@ -409,6 +454,9 @@ function parseStarters(
       status,
       meaning,
       protest,
+      dtlAtStartM: dtlAt === undefined
+        ? null
+        : parseMetric(ctx, cell(row, dtlAt), 'DTL at start', `starter ${sailNumber}`),
     });
   }
 
@@ -419,6 +467,9 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
   const cols = columnIndex(ctx, rows[headerAt], FINISHES_COLUMNS, 'Finishes');
   const sailAt = cols.get('Sail Number') ?? 1;
   const timeAt = cols.get('Finishing Time');
+  const totalAt = cols.get('Total Time');
+  const speedAt = cols.get('Max Speed (kts)');
+  const distanceAt = cols.get('Distance Traveled (km)');
 
   const finishes: RaceSenseFinish[] = [];
   const seen = new Set<string>();
@@ -482,6 +533,13 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
       }
     }
 
+    const rawTotal = totalAt === undefined ? '' : cell(row, totalAt);
+    const totalTimeSecs = normalizeRaceSenseElapsed(rawTotal);
+    if (totalTimeSecs === null && !isBlank(rawTotal)) {
+      flag(ctx, 'warning', 'unreadable-time', `Couldn’t read the total time "${rawTotal}".`,
+        { where: `finish row for ${sailNumber}`, value: rawTotal });
+    }
+
     finishes.push({
       position,
       code,
@@ -489,6 +547,13 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
       boatName: cell(row, cols.get('Boat Name') ?? -1),
       bowNumber: cell(row, cols.get('Bow Number') ?? -1),
       finishTime,
+      totalTimeSecs,
+      maxSpeedKts: speedAt === undefined
+        ? null
+        : parseMetric(ctx, cell(row, speedAt), 'max speed', `finish row for ${sailNumber}`),
+      distanceKm: distanceAt === undefined
+        ? null
+        : parseMetric(ctx, cell(row, distanceAt), 'distance traveled', `finish row for ${sailNumber}`),
     });
   }
 

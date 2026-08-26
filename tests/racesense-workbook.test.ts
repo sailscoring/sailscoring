@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { WorkbookSheet } from '@/lib/import-table';
 import {
   parseRaceSenseWorkbook,
+  normalizeRaceSenseElapsed,
   normalizeRaceSenseTime,
   startStatusCode,
   VERIFIED_APP_VERSION,
@@ -414,6 +415,86 @@ describe('the Summary sheet as a checksum', () => {
     expect(w.anomalies).toContainEqual(expect.objectContaining({
       kind: 'summary-mismatch',
       where: 'Race 14',
+    }));
+  });
+});
+
+describe('normalizeRaceSenseElapsed', () => {
+  it('reads the minutes:seconds shape the reference export writes, fraction kept', () => {
+    expect(normalizeRaceSenseElapsed('14:20.450')).toBeCloseTo(860.45, 3);
+    expect(normalizeRaceSenseElapsed('15:20.987')).toBeCloseTo(920.987, 3);
+  });
+  it('accepts an hours group for a longer race', () => {
+    expect(normalizeRaceSenseElapsed('1:14:20.450')).toBeCloseTo(4460.45, 3);
+    expect(normalizeRaceSenseElapsed('2:05:00')).toBe(7500);
+  });
+  it('treats placeholders as no value and rejects nonsense', () => {
+    expect(normalizeRaceSenseElapsed('---')).toBeNull();
+    expect(normalizeRaceSenseElapsed('')).toBeNull();
+    expect(normalizeRaceSenseElapsed('14:61.0')).toBeNull();
+    expect(normalizeRaceSenseElapsed('61:00')).toBeNull();
+    expect(normalizeRaceSenseElapsed('fast')).toBeNull();
+  });
+});
+
+describe('track data', () => {
+  it('reads DTL, total time, max speed and distance from the reference sheet', () => {
+    const w = parseRaceSenseWorkbook([RACE_13]);
+    const race = w.races[0];
+    expect(race.starters.map((s) => [s.sailNumber, s.dtlAtStartM])).toEqual([
+      ['1022', -326.16],
+      ['563', null],
+      ['567', null],
+      ['1021', 8.45],
+    ]);
+    const winner = race.finishes?.find((f) => f.sailNumber === '1021');
+    expect(winner?.totalTimeSecs).toBeCloseTo(860.45, 3);
+    expect(winner?.maxSpeedKts).toBe(14.6);
+    expect(winner?.distanceKm).toBe(2.73);
+    const dnf = race.finishes?.find((f) => f.sailNumber === '567');
+    expect(dnf?.totalTimeSecs).toBeNull();
+    expect(dnf?.maxSpeedKts).toBeNull();
+    expect(dnf?.distanceKm).toBeNull();
+    expect(w.anomalies).toEqual([]);
+  });
+
+  it('leaves DTL null when no line was recorded, without complaint', () => {
+    const w = parseRaceSenseWorkbook([raceSheet({
+      number: 33,
+      line: false,
+      startsHeader: ['Sail Number', 'Boat Name', 'Bow Number', 'Status'],
+      starters: [['563', '', '', '']],
+      finishesHeader: null,
+    })]);
+    expect(w.races[0].starters[0].dtlAtStartM).toBeNull();
+    expect(kinds(w)).toEqual(['missing-finishes']);
+  });
+
+  it('flags a metric it can’t read rather than guessing', () => {
+    const w = parseRaceSenseWorkbook([raceSheet({
+      number: 1,
+      starters: [['1021', '', '', '', 'n/a']],
+      finishes: [['1.', '1021', '', '', '14:20.450', '11:45:20.450', 'fast', '2.730']],
+    })]);
+    const race = w.races[0];
+    expect(race.starters[0].dtlAtStartM).toBeNull();
+    expect(race.finishes?.[0].maxSpeedKts).toBeNull();
+    expect(race.finishes?.[0].distanceKm).toBe(2.73);
+    expect(kinds(w)).toEqual(['unreadable-number', 'unreadable-number']);
+  });
+
+  it('flags a total time it can’t read, keeping the finishing time', () => {
+    const w = parseRaceSenseWorkbook([raceSheet({
+      number: 1,
+      starters: [['1021', '', '', '', '8.45']],
+      finishes: [['1.', '1021', '', '', 'wat', '11:45:20.450', '14.6', '2.730']],
+    })]);
+    const finish = w.races[0].finishes?.[0];
+    expect(finish?.totalTimeSecs).toBeNull();
+    expect(finish?.finishTime).toBe('11:45:20');
+    expect(w.anomalies).toContainEqual(expect.objectContaining({
+      kind: 'unreadable-time',
+      value: 'wat',
     }));
   });
 });

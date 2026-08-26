@@ -39,15 +39,21 @@ function starter(
   status = '',
   meaning: RaceSenseStarter['meaning'] = 'started',
 ): RaceSenseStarter {
-  return { sailNumber, boatName: '', bowNumber: '', status, meaning, protest: false };
+  return { sailNumber, boatName: '', bowNumber: '', status, meaning, protest: false, dtlAtStartM: null };
 }
 
 function finisher(position: number, sailNumber: string, finishTime: string): RaceSenseFinish {
-  return { position, code: null, sailNumber, boatName: '', bowNumber: '', finishTime };
+  return {
+    position, code: null, sailNumber, boatName: '', bowNumber: '', finishTime,
+    totalTimeSecs: null, maxSpeedKts: null, distanceKm: null,
+  };
 }
 
 function coded(code: string, sailNumber: string): RaceSenseFinish {
-  return { position: null, code, sailNumber, boatName: '', bowNumber: '', finishTime: null };
+  return {
+    position: null, code, sailNumber, boatName: '', bowNumber: '', finishTime: null,
+    totalTimeSecs: null, maxSpeedKts: null, distanceKm: null,
+  };
 }
 
 function sourceRace(overrides: Partial<RaceSenseRace> & { number: number }): RaceSenseRace {
