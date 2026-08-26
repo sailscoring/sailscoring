@@ -1541,7 +1541,7 @@ function buildOrcSample(): SeriesFile {
   });
 
   return {
-    formatVersion: 39,
+    formatVersion: 40,
     seriesId: 'sample-orc',
     exportedAt: EXPORTED_AT,
     series: {

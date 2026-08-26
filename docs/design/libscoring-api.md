@@ -4,6 +4,15 @@ The scoring engine at the heart of Sail Scoring. Takes a series
 configuration, a list of competitors, and per-race finishes as input;
 returns per-race results and series standings as output.
 
+> **Currency note.** "libscoring" is the engine's aspirational name (see
+> `docs/goals.md`); in the codebase it is **`lib/scoring.ts`**, which is
+> the source of truth. Known drift below: six systems ship (scratch,
+> IRC, PY, NHC, ECHO, VPRS — with ORC in flight), not the four the
+> status paragraph counts; the result-code list predates NSC and DNE and
+> the separate additive penalty axis (ZFP/SCP/DPI); and the engine now
+> does cross-fleet work this doc scopes out (split-fleet places over a
+> combined sheet, sub-series chains, per-fleet race exclusions).
+
 ## Scope
 
 libscoring does one thing: given what happened on the water, compute the

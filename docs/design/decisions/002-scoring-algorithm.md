@@ -1,6 +1,10 @@
 # ADR-002: Scoring Algorithm Implementation
 
-**Status:** Accepted
+**Status:** Accepted — implemented. The hybrid approach stands; the
+per-stage module layout sketched below was folded into a single
+`lib/scoring.ts` (with `lib/scoring-codes.ts` and `lib/discard-rules.ts`
+alongside), and the system list has since grown well beyond
+scratch/IRC/NHC.
 
 **Date:** 2026-02-16
 
@@ -158,9 +162,9 @@ correction function and registering it. The rest of the pipeline
   extensive test suite using known-correct results from real events (IODAI
   championships, HYC Autumn League). Test against Sailwave output for the
   same input data.
-- **Appendix A tie-breaking is complex.** Mitigation: implement
-  incrementally — basic tie-breaking for MVP, full Appendix A8 compliance
-  in a later iteration if needed.
+- **Appendix A tie-breaking is complex.** Mitigation: implemented
+  incrementally — basic tie-breaking first; full Appendix A8 compliance
+  has since shipped.
 
 ## Related Decisions
 

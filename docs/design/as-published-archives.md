@@ -1,9 +1,12 @@
 # As-published archives — operations and migration
 
 The decisions live in [ADR-010](decisions/010-as-published-archives.md);
-implementation is tracked in #283. This doc is the operational side: how a
-class archive is wired up, and the plan for migrating the production IODAI
-and DBSC corpora — **the migration is not yet executed**.
+implementation landed under #283. This doc is the operational side: how a
+class archive is wired up, and — kept as a record — the runbook used to
+migrate the production IODAI and DBSC corpora. **The migration has been
+executed**: both corpora are as-published ingests and CI is armed on both
+archive repos, so a push to an archive repo's main applies its series and
+identity manifest.
 
 ## How an archive repo works
 
@@ -54,7 +57,7 @@ per-minute rate limit 429s mid-corpus (the CLI now retries with backoff, but
 raised limits are the right shape). One key per repo, revocable
 independently.
 
-## Production migration plan (NOT yet executed)
+## Production migration runbook (executed; kept as a record)
 
 Preconditions: this work deployed to production; migrations applied
 (`as_published` columns, `as_published_results`, `managed_by`,

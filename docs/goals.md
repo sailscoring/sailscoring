@@ -28,7 +28,7 @@ Not all parts of a scoring system are equally important. Some can be replaced by
 
 **Finish recording** — entering the order or time at which boats cross the line — is already being disrupted. GPS trackers, transponders, and purpose-built mobile apps are increasingly capable of capturing finish data with less friction than a scorer typing into a form. Sail Scoring does not need to own this. A mobile finish-recording app, a GPS integration, or a data feed from another system can all supply the same inputs. The channel matters less than the data arriving correctly.
 
-**Publishing and display** are similarly peripheral. Results can be consumed by any number of tools: a club's existing website, a third-party app, a federation's results platform. As long as Sail Scoring exposes a well-documented API, the display layer is replaceable. The **bilge** service (see [ADR-004](design/decisions/004-results-publishing.md)) is an explicit acknowledgement of this: a deliberately temporary publishing tool, designed to be replaced rather than grown into a permanent dependency.
+**Publishing and display** are similarly peripheral. Results can be consumed by any number of tools: a club's existing website, a third-party app, a federation's results platform. As long as Sail Scoring exposes a well-documented API, the display layer is replaceable. The **bilge** service (see [ADR-004](design/decisions/004-results-publishing.md)) was an explicit acknowledgement of this: a deliberately temporary publishing tool, designed to be replaced rather than grown into a permanent dependency — and duly replaced by in-app publishing in ADR-008 Phase 9.
 
 **The irreplaceable core is scoring itself.** Given a series configuration, a list of competitors, and per-race finishes — assign scores, apply discards, and produce standings. This is the hard, rule-governed, trust-requiring part. It is the part that must be bullet-proof. Competitors and protest committees need to believe the results are correct; that belief rests entirely on the scoring engine.
 
@@ -40,7 +40,7 @@ This framing has a practical implication for prioritisation: the scoring engine 
 
 ## Near-Term Goals
 
-The near-term goal is to build a Minimum Viable Product and validate it with real users during a stealth beta period.
+The near-term goal was to build a Minimum Viable Product and validate it with real users during a stealth beta period. Both are done: since August 2026 the service is generally available to clubs and class associations in Ireland, with individuals elsewhere encouraged to trial it using a personal workspace.
 
 ### MVP
 
@@ -50,28 +50,28 @@ Build the smallest version of Sail Scoring that can score real events for two ta
 
 2. **HYC Autumn League** -- time-based finish entry with handicap correction (IRC and progressive NHC), dual scoring from a single finish time, and per-race rating adjustments. (See [HYC use case](requirements/hyc-use-case.md).) **Status: complete.** Phase 1 (IRC, PY) and Phase 2 (NHC1 progressive handicap and ECHO) are built, along with multi-fleet competitors, the finish sheet model for mixed timed/untimed entry, per-fleet start groups, per-race rating persistence, and rating-calculation explainability. Several handicap-system variants and refinements are deferred — see `docs/design/handicap-scoring.md` and the horizon doc.
 
-The MVP must demonstrate that Sail Scoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
+The MVP demonstrated that Sail Scoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
 
 ### Stealth Beta
 
-**Status: in progress.** The stealth beta has begun with scorers at HYC, who are currently reviewing historical events in the application. Live race-day scoring has not yet been attempted.
+**Status: complete.** The stealth beta ran with Irish clubs and class associations — HYC's scoring panel on a shared workspace, IODAI scoring live events — through the first half of the 2026 season. In August 2026 the beta closed and the service became generally available in Ireland; outside Ireland, individuals are encouraged to trial it using a personal workspace and send feedback.
 
-The intent of this phase is to introduce the application to a small number of carefully chosen early adopters:
+The intent of this phase was to introduce the application to a small number of carefully chosen early adopters:
 
 - **Goal:** Validate that the application works in real scoring conditions, collect feedback, and build confidence before any wider release.
-- **Audience:** Trusted scorers at HYC and IODAI, and potentially one or two other Irish clubs with similar needs.
+- **Audience:** Trusted scorers at HYC and IODAI, and a small number of other Irish clubs and classes with similar needs.
 - **First impressions matter.** Early adopters are doing the project a favour by investing their time and trust. The application must be reliable, the results must be correct, and the experience must be noticeably better than Sailwave for their use cases -- even if feature coverage is narrower.
 - **Deployment:** Hosted as a web application, with hosting costs borne by the project founder during this period.
 
 ### Full-Stack Transition
 
-**Status: largely complete.** The MVP began as a local-first web application with data stored in the browser via IndexedDB ([ADR-003](design/decisions/003-application-architecture.md)). [ADR-008](design/decisions/008-full-stack-transition.md) committed to and sequenced the transition; Phases 1–8 are landed — Better Auth + Neon Postgres + the server-side data layer is the only runtime, the Dexie/IndexedDB code is gone, and HYC's scoring panel is on a shared workspace with actor-attributed concurrency. The migration was a swap of layers rather than a rewrite, as ADR-003 designed for: the repository pattern, the pure scoring engine, shared TypeScript types, and the JSON export/import format all carried across unchanged.
+**Status: complete.** The MVP began as a local-first web application with data stored in the browser via IndexedDB ([ADR-003](design/decisions/003-application-architecture.md)). [ADR-008](design/decisions/008-full-stack-transition.md) committed to and sequenced the transition; all ten phases are landed — Better Auth + Neon Postgres + the server-side data layer is the only runtime, the Dexie/IndexedDB code is gone, and HYC's scoring panel is on a shared workspace with actor-attributed concurrency. The migration was a swap of layers rather than a rewrite, as ADR-003 designed for: the repository pattern, the pure scoring engine, shared TypeScript types, and the JSON export/import format all carried across unchanged.
 
-Two phases remain: Phase 9 replaces bilge with an integrated publish-to-blob-storage path at `/p/{slug}`, with a redirect window for existing bilge URLs; Phase 10 delivers self-service org administration, the full activity log, and vanity URLs. Both are scheduled in ADR-008 and tracked in `docs/design/horizon.md`.
+Phase 9 replaced bilge with in-app publishing at workspace-namespaced `/p/...` URLs (bilge is decommissioned to a redirect-only stub), and Phase 10 delivered the activity log, the invitation and member-management UI, and self-service workspace requests. The remaining residue (field-level activity diffs, vanity URLs) is tracked in `docs/design/horizon.md`.
 
 ### Near-Term Non-Goals
 
-- Broad public availability or marketing.
+- Marketing or availability push beyond Ireland. Outside Ireland the service is open for individual trials via personal workspaces, but clubs and classes are not yet being courted.
 - Feature parity with Sailwave. The MVP deliberately covers a narrow slice of Sailwave's functionality.
 - Mobile-native applications. A responsive web application accessed through a browser is sufficient.
 - Offline-first operation. Connectivity at race venues is generally adequate; offline support can be revisited later.
@@ -105,7 +105,7 @@ A part-time personal project cannot remain a part-time personal project if it ga
 - Revenue funds development and hosting directly.
 - The founder (or a small team) retains control of product direction.
 
-**Decision (July 2026): the open-source model.** The choice was deliberately deferred while the deciding factors were unclear; by mid-2026 they were not. The sustainability case made to sponsors and clubs leans directly on open source — forkability as the answer to the bus factor, transparency as the answer to trust — and that is the story that has resonated. No realistic proprietary path emerged, and pursuing one was never the founder's instinct. The code is released under the **MIT license**; external contributions use the Developer Certificate of Origin; the "Sail Scoring" name and logo remain trademarks governing who may operate a service under the name. The commercial model above is retained for the record. Execution — the audit and the flip to a public repository — is tracked in issue #282.
+**Decision (July 2026): the open-source model.** The choice was deliberately deferred while the deciding factors were unclear; by mid-2026 they were not. The sustainability case made to sponsors and clubs leans directly on open source — forkability as the answer to the bus factor, transparency as the answer to trust — and that is the story that has resonated. No realistic proprietary path emerged, and pursuing one was never the founder's instinct. The code is released under the **MIT license**; external contributions use the Developer Certificate of Origin; the "Sail Scoring" name and logo remain trademarks governing who may operate a service under the name. The commercial model above is retained for the record. Execution — the audit and the flip to a public repository — happened in July 2026 (issue #282).
 
 The preparation that made either choice possible, kept up from the outset, is what makes the decision cheap to execute:
 
@@ -119,7 +119,7 @@ Scoring software occupies a position of trust. Competitors, protest committees, 
 
 - **Faithful implementation of the rules.** Appendix A compliance is not optional or approximate.
 - **Auditability.** Users should be able to understand how any score was calculated -- what inputs were used, what rules were applied, and why a particular result was produced.
-- **Transparency in development.** Whether open-source or not, the project should be open about its approach to scoring rules, its known limitations, and its roadmap.
+- **Transparency in development.** The project is open about its approach to scoring rules, its known limitations, and its roadmap.
 
 ### Provide a Solid Technical Foundation
 
@@ -140,4 +140,4 @@ RRS.org is interesting both as a model for sustainability -- a niche sailing too
 
 Sail Scoring exists because the sailing community deserves scoring software that is accessible, correct, and not dependent on any single person or platform. The irreplaceable centre of that effort is the scoring engine: the rule-governed, trust-critical logic that translates finish data into standings. Finish recording, publishing, and display are designed to be replaced by external innovation; correct scoring is not.
 
-The near-term focus is narrow and practical: build an MVP that serves IODAI and HYC, and validate it with real users. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere — and, through libscoring, provide a credible open implementation of the Racing Rules of Sailing that the wider sailing software community can build on.
+The near-term focus was narrow and practical — an MVP serving IODAI and HYC, validated with real users, now generally available in Ireland. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere — and, through libscoring, provide a credible open implementation of the Racing Rules of Sailing that the wider sailing software community can build on.

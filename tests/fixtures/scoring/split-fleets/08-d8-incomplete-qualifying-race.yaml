@@ -63,9 +63,11 @@ stages:
 expected:
   standings:
     # Q2 counts for nobody (Blue never sailed it): nets rest on Q1 alone.
+    # Each Yellow/Blue pair holds identical one-race score lines, which
+    # RRS A8 cannot separate — shared ranks, with the next rank skipped.
     - { rank: 1, sail: y1, total: 1, net: 1 }
-    - { rank: 2, sail: b1, total: 1, net: 1 }
+    - { rank: 1, sail: b1, total: 1, net: 1 }
     - { rank: 3, sail: y2, total: 2, net: 2 }
-    - { rank: 4, sail: b2, total: 2, net: 2 }
+    - { rank: 3, sail: b2, total: 2, net: 2 }
     - { rank: 5, sail: y3, total: 3, net: 3 }
-    - { rank: 6, sail: b3, total: 3, net: 3 }
+    - { rank: 5, sail: b3, total: 3, net: 3 }

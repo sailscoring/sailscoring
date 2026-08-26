@@ -1,0 +1,91 @@
+description: "A tie RRS A8 cannot break stays a tie: shared rank in the combined qualifying standings, with the count-back-broken ties alongside for contrast"
+provenance:
+  class: "ILCA 7"
+  year: 2026
+  event: "World Championship, Dun Laoghaire IRL"
+  si: "reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-4.md"
+  results: ""
+  code: F3
+  scenarios: [D11]
+runnable: true
+notes: |
+  In the combined standings after Q1–Q3 of the 2026 ILCA 7 Worlds, two boats
+  in different qualifying fleets each held (47) 47 47 — a discarded DNC and
+  two counting DNCs at the largest-fleet-plus-one base. RRS A8.1 compares
+  their non-discarded scores equal (47 47 against 47 47) and the A8.2
+  count-back compares equal through every race, so nothing in Appendix A
+  separates them: the official standings publish them as joint 140th of 141.
+  The qualifying series scores under unmodified RRS A8 — the SI tie-break
+  clauses (18.7.4) touch only the medal boats.
+
+  Modelled as 3 fleets of 3 (real: 3 fleets of 47), 3 qualifying races, one
+  discard from 3 races (the real event's first ladder step). y3 and r3 never
+  race: three DNCs at 4 (largest fleet 3 + 1) each, identical lines A8 cannot
+  break — joint 8th, no 9th.
+
+  The other boats show the ties A8 *does* break, which must not share:
+
+    b1 1,1,1 / r1 1,2,1 / y1 1,1,2 — all net 2, all A8.1-equal on
+    non-discarded [1,1]; the A8.2 count-back (all scores, discards included)
+    orders them b1, r1, y1 on the last then next-to-last race.
+
+    y2 2,2,1 / r2 2,1,2 — net 3, A8.1-equal on [1,2]; the last race (1 vs 2)
+    puts y2 ahead.
+
+  `expected` verified against the engine.
+
+config:
+  qualifyingFleets: [Yellow, Blue, Red]
+  finalFleets: [Gold, Silver, Bronze]
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+  maxFinalDiscards: 1
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+  - "r1 Helm R1"
+  - "r2 Helm R2"
+  - "r3 Helm R3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+      Red: [r1, r2, r3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2]       # y3 absent -> DNC 4
+          Blue: [b1, b2, b3]
+          Red: [r1, r2]          # r3 absent -> DNC 4
+      - n: 2
+        results:
+          Yellow: [y1, y2]
+          Blue: [b1, b2, b3]
+          Red: [r2, r1]
+      - n: 3
+        results:
+          Yellow: [y2, y1]
+          Blue: [b1, b2, b3]
+          Red: [r1, r2]
+
+expected:
+  standings:
+    - { rank: 1, sail: b1, total: 3, net: 2 }   # 1,(1),1
+    - { rank: 2, sail: r1, total: 4, net: 2 }   # 1,(2),1
+    - { rank: 3, sail: y1, total: 4, net: 2 }   # 1,1,(2)
+    - { rank: 4, sail: y2, total: 5, net: 3 }   # (2),2,1
+    - { rank: 5, sail: r2, total: 5, net: 3 }   # (2),1,2
+    - { rank: 6, sail: b2, total: 6, net: 4 }   # (2),2,2
+    - { rank: 7, sail: b3, total: 9, net: 6 }   # (3),3,3
+    # y3 and r3: (4),4,4 in different fleets — the tie A8 cannot break.
+    - { rank: 8, sail: y3, total: 12, net: 8 }
+    - { rank: 8, sail: r3, total: 12, net: 8 }

@@ -16,20 +16,25 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { Button } from '@/components/ui/button';
+import { SeriesNotFound } from '@/components/series-not-found';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
+// Each tab carries its `g`-chord key; the chord bindings and the help-dialog
+// rows are both derived from the visible tab set below, so a tab that isn't
+// in the bar is neither listed nor navigable.
 const baseTabs = [
-  { label: 'Competitors', href: (id: string) => `/series/${id}/competitors` },
-  { label: 'Races', href: (id: string) => `/series/${id}/races` },
-  { label: 'Standings', href: (id: string) => `/series/${id}/standings` },
-  { label: 'Settings', href: (id: string) => `/series/${id}/settings` },
-  { label: 'History', href: (id: string) => `/series/${id}/history` },
+  { label: 'Competitors', chord: 'c', href: (id: string) => `/series/${id}/competitors` },
+  { label: 'Races', chord: 'r', href: (id: string) => `/series/${id}/races` },
+  { label: 'Standings', chord: 's', href: (id: string) => `/series/${id}/standings` },
+  { label: 'Settings', chord: 't', href: (id: string) => `/series/${id}/settings` },
+  { label: 'History', chord: 'h', href: (id: string) => `/series/${id}/history` },
 ];
 
-const prizesTab = { label: 'Prizes', href: (id: string) => `/series/${id}/prizes` };
+const prizesTab = { label: 'Prizes', chord: 'p', href: (id: string) => `/series/${id}/prizes` };
 
 const splitFleetsTab = {
   label: 'Split Fleets',
+  chord: 'q',
   href: (id: string) => `/series/${id}/split-fleets`,
 };
 
@@ -77,17 +82,9 @@ export default function SeriesLayout({
     : gatedTabs;
   const tabs = asPublished ? [baseTabs[0], baseTabs[2]] : visibleTabs;
 
-  useChordShortcut({
-    c: () => router.push(`/series/${id}/competitors`),
-    r: () => router.push(`/series/${id}/races`),
-    s: () => router.push(`/series/${id}/standings`),
-    t: () => router.push(`/series/${id}/settings`),
-    h: () => router.push(`/series/${id}/history`),
-    ...(showPrizes ? { p: () => router.push(`/series/${id}/prizes`) } : {}),
-    ...(showSplitFleets && isSplitFleetSeries
-      ? { q: () => router.push(`/series/${id}/split-fleets`) }
-      : {}),
-  });
+  useChordShortcut(
+    Object.fromEntries(tabs.map((t) => [t.chord, () => router.push(t.href(id))])),
+  );
 
   // No description: the dialog's static Global section documents `?` itself.
   // (Ctrl+S save-to-file is bound by SeriesActionsMenu below.)
@@ -98,7 +95,7 @@ export default function SeriesLayout({
   }
 
   if (series === null) {
-    return <SeriesTabFallback status="missing" />;
+    return <SeriesNotFound seriesId={id} />;
   }
 
   const isFinal = series.resultsStatus === 'final';
@@ -217,7 +214,7 @@ export default function SeriesLayout({
         {children}
       </SeriesReadOnlyProvider>
 
-      <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} />
+      <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} tabChords={tabs} />
     </div>
   );
 }

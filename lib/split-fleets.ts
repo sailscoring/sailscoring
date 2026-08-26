@@ -132,7 +132,9 @@ export interface SplitFleetConfig {
     /** How a tie between two medal boats is settled. Absent = RRS A8 as
      *  written, and a tie A8 cannot break stays a tie.
      *  - `stage-rank` adds two steps after A8: the boat ranked higher in the
-     *    final series alone, then in the qualifying series alone, wins.
+     *    final series alone, then in the qualifying series alone, wins. A
+     *    step where the boats are tied in that sub-series too decides
+     *    nothing and falls through.
      *  - `last-race` replaces A8 outright with its own single comparison —
      *    the boats' scores in the last race, with no count-of-places step
      *    before it and nothing behind it.
@@ -1085,17 +1087,25 @@ function rankStageSeries(
       };
     })
     .filter((r) => r.sailed);
-  scored.sort(
-    (a, b) =>
-      a.net - b.net ||
-      compareScoreLists(
-        a.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
-        b.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
-      ) ||
-      compareLastRace(a.cells, b.cells),
-  );
+  const byStage = (a: (typeof scored)[number], b: (typeof scored)[number]) =>
+    a.net - b.net ||
+    compareScoreLists(
+      a.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
+      b.cells.filter((c) => c.counts && !c.discarded).map((c) => c.points),
+    ) ||
+    compareLastRace(a.cells, b.cells);
+  scored.sort(byStage);
+  // A tie the stage's own A8 steps cannot break stays a tie: the boats share
+  // the position and the next boat skips past it. A shared position means the
+  // `stage-rank` tie-break step falls through instead of deciding, and the
+  // `rank-seed` carry gives both boats the same non-excludable points.
   const positions = new Map<string, number>();
-  scored.forEach((r, i) => positions.set(r.id, i + 1));
+  scored.forEach((r, i) => {
+    positions.set(
+      r.id,
+      i > 0 && byStage(scored[i - 1], r) === 0 ? positions.get(scored[i - 1].id)! : i + 1,
+    );
+  });
   return positions;
 }
 
@@ -1387,9 +1397,54 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
     if (!splitRound || !row.finalFleetId) return splitRound ? 999 : 0;
     return splitRound.fleetIds.indexOf(row.finalFleetId);
   };
-  rows.sort((a, b) => tierIndex(a) - tierIndex(b) || byNet(a, b));
-  rows.forEach((row, i) => (row.rank = i + 1));
+  const byOverall = (a: SplitStandingRow, b: SplitStandingRow) =>
+    tierIndex(a) - tierIndex(b) || byNet(a, b);
+  rows.sort(byOverall);
+  // A tie the tie-break steps cannot separate stays a tie: the boats share
+  // the rank and the next boat skips past it. The comparator leads with the
+  // tier, so boats in different tiers never share even when their scores do.
+  rows.forEach((row, i) => {
+    row.rank = i > 0 && byOverall(rows[i - 1], row) === 0 ? rows[i - 1].rank : i + 1;
+  });
   return rows;
+}
+
+/** Order standings rows for dealing into fleets, applying the configured
+ *  `reassignmentTieOrder` to each run of boats on a shared rank — the boats
+ *  RRS A8 could not separate, whose relative order the ranking does not
+ *  define but a deal must still choose.
+ *
+ *  - `a8-then-entry-order` keeps the standings order: within a shared rank
+ *    that is the order the boats were entered.
+ *  - `fleet-order` applies LE Addendum C 7.3(a) — "if two or more boats have
+ *    the same rank, they will be entered in the left column in the order of
+ *    fleets in instruction 7.2" — so a tied run is ordered by each boat's
+ *    current qualifying fleet's position in the fleet list, scattering the
+ *    tie across the new fleets. */
+export function orderForAssignment(
+  rows: SplitStandingRow[],
+  data: SplitFleetData,
+): SplitStandingRow[] {
+  if (data.config.reassignmentTieOrder !== 'fleet-order') return rows;
+  const currentRound = roundsForStage(data.rounds, 'qualifying').at(-1);
+  if (!currentRound) return rows;
+  const fleetIndex = (row: SplitStandingRow): number => {
+    const idx = currentRound.fleetIds.findIndex((fid) =>
+      row.competitor.fleetIds.includes(fid),
+    );
+    return idx === -1 ? currentRound.fleetIds.length : idx;
+  };
+  const out = [...rows];
+  for (let i = 0; i < out.length; ) {
+    let j = i + 1;
+    while (j < out.length && out[j].rank === out[i].rank) j++;
+    if (j - i > 1) {
+      const group = out.slice(i, j).sort((a, b) => fleetIndex(a) - fleetIndex(b));
+      out.splice(i, j - i, ...group);
+    }
+    i = j;
+  }
+  return out;
 }
 
 /** Provisional final-series cut boundaries over a pre-split qualifying

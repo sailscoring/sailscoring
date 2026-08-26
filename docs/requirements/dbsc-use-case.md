@@ -448,13 +448,19 @@ is therefore "already supported" vs "genuinely new", not a fresh MVP list.
 ### Genuinely new (required before the relevant classes can be scored)
 
 1. **VPRS** — new corrected-time system. Blocks Cruisers 4/5 and Mixed
-   Sportsboats.
+   Sportsboats. *Since shipped (`lib/vprs-rating.ts`, behind the `vprs`
+   gate).*
 2. **ORC Club** — new; time-on-time with a per-race wind band chosen by the
-   RC. Needed only if a C0–3 class requests ORC this season.
-3. **YTC** — new; optional substitute for IRC/VPRS.
+   RC. Needed only if a C0–3 class requests ORC this season. *Now active,
+   milestoned work (#429, `docs/design/orc-scoring.md`).*
+3. **YTC** — new; optional substitute for IRC/VPRS. *Still open — see
+   horizon.md.*
 4. **Two-vessel single series (Saturday non-Green)** — two finish sheets,
    one logical series. Either model as two series and merge for standings,
-   or allow a series to take more than one finish sheet per race.
+   or allow a series to take more than one finish sheet per race. *Worth
+   re-examining against the split-fleet start-sequence model (#346,
+   `docs/design/split-fleets.md`), which reworked the race/start/fleet
+   boundary since this was written.*
 
 ### Deferred / out of scope
 
@@ -526,7 +532,9 @@ Race Times and Racing Programme docs. What remains:
   including whether cruisers are pooled or scored per-class for the ECHO
   adjustment. To reproduce ECHO from race 1 we need each boat's **seed
   `echoStartingTcf`** (the 2025 end-of-season value). IRC has no such
-  dependency — TCCs come from certificates.
+  dependency — TCCs come from certificates. *Since confirmed: the 2026
+  live parity loop runs fully green (see
+  `docs/design/dbsc-parity-plan.md`).*
 - **VPRS / ORC Club / YTC.** Resolved from the catalog: **VPRS** is done (a
   static time-on-time rating; reconciled for C4/5 + Mixed Sportsboats — parity
   plan M3). **ORC Club and YTC have no fleet in DBSC's 2026 catalog** — no class

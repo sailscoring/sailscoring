@@ -139,7 +139,7 @@ trail; no new audit fields needed.
 
 ---
 
-## Fleet membership (planned)
+## Fleet membership (shipped)
 
 A certificate source knows something no other part of the app does: **which
 boats hold a certificate**. The boats an IRC listing matches are precisely
@@ -185,12 +185,14 @@ a boat that already has finishes in the fleet is not offered for removal.
 
 ---
 
-## Future sources
+## Sources beyond "another series" (all shipped)
 
-The Step 1 picker is the seam for additional sources. Each new source
+The Step 1 picker is the seam for additional sources. Each source
 provides a name, an availability check, a fetch step, and a producer
 of `(competitorId, field) → newValue`. The Step 2/3 preview/diff/apply
-UI is invariant.
+UI is invariant. All of the sources sketched here have shipped
+(`irc-rating-source-step`, `irish-sailing-source-step`,
+`rya-py-source-step`), plus a VPRS source this table predates:
 
 | Source                          | Match on        | Fields written                      | Step-2 controls         |
 |---------------------------------|-----------------|-------------------------------------|-------------------------|
@@ -199,5 +201,5 @@ UI is invariant.
 | IS ECHO certificates            | sail no.        | `echoStartingTcf` (Standard TCF when [certificate-layer features](../../horizon.md#echo-certificate-layer-features) land) | year picker |
 | RYA PY numbers                  | boat class      | `pyNumber`                          | reference year          |
 
-The local "another series" source is the only one not needing network
-+ credentials, hence sequencing it first.
+The local "another series" source was the only one not needing network
++ credentials, hence it was sequenced first.

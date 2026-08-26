@@ -7,11 +7,13 @@ import {
   deriveFinishState,
   entryKey,
   makeFinish,
+  matchIdentifierPrefix,
   resolveSailEntry,
   type FinishEntry,
   type MatchTier,
   type NonFinisherView,
 } from '@/lib/finish-entry';
+import { ordinal } from '@/lib/ordinal';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import type { Competitor, Finish, Fleet, RaceStart } from '@/lib/types';
 
@@ -55,6 +57,10 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // Input field state
   const [sailInput, setSailInput] = useState('');
   const [inputError, setInputError] = useState('');
+  // Informational, not destructive: "2411 is already entered — 12th at
+  // 14:32:10." A duplicate on the paper finish sheet is a finding the scorer
+  // needs to act on, not a mistake they made.
+  const [inputNotice, setInputNotice] = useState('');
   const [pendingUnknownSail, setPendingUnknownSail] = useState<string | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   // Pending time entry: competitor confirmed, waiting for finish time.
@@ -129,22 +135,67 @@ export function useFinishInput(args: UseFinishInputArgs) {
   type MatchedSuggestion = NonFinisherView & { matchedOn: MatchTier; entered: string };
   const suggestions: MatchedSuggestion[] = suggestionQuery
     ? nonFinishers.flatMap((view): MatchedSuggestion[] => {
-        if (view.competitor.sailNumber.toUpperCase().startsWith(suggestionQuery)) {
-          return [{ ...view, matchedOn: 'sail', entered: view.competitor.sailNumber }];
-        }
-        const alt = (view.competitor.alternativeSailNumbers ?? []).find(
-          (v) => v.trim() !== '' && v.trim().toUpperCase().startsWith(suggestionQuery),
-        );
-        if (alt !== undefined) {
-          return [{ ...view, matchedOn: 'alternative', entered: alt }];
-        }
-        const bow = (view.competitor.bowNumber ?? '').toUpperCase();
-        if (bow !== '' && bow.startsWith(suggestionQuery)) {
-          return [{ ...view, matchedOn: 'bow', entered: view.competitor.bowNumber! }];
-        }
-        return [];
+        const match = matchIdentifierPrefix(view.competitor, suggestionQuery);
+        return match ? [{ ...view, ...match }] : [];
       })
     : [];
+
+  // Already-finished boats matching the typed prefix, in finishing order. The
+  // committable suggestions above are filtered to non-finishers, which used to
+  // mean a duplicate number was met with an empty dropdown — silence a scorer
+  // reads as "did I mistype?". These render as muted rows tagged with their
+  // position; activating one reveals its row rather than committing anything.
+  type AlreadyEnteredMatch = {
+    competitor: Competitor;
+    matchedOn: MatchTier;
+    entered: string;
+    position: number;
+    rowKey: string;
+  };
+  const alreadyEntered: AlreadyEnteredMatch[] = suggestionQuery
+    ? finishingOrder.flatMap((entry, index): AlreadyEnteredMatch[] => {
+        if (entry.kind !== 'known') return [];
+        const competitor = competitorMap.get(entry.competitorId);
+        if (!competitor) return [];
+        const match = matchIdentifierPrefix(competitor, suggestionQuery);
+        return match
+          ? [{ competitor, ...match, position: index + 1, rowKey: entryKey(entry) }]
+          : [];
+      })
+    : [];
+
+  /** Flash a finishing-order row and bring it into view. Rows carry their
+   *  entry-key as a data attribute (see FinishTab), so the scorer is pointed
+   *  at the existing entry rather than left to hunt for it. */
+  function revealFinishedRow(rowKey: string) {
+    flashRow(rowKey);
+    // Scroll on the next frame, not synchronously: the notice line set by the
+    // caller renders above the list, so a scroll measured against the current
+    // layout would leave the row shifted just below the fold. Centering keeps
+    // the row clear of both viewport edges.
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-entry-key="${rowKey}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  }
+
+  /** The typed number belongs to a boat already in the order — most often a
+   *  duplicate line on the paper finish sheet. Say where the boat already is
+   *  (position and time) and reveal its row, so the scorer can judge which
+   *  of the two recorded finishes is right. */
+  function noticeAlreadyEntered(matched: Competitor[]) {
+    const ids = new Set(matched.map((c) => c.id));
+    const index = finishingOrder.findIndex((e) => e.kind === 'known' && ids.has(e.competitorId));
+    const entry = finishingOrder[index];
+    if (entry === undefined || entry.kind !== 'known') return;
+    const boat = matched.find((c) => c.id === entry.competitorId);
+    const time = finishTimes.get(entryKey(entry));
+    setInputNotice(
+      `${boat?.sailNumber ?? trimmedSail} is already entered — ${ordinal(index + 1)}${time ? ` at ${time}` : ''}.`,
+    );
+    revealFinishedRow(entryKey(entry));
+  }
 
   // Core "add this competitor to the finishing order" — optionally with a pre-known finish time.
   // Timed entries are auto-slotted immediately before the next later-timed row, preserving
@@ -209,6 +260,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     commitOrderChange(targetOrder, tiedWithPrevious);
     setSailInput('');
     setInputError('');
+    setInputNotice('');
     setPendingUnknownSail(null);
     setHighlightedIndex(-1);
     inputRef.current?.focus();
@@ -232,6 +284,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     if (needsFinishTime(competitor.id)) {
       setSailInput('');
       setInputError('');
+      setInputNotice('');
       setHighlightedIndex(-1);
       setPendingTimeEntry({ competitor, matchedOn, entered: entered ?? competitor.sailNumber });
       setPendingTimeValue('');
@@ -283,6 +336,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     setPendingUnknownSail(null);
     setSailInput('');
     setInputError('');
+    setInputNotice('');
     inputRef.current?.focus();
     log('result-entry', 'recorded unknown finisher', { sail });
   }
@@ -303,6 +357,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
   }
 
   function addFinisher() {
+    setInputNotice('');
     // An explicitly highlighted row wins: either a suggested boat, or the
     // trailing "record as unknown" row (index === suggestions.length).
     if (highlightedIndex >= 0) {
@@ -323,7 +378,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
         commitCompetitor(resolution.competitor, resolution.matchedOn, resolution.entered);
         return;
       case 'already-finished':
-        setInputError(`${trimmedSail} is already in the finishing order.`);
+        noticeAlreadyEntered(resolution.competitors);
         return;
       case 'duplicate-sail':
         setInputError(`Multiple boats with sail ${trimmedSail} — select from the list.`);
@@ -344,6 +399,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
   function reset() {
     setSailInput('');
     setInputError('');
+    setInputNotice('');
     setPendingUnknownSail(null);
     setHighlightedIndex(-1);
     setPendingTimeEntry(null);
@@ -358,6 +414,8 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setValue: setSailInput,
       error: inputError,
       setError: setInputError,
+      notice: inputNotice,
+      setNotice: setInputNotice,
       pendingUnknownSail,
       setPendingUnknownSail,
       highlightedIndex,
@@ -376,6 +434,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
       cancel: cancelPendingTime,
     },
     suggestions,
+    /** Already-finished boats matching the typed prefix — the dropdown's
+     *  muted "already entered" rows. */
+    alreadyEntered,
+    /** Flash a finishing-order row and scroll it into view. */
+    revealFinishedRow,
     /** True when the typed text can be filed as an unknown boat (non-empty,
      *  no exact sail match) — gates the dropdown row and Shift+Enter path. */
     canRecordUnknown,

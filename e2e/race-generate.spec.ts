@@ -41,6 +41,16 @@ test('generate a weekly run of races from the Add race menu', async ({ page }) =
   await page.reload();
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(3)).toContainText('2026-05-26');
+
+  // The generator's shortcut is `m`, leaving `g` free as the go-to chord
+  // prefix — so the chords work on this page too.
+  await page.keyboard.press('m');
+  await expect(dialog.getByText('Add multiple races')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await page.keyboard.press('g');
+  await page.keyboard.press('c');
+  await expect(page).toHaveURL(/\/competitors$/);
 });
 
 /**

@@ -224,7 +224,7 @@ describe('sample series files', () => {
   it('orc: every method scores through the per-race option, PCS numbers coherent', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('orc.sailscoring');
 
-    expect(file.formatVersion).toBe(39);
+    expect(file.formatVersion).toBe(40);
     const orcFleet = fleets.find((f) => f.scoringSystem === 'orc')!;
     const ircFleet = fleets.find((f) => f.scoringSystem === 'irc')!;
     expect(orcFleet).toBeDefined();

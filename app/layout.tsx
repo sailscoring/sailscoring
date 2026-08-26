@@ -29,7 +29,7 @@ import { HelpToggle } from '@/components/help-panel/toggle';
 import { computeEffectiveFeatures, type FeatureKey } from '@/lib/features';
 import { UserMenu } from '@/components/user-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { StealthBetaBanner } from '@/components/stealth-beta-banner';
+import { PersonalWorkspaceBanner } from '@/components/personal-workspace-banner';
 import { Footer } from '@/components/footer';
 
 export const metadata: Metadata = {
@@ -149,7 +149,7 @@ export default async function RootLayout({
               </div>
             </header>
             {header && header.memberships.length === 1 && (
-              <StealthBetaBanner />
+              <PersonalWorkspaceBanner />
             )}
             <main className="px-6 py-8 bg-muted min-h-[70vh]">{children}</main>
             <Footer />

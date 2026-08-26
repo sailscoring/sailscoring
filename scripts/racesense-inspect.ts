@@ -80,6 +80,7 @@ function dumpRace(race: RaceSenseRace): void {
       code ? `→ ${code}` : '',
       s.meaning === null && s.status !== '' ? '(unrecognised)' : '',
       s.protest ? 'protest' : '',
+      s.dtlAtStartM !== null ? `DTL ${s.dtlAtStartM}m` : '',
     ].filter(Boolean).join(' ');
     console.log(`    ${s.sailNumber.padEnd(10)} ${(s.boatName || '').padEnd(16)} ${notes}`);
   }
@@ -91,7 +92,12 @@ function dumpRace(race: RaceSenseRace): void {
   console.log('\n  Finishes');
   for (const f of race.finishes) {
     const marker = f.position !== null ? `${f.position}.` : f.code ?? '?';
-    console.log(`    ${marker.padEnd(6)} ${f.sailNumber.padEnd(10)} ${f.finishTime ?? ''}`);
+    const track = [
+      f.totalTimeSecs !== null ? `${f.totalTimeSecs}s` : '',
+      f.distanceKm !== null ? `${f.distanceKm}km` : '',
+      f.maxSpeedKts !== null ? `max ${f.maxSpeedKts}kt` : '',
+    ].filter(Boolean).join(' ');
+    console.log(`    ${marker.padEnd(6)} ${f.sailNumber.padEnd(10)} ${(f.finishTime ?? '').padEnd(9)} ${track}`);
   }
 }
 

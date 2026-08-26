@@ -318,9 +318,10 @@ what an abandonment acts on: a race, rather than one start inside it.
 The **2026 ILCA 7 Men's Worlds run 23–30 August 2026 at Dun Laoghaire**
 (National YC / Royal St George YC; entry cap 160, ~141 entered from 45
 nations → 3 qualifying fleets), and the **ILCA 6 Women's Worlds follow
-there 5–12 September** (~100 entries → 2 fleets). The SIs (Amendment 2,
-18 August 2026) are captured at
-`reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.md` and
+there 5–12 September** (~100 entries → 2 fleets). The SIs (Amendment 4,
+24 August 2026) are captured at
+`reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-4.md`, with
+each earlier amendment kept beside it, and
 settle the questions the NoRs left open. They also use a **three-word
 vocabulary this design does not**: the event has a *Qualification* series
 divided into a **Preliminary** series (SI 7.3 — 5 races over 2 days,
@@ -898,6 +899,12 @@ above.
   n+1…, visibly tiered — with Q columns (fleet-tinted) followed by F
   columns, carried-score column for the rank-seed mode, and medal column
   where present.
+- **Per-race results** publish as their own page (Sailwave's layout, the
+  one competitors look for after each day's racing): every stage race in
+  sailed order, one table per fleet, ranked within the fleet, with the
+  standings page's race column headers deep-linking into it. Points come
+  from the standings engine's cells, so redress, penalties and the medal
+  multiplier are already applied.
 - **Assignment lists** become a publishable artifact: per-fleet rosters
   for the notice board and the boat park, published to a single rolling
   page under the series' `/p/` slug with the latest round at the top,
@@ -1116,8 +1123,8 @@ done — see the 2026 ILCA section in Part 1 for what the SIs actually say.
   toggles, flight-assignment tool, App LE tab, merge/CarriedFwd, unequal-
   races procedures), `reference-docs:tool-manuals/cork/CORK-Results-Management-Manual-V10-Sept2019.md`
   (ch. 5–6: the operational workflow).
-- `reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-2.md` — the
-  2026 ILCA 7 Worlds SIs (Amendment 2, 18 Aug 2026): the target event's
+- `reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-4.md` — the
+  2026 ILCA 7 Worlds SIs (Amendment 4, 24 Aug 2026): the target event's
   scoring regime (SI 18), format (SI 7) and Addendum A fleet rules.
 - 2026 ILCA 7 Men's Worlds NoR (Amend 3): <https://2026ilca7men.ilca-worlds.org/wp-content/uploads/sites/39/2026/04/NOR-2026-ILCA-7M-IRL-Amend-3.pdf>;
   ILCA 6 Women's: <https://2026ilca6women.ilca-worlds.org/wp-content/uploads/sites/40/2026/04/NOR-2026-ILCA-6W-IRL-Amend-3.pdf>.

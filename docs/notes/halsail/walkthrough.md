@@ -1,6 +1,6 @@
 # HalSail operator walkthrough
 
-> **Status: capture in progress (#235).** A faithful record of operating HalSail,
+> **Status: capture complete (#235, closed June 2026).** A faithful record of operating HalSail,
 > built up hands-on while mirroring DBSC's methodology to set up HYC's classes in a
 > real HYC HalSail account. Serves Phase 2 (how the operator model actually works)
 > and seeds Phase 3 (reproducing HYC 2025). Distilled model-level facts are

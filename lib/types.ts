@@ -360,6 +360,12 @@ export interface Series {
   // Governs the public JSON export too, which is embedded in every published
   // page and is therefore published output itself.
   publishOfficials?: boolean;
+  // Whether RaceSense track data (finish and elapsed times, distance sailed,
+  // speeds, distance to line) appears as columns on published per-race
+  // tables. Opt-in, absent = not published: the data is captured for race
+  // management, so putting it on public pages is a deliberate choice. Governs
+  // the public JSON export too, same as publishOfficials.
+  publishTrackData?: boolean;
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   multiPersonFields?: MultiPersonFieldKey[];  // person fields opened to multiple names per entry (gated by the multi-person-fields feature); sparse — absent = all single
@@ -789,6 +795,22 @@ export type PenaltyCode =
   | 'SCP'   // Scoring Penalty — adds specified % of DNF score (default 20%)
   | 'DPI';  // Discretionary Points Increase — adds stated number of points
 
+/** How a boat sailed one race, as captured by electronic race management
+ *  (the RaceSense import). Import-only and display-only: nothing here is
+ *  scored or hand-entered, and a boat the device didn't capture simply has
+ *  none. Every field is sparse — the export omits each race by race. */
+export interface FinishTrackData {
+  /** Distance to the line at the starting signal, metres. Sign convention is
+   *  the device's own; stored verbatim. */
+  dtlAtStartM?: number;
+  /** Distance sailed over the race, km — the unit the export uses. */
+  distanceKm?: number;
+  /** Elapsed time in seconds, fractional part kept. Average speed is always
+   *  derived from this and `distanceKm` at render, never stored. */
+  elapsedSecs?: number;
+  maxSpeedKts?: number;
+}
+
 export interface Finish {
   id: string;
   raceId: string;
@@ -811,6 +833,7 @@ export interface Finish {
   // sortOrders remain monotonically increasing per race.
   tiedWithPrevious: boolean;
   finishTime?: string;            // "HH:MM:SS" — time of day the boat crossed the line; ET = finishTime − startTime
+  trackData?: FinishTrackData;    // how the boat sailed the race (RaceSense import); display-only, never scored
   resultCode: ResultCode | null;  // null if sortOrder is set (RDG may coexist with sortOrder)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded
   penaltyCode: PenaltyCode | null;    // additive penalty (ZFP/SCP/DPI); only for finishers
@@ -1035,6 +1058,14 @@ export interface PublishedSeriesPage {
   // it can recognise it: its fleet name may be the synthetic "Default" or
   // "Unknown", so the name is not a reliable handle.
   isDefault?: boolean;
+  // A supporting page that is not a fleet's results — a split-fleet series'
+  // fleet assignments. Listings label it by its own name and never count it
+  // when deciding whether a publication has a lone results page.
+  isAuxiliary?: boolean;
+  // The page's name is its own rather than a fleet's, so listings show it
+  // verbatim — a championship's standings page is called "Championship". It
+  // still counts as the publication's results page, unlike an auxiliary one.
+  isNamedPage?: boolean;
   // Published at race-results detail (#347). Lets a listing call a lone page
   // "Results" rather than "Standings"; the page itself carries no summary.
   // Sparse — absent on every full-detail page, and on prize sheets.

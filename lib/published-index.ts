@@ -107,6 +107,11 @@ export interface SeriesIndexPage {
   isPrizes?: boolean;
   /** The competitor list (#423) — likewise labelled by its own name. */
   isEntryList?: boolean;
+  /** Any other supporting page — a split-fleet series' fleet assignments. */
+  isAuxiliary?: boolean;
+  /** The page's name is its own rather than a fleet's, so listings show it
+   *  verbatim — a championship's standings page is called "Championship". */
+  isNamedPage?: boolean;
   /** Published at race-results detail (#347) — a lone page then reads
    *  "Results", since there are no standings on it. */
   isRaceResults?: boolean;
@@ -118,8 +123,28 @@ export interface SeriesIndexPage {
  *  own names in every listing, and never count towards "does this publication
  *  have exactly one results page", which is what decides whether that page is
  *  labelled "Standings" instead of by its fleet. */
-export function isAuxiliaryPage(page: { isPrizes?: boolean; isEntryList?: boolean }): boolean {
-  return page.isPrizes === true || page.isEntryList === true;
+/** Whether a listing shows a page's name as-is. True of every supporting page,
+ *  and of a results page whose name is its own rather than a fleet's: the
+ *  relabel-to-"Standings" rule exists to save a reader from a fleet name that
+ *  means nothing ("Default", or a lone "IRC"), and a page already called
+ *  "Championship" needs no saving. */
+export function keepsItsName(page: {
+  isPrizes?: boolean;
+  isEntryList?: boolean;
+  isAuxiliary?: boolean;
+  isNamedPage?: boolean;
+}): boolean {
+  return page.isNamedPage === true || isAuxiliaryPage(page);
+}
+
+export function isAuxiliaryPage(page: {
+  isPrizes?: boolean;
+  isEntryList?: boolean;
+  isAuxiliary?: boolean;
+}): boolean {
+  // `isAuxiliary` is the general marker; the two named flags predate it and
+  // are still what already-published rows carry.
+  return page.isAuxiliary === true || page.isPrizes === true || page.isEntryList === true;
 }
 
 /** What a publication's lone results page is called: its standings, or — for a
@@ -135,7 +160,7 @@ export function loneResultsPageLabel(page: { isRaceResults?: boolean }): string 
  *  sheet keeps its own name, and a sub-series page carries its block name so
  *  same-named fleets in different blocks stay distinguishable. */
 export function fleetPageLabel(page: SeriesIndexPage, single: boolean): string {
-  const leaf = !isAuxiliaryPage(page) && single ? loneResultsPageLabel(page) : page.fleetName;
+  const leaf = !keepsItsName(page) && single ? loneResultsPageLabel(page) : page.fleetName;
   return page.subSeriesName ? `${page.subSeriesName} — ${leaf}` : leaf;
 }
 
@@ -673,7 +698,7 @@ export function renderSeriesIndexHtml(
     return `<ul class="listing">
 ${pages
   .map((p) => {
-    const label = !isAuxiliaryPage(p) && single ? loneResultsPageLabel(p) : p.fleetName;
+    const label = !keepsItsName(p) && single ? loneResultsPageLabel(p) : p.fleetName;
     return `<li><a href="/p/${esc(workspaceSlug)}/${esc(slug)}/${esc(p.subPath)}">${esc(label)}</a></li>`;
   })
   .join('\n')}

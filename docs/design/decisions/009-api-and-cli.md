@@ -134,7 +134,7 @@ the `better-auth/plugins` barrel** (verified: the 1.6.18 barrel exports
 is no `dist/plugins/api-key/` directory on any published line — 1.4 through
 the 1.7 beta and the 1.0 canary). It has been hived off into its own scoped
 package, **`@better-auth/api-key`**, published since 2026-02-26 and
-versioned in lockstep with core (currently 1.6.18). It peer-depends on
+versioned in lockstep with core (1.6.18 at the time). It peer-depends on
 `better-auth ^1.6.18`, so the work is: bump core to ≥ 1.6.18 (done —
 upgraded 1.6.14 → 1.6.18) and `pnpm add @better-auth/api-key`, then
 `import { apiKey } from "@better-auth/api-key"`. The plugin issues
@@ -402,7 +402,8 @@ arc. Task-level detail lives in the tracking issues, not here.
   resume-on-failure). Plus **M3.1** co-publish under a shared slug (the IODAI
   case) and **M3.2** categorise + archive — all `series`-oriented verbs over
   existing endpoints.
-- **M4 — CLI read surface.** Adopt a `sailscoring <noun> <verb>` resource
+- **M4 — CLI read surface.** ✅ (except the Tier 3 long-tail reads,
+  deferred to horizon.md.) Adopt a `sailscoring <noun> <verb>` resource
   grammar with `list`/`get` as the universal read verbs; migrate the M3 verbs
   under `series` (top-level `import`/`publish` aliases kept). Cross-cutting
   conventions every later command inherits: `--json`/`-o`, parent scoping via
@@ -462,9 +463,10 @@ arc. Task-level detail lives in the tracking issues, not here.
 - **Plugin sourcing (resolved) and upgrade regressions.** The plugin's
   location is settled: it is the standalone `@better-auth/api-key` package
   (not the `better-auth/plugins` barrel), peer-depending on `better-auth ≥
-  1.6.18`; core is upgraded. What remains unverified is the *behavioural*
-  blast radius — the 1.6.14 → 1.6.18 bump and the new plugin against the
-  `organization` / `magic-link` plugins we depend on. *Mitigation:* run the
+  1.6.18`; core is upgraded. The *behavioural* blast radius — the
+  1.6.14 → 1.6.18 bump and the new plugin against the `organization` /
+  `magic-link` plugins we depend on — was verified when M1 landed.
+  *Mitigation at the time:* run the
   full `auth`/`api`/e2e suites, and keep the roll-our-own minimal key layer
   (Option 2b) as a fallback if the plugin proves disruptive — the
   bearer-style contract is identical either way, so the CLI and the future

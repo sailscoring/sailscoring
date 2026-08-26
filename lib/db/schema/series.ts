@@ -40,6 +40,7 @@ import type {
   RaceConditions,
   RaceDiscardPolicy,
   RaceFleetExclusion,
+  FinishTrackData,
   RaceOfficial,
   RrsOrgPushConfig,
   Prize,
@@ -243,6 +244,9 @@ export const series = pgTable(
     // Whether that team is published. Officials are named non-competitors, so
     // publication is opt-in; false is the safe default for every existing row.
     publishOfficials: boolean('publish_officials').notNull().default(false),
+    // Whether RaceSense track data appears on published per-race tables.
+    // Opt-in like publishOfficials; false is the safe default everywhere.
+    publishTrackData: boolean('publish_track_data').notNull().default(false),
     // Split-fleet (qualifying/final) series config (PROTOTYPE — see
     // lib/split-fleets.ts). Nullable JSONB, never queried by content; present
     // iff the series is a split-fleet series. Exposed through the
@@ -1002,6 +1006,10 @@ export const finishes = pgTable(
     // Engine averages ranks per RRS A8.1; display sortOrder stays distinct.
     tiedWithPrevious: boolean('tied_with_previous').notNull().default(false),
     finishTime: text('finish_time'),
+    // How the boat sailed the race (RaceSense import): elapsed time,
+    // distance sailed, speeds, distance to line. Display-only, never
+    // queried by content. Nullable — absent for hand-entered rows.
+    trackData: jsonb('track_data').$type<FinishTrackData>(),
     resultCode: text('result_code'),
     startPresent: boolean('start_present'),
     penaltyCode: text('penalty_code'),

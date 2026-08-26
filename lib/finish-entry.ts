@@ -15,10 +15,12 @@ export function makeFinish(
     sortOrder: overrides.sortOrder ?? null,
     tiedWithPrevious: overrides.tiedWithPrevious ?? false,
     ...(overrides.finishTime != null ? { finishTime: overrides.finishTime } : {}),
+    ...(overrides.trackData != null ? { trackData: overrides.trackData } : {}),
     resultCode: overrides.resultCode ?? null,
     startPresent: overrides.startPresent ?? null,
     penaltyCode: overrides.penaltyCode ?? null,
     penaltyOverride: overrides.penaltyOverride ?? null,
+    ...(overrides.penaltyLabel != null ? { penaltyLabel: overrides.penaltyLabel } : {}),
     ...(overrides.penaltyOverrideByFleet != null ? { penaltyOverrideByFleet: overrides.penaltyOverrideByFleet } : {}),
     redressMethod: overrides.redressMethod ?? null,
     redressExcludeRaceIds: overrides.redressExcludeRaceIds ?? null,
@@ -30,6 +32,133 @@ export function makeFinish(
   };
 }
 
+/** A finish as an imported sheet produces it: everything but the identity the
+ *  committing race supplies. */
+export type ImportedFinish = Omit<Finish, 'id' | 'raceId'>;
+
+/** Identify a finish across the stored and incoming sides of an import. An
+ *  unresolved crossing has no competitor, so it goes by the number written
+ *  down. */
+function importKey(f: { competitorId: string | null; unknownSailNumber?: string | null }): string {
+  return f.competitorId ?? `?${f.unknownSailNumber ?? ''}`;
+}
+
+/** Each finisher's immediate predecessor in crossing order, by import key —
+ *  the fact a tie marker hangs off. */
+function predecessors(
+  rows: readonly { competitorId: string | null; unknownSailNumber?: string | null; sortOrder: number | null }[],
+): Map<string, string | null> {
+  const order = rows
+    .filter((f) => f.sortOrder !== null)
+    .sort((a, b) => a.sortOrder! - b.sortOrder!);
+  const map = new Map<string, string | null>();
+  order.forEach((f, i) => map.set(importKey(f), i === 0 ? null : importKey(order[i - 1])));
+  return map;
+}
+
+/**
+ * Carry across what an imported sheet cannot express.
+ *
+ * Replacing a race's finishes with a sheet would otherwise clear its
+ * penalties, redress, ties and start check-ins — state that reaches the
+ * scorer as separate notes from the jury or race committee and can never be
+ * re-derived from a sheet. So each imported row picks those up from the
+ * stored finish for the same boat, wherever they still attach:
+ *
+ * - a penalty carries onto a boat who is still a finisher — additive
+ *   penalties don't depend on her place. A boat the sheet now codes (DNF,
+ *   DSQ…) doesn't get one: the penalty only means something on a finish.
+ * - redress carries onto a still-finishing boat, whether the stored grant was
+ *   on her finish or on a coded row. Redress that would land on an incoming
+ *   coded row is not carried — the stored grant may have replaced the very
+ *   code the sheet holds, and which of the two stands is the scorer's call.
+ * - a tie carries when the boat and the boat immediately ahead of her are
+ *   the same pair on both sides; a reshuffled order breaks the fact the
+ *   marker recorded.
+ * - a start check-in carries whenever the boat appears on the sheet at all.
+ *
+ * What cannot carry is left off, so the diff between the stored race and the
+ * carried result shows exactly what an import would lose.
+ */
+export function carryAcrossImport(
+  stored: readonly Finish[],
+  imported: readonly ImportedFinish[],
+): ImportedFinish[] {
+  const storedByKey = new Map(stored.map((f) => [importKey(f), f]));
+  const storedPredecessor = predecessors(stored);
+  const importedPredecessor = predecessors(imported);
+
+  return imported.map((f) => {
+    const key = importKey(f);
+    const prior = storedByKey.get(key);
+    if (!prior) return f;
+
+    const out: ImportedFinish = { ...f };
+    if (out.startPresent === null) out.startPresent = prior.startPresent;
+    if (out.sortOrder === null) return out;
+
+    if (prior.penaltyCode) {
+      out.penaltyCode = prior.penaltyCode;
+      out.penaltyOverride = prior.penaltyOverride;
+      if (prior.penaltyLabel) out.penaltyLabel = prior.penaltyLabel;
+      if (prior.penaltyOverrideByFleet) out.penaltyOverrideByFleet = { ...prior.penaltyOverrideByFleet };
+    }
+    if (prior.resultCode === 'RDG') {
+      out.resultCode = 'RDG';
+      out.redressMethod = prior.redressMethod;
+      out.redressExcludeRaceIds = prior.redressExcludeRaceIds ? [...prior.redressExcludeRaceIds] : null;
+      out.redressIncludeRaceIds = prior.redressIncludeRaceIds ? [...prior.redressIncludeRaceIds] : null;
+      out.redressIncludeAllLater = prior.redressIncludeAllLater;
+      out.redressPoints = prior.redressPoints;
+      if (prior.redressPointsByFleet) out.redressPointsByFleet = { ...prior.redressPointsByFleet };
+    }
+    if (prior.tiedWithPrevious) {
+      const ahead = storedPredecessor.get(key);
+      if (ahead != null && ahead === importedPredecessor.get(key)) out.tiedWithPrevious = true;
+    }
+    return out;
+  });
+}
+
+/** One piece of inexpressible state {@link carryAcrossImport} either kept or
+ *  couldn't: the penalty code itself, `redress`, `tie`, or `start check-in`,
+ *  against the boat it sits on. */
+export interface CarryOutcomeItem {
+  competitorId: string | null;
+  unknownSailNumber?: string;
+  what: string;
+}
+
+/**
+ * What {@link carryAcrossImport} did with each piece of stored state a sheet
+ * can't express, phrased for a confirm dialog: `kept` rode across onto the
+ * imported rows; `cleared` had nowhere to attach and dies with the replaced
+ * finishes unless the scorer re-enters it. Start check-ins are only reported
+ * when cleared — they carry whenever the boat appears at all, and losing one
+ * quietly turns her DNF default into a DNC.
+ */
+export function carryOutcome(
+  stored: readonly Finish[],
+  carried: readonly ImportedFinish[],
+): { kept: CarryOutcomeItem[]; cleared: CarryOutcomeItem[] } {
+  const carriedByKey = new Map(carried.map((f) => [importKey(f), f]));
+  const kept: CarryOutcomeItem[] = [];
+  const cleared: CarryOutcomeItem[] = [];
+  for (const f of stored) {
+    const after = carriedByKey.get(importKey(f));
+    const item = (what: string): CarryOutcomeItem => ({
+      competitorId: f.competitorId,
+      ...(f.competitorId === null ? { unknownSailNumber: f.unknownSailNumber ?? '' } : {}),
+      what,
+    });
+    if (f.penaltyCode) (after?.penaltyCode ? kept : cleared).push(item(f.penaltyCode));
+    if (f.resultCode === 'RDG') (after?.resultCode === 'RDG' ? kept : cleared).push(item('redress'));
+    if (f.tiedWithPrevious) (after?.tiedWithPrevious ? kept : cleared).push(item('tie'));
+    if (f.startPresent === true && !after) cleared.push(item('start check-in'));
+  }
+  return { kept, cleared };
+}
+
 /**
  * The `Finish` rows an imported sheet becomes.
  *
@@ -38,12 +167,16 @@ export function makeFinish(
  * recognises" isn't a result — so unresolved ones are dropped here; the
  * parser has already reported them.
  *
+ * Everything else on a row is kept as given, so the state
+ * {@link carryAcrossImport} attached — penalties, redress, ties, start
+ * check-ins — survives the commit.
+ *
  * Shared by the per-race CSV import and the RaceSense workbook import, which
  * differ in how they read a sheet and not at all in what they write.
  */
 export function finishRowsFromImport(
   raceId: string,
-  finishes: readonly Omit<Finish, 'id' | 'raceId'>[],
+  finishes: readonly ImportedFinish[],
 ): Finish[] {
   const rows: Finish[] = [];
   finishes
@@ -51,20 +184,17 @@ export function finishRowsFromImport(
     .sort((a, b) => a.sortOrder! - b.sortOrder!)
     .forEach((f, i) => {
       rows.push(makeFinish(raceId, {
+        ...f,
         id: crypto.randomUUID(),
-        competitorId: f.competitorId,
         ...(f.competitorId === null ? { unknownSailNumber: f.unknownSailNumber ?? '' } : {}),
         sortOrder: i + 1,
-        ...(f.finishTime ? { finishTime: f.finishTime } : {}),
       }));
     });
   for (const f of finishes) {
     if (f.sortOrder === null && f.resultCode && f.competitorId) {
       rows.push(makeFinish(raceId, {
+        ...f,
         id: crypto.randomUUID(),
-        competitorId: f.competitorId,
-        sortOrder: null,
-        resultCode: f.resultCode,
       }));
     }
   }
@@ -400,6 +530,34 @@ export function partitionNonFinishers(views: NonFinisherView[]): {
  *  only rescue an entry the registered number could not match. */
 export type MatchTier = 'sail' | 'alternative' | 'bow';
 
+/**
+ * Match a typed value against one competitor's identifiers as a prefix, in
+ * the same tier order the Enter resolution uses: registered sail number,
+ * then alternative sail numbers, then bow number. Returns which identifier
+ * matched and its full value (as the competitor spells it), or null.
+ * Drives the suggestions dropdown — both the committable rows and the
+ * already-entered ones. `query` must be trimmed, uppercased and non-empty.
+ */
+export function matchIdentifierPrefix(
+  competitor: Competitor,
+  query: string,
+): { matchedOn: MatchTier; entered: string } | null {
+  if (competitor.sailNumber.toUpperCase().startsWith(query)) {
+    return { matchedOn: 'sail', entered: competitor.sailNumber };
+  }
+  const alt = (competitor.alternativeSailNumbers ?? []).find(
+    (v) => v.trim() !== '' && v.trim().toUpperCase().startsWith(query),
+  );
+  if (alt !== undefined) {
+    return { matchedOn: 'alternative', entered: alt };
+  }
+  const bow = (competitor.bowNumber ?? '').toUpperCase();
+  if (bow !== '' && bow.startsWith(query)) {
+    return { matchedOn: 'bow', entered: competitor.bowNumber! };
+  }
+  return null;
+}
+
 /** What a plain Enter in the sail-number box should do with the typed text. */
 export type SailEntryResolution =
   | { kind: 'empty' }
@@ -415,8 +573,12 @@ export type SailEntryResolution =
       matchedOn: MatchTier;
       entered: string;
     }
-  /** Exact sail match, but every boat carrying it is already in the order. */
-  | { kind: 'already-finished' }
+  /** Exact identifier match, but every boat carrying it is already in the
+   *  order. Carries those boats so the UI can point at the existing rows —
+   *  duplicate entries on a paper finish sheet are a recorder error the
+   *  scorer discovers here, so the response must say where the boat already
+   *  is, not just refuse. */
+  | { kind: 'already-finished'; competitors: Competitor[] }
   /** Exact sail match shared by more than one unfinished boat. */
   | { kind: 'duplicate-sail' }
   /** No exact match, and the input is a prefix of two or more unfinished
@@ -462,7 +624,7 @@ export function resolveSailEntry(
   const exact = competitors.filter((c) => c.sailNumber.toUpperCase() === sail);
   if (exact.length > 0) {
     const unfinished = exact.filter((c) => !finishedIds.has(c.id));
-    if (unfinished.length === 0) return { kind: 'already-finished' };
+    if (unfinished.length === 0) return { kind: 'already-finished', competitors: exact };
     if (unfinished.length > 1) return { kind: 'duplicate-sail' };
     return {
       kind: 'commit',
@@ -521,6 +683,21 @@ export function resolveSailEntry(
     }
     if (tierPrefix.length > 1) return { kind: 'ambiguous-prefix' };
   }
+
+  // The typed value is an exact alternative or bow number of a boat that has
+  // already finished — the registered-sail case returned above. Report it as
+  // already entered rather than unknown: the number is registered, and
+  // offering to record it as a new unknown boat would invite a duplicate.
+  // A mere prefix of a finished boat's identifier still falls through to
+  // unknown, since it could genuinely be a different boat.
+  const finishedExact = competitors.filter(
+    (c) =>
+      finishedIds.has(c.id) &&
+      [...(c.alternativeSailNumbers ?? []), ...(c.bowNumber ? [c.bowNumber] : [])].some(
+        (v) => v.trim().toUpperCase() === sail,
+      ),
+  );
+  if (finishedExact.length > 0) return { kind: 'already-finished', competitors: finishedExact };
 
   return { kind: 'unknown' };
 }

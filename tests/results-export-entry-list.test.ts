@@ -218,7 +218,8 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
       },
     } as unknown as ExportRepos;
     const html = (await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
-    expect(html).not.toContain('Default');
+    // Cell-scoped: the page's own script legitimately says "preventDefault".
+    expect(html).not.toContain('<td>Default');
     expect(html).toContain('<td>Blue</td>');
     expect(html).toContain('<td>Red</td>');
   });
@@ -251,7 +252,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('<td>Yellow</td>');
     expect(html).not.toContain('Yellow, Blue');
     expect(html).not.toContain('Yellow, Yellow');
-    expect(html).not.toContain('Default');
+    expect(html).not.toContain('<td>Default');
   });
 
   it('drops the Fleet column when only the synthetic fleet would fill it', async () => {

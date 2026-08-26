@@ -97,6 +97,19 @@ describe('renderSeriesHtml', () => {
     expect(html).toMatch(/class="credit"[^]*Save as PDF[^]*<\/p>/);
   });
 
+  it('includes the column-sorter script and its indicator styles', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    // The inline sorter wires every summary and race table; the sort state
+    // lives in aria-sort, which the stylesheet turns into indicator arrows.
+    expect(html).toContain("querySelectorAll('table.summarytable,table.racetable')");
+    expect(html).toContain('aria-sort');
+    expect(html).toContain('th[aria-sort="ascending"]::after');
+    expect(html).toContain('th[aria-sort="descending"]::after');
+    // The served rows stay in rank order — sorting is view state applied by
+    // the viewer's browser, never baked into the file.
+    expect(html).not.toContain('<th aria-sort');
+  });
+
   it('includes series name in title and heading', () => {
     const html = renderSeriesHtml(MINIMAL);
     expect(html).toContain('Test Series');
@@ -238,6 +251,38 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('<th>World Sailing ID</th>');
     expect(html).toContain('href="https://www.sailing.org/sailor/?ref=IRLMM1"');
     expect(html).toContain('>IRLMM1</a>');
+  });
+
+  it('links the helm name to the sailor biography when the WS ID column is not shown', () => {
+    // ID on file but the field switched off → no column. The name carries the
+    // bio link instead, so the profile stays one click away.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [
+        { ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), worldSailingId: 'IRLMM1' },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('<th>World Sailing ID</th>');
+    expect(html).toMatch(/<a href="https:\/\/www\.sailing\.org\/sailor\/\?ref=IRLMM1"[^>]*>Alice<\/a>/);
+  });
+
+  it('keeps the helm name plain while the WS ID column carries the link', () => {
+    // A row never links to the profile twice.
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: ['worldSailingId'],
+      races: [makeRace(1, [['1', 'Alice', 1, null]])],
+      standings: [
+        { ...makeStanding(1, '1', 'Alice', [{ points: 1, podiumRank: 1 }]), worldSailingId: 'IRLMM1' },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('<th>World Sailing ID</th>');
+    expect(html).toContain('<td>Alice</td>');
+    expect(html).not.toMatch(/>Alice<\/a>/);
   });
 
   it('suppresses the World Sailing ID column when enabled but nobody has one', () => {
@@ -1844,5 +1889,88 @@ describe('a scorer-named DPI penalty', () => {
     const html = renderSeriesHtml(withPenalty('<b>x'));
     expect(html).not.toContain('<b>x');
     expect(html).toContain('&lt;b&gt;x');
+  });
+});
+
+// ---- track-data columns on the ordinary race tables ----
+
+describe('track-data columns', () => {
+  const series = { name: 'Test', venue: 'HYC' };
+  const races = [{ id: 'r1', raceNumber: 1, date: '2025-06-01' }];
+  const competitorsById = new Map([
+    ['c1', { id: 'c1', sailNumber: '42', names: ['Alice'] }],
+    ['c2', { id: 'c2', sailNumber: '99', names: ['Bob'] }],
+  ]);
+  const standings = [
+    {
+      rank: 1,
+      competitor: { id: 'c1', sailNumber: '42', names: ['Alice'] },
+      racePoints: [1],
+      raceCodes: [null] as (ResultCode | null)[],
+      totalPoints: 1,
+      netPoints: 1,
+      raceDiscards: [false],
+    },
+    {
+      rank: 2,
+      competitor: { id: 'c2', sailNumber: '99', names: ['Bob'] },
+      racePoints: [2],
+      raceCodes: [null] as (ResultCode | null)[],
+      totalPoints: 2,
+      netPoints: 2,
+      raceDiscards: [false],
+    },
+  ];
+  const trackData = { dtlAtStartM: 8.45, distanceKm: 2.73, elapsedSecs: 3600, maxSpeedKts: 14.6 };
+  const scores = new Map([
+    ['r1', new Map([
+      ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, finishTime: '11:45:20', trackData }],
+      ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, finishTime: '11:46:20', trackData: null }],
+    ])],
+  ]);
+  const now = new Date(2025, 5, 14, 19, 0);
+
+  it('renders the columns for a scratch fleet when the assembler attaches the data', () => {
+    const data = assembleSeriesResultsData(series, races, standings, scores, competitorsById, ['club'], now, undefined, {
+      showTrackData: true,
+    });
+    const html = renderSeriesHtml(data);
+    for (const header of ['Finish time', 'Elapsed', 'Distance (km)', 'Avg speed (kn)', 'Max speed (kn)', 'DTL (m)']) {
+      expect(html).toContain(`>${header}</th>`);
+    }
+    // Values as stored; the average is derived — 2.73 km in an hour is 1.47 kn
+    // — and the boat without data gets empty cells, not a dropped column.
+    expect(html).toContain('>11:45:20</td>');
+    expect(html).toContain('>1:00:00</td>');
+    expect(html).toContain('>2.73</td>');
+    expect(html).toContain('>1.47</td>');
+    expect(html).toContain('>8.45</td>');
+  });
+
+  it('renders no columns without the opt-in, data or not', () => {
+    const data = assembleSeriesResultsData(series, races, standings, scores, competitorsById, ['club'], now);
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('>Finish time</th>');
+    expect(html).not.toContain('>DTL (m)</th>');
+    expect(html).not.toContain('11:45:20');
+  });
+
+  it('drops a column no boat has, keeping the rest', () => {
+    const partial = new Map([
+      ['r1', new Map([
+        ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, finishTime: null, trackData: { distanceKm: 2.73, elapsedSecs: 3600 } }],
+        ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, finishTime: null, trackData: null }],
+      ])],
+    ]);
+    const data = assembleSeriesResultsData(series, races, standings, partial, competitorsById, ['club'], now, undefined, {
+      showTrackData: true,
+    });
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('>Finish time</th>');
+    expect(html).not.toContain('>Max speed (kn)</th>');
+    expect(html).not.toContain('>DTL (m)</th>');
+    expect(html).toContain('>Elapsed</th>');
+    expect(html).toContain('>Distance (km)</th>');
+    expect(html).toContain('>Avg speed (kn)</th>');
   });
 });

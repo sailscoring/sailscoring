@@ -2,6 +2,17 @@
 
 Entities, relationships, and attributes for the sail scoring system.
 
+> **Currency note.** This is the founding data-model doc;
+> **`lib/types.ts` and `lib/db/schema/` are the source of truth**. Known
+> drift: the scoring-system list here (scratch, IRC, NHC) predates PY,
+> ECHO, and VPRS (all shipped) and ORC (in flight); fleets are now
+> first-class (created and ordered in Settings, and by split-fleet
+> assignment rounds) rather than derived from competitor data; the full
+> RRS Appendix A code set is implemented (the "subset" note below is
+> historical); and competitors carry fields this doc predates (identity
+> links, entry/bow/tally numbers, multi-axis subdivisions). "MVP"
+> scoping language throughout is historical.
+
 ## Design Principles
 
 **Recorded vs calculated:** The data model separates what was observed on the

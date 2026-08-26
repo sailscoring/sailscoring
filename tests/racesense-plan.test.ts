@@ -39,15 +39,21 @@ function starter(
   status = '',
   meaning: RaceSenseStarter['meaning'] = 'started',
 ): RaceSenseStarter {
-  return { sailNumber, boatName: '', bowNumber: '', status, meaning, protest: false };
+  return { sailNumber, boatName: '', bowNumber: '', status, meaning, protest: false, dtlAtStartM: null };
 }
 
 function finisher(position: number, sailNumber: string, finishTime: string): RaceSenseFinish {
-  return { position, code: null, sailNumber, boatName: '', bowNumber: '', finishTime };
+  return {
+    position, code: null, sailNumber, boatName: '', bowNumber: '', finishTime,
+    totalTimeSecs: null, maxSpeedKts: null, distanceKm: null,
+  };
 }
 
 function coded(code: string, sailNumber: string): RaceSenseFinish {
-  return { position: null, code, sailNumber, boatName: '', bowNumber: '', finishTime: null };
+  return {
+    position: null, code, sailNumber, boatName: '', bowNumber: '', finishTime: null,
+    totalTimeSecs: null, maxSpeedKts: null, distanceKm: null,
+  };
 }
 
 function sourceRace(overrides: Partial<RaceSenseRace> & { number: number }): RaceSenseRace {
@@ -226,6 +232,129 @@ describe('planRaceSenseImport', () => {
     });
   });
 
+  describe('what the sheet can’t express', () => {
+    /** Commit race 1, then apply scorer edits to the stored rows. */
+    function storedWith(edit: (f: Finish) => Finish): { raceId: string; stored: Finish[] } {
+      const first = plan({ races: [sourceRace({ number: 1 })] });
+      const raceId = first.races[0].race!.id;
+      return { raceId, stored: commit(raceId, first.races[0].result!).map(edit) };
+    }
+
+    it('carries a penalty across, reads back unchanged, and keeps it on the result', () => {
+      const { stored } = storedWith((f) =>
+        f.competitorId === 'c2' ? { ...f, penaltyCode: 'SCP' as const, penaltyOverride: 10 } : f);
+
+      const second = plan({ races: [sourceRace({ number: 1 })], finishes: stored });
+      expect(second.races[0].state).toBe('unchanged');
+      const carried = second.races[0].result!.finishes.find((f) => f.competitorId === 'c2');
+      expect(carried?.penaltyCode).toBe('SCP');
+      expect(carried?.penaltyOverride).toBe(10);
+    });
+
+    it('keeps the penalty through a corrected finish time, and says so on both sides', () => {
+      const { stored } = storedWith((f) =>
+        f.competitorId === 'c2' ? { ...f, penaltyCode: 'SCP' as const, penaltyOverride: 10 } : f);
+
+      const second = plan({
+        races: [sourceRace({
+          number: 1,
+          finishes: [
+            finisher(1, '1021', '11:45:20'),
+            finisher(2, '1023', '11:47:00'),
+            coded('DNF', '1022'),
+          ],
+        })],
+        finishes: stored,
+      });
+      expect(second.races[0].state).toBe('differs');
+      expect(second.races[0].changes).toEqual([
+        { sailNumber: '1023', stored: '2nd at 11:46:20, SCP 10%', incoming: '2nd at 11:47:00, SCP 10%' },
+      ]);
+    });
+
+    it('shows the penalty a boat the sheet now codes would lose', () => {
+      const { stored } = storedWith((f) =>
+        f.competitorId === 'c2' ? { ...f, penaltyCode: 'SCP' as const, penaltyOverride: 10 } : f);
+
+      const second = plan({
+        races: [sourceRace({
+          number: 1,
+          finishes: [
+            finisher(1, '1021', '11:45:20'),
+            coded('DNF', '1023'),
+            coded('DNF', '1022'),
+          ],
+        })],
+        finishes: stored,
+      });
+      expect(second.races[0].state).toBe('differs');
+      expect(second.races[0].recommended).toBe(false);
+      expect(second.races[0].changes).toEqual([
+        { sailNumber: '1023', stored: '2nd at 11:46:20, SCP 10%', incoming: 'DNF' },
+      ]);
+      const incoming = second.races[0].result!.finishes.find((f) => f.competitorId === 'c2');
+      expect(incoming?.penaltyCode).toBeNull();
+    });
+
+    it('carries redress granted on a finish and reads back unchanged', () => {
+      const { stored } = storedWith((f) =>
+        f.competitorId === 'c1'
+          ? { ...f, resultCode: 'RDG' as const, redressMethod: 'stated' as const, redressPoints: 2 }
+          : f);
+
+      const second = plan({ races: [sourceRace({ number: 1 })], finishes: stored });
+      expect(second.races[0].state).toBe('unchanged');
+      const carried = second.races[0].result!.finishes.find((f) => f.competitorId === 'c1');
+      expect(carried?.resultCode).toBe('RDG');
+      expect(carried?.redressPoints).toBe(2);
+    });
+
+    it('shows the redress a boat coded on the sheet would lose', () => {
+      const { stored } = storedWith((f) =>
+        f.competitorId === 'c3'
+          ? { ...f, resultCode: 'RDG' as const, redressMethod: 'stated' as const, redressPoints: 5 }
+          : f);
+
+      const second = plan({ races: [sourceRace({ number: 1 })], finishes: stored });
+      expect(second.races[0].state).toBe('differs');
+      expect(second.races[0].changes).toEqual([
+        { sailNumber: '1022', stored: 'RDG (5 pts)', incoming: 'DNF' },
+      ]);
+    });
+
+    it('carries a tie when the pair is unchanged and reads back unchanged', () => {
+      const { stored } = storedWith((f) =>
+        f.competitorId === 'c2' ? { ...f, tiedWithPrevious: true } : f);
+
+      const second = plan({ races: [sourceRace({ number: 1 })], finishes: stored });
+      expect(second.races[0].state).toBe('unchanged');
+      const carried = second.races[0].result!.finishes.find((f) => f.competitorId === 'c2');
+      expect(carried?.tiedWithPrevious).toBe(true);
+    });
+
+    it('shows the tie a reshuffled order would lose', () => {
+      const { stored } = storedWith((f) =>
+        f.competitorId === 'c2' ? { ...f, tiedWithPrevious: true } : f);
+
+      const second = plan({
+        races: [sourceRace({
+          number: 1,
+          finishes: [
+            finisher(1, '1023', '11:45:20'),
+            finisher(2, '1021', '11:46:20'),
+            coded('DNF', '1022'),
+          ],
+        })],
+        finishes: stored,
+      });
+      expect(second.races[0].state).toBe('differs');
+      expect(second.races[0].changes).toEqual([
+        { sailNumber: '1021', stored: '1st at 11:45:20', incoming: '2nd at 11:46:20' },
+        { sailNumber: '1023', stored: '2nd at 11:46:20, tied', incoming: '1st at 11:45:20' },
+      ]);
+    });
+  });
+
   it('reports a sheet with no race to put it in', () => {
     const { races } = plan({
       races: [sourceRace({ number: 1 }), sourceRace({ number: 5 })],
@@ -300,6 +429,30 @@ describe('planRaceSenseImport', () => {
       expect(roster?.message).not.toContain('more than one fleet');
     });
 
+    it('recognises entered boats when the sheet writes nationality-qualified sails', () => {
+      // A championship export writes "IRL 1021" where the competitor list
+      // says sail 1021, nationality IRL. That is the same boat: she resolves,
+      // and the roster check doesn't report her missing.
+      const qualified: Candidate[] = [
+        { id: 'c1', sailNumber: '1021', nationality: 'IRL', fleetIds: [YELLOW] },
+        { id: 'c2', sailNumber: '1023', nationality: 'GBR', fleetIds: [YELLOW] },
+      ];
+      const { races } = planRaceSenseImport({
+        workbook: workbook([sourceRace({
+          number: 1,
+          starters: [starter('IRL 1021'), starter('GBR 1023')],
+          finishes: [finisher(1, 'IRL 1021', '11:45:20'), finisher(2, 'GBR 1023', '11:46:20')],
+        })]),
+        fleetId: YELLOW,
+        races: [seriesRace(1)],
+        competitors: qualified,
+        finishes: [],
+      });
+      expect(warnings(races[0].notes)).toEqual([]);
+      expect(races[0].recommended).toBe(true);
+      expect(races[0].result!.finishes.map((f) => f.competitorId)).toEqual(['c1', 'c2']);
+    });
+
     it('warns about a boat who started and then vanished from the sheet', () => {
       const { races } = plan({
         races: [sourceRace({
@@ -336,5 +489,78 @@ describe('planRaceSenseImport', () => {
     expect(races[0].notes.map((n) => n.kind)).toContain('unknown-status');
     expect(races[0].recommended).toBe(false);
     expect(workbookNotes.map((n) => n.kind)).toEqual(['app-version', 'summary-mismatch']);
+  });
+});
+
+describe('track data', () => {
+  const tracked = (
+    position: number,
+    sailNumber: string,
+    finishTime: string,
+    track: { total?: number; speed?: number; distance?: number },
+  ): RaceSenseFinish => ({
+    position, code: null, sailNumber, boatName: '', bowNumber: '', finishTime,
+    totalTimeSecs: track.total ?? null,
+    maxSpeedKts: track.speed ?? null,
+    distanceKm: track.distance ?? null,
+  });
+
+  const trackedRace = (number: number): RaceSenseRace => sourceRace({
+    number,
+    starters: [
+      { ...starter('1021'), dtlAtStartM: 8.45 },
+      { ...starter('1023'), dtlAtStartM: 4.36 },
+      { ...starter('1022', 'OCS', 'ocs'), dtlAtStartM: -326.16 },
+    ],
+    finishes: [
+      tracked(1, '1021', '11:45:20', { total: 860.45, speed: 14.6, distance: 2.73 }),
+      tracked(2, '1023', '11:46:20', { total: 920.987, speed: 11.1, distance: 2.705 }),
+      coded('DNF', '1022'),
+    ],
+  });
+
+  it('hangs each boat’s track data on her planned finish row', () => {
+    const { races } = plan({ races: [trackedRace(1)] });
+    const byId = new Map(races[0].result!.finishes.map((f) => [f.competitorId, f]));
+    expect(byId.get('c1')?.trackData).toEqual({
+      dtlAtStartM: 8.45, distanceKm: 2.73, elapsedSecs: 860.45, maxSpeedKts: 14.6,
+    });
+    // The coded boat keeps what the device knows about her: the DTL alone.
+    expect(byId.get('c3')?.trackData).toEqual({ dtlAtStartM: -326.16 });
+  });
+
+  it('falls back to finish − start for elapsed when Total Time is absent', () => {
+    const { races } = plan({
+      races: [sourceRace({
+        number: 1,
+        finishes: [
+          tracked(1, '1021', '11:45:20', { distance: 2.73 }),
+          finisher(2, '1023', '11:46:20'),
+          coded('DNF', '1022'),
+        ],
+      })],
+    });
+    const boat = races[0].result!.finishes.find((f) => f.competitorId === 'c1');
+    expect(boat?.trackData).toEqual({ distanceKm: 2.73, elapsedSecs: 860 });
+  });
+
+  it('reads back unchanged when the same tracked workbook is uploaded again', () => {
+    const first = plan({ races: [trackedRace(1)] });
+    const stored = commit(first.races[0].race!.id, first.races[0].result!);
+    const second = plan({ races: [trackedRace(1)], finishes: stored });
+    expect(second.races[0].state).toBe('unchanged');
+  });
+
+  it('reads a race imported before track data existed as differs, showing the addition', () => {
+    const first = plan({ races: [trackedRace(1)] });
+    const stored = commit(first.races[0].race!.id, first.races[0].result!)
+      .map(({ trackData: _dropped, ...f }) => f as Finish);
+    const second = plan({ races: [trackedRace(1)], finishes: stored });
+    expect(second.races[0].state).toBe('differs');
+    const change = second.races[0].changes.find((c) => c.sailNumber === '1021');
+    expect(change?.stored).toBe('1st at 11:45:20');
+    expect(change?.incoming).toContain('2.73 km sailed');
+    expect(change?.incoming).toContain('max 14.6 kn');
+    expect(change?.incoming).toContain('DTL 8.45 m');
   });
 });

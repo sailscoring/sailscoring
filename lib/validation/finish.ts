@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { Finish, ResultCode, PenaltyCode } from '@/lib/types';
+import type { Finish, FinishTrackData, ResultCode, PenaltyCode } from '@/lib/types';
 
 import { uuidSchema, versionSchema, wallClockSchema } from './common';
 
@@ -22,6 +22,16 @@ export const penaltyCodeSchema = z.enum(['ZFP', 'SCP', 'DPI']);
 
 export const redressMethodSchema = z.enum(['all_races', 'all_races_excl_dnc', 'races_before', 'stated']);
 
+/** RaceSense track data riding on a finish row. Every field optional — the
+ *  export omits each race by race — and finite, so a corrupt cell can't
+ *  smuggle NaN/Infinity into stored rows. */
+export const finishTrackDataSchema = z.object({
+  dtlAtStartM: z.number().finite().optional(),
+  distanceKm: z.number().finite().optional(),
+  elapsedSecs: z.number().finite().optional(),
+  maxSpeedKts: z.number().finite().optional(),
+});
+
 export const finishSchema = z.object({
   id: uuidSchema,
   raceId: uuidSchema,
@@ -32,6 +42,7 @@ export const finishSchema = z.object({
   sortOrder: z.number().int().nullable(),
   tiedWithPrevious: z.boolean(),
   finishTime: wallClockSchema.optional(),
+  trackData: finishTrackDataSchema.optional(),
   resultCode: resultCodeSchema.nullable(),
   startPresent: z.boolean().nullable(),
   penaltyCode: penaltyCodeSchema.nullable(),
@@ -57,6 +68,11 @@ export const finishInputSchema = finishSchema.extend({
 export const finishesBulkInputSchema = z.object({
   finishes: z.array(finishInputSchema),
 });
+
+const _trackDataFromZod: FinishTrackData = undefined as unknown as z.infer<typeof finishTrackDataSchema>;
+const _trackDataFromTs: z.infer<typeof finishTrackDataSchema> = undefined as unknown as FinishTrackData;
+void _trackDataFromZod;
+void _trackDataFromTs;
 
 const _finishFromZod: Finish = undefined as unknown as z.infer<typeof finishSchema>;
 const _finishFromTs: z.infer<typeof finishSchema> = undefined as unknown as Finish;

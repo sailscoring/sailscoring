@@ -32,14 +32,18 @@ import {
   type ExportRepos,
 } from './public-export';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
-import { renderSplitFleetAssignmentsPage, renderSplitFleetStandingsPage } from './split-fleets-render';
+import {
+  renderSplitFleetAssignmentsPage,
+  renderSplitFleetRaceResultsPage,
+  renderSplitFleetStandingsPage,
+} from './split-fleets-render';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
 import { isSyntheticFleetName } from './publishing';
 import { seriesSlug } from './series-name';
-import type { Competitor, Fleet, OrcRaceCalc, ResultCode, PenaltyCode, Standing } from './types';
+import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, ResultCode, PenaltyCode, Standing } from './types';
 
 /**
  * Builds one fleet's page data. `section` replaces the standings with a slice
@@ -101,6 +105,13 @@ export interface FleetHtmlFile {
   /** Set on the competitor-list page (#423); `fleetName` is then "Entries".
    *  The only page a series with no races yet can publish. */
   isEntryList?: boolean;
+  /** Set on a supporting page that is not a fleet's results and has no flag of
+   *  its own — a split-fleet series' fleet assignments. Keeps listings from
+   *  labelling it as the publication's standings. */
+  isAuxiliary?: boolean;
+  /** Set on a results page whose name is its own rather than a fleet's — a
+   *  championship's standings page. Keeps listings from relabelling it. */
+  isNamedPage?: boolean;
   html: string;
 }
 
@@ -239,7 +250,19 @@ export async function buildFleetHtmlFiles(
   // `includeEntryList` appends the competitor-list page (#423), gated on the
   // workspace's `entry-list` feature by the publish path and preview. It is
   // also the one page a series with no races can publish at all.
-  opts?: { includePrizes?: boolean; includeEntryList?: boolean },
+  // `raceResultsHref` is the split-fleet per-race results page's URL relative
+  // to the championship standings page; only the publish handler knows where
+  // both will be served, so only it passes one — preview, download and FTP
+  // leave the championship's race columns unlinked.
+  // `includeTrackData` says the workspace's `racesense-import` feature is on;
+  // the columns still need the series' own `publishTrackData` opt-in, and
+  // each renders only where a boat carries the value.
+  opts?: {
+    includePrizes?: boolean;
+    includeEntryList?: boolean;
+    includeTrackData?: boolean;
+    raceResultsHref?: string;
+  },
 ): Promise<FleetHtmlFile[] | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0) return null;
@@ -254,9 +277,11 @@ export async function buildFleetHtmlFiles(
   // everything else, so they need the same resolution.
   snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
   // Split-fleet series (#328): the published output is the championship
-  // standings page (tiered, fleet-tinted, cut line) plus the rolling
-  // fleet-assignments page — the per-round fleets never get their own pages.
-  // Shared by preview, download, and publish, like the per-fleet path below.
+  // standings page (tiered, fleet-tinted, cut line), the per-race results
+  // page (every stage race, one table per fleet), and the rolling
+  // fleet-assignments page — the per-round fleets never get standings pages
+  // of their own. Shared by preview, download, and publish, like the
+  // per-fleet path below.
   const splitFleets = await repos.splitFleets?.get(seriesId);
   if (splitFleets && splitFleets.rounds.length > 0) {
     // Same on-demand flag loading as the per-fleet path below: the ~2.5 MB
@@ -293,19 +318,42 @@ export async function buildFleetHtmlFiles(
       raceStarts: snapshot.raceStarts,
       finishes: snapshot.finishes,
       enabledCompetitorFields,
+      ...(opts?.includeTrackData && snapshot.series.publishTrackData
+        ? { showTrackData: true }
+        : {}),
       ...(wantsFlags
         ? { flagSvgByCode: (await import('./nationality/flags')).NATIONAL_FLAGS }
         : {}),
     };
+    // Null while no stage race has sheet rows — the championship page then
+    // has nothing to link to either.
+    const raceResultsHtml = renderSplitFleetRaceResultsPage(input, splitChrome);
     return [
       {
         fleetName: 'Championship',
         isDefault: true,
-        html: renderSplitFleetStandingsPage(input, splitChrome),
+        isNamedPage: true,
+        html: renderSplitFleetStandingsPage(input, {
+          ...splitChrome,
+          ...(raceResultsHtml && opts?.raceResultsHref
+            ? { raceResultsHref: opts.raceResultsHref }
+            : {}),
+        }),
       },
+      ...(raceResultsHtml
+        ? [
+            {
+              fleetName: 'Race results',
+              isDefault: false,
+              isNamedPage: true,
+              html: raceResultsHtml,
+            },
+          ]
+        : []),
       {
         fleetName: 'Fleet assignments',
         isDefault: false,
+        isAuxiliary: true,
         html: renderSplitFleetAssignmentsPage(input, splitChrome),
       },
       // The entry list rides along here too. This branch returns early, so
@@ -426,6 +474,7 @@ export async function buildFleetHtmlFiles(
       penaltyOverride: number | null;
       penaltyLabel?: string;
       finishTime: string | null;
+      trackData?: FinishTrackData | null;
       tcfApplied?: number | null;
       newTcf?: number | null;
       elapsedTime?: number | null;
@@ -470,6 +519,7 @@ export async function buildFleetHtmlFiles(
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
                   ...(s.nhc ? { nhc: s.nhc } : {}),
@@ -498,6 +548,7 @@ export async function buildFleetHtmlFiles(
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
                   ...(s.echo ? { echo: s.echo } : {}),
@@ -603,6 +654,7 @@ export async function buildFleetHtmlFiles(
                   ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                   : {}),
                 finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                 ...('tcfApplied' in s ? { tcfApplied: (s as { tcfApplied: number | null }).tcfApplied } : {}),
                 // Engine times, preferred by the renderer over its ET × TCF
                 // recompute — required for time-on-distance corrected times.
@@ -705,6 +757,7 @@ export async function buildFleetHtmlFiles(
           ...(series.publishOfficials
             ? { publishOfficials: true, ...(series.officials?.length ? { officials: series.officials } : {}) }
             : {}),
+          ...(opts?.includeTrackData && series.publishTrackData ? { showTrackData: true } : {}),
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;

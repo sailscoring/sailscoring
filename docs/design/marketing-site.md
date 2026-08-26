@@ -6,9 +6,8 @@
 product is, who it is for, and how to get started. It is not the application. The
 application lives at `app.sailscoring.ie` (see ADR-005).
 
-The site should establish credibility early — long before the product is widely released.
-Scorers are exacting people; the site should feel like it was made by people who take
-their craft seriously.
+The site has to establish credibility. Scorers are exacting people; the site should
+feel like it was made by people who take their craft seriously.
 
 ## Technology
 
@@ -40,14 +39,13 @@ marginal gain.
 | `/` | Home | Hero, feature highlights, call to action linking to `app.sailscoring.ie` |
 | `/about` | About | What Sail Scoring is, why it was built, who is behind it |
 | `/contact` | Contact | Contact email; no backend form (KISS) |
-| `/results` | Sample results | One or two published results sheets embedded from bilge, demonstrating the end product |
+| `/results` | Sample results | One or two published results sheets linked from the app's public `/p/{workspace}/...` pages, demonstrating the end product |
 | `/legal/terms` | Terms of Service | — |
 | `/legal/privacy` | Privacy Policy | — |
-| `/legal/cookies` | Cookie Policy | Minimal: no analytics, no tracking cookies during stealth beta |
+| `/legal/cookies` | Cookie Policy | Minimal: no analytics, no tracking cookies |
 | `/legal/acceptable-use` | Acceptable Use Policy | — |
 
-Legal pages should be reviewed by a solicitor before any public-facing usage beyond
-stealth beta.
+Legal pages should be reviewed by a solicitor as adoption grows.
 
 ## Design Direction
 
@@ -72,16 +70,15 @@ features described concisely in plain language.
   This is the only conversion goal for the foreseeable future.
 - **No dark mode toggle.** Not needed for a mostly-static marketing site at this stage.
 - **No cookies banner.** If no analytics or tracking are present, no banner is needed.
-  That is the intended state during stealth beta.
+  That remains the intended state.
 
-### Colour and type palette (proposed, not final)
+### Colour and type palette
 
-- Background: off-white (`#f9f9f7`) — softer than pure white, suggests print
-- Foreground: near-black (`#111111`)
-- Accent: deep navy (`#1a3a5c`) — nautically honest without being kitschy
-- Typeface: [Geist](https://vercel.com/font) (already bundled with Next.js on Vercel)
-  or [Inter](https://rsms.me/inter/) — both are geometric sans-serifs that read cleanly
-  at both heading and body sizes.
+Settled by the June 2026 brand refresh — the brand book in the
+`sailscoring/branding` sibling repo is the source of truth. Type is
+**Audiowide** (display) + **Poppins** (body), both Google Fonts under the OFL;
+the mark is the red (`#fb3a3b`) vector logo, with white and black colourways
+for dark and mono contexts.
 
 ## Home Page Layout
 
@@ -128,6 +125,8 @@ at Vercel via apex-domain DNS configuration (per ADR-005).
 
 ## Launch Criteria
 
-The site should be live before the stealth beta begins. Minimum viable means: Home,
-About, and Contact. The sample results page and the CTA to the app can follow once
-bilge is live.
+**Met.** The site went live ahead of the 2026 stealth beta with Home, About, and
+Contact; the sample results and the CTA to the app followed. Since August 2026 the
+site describes the service as generally available to clubs and class associations
+in Ireland, with individuals elsewhere encouraged to trial it using a personal
+workspace.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -35,10 +35,16 @@ import {
   type ParseFinishSheetResult,
 } from '@/lib/finish-sheet-csv';
 import {
+  carryAcrossImport,
+  carryOutcome,
+  type CarryOutcomeItem,
+} from '@/lib/finish-entry';
+import {
   parseTabularFile,
   TABULAR_IMPORT_ACCEPT,
   type WorkbookSheet,
 } from '@/lib/import-table';
+import type { Finish } from '@/lib/types';
 import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-file-dialogs';
 
 const FIELD_LABELS: Record<FinishSheetField, string> = {
@@ -62,7 +68,6 @@ type ImportFlow =
   | {
       step: 'preview';
       result: ParseFinishSheetResult;
-      existingFinishCount: number;
     };
 
 export interface FinishSheetImportHandle {
@@ -76,13 +81,23 @@ export interface FinishSheetImportHandle {
  * preview dialog. On confirm, the parsed finishes are returned via
  * `onConfirm` (replace-all semantics; caller updates race state and
  * persists).
+ *
+ * What the sheet can't express — penalties, redress, ties, start check-ins —
+ * is carried across from the race's existing finishes wherever it still
+ * attaches; the preview says what carries and, more importantly, what this
+ * import clears. The result handed to `onConfirm` is the carried one.
  */
 export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
   candidates: Candidate[];
-  existingFinishCount: number;
+  /** The race's finishes as stored, for the replace warning and the carry. */
+  existingFinishes: Finish[];
+  /** Keyboard finish entry's gate, passed through: true when the competitor's
+   *  fleet scores on handicap over a timed start, so a finish without a time
+   *  cannot be scored on corrected time. Used to warn on place-only imports. */
+  needsFinishTime?: (competitorId: string) => boolean;
   onConfirm: (result: ParseFinishSheetResult) => void;
   trigger?: React.ReactNode;
-}>(function FinishSheetImport({ candidates, existingFinishCount, onConfirm, trigger }, ref) {
+}>(function FinishSheetImport({ candidates, existingFinishes, needsFinishTime, onConfirm, trigger }, ref) {
   const [flow, setFlow] = useState<ImportFlow>({ step: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -132,18 +147,54 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
       columnMap: flow.columnMap,
       candidates,
     });
-    setFlow({ step: 'preview', result, existingFinishCount });
-  }
-
-  function confirmImport() {
-    if (flow.step !== 'preview') return;
-    onConfirm(flow.result);
-    reset();
+    setFlow({ step: 'preview', result });
   }
 
   const mapping = flow.step === 'mapping' ? flow : null;
   const hasSailMapping =
     mapping != null && Object.values(mapping.columnMap).includes('sailNumber');
+
+  const existingFinishCount = existingFinishes.filter(
+    (f) => f.sortOrder !== null || f.resultCode !== null,
+  ).length;
+
+  // The finishes that would actually be written: the parsed sheet with the
+  // stored penalties, redress, ties and check-ins carried across wherever
+  // they still attach — and the fate of each such item, for the preview.
+  const preview = flow.step === 'preview' ? flow : null;
+  const carried = useMemo(
+    () => (preview ? carryAcrossImport(existingFinishes, preview.result.finishes) : null),
+    [preview, existingFinishes],
+  );
+  const outcome = useMemo(
+    () => (carried ? carryOutcome(existingFinishes, carried) : null),
+    [carried, existingFinishes],
+  );
+  const boatOf = (item: CarryOutcomeItem) =>
+    item.competitorId
+      ? candidates.find((c) => c.id === item.competitorId)?.sailNumber ?? item.competitorId
+      : item.unknownSailNumber ?? '?';
+  const listed = (items: CarryOutcomeItem[]) =>
+    items.map((i) => `${i.what} on ${boatOf(i)}`).join(', ');
+
+  function confirmImport() {
+    if (flow.step !== 'preview' || !carried) return;
+    onConfirm({ ...flow.result, finishes: carried });
+    reset();
+  }
+
+  // Untimed finishers whose fleet actually needs a time (handicap scoring over
+  // a timed start) — a place-only sheet is fine for scratch, not for these.
+  const untimedHandicapCount =
+    flow.step === 'preview' && needsFinishTime
+      ? flow.result.finishes.filter(
+          (f) =>
+            f.sortOrder !== null &&
+            !f.finishTime &&
+            f.competitorId != null &&
+            needsFinishTime(f.competitorId),
+        ).length
+      : 0;
 
   return (
     <>
@@ -281,10 +332,37 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
                   number rather than a sail number.
                 </p>
               )}
+              {flow.result.summary.untimed > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {flow.result.summary.untimed} finisher
+                  {flow.result.summary.untimed === 1 ? ' has' : 's have'} no finish
+                  time. If the sheet records times, check the Finish time column
+                  mapping.
+                </p>
+              )}
+              {untimedHandicapCount > 0 && (
+                <p className="text-sm font-medium text-destructive">
+                  {untimedHandicapCount} untimed finisher
+                  {untimedHandicapCount === 1 ? ' is' : 's are'} in a handicap fleet
+                  with a timed start — a finish without a time cannot be scored on
+                  corrected time.
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">
-                This will replace the {flow.existingFinishCount} existing finish
-                {flow.existingFinishCount === 1 ? '' : 'es'} for this race.
+                This will replace the {existingFinishCount} existing finish
+                {existingFinishCount === 1 ? '' : 'es'} for this race.
               </p>
+              {outcome && outcome.kept.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Carried across from the current finishes: {listed(outcome.kept)}.
+                </p>
+              )}
+              {outcome && outcome.cleared.length > 0 && (
+                <p className="text-sm font-medium text-destructive">
+                  This import clears: {listed(outcome.cleared)}. Re-enter anything
+                  that should survive in the editor afterwards.
+                </p>
+              )}
               {flow.result.warnings.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-1">

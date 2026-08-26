@@ -192,6 +192,9 @@ export const seriesSchema = z.object({
   // published — the safe reading for anything that predates the field.
   officials: z.array(raceOfficialSchema).max(OFFICIALS_MAX).optional(),
   publishOfficials: z.boolean().optional(),
+  // Whether RaceSense track data appears on published per-race tables.
+  // Opt-in like publishOfficials; absent means not published.
+  publishTrackData: z.boolean().optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   multiPersonFields: z.array(z.enum(['primary', 'owner', 'helm', 'crewName'])).optional(),
   primaryPersonLabel: primaryPersonLabelSchema,

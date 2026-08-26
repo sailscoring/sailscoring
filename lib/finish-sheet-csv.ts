@@ -14,7 +14,10 @@
  *   - a finisher: sortOrder = rank among finishers (1-based by row order); finishTime may be set
  *   - a coded non-finisher: sortOrder = null, resultCode set
  *
- * Rows with neither finishTime nor resultCode are rejected.
+ * Rows with neither finishTime nor resultCode are plain finishers ranked by
+ * row position — a place-only sheet is how scratch racing is normally
+ * recorded, since crossing order alone scores the race. Entirely blank rows
+ * (trailing empty lines) are skipped without an error.
  * Unknown sail numbers produce unresolved-crossing finishes (competitorId=null,
  * unknownSailNumber=<raw>) — the race editor UI already supports these.
  *
@@ -25,9 +28,11 @@
  * watching each suggestion, and an imported sheet carries whole numbers with
  * nobody reading the rows one at a time.
  *
- * v1 scope intentionally excludes ties, penalties (ZFP/SCP/DPI),
- * redress (RDG), equal-position sortOrder overrides, and startPresent.
- * Those are rare and can be set in the editor after import.
+ * The format intentionally excludes ties, penalties (ZFP/SCP/DPI), redress
+ * (RDG), equal-position sortOrder overrides, and startPresent. Those are
+ * rare and are set in the editor — and on a re-import, the ones already
+ * stored are carried across rather than cleared (see `carryAcrossImport`
+ * in lib/finish-entry.ts).
  */
 
 import type { Finish, ResultCode } from './types';
@@ -53,6 +58,7 @@ export interface ParseFinishSheetResult {
   /** Summary counts for the preview dialog. */
   summary: {
     finishers: number;
+    untimed: number;     // finishers with no finish time (place-only rows)
     coded: number;
     unresolved: number;  // finishers with an unknown sail number
     /** Rows resolved via an alternative or bow number, not the registered sail number. */
@@ -63,9 +69,29 @@ export interface ParseFinishSheetResult {
 export interface Candidate {
   id: string;
   sailNumber: string;
+  /** 3-letter national-letters code ("IRL"). When present, the qualified
+   *  forms of the sail number ("IRL 224529", "IRL224529") resolve to this
+   *  boat too — that is how championship sheets and RaceSense exports write
+   *  sail numbers. */
+  nationality?: string;
   bowNumber?: string;
   alternativeSailNumbers?: string[];
   fleetIds: string[];
+}
+
+/**
+ * Every string that names this boat's registered sail number: the number as
+ * entered, plus the nationality-qualified forms when the boat carries
+ * national letters. All are first-tier — a qualified number is the registered
+ * number written in full, not an alternative — so a match on any of them is
+ * silent. Callers comparing sail numbers themselves should compare against
+ * all of these, case-insensitively.
+ */
+export function sailNumberKeys(c: Candidate): string[] {
+  const sail = c.sailNumber.trim();
+  const nationality = c.nationality?.trim() ?? '';
+  if (!sail || !nationality) return [sail];
+  return [sail, `${nationality} ${sail}`, `${nationality}${sail}`];
 }
 
 export interface ParseFinishSheetInput {
@@ -73,7 +99,8 @@ export interface ParseFinishSheetInput {
   columnMap: FinishSheetColumnMap;
   /** Candidates eligible to be finishers in this race. Caller filters to
    *  competitors in the race's fleets; matching is case-insensitive on sail
-   *  number, falling back to bow number (see {@link parseFinishSheetCsv}). */
+   *  number (bare or nationality-qualified — see {@link sailNumberKeys}),
+   *  falling back to bow number (see {@link parseFinishSheetCsv}). */
   candidates: Candidate[];
 }
 
@@ -143,7 +170,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     }
     return map;
   };
-  const sailMap = index((c) => [c.sailNumber]);
+  const sailMap = index(sailNumberKeys);
   // Tiers below the registered sail number, in the order they are tried.
   const fallbackTiers: { matchedOn: 'alternative' | 'bow'; map: Map<string, Candidate[]> }[] = [
     { matchedOn: 'alternative', map: index((c) => c.alternativeSailNumbers ?? []) },
@@ -156,6 +183,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
   const usedCompetitorIds = new Set<string>();
 
   let finisherCount = 0;
+  let untimedCount = 0;
   let codedCount = 0;
   let unresolvedCount = 0;
   let fallbackMatchCount = 0;
@@ -163,6 +191,10 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const csvRowNumber = i + 2; // +1 for header, +1 for 1-based
+
+    // An entirely blank row is not data — sheets routinely end with empty
+    // lines. Skip it rather than reporting a missing sail number.
+    if (row.every((cell) => !cell || cell.trim() === '')) continue;
 
     const rawSail = cols.sail >= 0 ? (row[cols.sail]?.trim() ?? '') : '';
     const rawTime = cols.time >= 0 ? (row[cols.time]?.trim() ?? '') : '';
@@ -175,17 +207,9 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
 
     // Decide finisher vs coded. A row with both a time and a code is treated as coded
     // (the code wins) — the scorer was probably recording why a finish time shouldn't
-    // count. But warn, since that's ambiguous.
+    // count. A row with neither is a plain finisher: its place comes from row order.
     const hasTime = rawTime.length > 0;
     const hasCode = rawCode.length > 0;
-
-    if (!hasTime && !hasCode) {
-      errors.push({
-        rowIndex: csvRowNumber,
-        reason: 'row has neither finish time nor result code',
-      });
-      continue;
-    }
 
     let normalizedTime: string | null = null;
     if (hasTime) {
@@ -277,6 +301,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     } else {
       // Finisher
       finisherCount++;
+      if (!normalizedTime) untimedCount++;
       const sortOrder = finisherCount;
       if (resolved) {
         usedCompetitorIds.add(competitor.id);
@@ -312,6 +337,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     warnings,
     summary: {
       finishers: finisherCount,
+      untimed: untimedCount,
       coded: codedCount,
       unresolved: unresolvedCount,
       matchedOnBow: fallbackMatchCount,

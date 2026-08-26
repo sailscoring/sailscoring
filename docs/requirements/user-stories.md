@@ -2,6 +2,13 @@
 
 Requirements expressed as user needs. Format: "As a [role], I want [capability] so that [benefit]."
 
+These stories cover the original scoring core, and all of them are
+implemented. Capabilities added since — revision history, the activity log
+and member management, competitor identity and reconcile, cross-series
+rankings, as-published archives, the publication-tree navigation — are
+documented in `docs/design/feature-inventory.md` and their design docs
+rather than retrofitted here as stories.
+
 ## User Roles
 
 | Role | Description |
@@ -40,7 +47,7 @@ Requirements expressed as user needs. Format: "As a [role], I want [capability] 
 | ID | Story |
 |----|-------|
 | RS-01 | As a scorer, I want to add a race to a series so that I can record results for it |
-| RS-02 | As a scorer, I want to record the start time per fleet for a race so that elapsed times can be calculated for rating-based fleets |
+| RS-02 | As a scorer, I want to record start times for a race — each start covering one or more fleets — so that elapsed times can be calculated for rating-based fleets |
 | RS-03 | As a scorer, I want to delete a race so that abandoned races or incorrectly added races can be removed |
 
 ## Finish Recording
@@ -73,9 +80,9 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 |----|-------|
 | RP-01 | As a scorer, I want to view current standings for any race or for the series at any time so that I can review results as they develop |
 | RP-02 | As a result viewer, I want to view a published results page so that I can see series standings and individual race results |
-| RP-03 | As a scorer, I want to produce a static HTML results page combining series standings and individual race results, in a format matching Sailwave's presentation, so that it can be hosted and shared |
+| RP-03 | As a scorer, I want results rendered as a static HTML page combining series standings and individual race results, in a presentation familiar from Sailwave, so that published pages are fast, printable, and shareable |
 | RP-04 | As a scorer, I want to configure which fleets and rating systems appear on a results page so that I can produce separate pages for different audiences |
-| RP-05 | As a scorer, I want to publish a results page to a public URL so that I can share it with sailors and result viewers without needing to host it myself — on first publish I verify my email address to claim the URL; subsequent publishes update the page immediately |
+| RP-05 | As a scorer, I want to publish a results page to a public URL under my workspace (`/p/{workspace}/...`) so that I can share it with sailors and result viewers without hosting it myself — subsequent publishes update the page immediately |
 
 ## Data Management
 
@@ -83,7 +90,7 @@ _These stories describe a repetitive workflow, repeated for each competitor in t
 |----|-------|
 | DM-01 | As a scorer, I want to export a series as a JSON file so that I can back it up, transfer it to another device, or share it with a co-scorer |
 | DM-02 | As a scorer, I want to import a series from a JSON file so that I can restore from a backup or continue work started on another device |
-| DM-03 | As a scorer, I want to see a list of all series on my device and delete ones I no longer need so that I can manage my data over time |
+| DM-03 | As a scorer, I want to see a list of all series in my workspace and delete ones I no longer need so that I can manage my data over time |
 
 ## Protests and Penalties
 

@@ -51,7 +51,9 @@ import {
   finalBlockSizes,
   fleetMembers,
   logicalRaces,
+  orderForAssignment,
   physicalRaceCompleted,
+  pickableFleets,
   provisionalCutIndexes,
   roundsForStage,
   qualifyingRaceCount,
@@ -71,6 +73,8 @@ import {
   type StageRaceRef,
 } from '@/lib/split-fleets';
 import { compareSailNumbersIgnoringPrefix } from '@/lib/sail-number-sort';
+import { isSyntheticFleetName } from '@/lib/publishing';
+import { worldSailingProfileUrl } from '@/lib/world-sailing';
 
 interface NextAction { label: string; href?: string }
 
@@ -286,6 +290,18 @@ function buildFleetMeta(
     });
   }
   return meta;
+}
+
+/** The bare fleet marker: a small flat-colour dot, bordered so pale fleet
+ *  colours hold up against the cell tint behind it. */
+function FleetDot({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="mr-1 inline-block h-1.5 w-1.5 rounded-full border border-foreground/30 align-middle"
+      style={{ backgroundColor: color }}
+    />
+  );
 }
 
 function FleetChip({ meta, count }: { meta: FleetMeta; count?: number }) {
@@ -512,9 +528,9 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         }
       />
       {/* The round fleets are internal — the published output is the
-          championship page + the assignments page, so both dialogs run in
-          single-default-page mode (empty fleet list) and the build emits the
-          split-fleet pages itself. */}
+          championship page + the per-race results page + the assignments
+          page, so both dialogs run in single-default-page mode (empty fleet
+          list) and the build emits the split-fleet pages itself. */}
       <PreviewDialog
         series={data.series}
         fleets={[]}
@@ -529,7 +545,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         onClose={() => setShowPublish(false)}
         canFtp={false}
         lonePageName="Championship"
-        extraPages={['Fleet assignments']}
+        extraPages={['Race results', 'Fleet assignments']}
       />
       <FinaliseResultsDialog
         series={data.series}
@@ -982,13 +998,62 @@ function CeremonyDialog({
   );
 }
 
+/** Non-round fleets a ceremony may offer to delete: owned by no round and
+ *  referenced by no race start (a series converted to a championship after
+ *  racing keeps its old starts, and those fleets must stay). */
+function deletableLeftoverFleets(data: SplitFleetData): Fleet[] {
+  return pickableFleets(data.fleets).filter(
+    (f) => !data.raceStarts.some((s) => s.fleetIds.includes(f.id)),
+  );
+}
+
+/** A ceremony's offer to shed pre-championship fleets — the "Default" an
+ *  entry-list import leaves behind, or a converted series' old fleets. The
+ *  server strips memberships and deletes the rows in the same transaction as
+ *  the round commit. Offered on every ceremony until the series is clean. */
+function DeleteLeftoverFleetsChoice({
+  fleets,
+  checked,
+  onChange,
+}: {
+  fleets: Fleet[];
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  if (fleets.length === 0) return null;
+  const names = fleets.map((f) => `“${f.name}”`).join(', ');
+  return (
+    <label className="flex items-start gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5"
+      />
+      <span>
+        Also remove the {fleets.length === 1 ? 'fleet' : 'fleets'} {names}.
+        Assignment rounds deal this championship&rsquo;s fleets, so{' '}
+        {fleets.length === 1 ? 'it' : 'they'} would sit unused; no boat loses a
+        round assignment.
+      </span>
+    </label>
+  );
+}
+
+/** Whether every leftover carries one of the app's own synthetic names — the
+ *  case the offer pre-checks. Real fleet names (a series that raced as fleets
+ *  before becoming a championship) start unchecked: the scorer's call. */
+function allSyntheticNames(fleets: Fleet[]): boolean {
+  return fleets.length > 0 && fleets.every((f) => isSyntheticFleetName(f.name));
+}
+
 function AssignmentPreviewTable({
   rows,
   fleetLabels,
   allowUnassigned,
   onMove,
 }: {
-  rows: { id: string; sail: string; name: string; from?: string; to: string; moved?: boolean; overridden?: boolean }[];
+  rows: { id: string; sail: string; name: string; rank?: number; from?: string; to: string; moved?: boolean; overridden?: boolean }[];
   /** When set (with onMove), each row gets a fleet select — the editable
    *  preview: hand-moves are recorded as overrides on commit. */
   fleetLabels?: string[];
@@ -1012,7 +1077,11 @@ function AssignmentPreviewTable({
       <tbody>
         {rows.map((r, i) => (
           <tr key={r.id}>
-            <td className="py-1 pr-2 text-muted-foreground">{i + 1}</td>
+            {/* The standings rank where one exists (shared on a tie A8 could
+                not break); the row's list position otherwise — a seeding has
+                no ranking yet. Never the deal position: numbering a tied pair
+                140/141 here would present the deal's choice as a ranking. */}
+            <td className="py-1 pr-2 text-muted-foreground">{r.rank ?? i + 1}</td>
             <td className="py-1 pr-2 whitespace-nowrap">{r.sail}</td>
             <td className="py-1 pr-2">{r.name}</td>
             {hasFrom && <td className="py-1 pr-2 text-muted-foreground">{r.from}</td>}
@@ -1075,6 +1144,8 @@ function SeedRoundDialog({
   const [moves, setMoves] = useState<Record<string, number | null>>({});
   const qFleets = data.config.qualifyingFleets;
   const anyImported = data.competitors.some((c) => c.initialFleet);
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
 
   const preview = useMemo(() => {
     const byId = new Map(data.competitors.map((c) => [c.id, c]));
@@ -1152,6 +1223,7 @@ function SeedRoundDialog({
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves).filter((cid) => moves[cid] != null),
           stageRaceNumbers: plannedFirstRaces(data.config),
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
@@ -1200,6 +1272,11 @@ function SeedRoundDialog({
           fleets on the Settings tab to match the entry list.
         </p>
       )}
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
       <AssignmentPreviewTable
         rows={preview.rows}
         fleetLabels={qFleets.map((f) => f.label)}
@@ -1235,13 +1312,35 @@ function ReassignDialog({
   const { commit, run } = useCommit(seriesId, onClose);
   const [moves, setMoves] = useState<Record<string, number>>({});
   const qFleets = data.config.qualifyingFleets;
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
   const preview = useMemo(() => {
-    const rows = splitFleetStandings(data);
+    const rows = orderForAssignment(splitFleetStandings(data), data);
     const ordered = rows.map((r) => r.competitor.id);
     const byFleet = assignByRankPattern(ordered, qFleets.length);
-    let assignments: Record<string, number> = {};
-    byFleet.forEach((ids, i) => ids.forEach((cid) => (assignments[cid] = i)));
-    assignments = { ...assignments, ...moves };
+    const dealt: Record<string, number> = {};
+    byFleet.forEach((ids, i) => ids.forEach((cid) => (dealt[cid] = i)));
+    // A shared rank the pattern splits across fleets: the boats' order within
+    // the tie — not the ranking — decided who got which, and the scorer must
+    // see that before committing.
+    const tieWarnings: string[] = [];
+    for (let i = 0; i < rows.length; ) {
+      let j = i + 1;
+      while (j < rows.length && rows[j].rank === rows[i].rank) j++;
+      const group = rows.slice(i, j);
+      const fleets = [...new Set(group.map((r) => qFleets[dealt[r.competitor.id]].label))];
+      if (group.length > 1 && fleets.length > 1) {
+        tieWarnings.push(
+          `${group.map((r) => r.competitor.sailNumber).join(', ')} share rank ${rows[i].rank} and RRS A8 cannot separate them — ${
+            data.config.reassignmentTieOrder === 'fleet-order'
+              ? 'current fleet order'
+              : 'entry order'
+          } decides who is dealt ${fleets.join('/')}, not the ranking. Move a boat by hand if the committee assigns otherwise.`,
+        );
+      }
+      i = j;
+    }
+    const assignments: Record<string, number> = { ...dealt, ...moves };
     let moved = 0;
     const table = rows.map((r) => {
       const currentFleetId = r.competitor.fleetIds.findLast((fid) => fleetMeta.has(fid));
@@ -1253,13 +1352,14 @@ function ReassignDialog({
         id: r.competitor.id,
         sail: r.competitor.sailNumber,
         name: r.competitor.names.join(' & '),
+        rank: r.rank,
         from,
         to,
         moved: didMove,
         overridden: moves[r.competitor.id] != null,
       };
     });
-    return { assignments, table, moved };
+    return { assignments, table, moved, tieWarnings };
   }, [data, qFleets, fleetMeta, moves]);
 
   return (
@@ -1280,9 +1380,20 @@ function ReassignDialog({
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: [fromStageRace, fromStageRace + 1],
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
+      {preview.tieWarnings.map((t) => (
+        <p key={t} className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          ⚠ {t}
+        </p>
+      ))}
       <AssignmentPreviewTable
         rows={preview.table}
         fleetLabels={qFleets.map((f) => f.label)}
@@ -1314,40 +1425,53 @@ function SplitDialog({
       : finalBlockSizes(rows.length, fFleets.length)[0];
   const [topSize, setTopSize] = useState(defaultTop);
   const [moves, setMoves] = useState<Record<string, number>>({});
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
 
   const preview = useMemo(() => {
-    // Top fleet takes `topSize`; the remainder splits near-equally.
+    // Top fleet takes `topSize`; the remainder splits near-equally. The deal
+    // runs over the assignment order: the ranking, with each shared rank
+    // ordered per the configured tie order.
+    const dealt = orderForAssignment(rows, data);
     const rest = finalBlockSizes(Math.max(0, rows.length - topSize), Math.max(1, fFleets.length - 1));
     const sizes = [topSize, ...rest];
     let assignments: Record<string, number> = {};
     let idx = 0;
     sizes.forEach((size, fleetIdx) => {
-      for (let k = 0; k < size && idx < rows.length; k++, idx++) {
-        assignments[rows[idx].competitor.id] = fleetIdx;
+      for (let k = 0; k < size && idx < dealt.length; k++, idx++) {
+        assignments[dealt[idx].competitor.id] = fleetIdx;
       }
     });
     assignments = { ...assignments, ...moves };
-    const table = rows.map((r) => ({
+    const table = dealt.map((r) => ({
       id: r.competitor.id,
       sail: r.competitor.sailNumber,
       name: r.competitor.names.join(' & '),
+      rank: r.rank,
       to: fFleets[assignments[r.competitor.id]].label,
       overridden: moves[r.competitor.id] != null,
     }));
-    // Boundary-tie diagnostics: equal nets across a fleet boundary.
+    // Boundary-tie diagnostics: equal nets across a fleet boundary. A shared
+    // rank means RRS A8 could not separate the boats — the boundary between
+    // them is a choice, not a ranking, and the scorer must see which rule
+    // made it.
     const boundaryTies: string[] = [];
     let cum = 0;
     for (let i = 0; i < sizes.length - 1; i++) {
       cum += sizes[i];
-      const a = rows[cum - 1];
-      const b = rows[cum];
-      if (a && b && a.net === b.net) {
-        boundaryTies.push(
-          `Ranks ${cum}/${cum + 1} (${a.competitor.sailNumber}, ${b.competitor.sailNumber}) tie on ${a.net} — separated by RRS A8 (then ${
-            data.config.reassignmentTieOrder === 'fleet-order' ? 'fleet order' : 'entry order'
-          }); the ${fFleets[i].label}/${fFleets[i + 1].label} boundary depends on it.`,
-        );
-      }
+      const a = dealt[cum - 1];
+      const b = dealt[cum];
+      if (!a || !b || a.net !== b.net) continue;
+      const boundary = `${fFleets[i].label}/${fFleets[i + 1].label}`;
+      boundaryTies.push(
+        a.rank === b.rank
+          ? `${a.competitor.sailNumber} and ${b.competitor.sailNumber} tie on ${a.net} and RRS A8 cannot separate them — the last ${boundary} place is dealt by ${
+              data.config.reassignmentTieOrder === 'fleet-order'
+                ? 'current fleet order'
+                : 'entry order'
+            }, not by the ranking. Move a boat by hand if the SIs direct otherwise.`
+          : `Ranks ${cum}/${cum + 1} (${a.competitor.sailNumber}, ${b.competitor.sailNumber}) tie on ${a.net} — separated by RRS A8; the ${boundary} boundary depends on it.`,
+      );
     }
     const counted = Object.values(assignments);
     return {
@@ -1356,7 +1480,7 @@ function SplitDialog({
       sizes: fFleets.map((_, i) => counted.filter((v) => v === i).length),
       boundaryTies,
     };
-  }, [rows, topSize, moves, fFleets, data.config.reassignmentTieOrder]);
+  }, [rows, data, topSize, moves, fFleets]);
 
   return (
     <CeremonyDialog
@@ -1376,9 +1500,15 @@ function SplitDialog({
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: [1],
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
       <div className="flex items-center gap-2">
         <label className="text-sm" htmlFor="sf-top-size">
           {fFleets[0]?.label ?? 'Gold'} fleet size
@@ -1686,6 +1816,8 @@ function MedalSelectDialog({
   const medalConfig = data.config.medal!;
   const w = words(data.config);
   const [size, setSize] = useState(medalConfig.size);
+  const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
+  const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
   const goldId = round.fleetIds[0];
   const goldRows = standings.filter((r) => r.finalFleetId === goldId);
   const medalists = goldRows.slice(0, size);
@@ -1721,9 +1853,15 @@ function MedalSelectDialog({
           fleets: [{ label: capitaliseStage(w.medal.name), color: '#f59e0b' }],
           assignments: medalAssignments,
           stageRaceNumbers: [1],
+          deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
     >
+      <DeleteLeftoverFleetsChoice
+        fleets={leftovers}
+        checked={dropLeftovers}
+        onChange={setDropLeftovers}
+      />
       <div className="flex items-center gap-2">
         <label className="text-sm" htmlFor="sf-medal-size">
           {capitaliseStage(w.medal.fleetNoun)} size
@@ -1914,6 +2052,25 @@ function StandingsSection({
     enabledFields.includes('nationality') &&
     standings.some((r) => r.competitor.nationality);
 
+  // Pre-split, the combined table carries a Fleet column with the current
+  // round's assignment; after the split the per-fleet headings say it.
+  const latestRound = splitRound
+    ? null
+    : ([...data.rounds].sort((a, b) => b.createdAt - a.createdAt)[0] ?? null);
+  const currentFleetOf = (row: SplitStandingRow): FleetMeta | null => {
+    const fid = latestRound?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
+    return fid ? (fleetMeta.get(fid) ?? null) : null;
+  };
+
+  // The legend: one chip per fleet that actually appears in the cells, deduped
+  // by label (a later round's fleets reuse the labels under new ids).
+  const cellFleetIds = new Set(standings.flatMap((r) => r.cells.map((c) => c.fleetId)));
+  const legendLabels = new Set<string>();
+  const legendFleets = [...fleetMeta.entries()].filter(
+    ([fid, meta]) =>
+      cellFleetIds.has(fid) && !legendLabels.has(meta.label) && !!legendLabels.add(meta.label),
+  );
+
   const renderRows = (rows: SplitStandingRow[], withCuts: boolean) =>
     rows.map((row, i) => {
       const cellByKey = new Map(
@@ -1927,11 +2084,18 @@ function StandingsSection({
           columns={columns}
           cellByKey={cellByKey}
           fleetMeta={fleetMeta}
+          currentFleet={latestRound ? currentFleetOf(row) : undefined}
           showNationality={showNationality}
           cutAfter={withCuts && cuts.includes(i)}
           cutLabel={
             withCuts && cuts.includes(i)
-              ? `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut if the ${words(data.config).qualifying.name} ended now`
+              ? `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut if the ${words(data.config).qualifying.name} ended now${
+                  // A shared rank across the line: the ranking does not place
+                  // this cut, and the line must not pretend it does.
+                  rows[i + 1]?.rank === row.rank
+                    ? ' — the boats either side are tied; the ranking does not decide this cut'
+                    : ''
+                }`
               : null
           }
         />
@@ -1975,6 +2139,14 @@ function StandingsSection({
           )}
         </div>
       </div>
+      {legendFleets.length > 0 && (
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          Race cells are marked with the fleet the race was sailed in:
+          {legendFleets.map(([fid, meta]) => (
+            <FleetChip key={fid} meta={meta} />
+          ))}
+        </p>
+      )}
       <div className="overflow-x-auto">
         {splitRound ? (
           splitRound.fleetIds.map((fid) => {
@@ -1991,7 +2163,7 @@ function StandingsSection({
             );
           })
         ) : (
-          <StandingsTable data={data} columns={columns} showNationality={showNationality}>{renderRows(standings, true)}</StandingsTable>
+          <StandingsTable data={data} columns={columns} showNationality={showNationality} showFleet={latestRound !== null}>{renderRows(standings, true)}</StandingsTable>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -2007,11 +2179,13 @@ function StandingsTable({
   data,
   columns,
   showNationality,
+  showFleet,
   children,
 }: {
   data: SplitFleetData;
   columns: { stage: SeriesStage; n: number }[];
   showNationality: boolean;
+  showFleet?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -2019,6 +2193,7 @@ function StandingsTable({
       <thead>
         <tr className="text-left text-xs text-muted-foreground">
           <th className="py-1 pr-2 font-medium">Rank</th>
+          {showFleet && <th className="py-1 pr-2 font-medium">Fleet</th>}
           {showNationality && <th className="py-1 pr-2 font-medium">Nat</th>}
           <th className="py-1 pr-2 font-medium">Sail</th>
           <th className="py-1 pr-2 font-medium">Name</th>
@@ -2042,6 +2217,7 @@ function FragmentRow({
   columns,
   cellByKey,
   fleetMeta,
+  currentFleet,
   showNationality,
   cutAfter,
   cutLabel,
@@ -2051,6 +2227,10 @@ function FragmentRow({
   columns: { stage: SeriesStage; n: number }[];
   cellByKey: Map<string, import('@/lib/split-fleets').CellScore>;
   fleetMeta: Map<string, FleetMeta>;
+  /** The current round's assignment, shown as a Fleet column on the combined
+   *  qualifying table. Undefined = no column (post-split, the section heading
+   *  names the fleet instead). */
+  currentFleet?: FleetMeta | null;
   showNationality: boolean;
   cutAfter: boolean;
   cutLabel: string | null;
@@ -2060,12 +2240,31 @@ function FragmentRow({
     <>
       <tr className="border-t">
         <td className="py-1 pr-2">{row.rank}</td>
+        {currentFleet !== undefined && (
+          <td className="py-1 pr-2 whitespace-nowrap">
+            {currentFleet && <FleetDot color={currentFleet.color} />}
+            {currentFleet?.label ?? ''}
+          </td>
+        )}
         {showNationality && (
           <td className="py-1 pr-2 font-mono text-xs">{row.competitor.nationality ?? ''}</td>
         )}
         <td className="py-1 pr-2 whitespace-nowrap">{row.competitor.sailNumber}</td>
         <td className="py-1 pr-2 whitespace-nowrap">
-          {row.competitor.names.join(' & ')}
+          {/* No WS ID column on this table — with an ID on file, the name
+              links to the World Sailing bio instead. */}
+          {row.competitor.worldSailingId ? (
+            <a
+              href={worldSailingProfileUrl(row.competitor.worldSailingId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {row.competitor.names.join(' & ')}
+            </a>
+          ) : (
+            row.competitor.names.join(' & ')
+          )}
           {row.medal && (
             <span className="ml-1 rounded-full border border-amber-400 px-1.5 text-[10px] text-amber-600 dark:text-amber-400">
               medal
@@ -2081,8 +2280,20 @@ function FragmentRow({
               </td>
             );
           }
-          const color = fleetMeta.get(cell.fleetId)?.color ?? '#888';
+          const meta = fleetMeta.get(cell.fleetId);
+          const color = meta?.color ?? '#888';
           const text = `${cell.points}${cell.code ? ` ${cell.code}` : ''}`;
+          const note = cell.counts
+            ? cell.carriedRank
+              ? `${capitaliseStage(w.qualifying.name)} position, carried into the ${w.final.name}`
+              : cell.carriedTransform
+                ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
+                : undefined
+            : cell.superseded
+              ? 'Replaced by the carried score'
+              : cell.excludedAsExtra
+                ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
+                : 'Does not yet count — race incomplete across fleets';
           return (
             <td
               key={`${c.stage}:${c.n}`}
@@ -2091,19 +2302,11 @@ function FragmentRow({
               }`}
               style={{ backgroundColor: `${color}${cell.counts ? '2e' : '14'}` }}
               title={
-                cell.counts
-                  ? cell.carriedRank
-                    ? `${capitaliseStage(w.qualifying.name)} position, carried into the ${w.final.name}`
-                    : cell.carriedTransform
-                      ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
-                      : undefined
-                  : cell.superseded
-                    ? 'Replaced by the carried score'
-                    : cell.excludedAsExtra
-                      ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
-                      : 'Does not yet count — race incomplete across fleets'
+                [meta ? `${meta.label} fleet` : null, note].filter(Boolean).join(' — ') ||
+                undefined
               }
             >
+              {meta && <FleetDot color={color} />}
               {cell.discarded ? `(${text})` : text}
             </td>
           );
@@ -2113,7 +2316,12 @@ function FragmentRow({
       </tr>
       {cutAfter && (
         <tr aria-hidden>
-          <td colSpan={columns.length + (showNationality ? 6 : 5)} className="py-0">
+          <td
+            colSpan={
+              columns.length + (showNationality ? 6 : 5) + (currentFleet !== undefined ? 1 : 0)
+            }
+            className="py-0"
+          >
             <div className="my-0.5 border-t-2 border-dashed border-amber-400 text-center text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
               {cutLabel}
             </div>

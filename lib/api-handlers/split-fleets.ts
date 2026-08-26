@@ -212,8 +212,21 @@ export async function commitSplitRound(
   const db = getDb();
   const workspaceId = workspace.workspaceId;
   const roundId = crypto.randomUUID();
+  let deletedFleetNames: string[] = [];
 
   await db.transaction(async (tx) => {
+    // Fleets the scorer agreed to shed with this ceremony (a leftover
+    // "Default" from an entry-list import, pre-conversion fleets) go first,
+    // memberships and all.
+    if (input.deleteFleetIds.length > 0) {
+      deletedFleetNames = await deleteNonRoundFleets(
+        tx,
+        seriesId,
+        workspaceId,
+        input.deleteFleetIds,
+      );
+    }
+
     // Fleets, in SI/tier order.
     const [{ maxOrder }] = await tx
       .select({ maxOrder: sql<number>`coalesce(max(${schema.fleets.displayOrder}), -1)` })
@@ -304,7 +317,11 @@ export async function commitSplitRound(
   await trackChange(workspace, {
     action: 'split-fleets.round-committed',
     seriesId,
-    summary: `Committed ${input.stage} round (${input.fleets.map((f) => f.label).join(', ')})`,
+    summary:
+      `Committed ${input.stage} round (${input.fleets.map((f) => f.label).join(', ')})` +
+      (deletedFleetNames.length
+        ? `; removed fleet${deletedFleetNames.length > 1 ? 's' : ''} ${deletedFleetNames.join(', ')}`
+        : ''),
     sessionKey: 'split-fleets',
   });
 
@@ -345,6 +362,65 @@ function sequenceName(
       : label(nums[0]);
   }
   return spec.starts.map((s) => `${label(s.stageRaceNumber)} · ${s.label}`).join(' + ');
+}
+
+/**
+ * Remove non-round fleets as part of a ceremony commit: strip every
+ * competitor's membership, then delete the rows. Refuses — rather than
+ * skips — a fleet outside the series, owned by a round, or referenced by a
+ * race start, so the commit deletes exactly what the dialog showed and
+ * nothing is left dangling. Returns the deleted fleets' names.
+ */
+async function deleteNonRoundFleets(
+  tx: Tx,
+  seriesId: string,
+  workspaceId: string,
+  fleetIds: string[],
+): Promise<string[]> {
+  const ids = [...new Set(fleetIds)];
+  const rows = await tx
+    .select({
+      id: schema.fleets.id,
+      name: schema.fleets.name,
+      splitRoundId: schema.fleets.splitRoundId,
+    })
+    .from(schema.fleets)
+    .where(
+      and(
+        inArray(schema.fleets.id, ids),
+        eq(schema.fleets.seriesId, seriesId),
+        eq(schema.fleets.workspaceId, workspaceId),
+      ),
+    );
+  if (rows.length !== ids.length) throw new NotFoundError('fleet');
+  if (rows.some((r) => r.splitRoundId)) {
+    throw new BadRequestError('cannot delete a round-owned fleet');
+  }
+  const startRows = await tx
+    .select({ fleetIds: schema.raceStarts.fleetIds })
+    .from(schema.raceStarts)
+    .innerJoin(schema.races, eq(schema.races.id, schema.raceStarts.raceId))
+    .where(eq(schema.races.seriesId, seriesId));
+  if (startRows.some((s) => s.fleetIds.some((fid) => ids.includes(fid)))) {
+    throw new BadRequestError('cannot delete a fleet referenced by a race start');
+  }
+  for (const fid of ids) {
+    await tx
+      .update(schema.competitors)
+      .set({
+        fleetIds: sql`array_remove(${schema.competitors.fleetIds}, ${fid}::uuid)`,
+        version: sql`${schema.competitors.version} + 1`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(schema.competitors.seriesId, seriesId),
+          sql`${schema.competitors.fleetIds} && array[${fid}::uuid]`,
+        ),
+      );
+  }
+  await tx.delete(schema.fleets).where(inArray(schema.fleets.id, ids));
+  return rows.map((r) => r.name);
 }
 
 /** The fleets sharing one race must have pairwise-disjoint membership — a

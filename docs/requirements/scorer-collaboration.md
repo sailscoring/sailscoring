@@ -15,7 +15,7 @@ These requirements are implemented across the collaboration phases of
   *Optimistic concurrency, not locking*, *No series-level locking*, and
   the actor-attribution requirement of *Conflict Handling*. HYC's
   scoring panel runs on a shared workspace today.
-- **Phase 10 (#153, in progress)** — the activity log proper
+- **Phase 10 (#153, complete)** — the activity log proper
   (per-series Activity tab, series-list recency strips, per-record
   stamps) has landed, fully delivering *The log over real-time
   presence*: the per-row `updated_by` down-payment in Phase 7 was enough

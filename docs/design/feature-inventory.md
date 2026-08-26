@@ -82,7 +82,7 @@ The race-day loop: getting a finish sheet into the app fast and correctly.
 | Redress (`#redress`) | core | Grant RRS A9 redress by average of all races, races before, or stated points — with race-pool restrictions and per-fleet values for boats scored in several fleets. | Redress dialog showing the three A9 methods and a pool restriction. |
 | Start check-in (`#start-check-in`) | core | Tap or type boats present in the starting area as they arrive — the data source for A5.3 scoring and for DNF-vs-DNC defaults. | Start check-in tab with several boats marked and the running count. |
 | Finish-sheet import (`#importing-finish-sheet`) | opt-in | Import a whole race's finish sheet from CSV or Excel — sail numbers, optional times, optional codes, row order as crossing order — with a preview before it replaces the race. | Import preview dialog reporting finishers, coded entries, and replacements. |
-| RaceSense import (`#racesense-import`) | operator | Read a whole regatta out of the race committee's Vakaros RaceSense export: every sheet matched to its race and marked new, unchanged or differing, so a day's results land in one upload while corrections made by hand are never overwritten. Boats over the line keep their OCS, which the finish list alone would have lost. | The import dialog over the sample league: two races confirming what's already entered as Unchanged, the third disagreeing with its three changed boats listed and deliberately ticked. |
+| RaceSense import (`#racesense-import`) | operator | Read a whole regatta out of the race committee's Vakaros RaceSense export: every sheet matched to its race and marked new, unchanged or differing, so a day's results land in one upload while corrections made by hand are never overwritten. Boats over the line keep their OCS, which the finish list alone would have lost. The export's track data — finish and elapsed times, distance sailed, max speed, distance to line at the gun — is kept too, and an opt-in publish setting puts it on the per-race tables as sortable columns, average speed derived. | The import dialog over the sample league: two races confirming what's already entered as Unchanged, the third disagreeing with its three changed boats listed and deliberately ticked. |
 | Keyboard-first workflow (`#keyboard-shortcuts`) | core | Every page-level action has a shortcut and `?` opens the reference, so a practised scorer rarely leaves the keyboard. | Shortcut reference dialog open over the races tab. |
 
 ## 3. Scoring correctness
@@ -122,7 +122,7 @@ Trusting the numbers: standings you can read, and a record of how they got there
 
 | Feature (help §) | Status | Description | Screenshot |
 |---|---|---|---|
-| Standings (`#reading-the-standings`) | core | Total and nett columns, struck-through discards, podium badges on the series and every race, and distinct styling for coded, penalised, and redress scores. | Exists (`standings.webp`). |
+| Standings (`#reading-the-standings`) | core | Total and nett columns, struck-through discards, podium badges on the series and every race, and distinct styling for coded, penalised, and redress scores. Every column sorts on a click — race columns from their header menu — with the Rank column keeping each boat's series rank. | Exists (`standings.webp`). |
 | Per-fleet race exclusion (`#reading-the-standings`) | core | Strike a race from one fleet's scoring straight from the standings — the single-competitor heat case — while it still counts for every other fleet. | Race column-header menu open on Exclude from this fleet, naming the underlying race, with an already-struck column alongside. |
 | Preview (`#reading-the-standings`) | core | See the exact rendered results page in-app before anything goes public, and download it as self-contained HTML or print-tuned PDF. | Exists (`preview.webp`). |
 | Version history (`#history`) | core | Automatic point-in-time versions with per-session change detail, one-click restore, named checkpoints, and pinned Published/Saved milestones — the audit trail for a protest committee. | History tab with real texture: a named checkpoint, a Published pin, and edit sessions, the newest expanded to its changes. |
@@ -134,7 +134,7 @@ From standings to a public URL your club can link forever.
 | Feature (help §) | Status | Description | Screenshot |
 |---|---|---|---|
 | One-click publish (`#publishing-results`) | core | Publish standings to a stable public URL under your workspace — an explicit point-in-time action, with the dialog counting edits since the last publish. | Publish dialog over a multi-fleet series: fleet checkboxes, editable URL segments, edits-since note. |
-| Public results pages (`#publishing-results`) | core | Clean, read-only results pages — one per fleet — that need no sign-in and carry your event branding. | Exist (`public-results.webp`, `public-results-full.webp`). |
+| Public results pages (`#publishing-results`) | core | Clean, read-only results pages — one per fleet — that need no sign-in and carry your event branding. Visitors can sort any table by any column — nationality, sail number, a single race's score — with printing and PDF always in rank order. | Exist (`public-results.webp`, `public-results-full.webp`). |
 | The publication tree (`#publishing-results`) | core | Every published page slots into a navigable tree — workspace index, season and event indexes, filter dropdowns, and a navigation cascade on every page — maintained automatically as you publish. | Workspace public index: seasons collapsible, current season open, per-event results links, filter dropdowns. |
 | Co-published events (`#publishing-results`) | core | Several series can publish into one event folder — cruisers and one-designs of the same regatta — each publishing and unpublishing independently. | An event folder's listing page with two series under it, each with its own fleets. |
 | Single-race events (`#publishing-results`) | core | A one-race trophy publishes as just the race table — finish times, corrected times, places — instead of a one-column standings page. | Published Results page of a one-race event: the race table alone, no series summary above it. |
@@ -214,7 +214,7 @@ Carried from sailscoring.ie#6, to be settled when building the pages:
   the expensive part regardless); the checklist is *registry change →
   update this file → update help → update marketing*. Revisit generating
   the status column from `FEATURES` if it drifts in practice.
-- **Help-page screenshots.** `docs/design/user-docs.md` chose prose-only
-  help; now that screenshots are being produced anyway, the strongest of
-  them should be added to the matching help sections — same assets,
-  instructional captions.
+- **Help-page screenshots.** Done — help sections embed the strongest
+  captures via `HelpShot` with instructional captions (see
+  `docs/design/user-docs.md`), from the same `scripts/feature-shots.ts`
+  capture set that feeds the marketing site.

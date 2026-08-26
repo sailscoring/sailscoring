@@ -1,5 +1,5 @@
 {
-  "id": "765bff16-667e-4ad5-b029-318d3c891b65",
+  "id": "64921e8b-2573-41a0-a541-4f7f1f52669a",
   "prevId": "f2d0ab15-713a-4470-8e64-8ebd2b872862",
   "version": "7",
   "dialect": "postgresql",
@@ -2217,12 +2217,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "orc_cert": {
-          "name": "orc_cert",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -2613,6 +2607,12 @@
         "finish_time": {
           "name": "finish_time",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "track_data": {
+          "name": "track_data",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -3010,12 +3010,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "orc_profile": {
-          "name": "orc_profile",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "split_round_id": {
           "name": "split_round_id",
           "type": "uuid",
@@ -3115,7 +3109,7 @@
       "checkConstraints": {
         "fleets_scoring_system_chk": {
           "name": "fleets_scoring_system_chk",
-          "value": "\"fleets\".\"scoring_system\" in ('scratch','irc','py','nhc','echo','vprs','orc')"
+          "value": "\"fleets\".\"scoring_system\" in ('scratch','irc','py','nhc','echo','vprs')"
         }
       },
       "isRLSEnabled": false
@@ -4490,6 +4484,13 @@
         },
         "publish_officials": {
           "name": "publish_officials",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "publish_track_data": {
+          "name": "publish_track_data",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

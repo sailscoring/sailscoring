@@ -7,20 +7,20 @@ const REPLY_TO = 'mark@hyc.ie';
 // Hosted in the app's public/ — email clients can't render the SVG logo.
 const LOGO_URL = 'https://app.sailscoring.ie/email-logo.png';
 
-const STEALTH_BETA_TEXT = `
+const NEW_USER_NOTE_TEXT = `
 
-A note before you dive in: Sail Scoring is in stealth beta, running trials with sailing clubs in Ireland. You're very welcome to try it out — feedback to mark@hyc.ie is appreciated. While we're still iterating, accounts created outside our trial cohort may be deleted (with a copy of your data emailed back) after a couple of weeks.`;
+A note before you dive in: Sail Scoring is generally available to clubs and class associations in Ireland, and you're welcome to trial it anywhere using your personal workspace. Feedback to mark@hyc.ie is always appreciated — and if you'd like to bring your club or class on board, just say so.`;
 
-const STEALTH_BETA_HTML = `
+const NEW_USER_NOTE_HTML = `
 <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#64748b;">
-  A note before you dive in: Sail Scoring is in stealth beta, running trials
-  with sailing clubs in Ireland. You're very welcome to try it out — feedback
-  to <a href="mailto:mark@hyc.ie" style="color:#475569;">mark@hyc.ie</a> is
-  appreciated.
+  A note before you dive in: Sail Scoring is generally available to clubs and
+  class associations in Ireland, and you're welcome to trial it anywhere using
+  your personal workspace.
 </p>
 <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#64748b;">
-  While we're still iterating, accounts created outside our trial cohort may
-  be deleted (with a copy of your data emailed back) after a couple of weeks.
+  Feedback to <a href="mailto:mark@hyc.ie" style="color:#475569;">mark@hyc.ie</a>
+  is always appreciated — and if you'd like to bring your club or class on
+  board, just say so.
 </p>`;
 
 export function renderMagicLinkText(args: { to: string; url: string; isNewUser: boolean }): string {
@@ -30,7 +30,7 @@ You asked to sign in to Sail Scoring as ${args.to}. Open this link in the same b
 
 ${args.url}
 
-This link is single-use and expires in 30 minutes. If you didn't request it, you can safely ignore this email — no one can sign in to your account without the link above.${args.isNewUser ? STEALTH_BETA_TEXT : ''}
+This link is single-use and expires in 30 minutes. If you didn't request it, you can safely ignore this email — no one can sign in to your account without the link above.${args.isNewUser ? NEW_USER_NOTE_TEXT : ''}
 
 — Sail Scoring
 mark@hyc.ie
@@ -67,7 +67,7 @@ export function renderMagicLinkHtml(args: { to: string; url: string; isNewUser: 
               <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#475569;">Or copy and paste this link into your browser:</p>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;word-break:break-all;"><a href="${urlSafe}" style="color:#475569;">${urlSafe}</a></p>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;">This link is single-use and expires in 30 minutes. If you didn't request it, you can safely ignore this email — no one can sign in to your account without the link above.</p>
-              ${args.isNewUser ? STEALTH_BETA_HTML : ''}
+              ${args.isNewUser ? NEW_USER_NOTE_HTML : ''}
               <hr style="margin:24px 0 16px;border:none;border-top:1px solid #e2e8f0;">
               <p style="margin:0;font-size:13px;line-height:1.5;color:#94a3b8;">Sail Scoring · <a href="mailto:mark@hyc.ie" style="color:#475569;">mark@hyc.ie</a></p>
             </td>

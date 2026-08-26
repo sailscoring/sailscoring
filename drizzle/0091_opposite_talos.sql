@@ -1,1 +1,0 @@
-ALTER TABLE "race_starts" ADD COLUMN "distance_nm" real;

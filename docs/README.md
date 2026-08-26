@@ -40,8 +40,8 @@ How it works, and why.
 
 - [`decisions/`](design/decisions/) — the full set. See
   [`../CLAUDE.md`](../CLAUDE.md) for the short list with status.
-  ADR-008 is the active full-stack architecture; ADR-001, ADR-003,
-  and (shortly) ADR-004 are superseded by it.
+  ADR-008 is the full-stack architecture, executed in full; ADR-001,
+  ADR-003, and ADR-004 are superseded by it.
 
 ### Cross-cutting design
 
@@ -75,7 +75,7 @@ How it works, and why.
   of the commitments in ADR-008's *Sustainability posture* section.
 - [`horizon.md`](design/horizon.md) — long-range possibilities worth
   remembering but not actively tracked as issues. Includes the deferred
-  handicap-system work and the residual ADR-008 phases.
+  handicap-system work and the ADR-008 Phase 10 residue.
 
 ### UX flows and screens
 
@@ -83,7 +83,8 @@ How it works, and why.
   screen in the app, by route (predates ADR-008 in places — see the
   currency note at the top).
 - [`ux/flows/`](design/ux/flows/) — per-workflow walkthroughs (finish
-  entry, competitor import, series setup, publish, etc.).
+  entry, competitor import, series setup, etc.). Currency varies —
+  several predate ADR-008 and carry superseded banners.
 
 ### Design notes
 
@@ -94,9 +95,9 @@ How it works, and why.
 ## Operational runbooks
 
 - [`workspace-provisioning.md`](workspace-provisioning.md) — the
-  `pnpm provision-org` CLI used to set up org workspaces for scoring
-  panels (HYC and similar) until ADR-008 Phase 10 ships self-service
-  org admin.
+  `pnpm provision-org` CLI the operator uses to set up org workspaces
+  for scoring panels (HYC and similar) and to fulfil in-app workspace
+  requests.
 - [`account-admin.md`](account-admin.md) — admin scripts for changing a
   user's login email and inspecting user stats.
 - [`database-backup.md`](database-backup.md) — daily Postgres backups

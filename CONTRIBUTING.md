@@ -1,8 +1,8 @@
 # Contributing to Sail Scoring
 
-Thanks for your interest in Sail Scoring. The project is in beta, developed by a
-single maintainer who commits directly to `main`; external contributions come in
-as pull requests.
+Thanks for your interest in Sail Scoring. The project is developed by a single
+maintainer who commits directly to `main`; external contributions come in as
+pull requests.
 
 ## Before you write code
 

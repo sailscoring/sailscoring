@@ -1,6 +1,6 @@
 {
-  "id": "8632993e-b080-46da-b37e-9aae46936d36",
-  "prevId": "765bff16-667e-4ad5-b029-318d3c891b65",
+  "id": "5a6926be-7e1c-4945-a493-b141031bc643",
+  "prevId": "64921e8b-2573-41a0-a541-4f7f1f52669a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2616,6 +2616,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "track_data": {
+          "name": "track_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "result_code": {
           "name": "result_code",
           "type": "text",
@@ -3877,6 +3883,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "orc_scoring_wind": {
+          "name": "orc_scoring_wind",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "course_legs": {
+          "name": "course_legs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "orc_option": {
+          "name": "orc_option",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -4496,6 +4520,13 @@
         },
         "publish_officials": {
           "name": "publish_officials",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "publish_track_data": {
+          "name": "publish_track_data",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

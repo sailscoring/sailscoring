@@ -252,8 +252,9 @@ system selector per fleet:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Scoring system options per fleet:** Scratch, IRC, PY (Phase 2 adds NHC,
-ECHO). The import may suggest a default based on detected rating columns.
+**Scoring system options per fleet:** Scratch, IRC, PY, NHC, ECHO, VPRS
+(see `lib/types.ts` for the current list). The import may suggest a
+default based on detected rating columns.
 
 **Default Start Sequence** is configured here and applies to all new races.
 See [Default Start Sequence](#default-start-sequence) below for details.

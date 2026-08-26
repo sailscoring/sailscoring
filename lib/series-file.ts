@@ -7,6 +7,7 @@ import type {
   ProportionalDiscard,
   DnfScoring,
   Finish,
+  FinishTrackData,
   CompetitorFieldKey,
   PrimaryPersonLabel,
   StartGroup,
@@ -318,16 +319,25 @@ export interface SeriesFileRepos {
  *  drops the field and settles those ties under A8, which is the wrong
  *  answer to the question that decides the championship.
  *
- *  v39 adds the `orc` fleet scoring system (with optional
- *  `fleets[*].orcProfile` — which certificate rating field scores the fleet,
- *  time-on-time or time-on-distance), `competitors[*].orcCert` — the boat's
- *  ORC certificate stored verbatim — and `starts[*].distanceNm`, the course
- *  length a time-on-distance race corrects over. An older build reading a
- *  v39 file would drop the certificates and refuse the fleet system, losing
+ *  v39 adds `finishes[*].trackData` — how the boat sailed the race (elapsed
+ *  time, distance sailed, speeds, distance to line at the start), as captured
+ *  by RaceSense — and `series.publishTrackData`, the off-by-default opt-in
+ *  that puts those columns on published per-race tables. Additive and sparse;
+ *  nothing is scored from either, so an older build reading a v39 file loses
+ *  the captured record and the opt-in, never a result.
+ *
+ *  v40 adds the `orc` fleet scoring system (with optional
+ *  `fleets[*].orcProfile` — the fleet's default scoring option),
+ *  `competitors[*].orcCert` — the boat's ORC certificate stored verbatim —
+ *  and the ORC race facts on starts: `distanceNm` (the course length a
+ *  time-on-distance race corrects over), `courseLegs` (a constructed
+ *  course), `orcOption` (the race's scoring option), and `orcScoringWind`
+ *  (the race committee's rule 402.12 override). An older build reading a
+ *  v40 file would drop the certificates and refuse the fleet system, losing
  *  the ratings entirely, so this is a hard bump rather than a sparse-field
  *  ride-along. */
-export const FORMAT_VERSION = 39;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
+export const FORMAT_VERSION = 40;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -369,7 +379,7 @@ interface SeriesFileFleet {
   // AND parameters differ from the SWNHC2015 defaults; absent means "use
   // DEFAULT_NHC_PROFILE". Additive optional field — older parsers ignore it.
   nhcProfile?: NhcProfile;
-  // v39+: which ORC certificate rating field scores the fleet; absent means
+  // v40+: the fleet's default ORC scoring option; absent means
   // the APHT time-on-time default.
   orcProfile?: OrcProfile;
 }
@@ -416,6 +426,7 @@ interface SeriesFileSeries {
   protestTimeLimit?: ProtestTimeLimit;  // v20+; SI time-limit config
   officials?: RaceOfficial[];  // v27+; the standing race management team
   publishOfficials?: boolean;  // v27+; absent = not published
+  publishTrackData?: boolean;  // v39+; RaceSense track data on published per-race tables; absent = not published
 }
 
 interface SeriesFileCompetitor {
@@ -450,7 +461,7 @@ interface SeriesFileCompetitor {
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
-  orcCert?: OrcCertData;  // v39+: the boat's ORC certificate, verbatim
+  orcCert?: OrcCertData;  // v40+: the boat's ORC certificate, verbatim
 }
 
 /** v19–v30 recorded only "this row was entered by bow number"; v31 records
@@ -471,6 +482,7 @@ interface SeriesFileFinish {
   /** Optional in the file format — older files default to `false` on import. */
   tiedWithPrevious?: boolean;
   finishTime?: string;
+  trackData?: FinishTrackData;  // v39+; RaceSense track data, carried verbatim
   resultCode: ResultCode | null;
   startPresent: boolean | null;
   penaltyCode: PenaltyCode | null;
@@ -492,10 +504,10 @@ interface SeriesFileRaceStart {
   stage?: 'qualifying' | 'final' | 'medal';  // v24+; split-fleet stage, per start
   stageRaceNumber?: number;  // v24+; logical race number this start's fleets sail
   firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
-  distanceNm?: number;  // v39+; course length in NM (time-on-distance scoring input)
-  orcScoringWind?: number;  // v39+; RC PCS scoring-wind override in kt (ORC 402.12)
-  courseLegs?: OrcCourseLeg[];  // v39+; constructed-course legs (ORC 402.5)
-  orcOption?: string;  // v39+; ORC wind-band field selection for this start
+  distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
+  orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
+  courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5)
+  orcOption?: string;  // v40+; the ORC scoring option for this start's races
 }
 
 interface SeriesFileRatingOverride {
@@ -658,6 +670,7 @@ export async function buildSeriesFile(
       sortOrder: f.sortOrder,
       ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+      ...(f.trackData ? { trackData: f.trackData } : {}),
       resultCode: f.resultCode,
       startPresent: f.startPresent,
       penaltyCode: f.penaltyCode ?? null,
@@ -756,6 +769,7 @@ export async function buildSeriesFile(
       ...(series.protestTimeLimit ? { protestTimeLimit: series.protestTimeLimit } : {}),
       ...(series.officials?.length ? { officials: series.officials } : {}),
       ...(series.publishOfficials ? { publishOfficials: true } : {}),
+      ...(series.publishTrackData ? { publishTrackData: true } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -1237,6 +1251,7 @@ export async function openSeriesFromFile(
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1330,6 +1345,7 @@ export async function restoreSeriesFromFile(
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1432,6 +1448,7 @@ async function updateSeriesFromFileInner(
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1600,6 +1617,7 @@ async function updateSeriesFromSailwaveInner(
     // with no team to publish.
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
+    publishTrackData: file.series.publishTrackData,
     lastModifiedAt: now,
   });
 
@@ -1778,6 +1796,7 @@ async function writeFleetsCompetitorsRaces(
           sortOrder: f.sortOrder,
           tiedWithPrevious: f.tiedWithPrevious ?? false,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+          ...(f.trackData ? { trackData: f.trackData } : {}),
           resultCode: f.resultCode,
           startPresent: f.startPresent,
           penaltyCode: f.penaltyCode,

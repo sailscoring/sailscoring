@@ -67,6 +67,14 @@ export default function Publishing() {
           <strong className="text-foreground">Seasons</strong> card on Workspace settings.
         </p>
         <p>
+          <strong className="text-foreground">Sorting a published table:</strong> visitors can
+          click any column heading on a published results table to sort by it — by nationality,
+          by sail number, by a single race’s score. Clicking again reverses the sort, and a
+          third click restores the ranking order. This is view-only, in the visitor’s
+          browser: the page itself, and anything printed or saved as PDF from it, stays in rank
+          order.
+        </p>
+        <p>
           <strong className="text-foreground">Single-race events:</strong> some events are one
           race — a trophy race, a one-off open. Published as a series, such an event comes out
           as a standings table with a single race column, a total equal to that race’s

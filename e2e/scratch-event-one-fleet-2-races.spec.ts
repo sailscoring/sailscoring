@@ -237,12 +237,14 @@ test('unknown sail number shows error and "Record as unknown" option', async ({ 
   await expect(page.getByText(/not registered in this series/)).not.toBeVisible();
   await expect(page.getByText('Unknown — not registered')).not.toBeVisible();
 
-  // Enter the same sail number twice
+  // Enter the same sail number twice — the notice names the existing position
   await page.getByLabel('Sail number').fill('9999');
   await page.getByRole('button', { name: 'Add' }).click();
   await page.getByLabel('Sail number').fill('9999');
   await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByText(/already in the finishing order/)).toBeVisible();
+  await expect(page.getByTestId('already-entered-notice')).toHaveText(
+    '9999 is already entered — 1st.',
+  );
 });
 
 test('unknown finish can be recorded and resolved', async ({ page }) => {
@@ -507,9 +509,9 @@ test('sail number autocomplete in result entry', async ({ page }) => {
   await expect(sailInput).toHaveValue('');
   await expect(page.getByRole('listbox')).not.toBeVisible();
 
-  // ── 4. Already-added competitor excluded from suggestions ─────────────────
+  // ── 4. Already-added competitor demoted to a muted "already entered" row ──
   await sailInput.fill('100');
-  await expect(page.getByRole('option', { name: /1001/ })).not.toBeVisible();
+  await expect(page.getByTestId('already-entered-1001')).toContainText('already entered — 1st');
   await expect(page.getByRole('option', { name: /1002/ })).toBeVisible();
   await expect(page.getByRole('option', { name: /1003/ })).toBeVisible();
 

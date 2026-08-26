@@ -11,10 +11,10 @@ import {
   buildRaceFleetExclusionMap,
 } from '@/lib/scoring';
 import { formatPrimaryNames, subdivisionAxes, subdivisionAxisLabel } from '@/lib/competitor-fields';
+import { ordinal } from '@/lib/ordinal';
 import {
   allocatePrizes,
   describePrizeClauses,
-  ordinal,
   prizeWarningMessage,
   PRIZE_NAME_MAX_LENGTH,
   PRIZE_RECIPIENT_COUNT_MAX,

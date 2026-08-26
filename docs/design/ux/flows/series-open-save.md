@@ -3,8 +3,14 @@
 Detailed user flow for working with series files: saving a series to a file,
 opening a series from a file, and updating a local series from a newer file.
 
-See `docs/design/series-file-format.md` for the file format and lineage
-detection mechanism.
+> **Superseded.** This flow describes the local-first model — IndexedDB
+> as primary storage, files as the sync channel, a per-series File tab —
+> which ADR-008 replaced with the server-of-record app. `.sailscoring`
+> files remain as export/import for backup and hand-off, but the
+> open/save mental model, the "local-only series" concept, and every
+> "safely in IndexedDB" claim below are historical.
+
+See `docs/design/series-file-format.md` for the file format.
 
 ---
 

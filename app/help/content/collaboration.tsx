@@ -43,6 +43,13 @@ export default function Collaboration() {
           there instead.
         </p>
         <p>
+          The workspace menu in the header switches between the workspaces you
+          belong to. A switch applies to your whole session — every open tab
+          follows it. If that leaves a tab sitting on a series from another of
+          your workspaces, the page says which workspace the series is in and
+          offers to switch back, so nothing dead-ends.
+        </p>
+        <p>
           What someone can do is set by their{' '}
           <strong className="text-foreground">role</strong>.{' '}
           <strong className="text-foreground">Owners</strong> and{' '}

@@ -418,7 +418,7 @@ export default function RunningASeries() {
           For a season of races on a fixed weekday — a weekly Tuesday series, a fortnightly
           league — use the chevron beside{' '}
           <strong className="text-foreground">Add race ▸ Add multiple races…</strong> (or press{' '}
-          <kbd>g</kbd>). Pick the first race’s date, choose weekly or fortnightly, and set either a
+          <kbd>m</kbd>). Pick the first race’s date, choose weekly or fortnightly, and set either a
           number of races or an end date; the dialog previews the dates before you commit. An
           optional name is applied to every race, and for handicap series with a start sequence the
           first start time runs that sequence in each one. The races are appended after any existing
@@ -623,7 +623,11 @@ export default function RunningASeries() {
             of column it is, the import tells them apart by what is in the cells. Anyone the
             list places nowhere, or places in a fleet the championship doesn’t have, is listed
             with no fleet and named in the dialog — the round won’t commit until you have put
-            them somewhere.
+            them somewhere. And where the series carries fleets from before it became a
+            championship — the “Default” an earlier import left behind, say — each assignment
+            offers to remove them, memberships and all, since the rounds own a championship’s
+            fleets and those would only sit unused. A fleet any race has actually used is never
+            offered.
           </p>
           <p>
             A qualifying race <strong className="text-foreground">counts only once every fleet
@@ -721,11 +725,14 @@ export default function RunningASeries() {
             rest drops her most recent.
           </p>
           <p>
-            The published output is a single{' '}
+            The published output is a{' '}
             <strong className="text-foreground">championship standings</strong> page — combined
             with a provisional cut line during qualifying, tiered Gold/Silver tables after the
-            split — plus a rolling <strong className="text-foreground">fleet assignments</strong>{' '}
-            page, newest round first, so competitors always know which start they’re in.
+            split — plus a <strong className="text-foreground">race results</strong> page with
+            every race as its own tables, one per fleet, ranked the way the racing actually
+            happened (the standings page’s race column headings link straight into it), and a
+            rolling <strong className="text-foreground">fleet assignments</strong> page, newest
+            round first, so competitors always know which start they’re in.
             Preview, publish, and <strong className="text-foreground">Mark as final</strong> all
             live on the Split Fleets tab (the regular Standings tab is hidden for these series).
           </p>

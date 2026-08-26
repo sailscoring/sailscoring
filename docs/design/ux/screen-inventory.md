@@ -8,7 +8,10 @@ This is the starting point for user flow and wireframe work.
 > changed (notably `/settings` → `/workspace`, and the per-series "File"
 > tab is gone; series open/save is handled by import/export against the
 > server-of-record), and Dexie `liveQuery()` references should be read as
-> TanStack Query. The screen list and intent below is broadly still
+> TanStack Query. Every mention of **bilge** (the publishing email, the
+> UUID verification links, posting pages to bilge) is likewise
+> historical: publishing is in-app to `/p/{workspace}/...` (ADR-008
+> Phase 9 / ADR-011). The screen list and intent below is broadly still
 > accurate; treat the routes and per-screen mechanics as historical until
 > this doc is refreshed.
 

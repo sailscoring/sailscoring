@@ -423,6 +423,15 @@ rather than the current "list the actions in this revision's window" drill-down.
 stored snapshots make it addable later: it needs a structural differ over
 competitors/finishes plus a diff-aware results renderer.
 
+### Field-level activity diffs
+
+The Phase 10 activity log (#153) records who did what at action granularity —
+"updated competitor X" — deliberately coarse for the first cut. The deferred
+refinement is field-level before/after detail on each entry ("rating 0.951 →
+0.954"), so a panel can audit *what* changed, not just that a change happened.
+The action vocabulary and per-record stamps are the foundation; the addition is
+capturing and rendering the diff payload.
+
 ### Changelog on published results pages
 
 Each time a scorer publishes an update, the change should be recorded in a changelog
@@ -541,6 +550,14 @@ originals).
 ---
 
 ## Publishing
+
+### Vanity URLs and slug claims
+
+The rest of ADR-008 Phase 10's slug work, deferred from #153: user and org
+slug claims in separate namespaces, with org slugs usable as vanity aliases
+over the canonical `/p/{workspace}` tree and user slugs driving attribution
+surfaces (e.g. a profile under `/u/{slug}`). The canonical URLs work without
+any of it, so this is a naming-polish layer, not plumbing.
 
 ### Scheduled publishing
 
@@ -831,9 +848,9 @@ What's deferred is everything around making that repeatable and supported:
   each instance can be fully independent — but worth flagging that the
   workspace-namespaced URL scheme assumes a single host today.
 
-Strongly tied to the open-source-vs-commercial decision: an open project that
-an adopter "who doesn't fit the funded audience can always host their own
-instance" of is exactly the federation story above (the project's
+The July 2026 open-source decision (MIT — see `docs/goals.md`) underpins
+this: an adopter who doesn't fit the funded audience can always host their
+own instance, which is exactly the federation story above (the project's
 sustainability note, "The bus factor").
 
 ### Localization (i18n)
@@ -1227,8 +1244,9 @@ two rating systems Sail Scoring didn't model. DBSC's general SI
 full 2026 handicap set — ECHO (Progressive), IRC, VPRS, ORC Club, YTC and PY.
 VPRS has since landed (a `scoringSystem` value behind the `vprs` gate, with
 `lib/vprs-rating.ts` reading `vprs.org/ratings.html`), so with IRC, ECHO and PY
-in production and ORC Club captured as Phase 3 below, **YTC is the last missing
-piece for full DBSC coverage**.
+in production and ORC now active, milestoned work (#429,
+`docs/design/orc-scoring.md`), **YTC is the last missing piece for full DBSC
+coverage**.
 
 **YTC** (RYA Yacht Time Correction) is the RYA's national keelboat yardstick
 scheme. Like PY it is a published yardstick number turned into a TCF, so it
@@ -1277,19 +1295,13 @@ captured for series where it varies race to race; and the rating source (PHRF ra
 issued by many regional fleets, not one central authority — no single fetch endpoint like
 IRC's).
 
-### Phase 3: ORC Club
+### ORC *(graduated to active work)*
 
-A more elaborate handicap system used internationally for offshore
-racing, distinct from IRC. Out of scope for HYC and IODAI but the
-obvious next system after IRC, NHC, and ECHO.
-
-### ORC advanced methods (PCS, Custom Courses)
-
-Beyond ORC Club itself, ORC defines Performance Curve Scoring (PCS) and
-Custom Courses — scoring that models a boat's speed against the actual
-wind conditions and course geometry of each race rather than a single
-time allowance. Far horizon; only relevant if a target series runs full
-ORC International scoring.
+ORC support is no longer horizon material: it is active, milestoned work
+(#429, M1–M7 in `docs/design/orc-scoring.md`) targeting the HYC Autumn
+League 2026 — including the certificate layer, time-on-distance scoring,
+and the advanced methods (PCS, constructed courses, wind-band scoring)
+that were previously parked here as "far horizon".
 
 ---
 

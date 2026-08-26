@@ -1,0 +1,102 @@
+description: "F6 carried-position carry with a qualifying tie RRS A8 cannot break: both boats carry the shared position and the next position is skipped"
+provenance:
+  class: "470 (and classes using the same carried-position wording)"
+  year: 2026
+  event: "European Championship"
+  si: "Typical wording — see notes"
+  results: "n/a — constructed to isolate the tie"
+  code: F6
+  scenarios: [D11]
+  alternatives: "Fixture 14 is the same format with every qualifying tie breakable; fixture 19 is the same unbreakable tie in the combined standings."
+runnable: true
+notes: |
+  The carried-position wording — "The position of each boat in the Qualifying
+  Series shall be carried forward to the Final Series as non excludable
+  points" — has no tie clause of its own, so the qualifying ranking is RRS A8
+  as written. A tie A8 cannot break therefore leaves two boats genuinely
+  holding one position, and the position of each boat is the same number:
+  both carry it, and no boat carries the position skipped past.
+
+  y1 and b1 each win both qualifying races of their own fleets — identical
+  score lists in different fleets, which A8.1 compares equal and the A8.2
+  count-back walks through without separating. They are joint 1st, both
+  carry 1 point, and nobody carries 2. Alongside them, b2 (2,3) and b3 (3,2)
+  tie on 5 but the count-back's last race breaks them, so their carried
+  positions stay distinct — 5 and 4.
+
+  Hand-verification (fleets of 3; two qualifying races, below the three-race
+  discard threshold, so nothing is dropped):
+
+  Qualifying totals:
+    y1 1+1=2   y2 2+2=4   y3 3+3=6 | b1 1+1=2   b2 2+3=5   b3 3+2=5
+  Qualifying positions: 1 y1, 1 b1, 3 y2, 4 b3, 5 b2, 6 y3.
+  Split into equal blocks: Gold y1/b1/y2, Silver b3/b2/y3.
+
+  Each boat carries that position (the QS column) and sails two final races
+  — two *races*, short of the three-race threshold, so still no discard:
+
+    y1 1 + 1,2 = 4   b1 1 + 2,1 = 4   y2 3 + 3,3 = 9
+    b3 4 + 1,2 = 7   b2 5 + 2,1 = 8   y3 6 + 3,3 = 12
+
+  The equal carried points leave y1 and b1 still level on 4 — and now the
+  final series can do what the qualifying series could not: A8.1 compares
+  [1,1,2] against [1,1,2] equal, and the count-back's last race (y1 2, b1 1)
+  puts b1 ahead. The tie was carried faithfully, not decided by the carry.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  carry: rank-seed
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+  maxFinalDiscards: 1
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b3, b2]
+  - stage: final
+    from: 1
+    assign:
+      split: true
+    expectedFleets:
+      Gold: [b1, y1, y2]
+      Silver: [b2, b3, y3]
+    races:
+      - n: 1
+        results:
+          Gold: [y1, b1, y2]
+          Silver: [b3, b2, y3]
+      - n: 2
+        results:
+          Gold: [b1, y1, y2]
+          Silver: [b2, b3, y3]
+
+expected:
+  standings:
+    - { rank: 1, sail: b1, total: 4, net: 4, fleet: Gold }
+    - { rank: 2, sail: y1, total: 4, net: 4, fleet: Gold }
+    - { rank: 3, sail: y2, total: 9, net: 9, fleet: Gold }
+    - { rank: 4, sail: b3, total: 7, net: 7, fleet: Silver }
+    - { rank: 5, sail: b2, total: 8, net: 8, fleet: Silver }
+    - { rank: 6, sail: y3, total: 12, net: 12, fleet: Silver }

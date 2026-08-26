@@ -148,8 +148,8 @@ Two distinct implementations exist in the wild:
 #### NHC1 (Sailwave built-in) ✓ Implemented
 
 > **Status:** Engine ✓ in `lib/scoring.ts` (`swnhc2015Adjustment`).
-> Persistence (`TcfRecord`, `lib/nhc-persistence.ts`, `tcfHistory`
-> Dexie table — shared with ECHO), series-file format, public JSON export, per-competitor
+> Persistence (`TcfRecord` rows — the TCF history, shared with ECHO —
+> stored server-side and carried in the series file), series-file format, public JSON export, per-competitor
 > `nhcStartingTcf` editing, retroactive-edit propagation, and the
 > rating-calculation explainability layer are all in place. The SWNHC2015
 > parameters live in the `DEFAULT_NHC_PROFILE` constant and are used as
@@ -1082,13 +1082,14 @@ The `SWECHO` / `EchoIndex` formulas are in
 Phase 1 is stateless: the same TCC/PY number applies to every race; results can be
 recalculated from scratch at any time. Phase 2 is stateful: the TCF for race N+1
 depends on corrected times from race N. Retroactively changing a race result changes
-all downstream handicaps. The scorer must explicitly "commit" each race to trigger
-the handicap update. Do not start Phase 2 until Phase 1 is solid and there is
-real user experience with static handicap scoring.
+all downstream handicaps. (This was the pre-Phase-2 analysis; both phases have
+shipped, and the explicit "commit" step contemplated here was decided against —
+retroactive edits propagate automatically. See the resolved questions further
+down.)
 
 ---
 
-## Phase 3: ORC Club (deferred)
+## Phase 3: ORC Club (now active work — see `orc-scoring.md`)
 
 ORC assigns each yacht a **Time Allowance (TA)** in seconds per mile. The formula
 is different from TCF multiplication:
@@ -1099,10 +1100,13 @@ Corrected Time = Elapsed Time − TA × course_distance_miles
 
 TA varies by true wind speed (TWS) and course type (windward-leeward, circular).
 The scorer must record prevailing TWS, course type, and distance after each race.
-This is substantially more complex than IRC/PY and should not be attempted before
-Phase 1 is thoroughly tested in practice.
+This is substantially more complex than IRC/PY, which is why it was deferred
+while the simpler systems bedded in.
 
-ORC advanced methods (PCS, Custom Courses) are far horizon; see `horizon.md`.
+ORC support — including the advanced methods (PCS, constructed courses,
+wind-band scoring) once parked as far horizon — is now active, milestoned
+work: see #429 and [`orc-scoring.md`](orc-scoring.md), which supersedes
+this sketch.
 
 ---
 
@@ -1148,14 +1152,15 @@ was removed.
 fleetIds: string[];     // one or more fleets
 ircTcc?: number;        // e.g. 0.972 — IRC Time Correction Coefficient
 pyNumber?: number;      // e.g. 1034 — RYA Portsmouth Yardstick number
-// Phase 2 will add: nhcHandicap?: number  (initial TCF for NHC)
+// Phase 2 added the progressive-handicap seeds (nhcStartingTcf,
+// echoStartingTcf), and VPRS followed later — see lib/types.ts
 ```
 
 **Fleet scoring system:**
 
 ```typescript
 scoringSystem: 'scratch' | 'irc' | 'py';  // one per fleet; default 'scratch'
-// Phase 2 will add: 'nhc' | 'echo'
+// Phase 2 added 'nhc' | 'echo'; 'vprs' followed later
 ```
 
 **Series-level scoring mode** (added in file format v9):
@@ -1179,10 +1184,11 @@ export interface HandicapRaceScore extends RaceScore {
 }
 ```
 
-`tcfApplied` is calculated during scoring but **not yet persisted** in the
-series file format — it is re-derived on load. This is sufficient for
-static-TCF systems (IRC, PY) where the rating doesn't change, but Phase 2
-will need to persist it (see Phase 2 open questions).
+At Phase 1, `tcfApplied` was calculated during scoring but not persisted —
+re-derived on load, which is sufficient for static-TCF systems (IRC, PY)
+where the rating doesn't change. Phase 2 then persisted it per
+`(race, competitor, fleet)` as `TcfRecord` rows (see the resolved
+questions below).
 
 Coded finishes (DNS, DNC, DNF, etc.) are scored through the same per-code
 penalty rules as scratch (RRS A5.2 default; A5.3 when the series is
@@ -1342,10 +1348,10 @@ snapshotting but is no longer needed for the algorithm itself.
   (a finish time, a starting TCF, α) recomputes the full TCF history for the
   fleet; the persisted `TcfRecord` rows are rewritten as part of the
   recompute. No explicit commit step and no per-race lock. This is the
-  opposite of HalSail's manual re-score but matches the local-first model
-  where a single scorer edits on their own machine.
+  opposite of HalSail's manual re-score: recomputation is cheap enough
+  that the standings simply stay consistent with the inputs.
 - **`tcfApplied` persistence.** Resolved: persisted per `(race, competitor,
-  fleet)` in the `tcfHistory` Dexie table as `TcfRecord`, with
+  fleet)` as `TcfRecord` rows (the TCF history), with
   `tcfApplied` (the Sailwave `rrat` analogue) and `newTcf` stored alongside.
   Series file format and public JSON export both carry the history so that
   imports can render without re-scoring, and so non-finishers (with no
@@ -1505,8 +1511,8 @@ club-racing sample series (`scripts/data/irc-echo-ratings.csv`).
 
 HalSail's public results pages were the worked input for verifying ECHO and IRC
 scoring end-to-end against an externally-computed result set (the 2025 Volvo Dún
-Laoghaire Regatta cruiser fleets, captured under `reference/data/echo-example/`
-and retained in git history). The relevant URL patterns:
+Laoghaire Regatta cruiser fleets — the capture lived under the in-repo
+`reference/` directory, since removed). The relevant URL patterns:
 
 - `/Result/_Boat/{seriesId}` — race-by-race results (HTML fragment, AJAX target)
 - `/Result/Overall/{seriesId}` — overall standings

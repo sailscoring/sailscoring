@@ -66,10 +66,12 @@ test('sail number collision across fleets is disambiguated at finish entry', asy
   // Should be added to the finishing order with fleet badge
   await expect(page.getByTestId('fleet-badge-20')).toContainText('Puppeteer');
 
-  // ── 6. Now type "20" again — only Howth17's 20 should remain ──────────────
+  // ── 6. Now type "20" again — Howth17's 20 is the one committable
+  // suggestion; Alice's 20 stays visible as a muted "already entered" row.
   await sailInput.fill('20');
-  await expect(suggestions).toHaveCount(1);
-  await expect(suggestions.nth(0)).toContainText('Howth17');
+  await expect(suggestions).toHaveCount(2);
+  await expect(suggestions.filter({ hasText: 'Howth17' })).toHaveCount(1);
+  await expect(page.getByTestId('already-entered-20')).toContainText('already entered — 1st');
 
   // Press Enter — should resolve to the only remaining candidate
   await sailInput.press('Enter');

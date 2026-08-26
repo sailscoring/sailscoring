@@ -9,8 +9,10 @@ public API documentation that the horizon entry "Push competitor list to
 racingrulesofsailing.org" said was missing — the integration contract no longer
 needs to be reverse-engineered from the Sailwave plugin.
 
-If the in-app feature is built (an "also import to RRS.org" option on the
-Import Competitors CSV dialog), start here.
+The in-app feature has since been built — an "also import to RRS.org" option
+on the Import Competitors CSV dialog, server-side POST via `lib/rrs-org.ts` +
+`lib/api-handlers/rrs-org.ts` — following the contract captured here. This
+note remains the record of that contract and the import learnings.
 
 ## The API
 

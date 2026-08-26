@@ -32,11 +32,11 @@ describe('renderMagicLinkText', () => {
     expect(text).not.toMatch(/Click to sign in:/i);
   });
 
-  test('appends the stealth-beta blurb only for new users', () => {
+  test('appends the welcome note only for new users', () => {
     const newUser = renderMagicLinkText({ to: TO, url: URL, isNewUser: true });
     const returning = renderMagicLinkText({ to: TO, url: URL, isNewUser: false });
-    expect(newUser).toContain('stealth beta');
-    expect(returning).not.toContain('stealth beta');
+    expect(newUser).toContain('generally available');
+    expect(returning).not.toContain('generally available');
   });
 });
 
@@ -64,11 +64,11 @@ describe('renderMagicLinkHtml', () => {
     expect(html).toContain('mark@hyc.ie');
   });
 
-  test('shows the stealth-beta blurb only for new users', () => {
+  test('shows the welcome note only for new users', () => {
     const newUser = renderMagicLinkHtml({ to: TO, url: URL, isNewUser: true });
     const returning = renderMagicLinkHtml({ to: TO, url: URL, isNewUser: false });
-    expect(newUser).toContain('stealth beta');
-    expect(returning).not.toContain('stealth beta');
+    expect(newUser).toContain('generally available');
+    expect(returning).not.toContain('generally available');
   });
 
   test('escapes HTML in the recipient address', () => {

@@ -1,1 +1,0 @@
-ALTER TABLE "race_starts" ADD COLUMN "course_legs" jsonb;

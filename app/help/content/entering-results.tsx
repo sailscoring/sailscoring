@@ -33,6 +33,15 @@ export default function EnteringResults() {
           the series.
         </p>
         <p>
+          Paper finish sheets sometimes record the same boat twice. If you type a number that
+          is already in the finishing order, the suggestions show it as a muted{' '}
+          <strong className="text-foreground">already entered</strong> row with its position,
+          and pressing <strong className="text-foreground">Enter</strong> highlights the
+          existing entry and tells you where the boat finished rather than adding it again —
+          so you can compare the entry against the sheet and decide which of the recorded
+          positions is the right one.
+        </p>
+        <p>
           If a sail number is not yet registered in the series, the app will offer to{' '}
           <strong className="text-foreground">Record as unknown</strong>. When the number you
           have typed is also the start of a registered boat’s sail number — an unknown{' '}
@@ -229,15 +238,23 @@ export default function EnteringResults() {
         </ul>
         <p>
           Row order in the sheet is the crossing order — the importer assigns finish positions
-          in the order rows appear. A preview dialog shows how many finishers and coded
-          entries will be imported and how many existing finishes will be replaced.
+          in the order rows appear. Times are entirely optional: a sheet with nothing but sail
+          numbers in finishing order imports as untimed finishes, which is all scratch scoring
+          needs. A preview dialog shows how many finishers and coded entries will be imported
+          and how many existing finishes will be replaced — including how many finishers have
+          no time, and a warning if any of those are in a handicap fleet that needs times to
+          score.
         </p>
         <p>
           The import is <strong className="text-foreground">replace-all</strong>: confirming
-          replaces the race’s finishing order entirely and clears any penalties, redress,
-          and tied-finish markers — the importer only covers the basic sheet, so re-apply
-          those in the editor after import if needed. Existing start check-ins are preserved.
-          Click <strong className="text-foreground">Save results</strong> after importing to
+          replaces the race’s finishing order entirely. What the sheet can’t express —
+          penalties, redress, tied-finish markers, start check-ins — is carried across from
+          the race’s existing finishes wherever it still fits: a penalty or redress stays
+          with a boat who is still a finisher, a tie stays while the pair of boats it marks
+          is unchanged, a check-in stays as long as the boat appears on the sheet. The
+          preview says what carries and, in red, what this import clears — re-enter anything
+          from that list in the editor afterwards if it should survive. Click{' '}
+          <strong className="text-foreground">Save results</strong> after importing to
           persist the change.
         </p>
       </Section>
@@ -301,8 +318,28 @@ export default function EnteringResults() {
           Anything else the workbook does that the app didn’t expect is listed before the
           races are — an unfamiliar column, a status it has never seen, a race whose
           Summary and race sheet disagree. Importing a ticked race{' '}
-          <strong className="text-foreground">replaces</strong> that race’s finishes and
-          clears any penalties, redress and ties on it; other races are left alone.
+          <strong className="text-foreground">replaces</strong> that race’s finishes; other
+          races are left alone. Penalties, redress, ties and start check-ins the workbook
+          can’t express are carried across from what the race already holds wherever they
+          still fit — a race whose only extra state carries cleanly still reads back{' '}
+          <strong className="text-foreground">Unchanged</strong> — and anything that can’t
+          carry (a penalty on a boat the sheet now codes DNF, say) puts the race in{' '}
+          <strong className="text-foreground">Differs</strong> with the loss spelled out in
+          its change list.
+        </p>
+        <p>
+          The import also keeps what the export says about{' '}
+          <strong className="text-foreground">how each boat sailed the race</strong>:
+          finish and elapsed times, distance sailed, max speed, and distance to the line
+          at the starting signal. None of it touches scoring, and none of it is published
+          until you switch on{' '}
+          <strong className="text-foreground">Publish RaceSense track data</strong> in the
+          series’ Publishing settings — then the per-race tables carry the figures, with
+          average speed derived from distance and elapsed time, as sortable columns:
+          click any of them and the table ranks the fleet by that measure. A metric the
+          export didn’t record (a race with no line has no distances to it) simply has no
+          column. Re-uploading a workbook records the data for races imported before it
+          was kept — they come back as Differs with the addition listed.
         </p>
       </Section>
       )}

@@ -51,6 +51,51 @@ export async function getSeries(workspace: WorkspaceContext, id: string): Promis
   return series;
 }
 
+/** The workspace a series lives in, resolved across the caller's memberships. */
+export interface SeriesLocation {
+  workspaceId: string;
+  workspaceSlug: string;
+  workspaceName: string;
+}
+
+/**
+ * Locate a series across every workspace the caller is a member of.
+ *
+ * The scoped GET can only see the active workspace, so a series URL opened
+ * while the session's active workspace points elsewhere (another tab switched
+ * it) dead-ends on 404. This lookup answers "which of the caller's workspaces
+ * holds this series id" so the client can offer an explicit switch back.
+ * Fails closed: a series in a workspace the caller is not a member of is
+ * indistinguishable from a missing one.
+ */
+export async function locateSeries(
+  workspace: WorkspaceContext,
+  id: string,
+): Promise<SeriesLocation> {
+  const [row] = await getDb()
+    .select({
+      workspaceId: schema.organization.id,
+      workspaceSlug: schema.organization.slug,
+      workspaceName: schema.organization.name,
+    })
+    .from(schema.series)
+    .innerJoin(
+      schema.member,
+      and(
+        eq(schema.member.organizationId, schema.series.workspaceId),
+        eq(schema.member.userId, workspace.userId),
+      ),
+    )
+    .innerJoin(
+      schema.organization,
+      eq(schema.organization.id, schema.series.workspaceId),
+    )
+    .where(eq(schema.series.id, id))
+    .limit(1);
+  if (!row) throw new NotFoundError('series');
+  return row;
+}
+
 export async function putSeries(
   workspace: WorkspaceContext,
   pathId: string,

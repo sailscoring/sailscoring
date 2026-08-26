@@ -463,7 +463,7 @@ code taxonomy.
 **Additive penalties (ZFP, SCP, DPI):** These codes amend a recorded finish
 (adding penalty points) rather than replacing it. They are applied to boats
 already in the list, not from the "Not yet recorded" panel. See
-`scoring-codes.md` for the UX design for penalty entry (deferred to Phase 2).
+`scoring-codes.md` for the UX design for penalty entry (since implemented).
 
 **Implicit DNC:** Boats with no finish record and no result code are
 implicitly scored as DNC. The scorer does not need to take any action for
@@ -506,11 +506,10 @@ The scorer types the sail number; the lookup returns "not found". A "not found"
 result allows the scorer to proceed to add a minimal entry (sail number + Fleet)
 as an unregistered boat with a warning.
 
-> **Open question:** The exact flow for unregistered boats requires further
-> design. Options include an inline mini-registration form (sail number +
-> Fleet mandatory, rest optional) or a placeholder finish that is resolved
-> later on the Competitors screen. The inline add approach is the current
-> lean, but neither option is fully designed.
+> **Resolved:** imports take the placeholder path — unregistered sail
+> numbers come in as unresolved entries to be settled on the Competitors
+> screen (see the "Entering results" help chapter for the shipped
+> behaviour).
 
 ### Score correction after NHC adjustment
 
@@ -525,10 +524,9 @@ a brief "Recalculating..." indicator.
 
 The following were considered for MVP and explicitly deferred:
 
-**Elapsed time recording:** The app records finish time of day only. Some
-finish boats operate stopwatches and record elapsed times directly, avoiding
-the need to back-calculate finish times. This is not supported in MVP.
-A GitHub idea issue is filed.
+**Elapsed time recording:** At the time, the app recorded finish time of
+day only. Direct elapsed-time entry (for finish boats operating
+stopwatches) has since shipped — `elapsedTime` in `lib/types.ts`.
 
 **Drag-reorder in finish list:** The ↑/↓ move controls on scratch rows cover
 MVP correction needs. Drag-reorder would make moving a row across many
@@ -540,4 +538,4 @@ positions faster but adds implementation complexity.
 
 | # | Question | Impact |
 |---|----------|--------|
-| 1 | Unregistered boat: inline add (sail number + Fleet required, rest optional) vs. placeholder resolved later? | Medium — common edge case; lean toward inline add, confirm before implementing |
+| 1 | Unregistered boat: inline add (sail number + Fleet required, rest optional) vs. placeholder resolved later? | Resolved — imports create unresolved placeholder entries, settled on the Competitors screen |

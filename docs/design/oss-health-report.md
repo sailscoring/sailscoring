@@ -114,7 +114,7 @@ Read this the way the rest of this report reads the Neon/Databricks and Drizzle/
 
 This is one of the cleanest sustainability stories in modern frontend OSS. The structural risk is low — if any one sponsor pulled out, the others would more than cover the gap.
 
-**Stability of Query specifically.** Very high. The API has been stable across major versions, breaking changes are rare and well-documented, and the `persistQueryClient` plugin you're relying on for offline persistence has been in widespread production use for years.
+**Stability of Query specifically.** Very high. The API has been stable across major versions, breaking changes are rare and well-documented, and the `persistQueryClient` plugin (relied on for offline persistence at the time of this snapshot; since removed with the local-first model) has been in widespread production use for years.
 
 **What to watch.** Tanner's broader TanStack Start framework is positioned as a Next.js alternative — there's mild strategic tension if you're committing to both ecosystems. Doesn't affect Query's reliability, but worth noting.
 

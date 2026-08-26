@@ -54,7 +54,7 @@ describe('parseFinishSheetCsv', () => {
     ];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
     expect(result.errors).toEqual([]);
-    expect(result.summary).toEqual({ finishers: 3, coded: 0, unresolved: 0, matchedOnBow: 0 });
+    expect(result.summary).toEqual({ finishers: 3, untimed: 0, coded: 0, unresolved: 0, matchedOnBow: 0 });
     expect(result.finishes).toHaveLength(3);
     expect(result.finishes[0]).toMatchObject({
       competitorId: 'c4',
@@ -73,7 +73,7 @@ describe('parseFinishSheetCsv', () => {
     ];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
     expect(result.errors).toEqual([]);
-    expect(result.summary).toEqual({ finishers: 1, coded: 1, unresolved: 0, matchedOnBow: 0 });
+    expect(result.summary).toEqual({ finishers: 1, untimed: 0, coded: 1, unresolved: 0, matchedOnBow: 0 });
     expect(result.finishes[1]).toMatchObject({
       competitorId: 'c2',
       sortOrder: null,
@@ -111,12 +111,42 @@ describe('parseFinishSheetCsv', () => {
     expect(result.errors).toEqual([{ rowIndex: 2, reason: 'unknown result code "ZZZ"' }]);
   });
 
-  it('rejects rows with neither time nor code', () => {
-    const rows = [['15', '', '']];
+  it('imports a place-only sheet — rows with only a sail number are finishers in row order', () => {
+    const rows = [
+      ['6413', '', ''],
+      ['15',   '', ''],
+      ['22',   '', ''],
+    ];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
-    expect(result.errors).toEqual([
-      { rowIndex: 2, reason: 'row has neither finish time nor result code' },
-    ]);
+    expect(result.errors).toEqual([]);
+    expect(result.summary).toEqual({ finishers: 3, untimed: 3, coded: 0, unresolved: 0, matchedOnBow: 0 });
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'c4', sortOrder: 1, resultCode: null });
+    expect(result.finishes[0].finishTime).toBeUndefined();
+    expect(result.finishes[1]).toMatchObject({ competitorId: 'c1', sortOrder: 2 });
+    expect(result.finishes[2]).toMatchObject({ competitorId: 'c2', sortOrder: 3 });
+  });
+
+  it('counts untimed finishers separately when the sheet mixes timed and untimed rows', () => {
+    const rows = [
+      ['15', '11:00:00', ''],
+      ['22', '',         ''],
+    ];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
+    expect(result.errors).toEqual([]);
+    expect(result.summary).toEqual({ finishers: 2, untimed: 1, coded: 0, unresolved: 0, matchedOnBow: 0 });
+  });
+
+  it('skips entirely blank rows without an error', () => {
+    const rows = [
+      ['15', '11:00:00', ''],
+      ['',   '',         ''],
+      ['22', '11:01:00', ''],
+      ['',   '',         ''],
+    ];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes).toHaveLength(2);
+    expect(result.finishes[1]).toMatchObject({ competitorId: 'c2', sortOrder: 2 });
   });
 
   it('rejects rows with missing sail number', () => {
@@ -135,7 +165,7 @@ describe('parseFinishSheetCsv', () => {
     expect(result.warnings).toEqual([
       { rowIndex: 3, reason: 'sail 9999 not registered — imported as unresolved crossing' },
     ]);
-    expect(result.summary).toEqual({ finishers: 2, coded: 0, unresolved: 1, matchedOnBow: 0 });
+    expect(result.summary).toEqual({ finishers: 2, untimed: 0, coded: 0, unresolved: 1, matchedOnBow: 0 });
     expect(result.finishes[1]).toMatchObject({
       competitorId: null,
       unknownSailNumber: '9999',
@@ -366,6 +396,76 @@ describe('parseFinishSheetCsv alternative sail numbers', () => {
     });
     expect(result.errors).toEqual([
       { rowIndex: 2, reason: 'sail 9 is ambiguous — multiple competitors share this number' },
+    ]);
+  });
+});
+
+describe('parseFinishSheetCsv nationality-qualified sail numbers', () => {
+  const irish: Candidate[] = [
+    { id: 'a', sailNumber: '224529', nationality: 'IRL', fleetIds: ['f1'] },
+    { id: 'b', sailNumber: '215417', nationality: 'SEY', fleetIds: ['f1'] },
+  ];
+
+  it('resolves a qualified number silently, as the registered number', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['IRL 224529', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: irish,
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'a' });
+    expect(result.finishes[0].matchedOn).toBeUndefined();
+    expect(result.summary.matchedOnBow).toBe(0);
+  });
+
+  it('accepts the unspaced form, case-insensitively', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['irl224529', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: irish,
+    });
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'a' });
+  });
+
+  it('still matches the bare number', () => {
+    const result = parseFinishSheetCsv({
+      rows: [['224529', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: irish,
+    });
+    expect(result.finishes[0]).toMatchObject({ competitorId: 'a' });
+  });
+
+  it('keeps boats sharing a number under different letters distinct', () => {
+    const shared: Candidate[] = [
+      { id: 'a', sailNumber: '1234', nationality: 'IRL', fleetIds: ['f1'] },
+      { id: 'b', sailNumber: '1234', nationality: 'GBR', fleetIds: ['f1'] },
+    ];
+    const result = parseFinishSheetCsv({
+      rows: [
+        ['IRL 1234', '11:00:00', ''],
+        ['GBR 1234', '11:00:30', ''],
+      ],
+      columnMap: defaultMap,
+      candidates: shared,
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes.map((f) => f.competitorId)).toEqual(['a', 'b']);
+  });
+
+  it('reports the bare form of a shared number as ambiguous', () => {
+    const shared: Candidate[] = [
+      { id: 'a', sailNumber: '1234', nationality: 'IRL', fleetIds: ['f1'] },
+      { id: 'b', sailNumber: '1234', nationality: 'GBR', fleetIds: ['f1'] },
+    ];
+    const result = parseFinishSheetCsv({
+      rows: [['1234', '11:00:00', '']],
+      columnMap: defaultMap,
+      candidates: shared,
+    });
+    expect(result.errors).toEqual([
+      { rowIndex: 2, reason: 'sail 1234 is ambiguous — multiple competitors share this number' },
     ]);
   });
 });
