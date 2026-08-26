@@ -213,7 +213,7 @@ Carried from sailscoring.ie#6, to be settled when building the pages:
   the expensive part regardless); the checklist is *registry change →
   update this file → update help → update marketing*. Revisit generating
   the status column from `FEATURES` if it drifts in practice.
-- **Help-page screenshots.** `docs/design/user-docs.md` chose prose-only
-  help; now that screenshots are being produced anyway, the strongest of
-  them should be added to the matching help sections — same assets,
-  instructional captions.
+- **Help-page screenshots.** Done — help sections embed the strongest
+  captures via `HelpShot` with instructional captions (see
+  `docs/design/user-docs.md`), from the same `scripts/feature-shots.ts`
+  capture set that feeds the marketing site.

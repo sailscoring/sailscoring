@@ -306,7 +306,7 @@ say who holds a certificate. The scorer prunes afterwards. The moment that
 truth actually arrives is the Update handicaps wizard: the boats the IRC
 listing matches are precisely the certificated ones, so that wizard is where
 the fleet gets trimmed to them. Specified in
-[update-handicaps.md](update-handicaps.md#fleet-membership-planned); not part
+[update-handicaps.md](update-handicaps.md#fleet-membership-shipped); not part
 of this step.
 
 ### Series scoring mode

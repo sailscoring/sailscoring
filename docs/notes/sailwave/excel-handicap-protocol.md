@@ -239,11 +239,12 @@ W_i = MAX(MIN(V_i, ClampU × J_i), ClampD × J_i)   # ClampU=1.1, ClampD=0.9
 
 ---
 
-## 5. Notes for Phase 2 Implementation
+## 5. Notes for Phase 2 Implementation (Phase 2 has since shipped)
 
 **Which NHC version to implement?** SWNHC2015 (v3, Club) is the most recent and
 widely used club variant. SWNHC4 (Regatta) is a purpose-built variant for short
-events; don't conflate the two. For HPH at HYC, SWNHC2015 is the closest match.
+events; don't conflate the two. For HPH at HYC, SWNHC2015 is the closest match —
+and is what the engine implements (`swnhc2015Adjustment` in `lib/scoring.ts`).
 
 **Re-alignment explained:** After each race all new handicaps are scaled by
 `J50/AA50` (ratio of the sum of old master ratings to the sum of newly computed
@@ -254,8 +255,8 @@ up or down together.
 **Rating storage:** `RatingConvert: On` tells Sailwave to divide the stored 3-digit
 NHC rating (e.g. 104.5) by 100 before writing to `J`/`L`, and multiply by 100 before
 saving `*NewRating` back. The spreadsheet always works in TCF units (0.85–1.15).
-Our implementation needs to decide whether to store the raw TCF or the 3-digit NHC
-form and document the convention clearly.
+Our implementation stores the raw TCF (`nhcStartingTcf` and the `TcfRecord`
+values are TCF units); the 3-digit form is a Sailwave display convention.
 
 **Stateful fields:** The `Rating` (J) field is the master rating — updated by
 Sailwave after each race from `*NewRating`. The `RaceRating` (L) field is what was
