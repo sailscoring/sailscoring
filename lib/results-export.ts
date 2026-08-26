@@ -251,7 +251,15 @@ export async function buildFleetHtmlFiles(
   // to the championship standings page; only the publish handler knows where
   // both will be served, so only it passes one — preview, download and FTP
   // leave the championship's race columns unlinked.
-  opts?: { includePrizes?: boolean; includeEntryList?: boolean; raceResultsHref?: string },
+  // `includeTrackData` says the workspace's `racesense-import` feature is on;
+  // the columns still need the series' own `publishTrackData` opt-in, and
+  // each renders only where a boat carries the value.
+  opts?: {
+    includePrizes?: boolean;
+    includeEntryList?: boolean;
+    includeTrackData?: boolean;
+    raceResultsHref?: string;
+  },
 ): Promise<FleetHtmlFile[] | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0) return null;
@@ -307,6 +315,9 @@ export async function buildFleetHtmlFiles(
       raceStarts: snapshot.raceStarts,
       finishes: snapshot.finishes,
       enabledCompetitorFields,
+      ...(opts?.includeTrackData && snapshot.series.publishTrackData
+        ? { showTrackData: true }
+        : {}),
       ...(wantsFlags
         ? { flagSvgByCode: (await import('./nationality/flags')).NATIONAL_FLAGS }
         : {}),

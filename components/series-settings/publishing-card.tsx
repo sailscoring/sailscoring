@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useFeatures } from '@/components/features-provider';
 import { useUpdateSeries } from '@/hooks/use-series';
 import type { Series } from '@/lib/types';
 
@@ -20,6 +21,7 @@ export function PublishingCard({
   splitFleets?: boolean;
 }) {
   const updateSeries = useUpdateSeries();
+  const { has } = useFeatures();
   const [expanded, setExpanded] = useState(false);
 
   const includeJson = series.includeJsonExport ?? true;
@@ -27,8 +29,13 @@ export function PublishingCard({
   const showPerRaceRatings = series.showPerRaceRatingsInSummary ?? true;
   const publishDetail = series.publishDetail ?? 'full';
   const showDetail = !splitFleets;
+  // The toggle shows only where the RaceSense import can have recorded the
+  // data; the columns themselves also need it (and the data) to render.
+  const showTrackDataToggle = has('racesense-import');
+  const publishTrackData = series.publishTrackData === true;
   const summaryParts = [
     ...(showDetail && publishDetail === 'races' ? ['race results only'] : []),
+    ...(showTrackDataToggle && publishTrackData ? ['track data published'] : []),
     includeJson ? 'JSON export included' : 'JSON export excluded',
     ...(anyProgressiveFleet
       ? [
@@ -109,6 +116,34 @@ export function PublishingCard({
               </p>
             </div>
           </div>
+          {showTrackDataToggle && (
+            <div className="flex items-start gap-2.5">
+              <input
+                id="publishTrackData"
+                type="checkbox"
+                checked={publishTrackData}
+                onChange={(e) => {
+                  updateSeries.mutate({
+                    id: seriesId,
+                    patch: { publishTrackData: e.target.checked, lastModifiedAt: Date.now() },
+                  });
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <div>
+                <label htmlFor="publishTrackData" className="text-sm font-medium cursor-pointer">
+                  Publish RaceSense track data on race results
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Adds finish time, elapsed time, distance sailed, average and max
+                  speed, and distance to line at the start as sortable columns on
+                  the per-race tables, for races imported from RaceSense. Off by
+                  default: the data is captured for race management, so publishing
+                  it is your call.
+                </p>
+              </div>
+            </div>
+          )}
           {anyProgressiveFleet && (
             <div className="flex items-start gap-2.5">
               <input

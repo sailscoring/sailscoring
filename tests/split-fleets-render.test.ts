@@ -492,3 +492,68 @@ describe('split-fleet pages use the standard published-page look', () => {
     expect(html).toContain('No fleets have been assigned yet.');
   });
 });
+
+describe('track data columns on the per-race page', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+
+  /** Every finisher gets the same plausible capture; coded rows get none. */
+  function withTrack(
+    input: SplitFleetRenderInput,
+    data: NonNullable<SplitFleetRenderInput['finishes'][number]['trackData']> = {
+      distanceKm: 2.73, elapsedSecs: 3600, maxSpeedKts: 14.6, dtlAtStartM: 8.45,
+    },
+  ): SplitFleetRenderInput {
+    return {
+      ...input,
+      showTrackData: true,
+      finishes: input.finishes.map((f) =>
+        f.sortOrder !== null ? { ...f, finishTime: '11:45:20', trackData: data } : f,
+      ),
+    };
+  }
+
+  const TRACK_HEADERS = [
+    'Finish time', 'Elapsed', 'Distance (km)', 'Avg speed (kn)', 'Max speed (kn)', 'DTL (m)',
+  ];
+
+  it('appends the columns when the opt-in is resolved and the data exists', () => {
+    const html = renderSplitFleetRaceResultsPage(withTrack(renderInputFor(FIXTURE)))!;
+    for (const header of TRACK_HEADERS) {
+      expect(html).toContain(`>${header}</th>`);
+    }
+    // Values as stored; the average is the one derived figure —
+    // 2.73 km in an hour is 1.47 kn — and elapsed reads as a duration.
+    expect(html).toContain('>2.73</td>');
+    expect(html).toContain('>1.47</td>');
+    expect(html).toContain('>1:00:00</td>');
+    expect(html).toContain('>11:45:20</td>');
+  });
+
+  it('renders no columns without the resolved opt-in, data or not', () => {
+    const html = renderSplitFleetRaceResultsPage(
+      { ...withTrack(renderInputFor(FIXTURE)), showTrackData: false },
+    )!;
+    for (const header of TRACK_HEADERS) {
+      expect(html).not.toContain(`>${header}</th>`);
+    }
+  });
+
+  it('renders no columns when no boat carries the data', () => {
+    const html = renderSplitFleetRaceResultsPage(
+      { ...renderInputFor(FIXTURE), showTrackData: true },
+    )!;
+    for (const header of TRACK_HEADERS) {
+      expect(html).not.toContain(`>${header}</th>`);
+    }
+  });
+
+  it('drops a column no boat has a value for', () => {
+    const html = renderSplitFleetRaceResultsPage(
+      withTrack(renderInputFor(FIXTURE), { distanceKm: 2.73, elapsedSecs: 3600 }),
+    )!;
+    expect(html).toContain('>Distance (km)</th>');
+    expect(html).toContain('>Avg speed (kn)</th>');
+    expect(html).not.toContain('>Max speed (kn)</th>');
+    expect(html).not.toContain('>DTL (m)</th>');
+  });
+});

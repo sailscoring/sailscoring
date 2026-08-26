@@ -56,6 +56,11 @@ export interface SplitFleetRenderInput {
   /** Inline flag SVGs keyed by 3-letter code (see `SeriesResultsData.
    *  flagSvgByCode`). Callers load it on demand; absent = code-only cells. */
   flagSvgByCode?: Readonly<Record<string, { viewBox: string; inner: string }>>;
+  /** Add finish-time and track-data columns to the per-race tables. The
+   *  caller resolves the whole opt-in — the workspace's racesense-import
+   *  feature AND the series' publishTrackData setting — and each column
+   *  still renders only where a boat actually carries the value. */
+  showTrackData?: boolean;
 }
 
 export function assembleSplitFleetData(input: SplitFleetRenderInput): SplitFleetData {
@@ -358,6 +363,60 @@ export function stageRaceAnchor(stage: SeriesStage, n: number): string {
   return `${stage[0]}${n}`;
 }
 
+/** Elapsed seconds as `M:SS` / `H:MM:SS`, whole seconds — the fraction is
+ *  real data but sub-second precision is noise in a results column. */
+function formatElapsed(secs: number): string {
+  const whole = Math.round(secs);
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const s = whole % 60;
+  const mmss = `${h > 0 ? String(m).padStart(2, '0') : m}:${String(s).padStart(2, '0')}`;
+  return h > 0 ? `${h}:${mmss}` : mmss;
+}
+
+/** Average speed in knots from the stored pair; the one derived figure. */
+function avgSpeedKn(t: { distanceKm?: number; elapsedSecs?: number }): number | null {
+  if (t.distanceKm == null || t.elapsedSecs == null || t.elapsedSecs <= 0) return null;
+  return (t.distanceKm / 1.852) / (t.elapsedSecs / 3600);
+}
+
+/** The finish-time and track-data columns, in display order. Each renders
+ *  only when at least one boat in the table carries the value; the numbers
+ *  are shown as stored, so they read back exactly what the device wrote. */
+const TRACK_COLUMNS: {
+  header: string;
+  title?: string;
+  value: (f: Finish | undefined) => string;
+}[] = [
+  { header: 'Finish time', value: (f) => f?.finishTime ?? '' },
+  {
+    header: 'Elapsed',
+    value: (f) =>
+      f?.trackData?.elapsedSecs != null ? formatElapsed(f.trackData.elapsedSecs) : '',
+  },
+  {
+    header: 'Distance (km)',
+    title: 'Distance sailed',
+    value: (f) => (f?.trackData?.distanceKm != null ? String(f.trackData.distanceKm) : ''),
+  },
+  {
+    header: 'Avg speed (kn)',
+    value: (f) => {
+      const kn = f?.trackData ? avgSpeedKn(f.trackData) : null;
+      return kn != null ? kn.toFixed(2) : '';
+    },
+  },
+  {
+    header: 'Max speed (kn)',
+    value: (f) => (f?.trackData?.maxSpeedKts != null ? String(f.trackData.maxSpeedKts) : ''),
+  },
+  {
+    header: 'DTL (m)',
+    title: 'Distance to line at the starting signal',
+    value: (f) => (f?.trackData?.dtlAtStartM != null ? String(f.trackData.dtlAtStartM) : ''),
+  },
+];
+
 /** The per-race results page: every stage race in sailed order, one table per
  *  race per fleet — the fleets a start sequence interleaves pulled apart the
  *  way the racing actually happened, each ranked within its own fleet. Points
@@ -395,10 +454,12 @@ export function renderSplitFleetRaceResultsPage(
   const sheetKey = (raceId: string, competitorId: string) => `${raceId} ${competitorId}`;
   const onSheet = new Set<string>();
   const crossingOrder = new Map<string, number>();
+  const finishByKey = new Map<string, Finish>();
   for (const f of data.finishes) {
     if (!f.competitorId) continue;
     if (f.sortOrder === null && f.resultCode === null) continue;
     onSheet.add(sheetKey(f.raceId, f.competitorId));
+    finishByKey.set(sheetKey(f.raceId, f.competitorId), f);
     if (f.sortOrder !== null && !f.resultCode) {
       crossingOrder.set(sheetKey(f.raceId, f.competitorId), f.sortOrder);
     }
@@ -419,10 +480,19 @@ export function renderSplitFleetRaceResultsPage(
           : bySailNumber(a.competitor, b.competitor);
       });
     if (sorted.length === 0) return '';
+    // A track column appears only when some boat in this table has the
+    // value: a race with no line recorded gets no DTL column at all.
+    const trackColumns = input.showTrackData
+      ? TRACK_COLUMNS.filter((col) =>
+          sorted.some(({ competitor, cell }) =>
+            col.value(finishByKey.get(sheetKey(cell.raceId, competitor.id))) !== ''),
+        )
+      : [];
     let place = 0;
     const body = sorted
       .map(({ competitor, cell }, i) => {
         const finisher = crossingOrder.has(sheetKey(cell.raceId, competitor.id));
+        const finish = finishByKey.get(sheetKey(cell.raceId, competitor.id));
         const helm = esc(competitor.names.join(' & '));
         const helmHtml =
           !wsid && competitor.worldSailingId
@@ -436,11 +506,15 @@ export function renderSplitFleetRaceResultsPage(
   ${wsid ? wsidCell(competitor.worldSailingId) : ''}
   <td style="text-align:center">${esc(cell.code ?? '')}</td>
   <td style="text-align:right">${cell.points}</td>
+${trackColumns.map((col) => `  <td style="text-align:right">${esc(col.value(finish))}</td>`).join('\n')}
 </tr>`;
       })
       .join('\n');
+    const trackHeaders = trackColumns
+      .map((col) => `<th${col.title ? ` title="${esc(col.title)}"` : ''}>${esc(col.header)}</th>`)
+      .join('');
     return `<div class="tablewrap"><table class="summarytable">
-<thead><tr><th>Rank</th>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${wsid ? '<th>WS ID</th>' : ''}<th>Code</th><th>Points</th></tr></thead>
+<thead><tr><th>Rank</th>${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${wsid ? '<th>WS ID</th>' : ''}<th>Code</th><th>Points</th>${trackHeaders}</tr></thead>
 <tbody>
 ${body}
 </tbody>

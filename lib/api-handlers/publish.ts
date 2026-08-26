@@ -315,6 +315,7 @@ export async function publishSeries(
     {
       includePrizes: workspace.features.includes('prizes'),
       includeEntryList: workspace.features.includes('entry-list'),
+      includeTrackData: workspace.features.includes('racesense-import'),
       raceResultsHref,
     },
   );

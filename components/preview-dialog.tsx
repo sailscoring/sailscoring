@@ -50,6 +50,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
   const { has } = useFeatures();
   const includePrizes = has('prizes');
   const includeEntryList = has('entry-list');
+  const includeTrackData = has('racesense-import');
   const [files, setFiles] = useState<FleetHtmlFile[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'idle' | 'error'>('loading');
@@ -63,7 +64,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     setPhase('loading');
     setFiles(null);
     setSelected(0);
-    buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes, includeEntryList })
+    buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes, includeEntryList, includeTrackData })
       .then((built) => {
         if (cancelled) return;
         setFiles(built);
@@ -75,7 +76,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     return () => {
       cancelled = true;
     };
-  }, [open, series.id, includePrizes, includeEntryList]);
+  }, [open, series.id, includePrizes, includeEntryList, includeTrackData]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const current = files?.[selected] ?? null;
