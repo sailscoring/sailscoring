@@ -50,16 +50,16 @@ Build the smallest version of Sail Scoring that can score real events for two ta
 
 2. **HYC Autumn League** -- time-based finish entry with handicap correction (IRC and progressive NHC), dual scoring from a single finish time, and per-race rating adjustments. (See [HYC use case](requirements/hyc-use-case.md).) **Status: complete.** Phase 1 (IRC, PY) and Phase 2 (NHC1 progressive handicap and ECHO) are built, along with multi-fleet competitors, the finish sheet model for mixed timed/untimed entry, per-fleet start groups, per-race rating persistence, and rating-calculation explainability. Several handicap-system variants and refinements are deferred — see `docs/design/handicap-scoring.md` and the horizon doc.
 
-The MVP must demonstrate that Sail Scoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
+The MVP demonstrated that Sail Scoring can handle both of these use cases end-to-end: from event setup and competitor registration, through result entry and scoring, to published standings.
 
 ### Stealth Beta
 
 **Status: complete.** The stealth beta ran with Irish clubs and class associations — HYC's scoring panel on a shared workspace, IODAI scoring live events — through the first half of the 2026 season. In August 2026 the beta closed and the service became generally available in Ireland; outside Ireland, individuals are encouraged to trial it using a personal workspace and send feedback.
 
-The intent of this phase is to introduce the application to a small number of carefully chosen early adopters:
+The intent of this phase was to introduce the application to a small number of carefully chosen early adopters:
 
 - **Goal:** Validate that the application works in real scoring conditions, collect feedback, and build confidence before any wider release.
-- **Audience:** Trusted scorers at HYC and IODAI, and potentially one or two other Irish clubs with similar needs.
+- **Audience:** Trusted scorers at HYC and IODAI, and a small number of other Irish clubs and classes with similar needs.
 - **First impressions matter.** Early adopters are doing the project a favour by investing their time and trust. The application must be reliable, the results must be correct, and the experience must be noticeably better than Sailwave for their use cases -- even if feature coverage is narrower.
 - **Deployment:** Hosted as a web application, with hosting costs borne by the project founder during this period.
 
@@ -105,7 +105,7 @@ A part-time personal project cannot remain a part-time personal project if it ga
 - Revenue funds development and hosting directly.
 - The founder (or a small team) retains control of product direction.
 
-**Decision (July 2026): the open-source model.** The choice was deliberately deferred while the deciding factors were unclear; by mid-2026 they were not. The sustainability case made to sponsors and clubs leans directly on open source — forkability as the answer to the bus factor, transparency as the answer to trust — and that is the story that has resonated. No realistic proprietary path emerged, and pursuing one was never the founder's instinct. The code is released under the **MIT license**; external contributions use the Developer Certificate of Origin; the "Sail Scoring" name and logo remain trademarks governing who may operate a service under the name. The commercial model above is retained for the record. Execution — the audit and the flip to a public repository — is tracked in issue #282.
+**Decision (July 2026): the open-source model.** The choice was deliberately deferred while the deciding factors were unclear; by mid-2026 they were not. The sustainability case made to sponsors and clubs leans directly on open source — forkability as the answer to the bus factor, transparency as the answer to trust — and that is the story that has resonated. No realistic proprietary path emerged, and pursuing one was never the founder's instinct. The code is released under the **MIT license**; external contributions use the Developer Certificate of Origin; the "Sail Scoring" name and logo remain trademarks governing who may operate a service under the name. The commercial model above is retained for the record. Execution — the audit and the flip to a public repository — happened in July 2026 (issue #282).
 
 The preparation that made either choice possible, kept up from the outset, is what makes the decision cheap to execute:
 
@@ -119,7 +119,7 @@ Scoring software occupies a position of trust. Competitors, protest committees, 
 
 - **Faithful implementation of the rules.** Appendix A compliance is not optional or approximate.
 - **Auditability.** Users should be able to understand how any score was calculated -- what inputs were used, what rules were applied, and why a particular result was produced.
-- **Transparency in development.** Whether open-source or not, the project should be open about its approach to scoring rules, its known limitations, and its roadmap.
+- **Transparency in development.** The project is open about its approach to scoring rules, its known limitations, and its roadmap.
 
 ### Provide a Solid Technical Foundation
 
@@ -140,4 +140,4 @@ RRS.org is interesting both as a model for sustainability -- a niche sailing too
 
 Sail Scoring exists because the sailing community deserves scoring software that is accessible, correct, and not dependent on any single person or platform. The irreplaceable centre of that effort is the scoring engine: the rule-governed, trust-critical logic that translates finish data into standings. Finish recording, publishing, and display are designed to be replaced by external innovation; correct scoring is not.
 
-The near-term focus is narrow and practical: build an MVP that serves IODAI and HYC, and validate it with real users. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere — and, through libscoring, provide a credible open implementation of the Racing Rules of Sailing that the wider sailing software community can build on.
+The near-term focus was narrow and practical — an MVP serving IODAI and HYC, validated with real users, now generally available in Ireland. The long-term ambition is broader: establish a sustainable project that lowers the barrier to race scoring for clubs everywhere — and, through libscoring, provide a credible open implementation of the Racing Rules of Sailing that the wider sailing software community can build on.

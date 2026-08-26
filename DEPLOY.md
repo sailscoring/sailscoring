@@ -6,8 +6,10 @@ Sail Scoring runs as a Next.js application on Vercel. Scoring data lives
 in Postgres (via Better Auth + a custom workspace-scoped repository
 layer). Results are published in-app — rendered to static HTML, stored in
 Vercel Blob, and served at `/p/{workspace}/{series}/...`; optional FTP upload
-to a club's own web host is relayed through the scupper service. (The original
-standalone **bilge** publishing service was retired in ADR-008 Phase 9.)
+to a club's own web host is relayed through the scupper service — a legacy,
+feature-gated path slated for shutdown, which a fresh deployment can skip.
+(The original standalone **bilge** publishing service was retired in ADR-008
+Phase 9.)
 
 The full-stack architecture is documented in
 [ADR-008](docs/design/decisions/008-full-stack-transition.md).
@@ -21,8 +23,8 @@ section.
 ## Prerequisites
 
 - A [Vercel account](https://vercel.com), **Pro tier**, with the project repo
-  connected (Pro is required for private repos, and — see [section 4](#4-provision-vercel-blob)
-  — for the Blob rate limits that production publishing needs)
+  connected (Pro is required for the Blob rate limits that production
+  publishing needs — see [section 4](#4-provision-vercel-blob))
 - [Vercel CLI](https://vercel.com/docs/cli): `pnpm add -g vercel`
 - Node 24.x, pnpm 10
 - Optional but recommended for local DB work: a container runtime
@@ -141,7 +143,7 @@ In the Vercel dashboard, open the **app** project (`sailscoring`):
    `BLOB_READ_WRITE_TOKEN` automatically for those environments; you don't
    copy it anywhere.
 
-**Pro tier matters here, not just for the private repo.** Publishing a series
+**Pro tier matters here.** Publishing a series
 uploads one blob per fleet page, concurrently (up to 16 in flight). Each upload
 is a Blob *advanced operation*, and the per-second budget is plan-dependent:
 Hobby allows 15/s, Pro 75/s, Enterprise 125/s. A large whole-season publish
@@ -246,8 +248,8 @@ Development is *only* used to populate `.env.local` via `vercel env pull`.
 | `NEXT_PUBLIC_DEFAULT_SAIL_COUNTRY` | `IRL` (or unset → IRL) | (same)             | (same)               | no  |
 | `NEXT_PUBLIC_DEFAULT_TIMEZONE`  | `Europe/Dublin` (or unset → Europe/Dublin) | (same) | (same)         | no  |
 | `BLOB_READ_WRITE_TOKEN`        | from Vercel Blob (managed) | from Vercel Blob (managed, if connected) | unset → `published_blobs` fallback | yes (managed) |
-| `NEXT_PUBLIC_SCUPPER_URL`      | `https://scupper.sailscoring.ie` | (same)   | (same)               | no         |
-| `NEXT_PUBLIC_SCUPPER_API_KEY`  | from scupper project | from scupper project | from scupper project | no         |
+| `NEXT_PUBLIC_SCUPPER_URL`      | `https://scupper.sailscoring.ie` (legacy) | (same)   | (same)               | no         |
+| `NEXT_PUBLIC_SCUPPER_API_KEY`  | from scupper project (legacy) | from scupper project | from scupper project | no         |
 
 ### Notes on the trickier ones
 
@@ -272,8 +274,8 @@ default. The dev sender (`lib/auth/email.ts`) falls back to `console.log` +
 **`FEEDBACK_TO`** — gates the in-app feedback form (#123). When unset, the
 "Send feedback" item is hidden from the user menu and `POST /api/v1/feedback`
 returns 404. When set, submissions are emailed via Resend to this address;
-the user's email is set as the `Reply-To` so a forward from
-`mark@sailscoring.ie` round-trips cleanly. Set it for Production only; leave
+the user's email is set as the `Reply-To` so a reply from the feedback
+mailbox reaches the user directly. Set it for Production only; leave
 unset on Preview and Development to avoid noise. There's no code default —
 that's deliberate, so a forgotten env var fails closed instead of mailing the
 wrong inbox.
@@ -395,8 +397,7 @@ BETTER_AUTH_URL=http://localhost:3000
 CREDENTIAL_KEY=...                          # 64 hex chars (`openssl rand -hex 32`)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 # BLOB_READ_WRITE_TOKEN intentionally unset — publishing uses the published_blobs Postgres fallback locally
-NEXT_PUBLIC_SCUPPER_URL=https://scupper.sailscoring.ie
-NEXT_PUBLIC_SCUPPER_API_KEY=...
+# NEXT_PUBLIC_SCUPPER_URL / NEXT_PUBLIC_SCUPPER_API_KEY — legacy FTP relay, only needed for the gated scupper path
 # RESEND_API_KEY intentionally unset — dev sender writes to log
 RESEND_FROM="Sail Scoring <noreply@sailscoring.ie>"
 ```
