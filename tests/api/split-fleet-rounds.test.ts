@@ -140,6 +140,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     seriesId: string,
     competitorIds: string[],
     stageRaceNumbers: number[],
+    deleteFleetIds: string[] = [],
   ) {
     return commitSplitRound(ctx, seriesId, {
       stage: 'qualifying',
@@ -151,7 +152,31 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
       overrideCompetitorIds: [],
       stageRaceNumbers,
       date: '2026-08-24',
+      deleteFleetIds,
     });
+  }
+
+  /** A pre-ceremony fleet every competitor belongs to — what an entry-list
+   *  CSV import leaves behind as "Default". */
+  async function addLeftoverFleet(
+    seriesId: string,
+    competitorIds: string[],
+    name = 'Default',
+  ) {
+    const fleetId = uuid();
+    await db.insert(schema.fleets).values({
+      id: fleetId,
+      seriesId,
+      workspaceId,
+      name,
+      displayOrder: 0,
+      scoringSystem: 'scratch',
+    });
+    await db
+      .update(schema.competitors)
+      .set({ fleetIds: [fleetId] })
+      .where(inArray(schema.competitors.id, competitorIds));
+    return fleetId;
   }
 
   /** The races the ceremony wrote, each with its starts' fleets. */
@@ -278,6 +303,93 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
 
     const races = await racesWithStarts(seriesId);
     expect(races.filter((r) => r.starts[0].stageRaceNumber === 2)).toHaveLength(3);
+  });
+
+  // The ceremony can also shed non-round fleets the scorer agreed to delete
+  // (deleteFleetIds): the leftover "Default" from an entry-list import, or a
+  // converted series' pre-championship fleets. Memberships are stripped and
+  // the rows deleted in the same transaction; anything unsafe is refused
+  // whole rather than skipped.
+
+  test('ceremony deletes the agreed non-round fleets, memberships and all', async () => {
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    const leftoverId = await addLeftoverFleet(seriesId, competitorIds);
+
+    const round = await commit(seriesId, competitorIds, [1], [leftoverId]);
+
+    const fleets = await db
+      .select({ id: schema.fleets.id })
+      .from(schema.fleets)
+      .where(eq(schema.fleets.seriesId, seriesId));
+    expect(fleets.map((f) => f.id)).not.toContain(leftoverId);
+    expect(fleets).toHaveLength(3);
+
+    // Every boat now belongs to exactly her round fleet — no dangling ids.
+    const comps = await db
+      .select({ fleetIds: schema.competitors.fleetIds })
+      .from(schema.competitors)
+      .where(eq(schema.competitors.seriesId, seriesId));
+    expect(comps).toHaveLength(9);
+    for (const c of comps) {
+      expect(c.fleetIds).toHaveLength(1);
+      expect(round.fleetIds).toContain(c.fleetIds[0]);
+    }
+  });
+
+  test('refuses to delete a round-owned fleet, and the whole commit rolls back', async () => {
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    const round1 = await commit(seriesId, competitorIds, [1]);
+
+    await expect(
+      commitSplitRound(ctx, seriesId, {
+        stage: 'final',
+        fromStageRace: 1,
+        method: 'split',
+        basis: null,
+        fleets: FLEETS,
+        assignments: Object.fromEntries(competitorIds.map((id, i) => [id, i % 3])),
+        overrideCompetitorIds: [],
+        stageRaceNumbers: [],
+        date: '2026-08-27',
+        deleteFleetIds: [round1.fleetIds[0]],
+      }),
+    ).rejects.toThrow('round-owned');
+
+    // Rolled back: still just round 1's three fleets, no final fleets.
+    const fleets = await db
+      .select({ id: schema.fleets.id })
+      .from(schema.fleets)
+      .where(eq(schema.fleets.seriesId, seriesId));
+    expect(fleets).toHaveLength(3);
+  });
+
+  test('refuses to delete a fleet a race start references', async () => {
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    const leftoverId = await addLeftoverFleet(seriesId, competitorIds);
+    // A race sailed before the series became a championship.
+    const raceId = uuid();
+    await db.insert(schema.races).values({
+      id: raceId,
+      seriesId,
+      workspaceId,
+      raceNumber: 1,
+      name: 'Race 1',
+      date: '2026-08-20',
+    });
+    await db.insert(schema.raceStarts).values({
+      id: uuid(),
+      raceId,
+      fleetIds: [leftoverId],
+    });
+
+    await expect(commit(seriesId, competitorIds, [1], [leftoverId])).rejects.toThrow(
+      'race start',
+    );
+  });
+
+  test('refuses a fleet the series does not have', async () => {
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    await expect(commit(seriesId, competitorIds, [1], [uuid()])).rejects.toThrow();
   });
 
   test('switching to per-fleet before racing changes the shape of the next race', async () => {

@@ -147,6 +147,10 @@ export const splitRoundCommitSchema = z.object({
   overrideCompetitorIds: z.array(uuidSchema).default([]),
   stageRaceNumbers: z.array(z.number().int().positive()).default([]),
   date: z.string().default(''),
+  /** Non-round fleets the scorer agreed to remove as part of this ceremony
+   *  (the "also remove these fleets" checkbox). Each must belong to the
+   *  series, be owned by no round, and be referenced by no race start. */
+  deleteFleetIds: z.array(uuidSchema).max(50).default([]),
 });
 
 /** Body for POST …/rounds/:roundId/races — add stage races to a round.

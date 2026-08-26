@@ -1039,6 +1039,9 @@ export interface SplitRoundCommit {
   overrideCompetitorIds?: string[];
   stageRaceNumbers: number[];
   date?: string;
+  /** Non-round fleets the scorer agreed to remove with this ceremony
+   *  (memberships stripped, rows deleted — see the commit handler). */
+  deleteFleetIds?: string[];
 }
 
 export function commitSplitRound(
