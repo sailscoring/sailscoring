@@ -1124,7 +1124,13 @@ function renderPrintButton(): string {
  *  anchors) keep navigating; the rest of the cell sorts. Printing restores
  *  the served order first — the PDF artifact is the official ranking — and
  *  the viewer's sort comes back afterwards. With scripting off the page is
- *  simply the static ranking. */
+ *  simply the static ranking.
+ *
+ *  Row shading is served as static odd/even classes, so every reorder
+ *  reassigns them in the new display order — otherwise each row keeps the
+ *  shade of its served position and the alternating stripes scramble.
+ *  Marker rows carry no stripe class and don't advance the alternation,
+ *  matching how the server counts only data rows. */
 function renderSortScript(): string {
   return `<script>(function(){
 var collator=null;
@@ -1151,6 +1157,16 @@ function initTable(table){
   }
   if(dataRows.length<2)return;
   var col=-1,dir=0;
+  function restripe(){
+    var n=0;
+    for(var i=0;i<body.rows.length;i++){
+      var cl=body.rows[i].classList;
+      if(!cl.contains('odd')&&!cl.contains('even'))continue;
+      cl.remove(n%2===0?'even':'odd');
+      cl.add(n%2===0?'odd':'even');
+      n++;
+    }
+  }
   function apply(activeCol,activeDir){
     var i;
     if(activeDir===0){
@@ -1174,6 +1190,7 @@ function initTable(table){
       });
       for(i=0;i<keyed.length;i++)body.appendChild(keyed[i].r);
     }
+    restripe();
     for(i=0;i<hrow.cells.length;i++){
       if(i===activeCol&&activeDir!==0)hrow.cells[i].setAttribute('aria-sort',activeDir===1?'ascending':'descending');
       else hrow.cells[i].removeAttribute('aria-sort');

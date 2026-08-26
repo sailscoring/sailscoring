@@ -24,6 +24,16 @@ async function sailOrder(summary: Locator): Promise<string[]> {
   );
 }
 
+/** The stripe class of every summary row, in rendered order. Shading is
+ *  positional, so it must read odd/even/odd/… whatever order the rows are
+ *  displayed in — a sort reassigns the classes rather than letting each row
+ *  carry its served shade along. */
+async function stripeOrder(summary: Locator): Promise<string[]> {
+  return summary.locator('tbody tr').evaluateAll((rows) =>
+    rows.map((r) => (r.classList.contains('odd') ? 'odd' : r.classList.contains('even') ? 'even' : '?')),
+  );
+}
+
 async function createAndPublish(page: Page): Promise<string> {
   await createSeriesQuick(page, { name: 'Published Sorting League' });
   await addCompetitor(page, { sailNumber: '69', name: 'Middle Number', club: 'Howth YC' });
@@ -74,15 +84,17 @@ test('published standings sort by column and restore the served order', async ({
   await expect(sailHead).toHaveAttribute('aria-sort', 'ascending');
   await expect.poll(() => sailOrder(summary)).toEqual(['7', '69', '217236']);
 
-  // ── Second click reverses ────────────────────────────────────────────────
+  // ── Second click reverses; the shading follows display order ────────────
   await sailHead.click();
   await expect(sailHead).toHaveAttribute('aria-sort', 'descending');
   await expect.poll(() => sailOrder(summary)).toEqual(['217236', '69', '7']);
+  await expect.poll(() => stripeOrder(summary)).toEqual(['odd', 'even', 'odd']);
 
   // ── Third click restores the served rank order ───────────────────────────
   await sailHead.click();
   await expect(sailHead).not.toHaveAttribute('aria-sort', /./);
   await expect.poll(() => sailOrder(summary)).toEqual(['69', '7', '217236']);
+  await expect.poll(() => stripeOrder(summary)).toEqual(['odd', 'even', 'odd']);
 
   // ── Text columns sort alphabetically, ties keeping their rank order ─────
   const clubHead = summary.locator('th', { hasText: 'Club' });
