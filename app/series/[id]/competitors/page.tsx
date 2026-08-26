@@ -728,15 +728,15 @@ export default function CompetitorsPage({
           <PublishDialog
             series={series}
             // A split-fleet series' round fleets are internal — its published
-            // output is the championship and assignments pages — so the dialog
-            // runs in single-default-page mode there, as it does on the Split
-            // Fleets page.
+            // output is the championship, race-results and assignments pages
+            // — so the dialog runs in single-default-page mode there, as it
+            // does on the Split Fleets page.
             fleets={isSplitFleetSeries ? [] : (fleets ?? [])}
             open={showPublishDialog}
             onClose={() => setShowPublishDialog(false)}
             canFtp={false}
             {...(isSplitFleetSeries
-              ? { lonePageName: 'Championship', extraPages: ['Fleet assignments'] }
+              ? { lonePageName: 'Championship', extraPages: ['Race results', 'Fleet assignments'] }
               : {})}
           />
         )}

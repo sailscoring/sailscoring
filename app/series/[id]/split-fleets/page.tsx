@@ -528,9 +528,9 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         }
       />
       {/* The round fleets are internal — the published output is the
-          championship page + the assignments page, so both dialogs run in
-          single-default-page mode (empty fleet list) and the build emits the
-          split-fleet pages itself. */}
+          championship page + the per-race results page + the assignments
+          page, so both dialogs run in single-default-page mode (empty fleet
+          list) and the build emits the split-fleet pages itself. */}
       <PreviewDialog
         series={data.series}
         fleets={[]}
@@ -545,7 +545,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         onClose={() => setShowPublish(false)}
         canFtp={false}
         lonePageName="Championship"
-        extraPages={['Fleet assignments']}
+        extraPages={['Race results', 'Fleet assignments']}
       />
       <FinaliseResultsDialog
         series={data.series}

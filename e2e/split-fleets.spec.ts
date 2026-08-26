@@ -127,8 +127,9 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
 
   // ── Rehomed standings surfaces ────────────────────────────────────────────
   // The regular Standings tab is hidden for a split-fleet series; preview and
-  // publish live on this page instead. Preview builds the two published
-  // pages: the championship standings and the rolling fleet assignments.
+  // publish live on this page instead. Preview builds the three published
+  // pages: the championship standings, the per-race results and the rolling
+  // fleet assignments.
   await expect(
     page.getByRole('navigation').getByRole('link', { name: 'Standings' }),
   ).toHaveCount(0);
@@ -137,6 +138,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(preview).toContainText('Preview results');
   await preview.getByRole('combobox').click();
   await expect(page.getByRole('option', { name: 'Championship' })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Race results' })).toBeVisible();
   // Pick a page rather than dismissing the popup — closing a select and its
   // parent dialog with back-to-back Escapes leaves Radix's aria-hidden
   // restore in a broken state that strips the nav's accessibility role.
@@ -250,12 +252,13 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
 
 /**
  * Publishing a split-fleet series through the ADR-011 Season + Folder dialog:
- * the championship standings and rolling fleet-assignments pages land in the
- * publication tree, the event folder lists both, and the public pages render.
- * This is the seam where the split-fleets publish output meets the
- * publication-tree model — covered end-to-end here.
+ * the championship standings, per-race results and rolling fleet-assignments
+ * pages land in the publication tree, the event folder lists them, and the
+ * public pages render — with the championship's race columns deep-linking
+ * into the race page. This is the seam where the split-fleets publish output
+ * meets the publication-tree model — covered end-to-end here.
  */
-test('split fleets: publish lands the championship + assignments pages in the tree', async ({
+test('split fleets: publish lands the championship + race + assignments pages in the tree', async ({
   page,
   signedInEmail,
 }) => {
@@ -286,26 +289,30 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog.getByLabel('Season')).toHaveValue('2026');
   await dialog.getByLabel('Folder').fill('worlds-26');
-  // Before publishing, the dialog names both pages it is about to put out.
+  // Before publishing, the dialog names every page it is about to put out.
   // The championship is the lone results page — called "Championship" here as
-  // it is in Preview, not the generic "Standings" — and the rolling
-  // assignments page rides with it, neither of them optional.
+  // it is in Preview, not the generic "Standings" — and the per-race results
+  // and rolling assignments pages ride with it.
   await expect(dialog.getByText('Championship')).toBeVisible();
+  await expect(dialog.getByText('Race results')).toBeVisible();
   await expect(dialog.getByText('Fleet assignments')).toBeVisible();
   // Tickable like any other page — a scorer may publish a subset — and ticked
   // by default on a first publish.
+  await expect(dialog.getByRole('checkbox', { name: 'Publish Race results' })).toBeChecked();
   await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeChecked();
   await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeEnabled();
+  await expect(dialog.getByLabel('URL for Race results')).toHaveValue('race-results');
   const assignmentsUrl = dialog.getByLabel('URL for Fleet assignments');
   await expect(assignmentsUrl).toHaveValue('fleet-assignments');
   await assignmentsUrl.fill('who-is-in-what-fleet');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  // Both pages get URLs under /p/{ws}/2026/worlds-26/.
+  // All three pages get URLs under /p/{ws}/2026/worlds-26/.
   const champLink = dialog.getByRole('link', { name: /worlds-26\/standings$/ });
   await expect(champLink).toBeVisible();
-  // Exactly one row per page: the assignments page is listed by the extra-pages
-  // block, not also as a results page.
+  // Exactly one row per page: the extra pages are listed by the extra-pages
+  // block, not also as results pages.
+  await expect(dialog.getByRole('link', { name: /worlds-26\/race-results$/ })).toHaveCount(1);
   await expect(dialog.getByRole('link', { name: /worlds-26\/who-is-in-what-fleet$/ })).toHaveCount(1);
   const champPath = new URL((await champLink.getAttribute('href')) ?? '').pathname;
 
@@ -318,10 +325,21 @@ test('split fleets: publish lands the championship + assignments pages in the tr
   await expect(page.getByRole('button', { name: 'Save as PDF' })).toBeVisible();
   await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
 
-  // The event folder lists both pages; assignments shows the round's fleets.
+  // The Q1 column header deep-links into the per-race results page, which
+  // pulls the start sequence's combined sheet apart into one ranked table per
+  // fleet.
+  await page.getByRole('link', { name: 'Q1', exact: true }).click();
+  await expect(page).toHaveURL(/\/worlds-26\/race-results#q1$/);
+  await expect(page.getByRole('heading', { name: 'Yellow fleet' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blue fleet' })).toBeVisible();
+  await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
+
+  // The event folder lists all three pages; assignments shows the round's
+  // fleets.
   await page.goto(champPath.replace(/\/standings$/, ''));
   await expect(page.getByRole('heading', { name: 'Publish Worlds' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Championship' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Race results' })).toBeVisible();
   await page.getByRole('link', { name: 'Fleet assignments' }).click();
   await expect(page).toHaveURL(/\/worlds-26\/who-is-in-what-fleet$/);
   await expect(page.getByText(/Preliminary series round 1/)).toBeVisible();
