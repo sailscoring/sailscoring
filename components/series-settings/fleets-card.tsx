@@ -12,8 +12,8 @@ import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '
 import { useCompetitorsBySeries, useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
-import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcSelectableOptions } from '@/lib/orc-certificate';
-import type { Fleet, OrcProfile, Series } from '@/lib/types';
+import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
+import type { Fleet, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -382,15 +382,22 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                   )}
                   {fleet.scoringSystem === 'orc' && (
                     <Select
-                      value={JSON.stringify(orcFleetProfile(fleet))}
-                      onValueChange={(v) => {
-                        const profile = JSON.parse(v) as OrcProfile;
+                      // Keyed by the option name alone — the option determines
+                      // the kind. (A serialized-object value would break here:
+                      // the stored profile round-trips through jsonb, which
+                      // re-orders object keys, so the string wouldn't match.)
+                      value={orcFleetProfile(fleet).option}
+                      onValueChange={(option) => {
+                        const current = orcFleetProfile(fleet);
+                        const kind = option === current.option
+                          ? current.kind
+                          : (orcOptionKind(option) ?? 'tot');
                         // The APHT default stays implicit (no stored profile),
                         // matching how absent has always meant APHT.
                         void saveFleet.mutateAsync({
                           ...fleet,
                           orcProfile:
-                            profile.option === DEFAULT_ORC_PROFILE.option ? undefined : profile,
+                            option === DEFAULT_ORC_PROFILE.option ? undefined : { option, kind },
                         });
                       }}
                     >
@@ -403,12 +410,12 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       </SelectTrigger>
                       <SelectContent>
                         {ORC_STANDARD_OPTIONS.map((o) => (
-                          <SelectItem key={o.option} value={JSON.stringify({ option: o.option, kind: o.kind })}>
+                          <SelectItem key={o.option} value={o.option}>
                             {o.label}
                           </SelectItem>
                         ))}
                         {orcCertificateOptions.map((o) => (
-                          <SelectItem key={o.option} value={JSON.stringify({ option: o.option, kind: o.kind })}>
+                          <SelectItem key={o.option} value={o.option}>
                             <span className="font-mono text-xs">{o.option}</span>
                           </SelectItem>
                         ))}
@@ -420,7 +427,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                             ORC_STANDARD_OPTIONS.some((o) => o.option === current.option) ||
                             orcCertificateOptions.some((o) => o.option === current.option);
                           return known ? null : (
-                            <SelectItem value={JSON.stringify(current)}>
+                            <SelectItem value={current.option}>
                               <span className="font-mono text-xs">{current.option}</span>
                             </SelectItem>
                           );

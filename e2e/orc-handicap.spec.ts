@@ -220,6 +220,16 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   await page.getByRole('option', { name: 'Constructed course · performance curve (PCS)' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
 
+  // The stored selection survives a server round-trip: the profile comes
+  // back from jsonb (which re-orders object keys), and the picker must
+  // still display it rather than rendering empty.
+  await page.reload();
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await expect(
+    page.getByRole('combobox').filter({ hasText: 'Constructed course · performance curve (PCS)' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
   await page.getByRole('link', { name: 'Competitors' }).click();
   await importCertificates(page, 2);
 
