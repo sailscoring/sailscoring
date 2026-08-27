@@ -498,3 +498,51 @@ describe('track data', () => {
     }));
   });
 });
+
+describe('the finishing time as a cross-check', () => {
+  /** Race 13's start is 11:31, so 14:20.450 elapsed puts the boat over the
+   *  line at 11:45:20 — which is exactly what the reference export writes. */
+  const drift = (finishingTime: string) => parseRaceSenseWorkbook([
+    raceSheet({
+      number: 1,
+      startTime: '11:31',
+      finishes: [['1.', '1021', '', '', '14:20.450', finishingTime, '14.6', '2.730']],
+    }),
+  ]).anomalies.filter((a) => a.kind === 'finish-time-drift');
+
+  it('says nothing when the timestamp matches the elapsed time', () => {
+    expect(drift('11:45:20.450')).toEqual([]);
+  });
+
+  it('says nothing about the format’s own truncation', () => {
+    // The timestamp drops its fractional seconds and the elapsed time keeps
+    // them, so a second's disagreement is the format, not the device.
+    expect(drift('11:45:21')).toEqual([]);
+  });
+
+  it('flags a boat written an hour early, in those words', () => {
+    // The ILCA 7 Worlds case: four boats in one race carried a timestamp an
+    // hour out while every Total Time on the sheet stayed right.
+    const [anomaly] = drift('10:45:20.450');
+    expect(anomaly.severity).toBe('warning');
+    expect(anomaly.message).toContain('an hour earlier than');
+    expect(anomaly.message).toContain('11:45:20');
+    expect(anomaly.where).toBe('finish row for 1021');
+  });
+
+  it('flags a smaller disagreement in seconds', () => {
+    const [anomaly] = drift('11:45:35');
+    expect(anomaly.message).toContain('15s later than');
+  });
+
+  it('says nothing when the sheet has no start time to measure from', () => {
+    const parsed = parseRaceSenseWorkbook([
+      raceSheet({
+        number: 1,
+        startTime: 'noon',
+        finishes: [['1.', '1021', '', '', '14:20.450', '10:45:20.450', '14.6', '2.730']],
+      }),
+    ]);
+    expect(parsed.anomalies.map((a) => a.kind)).not.toContain('finish-time-drift');
+  });
+});

@@ -142,10 +142,30 @@ Times need normalising before they reach the app: `Start Time` is `11:03`
 `normalizeTimeInput` rejects both, so the RaceSense parser normalises
 them itself rather than the strict global gate being loosened.
 
+### `Total Time`, not `Finishing Time`
+
+`Total Time` is the elapsed measurement; `Finishing Time` is a rendering of
+it against the gun, and the rendering is not reliable. In the raw Day 2 Blue
+export from the 2026 ILCA 7 Worlds, four boats in Race 2 carry a timestamp
+exactly one hour early — FRA 218241, BRA 223024, GBR 228011 and AUS 196441 —
+while their `Total Time`, positions, distance and max speed are all correct,
+and every other boat on the sheet is right. The finishing positions are
+unaffected, since RaceSense orders the Finishes block by elapsed time.
+
+Across the exports to hand — eight workbooks, 1116 finisher rows — `Start
+Time + floor(Total Time)` reproduces RaceSense's own written timestamp
+exactly in every row except those four, and for those it produces exactly
+what the sheet had to be corrected by hand to say.
+
+So the import reads `Total Time` and stores it as the finish's elapsed time.
+`Finishing Time` is still parsed, and disagreeing with `Start Time + Total
+Time` by more than a second raises a `finish-time-drift` anomaly — the one
+second being the format's own rounding, since the timestamp truncates its
+fractional seconds and the elapsed time keeps them.
+
 ### Discarded
 
-No Sail Scoring analogue: distance-to-line, GPS positions, max speed,
-total time, distance travelled.
+No Sail Scoring analogue: distance-to-line, GPS positions, max speed.
 
 ## Unknowns
 

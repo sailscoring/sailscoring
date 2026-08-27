@@ -26,7 +26,8 @@
  * Reading the finishes themselves is `lib/finish-sheet-csv.ts` — the same
  * matching, dedupe and unresolved-sail handling the CSV importer uses, fed
  * rows built from the workbook, so the result commits down the path that
- * already exists.
+ * already exists. What those rows carry is the elapsed time, not the time of
+ * day; see `COLUMN_MAP` for why.
  */
 
 import { carryAcrossImport } from './finish-entry';
@@ -47,10 +48,17 @@ import {
 import type { SeriesStage } from './split-fleets';
 import type { Finish, FinishTrackData } from './types';
 
-/** Columns of the rows this module builds for the finish-sheet parser. */
+/** Columns of the rows this module builds for the finish-sheet parser.
+ *
+ *  The elapsed time, not the time of day. RaceSense's `Total Time` is the
+ *  measurement its `Finishing Time` is rendered from, and the rendering has
+ *  been seen going wrong for individual boats — an hour out on four boats of
+ *  one race while every elapsed figure on the sheet stayed right. So the
+ *  timestamp is read (the parser cross-checks it and complains when the two
+ *  disagree) but never imported. */
 const COLUMN_MAP: FinishSheetColumnMap = {
   0: 'sailNumber',
-  1: 'finishTime',
+  1: 'elapsed',
   2: 'resultCode',
 };
 
@@ -189,10 +197,15 @@ function buildRows(race: RaceSenseRace): BuiltRows {
         // cleared: the code replaces the finish.
         rows.push([finish.sailNumber, '', status]);
         note('info', 'ocs-over-finish',
-          `${finish.sailNumber} finished but was OCS, so she is scored ${status} rather than on her finishing time.`,
+          `${finish.sailNumber} finished but was OCS, so she is scored ${status} rather than on her elapsed time.`,
           `finish row for ${finish.sailNumber}`);
       } else {
-        rows.push([finish.sailNumber, finish.finishTime ?? '', '']);
+        if (finish.totalTimeSecs === null) {
+          note('warning', 'no-elapsed',
+            `${finish.sailNumber} finished but the sheet records no Total Time for her, so she is imported with a place and no time. A fleet scored on handicap needs one entered by hand.`,
+            `finish row for ${finish.sailNumber}`);
+        }
+        rows.push([finish.sailNumber, finish.totalTimeSecs?.toString() ?? '', '']);
       }
     } else {
       rows.push([finish.sailNumber, '', status ?? finish.code ?? 'DNF']);
@@ -218,69 +231,41 @@ function buildRows(race: RaceSenseRace): BuiltRows {
 }
 
 // ---------------------------------------------------------------------------
-// What the device captured
+// Track data
 // ---------------------------------------------------------------------------
 
-const secsOf = (time: string): number => {
-  const [h, m, s] = time.split(':').map(Number);
-  return h * 3600 + m * 60 + s;
-};
-
-/** What one race sheet says about how a boat sailed: her elapsed time, which
- *  is a recording of the finish, and the track metrics, which are not. */
-interface Captured {
-  elapsedSecs?: number;
-  trackData?: FinishTrackData;
-}
-
 /**
- * Everything a race sheet says about how each boat sailed, keyed by
- * upper-cased sail number: DTL from the Starts block, elapsed / distance /
- * max speed from the Finishes block. When the sheet has no Total Time but
- * both times of day are known, elapsed is their difference — coarser (whole
- * seconds) but real.
+ * How each boat sailed, keyed by upper-cased sail number: DTL from the Starts
+ * block, distance and max speed from the Finishes block. Her elapsed time is
+ * not here — it is a recording of the finish, and it reaches the row through
+ * the finish sheet with the rest of the result.
  */
-function capturedFor(source: RaceSenseRace): Map<string, Captured> {
-  const bySail = new Map<string, Captured>();
-  const put = (sail: string, patch: Captured) => {
+function trackDataFor(source: RaceSenseRace): Map<string, FinishTrackData> {
+  const bySail = new Map<string, FinishTrackData>();
+  const put = (sail: string, patch: FinishTrackData) => {
+    const entries = Object.entries(patch).filter(([, v]) => v != null);
+    if (entries.length === 0) return;
     const key = sail.toUpperCase();
-    const existing = bySail.get(key);
-    const trackData = { ...existing?.trackData, ...patch.trackData };
-    bySail.set(key, {
-      ...existing,
-      ...(patch.elapsedSecs != null ? { elapsedSecs: patch.elapsedSecs } : {}),
-      ...(Object.keys(trackData).length > 0 ? { trackData } : {}),
-    });
+    bySail.set(key, { ...bySail.get(key), ...Object.fromEntries(entries) });
   };
   for (const s of source.starters) {
-    if (s.dtlAtStartM !== null) put(s.sailNumber, { trackData: { dtlAtStartM: s.dtlAtStartM } });
+    if (s.dtlAtStartM !== null) put(s.sailNumber, { dtlAtStartM: s.dtlAtStartM });
   }
   for (const f of source.finishes ?? []) {
-    // Elapsed alone is no capture — it is derivable from the times the app
-    // already stores. The fallback only completes a row that carries a real
-    // measurement whose Total Time cell happened to be unreadable.
-    const hasMetrics = f.totalTimeSecs !== null || f.distanceKm !== null || f.maxSpeedKts !== null;
-    const elapsed = f.totalTimeSecs
-      ?? (hasMetrics && f.finishTime && source.startTime && secsOf(f.finishTime) > secsOf(source.startTime)
-        ? secsOf(f.finishTime) - secsOf(source.startTime)
-        : null);
     put(f.sailNumber, {
-      ...(elapsed !== null ? { elapsedSecs: elapsed } : {}),
-      trackData: {
-        ...(f.distanceKm !== null ? { distanceKm: f.distanceKm } : {}),
-        ...(f.maxSpeedKts !== null ? { maxSpeedKts: f.maxSpeedKts } : {}),
-      },
+      ...(f.distanceKm !== null ? { distanceKm: f.distanceKm } : {}),
+      ...(f.maxSpeedKts !== null ? { maxSpeedKts: f.maxSpeedKts } : {}),
     });
   }
   return bySail;
 }
 
-/** Hang each boat's capture on her parsed finish row. The rows come out of
+/** Hang each boat's track data on her parsed finish row. The rows come out of
  *  the finish-sheet parser keyed by competitor, so the sail number is read
  *  back through the same keys the parser matched on. */
-function attachCaptured(
+function attachTrackData(
   finishes: readonly Omit<Finish, 'id' | 'raceId'>[],
-  bySail: Map<string, Captured>,
+  bySail: Map<string, FinishTrackData>,
   eligible: Candidate[],
 ): Omit<Finish, 'id' | 'raceId'>[] {
   if (bySail.size === 0) return [...finishes];
@@ -291,8 +276,8 @@ function attachCaptured(
       ? sailNumberKeys(candidate)
       : f.unknownSailNumber ? [f.unknownSailNumber] : [];
     for (const key of keys) {
-      const captured = bySail.get(key.toUpperCase());
-      if (captured) return { ...f, ...captured };
+      const trackData = bySail.get(key.toUpperCase());
+      if (trackData) return { ...f, trackData };
     }
     return f;
   });
@@ -539,9 +524,9 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
     const storedFinishes = finishesByRace.get(race.id) ?? [];
     const result: ParseFinishSheetResult = {
       ...parsed,
-      finishes: attachCaptured(
+      finishes: attachTrackData(
         carryAcrossImport(storedFinishes, parsed.finishes),
-        capturedFor(source),
+        trackDataFor(source),
         eligible,
       ),
     };

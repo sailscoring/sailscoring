@@ -42,10 +42,23 @@ function starter(
   return { sailNumber, boatName: '', bowNumber: '', status, meaning, protest: false, dtlAtStartM: null };
 }
 
+/** The gun every `sourceRace` below starts on, so a finisher's elapsed time
+ *  can be derived from her finishing time and the two agree. */
+const FIXTURE_START = '11:31:00';
+
+const secsOf = (time: string): number => {
+  const [h, m, sec] = time.split(':').map(Number);
+  return h * 3600 + m * 60 + sec;
+};
+
+/** A finisher as RaceSense writes one: a timestamp and the elapsed time it is
+ *  rendered from. The import reads the elapsed time; the timestamp is here
+ *  because a real sheet carries it and the parser cross-checks it. */
 function finisher(position: number, sailNumber: string, finishTime: string): RaceSenseFinish {
   return {
     position, code: null, sailNumber, boatName: '', bowNumber: '', finishTime,
-    totalTimeSecs: null, maxSpeedKts: null, distanceKm: null,
+    totalTimeSecs: secsOf(finishTime) - secsOf(FIXTURE_START),
+    maxSpeedKts: null, distanceKm: null,
   };
 }
 
@@ -62,7 +75,7 @@ function sourceRace(overrides: Partial<RaceSenseRace> & { number: number }): Rac
     startNumber: '1',
     date: '2026-08-24',
     preparatorySignal: 'P',
-    startTime: '11:31:00',
+    startTime: FIXTURE_START,
     starters: [starter('1021'), starter('1023'), starter('1022')],
     finishes: [
       finisher(1, '1021', '11:45:20'),
@@ -127,9 +140,11 @@ describe('planRaceSenseImport', () => {
     expect(planned.state).toBe('new');
     expect(planned.recommended).toBe(true);
     expect(planned.race?.id).toBe(seriesRace(1).id);
-    expect(planned.result?.finishes.map((f) => [f.competitorId, f.sortOrder, f.finishTime ?? null, f.resultCode])).toEqual([
-      ['c1', 1, '11:45:20', null],
-      ['c2', 2, '11:46:20', null],
+    // Elapsed times, not timestamps: the sheet's `Finishing Time` is read for
+    // the parser's cross-check and never imported.
+    expect(planned.result?.finishes.map((f) => [f.competitorId, f.sortOrder, f.elapsedSecs ?? null, f.resultCode])).toEqual([
+      ['c1', 1, 860, null],
+      ['c2', 2, 920, null],
       ['c3', null, null, 'DNF'],
     ]);
   });
@@ -160,7 +175,7 @@ describe('planRaceSenseImport', () => {
     });
     const boat = races[0].result!.finishes.find((f) => f.competitorId === 'c1');
     expect(boat?.resultCode).toBeNull();
-    expect(boat?.finishTime).toBe('11:45:20');
+    expect(boat?.elapsedSecs).toBe(860);
   });
 
   it('codes a boat who crossed the line but never cleared her OCS', () => {
@@ -199,7 +214,7 @@ describe('planRaceSenseImport', () => {
     });
     const boat = races[0].result!.finishes.find((f) => f.competitorId === 'c1');
     expect(boat?.resultCode).toBeNull();
-    expect(boat?.finishTime).toBe('11:45:20');
+    expect(boat?.elapsedSecs).toBe(860);
     expect(warnings(races[0].notes)).toEqual([]);
   });
 
@@ -220,14 +235,14 @@ describe('planRaceSenseImport', () => {
       // The race committee's note said 1023 retired; the scorer entered RET.
       const stored = commit(raceId, first.races[0].result!)
         .map((f) => (f.competitorId === 'c2'
-          ? { ...f, sortOrder: null, finishTime: undefined, resultCode: 'RET' as const }
+          ? { ...f, sortOrder: null, elapsedSecs: undefined, resultCode: 'RET' as const }
           : f));
 
       const second = plan({ races: [sourceRace({ number: 1 })], finishes: stored });
       expect(second.races[0].state).toBe('differs');
       expect(second.races[0].recommended).toBe(false);
       expect(second.races[0].changes).toEqual([
-        { sailNumber: '1023', stored: 'RET', incoming: '2nd at 11:46:20' },
+        { sailNumber: '1023', stored: 'RET', incoming: '2nd, 920s elapsed' },
       ]);
     });
   });
@@ -268,7 +283,7 @@ describe('planRaceSenseImport', () => {
       });
       expect(second.races[0].state).toBe('differs');
       expect(second.races[0].changes).toEqual([
-        { sailNumber: '1023', stored: '2nd at 11:46:20, SCP 10%', incoming: '2nd at 11:47:00, SCP 10%' },
+        { sailNumber: '1023', stored: '2nd, SCP 10%, 920s elapsed', incoming: '2nd, SCP 10%, 960s elapsed' },
       ]);
     });
 
@@ -290,7 +305,7 @@ describe('planRaceSenseImport', () => {
       expect(second.races[0].state).toBe('differs');
       expect(second.races[0].recommended).toBe(false);
       expect(second.races[0].changes).toEqual([
-        { sailNumber: '1023', stored: '2nd at 11:46:20, SCP 10%', incoming: 'DNF' },
+        { sailNumber: '1023', stored: '2nd, SCP 10%, 920s elapsed', incoming: 'DNF' },
       ]);
       const incoming = second.races[0].result!.finishes.find((f) => f.competitorId === 'c2');
       expect(incoming?.penaltyCode).toBeNull();
@@ -349,8 +364,8 @@ describe('planRaceSenseImport', () => {
       });
       expect(second.races[0].state).toBe('differs');
       expect(second.races[0].changes).toEqual([
-        { sailNumber: '1021', stored: '1st at 11:45:20', incoming: '2nd at 11:46:20' },
-        { sailNumber: '1023', stored: '2nd at 11:46:20, tied', incoming: '1st at 11:45:20' },
+        { sailNumber: '1021', stored: '1st, 860s elapsed', incoming: '2nd, 920s elapsed' },
+        { sailNumber: '1023', stored: '2nd, tied, 920s elapsed', incoming: '1st, 860s elapsed' },
       ]);
     });
   });
@@ -533,7 +548,9 @@ describe('what the device captured', () => {
     expect(byId.get('c3')?.trackData).toEqual({ dtlAtStartM: -326.16 });
   });
 
-  it('falls back to finish − start for elapsed when Total Time is absent', () => {
+  it('imports a finisher with no Total Time untimed, and says so', () => {
+    // The timestamp beside her is not a substitute: it is the value this
+    // import stopped trusting, and a handicap fleet needs a real time.
     const { races } = plan({
       races: [sourceRace({
         number: 1,
@@ -545,8 +562,12 @@ describe('what the device captured', () => {
       })],
     });
     const boat = races[0].result!.finishes.find((f) => f.competitorId === 'c1');
-    expect(boat?.elapsedSecs).toBe(860);
+    expect(boat?.sortOrder).toBe(1);
+    expect(boat?.elapsedSecs).toBeUndefined();
+    expect(boat?.finishTime).toBeUndefined();
     expect(boat?.trackData).toEqual({ distanceKm: 2.73 });
+    expect(warnings(races[0].notes)).toContain('no-elapsed');
+    expect(races[0].recommended).toBe(false);
   });
 
   it('reads back unchanged when the same tracked workbook is uploaded again', () => {
@@ -563,7 +584,7 @@ describe('what the device captured', () => {
     const second = plan({ races: [trackedRace(1)], finishes: stored });
     expect(second.races[0].state).toBe('differs');
     const change = second.races[0].changes.find((c) => c.sailNumber === '1021');
-    expect(change?.stored).toBe('1st at 11:45:20');
+    expect(change?.stored).toBe('1st');
     expect(change?.incoming).toContain('860.45s elapsed');
     expect(change?.incoming).toContain('2.73 km sailed');
     expect(change?.incoming).toContain('max 14.6 kn');

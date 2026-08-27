@@ -202,9 +202,12 @@ export interface RaceSenseFinish {
   sailNumber: string;
   boatName: string;
   bowNumber: string;
-  /** Time of day, `HH:MM:SS`, fractional seconds truncated. */
+  /** Time of day, `HH:MM:SS`, fractional seconds truncated. Read for the
+   *  cross-check below and never imported: exports have been seen writing an
+   *  individual boat's timestamp an hour out while her elapsed time stayed
+   *  right, so `totalTimeSecs` is the value that reaches a result. */
   finishTime: string | null;
-  /** Elapsed time in seconds, fractional part kept. */
+  /** Elapsed time in seconds, fractional part kept. The measurement. */
   totalTimeSecs: number | null;
   maxSpeedKts: number | null;
   /** Distance sailed, km — the unit the export uses. */
@@ -624,6 +627,8 @@ function parseRaceSheet(sheet: WorkbookSheet, number: number, ctx: Ctx): RaceSen
     }
   }
 
+  if (finishes) checkFinishingTimes(ctx, startTime, finishes);
+
   return {
     sheetName: sheet.name,
     number,
@@ -634,6 +639,61 @@ function parseRaceSheet(sheet: WorkbookSheet, number: number, ctx: Ctx): RaceSen
     starters,
     finishes,
   };
+}
+
+/**
+ * Check each boat's `Finishing Time` against her `Total Time`, and say so when
+ * they disagree.
+ *
+ * Exports have been seen writing an individual boat's timestamp an hour out
+ * while her elapsed time stayed right — four boats in one race of one day of
+ * one championship, the rest of the sheet correct. The import scores from the
+ * elapsed time, so such a race scores correctly either way; this exists so
+ * that the scorer hears about it rather than finding it by eye, and so that a
+ * whole-sheet drift shows up as a whole-sheet complaint.
+ *
+ * A second's disagreement is the format's own rounding — the timestamp
+ * truncates its fractional seconds and the elapsed time keeps them — so only
+ * a larger gap is worth saying anything about.
+ */
+function checkFinishingTimes(
+  ctx: Ctx,
+  startTime: string | null,
+  finishes: readonly RaceSenseFinish[],
+): void {
+  if (startTime === null) return;
+  const startSeconds = hmsToSeconds(startTime);
+  for (const f of finishes) {
+    if (f.finishTime === null || f.totalTimeSecs === null) continue;
+    const expected = startSeconds + Math.floor(f.totalTimeSecs);
+    const drift = hmsToSeconds(f.finishTime) - expected;
+    if (Math.abs(drift) <= 1) continue;
+    flag(ctx, 'warning', 'finish-time-drift',
+      `${f.sailNumber}'s finishing time is ${describeDrift(drift)} what her elapsed time says (${f.finishTime} against ${secondsToHms(expected)}). She is scored on the elapsed time; the finishing time is not imported.`,
+      { where: `finish row for ${f.sailNumber}`, value: f.finishTime });
+  }
+}
+
+const hmsToSeconds = (time: string): number => {
+  const [h, m, s] = time.split(':').map(Number);
+  return h * 3600 + m * 60 + s;
+};
+
+const secondsToHms = (total: number): string => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
+};
+
+/** "an hour early", "3s late" — the shape of the disagreement in words, since
+ *  a whole hour is a different kind of problem from a few seconds. */
+function describeDrift(drift: number): string {
+  const direction = drift < 0 ? 'earlier than' : 'later than';
+  const size = Math.abs(drift);
+  if (size % 3600 === 0) {
+    const hours = size / 3600;
+    return `${hours === 1 ? 'an hour' : `${hours} hours`} ${direction}`;
+  }
+  return `${size}s ${direction}`;
 }
 
 function parseSummarySheet(sheet: WorkbookSheet, ctx: Ctx): RaceSenseSummaryEntry[] | null {
