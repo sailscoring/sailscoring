@@ -413,6 +413,85 @@ export async function listPublishedByWorkspace(workspaceId: string): Promise<
     .sort((a, b) => b.publishedAt - a.publishedAt);
 }
 
+/**
+ * The freshness inputs for the public workspace listing, without the `pages`
+ * JSONB. Same rows, joins and ordering as {@link listPublishedByWorkspace} —
+ * only the page detail is condensed, into an `md5` Postgres computes so the
+ * column itself never crosses the wire.
+ *
+ * The listing needs the full page lists to render, but a client revalidating a
+ * copy it already holds does not. Reading this first lets an unchanged page
+ * answer 304 without transferring every publication's pages, which on a
+ * workspace with a large archive is the bulk of the request.
+ *
+ * One row per publication rather than per slug: everything the grouped listing
+ * derives — the title, the season, `fleetCount`, the representative series'
+ * placement — is a function of these fields plus the folder metadata the
+ * caller already folds into the ETag, so hashing the rows is a sound (and
+ * slightly broader) basis than hashing the grouped result.
+ */
+export async function listPublishedByWorkspaceDigest(
+  workspaceId: string,
+): Promise<
+  {
+    slug: string;
+    seriesId: string | null;
+    publishedAt: number;
+    publishedVersion: number;
+    contentHash: string;
+    pagesHash: string;
+    seriesName: string | null;
+    archived: boolean | null;
+    seriesOrder: number | null;
+    startYear: number | null;
+    categoryName: string | null;
+    categoryOrder: number | null;
+  }[]
+> {
+  const rows = await getDb()
+    .select({
+      slug: schema.publishedSeries.slug,
+      seriesId: schema.publishedSeries.seriesId,
+      publishedAt: schema.publishedSeries.publishedAt,
+      publishedVersion: schema.publishedSeries.publishedVersion,
+      contentHash: schema.publishedSeries.contentHash,
+      // jsonb has a canonical text form, so this digest is stable for a given
+      // stored value — the same page list always hashes the same way.
+      pagesHash: sql<string>`md5(${schema.publishedSeries.pages}::text)`,
+      seriesName: schema.series.name,
+      archived: schema.series.archived,
+      seriesOrder: schema.series.displayOrder,
+      startDate: schema.series.startDate,
+      categoryName: schema.categories.name,
+      categoryOrder: schema.categories.displayOrder,
+    })
+    .from(schema.publishedSeries)
+    .leftJoin(
+      schema.series,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .leftJoin(
+      schema.categories,
+      eq(schema.series.categoryId, schema.categories.id),
+    )
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+    .orderBy(desc(schema.publishedSeries.publishedAt));
+  return rows.map((r) => ({
+    slug: r.slug,
+    seriesId: r.seriesId,
+    publishedAt: r.publishedAt.getTime(),
+    publishedVersion: r.publishedVersion,
+    contentHash: r.contentHash,
+    pagesHash: r.pagesHash,
+    seriesName: r.seriesName,
+    archived: r.archived,
+    seriesOrder: r.seriesOrder,
+    startYear: yearOf(r.startDate),
+    categoryName: r.categoryName,
+    categoryOrder: r.categoryOrder,
+  }));
+}
+
 /** The redirect target for a moved public path (ADR-011), or null. `fromPath`
  *  is the path under `/p/{ws}/` (no leading slash); the returned target is
  *  the same shape. Consulted by the `/p/` route only after everything else

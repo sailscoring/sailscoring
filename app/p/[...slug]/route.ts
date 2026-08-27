@@ -57,6 +57,7 @@ import {
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
+  listPublishedByWorkspaceDigest,
   listPublishedSeriesIds,
 } from '@/lib/published-repository';
 import type { PublishedSeries } from '@/lib/types';
@@ -180,9 +181,15 @@ async function workspaceIndex(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
-  const items = await listPublishedByWorkspace(workspace.id);
+  // Freshness first, contents second. This reads the listing's inputs without
+  // the `pages` JSONB (hashed in Postgres instead), so a revalidating client
+  // that already holds the current version is answered without transferring
+  // every publication's page list — on a workspace with a large archive that
+  // is the bulk of the request. The full listing is loaded below, only when
+  // the page actually has to be rendered.
+  const digest = await listPublishedByWorkspaceDigest(workspace.id);
   // Don't reveal that a workspace exists if it has published nothing.
-  if (items.length === 0) return NOT_FOUND;
+  if (digest.length === 0) return NOT_FOUND;
 
   // The explicitly-current season opens by default (ADR-011); the folder
   // metadata carries the event rows' label pins.
@@ -210,7 +217,14 @@ async function workspaceIndex(
   // re-categorising, re-filing, or reordering a series busts the cached page,
   // plus the competitors-link flag so it appears the first time one is added,
   // and the ranking links so publishing/renaming a ladder shows up. Each
-  // item's page list feeds the quick-jump picker (#320), so it contributes too.
+  // publication's page list feeds the quick-jump picker (#320), so it
+  // contributes too — via `pagesHash`, which changes whenever any page does.
+  //
+  // One line per publication, not per rendered slug. Everything the grouped
+  // listing derives (title, season, fleet count, the representative series'
+  // placement) is a function of these fields and the folder metadata already
+  // hashed above, so this is a sound basis. The lines are sorted because
+  // `published_at` alone is not a total order over the rows.
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `competitors:${competitorsLink}`,
@@ -219,20 +233,17 @@ async function workspaceIndex(
     ...[...folderMeta].map(
       ([p, m]) => `fmeta:${p}:${m.label ?? ''}:${m.season ?? ''}`,
     ),
-    ...items.map(
-      (i) =>
-        `${i.slug}:${i.publishedAt}:${i.fleetCount}:${i.title}:${i.archived}:${i.categoryName ?? ''}:${i.categoryOrder}:${i.seriesOrder}:${i.season ?? ''}:${i.contributors
-          .map(
-            (c) =>
-              `${c.title ?? ''}^${c.year ?? ''}^${c.categoryName ?? ''}^${c.pages
-                .map((p) => `${p.subPath}~${p.subSeriesName ?? ''}~${p.fleetName}`)
-                .join('|')}`,
-          )
-          .join('§')}`,
-    ),
+    ...digest
+      .map(
+        (d) =>
+          `${d.slug}:${d.seriesId ?? ''}:${d.publishedAt}:${d.publishedVersion}:${d.contentHash}:${d.pagesHash}:${d.seriesName ?? ''}:${d.archived}:${d.seriesOrder}:${d.startYear ?? ''}:${d.categoryName ?? ''}:${d.categoryOrder}`,
+      )
+      .sort(),
   ])}"`;
   const cached = notModified(req, etag);
   if (cached) return cached;
+
+  const items = await listPublishedByWorkspace(workspace.id);
   const html = renderWorkspaceIndexHtml(workspaceSlug, workspace.name, items, workspace.logo, {
     competitorsLink,
     rankingsLink,
