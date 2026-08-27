@@ -551,6 +551,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         series={data.series}
         races={races}
         finishes={allFinishes}
+        raceStarts={raceStarts}
         open={showFinalise}
         onClose={() => setShowFinalise(false)}
       />

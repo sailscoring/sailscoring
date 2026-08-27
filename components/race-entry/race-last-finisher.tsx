@@ -6,7 +6,7 @@ import { Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { effectiveLastFinisherTime } from '@/lib/race-status';
 import { normalizeTimeInput } from '@/lib/time-parse';
-import type { Finish, Race } from '@/lib/types';
+import type { Finish, Race, RaceStart } from '@/lib/types';
 
 /**
  * The race's last-finisher time — the anchor for protest / redress time
@@ -19,17 +19,20 @@ import type { Finish, Race } from '@/lib/types';
 export function RaceLastFinisher({
   race,
   finishes,
+  raceStarts,
   readOnly,
   onSave,
 }: {
   race: Race;
   finishes: Finish[];
+  /** The guns an elapsed-time finish sheet is measured from. */
+  raceStarts: RaceStart[];
   readOnly: boolean;
   onSave: (lastFinisherTime: string | undefined) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
-  const lastFinisher = effectiveLastFinisherTime(race, finishes);
+  const lastFinisher = effectiveLastFinisherTime(race, finishes, raceStarts);
 
   if (lastFinisher?.source === 'finishes') {
     return (

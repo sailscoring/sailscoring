@@ -7,7 +7,7 @@ import {
   protestTimeLimitEnd,
 } from '@/lib/race-status';
 import { parseHmsToSeconds } from '@/lib/time-parse';
-import type { Finish, Race, Series } from '@/lib/types';
+import type { Finish, Race, RaceStart, Series } from '@/lib/types';
 
 /** Local-date ISO string ("YYYY-MM-DD") for comparing against race dates. */
 function localIsoDate(d: Date): string {
@@ -37,10 +37,13 @@ export function LastFinisherStrip({
   series,
   races,
   finishes,
+  raceStarts,
 }: {
   series: Series;
   races: Race[];
   finishes: Finish[];
+  /** The guns an elapsed-time finish sheet is measured from. */
+  raceStarts: RaceStart[];
 }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -58,9 +61,19 @@ export function LastFinisherStrip({
     return map;
   }, [finishes]);
 
+  const startsByRace = useMemo(() => {
+    const map = new Map<string, RaceStart[]>();
+    for (const s of raceStarts) {
+      const list = map.get(s.raceId) ?? [];
+      list.push(s);
+      map.set(s.raceId, list);
+    }
+    return map;
+  }, [raceStarts]);
+
   const known = useMemo(
-    () => lastKnownFinish(races, finishesByRace),
-    [races, finishesByRace],
+    () => lastKnownFinish(races, finishesByRace, startsByRace),
+    [races, finishesByRace, startsByRace],
   );
   if (!known) return null;
 
@@ -69,6 +82,7 @@ export function LastFinisherStrip({
     known.race,
     races,
     finishesByRace,
+    startsByRace,
   );
   const isToday = known.race.date === localIsoDate(now);
   const limitPending = limitEnd !== null && limitEnd > now;

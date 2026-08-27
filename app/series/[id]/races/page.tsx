@@ -825,6 +825,7 @@ export default function RacesPage({
           series={series}
           races={races}
           finishes={allFinishes}
+          raceStarts={raceStarts ?? []}
         />
       )}
 

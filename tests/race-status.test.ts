@@ -6,7 +6,7 @@ import {
   lastRaceOfSeries,
   protestTimeLimitEnd,
 } from '@/lib/race-status';
-import type { Finish, Race } from '@/lib/types';
+import type { Finish, Race, RaceStart } from '@/lib/types';
 
 function makeRace(overrides: Partial<Race> & Pick<Race, 'id'>): Race {
   return {
@@ -37,6 +37,10 @@ function makeFinish(raceId: string, overrides: Partial<Finish>): Finish {
     redressPoints: null,
     ...overrides,
   };
+}
+
+function makeStart(raceId: string, startTime?: string): RaceStart {
+  return { id: crypto.randomUUID(), raceId, fleetIds: [], ...(startTime ? { startTime } : {}) };
 }
 
 describe('effectiveLastFinisherTime', () => {
@@ -78,6 +82,39 @@ describe('effectiveLastFinisherTime', () => {
       time: '16:30:00',
       source: 'manual',
     });
+  });
+
+  it('reads a stopwatch sheet: elapsed times against the race’s gun', () => {
+    const race = makeRace({ id: 'r1', lastFinisherTime: '16:30:00' });
+    const finishes = [
+      makeFinish('r1', { sortOrder: 1, elapsedSecs: 3600 }),
+      makeFinish('r1', { sortOrder: 2, elapsedSecs: 4325.9 }),
+    ];
+    // Gun 14:05:00; the later boat crossed 1:12:05 after it. The fraction
+    // truncates, as a stopwatch reading does.
+    expect(effectiveLastFinisherTime(race, finishes, [makeStart('r1', '14:05:00')])).toEqual({
+      time: '15:17:05',
+      source: 'finishes',
+    });
+  });
+
+  it('falls back to the manual field for elapsed rows with no gun to measure from', () => {
+    const race = makeRace({ id: 'r1', lastFinisherTime: '16:30:00' });
+    const finishes = [makeFinish('r1', { sortOrder: 1, elapsedSecs: 3600 })];
+    expect(effectiveLastFinisherTime(race, finishes, [makeStart('r1')])).toEqual({
+      time: '16:30:00',
+      source: 'manual',
+    });
+  });
+
+  it('measures elapsed rows from the latest gun when a race has several', () => {
+    // No finish row carries a fleet, so the gun a given boat started under is
+    // unknowable here. The latest is used: a protest window that opens late
+    // beats one that closes early.
+    const race = makeRace({ id: 'r1' });
+    const finishes = [makeFinish('r1', { sortOrder: 1, elapsedSecs: 3600 })];
+    const starts = [makeStart('r1', '14:05:00'), makeStart('r1', '14:15:00')];
+    expect(effectiveLastFinisherTime(race, finishes, starts)?.time).toBe('15:15:00');
   });
 
   it('returns null with no times anywhere, or an unparseable manual value', () => {

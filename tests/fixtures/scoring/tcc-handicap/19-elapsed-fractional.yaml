@@ -1,0 +1,88 @@
+description: "IRC — a recorded elapsed time with a fractional part rounds half-up before correction"
+rrs_notes: "ORC rule 401.2: times are taken to whole seconds. The engine rounds half-up, as it does every other elapsed time."
+
+notes: |
+  Electronic race management measures to the millisecond, so an imported
+  elapsed time arrives with a fractional part. The fraction is kept as
+  recorded — it is the measurement — but the corrected time is worked from
+  whole seconds, so the elapsed time rounds half-up on the way into the
+  calculation.
+
+  Boat 1: elapsed 3599.500 s → 3600   CT = 3600 × 1.05 = 3780.00 → 3780  → 3rd
+  Boat 2: elapsed 4077.600 s → 4078   CT = 4078 × 0.88 = 3588.64 → 3589  → 1st
+  Boat 3: elapsed 3810.400 s → 3810   CT = 3810 × 0.95 = 3619.50 → 3620  → 2nd
+
+  Boat 1 is the case that matters: exactly half a second rounds up, not down.
+  The three boats are otherwise fixture 01's, so the ranking is unchanged and
+  the fraction is the only thing under test.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    ircTcc: 1.05
+  - sailNumber: "2"
+    name: "Beta"
+    ircTcc: 0.88
+  - sailNumber: "3"
+    name: "Gamma"
+    ircTcc: 0.95
+
+races:
+  - number: 1
+    startTime: "14:05:00"
+    finishes:
+      - sailor: "1"
+        elapsed: 3599.5
+      - sailor: "2"
+        elapsed: 4077.6
+      - sailor: "3"
+        elapsed: 3810.4
+    expected:
+      - sailor: "1"
+        rank: 3
+        points: 3.0
+        elapsedTime: 3600
+        correctedTime: 3780
+        tcfApplied: 1.05
+      - sailor: "2"
+        rank: 1
+        points: 1.0
+        elapsedTime: 4078
+        correctedTime: 3589
+        tcfApplied: 0.88
+      - sailor: "3"
+        rank: 2
+        points: 2.0
+        elapsedTime: 3810
+        correctedTime: 3620
+        tcfApplied: 0.95
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 1
+      netPoints: 1
+    - rank: 2
+      sailor: "3"
+      racePoints: [2]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 2
+      netPoints: 2
+    - rank: 3
+      sailor: "1"
+      racePoints: [3]
+      raceCodes: [null]
+      raceDiscards: [false]
+      totalPoints: 3
+      netPoints: 3

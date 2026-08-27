@@ -9,7 +9,7 @@ import {
   lastRaceOfSeries,
   protestTimeLimitEnd,
 } from '@/lib/race-status';
-import type { Finish, Race, Series } from '@/lib/types';
+import type { Finish, Race, RaceStart, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -34,12 +34,16 @@ export function FinaliseResultsDialog({
   series,
   races,
   finishes,
+  raceStarts,
   open,
   onClose,
 }: {
   series: Series;
   races: Race[];
   finishes: Finish[];
+  /** Needed to read a stopwatch-recorded finish sheet: an elapsed time only
+   *  becomes a crossing time once there is a gun to measure it from. */
+  raceStarts: RaceStart[];
   open: boolean;
   onClose: () => void;
 }) {
@@ -62,18 +66,26 @@ export function FinaliseResultsDialog({
       list.push(f);
       finishesByRace.set(f.raceId, list);
     }
+    const startsByRace = new Map<string, RaceStart[]>();
+    for (const s of raceStarts) {
+      const list = startsByRace.get(s.raceId) ?? [];
+      list.push(s);
+      startsByRace.set(s.raceId, list);
+    }
     const lastFinisher = effectiveLastFinisherTime(
       lastRace,
       finishesByRace.get(lastRace.id) ?? [],
+      startsByRace.get(lastRace.id) ?? [],
     );
     const limitEnd = protestTimeLimitEnd(
       series.protestTimeLimit,
       lastRace,
       races,
       finishesByRace,
+      startsByRace,
     );
     return { lastRace, lastFinisher, limitEnd, now: new Date() };
-  }, [open, races, finishes, series.protestTimeLimit]);
+  }, [open, races, finishes, raceStarts, series.protestTimeLimit]);
 
   const raceLabel = context
     ? `Race ${context.lastRace.raceNumber}${context.lastRace.name ? ` (${context.lastRace.name})` : ''}`

@@ -1,5 +1,6 @@
 import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
+import { elapsedSecondsOf } from './elapsed-time';
 import { parseHmsToSeconds } from './time-parse';
 import {
   PRIMARY_PERSON_LABEL_TEXT,
@@ -2256,9 +2257,14 @@ export function assembleSeriesResultsData(
           // competitor-level fallback here.
           tcc = score.tcfApplied;
         }
-        if (tcc != null && score.finishTime) {
-          const finishSecs = parseHmsToSeconds(score.finishTime) ?? NaN;
-          const et = score.elapsedTime ?? finishSecs - startSecs;
+        // A row recorded on a stopwatch has an elapsed time and no time of
+        // day, so the ET and CT columns key off either.
+        const et = score.elapsedTime
+          ?? elapsedSecondsOf(
+            { finishTime: score.finishTime, elapsedSecs: score.elapsedSecs },
+            startSecs,
+          );
+        if (tcc != null && et != null) {
           elapsedTimeSecs = et;
           // Prefer the engine's corrected time when the score carries one —
           // for time-on-distance the ET × TCF recompute would be wrong, and

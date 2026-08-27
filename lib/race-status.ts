@@ -15,8 +15,27 @@
  * convention: club racing has no cross-timezone story).
  */
 
-import type { Finish, ProtestTimeLimit, Race } from './types';
+import { crossingTimeOf } from './elapsed-time';
+import type { Finish, ProtestTimeLimit, Race, RaceStart } from './types';
 import { parseHmsToSeconds } from './time-parse';
+
+/**
+ * The gun a row recorded as an elapsed time is measured from.
+ *
+ * A finish row carries no fleet, so with more than one start there is no way
+ * to say which gun a given boat's elapsed time runs from. The latest is used:
+ * with a single start it is exact, and where it isn't, a protest window that
+ * opens late is better than one that closes early.
+ */
+function anchorStartSeconds(starts: readonly RaceStart[]): number | null {
+  let latest: number | null = null;
+  for (const s of starts) {
+    const seconds = parseHmsToSeconds(s.startTime);
+    if (seconds == null) continue;
+    if (latest == null || seconds > latest) latest = seconds;
+  }
+  return latest;
+}
 
 export interface LastFinisher {
   /** Wall-clock "HH:MM:SS" of the last boat's finish. */
@@ -32,19 +51,27 @@ export interface LastFinisher {
  * included (a boat later scored RET still crossed, and the protest window
  * runs from the last boat home). The manual field is only consulted when the
  * sheet carries no times at all.
+ *
+ * A row recorded as an elapsed time counts too, given the race's starts to
+ * measure it from: the finish sheet is no less authoritative for having been
+ * kept on a stopwatch. Without the starts such a row can say nothing, and
+ * the manual field answers instead.
  */
 export function effectiveLastFinisherTime(
   race: Race,
   finishes: Finish[],
+  starts: readonly RaceStart[] = [],
 ): LastFinisher | null {
+  const startSeconds = anchorStartSeconds(starts);
   let latest: string | null = null;
   let latestSeconds = -1;
   for (const f of finishes) {
-    const seconds = parseHmsToSeconds(f.finishTime);
+    const crossing = crossingTimeOf(f, startSeconds);
+    const seconds = parseHmsToSeconds(crossing);
     if (seconds == null) continue;
     if (seconds > latestSeconds) {
       latestSeconds = seconds;
-      latest = f.finishTime!;
+      latest = crossing!;
     }
   }
   if (latest != null) return { time: latest, source: 'finishes' };
@@ -84,12 +111,14 @@ export interface LastKnownFinish {
 export function lastKnownFinish(
   races: Race[],
   finishesByRace: Map<string, Finish[]>,
+  startsByRace?: Map<string, RaceStart[]>,
 ): LastKnownFinish | null {
   let best: LastKnownFinish | null = null;
   for (const race of races) {
     const lastFinisher = effectiveLastFinisherTime(
       race,
       finishesByRace.get(race.id) ?? [],
+      startsByRace?.get(race.id) ?? [],
     );
     if (!lastFinisher) continue;
     if (
@@ -120,6 +149,7 @@ export function protestTimeLimitEnd(
   race: Race,
   races: Race[],
   finishesByRace: Map<string, Finish[]>,
+  startsByRace?: Map<string, RaceStart[]>,
 ): Date | null {
   if (!limit || !race.date) return null;
 
@@ -130,6 +160,7 @@ export function protestTimeLimitEnd(
     const lastFinisher = effectiveLastFinisherTime(
       r,
       finishesByRace.get(r.id) ?? [],
+      startsByRace?.get(r.id) ?? [],
     );
     if (!lastFinisher) continue;
     const seconds = parseHmsToSeconds(lastFinisher.time);

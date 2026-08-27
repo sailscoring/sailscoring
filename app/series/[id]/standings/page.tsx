@@ -415,6 +415,7 @@ export default function StandingsPage({
         series={series}
         races={races}
         finishes={allFinishes}
+        raceStarts={allRaceStarts}
         open={showFinaliseDialog}
         onClose={() => setShowFinaliseDialog(false)}
       />

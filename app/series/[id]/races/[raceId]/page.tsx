@@ -329,6 +329,7 @@ export default function ResultEntryPage({
             <RaceLastFinisher
               race={race}
               finishes={savedFinishes ?? []}
+              raceStarts={raceStarts}
               readOnly={readOnly}
               onSave={async (lastFinisherTime) => {
                 await saveRace.mutateAsync({ ...race, lastFinisherTime });

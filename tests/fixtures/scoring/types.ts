@@ -27,6 +27,28 @@ import type {
   SubSeries,
 } from '@/lib/types';
 
+/**
+ * A fixture's `elapsed` value in seconds. Written the way a scorer would read
+ * it off a stopwatch — `"14:20"`, `"1:14:20.45"` — or as plain seconds where
+ * that is what the fixture is about.
+ */
+function fixtureElapsedSecs(fixture: Fixture, f: FixtureFinish): number {
+  if (f.finishTime) {
+    throw new Error(
+      `Fixture "${fixture.description}": ${f.sailor} has both a finishTime and an elapsed time; a finish is recorded one way or the other.`,
+    );
+  }
+  if (typeof f.elapsed === 'number') return f.elapsed;
+  const match = /^(?:(\d+):)?(\d{1,2}):(\d{2}(?:\.\d+)?)$/.exec(String(f.elapsed).trim());
+  if (!match) {
+    throw new Error(
+      `Fixture "${fixture.description}": ${f.sailor} has an unreadable elapsed time "${f.elapsed}".`,
+    );
+  }
+  const [, h, m, sec] = match;
+  return Number(h ?? 0) * 3600 + Number(m) * 60 + Number(sec);
+}
+
 // ─── Fixture schema ──────────────────────────────────────────────────────────
 
 export interface FixtureFinish {
@@ -35,6 +57,10 @@ export interface FixtureFinish {
   /** Marks this finisher as tied with the immediately-prior row (RRS A8.1). */
   tiedWithPrevious?: boolean;
   finishTime?: string;                      // handicap: wall-clock finish time
+  /** handicap: elapsed time, as a stopwatch records it — "MM:SS", "H:MM:SS",
+   *  or a number of seconds. An alternative to `finishTime`, not a companion:
+   *  a row carrying both is a fixture error. */
+  elapsed?: string | number;
   code?: ResultCode;
   startPresent?: boolean;
   penaltyCode?: PenaltyCode;
@@ -424,6 +450,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
         sortOrder: f.position ?? null,
         tiedWithPrevious: f.tiedWithPrevious ?? false,
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+        ...(f.elapsed != null ? { elapsedSecs: fixtureElapsedSecs(fixture, f) } : {}),
         resultCode: f.code ?? null,
         startPresent: f.startPresent ?? null,
         penaltyCode: f.penaltyCode ?? null,

@@ -1,4 +1,5 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
+import { elapsedSecondsOf } from './elapsed-time';
 import { getCodeDefinition } from './scoring-codes';
 import { orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
@@ -342,7 +343,8 @@ export interface TodCorrectionContext {
  * Phase A — race scoring. Calculates per-race scores for a time-corrected fleet
  * (IRC, PY, or any progressive system) using time-on-time correction:
  *
- *   CT = ET × TCF   where ET = finishTime − startTime (seconds-since-midnight)
+ *   CT = ET × TCF   where ET is the boat's elapsed time — recorded outright,
+ *                   or finishTime − startTime (seconds-since-midnight)
  *
  * The applied TCF for each competitor is supplied in `appliedTcfByCompetitorId`.
  * The caller is responsible for resolving where that TCF comes from:
@@ -439,12 +441,11 @@ export function calculateHandicapRaceScores(
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: finish.resultCode, isFinisher: false });
       continue;
     }
-    const finishSeconds = parseHmsToSeconds(finish.finishTime);
-    if (finishSeconds === null || startSeconds === null) {
+    const et = elapsedSecondsOf(finish, startSeconds);
+    if (et === null) {
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNF', isFinisher: false });
       continue;
     }
-    const et = finishSeconds - startSeconds;
     // Both forms round half-up to whole seconds (ORC rule 401.2 states the
     // same convention the engine has always used for time-on-time).
     const ct = todContext
@@ -570,10 +571,8 @@ export function computeOrcPcsRace(
     const finish = finishByCompetitorId.get(c.id);
     let elapsedSeconds: number | undefined;
     if (finish && finish.resultCode === null) {
-      const finishSeconds = parseHmsToSeconds(finish.finishTime);
-      if (finishSeconds !== null && finishSeconds > startSeconds) {
-        elapsedSeconds = finishSeconds - startSeconds;
-      }
+      const et = elapsedSecondsOf(finish, startSeconds);
+      if (et !== null && et > 0) elapsedSeconds = et;
     }
     return {
       id: c.id,
@@ -1222,7 +1221,8 @@ function computeRaceExclusion(
   fleetFinishes: Finish[],
 ): boolean {
   const raceHeld = allRaceFinishes.some(
-    (f) => f.resultCode === null && (f.finishTime != null || f.sortOrder !== null),
+    (f) => f.resultCode === null
+      && (f.finishTime != null || f.elapsedSecs != null || f.sortOrder !== null),
   );
   const fleetCameToStart = fleetFinishes.some((f) => f.resultCode !== 'DNC');
   return !(raceHeld && fleetCameToStart);
