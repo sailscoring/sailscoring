@@ -4,7 +4,9 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useFeatures } from '@/components/features-provider';
+import { useFinishesBySeries } from '@/hooks/use-finishes';
 import { useUpdateSeries } from '@/hooks/use-series';
+import { hasTrackData } from '@/lib/track-data';
 import type { Series } from '@/lib/types';
 
 export function PublishingCard({
@@ -33,6 +35,14 @@ export function PublishingCard({
   // data; the columns themselves also need it (and the data) to render.
   const showTrackDataToggle = has('racesense-import');
   const publishTrackData = series.publishTrackData === true;
+  // How much data the toggle is actually about. Without this the scorer is
+  // deciding to publish something they have no way to know exists — and a
+  // switched-on series with nothing imported publishes no columns at all,
+  // which looks like the setting not working.
+  const { data: seriesFinishes } = useFinishesBySeries(seriesId, { enabled: showTrackDataToggle });
+  const racesWithTrackData = new Set(
+    (seriesFinishes ?? []).filter((f) => hasTrackData(f.trackData)).map((f) => f.raceId),
+  ).size;
   const summaryParts = [
     ...(showDetail && publishDetail === 'races' ? ['race results only'] : []),
     ...(showTrackDataToggle && publishTrackData ? ['track data published'] : []),
@@ -141,6 +151,13 @@ export function PublishingCard({
                   default: the data is captured for race management, so publishing
                   it is your call.
                 </p>
+                {seriesFinishes && (
+                  <p className="text-xs text-muted-foreground mt-1" data-testid="track-data-coverage">
+                    {racesWithTrackData === 0
+                      ? 'No race in this series has track data imported yet, so this publishes nothing.'
+                      : `${racesWithTrackData} ${racesWithTrackData === 1 ? 'race carries' : 'races carry'} track data.`}
+                  </p>
+                )}
               </div>
             </div>
           )}
