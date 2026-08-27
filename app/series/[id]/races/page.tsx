@@ -55,6 +55,7 @@ import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { generateStarts } from '@/lib/start-sequence';
 import { normalizeTimeInput } from '@/lib/time-parse';
+import { hasTrackData } from '@/lib/track-data';
 import { defaultRaceDate, generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
 import { RaceSenseImport, type RaceSenseImportHandle } from '@/components/racesense-import';
@@ -91,9 +92,16 @@ function RaceRow({
   const { has } = useFeatures();
   const scoringOptionsGated = has('race-scoring-options');
   const raceRecordGated = has('race-management-metadata');
+  const raceSenseGated = has('racesense-import');
   const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
   const [raceRecordOpen, setRaceRecordOpen] = useState(false);
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
+  // Every boat with a row in this race against the ones the device recorded.
+  // A bare count says the import captured the race whole; a fraction is the
+  // only place a boat the device missed shows up, since the finish sheet
+  // marks the rows that have data rather than the ones that don't.
+  const rowCount = finishes?.length ?? 0;
+  const trackDataCount = finishes?.filter((f) => hasTrackData(f.trackData)).length ?? 0;
 
   async function handleDelete() {
     const ok = await confirm({
@@ -154,6 +162,11 @@ function RaceRow({
           {scoringOptionsGated && hasScoringOptions(race) && (
             <Badge variant="outline" className="ml-2 font-normal" data-testid="race-scoring-badge">
               {scoringOptionsSummary(race)}
+            </Badge>
+          )}
+          {raceSenseGated && trackDataCount > 0 && (
+            <Badge variant="outline" className="ml-2 font-normal" data-testid="race-track-data-badge">
+              Track data {trackDataCount === rowCount ? trackDataCount : `${trackDataCount}/${rowCount}`}
             </Badge>
           )}
           {/* Conditions earn a badge; the team doesn't. A wind range is the
