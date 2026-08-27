@@ -157,11 +157,18 @@ Time + floor(Total Time)` reproduces RaceSense's own written timestamp
 exactly in every row except those four, and for those it produces exactly
 what the sheet had to be corrected by hand to say.
 
-So the import reads `Total Time` and stores it as the finish's elapsed time.
+So the import reads `Total Time` and stores it as the finish's elapsed time,
+and the out-of-order check on the Finishes block compares elapsed times too —
+the four boats above are out of order by timestamp and in perfect order by
+elapsed time, so checking the timestamps would flag a block that is fine.
+
 `Finishing Time` is still parsed, and disagreeing with `Start Time + Total
 Time` by more than a second raises a `finish-time-drift` anomaly — the one
 second being the format's own rounding, since the timestamp truncates its
-fractional seconds and the elapsed time keeps them.
+fractional seconds and the elapsed time keeps them. It is `info`, not a
+warning: a warning against a race is a decision the scorer has to make before
+importing it, and there is no decision to make about a value the import
+doesn't read.
 
 ### Discarded
 

@@ -298,6 +298,17 @@ export function normalizeRaceSenseElapsed(raw: string): number | null {
   return Number(h ?? 0) * 3600 + Number(m) * 60 + Number(s);
 }
 
+/** An elapsed time back in the shape RaceSense writes it, for a message that
+ *  quotes one cell against another. */
+function formatElapsed(secs: number): string {
+  const whole = Math.floor(secs);
+  const frac = secs - whole;
+  const m = Math.floor(whole / 60);
+  const s = whole % 60;
+  const tail = frac > 0 ? String(Number(frac.toFixed(3))).slice(1) : '';
+  return `${m}:${String(s).padStart(2, '0')}${tail}`;
+}
+
 /** Which scoring code an uncleared OCS becomes under this race's preparatory
  *  signal. `null` when the signal isn't one we have a mapping for — the
  *  scorer sets the code by hand, having been told why. */
@@ -476,7 +487,10 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
 
   const finishes: RaceSenseFinish[] = [];
   const seen = new Set<string>();
-  let lastTime: string | null = null;
+  // The block is ordered by elapsed time, and so is the import; the times of
+  // day beside it are a rendering that has been seen going wrong for
+  // individual boats, so ordering is checked against the elapsed times.
+  let lastElapsed: number | null = null;
   let lastPosition = 0;
 
   for (let i = headerAt + 1; i < rows.length; i++) {
@@ -526,13 +540,6 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
       if (finishTime === null) {
         flag(ctx, 'warning', 'unreadable-time', `Couldn’t read the finishing time "${rawTime}".`,
           { where: `finish row for ${sailNumber}`, value: rawTime });
-      } else if (position !== null) {
-        if (lastTime !== null && finishTime < lastTime) {
-          flag(ctx, 'warning', 'finish-order',
-            `${sailNumber} finished at ${finishTime}, before the boat above her (${lastTime}).`,
-            { where: `finish row for ${sailNumber}`, value: rawTime });
-        }
-        lastTime = finishTime;
       }
     }
 
@@ -541,6 +548,15 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
     if (totalTimeSecs === null && !isBlank(rawTotal)) {
       flag(ctx, 'warning', 'unreadable-time', `Couldn’t read the total time "${rawTotal}".`,
         { where: `finish row for ${sailNumber}`, value: rawTotal });
+    }
+
+    if (position !== null && totalTimeSecs !== null) {
+      if (lastElapsed !== null && totalTimeSecs < lastElapsed) {
+        flag(ctx, 'warning', 'finish-order',
+          `${sailNumber} took ${rawTotal.trim()}, less than the boat placed above her (${formatElapsed(lastElapsed)}).`,
+          { where: `finish row for ${sailNumber}`, value: rawTotal });
+      }
+      lastElapsed = totalTimeSecs;
     }
 
     finishes.push({
@@ -647,10 +663,15 @@ function parseRaceSheet(sheet: WorkbookSheet, number: number, ctx: Ctx): RaceSen
  *
  * Exports have been seen writing an individual boat's timestamp an hour out
  * while her elapsed time stayed right — four boats in one race of one day of
- * one championship, the rest of the sheet correct. The import scores from the
- * elapsed time, so such a race scores correctly either way; this exists so
- * that the scorer hears about it rather than finding it by eye, and so that a
- * whole-sheet drift shows up as a whole-sheet complaint.
+ * one championship, the rest of the sheet correct. Nothing is imported from
+ * the timestamp, so a race like that scores correctly regardless; the note
+ * exists so the device's mistake is on the record rather than found by eye,
+ * and so a whole-sheet drift shows up as a whole-sheet complaint.
+ *
+ * Reported as `info`, deliberately. A warning against a race is a decision
+ * the scorer has to make before importing it, and there is no decision here:
+ * the value that disagrees is one this import doesn't read. Being told is the
+ * whole of it.
  *
  * A second's disagreement is the format's own rounding — the timestamp
  * truncates its fractional seconds and the elapsed time keeps them — so only
@@ -668,8 +689,8 @@ function checkFinishingTimes(
     const expected = startSeconds + Math.floor(f.totalTimeSecs);
     const drift = hmsToSeconds(f.finishTime) - expected;
     if (Math.abs(drift) <= 1) continue;
-    flag(ctx, 'warning', 'finish-time-drift',
-      `${f.sailNumber}'s finishing time is ${describeDrift(drift)} what her elapsed time says (${f.finishTime} against ${secondsToHms(expected)}). She is scored on the elapsed time; the finishing time is not imported.`,
+    flag(ctx, 'info', 'finish-time-drift',
+      `${f.sailNumber}'s finishing time is ${describeDrift(drift)} her elapsed time (${f.finishTime} against ${secondsToHms(expected)}) — the device's own inconsistency. Nothing is scored from it: the elapsed time is what this import reads.`,
       { where: `finish row for ${f.sailNumber}`, value: f.finishTime });
   }
 }

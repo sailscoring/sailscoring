@@ -457,8 +457,15 @@ function changesBetween(
 // The plan
 // ---------------------------------------------------------------------------
 
-/** Anomaly kinds the parser raises about the workbook rather than one race. */
-const WORKBOOK_KINDS = new Set(['app-version', 'summary-mismatch', 'unknown-sheet', 'duplicate-race']);
+/** Anomaly kinds the parser raises about the workbook rather than one race.
+ *
+ *  `finish-time-drift` is here because it is a fact about the file, not a
+ *  decision about a race: the value it flags is one this import doesn't read,
+ *  so hanging it on a race would put a note the scorer can do nothing with
+ *  against a race there is nothing wrong with. */
+const WORKBOOK_KINDS = new Set([
+  'app-version', 'summary-mismatch', 'unknown-sheet', 'duplicate-race', 'finish-time-drift',
+]);
 
 export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
   const { workbook, fleetId, competitors, finishes, offset = 0, overrides = {} } = input;

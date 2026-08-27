@@ -524,7 +524,9 @@ describe('the finishing time as a cross-check', () => {
     // The ILCA 7 Worlds case: four boats in one race carried a timestamp an
     // hour out while every Total Time on the sheet stayed right.
     const [anomaly] = drift('10:45:20.450');
-    expect(anomaly.severity).toBe('warning');
+    // Info, not a warning: the value that disagrees is one the import does
+    // not read, so there is nothing for the scorer to decide.
+    expect(anomaly.severity).toBe('info');
     expect(anomaly.message).toContain('an hour earlier than');
     expect(anomaly.message).toContain('11:45:20');
     expect(anomaly.where).toBe('finish row for 1021');

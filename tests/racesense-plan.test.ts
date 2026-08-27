@@ -548,6 +548,29 @@ describe('what the device captured', () => {
     expect(byId.get('c3')?.trackData).toEqual({ dtlAtStartM: -326.16 });
   });
 
+  it('reports a drifting finishing time about the workbook, not against a race', () => {
+    // The timestamp isn't imported, so a race whose sheet carries a bad one
+    // is not a race with a problem — it stays recommended, and the note goes
+    // where facts about the file go.
+    const { races, workbookNotes } = plan({
+      races: [sourceRace({ number: 1 })],
+      anomalies: [{
+        severity: 'info',
+        kind: 'finish-time-drift',
+        sheet: 'Race 1',
+        where: 'finish row for 1021',
+        message: "1021's finishing time is an hour earlier than her elapsed time.",
+      }],
+    });
+    expect(races[0].notes.map((n) => n.kind)).not.toContain('finish-time-drift');
+    expect(races[0].recommended).toBe(true);
+    const [note] = workbookNotes.filter((n) => n.kind === 'finish-time-drift');
+    expect(note.severity).toBe('info');
+    expect(note.message).toContain('1021');
+    // The result is unaffected: her elapsed time is what was imported.
+    expect(races[0].result!.finishes.find((f) => f.competitorId === 'c1')?.elapsedSecs).toBe(860);
+  });
+
   it('imports a finisher with no Total Time untimed, and says so', () => {
     // The timestamp beside her is not a substitute: it is the value this
     // import stopped trusting, and a handicap fleet needs a real time.
