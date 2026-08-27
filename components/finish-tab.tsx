@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type Ref } from 'react';
-import { X, AlertTriangle, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { X, Activity, AlertTriangle, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-fields';
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import { ordinal } from '@/lib/ordinal';
+import { hasTrackData, trackDataStrip } from '@/lib/track-data';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
 import {
@@ -216,6 +217,18 @@ export function FinishTab(props: FinishTabProps) {
     competitorMatchesFilter(competitor, nonFinisherFilter));
   const { recorded: recordedNonFinishers, didNotCompete: didNotCompeteNonFinishers } =
     partitionNonFinishers(filteredNonFinishers);
+
+  // Which rows have their track data showing. A set rather than a single open
+  // row: comparing two boats is the point of looking at all, and there is no
+  // table to compare them in.
+  const [openTrackData, setOpenTrackData] = useState<ReadonlySet<string>>(new Set());
+  const toggleTrackData = (eid: string) =>
+    setOpenTrackData((open) => {
+      const next = new Set(open);
+      if (!next.delete(eid)) next.add(eid);
+      return next;
+    });
+
   useShortcuts([
     {
       key: '/',
@@ -647,13 +660,18 @@ export function FinishTab(props: FinishTabProps) {
             if (!competitor) return null;
             const penalty = finisherPenalties.get(entry.competitorId);
             const hasRedress = redressEntries.has(entry.competitorId);
+            // Track data rides on the finish row itself, so its presence is
+            // the whole gate: nothing but the RaceSense import puts it there.
+            const finish = finishByCompetitorId.get(entry.competitorId);
+            const showTrackData = hasTrackData(finish?.trackData);
+            const trackDataOpen = showTrackData && openTrackData.has(eid);
             return (
               <li
                 ref={ref}
                 style={style}
                 data-entry-key={eid}
                 className={cn(
-                  'flex items-center gap-3 border rounded-lg px-4 py-2.5 transition-colors',
+                  'border rounded-lg px-4 py-2.5 transition-colors',
                   // Hover highlight anchors the eye across the now-wider row when
                   // scanning out to the finish time / actions.
                   hasRedress
@@ -662,6 +680,7 @@ export function FinishTab(props: FinishTabProps) {
                   isFlashed && 'ring-2 ring-primary',
                 )}
               >
+                <div className="flex items-center gap-3">
                 <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
                   {rowNumber}
                 </span>
@@ -780,6 +799,22 @@ export function FinishTab(props: FinishTabProps) {
                     RDG
                   </Badge>
                 )}
+                {showTrackData && (
+                  <button
+                    type="button"
+                    onClick={() => toggleTrackData(eid)}
+                    aria-label={`Track data for ${competitor.sailNumber}`}
+                    aria-expanded={trackDataOpen}
+                    title="What the device recorded"
+                    data-testid={`track-data-toggle-${competitor.sailNumber}`}
+                    className={cn(
+                      'shrink-0 hover:text-foreground',
+                      trackDataOpen ? 'text-foreground' : 'text-muted-foreground',
+                    )}
+                  >
+                    <Activity className="h-4 w-4" />
+                  </button>
+                )}
                 {/* Penalty and redress are infrequent — keep them off the row
                     behind an overflow menu so the boat name keeps the width.
                     The aria-labels below carry the sail number for addressing. */}
@@ -811,6 +846,17 @@ export function FinishTab(props: FinishTabProps) {
                 >
                   <X className="h-4 w-4" />
                 </button>
+                </div>
+                {trackDataOpen && (
+                  // Read-only, and styled to say so: this is what the device
+                  // recorded, sitting under a row of fields the scorer edits.
+                  <p
+                    className="mt-1.5 pl-9 text-xs font-mono text-muted-foreground"
+                    data-testid={`track-data-${competitor.sailNumber}`}
+                  >
+                    {trackDataStrip(finish).join(' \u00b7 ')}
+                  </p>
+                )}
               </li>
             );
           }}
