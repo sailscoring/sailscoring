@@ -35,14 +35,23 @@ What this does **not** protect against:
 
 ## Architecture
 
-- **Schedule:** daily at 06:00 UTC.
-- **Workflow:** `.github/workflows/backup-database.yml`.
+Two schedules, differing only in what they include:
+
+| | Daily | Weekly |
+|---|---|---|
+| **Schedule** | 06:00 UTC | 05:40 UTC, Sunday |
+| **Object key** | `daily/YYYY/MM/DD/sailscoring-<ts>.dump` | `weekly/YYYY/MM/DD/sailscoring-<ts>.dump` |
+| **`as_published_results` rows** | excluded | included |
+| **Everything else** | included | included |
+
+- **Workflow:** `.github/workflows/backup-database.yml` — one job; the
+  schedule that fired decides the mode. `workflow_dispatch` runs a daily
+  by default, or a full dump with the `full` input set.
 - **Source:** a Neon **read-replica** compute on the production branch.
   Read replicas share storage with the primary but cannot accept
   writes, so a leaked `BACKUP_DATABASE_URL` cannot damage production.
 - **Format:** PostgreSQL custom format (`pg_dump -Fc`), internally
   compressed.
-- **Object key:** `daily/YYYY/MM/DD/sailscoring-YYYY-MM-DDThh-mm-ssZ.dump`.
 - **Auth, Actions → AWS:** OIDC. The IAM role's trust policy restricts
   it to this repo on `main` only.
 - **Auth, Actions → Neon:** the read-replica connection string in the
@@ -51,6 +60,28 @@ What this does **not** protect against:
 The concrete bucket name and IAM role ARN for this deployment live in
 `.github/workflows/backup-database.yml`. The runbook below uses
 `<bucket>` as a placeholder.
+
+### Why the daily dump omits the archive rows
+
+`as_published_results` holds the as-published archives ([ADR-010](design/decisions/010-as-published-archives.md)):
+ingested from the per-class archive repos, display-only, never re-scored.
+It is over half of the database by volume, and it is **already backed up**
+— in those repos, in git, with the ingest CI able to reproduce it.
+
+That matters more than it might sound, because `pg_dump --format=custom`
+compresses **on the client, after the rows have crossed the wire**. The
+compressed artefact in S3 is not what the transfer costs: in August 2026
+a 19 MiB object cost ~98 MiB of egress, and that line alone consumed 42%
+of the database's monthly network-transfer allowance. Excluding these rows
+roughly halves it.
+
+The exclusion is `--exclude-table-data`, not `-T`. The table's definition
+stays in every dump, so restoring a daily backup gives you a complete,
+working schema with this one table empty — not a database missing a table
+the application expects. Re-running the archive apply repopulates it.
+
+The weekly run takes no exclusions, so a single-artefact restore needing
+no archive replay is never more than seven days stale.
 
 ## Quick sanity check (no restore)
 
@@ -72,6 +103,11 @@ in the right ballpark vs. expectations. What it does **not** prove:
 that indexes and constraints rebuild. For that, run the full restore
 drill.
 
+**On a `daily/` dump the script will flag `public.as_published_results`
+as empty. That is correct and expected** — see [Architecture](#architecture).
+On a `weekly/` dump it should be populated, and an empty one there is a
+real finding.
+
 ## Restoring from a backup
 
 This procedure restores a chosen dump into a scratch Postgres for
@@ -84,7 +120,13 @@ and a target Postgres (the local dev container is fine for drills).
 
    ```bash
    aws s3 ls s3://<bucket>/daily/ --recursive | grep -v ' 0 ' | tail
+   aws s3 ls s3://<bucket>/weekly/ --recursive | grep -v ' 0 ' | tail
    ```
+
+   **Which prefix?** A `weekly/` object restores to a complete database in
+   one step and is the right choice unless you specifically need a
+   point closer in time. A `daily/` object is up to six days fresher but
+   restores with `as_published_results` empty; see step 6.
 
    The `grep -v ' 0 '` filter excludes any 0-byte ghost objects left
    behind by past failed runs (the upload races ahead of `pipefail`
@@ -141,6 +183,14 @@ and a target Postgres (the local dev container is fine for drills).
    pnpm dev:local
    # http://localhost:3000 — sign in, open a series, view standings.
    ```
+
+6. **If you restored a `daily/` dump, replay the archives.** The restore
+   left `as_published_results` empty by design. Re-run the archive apply
+   from each per-class archive repo against the restored database to
+   repopulate it. Until you do, as-published series will render with no
+   stored results — the rest of the application is unaffected.
+
+   Skip this entirely when restoring from `weekly/`.
 
 ### Drill cadence
 
@@ -340,9 +390,31 @@ discussion.
 
 ### Cost
 
-Storage is rounding error: ~100 KiB per dump × 90 days at S3 standard
-pricing is cents per month. GitHub Actions compute fits inside the
-free tier comfortably (one ~40-second job per day).
+S3 storage is a rounding error — ~10 MiB per daily dump and ~20 MiB per
+weekly, held 90 days, is cents per month at S3 standard pricing. GitHub
+Actions compute fits inside the free tier comfortably.
+
+The cost that actually matters is **Neon network transfer**, and it is
+much larger than the stored artefacts suggest, because the dump is
+compressed client-side after the rows are already on the wire. Budget on
+the *uncompressed* size: currently ~46 MiB per daily run and ~98 MiB per
+weekly, so ~1.8 GB/month. That is comfortably inside the 500 GB/month a
+paid Neon plan includes, but it was 2.4 GB/month before the exclusion
+above and it exhausted the free plan's 5 GB allowance in August 2026.
+This line grows with the database, so re-check it after any large import.
+
+### Scheduled runs are late, and occasionally do not happen
+
+GitHub's scheduled-workflow queue is best-effort: runs are delayed under
+load and can be dropped entirely. Across the first 113 scheduled runs of
+this workflow, **not one started on time** — median lateness ~2.5 hours,
+worst ~5.8 hours — and the 27 August 2026 run never fired at all. The
+weekly cron is deliberately set off the top of the hour, which is the
+most congested slot; the daily one is not, and moving it would likely
+help.
+
+Lateness is cosmetic. A dropped run is not, and it is invisible — see
+Failure detection above.
 
 ### Extending retention
 

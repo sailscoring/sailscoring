@@ -2,8 +2,18 @@ name: Database backup
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # 06:00 UTC daily
-  workflow_dispatch:      # manual trigger for first-run + ad-hoc
+    # Daily, without the as-published archive rows (see ARCHIVE_TABLE below).
+    - cron: '0 6 * * *'
+    # Weekly, everything. Deliberately off the top of the hour: GitHub's
+    # scheduled queue is busiest there, and every run of the daily job above
+    # has started late — median ~2.5h, worst ~5.8h — since May 2026.
+    - cron: '40 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Include the as-published archive data (a weekly-style full dump)'
+        type: boolean
+        default: false
 
 permissions:
   id-token: write   # required for AWS OIDC federation
@@ -12,6 +22,16 @@ permissions:
 concurrency:
   group: backup-database
   cancel-in-progress: false
+
+env:
+  # Reproducible from the per-class archive repos (ADR-010): ingested as
+  # published, never re-scored. Its rows are excluded from the daily dump —
+  # they were over half of every dump's on-the-wire bytes — and captured by
+  # the weekly run instead. Data only: the table definition stays in every
+  # dump, so a daily-dump restore yields a complete, working schema with this
+  # one table empty. Using -T here instead would omit the table entirely and
+  # the restored database would not run.
+  ARCHIVE_TABLE: public.as_published_results
 
 jobs:
   backup:
@@ -44,11 +64,24 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
           BUCKET: ${{ vars.AWS_BACKUP_BUCKET }}
+          SCHEDULE: ${{ github.event.schedule }}
+          FULL_INPUT: ${{ inputs.full }}
         run: |
           set -euo pipefail
+
+          # Weekly cron or an explicitly-requested manual run dumps everything;
+          # anything else is a daily.
+          if [ "$SCHEDULE" = '40 5 * * 0' ] || [ "$FULL_INPUT" = 'true' ]; then
+            PREFIX=weekly
+            EXCLUDE=()
+          else
+            PREFIX=daily
+            EXCLUDE=(--exclude-table-data="$ARCHIVE_TABLE")
+          fi
+
           DATE=$(date -u +%Y-%m-%dT%H-%M-%SZ)
           DAY=$(date -u +%Y/%m/%d)
-          KEY="daily/${DAY}/sailscoring-${DATE}.dump"
+          KEY="${PREFIX}/${DAY}/sailscoring-${DATE}.dump"
           DUMP="${RUNNER_TEMP}/sailscoring.dump"
           # Dump to a local file before uploading so a pg_dump failure can
           # never leave a partial / empty object behind in the bucket.
@@ -60,7 +93,8 @@ jobs:
             --format=custom \
             --no-owner --no-privileges \
             --verbose \
+            "${EXCLUDE[@]}" \
             --file="$DUMP" \
             "$DATABASE_URL"
           aws s3 cp "$DUMP" "s3://${BUCKET}/${KEY}"
-          echo "::notice::Uploaded s3://${BUCKET}/${KEY} ($(stat -c%s "$DUMP") bytes)"
+          echo "::notice::Uploaded s3://${BUCKET}/${KEY} ($(stat -c%s "$DUMP") bytes, ${PREFIX})"
