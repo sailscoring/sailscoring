@@ -329,6 +329,7 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
                                 race.result.summary.unresolved > 0 &&
                                   `${race.result.summary.unresolved} unresolved`,
                               ].filter(Boolean).join(', ')}
+                              {race.trackData > 0 && ` \u00b7 track data for ${race.trackData}`}
                             </p>
                           )}
                           {warnings.map((note, i) => (

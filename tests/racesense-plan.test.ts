@@ -548,6 +548,16 @@ describe('what the device captured', () => {
     expect(byId.get('c3')?.trackData).toEqual({ dtlAtStartM: -326.16 });
   });
 
+  it('counts the boats it captured, so a new race can say so before it lands', () => {
+    // All three: the two finishers carry distance and speed, and the OCS boat
+    // carries the distance she was over the line by.
+    expect(plan({ races: [trackedRace(1)] }).races[0].trackData).toBe(3);
+    // A sheet with no metrics in it claims none. The elapsed times it does
+    // carry are a recording of the finish, not something the device measured
+    // about how the boat sailed.
+    expect(plan({ races: [sourceRace({ number: 1 })] }).races[0].trackData).toBe(0);
+  });
+
   it('reports a drifting finishing time about the workbook, not against a race', () => {
     // The timestamp isn't imported, so a race whose sheet carries a bad one
     // is not a race with a problem — it stays recommended, and the note goes

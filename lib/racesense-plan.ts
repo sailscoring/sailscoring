@@ -46,6 +46,7 @@ import {
   type RaceSenseWorkbook,
 } from './racesense-workbook';
 import type { SeriesStage } from './split-fleets';
+import { hasTrackData } from './track-data';
 import type { Finish, FinishTrackData } from './types';
 
 /** Columns of the rows this module builds for the finish-sheet parser.
@@ -97,6 +98,11 @@ export interface PlannedRace {
   /** The finishes that would be written, ready for the CSV import's own
    *  commit path. `null` when there's no race to write them to. */
   result: ParseFinishSheetResult | null;
+  /** How many of those finishes carry track data — what the device recorded
+   *  beyond the finishing order. Zero for a sheet with no metrics in it, and
+   *  worth saying on every race: a `new` race is committed unseen otherwise,
+   *  and only a `differs` race spells its track data out in the change list. */
+  trackData: number;
   /** Populated when `state` is `differs`. */
   changes: FinishChange[];
   /** Everything worth saying about this race: the parser's anomalies for its
@@ -509,6 +515,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
         state: 'unmatched',
         recommended: false,
         result: null,
+        trackData: 0,
         changes: [],
         notes,
       };
@@ -580,6 +587,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
         && notes.every((n) => n.severity !== 'warning')
         && result.errors.length === 0,
       result,
+      trackData: result.finishes.filter((f) => hasTrackData(f.trackData)).length,
       changes: state === 'differs' ? changesBetween(stored, incoming, label) : [],
       notes,
     };
