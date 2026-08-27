@@ -199,6 +199,7 @@ function raceRowToType(row: RaceRow): Race {
     raceNumber: row.raceNumber,
     name: row.name,
     date: row.date,
+    ...(row.finishRecording ? { finishRecording: row.finishRecording as Race['finishRecording'] } : {}),
     ...(row.lastFinisherTime ? { lastFinisherTime: row.lastFinisherTime } : {}),
     ...(row.discardPolicy ? { discardPolicy: row.discardPolicy } : {}),
     ...(row.pointsMultiplier != null ? { pointsMultiplier: row.pointsMultiplier } : {}),
@@ -1188,6 +1189,7 @@ function raceToRow(r: Race, workspaceId: string) {
     raceNumber: r.raceNumber,
     name: r.name,
     date: r.date,
+    finishRecording: r.finishRecording ?? null,
     lastFinisherTime: r.lastFinisherTime ?? null,
     discardPolicy: r.discardPolicy ?? null,
     pointsMultiplier: r.pointsMultiplier ?? null,
@@ -1198,7 +1200,7 @@ function raceToRow(r: Race, workspaceId: string) {
 }
 
 const raceUpdateColumns = [
-  'raceNumber', 'name', 'date', 'lastFinisherTime', 'discardPolicy', 'pointsMultiplier',
+  'raceNumber', 'name', 'date', 'finishRecording', 'lastFinisherTime', 'discardPolicy', 'pointsMultiplier',
   'conditions', 'officials',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 

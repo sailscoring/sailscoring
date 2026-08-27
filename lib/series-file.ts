@@ -326,14 +326,18 @@ export interface SeriesFileRepos {
  *  nothing is scored from either, so an older build reading a v39 file loses
  *  the captured record and the opt-in, never a result.
  *
- *  v41 moves elapsed time from `finishes[*].trackData.elapsedSecs` to
+ *  v41 records elapsed time as a finish in its own right. It moves the
+ *  elapsed value from `finishes[*].trackData.elapsedSecs` to
  *  `finishes[*].elapsedSecs` on the finish row, where a stopwatch-recorded
  *  time can be hand-entered and the engine can score from it. Reading a v39
  *  or v40 file lifts the old field into the new one, so nothing is lost
  *  coming forward; an older build reading a v41 file would find the elapsed
  *  time nowhere it looks and silently score the race from finish times it
  *  may not have, which is a result change rather than a lost display column
- *  — hence a bump rather than a sparse ride-along.
+ *  — hence a bump rather than a sparse ride-along. It also adds
+ *  `races[*].finishRecording`, which says whether a race's sheet was taken
+ *  down off the clock or off a stopwatch; that one is sparse and only
+ *  affects how the finish sheet is presented for editing.
  *
  *  v40 adds the `orc` fleet scoring system (with optional
  *  `fleets[*].orcProfile` — the fleet's default scoring option),
@@ -548,6 +552,7 @@ interface SeriesFileRace {
   raceNumber: number;
   name?: string | null; // optional label; absent in files written before v10
   date: string;
+  finishRecording?: 'clock' | 'elapsed';  // v41+; how the sheet was taken down
   lastFinisherTime?: string;  // v20+; manual last-finisher clock time
   // v25+; per-race scoring options, absent on an ordinary race.
   discardPolicy?: RaceDiscardPolicy;
@@ -836,6 +841,7 @@ export async function buildSeriesFile(
       raceNumber: r.raceNumber,
       ...(r.name ? { name: r.name } : {}),
       date: r.date,
+      ...(r.finishRecording ? { finishRecording: r.finishRecording } : {}),
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
       ...(r.discardPolicy && r.discardPolicy !== 'normal' ? { discardPolicy: r.discardPolicy } : {}),
       ...(r.pointsMultiplier != null && r.pointsMultiplier !== 1 ? { pointsMultiplier: r.pointsMultiplier } : {}),
@@ -1764,6 +1770,7 @@ async function writeFleetsCompetitorsRaces(
       raceNumber: r.raceNumber,
       name: r.name ?? null,
       date: r.date,
+      ...(r.finishRecording ? { finishRecording: r.finishRecording } : {}),
       ...(r.lastFinisherTime ? { lastFinisherTime: r.lastFinisherTime } : {}),
       ...(r.discardPolicy ? { discardPolicy: r.discardPolicy } : {}),
       ...(r.pointsMultiplier != null ? { pointsMultiplier: r.pointsMultiplier } : {}),

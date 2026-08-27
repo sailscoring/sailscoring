@@ -22,6 +22,51 @@ export function normalizeTimeInput(raw: string): string | null {
 }
 
 /**
+ * Accept flexible elapsed-time input: `"MM:SS"`, `"H:MM:SS"`, the
+ * dot-separated forms, or plain seconds. Fractional seconds are kept — an
+ * imported elapsed time carries them, and a scorer correcting one by hand
+ * should not silently lose the fraction. Returns seconds, or null.
+ *
+ * Distinct from `normalizeTimeInput`, which reads times of day: `"4:32"` is
+ * four and a half minutes here and not a time at all there, and there is no
+ * bare-digit form because `"432"` would be as good a case for 432 seconds as
+ * for 4:32 and a scorer should not have to guess which.
+ *
+ * The dot is a separator only where it cannot also be a decimal point:
+ * `"1.04.32"` is an hour four and a half minutes, but `"4.32"` is 4.32
+ * seconds, not 4:32. Nothing can tell those two apart, and reading a plain
+ * decimal as a decimal is the reading that doesn't silently multiply a
+ * recorded time by sixty.
+ */
+export function parseElapsedInput(raw: string): number | null {
+  const value = raw.trim();
+  if (value === '') return null;
+  if (/^\d+(\.\d+)?$/.test(value)) return Number(value);
+  const match = /^(?:(\d+)[:.])?(\d{1,2})[:.](\d{2}(?:\.\d+)?)$/.exec(value);
+  if (!match) return null;
+  const [, h, m, sec] = match;
+  if (Number(m) > 59 || Number(sec) >= 60) return null;
+  return Number(h ?? 0) * 3600 + Number(m) * 60 + Number(sec);
+}
+
+/**
+ * Format elapsed seconds the way `parseElapsedInput` reads them back:
+ * `"M:SS"` under an hour, `"H:MM:SS"` above it, with any fractional part
+ * kept to three places and trailing zeros trimmed.
+ */
+export function formatElapsedInput(totalSeconds: number): string {
+  const whole = Math.floor(totalSeconds);
+  const fraction = totalSeconds - whole;
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const sec = whole % 60;
+  const frac = fraction > 0 ? String(Number(fraction.toFixed(3))).slice(1) : '';
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}${frac}`
+    : `${m}:${String(sec).padStart(2, '0')}${frac}`;
+}
+
+/**
  * Parse "H:MM:SS" / "HH:MM:SS" into seconds-since-midnight. Returns null
  * when the value is missing or malformed (wrong shape, non-numeric parts).
  *

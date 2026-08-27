@@ -831,6 +831,8 @@ export const races = pgTable(
     date: text('date').notNull().default(''),
     // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes;
     // ignored whenever any finish row carries a finishTime.
+    // 'clock' (or null) for times of day, 'elapsed' for a stopwatch sheet.
+    finishRecording: text('finish_recording'),
     lastFinisherTime: text('last_finisher_time'),
     // Per-race scoring options. Null discardPolicy = 'normal'; null
     // pointsMultiplier = counts once.

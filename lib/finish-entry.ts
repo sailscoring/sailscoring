@@ -275,6 +275,9 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   finishingOrder: FinishEntry[];
   nonFinisherCodes: Map<string, ResultCode>;
   finishTimes: Map<string, string>;
+  /** Recorded elapsed times, seconds — the stopwatch counterpart of
+   *  `finishTimes`, and populated for the same rows. */
+  elapsedSecs: Map<string, number>;
   tiedWithPrevious: Set<string>;
   finisherPenalties: Map<string, { code: PenaltyCode; override: number | null; overrideByFleet: Record<string, number> | null; label?: string }>;
   redressEntries: Map<string, RedressEntry>;
@@ -338,10 +341,11 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   }
 
   const finishTimes = new Map<string, string>();
+  const elapsedSecs = new Map<string, number>();
   for (const finish of savedFinishes) {
-    if (finish.finishTime && finish.competitorId) {
-      finishTimes.set(finish.competitorId, finish.finishTime);
-    }
+    if (!finish.competitorId) continue;
+    if (finish.finishTime) finishTimes.set(finish.competitorId, finish.finishTime);
+    if (finish.elapsedSecs != null) elapsedSecs.set(finish.competitorId, finish.elapsedSecs);
   }
 
   const tiedWithPrevious = new Set<string>();
@@ -364,6 +368,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
     finishingOrder,
     nonFinisherCodes,
     finishTimes,
+    elapsedSecs,
     tiedWithPrevious,
     finisherPenalties,
     redressEntries,

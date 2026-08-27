@@ -1,4 +1,5 @@
 import type {
+  FinishRecording,
   ResultCode,
   PenaltyCode,
   DiscardThreshold,
@@ -272,6 +273,10 @@ export interface PublicSeriesExport {
     /** Sub-series this race belongs to, by name (many-to-many; a race may be
      *  in several). Importers rebuild the sub-series from these. */
     subSeries?: string[];
+    /** How the race's finish sheet was taken down — off the clock (absent, or
+     *  'clock') or off a stopwatch ('elapsed'). Presentation only: it says
+     *  which column an editor should offer, and nothing is scored from it. */
+    finishRecording?: FinishRecording;
     /** Manually recorded last-finisher clock time ("HH:MM:SS") for races with
      *  untimed finishes — the anchor for protest time limits. When finishes
      *  carry times the sheet itself is authoritative and this is absent. */
@@ -787,6 +792,7 @@ export function buildPublicExportFromSnapshot(
       ...(race.name ? { name: race.name } : {}),
       date: race.date,
       ...(subSeriesNames?.length ? { subSeries: subSeriesNames } : {}),
+      ...(race.finishRecording ? { finishRecording: race.finishRecording } : {}),
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
       ...(race.discardPolicy && race.discardPolicy !== 'normal' ? { discardPolicy: race.discardPolicy } : {}),
       ...(race.pointsMultiplier != null && race.pointsMultiplier !== 1 ? { pointsMultiplier: race.pointsMultiplier } : {}),
@@ -1230,6 +1236,7 @@ export async function importPublicExport(
       raceNumber: race.raceNumber,
       name: race.name ?? null,
       date: race.date,
+      ...(race.finishRecording ? { finishRecording: race.finishRecording } : {}),
       ...(race.lastFinisherTime ? { lastFinisherTime: race.lastFinisherTime } : {}),
       ...(race.discardPolicy ? { discardPolicy: race.discardPolicy } : {}),
       ...(race.pointsMultiplier != null ? { pointsMultiplier: race.pointsMultiplier } : {}),

@@ -553,6 +553,7 @@ export async function copySeries(
           raceNumber: r.raceNumber,
           name: r.name ?? null,
           date: r.date,
+          finishRecording: r.finishRecording ?? null,
           lastFinisherTime: r.lastFinisherTime ?? null,
           discardPolicy: r.discardPolicy ?? null,
           pointsMultiplier: r.pointsMultiplier ?? null,

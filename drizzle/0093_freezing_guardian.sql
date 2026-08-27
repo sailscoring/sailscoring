@@ -1,0 +1,1 @@
+ALTER TABLE "races" ADD COLUMN "finish_recording" text;

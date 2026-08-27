@@ -170,6 +170,7 @@ export default function ResultEntryPage({
   const finishInput = useFinishInput({
     raceId,
     isHandicapSeries,
+    finishRecording: race?.finishRecording,
     // Full list: exact-sail resolution still finds any boat, so a scorer can
     // force-enter one outside the started fleets (and the handicap "no start"
     // block still fires). Browsable surfaces below are scoped via nonFinishers.
@@ -428,6 +429,10 @@ export default function ResultEntryPage({
           showFleetBadge={showFleetBadge}
           showCrew={showCrew}
           enabledCompetitorFields={enabledCompetitorFields}
+          finishRecording={race?.finishRecording}
+          onSetFinishRecording={readOnly ? undefined : (mode) => {
+            void saveRace.mutateAsync({ ...race, finishRecording: mode });
+          }}
           derived={derived}
           savedFinishes={savedFinishes}
           finishSheetImportRef={finishSheetImportRef}

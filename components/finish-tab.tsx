@@ -26,13 +26,13 @@ import { competitorFleetNames, displayCompetitorLabel } from '@/lib/competitor-f
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import { ordinal } from '@/lib/ordinal';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
-import { normalizeTimeInput } from '@/lib/time-parse';
+import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
 import {
   deriveFinishState,
   entryKey,
   type FinishEntry,
 } from '@/lib/finish-entry';
-import type { Competitor, CompetitorFieldKey, Finish, Fleet } from '@/lib/types';
+import type { Competitor, CompetitorFieldKey, Finish, FinishRecording, Fleet } from '@/lib/types';
 
 /** One badge per fleet a competitor belongs to, scoped to the fleets actually
  *  racing this sheet. Multi-fleet boats (e.g. a handicap fleet and a scratch
@@ -104,6 +104,11 @@ export interface FinishTabProps {
   showFleetBadge: boolean;
   showCrew: boolean;
   enabledCompetitorFields: CompetitorFieldKey[];
+  /** How this race's sheet was taken down; absent means times of day. */
+  finishRecording?: FinishRecording;
+  /** Set the recording mode. Absent on a read-only sheet, which hides the
+   *  control entirely. */
+  onSetFinishRecording?: (mode: FinishRecording) => void;
   derived: Derived;
   savedFinishes: Finish[] | undefined;
   finishSheetImportRef: Ref<FinishSheetImportHandle>;
@@ -123,15 +128,35 @@ export function FinishTab(props: FinishTabProps) {
   const {
     finishInput, rowOps, nonFinishers,
     competitors, competitorMap, fleetById, raceFleetIds,
-    showFleetBadge, showCrew, enabledCompetitorFields, derived, savedFinishes,
+    showFleetBadge, showCrew, enabledCompetitorFields,
+    finishRecording, onSetFinishRecording, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
     patchCache, saveFinish, leave,
   } = props;
   const {
-    finishingOrder, tiedWithPrevious, finishTimes,
+    finishingOrder, tiedWithPrevious, finishTimes, elapsedSecs,
     finisherPenalties, redressEntries, finishByCompetitorId,
   } = derived;
+  // How this race's sheet was taken down. The time column is one column
+  // either way — ADR-007's premise is that the scorer transcribes one piece
+  // of paper, and a stopwatch sheet is a stopwatch sheet throughout.
+  const byElapsed = finishRecording === 'elapsed';
+  const recordedText = (competitorId: string): string => {
+    if (byElapsed) {
+      const secs = elapsedSecs.get(competitorId);
+      return secs != null ? formatElapsedInput(secs) : '';
+    }
+    return finishTimes.get(competitorId) ?? '';
+  };
+  const readRecorded = (raw: string): { finishTime: string } | { elapsedSecs: number } | null => {
+    if (byElapsed) {
+      const secs = parseElapsedInput(raw);
+      return secs != null && secs >= 0 ? { elapsedSecs: secs } : null;
+    }
+    const finishTime = normalizeTimeInput(raw);
+    return finishTime ? { finishTime } : null;
+  };
   // Alias-destructure the two hooks back to the local names the JSX below
   // has always used — the markup is unchanged from the single-hook days.
   const {
@@ -267,6 +292,10 @@ export function FinishTab(props: FinishTabProps) {
   // is race-level (every competitor, not just current finishers) so the column
   // doesn't flicker in and out as boats are added.
   const showFinishTimeColumn = competitors.some((c) => needsFinishTime(c.id));
+  // Switching mode can't convert what's already written down — an elapsed
+  // time and a time of day are different measurements — so the choice locks
+  // once the sheet carries either. Clearing the rows unlocks it.
+  const hasRecordedTimes = finishTimes.size > 0 || elapsedSecs.size > 0;
 
   return (
     <div
@@ -292,6 +321,29 @@ export function FinishTab(props: FinishTabProps) {
               <PanelRightOpen className="h-4 w-4" />
               Non-finishers ({nonFinishers.length})
             </Button>
+          )}
+          {showFinishTimeColumn && onSetFinishRecording && (
+            <Select
+              value={finishRecording ?? 'clock'}
+              onValueChange={(v) => onSetFinishRecording(v as FinishRecording)}
+              disabled={hasRecordedTimes}
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-[9.5rem]"
+                aria-label="How finishes are recorded"
+                data-testid="finish-recording-mode"
+                title={hasRecordedTimes
+                  ? 'This sheet already has times recorded. Clear them to record it the other way round.'
+                  : 'Whether the sheet records a time of day per boat or an elapsed time'}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="clock">Times of day</SelectItem>
+                <SelectItem value="elapsed">Elapsed times</SelectItem>
+              </SelectContent>
+            </Select>
           )}
           {has('csv-finish-import') && (
             <FinishSheetImport
@@ -328,8 +380,8 @@ export function FinishTab(props: FinishTabProps) {
                 type="text"
                 value={pendingTimeValue}
                 onChange={(e) => { setPendingTimeValue(e.target.value); setPendingTimeError(''); }}
-                placeholder="HH:MM:SS"
-                aria-label="Finish time"
+                placeholder={byElapsed ? 'H:MM:SS' : 'HH:MM:SS'}
+                aria-label={byElapsed ? 'Elapsed time' : 'Finish time'}
                 className="w-28 shrink-0 font-mono text-sm rounded px-2 py-1 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === 'Tab') {
@@ -648,26 +700,28 @@ export function FinishTab(props: FinishTabProps) {
                 {showFinishTimeColumn && (isTimed ? (
                   <input
                     type="text"
-                    value={editingTimes.get(entry.competitorId) ?? finishTimes.get(entry.competitorId) ?? ''}
+                    value={editingTimes.get(entry.competitorId) ?? recordedText(entry.competitorId)}
                     onChange={(e) =>
                       setEditingTimes((prev) => new Map(prev).set(entry.competitorId, e.target.value))
                     }
                     onBlur={(e) => {
                       const competitorId = entry.competitorId;
-                      const normalized = normalizeTimeInput(e.target.value);
+                      const next = readRecorded(e.target.value);
                       setEditingTimes((prev) => {
                         const nextMap = new Map(prev);
                         nextMap.delete(competitorId);
                         return nextMap;
                       });
-                      if (!normalized) return;
-                      if (normalized === finishTimes.get(competitorId)) return;
+                      if (!next) return;
+                      if ('elapsedSecs' in next
+                        ? next.elapsedSecs === elapsedSecs.get(competitorId)
+                        : next.finishTime === finishTimes.get(competitorId)) return;
                       const finish = finishByCompetitorId.get(competitorId);
                       if (!finish) return;
-                      const updated: Finish = { ...finish, finishTime: normalized };
+                      const updated: Finish = { ...finish, ...next };
                       patchCache((rows) => rows.map((r) => (r.id === finish.id ? updated : r)));
                       saveFinish.mutate(updated);
-                      reslotTimedRow(competitorId, normalized);
+                      reslotTimedRow(competitorId, next);
                     }}
                     onKeyDown={(e) => {
                       // Enter commits the edit (blur runs the normalize + save
@@ -680,12 +734,12 @@ export function FinishTab(props: FinishTabProps) {
                         e.preventDefault();
                         // Restore the saved value before blurring so onBlur sees
                         // no change and skips the save.
-                        e.currentTarget.value = finishTimes.get(entry.competitorId) ?? '';
+                        e.currentTarget.value = recordedText(entry.competitorId);
                         e.currentTarget.blur();
                       }
                     }}
-                    placeholder="HH:MM:SS"
-                    aria-label={`Finish time for ${competitor.sailNumber}`}
+                    placeholder={byElapsed ? 'H:MM:SS' : 'HH:MM:SS'}
+                    aria-label={`${byElapsed ? 'Elapsed' : 'Finish'} time for ${competitor.sailNumber}`}
                     data-testid={`finish-time-${competitor.sailNumber}`}
                     className="w-24 shrink-0 font-mono text-sm text-center rounded px-2 py-0.5 border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                   />

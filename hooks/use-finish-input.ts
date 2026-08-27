@@ -14,12 +14,31 @@ import {
   type NonFinisherView,
 } from '@/lib/finish-entry';
 import { ordinal } from '@/lib/ordinal';
-import { normalizeTimeInput } from '@/lib/time-parse';
-import type { Competitor, Finish, Fleet, RaceStart } from '@/lib/types';
+import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
+import type { Competitor, Finish, FinishRecording, Fleet, RaceStart } from '@/lib/types';
+
+/** What the scorer wrote next to a boat, in whichever of the two forms the
+ *  race is being recorded in. Exactly one key is set. */
+type RecordedFinish =
+  | { finishTime: string; elapsedSecs?: undefined }
+  | { elapsedSecs: number; finishTime?: undefined };
+
+/** Read what the scorer typed into the form this race is recorded in. */
+function readRecordedFinish(raw: string, byElapsed: boolean): RecordedFinish | null {
+  if (byElapsed) {
+    const elapsedSecs = parseElapsedInput(raw);
+    return elapsedSecs != null && elapsedSecs >= 0 ? { elapsedSecs } : null;
+  }
+  const finishTime = normalizeTimeInput(raw);
+  return finishTime ? { finishTime } : null;
+}
 
 export interface UseFinishInputArgs {
   raceId: string;
   isHandicapSeries: boolean;
+  /** How this race's sheet was taken down: times of day, or elapsed times off
+   *  a stopwatch. Absent means the clock. */
+  finishRecording?: FinishRecording;
   competitors: Competitor[];
   fleetById: Map<string, Fleet>;
   raceStarts: RaceStart[];
@@ -45,14 +64,15 @@ export interface UseFinishInputArgs {
  */
 export function useFinishInput(args: UseFinishInputArgs) {
   const {
-    raceId, isHandicapSeries,
+    raceId, isHandicapSeries, finishRecording,
     competitors, fleetById, raceStarts,
     derived, nonFinishers, finishedIds,
     saveFinish, patchCache,
     commitOrderChange, flashRow,
     ready,
   } = args;
-  const { finishingOrder, finishTimes, tiedWithPrevious, finishByCompetitorId } = derived;
+  const { finishingOrder, finishTimes, elapsedSecs, tiedWithPrevious, finishByCompetitorId } = derived;
+  const byElapsed = finishRecording === 'elapsed';
 
   // Input field state
   const [sailInput, setSailInput] = useState('');
@@ -118,6 +138,20 @@ export function useFinishInput(args: UseFinishInputArgs) {
       const fleet = fleetById.get(id);
       return fleet !== undefined && fleet.scoringSystem !== 'scratch' && fleetIdsWithStartTimes.has(id);
     });
+  };
+
+  // Which start a boat's elapsed time is measured from. Times of day are
+  // comparable across the whole sheet; elapsed times are only comparable
+  // within a start, since two fleets on different guns can post the same
+  // duration and cross minutes apart. Boats with no start share the key `''`
+  // and are compared with each other.
+  const startKeyFor = (competitorId: string): string => {
+    const c = competitorMap.get(competitorId);
+    if (!c) return '';
+    for (const s of raceStarts) {
+      if (s.fleetIds.some((id) => c.fleetIds.includes(id))) return s.id;
+    }
+    return '';
   };
 
   // Returns true if this competitor has at least one fleet with a start
@@ -190,9 +224,17 @@ export function useFinishInput(args: UseFinishInputArgs) {
     const entry = finishingOrder[index];
     if (entry === undefined || entry.kind !== 'known') return;
     const boat = matched.find((c) => c.id === entry.competitorId);
-    const time = finishTimes.get(entryKey(entry));
+    const recorded = byElapsed
+      ? (() => {
+          const secs = elapsedSecs.get(entryKey(entry));
+          return secs != null ? ` in ${formatElapsedInput(secs)}` : '';
+        })()
+      : (() => {
+          const time = finishTimes.get(entryKey(entry));
+          return time ? ` at ${time}` : '';
+        })();
     setInputNotice(
-      `${boat?.sailNumber ?? trimmedSail} is already entered — ${ordinal(index + 1)}${time ? ` at ${time}` : ''}.`,
+      `${boat?.sailNumber ?? trimmedSail} is already entered — ${ordinal(index + 1)}${recorded}.`,
     );
     revealFinishedRow(entryKey(entry));
   }
@@ -202,15 +244,28 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // the relative order of scratch rows (time-order invariant, ADR-007).
   function addKnownFinisher(
     competitor: Competitor,
-    finishTime?: string,
+    recorded?: RecordedFinish,
     matchedOn: MatchTier = 'sail',
     entered?: string,
   ) {
     let insertAt = finishingOrder.length;
-    if (finishTime) {
+    if (recorded) {
+      // Slot immediately before the first later-recorded row, preserving the
+      // relative order of untimed rows (the ADR-007 invariant). In elapsed
+      // mode only rows on the same gun are comparable, so the rest are
+      // skipped rather than sorted against.
+      const startKey = byElapsed ? startKeyFor(competitor.id) : null;
       for (let i = 0; i < finishingOrder.length; i++) {
-        const existingTime = finishTimes.get(entryKey(finishingOrder[i]));
-        if (existingTime !== undefined && existingTime > finishTime) {
+        const other = finishingOrder[i];
+        if (startKey !== null
+          && !(other.kind === 'known' && startKeyFor(other.competitorId) === startKey)) continue;
+        const existing = byElapsed
+          ? elapsedSecs.get(entryKey(other))
+          : finishTimes.get(entryKey(other));
+        if (existing === undefined) continue;
+        if (recorded.elapsedSecs !== undefined
+          ? (existing as number) > recorded.elapsedSecs
+          : (existing as string) > recorded.finishTime!) {
           insertAt = i;
           break;
         }
@@ -232,7 +287,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
           sortOrder: insertAt + 1,
           tiedWithPrevious: false,
           ...provenance,
-          ...(finishTime ? { finishTime } : {}),
+          ...recorded,
         }
       : makeFinish(raceId, {
           id: finishId,
@@ -240,7 +295,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
           sortOrder: insertAt + 1,
           startPresent: true,
           ...(provenance.matchedOn ? provenance : {}),
-          ...(finishTime ? { finishTime } : {}),
+          ...recorded,
         });
 
     const newEntry: FinishEntry = {
@@ -256,7 +311,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       ? rows.map((r) => (r.id === existing.id ? newRow : r))
       : [...rows, newRow]);
     saveFinish.mutate(newRow);
-    if (finishTime) flashRow(competitor.id);
+    if (recorded) flashRow(competitor.id);
     commitOrderChange(targetOrder, tiedWithPrevious);
     setSailInput('');
     setInputError('');
@@ -297,17 +352,19 @@ export function useFinishInput(args: UseFinishInputArgs) {
   function confirmPendingTime() {
     if (!pendingTimeEntry) return;
     if (!pendingTimeValue.trim()) {
-      setPendingTimeError('Finish time is required.');
+      setPendingTimeError(byElapsed ? 'Elapsed time is required.' : 'Finish time is required.');
       return;
     }
-    const time = normalizeTimeInput(pendingTimeValue);
-    if (!time) {
-      setPendingTimeError('Enter a valid time, e.g. 14:32:10 or 143210.');
+    const recorded = readRecordedFinish(pendingTimeValue, byElapsed);
+    if (!recorded) {
+      setPendingTimeError(byElapsed
+        ? 'Enter a valid elapsed time, e.g. 1:04:32 or 4:32.'
+        : 'Enter a valid time, e.g. 14:32:10 or 143210.');
       return;
     }
     addKnownFinisher(
       pendingTimeEntry.competitor,
-      time,
+      recorded,
       pendingTimeEntry.matchedOn,
       pendingTimeEntry.entered,
     );

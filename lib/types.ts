@@ -727,12 +727,22 @@ export interface SubSeries {
   version?: number;    // server-side concurrency token (see Series.version)
 }
 
+/** How a race's finishes were taken down. See `Race.finishRecording`. */
+export type FinishRecording = 'clock' | 'elapsed';
+
 export interface Race {
   id: string;
   seriesId: string;
   raceNumber: number;
   name: string | null; // optional human label distinct from the number ("Round the Island")
   date: string;        // ISO date string
+  // How this race's finishes were recorded. Absent means 'clock' — a time of
+  // day per boat, the way a committee boat working off the ship's clock takes
+  // them. 'elapsed' is the stopwatch sheet: a duration per boat and no time of
+  // day at all. Per race because it is a property of the piece of paper being
+  // transcribed (ADR-007), not of a fleet or a series — the same committee can
+  // work off the clock one weekend and a stopwatch the next.
+  finishRecording?: FinishRecording;
   // Time of day the last boat finished, "HH:MM:SS" — the anchor for protest /
   // redress time limits. Manual fallback for races whose finishes carry no
   // times: when any finish has a `finishTime` the sheet is authoritative and

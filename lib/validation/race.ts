@@ -32,6 +32,7 @@ export const raceSchema = z.object({
   name: z.string().nullable().default(null),
   date: isoDateSchema,
   // Manual last-finisher time ("HH:MM:SS") for races with untimed finishes.
+  finishRecording: z.enum(['clock', 'elapsed']).optional(),
   lastFinisherTime: wallClockSchema.optional(),
   // Per-race scoring options. The policy needs no cross-field check — the
   // enum makes "must count" and "discard first" mutually exclusive by

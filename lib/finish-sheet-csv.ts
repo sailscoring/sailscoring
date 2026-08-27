@@ -8,13 +8,18 @@
  *                a bare fraction of a day ("0.438…"), which is how a
  *                spreadsheet time cell with an unrecognised custom format
  *                reaches us
+ *   elapsed      optional — "M:SS", "H:MM:SS", or plain seconds, for a sheet
+ *                kept on a stopwatch. An alternative to finishTime, not a
+ *                companion: a row carrying both is an error, since the two
+ *                are different measurements and nothing here can say which
+ *                the scorer meant
  *   resultCode   optional — DNF, DSQ, OCS, RET, DNE, UFD, BFD, DNS, NSC, DNC
  *
  * Row order is crossing order (ADR-007). Row produces one of:
  *   - a finisher: sortOrder = rank among finishers (1-based by row order); finishTime may be set
  *   - a coded non-finisher: sortOrder = null, resultCode set
  *
- * Rows with neither finishTime nor resultCode are plain finishers ranked by
+ * Rows with neither a recorded time nor a resultCode are plain finishers ranked by
  * row position — a place-only sheet is how scratch racing is normally
  * recorded, since crossing order alone scores the race. Entirely blank rows
  * (trailing empty lines) are skipped without an error.
@@ -37,9 +42,9 @@
 
 import type { Finish, ResultCode } from './types';
 import { BUILT_IN_CODES } from './scoring-codes';
-import { normalizeTimeInput } from './time-parse';
+import { normalizeTimeInput, parseElapsedInput } from './time-parse';
 
-export type FinishSheetField = 'sailNumber' | 'finishTime' | 'resultCode' | 'ignore';
+export type FinishSheetField = 'sailNumber' | 'finishTime' | 'elapsed' | 'resultCode' | 'ignore';
 
 export type FinishSheetColumnMap = Record<number, FinishSheetField>;
 
@@ -122,6 +127,9 @@ function fractionOfDayToTime(raw: string): string | null {
 export function autoDetectFinishSheetField(header: string): FinishSheetField {
   const h = header.trim().toLowerCase();
   if (/sail\s*(number|no|#)?|^#$/.test(h) || h === 'sail') return 'sailNumber';
+  // Elapsed is checked first: "elapsed time" would otherwise match the
+  // finish-time pattern on the bare word "time".
+  if (/elapsed|^ET$/i.test(h) || h === 'total time') return 'elapsed';
   if (/finish\s*time|^time$|\btime\b/.test(h)) return 'finishTime';
   if (/result\s*code|^code$|\bcode\b/.test(h)) return 'resultCode';
   return 'ignore';
@@ -148,12 +156,14 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
   const cols = {
     sail: -1,
     time: -1,
+    elapsed: -1,
     code: -1,
   };
   for (const [colStr, field] of Object.entries(columnMap)) {
     const col = parseInt(colStr, 10);
     if (field === 'sailNumber') cols.sail = col;
     else if (field === 'finishTime') cols.time = col;
+    else if (field === 'elapsed') cols.elapsed = col;
     else if (field === 'resultCode') cols.code = col;
   }
 
@@ -198,6 +208,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
 
     const rawSail = cols.sail >= 0 ? (row[cols.sail]?.trim() ?? '') : '';
     const rawTime = cols.time >= 0 ? (row[cols.time]?.trim() ?? '') : '';
+    const rawElapsed = cols.elapsed >= 0 ? (row[cols.elapsed]?.trim() ?? '') : '';
     const rawCode = cols.code >= 0 ? (row[cols.code]?.trim() ?? '') : '';
 
     if (!rawSail) {
@@ -208,16 +219,32 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     // Decide finisher vs coded. A row with both a time and a code is treated as coded
     // (the code wins) — the scorer was probably recording why a finish time shouldn't
     // count. A row with neither is a plain finisher: its place comes from row order.
-    const hasTime = rawTime.length > 0;
+    const hasTime = rawTime.length > 0 || rawElapsed.length > 0;
     const hasCode = rawCode.length > 0;
 
-    let normalizedTime: string | null = null;
-    if (hasTime) {
-      normalizedTime = normalizeTimeInput(fractionOfDayToTime(rawTime) ?? rawTime);
-      if (!normalizedTime) {
+    if (rawTime.length > 0 && rawElapsed.length > 0) {
+      errors.push({
+        rowIndex: csvRowNumber,
+        reason: `both a finish time "${rawTime}" and an elapsed time "${rawElapsed}" — a finish is recorded one way or the other`,
+      });
+      continue;
+    }
+
+    let recorded: { finishTime: string } | { elapsedSecs: number } | null = null;
+    if (rawTime.length > 0) {
+      const normalized = normalizeTimeInput(fractionOfDayToTime(rawTime) ?? rawTime);
+      if (!normalized) {
         errors.push({ rowIndex: csvRowNumber, reason: `invalid finish time "${rawTime}"` });
         continue;
       }
+      recorded = { finishTime: normalized };
+    } else if (rawElapsed.length > 0) {
+      const secs = parseElapsedInput(rawElapsed);
+      if (secs == null || secs < 0) {
+        errors.push({ rowIndex: csvRowNumber, reason: `invalid elapsed time "${rawElapsed}"` });
+        continue;
+      }
+      recorded = { elapsedSecs: secs };
     }
 
     let code: ResultCode | null = null;
@@ -301,7 +328,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     } else {
       // Finisher
       finisherCount++;
-      if (!normalizedTime) untimedCount++;
+      if (!recorded) untimedCount++;
       const sortOrder = finisherCount;
       if (resolved) {
         usedCompetitorIds.add(competitor.id);
@@ -310,7 +337,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
           competitorId: competitor.id,
           sortOrder,
           resultCode: null,
-          ...(normalizedTime ? { finishTime: normalizedTime } : {}),
+          ...recorded,
           ...provenance,
         });
       } else {
@@ -325,7 +352,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
           unknownSailNumber: rawSail,
           sortOrder,
           resultCode: null,
-          ...(normalizedTime ? { finishTime: normalizedTime } : {}),
+          ...recorded,
         });
       }
     }

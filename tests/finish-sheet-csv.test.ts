@@ -33,6 +33,15 @@ describe('autoDetectFinishSheetField', () => {
     expect(autoDetectFinishSheetField('Time')).toBe('finishTime');
   });
 
+  it('detects elapsed headers ahead of finishTime', () => {
+    // "Elapsed time" would match the finish-time pattern on the bare word
+    // "time", so the elapsed check has to come first.
+    expect(autoDetectFinishSheetField('elapsed')).toBe('elapsed');
+    expect(autoDetectFinishSheetField('Elapsed Time')).toBe('elapsed');
+    expect(autoDetectFinishSheetField('ET')).toBe('elapsed');
+    expect(autoDetectFinishSheetField('Total Time')).toBe('elapsed');
+  });
+
   it('detects resultCode headers', () => {
     expect(autoDetectFinishSheetField('resultCode')).toBe('resultCode');
     expect(autoDetectFinishSheetField('Result Code')).toBe('resultCode');
@@ -467,5 +476,49 @@ describe('parseFinishSheetCsv nationality-qualified sail numbers', () => {
     expect(result.errors).toEqual([
       { rowIndex: 2, reason: 'sail 1234 is ambiguous — multiple competitors share this number' },
     ]);
+  });
+});
+
+describe('parseFinishSheetCsv elapsed times', () => {
+  const elapsedMap = { 0: 'sailNumber', 1: 'elapsed', 2: 'resultCode' } as const;
+
+  it('records an elapsed sheet on the finish rows, in row order', () => {
+    const rows = [
+      ['6413', '45:51', ''],
+      ['15',   '46:50.4', ''],
+      ['22',   '2810', ''],
+    ];
+    const result = parseFinishSheetCsv({ rows, columnMap: elapsedMap, candidates });
+    expect(result.errors).toEqual([]);
+    expect(result.summary.finishers).toBe(3);
+    expect(result.summary.untimed).toBe(0);
+    expect(result.finishes.map((f) => f.elapsedSecs)).toEqual([2751, 2810.4, 2810]);
+    expect(result.finishes.every((f) => f.finishTime === undefined)).toBe(true);
+  });
+
+  it('rejects a row carrying both a finish time and an elapsed time', () => {
+    const rows = [['6413', '11:55:09', '45:51', '']];
+    const result = parseFinishSheetCsv({
+      rows,
+      columnMap: { 0: 'sailNumber', 1: 'finishTime', 2: 'elapsed', 3: 'resultCode' },
+      candidates,
+    });
+    expect(result.finishes).toEqual([]);
+    expect(result.errors[0].reason).toContain('one way or the other');
+  });
+
+  it('rejects an unreadable elapsed value', () => {
+    const rows = [['6413', 'soon', '']];
+    const result = parseFinishSheetCsv({ rows, columnMap: elapsedMap, candidates });
+    expect(result.finishes).toEqual([]);
+    expect(result.errors[0].reason).toBe('invalid elapsed time "soon"');
+  });
+
+  it('treats a coded row as coded even with an elapsed time beside it', () => {
+    const rows = [['6413', '45:51', 'RET']];
+    const result = parseFinishSheetCsv({ rows, columnMap: elapsedMap, candidates });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes[0]).toMatchObject({ sortOrder: null, resultCode: 'RET' });
+    expect(result.finishes[0].elapsedSecs).toBeUndefined();
   });
 });

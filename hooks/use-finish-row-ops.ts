@@ -33,7 +33,7 @@ export interface UseFinishRowOpsArgs {
  */
 export function useFinishRowOps(args: UseFinishRowOpsArgs) {
   const { raceId, derived, saveFinish, deleteFinish, patchCache } = args;
-  const { finishingOrder, finishTimes, tiedWithPrevious, finishByEntryKey, finishByCompetitorId } = derived;
+  const { finishingOrder, finishTimes, elapsedSecs, tiedWithPrevious, finishByEntryKey, finishByCompetitorId } = derived;
 
   // Entry-key of a row to briefly flash (recent auto-slot, scratch reorder).
   const [flashedRowId, setFlashedRowId] = useState<string | null>(null);
@@ -109,6 +109,7 @@ export function useFinishRowOps(args: UseFinishRowOpsArgs) {
             redressIncludeAllLater: false,
             redressPoints: null,
             ...(finish.finishTime ? { finishTime: undefined } : {}),
+            ...(finish.elapsedSecs != null ? { elapsedSecs: undefined } : {}),
           }
         : null;
     if (next) {
@@ -160,19 +161,23 @@ export function useFinishRowOps(args: UseFinishRowOpsArgs) {
    * edited so the time-order invariant holds. Scratch rows keep their
    * relative order; the moved row briefly flashes at its new position.
    */
-  function reslotTimedRow(eid: string, nextTime: string) {
+  function reslotTimedRow(eid: string, next: { finishTime: string } | { elapsedSecs: number }) {
     const currentIndex = finishingOrder.findIndex((e) => entryKey(e) === eid);
     if (currentIndex === -1) return;
     const without = [
       ...finishingOrder.slice(0, currentIndex),
       ...finishingOrder.slice(currentIndex + 1),
     ];
+    const byElapsed = 'elapsedSecs' in next;
     let insertAt = without.length;
     for (let i = 0; i < without.length; i++) {
       const otherId = entryKey(without[i]);
       if (otherId === eid) continue;
-      const otherTime = finishTimes.get(otherId);
-      if (otherTime !== undefined && otherTime > nextTime) {
+      const other = byElapsed ? elapsedSecs.get(otherId) : finishTimes.get(otherId);
+      if (other === undefined) continue;
+      if (byElapsed
+        ? (other as number) > next.elapsedSecs
+        : (other as string) > (next as { finishTime: string }).finishTime) {
         insertAt = i;
         break;
       }

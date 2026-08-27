@@ -50,6 +50,7 @@ import { SheetPickerDialog, ImportFileErrorDialog } from '@/components/import-fi
 const FIELD_LABELS: Record<FinishSheetField, string> = {
   sailNumber: 'Sail number',
   finishTime: 'Finish time',
+  elapsed: 'Elapsed time',
   resultCode: 'Result code',
   ignore: '(ignore)',
 };
@@ -191,6 +192,7 @@ export const FinishSheetImport = forwardRef<FinishSheetImportHandle, {
           (f) =>
             f.sortOrder !== null &&
             !f.finishTime &&
+            f.elapsedSecs == null &&
             f.competitorId != null &&
             needsFinishTime(f.competitorId),
         ).length
