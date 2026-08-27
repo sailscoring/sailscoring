@@ -627,6 +627,11 @@ export async function copySeries(
           sortOrder: f.sortOrder,
           tiedWithPrevious: f.tiedWithPrevious,
           finishTime: f.finishTime ?? null,
+          // Elapsed time is a scoring input, so a copy that dropped it would
+          // score differently from its source. Track data rides along for the
+          // same reason it is stored at all — the copy is the same race.
+          elapsedSecs: f.elapsedSecs ?? null,
+          trackData: f.trackData ?? null,
           resultCode: f.resultCode,
           startPresent: f.startPresent,
           penaltyCode: f.penaltyCode,

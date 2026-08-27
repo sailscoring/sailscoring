@@ -326,6 +326,15 @@ export interface SeriesFileRepos {
  *  nothing is scored from either, so an older build reading a v39 file loses
  *  the captured record and the opt-in, never a result.
  *
+ *  v41 moves elapsed time from `finishes[*].trackData.elapsedSecs` to
+ *  `finishes[*].elapsedSecs` on the finish row, where a stopwatch-recorded
+ *  time can be hand-entered and the engine can score from it. Reading a v39
+ *  or v40 file lifts the old field into the new one, so nothing is lost
+ *  coming forward; an older build reading a v41 file would find the elapsed
+ *  time nowhere it looks and silently score the race from finish times it
+ *  may not have, which is a result change rather than a lost display column
+ *  — hence a bump rather than a sparse ride-along.
+ *
  *  v40 adds the `orc` fleet scoring system (with optional
  *  `fleets[*].orcProfile` — the fleet's default scoring option),
  *  `competitors[*].orcCert` — the boat's ORC certificate stored verbatim —
@@ -336,8 +345,8 @@ export interface SeriesFileRepos {
  *  v40 file would drop the certificates and refuse the fleet system, losing
  *  the ratings entirely, so this is a hard bump rather than a sparse-field
  *  ride-along. */
-export const FORMAT_VERSION = 40;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];
+export const FORMAT_VERSION = 41;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -470,6 +479,20 @@ function fileFinishMatchedOn(f: SeriesFileFinish): 'bow' | 'alternative' | undef
   return f.matchedOn ?? (f.matchedOnBowNumber ? 'bow' : undefined);
 }
 
+/** v39 and v40 stored the elapsed time inside `trackData`; v41 moved it onto
+ *  the finish row. Read whichever the file carries. */
+function fileFinishElapsedSecs(f: SeriesFileFinish): number | undefined {
+  return f.elapsedSecs ?? f.trackData?.elapsedSecs;
+}
+
+/** The track data proper, with any v39/v40 elapsed time lifted out of it. A
+ *  row whose only track value was the elapsed time carries none at all. */
+function fileFinishTrackData(f: SeriesFileFinish): FinishTrackData | undefined {
+  if (!f.trackData) return undefined;
+  const { elapsedSecs: _elapsed, ...rest } = f.trackData;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
 interface SeriesFileFinish {
   id: string;
   competitorId: string | null;
@@ -482,7 +505,10 @@ interface SeriesFileFinish {
   /** Optional in the file format — older files default to `false` on import. */
   tiedWithPrevious?: boolean;
   finishTime?: string;
-  trackData?: FinishTrackData;  // v39+; RaceSense track data, carried verbatim
+  elapsedSecs?: number;  // v41+; seconds, fractional part kept
+  /** v39+; RaceSense track data, carried verbatim. v39 and v40 files carry
+   *  the elapsed time here instead; `fileFinishElapsedSecs` reads either. */
+  trackData?: FinishTrackData & { elapsedSecs?: number };
   resultCode: ResultCode | null;
   startPresent: boolean | null;
   penaltyCode: PenaltyCode | null;
@@ -670,6 +696,7 @@ export async function buildSeriesFile(
       sortOrder: f.sortOrder,
       ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
       ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+      ...(f.elapsedSecs != null ? { elapsedSecs: f.elapsedSecs } : {}),
       ...(f.trackData ? { trackData: f.trackData } : {}),
       resultCode: f.resultCode,
       startPresent: f.startPresent,
@@ -1796,7 +1823,14 @@ async function writeFleetsCompetitorsRaces(
           sortOrder: f.sortOrder,
           tiedWithPrevious: f.tiedWithPrevious ?? false,
           ...(f.finishTime ? { finishTime: f.finishTime } : {}),
-          ...(f.trackData ? { trackData: f.trackData } : {}),
+          ...(() => {
+            const elapsed = fileFinishElapsedSecs(f);
+            return elapsed != null ? { elapsedSecs: elapsed } : {};
+          })(),
+          ...(() => {
+            const track = fileFinishTrackData(f);
+            return track ? { trackData: track } : {};
+          })(),
           resultCode: f.resultCode,
           startPresent: f.startPresent,
           penaltyCode: f.penaltyCode,

@@ -331,6 +331,11 @@ export interface PublicSeriesExport {
        *  in the export; older exports default to false on import. */
       tiedWithPrevious?: boolean;
       finishTime?: string;
+      /** Elapsed time in seconds, as recorded. Carried unconditionally, not
+       *  under `publishTrackData`: it is a scoring input, and gating it on a
+       *  display opt-in would make a re-import score the race differently.
+       *  Whether the *column* is shown stays the opt-in's decision. */
+      elapsedSecs?: number;
       /** RaceSense track data. Present only when the series publishes it
        *  (`series.publishTrackData`) — this export is published output. */
       trackData?: FinishTrackData;
@@ -721,6 +726,7 @@ export function buildPublicExportFromSnapshot(
         sortOrder: finish?.sortOrder ?? null,
         ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
+        ...(finish?.elapsedSecs != null ? { elapsedSecs: finish.elapsedSecs } : {}),
         ...(publishTrackData && finish?.trackData ? { trackData: finish.trackData } : {}),
         resultCode: score.resultCode,
         startPresent: finish?.startPresent ?? null,
@@ -748,6 +754,7 @@ export function buildPublicExportFromSnapshot(
         sortOrder: f.sortOrder ?? null,
         ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
         ...(f.finishTime ? { finishTime: f.finishTime } : {}),
+        ...(f.elapsedSecs != null ? { elapsedSecs: f.elapsedSecs } : {}),
         ...(publishTrackData && f.trackData ? { trackData: f.trackData } : {}),
         resultCode: f.resultCode,
         startPresent: f.startPresent ?? null,
@@ -1293,6 +1300,7 @@ export async function importPublicExport(
         sortOrder: finish.sortOrder,
         tiedWithPrevious: finish.tiedWithPrevious ?? false,
         ...(finish.finishTime ? { finishTime: finish.finishTime } : {}),
+        ...(finish.elapsedSecs != null ? { elapsedSecs: finish.elapsedSecs } : {}),
         ...(finish.trackData ? { trackData: finish.trackData } : {}),
         resultCode: finish.resultCode,
         startPresent: finish.startPresent,

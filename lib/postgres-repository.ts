@@ -272,6 +272,7 @@ function finishRowToType(row: FinishRow): Finish {
     sortOrder: row.sortOrder,
     tiedWithPrevious: row.tiedWithPrevious,
     ...(row.finishTime != null ? { finishTime: row.finishTime } : {}),
+    ...(row.elapsedSecs != null ? { elapsedSecs: row.elapsedSecs } : {}),
     ...(row.trackData != null ? { trackData: row.trackData } : {}),
     resultCode: row.resultCode as ResultCode | null,
     startPresent: row.startPresent,
@@ -1856,6 +1857,7 @@ function finishToRow(f: Finish) {
     sortOrder: f.sortOrder,
     tiedWithPrevious: f.tiedWithPrevious,
     finishTime: f.finishTime ?? null,
+    elapsedSecs: f.elapsedSecs ?? null,
     trackData: f.trackData ?? null,
     resultCode: f.resultCode,
     startPresent: f.startPresent,
@@ -1874,7 +1876,7 @@ function finishToRow(f: Finish) {
 
 const finishUpdateColumns = [
   'competitorId', 'unknownSailNumber', 'matchedOn', 'enteredSailNumber', 'sortOrder', 'tiedWithPrevious',
-  'finishTime', 'trackData', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
+  'finishTime', 'elapsedSecs', 'trackData', 'resultCode', 'startPresent', 'penaltyCode', 'penaltyOverride',
   'penaltyLabel', 'penaltyOverrideByFleet', 'redressMethod', 'redressExcludeRaceIds', 'redressIncludeRaceIds',
   'redressIncludeAllLater', 'redressPoints', 'redressPointsByFleet',
 ] as const satisfies readonly (keyof ReturnType<typeof finishToRow>)[];

@@ -499,18 +499,27 @@ describe('split-fleet pages use the standard published-page look', () => {
 describe('track data columns on the per-race page', () => {
   const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
 
-  /** Every finisher gets the same plausible capture; coded rows get none. */
+  /** Every finisher gets the same plausible capture; coded rows get none.
+   *  Elapsed rides on the finish row, the rest in `trackData`. */
   function withTrack(
     input: SplitFleetRenderInput,
-    data: NonNullable<SplitFleetRenderInput['finishes'][number]['trackData']> = {
+    data: { elapsedSecs?: number } & NonNullable<SplitFleetRenderInput['finishes'][number]['trackData']> = {
       distanceKm: 2.73, elapsedSecs: 3600, maxSpeedKts: 14.6, dtlAtStartM: 8.45,
     },
   ): SplitFleetRenderInput {
+    const { elapsedSecs, ...trackData } = data;
     return {
       ...input,
       showTrackData: true,
       finishes: input.finishes.map((f) =>
-        f.sortOrder !== null ? { ...f, finishTime: '11:45:20', trackData: data } : f,
+        f.sortOrder !== null
+          ? {
+              ...f,
+              finishTime: '11:45:20',
+              ...(elapsedSecs != null ? { elapsedSecs } : {}),
+              trackData,
+            }
+          : f,
       ),
     };
   }

@@ -28,7 +28,6 @@ export const redressMethodSchema = z.enum(['all_races', 'all_races_excl_dnc', 'r
 export const finishTrackDataSchema = z.object({
   dtlAtStartM: z.number().finite().optional(),
   distanceKm: z.number().finite().optional(),
-  elapsedSecs: z.number().finite().optional(),
   maxSpeedKts: z.number().finite().optional(),
 });
 
@@ -42,6 +41,10 @@ export const finishSchema = z.object({
   sortOrder: z.number().int().nullable(),
   tiedWithPrevious: z.boolean(),
   finishTime: wallClockSchema.optional(),
+  // Seconds, fractional part allowed. Non-negative: an elapsed time is a
+  // duration, and a negative one is a transcription error, not a boat that
+  // finished before the gun.
+  elapsedSecs: z.number().finite().nonnegative().optional(),
   trackData: finishTrackDataSchema.optional(),
   resultCode: resultCodeSchema.nullable(),
   startPresent: z.boolean().nullable(),

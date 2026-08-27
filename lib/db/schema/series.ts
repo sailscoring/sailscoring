@@ -1006,9 +1006,12 @@ export const finishes = pgTable(
     // Engine averages ranks per RRS A8.1; display sortOrder stays distinct.
     tiedWithPrevious: boolean('tied_with_previous').notNull().default(false),
     finishTime: text('finish_time'),
-    // How the boat sailed the race (RaceSense import): elapsed time,
-    // distance sailed, speeds, distance to line. Display-only, never
-    // queried by content. Nullable — absent for hand-entered rows.
+    // Elapsed time in seconds, fractional part kept, when that is what was
+    // recorded. Real rather than integer: RaceSense measures to milliseconds.
+    elapsedSecs: real('elapsed_secs'),
+    // How the boat sailed the race (RaceSense import): distance sailed,
+    // speeds, distance to line. Display-only, never queried by content.
+    // Nullable — absent for hand-entered rows.
     trackData: jsonb('track_data').$type<FinishTrackData>(),
     resultCode: text('result_code'),
     startPresent: boolean('start_present'),

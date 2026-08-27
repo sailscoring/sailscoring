@@ -492,7 +492,7 @@ describe('planRaceSenseImport', () => {
   });
 });
 
-describe('track data', () => {
+describe('what the device captured', () => {
   const tracked = (
     position: number,
     sailNumber: string,
@@ -519,13 +519,17 @@ describe('track data', () => {
     ],
   });
 
-  it('hangs each boat’s track data on her planned finish row', () => {
+  it('hangs each boat’s capture on her planned finish row', () => {
     const { races } = plan({ races: [trackedRace(1)] });
     const byId = new Map(races[0].result!.finishes.map((f) => [f.competitorId, f]));
+    // Elapsed is a recording of the finish, so it rides on the row itself;
+    // the track metrics ride in `trackData`.
+    expect(byId.get('c1')?.elapsedSecs).toBe(860.45);
     expect(byId.get('c1')?.trackData).toEqual({
-      dtlAtStartM: 8.45, distanceKm: 2.73, elapsedSecs: 860.45, maxSpeedKts: 14.6,
+      dtlAtStartM: 8.45, distanceKm: 2.73, maxSpeedKts: 14.6,
     });
     // The coded boat keeps what the device knows about her: the DTL alone.
+    expect(byId.get('c3')?.elapsedSecs).toBeUndefined();
     expect(byId.get('c3')?.trackData).toEqual({ dtlAtStartM: -326.16 });
   });
 
@@ -541,7 +545,8 @@ describe('track data', () => {
       })],
     });
     const boat = races[0].result!.finishes.find((f) => f.competitorId === 'c1');
-    expect(boat?.trackData).toEqual({ distanceKm: 2.73, elapsedSecs: 860 });
+    expect(boat?.elapsedSecs).toBe(860);
+    expect(boat?.trackData).toEqual({ distanceKm: 2.73 });
   });
 
   it('reads back unchanged when the same tracked workbook is uploaded again', () => {
@@ -551,14 +556,15 @@ describe('track data', () => {
     expect(second.races[0].state).toBe('unchanged');
   });
 
-  it('reads a race imported before track data existed as differs, showing the addition', () => {
+  it('reads a race imported before the capture existed as differs, showing the addition', () => {
     const first = plan({ races: [trackedRace(1)] });
     const stored = commit(first.races[0].race!.id, first.races[0].result!)
-      .map(({ trackData: _dropped, ...f }) => f as Finish);
+      .map(({ trackData: _dropped, elapsedSecs: _also, ...f }) => f as Finish);
     const second = plan({ races: [trackedRace(1)], finishes: stored });
     expect(second.races[0].state).toBe('differs');
     const change = second.races[0].changes.find((c) => c.sailNumber === '1021');
     expect(change?.stored).toBe('1st at 11:45:20');
+    expect(change?.incoming).toContain('860.45s elapsed');
     expect(change?.incoming).toContain('2.73 km sailed');
     expect(change?.incoming).toContain('max 14.6 kn');
     expect(change?.incoming).toContain('DTL 8.45 m');

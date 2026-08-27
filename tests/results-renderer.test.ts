@@ -1921,11 +1921,11 @@ describe('track-data columns', () => {
       raceDiscards: [false],
     },
   ];
-  const trackData = { dtlAtStartM: 8.45, distanceKm: 2.73, elapsedSecs: 3600, maxSpeedKts: 14.6 };
+  const trackData = { dtlAtStartM: 8.45, distanceKm: 2.73, maxSpeedKts: 14.6 };
   const scores = new Map([
     ['r1', new Map([
-      ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, finishTime: '11:45:20', trackData }],
-      ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, finishTime: '11:46:20', trackData: null }],
+      ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, finishTime: '11:45:20', elapsedSecs: 3600, trackData }],
+      ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, finishTime: '11:46:20', elapsedSecs: null, trackData: null }],
     ])],
   ]);
   const now = new Date(2025, 5, 14, 19, 0);
@@ -1958,8 +1958,8 @@ describe('track-data columns', () => {
   it('drops a column no boat has, keeping the rest', () => {
     const partial = new Map([
       ['r1', new Map([
-        ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, finishTime: null, trackData: { distanceKm: 2.73, elapsedSecs: 3600 } }],
-        ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, finishTime: null, trackData: null }],
+        ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, finishTime: null, elapsedSecs: 3600, trackData: { distanceKm: 2.73 } }],
+        ['c2', { points: 2, place: 2, rank: 2, resultCode: null as ResultCode | null, finishTime: null, elapsedSecs: null, trackData: null }],
       ])],
     ]);
     const data = assembleSeriesResultsData(series, races, standings, partial, competitorsById, ['club'], now, undefined, {

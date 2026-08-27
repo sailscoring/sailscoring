@@ -474,6 +474,7 @@ export async function buildFleetHtmlFiles(
       penaltyOverride: number | null;
       penaltyLabel?: string;
       finishTime: string | null;
+      elapsedSecs?: number | null;
       trackData?: FinishTrackData | null;
       tcfApplied?: number | null;
       newTcf?: number | null;
@@ -519,6 +520,7 @@ export async function buildFleetHtmlFiles(
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  elapsedSecs: finishByCompetitorId.get(id)?.elapsedSecs ?? null,
                   trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
@@ -548,6 +550,7 @@ export async function buildFleetHtmlFiles(
                     ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                     : {}),
                   finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                  elapsedSecs: finishByCompetitorId.get(id)?.elapsedSecs ?? null,
                   trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                   tcfApplied: s.tcfApplied,
                   newTcf: s.newTcf,
@@ -654,6 +657,7 @@ export async function buildFleetHtmlFiles(
                   ? { penaltyLabel: finishByCompetitorId.get(id)!.penaltyLabel }
                   : {}),
                 finishTime: finishByCompetitorId.get(id)?.finishTime ?? null,
+                elapsedSecs: finishByCompetitorId.get(id)?.elapsedSecs ?? null,
                 trackData: finishByCompetitorId.get(id)?.trackData ?? null,
                 ...('tcfApplied' in s ? { tcfApplied: (s as { tcfApplied: number | null }).tcfApplied } : {}),
                 // Engine times, preferred by the renderer over its ET × TCF

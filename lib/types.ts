@@ -798,16 +798,17 @@ export type PenaltyCode =
 /** How a boat sailed one race, as captured by electronic race management
  *  (the RaceSense import). Import-only and display-only: nothing here is
  *  scored or hand-entered, and a boat the device didn't capture simply has
- *  none. Every field is sparse — the export omits each race by race. */
+ *  none. Every field is sparse — the export omits each race by race.
+ *
+ *  Elapsed time is deliberately not here: it is a recording of the finish,
+ *  hand-enterable and scored, so it lives on the finish row itself. Average
+ *  speed is derived from that and `distanceKm` at render, never stored. */
 export interface FinishTrackData {
   /** Distance to the line at the starting signal, metres. Sign convention is
    *  the device's own; stored verbatim. */
   dtlAtStartM?: number;
   /** Distance sailed over the race, km — the unit the export uses. */
   distanceKm?: number;
-  /** Elapsed time in seconds, fractional part kept. Average speed is always
-   *  derived from this and `distanceKm` at render, never stored. */
-  elapsedSecs?: number;
   maxSpeedKts?: number;
 }
 
@@ -833,6 +834,14 @@ export interface Finish {
   // sortOrders remain monotonically increasing per race.
   tiedWithPrevious: boolean;
   finishTime?: string;            // "HH:MM:SS" — time of day the boat crossed the line; ET = finishTime − startTime
+  // The boat's elapsed time in seconds, when that is what was recorded: a
+  // stopwatch on the finish boat, or an electronic export whose elapsed
+  // figure is the measurement and whose time of day is a rendering of it.
+  // The fractional part is kept as recorded; the engine rounds half-up to
+  // whole seconds, the convention it applies to every other elapsed time.
+  // When a row carries both this and `finishTime`, this wins — it is the
+  // measurement, and the time of day is derived from it.
+  elapsedSecs?: number;
   trackData?: FinishTrackData;    // how the boat sailed the race (RaceSense import); display-only, never scored
   resultCode: ResultCode | null;  // null if sortOrder is set (RDG may coexist with sortOrder)
   startPresent: boolean | null;   // true if observed in starting area; null if not recorded

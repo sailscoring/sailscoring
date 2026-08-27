@@ -260,6 +260,10 @@ export interface RaceResultData {
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
   impliedWind?: number;      // ORC PCS: the boat's implied wind (kt)
   finishTime?: string;       // "HH:MM:SS"; also set for scratch fleets when track data is published
+  /** The elapsed time as recorded, fractional part kept. Distinct from
+   *  `elapsedTimeSecs`: that is the whole-second ET the engine scored from,
+   *  this is what the finish sheet or the device actually wrote down. */
+  elapsedSecs?: number;
   elapsedTimeSecs?: number;  // integer seconds (finishTime − startTime)
   correctedTimeSecs?: number; // integer seconds, rounded half-up (elapsedTimeSecs × tcc)
   /** RaceSense track data (published only on the series' opt-in). */
@@ -1511,17 +1515,22 @@ ${rows}
 
 // ---- Race detail table ----
 
-/** What a track-data column reads from a row: the finish time riding on the
- *  finish itself, and the metrics the RaceSense import recorded. */
+/** What a track-data column reads from a row: the finish time and elapsed
+ *  time riding on the finish itself, and the metrics the RaceSense import
+ *  recorded. */
 export interface TrackDataCell {
   finishTime?: string | null;
+  elapsedSecs?: number | null;
   trackData?: FinishTrackData | null;
 }
 
-/** Average speed in knots from the stored pair; the one derived figure. */
-function avgSpeedKn(t: FinishTrackData): number | null {
-  if (t.distanceKm == null || t.elapsedSecs == null || t.elapsedSecs <= 0) return null;
-  return (t.distanceKm / 1.852) / (t.elapsedSecs / 3600);
+/** Average speed in knots from the distance sailed and the elapsed time; the
+ *  one derived figure. */
+function avgSpeedKn(c: TrackDataCell): number | null {
+  const km = c.trackData?.distanceKm;
+  const secs = c.elapsedSecs;
+  if (km == null || secs == null || secs <= 0) return null;
+  return (km / 1.852) / (secs / 3600);
 }
 
 /**
@@ -1543,9 +1552,7 @@ export const TRACK_DATA_COLUMNS: {
     header: 'Elapsed',
     time: true,
     value: (c) =>
-      c?.trackData?.elapsedSecs != null
-        ? formatDurationSecs(Math.round(c.trackData.elapsedSecs))
-        : '',
+      c?.elapsedSecs != null ? formatDurationSecs(Math.round(c.elapsedSecs)) : '',
   },
   {
     header: 'Distance (km)',
@@ -1555,7 +1562,7 @@ export const TRACK_DATA_COLUMNS: {
   {
     header: 'Avg speed (kn)',
     value: (c) => {
-      const kn = c?.trackData ? avgSpeedKn(c.trackData) : null;
+      const kn = c ? avgSpeedKn(c) : null;
       return kn != null ? kn.toFixed(2) : '';
     },
   },
@@ -2124,7 +2131,7 @@ export function assembleSeriesResultsData(
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
   }>,
-  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
+  raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
@@ -2328,6 +2335,7 @@ export function assembleSeriesResultsData(
         ...(score.tccOverride ? { tccOverride: true } : {}),
         ...(score.orc?.impliedWind != null ? { impliedWind: score.orc.impliedWind } : {}),
         ...(score.finishTime && (isHandicap || showTrackData) ? { finishTime: score.finishTime } : {}),
+        ...(showTrackData && score.elapsedSecs != null ? { elapsedSecs: score.elapsedSecs } : {}),
         ...(showTrackData && score.trackData ? { trackData: score.trackData } : {}),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),
