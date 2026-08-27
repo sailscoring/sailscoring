@@ -466,6 +466,16 @@ function initTable(table){
   }
   if(dataRows.length<2)return;
   var col=-1,dir=0;
+  function restripe(){
+    var n=0;
+    for(var i=0;i<body.rows.length;i++){
+      var cl=body.rows[i].classList;
+      if(!cl.contains('odd')&&!cl.contains('even'))continue;
+      cl.remove(n%2===0?'even':'odd');
+      cl.add(n%2===0?'odd':'even');
+      n++;
+    }
+  }
   function apply(activeCol,activeDir){
     var i;
     if(activeDir===0){
@@ -489,6 +499,7 @@ function initTable(table){
       });
       for(i=0;i<keyed.length;i++)body.appendChild(keyed[i].r);
     }
+    restripe();
     for(i=0;i<hrow.cells.length;i++){
       if(i===activeCol&&activeDir!==0)hrow.cells[i].setAttribute('aria-sort',activeDir===1?'ascending':'descending');
       else hrow.cells[i].removeAttribute('aria-sort');
