@@ -47,6 +47,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'The race-day loop: recording finishes, result codes, redress, and check-in.',
     sections: [
       { id: 'entering-results', title: 'Entering results' },
+      { id: 'elapsed-times', title: 'Recording a race off a stopwatch' },
       { id: 'penalty-codes', title: 'Additive penalty codes' },
       { id: 'importing-finish-sheet', title: 'Importing a finish sheet from a spreadsheet', feature: 'csv-finish-import' },
       { id: 'racesense-import', title: 'Importing from RaceSense', feature: 'racesense-import' },

@@ -200,6 +200,42 @@ export default function EnteringResults() {
           e.g. <em>4 (ZFP)</em>.
         </p>
       </Section>
+      <Section id="elapsed-times" title="Recording a race off a stopwatch">
+        <HelpShot
+          src="/help/shots/elapsed-times.webp"
+          alt="A finish sheet kept on a stopwatch: a duration against each boat."
+          caption="A finish sheet kept on a stopwatch: a duration against each boat."
+        />
+        <p>
+          Some finish boats do not work off the ship’s clock at all. The recorder starts a
+          stopwatch on the gun and writes down a duration per boat, so the sheet in front of
+          you reads <em>10:32</em> rather than <em>14:10:32</em>. Set{' '}
+          <strong className="text-foreground">Elapsed times</strong> in the dropdown above the
+          finishing order and the time column takes durations instead — everything else about
+          entry is unchanged.
+        </p>
+        <p>
+          Type them the way they are written: <code className="text-foreground text-sm">10:32</code>{' '}
+          for ten and a half minutes, <code className="text-foreground text-sm">1:04:32</code>{' '}
+          when a race runs past the hour, or a plain number of seconds. Fractions of a second
+          are kept as you enter them; the corrected time is worked from whole seconds, rounded
+          half up.
+        </p>
+        <p>
+          Handicap scoring behaves identically either way — a boat’s elapsed time is a boat’s
+          elapsed time, whether you wrote it down or the app subtracted the gun for you — and
+          so does the protest time limit, which the app works back to a time of day from the
+          start. Published results are unchanged apart from the finish-time column, which a
+          stopwatch sheet has nothing to put in.
+        </p>
+        <p>
+          The choice is per race, and it locks once the sheet has times on it. An elapsed time
+          and a time of day are different measurements, so switching afterwards could not
+          convert what you had already written down — it would only change what the column
+          claimed the rows underneath it meant. Clear the times if you need to change your
+          mind.
+        </p>
+      </Section>
       {has('csv-finish-import') && (
       <Section id="importing-finish-sheet" title="Importing a finish sheet from a spreadsheet">
         <HelpShot
@@ -216,7 +252,7 @@ export default function EnteringResults() {
           Both CSV and Excel (.xlsx) files work; Excel time cells import as the
           time shown in the spreadsheet.
         </p>
-        <p>The importer reads three columns:</p>
+        <p>The importer reads four columns:</p>
         <ul className="list-disc list-inside space-y-1 pl-2">
           <li>
             <strong className="text-foreground">Sail number</strong> — required; matched
@@ -229,6 +265,15 @@ export default function EnteringResults() {
             <code className="text-foreground text-sm">H:MM:SS</code>, dot-separated{' '}
             <code className="text-foreground text-sm">HH.MM.SS</code>, or bare digits like{' '}
             <code className="text-foreground text-sm">143210</code>.
+          </li>
+          <li>
+            <strong className="text-foreground">Elapsed time</strong> — optional; for a sheet
+            kept on a stopwatch. Accepts{' '}
+            <code className="text-foreground text-sm">M:SS</code>,{' '}
+            <code className="text-foreground text-sm">H:MM:SS</code>, or a plain number of
+            seconds. Use this <em>or</em> a finish time, not both — they are different
+            measurements, and a row carrying both is reported as an error rather than guessed
+            at.
           </li>
           <li>
             <strong className="text-foreground">Result code</strong> — optional; any standard
@@ -271,9 +316,19 @@ export default function EnteringResults() {
         </p>
         <p>
           RaceSense records which boats started, which were on the course side, which
-          cleared, and the finish times of the boats that finished. It does not record
-          retirements, disqualifications, redress or penalties — those reach you as notes
-          from the race committee and you enter them yourself.
+          cleared, and how long each finisher took. It does not record retirements,
+          disqualifications, redress or penalties — those reach you as notes from the race
+          committee and you enter them yourself.
+        </p>
+        <p>
+          What the app takes from each finisher is her{' '}
+          <strong className="text-foreground">elapsed time</strong>, not the time of day the
+          export puts beside it. The export carries both, but the elapsed time is what the
+          device measured and the timestamp is worked out from it — and exports have been
+          seen writing an individual boat’s timestamp a whole hour out while her elapsed time
+          stayed correct. If any timestamp in the file disagrees with its own elapsed time,
+          the import says so against the boat by name; the race scores correctly either way,
+          but it is worth knowing the device did it.
         </p>
         <p>
           The export always contains the <em>whole</em> regatta, so the file you get on the
@@ -330,8 +385,9 @@ export default function EnteringResults() {
         <p>
           The import also keeps what the export says about{' '}
           <strong className="text-foreground">how each boat sailed the race</strong>:
-          finish and elapsed times, distance sailed, max speed, and distance to the line
-          at the starting signal. None of it touches scoring, and none of it is published
+          distance sailed, max speed, and distance to the line at the starting signal.
+          Together with the elapsed time it records anyway, that is everything the device
+          measured. None of it touches scoring, and none of it is published
           until you switch on{' '}
           <strong className="text-foreground">Publish RaceSense track data</strong> in the
           series’ Publishing settings — then the per-race tables carry the figures, with

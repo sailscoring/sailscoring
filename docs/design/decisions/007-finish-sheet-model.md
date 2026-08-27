@@ -1,6 +1,6 @@
 # ADR-007: The Finish Sheet Model for Mixed Timed/Untimed Finish Entry
 
-**Status:** Accepted
+**Status:** Accepted (amended 2026-08-27 — see Amendment below)
 
 **Date:** 2026-04-09
 
@@ -448,6 +448,27 @@ delete and re-enter the affected finishes.
 - **Invariant restoration on scoring-system revert** is an edge case
   within an edge case. Mitigated by running the same auto-slot rule
   used for normal insertion, so the behaviour is consistent.
+
+## Amendment (2026-08-27): elapsed times
+
+The time-order invariant above is stated in times of day: "timed entries
+must be in time order relative to each other". A race recorded off a
+stopwatch has no times of day, only a duration per boat, and durations are
+not comparable the same way — two fleets on different guns can post the
+same duration and cross the line minutes apart.
+
+The invariant therefore reads, for a race recorded as elapsed times: *timed
+entries must be in elapsed order relative to the other entries on their own
+start*. Rows on a different gun are neither compared nor reordered against
+each other; their relative order is the scorer's, as an untimed row's
+always was. For a race with one start — the ordinary case — this is the
+original invariant word for word.
+
+Which of the two a race is recorded in is a per-race choice
+(`Race.finishRecording`), because it is a property of the piece of paper
+being transcribed rather than of a fleet or a series. It is one column
+either way: this ADR's premise is that the scorer transcribes one sheet,
+and a stopwatch sheet is a stopwatch sheet throughout.
 
 ## Related Decisions
 

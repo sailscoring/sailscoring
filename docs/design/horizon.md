@@ -315,15 +315,6 @@ a structured field, not a tag.
 
 ## Finish entry UX
 
-### Elapsed time recording in finish entry
-
-MVP records finish time of day; elapsed time is back-calculated from the start. Some
-finish boats use stopwatches and record elapsed times directly — supporting this natively
-would save the scorer a step. Unclear how common this practice actually is in the field;
-worth asking real recorders before building anything.
-
-*(Was GitHub issue #21)*
-
 ### Printable starters checklist (spotter sheet)
 
 A printed sheet the recording team takes on the committee boat — HYC calls it a

@@ -1410,6 +1410,70 @@ const SHOTS: Shot[] = [
       await shot('archive-trash.png');
     },
   },
+  {
+    // Inventory: Elapsed-time recording — a finish sheet kept on a stopwatch.
+    //
+    // Builds its own race rather than borrowing one: the recording mode locks
+    // once a sheet carries times, and every race in the sample already does.
+    // Last in the list so the extra race can't disturb anything downstream —
+    // the local run seeds a fresh sample each time, so nothing needs undoing.
+    slug: 'elapsed-times',
+    group: 'Entering results',
+    async capture({ page, seriesId, shot }) {
+      if (!LOCAL) throw new Error('elapsed-times builds a race, so it is local-mode only');
+      const id = await seriesId();
+      await page.goto(`${BASE}/series/${id}/races`);
+      await settle(page);
+      const raceNumbers = async () =>
+        (await page.getByText(/^Race \d+\b/).allTextContents())
+          .map((t) => Number(/^Race (\d+)/.exec(t)?.[1]))
+          .filter((n) => Number.isFinite(n));
+      const highest = Math.max(...await raceNumbers());
+      await page.getByRole('button', { name: 'Add race' }).click();
+      await settle(page);
+      // Open the race just added by its number — the sample's races are all
+      // fully entered, and this one has to start empty for the mode to be
+      // changeable.
+      await openRace(page, id, highest + 1);
+      await page.getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('button', { name: 'Add start' }).click();
+      const startDialog = page.getByRole('dialog');
+      await startDialog.waitFor();
+      await startDialog.getByPlaceholder('14:05:00').fill('19:00:00');
+      await startDialog.getByRole('checkbox', { name: /^Class 1 IRC/ }).check();
+      await startDialog.getByRole('button', { name: 'Save' }).click();
+      await startDialog.waitFor({ state: 'hidden' });
+      const done = page.getByRole('button', { name: 'Done' });
+      if (await done.isVisible().catch(() => false)) await done.click();
+      const finishTab = page.getByRole('button', { name: 'Finish entry' });
+      if (await finishTab.isVisible().catch(() => false)) await finishTab.click();
+      await settle(page);
+
+      const mode = page.getByTestId('finish-recording-mode');
+      await mode.waitFor();
+      await mode.click();
+      await page.getByRole('option', { name: 'Elapsed times' }).click();
+      await settle(page);
+
+      // Four boats off the entry list, in crossing order, as a stopwatch
+      // recorder would read them out.
+      const sails = (await page.getByTestId(/^non-finisher-/).evaluateAll((els) =>
+        els.map((e) => e.getAttribute('data-testid')!.replace('non-finisher-', '')),
+      )).slice(0, 4);
+      const elapsed = ['1:48:12', '1:51:04', '1:52:37', '1:58:20'];
+      for (const [i, sail] of sails.entries()) {
+        await page.getByLabel('Sail number').fill(sail);
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+        const prompt = page.getByRole('textbox', { name: 'Elapsed time', exact: true });
+        await prompt.waitFor();
+        await prompt.fill(elapsed[i]);
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+      }
+      await settle(page);
+      await scrollTo(page.getByText('Finishing order', { exact: true }).first());
+      await shot('elapsed-times.png');
+    },
+  },
 ];
 
 /** Open a published fleet page (by URL substring) in the anonymous context,

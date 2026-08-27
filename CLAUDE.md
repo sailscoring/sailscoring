@@ -154,8 +154,18 @@ New architectural decisions should follow the template at `docs/design/decisions
 - ADR-004: Results publishing (Superseded by ADR-008 — the **bilge** MVP service was replaced by in-app publishing and decommissioned in Phase 9)
 - ADR-005: Hosting and domain structure (Accepted — `sailscoring.ie` marketing, `app.sailscoring.ie` app; `bilge.sailscoring.ie` retired to a redirect-only stub in Phase 9)
 - ADR-006: Testing and debug logging (Accepted — Vitest for unit/integration, Playwright for e2e; no DB mocking; debug logs gated behind `DEBUG` env var)
-- ADR-007: Finish sheet model for mixed timed/untimed finish entry (Accepted — unified ordered list, row order = crossing order, time column optional per row; implemented in `d8ad8d0`)
+- ADR-007: Finish sheet model for mixed timed/untimed finish entry (Accepted, amended 2026-08-27 — unified ordered list, row order = crossing order, time column optional per row; implemented in `d8ad8d0`. The amendment restates the time-order invariant for races recorded as elapsed times, where rows are comparable only within a start)
 - ADR-008: Full-stack transition (Accepted — Next.js + Vercel Fluid Compute + Neon Postgres + Better Auth + workspace collaboration; Phases 1–10 complete — Phase 10 (#153) shipped the activity log, invitations / member management, and self-service org-creation requests)
 - ADR-009: API, SDK, and CLI (Accepted — the CLI is a first-party keyed client of `/api/v1`; no DB-direct tooling; M1–M4 landed, M5–M8 deferred to horizon.md)
 - ADR-010: As-published archives (Accepted — historical results become a second, display-only series regime: ingested as published via per-class archive repos + CI, never re-scored; identity manifest-pinned; replaces the reconstruction/parity approach for pre-2026 corpora)
 - ADR-011: Public results navigation and the publication tree (Accepted, revised 2026-07-29 — `/p/` URLs are a tree of workspace → season → event → page; season index routes, event-row workspace index, link-menu cascade on every public page, Season+Folder publish dialog, workspace seasons + management card, and a static redirect table (`pnpm redirects`) so URL moves are managed 301s)
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
