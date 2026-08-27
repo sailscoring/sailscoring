@@ -54,6 +54,35 @@ The columns appear only when all three hold:
 The split-fleet per-race results page is the first target; the ordinary
 series race sections follow.
 
+## In the app
+
+Publishing is a decision about the data, so the scorer needs to see it
+first. There is no in-app table: ranking a fleet against itself is what
+the published page's sortable columns are for, and duplicating them here
+would mean two tables to keep honest. Instead:
+
+- the import dialog counts what each sheet captured, on every race —
+  before, only a `differs` race mentioned track data, and then only
+  because it falls out of the change list;
+- the races list badges each race, `Track data 47` when every row in the
+  race has data and `46/47` when one does not;
+- the finish sheet marks the rows that carry data, and the marker opens
+  a read-only line under the boat with her figures on it;
+- the publish toggle says how many races carry data, so the choice is
+  not made blind.
+
+Absence is implied rather than drawn: an unmarked row is a boat the
+device missed, and the fraction on the races list is what makes that
+legible without putting a placeholder on every row.
+
+DTL is the one figure the two surfaces render differently. The device
+writes a negative distance for a boat over the line at the starting
+signal — in race 1 of the ILCA 7 Worlds Blue fleet, all eleven OCS boats
+read negative and all thirty-six clean starters positive. The published
+column keeps the signed value, because that is what sorts the boats over
+the line to one end; in the app, where no column header explains the
+sign, it reads `0.9 m over` against `2.2 m to line`.
+
 ## Later
 
 The Melges article's series-level analysis — per-metric averages across a

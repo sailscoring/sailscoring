@@ -397,6 +397,17 @@ export default function EnteringResults() {
           column. Re-uploading a workbook records the data for races imported before it
           was kept — they come back as Differs with the addition listed.
         </p>
+        <p>
+          You don’t have to publish it to look at it. The import dialog says how many
+          boats a sheet captured before you commit anything; the{' '}
+          <strong className="text-foreground">Races</strong> tab badges each race with the
+          count, so a boat the device missed shows as a fraction; and on the finish sheet
+          every boat carrying track data has a small marker beside her row — click it and
+          her figures open underneath. Distance to the line reads there as words rather
+          than a sign, because the device writes a negative distance for a boat over the
+          line at the gun: <em>0.9 m over</em> against <em>2.2 m to line</em>. The
+          published column keeps the signed number, which is what lets it sort.
+        </p>
       </Section>
       )}
       <Section id="redress" title="Redress (RDG)">

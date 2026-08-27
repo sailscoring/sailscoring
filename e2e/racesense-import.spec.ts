@@ -1,3 +1,4 @@
+import { type Page } from '@playwright/test';
 import { signedInTest as test, expect } from './fixtures';
 import { createSeriesQuick, enableFeatures } from './helpers';
 import { resolve } from 'path';
@@ -20,13 +21,10 @@ import { resolve } from 'path';
 
 const FIXTURE = resolve(__dirname, '../tests/fixtures/xlsx/racesense-regatta.xlsx');
 
-test.beforeEach(async ({ page, signedInEmail }) => {
-  await enableFeatures(page, signedInEmail, ['racesense-import']);
-});
-
-test('import a RaceSense regatta export race by race', async ({ page }) => {
-  // ── 1. A series with the workbook's three boats and three races ───────────
-  await createSeriesQuick(page, { name: 'RaceSense Regatta' });
+/** The workbook's three boats, entered into a series with three empty races
+ *  for its three sheets to land in. Leaves the browser on the Races tab. */
+async function seriesForTheFixture(page: Page, name: string) {
+  await createSeriesQuick(page, { name });
 
   for (const c of [
     { sail: '15', name: 'Alice Pearson' },
@@ -46,6 +44,15 @@ test('import a RaceSense regatta export race by race', async ({ page }) => {
     await page.getByRole('button', { name: 'Add race' }).click();
     await expect(page.getByText(`Race ${i}`, { exact: true })).toBeVisible();
   }
+}
+
+test.beforeEach(async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['racesense-import']);
+});
+
+test('import a RaceSense regatta export race by race', async ({ page }) => {
+  // ── 1. A series with the workbook's three boats and three races ───────────
+  await seriesForTheFixture(page, 'RaceSense Regatta');
 
   // ── 2. Upload the workbook ────────────────────────────────────────────────
   await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
@@ -96,26 +103,7 @@ test('import a RaceSense regatta export race by race', async ({ page }) => {
 });
 
 test('a sheet that would overwrite a different race comes unticked, with the changes shown', async ({ page }) => {
-  await createSeriesQuick(page, { name: 'RaceSense Shift' });
-
-  for (const c of [
-    { sail: '15', name: 'Alice Pearson' },
-    { sail: '22', name: 'Bob Dickson' },
-    { sail: '254', name: 'Carol Walls' },
-  ]) {
-    await page.getByRole('button', { name: 'Add competitor' }).click();
-    await page.getByLabel('Sail number').fill(c.sail);
-    await page.getByLabel('Competitor name').fill(c.name);
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
-  }
-
-  await page.getByRole('link', { name: 'Races' }).click();
-  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
-  for (let i = 1; i <= 3; i++) {
-    await page.getByRole('button', { name: 'Add race' }).click();
-    await expect(page.getByText(`Race ${i}`, { exact: true })).toBeVisible();
-  }
+  await seriesForTheFixture(page, 'RaceSense Shift');
 
   await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
   await expect(page.getByTestId('racesense-confirm')).toHaveText('Import 2 races');
@@ -148,26 +136,7 @@ test('a sheet that would overwrite a different race comes unticked, with the cha
 });
 
 test('publish the track data the import recorded, behind the series opt-in', async ({ page }) => {
-  await createSeriesQuick(page, { name: 'Track Data Regatta' });
-
-  for (const c of [
-    { sail: '15', name: 'Alice Pearson' },
-    { sail: '22', name: 'Bob Dickson' },
-    { sail: '254', name: 'Carol Walls' },
-  ]) {
-    await page.getByRole('button', { name: 'Add competitor' }).click();
-    await page.getByLabel('Sail number').fill(c.sail);
-    await page.getByLabel('Competitor name').fill(c.name);
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
-  }
-
-  await page.getByRole('link', { name: 'Races' }).click();
-  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
-  for (let i = 1; i <= 3; i++) {
-    await page.getByRole('button', { name: 'Add race' }).click();
-    await expect(page.getByText(`Race ${i}`, { exact: true })).toBeVisible();
-  }
+  await seriesForTheFixture(page, 'Track Data Regatta');
 
   await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
   const plan = page.getByTestId('racesense-plan');
@@ -204,4 +173,52 @@ test('publish the track data the import recorded, behind the series opt-in', asy
   await expect(frame.getByRole('columnheader', { name: 'Avg speed (kn)' }).first()).toBeVisible();
   await expect(frame.getByText('1.188')).toBeVisible();
   await expect(frame.getByText('4.61')).toBeVisible();
+});
+
+test('the scorer can see what the device recorded, without publishing it', async ({ page }) => {
+  await seriesForTheFixture(page, 'Track Data In App');
+
+  await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
+  const plan = page.getByTestId('racesense-plan');
+  await expect(plan).toBeVisible();
+  // The plan says what it captured before anything is committed — on a New
+  // race, which is where a scorer would otherwise never be told.
+  await expect(page.getByTestId('racesense-row-1')).toContainText('New');
+  await expect(page.getByTestId('racesense-row-1')).toContainText('track data for 3');
+  await page.getByTestId('racesense-confirm').click();
+  await expect(plan).toBeHidden();
+
+  // Every boat with a row in the race carries data, so the badge is a count
+  // rather than a fraction.
+  await expect(page.getByTestId('race-track-data-badge').first()).toHaveText('Track data 3');
+
+  // ── The finish sheet: a marker per boat, opening what she recorded ────────
+  await page.getByText('Race 2', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Switch race' })).toContainText('Race 2');
+
+  const strip = page.getByTestId('track-data-15');
+  await expect(strip).toBeHidden();
+  await page.getByTestId('track-data-toggle-15').click();
+  // 1.19 km in 560.5 s is 4.13 kn. Her DTL is stored as -0.9: she was over
+  // the line at the gun, and in the app that reads as words, not a sign.
+  await expect(strip).toContainText('Elapsed 9:21');
+  await expect(strip).toContainText('1.19 km');
+  await expect(strip).toContainText('4.13 kn avg');
+  await expect(strip).toContainText('7 kn max');
+  await expect(strip).toContainText('0.9 m over');
+
+  // A boat who started cleanly reads the other way round, and two rows can be
+  // open at once — there is no table here to compare them in.
+  await page.getByTestId('track-data-toggle-254').click();
+  await expect(page.getByTestId('track-data-254')).toContainText('2.2 m to line');
+  await expect(strip).toBeVisible();
+
+  await page.getByTestId('track-data-toggle-15').click();
+  await expect(strip).toBeHidden();
+
+  // ── The publish toggle knows how much data it is about ───────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const publishing = page.getByTestId('publishing-card');
+  await publishing.getByRole('button', { name: 'Edit ▸' }).click();
+  await expect(page.getByTestId('track-data-coverage')).toHaveText('2 races carry track data.');
 });
