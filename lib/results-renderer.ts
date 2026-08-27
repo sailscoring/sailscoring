@@ -3,6 +3,15 @@ import { escapeHtml as esc } from './html';
 import { elapsedSecondsOf } from './elapsed-time';
 import { parseHmsToSeconds } from './time-parse';
 import {
+  avgSpeedKnText,
+  distanceKmText,
+  dtlAtStartText,
+  elapsedText,
+  finishTimeText,
+  maxSpeedKtsText,
+  type TrackDataCell,
+} from './track-data';
+import {
   PRIMARY_PERSON_LABEL_TEXT,
   formatPrimaryNames,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1516,31 +1525,14 @@ ${rows}
 
 // ---- Race detail table ----
 
-/** What a track-data column reads from a row: the finish time and elapsed
- *  time riding on the finish itself, and the metrics the RaceSense import
- *  recorded. */
-export interface TrackDataCell {
-  finishTime?: string | null;
-  elapsedSecs?: number | null;
-  trackData?: FinishTrackData | null;
-}
-
-/** Average speed in knots from the distance sailed and the elapsed time; the
- *  one derived figure. */
-function avgSpeedKn(c: TrackDataCell): number | null {
-  const km = c.trackData?.distanceKm;
-  const secs = c.elapsedSecs;
-  if (km == null || secs == null || secs <= 0) return null;
-  return (km / 1.852) / (secs / 3600);
-}
-
 /**
  * The finish-time and track-data columns, in display order. Shared by the
- * ordinary race tables and the split-fleet per-race page. Each column renders
- * only when at least one boat in its table carries the value, and the numbers
- * are shown as stored, so they read back exactly what the device wrote. The
- * two `time` columns are skipped on handicap tables, which already show
- * Finish/ET.
+ * ordinary race tables and the split-fleet per-race page, and built from the
+ * same readers the app's own surfaces use, so a published number and an
+ * on-screen one can never disagree. Each column renders only when at least
+ * one boat in its table carries the value, and the numbers are shown as
+ * stored, so they read back exactly what the device wrote. The two `time`
+ * columns are skipped on handicap tables, which already show Finish/ET.
  */
 export const TRACK_DATA_COLUMNS: {
   header: string;
@@ -1548,33 +1540,15 @@ export const TRACK_DATA_COLUMNS: {
   time?: boolean;
   value: (c: TrackDataCell | undefined) => string;
 }[] = [
-  { header: 'Finish time', time: true, value: (c) => c?.finishTime ?? '' },
-  {
-    header: 'Elapsed',
-    time: true,
-    value: (c) =>
-      c?.elapsedSecs != null ? formatDurationSecs(Math.round(c.elapsedSecs)) : '',
-  },
-  {
-    header: 'Distance (km)',
-    title: 'Distance sailed',
-    value: (c) => (c?.trackData?.distanceKm != null ? String(c.trackData.distanceKm) : ''),
-  },
-  {
-    header: 'Avg speed (kn)',
-    value: (c) => {
-      const kn = c ? avgSpeedKn(c) : null;
-      return kn != null ? kn.toFixed(2) : '';
-    },
-  },
-  {
-    header: 'Max speed (kn)',
-    value: (c) => (c?.trackData?.maxSpeedKts != null ? String(c.trackData.maxSpeedKts) : ''),
-  },
+  { header: 'Finish time', time: true, value: finishTimeText },
+  { header: 'Elapsed', time: true, value: elapsedText },
+  { header: 'Distance (km)', title: 'Distance sailed', value: distanceKmText },
+  { header: 'Avg speed (kn)', value: avgSpeedKnText },
+  { header: 'Max speed (kn)', value: maxSpeedKtsText },
   {
     header: 'DTL (m)',
     title: 'Distance to line at the starting signal',
-    value: (c) => (c?.trackData?.dtlAtStartM != null ? String(c.trackData.dtlAtStartM) : ''),
+    value: dtlAtStartText,
   },
 ];
 
