@@ -7,7 +7,6 @@ import {
   findIdentityIdByRef,
   listIdentitiesWithArcs,
   workspaceHasCompetitors,
-  workspaceHasIdentityFeature,
 } from '@/lib/competitor-identity-repository';
 import {
   renderCompetitorIndexHtml,
@@ -28,7 +27,6 @@ import {
 } from '@/lib/ranking-standings';
 import { and, eq, inArray } from 'drizzle-orm';
 import * as schema from '@/lib/db/schema';
-import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
 import { getDb } from '@/lib/db/client';
 import {
   isAuxiliaryPage,
@@ -53,13 +51,16 @@ import {
   getPublishedFolderMeta,
   getPublishedGroupByWorkspaceSlug,
   getPublishedRedirect,
-  getPublishedSeasonTree,
+  assemblePublishedSeasonTree,
+  readPublishedSeasonTreeRows,
   getSeriesName,
   getWorkspaceBySlug,
   listPublishedByWorkspace,
   listPublishedByWorkspaceDigest,
   listPublishedSeriesIds,
 } from '@/lib/published-repository';
+import type { OrgMetadata } from '@/lib/features';
+import type { PublishedSeasonTreeRows } from '@/lib/published-repository';
 import type { PublishedSeries } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -187,30 +188,46 @@ async function workspaceIndex(
   // every publication's page list — on a workspace with a large archive that
   // is the bulk of the request. The full listing is loaded below, only when
   // the page actually has to be rendered.
-  const digest = await listPublishedByWorkspaceDigest(workspace.id);
+  // None of these depend on each other, so they go together. The season tree
+  // is read as rows and assembled below rather than fetched whole, because
+  // assembling it needs the folder metadata and awaiting that first would put
+  // these round trips back in a queue.
+  const [digest, folderMeta, seasonRows] = await Promise.all([
+    listPublishedByWorkspaceDigest(workspace.id),
+    getPublishedFolderMeta(workspace.id),
+    readPublishedSeasonTreeRows(workspace.id),
+  ]);
   // Don't reveal that a workspace exists if it has published nothing.
   if (digest.length === 0) return NOT_FOUND;
 
   // The explicitly-current season opens by default (ADR-011); the folder
   // metadata carries the event rows' label pins.
-  const folderMeta = await getPublishedFolderMeta(workspace.id);
-  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
   const currentSeason = seasonTree.seasons.find((s) => s.current)?.label;
 
   // Surface the competitor index when the feature is on and there's at least
-  // one competitor to browse (so the link never lands on a 404).
+  // one competitor to browse (so the link never lands on a 404). Public season
+  // ladders (#209) and as-published historical rankings (#309) get one forward
+  // link to the ranking index when any exist — the series results stay the
+  // page's focus. Both flags come from the workspace row already read above;
+  // only the existence checks they gate need a query, and a workspace without
+  // the feature makes none.
+  const [hasCompetitors, publishedRankings, asPublishedRankings] =
+    await Promise.all([
+      workspace.features.includes('competitor-identity')
+        ? workspaceHasCompetitors(workspace.id)
+        : false,
+      workspace.features.includes('rankings')
+        ? listPublishedRankings(workspace.id)
+        : [],
+      workspace.features.includes('rankings')
+        ? listAsPublishedRankings(workspace.id)
+        : [],
+    ]);
   const competitorsLink =
-    (await workspaceHasIdentityFeature(workspace.id)) &&
-    (await workspaceHasCompetitors(workspace.id));
-
-  // Public season ladders (#209) and as-published historical rankings
-  // (#309): one forward link to the ranking index when any exist — the
-  // series results stay the page's focus.
-  const rankingsOn = await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings');
+    workspace.features.includes('competitor-identity') && hasCompetitors;
   const rankingsLink =
-    rankingsOn &&
-    ((await listPublishedRankings(workspace.id)).length > 0 ||
-      (await listAsPublishedRankings(workspace.id)).length > 0);
+    publishedRankings.length > 0 || asPublishedRankings.length > 0;
 
   // ETag from listing metadata so repeat views revalidate without re-rendering.
   // Includes the placement fields (category / order / season) so
@@ -261,9 +278,7 @@ async function rankingIndex(
 ): Promise<Response> {
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
-  if (!(await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings'))) {
-    return NOT_FOUND;
-  }
+  if (!workspace.features.includes('rankings')) return NOT_FOUND;
   const entries = [
     ...(await listPublishedRankings(workspace.id)),
     ...(await listAsPublishedRankings(workspace.id)).map((r) => ({
@@ -299,9 +314,7 @@ async function rankingPage(
 ): Promise<Response> {
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
-  if (!(await workspaceOwnFeatureOn(getDb(), workspace.id, 'rankings'))) {
-    return NOT_FOUND;
-  }
+  if (!workspace.features.includes('rankings')) return NOT_FOUND;
 
   const ranking = await getPublishedRankingBySlug(workspace.id, rankingSlug);
   if (!ranking) {
@@ -311,7 +324,7 @@ async function rankingPage(
   const publishedIds = await listPublishedSeriesIds(workspace.id);
   const publicConfig = filterRankingConfigSeries(ranking.config, publishedIds);
   const standings = await computeRankingStandings(workspace.id, publicConfig);
-  const competitorLinks = await workspaceHasIdentityFeature(workspace.id);
+  const competitorLinks = workspace.features.includes('competitor-identity');
 
   // ETag over the computed rows and the basis, so a re-score, a re-publish of
   // a contributing series, or a rename busts the cache while a repeat view
@@ -352,14 +365,19 @@ async function rankingPage(
  *  it. Always public — the archive pushes only what was already public. */
 async function asPublishedRankingPage(
   req: NextRequest,
-  workspace: { id: string; name: string; logo: string },
+  workspace: {
+    id: string;
+    name: string;
+    logo: string;
+    features: OrgMetadata['enabledFeatures'];
+  },
   workspaceSlug: string,
   rankingSlug: string,
 ): Promise<Response> {
   const record = await getAsPublishedRankingBySlug(workspace.id, rankingSlug);
   if (!record) return NOT_FOUND;
 
-  const competitorLinks = await workspaceHasIdentityFeature(workspace.id);
+  const competitorLinks = workspace.features.includes('competitor-identity');
   // Only link sailors whose identity actually exists in the workspace —
   // a slug the manifest hasn't (yet) created must not 404.
   const rowSlugs = [
@@ -415,7 +433,7 @@ async function careerArc(
 ): Promise<Response> {
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
-  if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
+  if (!workspace.features.includes('competitor-identity')) return NOT_FOUND;
 
   const identityId = await findIdentityIdByRef(workspace.id, ref);
   if (!identityId) return NOT_FOUND;
@@ -465,7 +483,7 @@ async function competitorIndex(
 ): Promise<Response> {
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
-  if (!(await workspaceHasIdentityFeature(workspace.id))) return NOT_FOUND;
+  if (!workspace.features.includes('competitor-identity')) return NOT_FOUND;
 
   // Published = public: the index reflects only series with a live
   // publication, so an unpublished series never contributes a row, sail
@@ -526,18 +544,28 @@ async function seriesIndex(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
-  const folderMeta = await getPublishedFolderMeta(workspace.id);
-  const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
+  const [folderMeta, group, seasonRows] = await Promise.all([
+    getPublishedFolderMeta(workspace.id),
+    getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug),
+    readPublishedSeasonTreeRows(workspace.id),
+  ]);
   if (group.length === 0) {
     // No published slug of this name: the segment may name a season whose
     // events publish under their own folders (ADR-011).
-    return seasonIndex(req, workspace, workspaceSlug, seriesSlug, folderMeta);
+    return seasonIndex(
+      req,
+      workspace,
+      workspaceSlug,
+      seriesSlug,
+      folderMeta,
+      seasonRows,
+    );
   }
 
   // The listing changes only when a contributor re-publishes, so the members'
   // content hashes compose a sound ETag — plus the workspace logo, which the
   // hero shows, and the season tree and folder labels the cascade renders.
-  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
@@ -614,18 +642,30 @@ async function fleetPage(
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return NOT_FOUND;
 
-  const group = await getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug);
+  // The navigation cascade (ADR-011) draws on the whole slug group, the
+  // workspace's season tree, and any folder-label overrides, so all three are
+  // needed either way — issued together rather than one after the other.
+  const [group, folderMeta, seasonRows] = await Promise.all([
+    getPublishedGroupByWorkspaceSlug(workspace.id, seriesSlug),
+    getPublishedFolderMeta(workspace.id),
+    readPublishedSeasonTreeRows(workspace.id),
+  ]);
   const owner = group.find((p) => p.pages.some((pg) => pg.subPath === subPath));
   const page = owner?.pages.find((pg) => pg.subPath === subPath);
   if (!owner || !page) {
-    return folderIndex(req, workspace, workspaceSlug, seriesSlug, subPath, group);
+    return folderIndex(
+      req,
+      workspace,
+      workspaceSlug,
+      seriesSlug,
+      subPath,
+      group,
+      folderMeta,
+      seasonRows,
+    );
   }
 
-  // The navigation cascade (ADR-011) draws on the whole slug group, the
-  // workspace's season tree, and any folder-label overrides — so all three
-  // join the page content in the ETag.
-  const folderMeta = await getPublishedFolderMeta(workspace.id);
-  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const etag = `"${await contentHash([
     ...group.map((p) => p.contentHash),
@@ -675,12 +715,18 @@ function seasonTreeEtag(tree: SeasonNavTree): string[] {
  *  when the segment matches no slug; 404 when it names no season either. */
 async function seasonIndex(
   req: NextRequest,
-  workspace: { id: string; name: string; logo: string },
+  workspace: {
+    id: string;
+    name: string;
+    logo: string;
+    features: OrgMetadata['enabledFeatures'];
+  },
   workspaceSlug: string,
   segment: string,
   folderMeta: Map<string, { label: string | null; season: string | null }>,
+  seasonRows: PublishedSeasonTreeRows,
 ): Promise<Response> {
-  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
   const season = seasonTree.seasons.find((s) => s.segment === segment);
   if (!season || season.folders.length === 0) return NOT_FOUND;
 
@@ -745,16 +791,22 @@ async function groupTreePages(group: PublishedSeries[]): Promise<TreePage[]> {
  *  sub-path matches no page exactly; 404 when it names no folder either. */
 async function folderIndex(
   req: NextRequest,
-  workspace: { id: string; name: string; logo: string },
+  workspace: {
+    id: string;
+    name: string;
+    logo: string;
+    features: OrgMetadata['enabledFeatures'];
+  },
   workspaceSlug: string,
   seriesSlug: string,
   subPath: string,
   group: PublishedSeries[],
+  folderMeta: Map<string, { label: string | null; season: string | null }>,
+  seasonRows: PublishedSeasonTreeRows,
 ): Promise<Response> {
   // Folders are single segments; a two-segment miss is just a missing page.
   if (subPath.includes('/') || group.length === 0) return NOT_FOUND;
 
-  const folderMeta = await getPublishedFolderMeta(workspace.id);
   const folderLabels = interiorFolderLabels(folderMeta, seriesSlug);
   const pages = await groupTreePages(group);
   const folder = slugFolders(pages, folderLabels).find(
@@ -765,7 +817,7 @@ async function folderIndex(
   // Same freshness basis as the series index: the folder's contents only
   // change when a contributor re-publishes; the cascade adds the season
   // tree and label overrides.
-  const seasonTree = await getPublishedSeasonTree(workspace.id, folderMeta);
+  const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
   const etag = `"${await contentHash([
     `logo:${workspace.logo}`,
     `folder:${subPath}`,

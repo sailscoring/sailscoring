@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
+import { parseOrgMetadata, type OrgMetadata } from './features';
 import { humanizeSlug, kebab } from './publishing';
 import { publicationPath, seasonLikeSlug } from './published-tree';
 import type { PublishedSeries } from './types';
@@ -174,22 +175,39 @@ export async function getPublishedGroupByWorkspaceSlug(
   return rows.map(rowToPublished);
 }
 
-/** Resolve a workspace (id + display name + own logo) from its public slug.
- *  Drives the public route's workspace lookup, listing heading and hero logo
- *  (#162). */
-export async function getWorkspaceBySlug(
-  workspaceSlug: string,
-): Promise<{ id: string; name: string; logo: string } | null> {
+/** Resolve a workspace from its public slug: id, display name, own logo, and
+ *  its enabled features. Drives the public route's workspace lookup, listing
+ *  heading and hero logo (#162).
+ *
+ *  The features come back here rather than from `workspaceOwnFeatureOn`
+ *  because they live in `organization.metadata` — the very row this query
+ *  already reads. Every `/p/` handler needs at least one flag, so fetching
+ *  them separately meant re-reading the same row once per flag. */
+export async function getWorkspaceBySlug(workspaceSlug: string): Promise<{
+  id: string;
+  name: string;
+  logo: string;
+  features: OrgMetadata['enabledFeatures'];
+} | null> {
   const [row] = await getDb()
     .select({
       id: schema.organization.id,
       name: schema.organization.name,
       logo: schema.organization.logo,
+      metadata: schema.organization.metadata,
+      slug: schema.organization.slug,
     })
     .from(schema.organization)
     .where(eq(schema.organization.slug, workspaceSlug))
     .limit(1);
-  return row ? { id: row.id, name: row.name, logo: row.logo ?? '' } : null;
+  return row
+    ? {
+        id: row.id,
+        name: row.name,
+        logo: row.logo ?? '',
+        features: parseOrgMetadata(row.metadata, row.slug).enabledFeatures,
+      }
+    : null;
 }
 
 /** The display name of a series, or null if it no longer exists (orphaned
@@ -609,22 +627,68 @@ export async function getPublishedSeasonTree(
   workspaceId: string,
   folderMeta?: Map<string, { label: string | null; season: string | null }>,
 ): Promise<{ seasons: PublishedSeason[]; undated: { slug: string; label: string }[] }> {
-  const meta = folderMeta ?? (await getPublishedFolderMeta(workspaceId));
-  const rows = await getDb()
-    .select({
-      slug: schema.publishedSeries.slug,
-      seriesName: schema.series.name,
-      publishedAt: schema.publishedSeries.publishedAt,
-      startDate: schema.series.startDate,
-    })
-    .from(schema.publishedSeries)
-    .leftJoin(
-      schema.series,
-      eq(schema.publishedSeries.seriesId, schema.series.id),
-    )
-    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
-    .orderBy(desc(schema.publishedSeries.publishedAt));
+  const [rows, meta] = await Promise.all([
+    readPublishedSeasonTreeRows(workspaceId),
+    folderMeta ?? getPublishedFolderMeta(workspaceId),
+  ]);
+  return assemblePublishedSeasonTree(rows, meta);
+}
 
+/** The rows behind {@link getPublishedSeasonTree}. */
+export type PublishedSeasonTreeRows = {
+  publications: {
+    slug: string;
+    seriesName: string | null;
+    publishedAt: Date;
+    startDate: string | null;
+  }[];
+  defined: { label: string; isCurrent: boolean }[];
+};
+
+/**
+ * The season tree's two reads, issued together.
+ *
+ * Split out of {@link getPublishedSeasonTree} so the public read path can
+ * start these at the same time as the folder metadata and the slug group
+ * rather than after them. The tree needs the metadata only to *assemble*
+ * itself, not to query, so making a caller await it first serialised three
+ * independent round trips for no reason.
+ */
+export async function readPublishedSeasonTreeRows(
+  workspaceId: string,
+): Promise<PublishedSeasonTreeRows> {
+  const [publications, defined] = await Promise.all([
+    getDb()
+      .select({
+        slug: schema.publishedSeries.slug,
+        seriesName: schema.series.name,
+        publishedAt: schema.publishedSeries.publishedAt,
+        startDate: schema.series.startDate,
+      })
+      .from(schema.publishedSeries)
+      .leftJoin(
+        schema.series,
+        eq(schema.publishedSeries.seriesId, schema.series.id),
+      )
+      .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+      .orderBy(desc(schema.publishedSeries.publishedAt)),
+    getDb()
+      .select({
+        label: schema.workspaceSeasons.label,
+        isCurrent: schema.workspaceSeasons.isCurrent,
+      })
+      .from(schema.workspaceSeasons)
+      .where(eq(schema.workspaceSeasons.workspaceId, workspaceId)),
+  ]);
+  return { publications, defined };
+}
+
+/** Assemble the season tree from its rows and the folder metadata. Pure — no
+ *  reads, so a caller that already has both can skip straight to this. */
+export function assemblePublishedSeasonTree(
+  { publications: rows, defined }: PublishedSeasonTreeRows,
+  meta: Map<string, { label: string | null; season: string | null }>,
+): { seasons: PublishedSeason[]; undated: { slug: string; label: string }[] } {
   const groups = new Map<
     string,
     { names: (string | null)[]; at: number; year: number | null }
@@ -661,13 +725,6 @@ export async function getPublishedSeasonTree(
     bySeason.set(season, list);
   }
 
-  const defined = await getDb()
-    .select({
-      label: schema.workspaceSeasons.label,
-      isCurrent: schema.workspaceSeasons.isCurrent,
-    })
-    .from(schema.workspaceSeasons)
-    .where(eq(schema.workspaceSeasons.workspaceId, workspaceId));
   for (const d of defined) {
     if (!bySeason.has(d.label)) bySeason.set(d.label, []);
   }
