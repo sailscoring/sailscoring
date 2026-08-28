@@ -378,6 +378,36 @@ pnpm run deploy:prod   # production
 
 Pushing to `main` on GitHub also triggers a production deployment automatically.
 
+### Don't deploy during an event
+
+Every production deployment starts the public results cache **cold**.
+
+The `/p/` pages are cached at Vercel's CDN and served without waking a
+function or touching Postgres — 121 ms against a 127 ms network
+baseline, where an uncached render is 370–500 ms. But the CDN cache key
+includes the unique deployment URL. That is what lets a promotion happen
+without disturbing the previous deployment's cache, and the same
+property means a new deployment shares nothing with the old one: the
+first viewer of every published page after a deploy pays the full
+origin cost, and the rest of the crowd behind them arrives before that
+first response is cached.
+
+Deploying mid-regatta therefore hands a results-refreshing crowd
+straight to the origin, which is precisely the burst the caching exists
+to absorb. It is not a defect and there is nothing to fix — it is a
+consequence of how deployments are isolated from each other — so treat
+it as a scheduling rule:
+
+- **Don't deploy while an event is being scored and published**, unless
+  the deploy is what fixes the problem.
+- Prefer the gap between race days.
+- After an unavoidable mid-event deploy, expect a slow first load per
+  page and no lasting harm; the cache refills on its own.
+
+Publishing does **not** have this problem. A publish purges only that
+workspace's tag, and the pages regenerate one at a time as they are
+asked for.
+
 ---
 
 ## Local development
