@@ -403,18 +403,37 @@ paid Neon plan includes, but it was 2.4 GB/month before the exclusion
 above and it exhausted the free plan's 5 GB allowance in August 2026.
 This line grows with the database, so re-check it after any large import.
 
-### Scheduled runs are late, and occasionally do not happen
+### Scheduled runs are late — sometimes by many hours
 
-GitHub's scheduled-workflow queue is best-effort: runs are delayed under
-load and can be dropped entirely. Across the first 113 scheduled runs of
-this workflow, **not one started on time** — median lateness ~2.5 hours,
-worst ~5.8 hours — and the 27 August 2026 run never fired at all. The
-weekly cron is deliberately set off the top of the hour, which is the
-most congested slot; the daily one is not, and moving it would likely
-help.
+GitHub's scheduled-workflow queue is best-effort, and this workflow has
+never once beaten it. Across 114 scheduled runs from May to August 2026,
+**not one started within 15 minutes of its slot**:
 
-Lateness is cosmetic. A dropped run is not, and it is invisible — see
-Failure detection above.
+| | Lateness |
+|---|---|
+| Best ever | 22 min |
+| Median | 2 h 29 min |
+| 90th percentile | 4 h 09 min |
+| Worst | **11 h 09 min** (27 Aug 2026, a `0 6 * * *` slot that ran at 17:09 UTC) |
+
+Both crons are set off the top of the hour because `:00` is where nearly
+everyone's cron lands. That is a smaller queue, not an escape from it:
+the median improved markedly through August while the single worst delay
+in the whole record also happened that month, so treat the schedule as
+"once a day, eventually" rather than as a time of day.
+
+**No run has ever been lost.** Every one of the 114 arrived and
+succeeded. That matters for how you read a missing backup: the 27 August
+run looked dropped for eleven hours and was not, so *absence is not yet
+failure*, and re-running by hand too early only duplicates work. If you
+need one at a predictable moment, trigger it — `gh workflow run
+"Database backup"` starts within seconds, because manual dispatches do
+not go through the scheduled queue.
+
+Lateness is otherwise cosmetic: a backup at 17:09 protects the same data
+as one at 06:00, only with a longer worst-case gap between snapshots. A
+run that genuinely never happens is a different matter, and is invisible
+— see Failure detection above.
 
 ### Extending retention
 

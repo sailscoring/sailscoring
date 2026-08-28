@@ -3,10 +3,14 @@ name: Database backup
 on:
   schedule:
     # Daily, without the as-published archive rows (see ARCHIVE_TABLE below).
-    - cron: '0 6 * * *'
-    # Weekly, everything. Deliberately off the top of the hour: GitHub's
-    # scheduled queue is busiest there, and every run of the daily job above
-    # has started late — median ~2.5h, worst ~5.8h — since May 2026.
+    #
+    # Both crons sit off the top of the hour on purpose. GitHub's scheduled
+    # queue is best-effort and :00 is where nearly everyone's cron lands: over
+    # 114 runs from `0 6 * * *`, not one started within 15 minutes of its slot
+    # — median 2.5h late, 90th percentile 4.1h, worst 11.2h. Odd minutes are
+    # not a fix, only a smaller queue to be stuck in; see the runbook.
+    - cron: '23 6 * * *'
+    # Weekly, everything.
     - cron: '40 5 * * 0'
   workflow_dispatch:
     inputs:
@@ -70,7 +74,10 @@ jobs:
           set -euo pipefail
 
           # Weekly cron or an explicitly-requested manual run dumps everything;
-          # anything else is a daily.
+          # anything else is a daily. The literal below must match the weekly
+          # `cron:` above exactly — change one and you must change the other,
+          # or every weekly run silently becomes a daily and the archive rows
+          # stop being backed up at all.
           if [ "$SCHEDULE" = '40 5 * * 0' ] || [ "$FULL_INPUT" = 'true' ]; then
             PREFIX=weekly
             EXCLUDE=()
