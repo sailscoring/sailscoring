@@ -183,6 +183,38 @@ test('workspace index lists published series and links through to a fleet page',
   await expect(page.getByRole('cell', { name: '42' }).first()).toBeVisible();
 });
 
+test('published pages carry CDN cache headers and a workspace purge tag', async ({
+  page,
+}) => {
+  await createSeriesWithData(page);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const path = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  const res = await page.request.get(path);
+  expect(res.status()).toBe(200);
+  const headers = res.headers();
+
+  // The browser is still told to revalidate on every view, so it can never
+  // hold a stale copy — the freshness guarantee is unchanged.
+  expect(headers['cache-control']).toBe('public, no-cache');
+  expect(headers['etag']).toBeTruthy();
+
+  // The CDN is told something different, and only the CDN sees it: it may
+  // answer that revalidation itself for a minute rather than waking a
+  // function. Vercel consumes this header at the edge, so it never reaches a
+  // real browser — it is visible here only because there is no CDN in front
+  // of the local test server.
+  expect(headers['vercel-cdn-cache-control']).toBe('public, s-maxage=60');
+
+  // One tag per workspace, so publishing can drop every page it might have
+  // changed — the navigation cascade means that is potentially all of them.
+  expect(headers['vercel-cache-tag']).toMatch(/^p:.+/);
+});
+
 test('the workspace logo appears in the published index hero', async ({ page }) => {
   // Give the workspace a logo (a built-in one), then publish a series.
   await page.goto('/workspace');

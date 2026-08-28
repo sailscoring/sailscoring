@@ -12,6 +12,7 @@ import {
   renderCompetitorIndexHtml,
   toCompetitorIndexEntries,
 } from '@/lib/published-competitor-index';
+import { publishedCacheTag } from '@/lib/published-cache';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
   renderAsPublishedRankingHtml,
@@ -70,10 +71,27 @@ const NOT_FOUND = new Response('Not found', {
   headers: { 'content-type': 'text/plain; charset=utf-8' },
 });
 
-// Always-fresh: cache, but revalidate every request against the ETag. A
-// re-publish changes the ETag (the publication's content hash), so a reload
-// shows the new results immediately rather than a stale cached copy (#162).
+// Always-fresh *for the browser*: cache, but revalidate every request against
+// the ETag. A re-publish changes the ETag (the publication's content hash), so
+// a reload shows the new results immediately rather than a stale cached copy
+// (#162).
 const CACHE_CONTROL = 'public, no-cache';
+
+// The CDN is told something different, and only the CDN sees it —
+// `Vercel-CDN-Cache-Control` is consumed at the edge and never forwarded, so
+// the browser still revalidates on every view and can never hold a stale copy.
+// That revalidation then terminates at the CDN, which answers 304 from its own
+// copy without waking a function or touching Postgres. Publishing purges the
+// tag below, so the guarantee above survives: browser asks, CDN has been
+// emptied, origin regenerates.
+//
+// 60s is a deliberate floor rather than a target. The purge covers everything
+// that writes through the publication repository; a series rename, a
+// re-ordering, or a feature flag flipped by an out-of-band script does not go
+// through it, and this is what picks those up without anything having to be
+// enumerated. No stale-while-revalidate: it would serve past the floor, which
+// is the property being bought.
+const CDN_CACHE_CONTROL = 'public, s-maxage=60';
 
 /** 304 when the caller's `If-None-Match` already has this version, else null.
  *  Checked before rendering/reading so an unchanged page costs nothing. */
@@ -85,12 +103,18 @@ function notModified(req: NextRequest, etag: string): Response | null {
   });
 }
 
-function htmlResponse(html: string, etag: string): Response {
+function htmlResponse(
+  html: string,
+  etag: string,
+  workspaceId: string,
+): Response {
   return new Response(html, {
     status: 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': CACHE_CONTROL,
+      'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
+      'Vercel-Cache-Tag': publishedCacheTag(workspaceId),
       etag,
     },
   });
@@ -267,7 +291,7 @@ async function workspaceIndex(
     currentSeason,
     folderMeta,
   });
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** `/p/{ws}/rankings` — the public ranking index (#209/#309): computed
@@ -300,7 +324,7 @@ async function rankingIndex(
     entries,
     workspace.logo,
   );
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** `/p/{ws}/ranking/{slug}` — a public cross-series season ladder (#209).
@@ -357,7 +381,7 @@ async function rankingPage(
     standings,
     { competitorLinks, logoUrl: workspace.logo },
   );
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** The as-published fall-through for `/p/{ws}/ranking/{slug}` (#309): a
@@ -419,7 +443,7 @@ async function asPublishedRankingPage(
     linkable,
     { competitorLinks, logoUrl: workspace.logo },
   );
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** `/p/{ws}/competitor/{ref}` — a recurring competitor's timeline across every
@@ -471,7 +495,7 @@ async function careerArc(
     identity,
     workspace.logo,
   );
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** `/p/{ws}/competitors` — the browsable, searchable index of every recurring
@@ -530,7 +554,7 @@ async function competitorIndex(
     competitors,
     workspace.logo,
   );
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** `/p/{ws}/{series}` — the fleet listing for a slug. A slug is a shared
@@ -627,7 +651,7 @@ async function seriesIndex(
     workspace.logo,
     nav,
   );
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** `/p/{ws}/{series}/{subPath}` — a single fleet's results HTML. The fleet may
@@ -692,7 +716,7 @@ async function fleetPage(
     },
     'float',
   );
-  return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag);
+  return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag, workspace.id);
 }
 
 /** The season tree's contribution to a page ETag: any season, current-flag,
@@ -756,7 +780,7 @@ async function seasonIndex(
     logoUrl: workspace.logo,
     nav,
   });
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
 
 /** The slug group's pages flattened into tree pages, each carrying its
@@ -861,5 +885,5 @@ async function folderIndex(
     logoUrl: workspace.logo,
     nav,
   });
-  return htmlResponse(html, etag);
+  return htmlResponse(html, etag, workspace.id);
 }
