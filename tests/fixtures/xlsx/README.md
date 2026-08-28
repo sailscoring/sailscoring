@@ -24,7 +24,7 @@ cell is text, as RaceSense writes them.
 |---|---|
 | `Race 1` | An ordinary race: two finishers with fractional-second times, one DNF |
 | `Race 2` | 22 is `OCS` and appears in the DNF tail — the case where the Status column is the only record of the penalty; 15 is `OCS (Cleared)` and keeps her finish |
-| `Race 3` | No line recorded (no `Boat Location` / `Pin Location`, a four-column Starts header) and no Finishes block at all |
+| `Race 3` | No line recorded (no `Boat Location` / `Pin Location`, a four-column Starts header) and no Finishes block at all. 254 is `Not Checked-In`, hoisted to the top of the block as the format does — the boat the import reads as DNC rather than DNF |
 | `Summary` | The results grid, agreeing with all three race sheets — so the parser's cross-check stays quiet |
 
 `pnpm racesense:inspect tests/fixtures/xlsx/racesense-regatta.xlsx` prints

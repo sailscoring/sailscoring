@@ -9,7 +9,9 @@ import { resolve } from 'path';
  * The fixture workbook (tests/fixtures/xlsx/racesense-regatta.xlsx) is shaped
  * like a real export: three race sheets plus a Summary, an uncleared OCS boat
  * filed in the Finishes tail as a DNF, a cleared OCS whose finish stands, and
- * a race nobody finished with no Finishes block at all.
+ * a race nobody finished with no Finishes block at all — one of whose boats
+ * never checked her device in, which is the only evidence a RaceSense export
+ * carries that a boat wasn't there.
  *
  * What's actually being tested is the safety property. A RaceSense export is
  * a snapshot of the whole regatta, so the same file gets uploaded again and
@@ -69,6 +71,13 @@ test('import a RaceSense regatta export race by race', async ({ page }) => {
   await expect(page.getByRole('checkbox', { name: 'Import Race 1' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Import Race 3' })).not.toBeChecked();
 
+  // 254's DNF in race 1 is a code the import chose, not one the sheet states.
+  // Saying so is the whole point: the race is still ticked, because the
+  // correction is made on the finish sheet the import writes.
+  await expect(page.getByTestId('racesense-row-1')).toContainText('254 DNF');
+  await expect(page.getByTestId('racesense-row-1'))
+    .toContainText('correct it on the finish sheet');
+
   await expect(page.getByTestId('racesense-confirm')).toHaveText('Import 2 races');
   await page.getByTestId('racesense-confirm').click();
   await expect(plan).toBeHidden();
@@ -92,13 +101,37 @@ test('import a RaceSense regatta export race by race', async ({ page }) => {
   await expect(page.getByRole('listitem').nth(0)).toContainText('254');
   await expect(page.getByRole('listitem').nth(1)).toContainText('15');
 
-  // ── 5. The same workbook again: nothing to do ─────────────────────────────
+  // ── 5. Race 3, taken deliberately: the boat who never appeared is DNC ─────
   await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
   await expect(page).toHaveURL(/\/races$/);
   await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
   await expect(plan).toBeVisible();
   await expect(page.getByTestId('racesense-row-1')).toContainText('Unchanged');
   await expect(page.getByTestId('racesense-row-2')).toContainText('Unchanged');
+  // Nobody finished, so nothing is recommended — but a race that was sailed
+  // and abandoned by nobody is the scorer's to take.
+  await expect(page.getByTestId('racesense-row-3'))
+    .toContainText('whose device never checked in');
+  await page.getByRole('checkbox', { name: 'Import Race 3' }).check();
+  await page.getByTestId('racesense-confirm').click();
+  await expect(plan).toBeHidden();
+
+  await page.getByText('Race 3', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Switch race' })).toContainText('Race 3');
+  // 254's device never checked in and never saw the line: she did not come to
+  // the starting area. 15 and 22 were there, so all the sheet says of them is
+  // that they didn't finish.
+  await expect(page.getByTestId('non-finisher-254')).toContainText('DNC');
+  await expect(page.getByTestId('non-finisher-15')).toContainText('DNF');
+  await expect(page.getByTestId('non-finisher-22')).toContainText('DNF');
+
+  // ── 6. The same workbook again: nothing to do ─────────────────────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
+  await expect(plan).toBeVisible();
+  await expect(page.getByTestId('racesense-row-1')).toContainText('Unchanged');
+  await expect(page.getByTestId('racesense-row-3')).toContainText('Unchanged');
   await expect(page.getByTestId('racesense-confirm')).toBeDisabled();
 });
 

@@ -370,6 +370,19 @@ export default function EnteringResults() {
           so and leaves the code to you rather than guessing.
         </p>
         <p>
+          Every other boat who didn’t finish comes across as a{' '}
+          <strong className="text-foreground">DNF</strong>, because that is the only code
+          RaceSense writes: it has no way to tell a retirement from a boat who never left
+          the beach. The one thing the export does record is whether her device checked in
+          at the start and how far from the line it was at the gun, and a boat whose device
+          did neither didn’t come to the starting area — so the import reads her{' '}
+          <strong className="text-foreground">DNC</strong>. That reading matched the
+          organising authority’s own results for every DNC of the 2026 ILCA 7 Worlds
+          qualifying series, but it is still a reading. The import lists every boat whose
+          code it chose this way against her race, and the codes land on the finish sheet
+          where you correct them against the committee’s record.
+        </p>
+        <p>
           Anything else the workbook does that the app didn’t expect is listed before the
           races are — an unfamiliar column, a status it has never seen, a race whose
           Summary and race sheet disagree. Importing a ticked race{' '}

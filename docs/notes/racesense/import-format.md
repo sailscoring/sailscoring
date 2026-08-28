@@ -113,11 +113,11 @@ signal — P/I → `OCS`, U → `UFD` (RRS 30.3), Black → `BFD` (RRS 30.4), Z 
 the additive `ZFP` penalty (RRS 30.2). Only `P` has been observed, so the
 literal strings RaceSense writes for the others are still unknown.
 
-`Not Checked-In` is most likely about checking the *device* in at
-registration rather than a racing fact — 146 rows carry it in the sample,
-including boats that went on to finish. It is reported and otherwise
-ignored; if it ever warrants a scoring code, that is a race-committee
-call, not a parser's.
+`Not Checked-In` is about the *device*, not the boat — 146 rows carry it
+in the club-series sample, including boats that went on to win the race.
+On its own it means nothing about whether a boat raced. Paired with a
+positionless Finishes row it is the only evidence the format carries that
+a boat wasn't there; see **Reading a non-finisher's code** below.
 
 Boats with a non-empty status are **hoisted to the top of the Starts
 block**, out of sail-number order.
@@ -170,9 +170,54 @@ warning: a warning against a race is a decision the scorer has to make before
 importing it, and there is no decision to make about a value the import
 doesn't read.
 
+### Reading a non-finisher's code
+
+**RaceSense writes `DNF` for every boat that didn't finish.** Retired,
+never started, never left the beach — one code for all of them. Taking it
+at face value publishes a claim the sheet never made: DNF says a boat
+started and didn't finish, and a boat that never came to the starting
+area is DNC (RRS A5.1).
+
+The Starts block is the only other evidence, and one combination is
+conclusive against her having been there: **`Not Checked-In` with no `DTL
+at Start (m)`** — the device never checked in and never registered a
+distance to the line. The import reads that as **DNC** and everything
+else as **DNF**, and names every boat whose code it chose this way in a
+note against the race, because neither reading is a record of what
+happened. A retirement is indistinguishable from a DNF in this format
+and always will be.
+
+Measured against the organising authority's published results for the
+2026 ILCA 7 Worlds (seven qualifying races, three divisions, 16
+positionless rows in all):
+
+| Starts row | Rows | What the OA scored |
+|---|---|---|
+| `Not Checked-In`, no DTL | 8 | DNC ×8 |
+| checked in, with a DTL | 6 | DNF ×4, RET ×1, DNC ×1 |
+| checked in, no DTL | 2 | DNF ×2 |
+
+Every DNC in the event is a boat whose device never checked in. The one
+DNC on the other side is the committee's own error and not a limit of
+the reading: that boat had `DTL 1.95m` at the gun and had finished 25th
+in the previous race on the same device, so she plainly came to the
+starting area. A DTL reading is therefore evidence *against* DNC. The
+absence of one is not evidence for it — 44 boats in the same corpus
+finished with a place and no DTL.
+
+The club-series sample has no published results to check against, but it
+shows what the check-in status is worth alone: 16 rows are
+`Not Checked-In` boats who finished with a place and full track data,
+every one of them carrying a DTL. Across both corpora no boat is ever
+`Not Checked-In` with a DTL *and* positionless, so on the evidence to
+hand the DTL clause never changes an outcome — it is there because the
+rule it encodes is what makes the reading defensible.
+
 ### Discarded
 
-No Sail Scoring analogue: distance-to-line, GPS positions, max speed.
+No Sail Scoring analogue: GPS positions. Distance-to-line, distance
+travelled and max speed are imported as the finish's track data rather
+than scored from.
 
 ## Unknowns
 

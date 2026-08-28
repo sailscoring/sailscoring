@@ -147,6 +147,20 @@ interface BuiltRows {
 }
 
 /**
+ * Whether a note is reason enough not to tick a race by default.
+ *
+ * Every warning is, bar one. `defaulted-code` fires on any race with a
+ * non-finisher in it, which is most of them, and what it asks for is done
+ * after the import rather than before it: the codes it lists are written to
+ * the finish sheet, where the scorer corrects them against the committee's
+ * record. Un-ticking the race would only stop the sheet reaching the place
+ * the correction is made.
+ */
+function blocksRecommendation(note: RaceSenseAnomaly): boolean {
+  return note.severity === 'warning' && note.kind !== 'defaulted-code';
+}
+
+/**
  * Turn one race sheet into finish-sheet rows: finishers in crossing order,
  * then the coded tail.
  *
@@ -177,6 +191,32 @@ function buildRows(race: RaceSenseRace): BuiltRows {
     }
   }
 
+  /** Boats whose Starts row holds no evidence that they came to the starting
+   *  area: the device never checked in, and it never registered a distance to
+   *  the line either. */
+  const neverAppeared = new Set(
+    race.starters
+      .filter((s) => s.meaning === 'not-checked-in' && s.dtlAtStartM === null)
+      .map((s) => s.sailNumber),
+  );
+
+  /**
+   * The code for a boat with no finishing place. RaceSense writes `DNF` for
+   * every one of them — retired, never started, never left the beach — so her
+   * Starts row is the only evidence of which it was. A device that never
+   * checked in and never registered a distance to the line is the one case
+   * that says she wasn't there, and a boat that did not come to the starting
+   * area is DNC, not DNF (RRS A5.1). Everything else stays DNF.
+   *
+   * Read against the organising authority's results for the 2026 ILCA 7
+   * Worlds: every boat scored DNC over the seven qualifying races was exactly
+   * a boat whose device never checked in. It is still a reading of the
+   * evidence and not a record of what happened, which is what the note below
+   * says; a DNF that was really a retirement can't be told apart at all.
+   */
+  const codeForNonFinisher = (sailNumber: string): string =>
+    neverAppeared.has(sailNumber) ? 'DNC' : 'DNF';
+
   const rows: string[][] = [];
   const placed = new Set<string>();
 
@@ -186,13 +226,20 @@ function buildRows(race: RaceSenseRace): BuiltRows {
     // finished is as likely to have been abandoned, which is a decision no
     // import should make on the committee's behalf.
     note('warning', 'nobody-finished',
-      'Nobody finished this race, so every starter is being read as DNF. If the race was abandoned instead, don’t import it — abandon it in the app.');
+      `Nobody finished this race, so every starter is being read as DNF${
+        neverAppeared.size > 0 ? ', bar those whose device never checked in — they are read as DNC' : ''
+      }. If the race was abandoned instead, don’t import it — abandon it in the app.`);
     for (const starter of race.starters) {
-      rows.push([starter.sailNumber, '', statusCodes.get(starter.sailNumber) ?? 'DNF']);
+      const status = statusCodes.get(starter.sailNumber);
+      rows.push([starter.sailNumber, '', status ?? codeForNonFinisher(starter.sailNumber)]);
       placed.add(starter.sailNumber);
     }
     return { rows, notes };
   }
+
+  /** Every boat whose code this import chose rather than read, as it reads on
+   *  her row. The note that lists them is the scorer's cue to check them. */
+  const chosen: string[] = [];
 
   for (const finish of race.finishes) {
     placed.add(finish.sailNumber);
@@ -214,8 +261,30 @@ function buildRows(race: RaceSenseRace): BuiltRows {
         rows.push([finish.sailNumber, finish.totalTimeSecs?.toString() ?? '', '']);
       }
     } else {
-      rows.push([finish.sailNumber, '', status ?? finish.code ?? 'DNF']);
+      // Her start-line penalty, or a code the sheet states for itself, stands
+      // as written. `DNF` is the one RaceSense writes for every non-finisher
+      // alike, so it is the one that has to be read rather than taken.
+      const stated = status ?? (finish.code === 'DNF' ? null : finish.code);
+      const code = stated ?? codeForNonFinisher(finish.sailNumber);
+      if (stated === null) chosen.push(`${finish.sailNumber} ${code}`);
+      rows.push([finish.sailNumber, '', code]);
     }
+  }
+
+  if (chosen.length > 0) {
+    const one = chosen.length === 1;
+    notes.push({
+      severity: 'warning',
+      kind: 'defaulted-code',
+      sheet: race.sheetName,
+      value: chosen.join(', '),
+      message:
+        'RaceSense writes DNF for every boat that didn’t finish, so it can’t tell a '
+        + `retirement from a boat that never started. ${one ? 'This code is' : 'These codes are'} `
+        + `this import’s reading of the Starts block, not the sheet’s: ${chosen.join(', ')}. `
+        + `Confirm ${one ? 'it' : 'each'} against the committee’s record and correct `
+        + `${one ? 'it' : 'them'} on the finish sheet.`,
+    });
   }
 
   // A starter RaceSense never mentions again. Leaving her out scores her DNC
@@ -584,7 +653,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
       race,
       state,
       recommended: state === 'new'
-        && notes.every((n) => n.severity !== 'warning')
+        && notes.every((n) => !blocksRecommendation(n))
         && result.errors.length === 0,
       result,
       trackData: result.finishes.filter((f) => hasTrackData(f.trackData)).length,

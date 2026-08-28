@@ -38,8 +38,9 @@ function starter(
   sailNumber: string,
   status = '',
   meaning: RaceSenseStarter['meaning'] = 'started',
+  dtlAtStartM: number | null = null,
 ): RaceSenseStarter {
-  return { sailNumber, boatName: '', bowNumber: '', status, meaning, protest: false, dtlAtStartM: null };
+  return { sailNumber, boatName: '', bowNumber: '', status, meaning, protest: false, dtlAtStartM };
 }
 
 /** The gun every `sourceRace` below starts on, so a finisher's elapsed time
@@ -205,7 +206,7 @@ describe('planRaceSenseImport', () => {
     expect(races[0].recommended).toBe(false);
   });
 
-  it('ignores a check-in note entirely', () => {
+  it('leaves a boat who finished alone, however her device checked in', () => {
     const { races } = plan({
       races: [sourceRace({
         number: 1,
@@ -215,7 +216,56 @@ describe('planRaceSenseImport', () => {
     const boat = races[0].result!.finishes.find((f) => f.competitorId === 'c1');
     expect(boat?.resultCode).toBeNull();
     expect(boat?.elapsedSecs).toBe(860);
-    expect(warnings(races[0].notes)).toEqual([]);
+    // Only 1022, the sheet's own DNF, is a code this import chose.
+    expect(races[0].notes.find((n) => n.kind === 'defaulted-code')?.value).toBe('1022 DNF');
+  });
+
+  describe('a boat with no finishing place', () => {
+    /** The fixture race with `1022` in the DNF tail, her Starts row varied. */
+    const withStart = (start: RaceSenseStarter) => plan({
+      races: [sourceRace({
+        number: 1,
+        starters: [starter('1021'), starter('1023'), start],
+      })],
+    }).races[0];
+
+    const codeOf = (race: ReturnType<typeof withStart>) =>
+      race.result!.finishes.find((f) => f.competitorId === 'c3')?.resultCode;
+
+    it('is DNC when her device never checked in and never saw the line', () => {
+      expect(codeOf(withStart(starter('1022', 'Not Checked-In', 'not-checked-in')))).toBe('DNC');
+    });
+
+    it('is DNF when her device recorded a distance to the line, checked in or not', () => {
+      // She came to the starting area, so DNC is wrong however the device
+      // registered her — RRS A5.1. Whether she started is not in the sheet.
+      expect(codeOf(withStart(starter('1022', 'Not Checked-In', 'not-checked-in', 1.95)))).toBe('DNF');
+      expect(codeOf(withStart(starter('1022', '', 'started', 4.49)))).toBe('DNF');
+    });
+
+    it('is DNF when she checked in and left no other trace', () => {
+      expect(codeOf(withStart(starter('1022')))).toBe('DNF');
+    });
+
+    it('is named in a note saying the code was read, not recorded', () => {
+      const race = withStart(starter('1022', 'Not Checked-In', 'not-checked-in'));
+      const note = race.notes.find((n) => n.kind === 'defaulted-code');
+      expect(note?.value).toBe('1022 DNC');
+      expect(note?.message).toContain('1022 DNC');
+      expect(note?.message).toContain('correct it on the finish sheet');
+    });
+
+    it('does not stop the race being recommended', () => {
+      // The correction it asks for happens on the finish sheet, which the
+      // import has to run for the scorer to get to.
+      expect(withStart(starter('1022', 'Not Checked-In', 'not-checked-in')).recommended).toBe(true);
+    });
+
+    it('keeps her start-line penalty ahead of either', () => {
+      const race = withStart(starter('1022', 'OCS', 'ocs'));
+      expect(codeOf(race)).toBe('OCS');
+      expect(race.notes.some((n) => n.kind === 'defaulted-code')).toBe(false);
+    });
   });
 
   describe('the same workbook, uploaded again', () => {
@@ -490,6 +540,21 @@ describe('planRaceSenseImport', () => {
     ]);
     expect(warnings(races[0].notes)).toContain('nobody-finished');
     expect(races[0].recommended).toBe(false);
+  });
+
+  it('reads the boats who never appeared as DNC even when nobody finished', () => {
+    const { races } = plan({
+      races: [sourceRace({
+        number: 1,
+        finishes: null,
+        starters: [starter('1021'), starter('1023', 'Not Checked-In', 'not-checked-in'), starter('1022')],
+      })],
+    });
+    expect(races[0].result!.finishes.map((f) => [f.competitorId, f.resultCode])).toEqual([
+      ['c1', 'DNF'], ['c2', 'DNC'], ['c3', 'DNF'],
+    ]);
+    expect(races[0].notes.find((n) => n.kind === 'nobody-finished')?.message)
+      .toContain('whose device never checked in');
   });
 
   it('keeps the parser’s per-sheet anomalies with their race, and the rest apart', () => {
