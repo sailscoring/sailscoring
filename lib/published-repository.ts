@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from './db/client';
 import * as schema from './db/schema';
 import { parseOrgMetadata, type OrgMetadata } from './features';
+import { purgePublishedCache } from './published-cache';
 import { humanizeSlug, kebab } from './publishing';
 import { publicationPath, seasonLikeSlug } from './published-tree';
 import type { PublishedSeries } from './types';
@@ -568,6 +569,7 @@ export async function upsertPublishedFolder(
       ],
       set,
     });
+  await purgePublishedCache(workspaceId);
 }
 
 /** Pin a folder's display label unless one is already pinned — first
@@ -590,6 +592,7 @@ export async function pinPublishedFolderLabelIfAbsent(
         label: sql`coalesce(${schema.publishedFolders.label}, excluded.label)`,
       },
     });
+  await purgePublishedCache(workspaceId);
 }
 
 /** The season a published slug files under (ADR-011): the folder-metadata
@@ -864,9 +867,11 @@ export async function listPublishedForWorkspace(workspaceId: string): Promise<
  *  blobs first (see the unpublish handler) — this only drops the record, which
  *  is what frees the `(workspace, slug)` and makes the public page 404. */
 export async function deletePublished(id: string): Promise<void> {
-  await getDb()
+  const [row] = await getDb()
     .delete(schema.publishedSeries)
-    .where(eq(schema.publishedSeries.id, id));
+    .where(eq(schema.publishedSeries.id, id))
+    .returning({ workspaceId: schema.publishedSeries.workspaceId });
+  if (row) await purgePublishedCache(row.workspaceId);
 }
 
 /** Insert or overwrite a publication, keyed by `id`. */
@@ -894,4 +899,5 @@ export async function savePublished(p: PublishedSeries): Promise<void> {
         publishedVersion: p.publishedVersion,
       },
     });
+  await purgePublishedCache(p.workspaceId);
 }

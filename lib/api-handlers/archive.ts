@@ -37,6 +37,7 @@ import { mapWithConcurrency } from '@/lib/concurrency';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import {
+  deletePublished,
   getPublishedBySeries,
   getPublishedGroupByWorkspaceSlug,
   savePublished,
@@ -606,9 +607,10 @@ export async function deleteArchiveSeries(
     for (const page of published.pages) {
       await deletePublishedHtml(page.blobUrl);
     }
-    await getDb()
-      .delete(schema.publishedSeries)
-      .where(eq(schema.publishedSeries.id, published.id));
+    // Through the repository rather than a direct delete: that is where the
+    // public-cache purge lives, and bypassing it left this path serving a
+    // removed archive from the CDN.
+    await deletePublished(published.id);
   }
   const [row] = await getDb()
     .select({ name: schema.series.name })
