@@ -187,6 +187,13 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
     'data-marked',
     'true',
   );
+  // The panel is capped at the window's height with the sentences scrolling
+  // inside it, so the last setting's sentence is brought into view rather
+  // than left below the fold where the mark can't be read.
+  await formatSection.getByLabel('How ties between the top boats are broken').focus();
+  const tieBreak = si.locator('[data-sentence="medal-tie-break"]');
+  await expect(tieBreak).toHaveAttribute('data-marked', 'true');
+  await expect(tieBreak).toBeInViewport();
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Select Final series fleet…' }).click();
