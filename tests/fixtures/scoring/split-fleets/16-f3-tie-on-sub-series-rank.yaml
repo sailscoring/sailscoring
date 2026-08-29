@@ -10,12 +10,16 @@ provenance:
   alternatives: "49er/FX/Nacra Worlds 2026 and 470 Europeans 2026 carry the same compress-then-add shape. Fixture 18 is the same tie decided the other way, under the wording that replaced this one."
 runnable: true
 notes: |
-  This is the Amendment 2 text. Amendment 3 (22 August 2026) replaced SI
-  18.7.4 with a plain last-race comparison in place of RRS A8, which is
-  fixture 18 — so what follows is no longer how this particular championship
-  breaks its ties. It stays because the clause itself is not unusual: an
-  SI that keeps A8 and adds sub-series steps behind it is a shape a scorer
-  still meets, and `medal.tieBreak: stage-rank` still means it.
+  This is the Amendment 2 text, and two of its clauses have since been
+  replaced: Amendment 3 (22 August 2026) rewrote SI 18.7.4 as a plain
+  last-race comparison in place of RRS A8 (fixture 18), and Amendment 5
+  (29 August 2026) rewrote SI 18.7.5 the other way round (fixture 21). So
+  neither of the two rules this fixture turns on is how this particular
+  championship scores today. It stays because neither clause is unusual: an
+  SI that keeps A8 and adds sub-series steps behind it, over a division that
+  stands once the medal fleet is picked, is a shape a scorer still meets, and
+  `medal.tieBreak: stage-rank` with `carryTransform.appliesFrom:
+  medal-fleet-selected` still means it.
 
   Two SI clauses meet here, and the first is why the second exists:
 
@@ -30,11 +34,16 @@ notes: |
   point apart arrive at the Final series level. That is exactly what happens
   to y1 and y2 below — 7 points each, so 4 each once halved (3.5 rounds up).
 
-  The Final series is then not sailed at all, which under SI 18.7.5 makes the
-  adjusted scores the event result. So y1 and y2 finish on 4 with a single
-  identical score between them: A8.1 compares two identical lists and A8.2
-  has no race to walk back through. Without SI 18.7.4 the championship's
-  second and third places would be undecided.
+  The Final series is then not sailed at all. Under the SI 18.7.5 of the day
+  that made the adjusted scores the event result — the reading Amendment 5
+  (29 August 2026) reversed, and which `carryTransform.appliesFrom:
+  medal-fleet-selected` still means for the classes that keep it. Fixture 21
+  is the same abandonment scored the way this championship scores it now.
+
+  So y1 and y2 finish on 4 with a single identical score between them: A8.1
+  compares two identical lists and A8.2 has no race to walk back through.
+  Without SI 18.7.4 the championship's second and third places would be
+  undecided.
 
   The clause settles it on the Elimination series alone — the final-stage
   races scored as their own series. y1 sailed them 2nd and 2nd (4 points),
@@ -65,6 +74,10 @@ config:
       kind: divide
       by: 2
       rounding: half-up
+      # The Amendment 2 reading: the division stands from the moment the
+      # medal fleet is picked, so an abandoned Final series leaves the
+      # divided scores as the event result.
+      appliesFrom: medal-fleet-selected
     tieBreak: stage-rank
 
 competitors:
@@ -111,8 +124,8 @@ stages:
           Gold: [b1, y1, y2]
           Silver: [b2, y3, b3]
 
-  # The whole Gold fleet qualifies, and then the medal races are never sailed
-  # (SI 18.7.5): the adjusted scores are the event result.
+  # The whole Gold fleet qualifies, and then the medal races are never sailed.
+  # Under the SI 18.7.5 of the day, the adjusted scores are the event result.
   - stage: medal
     from: 1
     fleets:

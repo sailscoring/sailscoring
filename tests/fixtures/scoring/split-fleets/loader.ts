@@ -118,8 +118,12 @@ export interface SplitFleetFixture {
       size: number;
       raceCount: number;
       multiplier: number;
-      carryTransform?: CarryTransform;
-      tieBreak?: 'stage-rank';
+      /** The compressed carry. `appliesFrom` is declared only by the
+       *  fixtures it can bite — a medal fleet selected with no medal race
+       *  sailed — and defaults to `first-medal-race` everywhere else. */
+      carryTransform?: Omit<CarryTransform, 'appliesFrom'> &
+        Partial<Pick<CarryTransform, 'appliesFrom'>>;
+      tieBreak?: 'stage-rank' | 'last-race';
       companionRace?: 'scored-below' | 'none';
     };
   };
@@ -223,7 +227,13 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     reassignmentTieOrder: 'a8-then-entry-order',
     vocabulary: DEFAULT_VOCABULARY,
     medal: fx.config.medal
-      ? { companionRace: 'scored-below' as const, ...fx.config.medal }
+      ? {
+          companionRace: 'scored-below' as const,
+          ...fx.config.medal,
+          carryTransform: fx.config.medal.carryTransform
+            ? { appliesFrom: 'first-medal-race' as const, ...fx.config.medal.carryTransform }
+            : undefined,
+        }
       : undefined,
   };
 

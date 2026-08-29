@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>F3 abandoned finale: the Final series never sails, the halving is undone, and the boat one point ahead on the Qualification series takes the title — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>F3 abandoned finale: the Final series never sails, the halving is undone, and the boat one point ahead on the Qualification series takes the title</h1>
+<p style="color:#555;">ILCA 7 2026 — World Championship, Dun Laoghaire IRL &middot; <strong>F3</strong> &middot; D3 &middot; SI (<code>reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-5.md</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 3. &middot; medal race ×1</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">Amendment 5 (29 August 2026) turned SI 18.7.5 around:
+
+  was  If no race in the Final series is completed, the adjusted scores
+       (see SI 18.7.3) will be determined as the event final result.
+
+  now  If no race in the Final series is completed, the Qualification
+       series score without adjusting it as stated in SI 18.7.3, will
+       determine the event final result.
+
+That brings the SIs into line with NoR 15.4, which had always said the
+undivided thing. It is `carryTransform.appliesFrom: first-medal-race`: the
+division waits for a Final series race to be completed rather than taking
+effect the moment the ten are picked.
+
+The reversal is not cosmetic, and this fixture is built to show why.
+Halving never reorders two boats — but it lands boats a point apart on the
+same whole number, and SI 18.7.4 then settles them on the last race. So the
+boat behind can take the title purely because the Final series was blown
+off. Here y1 finishes the Qualification series on 5 and b1 on 6:
+
+  old reading   both halve to 3 (5/2 = 2.5, rounded up), and the last race
+                sailed is F2, where b1 beat y1 — so b1 is world champion.
+  new reading   5 beats 6 — y1 is world champion, and there is no tie for
+                SI 18.7.4 to settle.
+
+Read the medal boats' rows: nothing is greyed and there is no &quot;Carried&quot;
+column entry, because no division happened. Their championship scores are
+the Qualification series scores they actually sailed.
+
+Hand check, DNC base 5 in the Preliminary series (largest fleet 4 + 1) and
+5 in the Elimination series (own fleet 4 + 1), one discard from 3 races,
+at most one of them from the Elimination series:
+  y1  Q 1,1,2  F 1,2  -&gt; discard a 2  = 5   &lt;- champion
+  b1  Q 1,2,2  F 2,1  -&gt; discard a 2  = 6
+  b2  Q 2,1,1  F 4,3  -&gt; discard F1's 4 = 7
+  y2  Q 2,2,1  F 3,4  -&gt; discard F2's 4 = 8</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff3bf;padding:0 4px;border-radius:3px;">Yellow: y1, y2, y3, y4</span>&nbsp; <span style="background:#d0ebff;padding:0 4px;border-radius:3px;">Blue: b1, b2, b3, b4</span></td></tr>
+<tr><td>Final split</td><td>split (qualifying ranking)</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: b1, b2, y1, y2</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: b3, b4, y3, y4</span></td></tr>
+<tr><td>Medal</td><td>medal top 2</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b1, y1</span></td></tr>
+</tbody>
+</table>
+<h2>Gold fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">y1</td>
+  <td>Helm Y1 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#fff3bf;text-align:center">(2)</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right;font-weight:bold">5</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">b1</td>
+  <td>Helm B1 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#d0ebff;text-align:center">(2)</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="text-align:right">8</td>
+  <td style="text-align:right;font-weight:bold">6</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">b2</td>
+  <td>Helm B2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">(4)</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td style="text-align:right">11</td>
+  <td style="text-align:right;font-weight:bold">7</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">y2</td>
+  <td>Helm Y2</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">3</td>
+  <td style="background:#ffec99;text-align:center">(4)</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">8</td>
+</tr>
+</tbody>
+</table>
+<h2>Silver fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>5</td>
+  <td class="mono">y3</td>
+  <td>Helm Y3</td>
+  <td style="background:#fff3bf;text-align:center">(3)</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
+  <td style="background:#fff3bf;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="text-align:right">11</td>
+  <td style="text-align:right;font-weight:bold">8</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">b3</td>
+  <td>Helm B3</td>
+  <td style="background:#d0ebff;text-align:center">(3)</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td style="background:#d0ebff;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="text-align:right">13</td>
+  <td style="text-align:right;font-weight:bold">10</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td class="mono">y4</td>
+  <td>Helm Y4</td>
+  <td style="background:#fff3bf;text-align:center">(4)</td>
+  <td style="background:#fff3bf;text-align:center">4</td>
+  <td style="background:#fff3bf;text-align:center">4</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="background:#e9ecef;text-align:center">3</td>
+  <td style="text-align:right">18</td>
+  <td style="text-align:right;font-weight:bold">14</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td class="mono">b4</td>
+  <td>Helm B4</td>
+  <td style="background:#d0ebff;text-align:center">(4)</td>
+  <td style="background:#d0ebff;text-align:center">4</td>
+  <td style="background:#d0ebff;text-align:center">4</td>
+  <td style="background:#e9ecef;text-align:center">4</td>
+  <td style="background:#e9ecef;text-align:center">4</td>
+  <td style="text-align:right">20</td>
+  <td style="text-align:right;font-weight:bold">16</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

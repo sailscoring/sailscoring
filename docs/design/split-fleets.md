@@ -318,9 +318,9 @@ what an abandonment acts on: a race, rather than one start inside it.
 The **2026 ILCA 7 Men's Worlds run 23–30 August 2026 at Dun Laoghaire**
 (National YC / Royal St George YC; entry cap 160, ~141 entered from 45
 nations → 3 qualifying fleets), and the **ILCA 6 Women's Worlds follow
-there 5–12 September** (~100 entries → 2 fleets). The SIs (Amendment 4,
-24 August 2026) are captured at
-`reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-4.md`, with
+there 5–12 September** (~100 entries → 2 fleets). The SIs (Amendment 5,
+29 August 2026) are captured at
+`reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-5.md`, with
 each earlier amendment kept beside it, and
 settle the questions the NoRs left open. They also use a **three-word
 vocabulary this design does not**: the event has a *Qualification* series
@@ -341,6 +341,17 @@ rather than as a gap list:
   first*: "divided by 2 (two), rounded to the nearest whole number (0.5
   rounded upward)" (SI 18.7.3). That is the survey's **F3 compressed
   carry**, not F2 — `medal.carryTransform`, fixture 15.
+- **An abandoned finale undoes the halving.** Amendment 5 turned SI 18.7.5
+  around: where it used to make the adjusted scores the event result if no
+  Final series race was completed, it now says "the Qualification series
+  score without adjusting it as stated in SI 18.7.3, will determine the
+  event final result" — which is what NoR 15.4 had said all along. The
+  reversal decides championships rather than relabelling them: halving
+  never reorders two boats, but it lands boats a point apart on the same
+  whole number and SI 18.7.4 then settles them on the last race, so the
+  boat behind can take the title purely because the Final series was blown
+  off (`medal.carryTransform.appliesFrom: 'first-medal-race'`, fixture 21;
+  fixture 16 is the superseded reading, which other classes keep).
 - **The last day's extra race is scored from 11.** The boats who miss the
   Final series sail "one additional Qualification series race" (SI 7.7) —
   an ordinary Elimination race in their own fleet, discardable, counting
@@ -597,8 +608,17 @@ export interface SplitFleetConfig {
     raceCount: number;
     multiplier: number;
     /** Compress the opening-series net before the medal races add to it
-     *  (2026 ILCA SI 18.7.3 halves it, 0.5 up). */
-    carryTransform?: { kind: 'divide'; by: number; rounding: 'half-up' | 'truncate' };
+     *  (2026 ILCA SI 18.7.3 halves it, 0.5 up). `appliesFrom` says whether
+     *  the division takes effect when the medal fleet is picked or when a
+     *  medal race is first completed — visible only if the medal series is
+     *  abandoned, where the second leaves the undivided score as the event
+     *  result (2026 ILCA SI 18.7.5 from Amendment 5). */
+    carryTransform?: {
+      kind: 'divide';
+      by: number;
+      rounding: 'half-up' | 'truncate';
+      appliesFrom: 'medal-fleet-selected' | 'first-medal-race';
+    };
     /** How a tie between two medal boats is settled: `stage-rank` adds two
      *  steps after A8 (higher rank in the final series, then the qualifying
      *  series); `last-race` replaces A8 outright with a single comparison of
@@ -735,9 +755,12 @@ standings:
   CarriedFwd field, but computed, not hand-merged). `medal.carryTransform`
   layers over any of them: after the discards, each medal boat's
   opening-series net is divided and rounded into one non-discardable
-  carried score that supersedes her race cells. It applies from the moment
-  the medal round is committed, not when a medal race is sailed, so "if no
-  medal race is completed the adjusted scores decide" needs no second path.
+  carried score that supersedes her race cells. `appliesFrom` says when
+  that happens — when the medal round is committed, or when the first medal
+  race is completed. The two agree from that race onward and differ only on
+  an abandoned medal series, where the second leaves the boats on their
+  undivided opening scores, which is what every sailing instruction that
+  speaks to the case now says.
 - **Ties.** A8.1 then A8.2, and where `medal.tieBreak` is set, the medal
   boats get the tie-break their sailing instructions give them instead.
   `stage-rank` adds two steps behind A8 — rank in the final series alone,
@@ -1123,8 +1146,8 @@ done — see the 2026 ILCA section in Part 1 for what the SIs actually say.
   toggles, flight-assignment tool, App LE tab, merge/CarriedFwd, unequal-
   races procedures), `reference-docs:tool-manuals/cork/CORK-Results-Management-Manual-V10-Sept2019.md`
   (ch. 5–6: the operational workflow).
-- `reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-4.md` — the
-  2026 ILCA 7 Worlds SIs (Amendment 4, 24 Aug 2026): the target event's
+- `reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-5.md` — the
+  2026 ILCA 7 Worlds SIs (Amendment 5, 29 Aug 2026): the target event's
   scoring regime (SI 18), format (SI 7) and Addendum A fleet rules.
 - 2026 ILCA 7 Men's Worlds NoR (Amend 3): <https://2026ilca7men.ilca-worlds.org/wp-content/uploads/sites/39/2026/04/NOR-2026-ILCA-7M-IRL-Amend-3.pdf>;
   ILCA 6 Women's: <https://2026ilca6women.ilca-worlds.org/wp-content/uploads/sites/40/2026/04/NOR-2026-ILCA-6W-IRL-Amend-3.pdf>.

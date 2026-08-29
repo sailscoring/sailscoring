@@ -1,0 +1,134 @@
+description: "F3 abandoned finale: the Final series never sails, the halving is undone, and the boat one point ahead on the Qualification series takes the title"
+provenance:
+  class: "ILCA 7"
+  year: 2026
+  event: "World Championship, Dun Laoghaire IRL"
+  si: "reference-docs:events/ilca7-worlds-2026/SI-with-Amendment-5.md"
+  results: ""
+  code: F3
+  scenarios: ["D3"]
+  alternatives: "470 Europeans 2026 (NoR: if race MR1 is not completed, boats are ranked in the order of the Opening Series ranking). Fixture 16 is the same abandonment under the wording this one replaced."
+runnable: true
+notes: |
+  Amendment 5 (29 August 2026) turned SI 18.7.5 around:
+
+    was  If no race in the Final series is completed, the adjusted scores
+         (see SI 18.7.3) will be determined as the event final result.
+
+    now  If no race in the Final series is completed, the Qualification
+         series score without adjusting it as stated in SI 18.7.3, will
+         determine the event final result.
+
+  That brings the SIs into line with NoR 15.4, which had always said the
+  undivided thing. It is `carryTransform.appliesFrom: first-medal-race`: the
+  division waits for a Final series race to be completed rather than taking
+  effect the moment the ten are picked.
+
+  The reversal is not cosmetic, and this fixture is built to show why.
+  Halving never reorders two boats — but it lands boats a point apart on the
+  same whole number, and SI 18.7.4 then settles them on the last race. So the
+  boat behind can take the title purely because the Final series was blown
+  off. Here y1 finishes the Qualification series on 5 and b1 on 6:
+
+    old reading   both halve to 3 (5/2 = 2.5, rounded up), and the last race
+                  sailed is F2, where b1 beat y1 — so b1 is world champion.
+    new reading   5 beats 6 — y1 is world champion, and there is no tie for
+                  SI 18.7.4 to settle.
+
+  Read the medal boats' rows: nothing is greyed and there is no "Carried"
+  column entry, because no division happened. Their championship scores are
+  the Qualification series scores they actually sailed.
+
+  Hand check, DNC base 5 in the Preliminary series (largest fleet 4 + 1) and
+  5 in the Elimination series (own fleet 4 + 1), one discard from 3 races,
+  at most one of them from the Elimination series:
+    y1  Q 1,1,2  F 1,2  -> discard a 2  = 5   <- champion
+    b1  Q 1,2,2  F 2,1  -> discard a 2  = 6
+    b2  Q 2,1,1  F 4,3  -> discard F1's 4 = 7
+    y2  Q 2,2,1  F 3,4  -> discard F2's 4 = 8
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+  maxFinalDiscards: 1
+  protectLoneFinalRace: true
+  medal:
+    size: 2
+    raceCount: 2
+    multiplier: 1
+    carryTransform:
+      kind: divide
+      by: 2
+      rounding: half-up
+      # SI 18.7.5 as Amendment 5 rewrote it.
+      appliesFrom: first-medal-race
+    tieBreak: last-race
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "y4 Helm Y4"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+  - "b4 Helm B4"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3, y4]
+      Blue: [b1, b2, b3, b4]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3, y4]
+          Blue: [b1, b2, b3, b4]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3, y4]
+          Blue: [b2, b1, b3, b4]
+      - n: 3
+        results:
+          Yellow: [y2, y1, y3, y4]
+          Blue: [b2, b1, b3, b4]
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [y1, b1, y2, b2]
+      Silver: [y3, b3, y4, b4]
+    races:
+      - n: 1
+        results:
+          Gold: [y1, b1, y2, b2]
+          Silver: [y3, b3, y4, b4]
+      - n: 2
+        results:
+          Gold: [b1, y1, b2, y2]
+          Silver: [y3, b3, y4, b4]
+
+  # The ten are picked, and then the Final series is blown off entirely.
+  - stage: medal
+    from: 1
+    assign: { medalTop: 2 }
+    expectedFleets:
+      Medal: [y1, b1]
+
+expected:
+  standings:
+    # No division: the Qualification series scores stand as they were sailed,
+    # and y1's 5 beats b1's 6 outright.
+    - { rank: 1, sail: y1, total: 7, net: 5, fleet: Gold, medal: true }
+    - { rank: 2, sail: b1, total: 8, net: 6, fleet: Gold, medal: true }
+    - { rank: 3, sail: b2, total: 11, net: 7, fleet: Gold }
+    - { rank: 4, sail: y2, total: 12, net: 8, fleet: Gold }
+    - { rank: 5, sail: y3, total: 11, net: 8, fleet: Silver }
+    - { rank: 6, sail: b3, total: 13, net: 10, fleet: Silver }
+    - { rank: 7, sail: y4, total: 18, net: 14, fleet: Silver }
+    - { rank: 8, sail: b4, total: 20, net: 16, fleet: Silver }
