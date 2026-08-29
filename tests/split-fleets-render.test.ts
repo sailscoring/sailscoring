@@ -60,6 +60,18 @@ function midQualifying(input: SplitFleetRenderInput): SplitFleetRenderInput {
   };
 }
 
+/** The column headings of one fleet's table on the standings page, in order.
+ *  `fleet` names the section heading; omit it for a page rendered as one
+ *  combined table. */
+function headerRow(html: string, fleet?: string): string[] {
+  const from = fleet ? html.indexOf(`<h2>${fleet} fleet</h2>`) : 0;
+  expect(from).toBeGreaterThanOrEqual(0);
+  const head = html.slice(from).match(/<thead>([\s\S]*?)<\/thead>/)?.[1] ?? '';
+  return [...head.matchAll(/<th[^>]*>(.*?)<\/th>/g)].map((m) =>
+    m[1].replace(/<[^>]*>/g, ''),
+  );
+}
+
 describe('renderSplitFleetStandingsPage', () => {
   it('renders tiered sections after the split, with cells and totals', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
@@ -74,11 +86,27 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(html).not.toContain('provisional split');
   });
 
+  it('gives each fleet table only the columns its boats sail', () => {
+    // The medal race is the medal fleet's alone, and those boats sit in Gold's
+    // table: carrying M1 into Silver's would be a column in which not one of
+    // its boats can ever have a cell.
+    const html = renderSplitFleetStandingsPage(renderInputFor('03-f2-ilca-medal-race.yaml'));
+    expect(headerRow(html, 'Gold')).toEqual(
+      ['Rank', 'Sail', 'Helm', 'Q1', 'Q2', 'F1', 'F2', 'M1', 'Total', 'Nett'],
+    );
+    expect(headerRow(html, 'Silver')).toEqual(
+      ['Rank', 'Sail', 'Helm', 'Q1', 'Q2', 'F1', 'F2', 'Total', 'Nett'],
+    );
+  });
+
   it('marks the provisional cut line while still in qualifying', () => {
     const mid = midQualifying(renderInputFor('01-f1-ilca-continuous-carry.yaml'));
     const html = renderSplitFleetStandingsPage(mid);
     expect(html).toContain('provisional split');
     expect(html).not.toContain('Gold fleet');
+    // The line spans the table, so its colspan has to follow the table's own
+    // column set rather than the page's.
+    expect(Number(html.match(/<td colspan="(\d+)"/)?.[1])).toBe(headerRow(html).length);
   });
 
   it('says so when the boats either side of the cut line are tied', () => {

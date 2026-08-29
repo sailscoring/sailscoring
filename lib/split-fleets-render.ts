@@ -224,11 +224,19 @@ export function renderSplitFleetStandingsPage(
   const columnLabel = (stage: SeriesStage, n: number) =>
     stageRaceLabel(data.config, stage, n, qRaces);
 
-  const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
-  for (const r of rows) for (const c of r.cells) colKeys.set(`${c.stage}:${c.stageRaceNumber}`, { stage: c.stage, n: c.stageRaceNumber });
-  const columns = [...colKeys.values()].sort(
-    (a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] || a.n - b.n,
-  );
+  /** The race columns one table needs: those some boat in it has a cell for.
+   *  Per table rather than per page — once a medal stage exists the page's
+   *  full set carries the medal columns, which no boat outside the medal
+   *  fleet can ever hold a cell in, and every other fleet's table would
+   *  carry them as dead width. The rule generalises: a stage race a whole
+   *  fleet never sailed drops out of that fleet's table the same way. */
+  const columnsFor = (rowsIn: typeof rows) => {
+    const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
+    for (const r of rowsIn) for (const c of r.cells) colKeys.set(`${c.stage}:${c.stageRaceNumber}`, { stage: c.stage, n: c.stageRaceNumber });
+    return [...colKeys.values()].sort(
+      (a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] || a.n - b.n,
+    );
+  };
 
   const cellHtml = (row: (typeof rows)[number], col: { stage: SeriesStage; n: number }): string => {
     const c = row.cells.find((x: CellScore) => x.stage === col.stage && x.stageRaceNumber === col.n);
@@ -274,6 +282,7 @@ export function renderSplitFleetStandingsPage(
   };
 
   const table = (rowsIn: typeof rows, cuts: number[] = [], withFleetCol = false): string => {
+    const columns = columnsFor(rowsIn);
     const head = columns.map(headerCell).join('');
     const body = rowsIn
       .map((row, i) => {
