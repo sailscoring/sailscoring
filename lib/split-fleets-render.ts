@@ -281,14 +281,24 @@ export function renderSplitFleetStandingsPage(
       : `<th>${label}</th>`;
   };
 
+  // The badge on a medal boat's name says which fleet she is in, in the
+  // fleet's own words: under the ILCA vocabulary that stage is the Final
+  // series, and a badge reading "medal" would spend a word the page has
+  // already given to something else. Bordered and tinted in the fleet's own
+  // colour, so it agrees with the cells beside it; the text stays the row's,
+  // which a pale fleet colour would not be legible as.
+  const medalFleetId = roundsForStage(data.rounds, 'medal')[0]?.fleetIds[0];
+  const medalLabel =
+    (medalFleetId && fleetName.get(medalFleetId)) || capitaliseStage(vocab.stages.medal.name);
+  const medalHex = fleetColorHex(colors, medalFleetId) ?? '#b8860b';
+  const medalBadge = ` <span style="font-size:0.8em;border:1px solid ${medalHex};background:${medalHex}2e;border-radius:3px;padding:0 3px;">${esc(medalLabel)}</span>`;
+
   const table = (rowsIn: typeof rows, cuts: number[] = [], withFleetCol = false): string => {
     const columns = columnsFor(rowsIn);
     const head = columns.map(headerCell).join('');
     const body = rowsIn
       .map((row, i) => {
-        const medal = row.medal
-          ? ' <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span>'
-          : '';
+        const medal = row.medal ? medalBadge : '';
         const fleetId = withFleetCol ? fleetOf(row) : undefined;
         // No WS ID column on the table → the name carries the bio link
         // instead, so the profile is still one click away.

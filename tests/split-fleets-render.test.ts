@@ -99,6 +99,31 @@ describe('renderSplitFleetStandingsPage', () => {
     );
   });
 
+  it('badges a medal boat with her fleet, in the series\' own words', () => {
+    const input = renderInputFor('03-f2-ilca-medal-race.yaml');
+    const html = renderSplitFleetStandingsPage(input);
+    // Never the bare stage id: it is not a word any series uses.
+    expect(html).not.toContain('>medal</span>');
+    expect(html).toMatch(/<span style="[^"]*">Medal<\/span>/);
+    // And carries the medal fleet's own colour, so it agrees with the tint on
+    // the cells beside it instead of holding a shade of its own.
+    expect(html.match(/<span style="font-size:0\.8em[^"]*"/)?.[0]).toContain('#f59e0b');
+
+    // Under the ILCA vocabulary the stage is the Final series and "final" is
+    // already spent on the Elimination series, so the badge has to follow the
+    // fleet the ceremony named rather than the stage it belongs to.
+    const ilca: SplitFleetRenderInput = {
+      ...input,
+      config: { ...input.config, vocabulary: 'qualification-final' },
+      fleets: input.fleets.map((f) =>
+        f.name === 'Medal' ? { ...f, name: 'Final series' } : f,
+      ),
+    };
+    expect(renderSplitFleetStandingsPage(ilca)).toMatch(
+      /<span style="[^"]*">Final series<\/span>/,
+    );
+  });
+
   it('marks the provisional cut line while still in qualifying', () => {
     const mid = midQualifying(renderInputFor('01-f1-ilca-continuous-carry.yaml'));
     const html = renderSplitFleetStandingsPage(mid);
