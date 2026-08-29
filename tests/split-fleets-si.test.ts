@@ -75,6 +75,26 @@ describe('describeSplitFleetConfig', () => {
     );
   });
 
+  it('says what an abandoned finale does to the divided score, where that is the rule', () => {
+    // 2026 ILCA SI 18.7.5 as Amendment 5 rewrote it. The other reading needs
+    // no sentence: a score divided before the series stands unless something
+    // says otherwise.
+    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+      'If no Final series race is completed, her Qualification series score will decide the ' +
+        'championship without being divided.',
+    );
+    const standing = ilca2026SplitFleetConfig(3);
+    expect(
+      joined({
+        ...standing,
+        medal: {
+          ...standing.medal!,
+          carryTransform: { ...standing.medal!.carryTransform!, appliesFrom: 'medal-fleet-selected' },
+        },
+      }),
+    ).not.toContain('without being divided');
+  });
+
   it('drops the medal sentence when there is no medal race', () => {
     const text = joined(iodaSplitFleetConfig(4));
     expect(text).not.toContain('medal race');
@@ -143,7 +163,12 @@ describe('sentence ids', () => {
         raceCount: 1,
         multiplier: 2,
         companionRace: 'scored-below',
-        carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+        carryTransform: {
+          kind: 'divide',
+          by: 2,
+          rounding: 'half-up',
+          appliesFrom: 'medal-fleet-selected',
+        },
         tieBreak: 'stage-rank',
       },
     },

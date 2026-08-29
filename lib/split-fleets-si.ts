@@ -239,9 +239,17 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
         transform.rounding === 'half-up'
           ? 'rounded to the nearest whole number (0.5 rounded upward)'
           : 'with any fraction discarded';
+      // The abandonment clause is part of the same rule and a scorer checking
+      // ours against their own SIs looks for it, but only one reading needs
+      // saying: leaving the divided score standing is what "divided before
+      // the series" already implies.
+      const undone =
+        transform.appliesFrom === 'first-medal-race'
+          ? ` If no ${vocab.stages.medal.raceNoun} is completed, her ${vocab.seriesName} score will decide the championship without being divided.`
+          : '';
       push(
         'medal-carry-transform',
-        `Before the ${m}, each qualified boat's series score will be divided by ${transform.by}, ${rounding}, and her scores from the ${m} added to that.`,
+        `Before the ${m}, each qualified boat's series score will be divided by ${transform.by}, ${rounding}, and her scores from the ${m} added to that.${undone}`,
       );
     }
     if (config.medal.tieBreak === 'stage-rank') {
