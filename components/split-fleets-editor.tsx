@@ -1002,10 +1002,15 @@ function SiTranslation({
           <ol
             ref={listRef}
             className={`mt-2 list-decimal space-y-1.5 pl-5 text-muted-foreground${
-              // The mark's ring sits a hair outside the sentence, and an
-              // overflow-y scrollport scrolls in x as well — so the padding
-              // that keeps it off the right edge has to be here.
-              sticky ? ' lg:min-h-0 lg:overflow-y-auto lg:pr-1' : ''
+              // An overflow-y scrollport scrolls in x as well, so both edges
+              // have to be paid for here. On the right, the mark's ring sits
+              // a hair outside the sentence. On the left, the markers are
+              // drawn outside the sentence too: past sentence nine they need
+              // a second digit's worth of room, and a marked sentence pulls
+              // itself a further hair left — without which the leading digit
+              // of 11, 12 and 13 is clipped away, on the very sentences the
+              // medal settings mark.
+              sticky ? ' lg:min-h-0 lg:overflow-y-auto lg:pl-7 lg:pr-1' : ''
             }`}
           >
             {lines.map((line) => {
