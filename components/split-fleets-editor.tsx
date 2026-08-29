@@ -14,7 +14,7 @@
 // *filler*: picking one writes the fields below, which stay visible and
 // editable.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -910,12 +910,16 @@ export function SplitFleetEditor({
   );
 
   // Wide: the settings and their sailing-instruction translation side by
-  // side, so the scorer reads one against the other without scrolling.
+  // side, so the scorer reads one against the other without scrolling. The
+  // settings column is much the taller of the two, so the panel sticks to the
+  // top of the window rather than scrolling away with its own column — which
+  // is the whole point of marking a setting's sentences as the scorer reaches
+  // it.
   if (wide) {
     return (
       <div className="grid gap-6 text-sm lg:grid-cols-2" data-testid="split-fleets-editor">
         {fields}
-        <SiTranslation config={value} marked={marked} alwaysOpen />
+        <SiTranslation config={value} marked={marked} alwaysOpen sticky />
       </div>
     );
   }
@@ -933,6 +937,7 @@ function SiTranslation({
   config,
   marked,
   alwaysOpen = false,
+  sticky = false,
 }: {
   config: SplitFleetConfig;
   /** Sentences written by the setting the scorer is on, if any. Marking is
@@ -940,12 +945,45 @@ function SiTranslation({
    *  collapsed panel is left collapsed rather than opened underneath them. */
   marked?: readonly SplitFleetSentenceId[] | null;
   alwaysOpen?: boolean;
+  /** Hold the panel at the top of the window while its column scrolls past,
+   *  capped at the window's height with the overflow scrolling inside it.
+   *  The full ILCA configuration runs to thirteen sentences, which is taller
+   *  than a laptop viewport on its own — so sticking it without a cap would
+   *  only move the invisible half of the panel rather than remove it. */
+  sticky?: boolean;
 }) {
   const [userOpen, setUserOpen] = useState(false);
   const open = alwaysOpen || userOpen;
   const lines = describeSplitFleetConfig(config);
+  // The sentences scroll inside the capped panel; its heading and its footing
+  // stay put, so what the scorer is reading never loses its label.
+  const listRef = useRef<HTMLOListElement>(null);
+  // Capping the panel puts the mark back out of sight for the settings at the
+  // far end of the list, so a marked sentence is scrolled to. The range is
+  // brought in first-then-last, which shows as much of it as fits and ends on
+  // the last: a row that marks several sentences writes the opening ones as
+  // context and the one it is actually about last.
+  //
+  // Guarded on the list actually being a scrollport, which is what the
+  // stacked layout and any width below the sticky breakpoint are not: there
+  // the nearest scrollport is the page, and scrolling that would yank a
+  // scorer somewhere they didn't ask to go.
+  const markedKey = marked?.join(' ') ?? '';
+  useEffect(() => {
+    const list = listRef.current;
+    if (!open || !markedKey || !list || list.scrollHeight <= list.clientHeight) return;
+    const ids = markedKey.split(' ');
+    for (const id of [ids[0], ids[ids.length - 1]]) {
+      list.querySelector(`[data-sentence="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [markedKey, open]);
   return (
-    <div className="rounded-md border bg-muted/30 p-3" data-testid="sf-si-translation">
+    <div
+      className={`rounded-md border bg-muted/30 p-3${
+        sticky ? ' lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:flex-col lg:self-start' : ''
+      }`}
+      data-testid="sf-si-translation"
+    >
       {alwaysOpen ? (
         <p className="font-medium">How this configuration translates to sailing instructions</p>
       ) : (
@@ -961,7 +999,15 @@ function SiTranslation({
       )}
       {open && (
         <>
-          <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-muted-foreground">
+          <ol
+            ref={listRef}
+            className={`mt-2 list-decimal space-y-1.5 pl-5 text-muted-foreground${
+              // The mark's ring sits a hair outside the sentence, and an
+              // overflow-y scrollport scrolls in x as well — so the padding
+              // that keeps it off the right edge has to be here.
+              sticky ? ' lg:min-h-0 lg:overflow-y-auto lg:pr-1' : ''
+            }`}
+          >
             {lines.map((line) => {
               const isMarked = !!marked?.includes(line.id);
               return (
