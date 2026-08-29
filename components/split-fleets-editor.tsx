@@ -33,6 +33,7 @@ import {
   resolveVocabulary,
   VOCABULARY_OPTIONS,
   stageRaceLabel,
+  type CarryTransform,
   type SplitFleetConfig,
   type Vocabulary,
   type VocabularyKey,
@@ -759,8 +760,19 @@ export function SplitFleetEditor({
                       patch({
                         medal: {
                           ...value.medal!,
+                          // A newly ticked box takes the reading of the
+                          // sailing instructions that speak to it — 2026 ILCA
+                          // SI 18.7.5 and the 470 Europeans NoR both leave an
+                          // abandoned finale on the undivided score. Configs
+                          // stored before the choice existed keep the other
+                          // one; that migration lives in the engine.
                           carryTransform: e.target.checked
-                            ? { kind: 'divide', by: 2, rounding: 'half-up' }
+                            ? {
+                                kind: 'divide',
+                                by: 2,
+                                rounding: 'half-up',
+                                appliesFrom: 'first-medal-race',
+                              }
                             : undefined,
                         },
                       })
@@ -813,6 +825,33 @@ export function SplitFleetEditor({
                   </>
                 )}
               </div>
+              {value.medal.carryTransform && (
+                <label className="flex flex-wrap items-center gap-1.5">
+                  If no {vocab.stages.medal.raceNoun} is sailed
+                  <select
+                    className="rounded-md border bg-background px-2 py-1 text-sm"
+                    aria-label={`Whether the divided score stands if no ${vocab.stages.medal.raceNoun} is sailed`}
+                    disabled={!canEdit}
+                    value={value.medal.carryTransform.appliesFrom}
+                    onChange={(e) =>
+                      patch({
+                        medal: {
+                          ...value.medal!,
+                          carryTransform: {
+                            ...value.medal!.carryTransform!,
+                            appliesFrom: e.target.value as CarryTransform['appliesFrom'],
+                          },
+                        },
+                      })
+                    }
+                  >
+                    <option value="first-medal-race">
+                      score the event on the undivided total
+                    </option>
+                    <option value="medal-fleet-selected">the divided score stands</option>
+                  </select>
+                </label>
+              )}
               <label className="flex flex-wrap items-center gap-1.5">
                 Ties between these boats
                 <select

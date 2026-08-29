@@ -1001,7 +1001,15 @@ describe('a stage position a tie cannot separate is shared', () => {
         size: 2,
         raceCount: 1,
         multiplier: 1,
-        carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+        // The medal fleet is committed and no medal race is sailed, so the
+        // reading is the whole point of the fixture: the divided score is
+        // what these boats are ranked on.
+        carryTransform: {
+          kind: 'divide',
+          by: 2,
+          rounding: 'half-up',
+          appliesFrom: 'medal-fleet-selected',
+        },
         tieBreak: 'stage-rank',
         companionRace: 'none',
       },
@@ -1061,6 +1069,37 @@ describe('a stage position a tie cannot separate is shared', () => {
     const rows = splitFleetStandings(stageRankData('b1-behind'));
     const rank = Object.fromEntries(rows.map((r) => [r.competitor.id, r.rank]));
     expect(rank).toEqual({ y1: 1, b1: 2, y2: 3, b2: 4 });
+  });
+
+  it('holding the division until a medal race sails leaves the opening scores undivided', () => {
+    // The same regatta under the reading 2026 ILCA SI 18.7.5 took at
+    // Amendment 5: the medal fleet is selected, no medal race is completed,
+    // and the boats are ranked on what they actually scored — y1's 7 and
+    // b1's 8 — rather than on the 4 each that halving them produces. No
+    // carried cell is synthesised at all, so their race scores still count.
+    const data = stageRankData('b1-behind');
+    const rows = splitFleetStandings({
+      ...data,
+      config: {
+        ...data.config,
+        medal: {
+          ...data.config.medal!,
+          carryTransform: {
+            ...data.config.medal!.carryTransform!,
+            appliesFrom: 'first-medal-race',
+          },
+        },
+      },
+    });
+    const medal = rows.filter((r) => r.medal);
+    expect(Object.fromEntries(medal.map((r) => [r.competitor.id, r.net]))).toEqual({
+      y1: 7,
+      b1: 8,
+    });
+    expect(medal.some((r) => r.cells.some((c) => c.carriedTransform))).toBe(false);
+    expect(Object.fromEntries(rows.map((r) => [r.competitor.id, r.rank]))).toEqual({
+      y1: 1, b1: 2, y2: 3, b2: 4,
+    });
   });
 
   it('a tie neither sub-series step can break stays a tie', () => {

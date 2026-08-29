@@ -91,6 +91,9 @@ export const splitFleetConfigSchema = z.object({
           kind: z.literal('divide'),
           by: z.number().positive(),
           rounding: z.enum(['half-up', 'truncate']),
+          appliesFrom: z
+            .enum(['medal-fleet-selected', 'first-medal-race'])
+            .default('medal-fleet-selected'),
         })
         .optional(),
       tieBreak: z.enum(['stage-rank', 'last-race']).optional(),

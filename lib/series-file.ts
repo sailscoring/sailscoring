@@ -354,9 +354,18 @@ export interface SeriesFileRepos {
  *  the fleet it created, which for a medal fleet is written nowhere else.
  *  Additive and sparse: an older build reading a v42 file loses the tint on
  *  the fleets whose colour the series config doesn't name, which is where it
- *  stood before the field existed. */
-export const FORMAT_VERSION = 42;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42];
+ *  stood before the field existed.
+ *
+ *  v43 adds `medal.carryTransform.appliesFrom`, which says whether a
+ *  compressed carry takes effect when the medal fleet is selected or when a
+ *  medal race is first completed. The two agree from that race onward and
+ *  differ only on an abandoned medal series, where the second leaves the
+ *  undivided opening score as the event result. `splitFleets.config` travels
+ *  verbatim, so no parser change — but an older build reading a v43 file
+ *  drops the field and scores that abandonment the other way, which decides
+ *  a championship rather than mislabelling one. */
+export const FORMAT_VERSION = 43;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----

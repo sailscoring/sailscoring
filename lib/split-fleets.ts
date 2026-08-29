@@ -356,6 +356,22 @@ export interface CarryTransform {
   kind: 'divide';
   by: number;
   rounding: 'half-up' | 'truncate';
+  /** When the division takes effect, which is only ever visible if the medal
+   *  series is abandoned — the two readings agree from the first medal race
+   *  onward.
+   *  - `medal-fleet-selected` — the divided score stands from the moment the
+   *    medal fleet is committed, so an abandoned medal series leaves it as
+   *    the event result.
+   *  - `first-medal-race` — the division waits for a medal race to be
+   *    completed, so an abandoned medal series decides the event on the
+   *    undivided opening score (2026 ILCA SI 18.7.5 from Amendment 5, and
+   *    the 470 Europeans 2026 NoR).
+   *  It matters more than the printed numbers suggest. Dividing and rounding
+   *  never reverses two boats, but it lands boats a point apart on the same
+   *  score, and the tie-break then settles them on the last race — so the
+   *  boat behind can finish ahead purely because the medal series never
+   *  sailed. */
+  appliesFrom: 'medal-fleet-selected' | 'first-medal-race';
 }
 
 /** Apply a carry transform to an opening-series score. */
@@ -552,10 +568,21 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
     protectLoneFinalRace: raw.protectLoneFinalRace ?? false,
     reassignmentTieOrder: raw.reassignmentTieOrder ?? 'a8-then-entry-order',
     ...resolveStoredVocabulary(raw),
-    // Configs stored before the companion race was configurable all described
-    // the 2024 shape, so that is what they keep.
+    // Configs stored before the companion race and the carry transform's
+    // timing were configurable all described the shape of their day — the
+    // 2024 companion race, and a division that stood from the moment the
+    // medal fleet was selected — so that is what they keep.
     medal: raw.medal
-      ? { ...raw.medal, companionRace: raw.medal.companionRace ?? 'scored-below' }
+      ? {
+          ...raw.medal,
+          companionRace: raw.medal.companionRace ?? 'scored-below',
+          carryTransform: raw.medal.carryTransform
+            ? {
+                ...raw.medal.carryTransform,
+                appliesFrom: raw.medal.carryTransform.appliesFrom ?? 'medal-fleet-selected',
+              }
+            : undefined,
+        }
       : undefined,
   } as SplitFleetConfig;
 }
@@ -583,7 +610,15 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       size: 10,
       raceCount: 2,
       multiplier: 1,
-      carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+      // SI 18.7.3 halves the Qualification series score, and SI 18.7.5 (as
+      // Amendment 5 rewrote it) leaves that score undivided if the Final
+      // series never sails.
+      carryTransform: {
+        kind: 'divide',
+        by: 2,
+        rounding: 'half-up',
+        appliesFrom: 'first-medal-race',
+      },
       // SI 18.7.4: rule A8 replaced outright by the last race.
       tieBreak: 'last-race',
       // SI 7.7 schedules the boats who miss the Final series one more
@@ -1368,15 +1403,22 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
         }
       : null;
 
-  // Compressed carry: once the medal fleet is selected, each medal boat's
-  // opening-series net is divided and rounded, and that one number — not her
-  // race scores — is what the medal races add to (2026 ILCA SI 18.7.2/18.7.3).
-  // Applied after the discards because the transform's input is her net, and
-  // as soon as the round exists rather than when a medal race is sailed, so
-  // "if no medal race is completed the adjusted scores decide" (SI 18.7.5)
-  // needs no separate path.
+  // Compressed carry: each medal boat's opening-series net is divided and
+  // rounded, and that one number — not her race scores — is what the medal
+  // races add to (2026 ILCA SI 18.7.2/18.7.3). Applied after the discards
+  // because the transform's input is her net.
+  //
+  // `appliesFrom` decides the one case the two readings differ on: a medal
+  // fleet selected and then no medal race sailed. Waiting for a completed
+  // race leaves the undivided opening score as the event result, which is
+  // what the SIs that speak to it say (2026 ILCA SI 18.7.5 from Amendment 5).
   const transform = config.medal?.carryTransform;
-  if (transform && medalRound) {
+  const medalRaceCompleted = mRaces.some((lr) => lr.valid);
+  if (
+    transform &&
+    medalRound &&
+    (transform.appliesFrom === 'medal-fleet-selected' || medalRaceCompleted)
+  ) {
     for (const row of rows) {
       if (!row.medal) continue;
       const opening = row.cells.filter((c) => c.counts && c.stage !== 'medal');
