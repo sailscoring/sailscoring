@@ -401,6 +401,49 @@ export const FINAL_FLEET_SET: { label: string; color: string }[] = [
   { label: 'Emerald', color: '#059669' },
 ];
 
+/** The medal stage's colours, by position in the round. Unlike the other two
+ *  sets these are not part of the series config — the medal ceremony names
+ *  its fleet from the series' own vocabulary, so only the colours are
+ *  fixed. */
+export const MEDAL_FLEET_COLORS: string[] = ['#f59e0b', '#94a3b8'];
+
+/**
+ * fleetId → the colour the fleet is drawn in, everywhere a split-fleet series
+ * is shown: the standings cells and their legend, the assignment lists, the
+ * in-app tables. Three sources, in order:
+ *
+ *   1. the fleet's own colour, recorded when the round committed it — for a
+ *      medal fleet, the only place it is written down at all;
+ *   2. the series config's qualifying/final lists, matched by fleet name,
+ *      which is where fleets created before the colour was stored have it;
+ *   3. failing both, the stage's palette by position in the round.
+ *
+ * Absent from the map means no colour resolved — draw the fleet untinted.
+ */
+export function fleetColorById(data: SplitFleetData): Map<string, string> {
+  const byName = new Map(
+    [...data.config.qualifyingFleets, ...data.config.finalFleets].map((f) => [f.label, f.color]),
+  );
+  const colors = new Map<string, string>();
+  for (const fleet of data.fleets) {
+    const color = fleet.color ?? byName.get(fleet.name);
+    if (color) colors.set(fleet.id, color);
+  }
+  for (const round of data.rounds) {
+    const palette =
+      round.stage === 'qualifying'
+        ? data.config.qualifyingFleets.map((f) => f.color)
+        : round.stage === 'final'
+          ? data.config.finalFleets.map((f) => f.color)
+          : MEDAL_FLEET_COLORS;
+    round.fleetIds.forEach((fleetId, i) => {
+      const color = palette[Math.min(i, palette.length - 1)];
+      if (color && !colors.has(fleetId)) colors.set(fleetId, color);
+    });
+  }
+  return colors;
+}
+
 export function defaultSplitFleetConfig(fleetCount: number): SplitFleetConfig {
   return {
     qualifyingFleets: QUALIFYING_COLOR_SETS.slice(0, fleetCount),

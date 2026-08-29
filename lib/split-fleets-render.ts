@@ -11,6 +11,7 @@ import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
   capitaliseStage,
+  fleetColorById,
   logicalRaces,
   provisionalCutIndexes,
   qualifyingRaceCount,
@@ -166,15 +167,16 @@ function flagDefsFor(input: SplitFleetRenderInput): string {
   return renderFlagDefs(codes, input.flagSvgByCode);
 }
 
-/** The fleet's configured colour as flat 6-digit hex; null when the label is
- *  unknown or the colour unparseable. Widens `#abc` to `#aabbcc`: tint
- *  callers append an alpha suffix, and appending it to a short hex yields a
- *  seven-character value the browser drops on the floor. */
-function fleetColorHex(config: SplitFleetConfig, label: string | undefined): string | null {
-  const all = [...config.qualifyingFleets, ...config.finalFleets];
-  const hit = all.find((f) => f.label === label);
-  if (!hit) return null;
-  const hex = hit.color.trim();
+/** fleetId → colour, as `fleetColorById` resolves it for the series. */
+type FleetColors = ReadonlyMap<string, string>;
+
+/** A fleet's colour as flat 6-digit hex; null when the fleet has none or it
+ *  is unparseable. Widens `#abc` to `#aabbcc`: tint callers append an alpha
+ *  suffix, and appending it to a short hex yields a seven-character value the
+ *  browser drops on the floor. */
+function fleetColorHex(colors: FleetColors, fleetId: string | undefined): string | null {
+  const hex = (fleetId === undefined ? undefined : colors.get(fleetId))?.trim();
+  if (!hex) return null;
   const six = /^#[0-9a-f]{3}$/i.test(hex)
     ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
     : hex;
@@ -187,19 +189,19 @@ function fleetColorHex(config: SplitFleetConfig, label: string | undefined): str
  *  sheets use the colours flat — pure yellow, #FF3300 — which is legible on
  *  paper and hard going on a screen. */
 function fleetTint(
-  config: SplitFleetConfig,
-  label: string | undefined,
+  colors: FleetColors,
+  fleetId: string | undefined,
   alpha = '2e',
 ): string {
-  const six = fleetColorHex(config, label);
+  const six = fleetColorHex(colors, fleetId);
   return six ? `${six}${alpha}` : '#ffffff';
 }
 
 /** The fleet marker dot: the colour flat, bordered so pale fleets hold up.
  *  Empty when the fleet has no usable colour — the name beside it, or the
  *  cell tooltip, still carries the fleet. */
-function fleetDot(config: SplitFleetConfig, label: string | undefined): string {
-  const six = fleetColorHex(config, label);
+function fleetDot(colors: FleetColors, fleetId: string | undefined): string {
+  const six = fleetColorHex(colors, fleetId);
   return six ? `<span class="sfdot" style="background:${six}"></span>` : '';
 }
 
@@ -213,6 +215,7 @@ export function renderSplitFleetStandingsPage(
   const data = assembleSplitFleetData(input);
   const rows = splitFleetStandings(data);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
+  const colors = fleetColorById(data);
   const splitRound = roundsForStage(data.rounds, 'final')[0] ?? null;
   const nat = showNat(input);
   const wsid = showWsid(input);
@@ -231,7 +234,7 @@ export function renderSplitFleetStandingsPage(
     const c = row.cells.find((x: CellScore) => x.stage === col.stage && x.stageRaceNumber === col.n);
     if (!c) return '<td></td>';
     const fleet = fleetName.get(c.fleetId);
-    const tint = c.counts ? fleetTint(data.config, fleet) : '#f8f9fa';
+    const tint = c.counts ? fleetTint(colors, c.fleetId) : '#f8f9fa';
     const text = `${c.points}${c.code ? ` ${c.code}` : ''}`;
     const inner = c.discarded ? `(${esc(text)})` : esc(text);
     const dim = c.counts ? '' : ';color:#adb5bd';
@@ -249,7 +252,7 @@ export function renderSplitFleetStandingsPage(
           : 'does not yet count — race incomplete across fleets';
     const titleText = [fleet ? `${fleet} fleet` : '', note].filter(Boolean).join(' — ');
     const title = titleText ? ` title="${esc(titleText)}"` : '';
-    return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${fleetDot(data.config, fleet)}${inner}</td>`;
+    return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${fleetDot(colors, c.fleetId)}${inner}</td>`;
   };
 
   // The combined qualifying table carries a Fleet column with the current
@@ -257,8 +260,7 @@ export function renderSplitFleetStandingsPage(
   // it instead. `null` = no column.
   const fleetOf = (row: (typeof rows)[number]): string | undefined => {
     const latest = [...data.rounds].sort((a, b) => b.createdAt - a.createdAt)[0];
-    const fid = latest?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
-    return fid ? fleetName.get(fid) : undefined;
+    return latest?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
   };
 
   // With the race page's location known, each race column header deep-links
@@ -278,7 +280,7 @@ export function renderSplitFleetStandingsPage(
         const medal = row.medal
           ? ' <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span>'
           : '';
-        const fleet = withFleetCol ? fleetOf(row) : undefined;
+        const fleetId = withFleetCol ? fleetOf(row) : undefined;
         // No WS ID column on the table → the name carries the bio link
         // instead, so the profile is still one click away.
         const helm = esc(row.competitor.names.join(' & '));
@@ -288,7 +290,7 @@ export function renderSplitFleetStandingsPage(
             : helm;
         const tr = `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">
   <td>${row.rank}</td>
-  ${withFleetCol ? `<td style="white-space:nowrap">${fleetDot(data.config, fleet)}${esc(fleet ?? '')}</td>` : ''}
+  ${withFleetCol ? `<td style="white-space:nowrap">${fleetDot(colors, fleetId)}${esc((fleetId && fleetName.get(fleetId)) || '')}</td>` : ''}
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   <td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>
   <td>${helmHtml}${medal}</td>
@@ -314,14 +316,17 @@ ${body}
 </table></div>`;
   };
 
-  // One dot + name per fleet that actually appears in the cells, in config
+  // One dot + name per fleet that actually appears in the cells, in fleet
   // order — the key a reader needs before the tints and dots mean anything.
+  // Deduped by name: a round-2 "Yellow" is its own fleet, but the reader is
+  // being told what the colour means, and it means the same thing twice.
   const legendHtml = (): string => {
-    const present = new Set(rows.flatMap((r) => r.cells.map((c) => fleetName.get(c.fleetId))));
+    const present = new Set(rows.flatMap((r) => r.cells.map((c) => c.fleetId)));
     const seen = new Set<string>();
-    const items = [...data.config.qualifyingFleets, ...data.config.finalFleets]
-      .filter((f) => present.has(f.label) && !seen.has(f.label) && seen.add(f.label))
-      .map((f) => `<span style="white-space:nowrap">${fleetDot(data.config, f.label)}${esc(f.label)}</span>`);
+    const items = [...data.fleets]
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .filter((f) => present.has(f.id) && !seen.has(f.name) && seen.add(f.name))
+      .map((f) => `<span style="white-space:nowrap">${fleetDot(colors, f.id)}${esc(f.name)}</span>`);
     return items.length
       ? `<p class="sfnote sflegend">Race cells are marked with the fleet the race was sailed in: ${items.join(' &nbsp; ')}</p>`
       : '';
@@ -381,6 +386,7 @@ export function renderSplitFleetRaceResultsPage(
   const data = assembleSplitFleetData(input);
   const rows = splitFleetStandings(data);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
+  const colors = fleetColorById(data);
   const nat = showNat(input);
   const wsid = showWsid(input);
   const qRaces = qualifyingRaceCount(data);
@@ -484,7 +490,7 @@ ${body}
           const table = fleetTable(entries);
           if (!table) return '';
           const label = fleetName.get(fid) ?? '';
-          return `<h3>${fleetDot(data.config, label)}${esc(label)} fleet</h3>\n${table}`;
+          return `<h3>${fleetDot(colors, fid)}${esc(label)} fleet</h3>\n${table}`;
         })
         .filter(Boolean);
       if (tables.length === 0) continue;
@@ -522,6 +528,7 @@ export function renderSplitFleetAssignmentsPage(
 ): string {
   const data = assembleSplitFleetData(input);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
+  const colors = fleetColorById(data);
   const nat = showNat(input);
   const qRaces = qualifyingRaceCount(data);
   const vocab = resolveVocabulary(data.config);
@@ -566,7 +573,7 @@ export function renderSplitFleetAssignmentsPage(
           const rowsHtml = members
             .map(
               (c) =>
-                `<tr style="background:${fleetTint(data.config, label, '1f')}">${
+                `<tr style="background:${fleetTint(colors, fid, '1f')}">${
                   nat ? natCell(c.nationality, input.flagSvgByCode) : ''
                 }<td style="font-family:monospace">${esc(c.sailNumber)}</td><td>${esc(
                   c.names.join(' & '),
@@ -578,8 +585,8 @@ export function renderSplitFleetAssignmentsPage(
             )
             .join('\n');
           return `<div class="tablewrap"><table class="summarytable"><thead><tr><th colspan="${cols}" class="sffleethead" style="background:${fleetTint(
-            data.config,
-            label,
+            colors,
+            fid,
             '55',
           )}">${esc(label)} (${members.length})</th></tr><tr>${
             nat ? '<th>Nat</th>' : ''

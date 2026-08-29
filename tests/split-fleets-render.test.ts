@@ -178,6 +178,34 @@ describe('fleet markers on the championship standings', () => {
     }
   });
 
+  it('tints the medal fleet and lists it in the legend', () => {
+    // The medal fleet is named by the series' vocabulary, so it appears in
+    // neither config fleet list: its colour has to reach the page from the
+    // fleet itself, or from the medal stage's own palette.
+    const html = renderSplitFleetStandingsPage(
+      renderInputFor('03-f2-ilca-medal-race.yaml'),
+    );
+    const legend = html.match(/<p class="sfnote sflegend">[\s\S]*?<\/p>/)?.[0] ?? '';
+    expect(legend).toContain('Medal');
+    // Both the M1 cells and the legend entry carry the medal shade, not the
+    // untinted white a fleet with no colour falls back to.
+    expect(html).toMatch(/<td style="background:#f59e0b2e[^"]*" title="Medal fleet"/);
+    expect(legend).toContain('<span class="sfdot" style="background:#f59e0b"></span>Medal');
+  });
+
+  it('draws a fleet in its own recorded colour, over the config\'s', () => {
+    const input = renderInputFor('03-f2-ilca-medal-race.yaml');
+    input.fleets = input.fleets.map((f) =>
+      f.name === 'Gold' || f.name === 'Medal' ? { ...f, color: '#010203' } : f,
+    );
+    const html = renderSplitFleetStandingsPage(input);
+    // Gold's colour is #ca8a04 in the config and the medal fleet's is in no
+    // config list at all; the fleet's own colour answers for both.
+    expect(html).toMatch(/<td style="background:#0102032e[^"]*" title="Gold fleet"/);
+    expect(html).toMatch(/<td style="background:#0102032e[^"]*" title="Medal fleet"/);
+    expect(html).not.toContain('#ca8a04');
+  });
+
   it('carries a Fleet column while combined, and drops it once split', () => {
     const mid = midQualifying(renderInputFor(FIXTURE));
     const combined = renderSplitFleetStandingsPage(mid);

@@ -49,8 +49,10 @@ import {
   assignByRankPattern,
   capitaliseStage,
   finalBlockSizes,
+  fleetColorById,
   fleetMembers,
   logicalRaces,
+  MEDAL_FLEET_COLORS,
   orderForAssignment,
   physicalRaceCompleted,
   pickableFleets,
@@ -265,27 +267,25 @@ interface FleetMeta {
   color: string;
 }
 
-/** fleetId → label/colour, resolved from the rounds + config. */
+/** fleetId → label/colour, resolved from the fleets, rounds and config. */
 function buildFleetMeta(
   data: SplitFleetData,
   fleets: Fleet[],
 ): Map<string, FleetMeta> {
   const byId = new Map(fleets.map((f) => [f.id, f]));
+  const colors = fleetColorById({ ...data, fleets });
   const meta = new Map<string, FleetMeta>();
   for (const round of data.rounds) {
     round.fleetIds.forEach((fid, i) => {
-      const palette =
+      const labels =
         round.stage === 'qualifying'
-          ? data.config.qualifyingFleets
+          ? data.config.qualifyingFleets.map((f) => f.label)
           : round.stage === 'final'
-            ? data.config.finalFleets
-            : [
-                { label: capitaliseStage(words(data.config).medal.name), color: '#f59e0b' },
-                { label: 'Last race', color: '#94a3b8' },
-              ];
+            ? data.config.finalFleets.map((f) => f.label)
+            : [capitaliseStage(words(data.config).medal.name), 'Last race'];
       meta.set(fid, {
-        label: byId.get(fid)?.name ?? palette[i]?.label ?? '?',
-        color: palette[Math.min(i, palette.length - 1)]?.color ?? '#94a3b8',
+        label: byId.get(fid)?.name ?? labels[i] ?? '?',
+        color: colors.get(fid) ?? '#94a3b8',
       });
     });
   }
@@ -1851,7 +1851,7 @@ function MedalSelectDialog({
           fromStageRace: 1,
           method: 'medal-select',
           basis: { throughStageRace: 0 },
-          fleets: [{ label: capitaliseStage(w.medal.name), color: '#f59e0b' }],
+          fleets: [{ label: capitaliseStage(w.medal.name), color: MEDAL_FLEET_COLORS[0] }],
           assignments: medalAssignments,
           stageRaceNumbers: [1],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
