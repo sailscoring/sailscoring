@@ -217,6 +217,20 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     expect(races[0].name).not.toContain('Yellow');
   });
 
+  test('records each fleet in the colour the ceremony gave it', async () => {
+    // The colour is the fleet's own from here on: a medal fleet's is named in
+    // no config list, so dropping it here leaves the published page untinted.
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    await commit(seriesId, competitorIds, [1]);
+
+    const rows = await db
+      .select({ name: schema.fleets.name, color: schema.fleets.color })
+      .from(schema.fleets)
+      .where(eq(schema.fleets.seriesId, seriesId))
+      .orderBy(schema.fleets.displayOrder);
+    expect(rows).toEqual(FLEETS.map((f) => ({ name: f.label, color: f.color })));
+  });
+
   test('per-fleet: a race each, named for its fleet, sharing the stage race number', async () => {
     const { seriesId, competitorIds } = await seedSeries('per-fleet');
     await commit(seriesId, competitorIds, [1, 2]);

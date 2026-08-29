@@ -348,9 +348,15 @@ export interface SeriesFileRepos {
  *  (the race committee's rule 402.12 override). An older build reading a
  *  v40 file would drop the certificates and refuse the fleet system, losing
  *  the ratings entirely, so this is a hard bump rather than a sparse-field
- *  ride-along. */
-export const FORMAT_VERSION = 41;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41];
+ *  ride-along.
+ *
+ *  v42 adds optional `fleets[*].color` — the colour a split-fleet round gave
+ *  the fleet it created, which for a medal fleet is written nowhere else.
+ *  Additive and sparse: an older build reading a v42 file loses the tint on
+ *  the fleets whose colour the series config doesn't name, which is where it
+ *  stood before the field existed. */
+export const FORMAT_VERSION = 42;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -395,6 +401,10 @@ interface SeriesFileFleet {
   // v40+: the fleet's default ORC scoring option; absent means
   // the APHT time-on-time default.
   orcProfile?: OrcProfile;
+  // v42+: the colour the fleet is drawn in on published pages, as the
+  // split-fleet round that created it chose. Absent on fleets no ceremony
+  // created, which nothing tints.
+  color?: string;
 }
 
 interface SeriesFileSeries {
@@ -753,6 +763,7 @@ export async function buildSeriesFile(
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
+      ...(f.color ? { color: f.color } : {}),
     })),
     series: {
       id: series.id,
@@ -1710,6 +1721,7 @@ async function writeFleetsCompetitorsRaces(
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
+      ...(f.color ? { color: f.color } : {}),
     })),
   );
 

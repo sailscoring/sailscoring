@@ -113,7 +113,13 @@ function makeFile(opts: { splitFleets?: boolean } = {}): SeriesFile {
       scoringMode: 'scratch',
     },
     fleets: [
-      { id: 'file-fleet-yellow', name: 'Yellow', displayOrder: 0, scoringSystem: 'scratch' },
+      {
+        id: 'file-fleet-yellow',
+        name: 'Yellow',
+        displayOrder: 0,
+        scoringSystem: 'scratch',
+        color: '#eab308',
+      },
       { id: 'file-fleet-blue', name: 'Blue', displayOrder: 1, scoringSystem: 'scratch' },
     ],
     competitors: [
@@ -203,6 +209,16 @@ describe('split-fleet block on file import', () => {
     const round = repos.replaceCalls[0].rounds[0];
     expect(round.fleetIds).toEqual([fleetIdByName.get('Yellow')]);
     expect(round.overrides).toEqual({});
+  });
+
+  it('carries the colour a round gave its fleets', async () => {
+    // The medal fleet's colour lives on the fleet and nowhere else, so a file
+    // that drops it publishes that fleet untinted after a round-trip.
+    const repos = makeRepos();
+    await openSeriesFromFile(makeFile(), repos);
+    const byName = new Map(repos.savedFleets.map((f) => [f.name, f]));
+    expect(byName.get('Yellow')?.color).toBe('#eab308');
+    expect(byName.get('Blue')?.color).toBeUndefined();
   });
 
   it('leaves a series with no split-fleet state alone when the file has none', async () => {

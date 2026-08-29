@@ -203,6 +203,8 @@ export interface PublicSeriesExport {
     nhcProfile?: import('./types').NhcProfile;
     /** ORC rating option (present iff scoringSystem === 'orc' and not the APHT default). */
     orcProfile?: import('./types').OrcProfile;
+    /** The colour the fleet is drawn in (present iff a split-fleet round created it). */
+    color?: string;
   }[];
   competitors: {
     sailNumber: string;
@@ -911,6 +913,7 @@ export function buildPublicExportFromSnapshot(
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
+      ...(f.color ? { color: f.color } : {}),
     })),
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
@@ -1154,6 +1157,8 @@ export async function importPublicExport(
         scoringSystem: f.scoringSystem,
         ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
         ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
+        ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
+        ...(f.color ? { color: f.color } : {}),
       }),
     ),
   );

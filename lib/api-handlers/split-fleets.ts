@@ -240,6 +240,7 @@ export async function commitSplitRound(
       displayOrder: maxOrder + 1 + i,
       scoringSystem: 'scratch',
       splitRoundId: roundId,
+      color: f.color,
     }));
     await tx.insert(schema.fleets).values(fleetRows);
 

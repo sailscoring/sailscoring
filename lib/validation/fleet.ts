@@ -50,6 +50,8 @@ export const fleetSchema = z.object({
   // Server-set at round commit; accepted here so a client save round-trips
   // it rather than stripping the marker off a renamed round fleet.
   splitRoundId: uuidSchema.optional(),
+  // The fleet's colour on published pages, likewise written at round commit.
+  color: z.string().optional(),
   version: versionSchema,
 });
 

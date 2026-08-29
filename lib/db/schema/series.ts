@@ -402,6 +402,7 @@ export const fleets = pgTable(
     nhcProfile: jsonb('nhc_profile').$type<NhcProfile>(),
     orcProfile: jsonb('orc_profile').$type<OrcProfile>(),
     splitRoundId: uuid('split_round_id'),
+    color: text('color'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

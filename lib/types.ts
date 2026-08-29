@@ -530,6 +530,10 @@ export interface Fleet {
   // Round-owned fleets are filtered from general-purpose fleet pickers —
   // their membership is managed by the Split Fleets ceremonies.
   splitRoundId?: string;
+  // The colour the fleet is drawn in — CSS hex, as the ceremony that created
+  // it chose. Set by the split-fleet round commit; absent on every other
+  // fleet, which nothing tints.
+  color?: string;
   version?: number;   // server-side concurrency token (see Series.version)
 }
 
