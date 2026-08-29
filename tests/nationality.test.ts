@@ -11,12 +11,12 @@ import {
 import { NATIONAL_FLAGS, getFlag } from '@/lib/nationality/flags';
 
 describe('national-letters dataset', () => {
-  // Snapshot the published v1.0.2 cardinality so accidental drift on a
+  // Snapshot the published v1.0.3 cardinality so accidental drift on a
   // version bump (or a sync-script bug) trips a test rather than silently
   // shipping the wrong dataset. Update both when you bump the pin.
   it('pins to the expected dataset release', () => {
-    expect(DATASET_VERSION).toBe('v1.0.2');
-    expect(NATIONAL_CODES.length).toBe(231);
+    expect(DATASET_VERSION).toBe('v1.0.3');
+    expect(NATIONAL_CODES.length).toBe(232);
   });
 
   it('looks up canonical sailing nations by code', () => {
