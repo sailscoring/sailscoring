@@ -754,23 +754,30 @@ export async function applySplitOverride(
     throw new BadRequestError('target fleet is not part of this round');
   }
 
-  // Post-finals promotion check: any completed race in this round's stage?
-  // Stage identity lives on the starts, so a race is final-stage when any of
-  // its starts is.
+  // Post-racing promotion check: any completed race in this round's own
+  // stage? Stage identity lives on the starts, so a race is the stage's when
+  // any of its starts is. A medal-stage promotion after a medal race is at
+  // least as consequential as a final-stage one after a final race, so both
+  // stages carry the warning, each keyed on its own races.
   let warning: string | null = null;
-  if (round.stage === 'final') {
+  if (round.stage !== 'qualifying') {
     const [sailed] = await getDb()
       .select({ id: schema.finishes.id })
       .from(schema.finishes)
       .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
       .innerJoin(schema.raceStarts, eq(schema.raceStarts.raceId, schema.races.id))
-      .where(and(eq(schema.races.seriesId, seriesId), eq(schema.raceStarts.stage, 'final')))
+      .where(and(eq(schema.races.seriesId, seriesId), eq(schema.raceStarts.stage, round.stage)))
       .limit(1);
     if (sailed) {
       warning =
-        'Final racing has started: the boat already has scores in her ' +
-        'current fleet. Record how the protest committee directs those ' +
-        'scores to be treated — this move only changes the assignment.';
+        round.stage === 'medal'
+          ? 'A race of this stage has already been completed: the promoted ' +
+            'boat has no score in it. Record how the protest committee ' +
+            'directs her to be scored there — this move only changes the ' +
+            'assignment.'
+          : 'Final racing has started: the boat already has scores in her ' +
+            'current fleet. Record how the protest committee directs those ' +
+            'scores to be treated — this move only changes the assignment.';
     }
   }
 

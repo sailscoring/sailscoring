@@ -210,6 +210,19 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByText('add that race from the Elimination series section')).toBeVisible();
   await expect(page.getByText('In the fleet they left it scores from 11')).toBeVisible();
 
+  // ── Promote into the Final series fleet as redress ────────────────────────
+  // The protest committee directs an eleventh boat into the deciding fleet;
+  // she keeps her Gold membership, and the dialog says what the extra boat
+  // does to a Q12 added afterwards.
+  await page.getByRole('button', { name: 'Promote (redress)…' }).click();
+  const promoteDialog = page.getByRole('dialog');
+  await expect(promoteDialog).toContainText('With 11 boats');
+  await expect(promoteDialog).toContainText('score from 12');
+  await promoteDialog.locator('#sf-promote-boat').selectOption({ index: 1 });
+  await promoteDialog.getByRole('button', { name: 'Promote', exact: true }).click();
+  await expect(promoteDialog).toBeHidden();
+  await expect(page.getByText('Final series11')).toBeVisible();
+
   // ── The way back: both ceremonies can be undone, newest first ─────────────
   // Delete the Final series fleet — its memberships and F1 go with it, and
   // the Elimination series is once again the deciding stage.

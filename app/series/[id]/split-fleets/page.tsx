@@ -1935,8 +1935,14 @@ function MedalSection({
   const confirm = useConfirm();
   const addRaces = useAddSplitStageRaces(seriesId);
   const deleteRound = useDeleteSplitRound(seriesId);
+  const override = useApplySplitOverride(seriesId);
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
   const medalConfig = data.config.medal;
   const w = words(data.config);
+  const medalFleetSize = round.fleetIds[0]
+    ? fleetMembers(data.competitors, round.fleetIds[0]).length
+    : 0;
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
@@ -2001,6 +2007,46 @@ function MedalSection({
           </div>
         );
       })}
+      {/* A protest committee can direct that a boat be added to the deciding
+          fleet as redress; she keeps the membership she is still ranked in. */}
+      {canManage && (
+        <Button variant="ghost" size="sm" onClick={() => setPromoteOpen(true)}>
+          Promote (redress)…
+        </Button>
+      )}
+      {overrideWarning && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {overrideWarning}
+        </p>
+      )}
+      {promoteOpen && (
+        <Dialog open onOpenChange={(o) => !o && setPromoteOpen(false)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Promote a boat (redress)</DialogTitle>
+              <DialogDescription>
+                A redress decision may add a boat to the {w.medal.fleetNoun}; she
+                keeps her place in the fleet she came from, and nobody is removed
+                to make room. With {medalFleetSize + 1} boats, a {w.final.raceNoun}{' '}
+                added afterwards for the fleet she left would score from{' '}
+                {medalFleetSize + 2} — check that against the committee&rsquo;s
+                decision where the sailing instructions fix that number instead.
+              </DialogDescription>
+            </DialogHeader>
+            <PromoteForm
+              data={data}
+              fleetMeta={fleetMeta}
+              round={round}
+              pending={override.isPending}
+              onSubmit={async (competitorId, toFleetId) => {
+                const res = await override.mutateAsync({ roundId: round.id, competitorId, toFleetId });
+                setOverrideWarning(res.warning);
+                setPromoteOpen(false);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
       {/* The way back from a wrong or overtaken selection — a jury extending
           the cutoff, a mis-set fleet size. */}
       {canManage && (
