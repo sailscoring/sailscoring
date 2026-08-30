@@ -174,7 +174,7 @@ test('the publication serves a .sailscoring.json data file and pages reference i
     (await page
       .getByRole('link', { name: 'Open in Sail Scoring' })
       .getAttribute('href')) ?? '';
-  expect(openHref).toContain('/import?from=');
+  expect(openHref).toContain('/open?from=');
   expect(openHref).not.toContain('#data=');
   const dataHref =
     (await page
@@ -201,7 +201,7 @@ test('the publication serves a .sailscoring.json data file and pages reference i
   await expect(page.getByRole('cell', { name: '17' }).first()).toBeVisible();
 });
 
-test('signed out, the Open in Sail Scoring reference survives the login redirect (#465)', async ({ page, browser }) => {
+test('signed out, Open in Sail Scoring opens the results rather than a login (#465, #475)', async ({ page, browser }) => {
   await createSeriesWithData(page, { name: 'Signed Out League' });
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
@@ -210,17 +210,17 @@ test('signed out, the Open in Sail Scoring reference survives the login redirect
   await expect(link).toBeVisible();
   const path = new URL((await link.getAttribute('href')) ?? '').pathname;
 
-  // A visitor with no session follows the footer link and is sent to
-  // sign-in — with the ?from= reference intact in callbackURL, where the
-  // old fragment payload was silently dropped (#465).
+  // The failure in #465 was that this link dropped the series for a reader
+  // with no session — which is nearly every reader of a published page. It
+  // now lands them in a read-only view of those results (#475); signing in
+  // is asked for only if they go on to save a copy.
   const anon = await browser.newContext();
   const anonPage = await anon.newPage();
   await anonPage.goto(path);
   await anonPage.getByRole('link', { name: 'Open in Sail Scoring' }).click();
-  await expect(anonPage).toHaveURL(/\/sign-in\?callbackURL=/);
-  const cb = new URL(anonPage.url()).searchParams.get('callbackURL') ?? '';
-  expect(cb).toContain('/import?from=');
-  expect(decodeURIComponent(cb)).toContain('.sailscoring.json');
+  await expect(anonPage).toHaveURL(/\/series\/spectator-/);
+  await expect(anonPage.getByRole('heading', { name: 'Signed Out League' })).toBeVisible();
+  await expect(anonPage.getByRole('cell', { name: '42' }).first()).toBeVisible();
   await anon.close();
 });
 

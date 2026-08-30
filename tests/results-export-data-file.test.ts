@@ -1,7 +1,7 @@
 /**
  * Published pages reference the publication's data file instead of embedding
  * the payload (ADR-012): with `dataPath` set, "Open in Sail Scoring" becomes
- * an `/import?from=` reference, the footer links the `.sailscoring.json`
+ * an `/open?from=` reference, the footer links the `.sailscoring.json`
  * file, the head declares the JSON alternate, and the base64 payload is gone.
  * Without it (downloads, FTP of a never-published series) the page stays
  * self-contained, exactly as before.
@@ -83,7 +83,7 @@ describe('buildFleetHtmlFiles — the data-file reference (ADR-012)', () => {
     const build = (await buildFleetHtmlFiles(makeRepos(), 's1', undefined, { dataPath: DATA_PATH }))!;
     expect(build.exportJson).toBeTruthy();
     const html = build.files[0].html;
-    expect(html).toContain(`/import?from=${encodeURIComponent(DATA_PATH)}`);
+    expect(html).toContain(`/open?from=${encodeURIComponent(DATA_PATH)}`);
     expect(html).toContain('>Open in Sail Scoring</a>');
     expect(html).toContain(`<a href="https://app.example${DATA_PATH}" target="_top" rel="noopener">Data (.sailscoring.json)</a>`);
     expect(html).toContain(`<link rel="alternate" type="application/json" href="https://app.example${DATA_PATH}">`);

@@ -457,7 +457,12 @@ export async function buildFleetHtmlFiles(
   if (publicExportJson) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (appUrl && opts?.dataPath) {
-      openInAppUrl = `${appUrl}/import?from=${encodeURIComponent(opts.dataPath)}`;
+      // `/open` reads the data file into a read-only view of the series that
+      // needs no account (#475) — a published page's reader is nearly always
+      // signed out, and being asked to sign in to look at results they were
+      // already looking at is the wrong first move. Saving a copy is still
+      // an import, and still asks.
+      openInAppUrl = `${appUrl}/open?from=${encodeURIComponent(opts.dataPath)}`;
       dataFileUrl = `${appUrl}${opts.dataPath}`;
     } else if (appUrl) {
       const bytes = new TextEncoder().encode(publicExportJson);
