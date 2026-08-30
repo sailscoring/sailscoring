@@ -1076,6 +1076,15 @@ export const publishedSeries = pgTable(
     }),
     slug: text('slug').notNull(),
     pages: jsonb('pages').$type<PublishedSeriesPage[]>().notNull(),
+    // The publication's public data file (ADR-012): the sanitized series
+    // export published beside the pages as `{dataSubPath}` under the slug —
+    // a `.sailscoring.json` name, so it reads as open data, not the private
+    // working file. Null when the series opts out (`includeJsonExport`) or
+    // builds no export (split-fleet championships). The sub-path is frozen
+    // at first assignment like page sub-paths; the blob is content-addressed
+    // and superseded on re-publish like page blobs.
+    dataSubPath: text('data_sub_path'),
+    dataBlobUrl: text('data_blob_url'),
     contentHash: text('content_hash').notNull(),
     publishedAt: timestamp('published_at', { withTimezone: true })
       .notNull()

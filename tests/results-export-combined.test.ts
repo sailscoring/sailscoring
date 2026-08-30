@@ -8,6 +8,11 @@
 import { describe, it, expect } from 'vitest';
 
 import { buildFleetHtmlFiles } from '@/lib/results-export';
+
+// buildFleetHtmlFiles returns { files, exportJson? }; these tests assert on
+// the pages, so unwrap to the file list (null stays null).
+const buildFleetFiles = async (...args: Parameters<typeof buildFleetHtmlFiles>) =>
+  (await buildFleetHtmlFiles(...args))?.files ?? null;
 import type { ExportRepos } from '@/lib/public-export';
 import type {
   Competitor,
@@ -107,7 +112,7 @@ const PUPPETEER: PublishingGroup = {
 
 describe('buildFleetHtmlFiles — combined pages', () => {
   it('emits no combined pages when the series has none configured', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([])), 's1');
+    const files = await buildFleetFiles(makeRepos(makeSeries([])), 's1');
     expect(files!.map((f) => f.fleetName)).toEqual([
       'Puppeteer Scratch',
       'Puppeteer HPH',
@@ -117,7 +122,7 @@ describe('buildFleetHtmlFiles — combined pages', () => {
   });
 
   it('an Overall group adds a standings-only page first, keeping every fleet page', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([OVERALL])), 's1');
+    const files = await buildFleetFiles(makeRepos(makeSeries([OVERALL])), 's1');
     expect(files!.map((f) => f.fleetName)).toEqual([
       'Overall',
       'Puppeteer Scratch',
@@ -137,7 +142,7 @@ describe('buildFleetHtmlFiles — combined pages', () => {
   });
 
   it('a full-detail group keeps per-section race tables with unambiguous anchors', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
+    const files = await buildFleetFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
     expect(files!.map((f) => f.fleetName)).toEqual([
       'Puppeteer',
       'Puppeteer Scratch',
@@ -152,7 +157,7 @@ describe('buildFleetHtmlFiles — combined pages', () => {
   });
 
   it('a full-detail group reads standings-first, then a race block per fleet', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
+    const files = await buildFleetFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
     const html = files![0].html;
     // Every member's standings comes before any race detail…
     const lastSummary = html.lastIndexOf('class="summarytable"');
@@ -172,7 +177,7 @@ describe('buildFleetHtmlFiles — combined pages', () => {
   });
 
   it("a full-detail group's summary race links still resolve within the document", async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
+    const files = await buildFleetFiles(makeRepos(makeSeries([PUPPETEER])), 's1');
     const html = files![0].html;
     const targets = [...html.matchAll(/class="racelink" href="#([^"]+)"/g)].map((m) => m[1]);
     expect(targets).toEqual(['puppeteer-scratch-r1', 'puppeteer-hph-r1']);
@@ -180,7 +185,7 @@ describe('buildFleetHtmlFiles — combined pages', () => {
   });
 
   it('individual fleet pages off: the output is exactly the combined pages', async () => {
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([OVERALL, PUPPETEER], false)),
       's1',
     );
@@ -191,7 +196,7 @@ describe('buildFleetHtmlFiles — combined pages', () => {
 
   it('the toggle is inert without a page-producing combined page', async () => {
     const ghost: PublishingGroup = { ...PUPPETEER, fleetIds: ['f-gone'] };
-    const files = await buildFleetHtmlFiles(makeRepos(makeSeries([ghost], false)), 's1');
+    const files = await buildFleetFiles(makeRepos(makeSeries([ghost], false)), 's1');
     // No combined page survives, so fleet pages publish regardless of the
     // toggle — a page-less publication is never constructed.
     expect(files!.map((f) => f.fleetName)).toEqual([
@@ -229,7 +234,7 @@ describe('buildFleetHtmlFiles — combined page race-detail limit (#372)', () =>
   }
 
   async function combinedHtml(group: PublishingGroup): Promise<string> {
-    const files = await buildFleetHtmlFiles(makeManyRaceRepos(makeSeries([group])), 's1');
+    const files = await buildFleetFiles(makeManyRaceRepos(makeSeries([group])), 's1');
     return files![0].html;
   }
 
@@ -295,7 +300,7 @@ describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () =
   }
 
   it('an Overall group renders one combined page per block, leading each cluster', async () => {
-    const files = await buildFleetHtmlFiles(makeBlockRepos(makeSeries([OVERALL])), 's1');
+    const files = await buildFleetFiles(makeBlockRepos(makeSeries([OVERALL])), 's1');
     expect(files!.map((f) => `${f.subSeriesName}/${f.fleetName}`)).toEqual([
       'Winter/Overall',
       'Winter/Puppeteer Scratch',
@@ -319,7 +324,7 @@ describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () =
   });
 
   it('individual fleet pages off: each block publishes exactly its combined pages', async () => {
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeBlockRepos(makeSeries([PUPPETEER], false)),
       's1',
     );
@@ -335,7 +340,7 @@ describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () =
 
   it('a race-results series drops every summary, fleet pages and combined alike', async () => {
     const series = { ...makeSeries([OVERALL]), publishDetail: 'races' as const };
-    const files = await buildFleetHtmlFiles(makeRepos(series), 's1');
+    const files = await buildFleetFiles(makeRepos(series), 's1');
     expect(files!.map((f) => f.fleetName)).toEqual([
       'Overall',
       'Puppeteer Scratch',
@@ -358,7 +363,7 @@ describe('buildFleetHtmlFiles — combined pages on a block series (#255)', () =
       name: 'IRC Combined',
       fleetIds: ['f-irc'],
     };
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeBlockRepos(makeSeries([ircOnly], false)),
       's1',
     );

@@ -26,15 +26,18 @@ function blobTokenConfigured(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-/** Store `html` at `key`, overwriting any previous content. Returns a locator. */
+/** Store `body` at `key`, overwriting any previous content. Returns a locator.
+ *  Pages are HTML (the default); the publication's `.sailscoring.json` data
+ *  file (ADR-012) goes through the same store with its own content type. */
 export async function putPublishedHtml(
   key: string,
-  html: string,
+  body: string,
+  contentType = 'text/html; charset=utf-8',
 ): Promise<string> {
   if (blobTokenConfigured()) {
-    const blob = await put(key, html, {
+    const blob = await put(key, body, {
       access: 'public',
-      contentType: 'text/html; charset=utf-8',
+      contentType,
       addRandomSuffix: false,
       allowOverwrite: true,
     });
@@ -43,10 +46,10 @@ export async function putPublishedHtml(
 
   await getDb()
     .insert(schema.publishedBlobs)
-    .values({ key, html, updatedAt: new Date() })
+    .values({ key, html: body, updatedAt: new Date() })
     .onConflictDoUpdate({
       target: schema.publishedBlobs.key,
-      set: { html, updatedAt: new Date() },
+      set: { html: body, updatedAt: new Date() },
     });
   return `${DB_PREFIX}${key}`;
 }

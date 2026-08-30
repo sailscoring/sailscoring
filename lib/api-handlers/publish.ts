@@ -306,7 +306,7 @@ export async function publishSeries(
     subPathFor({ fleetName: 'Race results', isDefault: false }),
   );
 
-  const allFiles = await buildFleetHtmlFiles(
+  const build = await buildFleetHtmlFiles(
     exportReposFor(workspace.workspaceId),
     seriesId,
     `${appBase()}/p/${workspace.workspaceSlug}/${slug}${breadcrumbFolder ? `/${breadcrumbFolder}` : ''}`,
@@ -319,7 +319,9 @@ export async function publishSeries(
       raceResultsHref,
     },
   );
-  if (!allFiles) throw new NotFoundError('series has no publishable results');
+  if (!build) throw new NotFoundError('series has no publishable results');
+  const allFiles = build.files;
+  const exportJson = build.exportJson ?? null;
 
   // Selective publishing: `fleets` is the set to publish/update *now* (omit for
   // all). It is not "the publication is exactly this set" — a fleet left out is
@@ -397,10 +399,11 @@ export async function publishSeries(
   }
 
   // Hash over exactly what this publish yields: freshly-rendered pages for the
-  // built fleets, plus each carried page's blob URL as a stable proxy for its
-  // unchanged content. Identical input ⇒ same hash ⇒ no-op.
+  // built fleets, the data file's JSON, plus each carried page's blob URL as a
+  // stable proxy for its unchanged content. Identical input ⇒ same hash ⇒ no-op.
   const hash = await contentHash([
     ...toBuild.map((f) => f.html),
+    ...(exportJson ? [exportJson] : []),
     ...carried.map((p) => p.blobUrl),
   ]);
 
@@ -469,6 +472,34 @@ export async function publishSeries(
   );
   const builtByKey = new Map(built);
 
+  // The publication's data file (ADR-012): the sanitized public export,
+  // stored beside the pages and served at `/p/{ws}/{slug}/{dataSubPath}`.
+  // The sub-path is frozen at first assignment, like page sub-paths, so the
+  // URL never shifts on re-publish; a fresh one is named after the series
+  // and kept clear of everything already living under the slug. The blob is
+  // content-addressed by the same hash as the pages and superseded on
+  // re-publish. A series that opts out (or builds no export) publishes with
+  // both fields null, and any previous data blob is dropped below.
+  let dataSubPath = existing?.dataSubPath ?? null;
+  let dataBlobUrl: string | null = null;
+  if (exportJson) {
+    if (!dataSubPath) {
+      const takenData = new Set([
+        ...taken,
+        ...mine,
+        ...others.flatMap((p) => (p.dataSubPath ? [p.dataSubPath] : [])),
+      ]);
+      const base = kebab(series.name);
+      let candidate = `${base}.sailscoring.json`;
+      for (let i = 2; takenData.has(candidate); i++) {
+        candidate = `${base}-${i}.sailscoring.json`;
+      }
+      dataSubPath = candidate;
+    }
+    const dataKey = publishedBlobKey(workspace.workspaceSlug, slug, dataSubPath, hash);
+    dataBlobUrl = await putPublishedHtml(dataKey, exportJson, 'application/json; charset=utf-8');
+  }
+
   // Merge built and carried pages, ordered as built (block order, then the
   // series' fleet order); any carried page whose (block, fleet) no longer
   // exists — a deleted fleet's leftover page, or a page from before the
@@ -490,6 +521,8 @@ export async function publishSeries(
     seriesId,
     slug,
     pages,
+    dataSubPath: exportJson ? dataSubPath : null,
+    dataBlobUrl,
     contentHash: hash,
     publishedAt: Date.now(),
     publishedVersion: series.version ?? 1,
@@ -532,6 +565,11 @@ export async function publishSeries(
   await mapWithConcurrency(supersededPages, PUBLISH_BLOB_CONCURRENCY, (page) =>
     deletePublishedHtml(page.blobUrl),
   );
+  // Same for the previous data file — replaced by this publish's own, or
+  // withdrawn entirely when the series stopped producing an export.
+  if (existing?.dataBlobUrl && existing.dataBlobUrl !== dataBlobUrl) {
+    await deletePublishedHtml(existing.dataBlobUrl);
+  }
 
   // Split-fleet series (#328): the publish carried the rolling assignments
   // page, so stamp each not-yet-published round — the Split Fleets page can
@@ -622,6 +660,11 @@ export async function listPublished(
 async function unpublish(published: PublishedSeries): Promise<void> {
   for (const page of published.pages) {
     await deletePublishedHtml(page.blobUrl);
+  }
+  // The data file goes down with the pages (ADR-012): unpublishing withdraws
+  // the public copy; a copy someone already downloaded keeps working.
+  if (published.dataBlobUrl) {
+    await deletePublishedHtml(published.dataBlobUrl);
   }
   await deletePublished(published.id);
   // Split-fleet series (#328): publishing stamps each round so the Split

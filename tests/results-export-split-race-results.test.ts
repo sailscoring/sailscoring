@@ -8,6 +8,11 @@
 import { describe, it, expect } from 'vitest';
 
 import { buildFleetHtmlFiles } from '@/lib/results-export';
+
+// buildFleetHtmlFiles returns { files, exportJson? }; these tests assert on
+// the pages, so unwrap to the file list (null stays null).
+const buildFleetFiles = async (...args: Parameters<typeof buildFleetHtmlFiles>) =>
+  (await buildFleetHtmlFiles(...args))?.files ?? null;
 import type { ExportRepos } from '@/lib/public-export';
 import type { Competitor, Finish, Fleet, Race, RaceStart, Series } from '@/lib/types';
 import { defaultSplitFleetConfig } from '@/lib/split-fleets';
@@ -134,7 +139,7 @@ function makeRepos(raceStarts: RaceStart[], finishes: Finish[]): ExportRepos {
 
 describe('buildFleetHtmlFiles — split-fleet per-race results', () => {
   it('emits the page between the championship and the assignments', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(RACE_STARTS, FINISHES), 's1');
+    const files = await buildFleetFiles(makeRepos(RACE_STARTS, FINISHES), 's1');
     expect(files!.map((f) => f.fleetName)).toEqual([
       'Championship',
       'Race results',
@@ -152,18 +157,18 @@ describe('buildFleetHtmlFiles — split-fleet per-race results', () => {
   });
 
   it('deep-links the championship only when told where the page will live', async () => {
-    const linked = await buildFleetHtmlFiles(makeRepos(RACE_STARTS, FINISHES), 's1', undefined, {
+    const linked = await buildFleetFiles(makeRepos(RACE_STARTS, FINISHES), 's1', undefined, {
       raceResultsHref: 'race-results',
     });
     expect(linked![0].html).toContain('href="race-results#q1"');
 
     // Preview, download and FTP pass no location: plain headers.
-    const plain = await buildFleetHtmlFiles(makeRepos(RACE_STARTS, FINISHES), 's1');
+    const plain = await buildFleetFiles(makeRepos(RACE_STARTS, FINISHES), 's1');
     expect(plain![0].html).not.toContain('race-results#q1');
   });
 
   it('emits no page — and no dangling links — before any stage race has sheet rows', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(RACE_STARTS, []), 's1', undefined, {
+    const files = await buildFleetFiles(makeRepos(RACE_STARTS, []), 's1', undefined, {
       raceResultsHref: 'race-results',
     });
     expect(files!.map((f) => f.fleetName)).toEqual(['Championship', 'Fleet assignments']);

@@ -666,6 +666,13 @@
       "when": 1787995999749,
       "tag": "0094_amazing_nehzno",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1788086267758,
+      "tag": "0095_lean_retro_girl",
+      "breakpoints": true
     }
   ]
 }

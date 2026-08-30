@@ -7,6 +7,11 @@
 import { describe, it, expect } from 'vitest';
 
 import { buildFleetHtmlFiles } from '@/lib/results-export';
+
+// buildFleetHtmlFiles returns { files, exportJson? }; these tests assert on
+// the pages, so unwrap to the file list (null stays null).
+const buildFleetFiles = async (...args: Parameters<typeof buildFleetHtmlFiles>) =>
+  (await buildFleetHtmlFiles(...args))?.files ?? null;
 import type { ExportRepos } from '@/lib/public-export';
 import type { Competitor, Finish, Fleet, Race, Series } from '@/lib/types';
 import { defaultSplitFleetConfig } from '@/lib/split-fleets';
@@ -91,7 +96,7 @@ const SPLIT_CONFIG = defaultSplitFleetConfig(2);
 
 describe('buildFleetHtmlFiles — the competitor list', () => {
   it('publishes the entry list for a series with no races yet', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos([], []), 's1', undefined, {
+    const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
       includeEntryList: true,
     });
     expect(files).not.toBeNull();
@@ -104,11 +109,11 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
   it('still publishes nothing for a raceless series when not asked for it', async () => {
     // The FTP path relies on this: its per-fleet path mapping has no slot for
     // a page that isn't a fleet's.
-    expect(await buildFleetHtmlFiles(makeRepos([], []), 's1')).toBeNull();
+    expect(await buildFleetFiles(makeRepos([], []), 's1')).toBeNull();
   });
 
   it('appends the entry list after the results pages once racing starts', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(RACES, FINISHES), 's1', undefined, {
+    const files = await buildFleetFiles(makeRepos(RACES, FINISHES), 's1', undefined, {
       includeEntryList: true,
     });
     expect(files!.map((f) => f.fleetName)).toContain('Entries');
@@ -117,12 +122,12 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
   });
 
   it('leaves the entry list out of an ordinary export', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos(RACES, FINISHES), 's1');
+    const files = await buildFleetFiles(makeRepos(RACES, FINISHES), 's1');
     expect(files!.map((f) => f.fleetName)).not.toContain('Entries');
   });
 
   it('orders entries by fleet display order, then sail number', async () => {
-    const files = await buildFleetHtmlFiles(makeRepos([], []), 's1', undefined, {
+    const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
       includeEntryList: true,
     });
     const html = files![0].html;
@@ -146,7 +151,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         }),
       },
     } as unknown as ExportRepos;
-    const files = await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true });
+    const files = await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true });
     expect(files!.map((f) => f.fleetName)).toEqual(['Entries']);
     expect(files![0].html).toContain('Competitor List');
   });
@@ -172,7 +177,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         }),
       },
     } as unknown as ExportRepos;
-    const files = await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true });
+    const files = await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true });
     const names = files!.map((f) => f.fleetName);
     expect(names).toContain('Championship');
     expect(names).toContain('Entries');
@@ -195,7 +200,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         }),
       },
     } as unknown as ExportRepos;
-    const files = await buildFleetHtmlFiles(repos, 's1');
+    const files = await buildFleetFiles(repos, 's1');
     expect(files!.map((f) => f.fleetName)).not.toContain('Entries');
   });
 
@@ -217,7 +222,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         ],
       },
     } as unknown as ExportRepos;
-    const html = (await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
     // Cell-scoped: the page's own script legitimately says "preventDefault".
     expect(html).not.toContain('<td>Default');
     expect(html).toContain('<td>Blue</td>');
@@ -247,7 +252,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         ],
       },
     } as unknown as ExportRepos;
-    const html = (await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
     expect(html).toContain('<td>Blue</td>');
     expect(html).toContain('<td>Yellow</td>');
     expect(html).not.toContain('Yellow, Blue');
@@ -267,7 +272,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         listBySeries: async () => [competitor('c1', '101', ['f-default'])],
       },
     } as unknown as ExportRepos;
-    const html = (await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
     expect(html).not.toContain('<th>Fleet</th>');
   });
 
@@ -276,6 +281,6 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
       ...makeRepos([], []),
       competitorRepo: { listBySeries: async () => [] },
     } as unknown as ExportRepos;
-    expect(await buildFleetHtmlFiles(repos, 's1', undefined, { includeEntryList: true })).toBeNull();
+    expect(await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true })).toBeNull();
   });
 });

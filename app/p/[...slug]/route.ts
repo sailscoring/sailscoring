@@ -674,6 +674,34 @@ async function fleetPage(
     getPublishedFolderMeta(workspace.id),
     readPublishedSeasonTreeRows(workspace.id),
   ]);
+  // The publication's data file (ADR-012): `{dataSubPath}` under the slug
+  // serves the stored public export — the sanitized series data the pages
+  // were rendered from, pinned at publish time. No nav is injected, so the
+  // publication's own content hash is the whole ETag. Served with an open
+  // CORS header: the data file is the portability surface, and third-party
+  // pages and scripts are welcome to read it cross-origin.
+  const dataOwner = group.find(
+    (p) => p.dataSubPath === subPath && p.dataBlobUrl,
+  );
+  if (dataOwner) {
+    const etag = `"${dataOwner.contentHash}"`;
+    const cached = notModified(req, etag);
+    if (cached) return cached;
+    const json = await readPublishedHtml(dataOwner.dataBlobUrl!);
+    if (json === null) return NOT_FOUND;
+    return new Response(json, {
+      status: 200,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': CACHE_CONTROL,
+        'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
+        'Vercel-Cache-Tag': publishedCacheTag(workspace.id),
+        'access-control-allow-origin': '*',
+        etag,
+      },
+    });
+  }
+
   const owner = group.find((p) => p.pages.some((pg) => pg.subPath === subPath));
   const page = owner?.pages.find((pg) => pg.subPath === subPath);
   if (!owner || !page) {

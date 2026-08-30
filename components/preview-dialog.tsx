@@ -65,8 +65,9 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     setFiles(null);
     setSelected(0);
     buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes, includeEntryList, includeTrackData })
-      .then((built) => {
+      .then((build) => {
         if (cancelled) return;
+        const built = build?.files ?? null;
         setFiles(built);
         setPhase(built && built.length > 0 ? 'idle' : 'error');
       })

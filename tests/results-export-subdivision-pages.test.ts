@@ -7,6 +7,11 @@
 import { describe, it, expect } from 'vitest';
 
 import { buildFleetHtmlFiles } from '@/lib/results-export';
+
+// buildFleetHtmlFiles returns { files, exportJson? }; these tests assert on
+// the pages, so unwrap to the file list (null stays null).
+const buildFleetFiles = async (...args: Parameters<typeof buildFleetHtmlFiles>) =>
+  (await buildFleetHtmlFiles(...args))?.files ?? null;
 import type { ExportRepos } from '@/lib/public-export';
 import type {
   Competitor,
@@ -146,7 +151,7 @@ const BY_DIVISION: PublishingGroup = {
 
 describe('buildFleetHtmlFiles — pages sectioned by a subdivision axis', () => {
   it('publishes one section per division from a single-fleet series', async () => {
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([BY_DIVISION]), ONE_FLEET),
       's1',
     );
@@ -159,7 +164,7 @@ describe('buildFleetHtmlFiles — pages sectioned by a subdivision axis', () => 
   });
 
   it('ranks each division 1..n rather than carrying the series place', async () => {
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([BY_DIVISION]), ONE_FLEET),
       's1',
     );
@@ -172,7 +177,7 @@ describe('buildFleetHtmlFiles — pages sectioned by a subdivision axis', () => 
   });
 
   it('drops the axis column inside the sections — the heading carries it', async () => {
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([BY_DIVISION]), ONE_FLEET),
       's1',
     );
@@ -183,7 +188,7 @@ describe('buildFleetHtmlFiles — pages sectioned by a subdivision axis', () => 
   });
 
   it('leaves competitors with no division off the page entirely', async () => {
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([BY_DIVISION]), ONE_FLEET),
       's1',
     );
@@ -193,7 +198,7 @@ describe('buildFleetHtmlFiles — pages sectioned by a subdivision axis', () => 
 
   it('publishes standings only, whatever detail the page asks for', async () => {
     const fullDetail = { ...BY_DIVISION, detail: 'full' as const };
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([fullDetail]), ONE_FLEET),
       's1',
     );
@@ -207,7 +212,7 @@ describe('buildFleetHtmlFiles — pages sectioned by a subdivision axis', () => 
       makeCompetitor('c2', '14203', 'Silver'),
       makeCompetitor('k1', '3001', 'Gold', ['f-keel']),
     ];
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([BY_DIVISION]), TWO_FLEETS, competitors),
       's1',
     );
@@ -220,7 +225,7 @@ describe('buildFleetHtmlFiles — pages sectioned by a subdivision axis', () => 
 
   it('publishes no page at all when nobody carries a value for the axis', async () => {
     const competitors = [makeCompetitor('c1', '14256', undefined)];
-    const files = await buildFleetHtmlFiles(
+    const files = await buildFleetFiles(
       makeRepos(makeSeries([BY_DIVISION]), ONE_FLEET, competitors),
       's1',
     );

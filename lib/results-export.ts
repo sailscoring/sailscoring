@@ -115,6 +115,19 @@ export interface FleetHtmlFile {
   html: string;
 }
 
+/** Everything one build of a series' publishable output yields: the pages,
+ *  and the public JSON export they were rendered from. `exportJson` is the
+ *  serialized `PublicSeriesExport` — the same bytes the pages embed in their
+ *  "Open in Sail Scoring" link — so the publish handler can store the
+ *  publication's `.sailscoring.json` data file (ADR-012) byte-identical to
+ *  what the pages carry. Absent when the series opts out
+ *  (`includeJsonExport`) or the build produces no export (split-fleet
+ *  championships, entry-list-only builds). */
+export interface FleetHtmlBuild {
+  files: FleetHtmlFile[];
+  exportJson?: string;
+}
+
 /**
  * The competitor-list page (#423) — the entry list, buildable with no races
  * sailed. Kept separate from the per-fleet build below because it shares none
@@ -263,13 +276,15 @@ export async function buildFleetHtmlFiles(
     includeTrackData?: boolean;
     raceResultsHref?: string;
   },
-): Promise<FleetHtmlFile[] | null> {
+): Promise<FleetHtmlBuild | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0) return null;
   if (snapshot.races.length === 0) {
     // Before race one there are no results to render, but the entry list is
     // exactly what an event wants published in that window.
-    return opts?.includeEntryList ? [await buildCompetitorListFile(snapshot, seriesIndexUrl)] : null;
+    return opts?.includeEntryList
+      ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl)] }
+      : null;
   }
   // Empty venue/event logo slots inherit the workspace defaults, so the
   // rendered header and the embedded JSON both carry them. Ahead of the
@@ -328,7 +343,10 @@ export async function buildFleetHtmlFiles(
     // Null while no stage race has sheet rows — the championship page then
     // has nothing to link to either.
     const raceResultsHtml = renderSplitFleetRaceResultsPage(input, splitChrome);
-    return [
+    // No `exportJson`: the split-fleet build constructs no public export
+    // (the format does not yet carry rounds/assignments), so a split
+    // championship publishes pages with no data file behind them.
+    return { files: [
       {
         fleetName: 'Championship',
         isDefault: true,
@@ -363,7 +381,7 @@ export async function buildFleetHtmlFiles(
       ...(opts?.includeEntryList
         ? [await buildCompetitorListFile(snapshot, seriesIndexUrl)]
         : []),
-    ];
+    ] };
   }
   const {
     series,
@@ -403,6 +421,9 @@ export async function buildFleetHtmlFiles(
   const publicExport = (series.includeJsonExport ?? true)
     ? buildPublicExportFromSnapshot(snapshot, { fleetStandings: fleetResults })
     : null;
+  // Serialized once: the same bytes feed the embedded link below and the
+  // publication's stored data file, so the two can never drift.
+  const publicExportJson = publicExport ? JSON.stringify(publicExport) : null;
 
   // Pull the inline flag SVG payload only when this export actually references
   // nationality codes. Dynamic import keeps the ~2.5 MB module out of the
@@ -419,11 +440,10 @@ export async function buildFleetHtmlFiles(
   // The "Open in Sail Scoring" import URL is series-wide (the embedded JSON
   // covers every fleet), so derive it once for all pages.
   let openInAppUrl: string | undefined;
-  if (publicExport) {
+  if (publicExportJson) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (appUrl) {
-      const json = JSON.stringify(publicExport);
-      const bytes = new TextEncoder().encode(json);
+      const bytes = new TextEncoder().encode(publicExportJson);
       let binary = '';
       bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
       const b64 = btoa(binary)
@@ -932,7 +952,9 @@ export async function buildFleetHtmlFiles(
     results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl));
   }
 
-  return results.length > 0 ? results : null;
+  return results.length > 0
+    ? { files: results, ...(publicExportJson ? { exportJson: publicExportJson } : {}) }
+    : null;
 }
 
 /** Browser-only: download an HTML string as a file via a transient anchor. */

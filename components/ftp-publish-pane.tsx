@@ -111,11 +111,12 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
 
     setUploadState('uploading');
 
-    const fleetFiles = await buildFleetHtmlFiles(repos, series.id);
-    if (!fleetFiles) {
+    const build = await buildFleetHtmlFiles(repos, series.id);
+    if (!build) {
       setUploadState({ success: false, error: 'No results to upload.' });
       return;
     }
+    const fleetFiles = build.files;
 
     // Match each file back to its fleet by name (the path inputs are per
     // fleet, in fleet order). A series with sub-series yields several files

@@ -1107,7 +1107,12 @@ export interface PublishedSeries {
   seriesId: string | null;       // null = orphaned (the series was deleted)
   slug: string;                  // public slug within the workspace
   pages: PublishedSeriesPage[];
-  contentHash: string;           // hash over all page HTML; unchanged ⇒ skip re-upload
+  // The public data file (ADR-012): the sanitized export served beside the
+  // pages at `/p/{ws}/{slug}/{dataSubPath}`. Absent/null when the series
+  // opts out of the JSON export or builds none (split-fleet championships).
+  dataSubPath?: string | null;
+  dataBlobUrl?: string | null;
+  contentHash: string;           // hash over all page HTML + the data file; unchanged ⇒ skip re-upload
   publishedAt: number;           // Unix ms of the last publish
   publishedVersion: number;      // series.version captured at publish (drives "X edits since")
 }
