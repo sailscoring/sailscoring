@@ -1294,6 +1294,57 @@ League 2026 — including the certificate layer, time-on-distance scoring,
 and the advanced methods (PCS, constructed courses, wind-band scoring)
 that were previously parked here as "far horizon".
 
+### Forecast-routing ratings (ORC WRS, Newport–Bermuda F-TCF)
+
+A third way to set a handicap, alongside the single fixed number (IRC, PY) and
+post-race observed conditions (ORC PCS): compute each boat's rating for each
+race **before the start, from the weather forecast**. A few hours before the
+gun, every boat's certified polars (its VPP speed curves) are run through a
+weather-routing engine over the actual forecast — wind and, where it matters,
+current — for the actual course. Each boat's optimal simulated route yields a
+Predicted Elapsed Time, and its TCF for the race is the ratio of its PET to a
+scratch boat's (a fleet member, or the fleet average). The fleet starts knowing
+everyone's numbers, and the finish is scored as ordinary time-on-time. The
+claim: even when the forecast is wrong, a TCF simulated from it matches the
+race actually sailed far better than an all-purpose average — ending the
+"horses for courses" effect where fixed offshore numbers inevitably favour some
+boats in any given conditions.
+
+Two independent implementations exist:
+
+- **ORC Weather Routing Scoring (WRS)** — ORC certificate polars plus
+  PredictWind's forecast and routing engine, run from ORC Scorer / the RaceFlow
+  app; used to score or shadow-score ~50 regattas in 2024, some with 300+ boat
+  fleets. Primer and Q&A at
+  [orc.org/race-managment/qa-wrs](https://orc.org/race-managment/qa-wrs), and a
+  full write-up in `reference-docs:handicap-systems/orc/Scoring-Options-ORC.md`.
+- **Newport Bermuda Race F-TCF (Forecast TCF)** — ORR polars routed through
+  Expedition (Nick White's navigation software) over pre-selected GRIBs: HRRR
+  wind for the coastal start, GFS offshore, RTOFS for the Gulf Stream.
+  Developed by CCA members including Stan Honey and Jim Teeters; first official
+  use in the 2024 race
+  ([how it works](https://www.sailingscuttlebutt.com/2024/11/08/scoring-the-newport-bermuda-race/)).
+
+The 2026 Bermuda race is the cautionary tale
+([Afloat](https://afloat.ie/sail/offshore/item/72786-human-error-blamed-for-newport-bermuda-race-scoring),
+[investigation report](https://bermudarace.com/investigation-report-of-the-f-tcf-error/)):
+comparison GRIBs left active in the operator's routing session — plus a
+batch-vs-individual defect in the software — produced effectively randomised
+F-TCFs, caught only days after the start when a competitor compared two
+near-identical boats; corrected numbers and jury redress followed the finish.
+The [published results](https://racing.bermudarace.com/raceresults/dd7f301e-9590-4427-a572-7548d685684c)
+show each boat's F-TCF but nothing behind it.
+
+What it would mean for us: the heavy machinery — VPP certificates, forecast
+selection, routing simulation — lives outside any scoring app, in ORC's tooling
+and Expedition. From the engine's viewpoint a forecast-routed race is just
+**per-boat, per-race TCFs supplied as input** to ordinary time-on-time scoring:
+a rating *source*, not a new scoring algorithm. If a race in our waters ever
+adopts it, the buildable parts are ingesting and publishing the pre-race
+scratch sheet, and the provenance trail around it — which forecast, issued
+when, computed by whom — which is precisely what the 2026 error showed the
+current pipelines lack. Far horizon: no target event uses it yet.
+
 ---
 
 ## Series lineage and seasons
@@ -1625,6 +1676,26 @@ in the published `/p/...` output for competitors, or stay scorer/organiser-facin
 how they interact with multi-fleet series and discards (is time-to-win computed before or
 after discards?). Pairs with the operator-facing engagement metrics under Operator
 administration — those measure the *product*; these measure a *series*.
+
+### Sector time analysis (offshore tracker analytics)
+
+Offshore results platforms now break a long course into **sectors** — legs
+between waypoints or latitude gates — and show each boat's elapsed and
+corrected time, and rank, per sector, so a crew can see exactly where the race
+was won or lost rather than just the one number at the finish. The Newport
+Bermuda Race's live results (powered by
+[Nautical Cloud](https://www.nautical-cloud.com/), which also runs the Fastnet
+and the Chicago Mac) carry a per-boat
+[Sector Time Analysis](https://racing.bermudarace.com/sector-time-analysis/dd7f301e-9590-4427-a572-7548d685684c/1bfd11ee-09bb-4542-94c6-e1898445df97/07e2de6a-e0dd-46c3-9332-cf1520efdcf6)
+view built from YB tracker positions.
+
+Captured as a sighting of what offshore results surfaces offer, not as
+buildable work: it depends on continuous position tracks, which we don't hold —
+our record of a race is one finish time per boat. The nearest in-model analogue
+would be per-leg or rounding times if a race ever recorded them; anything
+tracker-derived belongs in a third-party client over the API (the same framing
+as the clubhouse display above), joining tracker data to our entry list and
+results rather than Sail Scoring ingesting tracks itself.
 
 ---
 
