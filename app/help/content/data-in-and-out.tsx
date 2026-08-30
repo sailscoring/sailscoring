@@ -283,17 +283,23 @@ export default function DataInAndOut() {
           the series lands. It defaults to the workspace you’re currently in.
         </p>
         <p>
-          The footer also embeds a JSON snapshot of the results in the page source, available
-          to clubs or third parties who want to consume the data programmatically. The snapshot
-          contains only the public results; scorer-private information (file history, FTP
-          credentials, and publishing tokens) is never included.
+          Publishing also puts the underlying data itself beside the pages, as a{' '}
+          <code className="text-foreground text-sm">.sailscoring.json</code> file linked from
+          every page footer — a machine-readable snapshot of exactly the results shown, for
+          clubs or third parties who want to consume the data programmatically. The suffix
+          marks it as the public, sanitized view: it contains only the published results —
+          hidden competitor columns, unresolved finish entries, and scorer-private information
+          (file history, FTP credentials, and publishing tokens) are never included. Pages you
+          download or push over FTP without publishing embed the same snapshot in the page
+          source instead, so they stay self-contained.
         </p>
         <p>
-          To disable the embedded export for a series, open the{' '}
+          To disable the data export for a series, open the{' '}
           <strong className="text-foreground">Settings</strong> tab and uncheck{' '}
           <strong className="text-foreground">Include data export in published results</strong>{' '}
-          in the <strong className="text-foreground">Publishing</strong> card. The footer will
-          revert to a plain link with no Open in Sail Scoring option.
+          in the <strong className="text-foreground">Publishing</strong> card. The data file
+          comes down with the next publish and the footer reverts to a plain link with no
+          Open in Sail Scoring option.
         </p>
       </Section>
     </>

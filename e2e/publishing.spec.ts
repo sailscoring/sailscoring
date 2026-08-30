@@ -129,7 +129,7 @@ test('publish into Season + Folder → public page renders → the folder lists 
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
 });
 
-test('an unresolved unknown-sail crossing survives server-side publish (#198)', async ({ page }) => {
+test('an unresolved unknown-sail crossing publishes cleanly and stays out of the data file (#198, ADR-012)', async ({ page }) => {
   await createSeriesWithData(page, {
     name: 'Unknown Crossing League',
     unknownSail: '9999',
@@ -142,23 +142,86 @@ test('an unresolved unknown-sail crossing survives server-side publish (#198)', 
   await expect(link).toBeVisible();
   const path = new URL((await link.getAttribute('href')) ?? '').pathname;
 
-  // The published page embeds the public JSON export in the "Open in Sail
-  // Scoring" footer link. The publish ran server-side, so the unknown
-  // crossing must have made it through the server's whole-series read.
+  // The publish ran server-side with the unresolved row present (#198 was a
+  // crash here). The published data file carries the resolved finish but not
+  // the unresolved crossing — that is the scorer's unfinished business, not
+  // published output (the v2 export contract, ADR-012).
   await page.goto(path);
-  const importHref =
+  const dataHref =
+    (await page
+      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getAttribute('href')) ?? '';
+  const exported = await (await page.request.get(dataHref)).json();
+  const finishes = exported.races.flatMap(
+    (r: { finishes: { sailNumber: string; unknownSailNumber?: string }[] }) => r.finishes,
+  );
+  expect(finishes.some((f: { sailNumber: string }) => f.sailNumber === '42')).toBe(true);
+  expect(finishes.some((f: { unknownSailNumber?: string }) => f.unknownSailNumber != null)).toBe(false);
+});
+
+test('the publication serves a .sailscoring.json data file and pages reference it (ADR-012)', async ({ page }) => {
+  await createSeriesWithData(page, { name: 'Data File League', sail: '17' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const path = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  // The footer references the data file instead of embedding the payload.
+  await page.goto(path);
+  const openHref =
     (await page
       .getByRole('link', { name: 'Open in Sail Scoring' })
       .getAttribute('href')) ?? '';
-  const b64 = importHref.split('#data=')[1];
-  expect(b64).toBeTruthy();
-  const exported = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
-  const unknowns = exported.races.flatMap(
-    (r: { finishes: { unknownSailNumber?: string }[] }) =>
-      r.finishes.filter((f) => f.unknownSailNumber != null),
-  );
-  expect(unknowns).toHaveLength(1);
-  expect(unknowns[0]).toMatchObject({ unknownSailNumber: '9999' });
+  expect(openHref).toContain('/import?from=');
+  expect(openHref).not.toContain('#data=');
+  const dataHref =
+    (await page
+      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getAttribute('href')) ?? '';
+  expect(dataHref).toMatch(/\.sailscoring\.json$/);
+
+  // The file serves as JSON with an open CORS header and parses as the
+  // public export the page was rendered from.
+  const res = await page.request.get(dataHref);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('application/json');
+  expect(res.headers()['access-control-allow-origin']).toBe('*');
+  const exported = await res.json();
+  expect(exported.version).toBe(2);
+  expect(exported.series.name).toBe('Data File League');
+
+  // Signed in, /import?from= fetches the file and opens a copy.
+  const from = new URL(dataHref, 'http://localhost').pathname;
+  await page.goto(`/import?from=${encodeURIComponent(from)}`);
+  await expect(page.getByRole('dialog')).toContainText('Data File League');
+  await page.getByRole('button', { name: 'Open series' }).click();
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/standings/);
+  await expect(page.getByRole('cell', { name: '17' }).first()).toBeVisible();
+});
+
+test('signed out, the Open in Sail Scoring reference survives the login redirect (#465)', async ({ page, browser }) => {
+  await createSeriesWithData(page, { name: 'Signed Out League' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const path = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  // A visitor with no session follows the footer link and is sent to
+  // sign-in — with the ?from= reference intact in callbackURL, where the
+  // old fragment payload was silently dropped (#465).
+  const anon = await browser.newContext();
+  const anonPage = await anon.newPage();
+  await anonPage.goto(path);
+  await anonPage.getByRole('link', { name: 'Open in Sail Scoring' }).click();
+  await expect(anonPage).toHaveURL(/\/sign-in\?callbackURL=/);
+  const cb = new URL(anonPage.url()).searchParams.get('callbackURL') ?? '';
+  expect(cb).toContain('/import?from=');
+  expect(decodeURIComponent(cb)).toContain('.sailscoring.json');
+  await anon.close();
 });
 
 test('workspace index lists published series and links through to a fleet page', async ({ page }) => {

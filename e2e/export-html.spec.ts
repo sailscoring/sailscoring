@@ -140,7 +140,7 @@ test('export HTML downloads a .html file with correct standings', async ({ page 
   expect(importMatch).not.toBeNull();
   const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
   const exportData = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
-  expect(exportData.version).toBe(1);
+  expect(exportData.version).toBe(2);
   expect(exportData.series.name).toBe('Howth Cup 2025');
   expect(exportData.competitors).toHaveLength(3);
   expect(exportData.standings[0].rows[0].sailNumber).toBe('42'); // Alice wins
@@ -293,7 +293,7 @@ test('multi-fleet IRC export includes fleets, ratings, starts, times, and per-fl
   expect(importMatch).not.toBeNull();
   const b64 = importMatch![1].replace(/-/g, '+').replace(/_/g, '/');
   const data = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
-  expect(data.version).toBe(1);
+  expect(data.version).toBe(2);
 
   // Fleets
   expect(data.fleets).toHaveLength(2);
