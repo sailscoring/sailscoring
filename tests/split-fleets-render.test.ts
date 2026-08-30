@@ -87,12 +87,17 @@ describe('renderSplitFleetStandingsPage', () => {
   });
 
   it('gives each fleet table only the columns its boats sail', () => {
-    // The medal race is the medal fleet's alone, and those boats sit in Gold's
-    // table: carrying M1 into Silver's would be a column in which not one of
-    // its boats can ever have a cell.
+    // The medal race is the medal fleet's alone: its table is the only one
+    // carrying M1, and with the medal boats in their own section Gold's
+    // table never shows a column no boat left in it can hold a cell in.
     const html = renderSplitFleetStandingsPage(renderInputFor('03-f2-ilca-medal-race.yaml'));
+    // No F2 either: the medal boats were selected before it and are absent
+    // from it, not DNC in it.
+    expect(headerRow(html, 'Medal')).toEqual(
+      ['Rank', 'Sail', 'Helm', 'Q1', 'Q2', 'F1', 'M1', 'Total', 'Nett'],
+    );
     expect(headerRow(html, 'Gold')).toEqual(
-      ['Rank', 'Sail', 'Helm', 'Q1', 'Q2', 'F1', 'F2', 'M1', 'Total', 'Nett'],
+      ['Rank', 'Sail', 'Helm', 'Q1', 'Q2', 'F1', 'F2', 'Total', 'Nett'],
     );
     expect(headerRow(html, 'Silver')).toEqual(
       ['Rank', 'Sail', 'Helm', 'Q1', 'Q2', 'F1', 'F2', 'Total', 'Nett'],
@@ -107,24 +112,28 @@ describe('renderSplitFleetStandingsPage', () => {
     const html = renderSplitFleetStandingsPage(
       renderInputFor('21-abandoned-finale-undivided.yaml'),
     );
-    expect(headerRow(html, 'Gold')).toContain('Carried');
+    expect(headerRow(html, 'Medal')).toContain('Carried');
     expect(html).toContain('counts once a medal race is completed');
     expect(html).not.toContain('replaced by the carried score');
   });
 
-  it('badges a medal boat with her fleet, in the series\' own words', () => {
+  it('gives the medal fleet its own section, headed in the series\' own words', () => {
     const input = renderInputFor('03-f2-ilca-medal-race.yaml');
     const html = renderSplitFleetStandingsPage(input);
-    // Never the bare stage id: it is not a word any series uses.
-    expect(html).not.toContain('>medal</span>');
-    expect(html).toMatch(/<span style="[^"]*">Medal<\/span>/);
-    // And carries the medal fleet's own colour, so it agrees with the tint on
-    // the cells beside it instead of holding a shade of its own.
-    expect(html.match(/<span style="font-size:0\.8em[^"]*"/)?.[0]).toContain('#f59e0b');
+    // A section of its own, first on the page — and with it the per-row
+    // badge goes: a heading and a badge saying the same thing twice.
+    expect(html.indexOf('<h2>Medal fleet</h2>')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('<h2>Medal fleet</h2>')).toBeLessThan(html.indexOf('<h2>Gold fleet</h2>'));
+    expect(html).not.toMatch(/<span style="font-size:0\.8em/);
+    // The rule under it, stated as a rule; and the fleet the boats came from
+    // says they are still assigned to it.
+    expect(html).toContain('ranked ahead of every other boat in the event');
+    expect(html).toContain('remain assigned to this fleet');
 
-    // Under the ILCA vocabulary the stage is the Final series and "final" is
-    // already spent on the Elimination series, so the badge has to follow the
-    // fleet the ceremony named rather than the stage it belongs to.
+    // The heading follows the vocabulary, not the fleet's name: the medal
+    // fleet is named "Final series" under the ILCA vocabulary, and
+    // "Final series fleet" is the fleetNoun — "{name} fleet" would only be
+    // right by luck.
     const ilca: SplitFleetRenderInput = {
       ...input,
       config: { ...input.config, vocabulary: 'qualification-final' },
@@ -132,9 +141,7 @@ describe('renderSplitFleetStandingsPage', () => {
         f.name === 'Medal' ? { ...f, name: 'Final series' } : f,
       ),
     };
-    expect(renderSplitFleetStandingsPage(ilca)).toMatch(
-      /<span style="[^"]*">Final series<\/span>/,
-    );
+    expect(renderSplitFleetStandingsPage(ilca)).toContain('<h2>Final series fleet</h2>');
   });
 
   it('marks the provisional cut line while still in qualifying', () => {

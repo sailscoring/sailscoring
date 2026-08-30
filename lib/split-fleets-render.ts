@@ -283,24 +283,11 @@ export function renderSplitFleetStandingsPage(
       : `<th>${label}</th>`;
   };
 
-  // The badge on a medal boat's name says which fleet she is in, in the
-  // fleet's own words: under the ILCA vocabulary that stage is the Final
-  // series, and a badge reading "medal" would spend a word the page has
-  // already given to something else. Bordered and tinted in the fleet's own
-  // colour, so it agrees with the cells beside it; the text stays the row's,
-  // which a pale fleet colour would not be legible as.
-  const medalFleetId = roundsForStage(data.rounds, 'medal')[0]?.fleetIds[0];
-  const medalLabel =
-    (medalFleetId && fleetName.get(medalFleetId)) || capitaliseStage(vocab.stages.medal.name);
-  const medalHex = fleetColorHex(colors, medalFleetId) ?? '#b8860b';
-  const medalBadge = ` <span style="font-size:0.8em;border:1px solid ${medalHex};background:${medalHex}2e;border-radius:3px;padding:0 3px;">${esc(medalLabel)}</span>`;
-
   const table = (rowsIn: typeof rows, cuts: number[] = [], withFleetCol = false): string => {
     const columns = columnsFor(rowsIn);
     const head = columns.map(headerCell).join('');
     const body = rowsIn
       .map((row, i) => {
-        const medal = row.medal ? medalBadge : '';
         const fleetId = withFleetCol ? fleetOf(row) : undefined;
         // No WS ID column on the table → the name carries the bio link
         // instead, so the profile is still one click away.
@@ -314,7 +301,7 @@ export function renderSplitFleetStandingsPage(
   ${withFleetCol ? `<td style="white-space:nowrap">${fleetDot(colors, fleetId)}${esc((fleetId && fleetName.get(fleetId)) || '')}</td>` : ''}
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   <td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>
-  <td>${helmHtml}${medal}</td>
+  <td>${helmHtml}</td>
   ${wsid ? wsidCell(row.competitor.worldSailingId) : ''}
   ${columns.map((c) => cellHtml(row, c)).join('\n  ')}
   <td style="text-align:right">${row.total}</td>
@@ -353,20 +340,69 @@ ${body}
       : '';
   };
 
+  // Once the medal fleet exists it gets its own table, first. It is a real
+  // fleet with its own membership and score base, its boats sail races no
+  // other boat can hold a column in (and never sail the companion race the
+  // others do), and at that stage of a championship the public focus is
+  // entirely on them — not on finding them sorted inside a table of 47.
+  // The heading comes from the vocabulary, not the fleet's name: the name
+  // already reads "Medal races" or "Final series", and "{name} fleet" is
+  // only right by luck.
+  const medalRows = rows.filter((r) => r.medal);
+  const medalSection = medalRows.length
+    ? `<h2>${esc(capitaliseStage(vocab.stages.medal.fleetNoun))}</h2>\n${table(medalRows)}\n<p class="sfnote">These boats are ranked ahead of every other boat in the event.</p>`
+    : '';
+
+  // The note under the fleet the medal boats came from: they have not left
+  // it — the fleet's assigned size still sets its score base — and where the
+  // SIs give the boats who missed the cut one more race scored from below
+  // the medal places, say why its winner did not score 1.
+  const leftForMedalNote = (fid: string): string => {
+    const count = medalRows.filter((r) => r.finalFleetId === fid).length;
+    if (!count) return '';
+    const offsets = [
+      ...new Map(
+        data.raceStarts
+          .filter(
+            (s) =>
+              s.stage === 'final' &&
+              s.fleetIds.includes(fid) &&
+              (s.firstPlaceOffset ?? 0) > 0 &&
+              s.stageRaceNumber != null,
+          )
+          .map((s) => [s.stageRaceNumber!, s.firstPlaceOffset!] as const),
+      ).entries(),
+    ].sort(([a], [b]) => a - b);
+    const offsetText = offsets
+      .map(([n, off]) => `${columnLabel('final', n)} is scored from ${off + 1} because they are scored above it`)
+      .join('; ');
+    return `\n<p class="sfnote">The ${count} boats sailing the ${esc(vocab.stages.medal.name)} remain assigned to this fleet${offsetText ? `; ${esc(offsetText)}` : ''}.</p>`;
+  };
+
   let sections: string;
   if (splitRound) {
-    sections = splitRound.fleetIds
-      .map((fid) => {
-        const fleetRows = rows.filter((r) => r.finalFleetId === fid);
+    sections = [
+      medalSection,
+      ...splitRound.fleetIds.map((fid) => {
+        const fleetRows = rows.filter((r) => r.finalFleetId === fid && !r.medal);
         return fleetRows.length
-          ? `<h2>${esc(fleetName.get(fid) ?? '')} fleet</h2>\n${table(fleetRows)}`
+          ? `<h2>${esc(fleetName.get(fid) ?? '')} fleet</h2>\n${table(fleetRows)}${leftForMedalNote(fid)}`
           : '';
-      })
+      }),
+    ]
       .filter(Boolean)
       .join('\n');
   } else {
-    const cuts = provisionalCutIndexes(rows.length, data.config.finalFleets.length);
-    sections = table(rows, data.config.finalFleets.length > 1 ? cuts : [], true);
+    const rest = rows.filter((r) => !r.medal);
+    const cuts = provisionalCutIndexes(rest.length, data.config.finalFleets.length);
+    sections = [
+      medalSection,
+      rest.length
+        ? table(rest, !medalRows.length && data.config.finalFleets.length > 1 ? cuts : [], true)
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
   }
 
   const raceLink = opts.raceResultsHref
