@@ -4,6 +4,8 @@
  * their way to UX decisions in Phase 3 / 4.
  */
 
+import { spectatorRequest } from './spectator/transport';
+
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
     super(message);
@@ -94,6 +96,13 @@ export async function apiFetch<T = unknown>(
   opts: ApiFetchOptions = {},
 ): Promise<T> {
   const method = opts.method ?? 'GET';
+
+  // A spectator view (#475) is an in-memory series with no workspace behind
+  // it, so its reads are answered here rather than over the network. Only
+  // paths naming an opened view match; every other request carries on below.
+  const spectator = spectatorRequest(path, method);
+  if (spectator) return spectator.body as T;
+
   const headers: Record<string, string> = {};
   let body: BodyInit | undefined;
   if (opts.body !== undefined) {
