@@ -271,9 +271,10 @@ export default function DataInAndOut() {
           Publish — includes an{' '}
           <strong className="text-foreground">Open in Sail Scoring</strong> link in the footer.
           Anyone can click it, signed in or not, and land in a read-only view of the series
-          behind the page: the entry list, the racing, the standings, and how the series is
-          scored. Nothing there can be changed, and nothing is stored — it’s the results data
-          you published, shown in the app that produced it.
+          behind the page: the entry list, the racing — down to each race’s finish sheet and
+          its times — the standings, and how the series is scored. Nothing there can be
+          changed, and nothing is stored — it’s the results data you published, shown in the
+          app that produced it.
         </p>
         <HelpShot
           src="/help/shots/spectator-view.webp"
