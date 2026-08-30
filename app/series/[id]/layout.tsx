@@ -12,6 +12,9 @@ import { useConfirm } from '@/components/confirm-dialog';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
+import { SpectatorBanner } from '@/components/spectator-banner';
+import { SpectatorProvider } from '@/components/spectator-context';
+import { useSpectatorView } from '@/hooks/use-spectator';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
@@ -38,6 +41,19 @@ const splitFleetsTab = {
   href: (id: string) => `/series/${id}/split-fleets`,
 };
 
+// What a spectator view shows (#475): the entry list, the racing, the
+// standings, and the setup that produced them — which is the whole of what a
+// reader came to see. The rest of the bar belongs to a series that lives in a
+// workspace: History and Activity record edits nobody can make here, and
+// Prizes and Split Fleets are gated features of a workspace the viewer has
+// none of.
+const spectatorTabs = [
+  baseTabs[0], // Competitors
+  baseTabs[1], // Races
+  baseTabs[2], // Standings
+  baseTabs[3], // Settings
+];
+
 export default function SeriesLayout({
   children,
   params,
@@ -48,7 +64,14 @@ export default function SeriesLayout({
   const { id } = use(params);
   const pathname = usePathname();
   const router = useRouter();
-  const { data: series, isLoading } = useSeries(id);
+  // A spectator view (#475) is served from memory, so hold the series query
+  // until the file has been read — the id is not one the server knows, and
+  // asking it would only earn a 401 for a signed-out reader.
+  const spectator = useSpectatorView(id);
+  const isSpectator = spectator.kind !== 'off';
+  const { data: series, isLoading } = useSeries(id, {
+    enabled: !isSpectator || spectator.kind === 'ready',
+  });
   const archiveSeries = useArchiveSeries();
   const setResultsStatus = useSetResultsStatus();
   const { can } = useWorkspacePermissions();
@@ -80,7 +103,11 @@ export default function SeriesLayout({
   const visibleTabs = isSplitFleetSeries
     ? gatedTabs.filter((t) => t.label !== 'Standings')
     : gatedTabs;
-  const tabs = asPublished ? [baseTabs[0], baseTabs[2]] : visibleTabs;
+  const tabs = isSpectator
+    ? spectatorTabs
+    : asPublished
+      ? [baseTabs[0], baseTabs[2]]
+      : visibleTabs;
 
   useChordShortcut(
     Object.fromEntries(tabs.map((t) => [t.chord, () => router.push(t.href(id))])),
@@ -90,7 +117,19 @@ export default function SeriesLayout({
   // (Ctrl+S save-to-file is bound by SeriesActionsMenu below.)
   useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
 
-  if (isLoading || series === undefined) {
+  // A view whose data file can no longer be reached — unpublished since, or
+  // a spectator URL opened somewhere the file was never read. Neither is a
+  // missing series, so neither gets "Series not found".
+  if (spectator.kind === 'unavailable') {
+    return (
+      <div className="max-w-xl space-y-2" data-testid="spectator-unavailable">
+        <h1 className="text-xl font-semibold">These results aren’t open here</h1>
+        <p className="text-muted-foreground text-sm">{spectator.message}</p>
+      </div>
+    );
+  }
+
+  if (spectator.kind === 'opening' || isLoading || series === undefined) {
     return <SeriesTabFallback status="loading" />;
   }
 
@@ -99,8 +138,10 @@ export default function SeriesLayout({
   }
 
   const isFinal = series.resultsStatus === 'final';
+  // A spectator view is read-only for good: there is no workspace behind it
+  // to write to, and the transport refuses writes anyway.
   const readOnly =
-    (series.archived ?? false) || (series.asPublished ?? false) || isFinal;
+    isSpectator || (series.archived ?? false) || (series.asPublished ?? false) || isFinal;
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
@@ -129,7 +170,9 @@ export default function SeriesLayout({
               </span>
             )}
           </h1>
-          <SeriesActionsMenu series={series} />
+          {/* Save-to-file, publish, copy, delete: every one of them acts on a
+              series in a workspace, which a spectator view is not. */}
+          {!isSpectator && <SeriesActionsMenu series={series} />}
         </div>
         {(series.venue || series.startDate) && (
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -138,7 +181,9 @@ export default function SeriesLayout({
         )}
       </div>
 
-      {series.asPublished ? (
+      {spectator.kind === 'ready' ? (
+        <SpectatorBanner source={spectator.view.source} />
+      ) : series.asPublished ? (
         <AsPublishedNotice seriesId={series.id} />
       ) : series.archived ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/40">
@@ -210,9 +255,11 @@ export default function SeriesLayout({
         })}
       </nav>
 
-      <SeriesReadOnlyProvider readOnly={readOnly}>
-        {children}
-      </SeriesReadOnlyProvider>
+      <SpectatorProvider spectator={isSpectator}>
+        <SeriesReadOnlyProvider readOnly={readOnly}>
+          {children}
+        </SeriesReadOnlyProvider>
+      </SpectatorProvider>
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} tabChords={tabs} />
     </div>

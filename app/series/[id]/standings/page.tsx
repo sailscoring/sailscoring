@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { useIsSpectator } from '@/components/spectator-context';
 import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
@@ -45,6 +46,12 @@ export default function StandingsPage({
   const canPublish = can('score');
   const canScore = can('score');
   const canFtp = has('ftp-upload') && can('manage-workspace');
+  // Preview asks for no permission — anyone looking at a series may see what
+  // its pages would look like. A spectator view is the exception: the reader
+  // arrived from those very pages, and rendering them again from a copy with
+  // no workspace behind it offers a download and a route to Publish that
+  // mean nothing here.
+  const spectator = useIsSpectator();
   const updateSeries = useUpdateSeries();
   const saveSubSeries = useSaveSubSeries();
   const [showPublishDialog, setShowPublishDialog] = useState(false);
@@ -63,7 +70,7 @@ export default function StandingsPage({
     ...(canPublish && !isAsPublished
       ? [{ key: 'p', description: 'Publish results', section: 'Standings', handler: () => setShowPublishDialog(true) }]
       : []),
-    ...(!isAsPublished
+    ...(!isAsPublished && !spectator
       ? [{ key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) }]
       : []),
   ]);
@@ -337,9 +344,11 @@ export default function StandingsPage({
               Publish
             </Button>
           )}
-          <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
-            Preview
-          </Button>
+          {!spectator && (
+            <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
+              Preview
+            </Button>
+          )}
         </div>
       </div>
 

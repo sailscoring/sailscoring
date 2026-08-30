@@ -18,6 +18,8 @@ import { RaceManagementCard } from '@/components/series-settings/race-management
 import { DisabledFeatureHint } from '@/components/series-settings/disabled-feature-hint';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { useIsSpectator } from '@/components/spectator-context';
+import { SpectatorSettings } from '@/components/spectator-settings';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
@@ -30,6 +32,7 @@ export default function SettingsPage({
 }) {
   const { id: seriesId } = use(params);
   const { can } = useWorkspacePermissions();
+  const spectator = useIsSpectator();
   const { has } = useFeatures();
   const { listSeriesNames } = repos;
   const { data: series, isLoading } = useSeries(seriesId);
@@ -57,6 +60,13 @@ export default function SettingsPage({
   );
 
   // The settings cards auto-save (which the server would reject for an
+  // A spectator view (#475) has no workspace to save to, so the cards can't
+  // serve it either — but how the series is scored is the question a reader
+  // opened the data to answer, so it is stated rather than left out.
+  if (spectator) {
+    return <SpectatorSettings series={series} fleets={fleetsData ?? []} />;
+  }
+
   // archived, read-only series), so they're replaced with a notice while
   // archived. Unarchive from the banner above to edit.
   if (series.archived) {
