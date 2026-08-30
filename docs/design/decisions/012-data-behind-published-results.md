@@ -1,6 +1,7 @@
 # ADR-012: The data behind a published results page
 
-**Status:** Accepted
+**Status:** Accepted (amended 2026-08-30 — the view-only destination is
+strictly read-only; see the note in the Decision)
 
 **Date:** 2026-08-29
 
@@ -340,6 +341,15 @@ differentiator unbuilt; Option 5's entry point wants exactly the
 fetchable, pinned artifact Option 3 creates — so 3 ships first and
 stands alone, and 5 is the destination it is built toward.
 
+*Amended 2026-08-30:* Option 5 is adopted **without its scratch-edit
+tier**. The viewer is strictly read-only; a reader who wants to change
+anything — the "what if" play included — goes through the one door:
+sign in, import a copy, and experiment there with the full app behind
+it. That serves the what-if motivation better than an ephemeral scratch
+copy (the experiment persists, and can never be confused with the
+published record), and it removes both the provenance risk and most of
+Option 5's build cost.
+
 The questions the draft left open are resolved as follows:
 
 - **The export's contract.** The export carries **everything needed to
@@ -414,11 +424,11 @@ deliberately left to the implementation issues.
 
 ### Risks
 
-- View-only mode is the largest build and could stall — mitigated by
-  shipping Option 3 first; it stands alone and loses nothing by waiting.
-- Scratch "what if" edits must not be mistakable for the official
-  record — provenance must be unmissable, and there is no publish path
-  from a scratch copy.
+- View-only mode is the larger build and could stall — mitigated by
+  shipping Option 3 first (it stands alone and loses nothing by
+  waiting), and by the 2026-08-30 amendment, which drops the scratch
+  tier and with it most of the remaining cost and the risk of local
+  edits being mistaken for the official record.
 
 ## Related decisions
 
