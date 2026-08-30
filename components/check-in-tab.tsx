@@ -14,6 +14,9 @@ export interface CheckInTabProps {
   presentCount: number;
   effectivelyPresent: (id: string) => boolean;
   toggleStartPresent: (c: Competitor) => void | Promise<void>;
+  /** Show who was in the starting area without offering to change it — the
+   *  series is read-only, so a tick here would only bounce (#486). */
+  readOnly?: boolean;
 }
 
 export function CheckInTab({
@@ -23,6 +26,7 @@ export function CheckInTab({
   presentCount,
   effectivelyPresent,
   toggleStartPresent,
+  readOnly = false,
 }: CheckInTabProps) {
   const [checkinInput, setCheckinInput] = useState('');
   const [showAllCheckin, setShowAllCheckin] = useState(false);
@@ -117,16 +121,16 @@ export function CheckInTab({
         ) : (
           visible.map((c) => {
             const present = effectivelyPresent(c.id);
+            const Row = readOnly ? 'div' : 'button';
             return (
-              <button
+              <Row
                 key={c.id}
-                type="button"
-                onClick={() => toggleStartPresent(c)}
+                {...(readOnly ? {} : { type: 'button' as const, onClick: () => toggleStartPresent(c) })}
                 className={cn(
                   'w-full flex items-center gap-3 border rounded-lg px-4 py-2.5 text-left transition-colors',
                   present
                     ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800'
-                    : 'hover:bg-accent',
+                    : !readOnly && 'hover:bg-accent',
                 )}
               >
                 {present ? (
@@ -136,7 +140,7 @@ export function CheckInTab({
                 )}
                 <span className="font-mono font-medium w-16 shrink-0">{c.sailNumber}</span>
                 <span className="text-sm flex-1 truncate">{displayCompetitorLabel(c, { enabledCompetitorFields, showCrew })}</span>
-              </button>
+              </Row>
             );
           })
         )}

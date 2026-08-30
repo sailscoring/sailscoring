@@ -96,6 +96,20 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
   await expect(page.getByRole('button', { name: 'Add competitor' })).toHaveCount(0);
 
+  // The finish sheet reads but does not invite an edit (#486): the order,
+  // the boats and their codes are all there, and every control that would
+  // have bounced off the server is gone.
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await page.getByTestId('race-row').click();
+  await expect(page.getByText('Finishing order')).toBeVisible();
+  await expect(page.getByTestId('finish-time-11').or(page.getByText('11').first())).toBeVisible();
+  await expect(page.getByLabel('Sail number')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remove 11' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Row actions for 11' })).toHaveCount(0);
+  await expect(page.getByTestId('drag-handle-11')).toHaveCount(0);
+  await expect(page.getByLabel('Tie 22 with previous row')).toHaveCount(0);
+
   // ── 6. Reopen as provisional; editing comes back ─────────────────────────
   // Cancelling leaves the series final — the confirmation is a real gate,
   // not a formality.
@@ -111,5 +125,13 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   await page.getByTestId('confirm-dialog-confirm').click();
   await expect(page.getByTestId('final-banner')).toHaveCount(0);
   await expect(page.getByTestId('final-badge')).toHaveCount(0);
+
+  // …including on the finish sheet, which is editable again.
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await page.getByTestId('race-row').click();
+  await expect(page.getByLabel('Sail number')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove 11' })).toBeVisible();
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
   await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
 });

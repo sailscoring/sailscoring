@@ -122,6 +122,17 @@ export interface FinishTabProps {
   saveFinish: { mutate: (f: Finish) => unknown };
   /** Called when the user presses Escape with no input + no suggestions. */
   leave: () => void;
+  /**
+   * Show the sheet without any way to change it: no entry box, no drag
+   * handles, no row actions, and recorded times as text rather than inputs.
+   *
+   * The series is read-only — archived, finalised, a role that can't score,
+   * or a spectator view of published results (#475). Every write from here
+   * would be refused by the server anyway; this is what stops the sheet
+   * inviting one. Reading stays complete: the order, the times, the
+   * penalties and redress, and the track data all still show.
+   */
+  readOnly?: boolean;
 }
 
 export function FinishTab(props: FinishTabProps) {
@@ -133,7 +144,7 @@ export function FinishTab(props: FinishTabProps) {
     finishRecording, onSetFinishRecording, derived, savedFinishes,
     finishSheetImportRef, applyCsvImport,
     setEditingPenaltyEntryId, openRedressDialog, setResolvingEntry,
-    patchCache, saveFinish, leave,
+    patchCache, saveFinish, leave, readOnly = false,
   } = props;
   const {
     finishingOrder, tiedWithPrevious, finishTimes, elapsedSecs,
@@ -264,7 +275,7 @@ export function FinishTab(props: FinishTabProps) {
           its own. Sized from its content, name and badge share the squeeze and
           both ellipsize. */}
       <span className="text-sm flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
-      {code === 'RDG' && (
+      {code === 'RDG' && !readOnly && (
         <button
           type="button"
           onClick={() => openRedressDialog(competitor.id, false)}
@@ -275,6 +286,14 @@ export function FinishTab(props: FinishTabProps) {
           <Scale className="h-3.5 w-3.5" />
         </button>
       )}
+      {readOnly ? (
+        <span
+          className="w-36 shrink-0 text-xs text-muted-foreground text-right"
+          data-testid={`non-finisher-code-${competitor.sailNumber}`}
+        >
+          {codeLabels[code]}
+        </span>
+      ) : (
       <Select
         value={code}
         onValueChange={(v) => {
@@ -296,6 +315,7 @@ export function FinishTab(props: FinishTabProps) {
           ))}
         </SelectContent>
       </Select>
+      )}
     </div>
   );
 
@@ -358,7 +378,7 @@ export function FinishTab(props: FinishTabProps) {
               </SelectContent>
             </Select>
           )}
-          {has('csv-finish-import') && (
+          {has('csv-finish-import') && !readOnly && (
             <FinishSheetImport
               ref={finishSheetImportRef}
               candidates={competitors}
@@ -376,7 +396,7 @@ export function FinishTab(props: FinishTabProps) {
         </div>
 
         <div className="relative">
-          {pendingTimeEntry ? (
+          {readOnly ? null : pendingTimeEntry ? (
             <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
               <span className="font-mono font-medium text-sm shrink-0">{pendingTimeEntry.competitor.sailNumber}</span>
               {showFleetBadge && (
@@ -600,14 +620,18 @@ export function FinishTab(props: FinishTabProps) {
 
         {finishingOrder.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            Enter sail numbers in finishing order above.
+            {readOnly
+              ? 'No finishers recorded for this race.'
+              : 'Enter sail numbers in finishing order above.'}
           </p>
         )}
 
         <ol className="space-y-1.5">
           <SortableList
             items={finishingOrder.map((entry, index) => ({ id: entryKey(entry), entry, index }))}
-            isDisabled={(it) => it.entry.kind === 'known' && needsFinishTime(it.entry.competitorId)}
+            isDisabled={(it) =>
+              readOnly || (it.entry.kind === 'known' && needsFinishTime(it.entry.competitorId))
+            }
             onReorder={(_, { fromIndex, toIndex }) => moveRowTo(fromIndex, toIndex)}
           >
           {({ entry, index }, { ref, style, handleProps }) => {
@@ -630,28 +654,34 @@ export function FinishTab(props: FinishTabProps) {
                   <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
                     {rowNumber}
                   </span>
-                  <DragHandle {...handleProps} data-testid={`drag-handle-${entry.sailNumber}`} />
+                  {readOnly
+                    ? <div className="w-4 shrink-0" aria-hidden />
+                    : <DragHandle {...handleProps} data-testid={`drag-handle-${entry.sailNumber}`} />}
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                   <span className="font-mono font-medium">{entry.sailNumber}</span>
                   <span className="text-sm text-muted-foreground flex-1">Unknown — not registered</span>
                   {showFinishTimeColumn && (
                     <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                   )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => setResolvingEntry(entry)}
-                  >
-                    Resolve
-                  </Button>
-                  <button
-                    onClick={() => removeFinisher(eid)}
-                    aria-label={`Remove unknown ${entry.sailNumber}`}
-                    className="text-muted-foreground hover:text-foreground shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  {!readOnly && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => setResolvingEntry(entry)}
+                      >
+                        Resolve
+                      </Button>
+                      <button
+                        onClick={() => removeFinisher(eid)}
+                        aria-label={`Remove unknown ${entry.sailNumber}`}
+                        className="text-muted-foreground hover:text-foreground shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </li>
               );
             }
@@ -684,9 +714,10 @@ export function FinishTab(props: FinishTabProps) {
                 <span className="w-6 text-right text-sm font-mono text-muted-foreground shrink-0">
                   {rowNumber}
                 </span>
-                {isTimed ? (
+                {isTimed || readOnly ? (
                   // Timed rows are position-locked by the time-order invariant.
-                  // Not draggable — scorer edits the time instead.
+                  // Not draggable — scorer edits the time instead. A read-only
+                  // sheet keeps the same spacer so the columns still line up.
                   <div className="w-4 shrink-0" aria-hidden />
                 ) : (
                   <DragHandle {...handleProps} data-testid={`drag-handle-${competitor.sailNumber}`} />
@@ -716,7 +747,14 @@ export function FinishTab(props: FinishTabProps) {
                   />
                 )}
                 <span className="text-sm truncate flex-auto">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
-                {showFinishTimeColumn && (isTimed ? (
+                {showFinishTimeColumn && (isTimed && readOnly ? (
+                  <span
+                    className="w-24 text-center text-sm font-mono shrink-0"
+                    data-testid={`finish-time-${competitor.sailNumber}`}
+                  >
+                    {recordedText(entry.competitorId) || '—'}
+                  </span>
+                ) : isTimed ? (
                   <input
                     type="text"
                     value={editingTimes.get(entry.competitorId) ?? recordedText(entry.competitorId)}
@@ -765,7 +803,19 @@ export function FinishTab(props: FinishTabProps) {
                 ) : (
                   <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                 ))}
-                {!isTimed && index > 0 && !((() => { const prev = finishingOrder[index - 1]; return prev.kind === 'known' && needsFinishTime(prev.competitorId); })()) && (
+                {readOnly ? (
+                  // Only say "tie" where there is one: an empty checkbox on
+                  // every row is an offer, and there is nothing on offer here.
+                  tiedWithPrevious.has(eid) && (
+                    <span
+                      className="text-xs text-muted-foreground shrink-0"
+                      title="Tied with the previous row (simultaneous finish, RRS A8.1)"
+                      data-testid={`tie-${competitor.sailNumber}`}
+                    >
+                      tie
+                    </span>
+                  )
+                ) : !isTimed && index > 0 && !((() => { const prev = finishingOrder[index - 1]; return prev.kind === 'known' && needsFinishTime(prev.competitorId); })()) && (
                   <label
                     className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer"
                     title="Tied with previous row (simultaneous finish, RRS A8.1)"
@@ -783,8 +833,8 @@ export function FinishTab(props: FinishTabProps) {
                 {penalty && (
                   <Badge
                     variant="outline"
-                    className="text-xs shrink-0 cursor-pointer"
-                    onClick={() => setEditingPenaltyEntryId(entry.competitorId)}
+                    className={cn('text-xs shrink-0', !readOnly && 'cursor-pointer')}
+                    onClick={readOnly ? undefined : () => setEditingPenaltyEntryId(entry.competitorId)}
                   >
                     {penalty.code}
                     {penalty.override != null ? ` (${penalty.override}${penalty.code === 'DPI' ? 'pts' : '%'})` : ''}
@@ -793,8 +843,11 @@ export function FinishTab(props: FinishTabProps) {
                 {hasRedress && (
                   <Badge
                     variant="outline"
-                    className="text-xs shrink-0 cursor-pointer border-amber-400 text-amber-700 dark:text-amber-400"
-                    onClick={() => openRedressDialog(entry.competitorId, true)}
+                    className={cn(
+                      'text-xs shrink-0 border-amber-400 text-amber-700 dark:text-amber-400',
+                      !readOnly && 'cursor-pointer',
+                    )}
+                    onClick={readOnly ? undefined : () => openRedressDialog(entry.competitorId, true)}
                   >
                     RDG
                   </Badge>
@@ -818,6 +871,7 @@ export function FinishTab(props: FinishTabProps) {
                 {/* Penalty and redress are infrequent — keep them off the row
                     behind an overflow menu so the boat name keeps the width.
                     The aria-labels below carry the sail number for addressing. */}
+                {!readOnly && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -839,6 +893,8 @@ export function FinishTab(props: FinishTabProps) {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                )}
+                {!readOnly && (
                 <button
                   onClick={() => removeFinisher(eid)}
                   aria-label={`Remove ${competitor.sailNumber}`}
@@ -846,6 +902,7 @@ export function FinishTab(props: FinishTabProps) {
                 >
                   <X className="h-4 w-4" />
                 </button>
+                )}
                 </div>
                 {trackDataOpen && (
                   // Read-only, and styled to say so: this is what the device

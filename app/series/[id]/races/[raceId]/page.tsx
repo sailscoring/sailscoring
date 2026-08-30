@@ -443,6 +443,7 @@ export default function ResultEntryPage({
           presentCount={presentCount}
           effectivelyPresent={effectivelyPresent}
           toggleStartPresent={toggleStartPresent}
+          readOnly={readOnly}
         />
         </div>
       )}
@@ -454,6 +455,7 @@ export default function ResultEntryPage({
           raceId={raceId}
           competitors={inRaceCompetitors}
           fleets={fleets ?? []}
+          readOnly={readOnly}
         />
         </div>
       )}
@@ -465,7 +467,7 @@ export default function ResultEntryPage({
         fleets={fleets ?? []}
         fleetById={fleetById}
         competitors={competitors ?? []}
-        visible={activeTab === 'finish' && canManageStarts}
+        visible={activeTab === 'finish' && canManageStarts && !readOnly}
       />
 
       {activeTab === 'finish' && (
@@ -487,6 +489,7 @@ export default function ResultEntryPage({
           }}
           derived={derived}
           savedFinishes={savedFinishes}
+          readOnly={readOnly}
           finishSheetImportRef={finishSheetImportRef}
           applyCsvImport={applyCsvImport}
           setEditingPenaltyEntryId={(id) => penaltyRef.current?.open(id)}

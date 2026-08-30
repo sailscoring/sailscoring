@@ -16,6 +16,9 @@ import { orcTotRating } from '@/lib/orc-certificate';
 import { bySailNumber } from '@/lib/sail-number-sort';
 
 export interface RatingsTabProps {
+  /** Show which rating scored each boat without offering to override it —
+   *  the series is read-only, so a save would only bounce (#486). */
+  readOnly?: boolean;
   seriesId: string;
   raceId: string;
   competitors: Competitor[];
@@ -40,7 +43,7 @@ interface Row {
   override: RaceRatingOverride | null;
 }
 
-export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTabProps) {
+export function RatingsTab({ seriesId, raceId, competitors, fleets, readOnly = false }: RatingsTabProps) {
   const { data: overrides } = useRaceRatingOverridesByRace(raceId);
   const { data: tcfHistory } = useTcfHistoryBySeries(seriesId);
   const saveOverride = useSaveRaceRatingOverride();
@@ -156,7 +159,7 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
                     <td className="py-1.5 pr-3">{r.competitor.boatName ?? formatPrimaryNames(r.competitor.names)}</td>
                     <td className="py-1.5 pr-3">{r.fleet.name}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">
-                      {isEditing ? (
+                      {isEditing && !readOnly ? (
                         <input
                           type="number"
                           step="0.001"
@@ -177,7 +180,7 @@ export function RatingsTab({ seriesId, raceId, competitors, fleets }: RatingsTab
                       {overridden ? formatRatingValue(r.base, r.system) : ''}
                     </td>
                     <td className="py-1.5 text-right whitespace-nowrap">
-                      {isEditing ? (
+                      {readOnly ? null : isEditing ? (
                         <>
                           <Button size="sm" variant="ghost" onClick={() => void handleSave(r)}>Save</Button>
                           <Button size="sm" variant="ghost" onClick={() => setEditing((s) => { const n = { ...s }; delete n[k]; return n; })}>Cancel</Button>
