@@ -1408,17 +1408,18 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
   // races add to (2026 ILCA SI 18.7.2/18.7.3). Applied after the discards
   // because the transform's input is her net.
   //
-  // `appliesFrom` decides the one case the two readings differ on: a medal
-  // fleet selected and then no medal race sailed. Waiting for a completed
-  // race leaves the undivided opening score as the event result, which is
-  // what the SIs that speak to it say (2026 ILCA SI 18.7.5 from Amendment 5).
+  // The carried cell exists from the moment the medal fleet is committed —
+  // the qualified boats and everyone watching them need to see the scores
+  // the deciding races will add to. `appliesFrom` governs only whether it
+  // counts, which is the one case the two readings differ on: a medal fleet
+  // selected and then no medal race sailed. Waiting for a completed race
+  // leaves the undivided opening score as the event result, which is what
+  // the SIs that speak to it say (2026 ILCA SI 18.7.5 from Amendment 5).
   const transform = config.medal?.carryTransform;
   const medalRaceCompleted = mRaces.some((lr) => lr.valid);
-  if (
-    transform &&
-    medalRound &&
-    (transform.appliesFrom === 'medal-fleet-selected' || medalRaceCompleted)
-  ) {
+  if (transform && medalRound) {
+    const applies =
+      transform.appliesFrom === 'medal-fleet-selected' || medalRaceCompleted;
     for (const row of rows) {
       if (!row.medal) continue;
       const opening = row.cells.filter((c) => c.counts && c.stage !== 'medal');
@@ -1427,9 +1428,11 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
         opening.filter((c) => !c.discarded).reduce((s, c) => s + c.points, 0),
         transform,
       );
-      for (const cell of opening) {
-        cell.counts = false;
-        cell.superseded = true;
+      if (applies) {
+        for (const cell of opening) {
+          cell.counts = false;
+          cell.superseded = true;
+        }
       }
       row.cells.push({
         stage: 'medal',
@@ -1438,12 +1441,12 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
         raceId: '',
         points: carried,
         code: null,
-        counts: true,
+        counts: applies,
         discardable: false,
         discarded: false,
         carriedTransform: true,
       });
-      totalRow(row);
+      if (applies) totalRow(row);
     }
   }
 

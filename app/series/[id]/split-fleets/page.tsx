@@ -2290,11 +2290,13 @@ function FragmentRow({
               : cell.carriedTransform
                 ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
                 : undefined
-            : cell.superseded
-              ? 'Replaced by the carried score'
-              : cell.excludedAsExtra
-                ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
-                : 'Does not yet count — race incomplete across fleets';
+            : cell.carriedTransform
+              ? `${capitaliseStage(w.series)} score, compressed — counts once a ${w.medal.raceNoun} is completed`
+              : cell.superseded
+                ? 'Replaced by the carried score'
+                : cell.excludedAsExtra
+                  ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
+                  : 'Does not yet count — race incomplete across fleets';
           return (
             <td
               key={`${c.stage}:${c.n}`}

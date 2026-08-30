@@ -35,9 +35,11 @@ notes: |
     new reading   5 beats 6 — y1 is world champion, and there is no tie for
                   SI 18.7.4 to settle.
 
-  Read the medal boats' rows: nothing is greyed and there is no "Carried"
-  column entry, because no division happened. Their championship scores are
-  the Qualification series scores they actually sailed.
+  Read the medal boats' rows: their race scores are not greyed, and the
+  "Carried" column shows the halved score for both — greyed, because it is
+  computed and shown from the moment the ten are picked but counts nothing
+  until a Final series race is completed. Their championship scores are the
+  Qualification series scores they actually sailed.
 
   Hand check, DNC base 5 in the Preliminary series (largest fleet 4 + 1) and
   5 in the Elimination series (own fleet 4 + 1), one discard from 3 races,

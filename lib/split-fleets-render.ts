@@ -253,11 +253,13 @@ export function renderSplitFleetStandingsPage(
         : c.carriedTransform
           ? `${vocab.seriesName} score, compressed and carried into the ${vocab.stages.medal.name}`
           : ''
-      : c.superseded
-        ? 'replaced by the carried score'
-        : c.excludedAsExtra
-          ? `excluded so every boat has the same number of ${vocab.stages.qualifying.name} scores`
-          : 'does not yet count — race incomplete across fleets';
+      : c.carriedTransform
+        ? `${vocab.seriesName} score, compressed — counts once a ${vocab.stages.medal.raceNoun} is completed`
+        : c.superseded
+          ? 'replaced by the carried score'
+          : c.excludedAsExtra
+            ? `excluded so every boat has the same number of ${vocab.stages.qualifying.name} scores`
+            : 'does not yet count — race incomplete across fleets';
     const titleText = [fleet ? `${fleet} fleet` : '', note].filter(Boolean).join(' — ');
     const title = titleText ? ` title="${esc(titleText)}"` : '';
     return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${fleetDot(colors, c.fleetId)}${inner}</td>`;

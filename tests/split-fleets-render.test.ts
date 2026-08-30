@@ -99,6 +99,19 @@ describe('renderSplitFleetStandingsPage', () => {
     );
   });
 
+  it('shows a held carried score from fleet selection, marked as not yet counting', () => {
+    // `appliesFrom: first-medal-race` with no medal race sailed: the Carried
+    // column is on the page — the qualified boats can see the scores the
+    // medal races will add to — but its cells say they count nothing yet,
+    // and the race scores stay undimmed.
+    const html = renderSplitFleetStandingsPage(
+      renderInputFor('21-abandoned-finale-undivided.yaml'),
+    );
+    expect(headerRow(html, 'Gold')).toContain('Carried');
+    expect(html).toContain('counts once a medal race is completed');
+    expect(html).not.toContain('replaced by the carried score');
+  });
+
   it('badges a medal boat with her fleet, in the series\' own words', () => {
     const input = renderInputFor('03-f2-ilca-medal-race.yaml');
     const html = renderSplitFleetStandingsPage(input);

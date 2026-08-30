@@ -1075,8 +1075,10 @@ describe('a stage position a tie cannot separate is shared', () => {
     // The same regatta under the reading 2026 ILCA SI 18.7.5 took at
     // Amendment 5: the medal fleet is selected, no medal race is completed,
     // and the boats are ranked on what they actually scored — y1's 7 and
-    // b1's 8 — rather than on the 4 each that halving them produces. No
-    // carried cell is synthesised at all, so their race scores still count.
+    // b1's 8 — rather than on the 4 each that halving them produces. The
+    // carried cell is still synthesised, so the boats can see the scores the
+    // medal races will add to, but it does not count: their race scores
+    // still drive the ranking.
     const data = stageRankData('b1-behind');
     const rows = splitFleetStandings({
       ...data,
@@ -1096,7 +1098,13 @@ describe('a stage position a tie cannot separate is shared', () => {
       y1: 7,
       b1: 8,
     });
-    expect(medal.some((r) => r.cells.some((c) => c.carriedTransform))).toBe(false);
+    for (const r of medal) {
+      const carried = r.cells.filter((c) => c.carriedTransform);
+      expect(carried).toHaveLength(1);
+      expect(carried[0].counts).toBe(false);
+      expect(carried[0].points).toBe(4);
+    }
+    expect(medal.some((r) => r.cells.some((c) => c.superseded))).toBe(false);
     expect(Object.fromEntries(rows.map((r) => [r.competitor.id, r.rank]))).toEqual({
       y1: 1, b1: 2, y2: 3, b2: 4,
     });
