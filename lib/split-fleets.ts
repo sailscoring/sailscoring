@@ -1460,14 +1460,24 @@ export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
   // The medal boats' own tie-break, where the SIs give them one. Scoped to
   // them because they are the boats a carry transform rounds together;
   // everywhere else A8 stands as written.
+  //
+  // Scoped in time as well as to the boats: the SI tie-break belongs to the
+  // event score the medal stage defines, so it waits until a row is actually
+  // ranked on a medal-stage score — the carried cell counting, or a medal
+  // race sailed. Before that the ranking on display is the opening series'
+  // own (2026 ILCA SI 18.7.5 from Amendment 5: with no medal race completed,
+  // the unadjusted score decides), and A8 must break its ties.
+  const onMedalScore = (r: SplitStandingRow) =>
+    r.cells.some((c) => c.stage === 'medal' && c.counts);
   const byNet = (a: SplitStandingRow, b: SplitStandingRow) => {
+    const medalScored = a.medal && b.medal && onMedalScore(a) && onMedalScore(b);
     // `last-race` is not a step after A8 but a replacement for it: no
     // count-of-places comparison first, and no next-to-last race behind.
-    if (config.medal?.tieBreak === 'last-race' && a.medal && b.medal) {
+    if (config.medal?.tieBreak === 'last-race' && medalScored) {
       return a.net - b.net || compareLastRaceOnly(a.cells, b.cells);
     }
     const a8 = byA8(a, b);
-    if (a8 !== 0 || !stageRank || !a.medal || !b.medal) return a8;
+    if (a8 !== 0 || !stageRank || !medalScored) return a8;
     for (const stage of ['final', 'qualifying'] as const) {
       const ra = stageRank[stage].get(a.competitor.id);
       const rb = stageRank[stage].get(b.competitor.id);

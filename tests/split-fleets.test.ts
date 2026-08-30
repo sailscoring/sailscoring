@@ -1111,3 +1111,99 @@ describe('a stage position a tie cannot separate is shared', () => {
     expect(rank).toEqual({ y1: 1, b1: 1, y2: 3, b2: 4 });
   });
 });
+
+describe('the medal tie-break waits for a medal-stage score', () => {
+  /** Medal fleet selected, the carry held until a medal race sails, and no
+   *  medal race sailed: the ranking on display is the opening series' own,
+   *  so a tie between two medal boats belongs to RRS A8, not to the SI
+   *  tie-break that governs the medal-stage score.
+   *
+   *  y1 and b1 both net 5 over four qualifying races (one discard). A8.1
+   *  ranks y1 ahead ([1,1,3] against [1,2,2]); the last race ranks b1 ahead
+   *  (1 against 3). The two orderings disagree, so the test can tell which
+   *  rule was applied. */
+  function heldCarryData(): SplitFleetData {
+    const config: SplitFleetConfig = {
+      ...defaultSplitFleetConfig(2),
+      medal: {
+        size: 2,
+        raceCount: 1,
+        multiplier: 1,
+        carryTransform: {
+          kind: 'divide',
+          by: 2,
+          rounding: 'half-up',
+          appliesFrom: 'first-medal-race',
+        },
+        tieBreak: 'last-race',
+        companionRace: 'none',
+      },
+    };
+    const competitors = [
+      competitor('y1', ['fy', 'fg', 'fm'], 1), competitor('y2', ['fy', 'fg'], 2),
+      competitor('b1', ['fb', 'fg', 'fm'], 3), competitor('b2', ['fb'], 4),
+    ];
+    const rounds: SplitRound[] = [
+      {
+        id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+        fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0,
+      },
+      {
+        id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+        fleetIds: ['fg'], method: 'split', basis: null, createdAt: 1,
+      },
+      {
+        id: 'r3', seriesId: 's1', stage: 'medal', fromStageRace: 1,
+        fleetIds: ['fm'], method: 'medal-select', basis: null, createdAt: 2,
+      },
+    ];
+    return {
+      config,
+      rounds,
+      fleets: [
+        fleet('fy', 'Yellow'), fleet('fb', 'Blue'),
+        fleet('fg', 'Gold'), fleet('fm', 'Medal'),
+      ],
+      competitors,
+      races: [race('q1'), race('q2'), race('q3'), race('q4'), race('m1')],
+      raceStarts: [
+        start('q1', ['fy', 'fb'], 'qualifying', 1),
+        start('q2', ['fy', 'fb'], 'qualifying', 2),
+        start('q3', ['fy', 'fb'], 'qualifying', 3),
+        start('q4', ['fy', 'fb'], 'qualifying', 4),
+        // The medal race exists from the ceremony; nobody has sailed it.
+        start('m1', ['fm'], 'medal', 1),
+      ],
+      finishes: [
+        // y1: 1, 1, DNF, DNF (net 5, discarding one DNF).
+        // b1: 2, 2, 2, 1 (net 5, discarding one 2).
+        finish('q1', 'y1', 0), finish('q1', 'b2', 1), finish('q1', 'b1', 2), finish('q1', 'y2', 3),
+        finish('q2', 'y1', 0), finish('q2', 'b2', 1), finish('q2', 'b1', 2), finish('q2', 'y2', 3),
+        finish('q3', 'b2', 0), finish('q3', 'b1', 1), finish('q3', 'y2', 2), finish('q3', 'y1', null, 'DNF'),
+        finish('q4', 'b1', 0), finish('q4', 'b2', 1), finish('q4', 'y2', 2), finish('q4', 'y1', null, 'DNF'),
+      ],
+    };
+  }
+
+  it('breaks an opening-series tie by A8, not by the last race', () => {
+    const rows = splitFleetStandings(heldCarryData());
+    const medal = rows.filter((r) => r.medal);
+    expect(medal.map((r) => r.net)).toEqual([5, 5]);
+    expect(medal.map((r) => r.competitor.id)).toEqual(['y1', 'b1']);
+    expect(medal.map((r) => r.rank)).toEqual([1, 2]);
+  });
+
+  it('the last race takes over once a medal race is completed', () => {
+    // Both medal boats coded alike in the sailed medal race: their carried
+    // scores tie at 3, the medal race cannot separate them, and under
+    // `last-race` A8 is replaced, not appended — the tie stands.
+    const data = heldCarryData();
+    data.finishes.push(
+      finish('m1', 'y1', null, 'DNF'),
+      finish('m1', 'b1', null, 'DNF'),
+    );
+    const rows = splitFleetStandings(data);
+    const medal = rows.filter((r) => r.medal);
+    expect(medal.map((r) => r.rank)).toEqual([1, 1]);
+  });
+});
