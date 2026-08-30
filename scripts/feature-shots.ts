@@ -901,6 +901,21 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: the published data file (ADR-012) — the results data linked
+    // from every page footer, for anyone who wants to build on it.
+    slug: 'results-data-file',
+    group: 'Data in and out',
+    async capture({ page, anon, shot }) {
+      const pub = await openPublicFleetPage(page, anon, 'class-1-irc');
+      const link = pub.getByRole('link', { name: 'Data (.sailscoring.json)' });
+      await scrollTo(link, 'center');
+      await highlight(link);
+      await settle(pub);
+      await shot('results-data-file.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: the spectator viewer (#475) — published results opened in
     // the app by a reader with no account, read-only.
     slug: 'spectator-view',
@@ -916,7 +931,13 @@ const SHOTS: Shot[] = [
       await view.goto(new URL(href, BASE).toString());
       await view.waitForURL(/\/series\/spectator-/, { timeout: 15_000 });
       await settle(view);
-      await shot('spectator-view.png', { page: view, fullPage: true });
+      // Viewport, not full page: the story is the top of the screen — the
+      // read-only banner over real standings, in the app's own chrome with
+      // nobody signed in. The whole page is a very long results table, which
+      // would shrink all of that to nothing.
+      await highlight(view.getByTestId('spectator-banner'));
+      await settle(view);
+      await shot('spectator-view.png', { page: view });
       await view.close();
     },
   },
