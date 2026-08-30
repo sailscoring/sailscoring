@@ -231,3 +231,43 @@ describe('public export v2 — unresolved finishes', () => {
     expect(unknown?.unknownSailNumber).toBe('999');
   });
 });
+
+describe('importPublicExport — id overrides (#475)', () => {
+  it('uses the given series id and mints every other id from the factory', async () => {
+    const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
+    let n = 0;
+    const { repos, savedCompetitors } = makeRecordingRepos();
+    const id = await importPublicExport(data, repos, {
+      seriesId: 'spectator-fixed',
+      newId: () => `id-${++n}`,
+    });
+    expect(id).toBe('spectator-fixed');
+    expect(savedCompetitors.every((c) => c.seriesId === 'spectator-fixed')).toBe(true);
+    expect(savedCompetitors.every((c) => /^id-\d+$/.test(c.id))).toBe(true);
+  });
+
+  it('is deterministic — the same file read twice yields identical ids', async () => {
+    const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
+    const run = async () => {
+      let n = 0;
+      const { repos, savedCompetitors } = makeRecordingRepos();
+      await importPublicExport(data, repos, {
+        seriesId: 'spectator-fixed',
+        newId: () => `id-${++n}`,
+      });
+      return savedCompetitors.map((c) => `${c.id}:${c.sailNumber}`);
+    };
+    expect(await run()).toEqual(await run());
+  });
+
+  it('still mints fresh UUIDs when no overrides are given', async () => {
+    const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
+    const { repos, savedCompetitors } = makeRecordingRepos();
+    const first = await importPublicExport(data, repos);
+    const { repos: repos2, savedCompetitors: second } = makeRecordingRepos();
+    const secondId = await importPublicExport(data, repos2);
+    expect(first).not.toBe(secondId);
+    expect(savedCompetitors[0].id).not.toBe(second[0].id);
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});

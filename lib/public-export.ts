@@ -94,10 +94,11 @@ function exportOfficials(
  */
 function importOfficials(
   officials: ExportOfficial[] | undefined,
+  newId: () => string,
 ): { officials?: RaceOfficial[] } {
   const rebuilt = (officials ?? [])
     .filter((o) => isOfficialRole(o.role) && o.name.trim() !== '')
-    .map((o) => ({ id: crypto.randomUUID(), role: o.role, name: o.name }));
+    .map((o) => ({ id: newId(), role: o.role, name: o.name }));
   return rebuilt.length > 0 ? { officials: rebuilt } : {};
 }
 
@@ -1022,11 +1023,30 @@ function exportedMatchedOn(finish: {
   return finish.matchedOn ?? (finish.matchedOnBowNumber ? 'bow' : undefined);
 }
 
+/**
+ * Overrides for the ids an import mints.
+ *
+ * Both exist for the spectator viewer (#475), which reads an export into an
+ * in-memory series rather than a workspace: it needs a known series id to
+ * route to, and ids that come out the same every time the same file is read,
+ * so a reload rebuilds the identical series and links into it keep working.
+ * A workspace import passes neither and gets fresh UUIDs throughout.
+ */
+export interface ImportIdOptions {
+  /** Id for the new series. Default: a fresh UUID. */
+  seriesId?: string;
+  /** Factory for every other minted id — competitors, fleets, races, starts,
+   *  finishes, sub-series, prizes, officials. Default: `crypto.randomUUID`. */
+  newId?: () => string;
+}
+
 export async function importPublicExport(
   data: PublicSeriesExport,
   repos: ImportRepos,
+  ids?: ImportIdOptions,
 ): Promise<string> {
-  const newSeriesId = crypto.randomUUID();
+  const newId = ids?.newId ?? (() => crypto.randomUUID());
+  const newSeriesId = ids?.seriesId ?? newId();
   const now = Date.now();
   const seriesName = disambiguateSeriesName(data.series.name, await repos.listSeriesNames());
 
@@ -1037,7 +1057,7 @@ export async function importPublicExport(
   const competitorIdsBySail = new Map<string, string[]>();
   for (const c of data.competitors) {
     const key = `${c.sailNumber}\0${[...c.fleetNames].sort().join('\0')}`;
-    const id = crypto.randomUUID();
+    const id = newId();
     competitorIdBySailFleet.set(key, id);
     const arr = competitorIdsBySail.get(c.sailNumber);
     if (arr) arr.push(id);
@@ -1050,13 +1070,13 @@ export async function importPublicExport(
   // Build fleet name → new fleet ID map
   const fleetIdByName = new Map<string, string>();
   for (const f of data.fleets) {
-    fleetIdByName.set(f.name, crypto.randomUUID());
+    fleetIdByName.set(f.name, newId());
   }
 
   // Race number → new race ID map. Races are written further below, but the map
   // is built up-front so series-level references (whole-series exclusions)
   // resolve at save time.
-  const newRaceIdByNumber = new Map(data.races.map((r) => [r.raceNumber, crypto.randomUUID()]));
+  const newRaceIdByNumber = new Map(data.races.map((r) => [r.raceNumber, newId()]));
 
   // Resolve whole-series per-fleet exclusions (race number + fleet name) back to
   // the freshly minted ids; drop any whose race or fleet no longer resolves.
@@ -1082,7 +1102,7 @@ export async function importPublicExport(
   const subSeriesIdByName = new Map<string, string>();
   for (const race of data.races) {
     for (const name of race.subSeries ?? []) {
-      if (!subSeriesIdByName.has(name)) subSeriesIdByName.set(name, crypto.randomUUID());
+      if (!subSeriesIdByName.has(name)) subSeriesIdByName.set(name, newId());
     }
   }
 
@@ -1137,7 +1157,7 @@ export async function importPublicExport(
       ? { finalisedAt: data.series.finalisedAt }
       : {}),
     ...(data.series.protestTimeLimit ? { protestTimeLimit: data.series.protestTimeLimit } : {}),
-    ...(importOfficials(data.series.officials)),
+    ...(importOfficials(data.series.officials, newId)),
     // A published export only carries officials when the source series opted
     // in, so the flag comes back with them rather than quietly resetting a
     // publishing series to unpublished on re-import.
@@ -1163,7 +1183,7 @@ export async function importPublicExport(
           clauses.push({ kind: 'fleet', fleetId });
         }
         return {
-          id: crypto.randomUUID(),
+          id: newId(),
           name: p.name,
           recipientCount: p.recipientCount,
           clauses,
@@ -1271,7 +1291,7 @@ export async function importPublicExport(
       ...(race.discardPolicy ? { discardPolicy: race.discardPolicy } : {}),
       ...(race.pointsMultiplier != null ? { pointsMultiplier: race.pointsMultiplier } : {}),
       ...(hasConditions(race.conditions) ? { conditions: race.conditions } : {}),
-      ...(importOfficials(race.officials)),
+      ...(importOfficials(race.officials, newId)),
       createdAt: now,
     });
     for (const name of race.subSeries ?? []) {
@@ -1289,7 +1309,7 @@ export async function importPublicExport(
         .filter((s) => s.startFleetIds.length > 0)
         .map((s) =>
           repos.raceStartRepo.save({
-            id: crypto.randomUUID(),
+            id: newId(),
             raceId,
             fleetIds: s.startFleetIds,
             startTime: s.startTime,
@@ -1324,7 +1344,7 @@ export async function importPublicExport(
       if (!competitorId && !exportedUnknownSail) continue;
       if (competitorId) usedIds.add(competitorId);
       finishes.push({
-        id: crypto.randomUUID(),
+        id: newId(),
         raceId,
         competitorId: competitorId ?? null,
         ...(!competitorId && exportedUnknownSail ? { unknownSailNumber: exportedUnknownSail } : {}),
