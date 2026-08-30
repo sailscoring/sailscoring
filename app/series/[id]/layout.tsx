@@ -41,12 +41,12 @@ const splitFleetsTab = {
   href: (id: string) => `/series/${id}/split-fleets`,
 };
 
-// What a spectator view shows (#475): the entry list, the racing, the
-// standings, and the setup that produced them — which is the whole of what a
-// reader came to see. The rest of the bar belongs to a series that lives in a
-// workspace: History and Activity record edits nobody can make here, and
-// Prizes and Split Fleets are gated features of a workspace the viewer has
-// none of.
+// What a spectator view shows (#475): the entry list, the racing (down to
+// each race's finish sheet, read-only since #486), the standings, and the
+// setup that produced them — which is the whole of what a reader came to see.
+// The rest of the bar belongs to a series that lives in a workspace: History
+// and Activity record edits nobody can make here, and Prizes and Split Fleets
+// are gated features of a workspace the viewer has none of.
 const spectatorTabs = [
   baseTabs[0], // Competitors
   baseTabs[1], // Races

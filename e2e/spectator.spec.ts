@@ -79,14 +79,21 @@ test('a signed-out reader opens published results and browses every tab', async 
   await expect(view.getByRole('cell', { name: 'Alice' })).toBeVisible();
   await expect(view.getByRole('button', { name: 'Add competitor' })).toHaveCount(0);
 
-  // The racing is listed, but a race does not open: the finish sheet is the
-  // scorer's entry screen and has no read-only face. Clicking a row does
-  // nothing rather than landing the reader somewhere editable.
   await view.getByRole('link', { name: 'Races' }).click();
   await expect(view.getByTestId('race-row')).toBeVisible();
   await expect(view.getByRole('button', { name: 'Add race' })).toHaveCount(0);
+
+  // A race opens onto its finish sheet, read-only (#486): the order and the
+  // boats are all there, and nothing invites an edit. This is also the path
+  // that proves the race-scoped endpoints — which carry no series id —
+  // resolve back to the opened view.
   await view.getByTestId('race-row').click();
-  await expect(view).toHaveURL(/\/races$/);
+  await expect(view).toHaveURL(/\/races\/[^/]+$/);
+  await expect(view.getByText('Finishing order')).toBeVisible();
+  await expect(view.getByText('Alice')).toBeVisible();
+  await expect(view.getByLabel('Sail number')).toHaveCount(0);
+  await expect(view.getByRole('button', { name: 'Remove 42' })).toHaveCount(0);
+  await expect(view.getByTestId('drag-handle-42')).toHaveCount(0);
 
   // How the event was scored, stated rather than offered for editing — the
   // question a published page never answers, and the reason to open the data.

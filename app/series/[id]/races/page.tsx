@@ -6,7 +6,6 @@ import { raceRepo } from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useSeriesReadOnly } from '@/components/series-read-only';
-import { useIsSpectator } from '@/components/spectator-context';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
 import {
@@ -87,10 +86,6 @@ function RaceRow({
   const { can } = useWorkspacePermissions();
   const confirm = useConfirm();
   const readOnly = useSeriesReadOnly() || !can('score');
-  // A spectator view (#475) lists the racing but doesn't open a race: the
-  // finish sheet is the scorer's entry screen, with no read-only face to
-  // show a reader. The per-race tables on the published pages are that face.
-  const spectator = useIsSpectator();
   const { data: finishes } = useFinishesByRace(race.id);
   const deleteRace = useDeleteRace();
   const saveRace = useSaveRace();
@@ -125,15 +120,11 @@ function RaceRow({
       ref={rowRef}
       style={rowStyle}
       data-testid="race-row"
-      className={`flex items-center justify-between bg-card border rounded-lg px-5 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring${
-        spectator ? '' : ' cursor-pointer hover:bg-muted/50'
-      }`}
-      tabIndex={spectator ? undefined : 0}
-      onClick={spectator ? undefined : () => router.push(`/series/${seriesId}/races/${race.id}`)}
+      className="flex items-center justify-between bg-card border rounded-lg px-5 py-4 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      tabIndex={0}
+      onClick={() => router.push(`/series/${seriesId}/races/${race.id}`)}
       onKeyDown={(e) => {
-        if (spectator) {
-          return;
-        } else if (e.key === 'Enter') {
+        if (e.key === 'Enter') {
           router.push(`/series/${seriesId}/races/${race.id}`);
         } else if ((e.key === 'd' || e.key === 'Delete') && !readOnly) {
           e.preventDefault();
