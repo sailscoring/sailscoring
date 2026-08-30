@@ -38,10 +38,57 @@ export default function ImportPage() {
   const [state, setState] = useState<State>({ step: 'loading' });
   const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>('');
 
-  // One-shot parse of the URL fragment on mount. `window.location` is not
-  // available during SSR, so we can't derive this from render directly.
+  // One-shot read of the import source on mount. Two link shapes (ADR-012):
+  //
+  //   /import?from=/p/{ws}/{slug}/{name}.sailscoring.json — a reference to a
+  //     published data file, fetched here. Path + query survive the sign-in
+  //     redirect and the magic-link round trip through an inbox, which the
+  //     fragment below cannot.
+  //   /import#data=<base64url> — the whole payload inline. Written into
+  //     standalone artifacts (downloaded pages, FTP uploads to club sites)
+  //     and every page published before the data file existed. Kept
+  //     indefinitely: those copies are in the wild and cannot be rewritten.
+  //
+  // `window.location` is not available during SSR, so we can't derive this
+  // from render directly.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get('from');
+    if (from) {
+      // Only a same-origin published data file is fetched — a plain path
+      // under /p/, no traversal. Anything else (absolute URLs especially)
+      // is refused rather than turning this page into a fetch relay.
+      if (!/^\/p\/.+/.test(from) || from.includes('..')) {
+        setState({ step: 'error', message: 'Unrecognised import link.' });
+        return;
+      }
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await fetch(from);
+          if (res.status === 404) {
+            if (!cancelled) {
+              setState({
+                step: 'error',
+                message:
+                  'These results are no longer published. A downloaded copy of the results page carries its own working "Open in Sail Scoring" link.',
+              });
+            }
+            return;
+          }
+          if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+          const parsed = (await res.json()) as PublicSeriesExport;
+          if (!(parsed.version >= 1) || !parsed.series?.name) throw new Error('Unrecognised format');
+          if (!cancelled) setState({ step: 'confirm', data: parsed });
+        } catch {
+          if (!cancelled) {
+            setState({ step: 'error', message: 'Could not read the series data from the link.' });
+          }
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+
     const hash = window.location.hash.startsWith('#')
       ? window.location.hash.slice(1)
       : window.location.hash;
