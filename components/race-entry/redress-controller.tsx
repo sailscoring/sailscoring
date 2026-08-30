@@ -2,17 +2,27 @@
 
 import { forwardRef, useImperativeHandle, useState } from 'react';
 
-import { RedressDialog } from '@/components/redress-dialog';
+import { RedressDialog, type RedressRaceOption } from '@/components/redress-dialog';
 import {
   makeFinish,
   type FinishEntry,
   type RedressEntry,
 } from '@/lib/finish-entry';
-import type { Competitor, Finish, Fleet, Race, ResultCode } from '@/lib/types';
+import type { Competitor, Finish, Fleet, ResultCode } from '@/lib/types';
 
 export interface RedressControllerHandle {
   /** Open the redress dialog for a finisher or non-finisher. */
   open: (competitorId: string, isFinisher: boolean) => void;
+}
+
+/** One series race as the page describes it for the redress pool pickers:
+ *  labelled in the scorer's words, with the fleets its starts named. An
+ *  empty `fleetIds` means no starts are recorded, which implies every
+ *  fleet — so every boat sailed it. */
+export interface RedressPoolRace {
+  id: string;
+  label: string;
+  fleetIds: string[];
 }
 
 /**
@@ -22,19 +32,19 @@ export interface RedressControllerHandle {
  */
 export const RedressController = forwardRef<RedressControllerHandle, {
   raceId: string;
-  raceNumber: number | undefined;
+  currentRaceLabel: string | undefined;
   finishingOrder: FinishEntry[];
   redressEntries: Map<string, RedressEntry>;
   finishByCompetitorId: Map<string, Finish>;
   competitorMap: Map<string, Competitor>;
-  availableRaces: Race[];
+  availableRaces: RedressPoolRace[];
   fleets: Fleet[];
   patchCache: (updater: (rows: Finish[]) => Finish[]) => void;
   saveFinish: { mutate: (f: Finish) => unknown };
   deleteFinish: { mutate: (input: { id: string; raceId: string }) => unknown };
 }>(function RedressController(
   {
-    raceId, raceNumber, finishingOrder, redressEntries, finishByCompetitorId,
+    raceId, currentRaceLabel, finishingOrder, redressEntries, finishByCompetitorId,
     competitorMap, availableRaces, fleets, patchCache, saveFinish, deleteFinish,
   },
   ref,
@@ -129,8 +139,17 @@ export const RedressController = forwardRef<RedressControllerHandle, {
         return idx >= 0 ? idx + 1 : null;
       })()}
       seedEntry={redressDialog ? redressEntries.get(redressDialog.competitorId) ?? null : null}
-      currentRaceNumber={raceNumber}
-      availableRaces={availableRaces}
+      currentRaceLabel={currentRaceLabel}
+      availableRaces={((): RedressRaceOption[] => {
+        const c = redressDialog ? competitorMap.get(redressDialog.competitorId) : undefined;
+        return availableRaces.map((r) => ({
+          id: r.id,
+          label: r.label,
+          sailed:
+            r.fleetIds.length === 0 ||
+            (c ? r.fleetIds.some((fid) => c.fleetIds.includes(fid)) : true),
+        }));
+      })()}
       competitorFleets={(() => {
         const c = redressDialog ? competitorMap.get(redressDialog.competitorId) : undefined;
         if (!c) return [];

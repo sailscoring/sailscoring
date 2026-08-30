@@ -21,8 +21,11 @@ import {
   useSaveFinish,
   useSaveFinishes,
 } from '@/hooks/use-finishes';
-import { useRaceStartsByRace } from '@/hooks/use-race-starts';
+import { useRaceStartsByRace, useRaceStartsBySeries } from '@/hooks/use-race-starts';
+import { useSplitFleetState } from '@/hooks/use-split-fleets';
+import { stageRaceLabel } from '@/lib/split-fleets';
 import { competitorsInRace, raceFleetIds } from '@/lib/race-membership';
+import type { RaceStart } from '@/lib/types';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -56,6 +59,7 @@ import {
 import {
   RedressController,
   type RedressControllerHandle,
+  type RedressPoolRace,
 } from '@/components/race-entry/redress-controller';
 import {
   ResolveUnknownController,
@@ -128,6 +132,54 @@ export default function ResultEntryPage({
   const { finishingOrder, finishByCompetitorId } = derived;
 
   const { has } = useFeatures();
+
+  // What the redress dialog's pool pickers offer: every series race, named
+  // the way the scorer knows it — the stage race and fleet on a split-fleet
+  // series ("Q6 Gold"), the race name or number otherwise — with the fleets
+  // its starts declared, so the dialog can put the boat's own races first.
+  const { data: seriesStarts } = useRaceStartsBySeries(seriesId);
+  const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
+  const redressPoolRaces = useMemo<RedressPoolRace[]>(() => {
+    const startsByRace = new Map<string, RaceStart[]>();
+    for (const s of seriesStarts ?? []) {
+      const list = startsByRace.get(s.raceId);
+      if (list) list.push(s);
+      else startsByRace.set(s.raceId, [s]);
+    }
+    const fleetNameById = new Map((fleets ?? []).map((f) => [f.id, f.name]));
+    const config = sfState?.config ?? null;
+    const qRaces = Math.max(
+      0,
+      ...(seriesStarts ?? [])
+        .filter((s) => s.stage === 'qualifying' && s.stageRaceNumber != null)
+        .map((s) => s.stageRaceNumber!),
+    );
+    return (allSeriesRaces ?? []).map((r) => {
+      const starts = startsByRace.get(r.id) ?? [];
+      // A race is one start sequence, so it can hold several stage races
+      // (Gold F2 + Silver F1): label each and join them.
+      const stageParts = config
+        ? [...new Set(
+            starts
+              .filter((s) => s.stage && s.stageRaceNumber != null)
+              .sort((a, b) => (a.stageRaceNumber ?? 0) - (b.stageRaceNumber ?? 0))
+              .map((s) => {
+                const names = s.fleetIds
+                  .map((fid) => fleetNameById.get(fid))
+                  .filter(Boolean)
+                  .join(' + ');
+                return `${stageRaceLabel(config, s.stage!, s.stageRaceNumber!, qRaces)}${names ? ` ${names}` : ''}`;
+              }),
+          )]
+        : [];
+      return {
+        id: r.id,
+        label: stageParts.length ? stageParts.join(' · ') : r.name || `R${r.raceNumber}`,
+        fleetIds: [...new Set(starts.flatMap((s) => s.fleetIds))],
+      };
+    });
+  }, [allSeriesRaces, seriesStarts, sfState, fleets]);
+
   const [activeTab, setActiveTab] = useState<'finish' | 'checkin' | 'ratings'>('finish');
   const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
   const [raceRecordOpen, setRaceRecordOpen] = useState(false);
@@ -485,12 +537,15 @@ export default function ResultEntryPage({
       <RedressController
         ref={redressRef}
         raceId={raceId}
-        raceNumber={race?.raceNumber}
+        currentRaceLabel={
+          redressPoolRaces.find((r) => r.id === raceId)?.label ??
+          (race.name || `R${race.raceNumber}`)
+        }
         finishingOrder={finishingOrder}
         redressEntries={derived.redressEntries}
         finishByCompetitorId={finishByCompetitorId}
         competitorMap={competitorMap}
-        availableRaces={allSeriesRaces ?? []}
+        availableRaces={redressPoolRaces}
         fleets={fleets ?? []}
         patchCache={patchCache}
         saveFinish={saveFinish}

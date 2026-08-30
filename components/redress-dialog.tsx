@@ -17,6 +17,18 @@ import type { RedressEntry } from '@/lib/finish-entry';
 type RedressMethod = RedressEntry['method'];
 type RedressPoolMode = RedressEntry['poolMode'];
 
+/** One race as the include/exclude pickers offer it. */
+export interface RedressRaceOption {
+  id: string;
+  /** The label the scorer knows: the stage race and fleet on a split-fleet
+   *  series ("Q6 Gold"), the race name or number otherwise. */
+  label: string;
+  /** False when this boat was not in the race (none of her fleets had a
+   *  start in it). Her own races are the pool an A9 average defends; the
+   *  rest are offered apart and marked. */
+  sailed: boolean;
+}
+
 export interface RedressDialogProps {
   /** When non-null, the dialog is open. */
   competitor: { id: string; sailNumber: string } | null;
@@ -24,10 +36,11 @@ export interface RedressDialogProps {
   currentFinishPosition: number | null;
   /** Existing redress for this competitor, if any. Seeds the form. */
   seedEntry: RedressEntry | null;
-  /** Race number of the current race; used in the "races before race N" label. */
-  currentRaceNumber: number | undefined;
-  /** All races in the series, used for the include/exclude pickers. */
-  availableRaces: { id: string; raceNumber: number }[];
+  /** Label of the current race; used in the "races before …" label. */
+  currentRaceLabel: string | undefined;
+  /** All races in the series, in sailed order, for the include/exclude
+   *  pickers. */
+  availableRaces: RedressRaceOption[];
   /** The fleets this competitor is entered in. More than one enables
    *  per-fleet stated points (RRS A9(c)). */
   competitorFleets: { id: string; name: string }[];
@@ -59,11 +72,75 @@ export function RedressDialog(props: RedressDialogProps) {
   );
 }
 
+/** The pickers' button row: the boat's own races, then — only when the pool
+ *  already holds one, or the scorer asks — the races she was not in, marked.
+ *  A race outside her own goes into the average with whatever score the
+ *  engine holds for her there, so the second group is off the path unless
+ *  the jury's decision really names one. */
+function RacePickerButtons({
+  races,
+  selectedIds,
+  onToggle,
+}: {
+  races: RedressRaceOption[];
+  selectedIds: string[];
+  onToggle: (raceId: string) => void;
+}) {
+  const unsailed = races.filter((r) => !r.sailed);
+  const [showUnsailed, setShowUnsailed] = useState(
+    unsailed.some((r) => selectedIds.includes(r.id)),
+  );
+  const button = (r: RedressRaceOption) => {
+    const selected = selectedIds.includes(r.id);
+    return (
+      <button
+        key={r.id}
+        type="button"
+        onClick={() => onToggle(r.id)}
+        className={cn(
+          'text-xs px-2 py-0.5 rounded border transition-colors',
+          selected
+            ? 'bg-primary text-primary-foreground border-primary'
+            : 'bg-background hover:bg-accent border-input',
+          !r.sailed && !selected && 'text-muted-foreground border-dashed',
+        )}
+        title={r.sailed ? undefined : 'This boat was not in this race'}
+      >
+        {r.label}
+      </button>
+    );
+  };
+  return (
+    <>
+      <div className="flex flex-wrap gap-1">
+        {races.filter((r) => r.sailed).map(button)}
+      </div>
+      {unsailed.length > 0 && !showUnsailed && (
+        <button
+          type="button"
+          className="text-xs text-muted-foreground underline"
+          onClick={() => setShowUnsailed(true)}
+        >
+          Show {unsailed.length} race{unsailed.length === 1 ? '' : 's'} this boat was not in
+        </button>
+      )}
+      {unsailed.length > 0 && showUnsailed && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            Not sailed by this boat — the boat has no score of her own in these:
+          </p>
+          <div className="flex flex-wrap gap-1">{unsailed.map(button)}</div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function RedressDialogInner({
   competitor,
   currentFinishPosition,
   seedEntry,
-  currentRaceNumber,
+  currentRaceLabel,
   availableRaces,
   competitorFleets,
   canRemove,
@@ -102,7 +179,7 @@ function RedressDialogInner({
             <div className="space-y-1.5">
               {([
                 { value: 'all_races', label: 'A9(a) — average of all races in the series' },
-                { value: 'races_before', label: `A9(b) — average of races before race ${currentRaceNumber ?? ''}` },
+                { value: 'races_before', label: `A9(b) — average of races before ${currentRaceLabel ?? 'this race'}` },
                 { value: 'stated', label: 'A9(c) — scorer-stated points' },
               ] as { value: RedressMethod; label: string }[]).map(({ value, label }) => (
                 <label key={value} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -156,62 +233,32 @@ function RedressDialogInner({
               {entry.poolMode === 'exclude' && (
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Races to exclude:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {availableRaces.slice().sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
-                      const selected = entry.excludeRaceIds.includes(r.id);
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setEntry((d) => ({
-                            ...d,
-                            excludeRaceIds: selected
-                              ? d.excludeRaceIds.filter((id) => id !== r.id)
-                              : [...d.excludeRaceIds, r.id],
-                          }))}
-                          className={cn(
-                            'text-xs px-2 py-0.5 rounded border transition-colors',
-                            selected
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background hover:bg-accent border-input',
-                          )}
-                        >
-                          R{r.raceNumber}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <RacePickerButtons
+                    races={availableRaces}
+                    selectedIds={entry.excludeRaceIds}
+                    onToggle={(raceId) => setEntry((d) => ({
+                      ...d,
+                      excludeRaceIds: d.excludeRaceIds.includes(raceId)
+                        ? d.excludeRaceIds.filter((id) => id !== raceId)
+                        : [...d.excludeRaceIds, raceId],
+                    }))}
+                  />
                 </div>
               )}
 
               {entry.poolMode === 'include' && (
                 <div className="space-y-1.5">
                   <p className="text-xs text-muted-foreground">Races to include:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {availableRaces.slice().sort((a, b) => a.raceNumber - b.raceNumber).map((r) => {
-                      const selected = entry.includeRaceIds.includes(r.id);
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setEntry((d) => ({
-                            ...d,
-                            includeRaceIds: selected
-                              ? d.includeRaceIds.filter((id) => id !== r.id)
-                              : [...d.includeRaceIds, r.id],
-                          }))}
-                          className={cn(
-                            'text-xs px-2 py-0.5 rounded border transition-colors',
-                            selected
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background hover:bg-accent border-input',
-                          )}
-                        >
-                          R{r.raceNumber}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <RacePickerButtons
+                    races={availableRaces}
+                    selectedIds={entry.includeRaceIds}
+                    onToggle={(raceId) => setEntry((d) => ({
+                      ...d,
+                      includeRaceIds: d.includeRaceIds.includes(raceId)
+                        ? d.includeRaceIds.filter((id) => id !== raceId)
+                        : [...d.includeRaceIds, raceId],
+                    }))}
+                  />
                   {entry.method !== 'races_before' && (
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input
