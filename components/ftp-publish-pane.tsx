@@ -111,7 +111,18 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
 
     setUploadState('uploading');
 
-    const build = await buildFleetHtmlFiles(repos, series.id);
+    // Pages bound for a club site reference the published data file when the
+    // series has one (ADR-012) — the payload stops taxing club-site viewers
+    // too. A never-published series stays self-contained, as does one whose
+    // publication carries no data file.
+    const status = await repos.getPublication(series.id).catch(() => null);
+    const dataUrl = status?.published?.dataUrl;
+    const build = await buildFleetHtmlFiles(
+      repos,
+      series.id,
+      undefined,
+      dataUrl ? { dataPath: new URL(dataUrl).pathname } : undefined,
+    );
     if (!build) {
       setUploadState({ success: false, error: 'No results to upload.' });
       return;

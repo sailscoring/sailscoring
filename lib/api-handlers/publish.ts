@@ -87,6 +87,9 @@ function toResult(
       ...(p.subSeriesName ? { subSeriesName: p.subSeriesName } : {}),
       url: `${base}/${p.subPath}`,
     })),
+    ...(published.dataSubPath
+      ? { dataUrl: `${base}/${published.dataSubPath}` }
+      : {}),
   };
 }
 
@@ -306,6 +309,28 @@ export async function publishSeries(
     subPathFor({ fleetName: 'Race results', isDefault: false }),
   );
 
+  // Where the publication's data file (ADR-012) will be served. Resolved
+  // before the build so the pages can reference it instead of embedding the
+  // payload. The name is frozen at first assignment, like page sub-paths, so
+  // the URL never shifts on re-publish; a fresh one derives from the series
+  // name and only another data file can collide with it (page sub-paths are
+  // kebab-cased and carry no dots). Passed to the build unconditionally —
+  // whether a data file actually exists is the build's answer
+  // (`exportJson`), and a build that makes no export ignores the path.
+  let dataSubPath = existing?.dataSubPath ?? null;
+  if (!dataSubPath) {
+    const takenData = new Set(
+      others.flatMap((p) => (p.dataSubPath ? [p.dataSubPath] : [])),
+    );
+    const base = kebab(series.name);
+    let candidate = `${base}.sailscoring.json`;
+    for (let i = 2; takenData.has(candidate); i++) {
+      candidate = `${base}-${i}.sailscoring.json`;
+    }
+    dataSubPath = candidate;
+  }
+  const dataPath = `/p/${workspace.workspaceSlug}/${slug}/${dataSubPath}`;
+
   const build = await buildFleetHtmlFiles(
     exportReposFor(workspace.workspaceId),
     seriesId,
@@ -317,6 +342,7 @@ export async function publishSeries(
       includeEntryList: workspace.features.includes('entry-list'),
       includeTrackData: workspace.features.includes('racesense-import'),
       raceResultsHref,
+      dataPath,
     },
   );
   if (!build) throw new NotFoundError('series has no publishable results');
@@ -431,7 +457,13 @@ export async function publishSeries(
   // carried pages — make that possible), and none may collide with another
   // contributor publishing into the same slug. Carried pages already occupy
   // their paths, so seed `mine` with them.
-  const taken = new Set(others.flatMap((p) => p.pages.map((pg) => pg.subPath)));
+  // Data files occupy their paths too (a page override could otherwise claim
+  // one — derived sub-paths never can, kebab-casing strips the dots).
+  const taken = new Set([
+    ...others.flatMap((p) => p.pages.map((pg) => pg.subPath)),
+    ...others.flatMap((p) => (p.dataSubPath ? [p.dataSubPath] : [])),
+    dataSubPath,
+  ]);
   const subPaths = new Map<string, string>();
   const mine = new Set<string>(carried.map((p) => p.subPath));
   for (const file of toBuild) {
@@ -472,30 +504,13 @@ export async function publishSeries(
   );
   const builtByKey = new Map(built);
 
-  // The publication's data file (ADR-012): the sanitized public export,
-  // stored beside the pages and served at `/p/{ws}/{slug}/{dataSubPath}`.
-  // The sub-path is frozen at first assignment, like page sub-paths, so the
-  // URL never shifts on re-publish; a fresh one is named after the series
-  // and kept clear of everything already living under the slug. The blob is
-  // content-addressed by the same hash as the pages and superseded on
-  // re-publish. A series that opts out (or builds no export) publishes with
-  // both fields null, and any previous data blob is dropped below.
-  let dataSubPath = existing?.dataSubPath ?? null;
+  // Store the data file the pages reference (resolved above), content-
+  // addressed by the same hash as the pages and superseded on re-publish. A
+  // series that opts out of the JSON export (or builds none — a split-fleet
+  // championship) publishes with both fields null, and any previous data
+  // blob is dropped below.
   let dataBlobUrl: string | null = null;
   if (exportJson) {
-    if (!dataSubPath) {
-      const takenData = new Set([
-        ...taken,
-        ...mine,
-        ...others.flatMap((p) => (p.dataSubPath ? [p.dataSubPath] : [])),
-      ]);
-      const base = kebab(series.name);
-      let candidate = `${base}.sailscoring.json`;
-      for (let i = 2; takenData.has(candidate); i++) {
-        candidate = `${base}-${i}.sailscoring.json`;
-      }
-      dataSubPath = candidate;
-    }
     const dataKey = publishedBlobKey(workspace.workspaceSlug, slug, dataSubPath, hash);
     dataBlobUrl = await putPublishedHtml(dataKey, exportJson, 'application/json; charset=utf-8');
   }

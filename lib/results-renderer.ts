@@ -86,9 +86,16 @@ export interface SeriesResultsData {
   races: RaceData[];
   /** Standings sorted by rank ascending */
   standings: StandingRowData[];
-  /** Full import URL, e.g. https://app.sailscoring.ie/?import=<base64url>. When set,
-   *  adds an "Open in Sail Scoring" link to the footer. */
+  /** Full import URL. Embedded payload (`/import#data=<base64url>`) for
+   *  standalone artifacts; a reference (`/import?from=/p/...`) on published
+   *  pages, whose data lives in the publication's data file (ADR-012). When
+   *  set, adds an "Open in Sail Scoring" link to the footer. */
   openInAppUrl?: string;
+  /** Absolute URL of the publication's `.sailscoring.json` data file
+   *  (ADR-012). When set, the footer links it beside "Open in Sail Scoring"
+   *  and the head declares it as the page's `alternate` JSON — the
+   *  machine-discoverable route to the data. Published pages only. */
+  dataFileUrl?: string;
   /** Series-index URL (`/p/{ws}/{slug}`) of the publication this page belongs to.
    *  Set only on the in-app publish path, where the page lives under a known
    *  slug; when set, a `← {series name}` breadcrumb links up to that listing.
@@ -609,6 +616,7 @@ export interface DocumentChrome {
   finalisedAt?: Date;
   seriesIndexUrl?: string;
   openInAppUrl?: string;
+  dataFileUrl?: string;
   /** The event's standing race management team, rendered under the results
    *  stamp. The caller has already applied the series' publish opt-in — the
    *  renderer never decides whether officials may be shown. */
@@ -750,6 +758,7 @@ export function renderCombinedSeriesHtml(
     finalisedAt: first.finalisedAt,
     seriesIndexUrl: first.seriesIndexUrl,
     openInAppUrl: first.openInAppUrl,
+    dataFileUrl: first.dataFileUrl,
     officials: first.officials,
   };
   return renderHtmlDocument(chrome, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
@@ -1021,7 +1030,7 @@ export function renderHtmlDocument(
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string },
 ): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, officials } = chrome;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials } = chrome;
   const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
@@ -1034,7 +1043,8 @@ export function renderHtmlDocument(
 <meta name="description" content="sail scoring results">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Results for ${esc(series.name)}${series.venue ? ' at ' + esc(series.venue) : ''}${titleSuffix}</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 205 840 840"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>')}">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 205 840 840"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>')}">${dataFileUrl ? `
+<link rel="alternate" type="application/json" href="${esc(dataFileUrl)}">` : ''}
 <style type="text/css">
 body {font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, arial, helvetica, sans-serif; font-size: ${fontPercent}%; text-align: center; color: #1a1a1a; border-top: 4px solid #fb3a3b;}
 .hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
@@ -1131,7 +1141,7 @@ ${content}
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
 <div style="clear:both;"></div>
-<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''} &mdash; ${renderPrintButton()}</p>
+<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''} &mdash; ${renderPrintButton()}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 ${renderSortScript()}

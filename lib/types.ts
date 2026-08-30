@@ -1128,6 +1128,9 @@ export interface PublishResult {
   // One entry per page: per fleet, or per (sub-series, fleet) when the
   // series has blocks.
   pages: { fleetName: string; subSeriesName?: string; url: string }[];
+  // Public URL of the publication's `.sailscoring.json` data file (ADR-012),
+  // when it published one.
+  dataUrl?: string;
 }
 
 /**

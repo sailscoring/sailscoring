@@ -270,11 +270,23 @@ export async function buildFleetHtmlFiles(
   // `includeTrackData` says the workspace's `racesense-import` feature is on;
   // the columns still need the series' own `publishTrackData` opt-in, and
   // each renders only where a boat carries the value.
+  // `dataPath` is the site-relative path the publication's data file will be
+  // served at (`/p/{ws}/{slug}/{name}.sailscoring.json`, ADR-012). Passed
+  // when the output has a published data file behind it — the publish
+  // handler always, the FTP path when the series is also published. When
+  // set, pages reference the data instead of embedding it: "Open in Sail
+  // Scoring" becomes `/import?from={dataPath}` (path + query survive
+  // sign-in, unlike a fragment), the footer links the file itself, and the
+  // head declares it as the page's JSON alternate. Downloads and FTP of a
+  // never-published series leave it unset and keep the self-contained
+  // embedded payload — that is what lets a downloaded copy outlive an
+  // unpublish.
   opts?: {
     includePrizes?: boolean;
     includeEntryList?: boolean;
     includeTrackData?: boolean;
     raceResultsHref?: string;
+    dataPath?: string;
   },
 ): Promise<FleetHtmlBuild | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
@@ -437,12 +449,17 @@ export async function buildFleetHtmlFiles(
 
   const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl };
 
-  // The "Open in Sail Scoring" import URL is series-wide (the embedded JSON
-  // covers every fleet), so derive it once for all pages.
+  // The "Open in Sail Scoring" import URL is series-wide (the JSON covers
+  // every fleet), so derive it once for all pages. Pages with a data file
+  // behind them reference it (ADR-012); everything else embeds the payload.
   let openInAppUrl: string | undefined;
+  let dataFileUrl: string | undefined;
   if (publicExportJson) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (appUrl) {
+    if (appUrl && opts?.dataPath) {
+      openInAppUrl = `${appUrl}/import?from=${encodeURIComponent(opts.dataPath)}`;
+      dataFileUrl = `${appUrl}${opts.dataPath}`;
+    } else if (appUrl) {
       const bytes = new TextEncoder().encode(publicExportJson);
       let binary = '';
       bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
@@ -785,6 +802,7 @@ export async function buildFleetHtmlFiles(
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;
+      if (dataFileUrl) data.dataFileUrl = dataFileUrl;
       if (flagSvgByCode) data.flagSvgByCode = flagSvgByCode;
       if (seriesIndexUrl) data.seriesIndexUrl = seriesIndexUrl;
       return data;
@@ -934,6 +952,7 @@ export async function buildFleetHtmlFiles(
             : {}),
           ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
           ...(openInAppUrl ? { openInAppUrl } : {}),
+          ...(dataFileUrl ? { dataFileUrl } : {}),
         },
         allocations,
         {

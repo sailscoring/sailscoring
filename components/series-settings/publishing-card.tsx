@@ -120,9 +120,12 @@ export function PublishingCard({
                 Include data export in published results
               </label>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Embeds a JSON snapshot of the results in every exported HTML file, powering
-                the &ldquo;Open in Sail Scoring&rdquo; link in the footer. Disable if you prefer
-                to share results without the underlying data; the footer link goes with it.
+                Publishes the results data alongside the pages as a{' '}
+                <code>.sailscoring.json</code> file, powering the
+                “Open in Sail Scoring” and data links in the footer
+                (downloaded and FTP-only pages embed the data instead, so
+                they stay self-contained). Disable if you prefer to share
+                results without the underlying data; the footer links go with it.
               </p>
             </div>
           </div>
