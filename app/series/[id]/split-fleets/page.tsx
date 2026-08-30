@@ -1566,6 +1566,7 @@ function FinalSection({
   const abandon = useAbandonSplitStart(seriesId);
   const addRaces = useAddSplitStageRaces(seriesId);
   const override = useApplySplitOverride(seriesId);
+  const deleteRound = useDeleteSplitRound(seriesId);
   const [medalOpen, setMedalOpen] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
@@ -1694,6 +1695,32 @@ function FinalSection({
         {canManage && (
           <Button variant="ghost" size="sm" onClick={() => setPromoteOpen(true)}>
             Promote (redress)…
+          </Button>
+        )}
+        {/* The way back from a wrong cut or an extended cutoff. Gated the way
+            the server gates it: the split can only go while nothing later
+            stands on it. */}
+        {canManage && !medalRound && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            disabled={deleteRound.isPending}
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Delete the split?',
+                description:
+                  `The ${w.final.fleetNoun}s go, with their memberships, every ${w.final.raceNoun} — finishes included — and any hand promotions. ` +
+                  `The series returns to the ${w.qualifying.name}. ` +
+                  'Fleets dropped when the split was committed were deleted then and do not come back.',
+                confirmLabel: 'Delete the split',
+                destructive: true,
+              });
+              if (ok) deleteRound.mutate(round.id);
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete the split…
           </Button>
         )}
       </div>
@@ -1905,8 +1932,11 @@ function MedalSection({
   round: SplitRound;
   canManage: boolean;
 }) {
+  const confirm = useConfirm();
   const addRaces = useAddSplitStageRaces(seriesId);
+  const deleteRound = useDeleteSplitRound(seriesId);
   const medalConfig = data.config.medal;
+  const w = words(data.config);
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
@@ -1971,6 +2001,31 @@ function MedalSection({
           </div>
         );
       })}
+      {/* The way back from a wrong or overtaken selection — a jury extending
+          the cutoff, a mis-set fleet size. */}
+      {canManage && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          disabled={deleteRound.isPending}
+          onClick={async () => {
+            const ok = await confirm({
+              title: `Delete the ${w.medal.fleetNoun}?`,
+              description:
+                `The ${w.medal.fleetNoun} goes, with its memberships and every ${w.medal.raceNoun} created with it — finishes included. ` +
+                `The ${w.series} standings stand as before the selection. ` +
+                'Fleets dropped when it was committed were deleted then and do not come back.',
+              confirmLabel: `Delete the ${w.medal.fleetNoun}`,
+              destructive: true,
+            });
+            if (ok) deleteRound.mutate(round.id);
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete the {w.medal.fleetNoun}…
+        </Button>
+      )}
     </div>
   );
 }

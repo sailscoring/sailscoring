@@ -209,6 +209,22 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // And the section says where that race comes from, and what it scores.
   await expect(page.getByText('add that race from the Elimination series section')).toBeVisible();
   await expect(page.getByText('In the fleet they left it scores from 11')).toBeVisible();
+
+  // ── The way back: both ceremonies can be undone, newest first ─────────────
+  // Delete the Final series fleet — its memberships and F1 go with it, and
+  // the Elimination series is once again the deciding stage.
+  await page.getByRole('button', { name: 'Delete the Final series fleet…' }).click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('Delete the Final series fleet?');
+  await page.getByTestId('confirm-dialog-confirm').click();
+  await expect(page.getByRole('button', { name: 'Select Final series fleet…' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /F1/ })).toHaveCount(0);
+  // With the Final series fleet gone, the split itself can be undone too.
+  await page.getByRole('button', { name: 'Delete the split…' }).click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('Delete the split?');
+  await page.getByTestId('confirm-dialog-confirm').click();
+  await expect(
+    page.getByRole('button', { name: 'End the Preliminary series → split fleets' }),
+  ).toBeVisible();
 });
 
 /**
