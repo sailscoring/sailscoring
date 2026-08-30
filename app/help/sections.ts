@@ -111,7 +111,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'rrs-org-push', title: 'Pushing the competitor list to rrs.org', feature: 'rrs-import' },
       { id: 'saving-and-sharing', title: 'Saving and sharing a series' },
       { id: 'sailwave-import', title: 'Importing from Sailwave', feature: 'sailwave-import' },
-      { id: 'json-export', title: 'JSON data export and Open in Sail Scoring' },
+      { id: 'json-export', title: 'Open in Sail Scoring, and the data behind published results' },
     ],
   },
   {

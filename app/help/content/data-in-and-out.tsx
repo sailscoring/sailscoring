@@ -259,7 +259,7 @@ export default function DataInAndOut() {
           </>
         </Section>
       )}
-      <Section id="json-export" title="JSON data export and Open in Sail Scoring">
+      <Section id="json-export" title="Open in Sail Scoring, and the data behind published results">
         <HelpShot
           src="/help/shots/open-in-sailscoring.webp"
           alt="Every published page footer carries an Open in Sail Scoring link."
@@ -270,9 +270,23 @@ export default function DataInAndOut() {
           <strong className="text-foreground">Preview</strong> or pushed via FTP or
           Publish — includes an{' '}
           <strong className="text-foreground">Open in Sail Scoring</strong> link in the footer.
-          Anyone viewing the results page can click it to open the series directly in the app
-          — competitors, races, finishes, and standings are all imported automatically as a new
-          series. If you already have a series with that name in your workspace, the import gets a{' '}
+          Anyone can click it, signed in or not, and land in a read-only view of the series
+          behind the page: the entry list, the racing, the standings, and how the series is
+          scored. Nothing there can be changed, and nothing is stored — it’s the results data
+          you published, shown in the app that produced it.
+        </p>
+        <HelpShot
+          src="/help/shots/spectator-view.webp"
+          alt="A published results file opened read-only in the app, with a banner offering to save a copy."
+          caption="Readers can open published results in the app without an account — read-only, with one door out."
+        />
+        <p>
+          To do anything with it, a reader chooses{' '}
+          <strong className="text-foreground">Save to my workspace</strong>, which signs them in
+          if they aren’t already and imports it as a new series of their own — competitors,
+          races, finishes and standings all arrive with it. From there it’s an ordinary series:
+          they can re-score it, change the handicaps, or try out “what if” finish times without
+          touching your results. If they already have a series with that name, the import gets a{' '}
           <code className="text-foreground text-sm">(2)</code> suffix so the two are easy to
           tell apart.
         </p>

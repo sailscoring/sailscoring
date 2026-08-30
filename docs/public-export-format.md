@@ -16,6 +16,9 @@ series' Publishing settings can opt out) serves one file:
 
 - Linked from every page footer ("Data (.sailscoring.json)") and declared
   in each page's head as `<link rel="alternate" type="application/json">`.
+- Also what the page's "Open in Sail Scoring" link reads: it points at
+  `/open?from={path}`, which shows the series read-only with no account
+  (#475). Saving a copy imports it through `/import?from={path}`.
 - Served with `Access-Control-Allow-Origin: *` — browser-based tools may
   read it cross-origin.
 - **Snapshot-pinned**: the file holds exactly the data the pages were

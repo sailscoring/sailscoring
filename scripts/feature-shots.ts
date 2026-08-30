@@ -901,6 +901,26 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: the spectator viewer (#475) — published results opened in
+    // the app by a reader with no account, read-only.
+    slug: 'spectator-view',
+    group: 'Data in and out',
+    async capture({ page, anon, shot }) {
+      const pub = await openPublicFleetPage(page, anon, 'class-1-irc');
+      const href = await pub
+        .getByRole('link', { name: 'Open in Sail Scoring' })
+        .getAttribute('href', { timeout: 10_000 });
+      await pub.close();
+      if (!href) throw new Error('no Open in Sail Scoring link on the public page');
+      const view = await anon.newPage();
+      await view.goto(new URL(href, BASE).toString());
+      await view.waitForURL(/\/series\/spectator-/, { timeout: 15_000 });
+      await settle(view);
+      await shot('spectator-view.png', { page: view, fullPage: true });
+      await view.close();
+    },
+  },
+  {
     // Inventory: Logo library — the picker with the built-in canonical set.
     slug: 'logo-library',
     group: 'Publishing',
