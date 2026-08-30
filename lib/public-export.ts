@@ -122,7 +122,13 @@ export interface ExportPrize {
 }
 
 export interface PublicSeriesExport {
-  version: 1;
+  /** Format version. v1 carried every competitor field regardless of the
+   *  series' displayed columns and appended unresolved finish rows; v2
+   *  carries a hidden competitor column only when scoring or a prize
+   *  clause reads it, and drops unresolved rows (they are the scorer's
+   *  unfinished business — unpublished, and score-neutral: scoring filters
+   *  to resolved rows before assigning places). Readers accept both. */
+  version: 1 | 2;
   exportedAt: string;
   series: {
     name: string;
@@ -206,6 +212,13 @@ export interface PublicSeriesExport {
     /** The colour the fleet is drawn in (present iff a split-fleet round created it). */
     color?: string;
   }[];
+  /** One entry per competitor. From v2, a field the series does not display
+   *  is carried only when something published still reads it: scoring and
+   *  rating inputs always travel (a re-import must score the race the same
+   *  way), a prize clause keeps the field it selects on (club / gender /
+   *  nationality / axis), and a split-fleet series keeps `seed` and
+   *  `initialFleet` (its assignments are unexplainable without them).
+   *  Everything else follows `series.displayFields`. */
   competitors: {
     sailNumber: string;
     /** Bow number, when it differs from the registered sail number. */
@@ -246,11 +259,11 @@ export interface PublicSeriesExport {
     /** Legacy single crew name, written by pre-crew-list exports; the importer
      *  folds it into a one-element `crewNames`. Never written by current builds. */
     crewName?: string;
-    club: string;
+    club?: string;
     /** 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL". */
     nationality?: string;
-    gender: 'M' | 'F' | '';
-    age: number | null;
+    gender?: 'M' | 'F' | '';
+    age?: number | null;
     /** Per-axis subdivision values (e.g. {<divisionAxisId>: "Silver"}), keyed by
      *  `series.subdivisionAxes[].id`. */
     subdivisions?: Record<string, string>;
@@ -324,7 +337,10 @@ export interface PublicSeriesExport {
     finishes: {
       sailNumber: string;
       /** Set when the finish is unresolved (scorer recorded a crossing
-       *  but no matching competitor). When present, `sailNumber` is empty. */
+       *  but no matching competitor). When present, `sailNumber` is empty.
+       *  Written by v1 exports only — still read on import, but v2 stops
+       *  writing unresolved rows: they are unpublished scorer work in
+       *  progress, and scoring ignores them when assigning places. */
       unknownSailNumber?: string;
       /** Marks a row entered by typing the competitor's bow number. Written
        *  by builds before alternative sail numbers; still read on import. */
@@ -596,6 +612,26 @@ export function buildPublicExportFromSnapshot(
   // Same shape of opt-in for track data: leaving it out of the embedded
   // export is what "not published" means for the captured record.
   const publishTrackData = series.publishTrackData === true;
+  // v2 carry rule for competitor fields: a column the series does not
+  // display travels only when something published still reads it. Scoring
+  // and rating inputs always travel — a re-import must score the race the
+  // same way — a prize clause keeps the field it selects on, and a
+  // split-fleet series keeps its seeding record (`seed`/`initialFleet`),
+  // without which its assignments are unexplainable.
+  const enabledFields = new Set<CompetitorFieldKey>(
+    series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+  );
+  const prizeClauseKinds = new Set(
+    (series.prizes ?? []).flatMap((p) => p.clauses.map((c) => c.kind)),
+  );
+  const splitFleet = allRaceStarts.some((rs) => rs.stage != null);
+  const carry = (field: CompetitorFieldKey) => enabledFields.has(field);
+  const carryClub = carry('club') || prizeClauseKinds.has('club');
+  const carryGender = carry('gender') || prizeClauseKinds.has('gender');
+  const carryNationality = carry('nationality') || prizeClauseKinds.has('nationality');
+  const carrySubdivisions = carry('subdivision') || prizeClauseKinds.has('axis');
+  const carrySeed = carry('seed') || splitFleet;
+  const carryInitialFleet = carry('initialFleet') || splitFleet;
   const subSeriesNamesByRaceId = new Map<string, string[]>();
   for (const ss of subSeries) {
     for (const rid of ss.raceIds) {
@@ -751,22 +787,11 @@ export function buildPublicExportFromSnapshot(
         } : {}),
       };
     });
-    // Unresolved finishes — not in raceScores (no competitor to key on) — are
-    // appended separately so a round-trip preserves them as unknown crossings.
-    for (const f of finishesForRace) {
-      if (f.competitorId != null) continue;
-      finishes.push({
-        sailNumber: '',
-        ...(f.unknownSailNumber ? { unknownSailNumber: f.unknownSailNumber } : {}),
-        sortOrder: f.sortOrder ?? null,
-        ...(f.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
-        ...(f.finishTime ? { finishTime: f.finishTime } : {}),
-        ...(f.elapsedSecs != null ? { elapsedSecs: f.elapsedSecs } : {}),
-        ...(publishTrackData && f.trackData ? { trackData: f.trackData } : {}),
-        resultCode: f.resultCode,
-        startPresent: f.startPresent ?? null,
-      } as (typeof finishes)[number]);
-    }
+    // Unresolved finishes (no competitor matched) are deliberately not
+    // exported: they are the scorer's unfinished business, never rendered on
+    // a published page, and score-neutral — scoring filters to resolved rows
+    // before assigning places. v1 exports carried them; import still reads
+    // them for those.
     const starts = allRaceStarts
       .filter((rs) => rs.raceId === race.id)
       .map((rs) => ({
@@ -838,7 +863,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 1 as const,
+    version: 2 as const,
     exportedAt: new Date().toISOString(),
     series: {
       name: series.name,
@@ -917,26 +942,26 @@ export function buildPublicExportFromSnapshot(
     })),
     competitors: competitors.map((c) => ({
       sailNumber: c.sailNumber,
-      ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
-      ...(c.alternativeSailNumbers?.length
+      ...(carry('bowNumber') && c.bowNumber ? { bowNumber: c.bowNumber } : {}),
+      ...(carry('alternativeSailNumbers') && c.alternativeSailNumbers?.length
         ? { alternativeSailNumbers: c.alternativeSailNumbers }
         : {}),
-      ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
-      ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
-      ...(c.seed != null ? { seed: c.seed } : {}),
-      ...(c.initialFleet ? { initialFleet: c.initialFleet } : {}),
-      ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
-      ...(c.boatName ? { boatName: c.boatName } : {}),
-      ...(c.boatClass ? { boatClass: c.boatClass } : {}),
+      ...(carry('entryNumber') && c.entryNumber ? { entryNumber: c.entryNumber } : {}),
+      ...(carry('tallyNumber') && c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
+      ...(carrySeed && c.seed != null ? { seed: c.seed } : {}),
+      ...(carryInitialFleet && c.initialFleet ? { initialFleet: c.initialFleet } : {}),
+      ...(carry('worldSailingId') && c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
+      ...(carry('boatName') && c.boatName ? { boatName: c.boatName } : {}),
+      ...(carry('boatClass') && c.boatClass ? { boatClass: c.boatClass } : {}),
       names: c.names,
-      ...(c.owners?.length ? { owners: c.owners } : {}),
-      ...(c.helms?.length ? { helms: c.helms } : {}),
-      ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
-      club: c.club,
-      ...(c.nationality ? { nationality: c.nationality } : {}),
-      gender: c.gender,
-      age: c.age,
-      ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
+      ...(carry('owner') && c.owners?.length ? { owners: c.owners } : {}),
+      ...(carry('helm') && c.helms?.length ? { helms: c.helms } : {}),
+      ...(carry('crewName') && c.crewNames?.length ? { crewNames: c.crewNames } : {}),
+      ...(carryClub && c.club ? { club: c.club } : {}),
+      ...(carryNationality && c.nationality ? { nationality: c.nationality } : {}),
+      ...(carryGender && c.gender ? { gender: c.gender } : {}),
+      ...(carry('age') && c.age != null ? { age: c.age } : {}),
+      ...(carrySubdivisions && c.subdivisions && Object.keys(c.subdivisions).length > 0
         ? { subdivisions: c.subdivisions }
         : {}),
       fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
@@ -1203,10 +1228,10 @@ export async function importPublicExport(
           const crew = c.crewNames?.length ? c.crewNames : c.crewName ? [c.crewName] : [];
           return crew.length ? { crewNames: crew } : {};
         })(),
-        club: c.club,
+        club: c.club ?? '',
         ...(c.nationality ? { nationality: c.nationality } : {}),
-        gender: c.gender,
-        age: c.age,
+        gender: c.gender ?? '',
+        age: c.age ?? null,
         ...(c.subdivisions && Object.keys(c.subdivisions).length > 0
           ? { subdivisions: c.subdivisions }
           : {}),
