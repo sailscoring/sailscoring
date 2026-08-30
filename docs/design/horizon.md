@@ -402,6 +402,83 @@ audio layer rather than a rewrite.
 
 ---
 
+## Live racing and broadcast
+
+The final race of the 2026 ILCA 7 Men's World Championship (Dun Laoghaire, 30
+August 2026) was streamed live with the series still open — and the broadcast
+leaned on scoring that no scoring program produced. At every mark rounding the
+stream carried **projected series standings** derived from the rounding order,
+tie-breaks included, worked out by hand. At the finish the on-screen table was
+right, but nobody on the broadcast trusted it: the eventual winner came from
+mid-fleet on the last downwind, finished first, and then spent several minutes
+visibly unsure, while the commentators couldn't place the other contenders. The
+uncertainty only cleared when the official scorer published the final standings
+from Sailwave.
+
+Deciding standings under the rules, in a way everyone can trust, is the entire
+job of a scoring engine — and here it was being done by hand, live, under time
+pressure, on the biggest stage the class has. The three entries below are the
+pieces that would let the engine do it instead. None is scoped, and the first
+useful step isn't code: it's talking to the people who produced those tables
+about how they actually built them, what they'd need, and what an integration
+could look like.
+
+### Projected standings from a race in progress
+
+Given a series and a hypothetical or partial finish order for the race being
+sailed, compute the standings that order would produce — full Appendix A
+treatment, including discards and A8 tie-breaks. The engine is already pure and
+cheap to re-run, so the work is an *input* surface (an ordered list of boats
+that hasn't happened yet) and a presentation, not new scoring rules.
+
+The same computation answers the question a scorer gets asked ashore on the last
+day — "what does she need to do to win?" — from the other direction, which is
+also the "what if" experimenting ADR-012 deliberately keeps out of the spectator
+viewer and puts on an imported copy.
+
+Open questions: how boats still racing are treated (DNF, or ranked at their
+current position); whether races not yet sailed are projected at all; and how
+discards behave over an incomplete race — a projection that turns a discard over
+is exactly the case a hand computation gets wrong, and exactly the case that
+makes an engine worth trusting.
+
+### Mark roundings recorded like a finish sheet
+
+A rounding order at a mark is structurally the same artifact as a finish sheet:
+an ordered list of boats, optionally timed. So the same entry UX
+([ADR-007](decisions/007-finish-sheet-model.md)'s unified ordered list) and the
+same engine could take it, and each rounding becomes a scoreable provisional
+finish feeding the projection above.
+
+It matters beyond broadcast. Offshore, where a race runs for days, the standings
+at the last gate are the only result anyone has until the finish; per-leg
+rounding times are also the in-model analogue the sector time analysis entry
+identifies as missing. Shape of the change: a race gains an ordered sequence of
+rounding records (mark, boat, order and/or time) alongside its finishes, with no
+change to how the race is finally scored. Open question: whether roundings are
+part of the scoring record proper — kept, published, and revisable like finishes
+— or a transient live artifact that isn't retained once the race is scored.
+
+### Provisional results published live from the finish boat
+
+If the finish boat is entering finishes into Sail Scoring as they happen, the
+provisional result exists the moment the last boat crosses. There's no reason
+for an external party to reconstruct it, and no reason a broadcast should be
+waiting on a scorer ashore to publish before it can say who won.
+
+What's missing is a live read path — the same polling-or-push question the
+clubhouse big-screen entry raises, with the same requirement that current
+standings be cheap to serve often — and a published form that is *explicitly*
+provisional: pending ratification, subject to the protest time limit the
+results-status feature already computes. The blockers are as much practical and
+political as technical: connectivity on a committee boat (see voice-driven
+finish recording above), and who is entitled to show numbers before the race
+committee has ratified them. The broadcast's incentive is speed and the
+scorer's is correctness; the output format should make the distinction visible
+rather than leave the two to argue about it.
+
+---
+
 ## Scoring records and audit trail
 
 ### Rendered (WYSIWYG) revision diff
