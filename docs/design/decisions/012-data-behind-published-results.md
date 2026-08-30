@@ -311,11 +311,11 @@ in #465/#466). No payload anywhere.
 Orthogonal to 2/3/4, and the option that actually delivers the
 differentiator: the app can open a public export **read-only with no
 sign-in** — browse the standings, the races, the settings that produced
-them; make scratch edits ("what if" a finish time) that live only in the
-browser; and "save to my workspace" is the one door where sign-in
-appears (the Google-Docs boundary: view freely, copy with an account).
-The scoring engine already runs client-side, so no server persistence is
-needed for the scratch tier.
+them; make throwaway in-browser edits ("what if" a finish time) that
+live only in that tab; and "save to my workspace" is the one door where
+sign-in appears (the Google-Docs boundary: view freely, copy with an
+account). The scoring engine already runs client-side, so no server
+persistence is needed for the editing tier.
 
 **Pros:**
 - Serves every motivation in the problem statement directly: the curious
@@ -326,10 +326,10 @@ needed for the scratch tier.
   the reader was never supposed to need an account to look.
 
 **Cons:**
-- The largest build: a read-only/scratch presentation of the series
+- The largest build: an account-less presentation of the series
   pages, which today all assume a workspace behind them.
-- Needs care that "scratch edits" can't be mistaken for the official
-  record (clear provenance banner, no publish path from scratch).
+- Needs care that in-browser edits can't be mistaken for the official
+  record (clear provenance banner, no publish path from the viewer).
 - Depends on one of Options 2–4 for how the data arrives.
 
 ## Decision
@@ -341,14 +341,14 @@ differentiator unbuilt; Option 5's entry point wants exactly the
 fetchable, pinned artifact Option 3 creates — so 3 ships first and
 stands alone, and 5 is the destination it is built toward.
 
-*Amended 2026-08-30:* Option 5 is adopted **without its scratch-edit
-tier**. The viewer is strictly read-only; a reader who wants to change
-anything — the "what if" play included — goes through the one door:
-sign in, import a copy, and experiment there with the full app behind
-it. That serves the what-if motivation better than an ephemeral scratch
-copy (the experiment persists, and can never be confused with the
-published record), and it removes both the provenance risk and most of
-Option 5's build cost.
+*Amended 2026-08-30:* Option 5 is adopted **without its in-browser
+editing tier**. The viewer is strictly read-only; a reader who wants to
+change anything — the "what if" play included — goes through the one
+door: sign in, import a copy, and experiment there with the full app
+behind it. That serves the what-if motivation better than a throwaway
+in-browser copy (the experiment persists, and can never be confused
+with the published record), and it removes both the provenance risk and
+most of Option 5's build cost.
 
 The questions the draft left open are resolved as follows:
 
@@ -426,9 +426,9 @@ deliberately left to the implementation issues.
 
 - View-only mode is the larger build and could stall — mitigated by
   shipping Option 3 first (it stands alone and loses nothing by
-  waiting), and by the 2026-08-30 amendment, which drops the scratch
-  tier and with it most of the remaining cost and the risk of local
-  edits being mistaken for the official record.
+  waiting), and by the 2026-08-30 amendment, which drops the in-browser
+  editing tier and with it most of the remaining cost and the risk of
+  local edits being mistaken for the official record.
 
 ## Related decisions
 
