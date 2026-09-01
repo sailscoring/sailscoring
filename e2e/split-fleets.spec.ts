@@ -60,6 +60,26 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
 
+  // ── The help beside the tab speaks this series' words ─────────────────────
+  // The chapter is not series-scoped; the panel reads the vocabulary from the
+  // series it is open beside, and its page link carries it so the shareable
+  // form opens in the same words. The demo import reloads the page, so wait
+  // for the reloaded tab before opening help — a keypress mid-reload is lost.
+  await expect(page.getByRole('button', { name: 'Assign Preliminary fleets' })).toBeVisible();
+  await page.getByRole('button', { name: 'Help' }).click();
+  const help = page.getByTestId('help-panel');
+  await help.getByRole('button', { name: 'Split-fleet championships' }).first().click();
+  await expect(help.locator('#help-vocabulary')).toHaveValue('qualification-final');
+  await expect(help.getByText('Matching the championship you have open.')).toBeVisible();
+  await expect(
+    help.locator('#split-fleets p').filter({ hasText: 'Big one-design championships' }),
+  ).toContainText('Preliminary fleets');
+  await expect(help.getByRole('link', { name: 'Open as a page' })).toHaveAttribute(
+    'href',
+    '/help/running-a-series?vocab=qualification-final#split-fleets',
+  );
+  await help.getByRole('button', { name: 'Minimise help' }).click();
+
   // ── Round 1: seeded, Q1–Q2 created ────────────────────────────────────────
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await expect(page.getByRole('dialog')).toContainText('Make the initial assignment');

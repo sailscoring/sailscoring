@@ -57,6 +57,22 @@ from it. Rules:
   `FEATURES.helpSectionIds` records the same relationship on the registry
   side.
 
+### Sections that follow a series' vocabulary
+
+A help chapter is not series-scoped, but a section can describe a feature
+whose words the series configures — the split-fleet section, where the
+stages are "qualifying / final / medal" under one set of sailing
+instructions and "Preliminary / Elimination / Final" under another
+(`docs/design/split-fleets.md`). Such a section reads its words from
+`useHelpVocabulary()` (`app/help/vocabulary.tsx`) rather than typing them,
+and picks its screenshot the same way. The provider resolves the vocabulary
+in order: the reader's own pick on the section's control, `?vocab=` on the
+chapter URL (which the panel's "Open as a page" link carries), the series
+beside the help panel, the reader's remembered pick, then the default. The
+section's file joins the surfaces `tests/split-fleets-vocabulary.test.ts`
+scans, so a stage word typed into the help fails the same test it would on
+the tab.
+
 ## Screenshots
 
 Help sections embed the same captures the marketing site uses, produced by

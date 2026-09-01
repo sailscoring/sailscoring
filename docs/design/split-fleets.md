@@ -34,7 +34,10 @@ the mapping) and, worse, reuses two of the words for different stages. A
 series therefore picks a `vocabulary` and the app speaks only that one; the
 code's `SeriesStage` values (`qualifying` / `final` / `medal`) are structural
 identifiers that happen to read like the first vocabulary and are never
-shown. Read the terms below as roles, not as the words a given event uses.
+shown. The help section follows the pick too: the help panel takes it from
+the series it is open beside, and the chapter URL carries it as
+`?vocab=<key>` (`docs/design/user-docs.md`). Read the terms below as roles,
+not as the words a given event uses.
 
 - **Split-fleet series** — our general name for a series using this format
   (from the SIs' "the event will be split into 3 fleets", "while racing in
