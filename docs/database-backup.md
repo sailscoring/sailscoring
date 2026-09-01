@@ -57,8 +57,10 @@ Two schedules, differing only in what they include:
 - **Auth, Actions → Neon:** the read-replica connection string in the
   `BACKUP_DATABASE_URL` repo secret.
 
-The concrete bucket name and IAM role ARN for this deployment live in
-`.github/workflows/backup-database.yml`. The runbook below uses
+The concrete bucket name and IAM role ARN for this deployment are **not
+in this repository**. The workflow reads them as `${{ vars.AWS_BACKUP_BUCKET }}`
+and `${{ vars.AWS_BACKUP_ROLE_ARN }}`; the values live in the repo's Actions
+variables, and `gh variable list` prints them. The runbook below uses
 `<bucket>` as a placeholder.
 
 ### Why the daily dump omits the archive rows
@@ -281,38 +283,51 @@ aws iam create-open-id-connect-provider \
 
 ### 3. Create the writer IAM role
 
-`trust-policy.json` (substitute `ACCOUNT`, `REPO`, `BRANCH`):
+Write both documents with the shell variables set above, so the values are
+substituted rather than pasted. The heredocs are deliberately unquoted
+(`<<EOF`, not `<<'EOF'`) for exactly that reason.
 
-```json
+`trust-policy.json`:
+
+```bash
+cat > trust-policy.json <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
     "Principal": {
-      "Federated": "arn:aws:iam::ACCOUNT:oidc-provider/token.actions.githubusercontent.com"
+      "Federated": "arn:aws:iam::${ACCOUNT}:oidc-provider/token.actions.githubusercontent.com"
     },
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {
         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-        "token.actions.githubusercontent.com:sub": "repo:REPO:ref:refs/heads/BRANCH"
+        "token.actions.githubusercontent.com:sub": "repo:${REPO}:ref:refs/heads/${BRANCH}"
       }
     }
   }]
 }
+EOF
 ```
 
-`backup-writer-policy.json` (substitute `BUCKET`):
+`backup-writer-policy.json` — it must name **both** prefixes. A policy
+covering only `daily/*` lets every daily run succeed and fails the first
+weekly one, up to six days later:
 
-```json
+```bash
+cat > backup-writer-policy.json <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
     "Action": "s3:PutObject",
-    "Resource": "arn:aws:s3:::BUCKET/daily/*"
+    "Resource": [
+      "arn:aws:s3:::${BUCKET}/daily/*",
+      "arn:aws:s3:::${BUCKET}/weekly/*"
+    ]
   }]
 }
+EOF
 ```
 
 Apply:
@@ -328,6 +343,28 @@ aws iam put-role-policy \
   --policy-name BackupWrite \
   --policy-document file://backup-writer-policy.json
 ```
+
+Then read back what actually landed, and simulate a write to each prefix:
+
+```bash
+aws iam get-role-policy --role-name "$ROLE" --policy-name BackupWrite \
+  --query 'PolicyDocument.Statement[0].Resource'
+
+aws iam simulate-principal-policy \
+  --policy-source-arn "arn:aws:iam::${ACCOUNT}:role/${ROLE}" \
+  --action-names s3:PutObject \
+  --resource-arns \
+    "arn:aws:s3:::${BUCKET}/daily/probe" \
+    "arn:aws:s3:::${BUCKET}/weekly/probe" \
+    "arn:aws:s3:::${BUCKET}/other/probe" \
+  --query 'EvaluationResults[0].ResourceSpecificResults[].{R:EvalResourceName,D:EvalResourceDecision}' \
+  --output table
+```
+
+Expect `allowed` on the first two and `implicitDeny` on the third. This
+step exists because an unsubstituted placeholder yields a syntactically
+valid policy that grants nothing, and the only other symptom is an
+`AccessDenied` on an upload hours later.
 
 ### 4. Create a Neon read replica
 
@@ -390,18 +427,28 @@ discussion.
 
 ### Cost
 
-S3 storage is a rounding error — ~10 MiB per daily dump and ~20 MiB per
-weekly, held 90 days, is cents per month at S3 standard pricing. GitHub
-Actions compute fits inside the free tier comfortably.
+S3 storage is a rounding error — a daily dump was 25.9 MiB and the weekly
+31.4 MiB on 1 September 2026, and 90 days of those is cents per month at
+S3 standard pricing. GitHub Actions compute fits inside the free tier
+comfortably.
 
 The cost that actually matters is **Neon network transfer**, and it is
 much larger than the stored artefacts suggest, because the dump is
 compressed client-side after the rows are already on the wire. Budget on
-the *uncompressed* size: currently ~46 MiB per daily run and ~98 MiB per
-weekly, so ~1.8 GB/month. That is comfortably inside the 500 GB/month a
-paid Neon plan includes, but it was 2.4 GB/month before the exclusion
-above and it exhausted the free plan's 5 GB allowance in August 2026.
-This line grows with the database, so re-check it after any large import.
+the *uncompressed* size. The last direct measurement, in August 2026, was
+~46 MiB per daily run and ~98 MiB per weekly (~1.8 GB/month) at a 5.0x
+compressed-to-wire ratio — comfortably inside the 500 GB/month a paid Neon
+plan includes, and down from the 2.4 GB/month that exhausted the free
+plan's 5 GB allowance that month.
+
+**Those figures are already stale.** The daily artefact sat on a ~17.4 MiB
+plateau for most of August and then grew to 25.9 MiB by the 31st — roughly
++49% in a week, and still climbing. Extrapolating
+the old 5.0x ratio would put a daily run near ~130 MiB on the wire, but
+that ratio was measured on a dump that still carried the archive rows,
+which compress unusually well; the true ratio for a daily is now lower and
+unmeasured. Re-measure rather than trusting either number, and re-check
+after any large import.
 
 ### Scheduled runs are late — sometimes by many hours
 
@@ -422,13 +469,20 @@ the median improved markedly through August while the single worst delay
 in the whole record also happened that month, so treat the schedule as
 "once a day, eventually" rather than as a time of day.
 
-**No run has ever been lost.** Every one of the 114 arrived and
-succeeded. That matters for how you read a missing backup: the 27 August
-run looked dropped for eleven hours and was not, so *absence is not yet
-failure*, and re-running by hand too early only duplicates work. If you
-need one at a predictable moment, trigger it — `gh workflow run
-"Database backup"` starts within seconds, because manual dispatches do
-not go through the scheduled queue.
+**One run has been lost, and editing the workflow is what lost it.** There is
+no backup for 28 August 2026: that day's `0 6` slot was already queued when
+the cron moved to `23 6`, and changing a schedule on `main` invalidates the
+pending run for the slot it replaced. Every other scheduled run in the
+record arrived and succeeded. So **after changing a `cron:` line, dispatch
+a run by hand** — the slot you were part-way through does not survive the
+edit.
+
+Short of that, absence is not yet failure: the 27 August run looked dropped
+for eleven hours and was not, so re-running by hand too early only
+duplicates work. If you need one at a predictable moment, trigger it —
+`gh workflow run "Database backup"` starts within seconds, because manual
+dispatches do not go through the scheduled queue. Add `-f full=true` for a
+weekly-style full dump.
 
 Lateness is otherwise cosmetic: a backup at 17:09 protects the same data
 as one at 06:00, only with a longer worst-case gap between snapshots. A
