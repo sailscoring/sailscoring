@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type Ref } from 'react';
-import { X, Activity, AlertTriangle, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { X, Activity, AlertTriangle, Ban, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -33,7 +38,7 @@ import {
   entryKey,
   type FinishEntry,
 } from '@/lib/finish-entry';
-import type { Competitor, CompetitorFieldKey, Finish, FinishRecording, Fleet } from '@/lib/types';
+import type { Competitor, CompetitorFieldKey, Finish, FinishRecording, Fleet, ResultCode } from '@/lib/types';
 
 /** One badge per fleet a competitor belongs to, scoped to the fleets actually
  *  racing this sheet. Multi-fleet boats (e.g. a handicap fleet and a scratch
@@ -79,8 +84,10 @@ function FleetBadges({
 }
 import type { ParseFinishSheetResult } from '@/lib/finish-sheet-csv';
 import {
+  FINISHER_CODE_LABELS,
   NON_FINISHER_CODE_LABELS,
   partitionNonFinishers,
+  type FinisherCode,
   type NonFinisherCode,
   type NonFinisherView,
 } from '@/lib/finish-entry';
@@ -215,7 +222,7 @@ export function FinishTab(props: FinishTabProps) {
   const {
     flashedRowId, editingTimes, setEditingTimes,
     removeFinisher, toggleTiedWithPrevious, moveRowTo, reslotTimedRow,
-    setNonFinisherCode,
+    setNonFinisherCode, setFinisherCode,
   } = rowOps;
   const codeLabels = NON_FINISHER_CODE_LABELS;
 
@@ -329,6 +336,24 @@ export function FinishTab(props: FinishTabProps) {
       </Select>
       )}
     </div>
+  );
+
+  // The code choices for a boat in the finishing order, as one radio group
+  // shared by the chip on a coded row and the row-actions submenu on any
+  // row. "Finished" is the clear: she scores her place again. Selecting
+  // the value already set is a no-op in the hook.
+  const renderFinisherCodeChoices = (competitorId: string, current: ResultCode | null) => (
+    <DropdownMenuRadioGroup
+      value={current ?? 'finished'}
+      onValueChange={(v) => setFinisherCode(competitorId, v === 'finished' ? null : (v as ResultCode))}
+    >
+      <DropdownMenuRadioItem value="finished">Finished — no code</DropdownMenuRadioItem>
+      {(Object.keys(FINISHER_CODE_LABELS) as FinisherCode[]).map((c) => (
+        <DropdownMenuRadioItem key={c} value={c}>
+          {FINISHER_CODE_LABELS[c]}
+        </DropdownMenuRadioItem>
+      ))}
+    </DropdownMenuRadioGroup>
   );
 
   // Most club races are position-only — no fleet has a start, so no boat needs
@@ -859,7 +884,7 @@ export function FinishTab(props: FinishTabProps) {
                     tie
                   </label>
                 )}
-                {finisherCode && (
+                {finisherCode && (readOnly ? (
                   // The row keeps its crossing position; the code says the
                   // boat scores no place for it. Red, unlike a penalty chip:
                   // a penalty adjusts a finish, this replaces it.
@@ -871,7 +896,32 @@ export function FinishTab(props: FinishTabProps) {
                   >
                     {finisherCode}
                   </Badge>
-                )}
+                ) : (
+                  // Same chip, and the way to change or clear the code: a
+                  // reinstated boat loses hers here, not by being deleted
+                  // from the order and added again.
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Result code for ${competitor.sailNumber}`}
+                        title={`Scored ${finisherCode}, not ${ordinal(rowNumber)} — change or clear`}
+                        className="shrink-0"
+                      >
+                        <Badge
+                          variant="outline"
+                          className="text-xs border-destructive/50 text-destructive cursor-pointer"
+                          data-testid={`finisher-code-${competitor.sailNumber}`}
+                        >
+                          {finisherCode}
+                        </Badge>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {renderFinisherCodeChoices(entry.competitorId, finisherCode)}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ))}
                 {penalty && (
                   <Badge
                     variant="outline"
@@ -933,6 +983,18 @@ export function FinishTab(props: FinishTabProps) {
                       <Scale className="h-3.5 w-3.5" />
                       {hasRedress ? 'Edit redress (RDG)' : 'Set redress (RDG)'}
                     </DropdownMenuItem>
+                    {/* A boat who crossed the line and is then scored DSQ,
+                        OCS, RET… stays at her crossing position with the
+                        code on the row. */}
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <Ban className="h-3.5 w-3.5" />
+                        Result code
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {renderFinisherCodeChoices(entry.competitorId, finish?.resultCode ?? null)}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 )}

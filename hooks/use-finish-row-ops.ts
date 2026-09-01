@@ -10,7 +10,7 @@ import {
   type FinishEntry,
   type NonFinisherCode,
 } from '@/lib/finish-entry';
-import type { Finish } from '@/lib/types';
+import type { Finish, ResultCode } from '@/lib/types';
 
 export interface UseFinishRowOpsArgs {
   raceId: string;
@@ -230,6 +230,38 @@ export function useFinishRowOps(args: UseFinishRowOpsArgs) {
     }
   }
 
+  /**
+   * Give a boat in the finishing order a result code, or clear the one she
+   * carries, without touching her row. She keeps her crossing position —
+   * under ADR-007 the order records who crossed where, and a boat
+   * disqualified after finishing still crossed — but scores on the code
+   * instead of the place. Clearing it (the jury reinstated her) makes her
+   * an ordinary finisher again, which used to take deleting the row and
+   * re-adding her at the right spot.
+   *
+   * Redress fields go with the old code either way: a code replaces RDG,
+   * and "no code" on an RDG row means the redress is withdrawn. A penalty
+   * stays — it adjusts a finish, so it lies dormant under a code and stands
+   * again if the code is cleared.
+   */
+  function setFinisherCode(competitorId: string, code: ResultCode | null) {
+    const existing = finishByCompetitorId.get(competitorId);
+    if (!existing || existing.sortOrder === null) return;
+    if ((existing.resultCode ?? null) === code) return;
+    const next: Finish = {
+      ...existing,
+      resultCode: code,
+      redressMethod: null,
+      redressExcludeRaceIds: null,
+      redressIncludeRaceIds: null,
+      redressIncludeAllLater: false,
+      redressPoints: null,
+      redressPointsByFleet: undefined,
+    };
+    patchCache((rows) => rows.map((r) => (r.id === existing.id ? next : r)));
+    saveFinish.mutate(next);
+  }
+
   return {
     flashedRowId,
     flashRow: setFlashedRowId,
@@ -241,5 +273,6 @@ export function useFinishRowOps(args: UseFinishRowOpsArgs) {
     moveRowTo,
     reslotTimedRow,
     setNonFinisherCode,
+    setFinisherCode,
   };
 }
