@@ -202,6 +202,38 @@ describe('non-finisher code derivation', () => {
   });
 });
 
+describe('finisher code derivation', () => {
+  it('lists a placed row that also carries a code', () => {
+    const finishes = [
+      makeFinish('r1', { id: 'x1', competitorId: 'c1', sortOrder: 1 }),
+      makeFinish('r1', { id: 'x2', competitorId: 'c2', sortOrder: 2, resultCode: 'RET' }),
+    ];
+    const derived = deriveFinishState(finishes);
+    expect([...derived.finisherCodes]).toEqual([['c2', 'RET']]);
+    // Still in the order at her crossing position — the code doesn't move her.
+    expect(derived.finishingOrder.map((e) => e.kind === 'known' && e.competitorId)).toEqual(['c1', 'c2']);
+    // And not a non-finisher: the panel only owns rows without a position.
+    expect(derived.nonFinisherCodes.size).toBe(0);
+  });
+
+  it('leaves a clean finisher and a coded non-finisher out', () => {
+    const finishes = [
+      makeFinish('r1', { id: 'x1', competitorId: 'c1', sortOrder: 1 }),
+      makeFinish('r1', { id: 'x2', competitorId: 'c2', resultCode: 'DNF' }),
+    ];
+    expect(deriveFinishState(finishes).finisherCodes.size).toBe(0);
+  });
+
+  it('does not count redress, which has its own marker on the row', () => {
+    const finishes = [
+      makeFinish('r1', { id: 'x1', competitorId: 'c1', sortOrder: 1, resultCode: 'RDG', redressMethod: 'all_races' }),
+    ];
+    const derived = deriveFinishState(finishes);
+    expect(derived.finisherCodes.size).toBe(0);
+    expect(derived.redressEntries.has('c1')).toBe(true);
+  });
+});
+
 describe('resolveSailEntry', () => {
   const competitor = (id: string, sailNumber: string, bowNumber?: string): Competitor => ({
     id,

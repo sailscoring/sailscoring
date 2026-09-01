@@ -274,6 +274,12 @@ export interface RedressEntry {
 export function deriveFinishState(savedFinishes: Finish[]): {
   finishingOrder: FinishEntry[];
   nonFinisherCodes: Map<string, ResultCode>;
+  /** Result codes carried by rows that are also in the finishing order,
+   *  redress aside. Such a row keeps its crossing position on the sheet but
+   *  scores on the code — a boat disqualified after finishing, or one the
+   *  scorer coded before the sheet placed her. The sheet shows these so the
+   *  row doesn't pass for an ordinary finisher; RDG has its own marker. */
+  finisherCodes: Map<string, ResultCode>;
   finishTimes: Map<string, string>;
   /** Recorded elapsed times, seconds — the stopwatch counterpart of
    *  `finishTimes`, and populated for the same rows. */
@@ -307,6 +313,18 @@ export function deriveFinishState(savedFinishes: Finish[]): {
       !finishedIds.has(finish.competitorId)
     ) {
       nonFinisherCodes.set(finish.competitorId, finish.resultCode);
+    }
+  }
+
+  const finisherCodes = new Map<string, ResultCode>();
+  for (const finish of savedFinishes) {
+    if (
+      finish.sortOrder !== null &&
+      finish.resultCode &&
+      finish.resultCode !== 'RDG' &&
+      finish.competitorId
+    ) {
+      finisherCodes.set(finish.competitorId, finish.resultCode);
     }
   }
 
@@ -367,6 +385,7 @@ export function deriveFinishState(savedFinishes: Finish[]): {
   return {
     finishingOrder,
     nonFinisherCodes,
+    finisherCodes,
     finishTimes,
     elapsedSecs,
     tiedWithPrevious,
@@ -474,6 +493,24 @@ export const NON_FINISHER_CODE_LABELS: Record<NonFinisherCode, string> = {
   DNC: 'DNC',
   // Redress
   RDG: 'RDG (redress)',
+};
+
+/** The codes a boat in the finishing order can be given without leaving it.
+ *  She crossed the line, so DNC is out; RDG keeps its own dialog, since it
+ *  needs a method and a pool rather than a bare code. */
+export type FinisherCode = Exclude<ResultCode, 'DNC' | 'RDG'>;
+
+/** Display labels for the finishing-order code menu, in menu order. */
+export const FINISHER_CODE_LABELS: Record<FinisherCode, string> = {
+  DNS: 'DNS',
+  DNF: 'DNF',
+  OCS: 'OCS',
+  NSC: 'NSC',
+  RET: 'RET',
+  DSQ: 'DSQ',
+  DNE: 'DNE',
+  UFD: 'UFD',
+  BFD: 'BFD',
 };
 
 /** The competitor ids currently in the finishing order. */
