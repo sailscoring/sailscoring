@@ -18,6 +18,7 @@ from?", start here.
 | `pnpm test:unit`         | Vitest, DB tests self-skip                           | No              |
 | `pnpm test:unit:db`      | Vitest with `DATABASE_URL` set; DB tests run         | Yes (auto-starts via `db:up`)  |
 | `pnpm test:watch`        | Vitest watch mode                                    | No              |
+| `pnpm e2e:install`       | Download the Chromium build Playwright runs against; needed once per machine, and again after a Playwright version bump | No |
 | `pnpm test:e2e`          | Playwright, full-stack build (`retries: 2`, so flaky-but-passed exits 0) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:triage`   | `test:e2e` then file each flaky test as a `flake` GitHub issue (pre-push run) | Yes — run `pnpm db:up` first   |
 | `pnpm test:e2e:stress`   | `test:e2e` with CPU burners on half the cores (flake stress test; no triage — read results as an aggregate signal) | Yes — run `pnpm db:up` first   |
