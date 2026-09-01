@@ -148,8 +148,20 @@ export function FinishTab(props: FinishTabProps) {
   } = props;
   const {
     finishingOrder, tiedWithPrevious, finishTimes, elapsedSecs,
-    finisherPenalties, redressEntries, finishByCompetitorId,
+    finisherPenalties, redressEntries, finishByCompetitorId, finisherCodes,
   } = derived;
+  // The placed rows that score on a code rather than their place, in sheet
+  // order. A chip on the row says so where the row is; this list says so at
+  // the top of the sheet, since a chip on row 19 of 42 is easy to pass over
+  // and the combination is usually a leftover — a boat coded RET from the
+  // jury sheet before the finish sheet placed her — rather than the
+  // intended DSQ-after-finishing.
+  const codedFinishers = finishingOrder.flatMap((entry) => {
+    if (entry.kind !== 'known') return [];
+    const code = finisherCodes.get(entry.competitorId);
+    const competitor = competitorMap.get(entry.competitorId);
+    return code && competitor ? [{ sailNumber: competitor.sailNumber, code }] : [];
+  });
   // How this race's sheet was taken down. The time column is one column
   // either way — ADR-007's premise is that the scorer transcribes one piece
   // of paper, and a stopwatch sheet is a stopwatch sheet throughout.
@@ -626,6 +638,22 @@ export function FinishTab(props: FinishTabProps) {
           </p>
         )}
 
+        {codedFinishers.length > 0 && (
+          <p
+            className="text-sm text-amber-700 dark:text-amber-400"
+            data-testid="finisher-code-note"
+          >
+            Scored on a result code, not on the place:{' '}
+            {codedFinishers.map(({ sailNumber, code }, i) => (
+              <span key={sailNumber}>
+                {i > 0 && ', '}
+                <span className="font-mono font-medium">{sailNumber}</span> {code}
+              </span>
+            ))}
+            .
+          </p>
+        )}
+
         <ol className="space-y-1.5">
           <SortableList
             items={finishingOrder.map((entry, index) => ({ id: entryKey(entry), entry, index }))}
@@ -689,6 +717,7 @@ export function FinishTab(props: FinishTabProps) {
             const competitor = competitorMap.get(entry.competitorId);
             if (!competitor) return null;
             const penalty = finisherPenalties.get(entry.competitorId);
+            const finisherCode = finisherCodes.get(entry.competitorId);
             const hasRedress = redressEntries.has(entry.competitorId);
             // Track data rides on the finish row itself, so its presence is
             // the whole gate: nothing but the RaceSense import puts it there.
@@ -829,6 +858,19 @@ export function FinishTab(props: FinishTabProps) {
                     />
                     tie
                   </label>
+                )}
+                {finisherCode && (
+                  // The row keeps its crossing position; the code says the
+                  // boat scores no place for it. Red, unlike a penalty chip:
+                  // a penalty adjusts a finish, this replaces it.
+                  <Badge
+                    variant="outline"
+                    className="text-xs shrink-0 border-destructive/50 text-destructive"
+                    title={`Scored ${finisherCode}, not ${ordinal(rowNumber)}`}
+                    data-testid={`finisher-code-${competitor.sailNumber}`}
+                  >
+                    {finisherCode}
+                  </Badge>
                 )}
                 {penalty && (
                   <Badge
