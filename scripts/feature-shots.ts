@@ -64,6 +64,7 @@ import sharp from 'sharp';
 
 import * as schema from '../lib/db/schema';
 import { type FeatureKey } from '../lib/features';
+import { VOCABULARIES, capitaliseStage, type VocabularyKey } from '../lib/split-fleets';
 import { setOrgFeature } from './provision-org';
 
 // ── Config ───────────────────────────────────────────────────────────────────
@@ -106,7 +107,16 @@ interface ShotContext {
   anon: BrowserContext;
   /** Resolved id of SERIES_NAME, fetched lazily on first use. */
   seriesId(): Promise<string>;
-  shot(name: string, opts?: { fullPage?: boolean; page?: Page }): Promise<void>;
+  shot(
+    name: string,
+    opts?: {
+      fullPage?: boolean;
+      page?: Page;
+      /** Written for the help docs only — a capture the marketing site has
+       *  no use for, such as a second view of a feature it already shows. */
+      helpOnly?: boolean;
+    },
+  ): Promise<void>;
 }
 
 interface Shot {
@@ -1239,6 +1249,25 @@ const SHOTS: Shot[] = [
       await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
       await settle(page);
       await shot('split-fleets.png');
+
+      // The help section switches its picture with the vocabulary it is
+      // read in, so the tab is captured once more in the other wording. The
+      // Format editor saves on change; the tab's stage headings confirm the
+      // words have landed before the shot, and the sample is put back as
+      // seeded so nothing downstream sees it changed. The marketing site
+      // shows one view, so this capture is for the help docs alone.
+      const format = page.getByRole('button', { name: /^Format/ });
+      const setVocabulary = async (key: VocabularyKey) => {
+        await format.click();
+        await page.locator('#sf-vocabulary').selectOption(key);
+        const stageName = capitaliseStage(VOCABULARIES[key].stages.qualifying.name);
+        await page.getByRole('button', { name: new RegExp(`^${stageName}`) }).waitFor();
+        await format.click();
+        await settle(page);
+      };
+      await setVocabulary('qualification-final');
+      await shot('split-fleets-qualification-final.png', { helpOnly: true });
+      await setVocabulary('opening-medal');
     },
   },
   {
@@ -1873,10 +1902,12 @@ async function main() {
         const pngPath = join(PNG_OUT, name);
         await target.screenshot({ path: pngPath, fullPage: opts.fullPage ?? false });
         const webpName = name.replace(/\.png$/, '.webp');
-        await sharp(pngPath)
-          .resize({ width: WEBP_WIDTH })
-          .webp({ quality: 82 })
-          .toFile(join(WEBP_OUT, webpName));
+        if (!opts.helpOnly) {
+          await sharp(pngPath)
+            .resize({ width: WEBP_WIDTH })
+            .webp({ quality: 82 })
+            .toFile(join(WEBP_OUT, webpName));
+        }
         await sharp(pngPath)
           .resize({ width: 1400 })
           .webp({ quality: 78 })
