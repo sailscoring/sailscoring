@@ -292,6 +292,14 @@ export const VOCABULARY_OPTIONS: { key: VocabularyKey; label: string; terms: str
 
 export const DEFAULT_VOCABULARY: VocabularyKey = 'opening-medal';
 
+/** A vocabulary key arriving from outside the type system — a query
+ *  parameter, a stored preference — or null for anything else. */
+export function parseVocabularyKey(value: unknown): VocabularyKey | null {
+  return typeof value === 'string' && Object.hasOwn(VOCABULARIES, value)
+    ? (value as VocabularyKey)
+    : null;
+}
+
 /** The words this series uses. `vocabularyOverride` is an escape hatch for a
  *  class whose wording isn't tabulated: nothing in the UI writes it, and it
  *  exists so a one-off doesn't need a code change. */

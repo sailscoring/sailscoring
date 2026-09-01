@@ -18,7 +18,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { STAGES, VOCABULARIES, type VocabularyKey } from '@/lib/split-fleets';
+import { STAGES, VOCABULARIES, parseVocabularyKey, type VocabularyKey } from '@/lib/split-fleets';
 
 const ROOT = join(__dirname, '..');
 
@@ -116,5 +116,17 @@ describe('split-fleet vocabulary', () => {
       const sharesPrefix = vocab.prefixes.qualifying === vocab.prefixes.final;
       expect(vocab.continuousOpeningNumbers, `${key} numbering`).toBe(sharesPrefix);
     }
+  });
+
+  it('parses a key from outside the type system and rejects the rest', () => {
+    for (const key of Object.keys(VOCABULARIES)) {
+      expect(parseVocabularyKey(key)).toBe(key);
+    }
+    expect(parseVocabularyKey('medal')).toBeNull();
+    expect(parseVocabularyKey('')).toBeNull();
+    expect(parseVocabularyKey(undefined)).toBeNull();
+    expect(parseVocabularyKey(['opening-medal'])).toBeNull();
+    // Prototype names are not vocabularies, whatever `in` says.
+    expect(parseVocabularyKey('toString')).toBeNull();
   });
 });
