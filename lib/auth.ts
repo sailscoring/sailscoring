@@ -14,6 +14,15 @@ import * as authSchema from '@/lib/db/schema/auth';
 
 const lazyDb = new Proxy({} as SailScoringDb, {
   get(_target, prop, receiver) {
+    // The Drizzle adapter reads Drizzle's own `_` metadata as it is
+    // constructed — that is, while this module is still being evaluated.
+    // Serving it through `getDb()` would demand a connection string at
+    // import time, which unit tests and `next build` don't have. The
+    // adapter treats absent metadata as "no relations", and any query on
+    // an unconfigured database fails on its own anyway.
+    if (prop === '_' && !process.env.DATABASE_URL) {
+      return undefined;
+    }
     return Reflect.get(getDb(), prop, receiver);
   },
 }) as SailScoringDb;
