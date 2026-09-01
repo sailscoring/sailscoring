@@ -155,6 +155,17 @@ export default function EnteringResults() {
           instead. A plain BFD, by contrast, is an ordinary disqualification and{' '}
           <em>can</em> be discarded like any other score.
         </p>
+        <p>
+          A boat in the finishing order can carry one of these codes too. Choose{' '}
+          <strong className="text-foreground">Result code</strong> from the row’s actions
+          menu to mark a finisher OCS, RET, DSQ and so on: she stays at her crossing position
+          on the sheet, with the code on a red chip, and scores the code rather than the place.
+          The same chip appears when a boat you coded earlier is later added to the order —
+          say a RET the jury lifted — and clicking it offers{' '}
+          <strong className="text-foreground">Finished — no code</strong>, which scores
+          her place again. A note above the order lists every boat scored on a code this way, so
+          none passes for an ordinary finisher.
+        </p>
         <p id="penalty-codes" className="font-medium text-sm mt-2">Additive penalty codes (applied to finishers)</p>
         <p>
           A boat that finishes but is penalised by the protest committee may be assigned an
