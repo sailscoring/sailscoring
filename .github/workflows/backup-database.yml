@@ -1,5 +1,15 @@
 name: Database backup
 
+# The run title in the Actions UI, so weekly and daily runs are told apart at
+# a glance instead of by opening the log. This is the third place the weekly
+# cron literal appears (`cron:` below and the dump step are the others) and
+# the only visible one: a run titled "Daily" on a Sunday means the literals
+# have drifted apart, which is the failure the dump step's comment warns of.
+run-name: >-
+  ${{ (github.event.schedule == '40 5 * * 0' || inputs.full)
+      && 'Weekly backup (full dump)'
+      || 'Daily backup (no archive rows)' }}
+
 on:
   schedule:
     # Daily, without the as-published archive rows (see ARCHIVE_TABLE below).
@@ -75,9 +85,9 @@ jobs:
 
           # Weekly cron or an explicitly-requested manual run dumps everything;
           # anything else is a daily. The literal below must match the weekly
-          # `cron:` above exactly — change one and you must change the other,
-          # or every weekly run silently becomes a daily and the archive rows
-          # stop being backed up at all.
+          # `cron:` above and the one in `run-name:` exactly — change one and
+          # you must change the others, or every weekly run silently becomes a
+          # daily and the archive rows stop being backed up at all.
           if [ "$SCHEDULE" = '40 5 * * 0' ] || [ "$FULL_INPUT" = 'true' ]; then
             PREFIX=weekly
             EXCLUDE=()
