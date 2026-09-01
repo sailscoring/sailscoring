@@ -598,6 +598,30 @@ test('season mode: Season + Folder compose the tree; a second event joins withou
   await expect(page.getByRole('heading', { name: 'Summer Regatta' })).toBeVisible();
 });
 
+test('multi-fleet: the "Pages live under" path is the same before and after publishing', async ({ page }) => {
+  await createTwoFleetSeries(page, 'Sample ORC Series 2026');
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog.getByLabel('Season')).toHaveValue('2026');
+  await expect(dialog.getByLabel('Folder')).toHaveValue('sample-orc-series-2026');
+
+  // Season then folder, and publishing must not rewrite either: the summary
+  // once named the folder twice, because the dialog read back its own
+  // name-derived suggestion instead of the season the server froze.
+  const preview = dialog.getByText('Pages live under');
+  await expect(preview).toContainText('/2026/sample-orc-series-2026/');
+
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(dialog.getByText(/Last published/)).toBeVisible();
+  await expect(preview).toContainText('/2026/sample-orc-series-2026/');
+
+  // Published, the line links the folder index — so it has to resolve.
+  const href = (await preview.getByRole('link').getAttribute('href')) ?? '';
+  await page.goto(new URL(href).pathname);
+  await expect(page.getByRole('heading', { name: 'Sample ORC Series 2026' })).toBeVisible();
+});
+
 test('single-fleet: the default page URL is editable before first publish', async ({ page }) => {
   await createSeriesWithData(page);
 

@@ -629,6 +629,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
             }),
         ...selection,
       });
+      // The server freezes the slug it actually used — the season, in season
+      // mode — which is not the name-derived suggestion this state was seeded
+      // with. Adopt it, or the published preview reads the suggestion back as
+      // the top-level segment.
+      setSlug(result.slug);
       setStatus((s) => (s ? { ...s, published: result } : s));
       setPhase('idle');
     } catch (e) {
