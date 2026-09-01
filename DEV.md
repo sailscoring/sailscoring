@@ -18,7 +18,7 @@ everything below applies per checkout.)
 
 ```bash
 # 1. Nuke the existing container (wipes all local data — it's just test data)
-podman-remote rm -f sailscoring-pg
+podman rm -f sailscoring-pg
 
 # 2. Recreate it empty and apply every migration
 pnpm db:up            # fresh postgres:17 container on localhost:5432
@@ -127,7 +127,7 @@ The pre-push rule applies unchanged: `pnpm lint`, `pnpm test:unit`, and
 ```bash
 # From the primary checkout, once the branch is merged or abandoned
 git worktree remove ../sailscoring-flights
-podman-remote rm -f sailscoring-pg-5433   # its Postgres container + data
+podman rm -f sailscoring-pg-5433   # its Postgres container + data
 ```
 
 `git worktree remove` deletes the directory and releases the branch

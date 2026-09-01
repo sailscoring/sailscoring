@@ -54,8 +54,8 @@ The `predev:local` and `pretest:unit:db` lifecycle hooks call
 test:unit:db` start the container for you. `pnpm test:e2e` and `pnpm
 db:migrate:test` do *not* — run `pnpm db:up` first if the container
 isn't already running. (CI provides Postgres via a service container,
-so hooking `db-up.sh` into the e2e path would just invoke `podman-remote`
-on a runner that doesn't have it.)
+so hooking `db-up.sh` into the e2e path would just invoke `podman` on a
+runner that doesn't have it.)
 
 ## Files under `scripts/`
 
@@ -75,18 +75,9 @@ on a runner that doesn't have it.)
 | `scripts/racesense-inspect.ts`    | Behind `pnpm racesense:inspect` — inspect a RaceSense `.xlsx` from a regatta desk, no browser or series needed |
 | `scripts/sync-national-letters.ts` | Refresh `lib/nationality/generated/` from the pinned upstream dataset                   |
 
-`db-up.sh` uses `podman-remote` because the canonical dev environment
-is a podman-managed dev container talking to a rootless podman daemon
-on the host. The container is published on `localhost:5432` from the
-host's perspective; from inside a sibling dev container reach it as
-`host.containers.internal:5432`:
-
-```
-DATABASE_URL=postgres://sailscoring:sailscoring@host.containers.internal:5432/sailscoring
-```
-
-Stop with `podman-remote stop sailscoring-pg`; data persists until
-`podman-remote rm`.
+`db-up.sh` runs the container under rootless `podman`, published on
+`localhost:5432`. Stop it with `podman stop sailscoring-pg`; the data
+persists until `podman rm`.
 
 ## Env file layout
 
