@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   HELP_GROUPS,
   HELP_INTRODUCTION,
+  helpHrefForSection,
   helpPathForSection,
   helpSectionForPath,
   visibleGroups,
@@ -35,6 +36,20 @@ describe('the help manifest', () => {
     expect(helpPathForSection('redress')).toBe('/help/entering-results');
     // Landing-page sections belong to no chapter and stay on /help.
     expect(helpPathForSection('what-is-sail-scoring')).toBeNull();
+  });
+
+  it('links a section as a page, with a vocabulary ahead of the anchor', () => {
+    expect(helpHrefForSection('entering-results', 'redress')).toBe('/help/entering-results#redress');
+    expect(helpHrefForSection(HELP_INTRODUCTION.slug, 'signing-in')).toBe('/help#signing-in');
+    expect(helpHrefForSection('running-a-series', null)).toBe('/help/running-a-series');
+    // The anchor stays the shareable part; the vocabulary is a query
+    // parameter in front of it, and absent when there is none to carry.
+    expect(
+      helpHrefForSection('running-a-series', 'split-fleets', { vocab: 'qualification-final' }),
+    ).toBe('/help/running-a-series?vocab=qualification-final#split-fleets');
+    expect(helpHrefForSection('running-a-series', 'split-fleets', { vocab: null })).toBe(
+      '/help/running-a-series#split-fleets',
+    );
   });
 });
 

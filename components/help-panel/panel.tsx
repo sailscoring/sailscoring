@@ -22,11 +22,31 @@ import {
   visibleSections,
   type HelpGroupDef,
 } from '@/app/help/sections';
+import { HelpVocabularyProvider, useHelpVocabulary } from '@/app/help/vocabulary';
 import { useFeatures } from '@/components/features-provider';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { HELP_PANEL_MAX_WIDTH, HELP_PANEL_MIN_WIDTH, useHelpPanel } from './provider';
+
+/** The shareable form of what the panel is showing. The split-fleet section
+ *  carries the vocabulary it is being read in, so the page opens in the same
+ *  words — unless that is the default, which needs no saying. */
+function OpenAsPage({ slug, section }: { slug: string; section: string | null }) {
+  const { key, source } = useHelpVocabulary();
+  const vocab = section === 'split-fleets' && source !== 'default' ? key : null;
+  return (
+    <a
+      href={helpHrefForSection(slug, section, { vocab })}
+      target="_blank"
+      rel="noreferrer"
+      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+    >
+      Open as a page
+      <ArrowUpRight className="size-3" />
+    </a>
+  );
+}
 
 /** Scrolling to a section has to wait for the chapter's chunk to arrive, so
  *  look for the anchor over a bounded run of frames rather than once. */
@@ -199,6 +219,9 @@ export function HelpPanel() {
         </Button>
       )}
 
+      {/* The vocabulary the chapter speaks is shared with the header's page
+          link, so the two agree; it follows the series beside the panel. */}
+      <HelpVocabularyProvider>
       <aside
         ref={asideRef}
         id="help-panel"
@@ -235,15 +258,7 @@ export function HelpPanel() {
             <span className="text-sm font-medium">Help</span>
           )}
           <span className="ml-auto flex items-center gap-1">
-            <a
-              href={helpHrefForSection(current?.slug ?? HELP_INTRODUCTION.slug, section)}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
-            >
-              Open as a page
-              <ArrowUpRight className="size-3" />
-            </a>
+            <OpenAsPage slug={current?.slug ?? HELP_INTRODUCTION.slug} section={section} />
             <Button
               variant="ghost"
               size="icon-sm"
@@ -309,6 +324,7 @@ export function HelpPanel() {
           )}
         </div>
       </aside>
+      </HelpVocabularyProvider>
     </>
   );
 }

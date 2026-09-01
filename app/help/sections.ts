@@ -1,4 +1,5 @@
 import type { FeatureKey } from '@/lib/features';
+import type { VocabularyKey } from '@/lib/split-fleets';
 
 /**
  * The help manifest: every section, its page, its TOC title, and the
@@ -163,10 +164,17 @@ export const HELP_INTRODUCTION: HelpGroupDef = {
 };
 
 /** The chapter path a section lives on, for panel links and Open-as-a-page:
- *  the introduction's sections are anchors on /help itself. */
-export function helpHrefForSection(slug: string, id?: string | null): string {
+ *  the introduction's sections are anchors on /help itself. A vocabulary
+ *  rides along as a query parameter, ahead of the anchor, so the section
+ *  ids stay the shareable part. */
+export function helpHrefForSection(
+  slug: string,
+  id?: string | null,
+  opts?: { vocab?: VocabularyKey | null },
+): string {
   const base = slug === HELP_INTRODUCTION.slug ? '/help' : `/help/${slug}`;
-  return id ? `${base}#${id}` : base;
+  const query = opts?.vocab ? `?vocab=${opts.vocab}` : '';
+  return id ? `${base}${query}#${id}` : `${base}${query}`;
 }
 
 /** The sections of a chapter this viewer can see. A section gated on a
