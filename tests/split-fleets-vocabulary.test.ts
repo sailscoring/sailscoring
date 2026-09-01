@@ -28,6 +28,7 @@ const SURFACES = [
   'components/split-fleets-editor.tsx',
   'lib/split-fleets-si.ts',
   'lib/split-fleets-render.ts',
+  'app/help/content/split-fleets.tsx',
 ];
 
 /**
