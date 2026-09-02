@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, LogOut, Trash2 } from 'lucide-react';
 
 import {
   useCancelInvitation,
   useFullWorkspace,
   useInviteMember,
+  useLeaveWorkspace,
   useRemoveMember,
   useUpdateMemberRole,
   type WorkspaceRole,
@@ -58,6 +59,12 @@ function RoleSelect({
  * user's email comes from the (server) workspace page so we can find their
  * member row — and their role — once the roster loads.
  *
+ * Your own row is not special-cased away: an owner or admin can change their
+ * own role, and anyone can leave. Better Auth enforces the one rule that
+ * matters — a workspace can't be left without an owner — and its refusal is
+ * shown verbatim rather than pre-empted here, so the card never says no
+ * where the server would have said yes.
+ *
  * Only mounted for a shared workspace. A personal workspace has no members
  * to speak of — it is single-user by design — so the caller leaves this card
  * out entirely rather than rendering a roster of one.
@@ -82,6 +89,7 @@ export function MembersCard({
   const invite = useInviteMember();
   const updateRole = useUpdateMemberRole();
   const removeMember = useRemoveMember();
+  const leaveWorkspace = useLeaveWorkspace();
   const cancelInvitation = useCancelInvitation();
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -114,6 +122,17 @@ export function MembersCard({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Action failed.');
     }
+  }
+
+  async function leave() {
+    if (!data) return;
+    await run(async () => {
+      await leaveWorkspace.mutateAsync(data.id);
+      // The session's active workspace is gone; a hard reload lets every
+      // server component re-resolve, which lands on the personal workspace
+      // (the same reason the switcher reloads rather than soft-routing).
+      window.location.assign('/');
+    });
   }
 
   return (
@@ -151,37 +170,48 @@ export function MembersCard({
                     <div className="text-xs text-muted-foreground truncate">{m.user.email}</div>
                   )}
                 </div>
-                {canManage && !isSelf ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    {roles.includes(m.role as WorkspaceRole) ? (
-                      <RoleSelect
-                        roles={roles}
-                        value={m.role as WorkspaceRole}
-                        onChange={(role) => run(() => updateRole.mutateAsync({ memberId: m.id, role }))}
-                        disabled={updateRole.isPending}
-                        testId={`member-role-${m.user.email}`}
-                      />
-                    ) : (
-                      <span
-                        className="text-xs text-muted-foreground"
-                        data-testid={`member-role-${m.user.email}`}
-                      >
-                        {m.role}
-                      </span>
-                    )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {canManage && roles.includes(m.role as WorkspaceRole) ? (
+                    <RoleSelect
+                      roles={roles}
+                      value={m.role as WorkspaceRole}
+                      onChange={(role) => run(() => updateRole.mutateAsync({ memberId: m.id, role }))}
+                      disabled={updateRole.isPending}
+                      testId={`member-role-${m.user.email}`}
+                    />
+                  ) : (
+                    <span
+                      className="text-xs text-muted-foreground"
+                      data-testid={`member-role-${m.user.email}`}
+                    >
+                      {m.role}
+                    </span>
+                  )}
+                  {isSelf ? (
                     <Button
                       variant="ghost"
-                      size="icon"
-                      aria-label={`Remove ${m.user.email}`}
-                      disabled={removeMember.isPending}
-                      onClick={() => run(() => removeMember.mutateAsync(m.id))}
+                      size="sm"
+                      disabled={leaveWorkspace.isPending}
+                      onClick={leave}
+                      data-testid="leave-workspace"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <LogOut className="h-4 w-4" />
+                      Leave
                     </Button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground shrink-0">{m.role}</span>
-                )}
+                  ) : (
+                    canManage && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${m.user.email}`}
+                        disabled={removeMember.isPending}
+                        onClick={() => run(() => removeMember.mutateAsync(m.id))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )
+                  )}
+                </div>
               </li>
             );
           })}

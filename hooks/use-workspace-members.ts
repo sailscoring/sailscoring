@@ -31,6 +31,8 @@ export interface WorkspaceInvitationRow {
 }
 
 export interface FullWorkspace {
+  /** The active organization's id — what `leave` has to name. */
+  id: string;
   members: WorkspaceMemberRow[];
   invitations: WorkspaceInvitationRow[];
 }
@@ -46,10 +48,12 @@ export function useFullWorkspace() {
     queryFn: async () => {
       const full = unwrap(await authClient.organization.getFullOrganization());
       const f = full as unknown as {
+        id: string;
         members?: WorkspaceMemberRow[];
         invitations?: WorkspaceInvitationRow[];
       };
       return {
+        id: f.id,
         members: f.members ?? [],
         // Only pending invitations are actionable; accepted/cancelled ones
         // are noise on the card.
@@ -86,6 +90,19 @@ export function useRemoveMember() {
       authClient.organization.removeMember({ memberIdOrEmail }).then(unwrap),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.workspaceMembers.all }),
+  });
+}
+
+/**
+ * Leave the active workspace yourself. The plugin refuses when you are its
+ * only owner — that message is the guard, surfaced as-is — and otherwise
+ * removes your member row and clears the session's active workspace, so the
+ * caller must hard-reload: the resolver then lands on the personal workspace.
+ */
+export function useLeaveWorkspace() {
+  return useMutation({
+    mutationFn: (organizationId: string) =>
+      authClient.organization.leave({ organizationId }).then(unwrap),
   });
 }
 
