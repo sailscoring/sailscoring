@@ -136,7 +136,8 @@ export interface FleetHtmlBuild {
  */
 async function buildCompetitorListFile(
   snapshot: SeriesSnapshot,
-  seriesIndexUrl?: string,
+  seriesIndexUrl: string | undefined,
+  generatedAt: Date,
 ): Promise<FleetHtmlFile> {
   const { series, competitors, fleets } = snapshot;
   const fleetById = new Map(fleets.map((f) => [f.id, f]));
@@ -218,7 +219,7 @@ async function buildCompetitorListFile(
         rightLogoUrl: series.eventLogoUrl || undefined,
         leftUrl: series.venueUrl || undefined,
         rightUrl: series.eventUrl || undefined,
-        generatedAt: new Date(),
+        generatedAt,
         ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
       },
       rows,
@@ -281,21 +282,27 @@ export async function buildFleetHtmlFiles(
   // never-published series leave it unset and keep the self-contained
   // embedded payload — that is what lets a downloaded copy outlive an
   // unpublish.
+  // `generatedAt` is the time the pages say the results are provisional as
+  // of. Now, by default; a rebuild of an existing publication passes the
+  // time of the publish it is re-rendering, so old results are not restamped
+  // as fresh.
   opts?: {
     includePrizes?: boolean;
     includeEntryList?: boolean;
     includeTrackData?: boolean;
     raceResultsHref?: string;
     dataPath?: string;
+    generatedAt?: Date;
   },
 ): Promise<FleetHtmlBuild | null> {
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot || snapshot.competitors.length === 0) return null;
+  const generatedAt = opts?.generatedAt ?? new Date();
   if (snapshot.races.length === 0) {
     // Before race one there are no results to render, but the entry list is
     // exactly what an event wants published in that window.
     return opts?.includeEntryList
-      ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl)] }
+      ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt)] }
       : null;
   }
   // Empty venue/event logo slots inherit the workspace defaults, so the
@@ -324,7 +331,7 @@ export async function buildFleetHtmlFiles(
       ...(snapshot.series.eventLogoUrl ? { rightLogoUrl: snapshot.series.eventLogoUrl } : {}),
       ...(snapshot.series.venueUrl ? { leftUrl: snapshot.series.venueUrl } : {}),
       ...(snapshot.series.eventUrl ? { rightUrl: snapshot.series.eventUrl } : {}),
-      generatedAt: new Date(),
+      generatedAt,
       ...(snapshot.series.resultsStatus === 'final'
         ? {
             resultsFinal: true,
@@ -391,7 +398,7 @@ export async function buildFleetHtmlFiles(
       // championship — and a championship is the regime most likely to want
       // its entry list published.
       ...(opts?.includeEntryList
-        ? [await buildCompetitorListFile(snapshot, seriesIndexUrl)]
+        ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt)]
         : []),
     ] };
   }
@@ -431,7 +438,7 @@ export async function buildFleetHtmlFiles(
   // fleet's HTML) from the snapshot and standings already in hand, so the
   // data is loaded and scored exactly once per export.
   const publicExport = (series.includeJsonExport ?? true)
-    ? buildPublicExportFromSnapshot(snapshot, { fleetStandings: fleetResults })
+    ? buildPublicExportFromSnapshot(snapshot, { fleetStandings: fleetResults, exportedAt: generatedAt })
     : null;
   // Serialized once: the same bytes feed the embedded link below and the
   // publication's stored data file, so the two can never drift.
@@ -772,7 +779,7 @@ export async function buildFleetHtmlFiles(
         raceScoresByRaceId,
         competitorsById,
         series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
-        new Date(),
+        generatedAt,
         section ? section.name : fleetName,
         {
           raceStarts: allRaceStarts,
@@ -948,7 +955,7 @@ export async function buildFleetHtmlFiles(
           rightLogoUrl: series.eventLogoUrl || undefined,
           leftUrl: series.venueUrl || undefined,
           rightUrl: series.eventUrl || undefined,
-          generatedAt: new Date(),
+          generatedAt,
           ...(series.resultsStatus === 'final'
             ? {
                 resultsFinal: true,
@@ -973,7 +980,7 @@ export async function buildFleetHtmlFiles(
   // The competitor list (#423) closes the page list: series-wide, and the
   // only page here that owes nothing to a race having been sailed.
   if (opts?.includeEntryList) {
-    results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl));
+    results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt));
   }
 
   return results.length > 0

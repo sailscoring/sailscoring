@@ -128,6 +128,26 @@ function exportReposFor(workspaceId: string): ExportRepos {
 }
 
 /**
+ * How a publish runs, beyond what the request body says.
+ *
+ * `rebuildOnly` re-renders a publication's live pages exactly as they stand
+ * and nothing else — the operator re-publish pass, which brings pages
+ * published by an older renderer up to date without waiting for the scorer.
+ * The page set is taken from the publication rather than the request, and
+ * the build must reproduce it key for key: a page the current build would
+ * add (a feature enabled since) or no longer produces is rejected with
+ * `page-set-changed` instead of quietly changing what is public. The pages
+ * keep the original publish's "provisional as of" stamp and the publication
+ * keeps its published-at time, since neither the results nor the act of
+ * publishing them is new. No revision is pinned either — the content is what
+ * the scorer's last deliberate publish already captured, so a second
+ * `publish` milestone would attribute to them a change they did not make.
+ */
+export interface PublishOptions {
+  rebuildOnly?: boolean;
+}
+
+/**
  * Publish a series' current results (ADR-008 Phase 9/10). Renders each fleet to
  * static HTML, stores it under `/p/{workspaceSlug}/{slug}/{subPath}`, and
  * records it in `published_series`. Explicit, point-in-time: re-publishing
@@ -159,12 +179,16 @@ export async function publishSeries(
   workspace: WorkspaceContext,
   seriesId: string,
   input: PublishInput,
+  opts: PublishOptions = {},
 ): Promise<PublishResult> {
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const series = await repos.series.get(seriesId);
   if (!series) throw new NotFoundError('series');
 
   const existing = await getPublishedBySeries(seriesId);
+  if (opts.rebuildOnly && !existing) {
+    throw new BadRequestError('series is not published', { code: 'not-published' });
+  }
 
   // Resolve the slug up front — it depends only on the series name, the existing
   // publication, and the requested slug, not on the rendered HTML. Doing it
@@ -343,6 +367,9 @@ export async function publishSeries(
       includeTrackData: workspace.features.includes('racesense-import'),
       raceResultsHref,
       dataPath,
+      // A rebuild says what the publish it re-renders said: the results are
+      // provisional as of when the scorer published them, not as of now.
+      ...(opts.rebuildOnly ? { generatedAt: new Date(existing!.publishedAt) } : {}),
     },
   );
   if (!build) throw new NotFoundError('series has no publishable results');
@@ -355,7 +382,13 @@ export async function publishSeries(
   // live page untouched (work-in-progress on one fleet shouldn't disturb the
   // others, or quietly retract them). Removing a page is what Unpublish is for
   // — with the one exception of pages retracted by suppression below.
-  const ticked = input.fleets ? new Set(input.fleets) : null;
+  // A rebuild ticks exactly the live pages: nothing new is built, and the
+  // set check below then confirms nothing live went missing either.
+  const ticked = opts.rebuildOnly
+    ? new Set(existing!.pages.map((p) => p.fleetName))
+    : input.fleets
+      ? new Set(input.fleets)
+      : null;
   // `input.prizes === false` skips the prize sheet without naming any fleet —
   // the single-page dialog's escape hatch (its lone fleet page has no
   // client-known name). Same semantics as an unticked fleet: not rebuilt this
@@ -377,6 +410,25 @@ export async function publishSeries(
     !skipped.has(p.fleetName);
   const toBuild = allFiles.filter(included);
   const carriedAll = (existing?.pages ?? []).filter((p) => !included(p));
+
+  if (opts.rebuildOnly) {
+    // Compared against everything the build produced, not just what was
+    // ticked: a page the build would add is exactly what ticking only the
+    // live pages filtered out of `toBuild`.
+    const live = new Set(existing!.pages.map(pageKey));
+    const builtKeys = new Set(allFiles.map(pageKey));
+    const added = allFiles.filter((f) => !live.has(pageKey(f))).map((f) => f.fleetName);
+    const removed = existing!.pages
+      .filter((p) => !builtKeys.has(pageKey(p)))
+      .map((p) => p.fleetName);
+    if (added.length > 0 || removed.length > 0) {
+      throw new BadRequestError('rebuild would change the page set', {
+        code: 'page-set-changed',
+        added,
+        removed,
+      });
+    }
+  }
 
   // With individual fleet pages switched off (#255), the published output is
   // exactly the combined pages. The build above emits no standalone fleet
@@ -539,7 +591,8 @@ export async function publishSeries(
     dataSubPath: exportJson ? dataSubPath : null,
     dataBlobUrl,
     contentHash: hash,
-    publishedAt: Date.now(),
+    // A rebuild is not a new publish: it keeps the scorer's time.
+    publishedAt: opts.rebuildOnly ? existing!.publishedAt : Date.now(),
     publishedVersion: series.version ?? 1,
   };
   await savePublished(published);
@@ -600,12 +653,14 @@ export async function publishSeries(
   // Revision milestone (#166): seal the open session and pin a `publish`
   // revision capturing exactly what went public — a clean "restore to what I
   // published" point and an audit anchor. Best-effort; never fails the publish.
-  const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
-  await sealOpenRevisions(workspace.workspaceId, seriesId);
-  await captureRevision(actor, seriesId, {
-    kind: 'publish',
-    label: `Published to /p/${workspace.workspaceSlug}/${slug}`,
-  });
+  if (!opts.rebuildOnly) {
+    const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
+    await sealOpenRevisions(workspace.workspaceId, seriesId);
+    await captureRevision(actor, seriesId, {
+      kind: 'publish',
+      label: `Published to /p/${workspace.workspaceSlug}/${slug}`,
+    });
+  }
 
   return toResult(workspace.workspaceSlug, published);
 }

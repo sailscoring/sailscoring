@@ -593,6 +593,9 @@ export function buildPublicExportFromSnapshot(
   snapshot: SeriesSnapshot,
   opts?: {
     fleetStandings?: ReturnType<typeof calculateFleetStandings>['fleetStandings'];
+    /** The export's `exportedAt`; now, unless the caller is re-rendering an
+     *  earlier publish and wants the data file to say when that was. */
+    exportedAt?: Date;
   },
 ): PublicSeriesExport | null {
   const {
@@ -865,7 +868,7 @@ export function buildPublicExportFromSnapshot(
 
   return {
     version: 2 as const,
-    exportedAt: new Date().toISOString(),
+    exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
       venue: series.venue,
