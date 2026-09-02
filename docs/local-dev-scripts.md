@@ -39,6 +39,8 @@ from?", start here.
 | `pnpm delete-account:test` | Same, but against the local container              | Yes — run `pnpm db:up` first   |
 | `pnpm user-stats`        | Admin CLI: per-user activity/membership stats (uses `.env.local`) | Yes |
 | `pnpm user-stats:test`   | Same, but against the local container                | Yes — run `pnpm db:up` first   |
+| `pnpm republish`         | Operator pass: re-render existing publications with the current renderer; report only without `--apply` (uses `.env.local`; see [republish.md](republish.md)) | Yes |
+| `pnpm republish:test`    | Same, but against the local container with `.env.test`'s app URL | Yes — run `pnpm db:up` first |
 | `pnpm redirects`         | Admin CLI: list/add/remove public-URL redirects (ADR-011; uses `.env.local`) | Yes |
 | `pnpm redirects:test`    | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm provision-token`   | Admin CLI: mint/list/revoke API keys (Bearer tokens) for the CLI (uses `.env.local`) | Yes |
@@ -70,6 +72,7 @@ runner that doesn't have it.)
 | `scripts/change-email.ts`         | Admin CLI behind `pnpm change-email` — reassign a user's login email                     |
 | `scripts/delete-account.ts`       | Admin CLI behind `pnpm delete-account` — delete a user and their sole-member workspaces   |
 | `scripts/user-stats.ts`           | Admin CLI behind `pnpm user-stats` — per-user activity and workspace stats               |
+| `scripts/republish.ts`            | Behind `pnpm republish` — re-publish existing publications whose series is unchanged since they were published |
 | `scripts/e2e-with-triage.sh`      | Behind `pnpm test:e2e:triage` — run the suite, then triage; exits with the suite's status |
 | `scripts/flake-triage.ts`         | Behind `pnpm flake:triage` — file/update `flake` issues from the last run's report, skipping failures that a laptop suspend caused (see below) |
 | `scripts/render-scoring-fixtures.ts` | Render YAML scoring fixtures to HTML for human review                                  |

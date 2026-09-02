@@ -38,6 +38,7 @@ Common mappings:
   scripts/provision-org  -> pnpm provision-org:test
   scripts/change-email   -> pnpm change-email:test
   scripts/user-stats     -> pnpm user-stats:test
+  scripts/republish      -> pnpm republish:test
 
 If you genuinely need a combination that isn't covered by a named script,
 add one to package.json rather than running inline."

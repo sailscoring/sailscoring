@@ -50,6 +50,8 @@
     "delete-account:test": "./scripts/local-env.sh --local-db tsx scripts/delete-account.ts",
     "user-stats": "tsx --env-file-if-exists=.env.local scripts/user-stats.ts",
     "user-stats:test": "./scripts/local-env.sh --local-db tsx scripts/user-stats.ts",
+    "republish": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/republish.ts",
+    "republish:test": "./scripts/local-env.sh --local-db tsx --conditions=react-server --env-file-if-exists=.env.test scripts/republish.ts",
     "blw-scrub": "tsx scripts/blw-scrub.ts",
     "archive-generate": "tsx scripts/archive-generate.ts",
     "cluster-rows": "tsx scripts/cluster-rows.ts",

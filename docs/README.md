@@ -100,6 +100,9 @@ How it works, and why.
   requests.
 - [`account-admin.md`](account-admin.md) — admin scripts for changing a
   user's login email and inspecting user stats.
+- [`republish.md`](republish.md) — `pnpm republish`, the operator pass
+  that re-renders existing publications with the current renderer,
+  guarded so it never publishes a scorer's pending edits.
 - [`database-backup.md`](database-backup.md) — daily Postgres backups
   to S3 with Object Lock; threat model, restore procedure, bootstrap
   for a new instance.
