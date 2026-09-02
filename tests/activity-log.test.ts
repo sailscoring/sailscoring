@@ -17,6 +17,8 @@ describe('activityKind', () => {
     ['race.deleted', 'race'],
     ['finishes.recorded', 'finish'],
     ['finishes.entered', 'finish'],
+    ['support.joined', 'member'],
+    ['support.left', 'member'],
   ];
 
   it.each(cases)('maps %s to %s', (action, kind) => {
