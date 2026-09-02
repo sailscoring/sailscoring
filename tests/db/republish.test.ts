@@ -183,7 +183,7 @@ describe.skipIf(skip)('republish — rebuilding a publication in place', () => {
     const [row] = await listPublications(db, { series: seriesId });
     expect(classify(row, 'db')).toEqual({ kind: 'rebuild' });
     const outcome = await rebuildPublication(db, row);
-    expect(outcome).toEqual({ kind: 'rebuilt', pages: 1, dataFile: true });
+    expect(outcome).toEqual({ kind: 'rebuilt', pages: ['standings'], dataFile: true });
 
     const after = (await getPublishedBySeries(seriesId))!;
     expect(after.pages.map((p) => p.subPath)).toEqual(fresh.pages.map((p) => p.subPath));

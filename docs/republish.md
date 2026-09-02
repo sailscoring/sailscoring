@@ -67,9 +67,16 @@ the duration of the run (see [account-admin.md](account-admin.md#production-usag
 pnpm republish:prod
 ```
 
-The report costs nothing. Then
-`--apply --limit 3`, open one of the rebuilt pages and confirm its
-footer link reads `/open?from=…`, and finish with `--apply`.
+The report costs nothing. Then `--apply --limit 3`, open one of the
+rebuilt pages (each `rebuilt` line is followed by its pages' URLs) and
+confirm its footer link reads `/open?from=…`, and finish with `--apply`.
+
+Every line names the series and lists its pages by their path under
+the slug: a slug is shared, so several series can publish into
+`m15/2026`, and the first column alone does not say which one a line
+is about. `rebuilt` means every page of that publication was rewritten
+— blobs are addressed by the publication's hash, so a page is not
+skipped for rendering identically on its own.
 
 Two production notes:
 

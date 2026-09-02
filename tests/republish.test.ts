@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'vitest';
 
-import { classify, publicationBackend, type PublicationRow } from '@/scripts/republish';
+import { classify, describe as describeRow, label, publicationBackend, type PublicationRow } from '@/scripts/republish';
 
 function row(overrides: Partial<PublicationRow> = {}): PublicationRow {
   return {
@@ -73,5 +73,32 @@ describe('republish — publicationBackend', () => {
     expect(publicationBackend(row())).toBe('db');
     expect(publicationBackend(row({ dataBlobUrl: null }))).toBe('db');
     expect(publicationBackend(row({ dataBlobUrl: 'https://blob.example/x' }))).toBe('mixed');
+  });
+});
+
+describe('republish — report lines', () => {
+  test('co-published series share a label, so the line names the series and its pages', () => {
+    // Two series publishing into one slug: the label is identical, the
+    // description is what tells them apart — and says which pages are meant.
+    const a = row({ id: 'pub-a', seriesName: 'Munster Championships', pages: [
+      { fleetName: 'Regatta Racing', subPath: 'regatta-racing', blobUrl: 'db:p/ws/2026/regatta-racing-abc' },
+      { fleetName: 'Prizes', isPrizes: true, subPath: 'prizes', blobUrl: 'db:p/ws/2026/prizes-abc' },
+    ] });
+    const b = row({ id: 'pub-b', seriesName: 'Leinster Championships', pages: [
+      { fleetName: 'Default', isDefault: true, subPath: 'leinsters', blobUrl: 'db:p/ws/2026/leinsters-abc' },
+    ], dataBlobUrl: null });
+    expect(label(a)).toBe(label(b));
+    expect(describeRow(a, a.pages.map((p) => p.subPath), true)).toBe(
+      'Munster Championships — regatta-racing, prizes; data file',
+    );
+    expect(describeRow(b, b.pages.map((p) => p.subPath), false)).toBe(
+      'Leinster Championships — leinsters; no data file',
+    );
+  });
+
+  test('an orphaned publication is described by what it still has', () => {
+    const orphan = row({ seriesId: null, seriesName: null, seriesVersion: null });
+    expect(describeRow(orphan, ['standings'], true)).toBe('(deleted series) — standings; data file');
+    expect(describeRow(orphan, [], false)).toBe('(deleted series) — (no pages); no data file');
   });
 });

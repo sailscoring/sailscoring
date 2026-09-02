@@ -185,7 +185,7 @@ export async function workspaceContextFor(
 }
 
 export type Outcome =
-  | { kind: 'rebuilt'; pages: number; dataFile: boolean }
+  | { kind: 'rebuilt'; pages: string[]; dataFile: boolean }
   | { kind: 'unchanged' }
   | { kind: 'skip'; reason: string }
   | { kind: 'failed'; message: string };
@@ -216,17 +216,34 @@ export async function rebuildPublication(
   const after = await getPublishedBySeries(row.seriesId!);
   if (!after) return { kind: 'failed', message: 'publication vanished during rebuild' };
   if (after.contentHash === row.contentHash) return { kind: 'unchanged' };
-  return { kind: 'rebuilt', pages: after.pages.length, dataFile: Boolean(after.dataBlobUrl) };
+  return {
+    kind: 'rebuilt',
+    pages: after.pages.map((p) => p.subPath),
+    dataFile: Boolean(after.dataBlobUrl),
+  };
 }
 
-function describe(row: PublicationRow): string {
-  const pages = `${row.pages.length} page${row.pages.length === 1 ? '' : 's'}`;
-  const data = row.dataBlobUrl ? 'data file' : 'no data file';
-  return `${row.seriesName ?? '(deleted series)'} — ${pages}, ${data}`;
-}
-
-function label(row: PublicationRow): string {
+/** The report's first column. A slug is a shared namespace — several series
+ *  can publish into one — so this alone does not identify a publication; every
+ *  line also names the series, via {@link describe}. */
+export function label(row: PublicationRow): string {
   return `${row.workspaceSlug}/${row.slug}`;
+}
+
+/** What a line says about its publication: the series, then the pages by
+ *  their path under the slug, so the operator can tell co-published series
+ *  apart and knows exactly which public pages the line is about. */
+export function describe(
+  row: Pick<PublicationRow, 'seriesName'>,
+  pages: string[],
+  dataFile: boolean,
+): string {
+  const list = pages.length > 0 ? pages.join(', ') : '(no pages)';
+  return `${row.seriesName ?? '(deleted series)'} — ${list}; ${dataFile ? 'data file' : 'no data file'}`;
+}
+
+function subPaths(row: PublicationRow): string[] {
+  return row.pages.map((p) => p.subPath);
 }
 
 interface ParsedFlags {
@@ -316,17 +333,17 @@ export async function runCli(argv: string[]): Promise<number> {
     const name = label(row).padEnd(width);
     if (verdict.kind === 'skip') {
       counts.skipped++;
-      console.log(`${name}  skip       ${verdict.reason}`);
+      console.log(`${name}  skip       ${describe(row, subPaths(row), Boolean(row.dataBlobUrl))}; ${verdict.reason}`);
       continue;
     }
     if (!apply) {
       counts.rebuild++;
-      console.log(`${name}  rebuild    ${describe(row)}`);
+      console.log(`${name}  rebuild    ${describe(row, subPaths(row), Boolean(row.dataBlobUrl))}`);
       continue;
     }
     if (acted >= limit) {
       counts.rebuild++;
-      console.log(`${name}  deferred   over --limit; ${describe(row)}`);
+      console.log(`${name}  deferred   ${describe(row, subPaths(row), Boolean(row.dataBlobUrl))}; over --limit`);
       continue;
     }
     acted++;
@@ -334,21 +351,24 @@ export async function runCli(argv: string[]): Promise<number> {
     switch (outcome.kind) {
       case 'rebuilt':
         counts.rebuilt++;
-        console.log(
-          `${name}  rebuilt    ${outcome.pages} page${outcome.pages === 1 ? '' : 's'}, ${outcome.dataFile ? 'data file' : 'no data file'}`,
-        );
+        console.log(`${name}  rebuilt    ${describe(row, outcome.pages, outcome.dataFile)}`);
+        // Every page of the publication was rewritten (blobs are addressed by
+        // the publication's hash); list them as URLs so checking one is a click.
+        for (const subPath of outcome.pages) {
+          console.log(`${''.padEnd(width)}             ${appUrl}/p/${label(row)}/${subPath}`);
+        }
         break;
       case 'unchanged':
         counts.unchanged++;
-        console.log(`${name}  unchanged  already renders identically`);
+        console.log(`${name}  unchanged  ${describe(row, subPaths(row), Boolean(row.dataBlobUrl))}; already renders identically`);
         break;
       case 'skip':
         counts.skipped++;
-        console.log(`${name}  skip       ${outcome.reason}`);
+        console.log(`${name}  skip       ${describe(row, subPaths(row), Boolean(row.dataBlobUrl))}; ${outcome.reason}`);
         break;
       case 'failed':
         counts.failed++;
-        console.log(`${name}  FAILED     ${outcome.message}`);
+        console.log(`${name}  FAILED     ${describe(row, subPaths(row), Boolean(row.dataBlobUrl))}; ${outcome.message}`);
         break;
     }
   }
