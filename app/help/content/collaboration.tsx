@@ -33,7 +33,11 @@ export default function Collaboration() {
           <strong className="text-foreground">Members</strong> card to invite
           them by email. They get a link to accept; once they do, they appear in
           the members list and share the workspace. Owners and admins can change
-          a member’s role or remove them there too.
+          a member’s role or remove them there too — their own included, so an
+          owner who has handed the workspace on can step down or leave. The one
+          rule is that a workspace always keeps an owner: make someone else
+          owner first, and the card will say so if you try to leave before you
+          have.
         </p>
         <p>
           This applies to a shared club or class workspace only.{' '}
