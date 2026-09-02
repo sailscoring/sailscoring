@@ -82,6 +82,28 @@ export default function Collaboration() {
           the rest of your panel.
         </p>
       </Section>
+      <Section id="workspace-activity" title="The workspace activity log">
+        <p>
+          Every change anyone makes in a shared workspace is recorded: who did
+          it, when, and to which series. A series’{' '}
+          <strong className="text-foreground">History</strong> tab shows that
+          series’ own changes grouped under the versions that captured
+          them. The <strong className="text-foreground">Activity</strong> tab
+          on the workspace pages shows the whole workspace’s log in one
+          list, newest first — every series, and the things that happen to
+          the workspace itself rather than to any one series: a series
+          deleted or permanently removed, or a support session joining and
+          leaving. Entries link through to their series while it still exists.
+        </p>
+        <p>
+          The log is what lets a panel keep each other honest about who
+          changed what, and it is the record we point to if a question is
+          ever raised about a result. Press{' '}
+          <strong className="text-foreground">g</strong> then{' '}
+          <strong className="text-foreground">a</strong> from any workspace
+          page to open it.
+        </p>
+      </Section>
       <Section id="reading-help" title="Reading help beside your work">
         <HelpShot
           src="/help/shots/help-panel.webp"

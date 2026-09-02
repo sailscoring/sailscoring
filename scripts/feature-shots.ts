@@ -693,6 +693,17 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Workspace activity log — the workspace Activity tab after
+    // this run's edits and publishes.
+    slug: 'workspace-activity',
+    group: 'Collaboration and accounts',
+    async capture({ page, shot }) {
+      await page.goto(`${BASE}/workspace/activity`);
+      await settle(page);
+      await shot('workspace-activity.png');
+    },
+  },
+  {
     // Inventory: Passwordless sign-in — captured signed out.
     slug: 'sign-in',
     group: 'Collaboration and accounts',

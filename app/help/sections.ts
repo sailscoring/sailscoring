@@ -130,6 +130,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'Working as a panel, and getting help.',
     sections: [
       { id: 'collaboration', title: 'Working with co-scorers' },
+      { id: 'workspace-activity', title: 'The workspace activity log' },
       { id: 'reading-help', title: 'Reading help beside your work' },
       { id: 'sending-feedback', title: 'Sending feedback' },
       { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts' },
@@ -217,6 +218,7 @@ const SECTION_FOR_ROUTE: Record<string, string> = {
   '/series/:id/split-fleets': 'split-fleets',
   '/series/:id/standings': 'reading-the-standings',
   '/workspace': 'signing-in',
+  '/workspace/activity': 'workspace-activity',
   '/workspace/competitors': 'competitor-identity',
   '/workspace/published': 'publishing-results',
   '/workspace/rankings': 'rankings',
