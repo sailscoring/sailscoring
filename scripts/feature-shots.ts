@@ -693,17 +693,6 @@ const SHOTS: Shot[] = [
     },
   },
   {
-    // Inventory: Workspace activity log — the workspace Activity tab after
-    // this run's edits and publishes.
-    slug: 'workspace-activity',
-    group: 'Collaboration and accounts',
-    async capture({ page, shot }) {
-      await page.goto(`${BASE}/workspace/activity`);
-      await settle(page);
-      await shot('workspace-activity.png');
-    },
-  },
-  {
     // Inventory: Passwordless sign-in — captured signed out.
     slug: 'sign-in',
     group: 'Collaboration and accounts',
@@ -1489,6 +1478,41 @@ const SHOTS: Shot[] = [
       await settle(page);
       await page.getByRole('button', { name: /Trash \(1\)/ }).scrollIntoViewIfNeeded();
       await shot('archive-trash.png');
+    },
+  },
+  {
+    // Inventory: Workspace activity log — the workspace Activity tab after
+    // everything this run has done, archive-trash's deletion included, so the
+    // feed carries a workspace-level entry among the series-scoped ones.
+    slug: 'workspace-activity',
+    group: 'Collaboration and accounts',
+    async capture({ page, seriesId, shot }) {
+      await page.goto(`${BASE}/workspace/activity`);
+      await settle(page);
+      if (LOCAL && (await page.getByTestId('workspace-activity-empty').count()) > 0) {
+        // A single-shot run: a fresh user with nothing logged yet. Stage a
+        // race-day edit on the league (a series-linked entry) and the same
+        // archive-and-delete the archive-trash shot performs (a
+        // workspace-level one).
+        await page.goto(`${BASE}/series/${await seriesId()}/races`);
+        await settle(page);
+        await page.getByRole('button', { name: 'Add race' }).click();
+        await settle(page);
+        await page.goto(`${BASE}/`);
+        await settle(page);
+        const regatta = 'Sample Junior Regatta 2026';
+        await page.getByRole('button', { name: `Actions for ${regatta}` }).click();
+        await page.getByRole('menuitem', { name: 'Archive' }).click();
+        await page.getByRole('button', { name: /Archived \(1\)/ }).click();
+        await page.getByRole('button', { name: `Actions for ${regatta}` }).click();
+        await page.getByRole('menuitem', { name: /Delete/ }).click();
+        await page.getByRole('button', { name: 'Delete series' }).click();
+        await page.getByText(regatta).first().waitFor({ state: 'hidden' });
+        await page.goto(`${BASE}/workspace/activity`);
+        await settle(page);
+      }
+      await page.getByTestId('workspace-activity').waitFor();
+      await shot('workspace-activity.png');
     },
   },
   {

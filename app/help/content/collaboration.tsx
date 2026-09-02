@@ -83,6 +83,11 @@ export default function Collaboration() {
         </p>
       </Section>
       <Section id="workspace-activity" title="The workspace activity log">
+        <HelpShot
+          src="/help/shots/workspace-activity.webp"
+          alt="The workspace Activity tab: a deleted series, an archive, and a race added to a league."
+          caption="The workspace Activity tab: a deleted series, an archive, and a race added to a league."
+        />
         <p>
           Every change anyone makes in a shared workspace is recorded: who did
           it, when, and to which series. A series’{' '}
