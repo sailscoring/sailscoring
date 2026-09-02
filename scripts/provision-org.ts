@@ -25,6 +25,10 @@
  *   pnpm tsx scripts/provision-org.ts set-role hyc bob@example.com admin
  *   pnpm tsx scripts/provision-org.ts remove-member hyc bob@example.com
  *   pnpm tsx scripts/provision-org.ts delete-org hyc --force
+ *   pnpm tsx scripts/provision-org.ts support find alice@example.com
+ *   pnpm tsx scripts/provision-org.ts support join hyc mark@example.com --hours 24 --reason "standings query"
+ *   pnpm tsx scripts/provision-org.ts support list
+ *   pnpm tsx scripts/provision-org.ts support leave hyc mark@example.com
  *
  * `add-member` looks members up by email, so they must exist as users
  * first. Either get them to sign in once (the magic-link flow creates the
@@ -50,6 +54,14 @@ import {
   type FeatureKey,
 } from '@/lib/features';
 import { seedFeatureSample } from '@/lib/sample-series/seed';
+import {
+  DEFAULT_SUPPORT_HOURS,
+  findWorkspacesForEmail,
+  joinAsSupport,
+  leaveSupport,
+  listSupportGrants,
+  type SupportGrantRow,
+} from '@/lib/support-grants';
 
 import { ROLE_PERMISSIONS, type WorkspaceRole } from '@/lib/auth/permissions';
 
@@ -728,6 +740,10 @@ function usage(): string {
   enable-feature <org-slug-or-id> <feature>
   disable-feature <org-slug-or-id> <feature>
   list-feature <feature>
+  support find <email>
+  support join <org-slug-or-id> <email> [--hours ${DEFAULT_SUPPORT_HOURS}] [--reason <text>] [--role member|scorer|admin|owner]
+  support list [--all]
+  support leave <org-slug-or-id> <email>
 
 delete-org without --force only prints what would be deleted. Cascades
 through members, invitations, and all series/race/competitor data.
@@ -750,8 +766,119 @@ enable-feature / disable-feature toggle an experimental feature (#155) for a
 club workspace; list-feature prints which orgs have a feature enabled (the
 containment-audience query). Feature keys: ${ALL_FEATURE_KEYS.join(', ')}.
 
+support is the paved path into a workspace you are not a member of, for
+a support request (see docs/workspace-provisioning.md, "Support access").
+find maps the requester's email to their workspaces. join adds <email> as
+a read-only member for --hours (default ${DEFAULT_SUPPORT_HOURS}), records --reason, and writes a
+support.joined entry in that workspace's activity log; the hourly sweep
+removes the membership when the time is up, and leave is the early undo.
+list shows every active grant (--all includes released ones) — review it.
+
 Members must already exist (signed in once, or seeded via pre-create-user).
 Reads DATABASE_URL.`;
+}
+
+function formatGrant(g: SupportGrantRow, now: Date): string {
+  const age = Math.max(0, now.getTime() - g.grantedAt.getTime()) / 3_600_000;
+  const left = (g.expiresAt.getTime() - now.getTime()) / 3_600_000;
+  const state = g.releasedAt
+    ? `released ${g.releasedAt.toISOString().slice(0, 16)} (${g.releasedBy})`
+    : left >= 0
+      ? `expires in ${left.toFixed(1)}h`
+      : `overdue by ${(-left).toFixed(1)}h — the sweep has not run`;
+  // Releasing a grant removes its member row, so only an active grant can be
+  // missing one — that is the Members card having removed it underneath.
+  const membership = g.memberId || g.releasedAt ? g.role : `${g.role}, member row gone`;
+  return `  ${g.org.slug.padEnd(24)}  ${g.user.email.padEnd(36)}  ${membership.padEnd(8)}  joined ${age.toFixed(1)}h ago, ${state}${
+    g.reason ? `\n${' '.repeat(26)}reason: ${g.reason}` : ''
+  }`;
+}
+
+/** The `support` subcommand group: find / join / list / leave. */
+async function runSupport(
+  db: SailScoringDb,
+  verb: string | undefined,
+  args: string[],
+  flags: Record<string, string>,
+): Promise<number> {
+  const now = new Date();
+  switch (verb) {
+    case 'find': {
+      const [email] = args;
+      if (!email) throw new Error('support find: <email> is required');
+      const { user: u, workspaces } = await findWorkspacesForEmail(db, email);
+      console.log(`${u.email} (${u.name || 'no name'}, id: ${u.id})`);
+      if (workspaces.length === 0) {
+        console.log('  (no workspaces)');
+        return 0;
+      }
+      for (const w of workspaces) {
+        const kind = w.personal ? 'personal' : 'club';
+        const via = w.supportGrant ? ', via support grant' : '';
+        console.log(
+          `  ${w.org.slug.padEnd(24)}  ${w.role.padEnd(9)} ${kind.padEnd(8)}  ${String(w.seriesCount).padStart(3)} series  ${w.org.name}${via}`,
+        );
+      }
+      return 0;
+    }
+    case 'join': {
+      const [orgSlugOrId, email] = args;
+      if (!orgSlugOrId || !email) {
+        throw new Error('support join: <org-slug-or-id> <email> are required');
+      }
+      const hours = flags.hours === undefined ? undefined : Number(flags.hours);
+      const role = flags.role;
+      if (role !== undefined && !isRole(role)) {
+        throw new Error(`invalid role "${role}" (expected one of: ${ROLES.join(', ')})`);
+      }
+      const reason = flags.reason === 'true' ? undefined : flags.reason;
+      const g = await joinAsSupport(db, {
+        orgSlugOrId,
+        email,
+        hours,
+        reason,
+        role: role as Role | undefined,
+        now,
+      });
+      console.log(
+        `joined ${g.org.slug} as ${g.user.email} (${g.role}) until ${g.expiresAt.toISOString()}${
+          g.reason ? ` — ${g.reason}` : ''
+        }`,
+      );
+      console.log(`  logged as support.joined in "${g.org.name}"; undo early with: support leave ${g.org.slug} ${g.user.email}`);
+      return 0;
+    }
+    case 'list': {
+      const all = flags.all === 'true';
+      const grants = await listSupportGrants(db, { all });
+      if (grants.length === 0) {
+        console.log(all ? '(no support grants)' : '(no active support grants)');
+        return 0;
+      }
+      console.log(all ? 'support grants:' : 'active support grants:');
+      for (const g of grants) console.log(formatGrant(g, now));
+      return 0;
+    }
+    case 'leave': {
+      const [orgSlugOrId, email] = args;
+      if (!orgSlugOrId || !email) {
+        throw new Error('support leave: <org-slug-or-id> <email> are required');
+      }
+      const { grant, how, memberRemoved } = await leaveSupport(db, { orgSlugOrId, email, now });
+      if (memberRemoved) {
+        console.log(`left ${grant.org.slug} as ${grant.user.email}; logged as support.left`);
+      } else {
+        console.log(
+          `closed the grant on ${grant.org.slug} for ${grant.user.email} (${how}): the membership had already been removed`,
+        );
+      }
+      return 0;
+    }
+    default:
+      throw new Error(
+        `support: expected one of find, join, list, leave${verb ? ` (got "${verb}")` : ''}`,
+      );
+  }
 }
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -991,6 +1118,11 @@ export async function runCli(argv: string[]): Promise<number> {
           console.log(`  ${o.slug.padEnd(24)}  ${o.name}  (id: ${o.id})`);
         }
         return 0;
+      }
+      case 'support': {
+        const [verb, ...args] = positional;
+        // Awaited so a refusal lands in the catch below like every other subcommand.
+        return await runSupport(db, verb, args, flags);
       }
       default:
         console.error(`unknown subcommand: ${subcommand}\n`);
