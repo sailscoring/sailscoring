@@ -303,8 +303,9 @@ not added by hand. Leave it **unset on Development** so publishing uses the
 `published_blobs` Postgres fallback; it's set on Production (and Preview, if
 you connected the store there).
 
-**`CRON_SECRET`** — shared secret for the daily Vercel cron defined in
-`vercel.json` (`/api/cron/sweep-idempotency`, issue #126). Vercel injects
+**`CRON_SECRET`** — shared secret for the Vercel crons defined in
+`vercel.json` (`/api/cron/sweep-idempotency` and `sweep-deleted-series`
+daily, `sweep-support-grants` hourly). Vercel injects
 `Authorization: Bearer ${CRON_SECRET}` on scheduled invocations; the route
 rejects any other caller. Generate with `openssl rand -hex 32`. Set on
 Production only — preview deployments don't run crons. Without it the route
