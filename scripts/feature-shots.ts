@@ -1872,11 +1872,12 @@ async function main() {
         if (LOCAL) {
           // Presentation only, applied at the moment of capture: the
           // throwaway session shouldn't show in marketing shots. Hide the
-          // stealth-beta banner and give the user menu a neutral address in
-          // place of the shots-<timestamp> email.
+          // personal-workspace banner (a club on a shared workspace never
+          // sees it) and give the user menu a neutral address in place of
+          // the shots-<timestamp> email.
           await target.evaluate(() => {
             for (const el of document.querySelectorAll<HTMLElement>(
-              '[data-testid="stealth-beta-banner"]',
+              '[data-testid="personal-workspace-banner"]',
             )) {
               el.style.display = 'none';
             }
