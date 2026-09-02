@@ -5,6 +5,7 @@
 // and the rolling fleet-assignments page (newest round first). Plain
 // HTML strings, no React — mirrors lib/results-renderer.ts conventions.
 
+import type { NationalFlag } from './nationality/types';
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
 import { renderFlagDefs, renderHtmlDocument, TRACK_DATA_COLUMNS, type DocumentChrome } from './results-renderer';
 import { bySailNumber } from './sail-number-sort';
@@ -54,9 +55,9 @@ export interface SplitFleetRenderInput {
   /** Which optional competitor fields the scorer shows; drives the Nat
    *  column. Absent = none. */
   enabledCompetitorFields?: CompetitorFieldKey[];
-  /** Inline flag SVGs keyed by 3-letter code (see `SeriesResultsData.
+  /** Inline flags keyed by 3-letter code (see `SeriesResultsData.
    *  flagSvgByCode`). Callers load it on demand; absent = code-only cells. */
-  flagSvgByCode?: Readonly<Record<string, { viewBox: string; inner: string }>>;
+  flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
   /** Add finish-time and track-data columns to the per-race tables. The
    *  caller resolves the whole opt-in — the workspace's racesense-import
    *  feature AND the series' publishTrackData setting — and each column

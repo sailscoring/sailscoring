@@ -56,13 +56,43 @@ describe('national-letters dataset', () => {
     }
   });
 
-  it('every code has a flag with viewBox + non-empty inner markup', () => {
+  it('every code has a flag: vector markup, or a WebP raster with matching dimensions', () => {
     for (const c of NATIONAL_CODES) {
       const flag = NATIONAL_FLAGS[c.code];
       expect(flag, c.code).toBeDefined();
       expect(flag.viewBox, c.code).toMatch(/^[\d.\s-]+$/);
-      expect(flag.inner.length, c.code).toBeGreaterThan(0);
-      expect(flag.inner, c.code).not.toContain('<svg');
+      if (flag.raster) {
+        expect(flag.inner, c.code).toBeUndefined();
+        expect(flag.raster.src, c.code).toMatch(/^data:image\/webp;base64,[A-Za-z0-9+/]+=*$/);
+        expect(flag.raster.width, c.code).toBe(80);
+        expect(flag.raster.height, c.code).toBeGreaterThan(0);
+        expect(flag.viewBox, c.code).toBe(`0 0 ${flag.raster.width} ${flag.raster.height}`);
+      } else {
+        expect(flag.inner.length, c.code).toBeGreaterThan(0);
+        expect(flag.inner, c.code).not.toContain('<svg');
+      }
+    }
+  });
+
+  // The sync script rasterizes any flag over 2 KB of markup; the worst-case
+  // raster is ~2 KB of base64. So no entry should ever weigh more than this
+  // again — a dataset bump that quietly ships a 149 KB coat of arms trips
+  // here rather than landing in every published standings page.
+  it('keeps every flag under the per-flag byte budget', () => {
+    const BUDGET_BYTES = 2560;
+    for (const c of NATIONAL_CODES) {
+      const flag = NATIONAL_FLAGS[c.code];
+      const bytes = Buffer.byteLength(flag.raster ? flag.raster.src : flag.inner);
+      expect(bytes, `${c.code} is ${bytes} bytes`).toBeLessThanOrEqual(BUDGET_BYTES);
+    }
+  });
+
+  it('ships the simple tricolours as vectors and the coats of arms as rasters', () => {
+    expect(getFlag('IRL')?.raster).toBeUndefined();
+    expect(getFlag('FRA')?.raster).toBeUndefined();
+    // Spain, Croatia, Bermuda, Cyprus and Portugal were the 100 KB+ crests.
+    for (const code of ['ESP', 'CRO', 'BER', 'CYP', 'POR']) {
+      expect(getFlag(code)?.raster, code).toBeDefined();
     }
   });
 

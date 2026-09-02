@@ -1,5 +1,6 @@
 import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
 import { escapeHtml as esc } from './html';
+import type { NationalFlag } from './nationality/types';
 import { elapsedSecondsOf } from './elapsed-time';
 import { parseHmsToSeconds } from './time-parse';
 import {
@@ -112,14 +113,14 @@ export interface SeriesResultsData {
    *  beneath each score from R2 onwards. R1 is suppressed since the seed
    *  column carries it. */
   showPerRaceRatings?: boolean;
-  /** Optional flag-SVG payload, keyed by canonical 3-letter code. When set,
+  /** Optional flag payload, keyed by canonical 3-letter code. When set,
    *  the renderer emits one `<defs><symbol id="flag-XXX">` per code at the
    *  top of `<body>` and references it via `<use>` in the Nat column. Codes
    *  not present here fall back to text-only. Kept opt-in so client bundles
-   *  that pull `results-renderer` don't drag in the ~2.5 MB flag dataset —
-   *  the export flow imports `lib/nationality/flags` dynamically and slices
-   *  it down to the codes actually referenced. */
-  flagSvgByCode?: Readonly<Record<string, { viewBox: string; inner: string }>>;
+   *  that pull `results-renderer` don't drag in the flag dataset — the
+   *  export flow imports `lib/nationality/flags` dynamically and slices it
+   *  down to the codes actually referenced. */
+  flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
   /** The event's standing race management team (#339). Set by the caller only
    *  when the series has opted into publishing officials. */
   officials?: RaceOfficial[];
@@ -885,7 +886,7 @@ export function renderCompetitorListHtml(
     multiPersonFields?: MultiPersonFieldKey[];
     /** Show the Fleet column; set when the series has more than one fleet. */
     multiFleet: boolean;
-    flagSvgByCode?: Readonly<Record<string, { viewBox: string; inner: string }>>;
+    flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
   },
   options?: { fontPercent?: number },
 ): string {
@@ -1382,7 +1383,7 @@ function renderSummaryTable(
   /** Anchor ids of the per-race detail tables present on the page; a race
    *  column header links only when its own table is one of them. */
   linkedAnchorIds: ReadonlySet<string>,
-  flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
+  flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined,
 ): string {
   const { hasDiscards, showBowNumber, showEntryNumber, showTallyNumber, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader, summaryRatingSystem: ratingSystem } = view;
   const hasSeedCol = ratingSystem !== null;
@@ -1565,7 +1566,7 @@ export const TRACK_DATA_COLUMNS: {
 function renderRaceTable(
   race: RaceData,
   view: SectionView,
-  flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
+  flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined,
   // `suppressLabel` drops the "Race N" prefix from the heading — set for the
   // lone race of a race-results page, where the numbering says nothing.
   opts?: { suppressLabel?: boolean },
@@ -1795,18 +1796,23 @@ ${rows}
 
 /** Emit one `<symbol>` per referenced nationality code, deduped, so 200
  *  same-nation competitors share a single ~1 KB SVG def rather than copying
- *  it into every row. Codes without a flag in `flagSvgByCode` are skipped
- *  here and fall back to text-only rendering in the Nat cell. */
+ *  it into every row. A rasterized flag becomes a symbol wrapping one
+ *  `<image>`, so the cells and CSS need not know which kind they got. Codes
+ *  without a flag in `flagSvgByCode` are skipped here and fall back to
+ *  text-only rendering in the Nat cell. */
 export function renderFlagDefs(
   referencedCodes: readonly string[],
-  flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
+  flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined,
 ): string {
   if (!flagSvgByCode) return '';
   const symbols: string[] = [];
   for (const code of referencedCodes) {
     const flag = flagSvgByCode[code];
     if (!flag) continue;
-    symbols.push(`<symbol id="flag-${esc(code)}" viewBox="${esc(flag.viewBox)}">${flag.inner}</symbol>`);
+    const body = flag.raster
+      ? `<image href="${esc(flag.raster.src)}" width="${flag.raster.width}" height="${flag.raster.height}"/>`
+      : flag.inner;
+    symbols.push(`<symbol id="flag-${esc(code)}" viewBox="${esc(flag.viewBox)}">${body}</symbol>`);
   }
   if (symbols.length === 0) return '';
   // Hide the host SVG visually while keeping referenced <use> targets resolvable.
@@ -1818,7 +1824,7 @@ export function renderFlagDefs(
  *  code-only. Empty values render an empty cell so the column stays aligned. */
 function renderNationalityCell(
   code: string | undefined,
-  flagSvgByCode: Readonly<Record<string, { viewBox: string; inner: string }>> | undefined,
+  flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined,
 ): string {
   if (!code) return `<td class="nat"></td>`;
   const hasFlag = flagSvgByCode != null && flagSvgByCode[code] != null;

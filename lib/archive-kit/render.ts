@@ -12,6 +12,7 @@
  */
 
 import { escapeHtml as esc } from '@/lib/html';
+import type { NationalFlag } from '@/lib/nationality/types';
 import {
   renderFlagDefs,
   renderHtmlDocument,
@@ -37,10 +38,10 @@ export interface AsPublishedPageChrome {
   rightUrl?: string;
   /** `/p/{ws}/{slug}` — the breadcrumb up to the series listing. */
   seriesIndexUrl?: string;
-  /** Flag SVGs keyed by 3-letter code (the app's nationality dataset).
+  /** Flags keyed by 3-letter code (the app's nationality dataset).
    *  When set, nationality lead columns render flags like a full-fidelity
    *  page; codes without a flag fall back to text. */
-  flagSvgByCode?: Readonly<Record<string, { viewBox: string; inner: string }>>;
+  flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
 }
 
 /** Lead-column keys that carry a 3-letter national code — Sailwave's `nat`

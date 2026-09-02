@@ -1484,6 +1484,27 @@ describe('renderSeriesHtml — nationality', () => {
     expect(html).not.toContain('symbol id="flag-FRA"');
   });
 
+  it('emits a rasterized flag as a symbol wrapping one <image>, referenced like any other', () => {
+    const espFlag = {
+      viewBox: '0 0 80 53',
+      raster: { src: 'data:image/webp;base64,UklGRgAAAABXRUJQ', width: 80, height: 53 },
+    };
+    const html = renderSeriesHtml({
+      ...withNationality,
+      standings: [{ ...withNationality.standings[0], nationality: 'ESP' }],
+      races: withNationality.races.map((r) => ({ ...r, results: [{ ...r.results[0], nationality: 'ESP' }] })),
+      flagSvgByCode: { IRL: irlFlag, ESP: espFlag },
+    });
+    expect(html).toContain(
+      '<symbol id="flag-ESP" viewBox="0 0 80 53"><image href="data:image/webp;base64,UklGRgAAAABXRUJQ" width="80" height="53"/></symbol>',
+    );
+    expect(html.match(/<symbol id="flag-ESP"/g)?.length).toBe(1);
+    // The cell is the same <use> as a vector flag gets — the row doesn't know.
+    const espCellRe = /<td class="nat">.*?<use href="#flag-ESP"[^>]*\/>.*?ESP<\/span><\/td>/g;
+    expect(html.match(espCellRe)?.length).toBe(2);
+    expect(html).not.toContain('symbol id="flag-IRL"');
+  });
+
   it('falls back to code-only when a code is referenced but not in flagSvgByCode', () => {
     const html = renderSeriesHtml({
       ...withNationality,
