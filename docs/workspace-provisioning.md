@@ -118,6 +118,52 @@ scoring a series that ought to survive, get the owner to copy it to a
 club workspace first ("Copy to another workspace" on series Settings)
 — removal leaves the series where it is, reachable only by the owner.
 
+## Support access
+
+A scorer asks for help with a series in a workspace you are not a member
+of. The options, least to most privilege, are: they send the `.sailscoring`
+file; they send a published or Preview link (the footer's "Open in Sail
+Scoring" carries the series); they invite you as a `member` and remove you
+afterwards; or you let yourself in. Prefer them in that order. The last is
+the only one that works without the scorer doing anything, which is why it
+exists and why it is the most deliberate of the four — it is a paved path
+with an audit trail, not a mechanism for standing access.
+
+```bash
+pnpm provision-org:prod support find alice@example.com
+pnpm provision-org:prod support join hyc mark@example.com --hours 24 --reason "standings query"
+pnpm provision-org:prod support list
+pnpm provision-org:prod support leave hyc mark@example.com
+```
+
+`find` maps the requester's email to their workspaces — name, slug, their
+role, series count — which is step one of every support interaction.
+`join` inserts a real `member` row for you (read-only unless you pass
+`--role`, which you should have a reason for) together with a
+`support_grant` row that records the reason and the expiry, and writes a
+`support.joined` entry in that workspace's activity log. An hourly cron
+(`/api/cron/sweep-support-grants`) removes the membership when the time
+is up and logs `support.left`; `leave` does the same early. `list` is the
+question "am I still sitting in anyone's workspace?" — review it
+periodically, and `--all` shows the history.
+
+The practice, in order of importance:
+
+- **Read-only by default, time-boxed, and logged.** Every grant expires
+  (24 hours unless you say otherwise) and every join and leave is visible
+  in the target workspace's activity log. That visibility is what
+  separates support access from the maintainer quietly adding himself,
+  and it is what the privacy policy discloses.
+- **A grant only ever owns the row it created.** `join` refuses if you are
+  already a member, however you got there; `leave` refuses to touch an
+  ordinary membership (use `remove-member`). If the workspace's owner
+  removes you from the Members card mid-session, the grant closes as
+  `member-removed` on the next sweep rather than pretending otherwise.
+- **This is not a security control.** Anyone holding the production
+  database URL can bypass all of it. Its value is that deviation is
+  visible by absence: a support session with no activity entry looks
+  wrong to anyone reading the log later. Do not go around it.
+
 ## Feature gating (experimental features)
 
 Some features are kept behind a gate (#155) because they're experimental
@@ -244,15 +290,14 @@ right database before enabling on a real workspace like `hyc`.
 
 ## Production usage
 
-The CLI reads `DATABASE_URL` directly. Against production:
-
-```bash
-DATABASE_URL=$PROD_DATABASE_URL pnpm provision-org create-org "…" --slug …
-```
-
-`pnpm provision-org` (no env override) runs against `.env.local` if
-present — that's the local dev / test loop. Don't accidentally point
-local commands at production.
+The CLI reads `DATABASE_URL`, and the three named scripts decide which
+one: `pnpm provision-org` reads `.env.local` (the local dev loop),
+`pnpm provision-org:test` targets the local container, and
+`pnpm provision-org:prod` fetches the production secrets from Bitwarden
+for the one run (see [account-admin.md](account-admin.md#production-usage)).
+Never prefix a command with `DATABASE_URL=…` by hand — the Bash guard
+blocks it, and the point of the `:prod` script is that it says out loud
+where it is going before it goes there.
 
 ## What Phase 7 deliberately left out (since shipped in Phase 10)
 
