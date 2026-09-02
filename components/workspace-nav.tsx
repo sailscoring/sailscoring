@@ -10,7 +10,8 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 /**
  * Workspace-level tab bar — the counterpart of the series tabs for everything
  * that sits above a single series: the series list, the cross-series
- * competitor reconcile surface, and workspace settings. Rendered by the
+ * competitor reconcile surface, the workspace activity log, and workspace
+ * settings. Rendered by the
  * `(workspace)` route-group layout so the workspace-level pages read as one
  * area rather than a home page with satellite pages hidden behind menus.
  *
@@ -35,6 +36,7 @@ export function WorkspaceNav() {
     tabs.push({ label: 'Rankings', href: '/workspace/rankings' });
   }
   tabs.push({ label: 'Published', href: '/workspace/published' });
+  tabs.push({ label: 'Activity', href: '/workspace/activity' });
   tabs.push({ label: 'Settings', href: '/workspace' });
 
   return (

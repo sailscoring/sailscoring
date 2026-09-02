@@ -33,6 +33,7 @@ export default function WorkspaceLayout({
       ? { r: () => router.push('/workspace/rankings') }
       : {}),
     p: () => router.push('/workspace/published'),
+    a: () => router.push('/workspace/activity'),
     t: () => router.push('/workspace'),
   });
 

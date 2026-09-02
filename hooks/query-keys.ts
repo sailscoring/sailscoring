@@ -100,6 +100,7 @@ export const queryKeys = {
   activity: {
     all: ['activity'] as const,
     bySeries: (seriesId: string) => ['activity', 'bySeries', seriesId] as const,
+    workspace: () => ['activity', 'workspace'] as const,
     recent: () => ['activity', 'recent'] as const,
   },
   revisions: {

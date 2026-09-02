@@ -23,6 +23,21 @@ export function useSeriesActivity(seriesId: string) {
 }
 
 /**
+ * The whole workspace's activity, newest first — every series' entries plus
+ * the workspace-level ones (a deleted or purged series, a support session)
+ * that no series feed can show. Backs the workspace Activity tab.
+ */
+export function useWorkspaceActivity() {
+  return useInfiniteQuery({
+    queryKey: queryKeys.activity.workspace(),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => listActivity({ cursor: pageParam }),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    ...workspaceListOptions,
+  });
+}
+
+/**
  * Latest activity per series, keyed by series id — backs the recency strip on
  * each series-list card. Returns a `Map` for O(1) lookup per card.
  */
