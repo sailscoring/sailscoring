@@ -118,6 +118,7 @@ The named scripts encode `DATABASE_URL`, `BETTER_AUTH_*`, and any other env wiri
 | `DATABASE_URL=… pnpm tsx scripts/provision-org.ts …`       | `pnpm provision-org:test …`                         |
 | `DATABASE_URL=… pnpm tsx scripts/user-stats.ts …`          | `pnpm user-stats:test …`                            |
 | `DATABASE_URL=… pnpm tsx scripts/change-email.ts …`        | `pnpm change-email:test …`                          |
+| `DATABASE_URL=$PROD_URL pnpm user-stats …`                 | `pnpm user-stats:prod …` (Bitwarden-fetched; operator runs it, needs a terminal) |
 | `pnpm tsc --noEmit; echo "exit=$?"`                        | `pnpm tsc --noEmit` (the bare exit code is enough)  |
 
 If a script lacks a feature you need (e.g. a missing subcommand on `provision-org`), **extend the script** rather than reaching for `psql -c`, `tsx -e`, or a throwaway `scripts/_*.ts`. Inline workarounds need an env prefix specifically because they don't go through a named script — the missing affordance is the actual bug.

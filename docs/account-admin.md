@@ -107,15 +107,49 @@ DATABASE_URL='postgresql://…?sslmode=require&channel_binding=require' pnpm use
 
 ## Production usage
 
-The CLI reads `DATABASE_URL`. Against production:
+Every admin script has a `:prod` variant that runs it against
+production:
 
 ```bash
-DATABASE_URL=$PROD_DATABASE_URL pnpm change-email old@example.com new@example.com
+pnpm change-email:prod old@example.com new@example.com
+pnpm user-stats:prod
+pnpm republish:prod --apply --limit 3
 ```
 
-`pnpm change-email` (no env override) runs against `.env.local` if
-present — that's the local dev / test loop. Don't accidentally point
-local commands at production.
+The plain script (`pnpm change-email`) reads `.env.local`, which
+`vercel env pull` fills from the Development environment — that's the
+local dev loop, and the production connection string is deliberately
+never written to disk. The `:prod` variants wrap the command in
+`scripts/prod-env.sh`, which fetches the production secrets from
+Bitwarden for the duration of one run.
+
+One-time setup:
+
+1. Install the Bitwarden CLI (`bw`) and `jq`, and `bw login`.
+2. Create a vault item (a Secure Note does) with custom fields named
+   after the variables: `DATABASE_URL` (required; the Neon production
+   URL), `BLOB_READ_WRITE_TOKEN` and `NEXT_PUBLIC_APP_URL` (needed by
+   `republish`). Hidden fields are fine. No other field is read.
+3. Put its id in an untracked `.env.operator` at the repo root:
+
+   ```bash
+   bw list items --search "sailscoring prod" | jq -r '.[] | "\(.id)  \(.name)"'
+   echo 'BW_ITEM=<that id>' > .env.operator
+   ```
+
+   Next.js never loads a file by that name, so it cannot bleed into
+   the app's environment. Run `bw sync` if the item was created after
+   the CLI last synced.
+
+Each run prompts for the master password, unlocks the vault, reads the
+one item, locks the vault again when the command exits, and says which
+database host it is about to use before running anything. If the shell
+already holds an unlocked `BW_SESSION`, that is used and left alone.
+Only the three variables above are exported; the session key never is.
+
+The prompt needs a terminal, so a `:prod` script cannot run from a
+non-interactive shell — the wrapper says so and exits rather than
+hanging. Run production operations yourself, from your own terminal.
 
 ## Multiple emails per account
 

@@ -24,12 +24,13 @@
  *
  * Without `--apply` nothing is written: the pass reports what it would do.
  *
- * Usage (against the production DATABASE_URL — see docs/account-admin.md):
- *   pnpm republish                          # report only
- *   pnpm republish --workspace hyc          # one workspace
- *   pnpm republish --series <uuid>          # one series
- *   pnpm republish --apply --limit 3        # rebuild the first three candidates
- *   pnpm republish --apply                  # rebuild everything eligible
+ * Usage (`pnpm republish:prod` runs against production with the secrets
+ * fetched from Bitwarden — see docs/republish.md and docs/account-admin.md):
+ *   pnpm republish:prod                          # report only
+ *   pnpm republish:prod --workspace hyc          # one workspace
+ *   pnpm republish:prod --series <uuid>          # one series
+ *   pnpm republish:prod --apply --limit 3        # rebuild the first three candidates
+ *   pnpm republish:prod --apply                  # rebuild everything eligible
  *
  * Reads DATABASE_URL, BLOB_READ_WRITE_TOKEN and NEXT_PUBLIC_APP_URL. The app
  * URL is required to apply: the renderer only replaces the embedded payload

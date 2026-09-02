@@ -33,18 +33,25 @@ from?", start here.
 | `pnpm db:auth:generate`  | Regenerate `lib/db/schema/auth.ts` from Better Auth  | No              |
 | `pnpm provision-org`     | Admin CLI: create orgs, add members (uses `.env.local`) | Yes          |
 | `pnpm provision-org:test` | Same, but against the local container                | Yes — run `pnpm db:up` first   |
+| `pnpm provision-org:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm change-email`      | Admin CLI: change a user's login email (uses `.env.local`) | Yes        |
 | `pnpm change-email:test` | Same, but against the local container                | Yes — run `pnpm db:up` first   |
+| `pnpm change-email:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm delete-account`    | Admin CLI: delete a user account + sole-member workspaces (uses `.env.local`) | Yes |
 | `pnpm delete-account:test` | Same, but against the local container              | Yes — run `pnpm db:up` first   |
+| `pnpm delete-account:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm user-stats`        | Admin CLI: per-user activity/membership stats (uses `.env.local`) | Yes |
 | `pnpm user-stats:test`   | Same, but against the local container                | Yes — run `pnpm db:up` first   |
+| `pnpm user-stats:prod`   | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm republish`         | Operator pass: re-render existing publications with the current renderer; report only without `--apply` (uses `.env.local`; see [republish.md](republish.md)) | Yes |
 | `pnpm republish:test`    | Same, but against the local container with `.env.test`'s app URL | Yes — run `pnpm db:up` first |
+| `pnpm republish:prod`    | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm redirects`         | Admin CLI: list/add/remove public-URL redirects (ADR-011; uses `.env.local`) | Yes |
 | `pnpm redirects:test`    | Same, but against the local container                | Yes — run `pnpm db:up` first   |
+| `pnpm redirects:prod`    | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm provision-token`   | Admin CLI: mint/list/revoke API keys (Bearer tokens) for the CLI (uses `.env.local`) | Yes |
 | `pnpm provision-token:test` | Same, but against the local container             | Yes — run `pnpm db:up` first   |
+| `pnpm provision-token:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm cli`               | The `sailscoring` CLI — a pure `/api/v1` client (import/publish/reads); see [cli.md](cli.md) | No (talks to a deployment) |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
 | `pnpm racesense:inspect` | Read a RaceSense regatta export and report what the parser made of it, plus anything it didn't recognise; `--race N`, `--anomalies` | No |
@@ -65,6 +72,7 @@ runner that doesn't have it.)
 | File                              | Purpose                                                                                  |
 |-----------------------------------|------------------------------------------------------------------------------------------|
 | `scripts/local-env.sh`            | Resolve this checkout's app port + local Postgres container/URL (see [Working in a second git worktree](#working-in-a-second-git-worktree)); the one place the local `DATABASE_URL` is built. The `*:test` scripts wrap their commands in it |
+| `scripts/prod-env.sh`             | Run a command against production with `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN` and `NEXT_PUBLIC_APP_URL` fetched from a Bitwarden item for the duration of the run, never written to disk. The `*:prod` scripts wrap their commands in it; setup in [account-admin.md](account-admin.md#production-usage) |
 | `scripts/db-up.sh`                | Idempotently bring up local Postgres in a podman container; verify the port mapping matches `local-env.sh`'s resolved port |
 | `scripts/start-test.sh`           | Build + start Next.js with `.env.test` sourced; used by Playwright's `webServer.command` |
 | `scripts/db-migrate.ts`           | Apply Drizzle migrations (called by `pnpm db:migrate`)                                   |
@@ -85,12 +93,13 @@ persists until `podman rm`.
 
 ## Env file layout
 
-Four env files matter:
+Five env files matter:
 
 1. **`.env.example`** — committed; documents what you'd set in `.env.local`. Never loaded.
 2. **`.env.local`** — gitignored; your personal dev config (Neon URL, your Better Auth secret, etc.). Loaded by `pnpm dev`, `pnpm build`, `pnpm start`, and the `db:*` scripts via `tsx --env-file-if-exists`.
 3. **`.env.test`** — committed; the test fixtures. Loaded by `tests/setup-env.ts` (vitest) and `scripts/start-test.sh` (Playwright). Values here are not secrets; they're test fixtures (see comments in `.env.test` for why that's safe).
 4. **`.env.worktree`** — gitignored, optional; per-checkout port overrides (`SS_APP_PORT`, `SS_PG_PORT`). Loaded only by `scripts/local-env.sh`, never by Next.js — see [Working in a second git worktree](#working-in-a-second-git-worktree).
+5. **`.env.operator`** — gitignored, optional; `BW_ITEM=<id>` naming the Bitwarden item that holds the production secrets. Loaded only by `scripts/prod-env.sh`, never by Next.js — see [account-admin.md](account-admin.md#production-usage).
 
 `DATABASE_URL` is deliberately *not* in `.env.test`. Both test paths default it to the local container URL when unset:
 - vitest: tests with `const skip = !DATABASE_URL` self-skip when nothing has set it (i.e. plain `pnpm test:unit`); `pnpm test:unit:db` forces it via `scripts/local-env.sh --local-db`.

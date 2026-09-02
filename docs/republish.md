@@ -57,16 +57,17 @@ unchanged and nothing is written.
 The script reads `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN` and
 `NEXT_PUBLIC_APP_URL`, and refuses to apply without the app URL: the
 renderer only replaces the embedded payload with a link to the data
-file when it knows the origin the pages are served from. All three are
-in `.env.local` after `vercel env pull`, but that pulls the Development
-environment (see `DEPLOY.md`), whose database is the dev branch and
-which has no Blob token, so override the two that differ:
+file when it knows the origin the pages are served from. `.env.local`
+holds the Development environment (see `DEPLOY.md`), whose database is
+the dev branch and which has no Blob token, so a production run goes
+through the `:prod` variant, which fetches all three from Bitwarden for
+the duration of the run (see [account-admin.md](account-admin.md#production-usage)):
 
 ```bash
-DATABASE_URL='postgresql://…' BLOB_READ_WRITE_TOKEN='vercel_blob_rw_…' NEXT_PUBLIC_APP_URL=https://app.sailscoring.ie pnpm republish
+pnpm republish:prod
 ```
 
-Quote the URL; Neon URLs contain `&`. The report costs nothing. Then
+The report costs nothing. Then
 `--apply --limit 3`, open one of the rebuilt pages and confirm its
 footer link reads `/open?from=…`, and finish with `--apply`.
 
