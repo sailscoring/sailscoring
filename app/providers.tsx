@@ -148,6 +148,10 @@ export function createQueryClient(): QueryClient {
         // session re-check above, and a 409 to the conflict notice or the
         // finish-entry row dialog (see ConflictMutationSubscriber below).
         if (error instanceof AuthError || error instanceof ConflictApiError) return;
+        // A mutation whose caller shows the rejection to the user (a refusal
+        // rendered in the form it came from) says so via `meta`, and is not
+        // a lost write either.
+        if (mutation.meta?.errorShownToUser) return;
         // Everything else goes nowhere. `mutate` swallows rejections, so a
         // caller that passes no onError loses the write in silence: the
         // scorer sees the interaction succeed and the data isn't there. Log

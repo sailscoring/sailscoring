@@ -103,6 +103,8 @@ export function useLeaveWorkspace() {
   return useMutation({
     mutationFn: (organizationId: string) =>
       authClient.organization.leave({ organizationId }).then(unwrap),
+    // The card renders the refusal; it is an answer, not a lost write.
+    meta: { errorShownToUser: true },
   });
 }
 
