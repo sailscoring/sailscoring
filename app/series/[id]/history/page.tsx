@@ -13,6 +13,7 @@ import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { ActivityEntryRow } from '@/components/activity/activity-entry-row';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -136,34 +137,8 @@ function RevisionRow({
   );
 }
 
-/**
- * A change with no revision behind it — a workspace-organisation action that
- * stores nothing recoverable, or an entry predating revision attribution.
- * Shown in the timeline so it isn't lost, but plainly not a saved version:
- * folding it into a neighbouring revision would credit that snapshot with a
- * change it doesn't contain.
- */
-function UnversionedRow({ entry }: { entry: ActivityEntry }) {
-  return (
-    <li className="py-3">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center">
-          <span className="h-1.5 w-1.5 rounded-full border border-muted-foreground/40" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted-foreground">
-            {entry.summary}
-            {entry.count > 1 && <span className="ml-1">×{entry.count}</span>}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {actorLabel(entry.actor)} · {formatRelativeTime(entry.createdAt)} · not
-            captured in a saved version
-          </p>
-        </div>
-      </div>
-    </li>
-  );
-}
+/** The byline note for a change with no revision behind it. */
+const UNVERSIONED_NOTE = 'not captured in a saved version';
 
 export default function SeriesHistoryPage({
   params,
@@ -291,7 +266,13 @@ export default function SeriesHistoryPage({
               onRestore={setConfirming}
             />
           ) : (
-            <UnversionedRow key={item.key} entry={item.entry!} />
+            // A change with no revision behind it — a workspace-organisation
+            // action that stores nothing recoverable, or an entry predating
+            // revision attribution. Shown in the timeline so it isn't lost,
+            // but plainly not a saved version: folding it into a neighbouring
+            // revision would credit that snapshot with a change it doesn't
+            // contain.
+            <ActivityEntryRow key={item.key} entry={item.entry!} note={UNVERSIONED_NOTE} />
           ),
         )}
       </ul>
