@@ -172,6 +172,58 @@ export const orgRequest = pgTable(
   ],
 );
 
+/**
+ * Support grants: the record behind a time-boxed, logged support session in a
+ * workspace the operator is not a member of.
+ *
+ * Access itself is an ordinary `member` row — `resolveWorkspace` and every
+ * membership lookup stay exactly as they are. This table is the side record
+ * the member row cannot hold: why the grant exists, when it expires, and how
+ * it ended. `member_id` is the row `support join` inserted, so `leave` and
+ * the expiry sweep remove precisely that row and never a membership the
+ * workspace granted itself through an invitation. It nulls out (rather than
+ * cascading the grant away) when the member row is removed out-of-band via
+ * the Members card, so the grant is closed as `member-removed` and the audit
+ * trail keeps the row.
+ *
+ * Released grants are kept: `released_at IS NULL` is the active set, and
+ * `released_by` says whether the operator left, the sweep expired it, or the
+ * membership went away underneath it.
+ */
+export const supportGrant = pgTable(
+  "support_grant",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    memberId: text("member_id").references(() => member.id, {
+      onDelete: "set null",
+    }),
+    role: text("role").notNull(),
+    reason: text("reason"),
+    grantedAt: timestamp("granted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+    releasedBy: text("released_by"),
+  },
+  (table) => [
+    index("support_grant_org_idx").on(table.organizationId),
+    index("support_grant_user_idx").on(table.userId),
+    index("support_grant_active_expires_idx")
+      .on(table.expiresAt)
+      .where(sql`released_at IS NULL`),
+    uniqueIndex("support_grant_one_active_per_user_org")
+      .on(table.organizationId, table.userId)
+      .where(sql`released_at IS NULL`),
+  ],
+);
+
 // Better Auth's built-in rate limiter writes here when
 // `rateLimit.storage === 'database'`. Field names match the model schema in
 // @better-auth/core/db/get-tables (key/count/lastRequest); column names follow
