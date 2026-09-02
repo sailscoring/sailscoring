@@ -416,9 +416,31 @@ export async function addMember(
   return { memberId, userId: u.id, role, organizationId: org.id };
 }
 
+/**
+ * Refuse to take away a workspace's last owner. The app's Members card and
+ * Better Auth's own endpoints hold this line; the CLI is the only path that
+ * could quietly leave a workspace nobody owns, so it holds it too, with
+ * `force` as the deliberate override for a workspace being wound down.
+ */
+async function assertNotLastOwner(
+  db: SailScoringDb,
+  args: { orgId: string; orgSlug: string; memberRole: string; force?: boolean; verb: string },
+): Promise<void> {
+  if (args.memberRole !== 'owner' || args.force) return;
+  const [{ n: owners }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(member)
+    .where(and(eq(member.organizationId, args.orgId), eq(member.role, 'owner')));
+  if (owners <= 1) {
+    throw new Error(
+      `refusing to ${args.verb} the only owner of "${args.orgSlug}" — make someone else owner first, or pass --force to leave the workspace without one`,
+    );
+  }
+}
+
 export async function setRole(
   db: SailScoringDb,
-  args: { orgSlugOrId: string; email: string; role: Role },
+  args: { orgSlugOrId: string; email: string; role: Role; force?: boolean },
 ): Promise<{ memberId: string; userId: string; role: Role }> {
   if (!isRole(args.role)) {
     throw new Error(`invalid role "${args.role}" (expected one of: ${ROLES.join(', ')})`);
@@ -430,12 +452,21 @@ export async function setRole(
   if (!u) throw new Error(`user "${args.email}" not found`);
 
   const [existing] = await db
-    .select({ id: member.id })
+    .select({ id: member.id, role: member.role })
     .from(member)
     .where(and(eq(member.organizationId, org.id), eq(member.userId, u.id)))
     .limit(1);
   if (!existing) {
     throw new Error(`${args.email} is not a member of "${org.slug}"`);
+  }
+  if (args.role !== 'owner') {
+    await assertNotLastOwner(db, {
+      orgId: org.id,
+      orgSlug: org.slug,
+      memberRole: existing.role,
+      force: args.force,
+      verb: 'demote',
+    });
   }
   await db.update(member).set({ role: args.role }).where(eq(member.id, existing.id));
   return { memberId: existing.id, userId: u.id, role: args.role };
@@ -443,13 +474,28 @@ export async function setRole(
 
 export async function removeMember(
   db: SailScoringDb,
-  args: { orgSlugOrId: string; email: string },
+  args: { orgSlugOrId: string; email: string; force?: boolean },
 ): Promise<{ removed: boolean }> {
   const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
   if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
 
   const u = await findUserByEmail(db, args.email);
   if (!u) throw new Error(`user "${args.email}" not found`);
+
+  const [existing] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, org.id), eq(member.userId, u.id)))
+    .limit(1);
+  if (existing) {
+    await assertNotLastOwner(db, {
+      orgId: org.id,
+      orgSlug: org.slug,
+      memberRole: existing.role,
+      force: args.force,
+      verb: 'remove',
+    });
+  }
 
   const result = await db
     .delete(member)
@@ -729,8 +775,8 @@ function usage(): string {
   pre-create-user <email> --name <full-name>
   seed-samples <email>
   add-member <org-slug-or-id> <email> [--role owner|admin|member]
-  set-role <org-slug-or-id> <email> <role>
-  remove-member <org-slug-or-id> <email>
+  set-role <org-slug-or-id> <email> <role> [--force]
+  remove-member <org-slug-or-id> <email> [--force]
   list-members <org-slug-or-id>
   personal-workspace <email>
   cancel-invitations <org-slug-or-id>
@@ -747,6 +793,9 @@ function usage(): string {
 
 delete-org without --force only prints what would be deleted. Cascades
 through members, invitations, and all series/race/competitor data.
+
+set-role and remove-member refuse to take away a workspace's only owner;
+--force overrides that for a workspace being wound down.
 
 seed-samples backfills the two sample series into a user's personal
 workspace (for accounts created before sign-up started seeding them). It
@@ -978,7 +1027,7 @@ export async function runCli(argv: string[]): Promise<number> {
         if (!isRole(role)) {
           throw new Error(`invalid role "${role}" (expected one of: ${ROLES.join(', ')})`);
         }
-        const result = await setRole(db, { orgSlugOrId, email, role });
+        const result = await setRole(db, { orgSlugOrId, email, role, force: flags.force === 'true' });
         console.log(`set ${email} role to ${result.role} in ${orgSlugOrId}`);
         return 0;
       }
@@ -987,7 +1036,11 @@ export async function runCli(argv: string[]): Promise<number> {
         if (!orgSlugOrId || !email) {
           throw new Error('remove-member: <org-slug-or-id> <email> are required');
         }
-        const result = await removeMember(db, { orgSlugOrId, email });
+        const result = await removeMember(db, {
+          orgSlugOrId,
+          email,
+          force: flags.force === 'true',
+        });
         if (result.removed) {
           console.log(`removed ${email} from ${orgSlugOrId}`);
         } else {

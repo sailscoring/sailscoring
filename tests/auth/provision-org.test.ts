@@ -222,6 +222,42 @@ describe.skipIf(skip)('provision-org operations', () => {
     expect(listed.members).toHaveLength(1);
   });
 
+  test('setRole and removeMember refuse to take away the only owner unless forced', async () => {
+    const stamp = Date.now();
+    const only = `only-owner-${stamp}@sailscoring.test`;
+    const other = `other-owner-${stamp}@sailscoring.test`;
+    await makeUser(only);
+    await makeUser(other);
+    const org = await createOrg(db, { name: `Owner Guard ${stamp}` });
+    cleanupOrgIds.push(org.id);
+    await addMember(db, { orgSlugOrId: org.slug, email: only, role: 'owner' });
+    await addMember(db, { orgSlugOrId: org.slug, email: other, role: 'admin' });
+
+    await expect(
+      setRole(db, { orgSlugOrId: org.slug, email: only, role: 'member' }),
+    ).rejects.toThrow(/refusing to demote the only owner/);
+    await expect(
+      removeMember(db, { orgSlugOrId: org.slug, email: only }),
+    ).rejects.toThrow(/refusing to remove the only owner/);
+    // Owner to owner is a no-op, never a demotion.
+    await setRole(db, { orgSlugOrId: org.slug, email: only, role: 'owner' });
+
+    // With a second owner in place, stepping down is allowed.
+    await setRole(db, { orgSlugOrId: org.slug, email: other, role: 'owner' });
+    await setRole(db, { orgSlugOrId: org.slug, email: only, role: 'admin' });
+    let listed = await listMembers(db, { orgSlugOrId: org.slug });
+    expect(listed.members.find((m) => m.email === only)?.role).toBe('admin');
+
+    // Now `other` is the only owner: refused again, unless forced.
+    await expect(
+      removeMember(db, { orgSlugOrId: org.slug, email: other }),
+    ).rejects.toThrow(/only owner/);
+    const forced = await removeMember(db, { orgSlugOrId: org.slug, email: other, force: true });
+    expect(forced.removed).toBe(true);
+    listed = await listMembers(db, { orgSlugOrId: org.slug });
+    expect(listed.members.map((m) => m.role)).toEqual(['admin']);
+  });
+
   test('createOrg rejects duplicate slug', async () => {
     const slug = `dup-${Date.now()}`;
     const a = await createOrg(db, { name: 'Alpha', slug });
