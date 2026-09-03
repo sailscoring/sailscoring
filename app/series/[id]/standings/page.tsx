@@ -24,6 +24,16 @@ import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { AsPublishedStandings } from '@/components/as-published-standings';
 import {
+  buildFleetMeta,
+  SplitFleetStandings,
+} from '@/components/split-fleet-standings';
+import { useSplitFleetState } from '@/hooks/use-split-fleets';
+import {
+  roundsForStage,
+  splitFleetStandings,
+  type SplitFleetData,
+} from '@/lib/split-fleets';
+import {
   FleetStandingsTable,
   type FleetStandingsTableProps,
 } from '@/components/fleet-standings-table';
@@ -61,6 +71,16 @@ export default function StandingsPage({
 
   const data = useSeriesData(seriesId, { finishes: true, raceStarts: true });
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
+  // A championship's standings are the tiered championship table, not one
+  // table per round fleet — which is why the scorer's version of this tab is
+  // hidden in favour of the Split Fleets page. A spectator has no such page
+  // (nor the feature gate behind it), and arrived from the published
+  // standings, so the table has to be here. Asked for only where it can
+  // matter: a workspace without the gate has no championship to find.
+  const splitFleetsPossible = spectator || has('split-fleets');
+  const { data: splitState } = useSplitFleetState(seriesId, {
+    enabled: splitFleetsPossible,
+  });
 
   // Publish/preview don't exist for an as-published series (ADR-010): its
   // pages are published by the archive ingest, and there's nothing to render.
@@ -75,7 +95,11 @@ export default function StandingsPage({
       : []),
   ]);
 
-  if (data.status !== 'ready' || subSeriesList === undefined) {
+  if (
+    data.status !== 'ready' ||
+    subSeriesList === undefined ||
+    (splitFleetsPossible && splitState === undefined)
+  ) {
     return <SeriesTabFallback status={data.status === 'missing' ? 'missing' : 'loading'} />;
   }
   const { series, competitors, fleets, races } = data;
@@ -92,6 +116,40 @@ export default function StandingsPage({
   // computed, published, or previewed here.
   if (series.asPublished) {
     return <AsPublishedStandings seriesId={seriesId} />;
+  }
+
+  // A split-fleet championship's standings are the championship table: one
+  // ranking over the qualifying and final stages, tiered by fleet after the
+  // split. The scorer's affordances are left off — publishing a championship
+  // lives on its own tab, and a spectator has neither the tab nor the
+  // permission behind it.
+  if (splitState?.config) {
+    const splitData: SplitFleetData = {
+      config: splitState.config,
+      rounds: splitState.rounds,
+      fleets,
+      competitors,
+      races,
+      raceStarts: allRaceStarts,
+      finishes: allFinishes,
+    };
+    return (
+      <SplitFleetStandings
+        data={splitData}
+        fleetMeta={buildFleetMeta(splitData, fleets)}
+        standings={splitFleetStandings(splitData)}
+        splitRound={roundsForStage(splitState.rounds, 'final')[0] ?? null}
+        enabledFields={series.enabledCompetitorFields ?? []}
+        {...(showResultsStatus
+          ? {
+              resultsStatus: {
+                isFinal,
+                ...(series.finalisedAt ? { finalisedAt: series.finalisedAt } : {}),
+              },
+            }
+          : {})}
+      />
+    );
   }
 
   if (competitors.length === 0) {

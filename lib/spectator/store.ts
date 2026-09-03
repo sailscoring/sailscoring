@@ -18,6 +18,7 @@
  * the seeding side (which pulls in the whole public-export module) lives in
  * `seed.ts` and is loaded only by the route that opens a view.
  */
+import type { SplitFleetConfig, SplitRound } from '../split-fleets';
 import type {
   Competitor,
   Finish,
@@ -49,6 +50,10 @@ export interface SpectatorSeries {
   raceStarts: RaceStart[];
   finishes: Finish[];
   subSeries: SubSeries[];
+  /** Split-fleet state, for a championship's data file. Null on an ordinary
+   *  series — which is also what a file published before championships
+   *  carried the block reads as. */
+  splitFleets: { config: SplitFleetConfig; rounds: SplitRound[] } | null;
 }
 
 const bySeriesId = new Map<string, SpectatorSeries>();

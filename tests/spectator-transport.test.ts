@@ -5,9 +5,16 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { join } from 'node:path';
+
 import { buildPublicExportFromSnapshot, type PublicSeriesExport } from '@/lib/public-export';
 import type { SeriesSnapshot } from '@/lib/series-snapshot';
+import { splitFleetStandings, type SplitFleetData } from '@/lib/split-fleets';
 import type { Competitor, Finish, Fleet, Race, RaceStart, Series } from '@/lib/types';
+import {
+  buildSplitFleetData,
+  loadSplitFleetFixtures,
+} from './fixtures/scoring/split-fleets/loader';
 import {
   buildSpectatorSeries,
   isSpectatorSource,
@@ -178,4 +185,86 @@ describe('the read-only transport', () => {
     expect(() => spectatorRequest(`/api/v1/series/${id}/activity`, 'GET'))
       .toThrow(SpectatorTransportError);
   });
+});
+
+/**
+ * A championship's data file (#496). Its pages are built from the split-fleet
+ * config and rounds, so the viewer has to carry both — otherwise the reader
+ * lands on per-round fleet tables, which say nothing about the championship
+ * they were just looking at.
+ */
+describe('spectator view of a split-fleet championship', () => {
+  const fixtures = loadSplitFleetFixtures(join(__dirname, 'fixtures/scoring/split-fleets'));
+
+  function open(data: SplitFleetData, source = SOURCE) {
+    const exported = buildPublicExportFromSnapshot(
+      {
+        series,
+        competitors: data.competitors,
+        fleets: data.fleets,
+        races: data.races,
+        subSeries: [],
+        finishes: data.finishes,
+        raceStarts: data.raceStarts,
+        ratingOverrides: [],
+      },
+      { splitFleets: { config: data.config, rounds: data.rounds } },
+    );
+    return buildSpectatorSeries(exported!, source);
+  }
+
+  /** The championship as the viewer would score it, from what it holds. */
+  function reopened(view: Awaited<ReturnType<typeof open>>): SplitFleetData {
+    return {
+      config: view.splitFleets!.config,
+      rounds: view.splitFleets!.rounds,
+      fleets: view.fleets,
+      competitors: view.competitors,
+      races: view.races,
+      raceStarts: view.raceStarts,
+      finishes: view.finishes,
+    };
+  }
+
+  const medalRace = () => {
+    const fx = fixtures.find((f) => f.file === '03-f2-ilca-medal-race.yaml');
+    if (!fx) throw new Error('medal-race fixture not found');
+    return buildSplitFleetData(fx.fixture);
+  };
+
+  it('carries the config and rounds through to the transport', async () => {
+    const data = medalRace();
+    const view = await open(data);
+    putSpectatorSeries(view);
+    const answered = spectatorRequest(`/api/v1/series/${view.seriesId}/split-fleets`, 'GET')!
+      .body as { config: unknown; rounds: { fleetIds: string[] }[] };
+
+    expect(answered.config).toEqual(data.config);
+    expect(answered.rounds).toHaveLength(data.rounds.length);
+    const fleetIds = new Set(view.fleets.map((f) => f.id));
+    for (const round of answered.rounds) {
+      expect(round.fleetIds.length).toBeGreaterThan(0);
+      expect(round.fleetIds.every((id) => fleetIds.has(id))).toBe(true);
+    }
+  });
+
+  it('stamps round ownership back onto the fleets, as the server writer does', async () => {
+    const view = await open(medalRace());
+    const roundFleetIds = new Set(view.splitFleets!.rounds.flatMap((r) => r.fleetIds));
+    for (const fleet of view.fleets) {
+      expect(!!fleet.splitRoundId).toBe(roundFleetIds.has(fleet.id));
+    }
+  });
+
+  // The whole scoring corpus, because the failure this guards against is a
+  // silent one: a file that opens, renders, and ranks the event differently.
+  for (const fx of fixtures) {
+    it(`ranks ${fx.file} exactly as the series it was read from`, async () => {
+      const data = buildSplitFleetData(fx.fixture);
+      const view = await open(data, `/p/hyc/2026/${fx.file}.sailscoring.json`);
+      const rows = (d: SplitFleetData) =>
+        splitFleetStandings(d).map((r) => [r.competitor.sailNumber, r.rank, r.total, r.net]);
+      expect(rows(reopened(view))).toEqual(rows(data));
+    });
+  }
 });

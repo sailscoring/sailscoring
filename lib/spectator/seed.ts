@@ -11,6 +11,8 @@
  * page's bundle.
  */
 import { importPublicExport, type ImportRepos, type PublicSeriesExport } from '../public-export';
+import type { SeriesFileSplitRound } from '../series-file';
+import type { SplitFleetConfig, SplitRound } from '../split-fleets';
 import type {
   Competitor,
   Finish,
@@ -79,6 +81,7 @@ function collectingRepos(): { repos: ImportRepos; collected: Collected } {
     raceStarts: [],
     finishes: [],
     subSeries: [],
+    splitFleets: null,
   };
   const repos = {
     listSeriesNames: async () => [],
@@ -89,6 +92,39 @@ function collectingRepos(): { repos: ImportRepos; collected: Collected } {
     raceStartRepo: { save: async (s: RaceStart) => { collected.raceStarts.push(s); return s; } },
     finishRepo: { saveMany: async (list: Finish[]) => { collected.finishes.push(...list); } },
     subSeriesRepo: { saveMany: async (list: SubSeries[]) => { collected.subSeries.push(...list); } },
+    splitFleets: {
+      get: async () => null,
+      replace: async (
+        seriesId: string,
+        data: { config: SplitFleetConfig | null; rounds: SeriesFileSplitRound[] },
+      ) => {
+        collected.splitFleets = data.config
+          ? {
+              config: data.config,
+              rounds: data.rounds.map((r) => ({
+                ...r,
+                seriesId,
+                // The export carries the method as written, since a build
+                // that meets a newer one should not silently deal the round
+                // again under a method it does know.
+                method: r.method as SplitRound['method'],
+                basis: r.basis ?? null,
+              })),
+            }
+          : null;
+        // Round ownership on the fleets, which nothing else carries: the
+        // server writer derives it from each round's fleet list, and the
+        // fleet colours and the entry list's current-fleet collapse both
+        // read it back off the fleet.
+        const roundIdByFleetId = new Map(
+          data.rounds.flatMap((r) => r.fleetIds.map((id) => [id, r.id] as const)),
+        );
+        for (const fleet of collected.fleets) {
+          const roundId = roundIdByFleetId.get(fleet.id);
+          if (roundId) fleet.splitRoundId = roundId;
+        }
+      },
+    },
   } as unknown as ImportRepos;
   return { repos, collected };
 }
@@ -101,6 +137,7 @@ interface Collected {
   raceStarts: RaceStart[];
   finishes: Finish[];
   subSeries: SubSeries[];
+  splitFleets: { config: SplitFleetConfig; rounds: SplitRound[] } | null;
 }
 
 /** Read an already-parsed export into a view, without holding it. */
@@ -129,6 +166,7 @@ export function buildSpectatorSeries(
       raceStarts: collected.raceStarts,
       finishes: collected.finishes,
       subSeries: collected.subSeries,
+      splitFleets: collected.splitFleets,
     };
   });
 }

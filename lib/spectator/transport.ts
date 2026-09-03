@@ -85,10 +85,11 @@ function read(
       // both are legitimately empty rather than missing.
       case 'rating-overrides': return [];
       case 'tcf-history': return [];
-      // A spectator view is nobody's publication and has no split-fleet
-      // rounds behind it (a championship publishes no data file at all).
-      // Answered rather than refused so a build that asks gets the truth.
-      case 'split-fleets': return { config: null, rounds: [] };
+      // A championship's data file carries the config and rounds its pages
+      // were built from; an ordinary series' file carries neither, and
+      // answers as the series it is rather than being refused.
+      case 'split-fleets':
+        return view.splitFleets ?? { config: null, rounds: [] };
       case 'publish': return {
         workspaceSlug: '',
         suggestedSlug: '',
