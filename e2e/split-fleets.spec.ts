@@ -326,6 +326,7 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
  */
 test('split fleets: publish lands the championship + race + assignments pages in the tree', async ({
   page,
+  browser,
   signedInEmail,
 }) => {
   test.setTimeout(240_000);
@@ -409,6 +410,30 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await page.getByRole('link', { name: 'Fleet assignments' }).click();
   await expect(page).toHaveURL(/\/worlds-26\/who-is-in-what-fleet$/);
   await expect(page.getByText(/Preliminary series round 1/)).toBeVisible();
+
+  // A championship publishes its data file like any other results page
+  // (#496), carrying the assignment rounds its pages were built from.
+  await page.goto(champPath);
+  const dataHref =
+    (await page
+      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getAttribute('href')) ?? '';
+  expect(dataHref).toMatch(/\.sailscoring\.json$/);
+  const exported = await (await page.request.get(dataHref)).json();
+  expect(exported.splitFleets.rounds.length).toBeGreaterThan(0);
+
+  // And a reader with no account gets the championship standings they were
+  // looking at — one ranking over the stages — rather than a table per round
+  // fleet, which is what the data file with no rounds behind it would give.
+  const anon = await browser.newContext();
+  const anonPage = await anon.newPage();
+  await anonPage.goto(champPath);
+  await anonPage.getByRole('link', { name: 'Open in Sail Scoring' }).click();
+  await expect(anonPage).toHaveURL(/\/series\/spectator-/);
+  await expect(anonPage.getByRole('columnheader', { name: 'Q1', exact: true })).toBeVisible();
+  await expect(anonPage.getByRole('columnheader', { name: 'Nett' })).toBeVisible();
+  await expect(anonPage.getByText(yellowSails[0]).first()).toBeVisible();
+  await anon.close();
 });
 
 /**

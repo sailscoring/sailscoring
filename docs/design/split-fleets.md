@@ -839,9 +839,16 @@ recomputable. Two consequences:
   `qfConfig` must round-trip through `lib/series-file.ts` (fleets and
   starts already do); omitting any of it is silent data loss.
 - **Public JSON export** carries the same (fleet assignments are public
-  information — they're on every published results page); CSV import
-  accepts a seeding column (Sailwave-compatible ingest of an OA seeding
-  list) and an initial-fleet column (the assignment itself).
+  information — they're on every published results page), which is what lets
+  a published championship have a data file and an "Open in Sail Scoring"
+  link like any other results page. Two things a championship forces on that
+  format: fleet names are made unique within an export, because a
+  reassignment round reuses its labels and a series therefore holds two
+  fleets called Yellow; and absentees are left to the engine that reads the
+  file rather than materialised as DNC rows, because a boat selected into the
+  medal fleet is absent from her old fleet's last race, not DNC in it. CSV
+  import accepts a seeding column (Sailwave-compatible ingest of an OA
+  seeding list) and an initial-fleet column (the assignment itself).
 
 ## Part 3 — UX (high level)
 
