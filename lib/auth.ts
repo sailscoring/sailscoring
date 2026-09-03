@@ -1,12 +1,14 @@
 import { betterAuth } from 'better-auth';
-import { APIError } from 'better-auth/api';
+import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { organization } from 'better-auth/plugins/organization';
 import { apiKey } from '@better-auth/api-key';
 import { eq } from 'drizzle-orm';
 
+import { recordActivity } from '@/lib/activity-log';
 import { sendInvitationEmail, sendMagicLinkEmail } from '@/lib/auth/email';
+import { membershipActivity } from '@/lib/auth/membership-activity';
 import { orgAccessControl, orgRoles } from '@/lib/auth/org-roles';
 import { isPersonalWorkspaceSlug } from '@/lib/features';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
@@ -128,6 +130,43 @@ export const auth = betterAuth({
     // the session row outside `getSession` must still go through
     // `setActiveWorkspace` / `refreshSessionCache` in lib/auth-client.ts,
     // which is what makes turning this on possible at all.
+  },
+  // Membership changes go through the organization plugin's endpoints, which
+  // write nothing to the workspace activity log on their own. The plugin's
+  // own hooks know the member acted on but not who acted, so the log is
+  // written here, after the fact, where the session (the actor) and the
+  // endpoint's return value (what changed) are both to hand. A failure
+  // anywhere in here must never fail the membership change itself.
+  hooks: {
+    after: createAuthMiddleware(async (ctx) => {
+      if (!ctx.path.startsWith('/organization/')) return;
+      try {
+        // The endpoint's session middleware hands the session to the handler,
+        // not to this context; read it off the request cookie ourselves.
+        const actor = (await getSessionFromCtx(ctx))?.user;
+        if (!actor) return;
+        const entry = await membershipActivity({
+          path: ctx.path,
+          actor: { id: actor.id, name: actor.name, email: actor.email },
+          returned: ctx.context.returned,
+          lookupUser: async (userId) => {
+            const [row] = await getDb()
+              .select({ id: authSchema.user.id, name: authSchema.user.name, email: authSchema.user.email })
+              .from(authSchema.user)
+              .where(eq(authSchema.user.id, userId))
+              .limit(1);
+            return row ?? null;
+          },
+        });
+        if (!entry) return;
+        await recordActivity(
+          { workspaceId: entry.workspaceId, userId: actor.id },
+          { action: entry.action, seriesId: null, summary: entry.summary, metadata: entry.metadata },
+        );
+      } catch (err) {
+        console.error('membership activity failed (non-fatal):', err);
+      }
+    }),
   },
   plugins: [
     magicLink({

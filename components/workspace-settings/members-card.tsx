@@ -141,8 +141,8 @@ export function MembersCard({
         <h2 className="text-lg font-semibold">Members</h2>
         <p className="text-sm text-muted-foreground">
           Owners and admins can see and edit every series in this workspace;
-          members get read-only access. Changes show up in each series&apos;
-          Activity log.
+          members get read-only access. Invitations, role changes, and removals
+          are recorded on the workspace&apos;s Activity tab.
         </p>
       </div>
 
