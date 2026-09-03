@@ -19,6 +19,8 @@ describe('activityKind', () => {
     ['finishes.entered', 'finish'],
     ['support.joined', 'member'],
     ['support.left', 'member'],
+    ['member.role-changed', 'member'],
+    ['invitation.cancelled', 'member'],
   ];
 
   it.each(cases)('maps %s to %s', (action, kind) => {

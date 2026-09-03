@@ -67,6 +67,12 @@ export const ACTIVITY_ACTIONS = [
   'split-fleets.round-deleted',
   'support.joined',
   'support.left',
+  'member.invited',
+  'member.joined',
+  'member.role-changed',
+  'member.removed',
+  'member.left',
+  'invitation.cancelled',
 ] as const;
 
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
@@ -95,8 +101,14 @@ export function activityKind(action: string): ActivityKind {
   // As-published ranking ingests (#309) are workspace-level series-regime
   // work; they group with the series activity.
   if (action.startsWith('rankings.')) return 'series';
-  // Who is in the workspace: a support session joining and leaving today,
-  // and the room for ordinary membership events alongside it.
-  if (action.startsWith('support.') || action.startsWith('member.')) return 'member';
+  // Who is in the workspace: invitations, joins, role changes, removals,
+  // and a support session joining and leaving.
+  if (
+    action.startsWith('support.') ||
+    action.startsWith('member.') ||
+    action.startsWith('invitation.')
+  ) {
+    return 'member';
+  }
   return 'other';
 }
