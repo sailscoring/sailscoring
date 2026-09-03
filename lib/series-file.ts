@@ -1266,7 +1266,9 @@ export async function openSeriesFromFile(
   // `archived` is likewise absent — a freshly opened file always lands active.
   // `previousSeriesId` (follow-on lineage) is workspace-local too and stays
   // out of the file; an opened file has no predecessor in this workspace.
-  await repos.seriesRepo.save({
+  // The results lifecycle is absent too, and applied at the end — see the
+  // note by that write.
+  const newSeries: Series = {
     id: newSeriesId,
     name,
     venue: file.series.venue,
@@ -1299,8 +1301,6 @@ export async function openSeriesFromFile(
     publishDetail: file.series.publishDetail ?? 'full',
     rrsOrgPush: file.series.rrsOrgPush,
     prizes: remapPrizes(file.series.prizes, fleetIdMap),
-    resultsStatus: file.series.resultsStatus,
-    finalisedAt: file.series.finalisedAt,
     protestTimeLimit: file.series.protestTimeLimit,
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
@@ -1313,7 +1313,8 @@ export async function openSeriesFromFile(
     // Provenance is caller-supplied, not carried in the file: the Sailwave
     // wizard passes 'sailwave'; a .sailscoring open leaves it unset.
     source: opts?.source,
-  });
+  };
+  await repos.seriesRepo.save(newSeries);
 
   await writeFleetsCompetitorsRaces(repos, file, newSeriesId, now, fleetIdMap, competitorIdMap, raceIdMap, subdivisions.legacyAxisId);
 
@@ -1324,6 +1325,19 @@ export async function openSeriesFromFile(
     await repos.importRevisions(newSeriesId, {
       revisions: file.revisions,
       revisionSnapshots: file.revisionSnapshots,
+    });
+  }
+
+  // The results lifecycle, last of all. A series whose results are final is
+  // read-only, so a replay that set it on the save creating the series would
+  // then be refused every write it had left to make — by the very guard that
+  // protects settled results. The file's value still travels: it is applied
+  // to a series that by then has everything it is declaring final.
+  if (file.series.resultsStatus === 'final') {
+    await repos.seriesRepo.save({
+      ...newSeries,
+      resultsStatus: 'final',
+      finalisedAt: file.series.finalisedAt,
     });
   }
 

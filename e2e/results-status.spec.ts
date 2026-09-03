@@ -135,3 +135,62 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
   await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
 });
+
+/**
+ * A final series' published results can still be opened into a workspace.
+ *
+ * The lifecycle travels with the export, so the import used to create the new
+ * series final and then be refused every write it had left to make — by the
+ * guard that makes a final series read-only. Finished events are exactly the
+ * ones that stay published, so this was most of them.
+ */
+test('results status: a published final series imports into a workspace', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['results-status']);
+  await createSeriesQuick(page, { name: 'Settled League' });
+
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByLabel('Competitor name').fill('Alice');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Final first, so the publish carries a settled series.
+  await page.getByRole('navigation').getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Mark as final' }).click();
+  const finalise = page.getByRole('dialog', { name: 'Mark results as final' });
+  for (const checkbox of await finalise.getByRole('checkbox').all()) await checkbox.check();
+  await finalise.getByRole('button', { name: 'Mark as final' }).click();
+  await expect(finalise).not.toBeVisible();
+
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const publish = page.getByRole('dialog', { name: 'Publish results' });
+  await publish.getByRole('button', { name: 'Publish', exact: true }).click();
+  const published = publish.getByRole('link', { name: /\/p\// });
+  await expect(published).toBeVisible();
+  const path = new URL((await published.getAttribute('href')) ?? '').pathname;
+  await page.keyboard.press('Escape');
+
+  // The published page's data file opens as a copy — with its contents, and
+  // still declaring itself final.
+  await page.goto(path);
+  const dataHref =
+    (await page
+      .getByRole('link', { name: 'Data (.sailscoring.json)' })
+      .getAttribute('href')) ?? '';
+  const from = new URL(dataHref, 'http://localhost').pathname;
+  await page.goto(`/import?from=${encodeURIComponent(from)}`);
+  await expect(page.getByRole('dialog')).toContainText('Settled League');
+  await page.getByRole('button', { name: 'Open series' }).click();
+
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/standings/);
+  await expect(page.getByRole('cell', { name: '42' }).first()).toBeVisible();
+  await expect(page.getByTestId('results-status-chip')).toHaveText('Final results');
+});

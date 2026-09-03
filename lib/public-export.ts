@@ -1250,7 +1250,9 @@ export async function importPublicExport(
       })()
     : undefined;
 
-  await repos.seriesRepo.save({
+  // The results lifecycle is deliberately absent here and applied at the very
+  // end of the import — see the note by that write.
+  const newSeries: Series = {
     id: newSeriesId,
     name: seriesName,
     venue: data.series.venue,
@@ -1279,10 +1281,6 @@ export async function importPublicExport(
     enabledCompetitorFields: data.series.displayFields ?? defaultEnabledCompetitorFields(),
     ...(data.series.multiPersonFields?.length ? { multiPersonFields: data.series.multiPersonFields } : {}),
     primaryPersonLabel: data.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
-    ...(data.series.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
-    ...(data.series.resultsStatus === 'final' && data.series.finalisedAt != null
-      ? { finalisedAt: data.series.finalisedAt }
-      : {}),
     ...(data.series.protestTimeLimit ? { protestTimeLimit: data.series.protestTimeLimit } : {}),
     ...(importOfficials(data.series.officials, newId)),
     // A published export only carries officials when the source series opted
@@ -1317,7 +1315,8 @@ export async function importPublicExport(
         };
       })
       .filter((p): p is Prize => p !== null),
-  });
+  };
+  await repos.seriesRepo.save(newSeries);
 
   await Promise.all(
     data.fleets.map((f) =>
@@ -1579,6 +1578,21 @@ export async function importPublicExport(
           : {}),
         createdAt: r.createdAt,
       })),
+    });
+  }
+
+  // The results lifecycle, last of all. A series whose results are final is
+  // read-only — every write above would be refused by the same guard that
+  // protects settled results, so applying it on the save that creates the
+  // series locked the import against itself. The flag still travels, as it
+  // must: a re-import that quietly reopened settled results as provisional
+  // would be worse than not carrying it at all. It is simply the last thing
+  // set, on a series that by then has everything it is declaring final.
+  if (data.series.resultsStatus === 'final') {
+    await repos.seriesRepo.save({
+      ...newSeries,
+      resultsStatus: 'final',
+      ...(data.series.finalisedAt != null ? { finalisedAt: data.series.finalisedAt } : {}),
     });
   }
 
