@@ -348,9 +348,12 @@ test.describe('Open in Sail Scoring workspace picker', () => {
     // Header switcher reflects the flipped active workspace.
     await expect(page.getByTestId('workspace-switcher')).toContainText(orgName);
 
-    // Series listing in the org workspace shows the import.
+    // Series listing in the org workspace shows the import. The name appears
+    // twice on the row — as the title, and inside the recency strip's
+    // “Imported series …” summary — so match the row, not the text.
     await page.goto('/');
-    await expect(page.getByText(seriesName)).toBeVisible();
+    const importedRow = page.getByRole('link', { name: new RegExp(seriesName) });
+    await expect(importedRow).toBeVisible();
 
     // Series listing in the personal workspace does not. Switch via the
     // header dropdown — the personal workspace's id isn't exposed here,
@@ -361,7 +364,7 @@ test.describe('Open in Sail Scoring workspace picker', () => {
       .filter({ hasText: 'My Workspace' })
       .click();
     await page.waitForURL(/\/$/);
-    await expect(page.getByText(seriesName)).not.toBeVisible();
+    await expect(importedRow).toHaveCount(0);
   });
 
   test('no picker for a single-workspace signed-in user', async ({ page }) => {
