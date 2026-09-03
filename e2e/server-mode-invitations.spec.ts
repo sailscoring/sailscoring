@@ -76,6 +76,23 @@ test.describe('workspace invitations', () => {
       await alice.getByTestId(`member-role-${emailBob}`).click();
       await alice.getByRole('option', { name: 'admin' }).click();
       await expect(alice.getByTestId(`member-role-${emailBob}`)).toContainText('admin');
+
+      // Every step is on the workspace Activity tab: the invitation (Alice),
+      // the acceptance (Bob, in his own name), and the promotion (Alice,
+      // naming Bob). A fresh user has no display name yet, so Bob's label is
+      // his email.
+      const bobName = emailBob;
+      await alice.goto('/workspace/activity');
+      const feed = alice.getByTestId('workspace-activity');
+      await expect(feed.locator('[data-action="member.invited"]')).toContainText(
+        `Invited ${emailBob} as member`,
+      );
+      await expect(feed.locator('[data-action="member.joined"]')).toContainText(
+        `${bobName} accepted an invitation and joined as member`,
+      );
+      await expect(feed.locator('[data-action="member.role-changed"]')).toContainText(
+        `Changed ${bobName}’s role to admin`,
+      );
     } finally {
       await ctxAlice.close();
       await ctxBob.close();
