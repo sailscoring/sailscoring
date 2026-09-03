@@ -24,7 +24,13 @@ import {
 } from '@/lib/api-handlers/series-access';
 import { listTcfHistory } from '@/lib/api-handlers/tcf-history';
 import { suggestFollowOnName } from '@/lib/series-name';
-import { openSeriesFromFile, parseSeriesFile, updateSeriesFromFile } from '@/lib/series-file';
+import { importPublicExport, parsePublicExport } from '@/lib/public-export';
+import {
+  openSeriesFromFile,
+  parseSeriesFile,
+  updateSeriesFromFile,
+  type SeriesFileRepos,
+} from '@/lib/series-file';
 import { endOfSeriesTcfKey, endOfSeriesTcfs } from '@/lib/source-handicaps';
 import { seriesCopyInputSchema } from '@/lib/validation/series-copy';
 import { seriesImportInputSchema } from '@/lib/validation/series-import';
@@ -670,12 +676,18 @@ export async function copySeries(
 }
 
 /**
- * ADR-009 M2 — import a `.sailscoring` file into the active workspace. The
- * body carries the raw file text; `parseSeriesFile` does the structural
- * validation and version migration (a parse failure is a 400), and
- * `openSeriesFromFile` mints a fresh series id, remaps every child id, and
- * disambiguates the name against the workspace. The whole import runs in one
- * transaction so a mid-import failure leaves no partial series.
+ * ADR-009 M2 — import a document into the active workspace as a new series.
+ * Two documents describe a series: a scorer's `.sailscoring` file, and the
+ * sanitized `.sailscoring.json` a publication serves beside its pages
+ * (ADR-012), which is what "Open in Sail Scoring" hands a reader. The body
+ * carries the raw text of either; each has its own parser doing the
+ * structural validation and version migration (a parse failure is a 400),
+ * and each importer mints a fresh series id, remaps every child id, and
+ * disambiguates the name against the workspace.
+ *
+ * Both run in one transaction, which is what makes an import an import: a
+ * mid-import failure leaves no partial series, and the whole thing costs one
+ * activity entry and one revision instead of one per row.
  *
  * Embedded revision history is not restored: `seriesFileReposFor` omits the
  * optional revision hooks, which suits bulk-importing historical files.
@@ -684,21 +696,40 @@ export async function importSeries(
   workspace: WorkspaceContext,
   body: unknown,
 ): Promise<{ id: string }> {
-  const { content } = seriesImportInputSchema.parse(body);
-  let file;
-  try {
-    file = parseSeriesFile(content);
-  } catch (err) {
-    throw new BadRequestError(
-      err instanceof Error ? err.message : 'invalid .sailscoring file',
-    );
+  const { content, format } = seriesImportInputSchema.parse(body);
+
+  let name: string;
+  let run: (repos: SeriesFileRepos) => Promise<string>;
+  if (format === 'public-export') {
+    let data;
+    try {
+      data = parsePublicExport(content);
+    } catch (err) {
+      throw new BadRequestError(
+        err instanceof Error ? err.message : 'invalid published results data',
+      );
+    }
+    name = data.series.name;
+    // `seriesFileReposFor` structurally satisfies the narrower `ImportRepos`,
+    // as it does the export builder's `ExportRepos`.
+    run = (repos) => importPublicExport(data, repos);
+  } else {
+    let file;
+    try {
+      file = parseSeriesFile(content);
+    } catch (err) {
+      throw new BadRequestError(
+        err instanceof Error ? err.message : 'invalid .sailscoring file',
+      );
+    }
+    name = file.series.name;
+    run = (repos) => openSeriesFromFile(file, repos);
   }
 
   const db = getDb();
-  const id = await db.transaction(async (tx) => {
-    const repos = seriesFileReposFor({ db: tx, workspaceId: workspace.workspaceId });
-    return openSeriesFromFile(file, repos);
-  });
+  const id = await db.transaction(async (tx) =>
+    run(seriesFileReposFor({ db: tx, workspaceId: workspace.workspaceId })),
+  );
 
   // Baseline revision: a freshly imported series starts restorable, rather
   // than having its first history entry be whatever edit happens to land next
@@ -706,12 +737,13 @@ export async function importSeries(
   await trackChange(workspace, {
     action: 'series.imported',
     seriesId: id,
-    summary: `Imported series “${file.series.name}”`,
+    summary: `Imported series “${name}”`,
     sessionKey: 'import',
     touch: false,
   });
   // Lazy identity population (#222): link the imported competitors. Identity
-  // is workspace-local and never travels in the file, so it's re-derived here.
+  // is workspace-local and never travels in either document, so it's
+  // re-derived here.
   await relinkIdentitiesBestEffort(workspace.workspaceId);
   return { id };
 }

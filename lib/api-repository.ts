@@ -948,6 +948,27 @@ export async function updateHandicaps(
 }
 
 /**
+ * Import a document — a `.sailscoring` file, or a publication's
+ * `.sailscoring.json` — into the active workspace as a new series.
+ *
+ * One request, server-side, in a transaction. The alternative, replaying the
+ * document through this module's per-entity writes, costs one request and one
+ * full-series revision snapshot per row: the ILCA Worlds data file measured
+ * 267 of each, and the landing page then queued behind the snapshot work
+ * still running after the last response (#499). It also cannot roll back a
+ * failure halfway.
+ */
+export async function importSeriesDocument(
+  content: string,
+  format: 'sailscoring' | 'public-export',
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>('/api/v1/series/import', {
+    method: 'POST',
+    body: { content, format },
+  });
+}
+
+/**
  * ADR-008 Phase 7 — copy a series into another workspace the caller is
  * a member of. Server-only feature; there's no Dexie equivalent because
  * local-first mode has only the implicit "this device" workspace.

@@ -2,9 +2,10 @@
 
 /**
  * Integration tests for `importSeries` / `POST /api/v1/series/import`
- * (ADR-009 M2): a .sailscoring file is imported as a new series with fresh
- * ids and a disambiguated name; bad content is a 400; an Idempotency-Key
- * replay imports only once.
+ * (ADR-009 M2): a document — a .sailscoring file, or a publication's
+ * .sailscoring.json (ADR-012) — is imported as a new series with fresh ids
+ * and a disambiguated name; bad content is a 400; an Idempotency-Key replay
+ * imports only once.
  *
  * Skipped when DATABASE_URL is unset.
  */
@@ -27,6 +28,7 @@ import * as fleets from '@/lib/api-handlers/fleets';
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as races from '@/lib/api-handlers/races';
 import { BadRequestError } from '@/app/api/v1/_lib/handler';
+import { buildPublicExport } from '@/lib/public-export';
 import { buildSeriesFile } from '@/lib/series-file';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
 import { requireWorkspace } from '@/lib/auth/require-workspace';
@@ -144,6 +146,90 @@ describe.skipIf(skip)('series import (ADR-009 M2)', () => {
     expect((await repos.fleetRepo.listBySeries(id)).length).toBe(1);
     expect((await repos.competitorRepo.listBySeries(id)).length).toBe(2);
     expect((await repos.raceRepo.listBySeries(id)).length).toBe(1);
+  });
+
+  /** The same seeded series as a publication's `.sailscoring.json` text. */
+  async function seedPublicExport(name: string): Promise<{ srcId: string; content: string }> {
+    const { srcId } = await seedSeriesFile(name);
+    const data = await buildPublicExport(srcId, seriesFileReposFor({ workspaceId }));
+    return { srcId, content: JSON.stringify(data) };
+  }
+
+  test('imports a published results file as a new series', async () => {
+    const { srcId, content } = await seedPublicExport('Spring Open');
+
+    const { id } = await series.importSeries(ctx, { content, format: 'public-export' });
+    expect(id).not.toBe(srcId);
+
+    const repos = seriesFileReposFor({ workspaceId });
+    const imported = await repos.seriesRepo.get(id);
+    expect(imported!.name).not.toBe('Spring Open');
+    expect(imported!.name).toContain('Spring Open');
+    expect((await repos.fleetRepo.listBySeries(id)).length).toBe(1);
+    expect((await repos.competitorRepo.listBySeries(id)).length).toBe(2);
+    expect((await repos.raceRepo.listBySeries(id)).length).toBe(1);
+  });
+
+  // The point of doing this server-side (#499). Replayed through the app's
+  // per-entity writes, a real championship cost 267 requests, 267 activity
+  // entries and 83 full-series revision snapshots — and the snapshot work
+  // ran on after the last response, which is what the landing page then
+  // queued behind.
+  test('costs one activity entry and one revision, whatever the series holds', async () => {
+    const { content } = await seedPublicExport('Autumn Open');
+    const { id } = await series.importSeries(ctx, { content, format: 'public-export' });
+
+    const activity = await db
+      .select({ id: schema.activityLog.id })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.seriesId, id));
+    expect(activity).toHaveLength(1);
+
+    // The snapshot is captured after the response — `after()` here, a
+    // floating promise outside a request scope — so wait for it rather than
+    // racing it.
+    await vi.waitFor(async () => {
+      const revisions = await db
+        .select({ id: schema.seriesRevision.id })
+        .from(schema.seriesRevision)
+        .where(eq(schema.seriesRevision.seriesId, id));
+      expect(revisions).toHaveLength(1);
+    });
+  });
+
+  test('a rejected import leaves no series behind', async () => {
+    const { content } = await seedPublicExport('Rollback Cup');
+    // A race the writers will refuse. The series row goes in first, so
+    // without the transaction around the whole import it would survive the
+    // failure — which is how #497 left an empty series behind.
+    const broken = JSON.parse(content) as { races: { raceNumber: unknown }[] };
+    broken.races[0].raceNumber = 'not a number';
+
+    await expect(
+      series.importSeries(ctx, { content: JSON.stringify(broken), format: 'public-export' }),
+    ).rejects.toThrow();
+
+    const names = await seriesFileReposFor({ workspaceId }).listSeriesNames();
+    expect(names.filter((n) => n.startsWith('Rollback Cup'))).toHaveLength(1);
+  });
+
+  test('rejects invalid published results data with a 400', async () => {
+    await expect(
+      series.importSeries(ctx, { content: 'not json', format: 'public-export' }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    await expect(
+      series.importSeries(ctx, {
+        content: JSON.stringify({ version: 999, series: { name: 'x' } }),
+        format: 'public-export',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    // A version this build reads, but nothing behind it.
+    await expect(
+      series.importSeries(ctx, {
+        content: JSON.stringify({ version: 2, series: { name: 'x' } }),
+        format: 'public-export',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestError);
   });
 
   test('rejects invalid file content with a 400 (BadRequestError)', async () => {

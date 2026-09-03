@@ -396,7 +396,13 @@ arc. Task-level detail lives in the tracking issues, not here.
   `x-sailscoring-workspace` override, fail closed), `provision-token`.
 - **M2 — Import endpoint.** ✅ `POST /api/v1/series/import` running
   `openSeriesFromFile` server-side, idempotency, mint-new-ids (reuses
-  `parseSeriesFile`; no hand-written `SeriesFile` schema).
+  `parseSeriesFile`; no hand-written `SeriesFile` schema). Since extended to
+  the other document that describes a series — a publication's
+  `.sailscoring.json` (ADR-012), under `format: 'public-export'`, parsed by
+  `parsePublicExport` on the same terms. The in-app "Open in Sail Scoring"
+  import goes through it rather than replaying the document through the app's
+  per-entity writes, which cost a request and a full-series revision snapshot
+  per row (#499).
 - **M3 — Minimal CLI + bulk import.** ✅ `cli/` module, `auth login`,
   `import <files…>` (per-file idempotency, bounded concurrency,
   resume-on-failure). Plus **M3.1** co-publish under a shared slug (the IODAI

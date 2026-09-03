@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildPublicExportFromSnapshot, importPublicExport, type ImportRepos } from '@/lib/public-export';
+import {
+  buildPublicExportFromSnapshot,
+  importPublicExport,
+  parsePublicExport,
+  type ImportRepos,
+} from '@/lib/public-export';
 import type { SeriesSnapshot } from '@/lib/series-snapshot';
 import type { Competitor, Finish, Fleet, Race, RaceStart, Series } from '@/lib/types';
 
@@ -269,5 +274,44 @@ describe('importPublicExport — id overrides (#475)', () => {
     expect(first).not.toBe(secondId);
     expect(savedCompetitors[0].id).not.toBe(second[0].id);
     expect(first).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+/**
+ * The parser at the import boundary. Structural only — the envelope, the
+ * version, and that the collections are there — like `parseSeriesFile` on the
+ * file side. It runs on text someone was handed, so what it throws is meant
+ * to be read.
+ */
+describe('parsePublicExport', () => {
+  const valid = () => JSON.stringify(buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!);
+
+  it('accepts an export this build wrote', () => {
+    expect(parsePublicExport(valid()).series.name).toBe('Autumn League');
+  });
+
+  it('rejects text that is not the format', () => {
+    expect(() => parsePublicExport('not json')).toThrow(/not valid JSON/);
+    expect(() => parsePublicExport('null')).toThrow(/format/);
+    expect(() => parsePublicExport('{"version":2}')).toThrow(/missing series/);
+  });
+
+  it('refuses a version this build cannot read, rather than half-reading it', () => {
+    const future = { ...JSON.parse(valid()), version: 99 };
+    expect(() => parsePublicExport(JSON.stringify(future))).toThrow(/version: 99/);
+    const none = { ...JSON.parse(valid()) };
+    delete none.version;
+    expect(() => parsePublicExport(JSON.stringify(none))).toThrow(/version: unknown/);
+  });
+
+  it('names the collection a truncated file is missing', () => {
+    for (const key of ['fleets', 'competitors', 'races'] as const) {
+      const missing = { ...JSON.parse(valid()) };
+      delete missing[key];
+      expect(() => parsePublicExport(JSON.stringify(missing))).toThrow(new RegExp(key));
+    }
+    const unnamed = JSON.parse(valid());
+    unnamed.series.name = 42;
+    expect(() => parsePublicExport(JSON.stringify(unnamed))).toThrow(/series name/);
   });
 });

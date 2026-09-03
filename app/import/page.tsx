@@ -22,7 +22,7 @@ import {
 import { setActiveWorkspace } from '@/lib/auth-client';
 import * as repos from '@/lib/api-repository';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
-import { importPublicExport, type PublicSeriesExport } from '@/lib/public-export';
+import { type PublicSeriesExport } from '@/lib/public-export';
 import { describeOpenSeriesError } from '@/lib/open-series-error';
 
 type State =
@@ -130,19 +130,22 @@ export default function ImportPage() {
     const chosenWorkspaceId = showWorkspacePicker ? targetWorkspaceId : null;
     setState({ step: 'working' });
     try {
-      // Flip the active workspace before any API write so every
-      // repository call in `importPublicExport` resolves to the chosen
-      // workspace via `requireWorkspace()`. Hard-navigate after success
-      // for the same reason `WorkspaceSwitcher` does: soft routing would
-      // leave server-rendered shells pointing at the previous workspace.
+      // Flip the active workspace before the import so the server resolves
+      // it via `requireWorkspace()` on the request that does the writing.
+      // Hard-navigate after success for the same reason `WorkspaceSwitcher`
+      // does: soft routing would leave server-rendered shells pointing at
+      // the previous workspace.
       if (
         chosenWorkspaceId &&
         chosenWorkspaceId !== activeOrganizationId
       ) {
         await setActiveWorkspace(chosenWorkspaceId);
       }
-      const newId = await importPublicExport(data, repos);
-      window.location.assign(`/series/${newId}/standings`);
+      const { id } = await repos.importSeriesDocument(
+        JSON.stringify(data),
+        'public-export',
+      );
+      window.location.assign(`/series/${id}/standings`);
     } catch (err) {
       console.error(err);
       setState({ step: 'error', message: describeOpenSeriesError(err) });

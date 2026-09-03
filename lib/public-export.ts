@@ -1132,6 +1132,49 @@ export function buildPublicExportFromSnapshot(
 
 // ---- Importer ----
 
+/** Export format versions this build can read. A file written by a newer
+ *  build is refused rather than half-read: the version is what says which
+ *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
+const SUPPORTED_EXPORT_VERSIONS = [1, 2];
+
+/**
+ * Parse the text of a published `.sailscoring.json` data file.
+ *
+ * Structural only — the envelope, the version, and that the four collections
+ * are there — exactly as `parseSeriesFile` treats a `.sailscoring` file.
+ * Restating the whole documented export shape in Zod at the API boundary
+ * would only invite drift from the type above; the fields themselves are
+ * validated where they are written, by the repositories and the database.
+ *
+ * Throws with a message worth showing: this is a file someone was handed.
+ */
+export function parsePublicExport(content: string): PublicSeriesExport {
+  let data: unknown;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    throw new Error('Invalid results data: not valid JSON');
+  }
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Invalid results data format');
+  }
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.version !== 'number' || !SUPPORTED_EXPORT_VERSIONS.includes(obj.version)) {
+    throw new Error(`Unsupported results data version: ${obj.version ?? 'unknown'}`);
+  }
+  const series = obj.series;
+  if (typeof series !== 'object' || series === null) {
+    throw new Error('Invalid results data: missing series');
+  }
+  if (typeof (series as { name?: unknown }).name !== 'string') {
+    throw new Error('Invalid results data: missing series name');
+  }
+  for (const key of ['fleets', 'competitors', 'races'] as const) {
+    if (!Array.isArray(obj[key])) throw new Error(`Invalid results data: missing ${key}`);
+  }
+  return data as PublicSeriesExport;
+}
+
 /**
  * Create a new series from a PublicSeriesExport. Fresh UUIDs are assigned to all
  * entities — the imported series has no file history and no publishing config.
