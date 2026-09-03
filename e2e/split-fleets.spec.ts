@@ -411,9 +411,18 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await expect(page).toHaveURL(/\/worlds-26\/who-is-in-what-fleet$/);
   await expect(page.getByText(/Preliminary series round 1/)).toBeVisible();
 
+  // The published standings state the format they were scored under, in the
+  // language a sailing instruction's scoring section uses — folded away, and
+  // in this series' own vocabulary (#498).
+  await page.goto(champPath);
+  const formatBlock = page.locator('details.sfformat');
+  await expect(formatBlock.locator('li').first()).toBeHidden();
+  await formatBlock.getByText('How this championship is scored').click();
+  await expect(formatBlock.locator('li').first()).toBeVisible();
+  await expect(formatBlock).toContainText(/Preliminary/);
+
   // A championship publishes its data file like any other results page
   // (#496), carrying the assignment rounds its pages were built from.
-  await page.goto(champPath);
   const dataHref =
     (await page
       .getByRole('link', { name: 'Data (.sailscoring.json)' })
@@ -433,6 +442,10 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await expect(anonPage.getByRole('columnheader', { name: 'Q1', exact: true })).toBeVisible();
   await expect(anonPage.getByRole('columnheader', { name: 'Nett' })).toBeVisible();
   await expect(anonPage.getByText(yellowSails[0]).first()).toBeVisible();
+  // …with the same statement of the format under it (#498).
+  await anonPage.getByRole('button', { name: 'How this championship is scored' }).click();
+  await expect(anonPage.getByTestId('sf-format').getByRole('listitem').first()).toBeVisible();
+  await expect(anonPage.getByTestId('sf-format')).toContainText(/Preliminary/);
   await anon.close();
 });
 

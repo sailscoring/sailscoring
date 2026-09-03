@@ -23,6 +23,7 @@ import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog } from '@/components/publish-dialog';
 import { AsPublishedStandings } from '@/components/as-published-standings';
+import { SplitFleetFormat } from '@/components/split-fleet-si';
 import {
   buildFleetMeta,
   SplitFleetStandings,
@@ -134,21 +135,26 @@ export default function StandingsPage({
       finishes: allFinishes,
     };
     return (
-      <SplitFleetStandings
-        data={splitData}
-        fleetMeta={buildFleetMeta(splitData, fleets)}
-        standings={splitFleetStandings(splitData)}
-        splitRound={roundsForStage(splitState.rounds, 'final')[0] ?? null}
-        enabledFields={series.enabledCompetitorFields ?? []}
-        {...(showResultsStatus
-          ? {
-              resultsStatus: {
-                isFinal,
-                ...(series.finalisedAt ? { finalisedAt: series.finalisedAt } : {}),
-              },
-            }
-          : {})}
-      />
+      <div className="space-y-4">
+        <SplitFleetStandings
+          data={splitData}
+          fleetMeta={buildFleetMeta(splitData, fleets)}
+          standings={splitFleetStandings(splitData)}
+          splitRound={roundsForStage(splitState.rounds, 'final')[0] ?? null}
+          enabledFields={series.enabledCompetitorFields ?? []}
+          {...(showResultsStatus
+            ? {
+                resultsStatus: {
+                  isFinal,
+                  ...(series.finalisedAt ? { finalisedAt: series.finalisedAt } : {}),
+                },
+              }
+            : {})}
+        />
+        {/* How the event is scored, under the standings it produced: the
+            follow-up question, not the one the reader came with. */}
+        <SplitFleetFormat config={splitState.config} />
+      </div>
     );
   }
 

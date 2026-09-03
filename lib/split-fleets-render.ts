@@ -8,6 +8,7 @@
 import type { NationalFlag } from './nationality/types';
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
 import { renderFlagDefs, renderHtmlDocument, TRACK_DATA_COLUMNS, type DocumentChrome } from './results-renderer';
+import { describeSplitFleetConfig } from './split-fleets-si';
 import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
@@ -96,7 +97,27 @@ const PAGE_CSS = `<style>
 .sffleets { display: flex; flex-wrap: wrap; gap: 0 1.2em; justify-content: center; align-items: flex-start; }
 .sffleets .tablewrap { margin: 0 0 1em 0; }
 .sffleethead { color: #073358; text-align: center; }
+.sfformat { margin: 2em auto 0; max-width: 46em; text-align: left; }
+.sfformat summary { cursor: pointer; font-weight: 600; }
+.sfformat ol { color: #555; line-height: 1.5; }
 </style>`;
+
+/**
+ * The format, restated as sailing-instruction prose and folded away under the
+ * standings.
+ *
+ * A reader who has just read the table has one obvious next question — how is
+ * this event scored? — and the answer is a thing the app can already write:
+ * the same sentences the scorer checked their configuration against, in the
+ * language the scoring section of a sailing instruction uses. Closed by
+ * default: it is the follow-up question, not the one they arrived with.
+ */
+function formatDetails(config: SplitFleetConfig): string {
+  const lines = describeSplitFleetConfig(config)
+    .map((line) => `<li>${esc(line.text)}</li>`)
+    .join('\n');
+  return `<details class="sfformat"><summary>How this championship is scored</summary>\n<ol>${lines}</ol></details>`;
+}
 
 function showNat(input: SplitFleetRenderInput): boolean {
   return (
@@ -422,7 +443,7 @@ ${body}
 
   return renderHtmlDocument(
     { ...chromeFor(input, opts), fleetName: 'Championship' },
-    `${PAGE_CSS}\n${raceLink}\n${legendHtml()}\n${sections}`,
+    `${PAGE_CSS}\n${raceLink}\n${legendHtml()}\n${sections}\n${formatDetails(input.config)}`,
     {
       fontPercent: 72,
       hasNhcDetail: false,

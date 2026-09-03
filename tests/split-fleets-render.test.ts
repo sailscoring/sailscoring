@@ -15,6 +15,7 @@ import {
   renderSplitFleetRaceResultsPage,
   type SplitFleetRenderInput,
 } from '@/lib/split-fleets-render';
+import { describeSplitFleetConfig } from '@/lib/split-fleets-si';
 import type { RaceStart } from '@/lib/types';
 import { buildSplitFleet, loadSplitFleetFixtures } from './fixtures/scoring/split-fleets/loader';
 
@@ -323,6 +324,46 @@ describe('the championship links to the per-race results page', () => {
     const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
     expect(html).toContain('<th>Q1</th>');
     expect(html).not.toContain('Race results</a>');
+  });
+});
+
+/**
+ * A reader who has read the table has one obvious next question — how is this
+ * event scored? — and the app can already write the answer, in the language a
+ * sailing instruction's scoring section uses (#498).
+ */
+describe('the championship states the format it was scored under', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+
+  it('folds the sailing-instruction prose away under the standings', () => {
+    const input = renderInputFor(FIXTURE);
+    const html = renderSplitFleetStandingsPage(input);
+    expect(html).toContain('<summary>How this championship is scored</summary>');
+
+    // Every sentence, in order, and no others.
+    const details = html.slice(html.indexOf('<details class="sfformat"'));
+    const rendered = [...details.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
+    const expected = describeSplitFleetConfig(input.config).map((line) =>
+      line.text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;'),
+    );
+    expect(rendered).toEqual(expected);
+    expect(rendered.length).toBeGreaterThan(4);
+
+    // Closed by default: it is the follow-up question, not the one the reader
+    // arrived with, and the standings stay the page.
+    expect(details).not.toContain('<details class="sfformat" open');
+  });
+
+  it('says it on the page the publication points at, not on every page', () => {
+    const input = renderInputFor(FIXTURE);
+    // The shared stylesheet carries the rule on every page; only the
+    // championship carries the block.
+    expect(renderSplitFleetRaceResultsPage(input, {})).not.toContain('<details class="sfformat"');
+    expect(renderSplitFleetAssignmentsPage(input, {})).not.toContain('<details class="sfformat"');
   });
 });
 

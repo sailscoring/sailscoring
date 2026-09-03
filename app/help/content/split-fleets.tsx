@@ -255,6 +255,14 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">Mark as final</strong> all live on the Split Fleets
         tab (the regular Standings tab is hidden for these series).
       </p>
+      <p>
+        The standings page also carries the same SI prose you checked your settings against,
+        folded away under{' '}
+        <strong className="text-foreground">How this championship is scored</strong> — so a
+        competitor reading the results can see how the event is scored without being handed
+        the sailing instructions again. It follows the settings, so it is right by
+        construction: there is nothing to keep in step by hand.
+      </p>
     </Section>
   );
 }
