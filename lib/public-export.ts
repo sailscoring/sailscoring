@@ -34,6 +34,7 @@ import { hasConditions } from './race-conditions';
 import { isOfficialRole, namedOfficials } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
+import type { SeriesFileSplitRound } from './series-file';
 import type { SplitFleetConfig } from './split-fleets';
 import type { RenderSplitRound } from './split-fleets-render';
 import {
@@ -423,6 +424,40 @@ export interface PublicSeriesExport {
     raceExclusions?: { raceNumber: number; fleetName: string }[];
     excludeDncOnlyCompetitors?: boolean;
   }[];
+  /** Split-fleet championship state: the series' configuration and the
+   *  assignment rounds behind its published pages. Absent on an ordinary
+   *  series, and on exports from builds before championships published a
+   *  data file at all. Fleet assignments are public information — they are
+   *  printed on every one of those pages — and without them a re-import has
+   *  stage-tagged starts and no rounds, so its standings cannot be rebuilt. */
+  splitFleets?: ExportSplitFleets;
+}
+
+/** The split-fleet block as the export carries it. `config` travels verbatim:
+ *  it names fleets by label and colour, and holds no ids. The rounds travel on
+ *  the export's portable identities — fleets by name, boats by sail number —
+ *  and carry no id of their own, like prizes and officials; an importer mints
+ *  fresh ones and re-stamps round ownership onto the fleets from `fleetNames`. */
+export interface ExportSplitFleets {
+  config: SplitFleetConfig;
+  rounds: ExportSplitRound[];
+}
+
+/** One assignment round in the export. `createdAt` is what orders the rounds,
+ *  so it travels; `publishedAt` does not — it is workspace-local publishing
+ *  state, on the same grounds the series file omits it. */
+export interface ExportSplitRound {
+  stage: 'qualifying' | 'final' | 'medal';
+  fromStageRace: number;
+  /** The round's fleets in SI/tier order, by name. */
+  fleetNames: string[];
+  method: string;
+  basis?: { throughStageRace: number; capturedAt: number } | null;
+  /** Boats placed by hand over the computed assignment: sail number → fleet
+   *  name. The memberships already reflect these; the map is what lets a
+   *  round card tell a hand placement from a computed one. */
+  overrides?: Record<string, string>;
+  createdAt: number;
 }
 
 /** Per-(race, fleet) NHC scoring details for the public export.
@@ -509,12 +544,21 @@ export interface ExportRepos {
    *  defaults (see `applyWorkspaceLogoDefaults`). Absent on the `.sailscoring`
    *  file path, which must serialise the series exactly as stored. */
   logoRepo?: LogoDefaultsReader;
-  /** Optional split-fleet reader (#328). When present and the series carries a
+  /** Optional split-fleet reader. When present and the series carries a
    *  split-fleet config with at least one round, `buildFleetHtmlFiles` emits
    *  the championship standings page + the fleet-assignments page instead of
-   *  per-fleet pages. */
+   *  per-fleet pages, and the export carries the block behind them. */
   splitFleets?: {
     get(seriesId: string): Promise<{ config: SplitFleetConfig; rounds: RenderSplitRound[] } | null>;
+    /** Rewrites the series' config + rounds wholesale, with ids the caller
+     *  has already minted — the same writer the `.sailscoring` file replay
+     *  uses, so the fleet round-ownership re-stamping is shared rather than
+     *  written twice. Needed only on the import side; a read-only bundle
+     *  (the publish path) omits it. */
+    replace?(
+      seriesId: string,
+      data: { config: SplitFleetConfig | null; rounds: SeriesFileSplitRound[] },
+    ): Promise<void>;
   };
 }
 
@@ -580,7 +624,8 @@ export async function buildPublicExport(
   const snapshot = await loadSeriesSnapshot(repos, seriesId);
   if (!snapshot) return null;
   snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
-  return buildPublicExportFromSnapshot(snapshot);
+  const splitFleets = (await repos.splitFleets?.get(seriesId)) ?? undefined;
+  return buildPublicExportFromSnapshot(snapshot, { splitFleets });
 }
 
 /**
@@ -596,6 +641,10 @@ export function buildPublicExportFromSnapshot(
     /** The export's `exportedAt`; now, unless the caller is re-rendering an
      *  earlier publish and wants the data file to say when that was. */
     exportedAt?: Date;
+    /** The series' split-fleet state, for a championship. Passed in rather
+     *  than read here: the snapshot fan-in doesn't carry it, and this half of
+     *  the build is synchronous. Absent on an ordinary series. */
+    splitFleets?: { config: SplitFleetConfig; rounds: RenderSplitRound[] } | null;
   },
 ): PublicSeriesExport | null {
   const {
@@ -1002,6 +1051,34 @@ export function buildPublicExportFromSnapshot(
         })
         .filter((s) => s.fleetNames || s.raceExclusions || s.excludeDncOnlyCompetitors);
       return scoped.length > 0 ? { subSeries: scoped } : {};
+    })(),
+    ...(() => {
+      // The split-fleet block. A config with no rounds yet says nothing a
+      // reader could act on — no boat has been assigned — so it travels only
+      // once the championship has dealt its first round, which is also the
+      // point at which its pages start being published.
+      const sf = opts?.splitFleets;
+      if (!sf || sf.rounds.length === 0) return {};
+      const rounds: ExportSplitRound[] = sf.rounds.map((r) => ({
+        stage: r.stage,
+        fromStageRace: r.fromStageRace,
+        fleetNames: r.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+        method: r.method,
+        ...(r.basis ? { basis: r.basis } : {}),
+        ...(r.overrides && Object.keys(r.overrides).length > 0
+          ? {
+              overrides: Object.fromEntries(
+                Object.entries(r.overrides).flatMap(([cid, fid]) => {
+                  const sail = sailNumberById.get(cid);
+                  const fleetName = fleetNameById.get(fid);
+                  return sail && fleetName ? [[sail, fleetName] as [string, string]] : [];
+                }),
+              ),
+            }
+          : {}),
+        createdAt: r.createdAt,
+      }));
+      return { splitFleets: { config: sf.config, rounds } };
     })(),
   };
 }
@@ -1421,6 +1498,41 @@ export async function importPublicExport(
         };
       }),
     );
+  }
+
+  // Split-fleet config + rounds, replayed last on the freshly minted ids.
+  // Round ids are minted here; the writer re-stamps round ownership onto the
+  // fleets from each round's list, which is why the fleets themselves carry
+  // no marker through the export. References that no longer resolve are
+  // dropped rather than written dangling, as everywhere else in this import.
+  if (data.splitFleets && repos.splitFleets?.replace) {
+    await repos.splitFleets.replace(newSeriesId, {
+      config: data.splitFleets.config,
+      rounds: data.splitFleets.rounds.map((r) => ({
+        id: newId(),
+        stage: r.stage,
+        fromStageRace: r.fromStageRace,
+        fleetIds: r.fleetNames
+          .map((n) => fleetIdByName.get(n))
+          .filter((id): id is string => id != null),
+        method: r.method,
+        basis: r.basis ?? null,
+        ...(r.overrides
+          ? {
+              overrides: Object.fromEntries(
+                Object.entries(r.overrides).flatMap(([sail, fleetName]) => {
+                  const competitorId = competitorIdsBySail.get(sail)?.[0];
+                  const fleetId = fleetIdByName.get(fleetName);
+                  return competitorId && fleetId
+                    ? [[competitorId, fleetId] as [string, string]]
+                    : [];
+                }),
+              ),
+            }
+          : {}),
+        createdAt: r.createdAt,
+      })),
+    });
   }
 
   return newSeriesId;
