@@ -1,12 +1,26 @@
-import { ApiError, ValidationApiError } from '@/lib/api-client';
+import { ApiError, ArchivedApiError, ValidationApiError } from '@/lib/api-client';
+
+/** What each read-only state means for the person who just tried to write. */
+const READ_ONLY_MESSAGES = {
+  'series-archived':
+    'That series is archived, so it can’t be changed. Unarchive it first, then try again.',
+  'series-as-published':
+    'That series is a published archive, so it can’t be changed.',
+  'series-final':
+    'Those results have been marked final, so they can’t be changed. Reopen them as provisional first, then try again.',
+} as const;
 
 /**
  * Turn an error thrown while opening / importing a series file into a message
  * for the "Could not open file" dialog.
  *
- * The point is to stop collapsing every failure into "Please try again." Three
+ * The point is to stop collapsing every failure into "Please try again." Four
  * outcomes are genuinely different:
  *
+ *  - **Read-only target (423).** The series is archived, an as-published
+ *    archive, or its results are marked final. Three different states, and
+ *    each is a different thing for the reader to do about it, so the server's
+ *    reason is what picks the words.
  *  - **Validation rejection (400).** The file reached the server but a field is
  *    missing or malformed — typically a sparse file from an external tool. This
  *    is deterministic: retrying does nothing. We name the offending fields so a
@@ -21,6 +35,10 @@ import { ApiError, ValidationApiError } from '@/lib/api-client';
  * it was simply being discarded at the catch site.
  */
 export function describeOpenSeriesError(err: unknown): string {
+  if (err instanceof ArchivedApiError) {
+    return READ_ONLY_MESSAGES[err.reason];
+  }
+
   if (err instanceof ValidationApiError) {
     const fields = validationFieldList(err.issues);
     if (fields.length > 0) {

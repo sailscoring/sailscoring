@@ -61,14 +61,23 @@ export class ValidationApiError extends ApiError {
   }
 }
 
+/** Why a series is read-only, as the server names it. */
+export type ArchivedReason = 'series-archived' | 'series-as-published' | 'series-final';
+
 /**
- * The target series is archived / read-only (#154). 423 Locked — distinct
- * from 409 so callers can tell "this series is read-only" apart from an
+ * The target series is read-only (#154). 423 Locked — distinct from 409 so
+ * callers can tell "this series is read-only" apart from an
  * optimistic-concurrency conflict.
+ *
+ * `reason` says which of the three states it is in, because they are three
+ * different things for the user to do something about: unarchive it, reopen
+ * the results as provisional, or nothing at all — an as-published archive is
+ * read-only for good. Defaulting them all to "archived", as this once did,
+ * told two thirds of the callers something that had not happened.
  */
 export class ArchivedApiError extends ApiError {
-  constructor() {
-    super('series-archived', 423);
+  constructor(public readonly reason: ArchivedReason = 'series-archived') {
+    super(reason, 423);
     this.name = 'ArchivedApiError';
   }
 }
@@ -138,7 +147,12 @@ export async function apiFetch<T = unknown>(
     if (res.status === 403) throw new ForbiddenApiError(typeof errBody === 'object' ? errBody?.reason : undefined);
     if (res.status === 404) throw new NotFoundApiError(typeof errBody === 'object' ? errBody?.resource : undefined);
     if (res.status === 409) throw new ConflictApiError(typeof errBody === 'object' ? errBody?.detail as ConflictDetail | undefined : undefined);
-    if (res.status === 423) throw new ArchivedApiError();
+    if (res.status === 423) {
+      const reason = typeof errBody === 'object' ? errBody?.reason : undefined;
+      throw new ArchivedApiError(
+        reason === 'series-as-published' || reason === 'series-final' ? reason : undefined,
+      );
+    }
     if (res.status === 400) throw new ValidationApiError(typeof errBody === 'object' ? errBody?.issues : undefined);
     throw new ApiError(`HTTP ${res.status}`, res.status);
   }

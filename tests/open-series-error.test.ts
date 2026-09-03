@@ -1,9 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiError, ValidationApiError } from '@/lib/api-client';
+import { ApiError, ArchivedApiError, ValidationApiError } from '@/lib/api-client';
 import { describeOpenSeriesError } from '@/lib/open-series-error';
 
 describe('describeOpenSeriesError', () => {
+  // A 423 says the target is read-only, and the reason says which of three
+  // states it is in. Collapsing them into "archived" told two thirds of the
+  // callers about something that had not happened.
+  it('says which read-only state a 423 reports, and what to do about it', () => {
+    expect(describeOpenSeriesError(new ArchivedApiError('series-final')))
+      .toMatch(/final[\s\S]*[Rr]eopen them as provisional/);
+    expect(describeOpenSeriesError(new ArchivedApiError('series-archived')))
+      .toMatch(/archived[\s\S]*[Uu]narchive/);
+    expect(describeOpenSeriesError(new ArchivedApiError('series-as-published')))
+      .toContain('published archive');
+    // No reason on the wire falls back to the state that names itself.
+    expect(describeOpenSeriesError(new ArchivedApiError())).toContain('archived');
+    // Never the raw code the dialog used to print.
+    for (const reason of ['series-final', 'series-archived', 'series-as-published'] as const) {
+      expect(describeOpenSeriesError(new ArchivedApiError(reason))).not.toContain('series-');
+    }
+  });
+
   it('names the offending fields from a validation rejection and offers no retry', () => {
     // Shape mirrors the Zod issues array as serialized in the 400 body.
     const err = new ValidationApiError([
