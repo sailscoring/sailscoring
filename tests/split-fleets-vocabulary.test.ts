@@ -25,6 +25,7 @@ const ROOT = join(__dirname, '..');
 /** The files that put split-fleet words in front of a user. */
 const SURFACES = [
   'app/series/[id]/split-fleets/page.tsx',
+  'components/split-fleet-standings.tsx',
   'components/split-fleets-editor.tsx',
   'lib/split-fleets-si.ts',
   'lib/split-fleets-render.ts',
