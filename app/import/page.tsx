@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,7 +29,8 @@ import { describeOpenSeriesError } from '@/lib/open-series-error';
 type State =
   | { step: 'loading' }
   | { step: 'confirm'; data: PublicSeriesExport }
-  | { step: 'working' }
+  /** Carries the export so the busy dialog can keep naming what it opens. */
+  | { step: 'working'; data: PublicSeriesExport }
   | { step: 'error'; message: string };
 
 export default function ImportPage() {
@@ -128,7 +130,7 @@ export default function ImportPage() {
     if (state.step !== 'confirm') return;
     const { data } = state;
     const chosenWorkspaceId = showWorkspacePicker ? targetWorkspaceId : null;
-    setState({ step: 'working' });
+    setState({ step: 'working', data });
     try {
       // Flip the active workspace before the import so the server resolves
       // it via `requireWorkspace()` on the request that does the writing.
@@ -158,6 +160,38 @@ export default function ImportPage() {
 
   return (
     <>
+      {/* Both waits this page has: fetching the published data file, and the
+          import itself, which for a full championship runs several seconds.
+          Without this the page is two closed dialogs — nothing at all under
+          the header — for the whole of either. Same non-dismissible shape as
+          the `.sailscoring` open flow: there is no cancelling a write that is
+          already with the server. */}
+      <Dialog open={state.step === 'loading' || state.step === 'working'}>
+        <DialogContent
+          showCloseButton={false}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          data-testid="import-working"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {state.step === 'working'
+                ? `Opening “${state.data.series.name}”…`
+                : 'Reading the published results…'}
+            </DialogTitle>
+            <DialogDescription>
+              {state.step === 'working'
+                ? 'Creating the series in your workspace. This takes a few seconds for a large event.'
+                : 'Fetching the results data behind the page you came from.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={state.step === 'confirm'}
         onOpenChange={(open) => { if (!open) handleCancel(); }}

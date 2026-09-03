@@ -196,7 +196,23 @@ test('the publication serves a .sailscoring.json data file and pages reference i
   const from = new URL(dataHref, 'http://localhost').pathname;
   await page.goto(`/import?from=${encodeURIComponent(from)}`);
   await expect(page.getByRole('dialog')).toContainText('Data File League');
+
+  // The import runs server-side and takes real time on a real event, so the
+  // page has to say so — it used to close the dialog and show nothing at all
+  // under the header until the new series loaded. Held open here so the wait
+  // is observable rather than raced.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/api/v1/series/import', async (route) => {
+    await held;
+    await route.continue();
+  });
   await page.getByRole('button', { name: 'Open series' }).click();
+  const busy = page.getByTestId('import-working');
+  await expect(busy).toContainText('Data File League');
+  await expect(busy.getByRole('button')).toHaveCount(0);
+  release();
+
   await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/standings/);
   await expect(page.getByRole('cell', { name: '17' }).first()).toBeVisible();
 });
