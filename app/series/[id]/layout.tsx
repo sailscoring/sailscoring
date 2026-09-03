@@ -20,7 +20,6 @@ import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { Button } from '@/components/ui/button';
 import { SeriesNotFound } from '@/components/series-not-found';
-import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 // Each tab carries its `g`-chord key; the chord bindings and the help-dialog
 // rows are both derived from the visible tab set below, so a tab that isn't
@@ -130,7 +129,7 @@ export default function SeriesLayout({
   }
 
   if (spectator.kind === 'opening' || isLoading || series === undefined) {
-    return <SeriesTabFallback status="loading" />;
+    return <SeriesLayoutSkeleton />;
   }
 
   if (series === null) {
@@ -262,6 +261,27 @@ export default function SeriesLayout({
       </SpectatorProvider>
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} tabChords={tabs} />
+    </div>
+  );
+}
+
+/**
+ * The shape of the page, while the series that fills it is still on the wire.
+ *
+ * This one query gates the whole layout — a title it doesn't have, and a tab
+ * bar whose members depend on the series and the workspace's features — so
+ * until it lands there is nothing truthful to draw. A bare "Loading…" made a
+ * slow load read as a broken page; the same wait under the page's own outline
+ * reads as what it is. No tab labels: a guessed set that then changed would be
+ * worse than none.
+ */
+function SeriesLayoutSkeleton() {
+  return (
+    <div className="space-y-6 max-w-screen-2xl mx-auto" data-testid="series-loading">
+      <span className="sr-only">Loading…</span>
+      <div className="h-8 w-72 max-w-full animate-pulse rounded-md bg-muted" />
+      <div className="h-11 w-96 max-w-full animate-pulse rounded-lg border bg-card" />
+      <div className="h-40 animate-pulse rounded-lg border bg-card" />
     </div>
   );
 }
