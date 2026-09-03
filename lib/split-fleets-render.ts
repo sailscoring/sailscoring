@@ -147,6 +147,14 @@ export interface SplitFleetPageChrome {
    *  download and FTP do not). On the championship standings it turns each
    *  race column header into a deep link and adds a legend line. */
   raceResultsHref?: string;
+  /** "Open in Sail Scoring" — the footer link into a read-only view of the
+   *  series behind the page. A reference to the publication's data file on a
+   *  published page, the payload itself on a downloaded one, exactly as on
+   *  every other results page. */
+  openInAppUrl?: string;
+  /** The publication's `.sailscoring.json`, linked in the footer and declared
+   *  as the page's JSON alternate (ADR-012). Published pages only. */
+  dataFileUrl?: string;
 }
 
 function chromeFor(input: SplitFleetRenderInput, opts: SplitFleetPageChrome): DocumentChrome {
@@ -160,6 +168,8 @@ function chromeFor(input: SplitFleetRenderInput, opts: SplitFleetPageChrome): Do
     ...(opts.resultsFinal ? { resultsFinal: true } : {}),
     ...(opts.finalisedAt ? { finalisedAt: opts.finalisedAt } : {}),
     ...(opts.seriesIndexUrl ? { seriesIndexUrl: opts.seriesIndexUrl } : {}),
+    ...(opts.openInAppUrl ? { openInAppUrl: opts.openInAppUrl } : {}),
+    ...(opts.dataFileUrl ? { dataFileUrl: opts.dataFileUrl } : {}),
   };
 }
 

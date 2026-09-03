@@ -121,11 +121,49 @@ export interface FleetHtmlFile {
  *  "Open in Sail Scoring" link — so the publish handler can store the
  *  publication's `.sailscoring.json` data file (ADR-012) byte-identical to
  *  what the pages carry. Absent when the series opts out
- *  (`includeJsonExport`) or the build produces no export (split-fleet
- *  championships, entry-list-only builds). */
+ *  (`includeJsonExport`) or the build produces no export (an entry-list-only
+ *  build, which has no results to export). */
 export interface FleetHtmlBuild {
   files: FleetHtmlFile[];
   exportJson?: string;
+}
+
+/**
+ * The two footer links a page carries over its own data: "Open in Sail
+ * Scoring", and the data file itself.
+ *
+ * A page with a published data file behind it references it (ADR-012) — the
+ * `/open` route reads the file into a read-only view of the series that needs
+ * no account (#475), since a published page's reader is nearly always signed
+ * out and being asked to sign in to look at results they were already looking
+ * at is the wrong first move. Saving a copy is still an import, and still
+ * asks. Everything else — a download, an FTP push of a series that was never
+ * published — embeds the payload instead, which is what lets a downloaded
+ * copy outlive an unpublish.
+ *
+ * No export, or no `NEXT_PUBLIC_APP_URL` to point at, means no links: the
+ * footer falls back to the plain credit line.
+ */
+function footerDataLinks(
+  publicExportJson: string | null,
+  dataPath: string | undefined,
+): { openInAppUrl?: string; dataFileUrl?: string } {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!publicExportJson || !appUrl) return {};
+  if (dataPath) {
+    return {
+      openInAppUrl: `${appUrl}/open?from=${encodeURIComponent(dataPath)}`,
+      dataFileUrl: `${appUrl}${dataPath}`,
+    };
+  }
+  const bytes = new TextEncoder().encode(publicExportJson);
+  let binary = '';
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  const b64 = btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return { openInAppUrl: `${appUrl}/import#data=${b64}` };
 }
 
 /**
@@ -359,19 +397,30 @@ export async function buildFleetHtmlFiles(
         ? { flagSvgByCode: (await import('./nationality/flags')).NATIONAL_FLAGS }
         : {}),
     };
+    // The championship's own data file. The export carries the config and
+    // rounds behind these pages, so a reader who opens it gets the standings
+    // they were looking at rather than a series of unexplainable round
+    // fleets. Built here rather than by the per-fleet path below, which this
+    // branch returns ahead of.
+    const splitExport = (snapshot.series.includeJsonExport ?? true)
+      ? buildPublicExportFromSnapshot(snapshot, {
+          exportedAt: generatedAt,
+          splitFleets,
+        })
+      : null;
+    const splitExportJson = splitExport ? JSON.stringify(splitExport) : null;
+    const splitLinks = footerDataLinks(splitExportJson, opts?.dataPath);
+    const splitPageChrome = { ...splitChrome, ...splitLinks };
     // Null while no stage race has sheet rows — the championship page then
     // has nothing to link to either.
-    const raceResultsHtml = renderSplitFleetRaceResultsPage(input, splitChrome);
-    // No `exportJson`: the split-fleet build constructs no public export
-    // (the format does not yet carry rounds/assignments), so a split
-    // championship publishes pages with no data file behind them.
+    const raceResultsHtml = renderSplitFleetRaceResultsPage(input, splitPageChrome);
     return { files: [
       {
         fleetName: 'Championship',
         isDefault: true,
         isNamedPage: true,
         html: renderSplitFleetStandingsPage(input, {
-          ...splitChrome,
+          ...splitPageChrome,
           ...(raceResultsHtml && opts?.raceResultsHref
             ? { raceResultsHref: opts.raceResultsHref }
             : {}),
@@ -391,7 +440,7 @@ export async function buildFleetHtmlFiles(
         fleetName: 'Fleet assignments',
         isDefault: false,
         isAuxiliary: true,
-        html: renderSplitFleetAssignmentsPage(input, splitChrome),
+        html: renderSplitFleetAssignmentsPage(input, splitPageChrome),
       },
       // The entry list rides along here too. This branch returns early, so
       // the append at the end of the per-fleet path below never runs for a
@@ -400,7 +449,7 @@ export async function buildFleetHtmlFiles(
       ...(opts?.includeEntryList
         ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt)]
         : []),
-    ] };
+    ], ...(splitExportJson ? { exportJson: splitExportJson } : {}) };
   }
   const {
     series,
@@ -457,31 +506,8 @@ export async function buildFleetHtmlFiles(
   const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl };
 
   // The "Open in Sail Scoring" import URL is series-wide (the JSON covers
-  // every fleet), so derive it once for all pages. Pages with a data file
-  // behind them reference it (ADR-012); everything else embeds the payload.
-  let openInAppUrl: string | undefined;
-  let dataFileUrl: string | undefined;
-  if (publicExportJson) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (appUrl && opts?.dataPath) {
-      // `/open` reads the data file into a read-only view of the series that
-      // needs no account (#475) — a published page's reader is nearly always
-      // signed out, and being asked to sign in to look at results they were
-      // already looking at is the wrong first move. Saving a copy is still
-      // an import, and still asks.
-      openInAppUrl = `${appUrl}/open?from=${encodeURIComponent(opts.dataPath)}`;
-      dataFileUrl = `${appUrl}${opts.dataPath}`;
-    } else if (appUrl) {
-      const bytes = new TextEncoder().encode(publicExportJson);
-      let binary = '';
-      bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-      const b64 = btoa(binary)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-      openInAppUrl = `${appUrl}/import#data=${b64}`;
-    }
-  }
+  // every fleet), so derive it once for all pages.
+  const { openInAppUrl, dataFileUrl } = footerDataLinks(publicExportJson, opts?.dataPath);
 
   const results: FleetHtmlFile[] = [];
 
