@@ -32,7 +32,7 @@
     "db:generate:test": "./scripts/local-env.sh --local-db tsx node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/db-migrate.ts",
     "db:migrate:test": "./scripts/local-env.sh --local-db tsx scripts/db-migrate.ts",
-    "db:psql:test": "./scripts/local-env.sh psql",
+    "db:psql:test": "./scripts/db-psql.sh",
     "db:studio": "tsx --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio",
     "db:auth:generate": "better-auth generate --config lib/auth.ts --output lib/db/schema/auth.ts -y",
     "provision-org": "tsx --env-file-if-exists=.env.local scripts/provision-org.ts",
