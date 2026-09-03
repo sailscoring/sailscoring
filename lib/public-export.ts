@@ -10,6 +10,7 @@ import type {
   PrimaryPersonLabel,
   Finish,
   FinishTrackData,
+  Fleet,
   SubdivisionAxis,
   LogoDefaults,
   Series,
@@ -202,7 +203,14 @@ export interface PublicSeriesExport {
     publishTrackData?: boolean;
   };
   fleets: {
+    /** How the export refers to this fleet: its name, or — where a series
+     *  holds several fleets of one name, as a championship that reassigns
+     *  between rounds does — that name suffixed "(2)", "(3)" … Every by-name
+     *  reference in the export uses this, so each resolves to one fleet. */
     name: string;
+    /** The fleet's real name, when the line above had to disambiguate it.
+     *  Absent when the two are the same, which is every ordinary series. */
+    label?: string;
     displayOrder: number;
     scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
     /** ECHO blend rate α (present iff scoringSystem === 'echo'). */
@@ -617,6 +625,24 @@ export interface ImportRepos extends ExportRepos {
   listSeriesNames(opts?: { excludeId?: string }): Promise<string[]>;
 }
 
+/**
+ * Fleet id → the name the export refers to it by: the fleet's own, suffixed
+ * "(2)", "(3)" … where a series holds more than one fleet of that name. The
+ * suffix is an export-local disambiguation, never the scorer's name for the
+ * fleet — `fleets[].label` carries that whenever the two differ.
+ */
+function uniqueFleetNames(fleets: Fleet[]): Map<string, string> {
+  const taken = new Set<string>();
+  const byId = new Map<string, string>();
+  for (const fleet of fleets) {
+    let name = fleet.name;
+    for (let n = 2; taken.has(name); n++) name = `${fleet.name} (${n})`;
+    taken.add(name);
+    byId.set(fleet.id, name);
+  }
+  return byId;
+}
+
 export async function buildPublicExport(
   seriesId: string,
   repos: ExportRepos,
@@ -710,8 +736,15 @@ export function buildPublicExportFromSnapshot(
       series.proportionalDiscard,
     ).fleetStandings;
 
-  // Build fleet name lookup
-  const fleetNameById = new Map(fleets.map((f) => [f.id, f.name]));
+  // Fleets are referred to by name throughout the export — the portable
+  // identity, since internal UUIDs are not carried. A split-fleet
+  // championship breaks the assumption that a name names one fleet: it mints
+  // a fresh set of fleets each assignment round and reuses the labels, so a
+  // series can hold two fleets called Yellow, with different boats in them.
+  // Collapsing those on import destroys the reassignment, and with it the
+  // standings. So names are made unique within the export and the fleet
+  // carries its real one alongside, for an importer to restore.
+  const fleetNameById = uniqueFleetNames(fleets);
   const sailNumberById = new Map(competitors.map((c) => [c.id, c.sailNumber]));
 
   // Per-fleet point maps (per-fleet RDG / DPI) are stored internally keyed by
@@ -813,33 +846,46 @@ export function buildPublicExportFromSnapshot(
   const exportedRaces = races.map((race) => {
     const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
     const raceScores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
-    const finishes = [...raceScores.entries()].map(([competitorId, score]) => {
-      const finish = finishesForRace.find((f) => f.competitorId === competitorId);
-      return {
-        sailNumber: sailNumberById.get(competitorId) ?? competitorId,
-        ...(finish?.matchedOn ? { matchedOn: finish.matchedOn } : {}),
-        ...(finish?.enteredSailNumber ? { enteredSailNumber: finish.enteredSailNumber } : {}),
-        sortOrder: finish?.sortOrder ?? null,
-        ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
-        ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
-        ...(finish?.elapsedSecs != null ? { elapsedSecs: finish.elapsedSecs } : {}),
-        ...(publishTrackData && finish?.trackData ? { trackData: finish.trackData } : {}),
-        resultCode: score.resultCode,
-        startPresent: finish?.startPresent ?? null,
-        ...(finish?.penaltyCode ? { penaltyCode: finish.penaltyCode } : {}),
-        ...(finish?.penaltyOverride != null ? { penaltyOverride: finish.penaltyOverride } : {}),
-        ...(finish?.penaltyOverrideByFleet && Object.keys(finish.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: perFleetByName(finish.penaltyOverrideByFleet) } : {}),
-        ...(finish?.penaltyLabel ? { penaltyLabel: finish.penaltyLabel } : {}),
-        ...(finish?.resultCode === 'RDG' ? {
-          redressMethod: finish.redressMethod,
-          ...(finish.redressExcludeRaceIds?.length ? { redressExcludeRaces: toRaceNumbers(finish.redressExcludeRaceIds) } : {}),
-          ...(finish.redressIncludeRaceIds?.length ? { redressIncludeRaces: toRaceNumbers(finish.redressIncludeRaceIds) } : {}),
-          ...(finish.redressIncludeAllLater ? { redressIncludeAllLater: true } : {}),
-          ...(finish.redressPoints != null ? { redressPoints: finish.redressPoints } : {}),
-          ...(finish.redressPointsByFleet && Object.keys(finish.redressPointsByFleet).length ? { redressPointsByFleet: perFleetByName(finish.redressPointsByFleet) } : {}),
-        } : {}),
-      };
-    });
+    // The implicit DNC an absent boat scores is materialised here, so that a
+    // reader sees the same rows the results page does. On a championship it
+    // is not the export's to invent: a boat sails the stage races of her own
+    // fleet and no others, and the split engine materialises the absentees
+    // itself on the read side — where it also knows the case that is not a
+    // DNC at all, a boat selected into the medal fleet being absent from her
+    // old fleet's remaining races rather than scored for missing them. So
+    // only recorded rows travel.
+    const recordedIds = splitFleet
+      ? new Set(finishesForRace.map((f) => f.competitorId))
+      : null;
+    const finishes = [...raceScores.entries()]
+      .filter(([competitorId]) => recordedIds === null || recordedIds.has(competitorId))
+      .map(([competitorId, score]) => {
+        const finish = finishesForRace.find((f) => f.competitorId === competitorId);
+        return {
+          sailNumber: sailNumberById.get(competitorId) ?? competitorId,
+          ...(finish?.matchedOn ? { matchedOn: finish.matchedOn } : {}),
+          ...(finish?.enteredSailNumber ? { enteredSailNumber: finish.enteredSailNumber } : {}),
+          sortOrder: finish?.sortOrder ?? null,
+          ...(finish?.tiedWithPrevious ? { tiedWithPrevious: true } : {}),
+          ...(finish?.finishTime ? { finishTime: finish.finishTime } : {}),
+          ...(finish?.elapsedSecs != null ? { elapsedSecs: finish.elapsedSecs } : {}),
+          ...(publishTrackData && finish?.trackData ? { trackData: finish.trackData } : {}),
+          resultCode: score.resultCode,
+          startPresent: finish?.startPresent ?? null,
+          ...(finish?.penaltyCode ? { penaltyCode: finish.penaltyCode } : {}),
+          ...(finish?.penaltyOverride != null ? { penaltyOverride: finish.penaltyOverride } : {}),
+          ...(finish?.penaltyOverrideByFleet && Object.keys(finish.penaltyOverrideByFleet).length ? { penaltyOverrideByFleet: perFleetByName(finish.penaltyOverrideByFleet) } : {}),
+          ...(finish?.penaltyLabel ? { penaltyLabel: finish.penaltyLabel } : {}),
+          ...(finish?.resultCode === 'RDG' ? {
+            redressMethod: finish.redressMethod,
+            ...(finish.redressExcludeRaceIds?.length ? { redressExcludeRaces: toRaceNumbers(finish.redressExcludeRaceIds) } : {}),
+            ...(finish.redressIncludeRaceIds?.length ? { redressIncludeRaces: toRaceNumbers(finish.redressIncludeRaceIds) } : {}),
+            ...(finish.redressIncludeAllLater ? { redressIncludeAllLater: true } : {}),
+            ...(finish.redressPoints != null ? { redressPoints: finish.redressPoints } : {}),
+            ...(finish.redressPointsByFleet && Object.keys(finish.redressPointsByFleet).length ? { redressPointsByFleet: perFleetByName(finish.redressPointsByFleet) } : {}),
+          } : {}),
+        };
+      });
     // Unresolved finishes (no competitor matched) are deliberately not
     // exported: they are the scorer's unfinished business, never rendered on
     // a published page, and score-neutral — scoring filters to resolved rows
@@ -985,7 +1031,8 @@ export function buildPublicExportFromSnapshot(
       // lineage, not series data.
     },
     fleets: fleets.map((f) => ({
-      name: f.name,
+      name: fleetNameById.get(f.id) ?? f.name,
+      ...(fleetNameById.get(f.id) !== f.name ? { label: f.name } : {}),
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
@@ -1277,7 +1324,7 @@ export async function importPublicExport(
       repos.fleetRepo.save({
         id: fleetIdByName.get(f.name)!,
         seriesId: newSeriesId,
-        name: f.name,
+        name: f.label ?? f.name,
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
         ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),

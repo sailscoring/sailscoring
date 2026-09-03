@@ -26,8 +26,12 @@ const fixtures = loadSplitFleetFixtures(join(__dirname, 'fixtures/scoring/split-
 
 /** The medal fixture: all three stages, so every round shape travels. */
 function championship() {
-  const fx = fixtures.find((f) => f.file === '03-f2-ilca-medal-race.yaml');
-  if (!fx) throw new Error('medal-race fixture not found');
+  return fixture('03-f2-ilca-medal-race.yaml');
+}
+
+function fixture(file: string) {
+  const fx = fixtures.find((f) => f.file === file);
+  if (!fx) throw new Error(`fixture not found: ${file}`);
   return buildSplitFleetData(fx.fixture);
 }
 
@@ -212,5 +216,60 @@ describe('public export — importing the split-fleet block', () => {
     const { repos } = makeRecordingRepos();
     const readOnly = { ...repos, splitFleets: { get: async () => null } } as unknown as ImportRepos;
     await expect(importPublicExport(out, readOnly)).resolves.toBeTypeOf('string');
+  });
+});
+
+/**
+ * What a championship exposes about the export's portable identities. Both
+ * hold for an ordinary series by luck rather than by design — one fleet per
+ * name, one entry list per race — and a championship is where that runs out.
+ */
+describe('public export — a championship\'s identities', () => {
+  it('keeps two rounds\' fleets of the same name apart', async () => {
+    // A reassignment championship mints a fresh Yellow and Blue each round.
+    const data = fixture('10-reassignment.yaml');
+    const names = data.fleets.map((f) => f.name);
+    expect(new Set(names).size).toBeLessThan(names.length);
+
+    const out = exportOf(data);
+    // Each fleet is named once in the export, and one whose name had to be
+    // suffixed says what the scorer actually calls it.
+    const exportedNames = out.fleets.map((f) => f.name);
+    expect(new Set(exportedNames).size).toBe(exportedNames.length);
+    expect(out.fleets.filter((f) => f.label).map((f) => f.label)).toEqual(
+      names.filter((n, i) => names.indexOf(n) !== i),
+    );
+
+    const { repos, fleets, read } = makeRecordingRepos();
+    await importPublicExport(out, repos);
+    // The fleets come back under their real names, one per source fleet, and
+    // each round still names its own.
+    expect(fleets.map((f) => f.name)).toEqual(names);
+    const roundFleetIds = read()!.rounds.flatMap((r) => r.fleetIds);
+    expect(new Set(roundFleetIds).size).toBe(roundFleetIds.length);
+  });
+
+  it('invents no DNC for a boat who was never in the race', () => {
+    const data = championship();
+    const out = exportOf(data);
+    // A championship's absentees are the reading engine's to materialise: it
+    // is the half that knows a boat away in the medal fleet is absent from
+    // her old fleet's last race rather than scored for missing it.
+    expect(out.races.reduce((n, r) => n + r.finishes.length, 0)).toBe(data.finishes.length);
+
+    const medalRound = data.rounds.find((r) => r.stage === 'medal')!;
+    const medalSails = data.competitors
+      .filter((c) => c.fleetIds.some((id) => medalRound.fleetIds.includes(id)))
+      .map((c) => c.sailNumber);
+    expect(medalSails.length).toBeGreaterThan(0);
+
+    const companionStart = data.raceStarts.find(
+      (rs) => rs.stage === 'final' && rs.stageRaceNumber === 2,
+    )!;
+    const companionNumber = data.races.find((r) => r.id === companionStart.raceId)!.raceNumber;
+    const companion = out.races.find((r) => r.raceNumber === companionNumber)!;
+    for (const sail of medalSails) {
+      expect(companion.finishes.some((f) => f.sailNumber === sail)).toBe(false);
+    }
   });
 });
