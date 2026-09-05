@@ -2235,10 +2235,19 @@ export function calculateSubSeriesFleetStandings(
     // like a plain series — a boat with no finish is scored DNC each race. When
     // `excludeDncOnlyCompetitors` is set, a boat that is all-DNC across the whole
     // sub-series is dropped instead (HalSail's "exclude boats with only DNC"
-    // toggle; the prize sub-divisions that rank only boats that actually sailed).
+    // toggle; Sailwave's "mark all un-sailed competitors as excluded"; the prize
+    // sub-divisions that rank only boats that actually sailed).
     // Per-sub-series override of the series-level default: an "Overall" tandem
     // lists the full entry list (false), a block typically ranks only its
     // participants (true).
+    //
+    // A dropped boat is a non-entrant of the block: it leaves the ranking *and*
+    // the entry count that A5.2 DNC/DNF points are based on, so excluding one
+    // boat lowers every other boat's DNC score. That is deliberate and matches
+    // Sailwave, whose excluded competitors "do not get counted as part of the
+    // number of competitors for calculating DNF, DNC etc. points". A boat that
+    // entered but never sailed and should still count is a per-boat include
+    // override, not a second counting mode.
     const excludeDnc = subSeries.excludeDncOnlyCompetitors ?? excludeDncOnlyCompetitors;
     const entrantIds = subSeriesEntrantIds(blockRaces, blockFinishes);
     const entrants = competitors.filter(

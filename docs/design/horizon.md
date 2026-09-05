@@ -270,46 +270,19 @@ to build around them. Until an event asks for it, this stays here.
 
 ### Competitors on the list but not in the racing
 
-Sailwave carries a per-competitor **exclude** flag (`compexclude` in its JSON; our
-importer currently drops those rows — see `docs/notes/sailwave/import-behaviour.md`).
-The use case is a scorer holding a long list of *potential* competitors — a class
-register, last season's entries, a club roster, an entry list most of which never
-turns up — where only a small subset actually enters or sails. They want those names
-on hand without them affecting anything.
-
-Such a competitor would stay in the competitor list (editable, importable,
-exportable) but be: out of scoring entirely, including the entry/starter counts that
-DNC and other code points are computed from; absent from standings, published pages,
-and Preview; and not offered as a finisher when entering finishes or checking boats
-in. The record exists; the entry does not.
-
-Things to settle:
-
-- **Naming.** "Exclude" is Sailwave's word and collides with two things we already
-  have — discarded (excluded) races, and `excludeDncOnlyCompetitors`. Something along
-  the lines of *not entered*, *inactive*, or *reserve* is likely clearer.
-- **A boolean or an entry state?** The entry-list source above and club roster systems
-  both push toward a small state (entered / withdrawn / not entered) rather than one
-  flag, with "not scored" falling out of the state. A boolean is cheaper and might be
-  all a scorer wants.
-- **Competitors that already have results.** Excluding a boat with recorded finishes
-  needs a policy — block it, keep the finishes but hide them, or warn. This is the
-  same question as the entry-list re-sync deletion policy above, and should get the
-  same answer.
-- **Distinct from per-race check-in.** `startPresent` records whether a boat was
-  observed in the starting area for one race; this flag is roster-level and applies
-  across the series. Keep the two separate rather than deriving one from the other.
-- **Surfaces to carry it.** `lib/types.ts` plus Drizzle and Zod, a series-file format
-  bump, the CSV import/export columns, the public JSON export, and the cross-series
-  identity spine — a competitor who never raced should probably neither mint nor claim
-  an identity, and should not reach workspace rankings.
-- **The Sailwave importer is the obvious first consumer.** Carrying `compexclude == "1"`
-  into the flag instead of dropping the row recovers data we currently discard.
+Filed as a three-issue sequence, September 2026: #501 (a series-wide manual
+exclude — Sailwave's `compexclude`, treating a listed boat as a non-entrant),
+#502 (a per-sub-series include/exclude override, the fix for the HYC "Adrenaline"
+case), and #504 (`excludeDncOnlyCompetitors` for plain series, displayed as
+automatic exclusions). The shared semantic, decided in #368: excluded means
+non-entrant, out of the ranking *and* out of the entry count DNC/DNF points are
+based on. What stays here: an entry *state* (entered / withdrawn / not entered)
+superseding the boolean, and the entry-list re-sync deletion policy above.
 
 Related but not the same thing: the free-form competitor selectors under Prize
-allocation below. Those are a filtering escape hatch; this is a behaviour — the boat
-is invisible to the engine, the published results, and the finish sheet — so it wants
-a structured field, not a tag.
+allocation below. Those are a filtering escape hatch; exclusion is a behaviour —
+the boat is invisible to the engine, the published results, and the finish sheet —
+so it wants a structured field, not a tag.
 
 ---
 
