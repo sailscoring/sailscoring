@@ -11,7 +11,10 @@ import { decodeCapture } from '@/lib/archive-kit/capture-encoding';
 import { archiveDocHash, stableStringify } from '@/lib/archive-kit/format';
 import { buildHalsailArchiveDoc } from '@/lib/archive-kit/halsail-doc';
 import { parseHalsailHtml } from '@/lib/archive-kit/halsail-html';
-import { buildSailwaveArchiveDoc } from '@/lib/archive-kit/sailwave-doc';
+import {
+  buildSailwaveArchiveDoc,
+  summaryFromRaceTables,
+} from '@/lib/archive-kit/sailwave-doc';
 import { parseSailwaveHtml, parseRankLabel } from '@/lib/archive-kit/sailwave-html';
 
 const SAILWAVE_HTML = `<!doctype html>
@@ -637,6 +640,208 @@ describe("as-published race-results detail (#347)", () => {
     expect(archiveSeriesDocSchema.safeParse(doc(RESULTS)).success).toBe(true);
     const noRaceTable = { ...RESULTS, raceTables: undefined };
     expect(archiveSeriesDocSchema.safeParse(doc(noRaceTable)).success).toBe(false);
+  });
+});
+
+describe('race-only Sailwave pages (#355)', () => {
+  /** A HYC one-off event page: a race table and no summary section at all —
+   *  the shape of the 2015 Gibney Classic, the Lambay Races, and 150-odd
+   *  other captures. `Pl` heads the rank column on the older ones. */
+  function raceOnlyHtml(
+    races: Array<{ title: string; rankLabel?: string; rows: string[][] }>,
+  ): string {
+    const table = (race: (typeof races)[number]) => `
+<h3 class="racetitle">${race.title}</h3>
+<div class="caption racecaption">Start: Start 2, Finishes: Finish time</div>
+<table class="racetable" cellspacing="0" cellpadding="0" border="0">
+<colgroup span="5">
+<col class="rank" /><col class="sailno" /><col class="boat" /><col class="helmname" /><col class="elapsed" />
+</colgroup>
+<tr class="titlerow">
+<th>${race.rankLabel ?? 'Rank'}</th><th>sailno</th><th>Boat name</th><th>owner</th><th>Elapsed</th>
+</tr>
+${race.rows
+  .map(
+    (cells) =>
+      `<tr class="odd racerow">${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`,
+  )
+  .join('\n')}
+</table>`;
+    return `<!doctype html>
+<html><body>
+<h1>Howth Yacht Club</h1>
+<h2>Gibney Classic 2015</h2>
+${races.map(table).join('\n')}
+</body></html>`;
+  }
+
+  const ONE_RACE = raceOnlyHtml([
+    {
+      title: 'R1 - Class 1 Echo Fleet - 22/08',
+      rows: [
+        ['1', '3470', 'Flashback', 'Hogg/Breen', '1:43:14'],
+        ['2', '1717', 'Aurelia', 'Sarah Byrne', '1:45:02'],
+        ['', '29', 'Demelza', 'Windsor Laudan', 'DNF'],
+      ],
+    },
+  ]);
+
+  test('the page parses with no summary section, and the races carry it', () => {
+    const page = parseSailwaveHtml(ONE_RACE);
+    expect(page.summaries).toHaveLength(0);
+    expect(page.races).toHaveLength(1);
+    expect(page.races[0].rows).toHaveLength(3);
+  });
+
+  test('a single race table states the places it published', () => {
+    const built = summaryFromRaceTables(parseSailwaveHtml(ONE_RACE).races);
+    expect(built).not.toBeNull();
+    const { summary, skipped } = built!;
+    expect(skipped).toEqual([]);
+    // The rank column leads the section; everything else is a lead column,
+    // and there is no series to summarise.
+    expect(summary.leadColumns.map((c) => c.key)).toEqual([
+      'sailno',
+      'boat',
+      'helmname',
+      'elapsed',
+    ]);
+    expect(summary.raceHeaders).toEqual([]);
+    expect(summary.summaryColumns).toEqual([]);
+    expect(summary.rows.map((r) => [r.rankLabel, r.rank])).toEqual([
+      ['1', 1],
+      ['2', 2],
+      // A blank rank cell ranks nowhere, as published.
+      ['', null],
+    ]);
+    expect(summary.rows[0].leadCells).toEqual([
+      '3470',
+      'Flashback',
+      'Hogg/Breen',
+      '1:43:14',
+    ]);
+  });
+
+  test('an older "Pl" heading still ranks — the colgroup class is the signal', () => {
+    const html = raceOnlyHtml([
+      { title: 'Race 1', rankLabel: 'Pl', rows: [['1', '77', 'Ruff', 'A Nolan', '0:59:00']] },
+    ]);
+    const built = summaryFromRaceTables(parseSailwaveHtml(html).races)!;
+    expect(built.summary.rows[0].rank).toBe(1);
+  });
+
+  test('two race tables state no place between them, and a boat rows once', () => {
+    const html = raceOnlyHtml([
+      {
+        title: 'Race 1',
+        rows: [
+          ['1', '3470', 'Flashback', 'Hogg/Breen', '1:43:14'],
+          ['2', '1717', 'Aurelia', 'Sarah Byrne', '1:45:02'],
+        ],
+      },
+      {
+        title: 'Race 2',
+        rows: [
+          ['1', '1717', 'Aurelia', 'Sarah Byrne', '1:41:00'],
+          ['2', '3470', 'Flashback', 'Hogg/Breen', '1:44:30'],
+        ],
+      },
+    ]);
+    const { summary } = summaryFromRaceTables(parseSailwaveHtml(html).races)!;
+    expect(summary.rows).toHaveLength(2);
+    expect(summary.rows.map((r) => [r.rankLabel, r.rank])).toEqual([
+      ['', null],
+      ['', null],
+    ]);
+  });
+
+  test('a race table of a different shape is reported, not misaligned in', () => {
+    const html = `${raceOnlyHtml([
+      { title: 'PY Class Fleet', rows: [['1', '3470', 'Flashback', 'Hogg/Breen', '1:43:14']] },
+    ]).replace('</body></html>', '')}
+<h3 class="racetitle">ILCA 6 Fleet</h3>
+<table class="racetable">
+<colgroup span="3"><col class="rank" /><col class="sailno" /><col class="helmname" /></colgroup>
+<tr class="titlerow"><th>Rank</th><th>sailno</th><th>owner</th></tr>
+<tr class="odd racerow"><td>1</td><td>219357</td><td>Archie Duggan</td></tr>
+</table>
+</body></html>`;
+    const { summary, skipped } = summaryFromRaceTables(parseSailwaveHtml(html).races)!;
+    expect(skipped).toEqual(['ILCA 6 Fleet']);
+    expect(summary.rows).toHaveLength(1);
+    expect(summary.rows[0].leadCells[0]).toBe('3470');
+  });
+
+  test('a page with no race rows at all builds nothing', () => {
+    expect(summaryFromRaceTables([])).toBeNull();
+  });
+
+  test('the document builds competitors, race detail, and the links between', () => {
+    const page = parseSailwaveHtml(ONE_RACE);
+    const { summary } = summaryFromRaceTables(page.races)!;
+    const doc = buildSailwaveArchiveDoc({
+      seriesId: '99999999-8888-4777-8666-555555555560',
+      name: 'Gibney Classic 2015',
+      publishedSlug: '2015',
+      fleets: [
+        {
+          name: 'Class 1 ECHO',
+          subPath: 'gibney-classic/class-1-echo',
+          summary,
+          races: page.races,
+          detail: 'races',
+          rowsFromRaceTables: true,
+        },
+      ],
+    });
+    const results = doc.fleets[0].results;
+    expect(results.detail).toBe('races');
+    expect(results.raceHeaders).toEqual([]);
+    expect(results.summaryColumns).toEqual([]);
+    // Structural rows the identity spine reads, one per race line.
+    expect(results.rows.map((r) => r.rank)).toEqual([1, 2, null]);
+    expect(doc.competitors.map((c) => [c.sailNumber, c.name, c.boatName])).toEqual([
+      ['3470', 'Hogg/Breen', 'Flashback'],
+      ['1717', 'Sarah Byrne', 'Aurelia'],
+      ['29', 'Windsor Laudan', 'Demelza'],
+    ]);
+    // The rendered table is the race table, and its lines link to the
+    // competitors they minted.
+    const raceRows = results.raceTables![0].rows;
+    expect(raceRows.map((r) => r.competitorId)).toEqual(
+      doc.competitors.map((c) => c.id),
+    );
+    expect(raceRows[0].rank).toBe(1);
+  });
+
+  test('a boat sailing two of the page races mints one competitor', () => {
+    const html = raceOnlyHtml([
+      { title: 'Race 1', rows: [['1', '3470', 'Flashback', 'Hogg/Breen', '1:43:14']] },
+      { title: 'Race 2', rows: [['1', '3470', 'Flashback', 'Hogg/Breen', '1:44:30']] },
+    ]);
+    const page = parseSailwaveHtml(html);
+    const { summary } = summaryFromRaceTables(page.races)!;
+    const doc = buildSailwaveArchiveDoc({
+      seriesId: '99999999-8888-4777-8666-555555555561',
+      name: 'J24 Europeans 2022 Day 1',
+      publishedSlug: '2022',
+      fleets: [
+        {
+          name: 'Day 1',
+          subPath: 'j24-europeans/day-1',
+          summary,
+          races: page.races,
+          detail: 'races',
+          rowsFromRaceTables: true,
+        },
+      ],
+    });
+    expect(doc.competitors).toHaveLength(1);
+    // Both race lines link to it.
+    const ids = doc.fleets[0].results.raceTables!.flatMap((t) =>
+      t.rows.map((r) => r.competitorId),
+    );
+    expect(ids).toEqual([doc.competitors[0].id, doc.competitors[0].id]);
   });
 });
 

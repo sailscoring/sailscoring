@@ -13,10 +13,12 @@ import { normalizePersonName } from '@/lib/competitor-identity-match';
 import { isPiiKey } from './blw-scrub';
 import { archiveSeriesDocSchema, type ArchiveSeriesDoc, raceTableRowRank } from './format';
 import { competitorIdFor, fleetIdFor } from './ids';
-import type {
-  SailwaveRaceSection,
-  SailwaveSummaryRow,
-  SailwaveSummarySection,
+import {
+  parseRankLabel,
+  type SailwaveColumn,
+  type SailwaveRaceSection,
+  type SailwaveSummaryRow,
+  type SailwaveSummarySection,
 } from './sailwave-html';
 import type { AsPublishedRaceTable } from './types';
 
@@ -32,6 +34,13 @@ export interface SailwaveFleetInput {
   /** Publish the race tables alone — a single-race event (#347). The summary
    *  rows are still built: the identity spine reads them. */
   detail?: 'races';
+  /** This fleet's summary was synthesised from its race tables by
+   *  `summaryFromRaceTables` — the source published a race result and no
+   *  standings at all. Its race-table rows are the very lines the competitor
+   *  rows were built from, so they carry the competitor link; a fleet whose
+   *  standings came from a summary table leaves that link unset, where it
+   *  would be a fresh guess rather than a fact. */
+  rowsFromRaceTables?: true;
   /** This table is a second presentation of racing another fleet already
    *  accounts for (#363) — the Gold/Silver/Bronze split of a result also
    *  published as one overall standing. Its rows reuse the structural fleets'
@@ -139,6 +148,119 @@ function extractCompetitor(
   return out;
 }
 
+/** A blank helm field gets a placeholder so competitor listings sort it to the
+ *  end rather than the top; the matcher ignores these names. */
+function placeholderName(sailNumber: string, name: string): string {
+  if (name.trim()) return name;
+  return sailNumber ? `Unknown Competitor (${sailNumber})` : 'Unknown Competitor';
+}
+
+/** What a competitor row is keyed by — sail number and normalised name, the
+ *  pair both the duplicate ordinal and the display-only join read. */
+function identityKeyFor(sailNumber: string, name: string): string {
+  const resolved = placeholderName(sailNumber, name);
+  return `${sailNumber}|${normalizePersonName(resolved).full}`;
+}
+
+/** The same key read off a raw table line, through the column classes the
+ *  competitor extraction already trusts — so a race-table line resolves to the
+ *  competitor its summary row minted. */
+function rowIdentityKey(columns: SailwaveColumn[], cells: string[]): string {
+  let sailNumber = '';
+  let name = '';
+  columns.forEach((col, i) => {
+    const value = (cells[i] ?? '').trim();
+    if (!value) return;
+    const field = FIELD_BY_KEY[col.key];
+    if (field === 'sailNumber' && !sailNumber) sailNumber = value;
+    if (field === 'name' && !name) name = value;
+  });
+  return identityKeyFor(sailNumber, name);
+}
+
+/** The rank column of a race table: Sailwave's `rank` colgroup class, else a
+ *  leading column whose heading says so. The class is the reliable signal —
+ *  HYC's older captures head the same column "Pl". */
+function rankColumnIndex(columns: SailwaveColumn[]): number {
+  const byKey = columns.findIndex((col) => col.key === 'rank');
+  if (byKey !== -1) return byKey;
+  return columns.findIndex((col) => /^(?:rank|place|pl|pos)\b/i.test(col.label.trim()));
+}
+
+/**
+ * Build a summary section out of a page's race tables (#355) — the structural
+ * rows a race-only capture has no summary table to state. HYC published many
+ * of its one-off events (the Gibney Classic, the Lambay Races,
+ * Howth-to-Drogheda) as a race result and nothing else; the page *is* the
+ * table, so nothing is dropped and no fidelity question arises. The rows the
+ * identity spine, the rankings and the career arcs read come from the race
+ * lines themselves.
+ *
+ * Every such capture leads its race table with the boat's place, its sail
+ * number and its helm, which is all the competitor extraction needs. The
+ * section it yields carries no race or summary columns: there is no series to
+ * summarise, and the fleet publishes at `detail: 'races'`.
+ *
+ * Ranks are claimed only from a page publishing a **single** race table. Two
+ * races and no standings state no place between them, and inventing one would
+ * feed a career arc a position the club never published — those rows rank
+ * nowhere. A table whose columns differ from the first's is left out of the
+ * rows entirely rather than misaligned into them (it still publishes: the race
+ * tables are what the page renders); `skipped` names those for the caller to
+ * report. Returns null when there is nothing to build from.
+ */
+export function summaryFromRaceTables(
+  races: SailwaveRaceSection[],
+): { summary: SailwaveSummarySection; skipped: string[] } | null {
+  const tables = races.filter((race) => race.rows.length > 0);
+  const first = tables[0];
+  if (!first) return null;
+
+  const shapeOf = (columns: SailwaveColumn[]) =>
+    columns.map((col) => col.key).join('|');
+  const rankIdx = rankColumnIndex(first.columns);
+  const leadIdxs = first.columns
+    .map((_, i) => i)
+    .filter((i) => i !== rankIdx);
+  const ranked = tables.length === 1;
+
+  const skipped: string[] = [];
+  const rows: SailwaveSummaryRow[] = [];
+  const seen = new Set<string>();
+  for (const table of tables) {
+    if (shapeOf(table.columns) !== shapeOf(first.columns)) {
+      skipped.push(table.title);
+      continue;
+    }
+    for (const cells of table.rows) {
+      // One row per boat, however many of the page's races it sailed.
+      const key = rowIdentityKey(table.columns, cells);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const rankLabel = rankIdx === -1 ? '' : (cells[rankIdx] ?? '').trim();
+      rows.push({
+        rankLabel: ranked ? rankLabel : '',
+        rank: ranked ? parseRankLabel(rankLabel) : null,
+        leadCells: leadIdxs.map((i) => cells[i] ?? ''),
+        raceCells: [],
+        summaryCells: [],
+      });
+    }
+  }
+
+  return {
+    summary: {
+      title: null,
+      caption: null,
+      leadColumns: leadIdxs.map((i) => first.columns[i]),
+      raceHeaders: [],
+      summaryColumns: [],
+      rows,
+    },
+    skipped,
+  };
+}
+
 /**
  * Build one series' ingest document from its parsed Sailwave sections.
  * Competitor ids derive from (fleet, sail, normalised name) with a
@@ -184,17 +306,15 @@ export function buildSailwaveArchiveDoc(
       })),
     };
 
+    /** This fleet's competitor ids by identity, for the race-table link
+     *  below. First occurrence wins, as the display-only join does. */
+    const idByIdentity = new Map<string, string>();
+
     const rows = summary.rows.map((row) => {
       const extracted = extractCompetitor(summary, row);
-      // A blank helm field gets a placeholder so competitor listings sort it
-      // to the end rather than the top; the matcher ignores these names.
-      if (!extracted.name.trim()) {
-        extracted.name = extracted.sailNumber
-          ? `Unknown Competitor (${extracted.sailNumber})`
-          : 'Unknown Competitor';
-      }
+      extracted.name = placeholderName(extracted.sailNumber, extracted.name);
       const nameKey = normalizePersonName(extracted.name).full;
-      const identityKey = `${extracted.sailNumber}|${nameKey}`;
+      const identityKey = identityKeyFor(extracted.sailNumber, extracted.name);
       // A second presentation joins to the boat the structural tables already
       // carry; only a boat that appears in no structural table mints a row of
       // its own, and it ranks in no structural table so it earns no place.
@@ -233,6 +353,7 @@ export function buildSailwaveArchiveDoc(
           structuralByIdentity.set(identityKey, competitor);
         }
       }
+      if (!idByIdentity.has(identityKey)) idByIdentity.set(identityKey, competitorId);
       return {
         competitorId,
         rank: row.rank,
@@ -256,7 +377,16 @@ export function buildSailwaveArchiveDoc(
         columns: race.columns,
         rows: race.rows.map((cells) => {
           const rank = raceTableRowRank(race.columns, cells);
-          return { cells, ...(rank !== undefined ? { rank } : {}) };
+          // A synthesised fleet's competitors were built from these very
+          // lines, so the link back is a fact rather than a re-match.
+          const competitorId = fleet.rowsFromRaceTables
+            ? idByIdentity.get(rowIdentityKey(race.columns, cells))
+            : undefined;
+          return {
+            cells,
+            ...(competitorId ? { competitorId } : {}),
+            ...(rank !== undefined ? { rank } : {}),
+          };
         }),
       }),
     );
