@@ -338,8 +338,8 @@ export default function Publishing() {
             beside Save as PDF. Anyone with the link can print it; the race team needs no account.
           </p>
           <p>
-            Each row is the sail number, the boat name if your series records one, and a box to
-            tick. There is one table per <em>start</em>, not per fleet: a class scored under IRC
+            Each row is the sail number, a box to tick beside it, and the boat name if your series
+            records one. There is one table per <em>start</em>, not per fleet: a class scored under IRC
             and ECHO at once is one table, with every boat on it once. The starts come from your
             default start sequence (Settings → Fleets) when you have set one up; otherwise fleets
             that share a boat are taken to share a start. Sail numbers are set large for a moving

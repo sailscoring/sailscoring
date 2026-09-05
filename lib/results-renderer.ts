@@ -1031,8 +1031,10 @@ ${body}
  * The starters checklist, rendered into the competitor-list page but shown
  * only when it is printed as one (the `starters` body class, set by the
  * footer button for the duration of the print). One table per start, each
- * row the sail number, the boat name when the series records one, and a box
- * to tick as the boat arrives in the starting area.
+ * row the sail number, a box to tick as the boat arrives in the starting
+ * area, and the boat name when the series records one. The box sits right
+ * after the number so the eye lands on it from the number, rather than
+ * tracking across the row to the far edge and hoping it is the right one.
  *
  * The recorder is on a moving committee boat, so the sail number is set
  * large; and a recorder switching pages while boats mill around loses the
@@ -1047,7 +1049,7 @@ function renderStartersChecklist(tables: ChecklistTable[]): string {
     const rows = t.boats
       .map(
         (b) =>
-          `<tr><td class="sail">${esc(b.sailNumber)}</td>${showBoat ? `<td class="boat"><span>${esc(b.boatName ?? '')}</span></td>` : ''}<td class="tick"></td></tr>`,
+          `<tr><td class="sail">${esc(b.sailNumber)}</td><td class="tick"></td>${showBoat ? `<td class="boat"><span>${esc(b.boatName ?? '')}</span></td>` : ''}</tr>`,
       )
       .join('\n');
     // A short table stays whole rather than straddling two columns; a long
@@ -1088,8 +1090,8 @@ function renderStartersChecklistCss(): string {
   table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
   table.starterstable td.boat { font-size: 11pt; color: #333; }
   table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  table.starterstable td.tick { width: 6mm; padding-right: 0; }
-  table.starterstable td.tick::before { content: ""; display: block; width: 6mm; height: 6mm; border: 0.5mm solid #1a1a1a; box-sizing: border-box; margin-left: auto; }
+  table.starterstable td.tick { width: 6mm; padding: 1.5mm 2mm 1.5mm 1mm; }
+  table.starterstable td.tick::before { content: ""; display: block; width: 6mm; height: 6mm; border: 0.5mm solid #1a1a1a; box-sizing: border-box; }
 }
 `;
 }
