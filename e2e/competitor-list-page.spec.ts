@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, enableFeatures } from './helpers';
 
 /**
  * The published competitor list (#423). The point of the page is the window it
@@ -156,4 +156,74 @@ test('the results page can be left unpublished while the entry list goes out', a
   await page.goto(standingsPath);
   // The sail number appears in the summary table and again in the race table.
   await expect(page.getByRole('cell', { name: entries[0].sailNumber }).first()).toBeVisible();
+});
+
+/**
+ * The starters checklist prints from the published competitor list: one
+ * table per start, not per fleet, so a class scored under IRC and HPH at once
+ * is one table with each boat on it once. The button sets a body class for
+ * the duration of the print and the print stylesheet does the rest, so the
+ * test stubs the print dialog and looks at the page under print media.
+ */
+test('the competitor list prints as a starters checklist, one table per start', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['entry-list']);
+  await createSeriesQuick(page, { name: 'Autumn League' });
+  await createFleets(page, ['Class 1 IRC', 'Class 1 HPH', 'Class 2 HPH']);
+  await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
+
+  // Checkmate is scored under both Class 1 systems; the others under one.
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number *').fill('IRL 1234');
+  await page.getByLabel('Competitor name').fill('Checkmate');
+  await page.getByRole('checkbox', { name: 'Class 1 IRC' }).check();
+  await page.getByRole('checkbox', { name: 'Class 1 HPH' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL 1234' })).toBeVisible();
+  await addCompetitor(page, { sailNumber: 'IRL 88', name: 'Storm', fleet: 'Class 1 HPH' });
+  await addCompetitor(page, { sailNumber: 'IRL 2001', name: 'Gecko', fleet: 'Class 2 HPH' });
+
+  await page.getByRole('button', { name: 'Publish…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/entries$/ });
+  await expect(link).toBeVisible();
+  const entriesPath = new URL((await link.getAttribute('href')) ?? '').pathname;
+
+  await page.goto(entriesPath);
+  await expect(page.getByText('Entries: 3')).toBeVisible();
+
+  // On screen the checklist is nowhere to be seen; the button is.
+  const checklist = page.locator('.starterslist');
+  await expect(checklist).toBeHidden();
+  await page.evaluate(() => {
+    (window as unknown as { __printed: boolean }).__printed = false;
+    window.print = () => {
+      (window as unknown as { __printed: boolean }).__printed = true;
+    };
+  });
+  await page.getByRole('button', { name: 'Print starters checklist' }).click();
+  expect(await page.evaluate(() => (window as unknown as { __printed: boolean }).__printed)).toBe(true);
+  await expect(page.locator('body')).toHaveClass(/\bstarters\b/);
+
+  // What the printer sees: the checklist in place of the entry list, two
+  // tables headed by the class, and Checkmate once.
+  await page.emulateMedia({ media: 'print' });
+  await expect(checklist).toBeVisible();
+  await expect(page.locator('table.summarytable')).toBeHidden();
+  await expect(checklist.getByRole('heading', { name: 'Class 1', exact: true })).toBeVisible();
+  await expect(checklist.getByRole('heading', { name: 'Class 2 HPH', exact: true })).toBeVisible();
+  await expect(checklist.locator('td.sail', { hasText: 'IRL 1234' })).toHaveCount(1);
+  await expect(checklist.locator('td.sail')).toHaveCount(3);
+  await expect(checklist.getByRole('heading', { name: 'Class 1 IRC' })).toHaveCount(0);
+
+  // Once the dialog closes the page is its ordinary self again.
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await page.emulateMedia({ media: 'screen' });
+  await expect(page.locator('body')).not.toHaveClass(/\bstarters\b/);
+  await expect(checklist).toBeHidden();
+  await expect(page.locator('table.summarytable')).toBeVisible();
 });
