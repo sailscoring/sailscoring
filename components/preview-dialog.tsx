@@ -54,6 +54,9 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
   const [files, setFiles] = useState<FleetHtmlFile[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'idle' | 'error'>('loading');
+  /** The block the sub-series dropdown shows while a series-wide page (no
+   *  block of its own) is selected; see the picker below. */
+  const [chosenSubSeries, setChosenSubSeries] = useState<string | null>(null);
 
   // Rebuild each time the dialog opens so the preview reflects the latest
   // edits. Syncing with the external open signal, so the writes are expected.
@@ -64,6 +67,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     setPhase('loading');
     setFiles(null);
     setSelected(0);
+    setChosenSubSeries(null);
     buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes, includeEntryList, includeTrackData })
       .then((build) => {
         if (cancelled) return;
@@ -89,32 +93,40 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
   // one dropdown each. The grid is sparse (blocks with no races are skipped, and
   // a fleet may have no results in a given sub-series), so the fleet options come
   // from the *selected* sub-series' group, not a fixed series-wide list.
+  //
+  // Series-wide pages — the competitor list, the prize sheet — belong to no
+  // block, so they carry no `subSeriesName`. They are listed beside the fleets
+  // under every sub-series rather than forming a nameless group of their own,
+  // which rendered as a blank option nobody would think to pick. Which block
+  // the sub-series dropdown shows while such a page is selected is remembered
+  // separately, since the page itself says nothing about it.
   const subSeriesNames = files
     ? files.reduce<string[]>((acc, f) => {
         const name = f.subSeriesName ?? '';
-        if (!acc.includes(name)) acc.push(name);
+        if (name !== '' && !acc.includes(name)) acc.push(name);
         return acc;
       }, [])
     : [];
-  const currentSubSeries = current?.subSeriesName ?? '';
-  const fleetsInCurrentSubSeries = files
-    ? files.filter((f) => (f.subSeriesName ?? '') === currentSubSeries)
-    : [];
+  const currentSubSeries = current?.subSeriesName ?? chosenSubSeries ?? subSeriesNames[0] ?? '';
+  const inSubSeries = (f: FleetHtmlFile, name: string) =>
+    f.subSeriesName === undefined || f.subSeriesName === name;
+  const fleetsInCurrentSubSeries = files ? files.filter((f) => inSubSeries(f, currentSubSeries)) : [];
 
   const selectSubSeries = (name: string) => {
     if (!files) return;
-    const group = files.filter((f) => (f.subSeriesName ?? '') === name);
-    // Keep the same fleet across the switch when it exists in the target
-    // sub-series; otherwise fall back to that sub-series' first fleet.
+    setChosenSubSeries(name);
+    // A series-wide page stays put across the switch. Otherwise keep the same
+    // fleet when it exists in the target sub-series, else fall back to that
+    // sub-series' first fleet.
+    if (current && current.subSeriesName === undefined) return;
+    const group = files.filter((f) => inSubSeries(f, name));
     const target = group.find((f) => f.fleetName === current?.fleetName) ?? group[0];
     if (target) setSelected(files.indexOf(target));
   };
 
   const selectFleet = (fleetName: string) => {
     if (!files) return;
-    const target = files.find(
-      (f) => (f.subSeriesName ?? '') === currentSubSeries && f.fleetName === fleetName,
-    );
+    const target = files.find((f) => inSubSeries(f, currentSubSeries) && f.fleetName === fleetName);
     if (target) setSelected(files.indexOf(target));
   };
 

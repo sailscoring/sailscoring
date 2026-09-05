@@ -141,7 +141,10 @@ test('Preview fleet selector switches the rendered fleet', async ({ page }) => {
 });
 
 test('Preview sub-series: separate sub-series and fleet dropdowns (#231)', async ({ page, signedInEmail }) => {
-  await enableFeatures(page, signedInEmail, ['sub-series']);
+  // The entry list is series-wide: it belongs to no block, and the picker
+  // has to list it beside the fleets under every sub-series rather than
+  // behind a blank sub-series option.
+  await enableFeatures(page, signedInEmail, ['sub-series', 'entry-list']);
   await createSeriesQuick(page, { name: 'Split Preview', venue: 'HYC' });
   await createFleets(page, ['Junior', 'Senior']);
 
@@ -204,10 +207,12 @@ test('Preview sub-series: separate sub-series and fleet dropdowns (#231)', async
   await subSelect.click();
   await expect(page.getByRole('option', { name: 'Early', exact: true })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Late', exact: true })).toBeVisible();
+  await expect(page.getByRole('option')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await fleetSelect.click();
   await expect(page.getByRole('option', { name: 'Junior', exact: true })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Senior', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Entries', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
 
   // Defaults to the first block's first fleet — Early / Junior.
@@ -225,6 +230,17 @@ test('Preview sub-series: separate sub-series and fleet dropdowns (#231)', async
   await expect(frame.getByText('Split Preview — Late').first()).toBeVisible();
   await expect(frame.getByText('Senior Sam').first()).toBeVisible();
   await expect(frame.getByText('Junior Jane')).toHaveCount(0);
+
+  // The entry list is reachable from either block, and stays put when the
+  // block changes: it is the same page whichever block is showing.
+  await fleetSelect.click();
+  await page.getByRole('option', { name: 'Entries', exact: true }).click();
+  await expect(frame.getByText('Competitor List')).toBeVisible();
+  await expect(frame.getByText('Entries: 2')).toBeVisible();
+  await subSelect.click();
+  await page.getByRole('option', { name: 'Early', exact: true }).click();
+  await expect(frame.getByText('Entries: 2')).toBeVisible();
+  await expect(fleetSelect).toHaveText('Entries');
 });
 
 test('a single-race event previews the race result alone (#347)', async ({ page }) => {
