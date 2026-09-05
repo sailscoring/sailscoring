@@ -93,10 +93,12 @@ export function bySailNumber<T extends { sailNumber: string }>(a: T, b: T): numb
  * Order by the numeric core alone, ignoring the national prefix — so `GBR 12`
  * and `IRL 12` land together rather than a nation apart.
  *
- * This is the wrong order for a competitor list and the right one for seeding
- * a split-fleet championship, where the sail number stands in for nothing but
- * itself and grouping by nation is the outcome to avoid. Only
- * `seedOrder` in `split-fleets.ts` should want it.
+ * This is the wrong order for a competitor list and the right one where the
+ * number stands in for nothing but itself: seeding a split-fleet championship,
+ * where grouping by nation is the outcome to avoid, and the starters
+ * checklist, where a recorder reads the number off the sail and looks for it.
+ * Only `seedOrder` in `split-fleets.ts` and `starters-checklist.ts` should
+ * want it.
  */
 export function compareSailNumbersIgnoringPrefix(a: string, b: string): number {
   const c = compareSegments(
