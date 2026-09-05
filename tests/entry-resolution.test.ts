@@ -111,6 +111,29 @@ describe('calculateSubSeriesFleetStandings with excluded competitors', () => {
     expect(ids).toEqual(['A', 'B', 'C', 'D']);
   });
 
+  it('a block override includes an all-DNC boat, or excludes an entered one, for that block alone', () => {
+    const [result] = calculateSubSeriesFleetStandings(
+      [{
+        ...block,
+        excludeDncOnlyCompetitors: true,
+        competitorOverrides: [
+          { competitorId: 'D', status: 'included' },
+          { competitorId: 'E', status: 'included' },
+          { competitorId: 'A', status: 'excluded' },
+        ],
+      }],
+      [fleet], competitors, races, finishes,
+    );
+    const standings = result.fleetStandings[0].standings;
+    expect(standings.map((s) => s.competitor.id).sort()).toEqual(['B', 'C', 'D', 'E']);
+    // Four entrants in the block: D's DNC is 5, and E's race-2 finish scores —
+    // 2nd behind B, with A's crossing no longer in the order.
+    const byId = (id: string) => standings.find((s) => s.competitor.id === id)!;
+    expect(byId('D').racePoints).toEqual([5, 5]);
+    expect(byId('B').racePoints[1]).toBe(1);
+    expect(byId('E').racePoints[1]).toBe(2);
+  });
+
   it('the block flag still drops all-DNC boats, and the count follows', () => {
     const [result] = calculateSubSeriesFleetStandings(
       [{ ...block, excludeDncOnlyCompetitors: true }], [fleet], competitors, races, finishes,

@@ -210,6 +210,11 @@ export interface FixtureSubSeriesConfig {
   name: string;
   fleets?: string[];
   exclude?: { race: number; fleet: string }[];
+  /** Per-boat entry overrides for this sub-series (by sail number): boats
+   *  kept in the block although all-DNC, and boats dropped from this block
+   *  alone. Become `SubSeries.competitorOverrides`. */
+  includeCompetitors?: string[];
+  excludeCompetitors?: string[];
 }
 
 export interface Fixture {
@@ -413,6 +418,18 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
               if (!raceId) throw new Error(`Fixture sub-series "${name}" excludes unknown race ${ex.race}`);
               if (!fleetId) throw new Error(`Fixture sub-series "${name}" excludes unknown fleet "${ex.fleet}"`);
               return { raceId, fleetId };
+            }),
+          }
+        : {}),
+      ...(cfg?.includeCompetitors || cfg?.excludeCompetitors
+        ? {
+            competitorOverrides: [
+              ...(cfg.includeCompetitors ?? []).map((sail) => ({ sail, status: 'included' as const })),
+              ...(cfg.excludeCompetitors ?? []).map((sail) => ({ sail, status: 'excluded' as const })),
+            ].map(({ sail, status }) => {
+              const competitorId = sailToId.get(sail);
+              if (!competitorId) throw new Error(`Fixture sub-series "${name}" overrides unknown competitor "${sail}"`);
+              return { competitorId, status };
             }),
           }
         : {}),

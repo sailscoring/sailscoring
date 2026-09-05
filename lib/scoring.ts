@@ -2322,6 +2322,7 @@ export function calculateSubSeriesFleetStandings(
     // calculateFleetStandings applies with the options passed here.
     const entry: EntryResolutionOptions = {
       excludeDncOnlyCompetitors: subSeries.excludeDncOnlyCompetitors ?? excludeDncOnlyCompetitors,
+      competitorOverrides: subSeries.competitorOverrides,
     };
     const inScope = competitors.filter(
       (c) => scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid)),

@@ -748,6 +748,11 @@ export interface SubSeries {
   // lists the full entry list (false); a race-subset block typically ranks only
   // boats that took part (true). See calculateSubSeriesFleetStandings.
   excludeDncOnlyCompetitors?: boolean;
+  // The scorer's per-boat answers for this sub-series alone — a boat included
+  // although it never sailed the block (it entered, so it counts), or excluded
+  // from this block while scored everywhere else. Beat both the competitor's
+  // own `excluded` flag and `excludeDncOnlyCompetitors`. Sparse.
+  competitorOverrides?: CompetitorEntryOverride[];
   version?: number;    // server-side concurrency token (see Series.version)
 }
 
