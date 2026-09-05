@@ -252,7 +252,7 @@ export default function StandingsPage({
       series.dnfScoring ?? 'seriesEntries',
       allRaceStarts,
       undefined,
-      undefined,
+      series.excludeDncOnlyCompetitors ?? false,
       proportionalDiscard,
     );
     const nonEmpty = blockResults.filter((b) => b.races.length > 0);
@@ -328,6 +328,7 @@ export default function StandingsPage({
       undefined,
       buildRaceFleetExclusionMap(series.raceFleetExclusions),
       proportionalDiscard,
+      { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
     );
     raceLabels = races;
     fleetResults = whole.fleetStandings;
@@ -335,7 +336,9 @@ export default function StandingsPage({
     const discardCount = getDiscardCount(races.length, discardThresholds, proportionalDiscard);
     // The entrants, not the list: an excluded boat is on the roster but is
     // not one of the competitors this table scores.
-    const entrantCount = resolveEntrants(competitors, races, allFinishes).length;
+    const entrantCount = resolveEntrants(competitors, races, allFinishes, {
+      excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors,
+    }).length;
     summary =
       `${races.length} race${races.length === 1 ? '' : 's'}${fleetCountLabel} · Low Point · ` +
       (discardCount > 0
@@ -358,8 +361,8 @@ export default function StandingsPage({
   // Who is entered in the scope on screen, and who is not and why. The table
   // shows the entrants; the strip below it shows the rest, so a boat the rule
   // or a scorer dropped is never simply missing. In block scope the answers
-  // come from the block's own flag and overrides; in whole-series scope only
-  // the competitor flag applies.
+  // come from the block's own flag and overrides; in whole-series scope the
+  // competitor flag and the series' own all-DNC rule apply.
   const scopeRaceIds = new Set(scopeRaces.map((r) => r.id));
   const scopeFinishes = hasBlocks ? allFinishes.filter((f) => scopeRaceIds.has(f.raceId)) : allFinishes;
   const scopeCompetitors = activeBlock?.fleetIds
@@ -370,7 +373,7 @@ export default function StandingsPage({
         excludeDncOnlyCompetitors: activeBlock?.excludeDncOnlyCompetitors ?? false,
         competitorOverrides: activeBlock?.competitorOverrides,
       }
-    : {};
+    : { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors };
   const entryStatuses = resolveEntryStatuses(scopeCompetitors, scopeRaces, scopeFinishes, entryOptions);
   const notShown = scopeCompetitors.filter((c) => !entryStatuses.get(c.id)?.entered);
   const includedByOverride = new Set(
@@ -383,7 +386,9 @@ export default function StandingsPage({
     if (st.entered) return '';
     if (st.via === 'competitor') return 'Excluded from the series';
     if (st.via === 'override') return 'Excluded from this sub-series';
-    return hasBlocks ? 'No results — not an entrant of this sub-series' : 'No results — not an entrant';
+    return hasBlocks
+      ? 'No results — not an entrant of this sub-series'
+      : 'No results — not an entrant while the series ranks only boats that took part';
   };
 
   /** Write one boat's pin for the active block: a status, or null to clear it. */
@@ -557,7 +562,7 @@ export default function StandingsPage({
         <details className="rounded-md border px-4 py-2 text-sm" data-testid="not-shown">
           <summary className="cursor-pointer text-muted-foreground">
             Not shown ({notShown.length}) —{' '}
-            {hasBlocks ? 'boats not entered in this sub-series' : 'boats excluded from the series'}
+            {hasBlocks ? 'boats not entered in this sub-series' : 'boats not entered in the series'}
           </summary>
           <ul className="mt-2 space-y-1.5">
             {notShown.map((c) => {

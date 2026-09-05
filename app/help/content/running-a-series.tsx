@@ -285,6 +285,17 @@ export default function RunningASeries() {
           as a mark.
         </p>
         <p>
+          To exclude every boat that hasn’t sailed without ticking them one by one, turn on{' '}
+          <strong className="text-foreground">Rank only boats that took part</strong> on the{' '}
+          <strong className="text-foreground">Scoring</strong> card of the Settings tab. A boat with
+          no result other than DNC in any race is then not an entrant — off the standings and out of
+          the DNC entry count, exactly as if you had excluded it — and joins the moment it sails a
+          race. The Competitors tab marks these boats <em>auto</em> beside the Excluded box; the finish
+          sheet still offers them, since the sheet is where a boat stops being a no-show. This is
+          Sailwave’s <em>Mark all un-sailed competitors as excluded</em> applied continuously, and a
+          new sub-series starts from the same setting.
+        </p>
+        <p>
           Excluding a boat that already has results is allowed: its finishes stay on the sheet,
           but they no longer score, and the boats that crossed behind it move up a place — the
           same as a boat sailing the course without having entered. The Standings tab lists

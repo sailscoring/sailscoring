@@ -13,7 +13,7 @@ import {
 } from '@/lib/discard-rules';
 import { useFeatures } from '@/components/features-provider';
 
-export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'dnfScoring'>;
+export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'dnfScoring' | 'excludeDncOnlyCompetitors'>;
 
 /** What a scorer gets on switching to a proportional rule: one discard per
  *  three races sailed, the commonest wording found in club sailing
@@ -34,6 +34,7 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   const [thresholds, setThresholds] = useState<DiscardThreshold[]>(value.discardThresholds ?? []);
   const [proportional, setProportional] = useState<ProportionalDiscard | undefined>(value.proportionalDiscard);
   const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(value.dnfScoring ?? 'seriesEntries');
+  const [excludeDncOnly, setExcludeDncOnly] = useState(value.excludeDncOnlyCompetitors ?? false);
   const [changed, setChanged] = useState(false);
 
   // Re-sync the local draft when the persisted value changes identity (e.g.
@@ -46,6 +47,7 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     setThresholds(value.discardThresholds ?? []);
     setProportional(value.proportionalDiscard);
     setDnfScoring(value.dnfScoring ?? 'seriesEntries');
+    setExcludeDncOnly(value.excludeDncOnlyCompetitors ?? false);
     setChanged(false);
   }
 
@@ -79,6 +81,12 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     if (isWizard) fireWizardSave({ dnfScoring: next });
   }
 
+  function updateExcludeDncOnly(next: boolean) {
+    setExcludeDncOnly(next);
+    setChanged(true);
+    if (isWizard) fireWizardSave({ excludeDncOnlyCompetitors: next });
+  }
+
   function updateThreshold(index: number, field: keyof DiscardThreshold, value: number) {
     updateThresholds(thresholds.map((t, i) => i === index ? { ...t, [field]: value } : t));
   }
@@ -99,7 +107,12 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     // under the cursor as a number is edited is worse than a momentarily
     // out-of-order list, and the engine sorts for itself either way.
     const ordered = [...thresholds].sort((a, b) => a.minRaces - b.minRaces);
-    await onChange({ discardThresholds: ordered, proportionalDiscard: proportional, dnfScoring });
+    await onChange({
+      discardThresholds: ordered,
+      proportionalDiscard: proportional,
+      dnfScoring,
+      excludeDncOnlyCompetitors: excludeDncOnly,
+    });
     setChanged(false);
     setExpanded(false);
   }
@@ -294,6 +307,23 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
           </p>
         </div>
       </label>
+      <label className="flex items-start gap-3 cursor-pointer pt-2">
+        <input
+          type="checkbox"
+          checked={excludeDncOnly}
+          onChange={(e) => updateExcludeDncOnly(e.target.checked)}
+          className="mt-0.5"
+        />
+        <div>
+          <span className="text-sm font-medium">Rank only boats that took part</span>
+          <p className="text-xs text-muted-foreground">
+            A boat with no result other than DNC in any race is treated as not entered: left off the
+            standings and out of the entry count that DNC and DNF points are based on, as if you had
+            excluded it. It joins the moment it sails a race. Sailwave calls this “mark all un-sailed
+            competitors as excluded”; a new sub-series starts from this setting.
+          </p>
+        </div>
+      </label>
     </div>
   );
 
@@ -315,7 +345,9 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   const discardSummary = value.proportionalDiscard
     ? summarizeProportionalDiscard(value.proportionalDiscard)
     : summarizeDiscardRules(value.discardThresholds ?? []);
-  const summary = `${discardSummary} · ${dnfLabel}`;
+  const summary =
+    `${discardSummary} · ${dnfLabel}` +
+    (value.excludeDncOnlyCompetitors ? ' · Rank only boats that took part' : '');
 
   return (
     <div className="bg-card border rounded-lg p-5 space-y-4">

@@ -683,7 +683,7 @@ export default function RacesPage({
     setSelectedFleetIds(new Set(allFleetIds));
     setExcludedPairs(new Set());
     setCarryFromId('');
-    setExcludeDncOnly(false);
+    setExcludeDncOnly(series?.excludeDncOnlyCompetitors ?? false);
     setCompetitorOverrides([]);
     setSubSeriesError('');
     setShowSubSeriesDialog(true);

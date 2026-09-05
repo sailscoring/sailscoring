@@ -17,6 +17,8 @@ import {
   useUpdateCompetitorsField,
 } from '@/hooks/use-competitors';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
+import { useRacesBySeries } from '@/hooks/use-races';
+import { resolveEntryStatuses } from '@/lib/scoring';
 import { queryKeys } from '@/hooks/query-keys';
 import { finishRepo, raceRatingOverrideRepo } from '@/lib/api-repository';
 import { Button } from '@/components/ui/button';
@@ -206,9 +208,24 @@ export default function CompetitorsPage({
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
   const didAutoFocus = useRef(false);
 
-  const excludedCount = (competitors ?? []).filter((c) => c.excluded).length;
+  // With the series ranking only boats that took part, a boat with no result
+  // yet is not an entrant either — shown here as excluded automatically, so
+  // the list agrees with the standings about who is in. The finishes are
+  // only fetched while the rule is on; the race list is small and cached.
+  const autoRule = series?.excludeDncOnlyCompetitors ?? false;
+  const { data: racesForRule } = useRacesBySeries(seriesId);
+  const { data: finishesForRule } = useFinishesBySeries(seriesId, { enabled: autoRule });
+  const autoExcluded = new Set(
+    autoRule && racesForRule && finishesForRule
+      ? [...resolveEntryStatuses(competitors ?? [], racesForRule, finishesForRule, { excludeDncOnlyCompetitors: true })]
+          .filter(([, st]) => !st.entered && st.via === 'dncOnly')
+          .map(([id]) => id)
+      : [],
+  );
+  const isOut = (c: Competitor) => (c.excluded ?? false) || autoExcluded.has(c.id);
+  const excludedCount = (competitors ?? []).filter(isOut).length;
   const filteredCompetitors = (competitors ?? []).filter(
-    (c) => competitorMatchesFilter(c, filter) && !(hideExcluded && c.excluded),
+    (c) => competitorMatchesFilter(c, filter) && !(hideExcluded && isOut(c)),
   );
   // The selection is kept as raw ids so it survives filter changes; count and
   // delete against the ids that still exist, so a row removed elsewhere can't
@@ -942,8 +959,8 @@ export default function CompetitorsPage({
               <TableRow
                 key={c.id}
                 tabIndex={0}
-                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}${isExcluded(c) ? ' text-muted-foreground' : ''}`}
-                data-excluded={isExcluded(c) ? 'true' : undefined}
+                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}${isExcluded(c) || autoExcluded.has(c.id) ? ' text-muted-foreground' : ''}`}
+                data-excluded={isExcluded(c) ? 'true' : autoExcluded.has(c.id) ? 'auto' : undefined}
                 onClick={(e) => {
                   if (readOnly) return;
                   editingRowRef.current = e.currentTarget;
@@ -1039,9 +1056,9 @@ export default function CompetitorsPage({
                 {visibleAxes.map((axis) => (
                   <TableCell key={axis.id} className="whitespace-normal break-words">{c.subdivisions?.[axis.id] ?? ''}</TableCell>
                 ))}
-                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                <TableCell className="text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                   {readOnly ? (
-                    isExcluded(c) ? 'Excluded' : ''
+                    isExcluded(c) ? 'Excluded' : autoExcluded.has(c.id) ? 'Auto' : ''
                   ) : (
                     // Generic label, as with the selection checkbox: a sail
                     // number in the accessible name would collide with the
@@ -1052,6 +1069,16 @@ export default function CompetitorsPage({
                       onChange={() => toggleExcluded(c)}
                       aria-label="Excluded from the series"
                     />
+                  )}
+                  {!isExcluded(c) && autoExcluded.has(c.id) && (
+                    // The rule, not the scorer: the box stays free so a boat
+                    // can still be pinned out before it ever sails.
+                    <span
+                      className="ml-1.5 text-xs text-muted-foreground"
+                      title="No results yet — not an entrant while the series ranks only boats that took part"
+                    >
+                      auto
+                    </span>
                   )}
                 </TableCell>
               </TableRow>
