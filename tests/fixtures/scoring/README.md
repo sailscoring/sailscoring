@@ -32,6 +32,7 @@ competitors:
     ircTcc: 1.05          # IRC only
     pyNumber: 1050        # PY only
     nhcStartingTcf: 0.95  # NHC only
+    excluded: true        # optional: on the list but not an entrant (see entries/)
 
 races:
   - number: 1

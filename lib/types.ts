@@ -649,7 +649,27 @@ export interface Competitor {
   // the record per the fleet's OrcProfile. Kept out of the public JSON
   // export (only a summary travels — see lib/public-export.ts).
   orcCert?: OrcCertData;
+  // Excluded from the series: the boat is on the list but is not an entrant.
+  // It is scored nowhere, counts toward no entry total (so DNC/DNF points are
+  // based on the boats that are entered), and appears on no published page or
+  // finish sheet — the record exists; the entry does not. Sailwave's per-
+  // competitor "Exclude" flag, kept for a roster of potential entries most of
+  // which never turn up. Sparse: absent means entered.
+  excluded?: boolean;
   version?: number;         // server-side concurrency token (see Series.version)
+}
+
+/**
+ * A scorer's per-boat answer to "is this competitor entered here?", pinned
+ * against one scope (today a sub-series). It beats both the competitor's own
+ * `excluded` flag and the automatic all-DNC rule: 'included' keeps a boat that
+ * never sailed the block on its table and in its entry count (it entered, so
+ * everyone else's DNC counts it); 'excluded' drops a boat from this block
+ * alone while it is scored normally everywhere else.
+ */
+export interface CompetitorEntryOverride {
+  competitorId: string;
+  status: 'included' | 'excluded';
 }
 
 /**

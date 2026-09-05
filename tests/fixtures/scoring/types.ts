@@ -178,6 +178,9 @@ export interface FixtureCompetitor {
   // { APHT: 0.9631, APHD: 623.0 }. Becomes the stored certificate record;
   // the fleet's orcOption names which field scores.
   orcCertFields?: Record<string, number>;
+  /** Excluded from the series (Competitor.excluded): on the list, not an
+   *  entrant — scored nowhere and counted toward no entry total. */
+  excluded?: boolean;
 }
 
 export interface FixtureFleet {
@@ -333,6 +336,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       ...(c.orcCertFields != null
         ? { orcCert: { record: c.orcCertFields, importedAt: 0 } }
         : {}),
+      ...(c.excluded ? { excluded: true } : {}),
     };
   });
 

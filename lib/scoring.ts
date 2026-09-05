@@ -1,4 +1,4 @@
-import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion } from './types';
+import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
 import { elapsedSecondsOf } from './elapsed-time';
 import { getCodeDefinition } from './scoring-codes';
 import { orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcTodRating, orcTotRating } from './orc-certificate';
@@ -1991,6 +1991,73 @@ function detectPerFleetGaps(
  *   chain. Fed from whole-series `Series.raceFleetExclusions` or a sub-series'
  *   own exclusions — build it with {@link buildRaceFleetExclusionMap}.
  */
+// ─── Entry resolution ────────────────────────────────────────────────────────
+
+/**
+ * Whether a competitor is entered in a scoring scope (a whole series or one
+ * sub-series), and what decided it. A boat that is not entered is a
+ * non-entrant there: off the ranking, out of the entry count that RRS A5.2
+ * DNC/DNF points are based on, and — because `calculateRaceScores` ignores
+ * finishes for boats it isn't given — scored in no race, so a non-entrant that
+ * crossed the line moves the boats behind it up a place.
+ *
+ * Three things decide it, in precedence order:
+ *  1. a per-scope override (`CompetitorEntryOverride`) — the scorer's explicit
+ *     answer for this boat in this scope, either way;
+ *  2. the competitor's own `excluded` flag — not entered in the series at all;
+ *  3. the automatic rule (`excludeDncOnlyCompetitors`): a boat with no result
+ *     other than DNC across the scope's races is treated as not entered.
+ * Otherwise the boat is entered.
+ */
+export type EntryStatus =
+  | { entered: true; via: 'default' | 'override' }
+  | { entered: false; via: 'competitor' | 'override' | 'dncOnly' };
+
+export interface EntryResolutionOptions {
+  /** Treat a boat that is all-DNC across the scope's races as not entered —
+   *  Sailwave's "mark all un-sailed competitors as excluded", HalSail's
+   *  "exclude boats with only DNC". */
+  excludeDncOnlyCompetitors?: boolean;
+  /** The scope's per-boat pins; see `CompetitorEntryOverride`. */
+  competitorOverrides?: readonly CompetitorEntryOverride[];
+}
+
+export function resolveEntryStatuses(
+  competitors: readonly Competitor[],
+  races: readonly Race[],
+  finishes: readonly Finish[],
+  opts: EntryResolutionOptions = {},
+): Map<string, EntryStatus> {
+  const overrideById = new Map(
+    (opts.competitorOverrides ?? []).map((o) => [o.competitorId, o.status] as const),
+  );
+  const participating = opts.excludeDncOnlyCompetitors
+    ? subSeriesEntrantIds([...races], [...finishes])
+    : null;
+  const out = new Map<string, EntryStatus>();
+  for (const c of competitors) {
+    const override = overrideById.get(c.id);
+    if (override === 'included') out.set(c.id, { entered: true, via: 'override' });
+    else if (override === 'excluded') out.set(c.id, { entered: false, via: 'override' });
+    else if (c.excluded) out.set(c.id, { entered: false, via: 'competitor' });
+    else if (participating && !participating.has(c.id)) out.set(c.id, { entered: false, via: 'dncOnly' });
+    else out.set(c.id, { entered: true, via: 'default' });
+  }
+  return out;
+}
+
+/** The competitors entered in a scope — `resolveEntryStatuses` filtered to the
+ *  boats that are in, in the original order. */
+export function resolveEntrants(
+  competitors: readonly Competitor[],
+  races: readonly Race[],
+  finishes: readonly Finish[],
+  opts: EntryResolutionOptions = {},
+): Competitor[] {
+  const statuses = resolveEntryStatuses(competitors, races, finishes, opts);
+  return competitors.filter((c) => statuses.get(c.id)?.entered);
+}
+
 /**
  * Group a flat `{ raceId, fleetId }[]` exclusion list into the per-fleet map
  * `calculateFleetStandings` consumes: fleetId → set of struck raceIds. Returns
@@ -2023,13 +2090,17 @@ export function calculateFleetStandings(
   progressiveSeedTcfs?: Map<string, Map<string, number>>,
   excludedRaceIdsByFleet?: Map<string, Set<string>>,
   proportionalDiscard?: ProportionalDiscard,
+  entry?: EntryResolutionOptions,
 ): FleetStandingsResult {
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
   const knownFleetIds = new Set(fleets.map((f) => f.id));
 
+  // Only entrants are scored; see resolveEntryStatuses for what decides that.
+  const entrants = resolveEntrants(competitors, races, allFinishes, entry);
+
   const competitorsByFleet = new Map<string, Competitor[]>();
   const orphans: Competitor[] = [];
-  for (const competitor of competitors) {
+  for (const competitor of entrants) {
     let placedInAtLeastOneFleet = false;
     for (const fleetId of competitor.fleetIds) {
       if (knownFleetIds.has(fleetId)) {
@@ -2247,13 +2318,13 @@ export function calculateSubSeriesFleetStandings(
     // Sailwave, whose excluded competitors "do not get counted as part of the
     // number of competitors for calculating DNF, DNC etc. points". A boat that
     // entered but never sailed and should still count is a per-boat include
-    // override, not a second counting mode.
-    const excludeDnc = subSeries.excludeDncOnlyCompetitors ?? excludeDncOnlyCompetitors;
-    const entrantIds = subSeriesEntrantIds(blockRaces, blockFinishes);
-    const entrants = competitors.filter(
-      (c) =>
-        (scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid))) &&
-        (!excludeDnc || entrantIds.has(c.id)),
+    // override, not a second counting mode — see resolveEntryStatuses, which
+    // calculateFleetStandings applies with the options passed here.
+    const entry: EntryResolutionOptions = {
+      excludeDncOnlyCompetitors: subSeries.excludeDncOnlyCompetitors ?? excludeDncOnlyCompetitors,
+    };
+    const inScope = competitors.filter(
+      (c) => scopedFleetIds === null || c.fleetIds.some((fid) => scopedFleetIds.has(fid)),
     );
 
     // Per-fleet race exclusions → fleetId → set of struck raceIds.
@@ -2266,7 +2337,7 @@ export function calculateSubSeriesFleetStandings(
 
     const { fleetStandings, circularRedressRaces } = calculateFleetStandings(
       blockFleets,
-      entrants,
+      inScope,
       blockRaces,
       blockFinishes,
       discardThresholds,
@@ -2276,6 +2347,7 @@ export function calculateSubSeriesFleetStandings(
       seedTcfs,
       excludedByFleet,
       proportionalDiscard,
+      entry,
     );
 
     const endByFleet = new Map<string, Map<string, number>>();

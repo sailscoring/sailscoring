@@ -20,8 +20,7 @@ import {
   calculateStandings,
   calculateFleetStandings,
   calculateRaceScores,
-  calculateHandicapRaceScores,
-} from '../lib/scoring';
+  calculateHandicapRaceScores, resolveEntrants } from '../lib/scoring';
 import { assembleSeriesResultsData, renderSeriesHtml } from '../lib/results-renderer';
 import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
@@ -103,7 +102,10 @@ ${notesHtml}${configHtml}${commentsHtml}
 // ─── Scratch / fleets / codes renderer (full series results layout) ─────────
 
 function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  const { competitors, fleets, races, finishes, discardThresholds, proportionalDiscard, dnfScoring } = buildFixtureInputs(fixture);
+  const { competitors: listed, fleets, races, finishes, discardThresholds, proportionalDiscard, dnfScoring } = buildFixtureInputs(fixture);
+  // The per-race tables below score the entrants, as the engine does; a boat
+  // excluded from the series is on the list but in no race.
+  const competitors = resolveEntrants(listed, races, finishes);
   const isMultiFleet = fleets.length > 1;
 
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));
@@ -950,6 +952,10 @@ const CATEGORY_META: Record<string, { title: string; intro: string }> = {
   'sub-series': {
     title: 'Sub-series',
     intro: 'Named blocks of races inside one series, each scored independently — its\n  own standings, discards (the series discard rule applied to the block’s race\n  count), and entrants (a boat with no result other than DNC across a block\n  isn’t an entrant in it). Progressive handicaps chain across block boundaries\n  unchanged.',
+  },
+  entries: {
+    title: 'Entries',
+    intro: 'Which boats on the competitor list are entrants, and so are scored and\n  counted toward the RRS A5.2 entry total that DNC/DNF points are based on.\n  A boat excluded by the scorer is on the list but is not an entrant: it is\n  scored in no race (boats behind it move up a place), sits on no standings\n  table, and lowers every other boat’s DNC by one — exactly as Sailwave’s\n  Exclude flag behaves.',
   },
   echo: {
     title: 'ECHO progressive handicap',

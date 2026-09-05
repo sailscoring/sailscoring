@@ -19,7 +19,7 @@ import { buildFixtureInputs, loadFixturesFromDir, type FixtureStanding } from '.
 import type { Standing } from '@/lib/types';
 
 const fixtureDir = join(__dirname, 'fixtures/scoring');
-const SUBDIRS = ['scratch', 'fleets', 'codes', 'race-options', 'sub-series'];
+const SUBDIRS = ['scratch', 'fleets', 'codes', 'race-options', 'sub-series', 'entries'];
 
 function assertExpectedStandings(
   expectedStandings: FixtureStanding[],
