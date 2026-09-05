@@ -41,13 +41,13 @@ test('find duplicates pre-selects the extra copies for review', async ({ page })
   await expect(page.getByText(/1 duplicate group found/)).toBeVisible();
   await expect(page.getByText('1 selected')).toBeVisible();
   await expect(
-    page.getByRole('row', { name: /Duplicate Entry/ }).getByRole('checkbox'),
+    page.getByRole('row', { name: /Duplicate Entry/ }).getByRole('checkbox', { name: 'Select row' }),
   ).toBeChecked();
   await expect(
-    page.getByRole('row', { name: /Original Entry/ }).getByRole('checkbox'),
+    page.getByRole('row', { name: /Original Entry/ }).getByRole('checkbox', { name: 'Select row' }),
   ).not.toBeChecked();
   await expect(
-    page.getByRole('row', { name: /Unrelated Boat/ }).getByRole('checkbox'),
+    page.getByRole('row', { name: /Unrelated Boat/ }).getByRole('checkbox', { name: 'Select row' }),
   ).not.toBeChecked();
 
   // ── 4. Deleting the pre-selection keeps the original ─────────────────────

@@ -10,6 +10,7 @@ import {
   calculateSubSeriesFleetStandings,
   subSeriesEntrantIds,
   buildRaceFleetExclusionMap,
+  resolveEntrants,
 } from '@/lib/scoring';
 import { subdivisionAxes } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
@@ -311,12 +312,15 @@ export default function StandingsPage({
     fleetResults = whole.fleetStandings;
     circularRedressRaces = whole.circularRedressRaces;
     const discardCount = getDiscardCount(races.length, discardThresholds, proportionalDiscard);
+    // The entrants, not the list: an excluded boat is on the roster but is
+    // not one of the competitors this table scores.
+    const entrantCount = resolveEntrants(competitors, races, allFinishes).length;
     summary =
       `${races.length} race${races.length === 1 ? '' : 's'}${fleetCountLabel} · Low Point · ` +
       (discardCount > 0
         ? `${discardCount} discard${discardCount > 1 ? 's' : ''}`
         : 'No discards') +
-      ` · ${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`;
+      ` · ${entrantCount} competitor${entrantCount === 1 ? '' : 's'}`;
   }
 
   // Per-fleet race exclusions for the standings on screen. When sub-series take

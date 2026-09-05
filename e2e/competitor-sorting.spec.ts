@@ -60,7 +60,7 @@ test('sorting composes with the filter and leaves the selection alone', async ({
   await expect(page.getByText('3 competitors')).toBeVisible();
 
   // Select a boat, then sort — the selection is by id, so it survives.
-  await page.getByRole('row', { name: /Red Rover/ }).getByRole('checkbox').check();
+  await page.getByRole('row', { name: /Red Rover/ }).getByRole('checkbox', { name: 'Select row' }).check();
   await expect(page.getByText('1 selected')).toBeVisible();
 
   // Howth YC first; the two Old YC boats keep their sail-number order.
