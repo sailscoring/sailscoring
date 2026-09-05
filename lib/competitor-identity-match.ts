@@ -148,6 +148,13 @@ export function clubNameForms(part: string): { full: string; acronym: string | n
 }
 
 /**
+ * The token a corpus's blank club fields share when a blank means the
+ * workspace's own people. Deliberately not a club name — it stands for
+ * whichever club this is, which the matcher never needs to know.
+ */
+const UNSTATED_CLUB = '\u0000unstated';
+
+/**
  * Build the club canonicaliser for one corpus: a function folding a club field
  * into the canonical tokens its clubs are known by, so that the spellings *this
  * workspace actually uses* for one club corroborate each other.
@@ -164,26 +171,52 @@ export function clubNameForms(part: string): { full: string; acronym: string | n
  * always the same club, spelled `"KSC"`, `"Killaloe Sailing Club"` and
  * `"Killaloe SC"` — three non-overlapping tokens under the plain
  * normalisation, so no two of them ever corroborated a name match.
+ *
+ * **A blank club is read from the corpus it sits in.** Where most rows name a
+ * club, the few that don't are omissions, and stay unknown — corroborating
+ * nothing, which is the safe reading. Where most rows name none, the blank is
+ * the convention rather than the exception: a club scoring its own racing
+ * fills the field in for visitors and leaves it empty for members, so a blank
+ * means "one of ours" and two blanks agree. They are given a token of their
+ * own rather than any club's, because *which* club it is never matters — only
+ * that the rows share it. Measured on `hyc-archive` (62% of rows blank), that
+ * reading is where nearly all the benefit is: it takes the corpus from 6312
+ * clusters and 4199 review suggestions to 5714 and 1019, where additionally
+ * knowing the club to be Howth would reach 5680 and 970.
+ *
+ * The majority test states the distinction; it is not a safety threshold. The
+ * rule is self-limiting, because a corpus that records clubs has almost no
+ * blanks to fold: forced on where it should not fire, `ksc-archive` is
+ * unchanged and `iodai-archive` moves by two clusters, both with no false
+ * pairs.
  */
 export function buildClubCanonicalizer(
   clubs: Iterable<string | undefined>,
 ): (club: string | undefined) => string[] {
   const acronymToFull = new Map<string, Set<string>>();
+  let stated = 0;
+  let blank = 0;
   for (const club of clubs) {
+    let statesAny = false;
     for (const part of (club ?? '').split('/')) {
       const { full, acronym } = clubNameForms(part);
-      if (!full || !acronym) continue;
+      if (!full) continue;
+      statesAny = true;
+      if (!acronym) continue;
       const fulls = acronymToFull.get(acronym);
       if (fulls) fulls.add(full);
       else acronymToFull.set(acronym, new Set([full]));
     }
+    if (statesAny) stated++;
+    else blank++;
   }
   const fold = new Map<string, string>();
   for (const [acronym, fulls] of acronymToFull) {
     if (fulls.size === 1) fold.set(acronym, [...fulls][0]);
   }
-  return (club) =>
-    (club ?? '')
+  const blankIsAClub = blank > stated;
+  return (club) => {
+    const tokens = (club ?? '')
       .split('/')
       .map((part) => {
         const { full, acronym } = clubNameForms(part);
@@ -193,6 +226,9 @@ export function buildClubCanonicalizer(
         return acronym === null ? (fold.get(full) ?? full) : full;
       })
       .filter((c) => c.length > 0);
+    if (tokens.length === 0 && blankIsAClub) return [UNSTATED_CLUB];
+    return tokens;
+  };
 }
 
 /**

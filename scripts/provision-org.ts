@@ -17,7 +17,7 @@
  * symmetrical.
  *
  * Usage (production: against the production DATABASE_URL):
- *   pnpm tsx scripts/provision-org.ts create-org "HYC Scoring Panel" --slug hyc
+ *   pnpm tsx scripts/provision-org.ts create-org "Howth Yacht Club" --slug hyc
  *   pnpm tsx scripts/provision-org.ts pre-create-user alice@example.com --name "Alice Adams"
  *   pnpm tsx scripts/provision-org.ts add-member hyc alice@example.com --role owner
  *   pnpm tsx scripts/provision-org.ts add-member hyc bob@example.com
@@ -352,33 +352,6 @@ export async function setOrgFeature(
     .set({ metadata: serializeOrgMetadata(next) })
     .where(eq(organization.id, org.id));
   return { org, enabledFeatures: next.enabledFeatures };
-}
-
-/**
- * Set (or clear, with an empty string) a workspace's home club (#507) — the
- * club whose workspace it is. Most entries in a club's own workspace carry no
- * club at all, so the identity pass reads a blank club as this one. Operator
- * subcommand as well as a settings card, because archive workspaces are
- * provisioned from here and never see the UI.
- */
-export async function setOrgHomeClub(
-  db: SailScoringDb,
-  args: { orgSlugOrId: string; homeClub: string },
-): Promise<{ org: { id: string; name: string; slug: string }; homeClub: string | null }> {
-  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
-  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
-  const [row] = await db
-    .select({ metadata: organization.metadata })
-    .from(organization)
-    .where(eq(organization.id, org.id))
-    .limit(1);
-  const meta = parseOrgMetadata(row?.metadata ?? null, org.slug);
-  const homeClub = args.homeClub.trim() || null;
-  await db
-    .update(organization)
-    .set({ metadata: serializeOrgMetadata({ ...meta, homeClub }) })
-    .where(eq(organization.id, org.id));
-  return { org, homeClub };
 }
 
 /**
@@ -813,7 +786,6 @@ function usage(): string {
   enable-feature <org-slug-or-id> <feature>
   disable-feature <org-slug-or-id> <feature>
   list-feature <feature>
-  set-home-club <org-slug-or-id> [<club name>]
   support find <email>
   support join <org-slug-or-id> <email> [--hours ${DEFAULT_SUPPORT_HOURS}] [--reason <text>] [--role member|scorer|admin|owner]
   support list [--all]
@@ -842,11 +814,6 @@ requester as owner, and marks the request fulfilled.
 enable-feature / disable-feature toggle an experimental feature (#155) for a
 club workspace; list-feature prints which orgs have a feature enabled (the
 containment-audience query). Feature keys: ${ALL_FEATURE_KEYS.join(', ')}.
-
-set-home-club names the club a workspace scores for (#507). Entries that
-leave the club blank are read as members of it when matching a competitor
-across series — the shape of a club's own workspace, where only visitors
-state a club. Pass no name to clear it. Never written onto entries.
 
 support is the paved path into a workspace you are not a member of, for
 a support request (see docs/workspace-provisioning.md, "Support access").
@@ -1183,22 +1150,6 @@ export async function runCli(argv: string[]): Promise<number> {
           `${enabled ? 'enabled' : 'disabled'} "${feature}" for ${result.org.slug} — now: ${
             result.enabledFeatures.length > 0 ? result.enabledFeatures.join(', ') : '(none)'
           }`,
-        );
-        return 0;
-      }
-      case 'set-home-club': {
-        const [orgSlugOrId, ...rest] = positional;
-        if (!orgSlugOrId) {
-          throw new Error('set-home-club: <org-slug-or-id> is required');
-        }
-        const result = await setOrgHomeClub(db, {
-          orgSlugOrId,
-          homeClub: rest.join(' '),
-        });
-        console.log(
-          result.homeClub
-            ? `home club for ${result.org.slug} is now "${result.homeClub}"`
-            : `cleared the home club for ${result.org.slug}`,
         );
         return 0;
       }

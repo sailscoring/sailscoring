@@ -17,7 +17,7 @@ import {
   type FeatureDef,
   type FeatureKey,
 } from '@/lib/features';
-import { featureToggleSchema, homeClubSchema } from '@/lib/validation/workspace';
+import { featureToggleSchema } from '@/lib/validation/workspace';
 
 /**
  * ADR-009 M4 — the caller's resolved identity and active workspace, for
@@ -43,38 +43,6 @@ export function workspaceIdentity(workspace: WorkspaceContext): WorkspaceIdentit
     role: workspace.role,
     features: workspace.features,
   };
-}
-
-/**
- * Set (or clear) the workspace's home club (#507). In a club's own workspace
- * most competitors carry no club — everyone is assumed to be a member, and
- * only visitors to open events get the field filled in — so the identity
- * matcher reads a blank club as this one, and a visitor's stated club
- * genuinely fails to corroborate against a member's blank row.
- *
- * Stored on `organization.metadata` beside the feature flags, and read only by
- * the identity pass: the value is never written onto competitor rows, because
- * a workspace that scores an open event would then publish the assumption as
- * fact.
- */
-export async function setWorkspaceHomeClub(
-  workspace: WorkspaceContext,
-  body: unknown,
-): Promise<{ homeClub: string | null }> {
-  const input = homeClubSchema.parse(body);
-  const homeClub = input.homeClub.trim() || null;
-  const db = getDb();
-  const [row] = await db
-    .select({ metadata: organization.metadata })
-    .from(organization)
-    .where(eq(organization.id, workspace.workspaceId))
-    .limit(1);
-  const meta = parseOrgMetadata(row?.metadata ?? null, workspace.workspaceSlug);
-  await db
-    .update(organization)
-    .set({ metadata: serializeOrgMetadata({ ...meta, homeClub }) })
-    .where(eq(organization.id, workspace.workspaceId));
-  return { homeClub };
 }
 
 /**

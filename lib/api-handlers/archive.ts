@@ -33,7 +33,6 @@ import {
   workspaceCrewIdentityFeatureOn,
 } from '@/lib/competitor-identity-reconcile';
 import { clusterCompetitors } from '@/lib/competitor-identity-cluster';
-import { workspaceHomeClub } from '@/lib/workspace-features';
 import { mapWithConcurrency } from '@/lib/concurrency';
 import { getDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -712,9 +711,7 @@ export async function applyArchiveIdentities(
   const inputs = await collectClusterInputs(db, workspace.workspaceId, {
     includeCrew: await workspaceCrewIdentityFeatureOn(db, workspace.workspaceId),
   });
-  const result = clusterCompetitors(inputs, {
-    homeClub: await workspaceHomeClub(db, workspace.workspaceId),
-  });
+  const result = clusterCompetitors(inputs);
   const autoPass = await applyClusters(db, workspace.workspaceId, result, {
     managedBy: 'archive',
     onlyCompetitorIds: new Set(archiveRows.map((r) => r.id)),

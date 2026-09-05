@@ -199,40 +199,46 @@ describe('clusterCompetitors', () => {
   });
 });
 
-describe('the workspace home club (#507)', () => {
-  it('reads a blank club as the home club, so two blank rows corroborate', () => {
-    const rows = [
+describe('a blank club, read from the corpus', () => {
+  /** Filler rows that name a club, to set which regime the corpus is in. */
+  function stating(n: number) {
+    return Array.from({ length: n }, (_, i) =>
+      row({ name: `Filler ${i} Person`, club: 'RIYC', raceYear: 2020 }),
+    );
+  }
+  function blank(n: number) {
+    return Array.from({ length: n }, (_, i) =>
+      row({ name: `Blank ${i} Person`, raceYear: 2020 }),
+    );
+  }
+
+  const pair = () => [
+    row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 }),
+    row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', raceYear: 2024 }),
+  ];
+
+  it('stays unknown where most rows name a club', () => {
+    // The field is habitually filled, so an empty one is an omission and
+    // corroborates nothing — two namesakes must not fuse on a missing value.
+    const r = clusterCompetitors([...pair(), ...stating(10)]);
+    expect(clusterOf(r, 'a')?.competitorIds).toEqual(['a']);
+    expect(r.suggestions).toHaveLength(1);
+  });
+
+  it('means the workspace’s own people where most rows name none', () => {
+    // A club scoring its own racing fills the club in for visitors and leaves
+    // it blank for members, so two blanks agree.
+    const r = clusterCompetitors([...pair(), ...blank(10)]);
+    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
+  });
+
+  it('does not make a blank row match a visitor who named their club', () => {
+    const r = clusterCompetitors([
       row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 }),
-      row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', raceYear: 2024 }),
-    ];
-    // Without it, two blanks are two unknowns and corroborate nothing.
-    expect(clusterCompetitors(rows).clusters).toHaveLength(2);
-    const r = clusterCompetitors(rows, { homeClub: 'Howth Yacht Club' });
-    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
-  });
-
-  it('reads a member row and a row naming the home club as one club', () => {
-    const r = clusterCompetitors(
-      [
-        row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 }),
-        row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', club: 'HYC', raceYear: 2024 }),
-      ],
-      { homeClub: 'Howth Yacht Club' },
-    );
-    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
-  });
-
-  it('still refuses to corroborate a visitor against a member', () => {
-    // The blank means "one of ours", so a stated other club is a real
-    // difference, not a missing value.
-    const r = clusterCompetitors(
-      [
-        row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 }),
-        row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', club: 'RIYC', raceYear: 2024 }),
-      ],
-      { homeClub: 'Howth Yacht Club' },
-    );
-    expect(r.clusters).toHaveLength(2);
+      row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', club: 'RIYC', raceYear: 2024 }),
+      ...blank(10),
+    ]);
+    expect(r.clusters.filter((c) => c.label === 'Ruth Ennis')).toHaveLength(2);
     expect(r.suggestions).toHaveLength(1);
   });
 });

@@ -40,14 +40,12 @@ describe('parseOrgMetadata', () => {
       enabledFeatures: [],
       disabledFeatures: [],
       seededFeatureSamples: [],
-      homeClub: null,
     });
     expect(parseOrgMetadata('', 'u-abc')).toEqual({
       kind: 'personal',
       enabledFeatures: [],
       disabledFeatures: [],
       seededFeatureSamples: [],
-      homeClub: null,
     });
   });
 
@@ -66,7 +64,6 @@ describe('parseOrgMetadata', () => {
       enabledFeatures: ['echo', 'ftp-upload'],
       disabledFeatures: [],
       seededFeatureSamples: [],
-      homeClub: null,
     });
   });
 
@@ -96,7 +93,6 @@ describe('parseOrgMetadata', () => {
       enabledFeatures: [],
       disabledFeatures: [],
       seededFeatureSamples: [],
-      homeClub: null,
     });
   });
 
@@ -113,23 +109,8 @@ describe('serializeOrgMetadata round-trips', () => {
       enabledFeatures: ['echo' as const],
       disabledFeatures: ['irc-rating' as const],
       seededFeatureSamples: ['sub-series' as const],
-      homeClub: null,
     };
     expect(parseOrgMetadata(serializeOrgMetadata(meta))).toEqual(meta);
-  });
-
-  it('preserves a home club, and drops a blank one (#507)', () => {
-    const meta = {
-      kind: 'club' as const,
-      enabledFeatures: [],
-      disabledFeatures: [],
-      seededFeatureSamples: [],
-      homeClub: 'Killaloe Sailing Club',
-    };
-    expect(parseOrgMetadata(serializeOrgMetadata(meta))).toEqual(meta);
-    expect(
-      parseOrgMetadata(serializeOrgMetadata({ ...meta, homeClub: '  ' })).homeClub,
-    ).toBeNull();
   });
 
   it('defaults seededFeatureSamples to empty when the key is absent', () => {

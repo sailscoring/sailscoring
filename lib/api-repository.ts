@@ -543,20 +543,6 @@ export function setWorkspaceFeature(
   });
 }
 
-/**
- * Set (or clear, with '') the club whose workspace this is (#507). In a club's
- * own workspace most entries carry no club at all, so the identity matcher
- * reads a blank club as this one.
- */
-export function setWorkspaceHomeClub(
-  homeClub: string,
-): Promise<{ homeClub: string | null }> {
-  return apiFetch('/api/v1/workspace', {
-    method: 'PATCH',
-    body: { homeClub },
-  });
-}
-
 // ─── Sub-series (#203) ───────────────────────────────────────────────────────
 
 /** The series' sub-series, displayOrder matching race order. */

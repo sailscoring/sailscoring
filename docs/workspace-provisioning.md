@@ -42,11 +42,17 @@ The default sign-in flow already gives every user a personal workspace
 2. **Create the workspace.**
 
    ```bash
-   pnpm provision-org create-org "HYC Scoring Panel" --slug hyc
+   pnpm provision-org create-org "Howth Yacht Club" --slug hyc
    ```
 
-   `--slug` is optional — when omitted, it's derived from the name.
-   Slugs are URL-safe and unique across the platform.
+   **Name it after the club or class, and slug it with the acronym.**
+   The name is public — it heads the workspace's `/p/{slug}` index and
+   its competitor index, and titles those pages — so it should read as
+   the organisation whose results these are, not as the group of people
+   who score them. `--slug` is optional, but a derived slug spells the
+   whole name out; pass the acronym the club is known by, since it is
+   the `/p/hyc/...` segment every published URL carries. Slugs are
+   URL-safe and unique across the platform.
 
 3. **Add each panel member.**
 
@@ -265,7 +271,7 @@ To set features at the moment a workspace is created, pass a
 comma-separated list to `create-org` (or `fulfil-request`):
 
 ```bash
-pnpm provision-org create-org "HYC Scoring Panel" --slug hyc \
+pnpm provision-org create-org "Howth Yacht Club" --slug hyc \
   --enable-feature echo,ftp-upload
 pnpm provision-org fulfil-request <request-id> --enable-feature echo
 ```
@@ -276,23 +282,6 @@ feature to see exactly which workspaces would be affected:
 ```bash
 pnpm provision-org list-feature echo
 ```
-
-**Home club.** A club's own workspace mostly leaves the club field blank —
-everyone is assumed to be a member, and only visitors to open events state
-one. That leaves the competitor-identity matcher without the signal a
-single-club roster most needs, so name the club once:
-
-```bash
-pnpm provision-org set-home-club hyc "Howth Yacht Club"
-pnpm provision-org set-home-club hyc            # clears it
-```
-
-A blank club then means "one of ours" rather than "unknown", and two blank
-rows corroborate each other; a visitor's stated club still doesn't. It is read
-by the identity pass alone and never written onto an entry, so a workspace
-scoring an open event still publishes exactly what was entered. Owners and
-admins can set the same thing on the workspace settings page, where it appears
-once `competitor-identity` is on.
 
 **Propagation (Model B).** A feature enabled on a *club* workspace is
 visible both in that workspace and in the **personal workspace of every

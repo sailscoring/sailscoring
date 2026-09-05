@@ -394,13 +394,6 @@ export interface OrgMetadata {
    *  demo) doesn't seed it again. Write-once per feature; see
    *  `setWorkspaceFeature`. Not part of feature resolution. */
   seededFeatureSamples: FeatureKey[];
-  /** The club whose workspace this is, as the scorer would write it (#507).
-   *  In a club's own workspace most competitors carry no club at all —
-   *  everyone is assumed to be a member, and only visitors to open events get
-   *  the field filled in — so the identity matcher reads a blank club as this
-   *  one. Absent when unset, which is the earlier behaviour: blank stays blank
-   *  and corroborates nothing. Not a feature flag; never affects resolution. */
-  homeClub?: string | null;
 }
 
 /**
@@ -429,7 +422,6 @@ export function parseOrgMetadata(
     enabledFeatures: [],
     disabledFeatures: [],
     seededFeatureSamples: [],
-    homeClub: null,
   });
   if (!raw) return empty(fallbackKind);
   let parsed: unknown;
@@ -449,10 +441,6 @@ export function parseOrgMetadata(
     enabledFeatures: dedupe(parseFeatureArray(obj.enabledFeatures)),
     disabledFeatures: dedupe(parseFeatureArray(obj.disabledFeatures)),
     seededFeatureSamples: dedupe(parseFeatureArray(obj.seededFeatureSamples)),
-    homeClub:
-      typeof obj.homeClub === 'string' && obj.homeClub.trim()
-        ? obj.homeClub.trim()
-        : null,
   };
 }
 
@@ -472,7 +460,6 @@ export function serializeOrgMetadata(meta: OrgMetadata): string {
     enabledFeatures: dedupe(meta.enabledFeatures),
     disabledFeatures: dedupe(meta.disabledFeatures),
     seededFeatureSamples: dedupe(meta.seededFeatureSamples),
-    ...(meta.homeClub ? { homeClub: meta.homeClub } : {}),
   });
 }
 
@@ -507,7 +494,7 @@ export function applyFeatureToggle(
     disabledSet.add(key);
   }
   return {
-    ...meta,
+    kind: meta.kind,
     enabledFeatures: [...enabledSet],
     disabledFeatures: [...disabledSet],
     seededFeatureSamples: [...meta.seededFeatureSamples],

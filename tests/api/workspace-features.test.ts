@@ -13,10 +13,7 @@ import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
 import { ForbiddenError } from '@/lib/auth/require-workspace';
-import {
-  setWorkspaceFeature,
-  setWorkspaceHomeClub,
-} from '@/lib/api-handlers/workspace';
+import { setWorkspaceFeature } from '@/lib/api-handlers/workspace';
 import { parseOrgMetadata } from '@/lib/features';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 
@@ -128,78 +125,5 @@ describe.skipIf(skip)('setWorkspaceFeature (#278)', () => {
     const meta = await metadata();
     expect(meta.enabledFeatures).not.toContain('competitor-identity');
     expect(meta.enabledFeatures).not.toContain('ftp-upload');
-  });
-});
-
-describe.skipIf(skip)('setWorkspaceHomeClub (#507)', () => {
-  let sql!: Sql;
-  let db!: PostgresJsDatabase<typeof schema>;
-  let orgId: string;
-  const slug = `home-${uuid().slice(0, 8)}`;
-
-  const ctx = (): WorkspaceContext => ({
-    userId: 'usr_x',
-    email: 'x@sailscoring.test',
-    workspaceId: orgId,
-    workspaceSlug: slug,
-    role: 'owner',
-    features: [],
-  });
-
-  async function metadata() {
-    const [row] = await db
-      .select({ metadata: schema.organization.metadata })
-      .from(schema.organization)
-      .where(eq(schema.organization.id, orgId))
-      .limit(1);
-    return parseOrgMetadata(row?.metadata ?? null, slug);
-  }
-
-  beforeAll(async () => {
-    sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
-    db = drizzle(sql, { schema });
-    orgId = `org_${uuid().replace(/-/g, '')}`;
-    await db.insert(schema.organization).values({
-      id: orgId,
-      name: 'Home Club Sailing Club',
-      slug,
-      createdAt: new Date(),
-      metadata: null,
-    });
-  });
-
-  afterAll(async () => {
-    if (orgId)
-      await db.delete(schema.organization).where(eq(schema.organization.id, orgId));
-    await sql?.end();
-  });
-
-  test('stores a trimmed home club and reads it back', async () => {
-    const res = await setWorkspaceHomeClub(ctx(), { homeClub: '  Howth Yacht Club ' });
-    expect(res.homeClub).toBe('Howth Yacht Club');
-    expect((await metadata()).homeClub).toBe('Howth Yacht Club');
-  });
-
-  test('an empty string clears it', async () => {
-    await setWorkspaceHomeClub(ctx(), { homeClub: 'Howth Yacht Club' });
-    const res = await setWorkspaceHomeClub(ctx(), { homeClub: '   ' });
-    expect(res.homeClub).toBeNull();
-    expect((await metadata()).homeClub).toBeNull();
-  });
-
-  test('survives a feature toggle, and features survive it', async () => {
-    await setWorkspaceHomeClub(ctx(), { homeClub: 'Howth Yacht Club' });
-    await setWorkspaceFeature(ctx(), { feature: 'prizes', enabled: true });
-    const meta = await metadata();
-    expect(meta.homeClub).toBe('Howth Yacht Club');
-    expect(meta.enabledFeatures).toContain('prizes');
-    await setWorkspaceHomeClub(ctx(), { homeClub: 'Killaloe Sailing Club' });
-    expect((await metadata()).enabledFeatures).toContain('prizes');
-  });
-
-  test('rejects a club name longer than the cap', async () => {
-    await expect(
-      setWorkspaceHomeClub(ctx(), { homeClub: 'x'.repeat(121) }),
-    ).rejects.toThrow();
   });
 });

@@ -130,11 +130,35 @@ describe('clubs', () => {
     expect(canon('RCYC')).toEqual(['royalcorkyachtclub']);
   });
 
+  it('leaves a blank club unknown when the corpus states clubs', () => {
+    const canon = buildClubCanonicalizer([
+      'KSC',
+      'Killaloe Sailing Club',
+      'Killaloe SC',
+      undefined,
+    ]);
+    expect(canon(undefined)).toEqual([]);
+    expect(canon('')).toEqual([]);
+  });
+
+  it('reads a blank as a club of its own when most rows state none', () => {
+    // A club scoring its own racing fills the field in for visitors and leaves
+    // it empty for members, so a blank means "one of ours".
+    const canon = buildClubCanonicalizer([
+      undefined,
+      undefined,
+      undefined,
+      'Royal Irish Yacht Club',
+    ]);
+    expect(canon(undefined)).toHaveLength(1);
+    expect(canon(undefined)).toEqual(canon(''));
+    // It is nobody's club in particular — a visitor still doesn't match it.
+    expect(canon(undefined)).not.toEqual(canon('Royal Irish Yacht Club'));
+  });
+
   it('gives an unknown club its own token rather than dropping it', () => {
     const canon = buildClubCanonicalizer(['KSC', 'Killaloe Sailing Club']);
     expect(canon('Foynes YC')).toEqual(['foynesyachtclub']);
-    expect(canon('')).toEqual([]);
-    expect(canon(undefined)).toEqual([]);
   });
 });
 

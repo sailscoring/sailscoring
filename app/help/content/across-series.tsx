@@ -30,13 +30,13 @@ export default function AcrossSeries() {
         </p>
         <p>
           Clubs are read as your entries write them, so one club spelled
-          several ways still counts as one club. If most of your entries leave
-          the club blank because everyone is assumed to be a member, name your
-          club under{' '}
-          <strong className="text-foreground">Home club</strong> in workspace
-          settings: a blank club then means “one of ours” rather than
-          “unknown”, and a regular’s record stays in one piece. Visitors who name their own club are unaffected, and nothing
-          is written onto the entries themselves.
+          several ways still counts as one club. A blank club is read the same
+          way: where most of your entries name a club, an empty one means
+          nothing is known and settles nothing; where most leave it empty —
+          the usual shape when a club scores its own racing and fills the field
+          in only for visitors — a blank is taken to mean your own members, so
+          a regular’s record stays in one piece. Nothing you enter is changed
+          either way.
         </p>
         {has('competitor-identity-crew') && (
           <p>
