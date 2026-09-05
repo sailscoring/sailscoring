@@ -313,15 +313,31 @@ export default function CompetitorsPage({
     }
   }
 
+  // The Excluded box is a controlled input over query data, and React puts a
+  // controlled box back to its prop value the moment the click handler ends —
+  // a beat before the mutation's optimistic cache patch lands. This holds the
+  // clicked value across that beat, so the box moves on the click; the entry
+  // is dropped once the write settles and the cache is authoritative again.
+  const [pendingExcluded, setPendingExcluded] = useState<Map<string, boolean>>(new Map());
+  const isExcluded = (c: Competitor) => pendingExcluded.get(c.id) ?? c.excluded ?? false;
+
   /** Flip one boat between entered and excluded. Goes through the field-set
    *  endpoint rather than a full save: it is a one-field change, and it must
    *  not trip a version conflict on a row the scorer hasn't otherwise touched. */
   function toggleExcluded(c: Competitor) {
-    updateCompetitorsField.mutate({
-      seriesId,
-      ids: [c.id],
-      patch: { field: 'excluded', value: !c.excluded },
-    });
+    const next = !isExcluded(c);
+    setPendingExcluded((m) => new Map(m).set(c.id, next));
+    updateCompetitorsField.mutate(
+      { seriesId, ids: [c.id], patch: { field: 'excluded', value: next } },
+      {
+        onSettled: () =>
+          setPendingExcluded((m) => {
+            const rest = new Map(m);
+            rest.delete(c.id);
+            return rest;
+          }),
+      },
+    );
   }
 
   function toggleSelected(id: string) {
@@ -926,8 +942,8 @@ export default function CompetitorsPage({
               <TableRow
                 key={c.id}
                 tabIndex={0}
-                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}${c.excluded ? ' text-muted-foreground' : ''}`}
-                data-excluded={c.excluded ? 'true' : undefined}
+                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}${isExcluded(c) ? ' text-muted-foreground' : ''}`}
+                data-excluded={isExcluded(c) ? 'true' : undefined}
                 onClick={(e) => {
                   if (readOnly) return;
                   editingRowRef.current = e.currentTarget;
@@ -1025,14 +1041,14 @@ export default function CompetitorsPage({
                 ))}
                 <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                   {readOnly ? (
-                    c.excluded ? 'Excluded' : ''
+                    isExcluded(c) ? 'Excluded' : ''
                   ) : (
                     // Generic label, as with the selection checkbox: a sail
                     // number in the accessible name would collide with the
                     // sail-number cell locators.
                     <input
                       type="checkbox"
-                      checked={c.excluded ?? false}
+                      checked={isExcluded(c)}
                       onChange={() => toggleExcluded(c)}
                       aria-label="Excluded from the series"
                     />

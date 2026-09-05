@@ -114,6 +114,31 @@ export function useUpdateCompetitorsField() {
   return useMutation({
     mutationFn: ({ ids, seriesId, patch }: { ids: string[]; seriesId: string; patch: CompetitorFieldPatch }) =>
       competitorRepo.updateMany(seriesId, ids, patch),
+    // The excluded flag is flipped from a checkbox on the row, so the box
+    // must move on the click, not a round-trip later: patch the cached list
+    // and put it back if the write fails. Text-valued fields are set from a
+    // dialog that closes on success, so they wait for the refetch as before.
+    onMutate: async ({ ids, seriesId, patch }) => {
+      if (patch.field !== 'excluded') return undefined;
+      const key = queryKeys.competitors.bySeries(seriesId);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Competitor[]>(key);
+      if (prev) {
+        const wanted = new Set(ids);
+        qc.setQueryData<Competitor[]>(
+          key,
+          prev.map((c) => {
+            if (!wanted.has(c.id)) return c;
+            const { excluded: _dropped, ...rest } = c;
+            return patch.value ? { ...rest, excluded: true } : rest;
+          }),
+        );
+      }
+      return { prev, key };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
+    },
     onSuccess: async (_void, { seriesId }) => {
       qc.invalidateQueries({
         queryKey: queryKeys.competitors.bySeries(seriesId),
