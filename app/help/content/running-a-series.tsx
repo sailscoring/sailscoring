@@ -287,7 +287,12 @@ export default function RunningASeries() {
         <p>
           Excluding a boat that already has results is allowed: its finishes stay on the sheet,
           but they no longer score, and the boats that crossed behind it move up a place — the
-          same as a boat sailing the course without having entered.
+          same as a boat sailing the course without having entered. The Standings tab lists
+          excluded boats under <strong className="text-foreground">Not shown</strong> beneath the
+          tables, and the menu behind a boat’s sail number there offers{' '}
+          <strong className="text-foreground">Exclude from the series</strong>; in a series with
+          sub-series the same menu excludes from the sub-series on screen instead (see
+          Sub-series).
         </p>
       </Section>
       <Section id="sorting-the-competitor-list" title="Sorting the competitor list">
@@ -566,6 +571,18 @@ export default function RunningASeries() {
             count — tick{' '}
             <strong className="text-foreground">Rank only boats that took part</strong> in the
             editor. Removing a sub-series leaves the races themselves untouched.
+          </p>
+          <p>
+            Either way, the boats a sub-series leaves off its table are listed beneath it under{' '}
+            <strong className="text-foreground">Not shown</strong>, each with the reason, so
+            nothing goes missing silently. Two per-boat answers override the rule for one
+            sub-series only: <strong className="text-foreground">Include</strong> on a boat in
+            that list keeps it on the table although it never sailed the block — it entered, so
+            it scores DNC in every race and counts toward everyone else’s DNC points — and{' '}
+            <strong className="text-foreground">Exclude from this sub-series</strong>, on the
+            menu behind a boat’s sail number in the table, drops it from this block while it is
+            scored normally everywhere else. The sub-series editor lists these overrides for
+            review and lets you remove one.
           </p>
           <p>
             For progressive handicaps (NHC, ECHO), each sub-series computes its own ratings over its
