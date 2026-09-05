@@ -1,0 +1,1 @@
+ALTER TABLE "sub_series" ADD COLUMN "competitor_overrides" jsonb;

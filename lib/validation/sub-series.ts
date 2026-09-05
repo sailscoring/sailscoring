@@ -11,6 +11,11 @@ const raceFleetExclusionSchema = z.object({
   fleetId: uuidSchema,
 });
 
+const competitorEntryOverrideSchema = z.object({
+  competitorId: uuidSchema,
+  status: z.enum(['included', 'excluded']),
+});
+
 export const subSeriesSchema = z.object({
   id: uuidSchema,
   seriesId: uuidSchema,
@@ -23,6 +28,7 @@ export const subSeriesSchema = z.object({
   startingHandicapSource: z.enum(['base', 'continue']).optional(),
   continueFromSubSeriesId: uuidSchema.nullish(),
   excludeDncOnlyCompetitors: z.boolean().optional(),
+  competitorOverrides: z.array(competitorEntryOverrideSchema).optional(),
   version: versionSchema,
 });
 
@@ -39,6 +45,7 @@ export const subSeriesCreateInputSchema = z.object({
   startingHandicapSource: z.enum(['base', 'continue']).optional(),
   continueFromSubSeriesId: uuidSchema.nullish(),
   excludeDncOnlyCompetitors: z.boolean().optional(),
+  competitorOverrides: z.array(competitorEntryOverrideSchema).optional(),
 });
 
 export const subSeriesInputSchema = subSeriesSchema.extend({

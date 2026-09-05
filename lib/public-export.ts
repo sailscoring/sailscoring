@@ -436,6 +436,10 @@ export interface PublicSeriesExport {
     fleetNames?: string[];
     raceExclusions?: { raceNumber: number; fleetName: string }[];
     excludeDncOnlyCompetitors?: boolean;
+    /** Per-boat entry pins for this block, keyed by the export's portable
+     *  competitor identity (sail number + fleet names, as `competitors[*]`
+     *  carries them). Sparse — omitted when the block has none. */
+    competitorOverrides?: { sailNumber: string; fleetNames: string[]; status: 'included' | 'excluded' }[];
   }[];
   /** Split-fleet championship state: the series' configuration and the
    *  assignment rounds behind its published pages. Absent on an ordinary
@@ -716,6 +720,7 @@ export function buildPublicExportFromSnapshot(
   const carrySubdivisions = carry('subdivision') || prizeClauseKinds.has('axis');
   const carrySeed = carry('seed') || splitFleet;
   const carryInitialFleet = carry('initialFleet') || splitFleet;
+  const competitorById = new Map(competitors.map((c) => [c.id, c]));
   const subSeriesNamesByRaceId = new Map<string, string[]>();
   for (const ss of subSeries) {
     for (const rid of ss.raceIds) {
@@ -1095,14 +1100,24 @@ export function buildPublicExportFromSnapshot(
             .filter((ex): ex is { raceNumber: number; fleetName: string } =>
               ex.raceNumber != null && ex.fleetName != null,
             );
+          const competitorOverrides = (ss.competitorOverrides ?? []).flatMap((o) => {
+            const c = competitorById.get(o.competitorId);
+            if (!c) return [];
+            return [{
+              sailNumber: c.sailNumber,
+              fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+              status: o.status,
+            }];
+          });
           return {
             name: ss.name,
             ...(fleetNames && fleetNames.length > 0 ? { fleetNames } : {}),
             ...(raceExclusions.length > 0 ? { raceExclusions } : {}),
             ...(ss.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
+            ...(competitorOverrides.length > 0 ? { competitorOverrides } : {}),
           };
         })
-        .filter((s) => s.fleetNames || s.raceExclusions || s.excludeDncOnlyCompetitors);
+        .filter((s) => s.fleetNames || s.raceExclusions || s.excludeDncOnlyCompetitors || s.competitorOverrides);
       return scoped.length > 0 ? { subSeries: scoped } : {};
     })(),
     ...(() => {
@@ -1573,7 +1588,15 @@ export async function importPublicExport(
           .filter((ex): ex is { raceId: string; fleetId: string } =>
             ex.raceId != null && ex.fleetId != null,
           );
-        return [s.name, { fleetIds, raceFleetExclusions, excludeDncOnlyCompetitors: s.excludeDncOnlyCompetitors }] as const;
+        const competitorOverrides = (s.competitorOverrides ?? [])
+          .map((o) => ({
+            competitorId: competitorIdBySailFleet.get(competitorKey(o.sailNumber, o.fleetNames)),
+            status: o.status,
+          }))
+          .filter((o): o is { competitorId: string; status: 'included' | 'excluded' } =>
+            o.competitorId != null,
+          );
+        return [s.name, { fleetIds, raceFleetExclusions, excludeDncOnlyCompetitors: s.excludeDncOnlyCompetitors, competitorOverrides }] as const;
       }),
     );
     let displayOrder = 0;
@@ -1591,6 +1614,9 @@ export async function importPublicExport(
             ? { raceFleetExclusions: scope.raceFleetExclusions }
             : {}),
           ...(scope?.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
+          ...(scope?.competitorOverrides && scope.competitorOverrides.length > 0
+            ? { competitorOverrides: scope.competitorOverrides }
+            : {}),
         };
       }),
     );

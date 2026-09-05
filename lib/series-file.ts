@@ -369,7 +369,9 @@ export interface SeriesFileRepos {
  *  not an entrant (Sailwave's Exclude flag): scored nowhere and counted toward
  *  no entry total. Sparse (written only when true). An older build reading a
  *  v44 file would score the boat and count it in every DNC, which is why this
- *  is a bump rather than a ride-along. */
+ *  is a bump rather than a ride-along. Also optional
+ *  `subSeries[*].competitorOverrides` — per-block entry pins ({competitorId,
+ *  status: 'included' | 'excluded'}), sparse for the same reason. */
 export const FORMAT_VERSION = 44;
 export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44];
 export const FILE_EXTENSION = '.sailscoring';
@@ -615,6 +617,8 @@ interface SeriesFileSubSeries {
   continueFromSubSeriesId?: string;
   // v12: rank only boats that took part in the sub-series (absent = false).
   excludeDncOnlyCompetitors?: boolean;
+  // v44: per-boat entry pins for this block (absent = none).
+  competitorOverrides?: { competitorId: string; status: 'included' | 'excluded' }[];
 }
 
 interface SeriesFileTcfRecord {
@@ -898,6 +902,9 @@ export async function buildSeriesFile(
               : {}),
             ...(ss.excludeDncOnlyCompetitors
               ? { excludeDncOnlyCompetitors: true }
+              : {}),
+            ...(ss.competitorOverrides && ss.competitorOverrides.length > 0
+              ? { competitorOverrides: ss.competitorOverrides }
               : {}),
           })),
         }
@@ -1936,9 +1943,18 @@ async function writeFleetsCompetitorsRaces(
         .filter((ex): ex is { raceId: string; fleetId: string } =>
           ex.raceId !== undefined && ex.fleetId !== undefined,
         );
+    // Entry pins name competitors; remap to the fresh ids and drop any whose
+    // boat didn't survive the import.
+    const mapOverrides = (ss: SeriesFileSubSeries) =>
+      (ss.competitorOverrides ?? [])
+        .map((o) => ({ competitorId: competitorIdMap.get(o.competitorId), status: o.status }))
+        .filter((o): o is { competitorId: string; status: 'included' | 'excluded' } =>
+          o.competitorId !== undefined,
+        );
     const toRow = (ss: SeriesFileSubSeries) => {
       const exclusions = mapExclusions(ss);
       const fleetIds = mapFleetIds(ss);
+      const overrides = mapOverrides(ss);
       return {
         id: subSeriesIdMap.get(ss.id)!,
         seriesId,
@@ -1949,6 +1965,7 @@ async function writeFleetsCompetitorsRaces(
         ...(exclusions.length > 0 ? { raceFleetExclusions: exclusions } : {}),
         startingHandicapSource: ss.startingHandicapSource,
         excludeDncOnlyCompetitors: ss.excludeDncOnlyCompetitors ?? false,
+        ...(overrides.length > 0 ? { competitorOverrides: overrides } : {}),
       };
     };
     await repos.subSeriesRepo.saveMany(file.subSeries.map(toRow));

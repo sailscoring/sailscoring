@@ -26,6 +26,7 @@ const bytea = customType<{ data: Buffer; default: false }>({
 
 import { organization } from './auth';
 import type {
+  CompetitorEntryOverride,
   CompetitorFieldKey,
   MultiPersonFieldKey,
   DiscardThreshold,
@@ -811,6 +812,10 @@ export const subSeries = pgTable(
     excludeDncOnlyCompetitors: boolean('exclude_dnc_only_competitors')
       .notNull()
       .default(false),
+    // Per-boat entry pins for this sub-series alone: {competitorId, status}
+    // pairs, 'included' or 'excluded' (see CompetitorEntryOverride). JSONB,
+    // sparse and never queried by content, like race_fleet_exclusions.
+    competitorOverrides: jsonb('competitor_overrides').$type<CompetitorEntryOverride[]>(),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

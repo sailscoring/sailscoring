@@ -18,6 +18,7 @@ import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import * as series from '@/lib/api-handlers/series';
 import * as races from '@/lib/api-handlers/races';
 import * as fleetsApi from '@/lib/api-handlers/fleets';
+import * as competitorsApi from '@/lib/api-handlers/competitors';
 import * as subSeries from '@/lib/api-handlers/sub-series';
 import { getActivityFeed } from '@/lib/api-handlers/activity';
 import type { Race } from '@/lib/types';
@@ -255,6 +256,48 @@ describe.skipIf(skip)('sub-series handlers', () => {
     });
     expect(ss.fleetIds).toEqual([f1]);
     expect(ss.raceFleetExclusions).toEqual([{ raceId: raceList[0].id, fleetId: f1 }]);
+  });
+
+  test('create keeps one entry override per boat of this series; PUT replaces them', async () => {
+    const { seriesId, raceList } = await makeSeriesWithRaces(2);
+    const f1 = await addFleet(seriesId, 'A', 0);
+    const addBoat = async (sail: string) => {
+      const id = uuid();
+      await competitorsApi.putCompetitor(ctxA, seriesId, id, {
+        id, seriesId, fleetIds: [f1], sailNumber: sail, names: [sail], club: '', gender: '', age: null, createdAt: Date.now(),
+      });
+      return id;
+    };
+    const boatA = await addBoat('1');
+    const boatB = await addBoat('2');
+    const stranger = uuid(); // not a competitor of this series
+
+    const ss = await subSeries.createSubSeries(ctxA, seriesId, {
+      name: 'Pinned',
+      raceIds: raceList.map((r) => r.id),
+      competitorOverrides: [
+        { competitorId: boatA, status: 'excluded' },
+        { competitorId: boatA, status: 'included' },   // later write for the same boat wins
+        { competitorId: boatB, status: 'excluded' },
+        { competitorId: stranger, status: 'included' }, // out of series → dropped
+      ],
+    });
+    expect(ss.competitorOverrides).toEqual([
+      { competitorId: boatA, status: 'included' },
+      { competitorId: boatB, status: 'excluded' },
+    ]);
+    const [reloaded] = await subSeries.listSubSeries(ctxA, seriesId);
+    expect(reloaded.competitorOverrides).toEqual(ss.competitorOverrides);
+
+    const cleared = await subSeries.putSubSeries(ctxA, seriesId, ss.id, {
+      ...reloaded,
+      competitorOverrides: [],
+    });
+    expect(cleared.competitorOverrides).toBeUndefined();
+    const params = new URLSearchParams();
+    params.set('seriesId', seriesId);
+    const activity = await getActivityFeed(ctxA, params);
+    expect(activity.items.some((e) => e.summary.startsWith('Updated entries in'))).toBe(true);
   });
 
   test('PUT can clear fleet scoping back to all fleets', async () => {

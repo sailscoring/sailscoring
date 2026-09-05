@@ -92,6 +92,7 @@ function makeRecordingRepos(read?: SeriesSnapshot) {
   const savedRaces: Race[] = [];
   const savedSeries: Series[] = [];
   const savedFleets: Fleet[] = [];
+  const savedCompetitors: Competitor[] = [];
   const repos = {
     seriesRepo: {
       get: async (id: string) => (read && id === read.series.id ? read.series : undefined),
@@ -112,8 +113,13 @@ function makeRecordingRepos(read?: SeriesSnapshot) {
     },
     competitorRepo: {
       listBySeries: async () => read?.competitors ?? [],
-      save: async (c: Competitor) => c,
-      saveMany: async () => {},
+      save: async (c: Competitor) => {
+        savedCompetitors.push(c);
+        return c;
+      },
+      saveMany: async (list: Competitor[]) => {
+        savedCompetitors.push(...list);
+      },
     },
     raceRepo: {
       listBySeries: async () => read?.races ?? [],
@@ -145,7 +151,7 @@ function makeRecordingRepos(read?: SeriesSnapshot) {
     listSeriesNames: async () => [],
     deleteSeriesChildren: async () => {},
   } as unknown as SeriesFileRepos & ImportRepos;
-  return { repos, savedSubSeries, savedRaces, savedSeries, savedFleets };
+  return { repos, savedSubSeries, savedRaces, savedSeries, savedFleets, savedCompetitors };
 }
 
 describe('.sailscoring v9 sub-series round-trip', () => {
@@ -270,6 +276,12 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     fleetIds: ['fl-1'],
     raceFleetExclusions: [{ raceId: 'r2', fleetId: 'fl-1' }],
     excludeDncOnlyCompetitors: true,
+    // 101 is kept in the block although the automatic rule would drop an
+    // all-DNC boat; 102 is excluded from this block alone.
+    competitorOverrides: [
+      { competitorId: 'c1', status: 'included' },
+      { competitorId: 'c2', status: 'excluded' },
+    ],
   };
   const scopedSnapshot: SeriesSnapshot = {
     ...snapshot,
@@ -284,6 +296,12 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     expect(champFile.fleetIds).toEqual(['fl-1']);
     expect(champFile.raceFleetExclusions).toEqual([{ raceId: 'r2', fleetId: 'fl-1' }]);
     expect(champFile.excludeDncOnlyCompetitors).toBe(true);
+    expect(champFile.competitorOverrides).toEqual([
+      { competitorId: 'c1', status: 'included' },
+      { competitorId: 'c2', status: 'excluded' },
+    ]);
+    // Blocks without pins write no key at all.
+    expect(file.subSeries!.find((s) => s.name === 'Winter')).not.toHaveProperty('competitorOverrides');
 
     const reparsed = parseSeriesFile(JSON.stringify(file));
     expect(reparsed.subSeries).toEqual(file.subSeries);
@@ -291,7 +309,7 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
 
   it('.sailscoring import remaps fleetIds + exclusions consistently', async () => {
     const built = await buildSeriesFile('s1', makeRecordingRepos(scopedSnapshot).repos);
-    const { repos, savedSubSeries, savedRaces } = makeRecordingRepos();
+    const { repos, savedSubSeries, savedRaces, savedCompetitors } = makeRecordingRepos();
     await openSeriesFromFile(built, repos);
 
     const champ = savedSubSeries.find((ss) => ss.name === 'Champ')!;
@@ -303,21 +321,42 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
     // scoped to, and at the freshly-minted race-2 id.
     expect(champ.raceFleetExclusions![0].fleetId).toBe(champ.fleetIds![0]);
     expect(champ.raceFleetExclusions![0].raceId).toBe(race2Id);
+    // The pins follow the competitors to their fresh ids.
+    const savedById = new Map(savedCompetitors.map((c) => [c.id, c]));
+    expect(champ.competitorOverrides).toHaveLength(2);
+    expect(savedById.get(champ.competitorOverrides![0].competitorId)?.sailNumber).toBe('101');
+    expect(champ.competitorOverrides![0].status).toBe('included');
+    expect(savedById.get(champ.competitorOverrides![1].competitorId)?.sailNumber).toBe('102');
+    expect(champ.competitorOverrides![1].status).toBe('excluded');
   });
 
   it('public JSON export carries scoping by name; import rebuilds it', async () => {
     const data = buildPublicExportFromSnapshot(scopedSnapshot);
     expect(data!.subSeries).toEqual([
-      { name: 'Champ', fleetNames: ['Default'], raceExclusions: [{ raceNumber: 2, fleetName: 'Default' }], excludeDncOnlyCompetitors: true },
+      {
+        name: 'Champ',
+        fleetNames: ['Default'],
+        raceExclusions: [{ raceNumber: 2, fleetName: 'Default' }],
+        excludeDncOnlyCompetitors: true,
+        competitorOverrides: [
+          { sailNumber: '101', fleetNames: ['Default'], status: 'included' },
+          { sailNumber: '102', fleetNames: ['Default'], status: 'excluded' },
+        ],
+      },
     ]);
 
-    const { repos, savedSubSeries, savedRaces } = makeRecordingRepos();
+    const { repos, savedSubSeries, savedRaces, savedCompetitors } = makeRecordingRepos();
     await importPublicExport(data!, repos);
     const champ = savedSubSeries.find((ss) => ss.name === 'Champ')!;
     const race2Id = savedRaces.find((r) => r.raceNumber === 2)!.id;
     expect(champ.fleetIds).toHaveLength(1);
     expect(champ.raceFleetExclusions).toEqual([{ raceId: race2Id, fleetId: champ.fleetIds![0] }]);
     expect(champ.excludeDncOnlyCompetitors).toBe(true);
+    const savedById = new Map(savedCompetitors.map((c) => [c.id, c]));
+    expect(champ.competitorOverrides?.map((o) => [savedById.get(o.competitorId)?.sailNumber, o.status])).toEqual([
+      ['101', 'included'],
+      ['102', 'excluded'],
+    ]);
   });
 });
 

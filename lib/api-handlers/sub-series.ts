@@ -9,7 +9,7 @@ import {
   subSeriesCreateInputSchema,
   subSeriesInputSchema,
 } from '@/lib/validation/sub-series';
-import type { SubSeries, RaceFleetExclusion } from '@/lib/types';
+import type { CompetitorEntryOverride, SubSeries, RaceFleetExclusion } from '@/lib/types';
 
 /**
  * Constrain a sub-series' fleet scoping and per-fleet exclusions to the series'
@@ -59,6 +59,20 @@ export async function listSubSeries(
   return repos.subSeries.listBySeries(seriesId);
 }
 
+/** Keep only overrides naming a competitor of this series, one per boat (the
+ *  last write for a boat wins, so a toggle that appends supersedes cleanly).
+ *  Absent when nothing survives, matching the sparse shape everywhere else. */
+function sanitizeOverrides(
+  overrides: CompetitorEntryOverride[] | undefined,
+  seriesCompetitorIds: Set<string>,
+): CompetitorEntryOverride[] | undefined {
+  const byCompetitor = new Map<string, CompetitorEntryOverride>();
+  for (const o of overrides ?? []) {
+    if (seriesCompetitorIds.has(o.competitorId)) byCompetitor.set(o.competitorId, o);
+  }
+  return byCompetitor.size > 0 ? [...byCompetitor.values()] : undefined;
+}
+
 /** Compact displayOrder to 0..n-1 (sub-series are listed in displayOrder). */
 async function renumberSubSeries(
   workspace: WorkspaceContext,
@@ -90,10 +104,11 @@ export async function createSubSeries(
   const input = subSeriesCreateInputSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
 
-  const [blocks, races, fleets] = await Promise.all([
+  const [blocks, races, fleets, competitors] = await Promise.all([
     repos.subSeries.listBySeries(seriesId),
     repos.races.listBySeries(seriesId),
     repos.fleets.listBySeries(seriesId),
+    repos.competitors.listBySeries(seriesId),
   ]);
   const seriesRaceIds = new Set(races.map((r) => r.id));
   const seriesFleetIds = new Set(fleets.map((f) => f.id));
@@ -103,6 +118,10 @@ export async function createSubSeries(
     input.raceFleetExclusions,
     seriesFleetIds,
     new Set(raceIds),
+  );
+  const competitorOverrides = sanitizeOverrides(
+    input.competitorOverrides,
+    new Set(competitors.map((c) => c.id)),
   );
 
   const saved = await repos.subSeries.save(
@@ -116,6 +135,7 @@ export async function createSubSeries(
       startingHandicapSource: input.startingHandicapSource,
       continueFromSubSeriesId: input.continueFromSubSeriesId ?? null,
       excludeDncOnlyCompetitors: input.excludeDncOnlyCompetitors,
+      ...(competitorOverrides ? { competitorOverrides } : {}),
     },
     { updatedBy: workspace.userId },
   );
@@ -146,10 +166,11 @@ export async function putSubSeries(
   if (id !== pathSubSeriesId) throw new NotFoundError('sub-series id mismatch');
   if (input.seriesId !== seriesId) throw new NotFoundError('sub-series series mismatch');
   const repos = createRepos({ workspaceId: workspace.workspaceId });
-  const [existing, races, fleets] = await Promise.all([
+  const [existing, races, fleets, competitors] = await Promise.all([
     repos.subSeries.get(id),
     repos.races.listBySeries(seriesId),
     repos.fleets.listBySeries(seriesId),
+    repos.competitors.listBySeries(seriesId),
   ]);
   const seriesRaceIds = new Set(races.map((r) => r.id));
   const seriesFleetIds = new Set(fleets.map((f) => f.id));
@@ -167,6 +188,10 @@ export async function putSubSeries(
       raceIds,
       fleetIds: scope.fleetIds,
       raceFleetExclusions: scope.raceFleetExclusions,
+      competitorOverrides: sanitizeOverrides(
+        input.competitorOverrides,
+        new Set(competitors.map((c) => c.id)),
+      ),
     },
     { expectedVersion: opts?.expectedVersion, updatedBy: workspace.userId },
   );
@@ -204,8 +229,13 @@ function describeSubSeriesChange(
     (list ?? []).map((ex) => `${ex.raceId}::${ex.fleetId}`).sort().join(',');
   const idSetKey = (list: string[] | undefined) => [...(list ?? [])].sort().join(',');
 
+  const overrideKey = (list: SubSeries['competitorOverrides']) =>
+    (list ?? []).map((o) => `${o.competitorId}:${o.status}`).sort().join(',');
+
   let detail = 'Updated';
-  if (exclusionKey(existing.raceFleetExclusions) !== exclusionKey(saved.raceFleetExclusions)) {
+  if (overrideKey(existing.competitorOverrides) !== overrideKey(saved.competitorOverrides)) {
+    detail = 'Updated entries in';
+  } else if (exclusionKey(existing.raceFleetExclusions) !== exclusionKey(saved.raceFleetExclusions)) {
     detail = 'Updated race exclusions for';
   } else if (idSetKey(existing.raceIds) !== idSetKey(saved.raceIds)) {
     detail = 'Updated races in';
