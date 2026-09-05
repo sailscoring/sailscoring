@@ -1067,6 +1067,13 @@ export function putSplitFleetConfig(
   });
 }
 
+/** Takes the format off again; the server refuses once a round exists. */
+export function deleteSplitFleetConfig(seriesId: string): Promise<SplitFleetStateDto> {
+  return apiFetch<SplitFleetStateDto>(`/api/v1/series/${seriesId}/split-fleets`, {
+    method: 'DELETE',
+  });
+}
+
 export interface SplitRoundCommit {
   stage: 'qualifying' | 'final' | 'medal';
   fromStageRace: number;

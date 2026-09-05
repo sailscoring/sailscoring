@@ -1,4 +1,8 @@
-import { getSplitFleetState, putSplitFleetConfig } from '@/lib/api-handlers/split-fleets';
+import {
+  deleteSplitFleetConfig,
+  getSplitFleetState,
+  putSplitFleetConfig,
+} from '@/lib/api-handlers/split-fleets';
 import { workspaceRoute } from '../../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
@@ -12,4 +16,8 @@ export const GET = workspaceRoute<Params, unknown>(async (_req, { workspace, par
 export const PUT = workspaceRoute<Params, unknown>(async (req, { workspace, params }) => {
   const body = await req.json();
   return putSplitFleetConfig(workspace, params.id, body);
+});
+
+export const DELETE = workspaceRoute<Params, unknown>(async (_req, { workspace, params }) => {
+  return deleteSplitFleetConfig(workspace, params.id);
 });

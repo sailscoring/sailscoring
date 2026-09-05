@@ -63,6 +63,7 @@ export const ACTIVITY_ACTIONS = [
   'ratings.updated',
   'ratings.cleared',
   'split-fleets.configured',
+  'split-fleets.removed',
   'split-fleets.round-committed',
   'split-fleets.round-deleted',
   'support.joined',

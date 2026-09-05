@@ -2492,7 +2492,7 @@ export class PostgresSplitRoundRepository {
     return row?.qfConfig ? normalizeSplitFleetConfig(row.qfConfig) : null;
   }
 
-  async setConfig(seriesId: string, config: SplitFleetConfig): Promise<void> {
+  async setConfig(seriesId: string, config: SplitFleetConfig | null): Promise<void> {
     await this.db
       .update(schema.series)
       .set({ qfConfig: config })

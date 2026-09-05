@@ -34,6 +34,8 @@ import * as series from '@/lib/api-handlers/series';
 import {
   addStageRaces,
   commitSplitRound,
+  deleteSplitFleetConfig,
+  getSplitFleetState,
   putSplitFleetConfig,
   putSplitFleetState,
 } from '@/lib/api-handlers/split-fleets';
@@ -88,12 +90,12 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     await sql?.end();
   });
 
-  /** A nine-boat series configured for three fleets, ready to be split. */
-  async function seedSeries(finishSheets: 'combined' | 'per-fleet') {
+  /** A series with no split-fleet format and nothing else in it. */
+  async function seedPlainSeries(name: string) {
     const seriesId = uuid();
     await series.putSeries(ctx, seriesId, {
       id: seriesId,
-      name: `Worlds ${finishSheets}`,
+      name,
       venue: 'Dun Laoghaire',
       startDate: '2026-08-23',
       endDate: '2026-08-30',
@@ -116,6 +118,12 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
       primaryPersonLabel: 'helm' as const,
       subdivisionAxes: [],
     });
+    return seriesId;
+  }
+
+  /** A nine-boat series configured for three fleets, ready to be split. */
+  async function seedSeries(finishSheets: 'combined' | 'per-fleet') {
+    const seriesId = await seedPlainSeries(`Worlds ${finishSheets}`);
 
     const competitorIds: string[] = [];
     for (let i = 1; i <= 9; i++) {
@@ -425,5 +433,37 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     const races = await racesWithStarts(seriesId);
     expect(races).toHaveLength(6);
     expect(races.every((r) => r.starts.length === 1)).toBe(true);
+  });
+
+  // A series is a split-fleet championship from creation or not at all: the
+  // format can be added only before any race exists, and taken off again
+  // only before any round has been built on it.
+  test('refuses the format on a series that has raced', async () => {
+    const seriesId = await seedPlainSeries('Raced already');
+    await db.insert(schema.races).values({
+      id: uuid(),
+      seriesId,
+      workspaceId,
+      raceNumber: 1,
+      date: '2026-08-24',
+    });
+    await expect(putSplitFleetConfig(ctx, seriesId, defaultSplitFleetConfig(2))).rejects.toThrow(
+      /has raced/,
+    );
+    expect((await getSplitFleetState(ctx, seriesId)).config).toBeNull();
+  });
+
+  test('the format comes off again until a round is committed', async () => {
+    const { seriesId, competitorIds } = await seedSeries('combined');
+    const removed = await deleteSplitFleetConfig(ctx, seriesId);
+    expect(removed.config).toBeNull();
+    // Removing what isn't there is not an error: the wizard's radio can be
+    // flipped back and forth.
+    expect((await deleteSplitFleetConfig(ctx, seriesId)).config).toBeNull();
+
+    await putSplitFleetConfig(ctx, seriesId, defaultSplitFleetConfig(3));
+    await commit(seriesId, competitorIds, [1]);
+    await expect(deleteSplitFleetConfig(ctx, seriesId)).rejects.toThrow(/fleets have been assigned/);
+    expect((await getSplitFleetState(ctx, seriesId)).config).not.toBeNull();
   });
 });

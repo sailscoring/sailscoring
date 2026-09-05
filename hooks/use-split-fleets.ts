@@ -9,6 +9,7 @@ import {
   addSplitStageRaces,
   applySplitOverride,
   commitSplitRound,
+  deleteSplitFleetConfig,
   deleteSplitRound,
   getSplitFleetState,
   putSplitFleetConfig,
@@ -43,6 +44,17 @@ export function useSaveSplitFleetConfig(seriesId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (config: SplitFleetConfig) => putSplitFleetConfig(seriesId, config),
+    onSuccess: async (state) => {
+      qc.setQueryData(queryKeys.splitFleets.bySeries(seriesId), state);
+      await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+    },
+  });
+}
+
+export function useDeleteSplitFleetConfig(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteSplitFleetConfig(seriesId),
     onSuccess: async (state) => {
       qc.setQueryData(queryKeys.splitFleets.bySeries(seriesId), state);
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });

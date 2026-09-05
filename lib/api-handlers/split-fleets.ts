@@ -94,13 +94,27 @@ export async function putSplitFleetConfig(
   await assertSeriesWritable(workspace, seriesId);
   const config = splitFleetConfigSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const db = getDb();
 
-  // The config-editability contract (design open question 6): once any race
-  // has finishes, the structural fields — carry mode and qualifying fleet
-  // count — are frozen; everything else merely re-scores and stays live.
   const existing = await repos.splitRounds.getConfig(seriesId);
-  if (existing) {
-    const [anyFinish] = await getDb()
+  if (!existing) {
+    // A series is a split-fleet championship from the start or not at all.
+    // Its races carry a stage and belong to a round's fleets; races sailed
+    // before the format existed would carry neither, and nothing could give
+    // it to them.
+    const [anyRace] = await db
+      .select({ id: schema.races.id })
+      .from(schema.races)
+      .where(eq(schema.races.seriesId, seriesId))
+      .limit(1);
+    if (anyRace) {
+      throw new BadRequestError('a series that has raced cannot become a split-fleet championship');
+    }
+  } else {
+    // The config-editability contract (design open question 6): once any race
+    // has finishes, the structural fields — carry mode and qualifying fleet
+    // count — are frozen; everything else merely re-scores and stays live.
+    const [anyFinish] = await db
       .select({ id: schema.finishes.id })
       .from(schema.finishes)
       .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
@@ -121,6 +135,35 @@ export async function putSplitFleetConfig(
     action: 'split-fleets.configured',
     seriesId,
     summary: `Configured split fleets (${config.qualifyingFleets.length} qualifying fleets)`,
+    sessionKey: 'split-fleets',
+  });
+  return getSplitFleetState(workspace, seriesId);
+}
+
+/**
+ * Take the split-fleet format off a series again. Only while nothing has been
+ * built on it: once a round exists, its fleets, memberships and races are the
+ * format's, and the way back is deleting the rounds first. This is the undo
+ * for choosing the wrong kind of series in the setup wizard, not a way to
+ * turn a championship back into a club series.
+ */
+export async function deleteSplitFleetConfig(
+  workspace: WorkspaceContext,
+  seriesId: string,
+): Promise<SplitFleetState> {
+  await assertSeriesWritable(workspace, seriesId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.splitRounds.getConfig(seriesId);
+  if (!existing) return getSplitFleetState(workspace, seriesId);
+  const rounds = await repos.splitRounds.listBySeries(seriesId);
+  if (rounds.length > 0) {
+    throw new BadRequestError('the split-fleet format cannot be removed once fleets have been assigned');
+  }
+  await repos.splitRounds.setConfig(seriesId, null);
+  await trackChange(workspace, {
+    action: 'split-fleets.removed',
+    seriesId,
+    summary: 'Removed the split-fleet format',
     sessionKey: 'split-fleets',
   });
   return getSplitFleetState(workspace, seriesId);
