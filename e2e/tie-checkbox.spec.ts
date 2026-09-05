@@ -105,7 +105,8 @@ test('tie checkbox: moving a tied row clears the tie', async ({ page }) => {
     await page.getByLabel('Sail number').fill(c.sail);
     await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
+    // Exact: a one-letter sail would otherwise also match the row's Excluded checkbox cell.
+    await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
   }
 
   // ── Add race and enter finishers T1, T2, T3, T4 ──────────────────────────
@@ -149,7 +150,8 @@ test('tie checkbox: moving group leader clears follower tie', async ({ page }) =
     await page.getByLabel('Sail number').fill(c.sail);
     await page.getByLabel('Competitor name').fill(c.name);
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('cell', { name: c.sail })).toBeVisible();
+    // Exact: a one-letter sail would otherwise also match the row's Excluded checkbox cell.
+    await expect(page.getByRole('cell', { name: c.sail, exact: true })).toBeVisible();
   }
 
   await page.getByRole('link', { name: 'Races' }).click();
