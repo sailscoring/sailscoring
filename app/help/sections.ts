@@ -30,6 +30,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'creating-a-series', title: 'Creating a series' },
       { id: 'organising-series', title: 'Organising the series list: categories and archive' },
       { id: 'adding-competitors', title: 'Adding competitors' },
+      { id: 'excluded-competitors', title: 'Competitors that are not entered' },
       { id: 'sorting-the-competitor-list', title: 'Sorting the competitor list' },
       { id: 'fleets', title: 'Fleets' },
       { id: 'start-sequences', title: 'Start sequences' },

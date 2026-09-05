@@ -255,6 +255,41 @@ export default function RunningASeries() {
           sheet, then merge.
         </p>
       </Section>
+      <Section id="excluded-competitors" title="Competitors that are not entered">
+        <HelpShot
+          src="/help/shots/excluded-competitors.webp"
+          alt="The Competitors tab with one boat’s Excluded box ticked and the row shown muted; the header counts one excluded."
+          caption="An excluded boat stays on the list, muted, and is counted in the header — but it is not an entrant."
+        />
+        <p>
+          A competitor list is often longer than the entry: a class register, last season’s
+          boats, a club roster most of which never turns up. Rather than delete the boats that
+          haven’t entered, tick <strong className="text-foreground">Excluded</strong> on their
+          row. An excluded boat stays on the list, editable and importable, but it is{' '}
+          <strong className="text-foreground">not an entrant</strong>: it is scored in no race,
+          sits on no standings or published page, and — this is the part that matters for
+          everyone else — it does not count toward the number of boats entered, so DNC and DNF
+          points (RRS A5.2, entries plus one) are based on the boats that are actually racing.
+          Untick the box to enter the boat. This is Sailwave’s Exclude flag under the same name,
+          and a Sailwave file imports its excluded competitors excluded rather than losing them.
+        </p>
+        <p>
+          On the finish sheet, excluded boats are nobody’s non-finishers: they sit in a
+          collapsed <strong className="text-foreground">Excluded</strong> group under the
+          non-finishers, each with an <strong className="text-foreground">Include</strong>{' '}
+          button. If one of them turns up on the water and you type its sail number, the sheet
+          says the boat is excluded and offers to include it and record the finish in one step —
+          check the entry list first. To exclude a whole roster at once, select the rows and use{' '}
+          <strong className="text-foreground">Set field… → Excluded</strong>; a spreadsheet
+          column headed <em>Excluded</em> imports the same way, reading 1, Y, yes, TRUE or an X
+          as a mark.
+        </p>
+        <p>
+          Excluding a boat that already has results is allowed: its finishes stay on the sheet,
+          but they no longer score, and the boats that crossed behind it move up a place — the
+          same as a boat sailing the course without having entered.
+        </p>
+      </Section>
       <Section id="sorting-the-competitor-list" title="Sorting the competitor list">
         <HelpShot
           src="/help/shots/competitor-sorting.webp"
