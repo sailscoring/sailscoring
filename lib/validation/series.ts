@@ -153,6 +153,7 @@ export const seriesSchema = z.object({
   // wire so sparse creation and older clients round-trip cleanly.
   proportionalDiscard: proportionalDiscardSchema.optional(),
   dnfScoring: z.enum(['seriesEntries', 'startingArea', 'startingAreaInclDnc']),
+  excludeDncOnlyCompetitors: z.boolean().optional(),
   // Whole-series per-fleet race exclusions. Optional on the wire so sparse
   // creation and older clients round-trip cleanly.
   raceFleetExclusions: z.array(raceFleetExclusionSchema).optional(),

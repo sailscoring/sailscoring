@@ -1,0 +1,74 @@
+description: "Series rule — a boat with no result other than DNC is not an entrant"
+rrs_notes: "RRS A5.2 — DNC scores the number of boats entered in the series plus one"
+notes: |
+  A club roster of five boats imported before the season; the scorer turns on
+  "rank only boats that took part" for the series rather than excluding the
+  no-shows one at a time. Eoin (9) never comes to the start, so he is not an
+  entrant: off the standings and out of the entry count. Four boats are
+  entered, so Dara's race-1 DNC scores 4 + 1 = 5, not 6.
+
+  The rule is decided per boat from the whole series, so Dara — who missed
+  race 1 but sailed race 2 — is entered throughout and scores DNC for the
+  race he missed, as in a plain series. The instant Eoin sails a race he is
+  entered too, and every DNC becomes 6. This is Sailwave's "mark all
+  un-sailed competitors as excluded", applied continuously.
+
+series:
+  discardThresholds: []
+  excludeDncOnlyCompetitors: true
+
+competitors:
+  - sailNumber: "1"
+    name: "Aoife"
+  - sailNumber: "2"
+    name: "Brian"
+  - sailNumber: "3"
+    name: "Ciara"
+  - sailNumber: "4"
+    name: "Dara"
+  - sailNumber: "9"
+    name: "Eoin"
+
+races:
+  - number: 1
+    finishes:
+      - { sailor: "1", position: 1 }
+      - { sailor: "2", position: 2 }
+      - { sailor: "3", position: 3 }
+  - number: 2
+    finishes:
+      - { sailor: "2", position: 1 }
+      - { sailor: "1", position: 2 }
+      - { sailor: "3", position: 3 }
+      - { sailor: "4", position: 4 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [2, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 2
+      sailor: "1"
+      racePoints: [1, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3
+      netPoints: 3
+    - rank: 3
+      sailor: "3"
+      racePoints: [3, 3]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 6
+      netPoints: 6
+    - rank: 4
+      sailor: "4"
+      racePoints: [5, 4]
+      raceCodes: ["DNC", null]
+      raceDiscards: [false, false]
+      totalPoints: 9
+      netPoints: 9

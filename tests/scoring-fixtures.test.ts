@@ -95,6 +95,7 @@ describe('scoring fixtures', () => {
             undefined,
             undefined,
             proportionalDiscard,
+            { excludeDncOnlyCompetitors },
           );
           assertExpectedStandings(fixture.expected.standings, fleetStandings, 'series');
         }

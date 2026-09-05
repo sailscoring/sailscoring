@@ -108,6 +108,22 @@ describe('excluded competitor file round-trip', () => {
     expect(reparsed.competitors.find((c) => c.sailNumber === '2')?.excluded).toBe(true);
   });
 
+  it('carries the series-level all-DNC rule both ways', async () => {
+    const series = { ...baseSeries(), excludeDncOnlyCompetitors: true } as Series;
+    const fleets = [{ id: 'fleet-1', name: 'Fleet', displayOrder: 0, scoringSystem: 'scratch' } as Fleet];
+    const file = await buildSeriesFile(series.id, makeRepos({ series, fleets, competitors: [competitor('c1', '1')] }));
+    expect(file.series.excludeDncOnlyCompetitors).toBe(true);
+    // Off is written as absence, so an older file's series is unchanged.
+    const plain = await buildSeriesFile(series.id, makeRepos({ series: baseSeries(), fleets, competitors: [] }));
+    expect(plain.series).not.toHaveProperty('excludeDncOnlyCompetitors');
+
+    const repos = makeRepos();
+    let saved: Series | undefined;
+    repos.seriesRepo.save = async (s: Series) => { saved = s; return s; };
+    await openSeriesFromFile(file, repos);
+    expect(saved?.excludeDncOnlyCompetitors).toBe(true);
+  });
+
   it('restores the flag on open, and leaves entered boats without one', async () => {
     const file = {
       formatVersion: 44,

@@ -199,6 +199,19 @@ describe('public export v2 — hidden competitor columns', () => {
     expect(savedCompetitors.find((c) => c.sailNumber === '101')!.excluded).toBeUndefined();
   });
 
+  it('carries the series-level all-DNC rule and restores it on import', async () => {
+    const series = makeSeries('s1', { excludeDncOnlyCompetitors: true });
+    const data = buildPublicExportFromSnapshot(makeSnapshot(series))!;
+    expect(data.series.excludeDncOnlyCompetitors).toBe(true);
+    expect(buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!.series)
+      .not.toHaveProperty('excludeDncOnlyCompetitors');
+    const { repos } = makeRecordingRepos();
+    let saved: Series | undefined;
+    repos.seriesRepo.save = async (s: Series) => { saved = s; return s; };
+    await importPublicExport(data, repos);
+    expect(saved?.excludeDncOnlyCompetitors).toBe(true);
+  });
+
   it('defaults absent club/gender/age on import', async () => {
     const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
     const { repos, savedCompetitors } = makeRecordingRepos();

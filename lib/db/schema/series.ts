@@ -165,6 +165,9 @@ export const series = pgTable(
     // what selects the threshold-list mode.
     proportionalDiscard: jsonb('proportional_discard').$type<ProportionalDiscard>(),
     dnfScoring: text('dnf_scoring').notNull().default('seriesEntries'),
+    // The automatic all-DNC rule for the whole series; see
+    // Series.excludeDncOnlyCompetitors.
+    excludeDncOnlyCompetitors: boolean('exclude_dnc_only_competitors').notNull().default(false),
     // Per-fleet race exclusions for the whole-series standings: {raceId,
     // fleetId} pairs, each striking one race from one fleet's scoring (a
     // single-boat heat). JSONB — sparse and never queried by content, like

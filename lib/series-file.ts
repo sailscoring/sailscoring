@@ -371,7 +371,9 @@ export interface SeriesFileRepos {
  *  v44 file would score the boat and count it in every DNC, which is why this
  *  is a bump rather than a ride-along. Also optional
  *  `subSeries[*].competitorOverrides` — per-block entry pins ({competitorId,
- *  status: 'included' | 'excluded'}), sparse for the same reason. */
+ *  status: 'included' | 'excluded'}), and optional
+ *  `series.excludeDncOnlyCompetitors` — the automatic all-DNC rule at series
+ *  level — both sparse for the same reason. */
 export const FORMAT_VERSION = 44;
 export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44];
 export const FILE_EXTENSION = '.sailscoring';
@@ -437,6 +439,7 @@ interface SeriesFileSeries {
   discardThresholds: DiscardThreshold[];
   proportionalDiscard?: ProportionalDiscard;  // v26+; replaces the thresholds when set
   dnfScoring: DnfScoring;
+  excludeDncOnlyCompetitors?: boolean;  // v44+; all-DNC boats are non-entrants (absent = off)
   raceFleetExclusions?: RaceFleetExclusion[];  // v14+; whole-series per-fleet race strikes
   ftpHost: string;
   ftpPath: string;
@@ -705,6 +708,7 @@ export async function buildSeriesFile(
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
     series.proportionalDiscard,
+    { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
   );
   const allTcfHistory: TcfRecord[] = fleetStandings.flatMap(
     (fr) => fr.tcfHistory ?? [],
@@ -798,6 +802,7 @@ export async function buildSeriesFile(
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       dnfScoring: series.dnfScoring,
+      ...(series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
       ...(series.raceFleetExclusions && series.raceFleetExclusions.length > 0
         ? { raceFleetExclusions: series.raceFleetExclusions }
         : {}),
@@ -1301,6 +1306,7 @@ export async function openSeriesFromFile(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
+    excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
@@ -1407,6 +1413,7 @@ export async function restoreSeriesFromFile(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
+    excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
@@ -1510,6 +1517,7 @@ async function updateSeriesFromFileInner(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
+    excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
@@ -1688,6 +1696,7 @@ async function updateSeriesFromSailwaveInner(
     discardThresholds: file.series.discardThresholds,
     proportionalDiscard: file.series.proportionalDiscard,
     dnfScoring: file.series.dnfScoring,
+    excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
     defaultStartSequence: undefined,
     ftpPaths,

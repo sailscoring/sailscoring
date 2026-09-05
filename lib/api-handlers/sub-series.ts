@@ -104,11 +104,12 @@ export async function createSubSeries(
   const input = subSeriesCreateInputSchema.parse(body);
   const repos = createRepos({ workspaceId: workspace.workspaceId });
 
-  const [blocks, races, fleets, competitors] = await Promise.all([
+  const [blocks, races, fleets, competitors, parentSeries] = await Promise.all([
     repos.subSeries.listBySeries(seriesId),
     repos.races.listBySeries(seriesId),
     repos.fleets.listBySeries(seriesId),
     repos.competitors.listBySeries(seriesId),
+    repos.series.get(seriesId),
   ]);
   const seriesRaceIds = new Set(races.map((r) => r.id));
   const seriesFleetIds = new Set(fleets.map((f) => f.id));
@@ -134,7 +135,9 @@ export async function createSubSeries(
       ...scope,
       startingHandicapSource: input.startingHandicapSource,
       continueFromSubSeriesId: input.continueFromSubSeriesId ?? null,
-      excludeDncOnlyCompetitors: input.excludeDncOnlyCompetitors,
+      // A block that says nothing starts from the series' own rule.
+      excludeDncOnlyCompetitors:
+        input.excludeDncOnlyCompetitors ?? parentSeries?.excludeDncOnlyCompetitors ?? false,
       ...(competitorOverrides ? { competitorOverrides } : {}),
     },
     { updatedBy: workspace.userId },

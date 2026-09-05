@@ -96,6 +96,7 @@ export async function getCareerArc(
       undefined,
       buildRaceFleetExclusionMap(snap.series.raceFleetExclusions),
       snap.series.proportionalDiscard,
+      { excludeDncOnlyCompetitors: snap.series.excludeDncOnlyCompetitors },
     );
     const scored: ScoredSeries = {
       result: { fleetStandings, circularRedressRaces: [] },

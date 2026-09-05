@@ -102,10 +102,11 @@ ${notesHtml}${configHtml}${commentsHtml}
 // ─── Scratch / fleets / codes renderer (full series results layout) ─────────
 
 function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  const { competitors: listed, fleets, races, finishes, discardThresholds, proportionalDiscard, dnfScoring } = buildFixtureInputs(fixture);
+  const { competitors: listed, fleets, races, finishes, discardThresholds, proportionalDiscard, dnfScoring, excludeDncOnlyCompetitors } = buildFixtureInputs(fixture);
   // The per-race tables below score the entrants, as the engine does; a boat
-  // excluded from the series is on the list but in no race.
-  const competitors = resolveEntrants(listed, races, finishes);
+  // excluded from the series — by the scorer or by the all-DNC rule — is on
+  // the list but in no race.
+  const competitors = resolveEntrants(listed, races, finishes, { excludeDncOnlyCompetitors });
   const isMultiFleet = fleets.length > 1;
 
   const competitorsById = new Map(competitors.map((c) => [c.id, c]));

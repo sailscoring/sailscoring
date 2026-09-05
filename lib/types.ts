@@ -297,6 +297,12 @@ export interface Series {
   // nothing. Absent is the common case.
   proportionalDiscard?: ProportionalDiscard;
   dnfScoring: DnfScoring;  // A5.2, A5.3, or A5.3-with-DNC-from-starting-area
+  // Treat a boat with no result other than DNC across the series as not
+  // entered: off the standings and out of the A5.2 entry count, exactly as
+  // if the scorer had excluded it (Sailwave's "mark all un-sailed competitors
+  // as excluded", HalSail's "exclude boats with only DNC"). Also the default a
+  // new sub-series' own flag starts from. Sparse; absent means off.
+  excludeDncOnlyCompetitors?: boolean;
   // Per-fleet race exclusions applied to the whole-series standings (see
   // RaceFleetExclusion). Sparse — present only for the rare heat struck for one
   // fleet (e.g. a single-boat race). A struck race scores nothing for that

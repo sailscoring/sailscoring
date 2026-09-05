@@ -473,6 +473,7 @@ export async function buildFleetHtmlFiles(
     undefined,
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
     series.proportionalDiscard,
+    { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
   );
 
   const isSingleDefault = fleets.length <= 1;
@@ -953,7 +954,7 @@ export async function buildFleetHtmlFiles(
       series.dnfScoring ?? 'seriesEntries',
       allRaceStarts,
       allRatingOverrides,
-      undefined,
+      series.excludeDncOnlyCompetitors ?? false,
       series.proportionalDiscard,
     );
     for (const block of blockResults) {

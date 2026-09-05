@@ -203,6 +203,7 @@ export async function computeRankingStandings(
       undefined,
       buildRaceFleetExclusionMap(snap.series.raceFleetExclusions),
       snap.series.proportionalDiscard,
+      { excludeDncOnlyCompetitors: snap.series.excludeDncOnlyCompetitors },
     );
     for (const fs of fleetStandings) {
       if (!matchesFleetFilter(fs.fleet.name, config.fleet)) continue;

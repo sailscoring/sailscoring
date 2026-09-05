@@ -147,6 +147,10 @@ export interface PublicSeriesExport {
      *  omitted unless the series uses one. */
     proportionalDiscard?: ProportionalDiscard;
     dnfScoring: DnfScoring;
+    /** The automatic all-DNC rule: a boat with no result other than DNC across
+     *  the series is not an entrant. Sparse — omitted when off. A reader
+     *  re-scoring the export needs it for the entry count. */
+    excludeDncOnlyCompetitors?: boolean;
     /** Whole-series per-fleet race exclusions — a race struck from one fleet's
      *  scoring. Keyed by the export's portable identity (race number + fleet
      *  name), like the sub-series `raceExclusions`. Sparse — omitted when empty.
@@ -744,6 +748,7 @@ export function buildPublicExportFromSnapshot(
       undefined,
       buildRaceFleetExclusionMap(series.raceFleetExclusions),
       series.proportionalDiscard,
+      { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
     ).fleetStandings;
 
   // Fleets are referred to by name throughout the export — the portable
@@ -986,6 +991,7 @@ export function buildPublicExportFromSnapshot(
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       dnfScoring: series.dnfScoring,
+      ...(series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
       ...(() => {
         // Whole-series exclusions, re-keyed to the export's portable identity
         // (race number + fleet name), like the sub-series `raceExclusions`.
@@ -1334,6 +1340,7 @@ export async function importPublicExport(
     discardThresholds: data.series.discardThresholds,
     ...(data.series.proportionalDiscard ? { proportionalDiscard: data.series.proportionalDiscard } : {}),
     dnfScoring: data.series.dnfScoring,
+    ...(data.series.excludeDncOnlyCompetitors ? { excludeDncOnlyCompetitors: true } : {}),
     ...(importedRaceFleetExclusions.length ? { raceFleetExclusions: importedRaceFleetExclusions } : {}),
     ftpHost: '',
     ftpPath: '',
