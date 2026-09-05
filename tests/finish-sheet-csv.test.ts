@@ -182,6 +182,22 @@ describe('parseFinishSheetCsv', () => {
     });
   });
 
+  it('resolves a bare number against a nationally prefixed registration, and back', () => {
+    const prefixed: Candidate[] = [
+      { id: 'c1', sailNumber: 'IRL4076', fleetIds: ['f1'] },
+      { id: 'c2', sailNumber: '4077', fleetIds: ['f1'] },
+    ];
+    const rows = [
+      ['4076', '11:00:00', ''],
+      ['IRL 4077', '11:01:00', ''],
+      ['GBR4076', '11:02:00', ''],
+    ];
+    const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates: prefixed });
+    expect(result.errors).toEqual([]);
+    expect(result.finishes.map((f) => f.competitorId)).toEqual(['c1', 'c2', null]);
+    expect(result.summary.unresolved).toBe(1);
+  });
+
   it('rejects a coded row for an unregistered sail number', () => {
     const rows = [['9999', '', 'DNF']];
     const result = parseFinishSheetCsv({ rows, columnMap: defaultMap, candidates });

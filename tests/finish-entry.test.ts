@@ -453,6 +453,69 @@ describe('resolveSailEntry', () => {
     });
   });
 
+  // ─── National prefixes ────────────────────────────────────────────────────
+
+  it('finds a nationally prefixed sail from its digits alone', () => {
+    const boats = [competitor('a', 'IRL4076'), competitor('b', 'IRL4077')];
+    expect(resolveSailEntry('4076', boats, new Set())).toEqual({
+      kind: 'commit',
+      competitor: boats[0],
+      matchedOn: 'sail',
+      entered: 'IRL4076',
+    });
+  });
+
+  it('treats digits alone as a prefix of the core', () => {
+    const boats = [competitor('a', 'IRL4076'), competitor('b', 'IRL4500')];
+    expect(resolveSailEntry('407', boats, new Set())).toMatchObject({ kind: 'commit', entered: 'IRL4076' });
+    expect(resolveSailEntry('4', boats, new Set()).kind).toBe('ambiguous-prefix');
+  });
+
+  it('ignores spacing and punctuation on either side', () => {
+    const boats = [competitor('a', 'IRL 4076')];
+    expect(resolveSailEntry('IRL4076', boats, new Set())).toMatchObject({ kind: 'commit', entered: 'IRL 4076' });
+    expect(resolveSailEntry('irl-4076', boats, new Set())).toMatchObject({ kind: 'commit', entered: 'IRL 4076' });
+  });
+
+  it('finds a prefix-less registration from a prefixed entry', () => {
+    const boats = [competitor('a', '4076')];
+    expect(resolveSailEntry('IRL4076', boats, new Set())).toMatchObject({ kind: 'commit', entered: '4076' });
+  });
+
+  it('never matches across different national prefixes', () => {
+    const boats = [competitor('a', 'IRL4076')];
+    expect(resolveSailEntry('GBR4076', boats, new Set()).kind).toBe('unknown');
+    expect(resolveSailEntry('GBR', boats, new Set()).kind).toBe('unknown');
+  });
+
+  it('reports digits shared by two nations as a duplicate', () => {
+    const boats = [competitor('a', 'IRL4076'), competitor('b', 'GBR4076')];
+    expect(resolveSailEntry('4076', boats, new Set()).kind).toBe('duplicate-sail');
+    expect(resolveSailEntry('IRL4076', boats, new Set())).toMatchObject({ kind: 'commit', entered: 'IRL4076' });
+  });
+
+  it('lends a prefix-less registration the competitor nationality', () => {
+    const boats = [
+      { ...competitor('a', '1234'), nationality: 'IRL' },
+      { ...competitor('b', '1234'), nationality: 'GBR' },
+    ];
+    expect(resolveSailEntry('IRL1234', boats, new Set())).toMatchObject({ kind: 'commit', entered: '1234', competitor: boats[0] });
+    expect(resolveSailEntry('GBR 1234', boats, new Set())).toMatchObject({ kind: 'commit', competitor: boats[1] });
+    expect(resolveSailEntry('1234', boats, new Set()).kind).toBe('duplicate-sail');
+  });
+
+  it('applies the same rules to alternative sail numbers', () => {
+    const boats = [withAlts('a', '567', ['IRL 99'])];
+    expect(resolveSailEntry('99', boats, new Set())).toMatchObject({
+      matchedOn: 'alternative',
+      entered: 'IRL 99',
+    });
+    expect(resolveSailEntry('99', boats, new Set(['a']))).toEqual({
+      kind: 'already-finished',
+      competitors: [boats[0]],
+    });
+  });
+
   describe('matchIdentifierPrefix', () => {
     it('matches a sail-number prefix, returning the full number', () => {
       expect(matchIdentifierPrefix(competitor('a', 'IRL218456'), 'IRL218')).toEqual({
@@ -479,6 +542,14 @@ describe('resolveSailEntry', () => {
         matchedOn: 'sail',
         entered: '1234',
       });
+    });
+
+    it('matches a nationally prefixed sail from its digits', () => {
+      expect(matchIdentifierPrefix(competitor('a', 'IRL4076'), '407')).toEqual({
+        matchedOn: 'sail',
+        entered: 'IRL4076',
+      });
+      expect(matchIdentifierPrefix(competitor('a', 'IRL4076'), 'GBR4076')).toBeNull();
     });
 
     it('ignores blank alternatives and returns null when nothing matches', () => {

@@ -43,6 +43,12 @@
 import type { Finish, ResultCode } from './types';
 import { BUILT_IN_CODES } from './scoring-codes';
 import { normalizeTimeInput, parseElapsedInput } from './time-parse';
+import {
+  matchPlainEntry,
+  matchSailEntry,
+  registeredSailForEntry,
+  type SailEntryMatch,
+} from './rating-match';
 
 export type FinishSheetField = 'sailNumber' | 'finishTime' | 'elapsed' | 'resultCode' | 'ignore';
 
@@ -167,24 +173,27 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     else if (field === 'resultCode') cols.code = col;
   }
 
-  const index = (keys: (c: Candidate) => string[]) => {
-    const map = new Map<string, Candidate[]>();
-    for (const c of candidates) {
-      for (const raw of keys(c)) {
-        const k = raw.trim().toUpperCase();
-        if (!k) continue;
-        const arr = map.get(k);
-        if (arr) arr.push(c);
-        else map.set(k, [c]);
-      }
-    }
-    return map;
-  };
-  const sailMap = index(sailNumberKeys);
+  // Resolve a sheet value against one set of identifiers. Sail numbers (the
+  // registered one, carrying the boat's nationality when it has one, and the
+  // alternatives) compare by national prefix and core, so a sheet written as
+  // `4076` finds a boat registered as `IRL4076` and vice versa; bow numbers
+  // compare as plain text. Exact only: a finish sheet
+  // is transcribed, not typed live, so there is no prefix completion here.
+  const resolver =
+    (
+      values: (c: Candidate) => string[],
+      match: (stored: string, typed: string) => SailEntryMatch | null,
+    ) =>
+    (typed: string): Candidate[] =>
+      candidates.filter((c) => values(c).some((v) => match(v, typed) === 'exact'));
+  const resolveSail = resolver((c) => [registeredSailForEntry(c)], matchSailEntry);
   // Tiers below the registered sail number, in the order they are tried.
-  const fallbackTiers: { matchedOn: 'alternative' | 'bow'; map: Map<string, Candidate[]> }[] = [
-    { matchedOn: 'alternative', map: index((c) => c.alternativeSailNumbers ?? []) },
-    { matchedOn: 'bow', map: index((c) => (c.bowNumber ? [c.bowNumber] : [])) },
+  const fallbackTiers: {
+    matchedOn: 'alternative' | 'bow';
+    resolve: (typed: string) => Candidate[];
+  }[] = [
+    { matchedOn: 'alternative', resolve: resolver((c) => c.alternativeSailNumbers ?? [], matchSailEntry) },
+    { matchedOn: 'bow', resolve: resolver((c) => (c.bowNumber ? [c.bowNumber] : []), matchPlainEntry) },
   ];
 
   const errors: FinishSheetRowError[] = [];
@@ -261,13 +270,14 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     // underneath, as in keyboard finish entry: a value that is one boat's
     // registered sail number always resolves to that boat, and a lower tier
     // only rescues a row that would otherwise be unresolved.
-    const normSail = rawSail.toUpperCase();
-    const sailMatches = sailMap.get(normSail) ?? [];
+    const sailMatches = resolveSail(rawSail);
     const fallback =
       sailMatches.length === 0
-        ? fallbackTiers.find((t) => t.map.has(normSail))
+        ? fallbackTiers
+            .map((t) => ({ matchedOn: t.matchedOn, matches: t.resolve(rawSail) }))
+            .find((t) => t.matches.length > 0)
         : undefined;
-    const matches = fallback ? fallback.map.get(normSail)! : sailMatches;
+    const matches = fallback ? fallback.matches : sailMatches;
     // Filter out sail numbers already used in this sheet (dedupe — keep first)
     const available = matches.filter((c) => !usedCompetitorIds.has(c.id));
 

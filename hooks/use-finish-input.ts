@@ -13,6 +13,7 @@ import {
   type MatchTier,
   type NonFinisherView,
 } from '@/lib/finish-entry';
+import { matchSailEntry, registeredSailForEntry } from '@/lib/rating-match';
 import { ordinal } from '@/lib/ordinal';
 import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
 import type { Competitor, Finish, FinishRecording, Fleet, RaceStart } from '@/lib/types';
@@ -120,15 +121,6 @@ export function useFinishInput(args: UseFinishInputArgs) {
       inputRef.current?.focus();
     }
   }, [pendingTimeEntry]);
-
-  // Derived collections
-  const sailMap = new Map<string, Competitor[]>();
-  for (const c of competitors) {
-    const key = c.sailNumber.toUpperCase();
-    const arr = sailMap.get(key);
-    if (arr) arr.push(c);
-    else sailMap.set(key, [c]);
-  }
 
   // Only timed starts count here: needsFinishTime / hasStartForRace gate the
   // handicap elapsed-time entry, which a membership-only start can't satisfy.
@@ -443,7 +435,9 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // of a registered boat (unknown "12" while "12345" is registered) stays
   // recordable even though Enter would prefix-complete it.
   const trimmedSail = sailInput.trim().toUpperCase();
-  const canRecordUnknown = trimmedSail !== '' && !sailMap.has(trimmedSail);
+  const canRecordUnknown =
+    trimmedSail !== '' &&
+    !competitors.some((c) => matchSailEntry(registeredSailForEntry(c), trimmedSail) === 'exact');
 
   /** File the current input as an unknown boat, if it qualifies. Shared by the
    *  Shift+Enter fast path, the dropdown row, and the highlighted-row Enter. */

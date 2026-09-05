@@ -95,3 +95,58 @@ export function normalizeBoatName(name: string | undefined): string {
   if (!name) return '';
   return name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
 }
+
+/**
+ * How a typed sail number relates to a stored one, for the places a scorer
+ * types a number to find a boat: finish entry, the finish sheet import, and
+ * race-day check-in.
+ *
+ * Comparison is on the normalised form, split into national prefix and
+ * core, so a recorder who writes `4076` for a boat registered as `IRL4076`
+ * finds it — championship fleets carry national letters that nobody types
+ * at the finish line — and `IRL4076` finds a boat stored as `IRL 4076`.
+ *
+ * - `exact`: the same boat by {@link sailNumbersMatch} rules (equal cores;
+ *   prefixes equal or one absent), or identical normalised strings.
+ * - `prefix`: the typed text is the start of the stored number. Typed text
+ *   with national letters must line up against the full stored number
+ *   (`IRL4` → `IRL4076`); typed digits alone match the start of the core
+ *   (`407` → `IRL4076`), so `GBR4076` never finds `IRL4076`.
+ * - `null`: no relation, or either side is blank.
+ */
+export type SailEntryMatch = 'exact' | 'prefix';
+
+export function matchSailEntry(stored: string, typed: string): SailEntryMatch | null {
+  const t = sailNumberParts(typed);
+  const s = sailNumberParts(stored);
+  if (!t.full || !s.full) return null;
+  if (t.full === s.full || sailNumbersMatch(t, s)) return 'exact';
+  if (t.prefix) return s.full.startsWith(t.full) ? 'prefix' : null;
+  return s.core.startsWith(t.core) ? 'prefix' : null;
+}
+
+/**
+ * The registered sail number a typed entry is matched against. A number
+ * stored without national letters on a competitor whose nationality is known
+ * is matched as if it carried them, so `IRL1234` finds the Irish `1234`
+ * while `GBR1234` does not. A number that already carries letters is used as
+ * stored, whatever the nationality field says.
+ */
+export function registeredSailForEntry(c: { sailNumber: string; nationality?: string | null }): string {
+  const sail = c.sailNumber.trim();
+  const nationality = c.nationality?.trim() ?? '';
+  if (!sail || !nationality || sailNumberParts(sail).prefix) return sail;
+  return `${nationality}${sail}`;
+}
+
+/**
+ * The same relation for an identifier that carries no national prefix — a
+ * bow number — where only the normalised strings are compared.
+ */
+export function matchPlainEntry(stored: string, typed: string): SailEntryMatch | null {
+  const t = normalizeSailNumber(typed);
+  const s = normalizeSailNumber(stored);
+  if (!t || !s) return null;
+  if (t === s) return 'exact';
+  return s.startsWith(t) ? 'prefix' : null;
+}

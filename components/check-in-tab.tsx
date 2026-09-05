@@ -5,6 +5,7 @@ import { CheckSquare, Square } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { displayCompetitorLabel } from '@/lib/competitor-fields';
+import { matchSailEntry, registeredSailForEntry } from '@/lib/rating-match';
 import type { Competitor, CompetitorFieldKey } from '@/lib/types';
 
 export interface CheckInTabProps {
@@ -31,10 +32,9 @@ export function CheckInTab({
   const [checkinInput, setCheckinInput] = useState('');
   const [showAllCheckin, setShowAllCheckin] = useState(false);
 
+  // Same matching as finish entry: `4076` finds a boat registered as `IRL4076`.
   const checkinSuggestions = checkinInput.trim()
-    ? competitors.filter((c) =>
-        c.sailNumber.toUpperCase().startsWith(checkinInput.trim().toUpperCase()),
-      )
+    ? competitors.filter((c) => matchSailEntry(registeredSailForEntry(c), checkinInput) !== null)
     : [];
 
   const visible = showAllCheckin

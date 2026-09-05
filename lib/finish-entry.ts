@@ -1,4 +1,10 @@
 import type { Competitor, Finish, PenaltyCode, ResultCode } from './types';
+import {
+  matchPlainEntry,
+  matchSailEntry,
+  registeredSailForEntry,
+  type SailEntryMatch,
+} from './rating-match';
 
 /** Build a fresh, fully-defaulted Finish row with the supplied overrides. */
 export function makeFinish(
@@ -574,29 +580,31 @@ export function partitionNonFinishers(views: NonFinisherView[]): {
 export type MatchTier = 'sail' | 'alternative' | 'bow';
 
 /**
- * Match a typed value against one competitor's identifiers as a prefix, in
- * the same tier order the Enter resolution uses: registered sail number,
- * then alternative sail numbers, then bow number. Returns which identifier
- * matched and its full value (as the competitor spells it), or null.
- * Drives the suggestions dropdown — both the committable rows and the
- * already-entered ones. `query` must be trimmed, uppercased and non-empty.
+ * Match a typed value against one competitor's identifiers, in the same tier
+ * order the Enter resolution uses: registered sail number, then alternative
+ * sail numbers, then bow number. Returns which identifier matched and its
+ * full value (as the competitor spells it), or null. Drives the suggestions
+ * dropdown — both the committable rows and the already-entered ones.
+ *
+ * Sail numbers compare by national prefix and core (see
+ * {@link matchSailEntry}), so `4076` finds `IRL4076` and `407` is a prefix of
+ * it; bow numbers compare as plain normalised text.
  */
 export function matchIdentifierPrefix(
   competitor: Competitor,
   query: string,
 ): { matchedOn: MatchTier; entered: string } | null {
-  if (competitor.sailNumber.toUpperCase().startsWith(query)) {
+  if (matchSailEntry(registeredSailForEntry(competitor), query) !== null) {
     return { matchedOn: 'sail', entered: competitor.sailNumber };
   }
   const alt = (competitor.alternativeSailNumbers ?? []).find(
-    (v) => v.trim() !== '' && v.trim().toUpperCase().startsWith(query),
+    (v) => matchSailEntry(v, query) !== null,
   );
   if (alt !== undefined) {
     return { matchedOn: 'alternative', entered: alt };
   }
-  const bow = (competitor.bowNumber ?? '').toUpperCase();
-  if (bow !== '' && bow.startsWith(query)) {
-    return { matchedOn: 'bow', entered: competitor.bowNumber! };
+  if (competitor.bowNumber && matchPlainEntry(competitor.bowNumber, query) !== null) {
+    return { matchedOn: 'bow', entered: competitor.bowNumber };
   }
   return null;
 }
@@ -637,6 +645,11 @@ export type SailEntryResolution =
  * or unmatched hands off to the dropdown / record-as-unknown path. Pure and
  * order-preserving (mirrors the prefix filter behind the suggestions list).
  *
+ * Sail numbers compare by national prefix and core ({@link matchSailEntry}):
+ * `4076` is an exact match for `IRL4076`, `407` a prefix of it, and `GBR4076`
+ * neither. A prefix-less registered number borrows the competitor's
+ * nationality for the comparison ({@link registeredSailForEntry}).
+ *
  * The other identifiers layer strictly *underneath* sail matching, in tiers:
  * registered sail number (exact, then unique prefix), then alternative sail
  * numbers (exact, then unique prefix), then bow numbers (exact, then unique
@@ -646,25 +659,15 @@ export type SailEntryResolution =
  * number. The lower tiers only ever rescue an otherwise-unknown entry
  * (#234, #379).
  */
-/** The identifier value itself, as the competitor spells it, rather than the
- *  normalised form used for comparison or the possibly-partial typed text. */
-function matchedValue(
-  c: Competitor,
-  values: (c: Competitor) => string[],
-  predicate: (normalised: string) => boolean,
-): string | undefined {
-  return values(c).find((v) => predicate(v.trim().toUpperCase()));
-}
-
 export function resolveSailEntry(
   rawInput: string,
   competitors: Competitor[],
   finishedIds: Set<string>,
 ): SailEntryResolution {
-  const sail = rawInput.trim().toUpperCase();
-  if (!sail) return { kind: 'empty' };
+  const typed = rawInput.trim();
+  if (!typed) return { kind: 'empty' };
 
-  const exact = competitors.filter((c) => c.sailNumber.toUpperCase() === sail);
+  const exact = competitors.filter((c) => matchSailEntry(registeredSailForEntry(c), typed) === 'exact');
   if (exact.length > 0) {
     const unfinished = exact.filter((c) => !finishedIds.has(c.id));
     if (unfinished.length === 0) return { kind: 'already-finished', competitors: exact };
@@ -678,7 +681,7 @@ export function resolveSailEntry(
   }
 
   const prefix = competitors.filter(
-    (c) => !finishedIds.has(c.id) && c.sailNumber.toUpperCase().startsWith(sail),
+    (c) => !finishedIds.has(c.id) && matchSailEntry(registeredSailForEntry(c), typed) === 'prefix',
   );
   if (prefix.length === 1) {
     return { kind: 'commit', competitor: prefix[0], matchedOn: 'sail', entered: prefix[0].sailNumber };
@@ -688,40 +691,51 @@ export function resolveSailEntry(
   // No registered-sail match at all — try the boat's other identifiers. Within
   // each tier an exact match wins over a prefix, mirroring the sail rules
   // above, and an identifier shared by more than one unfinished boat is
-  // ambiguous: defer to the dropdown rather than guessing.
-  const tiers: { matchedOn: 'alternative' | 'bow'; values: (c: Competitor) => string[] }[] = [
+  // ambiguous: defer to the dropdown rather than guessing. Alternative sail
+  // numbers are sail numbers and compare by prefix and core; bow numbers
+  // compare as plain text.
+  const tiers: {
+    matchedOn: 'alternative' | 'bow';
+    values: (c: Competitor) => string[];
+    match: (stored: string, typed: string) => SailEntryMatch | null;
+  }[] = [
     {
       matchedOn: 'alternative',
       values: (c) => c.alternativeSailNumbers ?? [],
+      match: matchSailEntry,
     },
     {
       matchedOn: 'bow',
       values: (c) => (c.bowNumber ? [c.bowNumber] : []),
+      match: matchPlainEntry,
     },
   ];
 
   for (const tier of tiers) {
     const unfinished = competitors.filter((c) => !finishedIds.has(c.id));
-    const values = (c: Competitor) => tier.values(c).map((v) => v.trim().toUpperCase()).filter(Boolean);
+    // The identifier value itself, as the competitor spells it, rather than
+    // the possibly-partial typed text.
+    const matchedAs = (c: Competitor, kind: SailEntryMatch): string | undefined =>
+      tier.values(c).find((v) => tier.match(v, typed) === kind);
 
-    const tierExact = unfinished.filter((c) => values(c).includes(sail));
+    const tierExact = unfinished.filter((c) => matchedAs(c, 'exact') !== undefined);
     if (tierExact.length === 1) {
       return {
         kind: 'commit',
         competitor: tierExact[0],
         matchedOn: tier.matchedOn,
-        entered: matchedValue(tierExact[0], tier.values, (v) => v === sail)!,
+        entered: matchedAs(tierExact[0], 'exact')!,
       };
     }
     if (tierExact.length > 1) return { kind: 'ambiguous-prefix' };
 
-    const tierPrefix = unfinished.filter((c) => values(c).some((v) => v.startsWith(sail)));
+    const tierPrefix = unfinished.filter((c) => matchedAs(c, 'prefix') !== undefined);
     if (tierPrefix.length === 1) {
       return {
         kind: 'commit',
         competitor: tierPrefix[0],
         matchedOn: tier.matchedOn,
-        entered: matchedValue(tierPrefix[0], tier.values, (v) => v.startsWith(sail))!,
+        entered: matchedAs(tierPrefix[0], 'prefix')!,
       };
     }
     if (tierPrefix.length > 1) return { kind: 'ambiguous-prefix' };
@@ -736,9 +750,8 @@ export function resolveSailEntry(
   const finishedExact = competitors.filter(
     (c) =>
       finishedIds.has(c.id) &&
-      [...(c.alternativeSailNumbers ?? []), ...(c.bowNumber ? [c.bowNumber] : [])].some(
-        (v) => v.trim().toUpperCase() === sail,
-      ),
+      ((c.alternativeSailNumbers ?? []).some((v) => matchSailEntry(v, typed) === 'exact') ||
+        (c.bowNumber !== undefined && matchPlainEntry(c.bowNumber, typed) === 'exact')),
   );
   if (finishedExact.length > 0) return { kind: 'already-finished', competitors: finishedExact };
 
