@@ -252,7 +252,7 @@ export const FEATURES = {
     // only appears once a scorer has defined prizes, an ungated entry list
     // would add a page to every workspace's next publish unasked.
     label: 'Published competitor list',
-    helpSectionIds: ['competitor-list'],
+    helpSectionIds: ['competitor-list', 'starters-checklist'],
   },
   rankings: {
     // Workspace cross-series rankings (#209): the Rankings tab (bucketed

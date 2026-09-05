@@ -288,47 +288,23 @@ so it wants a structured field, not a tag.
 
 ## Finish entry UX
 
-### Printable starters checklist (spotter sheet)
+### Printable starters checklist
 
-A printed sheet the recording team takes on the committee boat — HYC calls it a
-**starters checklist** — pre-filled with the expected entrants so a scribe can tick boats
-off as they start and finish, record lap counts, and pencil in conditions. HalSail's
-equivalent ("round" / "spotter" sheet) also leaves room for wind, the number of starters,
-and the **time of the last finisher** (the protest-time-limit anchor the results-status
-feature already computes from). It's the paper counterpart to voice-driven start check-in
-and finish recording (below), and the realistic fallback when there's no device on the
-water. Shape of the change: a
-print/PDF rendering of a race's entry list with tick / lap / time columns and a conditions
-header, generated per race (parameterised by fleet/start) — mostly a rendering-path
-feature, tying into server-side PDF generation.
+Built as #503: the published competitor list prints as a check-off sheet, one table per
+start, a tick box per boat. What that issue deliberately left out is still worth having
+one day, as a fuller **recording sheet** rather than a check-off list:
 
-The sheet is printed **the day before**, ashore, and the first thing it records is
-**check-in**: which competitors actually come out to the starting area. That's a distinct
-event from starting — it's what separates a boat that never left the dinghy park from one
-that came out and didn't start — and it's the pencil version of the voice-driven start
-check-in below.
-
-**Layout is the part worth thinking about**, because the sheet's only job is to let someone
-find a boat on it fast, in a seaway, while boats are milling around. The right layout
-depends on how distinguishable the fleets are *on the water*, and that varies by event:
-
-- **Fleets that look alike** — ILCA 4 / 6 / 7 are the same hull differing only in rig, and
-  carry long sail numbers. A spotter reading a number off a sail has no idea which fleet's
-  list to search, so three separate sheets means scanning all three every time. Here **one
-  sheet with all fleets interleaved in sail-number order** is almost certainly best: read
-  the number, find it once, tick it, and let a fleet column on the row record which fleet
-  it was.
-- **Fleets that are obvious** — different classes, distinct hulls, coloured or class-marked
-  sails, keelboats versus dinghies. Here the spotter knows the fleet before reading the
-  number, so **a sheet per fleet** is easier: shorter lists, less to scan, and each sheet
-  can go to a different spotter.
-
-So fleet grouping should be a **print option** rather than a fixed layout — "combined,
-sorted by sail number" or "one sheet per fleet" — chosen per event. Details that follow
-from the same "find it fast" goal: sort sail numbers numerically rather than as strings,
-set them right-aligned and monospaced so the digits line up down the column, and consider
-emphasising the trailing digits, since that's the part people actually read and call out.
-Leave a few blank rows for late entries and boats nobody expected.
+- Columns for start, lap count, finish time, and notes, and a conditions header — wind,
+  course, number of starters, and the **time of the last finisher**, which is the
+  protest-time-limit anchor the results-status feature already computes from. HalSail's
+  round sheet has all of these.
+- An **interleaved layout** for fleets that look alike on the water. ILCA 4 / 6 / 7 are
+  the same hull differing only in rig, so a spotter reading a number off a sail has no
+  idea which fleet's table to search; one table in sail-number order with a fleet column
+  would serve better than a table per start. The right layout depends on the event, so it
+  would be a print option.
+- Emphasising the trailing digits of each sail number, since that is the part people
+  actually read and call out; and a few blank rows for boats nobody expected.
 
 ### Voice-driven start check-in and finish recording
 

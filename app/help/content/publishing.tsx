@@ -322,6 +322,38 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      {has('entry-list') && (
+        <Section id="starters-checklist" title="The starters checklist">
+          <HelpShot
+            src="/help/shots/starters-checklist.webp"
+            alt="A printed starters checklist: three class tables of large sail numbers, each row with a box to tick."
+            caption="The starters checklist as it prints: one table per start, sail numbers set large, a box beside each."
+          />
+          <p>
+            The published competitor list also prints as a{' '}
+            <strong className="text-foreground">starters checklist</strong> — the sheet the
+            recorder takes onto the committee boat to tick off each boat as it arrives in the
+            starting area. Open the Entries page and choose{' '}
+            <strong className="text-foreground">Print starters checklist</strong> in the footer,
+            beside Save as PDF. Anyone with the link can print it; the race team needs no account.
+          </p>
+          <p>
+            Each row is the sail number, the boat name if your series records one, and a box to
+            tick. There is one table per <em>start</em>, not per fleet: a class scored under IRC
+            and ECHO at once is one table, with every boat on it once. The starts come from your
+            default start sequence (Settings → Fleets) when you have set one up; otherwise fleets
+            that share a boat are taken to share a start. Sail numbers are set large for a moving
+            boat, and the tables run in columns so a club night’s classes fit on one page.
+          </p>
+          <p>
+            To print one without publishing, open{' '}
+            <strong className="text-foreground">Preview</strong> on the Standings or Competitors
+            tab, pick Entries, and use the same button there. On a split-fleet championship the
+            sheet lists the latest round’s fleets, so republish after the morning’s assignment
+            before printing.
+          </p>
+        </Section>
+      )}
       {has('prizes') && (
         <Section id="prizes" title="Prizes">
           <p>

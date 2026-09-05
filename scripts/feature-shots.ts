@@ -630,6 +630,48 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Starters checklist — the published competitor list as it
+    // prints for the committee boat: one table per start, tick boxes. Seen
+    // under print media with the print-mode body class set, since that is the
+    // only time the sheet is visible.
+    slug: 'starters-checklist',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      await ensureFeature(page, 'entry-list');
+      // In a full run the sample league was published before the gate went
+      // on, so its Entries page does not exist yet; publish (again) with it
+      // ticked. The dialog's button reads Re-publish the second time.
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByRole('button', { name: /^(Re-)?[Pp]ublish$/ }).click();
+      const entriesHref = await dialog
+        .locator('a[href$="/entries"]')
+        .first()
+        .getAttribute('href', { timeout: 30_000 });
+      if (!entriesHref) throw new Error('no entries page link after publishing');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+
+      const pub = await anon.newPage();
+      await pub.goto(new URL(entriesHref, BASE).toString());
+      await settle(pub);
+      await pub.evaluate(() => {
+        document.body.classList.add('starters');
+        // On paper the page height makes the columns fill across; a viewport
+        // has no such bound, so give the column box one for the capture.
+        const cols = document.querySelector<HTMLElement>('.starterscols');
+        if (cols) cols.style.height = '720px';
+      });
+      await pub.emulateMedia({ media: 'print' });
+      await settle(pub);
+      await shot('starters-checklist.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: Provisional and final results — the finalise checklist,
     // cancelled unconfirmed.
     slug: 'results-status-final',
