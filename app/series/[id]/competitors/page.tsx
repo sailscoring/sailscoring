@@ -14,6 +14,7 @@ import {
   useDeleteCompetitor,
   useDeleteCompetitors,
   useSaveCompetitor,
+  useUpdateCompetitorsField,
 } from '@/hooks/use-competitors';
 import { useFinishesBySeries } from '@/hooks/use-finishes';
 import { queryKeys } from '@/hooks/query-keys';
@@ -148,6 +149,7 @@ export default function CompetitorsPage({
   const saveCompetitor = useSaveCompetitor();
   const deleteCompetitor = useDeleteCompetitor();
   const deleteCompetitors = useDeleteCompetitors();
+  const updateCompetitorsField = useUpdateCompetitorsField();
   const queryClient = useQueryClient();
   const enabledFields: CompetitorFieldKey[] =
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
@@ -175,6 +177,10 @@ export default function CompetitorsPage({
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [editingCompetitor, setEditingCompetitor] = useState<Competitor | null>(null);
   const [filter, setFilter] = useState('');
+  // View state, like the text filter: excluded boats are on the list but not
+  // in the racing, and a scorer working the entered fleet wants them out of
+  // the way without losing them.
+  const [hideExcluded, setHideExcluded] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   // Possible-duplicates review (same boat under two sail numbers). Finishes
@@ -200,8 +206,9 @@ export default function CompetitorsPage({
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
   const didAutoFocus = useRef(false);
 
-  const filteredCompetitors = (competitors ?? []).filter((c) =>
-    competitorMatchesFilter(c, filter),
+  const excludedCount = (competitors ?? []).filter((c) => c.excluded).length;
+  const filteredCompetitors = (competitors ?? []).filter(
+    (c) => competitorMatchesFilter(c, filter) && !(hideExcluded && c.excluded),
   );
   // The selection is kept as raw ids so it survives filter changes; count and
   // delete against the ids that still exist, so a row removed elsewhere can't
@@ -304,6 +311,17 @@ export default function CompetitorsPage({
     } finally {
       setMerging(false);
     }
+  }
+
+  /** Flip one boat between entered and excluded. Goes through the field-set
+   *  endpoint rather than a full save: it is a one-field change, and it must
+   *  not trip a version conflict on a row the scorer hasn't otherwise touched. */
+  function toggleExcluded(c: Competitor) {
+    updateCompetitorsField.mutate({
+      seriesId,
+      ids: [c.id],
+      patch: { field: 'excluded', value: !c.excluded },
+    });
   }
 
   function toggleSelected(id: string) {
@@ -446,6 +464,7 @@ export default function CompetitorsPage({
       })(),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(data.tallyNumber.trim() ? { tallyNumber: data.tallyNumber.trim() } : {}),
+      ...(data.excluded ? { excluded: true } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
       ...(data.initialFleet.trim() ? { initialFleet: data.initialFleet.trim() } : {}),
       ...((): { worldSailingId?: string } => {
@@ -503,6 +522,7 @@ export default function CompetitorsPage({
       })(),
       ...(data.entryNumber.trim() ? { entryNumber: data.entryNumber.trim() } : {}),
       ...(data.tallyNumber.trim() ? { tallyNumber: data.tallyNumber.trim() } : {}),
+      ...(data.excluded ? { excluded: true } : {}),
       ...(parseInt(data.seed, 10) > 0 ? { seed: parseInt(data.seed, 10) } : {}),
       ...(data.initialFleet.trim() ? { initialFleet: data.initialFleet.trim() } : {}),
       ...((): { worldSailingId?: string } => {
@@ -549,6 +569,7 @@ export default function CompetitorsPage({
     }
     if (!data.entryNumber.trim()) delete updated.entryNumber;
     if (!data.tallyNumber.trim()) delete updated.tallyNumber;
+    if (!data.excluded) delete updated.excluded;
     if (!(parseInt(data.seed, 10) > 0)) delete updated.seed;
     if (!data.initialFleet.trim()) delete updated.initialFleet;
     if (!normalizeWorldSailingId(data.worldSailingId)) delete updated.worldSailingId;
@@ -697,9 +718,10 @@ export default function CompetitorsPage({
         <p className="text-sm text-muted-foreground">
           {competitors === undefined
             ? 'Loading…'
-            : filter.trim()
-              ? `${filteredCompetitors.length} of ${competitors.length} competitors`
-              : `${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`}
+            : (filter.trim() || hideExcluded
+                ? `${filteredCompetitors.length} of ${competitors.length} competitors`
+                : `${competitors.length} competitor${competitors.length === 1 ? '' : 's'}`) +
+              (excludedCount > 0 ? ` · ${excludedCount} excluded` : '')}
         </p>
         {!showAddForm && !readOnly && (
           <div className="flex gap-2">
@@ -788,6 +810,16 @@ export default function CompetitorsPage({
             aria-label="Filter competitors"
             className="max-w-sm"
           />
+          {excludedCount > 0 && (
+            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hideExcluded}
+                onChange={(e) => setHideExcluded(e.target.checked)}
+              />
+              Hide excluded
+            </label>
+          )}
           {!readOnly && competitors.length > 1 && (
             <Button variant="outline" size="sm" onClick={handleFindDuplicates}>
               Find duplicates
@@ -881,6 +913,12 @@ export default function CompetitorsPage({
               {visibleAxes.map((axis) => (
                 <SortableTableHead key={axis.id} columnId={`axis:${axis.id}`} sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">{subdivisionAxisLabel(axis)}</SortableTableHead>
               ))}
+              <TableHead
+                className="w-20"
+                title="An excluded boat is on the list but not an entrant: not scored, not counted for DNC points, not published"
+              >
+                Excluded
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody ref={tbodyRef}>
@@ -888,7 +926,8 @@ export default function CompetitorsPage({
               <TableRow
                 key={c.id}
                 tabIndex={0}
-                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}`}
+                className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}${c.excluded ? ' text-muted-foreground' : ''}`}
+                data-excluded={c.excluded ? 'true' : undefined}
                 onClick={(e) => {
                   if (readOnly) return;
                   editingRowRef.current = e.currentTarget;
@@ -984,6 +1023,21 @@ export default function CompetitorsPage({
                 {visibleAxes.map((axis) => (
                   <TableCell key={axis.id} className="whitespace-normal break-words">{c.subdivisions?.[axis.id] ?? ''}</TableCell>
                 ))}
+                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                  {readOnly ? (
+                    c.excluded ? 'Excluded' : ''
+                  ) : (
+                    // Generic label, as with the selection checkbox: a sail
+                    // number in the accessible name would collide with the
+                    // sail-number cell locators.
+                    <input
+                      type="checkbox"
+                      checked={c.excluded ?? false}
+                      onChange={() => toggleExcluded(c)}
+                      aria-label="Excluded from the series"
+                    />
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -1146,6 +1200,7 @@ export default function CompetitorsPage({
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',
                 subdivisions: editingCompetitor.subdivisions ?? {},
+                excluded: editingCompetitor.excluded ?? false,
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
                 vprsTcc: editingCompetitor.vprsTcc?.toString() ?? '',

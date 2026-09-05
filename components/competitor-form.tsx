@@ -49,6 +49,7 @@ export interface CompetitorFormData {
   gender: '' | 'M' | 'F';
   age: string;
   subdivisions: Record<string, string>;  // per-axis values keyed by SubdivisionAxis.id
+  excluded: boolean;    // on the list but not an entrant (Competitor.excluded)
   fleetIds: string[];   // IDs of existing fleets to assign the competitor to
   ircTcc: string;       // decimal string, e.g. "0.972"; empty if not set
   vprsTcc: string;      // decimal string, e.g. "0.992"; empty if not set
@@ -77,6 +78,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   gender: '',
   age: '',
   subdivisions: {},
+  excluded: false,
   fleetIds: [],
   ircTcc: '',
   vprsTcc: '',
@@ -700,6 +702,22 @@ export function CompetitorForm({
             )}
           </div>
         )}
+        <label className="col-span-2 flex items-start gap-2 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data.excluded}
+            onChange={(e) => set('excluded', e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border"
+          />
+          <span>
+            <span className="font-medium">Excluded from the series</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              On the list but not an entrant: not scored, not counted toward the
+              DNC entry total, and not on published pages. Untick to enter the
+              boat.
+            </span>
+          </span>
+        </label>
       </div>
       {!showMore && extraRoleFields.length > 0 && (
         <button

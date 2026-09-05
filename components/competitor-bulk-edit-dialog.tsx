@@ -37,7 +37,7 @@ export type BulkEditFieldOption =
   | {
       key: string;
       label: string;
-      input: 'text' | 'nationality' | 'gender';
+      input: 'text' | 'nationality' | 'gender' | 'excluded';
       patchFor: (value: string) => CompetitorFieldPatch;
       /** Reads the field off a competitor, feeding the datalist of existing
        *  values — inconsistencies ("HYC" vs "Howth YC") show up right where
@@ -108,6 +108,14 @@ export function bulkEditFieldOptions(
   if (fleets.length > 1) {
     options.push({ key: 'fleet', label: 'Fleet', input: 'fleet', fleets: [...fleets] });
   }
+  // Always offered: excluding a roster's non-entrants in one go is the bulk
+  // gesture this dialog exists for (Sailwave's "Set competitor field").
+  options.push({
+    key: 'excluded',
+    label: 'Excluded',
+    input: 'excluded',
+    patchFor: (value) => ({ field: 'excluded', value: value !== 'no' }),
+  });
   return options;
 }
 
@@ -233,9 +241,13 @@ export function CompetitorBulkEditDialog({
       patch: option.patchFor(trimmed),
     });
     onApplied(
-      trimmed
-        ? `Set ${option.label.toLowerCase()} to "${trimmed}" for ${noun}.`
-        : `Cleared ${option.label.toLowerCase()} for ${noun}.`,
+      option.input === 'excluded'
+        ? trimmed === 'no'
+          ? `Included ${noun} in the series.`
+          : `Excluded ${noun} from the series.`
+        : trimmed
+          ? `Set ${option.label.toLowerCase()} to "${trimmed}" for ${noun}.`
+          : `Cleared ${option.label.toLowerCase()} for ${noun}.`,
     );
     handleOpenChange(false);
   }
@@ -360,6 +372,18 @@ export function CompetitorBulkEditDialog({
             {option.input === 'nationality' && (
               <NationalityInput id="bulk-edit-value" value={value} onChange={setValue} />
             )}
+            {option.input === 'excluded' && (
+              // Two states, no clearing: an unset flag is the entered state.
+              <Select value={value || 'yes'} onValueChange={setValue}>
+                <SelectTrigger id="bulk-edit-value">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yes">Excluded — not an entrant</SelectItem>
+                  <SelectItem value="no">Entered</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             {option.input === 'gender' && (
               // Radix Select items can't carry an empty-string value, so
               // "Not set" maps through a sentinel to the cleared state.
@@ -400,6 +424,10 @@ export function CompetitorBulkEditDialog({
                   ? `Add to ${fleetPlan.fleet.name}`
                   : `Remove from ${fleetPlan.fleet.name}`
                 : 'Apply'}
+            </Button>
+          ) : option.input === 'excluded' ? (
+            <Button onClick={handleApply} disabled={update.isPending || n === 0}>
+              {trimmed === 'no' ? `Include ${noun}` : `Exclude ${noun}`}
             </Button>
           ) : (
             <Button onClick={handleApply} disabled={update.isPending || n === 0}>
