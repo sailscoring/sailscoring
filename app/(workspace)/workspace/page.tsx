@@ -7,9 +7,10 @@ import {
 } from '@/lib/auth/require-workspace';
 import { hasPermission } from '@/lib/auth/permissions';
 import { getDb } from '@/lib/db/client';
-import { isPersonalWorkspaceSlug } from '@/lib/features';
+import { isPersonalWorkspaceSlug, parseOrgMetadata } from '@/lib/features';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
+import { HomeClubCard } from '@/components/workspace-settings/home-club-card';
 import { SeasonsCard } from '@/components/workspace-settings/seasons-card';
 import { FeaturesCard } from '@/components/workspace-settings/features-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
@@ -25,16 +26,20 @@ export const dynamic = 'force-dynamic';
  */
 export default async function WorkspacePage() {
   let workspaceName: string | null = null;
+  // Read here rather than through the API so the card renders filled in on
+  // first paint — one column of a row this page already fetches.
+  let homeClub: string | null = null;
   const session = await getOptionalSession();
   if (session) {
     const activeId = session.session.activeOrganizationId ?? null;
     if (activeId) {
       const [row] = await getDb()
-        .select({ name: organization.name })
+        .select({ name: organization.name, metadata: organization.metadata })
         .from(organization)
         .where(eq(organization.id, activeId))
         .limit(1);
       workspaceName = row?.name ?? null;
+      homeClub = parseOrgMetadata(row?.metadata ?? null).homeClub ?? null;
     } else {
       // Bootstrap edge case: brand-new user lands here before
       // requireWorkspace's auto-pick has written activeOrganizationId.
@@ -87,6 +92,9 @@ export default async function WorkspacePage() {
         />
       )}
       {canManageSeries && <SeasonsCard />}
+      {features.includes('competitor-identity') && canManageWorkspace && (
+        <HomeClubCard initial={homeClub} />
+      )}
       {canManageSeries && <CategoriesCard />}
       {canManageWorkspace && <FeaturesCard />}
       {features.includes('logo-library') && canManageWorkspace && <LogosCard />}

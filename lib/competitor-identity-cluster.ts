@@ -112,6 +112,19 @@ export interface ClusterResult {
   stats: ClusterStats;
 }
 
+export interface ClusterOpts {
+  /** The club whose workspace this is (#507). In a club's own workspace most
+   *  competitors carry no club at all — everyone is assumed to be a member,
+   *  and only visitors to open events get the field filled in — so a blank
+   *  club is read as this one. Two blank rows then corroborate each other,
+   *  which is what the blank actually means, while a visitor's stated club
+   *  still fails to corroborate against a member's blank row.
+   *
+   *  Read here and nowhere else: the assumption must not reach a competitor
+   *  row, or a workspace scoring an open event would publish it as fact. */
+  homeClub?: string | null;
+}
+
 class UnionFind {
   private parent: number[];
   constructor(n: number) {
@@ -135,7 +148,10 @@ class UnionFind {
   }
 }
 
-export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
+export function clusterCompetitors(
+  inputs: ClusterInput[],
+  opts: ClusterOpts = {},
+): ClusterResult {
   const n = inputs.length;
   // The archive ingest's "Unknown Competitor (…)" placeholders carry no
   // identity evidence — treat them exactly like blank names (never blocked,
@@ -149,8 +165,13 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
   const birth = inputs.map((c) => impliedBirthYear(c.age, c.raceYear));
   // Canonicalised against this corpus's own club vocabulary, so a workspace
   // that writes one club three ways still has it corroborate a name match.
-  const canonicalizeClub = buildClubCanonicalizer(inputs.map((c) => c.club));
-  const clubs = inputs.map((c) => canonicalizeClub(c.club));
+  // The home club joins the vocabulary whether or not any row states it.
+  const homeClub = opts.homeClub?.trim() || null;
+  const canonicalizeClub = buildClubCanonicalizer([
+    ...inputs.map((c) => c.club),
+    ...(homeClub ? [homeClub] : []),
+  ]);
+  const clubs = inputs.map((c) => canonicalizeClub(c.club || homeClub || undefined));
 
   const uf = new UnionFind(n);
 

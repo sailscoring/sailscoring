@@ -35,7 +35,7 @@ import {
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb, type SailScoringDb } from '@/lib/db/client';
 import { competitorIdentities, competitorIdentityLinks, competitors, series } from '@/lib/db/schema/series';
-import { workspaceOwnFeatureOn } from '@/lib/workspace-features';
+import { workspaceHomeClub, workspaceOwnFeatureOn } from '@/lib/workspace-features';
 
 /**
  * Delete every identity in the workspace (the FK's ON DELETE SET NULL clears
@@ -690,7 +690,9 @@ export async function relinkIdentitiesAfterWrite(
   if (!underLinked) return null;
 
   const inputs = await collectClusterInputs(db, workspaceId, { includeCrew });
-  const result = clusterCompetitors(inputs);
+  const result = clusterCompetitors(inputs, {
+    homeClub: await workspaceHomeClub(db, workspaceId),
+  });
   const underLinkedIds = new Set(
     [...personCounts]
       .filter(([id, persons]) => (linkCounts.get(id) ?? 0) < persons)

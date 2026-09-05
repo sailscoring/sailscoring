@@ -16,6 +16,10 @@
  * back to whatever it likes.
  *
  *   cat rows.json | pnpm cluster-rows > clusters.json
+ *
+ * Stdin is either the `ClusterInput[]` array itself, or
+ * `{ homeClub?, rows: ClusterInput[] }` when the corpus needs a setting the
+ * workspace apply would read from the workspace (#507).
  */
 
 import { clusterCompetitors, type ClusterInput } from '@/lib/competitor-identity-cluster';
@@ -67,11 +71,30 @@ export function clusterRowsJson(text: string): string {
   } catch (err) {
     throw new Error(`input is not valid JSON: ${(err as Error).message}`);
   }
-  if (!Array.isArray(parsed)) {
-    throw new Error('input must be a JSON array of competitor rows');
+  // A bare array is the rows; an object carries them under `rows` alongside
+  // the settings the workspace apply would read from the workspace itself —
+  // today just `homeClub` (#507), which an archive of a club whose entries
+  // mostly state no club needs in order to draft the manifest the apply will
+  // reproduce.
+  const rows = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === 'object' && parsed !== null
+      ? (parsed as { rows?: unknown }).rows
+      : undefined;
+  if (!Array.isArray(rows)) {
+    throw new Error(
+      'input must be a JSON array of competitor rows, or an object with a "rows" array',
+    );
   }
-  const inputs = parsed.map(toClusterInput);
-  return JSON.stringify(clusterCompetitors(inputs));
+  const homeClub =
+    !Array.isArray(parsed) && typeof parsed === 'object' && parsed !== null
+      ? (parsed as { homeClub?: unknown }).homeClub
+      : undefined;
+  if (homeClub !== undefined && typeof homeClub !== 'string') {
+    throw new Error('"homeClub" must be a string');
+  }
+  const inputs = rows.map(toClusterInput);
+  return JSON.stringify(clusterCompetitors(inputs, { homeClub }));
 }
 
 const isMain = require.main === module;

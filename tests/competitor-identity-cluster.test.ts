@@ -199,6 +199,44 @@ describe('clusterCompetitors', () => {
   });
 });
 
+describe('the workspace home club (#507)', () => {
+  it('reads a blank club as the home club, so two blank rows corroborate', () => {
+    const rows = [
+      row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 }),
+      row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', raceYear: 2024 }),
+    ];
+    // Without it, two blanks are two unknowns and corroborate nothing.
+    expect(clusterCompetitors(rows).clusters).toHaveLength(2);
+    const r = clusterCompetitors(rows, { homeClub: 'Howth Yacht Club' });
+    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
+  });
+
+  it('reads a member row and a row naming the home club as one club', () => {
+    const r = clusterCompetitors(
+      [
+        row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 }),
+        row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', club: 'HYC', raceYear: 2024 }),
+      ],
+      { homeClub: 'Howth Yacht Club' },
+    );
+    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
+  });
+
+  it('still refuses to corroborate a visitor against a member', () => {
+    // The blank means "one of ours", so a stated other club is a real
+    // difference, not a missing value.
+    const r = clusterCompetitors(
+      [
+        row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 }),
+        row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', club: 'RIYC', raceYear: 2024 }),
+      ],
+      { homeClub: 'Howth Yacht Club' },
+    );
+    expect(r.clusters).toHaveLength(2);
+    expect(r.suggestions).toHaveLength(1);
+  });
+});
+
 describe('names that rest on an initial', () => {
   it('demotes an initialled co-owner fragment to a review suggestion', () => {
     // "J. & M. Murphy" splits into two fragments, and "J. Murphy" is any

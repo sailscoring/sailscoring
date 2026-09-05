@@ -12,6 +12,7 @@ import {
   workspaceCrewIdentityFeatureOn,
   type StaleLink,
 } from '@/lib/competitor-identity-reconcile';
+import { workspaceHomeClub } from '@/lib/workspace-features';
 import {
   addIdentityDistinction,
   getIdentityArc,
@@ -236,7 +237,9 @@ export async function reviewQueue(
   const inputs = await collectClusterInputs(getDb(), workspace.workspaceId, {
     includeCrew: await workspaceCrewIdentityFeatureOn(getDb(), workspace.workspaceId),
   });
-  const { clusters, suggestions } = clusterCompetitors(inputs);
+  const { clusters, suggestions } = clusterCompetitors(inputs, {
+    homeClub: await workspaceHomeClub(getDb(), workspace.workspaceId),
+  });
   const dismissed = await listIdentityDistinctions(workspace.workspaceId);
 
   const candidates: MergeSuggestion[] = [];

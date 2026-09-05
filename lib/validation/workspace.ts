@@ -14,3 +14,15 @@ export const featureToggleSchema = z.object({
 });
 
 export type FeatureToggleInput = z.infer<typeof featureToggleSchema>;
+
+/**
+ * The workspace's home club (#507) — the club whose workspace this is, as the
+ * scorer would write it. An empty string clears it; the handler trims and
+ * stores null. Capped well above any real club name so a paste accident is a
+ * 400 rather than a stored essay.
+ */
+export const homeClubSchema = z.object({
+  homeClub: z.string().max(120),
+});
+
+export type HomeClubInput = z.infer<typeof homeClubSchema>;

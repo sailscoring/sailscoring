@@ -277,6 +277,23 @@ feature to see exactly which workspaces would be affected:
 pnpm provision-org list-feature echo
 ```
 
+**Home club.** A club's own workspace mostly leaves the club field blank —
+everyone is assumed to be a member, and only visitors to open events state
+one. That leaves the competitor-identity matcher without the signal a
+single-club roster most needs, so name the club once:
+
+```bash
+pnpm provision-org set-home-club hyc "Howth Yacht Club"
+pnpm provision-org set-home-club hyc            # clears it
+```
+
+A blank club then means "one of ours" rather than "unknown", and two blank
+rows corroborate each other; a visitor's stated club still doesn't. It is read
+by the identity pass alone and never written onto an entry, so a workspace
+scoring an open event still publishes exactly what was entered. Owners and
+admins can set the same thing on the workspace settings page, where it appears
+once `competitor-identity` is on.
+
 **Propagation (Model B).** A feature enabled on a *club* workspace is
 visible both in that workspace and in the **personal workspace of every
 member** — their own sandbox for the same feature. It does *not* leak

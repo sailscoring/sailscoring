@@ -28,6 +28,16 @@ export default function AcrossSeries() {
           corroborated it leaves the rows apart rather than risk merging two
           different sailors.
         </p>
+        <p>
+          Clubs are read as your entries write them, so one club spelled
+          several ways still counts as one club. If most of your entries leave
+          the club blank because everyone is assumed to be a member, name your
+          club under{' '}
+          <strong className="text-foreground">Home club</strong> in workspace
+          settings: a blank club then means “one of ours” rather than
+          “unknown”, and a regular’s record stays in one piece. Visitors who name their own club are unaffected, and nothing
+          is written onto the entries themselves.
+        </p>
         {has('competitor-identity-crew') && (
           <p>
             Crew count as sailors too. On a crewed boat both people get a

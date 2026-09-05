@@ -59,8 +59,28 @@ describe('clusterRowsJson', () => {
     ]);
   });
 
-  it('rejects non-array input', () => {
-    expect(() => clusterRowsJson('{}')).toThrow(/must be a JSON array/);
+  it('takes the home club from an object-shaped input (#507)', () => {
+    // Neither row states a club, so nothing corroborates the name — until the
+    // blank is read as the club whose workspace this is.
+    const rows = [
+      { competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', raceYear: 2019 },
+      { competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', raceYear: 2024 },
+    ];
+    const bare = JSON.parse(clusterRowsJson(JSON.stringify(rows))) as ClusterResult;
+    expect(bare.clusters).toHaveLength(2);
+    const withHome = JSON.parse(
+      clusterRowsJson(JSON.stringify({ homeClub: 'Howth Yacht Club', rows })),
+    ) as ClusterResult;
+    expect(withHome.clusters).toHaveLength(1);
+  });
+
+  it('rejects input that is neither an array nor an object with rows', () => {
+    expect(() => clusterRowsJson('{}')).toThrow(/JSON array of competitor rows/);
+    expect(() => clusterRowsJson('42')).toThrow(/JSON array of competitor rows/);
+  });
+
+  it('rejects a non-string home club', () => {
+    expect(() => clusterRowsJson('{"rows":[],"homeClub":3}')).toThrow(/homeClub/);
   });
 
   it('rejects invalid JSON', () => {
