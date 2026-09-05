@@ -133,7 +133,9 @@ export async function collectClusterInputs(
     })
     .from(competitors)
     .innerJoin(series, eq(competitors.seriesId, series.id))
-    .where(eq(competitors.workspaceId, workspaceId));
+    // An excluded competitor is on a list, not in the racing: it neither
+    // mints an identity nor claims one, and so never reaches the rankings.
+    .where(and(eq(competitors.workspaceId, workspaceId), eq(competitors.excluded, false)));
   const linkRows = await db
     .select({
       competitorId: competitorIdentityLinks.competitorId,
@@ -666,6 +668,7 @@ export async function relinkIdentitiesAfterWrite(
       and(
         eq(competitors.workspaceId, workspaceId),
         eq(series.asPublished, false),
+        eq(competitors.excluded, false),
       ),
     );
   // Under-linked = fewer memberships than named persons (zero links on a

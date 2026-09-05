@@ -77,6 +77,7 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
     name: string;
     sailNumber: string;
     club: string;
+    excluded?: boolean;
   }): Promise<string> {
     const id = uuid();
     await db.insert(schema.competitors).values({
@@ -89,6 +90,7 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
       club: p.club,
       gender: '',
       age: null,
+      excluded: p.excluded ?? false,
     });
     return id;
   }
@@ -148,6 +150,25 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
     expect(identity.sailNumber).toBe('IRL1599');
     // A vanity slug is minted on create, from the label + a random suffix.
     expect(identity.slug).toMatch(/^aoife-murphy-[a-z2-9]{4}$/);
+  });
+
+  test('an excluded competitor neither claims nor mints an identity', async () => {
+    // Same name as the linked pair, but on a roster she never entered: the
+    // spine must not pull her in, nor invent a second Aoife from her.
+    const reserve = await addCompetitor({
+      year: 2021, name: 'Aoife Murphy', sailNumber: 'IRL1601', club: 'RCYC', excluded: true,
+    });
+    const stranger = await addCompetitor({
+      year: 2021, name: 'Niamh Byrne', sailNumber: 'IRL1700', club: 'RCYC', excluded: true,
+    });
+    const before = await identityCount();
+    const applied = await reconcile();
+    expect(applied.identitiesCreated).toBe(0);
+    expect(await identityIdOf(reserve)).toBeNull();
+    expect(await identityIdOf(stranger)).toBeNull();
+    expect(await identityCount()).toBe(before);
+    await db.delete(schema.competitors).where(eq(schema.competitors.id, reserve));
+    await db.delete(schema.competitors).where(eq(schema.competitors.id, stranger));
   });
 
   test('slug is stable across a rename', async () => {
