@@ -17,10 +17,9 @@
 
 import {
   birthYearsConflict,
-  clubsOverlap,
+  buildClubCanonicalizer,
   impliedBirthYear,
   isPlaceholderName,
-  normalizeClubs,
   normalizePersonName,
   personNamesMatch,
 } from './competitor-identity-match';
@@ -154,7 +153,10 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
   );
   const parts = inputs.map((c) => sailNumberParts(c.sailNumber));
   const birth = inputs.map((c) => impliedBirthYear(c.age, c.raceYear));
-  const clubs = inputs.map((c) => normalizeClubs(c.club));
+  // Canonicalised against this corpus's own club vocabulary, so a workspace
+  // that writes one club three ways still has it corroborate a name match.
+  const canonicalizeClub = buildClubCanonicalizer(inputs.map((c) => c.club));
+  const clubs = inputs.map((c) => canonicalizeClub(c.club));
 
   const uf = new UnionFind(n);
 
@@ -203,7 +205,7 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
         const clubOk =
           clubs[i].length > 0 &&
           clubs[j].length > 0 &&
-          clubsOverlap(inputs[i].club, inputs[j].club);
+          clubs[i].some((c) => clubs[j].includes(c));
         // A person fragment from a multi-person entry needs harder evidence
         // than a whole-row name: co-owners share a club by default, so
         // club-only corroboration of short fragment names is exactly the

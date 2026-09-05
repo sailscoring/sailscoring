@@ -52,6 +52,31 @@ describe('clusterCompetitors', () => {
     expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
   });
 
+  it('links a career when the one club is spelled two ways', () => {
+    // A single-club workspace states the club on nearly every row and spells
+    // it however the entry form was filled in. Under a plain normalisation
+    // "KSC" and "Killaloe Sailing Club" are two clubs, and neither ever
+    // corroborates the other.
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'Frank Larkin', sailNumber: '189732', club: 'KSC', raceYear: 2019 }),
+      row({ competitorId: 'b', name: 'Frank Larkin', sailNumber: '211044', club: 'Killaloe Sailing Club', raceYear: 2024 }),
+    ]);
+    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
+    expect(r.suggestions).toHaveLength(0);
+  });
+
+  it('will not fold an acronym two clubs in the corpus answer to', () => {
+    // Howth and Holywood are both HYC. A bare "HYC" names neither, so the
+    // match stays a suggestion rather than becoming a link.
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'Ruth Ennis', sailNumber: '400', club: 'HYC', raceYear: 2019 }),
+      row({ competitorId: 'b', name: 'Ruth Ennis', sailNumber: '811', club: 'Howth Yacht Club', raceYear: 2024 }),
+      row({ competitorId: 'c', name: 'Colm Dunne', sailNumber: '77', club: 'Holywood YC', raceYear: 2021 }),
+    ]);
+    expect(clusterOf(r, 'a')?.competitorIds).toEqual(['a']);
+    expect(r.suggestions).toHaveLength(1);
+  });
+
   it('splits namesakes at different clubs into separate clusters (no corroboration)', () => {
     const r = clusterCompetitors([
       row({ competitorId: 'a', name: 'John Murphy', sailNumber: 'IRL1000', club: 'MYC', raceYear: 2012 }),

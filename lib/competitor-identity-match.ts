@@ -106,16 +106,93 @@ export function normalizeClubs(club: string | undefined): string[] {
     .filter((c) => c.length > 0);
 }
 
+/** Words that carry no distinguishing weight in a club name. */
+const CLUB_STOP_WORDS = new Set(['the', 'of', 'and']);
+
+/** Suffixes clubs abbreviate, expanded so `"Killaloe SC"` and `"Killaloe
+ *  Sailing Club"` reduce to one form. Only applied to a *token* of a
+ *  multi-word name: a club written as nothing but `"SC"` or `"MYC"` is an
+ *  abbreviation of a name we haven't been told, not the words themselves. */
+const CLUB_WORD_EXPANSIONS: Record<string, string[]> = {
+  sc: ['sailing', 'club'],
+  yc: ['yacht', 'club'],
+  syc: ['sailing', 'yacht', 'club'],
+  bc: ['boat', 'club'],
+  dc: ['dinghy', 'club'],
+};
+
+/** The significant words of one club name, abbreviations expanded. */
+function clubWords(part: string): string[] {
+  const raw = part
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter((w) => w.length > 0 && !CLUB_STOP_WORDS.has(w));
+  if (raw.length < 2) return raw;
+  return raw.flatMap((w) => CLUB_WORD_EXPANSIONS[w] ?? [w]);
+}
+
 /**
- * Whether two club fields share at least one club, treating an empty field as
- * compatible (unknown, not disqualifying). A corroborating signal only — never
- * sufficient on its own to link.
+ * The two forms one club name can be recognised by: its words run together,
+ * and — for a name of two or more words — the acronym those words make.
+ * `"Killaloe SC"` gives `{ full: 'killaloesailingclub', acronym: 'ksc' }`;
+ * `"KSC"` gives `{ full: 'ksc', acronym: null }`.
  */
-export function clubsOverlap(a: string | undefined, b: string | undefined): boolean {
-  const ca = normalizeClubs(a);
-  const cb = normalizeClubs(b);
-  if (ca.length === 0 || cb.length === 0) return true;
-  return ca.some((c) => cb.includes(c));
+export function clubNameForms(part: string): { full: string; acronym: string | null } {
+  const words = clubWords(part);
+  return {
+    full: words.join(''),
+    acronym: words.length >= 2 ? words.map((w) => w[0]).join('') : null,
+  };
+}
+
+/**
+ * Build the club canonicaliser for one corpus: a function folding a club field
+ * into the canonical tokens its clubs are known by, so that the spellings *this
+ * workspace actually uses* for one club corroborate each other.
+ *
+ * A club stated as a bare acronym folds into a spelled-out club only when
+ * exactly one spelled-out club in the corpus has those initials. That
+ * restriction is the whole safety argument: `hyc-archive` writes both
+ * `"Howth Yacht Club"` and `"Holywood YC"`, so `"HYC"` there stays its own
+ * token, while in a corpus naming only Howth it folds. Folding globally would
+ * merge Baltimore, Blessington and Bray into `BSC`.
+ *
+ * The fold matters because a single-club workspace is where club corroboration
+ * is needed most and fails most: KSC states a club on all but 6 of 1604 rows,
+ * always the same club, spelled `"KSC"`, `"Killaloe Sailing Club"` and
+ * `"Killaloe SC"` — three non-overlapping tokens under the plain
+ * normalisation, so no two of them ever corroborated a name match.
+ */
+export function buildClubCanonicalizer(
+  clubs: Iterable<string | undefined>,
+): (club: string | undefined) => string[] {
+  const acronymToFull = new Map<string, Set<string>>();
+  for (const club of clubs) {
+    for (const part of (club ?? '').split('/')) {
+      const { full, acronym } = clubNameForms(part);
+      if (!full || !acronym) continue;
+      const fulls = acronymToFull.get(acronym);
+      if (fulls) fulls.add(full);
+      else acronymToFull.set(acronym, new Set([full]));
+    }
+  }
+  const fold = new Map<string, string>();
+  for (const [acronym, fulls] of acronymToFull) {
+    if (fulls.size === 1) fold.set(acronym, [...fulls][0]);
+  }
+  return (club) =>
+    (club ?? '')
+      .split('/')
+      .map((part) => {
+        const { full, acronym } = clubNameForms(part);
+        // Only a name that *is* an acronym folds; a spelled-out name already
+        // carries its own words, and folding it onto its own initials would
+        // make every club sharing them one club.
+        return acronym === null ? (fold.get(full) ?? full) : full;
+      })
+      .filter((c) => c.length > 0);
 }
 
 /**

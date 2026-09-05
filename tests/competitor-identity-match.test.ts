@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   birthYearsConflict,
-  clubsOverlap,
+  buildClubCanonicalizer,
   impliedBirthYear,
   isLowSignalPersonName,
   normalizeClubs,
@@ -88,18 +88,53 @@ describe('clubs', () => {
     expect(normalizeClubs('RStGYC')).toEqual(['rstgyc']);
   });
 
-  it('overlaps when the fields share any club', () => {
-    expect(clubsOverlap('WHSC / RCYC', 'RCYC')).toBe(true);
-    expect(clubsOverlap('RStGYC', 'rstgyc')).toBe(true);
+  it('reads a spelled-out club and its acronym as one club', () => {
+    const canon = buildClubCanonicalizer([
+      'KSC',
+      'Killaloe Sailing Club',
+      'Killaloe SC',
+    ]);
+    expect(canon('KSC')).toEqual(['killaloesailingclub']);
+    expect(canon('Killaloe SC')).toEqual(['killaloesailingclub']);
+    expect(canon('KIllaloe SC')).toEqual(['killaloesailingclub']);
   });
 
-  it('does not overlap when clubs are disjoint', () => {
-    expect(clubsOverlap('MYC', 'KYC')).toBe(false);
+  it('leaves an acronym alone when two clubs in the corpus share it', () => {
+    // hyc-archive's own vocabulary: Howth and Holywood both answer to HYC, so
+    // a bare "HYC" is not evidence of either.
+    const canon = buildClubCanonicalizer([
+      'HYC',
+      'Howth Yacht Club',
+      'Holywood YC',
+    ]);
+    expect(canon('HYC')).toEqual(['hyc']);
+    expect(canon('Howth YC')).toEqual(['howthyachtclub']);
+    expect(canon('Holywood YC')).toEqual(['holywoodyachtclub']);
   });
 
-  it('treats an empty/unknown club as compatible', () => {
-    expect(clubsOverlap('', 'RCYC')).toBe(true);
-    expect(clubsOverlap('RCYC', undefined)).toBe(true);
+  it('keeps distinct clubs distinct', () => {
+    const canon = buildClubCanonicalizer(['MYC', 'KYC']);
+    expect(canon('MYC')).not.toEqual(canon('KYC'));
+  });
+
+  it('canonicalises each club of a multi-club field', () => {
+    const canon = buildClubCanonicalizer([
+      'WHSC / RCYC',
+      'Waterford Harbour Sailing Club',
+      'Royal Cork Yacht Club',
+    ]);
+    expect(canon('WHSC / RCYC')).toEqual([
+      'waterfordharboursailingclub',
+      'royalcorkyachtclub',
+    ]);
+    expect(canon('RCYC')).toEqual(['royalcorkyachtclub']);
+  });
+
+  it('gives an unknown club its own token rather than dropping it', () => {
+    const canon = buildClubCanonicalizer(['KSC', 'Killaloe Sailing Club']);
+    expect(canon('Foynes YC')).toEqual(['foynesyachtclub']);
+    expect(canon('')).toEqual([]);
+    expect(canon(undefined)).toEqual([]);
   });
 });
 
