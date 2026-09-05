@@ -707,6 +707,10 @@ export function CompetitorForm({
             type="checkbox"
             checked={data.excluded}
             onChange={(e) => set('excluded', e.target.checked)}
+            // The name stops at the title: with the description in it, any
+            // fleet checkbox whose name is a substring of that prose ("Red"
+            // in "scored") would be ambiguous with this one.
+            aria-label="Excluded from the series"
             className="mt-0.5 h-4 w-4 rounded border"
           />
           <span>

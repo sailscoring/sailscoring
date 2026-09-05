@@ -3,16 +3,19 @@
 import { use, useState } from 'react';
 import { useSeriesData } from '@/hooks/use-series-data';
 import { useUpdateSeries } from '@/hooks/use-series';
+import { useUpdateCompetitorsField } from '@/hooks/use-competitors';
 import { useSubSeriesBySeries, useSaveSubSeries } from '@/hooks/use-sub-series';
 import {
   getDiscardCount,
   calculateFleetStandings,
   calculateSubSeriesFleetStandings,
-  subSeriesEntrantIds,
   buildRaceFleetExclusionMap,
   resolveEntrants,
+  resolveEntryStatuses,
+  type EntryResolutionOptions,
+  type EntryStatus,
 } from '@/lib/scoring';
-import { subdivisionAxes } from '@/lib/competitor-fields';
+import { displayCompetitorLabel, subdivisionAxes } from '@/lib/competitor-fields';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,7 +43,7 @@ import {
   type FleetStandingsTableProps,
 } from '@/components/fleet-standings-table';
 import { ScoringRejectionsWarning } from '@/components/scoring-rejections-warning';
-import type { DiscardThreshold } from '@/lib/types';
+import type { Competitor, DiscardThreshold, Race } from '@/lib/types';
 
 
 
@@ -66,6 +69,7 @@ export default function StandingsPage({
   const spectator = useIsSpectator();
   const updateSeries = useUpdateSeries();
   const saveSubSeries = useSaveSubSeries();
+  const updateCompetitorsField = useUpdateCompetitorsField();
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [showFinaliseDialog, setShowFinaliseDialog] = useState(false);
@@ -234,6 +238,8 @@ export default function StandingsPage({
   let summary: string;
   let blockTabs: { id: string; name: string }[] = [];
   let effectiveBlockId: string | null = null;
+  // The races the standings on screen are scored over — the block's, or all.
+  let scopeRaces: Race[] = races;
 
   if (hasBlocks) {
     const blockResults = calculateSubSeriesFleetStandings(
@@ -267,6 +273,7 @@ export default function StandingsPage({
       );
     }
     effectiveBlockId = selected.subSeries.id;
+    scopeRaces = selected.races;
 
     // Race columns are numbered within the block — "Spring Race 3", not the
     // series-wide race number. Carry the overall number/date/name so the
@@ -283,7 +290,21 @@ export default function StandingsPage({
     fleetResults = selected.fleetStandings;
     circularRedressRaces = selected.circularRedressRaces;
     const blockDiscards = getDiscardCount(selected.races.length, discardThresholds, proportionalDiscard);
-    const entrantCount = subSeriesEntrantIds(selected.races, allFinishes).size;
+    // The boats this block actually scores — its flag and its overrides
+    // applied — so the count agrees with the table beneath it.
+    const blockRaceIds = new Set(selected.races.map((r) => r.id));
+    const blockCompetitors = selected.subSeries.fleetIds
+      ? competitors.filter((c) => c.fleetIds.some((fid) => selected.subSeries.fleetIds!.includes(fid)))
+      : competitors;
+    const entrantCount = resolveEntrants(
+      blockCompetitors,
+      selected.races,
+      allFinishes.filter((f) => blockRaceIds.has(f.raceId)),
+      {
+        excludeDncOnlyCompetitors: selected.subSeries.excludeDncOnlyCompetitors ?? false,
+        competitorOverrides: selected.subSeries.competitorOverrides,
+      },
+    ).length;
     // A fleet-scoped block scores fewer fleets than the series; reflect the
     // block's own count, not the series-wide one.
     const blockFleetCount = selected.fleetStandings.filter((fs) => fs.fleet.id !== '__unknown__').length;
@@ -334,6 +355,64 @@ export default function StandingsPage({
   const activeExclusions = hasBlocks
     ? activeBlock?.raceFleetExclusions ?? []
     : series.raceFleetExclusions ?? [];
+  // Who is entered in the scope on screen, and who is not and why. The table
+  // shows the entrants; the strip below it shows the rest, so a boat the rule
+  // or a scorer dropped is never simply missing. In block scope the answers
+  // come from the block's own flag and overrides; in whole-series scope only
+  // the competitor flag applies.
+  const scopeRaceIds = new Set(scopeRaces.map((r) => r.id));
+  const scopeFinishes = hasBlocks ? allFinishes.filter((f) => scopeRaceIds.has(f.raceId)) : allFinishes;
+  const scopeCompetitors = activeBlock?.fleetIds
+    ? competitors.filter((c) => c.fleetIds.some((fid) => activeBlock.fleetIds!.includes(fid)))
+    : competitors;
+  const entryOptions: EntryResolutionOptions = hasBlocks
+    ? {
+        excludeDncOnlyCompetitors: activeBlock?.excludeDncOnlyCompetitors ?? false,
+        competitorOverrides: activeBlock?.competitorOverrides,
+      }
+    : {};
+  const entryStatuses = resolveEntryStatuses(scopeCompetitors, scopeRaces, scopeFinishes, entryOptions);
+  const notShown = scopeCompetitors.filter((c) => !entryStatuses.get(c.id)?.entered);
+  const includedByOverride = new Set(
+    scopeCompetitors
+      .filter((c) => { const st = entryStatuses.get(c.id); return st?.entered && st.via === 'override'; })
+      .map((c) => c.id),
+  );
+  const showCrew = enabledFields.includes('crewName');
+  const notShownReason = (st: EntryStatus): string => {
+    if (st.entered) return '';
+    if (st.via === 'competitor') return 'Excluded from the series';
+    if (st.via === 'override') return 'Excluded from this sub-series';
+    return hasBlocks ? 'No results — not an entrant of this sub-series' : 'No results — not an entrant';
+  };
+
+  /** Write one boat's pin for the active block: a status, or null to clear it. */
+  function setBlockOverride(competitorId: string, status: 'included' | 'excluded' | null) {
+    if (!activeBlock) return;
+    const rest = (activeBlock.competitorOverrides ?? []).filter((o) => o.competitorId !== competitorId);
+    saveSubSeries.mutate({
+      ...activeBlock,
+      competitorOverrides: status ? [...rest, { competitorId, status }] : rest,
+    });
+  }
+  function excludeCompetitor(competitorId: string) {
+    if (hasBlocks) setBlockOverride(competitorId, 'excluded');
+    else updateCompetitorsField.mutate({ seriesId, ids: [competitorId], patch: { field: 'excluded', value: true } });
+  }
+  /** Bring a not-shown boat onto the table. In block scope, clearing an
+   *  exclusion pin is enough unless the series flag or the block's rule
+   *  would drop the boat again, in which case it needs an include pin. */
+  function includeCompetitor(c: Competitor) {
+    if (!hasBlocks) {
+      updateCompetitorsField.mutate({ seriesId, ids: [c.id], patch: { field: 'excluded', value: false } });
+      return;
+    }
+    const rest = (activeBlock?.competitorOverrides ?? []).filter((o) => o.competitorId !== c.id);
+    const unpinned = resolveEntryStatuses([c], scopeRaces, scopeFinishes, { ...entryOptions, competitorOverrides: rest });
+    setBlockOverride(c.id, unpinned.get(c.id)?.entered ? null : 'included');
+  }
+  const canInclude = (st: EntryStatus): boolean => hasBlocks || st.via === 'competitor';
+
   // Multi-fleet only: striking a race for the sole fleet would just be excluding
   // it outright.
   const canExclude = canScore && !isSingleFleet;
@@ -462,10 +541,45 @@ export default function StandingsPage({
                   ? (raceId) => toggleExclusion(fleet.id, raceId)
                   : undefined
               }
+              // Not gated on a real fleet: a fleetless series scores its one
+              // table under the synthetic Unknown bucket, and excluding a boat
+              // names no fleet.
+              onExcludeCompetitor={canScore && !spectator ? excludeCompetitor : undefined}
+              excludeCompetitorLabel={hasBlocks ? 'Exclude from this sub-series' : 'Exclude from the series'}
+              includedByOverride={includedByOverride}
+              onClearInclude={hasBlocks ? (id) => setBlockOverride(id, null) : undefined}
             />
           </div>
         );
       })}
+
+      {notShown.length > 0 && (
+        <details className="rounded-md border px-4 py-2 text-sm" data-testid="not-shown">
+          <summary className="cursor-pointer text-muted-foreground">
+            Not shown ({notShown.length}) —{' '}
+            {hasBlocks ? 'boats not entered in this sub-series' : 'boats excluded from the series'}
+          </summary>
+          <ul className="mt-2 space-y-1.5">
+            {notShown.map((c) => {
+              const st = entryStatuses.get(c.id)!;
+              return (
+                <li key={c.id} data-testid={`not-shown-${c.sailNumber}`} className="flex items-center gap-3">
+                  <span className="w-20 shrink-0 font-mono">{c.sailNumber}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {displayCompetitorLabel(c, { enabledCompetitorFields: enabledFields, showCrew })}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{notShownReason(st)}</span>
+                  {canScore && !spectator && canInclude(st) && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => includeCompetitor(c)}>
+                      Include
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
 
       <PreviewDialog
         series={series}

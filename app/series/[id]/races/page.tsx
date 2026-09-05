@@ -49,7 +49,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SortableList, DragHandle } from '@/components/ui/sortable-list';
 import type { CSSProperties, HTMLAttributes } from 'react';
-import type { Race, SubSeries } from '@/lib/types';
+import type { CompetitorEntryOverride, Race, SubSeries } from '@/lib/types';
+import { defaultEnabledCompetitorFields, displayCompetitorLabel } from '@/lib/competitor-fields';
 import type { SeriesRace } from '@/lib/racesense-plan';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
@@ -363,6 +364,9 @@ export default function RacesPage({
   const [excludedPairs, setExcludedPairs] = useState<Set<string>>(new Set());
   const [carryFromId, setCarryFromId] = useState('');
   const [excludeDncOnly, setExcludeDncOnly] = useState(false);
+  // Per-boat entry pins for this block. Written from the Standings tab; the
+  // dialog lists them for review and lets one be removed.
+  const [competitorOverrides, setCompetitorOverrides] = useState<CompetitorEntryOverride[]>([]);
   const [subSeriesError, setSubSeriesError] = useState('');
 
   // The last-finisher recency strip (results-status feature) needs the whole
@@ -680,6 +684,7 @@ export default function RacesPage({
     setExcludedPairs(new Set());
     setCarryFromId('');
     setExcludeDncOnly(false);
+    setCompetitorOverrides([]);
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
   }
@@ -694,6 +699,7 @@ export default function RacesPage({
     );
     setCarryFromId(ss.startingHandicapSource === 'continue' ? ss.continueFromSubSeriesId ?? '' : '');
     setExcludeDncOnly(ss.excludeDncOnlyCompetitors ?? false);
+    setCompetitorOverrides(ss.competitorOverrides ?? []);
     setSubSeriesError('');
     setShowSubSeriesDialog(true);
   }
@@ -763,11 +769,12 @@ export default function RacesPage({
         startingHandicapSource,
         continueFromSubSeriesId,
         excludeDncOnlyCompetitors: excludeDncOnly,
+        competitorOverrides,
       });
     } else {
       await createSubSeries.mutateAsync({
         seriesId,
-        input: { name, raceIds, fleetIds, raceFleetExclusions, startingHandicapSource, continueFromSubSeriesId, excludeDncOnlyCompetitors: excludeDncOnly },
+        input: { name, raceIds, fleetIds, raceFleetExclusions, startingHandicapSource, continueFromSubSeriesId, excludeDncOnlyCompetitors: excludeDncOnly, competitorOverrides },
       });
     }
     setShowSubSeriesDialog(false);
@@ -1232,6 +1239,44 @@ export default function RacesPage({
                 </span>
               </label>
             </div>
+            {competitorOverrides.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Entry overrides</Label>
+                <ul className="space-y-1 rounded-md border p-2 text-sm">
+                  {competitorOverrides.map((o) => {
+                    const c = (competitors ?? []).find((x) => x.id === o.competitorId);
+                    return (
+                      <li key={o.competitorId} className="flex items-center gap-2">
+                        <span className="font-mono font-medium">{c?.sailNumber ?? '?'}</span>
+                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                          {c
+                            ? displayCompetitorLabel(c, {
+                                enabledCompetitorFields: series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
+                                showCrew: (series?.enabledCompetitorFields ?? []).includes('crewName'),
+                              })
+                            : 'Unknown boat'}
+                          {' — '}
+                          {o.status === 'included' ? 'included in this sub-series' : 'excluded from this sub-series'}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs underline underline-offset-2 hover:text-foreground"
+                          onClick={() =>
+                            setCompetitorOverrides((list) => list.filter((x) => x.competitorId !== o.competitorId))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-xs text-muted-foreground">
+                  Set from the Standings tab: a boat&apos;s sail-number menu excludes it from
+                  this sub-series, and the Not shown list beneath the table includes one back.
+                </p>
+              </div>
+            )}
             {subSeriesError && <p className="text-sm text-destructive">{subSeriesError}</p>}
           </div>
           <DialogFooter>

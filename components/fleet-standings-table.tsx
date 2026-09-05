@@ -93,6 +93,17 @@ export interface FleetStandingsTableProps {
    *  strike/restore that race for this fleet. Omitted on read-only and export
    *  renders, so the affordance never appears there. */
   onToggleExclude?: (raceId: string) => void;
+  /** Editor-only. When present, each row's sail number becomes a menu that
+   *  drops the boat from the active scope — the series, or the sub-series on
+   *  screen — as a non-entrant. Omitted on read-only and export renders. */
+  onExcludeCompetitor?: (competitorId: string) => void;
+  /** The wording for that action, naming the scope: "Exclude from this
+   *  sub-series" or "Exclude from the series". */
+  excludeCompetitorLabel?: string;
+  /** Boats on this table only because a sub-series override keeps them there;
+   *  their menu also offers to drop the pin and let the rule decide. */
+  includedByOverride?: ReadonlySet<string>;
+  onClearInclude?: (competitorId: string) => void;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -116,6 +127,10 @@ export function FleetStandingsTable({
   fleetName,
   excludedRaceIds,
   onToggleExclude,
+  onExcludeCompetitor,
+  excludeCompetitorLabel,
+  includedByOverride,
+  onClearInclude,
 }: FleetStandingsTableProps) {
   const showBoat = enabledFields.includes('boatName');
   const showClass = enabledFields.includes('boatClass');
@@ -335,6 +350,10 @@ export function FleetStandingsTable({
             subdivisionAxes={visibleAxes}
             showAge={showAge}
             showGender={showGender}
+            onExcludeCompetitor={onExcludeCompetitor}
+            excludeCompetitorLabel={excludeCompetitorLabel}
+            includedByOverride={includedByOverride}
+            onClearInclude={onClearInclude}
           />
         ))}
       </TableBody>
@@ -364,6 +383,10 @@ interface StandingRowProps {
   subdivisionAxes: SubdivisionAxis[];
   showAge: boolean;
   showGender: boolean;
+  onExcludeCompetitor?: (competitorId: string) => void;
+  excludeCompetitorLabel?: string;
+  includedByOverride?: ReadonlySet<string>;
+  onClearInclude?: (competitorId: string) => void;
 }
 
 function StandingRow({
@@ -381,10 +404,15 @@ function StandingRow({
   subdivisionAxes,
   showAge,
   showGender,
+  onExcludeCompetitor,
+  excludeCompetitorLabel,
+  includedByOverride,
+  onClearInclude,
 }: StandingRowProps) {
   const { rank, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded } = standing;
 
   const isFirst = rank === 1;
+  const pinnedIn = includedByOverride?.has(competitor.id) ?? false;
 
   return (
     <TableRow
@@ -395,7 +423,39 @@ function StandingRow({
       <TableCell className="text-center">
         <RankBadge rank={rank} />
       </TableCell>
-      <TableCell className="font-mono">{competitor.sailNumber}</TableCell>
+      <TableCell className="font-mono">
+        {onExcludeCompetitor ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              title={pinnedIn ? 'Kept on this table by an override' : 'Entry options'}
+              className="inline-flex items-center gap-0.5 outline-none hover:underline focus-visible:underline"
+            >
+              {competitor.sailNumber}
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel className="font-normal">
+                <span className="font-semibold">{competitor.sailNumber}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {competitor.names.filter((n) => n.trim()).join(' & ')}
+                  {pinnedIn ? ' · included by override' : ''}
+                </span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {pinnedIn && onClearInclude && (
+                <DropdownMenuItem onSelect={() => onClearInclude(competitor.id)}>
+                  Stop including — let the rule decide
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => onExcludeCompetitor(competitor.id)}>
+                {excludeCompetitorLabel ?? 'Exclude'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          competitor.sailNumber
+        )}
+      </TableCell>
       {showBoat && <TableCell>{competitor.boatName ?? ''}</TableCell>}
       {showClass && <TableCell>{competitor.boatClass ?? ''}</TableCell>}
       {/* No WS ID column on this table — with an ID on file, the name links

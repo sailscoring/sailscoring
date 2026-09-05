@@ -42,6 +42,7 @@ export function useCreateSubSeries() {
         startingHandicapSource?: 'base' | 'continue';
         continueFromSubSeriesId?: string | null;
         excludeDncOnlyCompetitors?: boolean;
+        competitorOverrides?: { competitorId: string; status: 'included' | 'excluded' }[];
       };
     }) => createSubSeries(seriesId, input),
     onSuccess: (_created, { seriesId }) => invalidateSubSeriesScope(qc, seriesId),
