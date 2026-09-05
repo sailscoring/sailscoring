@@ -122,21 +122,31 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
   // the public page carries, whose @media print stylesheet is tuned for it — so
   // the viewer gets a PDF from the browser's print dialog. Printing the frame
   // (not the app window) keeps the surrounding app chrome out of the output.
-  //
-  // The print dialog derives its suggested filename from the *top* document's
-  // title (not the iframe's), which is the app shell ("Sail Scoring"). Swap in a
-  // descriptive title for the duration of the print so the saved PDF is named
-  // after the series and fleet, then restore it.
   function printToPdf() {
-    const frame = iframeRef.current;
-    if (!frame?.contentWindow || !current) return;
-    const previousTitle = document.title;
-    document.title = fleetPdfTitle(series.name, current);
-    const restore = () => {
-      document.title = previousTitle;
-    };
-    frame.contentWindow.addEventListener('afterprint', restore, { once: true });
-    frame.contentWindow.print();
+    iframeRef.current?.contentWindow?.print();
+  }
+
+  // The print dialog derives its suggested filename from the *top* document's
+  // title (not the iframe's), which is the app shell ("Sail Scoring"). Swap in
+  // a descriptive title for the duration of any print of the frame — ours
+  // above, or one the document starts itself, like the competitor list's
+  // "Print starters checklist" button — so the saved PDF is named after the
+  // series and fleet, or after the checklist, then restore it.
+  function watchFramePrints(frame: HTMLIFrameElement) {
+    const win = frame.contentWindow;
+    if (!win || !current) return;
+    let previousTitle: string | null = null;
+    win.addEventListener('beforeprint', () => {
+      previousTitle = document.title;
+      const checklist = win.document.body.classList.contains('starters');
+      document.title = checklist
+        ? `${series.name} - Starters checklist`
+        : fleetPdfTitle(series.name, current);
+    });
+    win.addEventListener('afterprint', () => {
+      if (previousTitle !== null) document.title = previousTitle;
+      previousTitle = null;
+    });
   }
 
   // Render via a blob URL rather than `srcdoc`. A srcdoc document inherits its
@@ -241,6 +251,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
               title="Results preview"
               src={blobUrl}
               className="h-full w-full"
+              onLoad={(e) => watchFramePrints(e.currentTarget)}
               // Not sandboxed: this is the exact self-contained, script-free
               // artifact we already serve publicly (renderSeriesHtml escapes
               // user fields), so embedding it carries no extra risk — and an
