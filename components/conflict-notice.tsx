@@ -1,12 +1,18 @@
 'use client';
 
 /**
- * ADR-008 Phase 4: a transient banner shown when a save fails because
- * the row was edited from another tab/device. Driven by a global
- * subscriber on the TanStack `MutationCache` in `app/providers.tsx` —
- * any mutation that throws `ConflictApiError` (HTTP 409) shows the
- * notice and invalidates every query so the page reflects the latest
- * server state.
+ * ADR-008 Phase 4: a transient banner shown when a save loses a version
+ * race. Driven by a global subscriber on the TanStack `MutationCache` in
+ * `app/providers.tsx` — any mutation that throws `ConflictApiError` (HTTP
+ * 409) shows the notice and invalidates every query so the page reflects
+ * the latest server state.
+ *
+ * The copy says only what a bare 409 proves. It used to say the page had
+ * been edited elsewhere, which reads as a claim about a colleague — and
+ * the series row's version is the compare-and-swap token for every one of
+ * its children, so a settings save can lose the race to the scorer's own
+ * competitor or finish write with nobody else involved. What is certainly
+ * true, and what the old copy left out, is that the write did not land.
  *
  * Phase 8 will replace this with the per-field conflict dialog
  * (formatted before/after, "keep mine" / "use the current value")
@@ -54,7 +60,7 @@ export function ConflictNoticeProvider({ children }: { children: ReactNode }) {
           aria-live="polite"
           className="fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-md dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
         >
-          This page was edited elsewhere — refreshed.
+          Couldn&apos;t save — the page changed while saving. Refreshed.
         </div>
       )}
     </ConflictNoticeContext.Provider>
