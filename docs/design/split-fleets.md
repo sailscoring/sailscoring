@@ -1063,9 +1063,13 @@ for.
    its top-fleet size, until the split is committed), `reassignmentTieOrder`,
    `vocabulary` (purely presentational), and the `medal`
    block — which now carries the compressed carry and its tie-break, both of
-   which only re-score. These live on the Settings card (a series-format
-   card like scoring mode): visible always, frozen fields read-only after
-   lock, the rest editable — a change just triggers a recompute.
+   which only re-score. These live in the Format section of the Split
+   Fleets tab (open until Round 1 is committed, a one-line summary after):
+   frozen fields read-only after lock, the rest editable — a change just
+   triggers a recompute. The format itself is chosen when the series is
+   created — the setup wizard asks the kind of series first, so the entry
+   list is imported knowing what it is for — and can be added only while
+   the series has no races, or removed only while it has no rounds.
 7. **Scratch only?** All target events are one-design scratch. Proposal:
    v1 requires `scoringMode: 'scratch'`; split fleets × handicap systems
    is uncharted (no known real event) and stays unsupported until one

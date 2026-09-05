@@ -1237,9 +1237,9 @@ const SHOTS: Shot[] = [
       // Flip the operator gate through provision-org's seam (which seeds the
       // worked championship demo), then bust the persisted client cache so
       // the fresh feature set — and the Split Fleets tab — actually renders.
-      // Enabling only now keeps the split-fleet setup card out of every
-      // other series' settings shots. (The in-app `.sailscoring` import can
-      // NOT be used here: it silently drops the file's splitFleets block.)
+      // Enabling only now keeps the wizard's kind-of-series question out of
+      // every other setup shot. (The in-app `.sailscoring` import can NOT be
+      // used here: it silently drops the file's splitFleets block.)
       await dbEnableOperatorFeature('split-fleets');
       await page.evaluate(() => localStorage.clear());
       await page.goto(`${BASE}/`);

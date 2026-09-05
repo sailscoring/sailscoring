@@ -129,11 +129,12 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">{q.fleetNoun}s</strong> (Yellow, Blue, …) that are
         reassigned by series rank after each day of racing, then into{' '}
         <strong className="text-foreground">{f.fleetNoun}s</strong> (Gold, Silver, …) for the
-        closing races — the format behind ILCA and Optimist worlds and nationals. Choose the
-        format in the series setup wizard, or later from the{' '}
-        <strong className="text-foreground">Split-fleet championship</strong> card in Settings;
-        the <strong className="text-foreground">Split Fleets</strong> tab then appears and
-        everything about the event runs from it.
+        closing races — the format behind ILCA and Optimist worlds and nationals. A series is a
+        split-fleet championship from the start: the setup wizard asks what kind of series you
+        are creating before anything else, and the{' '}
+        <strong className="text-foreground">Split Fleets</strong> tab then leads the series and
+        everything about the event runs from it. A series that has already raced cannot become
+        one; create a new series and import the entry list again.
       </p>
       <p>
         <strong className="text-foreground">Round 1</strong> makes the initial assignment —
@@ -199,11 +200,12 @@ export function SplitFleetsSection() {
         round.
       </p>
       <p>
-        Set the format up in the series setup wizard (or later, from the{' '}
-        <strong className="text-foreground">Split-fleet championship</strong> card in Settings).
-        Enabling it ends setup — the fleets are created by the assignment ceremonies and the
-        scoring rules move to the tab’s <strong className="text-foreground">Format</strong>{' '}
-        section, which holds the whole configuration from then on. Start from a class format —
+        Choosing a split-fleet championship in the setup wizard writes an initial format and
+        shortens setup to the entry list — the fleets are created by the assignment ceremonies
+        and the scoring rules live in the tab’s{' '}
+        <strong className="text-foreground">Format</strong> section, which is open until the
+        first round is assigned and holds the whole configuration from then on. Start from a
+        class format —
         ILCA, IODA, and the two-series and carried-position models, with ILCA offered per era
         since the class rewrote its format for 2026 — which fills every setting; then read{' '}
         <strong className="text-foreground">How this configuration translates to sailing
