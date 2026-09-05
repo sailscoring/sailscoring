@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type Ref } from 'react';
-import { X, Activity, AlertTriangle, Ban, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { X, Activity, AlertTriangle, Ban, ChevronDown, ChevronRight, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -102,6 +102,12 @@ export interface FinishTabProps {
   /** Committed-row operations (see hooks/use-finish-row-ops.ts). */
   rowOps: ReturnType<typeof useFinishRowOps>;
   nonFinishers: NonFinisherView[];
+  /** Boats in this race's fleets that are excluded from the series. Not
+   *  non-finishers — they are not entrants — so they sit in their own
+   *  collapsed group under the panel, each with an Include action. */
+  excludedCompetitors?: Competitor[];
+  /** Bring an excluded boat into the series. Absent on a read-only sheet. */
+  onIncludeCompetitor?: (competitor: Competitor) => void | Promise<unknown>;
   competitors: Competitor[];
   competitorMap: Map<string, Competitor>;
   fleetById: Map<string, Fleet>;
@@ -146,6 +152,7 @@ export function FinishTab(props: FinishTabProps) {
   const { has } = useFeatures();
   const {
     finishInput, rowOps, nonFinishers,
+    excludedCompetitors = [], onIncludeCompetitor,
     competitors, competitorMap, fleetById, raceFleetIds,
     showFleetBadge, showCrew, enabledCompetitorFields,
     finishRecording, onSetFinishRecording, derived, savedFinishes,
@@ -209,6 +216,7 @@ export function FinishTab(props: FinishTabProps) {
     error: inputError, setError: setInputError,
     notice: inputNotice, setNotice: setInputNotice,
     pendingUnknownSail, setPendingUnknownSail,
+    pendingExcluded, includePendingExcluded, cancelPendingExcluded,
     highlightedIndex, setHighlightedIndex,
     ref: inputRef,
   } = finishInput.input;
@@ -233,7 +241,11 @@ export function FinishTab(props: FinishTabProps) {
   // reclaim the width mid-entry while the list is still non-empty.
   const [nonFinishersCollapsed, setNonFinishersCollapsed] = useState(false);
   const hasNonFinishers = nonFinishers.length > 0;
-  const showNonFinishersPanel = hasNonFinishers && !nonFinishersCollapsed;
+  const hasExcluded = excludedCompetitors.length > 0;
+  const showNonFinishersPanel = (hasNonFinishers || hasExcluded) && !nonFinishersCollapsed;
+  // The excluded group opens on demand: those boats need no attention on an
+  // ordinary race day, and the group is there so they can be found, not read.
+  const [excludedOpen, setExcludedOpen] = useState(false);
 
   // Free-text filter over the panel — early in entry it holds the whole
   // started field, and picking one boat out to assign a code means scrolling
@@ -247,6 +259,7 @@ export function FinishTab(props: FinishTabProps) {
     competitorMatchesFilter(competitor, nonFinisherFilter));
   const { recorded: recordedNonFinishers, didNotCompete: didNotCompeteNonFinishers } =
     partitionNonFinishers(filteredNonFinishers);
+  const filteredExcluded = excludedCompetitors.filter((c) => competitorMatchesFilter(c, nonFinisherFilter));
 
   // Which rows have their track data showing. A set rather than a single open
   // row: comparing two boats is the point of looking at all, and there is no
@@ -618,8 +631,25 @@ export function FinishTab(props: FinishTabProps) {
             </ul>
           )}
         </div>
-        {inputError && !pendingUnknownSail && (
+        {inputError && !pendingUnknownSail && !pendingExcluded && (
           <p className="text-sm text-destructive">{inputError}</p>
+        )}
+        {pendingExcluded && (
+          <div className="space-y-2" data-testid="pending-excluded">
+            <p className="text-sm text-amber-600 dark:text-amber-500">
+              <span className="font-mono font-medium">{pendingExcluded.competitor.sailNumber}</span>{' '}
+              {displayCompetitorLabel(pendingExcluded.competitor, { enabledCompetitorFields, showCrew })} is
+              excluded from this series. Recording a finish enters the boat.
+            </p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => void includePendingExcluded()}>
+                Include and record finish
+              </Button>
+              <Button size="sm" variant="ghost" onClick={cancelPendingExcluded}>
+                Cancel
+              </Button>
+            </div>
+          </div>
         )}
         {inputNotice && !inputError && !pendingUnknownSail && (
           <p className="text-sm text-amber-600 dark:text-amber-500" data-testid="already-entered-notice">
@@ -1087,6 +1117,44 @@ export function FinishTab(props: FinishTabProps) {
               </div>
             )}
             {didNotCompeteNonFinishers.map(renderNonFinisherRow)}
+            {hasExcluded && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setExcludedOpen((o) => !o)}
+                  aria-expanded={excludedOpen}
+                  className="flex w-full items-center gap-2 pt-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  <span className="h-px flex-1 bg-border" />
+                  {excludedOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  Excluded ({nonFinisherFilterActive ? `${filteredExcluded.length} of ${excludedCompetitors.length}` : excludedCompetitors.length})
+                  <span className="h-px flex-1 bg-border" />
+                </button>
+                {excludedOpen && filteredExcluded.map((competitor) => (
+                  <div
+                    key={competitor.id}
+                    data-testid={`excluded-${competitor.sailNumber}`}
+                    className="flex items-center gap-3 rounded-lg border border-dashed px-4 py-2 text-muted-foreground"
+                  >
+                    <span className="font-mono font-medium w-16 shrink-0">{competitor.sailNumber}</span>
+                    {showFleetBadge && (
+                      <FleetBadges fleetIds={competitor.fleetIds} raceFleetIds={raceFleetIds} fleetById={fleetById} variant="outline" />
+                    )}
+                    <span className="text-sm flex-auto truncate">{displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew })}</span>
+                    {onIncludeCompetitor && !readOnly && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 shrink-0 text-xs"
+                        onClick={() => void onIncludeCompetitor(competitor)}
+                      >
+                        Include
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
           </div>
       </div>
       )}

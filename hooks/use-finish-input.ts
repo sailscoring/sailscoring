@@ -54,6 +54,10 @@ export interface UseFinishInputArgs {
   flashRow: (entryId: string) => void;
   /** True once race + competitors have loaded; gates initial focus. */
   ready: boolean;
+  /** Bring an excluded boat into the series (clear `Competitor.excluded`).
+   *  Called when the scorer confirms the "include and record finish" prompt
+   *  that a typed excluded sail number raises. Absent on a read-only sheet. */
+  onIncludeCompetitor?: (competitor: Competitor) => Promise<unknown>;
 }
 
 /**
@@ -69,7 +73,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     derived, nonFinishers, finishedIds,
     saveFinish, patchCache,
     commitOrderChange, flashRow,
-    ready,
+    ready, onIncludeCompetitor,
   } = args;
   const { finishingOrder, finishTimes, elapsedSecs, tiedWithPrevious, finishByCompetitorId } = derived;
   const byElapsed = finishRecording === 'elapsed';
@@ -82,6 +86,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // needs to act on, not a mistake they made.
   const [inputNotice, setInputNotice] = useState('');
   const [pendingUnknownSail, setPendingUnknownSail] = useState<string | null>(null);
+  // A typed sail number that resolved to a boat excluded from the series. The
+  // boat is on the list, so this isn't an unknown — but it isn't an entrant
+  // either, so recording a finish first means including it. Sailwave's Sail
+  // Number Wizard does the same on the "include excluded competitors" tick.
+  const [pendingExcluded, setPendingExcluded] = useState<{ competitor: Competitor; matchedOn: MatchTier; entered: string } | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   // Pending time entry: competitor confirmed, waiting for finish time.
   // `matchedOn` is carried through so a bow-number match is still recorded on
@@ -324,7 +333,21 @@ export function useFinishInput(args: UseFinishInputArgs) {
 
   // Route a resolved competitor through time-entry if their fleet has a start time.
   // In a handicap series, block competitors whose fleet has no start configured.
-  function commitCompetitor(competitor: Competitor, matchedOn: MatchTier = 'sail', entered?: string) {
+  function commitCompetitor(
+    competitor: Competitor,
+    matchedOn: MatchTier = 'sail',
+    entered?: string,
+    opts?: { includeExcluded?: boolean },
+  ) {
+    if (competitor.excluded && !opts?.includeExcluded) {
+      setSailInput('');
+      setHighlightedIndex(-1);
+      setPendingUnknownSail(null);
+      setInputError('');
+      setInputNotice('');
+      setPendingExcluded({ competitor, matchedOn, entered: entered ?? competitor.sailNumber });
+      return;
+    }
     if (isHandicapSeries && !hasStartForRace(competitor.id)) {
       const fleetNames = competitor.fleetIds
         .map((id) => fleetById.get(id)?.name)
@@ -347,6 +370,21 @@ export function useFinishInput(args: UseFinishInputArgs) {
     } else {
       addKnownFinisher(competitor, undefined, matchedOn, entered);
     }
+  }
+
+  /** The scorer confirmed the prompt: include the boat, then record it as if
+   *  it had been entered all along (the time step still applies). */
+  async function includePendingExcluded() {
+    if (!pendingExcluded) return;
+    const pending = pendingExcluded;
+    await onIncludeCompetitor?.(pending.competitor);
+    setPendingExcluded(null);
+    commitCompetitor(pending.competitor, pending.matchedOn, pending.entered, { includeExcluded: true });
+  }
+
+  function cancelPendingExcluded() {
+    setPendingExcluded(null);
+    inputRef.current?.focus();
   }
 
   function confirmPendingTime() {
@@ -458,6 +496,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     setInputError('');
     setInputNotice('');
     setPendingUnknownSail(null);
+    setPendingExcluded(null);
     setHighlightedIndex(-1);
     setPendingTimeEntry(null);
     setPendingTimeValue('');
@@ -475,6 +514,11 @@ export function useFinishInput(args: UseFinishInputArgs) {
       setNotice: setInputNotice,
       pendingUnknownSail,
       setPendingUnknownSail,
+      /** A typed sail number that belongs to an excluded boat, awaiting the
+       *  scorer's decision to include it. */
+      pendingExcluded,
+      includePendingExcluded,
+      cancelPendingExcluded,
       highlightedIndex,
       setHighlightedIndex,
       ref: inputRef,

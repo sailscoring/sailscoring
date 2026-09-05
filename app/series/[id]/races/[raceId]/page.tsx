@@ -9,7 +9,7 @@ import { useFinishInput } from '@/hooks/use-finish-input';
 import { useFinishRowOps } from '@/hooks/use-finish-row-ops';
 import { useStartCheckIn } from '@/hooks/use-start-check-in';
 import { seriesRowMutationKey, useSeries } from '@/hooks/use-series';
-import { competitorRowMutationKey, useCompetitorsBySeries } from '@/hooks/use-competitors';
+import { competitorRowMutationKey, useCompetitorsBySeries, useUpdateCompetitorsField } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useRace, useRacesBySeries, useSaveRace } from '@/hooks/use-races';
 import { useSeriesReadOnly } from '@/components/series-read-only';
@@ -25,7 +25,7 @@ import { useRaceStartsByRace, useRaceStartsBySeries } from '@/hooks/use-race-sta
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { stageRaceLabel } from '@/lib/split-fleets';
 import { competitorsInRace, raceFleetIds } from '@/lib/race-membership';
-import type { RaceStart } from '@/lib/types';
+import type { Competitor, RaceStart } from '@/lib/types';
 import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
@@ -99,10 +99,25 @@ export default function ResultEntryPage({
   // the implicit-DNC rows), the check-in tab, and the ratings tab, so boats in
   // fleets that didn't start this race no longer flood the sheet. Exact-sail
   // entry still resolves against the full list (see useFinishInput below).
+  // Excluded boats are on the list but not entrants: they are no one's
+  // non-finisher, so they leave every browsable surface here and gather in
+  // the finish tab's own Excluded group instead. Exact-sail entry still finds
+  // them and offers to include the boat (see useFinishInput below).
   const inRaceCompetitors = useMemo(
-    () => competitorsInRace(competitors ?? [], raceStarts),
+    () => competitorsInRace((competitors ?? []).filter((c) => !c.excluded), raceStarts),
     [competitors, raceStarts],
   );
+  const excludedInRace = useMemo(
+    () => competitorsInRace((competitors ?? []).filter((c) => c.excluded), raceStarts),
+    [competitors, raceStarts],
+  );
+  const updateCompetitorsField = useUpdateCompetitorsField();
+  const includeCompetitor = (c: Competitor) =>
+    updateCompetitorsField.mutateAsync({
+      seriesId,
+      ids: [c.id],
+      patch: { field: 'excluded', value: false },
+    });
   // The fleets with a start in this race — scopes the finish-tab fleet badges
   // to the sheet being entered, so a multi-fleet boat isn't tagged with fleets
   // that aren't racing here (#327). Empty when no starts are recorded.
@@ -237,6 +252,7 @@ export default function ResultEntryPage({
     commitOrderChange: rowOps.commitOrderChange,
     flashRow: rowOps.flashRow,
     ready: race != null && competitors != null,
+    onIncludeCompetitor: readOnly ? undefined : includeCompetitor,
   });
 
   const { presentCount, effectivelyPresent, toggleStartPresent } = useStartCheckIn({
@@ -476,6 +492,8 @@ export default function ResultEntryPage({
           finishInput={finishInput}
           rowOps={rowOps}
           nonFinishers={nonFinishers}
+          excludedCompetitors={excludedInRace}
+          onIncludeCompetitor={readOnly ? undefined : includeCompetitor}
           competitors={competitors}
           competitorMap={competitorMap}
           fleetById={fleetById}
