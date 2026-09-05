@@ -1,0 +1,1 @@
+ALTER TABLE "competitors" ADD COLUMN "excluded" boolean DEFAULT false NOT NULL;

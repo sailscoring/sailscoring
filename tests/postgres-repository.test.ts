@@ -280,6 +280,34 @@ describe.skipIf(skip)('postgres repositories', () => {
     expect(c2Read.boatName).toBeUndefined();
     expect(c2Read.ircTcc).toBeUndefined();
     expect(c2Read.nationality).toBeUndefined();
+    // Sparse: an entered boat carries no `excluded` key at all.
+    expect(c2Read.excluded).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
+  test('CompetitorRepository: excluded round-trips and updateMany flips it', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const fleet = uuid();
+    await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'Fleet', displayOrder: 0, scoringSystem: 'scratch' });
+    const base = { seriesId: s.id, fleetIds: [fleet], names: ['Helm'], club: '', gender: '' as const, age: null, createdAt: Date.now() };
+    const entered: Competitor = { ...base, id: uuid(), sailNumber: '1' };
+    const reserve: Competitor = { ...base, id: uuid(), sailNumber: '2', excluded: true };
+    await repos.competitors.save(entered);
+    await repos.competitors.save(reserve);
+
+    let list = await repos.competitors.listBySeries(s.id);
+    expect(list.find((c) => c.id === reserve.id)!.excluded).toBe(true);
+    expect(list.find((c) => c.id === entered.id)!.excluded).toBeUndefined();
+
+    // Exclude the entered boat and bring the reserve back in, in one call each.
+    await repos.competitors.updateMany(s.id, [entered.id], { field: 'excluded', value: true });
+    await repos.competitors.updateMany(s.id, [reserve.id], { field: 'excluded', value: false });
+    list = await repos.competitors.listBySeries(s.id);
+    expect(list.find((c) => c.id === entered.id)!.excluded).toBe(true);
+    expect(list.find((c) => c.id === reserve.id)!.excluded).toBeUndefined();
 
     await repos.series.delete(s.id);
   });

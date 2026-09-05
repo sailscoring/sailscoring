@@ -98,7 +98,8 @@ export type CompetitorFieldPatch =
   | { field: 'club' | 'boatClass' | 'nationality'; value: string }
   | { field: 'gender'; value: Competitor['gender'] }
   | { field: 'subdivision'; axisId: string; value: string }
-  | { field: 'fleet'; fleetId: string; op: 'add' | 'remove' };
+  | { field: 'fleet'; fleetId: string; op: 'add' | 'remove' }
+  | { field: 'excluded'; value: boolean };
 
 export interface CompetitorRepository {
   listBySeries(seriesId: string): Promise<Competitor[]>;

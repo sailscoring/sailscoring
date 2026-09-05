@@ -49,6 +49,7 @@ export const competitorSchema = z.object({
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
   orcCert: orcCertDataSchema.optional(),
+  excluded: z.boolean().optional(),
   version: versionSchema,
 });
 
@@ -97,6 +98,8 @@ export const competitorsBulkSetSchema = z.object({
       fleet: z
         .object({ fleetId: uuidSchema, op: z.enum(['add', 'remove']) })
         .optional(),
+      // true excludes the boats from the series, false brings them back in.
+      excluded: z.boolean().optional(),
     })
     .refine(
       (s) => Object.values(s).filter((v) => v !== undefined).length === 1,

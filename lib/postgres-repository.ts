@@ -189,6 +189,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.nhcStartingTcf != null ? { nhcStartingTcf: row.nhcStartingTcf } : {}),
     ...(row.echoStartingTcf != null ? { echoStartingTcf: row.echoStartingTcf } : {}),
     ...(row.orcCert != null ? { orcCert: row.orcCert } : {}),
+    ...(row.excluded ? { excluded: true } : {}),
     version: row.version,
   };
 }
@@ -1004,6 +1005,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     nhcStartingTcf: c.nhcStartingTcf ?? null,
     echoStartingTcf: c.echoStartingTcf ?? null,
     orcCert: c.orcCert ?? null,
+    excluded: c.excluded ?? false,
   };
 }
 
@@ -1013,6 +1015,7 @@ const competitorUpdateColumns = [
   'owners', 'helms', 'crewNames', 'club', 'nationality',
   'gender', 'age', 'subdivisions',
   'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert',
+  'excluded',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
 
 export class PostgresCompetitorRepository implements CompetitorRepository {
@@ -1133,6 +1136,9 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
             : sql`array_remove(${col}, ${patch.fleetId}::uuid)`;
         break;
       }
+      case 'excluded':
+        set.excluded = patch.value;
+        break;
     }
     await this.db
       .update(schema.competitors)

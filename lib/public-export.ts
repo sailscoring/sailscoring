@@ -239,6 +239,11 @@ export interface PublicSeriesExport {
     entryNumber?: string;
     /** Safety tally token issued at registration; free text, verbatim. */
     tallyNumber?: string;
+    /** On the list but not an entrant: scored nowhere, counted toward no
+     *  entry total, on no published table. Always carried when set — a reader
+     *  re-scoring the export needs it to get every DNC right — and a re-import
+     *  restores it. Absent means entered. */
+    excluded?: boolean;
     /** The OA's seeding rank. Carried so a reader can reproduce a split-fleet
      *  series' initial assignment, which is unexplainable without it. */
     seed?: number;
@@ -1048,6 +1053,7 @@ export function buildPublicExportFromSnapshot(
         : {}),
       ...(carry('entryNumber') && c.entryNumber ? { entryNumber: c.entryNumber } : {}),
       ...(carry('tallyNumber') && c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
+      ...(c.excluded ? { excluded: true } : {}),
       ...(carrySeed && c.seed != null ? { seed: c.seed } : {}),
       ...(carryInitialFleet && c.initialFleet ? { initialFleet: c.initialFleet } : {}),
       ...(carry('worldSailingId') && c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
@@ -1399,6 +1405,7 @@ export async function importPublicExport(
           : {}),
         ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
         ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
+        ...(c.excluded ? { excluded: true } : {}),
         ...(c.seed != null ? { seed: c.seed } : {}),
         ...(c.initialFleet ? { initialFleet: c.initialFleet } : {}),
         ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),

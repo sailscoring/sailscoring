@@ -321,6 +321,9 @@ export async function updateCompetitors(
   }
 
   const { set } = input;
+  if (set.excluded !== undefined) {
+    return setCompetitorsExcluded(workspace, seriesId, input.ids, set.excluded);
+  }
   let patch: CompetitorFieldPatch;
   let fieldLabel: string;
   if (set.subdivision !== undefined) {
@@ -359,6 +362,37 @@ export async function updateCompetitors(
     summary: patch.value
       ? `Set ${fieldLabel.toLowerCase()} to "${patch.value}" for ${noun}`
       : `Cleared ${fieldLabel.toLowerCase()} for ${noun}`,
+    sessionKey: 'competitors',
+  });
+  return { count: n };
+}
+
+/** Exclude a set of boats from the series, or bring them back in. Boats already
+ *  in the requested state are left alone so the activity summary counts only
+ *  what changed. */
+async function setCompetitorsExcluded(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  ids: string[],
+  excluded: boolean,
+): Promise<{ count: number }> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.competitors.listBySeries(seriesId);
+  const wanted = new Set(ids);
+  const targets = existing.filter((c) => wanted.has(c.id) && (c.excluded ?? false) !== excluded);
+  if (targets.length === 0) return { count: 0 };
+  await repos.competitors.updateMany(
+    seriesId,
+    targets.map((c) => c.id),
+    { field: 'excluded', value: excluded },
+    { updatedBy: workspace.userId },
+  );
+  const n = targets.length;
+  const noun = `${n} competitor${n === 1 ? '' : 's'}`;
+  await trackChange(workspace, {
+    action: 'competitors.updated',
+    seriesId,
+    summary: excluded ? `Excluded ${noun} from the series` : `Included ${noun} in the series`,
     sessionKey: 'competitors',
   });
   return { count: n };

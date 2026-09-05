@@ -179,6 +179,26 @@ describe('public export v2 — hidden competitor columns', () => {
     expect(c.initialFleet).toBe('Yellow');
   });
 
+  it('always carries an excluded boat with its flag, and import restores it', async () => {
+    const reserve = makeCompetitor('c9', '909', { excluded: true });
+    const series = makeSeries('s1');
+    const data = buildPublicExportFromSnapshot(
+      makeSnapshot(series, { competitors: [fullCompetitor, reserve] }),
+    )!;
+    const exported = data.competitors.find((x) => x.sailNumber === '909')!;
+    expect(exported.excluded).toBe(true);
+    // An entered boat carries no flag at all — absent means entered.
+    expect(data.competitors.find((x) => x.sailNumber === '101')!.excluded).toBeUndefined();
+    // A non-entrant is on no standings table.
+    for (const fleet of data.standings) {
+      expect(fleet.rows.map((r) => r.sailNumber)).not.toContain('909');
+    }
+    const { repos, savedCompetitors } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    expect(savedCompetitors.find((c) => c.sailNumber === '909')!.excluded).toBe(true);
+    expect(savedCompetitors.find((c) => c.sailNumber === '101')!.excluded).toBeUndefined();
+  });
+
   it('defaults absent club/gender/age on import', async () => {
     const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
     const { repos, savedCompetitors } = makeRecordingRepos();

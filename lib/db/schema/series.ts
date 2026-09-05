@@ -468,6 +468,10 @@ export const competitors = pgTable(
     echoStartingTcf: real('echo_starting_tcf'),
     // The boat's ORC certificate, verbatim as imported (see OrcCertData).
     orcCert: jsonb('orc_cert').$type<OrcCertData>(),
+    // On the list but not an entrant: scored nowhere and counted toward no
+    // entry total (Sailwave's per-competitor Exclude flag). See
+    // Competitor.excluded.
+    excluded: boolean('excluded').notNull().default(false),
     // Cross-series competitor-identity link (#212). Workspace-local: the row a
     // sailor's identity collapses onto across series. Nullable; written only by
     // the reconcile pass — batch (CLI) or the lazy after-write hook (#222) —
