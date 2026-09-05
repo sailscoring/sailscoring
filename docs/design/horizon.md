@@ -270,14 +270,14 @@ to build around them. Until an event asks for it, this stays here.
 
 ### Competitors on the list but not in the racing
 
-Filed as a three-issue sequence, September 2026: #501 (a series-wide manual
-exclude — Sailwave's `compexclude`, treating a listed boat as a non-entrant),
-#502 (a per-sub-series include/exclude override, the fix for the HYC "Adrenaline"
-case), and #504 (`excludeDncOnlyCompetitors` for plain series, displayed as
-automatic exclusions). The shared semantic, decided in #368: excluded means
-non-entrant, out of the ranking *and* out of the entry count DNC/DNF points are
-based on. What stays here: an entry *state* (entered / withdrawn / not entered)
-superseding the boolean, and the entry-list re-sync deletion policy above.
+Shipped September 2026 as three pieces: a series-wide manual exclude on the
+competitor (Sailwave's `compexclude`, imported with it), per-sub-series
+include/exclude pins, and the all-DNC rule (`excludeDncOnlyCompetitors`) at
+series level, all resolved by one engine helper with the precedence pin →
+flag → rule. The shared semantic, decided in #368: excluded means non-entrant,
+out of the ranking *and* out of the entry count DNC/DNF points are based on.
+Still here: an entry *state* (entered / withdrawn / not entered) superseding
+the boolean, and the entry-list re-sync deletion policy above.
 
 Related but not the same thing: the free-form competitor selectors under Prize
 allocation below. Those are a filtering escape hatch; exclusion is a behaviour —
