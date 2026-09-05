@@ -217,6 +217,43 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('a conflict says whether the write that won was the caller’s own', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+
+    /** Save `s` at a version the toucher has already moved past. */
+    async function losingSave(s: Series): Promise<ConflictError | null> {
+      return repos.series
+        .save({ ...s, name: 'renamed' }, { expectedVersion: 1, updatedBy: 'user_scorer' })
+        .then(
+          () => null,
+          (e: unknown) => e as ConflictError,
+        );
+    }
+
+    // The scorer's own finish write bumped the row out from under their
+    // settings save. Nobody else is involved and the notice must not say so.
+    const mine = makeSeries();
+    await repos.series.save(mine, { updatedBy: 'user_scorer' });
+    await repos.series.touch(mine.id, 'user_scorer');
+    expect((await losingSave(mine))?.detail?.byCurrentUser).toBe(true);
+
+    // A colleague's write: the notice can name them.
+    const theirs = makeSeries();
+    await repos.series.save(theirs, { updatedBy: 'user_scorer' });
+    await repos.series.touch(theirs.id, 'user_colleague');
+    expect((await losingSave(theirs))?.detail?.byCurrentUser).toBe(false);
+
+    // An unattributed write (a script, an import) is nobody's.
+    const nobodys = makeSeries();
+    await repos.series.save(nobodys, { updatedBy: 'user_scorer' });
+    await repos.series.touch(nobodys.id);
+    expect((await losingSave(nobodys))?.detail?.byCurrentUser).toBe(false);
+
+    await repos.series.delete(mine.id);
+    await repos.series.delete(theirs.id);
+    await repos.series.delete(nobodys.id);
+  });
+
   test('SeriesRepository: cross-workspace get returns undefined; list returns empty', async () => {
     const reposA = createRepos({ db, workspaceId: workspaceA });
     const reposB = createRepos({ db, workspaceId: workspaceB });

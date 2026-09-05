@@ -316,33 +316,26 @@ type RaceScopedVersionable =
  * repeats the tenancy filter so a row that exists in a different workspace
  * (which shouldn't happen — UUIDs are unique) does not leak its version.
  *
- * Two overloads — one for top-level rows that carry `workspace_id`, one for
- * race-scoped child rows where tenancy is enforced via the parent race's
- * `workspace_id`.
+ * `via: 'parent-race'` selects the race-scoped child rows, whose tenancy is
+ * enforced via the parent race's `workspace_id` rather than their own.
  */
-async function buildConflictError(
-  db: SailScoringDb,
-  table: Versionable,
-  id: string,
-  workspaceId: string,
-  expectedVersion: number,
-): Promise<ConflictError>;
-async function buildConflictError(
-  db: SailScoringDb,
-  table: RaceScopedVersionable,
-  id: string,
-  workspaceId: string,
-  expectedVersion: number,
-  via: 'parent-race',
-): Promise<ConflictError>;
-async function buildConflictError(
-  db: SailScoringDb,
-  table: Versionable | RaceScopedVersionable,
-  id: string,
-  workspaceId: string,
-  expectedVersion: number,
-  via?: 'parent-race',
-): Promise<ConflictError> {
+async function buildConflictError(spec: {
+  db: SailScoringDb;
+  id: string;
+  workspaceId: string;
+  expectedVersion: number;
+  /**
+   * The user whose write just lost, so the detail can say whether the write
+   * that won was their own. It often is: the series row's version is the
+   * token for all of its children, and a scorer's own competitor or finish
+   * write bumps it out from under their settings save.
+   */
+  updatedBy: string | null;
+} & (
+  | { table: Versionable; via?: undefined }
+  | { table: RaceScopedVersionable; via: 'parent-race' }
+)): Promise<ConflictError> {
+  const { db, table, id, workspaceId, expectedVersion, via } = spec;
   let row:
     | { version: number; updatedAt: Date; updatedBy: string | null }
     | undefined;
@@ -409,6 +402,7 @@ async function buildConflictError(
     currentVersion: row?.version,
     updatedAt: row?.updatedAt?.toISOString(),
     actor,
+    byCurrentUser: row?.updatedBy != null && row.updatedBy === spec.updatedBy,
   });
 }
 
@@ -513,22 +507,14 @@ async function versionedSave<TTable extends VersionedTable, T>(
       )
       .returning();
     if (!row) {
+      const common = { db, id, workspaceId, expectedVersion: opts.expectedVersion, updatedBy };
       throw tenancy.kind === 'workspace'
-        ? await buildConflictError(
-            db,
-            table as Versionable,
-            id,
-            workspaceId,
-            opts.expectedVersion,
-          )
-        : await buildConflictError(
-            db,
-            table as RaceScopedVersionable,
-            id,
-            workspaceId,
-            opts.expectedVersion,
-            'parent-race',
-          );
+        ? await buildConflictError({ ...common, table: table as Versionable })
+        : await buildConflictError({
+            ...common,
+            table: table as RaceScopedVersionable,
+            via: 'parent-race',
+          });
     }
     return spec.rowToType(row as TTable['$inferSelect']);
   }

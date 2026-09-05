@@ -15,11 +15,16 @@ export class ConflictError extends Error {
       currentVersion?: number;
       /** ISO-8601; the row's `updated_at` at the moment of conflict. */
       updatedAt?: string;
-      /**
-       * Reserved for ADR-008 Phase 7 (`updated_by` column populated by the
-       * `workspaceRoute` wrapper). Phase 6 leaves this `undefined`.
-       */
+      /** Who made the write that won, from the row's `updated_by`. */
       actor?: { id: string; email?: string; displayName?: string };
+      /**
+       * The winning write was made by the same user as the losing one — so
+       * this is a lost race with the scorer's own earlier write, not a
+       * collaborator editing underneath them, and nothing should say
+       * otherwise. Common on the series row, whose version is the token for
+       * every one of its children.
+       */
+      byCurrentUser?: boolean;
     },
   ) {
     super('conflict');

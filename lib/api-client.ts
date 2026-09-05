@@ -37,14 +37,20 @@ export class NotFoundApiError extends ApiError {
 /**
  * Mirror of the server-side `ConflictError.detail` envelope. Optional
  * everywhere — older endpoints only carry `expectedVersion` /
- * `currentVersion`. The actor field is reserved for ADR-008 Phase 7.
+ * `currentVersion`.
  */
 export interface ConflictDetail {
   expectedVersion?: number;
   currentVersion?: number;
   /** ISO-8601; the row's `updated_at` at the moment of conflict. */
   updatedAt?: string;
+  /** Who made the write that won. */
   actor?: { id: string; email?: string; displayName?: string };
+  /**
+   * The write that won was this same user's. Nothing shown to the scorer may
+   * blame a collaborator for it — see `conflictNoticeMessage`.
+   */
+  byCurrentUser?: boolean;
 }
 
 export class ConflictApiError extends ApiError {

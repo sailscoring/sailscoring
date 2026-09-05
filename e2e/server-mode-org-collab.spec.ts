@@ -8,7 +8,8 @@
  *     scoped references (FTP, publishing state), and leaves the source
  *     intact.
  *   - Two scorers in one workspace editing the same finish surface a
- *     row-scoped conflict dialog that names the other actor.
+ *     row-scoped conflict dialog that names the other actor, and the same
+ *     collision on a competitor names them in the save-failed notice.
  */
 // Uses base Playwright (not ./fixtures) for the actor-attribution test:
 // triggering a 409 produces an unavoidable browser console.error which
@@ -303,6 +304,67 @@ test.describe('actor attribution on a shared workspace', () => {
       if (errorsA.length > 0) {
         throw new Error(`pageA errors:\n${errorsA.join('\n')}`);
       }
+    }
+  });
+
+  test('the save-failed notice names the colleague who got there first', async ({
+    browser,
+  }) => {
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const pageA: Page = await ctxA.newPage();
+    const pageB: Page = await ctxB.newPage();
+
+    try {
+      const stamp = Date.now();
+      // Sarah writes first; Brian's save is the one that loses.
+      const emailA = await signInFreshUser(pageA, `notice-sarah-${stamp}`);
+      const emailB = await signInFreshUser(pageB, `notice-brian-${stamp}`);
+
+      const org = await createOrgWorkspace(`Notice Panel ${stamp}`);
+      await addMemberByEmail(org.id, emailA, 'owner');
+      await addMemberByEmail(org.id, emailB, 'admin');
+      await setActiveWorkspace(pageA, org.id);
+      await setActiveWorkspace(pageB, org.id);
+
+      await createSeriesQuick(pageA, { name: `Notice Series ${stamp}` });
+      await pageA.getByRole('button', { name: 'Add competitor' }).click();
+      await pageA.getByLabel('Sail number').fill('NB1');
+      await pageA.getByLabel('Competitor name').fill('Boat One');
+      await pageA.getByRole('button', { name: 'Save' }).click();
+      await expect(pageA.getByRole('cell', { name: 'NB1' })).toBeVisible();
+
+      const competitorsUrl = pageA.url();
+
+      // Brian opens the list, so his cache holds the competitor at v1.
+      await pageB.goto(competitorsUrl);
+      await expect(pageB.getByRole('cell', { name: 'NB1' })).toBeVisible();
+
+      // Sarah renames the helm out from under him.
+      await pageA.getByRole('row').filter({ hasText: 'NB1' }).click();
+      const dialogA = pageA.getByRole('dialog', { name: 'Edit competitor' });
+      await dialogA.getByLabel('Competitor name').fill('Boat One (Sarah)');
+      await dialogA.getByRole('button', { name: 'Save' }).click();
+      await expect(
+        pageA.getByRole('cell', { name: 'Boat One (Sarah)' }),
+      ).toBeVisible();
+
+      // Brian saves against the version he read. A competitor row has no
+      // retry — unlike a series save, nothing else bumps its version — so
+      // the 409 goes straight to the notice.
+      await pageB.getByRole('row').filter({ hasText: 'NB1' }).click();
+      const dialogB = pageB.getByRole('dialog', { name: 'Edit competitor' });
+      await dialogB.getByLabel('Competitor name').fill('Boat One (Brian)');
+      await dialogB.getByRole('button', { name: 'Save' }).click();
+
+      // The displayName for a magic-link user is the email's local part —
+      // the same reliable signal the row-conflict test above asserts on.
+      await expect(pageB.getByTestId('conflict-notice')).toContainText(
+        emailA.split('@')[0],
+      );
+    } finally {
+      await ctxA.close();
+      await ctxB.close();
     }
   });
 });

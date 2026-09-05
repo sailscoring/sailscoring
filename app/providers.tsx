@@ -203,7 +203,9 @@ export function Providers({ children }: { children: ReactNode }) {
  * Subscribes to the QueryClient's mutation cache and reacts to any
  * mutation that fails with a 409 (`ConflictApiError`). On each match:
  * invalidate every cached query so the UI re-fetches authoritative
- * server state, and surface the generic refresh notice.
+ * server state, and surface the notice. The 409 detail goes with it —
+ * it carries who won the race, and whether that was the scorer's own
+ * earlier write.
  *
  * Mutations scoped to `finishes` are handled by the per-row conflict
  * dialog on the finish-entry page (ADR-008 Phase 6). Skipping them
@@ -218,7 +220,7 @@ function ConflictMutationSubscriber() {
       const error = event.mutation.state.error;
       if (error instanceof ConflictApiError) {
         if (event.mutation.options.scope?.id === 'finishes') return;
-        notify();
+        notify(error.detail);
         qc.invalidateQueries();
       }
     });
