@@ -15,6 +15,7 @@ import postgres, { type Sql } from 'postgres';
 
 import * as schema from '@/lib/db/schema';
 import { createRepos, seriesFileReposFor } from '@/lib/postgres-repository';
+import { ConflictError } from '@/lib/repository';
 import { loadSeriesSnapshot } from '@/lib/series-snapshot';
 import type {
   Competitor,
@@ -180,6 +181,38 @@ describe.skipIf(skip)('postgres repositories', () => {
       .from(schema.series)
       .where(eq(schema.series.id, s.id));
     expect(row.version).toBe(2);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('SeriesRepository.touch attributes the bump to the write that caused it', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s, { updatedBy: 'user_settings' });
+    const [before] = await db
+      .select({ updatedAt: schema.series.updatedAt })
+      .from(schema.series)
+      .where(eq(schema.series.id, s.id));
+
+    await repos.series.touch(s.id, 'user_finishes');
+
+    const [row] = await db
+      .select({ updatedAt: schema.series.updatedAt, updatedBy: schema.series.updatedBy })
+      .from(schema.series)
+      .where(eq(schema.series.id, s.id));
+    expect(row.updatedBy).toBe('user_finishes');
+    expect(row.updatedAt!.getTime()).toBeGreaterThan(before.updatedAt!.getTime());
+
+    // The point of stamping it: a series save that loses the race to that
+    // touch is told who beat it to the row, not who last edited the settings.
+    const err = await repos.series
+      .save({ ...s, name: 'renamed' }, { expectedVersion: 1, updatedBy: 'user_settings' })
+      .then(
+        () => null,
+        (e: unknown) => e as ConflictError,
+      );
+    expect(err).toBeInstanceOf(ConflictError);
+    expect(err?.detail?.actor?.id).toBe('user_finishes');
 
     await repos.series.delete(s.id);
   });

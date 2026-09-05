@@ -355,7 +355,7 @@ export async function commitSplitRound(
     });
 
     const repos = createRepos({ db: tx, workspaceId });
-    await repos.series.touch(seriesId);
+    await repos.series.touch(seriesId, workspace.userId);
   });
 
   await trackChange(workspace, {
@@ -680,7 +680,7 @@ export async function addStageRaces(
       config,
     });
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
-    await repos.series.touch(seriesId);
+    await repos.series.touch(seriesId, workspace.userId);
   });
 
   const added = input.starts?.length
@@ -763,7 +763,7 @@ export async function deleteSplitRound(
     await tx.delete(schema.fleets).where(inArray(schema.fleets.id, round.fleetIds));
     await tx.delete(schema.splitRounds).where(eq(schema.splitRounds.id, roundId));
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
-    await repos.series.touch(seriesId);
+    await repos.series.touch(seriesId, workspace.userId);
   });
 
   await trackChange(workspace, {
@@ -863,7 +863,7 @@ export async function applySplitOverride(
       { ...(round.overrides ?? {}), [input.competitorId]: input.toFleetId },
       { updatedBy: workspace.userId },
     );
-    await txRepos.series.touch(seriesId);
+    await txRepos.series.touch(seriesId, workspace.userId);
   });
 
   await trackChange(workspace, {
@@ -965,7 +965,7 @@ export async function abandonSplitStart(
       raceDeleted = true;
     }
     const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
-    await repos.series.touch(seriesId);
+    await repos.series.touch(seriesId, workspace.userId);
   });
 
   await trackChange(workspace, {

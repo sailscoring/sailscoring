@@ -740,14 +740,24 @@ export class PostgresSeriesRepository implements SeriesRepository {
 
   /**
    * Bumps `lastModifiedAt` + `version` without touching any payload field.
-   * `updatedBy` is not stamped here because `touch` is the file-tracking
-   * heartbeat — it isn't a user edit. Phase 10's activity log will treat
-   * touches separately from real writes for the same reason.
+   *
+   * `updatedBy` and `updatedAt` are stamped with the child write that
+   * prompted the touch. The version this bumps is the compare-and-swap
+   * token every series save is checked against, so a touch is exactly what
+   * a losing save collides with — and `updated_by` is read in one place
+   * only, to tell that save who beat it to the row. Leaving the column on
+   * the last real edit to the series, as this once did, answered that
+   * question with someone who may have written hours earlier.
    */
-  async touch(id: string): Promise<void> {
+  async touch(id: string, updatedBy?: string): Promise<void> {
     await this.db
       .update(schema.series)
-      .set({ lastModifiedAt: sql`now()`, version: sql`${schema.series.version} + 1` })
+      .set({
+        lastModifiedAt: sql`now()`,
+        version: sql`${schema.series.version} + 1`,
+        updatedAt: sql`now()`,
+        updatedBy: updatedBy ?? null,
+      })
       .where(
         and(
           eq(schema.series.id, id),

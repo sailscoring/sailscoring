@@ -255,11 +255,11 @@ export function captureRevisionAfter(
  * unsaved-changes tracking, history, and audit trail stay complete with no
  * client cooperation.
  *
- * The touch bumps `lastModifiedAt` + `version` but deliberately does not
- * stamp `updatedBy` — it's the file-tracking heartbeat, not a user edit; the
- * activity entry below carries the actor. Callers have already passed a
- * writability guard (`assertSeriesWritable` / `assertRaceWritable` / …), so
- * no archived-series check is needed here.
+ * The touch bumps `lastModifiedAt` + `version` and stamps the actor, because
+ * that version bump is what a concurrent series save collides with: whoever
+ * made this child write is the answer to "who beat me to the row". Callers
+ * have already passed a writability guard (`assertSeriesWritable` /
+ * `assertRaceWritable` / …), so no archived-series check is needed here.
  */
 export async function trackChange(
   actor: Actor,
@@ -280,7 +280,7 @@ export async function trackChange(
 ): Promise<void> {
   if (input.touch ?? true) {
     const repos = createRepos({ workspaceId: actor.workspaceId });
-    await repos.series.touch(input.seriesId);
+    await repos.series.touch(input.seriesId, actor.userId);
   }
   const activityEntryId = await recordActivity(actor, {
     action: input.action,

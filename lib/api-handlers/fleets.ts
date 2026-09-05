@@ -184,6 +184,6 @@ export async function ensureFleet(
   // exists) — the repo doesn't say which — but every caller is an import or
   // entry flow that writes more data right after, so an occasional spurious
   // heartbeat is harmless and a missed create never is.
-  await repos.series.touch(seriesId);
+  await repos.series.touch(seriesId, workspace.userId);
   return { fleetId };
 }
