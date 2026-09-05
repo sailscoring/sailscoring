@@ -177,17 +177,19 @@ const SHOTS: Shot[] = [
     },
   },
   {
-    // Inventory: Excluded competitors. Ticks the last row's Excluded box so
-    // the muted row and the header count show, then unticks it — the sample
-    // series is left as it was.
+    // Inventory: Excluded competitors. Ticks the first row's Excluded box so
+    // the muted row, the column heading, and the header count all sit in one
+    // frame at the top of the page, then unticks it — the sample series is
+    // left as it was.
     slug: 'excluded-competitors',
     group: 'Running a series',
     async capture({ page, seriesId, shot }) {
       await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
       await settle(page);
-      const box = page.getByRole('checkbox', { name: 'Excluded from the series' }).last();
+      const box = page.getByRole('checkbox', { name: 'Excluded from the series' }).first();
       await box.check();
       await page.getByText(/· 1 excluded/).waitFor();
+      await page.evaluate(() => window.scrollTo(0, 0));
       await settle(page);
       await shot('excluded-competitors.png');
       await box.uncheck();
