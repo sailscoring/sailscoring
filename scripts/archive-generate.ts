@@ -23,7 +23,10 @@ import { stableStringify, type ArchiveSeriesDoc } from '@/lib/archive-kit/format
 import { buildHalsailArchiveDoc } from '@/lib/archive-kit/halsail-doc';
 import { parseHalsailHtml } from '@/lib/archive-kit/halsail-html';
 import { parseSail100Html } from '@/lib/archive-kit/sail100-html';
-import { buildSailwaveArchiveDoc } from '@/lib/archive-kit/sailwave-doc';
+import {
+  buildSailwaveArchiveDoc,
+  summaryFromRaceTables,
+} from '@/lib/archive-kit/sailwave-doc';
 import { parseSailwaveHtml } from '@/lib/archive-kit/sailwave-html';
 
 /** One section of a combined page: a summary of the file, matched by its
@@ -34,6 +37,15 @@ const sectionSchema = z.object({
   /** Carry this section's per-race detail tables (races whose title names
    *  this section). */
   includeRaces: z.boolean().optional(),
+});
+
+/** One race table of a race-only page, published as its own member fleet. */
+const raceSectionSchema = z.object({
+  /** The race table's heading, matched exactly (e.g. "Lambay - Class 0 IRC
+   *  Boat Class"). */
+  raceTitle: z.string().min(1),
+  /** Fleet name for the member; the heading itself when omitted. */
+  name: z.string().min(1).optional(),
 });
 
 const fleetSchema = z.object({
@@ -51,6 +63,13 @@ const fleetSchema = z.object({
    *  single combined page (ADR-010, #321) whose sections are these summaries,
    *  each a member fleet. Takes precedence over `sectionTitle`/`includeRaces`. */
   sections: z.array(sectionSchema).min(1).optional(),
+  /** Sailwave only, race-only pages (#355): when the file's race tables are
+   *  several *fleets* rather than several races of one — a class published
+   *  IRC and ECHO side by side, a dinghy race published PY / ILCA 6 / ILCA 7 —
+   *  name them here to publish a combined page with a member fleet per table.
+   *  Each member then states the places its own table published; left
+   *  un-split, the page is one fleet whose rows rank nowhere. */
+  raceSections: z.array(raceSectionSchema).min(1).optional(),
   /** This page is a second presentation of racing another fleet of the same
    *  series already accounts for (#363) — a club that published one result
    *  twice, overall and split by division. Its tables publish and render, but
@@ -77,7 +96,9 @@ const seriesSchema = z.object({
    *  trophy race, not a series. Every fleet must carry its race table, so a
    *  Sailwave entry needs `includeRaces` (the build fails loudly otherwise).
    *  Never inferred from the race count: a season whose capture stops after
-   *  one race is a curtailed series, not a single-race event. */
+   *  one race is a curtailed series, not a single-race event. Applies to the
+   *  fleets built from a summary section; a race-only capture (#355) has no
+   *  standings to hold back and publishes this way regardless. */
   detail: z.enum(['races']).optional(),
   /** Initial category filing on first ingest (e.g. the season year). */
   category: z.string().optional(),
@@ -106,6 +127,10 @@ const configSchema = z.object({
 /** How each capture that wasn't UTF-8 was decoded, keyed by file, for the run
  *  summary — a silent transcode is how mangled names get shipped. */
 const captureEncodings = new Map<string, string>();
+
+/** Fleets whose standings were synthesised from a race-only capture (#355),
+ *  for the run summary — a corpus quietly turning race-only is worth seeing. */
+let raceOnlyFleets = 0;
 
 /** Captures are verbatim third-party files: Sailwave publishes ISO-8859-1, so
  *  decode by what the bytes are rather than assuming UTF-8. */
@@ -177,6 +202,8 @@ function buildSeries(
     subPath?: string;
     summary: ReturnType<typeof parse>['summaries'][number];
     races?: ReturnType<typeof parse>['races'];
+    detail?: 'races';
+    rowsFromRaceTables?: true;
     displayOnly?: true;
   }> = [];
   const combinedPages: Array<{ subPath: string; name: string; fleetNames: string[] }> = [];
@@ -188,7 +215,9 @@ function buildSeries(
   // the standalone names first, then qualify any clashing section with its page
   // name so member names stay unique and stable.
   const usedNames = new Set(
-    entry.fleets.filter((f) => !f.sections).map((f) => f.name),
+    entry.fleets
+      .filter((f) => !f.sections && !f.raceSections)
+      .map((f) => f.name),
   );
   const uniqueName = (base: string, pageName: string): string => {
     if (!usedNames.has(base)) {
@@ -203,6 +232,68 @@ function buildSeries(
 
   for (const fleet of entry.fleets) {
     const page = parse(fleet);
+    // A capture with no summary section at all: the club published the race
+    // result and no standings (#355). The section the document needs is
+    // synthesised from the race tables, and the fleet publishes as a race
+    // result whatever the series says.
+    const raceOnly = page.summaries.length === 0;
+    if (raceOnly) {
+      if (fleet.sections || fleet.sectionTitle) {
+        throw new Error(
+          `${entry.key}: ${fleet.file} publishes no summary section` +
+            ' — configure raceSections, not sections/sectionTitle',
+        );
+      }
+      const named = fleet.raceSections
+        ? fleet.raceSections.map((section) => {
+            const race = page.races.find((r) => r.title === section.raceTitle);
+            if (!race) {
+              throw new Error(
+                `${entry.key}: no race table titled "${section.raceTitle}" in ${fleet.file}`,
+              );
+            }
+            return { name: section.name ?? section.raceTitle, races: [race] };
+          })
+        : [{ name: fleet.name, races: page.races }];
+      const memberNames: string[] = [];
+      for (const member of named) {
+        const built = summaryFromRaceTables(member.races);
+        if (!built) {
+          throw new Error(
+            `${entry.key}: neither a summary section nor a race table in ${fleet.file}`,
+          );
+        }
+        for (const label of built.skipped) {
+          console.error(
+            `  ! ${entry.key}: ${fleet.name}: race table "${label}" has other columns` +
+              " than the page's first — its boats are in no standings" +
+              ' (split the page with raceSections)',
+          );
+        }
+        const memberName = fleet.raceSections
+          ? uniqueName(member.name, fleet.name)
+          : fleet.name;
+        memberNames.push(memberName);
+        fleets.push({
+          name: memberName,
+          ...(fleet.raceSections ? {} : { subPath: fleet.subPath }),
+          summary: built.summary,
+          races: member.races,
+          detail: 'races' as const,
+          rowsFromRaceTables: true as const,
+          ...(fleet.displayOnly ? { displayOnly: true as const } : {}),
+        });
+        raceOnlyFleets++;
+      }
+      if (fleet.raceSections) {
+        combinedPages.push({
+          subPath: fleet.subPath,
+          name: fleet.name,
+          fleetNames: memberNames,
+        });
+      }
+      continue;
+    }
     if (fleet.sections) {
       // Combined page: each listed section becomes a member fleet named by its
       // source heading; races are partitioned to the section whose title they
@@ -244,15 +335,17 @@ function buildSeries(
 
   // Race-results detail renders the race tables and nothing else, so a fleet
   // without one would publish an empty page. Fail here, naming the fleet,
-  // rather than at the ingest's schema check.
-  if (entry.detail === 'races') {
-    const bare = fleets.filter((f) => (f.races?.length ?? 0) === 0).map((f) => f.name);
-    if (bare.length > 0) {
-      throw new Error(
-        `${entry.key}: detail 'races' needs each fleet's race table — missing for ${bare.join(', ')}` +
-          ' (set includeRaces on the fleet, or on its sections)',
-      );
-    }
+  // rather than at the ingest's schema check. Detail is per fleet: a mixed
+  // event's race-only pages publish as race results while the pages that
+  // carry standings keep them.
+  const bare = fleets
+    .filter((f) => f.detail === 'races' && (f.races?.length ?? 0) === 0)
+    .map((f) => f.name);
+  if (bare.length > 0) {
+    throw new Error(
+      `${entry.key}: detail 'races' needs each fleet's race table — missing for ${bare.join(', ')}` +
+        ' (set includeRaces on the fleet, or on its sections)',
+    );
   }
 
   return buildSailwaveArchiveDoc({
@@ -332,6 +425,11 @@ function run(argv: string[]): number {
     console.log(`captures: ${summary} (the rest UTF-8)`);
   }
 
+  if (raceOnlyFleets > 0) {
+    console.log(
+      `race-only captures: ${raceOnlyFleets} fleets published as race results`,
+    );
+  }
   console.log(
     `${built} series documents built (${competitors} competitor rows), ${failed} failed → ${outDir}`,
   );
