@@ -590,7 +590,11 @@ export interface SailwavePreviewFleet {
 export interface SailwavePreview {
   name: string;              // globals.serevent
   venue: string;             // globals.servenue
-  competitorCount: number;   // after excluding `compexclude == "1"` and aliases
+  competitorCount: number;   // entered primaries — aliases and `compexclude == "1"` rows not counted
+  /** Competitors Sailwave marks excluded (`compexclude == "1"`). They import
+   *  with `Competitor.excluded` set rather than being dropped, so the wizard
+   *  says how many arrive that way. */
+  excludedCompetitorCount: number;
   raceCount: number;
   fleets: SailwavePreviewFleet[];
   detectedDnfScoring: 'seriesEntries' | 'startingArea' | null;
@@ -626,8 +630,12 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
 
   const fleetNames: string[] = [];
   let competitorCount = 0;
+  let excludedCompetitorCount = 0;
   for (const c of Object.values(comps)) {
-    if (c.compexclude === '1') continue;
+    if (c.compexclude === '1') {
+      if ((c.compalias ?? '0') === '0') excludedCompetitorCount += 1;
+      continue;
+    }
     if ((c.compalias ?? '0') === '0') competitorCount += 1;
     const name = fleetNameOf(c);
     if (!fleetNames.includes(name)) fleetNames.push(name);
@@ -662,6 +670,7 @@ export function inspectSailwave(raw: SailwaveRaw): SailwavePreview {
     name: (globals.serevent ?? '').trim(),
     venue: (globals.servenue ?? '').trim(),
     competitorCount,
+    excludedCompetitorCount,
     raceCount: Object.keys(races).length,
     fleets,
     detectedDnfScoring: scoring.dnfScoring,
@@ -1267,6 +1276,8 @@ interface CompetitorBuild {
   sailNumber: string;
   alternativeSailNumbers?: string[];
   tallyNumber?: string;
+  /** Sailwave's `compexclude == "1"`: on the list, not an entrant. */
+  excluded?: boolean;
   boatName?: string;
   boatClass?: string;
   name: string;
@@ -1474,6 +1485,7 @@ export function buildSeriesFileFromSailwave(
         ? { alternativeSailNumbers: c.alternativeSailNumbers }
         : {}),
       ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
+      ...(c.excluded ? { excluded: true } : {}),
       ...(c.boatName ? { boatName: c.boatName } : {}),
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: [c.name],
@@ -1611,7 +1623,11 @@ function buildCompetitors(
   const compIdByHandle = new Map<string, string>();
   for (const [k, v] of Object.entries(comps)) {
     if ((v.compalias ?? '0') !== '0') continue;
-    if (v.compexclude === '1') continue;
+    // An excluded competitor imports as one, flag and all — Sailwave kept the
+    // record for a reason. Its fleet must still exist, though: fleets are
+    // built from the entered boats, so an excluded boat whose fleet nobody
+    // entered has nowhere to go and is dropped below with the fleetless.
+    const excluded = v.compexclude === '1';
 
     const records: [string, SailwaveCompetitorRaw][] = [[k, v]];
     for (const ak of aliasesOf.get(k) ?? []) {
@@ -1653,6 +1669,7 @@ function buildCompetitors(
     };
     if (v.compboat?.trim()) built.boatName = v.compboat.trim();
     if (v.comptally?.trim()) built.tallyNumber = v.comptally.trim();
+    if (excluded) built.excluded = true;
     // Sailwave's alternate sail number: one value, often blank. It maps onto
     // the list, which is the same idea with room for more than one. Dropped
     // when it merely repeats the registered number.

@@ -304,6 +304,11 @@ function Wizard({
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{preview.competitorCount} competitors</Badge>
+            {preview.excludedCompetitorCount > 0 && (
+              <Badge variant="outline" title="Marked excluded in Sailwave; they import excluded, not dropped">
+                {preview.excludedCompetitorCount} excluded
+              </Badge>
+            )}
             <Badge variant="secondary">{preview.raceCount} races</Badge>
             <Badge variant="secondary">{preview.fleets.length} fleets</Badge>
             {preview.hasResults && <Badge variant="secondary">has results</Badge>}

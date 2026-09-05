@@ -38,6 +38,7 @@ import {
   type ColumnMap,
   type ColumnTarget,
   type RelayField,
+  parseExcludedCell,
 } from '@/lib/csv-import';
 import {
   parseTabularFile,
@@ -260,6 +261,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   alternativeSailNumbers: 'Alternative sail numbers',
   entryNumber: 'Entry number',
   tallyNumber: 'Tally number',
+  excluded: 'Excluded',
   seed: 'Seeding rank',
   initialFleet: 'Initial fleet',
   worldSailingId: 'World Sailing ID',
@@ -306,6 +308,7 @@ function buildFieldLabels(
     alternativeSailNumbers: STATIC_FIELD_LABELS.alternativeSailNumbers,
     entryNumber: STATIC_FIELD_LABELS.entryNumber,
     tallyNumber: STATIC_FIELD_LABELS.tallyNumber,
+    excluded: STATIC_FIELD_LABELS.excluded,
     seed: STATIC_FIELD_LABELS.seed,
     initialFleet: STATIC_FIELD_LABELS.initialFleet,
     worldSailingId: STATIC_FIELD_LABELS.worldSailingId,
@@ -1540,6 +1543,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       let alternativeSailNumbers: string[] = [];
       let entryNumber = '';
       let tallyNumber = '';
+      // undefined when no column is mapped to it — the existing value then
+      // stands; a mapped column is authoritative either way.
+      let excluded: boolean | undefined;
       let seed: number | undefined;
       let initialFleet = '';
       let worldSailingId: string | undefined;
@@ -1568,6 +1574,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'alternativeSailNumbers') alternativeSailNumbers = parseAlternativeSailNumbers(val);
         else if (field === 'entryNumber') entryNumber = val;
         else if (field === 'tallyNumber') tallyNumber = val;
+        else if (field === 'excluded') excluded = parseExcludedCell(val);
         else if (field === 'seed') seed = parseInt(val, 10) || undefined;
         else if (field === 'initialFleet') initialFleet = val;
         else if (field === 'worldSailingId') worldSailingId = normalizeWorldSailingId(val);
@@ -1691,6 +1698,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(tallyNumber || existingCompetitor?.tallyNumber
           ? { tallyNumber: tallyNumber || existingCompetitor?.tallyNumber }
           : {}),
+        ...((excluded ?? existingCompetitor?.excluded) ? { excluded: true } : {}),
         ...(seed != null || existingCompetitor?.seed != null
           ? { seed: seed ?? existingCompetitor?.seed }
           : {}),
@@ -1734,6 +1742,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           (competitor.alternativeSailNumbers ?? []).join('\u0000') &&
         (existingCompetitor.entryNumber ?? '') === (competitor.entryNumber ?? '') &&
         (existingCompetitor.tallyNumber ?? '') === (competitor.tallyNumber ?? '') &&
+        (existingCompetitor.excluded ?? false) === (competitor.excluded ?? false) &&
         (existingCompetitor.seed ?? null) === (competitor.seed ?? null) &&
         (existingCompetitor.initialFleet ?? '') === (competitor.initialFleet ?? '') &&
         (existingCompetitor.worldSailingId ?? '') === (competitor.worldSailingId ?? '') &&

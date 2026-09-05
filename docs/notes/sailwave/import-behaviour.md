@@ -58,8 +58,11 @@ same nested shape Sailwave's own JSON export produced and works off that.
   skipped. Primary+alias result rows for the same boat are deduped to one
   finish per competitor. The wizard's ignore-results toggle skips the `results`
   table entirely (useful when re-seeding a series mid-season).
-- **Excluded competitors** — Sailwave's `compexclude == "1"` entries are
-  dropped.
+- **Excluded competitors** — Sailwave's `compexclude == "1"` entries import
+  with `Competitor.excluded` set: on the list, not an entrant, exactly as
+  Sailwave scores them. Their results import too (scoring ignores a
+  non-entrant's finishes). Fleets are built from the entered boats, so an
+  excluded boat whose fleet nobody entered is dropped with the fleetless.
 
 ## What the importer does NOT carry across
 

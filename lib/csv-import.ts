@@ -12,6 +12,7 @@ export type CompetitorField =
   | 'alternativeSailNumbers'
   | 'entryNumber'
   | 'tallyNumber'
+  | 'excluded'
   | 'seed'
   | 'initialFleet'
   | 'worldSailingId'
@@ -197,6 +198,7 @@ export function autoDetectField(header: string): CompetitorField {
   if (/world\s*sailing|sailor\s*id|\bwsid\b|\bws\s*id\b|\bisaf\b|ifperson|\bhelm\s*id\b/.test(h))
     return 'worldSailingId';
   if (/sail/.test(h)) return 'sailNumber';
+  if (/exclud/.test(h)) return 'excluded';
   if (/\bbow\b/.test(h)) return 'bowNumber';
   if (/entry\s*(number|no|id|#)?/.test(h)) return 'entryNumber';
   if (/\btall(y|ies)\b/.test(h)) return 'tallyNumber';
@@ -290,4 +292,17 @@ export function parseFleetCell(cell: string): string[] {
     result.push(name);
   }
   return result;
+}
+
+/**
+ * Read an "Excluded" cell. Spreadsheets mark a flag every way there is —
+ * Sailwave exports `1`/`0`, people type Yes, Y, X, TRUE or ✓ — so anything
+ * that reads as a mark is true and an empty cell, `0`, No, N or FALSE is
+ * false. Unrecognised text is a mark too: a filled cell in an Excluded column
+ * means excluded.
+ */
+export function parseExcludedCell(value: string): boolean {
+  const v = value.trim().toLowerCase();
+  if (v === '' || v === '0' || v === 'n' || v === 'no' || v === 'false' || v === '-') return false;
+  return true;
 }

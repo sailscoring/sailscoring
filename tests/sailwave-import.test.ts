@@ -787,6 +787,54 @@ describe('buildSeriesFileFromSailwave: includeResults=false', () => {
   });
 });
 
+describe('buildSeriesFileFromSailwave: excluded competitors', () => {
+  // A roster of three where the scorer has marked one boat excluded — not
+  // entered, but kept on file. Sailwave scores it nowhere; neither do we, and
+  // the record survives the import instead of being dropped.
+  const roster = (): SailwaveRaw => parseSailwaveBlw(blw([
+    ['serversion', '2.38.02', '', ''],
+    ['serevent', 'Spring Roster', '', ''],
+    ['comphelmname', 'Entered One', '1', ''],
+    ['compsailno', '101', '1', ''],
+    ['compexclude', '0', '1', ''],
+    ['compalias', '0', '1', ''],
+    ['comphelmname', 'Entered Two', '2', ''],
+    ['compsailno', '102', '2', ''],
+    ['compexclude', '0', '2', ''],
+    ['compalias', '0', '2', ''],
+    ['comphelmname', 'Not Entered', '3', ''],
+    ['compsailno', '103', '3', ''],
+    ['compexclude', '1', '3', ''],
+    ['compalias', '0', '3', ''],
+    ['racerank', '1', '', '62'],
+    ['rrestyp', '4', '1', '62'],
+    ['rpos', '1', '1', '62'],
+    ['rrestyp', '4', '3', '62'],
+    ['rpos', '2', '3', '62'],
+    ['rrestyp', '4', '2', '62'],
+    ['rpos', '3', '2', '62'],
+  ]));
+
+  it('imports the excluded boat with its flag rather than dropping it', () => {
+    const file = buildSeriesFileFromSailwave(roster(), DEFAULT_OPTS);
+    expect(file.competitors.map((c) => c.sailNumber).sort()).toEqual(['101', '102', '103']);
+    expect(file.competitors.find((c) => c.sailNumber === '103')?.excluded).toBe(true);
+    expect(file.competitors.find((c) => c.sailNumber === '101')?.excluded).toBeUndefined();
+  });
+
+  it('keeps the excluded boat\u2019s result rows — scoring ignores a non-entrant\u2019s finishes', () => {
+    const file = buildSeriesFileFromSailwave(roster(), DEFAULT_OPTS);
+    const excludedId = file.competitors.find((c) => c.sailNumber === '103')!.id;
+    expect(file.races[0].finishes.some((f) => f.competitorId === excludedId)).toBe(true);
+  });
+
+  it('counts entered and excluded boats separately in the preview', () => {
+    const preview = inspectSailwave(roster());
+    expect(preview.competitorCount).toBe(2);
+    expect(preview.excludedCompetitorCount).toBe(1);
+  });
+});
+
 describe('buildSeriesFileFromSailwave: fleetless / pre-event entry list', () => {
   // A single one-design class entered without ever creating a named fleet, and
   // with no results entered yet — the shape of a pre-event entry list. Every

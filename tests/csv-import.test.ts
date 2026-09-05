@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell, parseExcludedCell } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
   it('returns a single name for a plain cell', () => {
@@ -237,6 +237,23 @@ describe('tally-number detection', () => {
 
   it('does not claim an unrelated header that merely contains the letters', () => {
     expect(autoDetectField('Totally Awesome')).not.toBe('tallyNumber');
+  });
+});
+
+describe('excluded detection', () => {
+  it('detects an Excluded column however it is headed', () => {
+    expect(autoDetectField('Excluded')).toBe('excluded');
+    expect(autoDetectField('Exclude')).toBe('excluded');
+    expect(autoDetectField('Excluded from series')).toBe('excluded');
+  });
+
+  it('reads a mark as excluded and an empty or negative cell as entered', () => {
+    for (const v of ['1', 'Y', 'yes', 'TRUE', 'x', '✓', 'excluded']) {
+      expect(parseExcludedCell(v), v).toBe(true);
+    }
+    for (const v of ['', ' ', '0', 'N', 'no', 'FALSE', '-']) {
+      expect(parseExcludedCell(v), JSON.stringify(v)).toBe(false);
+    }
   });
 });
 
