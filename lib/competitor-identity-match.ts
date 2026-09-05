@@ -222,6 +222,22 @@ export function birthYearsConflict(a: number | null, b: number | null): boolean 
 }
 
 /**
+ * Whether a name match on this name leans on an initial standing in for a
+ * given name — `"J. Murphy"` rather than `"John Murphy"`. `personNamesMatch`
+ * accepts the initial form deliberately (a sailor published as `"J Keating"`
+ * one season and `"John Keating"` the next is one sailor), but an initial
+ * names a much larger set of people than a given name does, so a match resting
+ * on one is the weakest the matcher will make.
+ *
+ * This is the real shape behind the co-owner false merge the clusterer guards
+ * against: `"J. & M. Murphy"` splits into two initialled fragments, either of
+ * which matches any Murphy whose first name starts with the letter.
+ */
+export function nameLeansOnInitial(name: NormalizedPersonName): boolean {
+  return name.given.length > 0 && name.given[0].length === 1;
+}
+
+/**
  * Whether a name is the archive ingest's placeholder for a blank helm field
  * ("Unknown Competitor (1620)", ADR-010). Placeholders exist so competitor
  * listings sort sensibly, but they are *not* evidence of identity: two

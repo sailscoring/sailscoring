@@ -20,6 +20,7 @@ import {
   buildClubCanonicalizer,
   impliedBirthYear,
   isPlaceholderName,
+  nameLeansOnInitial,
   normalizePersonName,
   personNamesMatch,
 } from './competitor-identity-match';
@@ -44,13 +45,6 @@ export interface ClusterInput {
   raceYear: number | null;
   /** Pre-existing identity link attributed to this person, if any. */
   existingIdentityId: string | null;
-  /** True when this input is one person among several on an entry — a
-   *  co-owner fragment like "J. Murphy" from "J. & M. Murphy", or a crew
-   *  (#348). Both are more collision-prone than a whole-row name, because
-   *  everyone on a boat shares its club by construction, so club-only
-   *  corroboration is demoted to a review suggestion — sail-number continuity
-   *  or a compatible birth year is required to auto-merge. */
-  fromMultiPersonRow?: boolean;
 }
 
 /** A proposed recurring identity: a set of competitor rows that link together. */
@@ -206,11 +200,12 @@ export function clusterCompetitors(inputs: ClusterInput[]): ClusterResult {
           clubs[i].length > 0 &&
           clubs[j].length > 0 &&
           clubs[i].some((c) => clubs[j].includes(c));
-        // A person fragment from a multi-person entry needs harder evidence
-        // than a whole-row name: co-owners share a club by default, so
-        // club-only corroboration of short fragment names is exactly the
-        // false-merge shape. Prefer a false split (one click to fix).
-        const fragile = inputs[i].fromMultiPersonRow || inputs[j].fromMultiPersonRow;
+        // A match resting on an initial needs harder evidence than a match on
+        // two whole names: "J. Murphy" — the co-owner fragment "J. & M.
+        // Murphy" splits into — matches any Murphy whose first name starts
+        // with a J, and a shared club does nothing to tell those apart.
+        // Prefer a false split there (one click to fix).
+        const fragile = nameLeansOnInitial(norm[i]) || nameLeansOnInitial(norm[j]);
         if (sailOk || birthOk || (clubOk && !fragile)) {
           uf.union(i, j);
         } else {

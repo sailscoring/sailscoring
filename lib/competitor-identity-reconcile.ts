@@ -101,15 +101,13 @@ export interface CollectInputsOpts {
 /**
  * Load the flattened inputs the clusterer needs: **one input per person** on
  * each row. A single-person row behaves exactly as before. For a multi-person
- * primary ("J. & M. Murphy") each co-owner is an independent matching unit,
- * flagged `fromMultiPersonRow` so the clusterer demands harder corroboration
- * for the fragment names.
+ * primary ("J. & M. Murphy") each co-owner is an independent matching unit;
+ * the clusterer demands harder corroboration for the initialled fragments a
+ * joined name splits into.
  *
  * With `includeCrew`, everyone in the row's crew list is a matching unit too
  * (#348) — otherwise a sailor who only ever crews has no identity at all, and
- * a sailor who helms some seasons and crews others shows half a career. Crew
- * are flagged as fragments for the same reason co-owners are: they share the
- * boat's club and sail by construction, so those signals can't corroborate.
+ * a sailor who helms some seasons and crews others shows half a career.
  *
  * Attribution is per slot, so a row's crew membership can never be mistaken
  * for its primary one (or vice versa) — which matters most exactly when an
@@ -185,7 +183,6 @@ export async function collectClusterInputs(
         name,
         role: 'primary',
         existingIdentityId: attributed[i] ?? null,
-        ...(persons.length > 1 ? { fromMultiPersonRow: true } : {}),
       });
     });
 
@@ -201,7 +198,6 @@ export async function collectClusterInputs(
         name,
         role: 'crew',
         existingIdentityId: crewAttributed[i] ?? null,
-        fromMultiPersonRow: true,
       });
     });
   }

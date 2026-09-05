@@ -20,21 +20,19 @@ describe('toClusterInput', () => {
     expect(r.raceYear).toBeNull();
   });
 
-  it('carries the slot and the fragment flag through (#348)', () => {
-    // Without these an archive bootstrap drafts a manifest from a different
+  it('carries the slot through (#348)', () => {
+    // Without it an archive bootstrap drafts a manifest from a different
     // matching model than the workspace apply will use.
     const crew = toClusterInput(
-      { competitorId: 'x', name: 'A B', role: 'crew', fromMultiPersonRow: true },
+      { competitorId: 'x', name: 'A B', role: 'crew' },
       0,
     );
     expect(crew.role).toBe('crew');
-    expect(crew.fromMultiPersonRow).toBe(true);
   });
 
   it('defaults an unstamped row to the primary slot', () => {
     const r = toClusterInput({ competitorId: 'x', name: 'A B' }, 0);
     expect(r.role).toBeUndefined();
-    expect(r.fromMultiPersonRow).toBeUndefined();
   });
 
   it('ignores a slot it does not recognise', () => {

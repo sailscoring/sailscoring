@@ -18,7 +18,6 @@ function row(p: Partial<ClusterInput> & { name: string }): ClusterInput {
     raceYear: p.raceYear ?? null,
     existingIdentityId: p.existingIdentityId ?? null,
     ...(p.role ? { role: p.role } : {}),
-    ...(p.fromMultiPersonRow ? { fromMultiPersonRow: true } : {}),
   };
 }
 
@@ -200,6 +199,39 @@ describe('clusterCompetitors', () => {
   });
 });
 
+describe('names that rest on an initial', () => {
+  it('demotes an initialled co-owner fragment to a review suggestion', () => {
+    // "J. & M. Murphy" splits into two fragments, and "J. Murphy" is any
+    // Murphy whose first name starts with a J. Two boats at one club is
+    // exactly the shape that fuses two of them.
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'J. Murphy', sailNumber: '1200', club: 'HYC', raceYear: 2019 }),
+      row({ competitorId: 'b', name: 'J. Murphy', sailNumber: '3400', club: 'HYC', raceYear: 2023 }),
+    ]);
+    expect(r.clusters).toHaveLength(2);
+    expect(r.suggestions).toHaveLength(1);
+  });
+
+  it('links two whole names off the same co-owned boat', () => {
+    // The fragment is only fragile because of the initial. "John Murphy"
+    // appearing at one club across two seasons is ordinary evidence, whether
+    // or not he shares a boat with Mary.
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'John Murphy', sailNumber: '1200', club: 'HYC', raceYear: 2019 }),
+      row({ competitorId: 'b', name: 'John Murphy', sailNumber: '3400', club: 'HYC', raceYear: 2023 }),
+    ]);
+    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
+  });
+
+  it('still links an initialled name when the sail number carries the match', () => {
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'J. Murphy', sailNumber: 'IRL1200', club: 'HYC', raceYear: 2019 }),
+      row({ competitorId: 'b', name: 'John Murphy', sailNumber: '1200', club: 'HYC', raceYear: 2023 }),
+    ]);
+    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
+  });
+});
+
 describe('crew on the same boat (#348)', () => {
   it('never fuses two people on one row, however well their names agree', () => {
     // A family boat: mother helming, daughter crewing. Name, club and sail all
@@ -207,7 +239,7 @@ describe('crew on the same boat (#348)', () => {
     // them apart.
     const r = clusterCompetitors([
       row({ competitorId: 'boat', name: 'Ann Ryan', sailNumber: '1234', club: 'KSC', raceYear: 2024 }),
-      row({ competitorId: 'boat', name: 'A Ryan', sailNumber: '1234', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+      row({ competitorId: 'boat', name: 'A Ryan', sailNumber: '1234', club: 'KSC', raceYear: 2024, role: 'crew' }),
     ]);
     expect(r.clusters).toHaveLength(2);
     expect(r.suggestions).toHaveLength(0); // not even offered for review
@@ -216,8 +248,8 @@ describe('crew on the same boat (#348)', () => {
   it('still links a crew to their own appearances on other boats', () => {
     const r = clusterCompetitors([
       row({ competitorId: 'boat1', name: 'Frank Larkin', sailNumber: '900', club: 'KSC', raceYear: 2023 }),
-      row({ competitorId: 'boat1', name: 'Maeve Dervan', sailNumber: '900', club: 'KSC', raceYear: 2023, role: 'crew', fromMultiPersonRow: true }),
-      row({ competitorId: 'boat2', name: 'Maeve Dervan', sailNumber: '900', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+      row({ competitorId: 'boat1', name: 'Maeve Dervan', sailNumber: '900', club: 'KSC', raceYear: 2023, role: 'crew' }),
+      row({ competitorId: 'boat2', name: 'Maeve Dervan', sailNumber: '900', club: 'KSC', raceYear: 2024, role: 'crew' }),
     ]);
     const maeve = clusterOf(r, 'boat2')!;
     expect(maeve.competitorIds.sort()).toEqual(['boat1', 'boat2']);
@@ -227,7 +259,7 @@ describe('crew on the same boat (#348)', () => {
   it('carries the slot through to each membership', () => {
     const r = clusterCompetitors([
       row({ competitorId: 'boat1', name: 'Frank Larkin', sailNumber: '900', club: 'KSC', raceYear: 2023 }),
-      row({ competitorId: 'boat2', name: 'Frank Larkin', sailNumber: '900', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+      row({ competitorId: 'boat2', name: 'Frank Larkin', sailNumber: '900', club: 'KSC', raceYear: 2024, role: 'crew' }),
     ]);
     // Same person on the same boat, helming one season and crewing the next:
     // one identity, two memberships, each stamped with the slot it came out
@@ -249,12 +281,24 @@ describe('crew on the same boat (#348)', () => {
     ]);
   });
 
-  it('demotes a club-only crew match to a review suggestion', () => {
-    // Crew share the boat's club by construction, so club alone is not
-    // corroboration — the same rule co-owner fragments already follow.
+  it('links a crew across boats on name and club, as it would a helm', () => {
+    // Two people on one boat share its club by construction — but that is a
+    // fact about *one row*, and same-row pairs never match at all. Across two
+    // boats a shared club is the same evidence for a crew as for a helm.
     const r = clusterCompetitors([
-      row({ competitorId: 'a', name: 'Sam Cronin', sailNumber: '11', club: 'KSC', raceYear: 2019, role: 'crew', fromMultiPersonRow: true }),
-      row({ competitorId: 'b', name: 'Sam Cronin', sailNumber: '77', club: 'KSC', raceYear: 2024, role: 'crew', fromMultiPersonRow: true }),
+      row({ competitorId: 'a', name: 'Sam Cronin', sailNumber: '11', club: 'KSC', raceYear: 2019, role: 'crew' }),
+      row({ competitorId: 'b', name: 'Sam Cronin', sailNumber: '77', club: 'KSC', raceYear: 2024, role: 'crew' }),
+    ]);
+    expect(clusterOf(r, 'a')?.competitorIds.sort()).toEqual(['a', 'b']);
+    expect(r.suggestions).toHaveLength(0);
+  });
+
+  it('still demotes a crew match that rests on an initial', () => {
+    // "S Cronin" is any Cronin whose first name starts with an S; the club
+    // they all share cannot tell them apart.
+    const r = clusterCompetitors([
+      row({ competitorId: 'a', name: 'S Cronin', sailNumber: '11', club: 'KSC', raceYear: 2019, role: 'crew' }),
+      row({ competitorId: 'b', name: 'Sam Cronin', sailNumber: '77', club: 'KSC', raceYear: 2024, role: 'crew' }),
     ]);
     expect(r.clusters).toHaveLength(2);
     expect(r.suggestions).toHaveLength(1);

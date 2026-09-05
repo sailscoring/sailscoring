@@ -270,7 +270,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     expect(new Set(links.map((l) => l.identityId))).toEqual(new Set([jId, mId]));
   });
 
-  test('fragment names need sail or age corroboration — club alone only suggests', async () => {
+  test('an initialled name needs sail or age corroboration — club alone only suggests', async () => {
     // A whole-row sailor at a club...
     const solo = await addCompetitor({
       seriesId: seriesByYear[2023],
@@ -282,12 +282,12 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
     const soloId = await identityIdOf(solo);
     expect(soloId).not.toBeNull();
 
-    // ...and a namesake fragment on a co-owned entry: same club, different
-    // boat. Club-only corroboration is demoted for fragments, so this mints
-    // a separate identity instead of joining the solo arc.
+    // ...and an initialled co-owner at the same club on a different boat.
+    // "N. Brennan" is any Brennan whose first name starts with an N, so the
+    // shared club is not enough: this mints a separate identity.
     const coOwned = await addCompetitor({
       seriesId: seriesByYear[2024],
-      names: ['Nuala Brennan', 'Peter Brennan'],
+      names: ['N. Brennan', 'P. Brennan'],
       sailNumber: 'IRL999',
       club: 'RCYC',
     });
@@ -298,6 +298,34 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
       .where(eq(schema.competitorIdentityLinks.competitorId, coOwned));
     expect(links).toHaveLength(2);
     expect(links.map((l) => l.identityId)).not.toContain(soloId);
+  });
+
+  test('a co-owner written out in full joins their own arc on name and club', async () => {
+    const solo = await addCompetitor({
+      seriesId: seriesByYear[2023],
+      names: ['Sorcha Dunne'],
+      sailNumber: 'IRL222',
+      club: 'RCYC',
+    });
+    await relinkIdentitiesAfterWrite(workspaceId, db);
+    const soloId = await identityIdOf(solo);
+    expect(soloId).not.toBeNull();
+
+    // Sharing a boat with Peter says nothing about whether this is the same
+    // Sorcha Dunne — the whole name and the club say it is.
+    const coOwned = await addCompetitor({
+      seriesId: seriesByYear[2024],
+      names: ['Sorcha Dunne', 'Peter Dunne'],
+      sailNumber: 'IRL333',
+      club: 'RCYC',
+    });
+    await relinkIdentitiesAfterWrite(workspaceId, db);
+    const links = await db
+      .select({ identityId: schema.competitorIdentityLinks.identityId })
+      .from(schema.competitorIdentityLinks)
+      .where(eq(schema.competitorIdentityLinks.competitorId, coOwned));
+    expect(links).toHaveLength(2);
+    expect(links.map((l) => l.identityId)).toContain(soloId);
   });
 
   test('a membership whose label matches no person surfaces as stale and can be unlinked', async () => {

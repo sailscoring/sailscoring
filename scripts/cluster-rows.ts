@@ -53,11 +53,10 @@ export function toClusterInput(raw: unknown, i: number): ClusterInput {
     existingIdentityId:
       typeof r.existingIdentityId === 'string' ? r.existingIdentityId : null,
     // A caller clustering a crewed corpus must be able to say which slot a
-    // person came out of (#348), and that everyone sharing a boat is a
-    // fragment — otherwise it gets the workspace apply's answer for a
-    // single-handed class and drafts a manifest the apply won't reproduce.
+    // person came out of (#348) — otherwise it gets the workspace apply's
+    // answer for a single-handed class and drafts a manifest the apply won't
+    // reproduce.
     ...(r.role === 'crew' ? { role: 'crew' as const } : {}),
-    ...(r.fromMultiPersonRow === true ? { fromMultiPersonRow: true } : {}),
   };
 }
 
