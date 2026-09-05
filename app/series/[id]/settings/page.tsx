@@ -9,7 +9,6 @@ import { BasicsCard } from '@/components/series-settings/basics-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringModeCard } from '@/components/series-settings/scoring-mode-card';
-import { SplitFleetsCard } from '@/components/series-settings/split-fleets-card';
 import { CompetitorFieldsCard } from '@/components/series-settings/competitor-fields-card';
 import { PublishingCard } from '@/components/series-settings/publishing-card';
 import { CombinedPagesCard } from '@/components/series-settings/combined-pages-card';
@@ -129,9 +128,8 @@ export default function SettingsPage({
       <ScoringModeCard seriesId={seriesId} series={series} />
       {/* A split-fleet series carries its whole format — fleets, carry,
           discards, non-finisher scores — in the Format section of its Split
-          Fleets tab, where the ceremonies that use it live. Settings shows
-          only the way in, on a series that isn't one yet. */}
-      {!sfConfig && <SplitFleetsCard seriesId={seriesId} />}
+          Fleets tab, where the ceremonies that use it live, so the scoring
+          card has nothing to say there. */}
       <FleetsCard seriesId={seriesId} series={series} />
       {!sfConfig && (
         <ScoringCard

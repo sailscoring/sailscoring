@@ -196,6 +196,40 @@ export async function createSeriesQuick(
 }
 
 /**
+ * Create a split-fleet championship the way a scorer does: through the setup
+ * wizard, which asks the kind of series first, and on to the Split Fleets tab,
+ * where the Format section is open until the first round and the qualifying
+ * fleet count is set. Assumes the `split-fleets` feature is on.
+ */
+export async function createSplitFleetSeries(
+  page: Page,
+  data: { name: string; venue?: string; fleetCount: number },
+): Promise<void> {
+  await page.goto('/series/new');
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/setup$/);
+  await page.getByLabel('Name').fill(data.name);
+  if (data.venue) await page.getByLabel('Venue').fill(data.venue);
+  // The radio is controlled by the saved state, so click rather than check:
+  // it reads as chosen only once the format has been written.
+  await page.getByRole('radio', { name: /Split-fleet championship/ }).click();
+  await expect(page.getByRole('button', { name: /3\. Fleets/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /Next: Competitors/ }).click();
+  await page.getByRole('button', { name: /Finish setup/ }).click();
+  await expect(page).toHaveURL(/\/split-fleets$/);
+  // Every change in the Format section saves as it is made; wait for this one
+  // to land before the caller reloads the page under it.
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        /\/api\/v1\/series\/[^/]+\/split-fleets$/.test(r.url()) &&
+        r.request().method() === 'PUT' &&
+        r.ok(),
+    ),
+    page.locator('#sf-fleet-count').selectOption(String(data.fleetCount)),
+  ]);
+}
+
+/**
  * Open the series-header ⋯ menu, returning only once it is really open.
  *
  * A single click is not enough on its own. The trigger can be clicked while

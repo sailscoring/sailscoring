@@ -1,5 +1,10 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures, openSeriesActionsMenu } from './helpers';
+import {
+  createSeriesQuick,
+  createSplitFleetSeries,
+  enableFeatures,
+  openSeriesActionsMenu,
+} from './helpers';
 
 /**
  * Split Fleets smoke (also the demo script): enable the feature, create a
@@ -37,21 +42,13 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   test.setTimeout(240_000);
   await enableFeatures(page, signedInEmail, ['split-fleets']);
 
-  await createSeriesQuick(page, { name: 'ILCA Demo Worlds', venue: 'Dun Laoghaire' });
-
-  // ── Setup: enable from Settings (no Split Fleets tab until configured),
-  // then seed demo competitors from the new tab ─────────────────────────────
-  await expect(
-    page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }),
-  ).toHaveCount(0);
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const sfSetupCard = page.getByTestId('split-fleets-card');
-  await expect(sfSetupCard).toContainText('Split-fleet championship');
-  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
-  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
-
-  // The tab appears (leading the bar) once the series carries a config.
-  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  // ── Setup: a championship from the wizard, then seed demo competitors from
+  // the tab it lands on ─────────────────────────────────────────────────────
+  await createSplitFleetSeries(page, {
+    name: 'ILCA Demo Worlds',
+    venue: 'Dun Laoghaire',
+    fleetCount: 2,
+  });
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
   // The demo button reloads the page; wait for the empty-list card to
   // disappear (post-reload, competitors present) before touching the round
@@ -176,9 +173,11 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await preview.getByRole('button', { name: 'Close' }).click();
   await expect(preview).toBeHidden();
 
-  // The format lives in this page's own Format section, not in Settings.
+  // The format lives in this page's own Format section; Settings has nothing
+  // to say about it beyond hiding the scoring card.
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  await expect(page.getByTestId('split-fleets-card')).toHaveCount(0);
+  await expect(page.locator('h2', { hasText: /^Fleets$/ })).toBeVisible();
+  await expect(page.getByRole('main').locator('h2', { hasText: /Split-fleet/ })).toHaveCount(0);
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
   await page.getByRole('button', { name: /^Format/ }).click();
@@ -272,13 +271,7 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
 }) => {
   test.setTimeout(240_000);
   await enableFeatures(page, signedInEmail, ['split-fleets']);
-  await createSeriesQuick(page, { name: 'Abandon Worlds', venue: 'Dun Laoghaire' });
-
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const sfSetupCard = page.getByTestId('split-fleets-card');
-  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
-  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
-  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await createSplitFleetSeries(page, { name: 'Abandon Worlds', venue: 'Dun Laoghaire', fleetCount: 2 });
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
   await expect(
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
@@ -331,13 +324,7 @@ test('split fleets: publish lands the championship + race + assignments pages in
 }) => {
   test.setTimeout(240_000);
   await enableFeatures(page, signedInEmail, ['split-fleets']);
-  await createSeriesQuick(page, { name: 'Publish Worlds', venue: 'Dun Laoghaire' });
-
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const sfSetupCard = page.getByTestId('split-fleets-card');
-  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
-  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
-  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await createSplitFleetSeries(page, { name: 'Publish Worlds', venue: 'Dun Laoghaire', fleetCount: 2 });
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
   await expect(
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
@@ -450,11 +437,11 @@ test('split fleets: publish lands the championship + race + assignments pages in
 });
 
 /**
- * The setup wizard's championship-format opt-in (gated on `split-fleets`):
- * enabling it there makes the Split Fleets tab appear, and finishing setup
- * lands on it rather than on Competitors.
+ * The setup wizard asks what kind of series this is before anything else, and
+ * a split-fleet championship's setup is two steps that land on the tab, with
+ * the Format section open to be checked against the sailing instructions.
  */
-test('split fleets: set up from the series wizard and land on the tab', async ({
+test('split fleets: the kind of series is chosen first, and setup lands on the tab', async ({
   page,
   signedInEmail,
 }) => {
@@ -463,31 +450,43 @@ test('split fleets: set up from the series wizard and land on the tab', async ({
   await page.goto('/series/new');
   await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/setup$/);
   await page.getByLabel('Name').fill('Wizard Worlds');
+
+  // A series has four steps; a championship has no fleets or scoring steps,
+  // and the choice can be reversed while nothing has been built on it.
+  const kind = page.getByTestId('series-kind');
+  await expect(page.getByRole('button', { name: /4\. Scoring/ })).toBeVisible();
+  await kind.getByRole('radio', { name: /Split-fleet championship/ }).click();
+  await expect(page.getByRole('button', { name: /3\. Fleets/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /2\. Competitors/ })).toBeVisible();
+  await kind.getByRole('radio', { name: /^Series\b/ }).click();
+  await expect(page.getByRole('button', { name: /4\. Scoring/ })).toBeVisible();
+  await kind.getByRole('radio', { name: /Split-fleet championship/ }).click();
+  await expect(page.getByRole('button', { name: /3\. Fleets/ })).toHaveCount(0);
+
+  // The entry list is imported knowing what it is for, and setup ends here.
   await page.getByRole('button', { name: /Next: Competitors/ }).click();
-  await page.getByRole('button', { name: /Next: Fleets/ }).click();
-
-  // The format opt-in lives beside the scoring-mode choice on the Fleets step.
-  await page.getByRole('checkbox', { name: /Split-fleet championship/ }).check();
-  await page.locator('#sf-fleet-count').selectOption('2');
-  // The same editor the Settings card shows: the format fills the fields, and
-  // the configuration is restated as sailing-instruction prose to check.
-  await page.getByRole('button', {
-    name: /How this configuration translates to sailing instructions/,
-  }).click();
-  await expect(page.getByTestId('sf-si-translation')).toContainText(
-    'will count for total points in the Qualification series',
-  );
-  await page.getByRole('button', { name: 'Enable split fleets' }).click();
-  await expect(page.getByText(/Split fleets enabled/)).toBeVisible();
-
-  // Enabling ends setup: the fleets and scoring steps belong to the Format
-  // section from here, so the wizard is three steps and finishes now.
-  await expect(page.getByRole('button', { name: /3\. Format/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Next: Scoring/ })).toHaveCount(0);
+  await expect(page.getByText(/seeding committee/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Next: Fleets/ })).toHaveCount(0);
   await page.getByRole('button', { name: /Finish setup/ }).click();
 
   await expect(page).toHaveURL(/\/split-fleets$/);
+  // Format is open until Round 1, settings beside their sailing-instruction
+  // translation, with the initial format filled in.
+  await expect(page.locator('#sf-fleet-count')).toHaveValue('3');
+  await expect(page.getByTestId('sf-si-translation')).toContainText(
+    'will count for total points in the Qualification series',
+  );
   await expect(page.getByRole('button', { name: 'Assign Preliminary fleets' })).toBeVisible();
+
+  // A series that isn't a championship has no such tab, and Settings offers
+  // no way to become one.
+  await createSeriesQuick(page, { name: 'Plain Series' });
+  await expect(
+    page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }),
+  ).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page.locator('h2', { hasText: /^Fleets$/ })).toBeVisible();
+  await expect(page.getByRole('main').locator('h2', { hasText: /Split-fleet/ })).toHaveCount(0);
 });
 
 /**
@@ -502,12 +501,7 @@ test('split fleets: the format and rounds survive a file round-trip', async ({
 }) => {
   await enableFeatures(page, signedInEmail, ['split-fleets']);
 
-  await createSeriesQuick(page, { name: 'Round Trip Worlds', venue: 'Dun Laoghaire' });
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const sfSetupCard = page.getByTestId('split-fleets-card');
-  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
-  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
-  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await createSplitFleetSeries(page, { name: 'Round Trip Worlds', venue: 'Dun Laoghaire', fleetCount: 2 });
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
   await expect(
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),

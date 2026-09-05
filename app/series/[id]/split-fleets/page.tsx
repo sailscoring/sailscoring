@@ -298,13 +298,14 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
 
   if (!sfState.config) {
     // Normally unreachable — the tab only shows for configured series. A
-    // direct URL lands here before setup: point at the enable paths.
+    // direct URL lands here on a series that isn't one.
     return (
       <div className="bg-card border rounded-lg p-5 max-w-xl">
         <p className="text-sm text-muted-foreground">
-          Split fleets isn&rsquo;t set up for this series. Enable it from the
-          series setup wizard or the Split-fleet championship card in{' '}
-          <Link href={`/series/${seriesId}/settings`} className="underline">Settings</Link>.
+          This isn&rsquo;t a split-fleet championship. A series is one from the
+          start: the choice is made in the setup wizard when the series is
+          created. Its results are on{' '}
+          <Link href={`/series/${seriesId}/standings`} className="underline">Standings</Link>.
         </p>
       </div>
     );
@@ -346,10 +347,14 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
       )}
+      {/* Open until the first assignment: a new championship arrives here
+          from the wizard with the initial format, which the scorer checks
+          against the sailing instructions before dealing any fleets. Once
+          Round 1 is committed the one-line summary is enough. */}
       <StageSection
         title="Format"
         status={formatSummary(sfState.config)}
-        defaultOpen={false}
+        defaultOpen={qualifyingRounds.length === 0}
       >
         <SplitFleetEditor
           seriesId={seriesId}
@@ -357,7 +362,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           competitorCount={competitors.length}
           canEdit={canManage}
           locked={allFinishes.length > 0}
-          layout="wide"
         />
         {allFinishes.length > 0 && (
           <p className="text-xs text-muted-foreground">

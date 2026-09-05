@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { addCompetitor, createFleets, createSeriesQuick, enableFeatures } from './helpers';
+import { addCompetitor, createFleets, createSplitFleetSeries, enableFeatures } from './helpers';
 
 /**
  * The ceremony's leftover-fleet offer: a series whose competitors were
@@ -10,20 +10,17 @@ import { addCompetitor, createFleets, createSeriesQuick, enableFeatures } from '
  */
 test('round 1 offers to remove a leftover Default fleet', async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['split-fleets']);
-  await createSeriesQuick(page, { name: 'Converted Worlds', venue: 'Howth' });
+  await createSplitFleetSeries(page, { name: 'Converted Worlds', venue: 'Howth', fleetCount: 2 });
 
-  // A pre-championship fleet with members: the leftover under test.
+  // A pre-ceremony fleet with members, added by hand from Settings before the
+  // first round: the leftover under test.
   await createFleets(page, ['Default']);
   await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
   for (let i = 0; i < 4; i++) {
     await addCompetitor(page, { sailNumber: `21000${i}`, name: `Helm ${i}` });
   }
 
-  // Become a championship, then run the round-1 ceremony.
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const sfSetupCard = page.getByTestId('split-fleets-card');
-  await sfSetupCard.locator('#sf-fleet-count').selectOption('2');
-  await sfSetupCard.getByRole('button', { name: 'Enable split fleets' }).click();
+  // Run the round-1 ceremony.
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
 

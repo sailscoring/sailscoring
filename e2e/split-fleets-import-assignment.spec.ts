@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures, importMapColumns } from './helpers';
+import { createSplitFleetSeries, enableFeatures, importMapColumns } from './helpers';
 
 /**
  * The seeding committee hands over the assignment already made — each boat
@@ -29,16 +29,8 @@ test('split fleets: import the committee assignment and seed Round 1 from it', a
 }) => {
   test.setTimeout(180_000);
   await enableFeatures(page, signedInEmail, ['split-fleets']);
-  await createSeriesQuick(page, { name: 'Assigned Worlds' });
-
-  // ── Make it a split-fleet championship, three qualifying fleets ──────────
-  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
-  const setupCard = page.getByTestId('split-fleets-card');
-  await setupCard.locator('#sf-fleet-count').selectOption('3');
-  await setupCard.getByRole('button', { name: 'Enable split fleets' }).click();
-  await expect(
-    page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }),
-  ).toBeVisible();
+  // ── A split-fleet championship with three qualifying fleets ──────────────
+  await createSplitFleetSeries(page, { name: 'Assigned Worlds', fleetCount: 3 });
 
   // ── Import the entry list ────────────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();

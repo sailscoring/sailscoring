@@ -21,18 +21,22 @@ import {
 import { Upload } from 'lucide-react';
 import { CompetitorImport } from '@/components/competitor-import';
 import { useFeatures } from '@/components/features-provider';
-import { useSplitFleetState } from '@/hooks/use-split-fleets';
-import { SplitFleetEditor } from '@/components/split-fleets-editor';
+import {
+  useDeleteSplitFleetConfig,
+  useSaveSplitFleetConfig,
+  useSplitFleetState,
+} from '@/hooks/use-split-fleets';
+import { initialSplitFleetConfig } from '@/components/split-fleets-editor';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 const STEP_LABELS = ['Name & Basics', 'Competitors', 'Fleets', 'Scoring'];
-/** A split-fleet series' format supersedes the fleets and scoring steps —
- *  the ceremonies create the fleets and the Format section owns the scoring
- *  rules — so setup ends as soon as it is enabled. */
-const SPLIT_FLEET_STEP_LABELS = ['Name & Basics', 'Competitors', 'Format'];
+/** A split-fleet championship has no fleets or scoring steps: the assignment
+ *  ceremonies create its fleets, and the Format section of its Split Fleets
+ *  tab owns the scoring rules. Setup ends with the entry list and lands there. */
+const SPLIT_FLEET_STEP_LABELS = ['Name & Basics', 'Competitors'];
 
 // ── Step 1: Name & Basics ─────────────────────────────────────────────────────
 
@@ -106,10 +110,81 @@ function Step1({
           </p>
         </div>
       )}
+      <SeriesKindBlock seriesId={seriesId} />
       {nextError && <p className="text-sm text-destructive">{nextError}</p>}
       <div className="flex justify-end pt-2">
         <Button onClick={handleNext}>Next: Competitors →</Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What kind of series this is, asked first because everything after depends
+ * on it: a split-fleet championship's entry list is imported with a fleet
+ * column read as the seeding committee's assignment, its fleets are dealt by
+ * the assignment ceremonies rather than set up here, and its tab bar leads
+ * with Split Fleets. Choosing it writes the initial format at once; the
+ * Format section of the Split Fleets tab is where that format is then made to
+ * match the sailing instructions. Only offered where the workspace has the
+ * feature.
+ */
+function SeriesKindBlock({ seriesId }: { seriesId: string }) {
+  const { has } = useFeatures();
+  const enabled = has('split-fleets');
+  const { data: sfState } = useSplitFleetState(seriesId, { enabled });
+  const saveConfig = useSaveSplitFleetConfig(seriesId);
+  const removeConfig = useDeleteSplitFleetConfig(seriesId);
+  if (!enabled || sfState === undefined) return null;
+
+  const isSplitFleet = !!sfState.config;
+  const pending = saveConfig.isPending || removeConfig.isPending;
+  const error = saveConfig.error ?? removeConfig.error;
+
+  return (
+    <div className="space-y-2" data-testid="series-kind">
+      <Label>What kind of series is this?</Label>
+      <div className="space-y-2">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="radio"
+            name="seriesKind"
+            checked={!isSplitFleet}
+            disabled={pending}
+            onChange={() => {
+              if (isSplitFleet) removeConfig.mutate();
+            }}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Series</span>
+            <p className="text-xs text-muted-foreground">
+              Club series, open events, regattas. Each fleet is set up here and scored on its own.
+            </p>
+          </div>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="radio"
+            name="seriesKind"
+            checked={isSplitFleet}
+            disabled={pending}
+            onChange={() => {
+              if (!isSplitFleet) saveConfig.mutate(initialSplitFleetConfig());
+            }}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Split-fleet championship</span>
+            <p className="text-xs text-muted-foreground">
+              Boats race in qualifying fleets reassigned by series rank after each day, then
+              split by rank for the final series. The Split Fleets tab runs it, and its Format
+              section holds the scoring rules.
+            </p>
+          </div>
+        </label>
+      </div>
+      {error && <p className="text-sm text-destructive">{String(error)}</p>}
     </div>
   );
 }
@@ -122,12 +197,16 @@ type ImportResult = { added: number; fleetsCreated: string[] };
 
 function Step2({
   seriesId,
+  isSplitFleet,
   lastImportResult,
   setLastImportResult,
   onNext,
   onBack,
 }: {
   seriesId: string;
+  /** A split-fleet championship: this is the last step, and a fleet column
+   *  in the import is the committee's initial assignment, not fleets to create. */
+  isSplitFleet: boolean;
   lastImportResult: ImportResult | null;
   setLastImportResult: (r: ImportResult) => void;
   onNext: () => void;
@@ -141,11 +220,15 @@ function Step2({
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Import your competitors from a spreadsheet — a CSV or Excel (.xlsx)
-        file. Fleet information can be detected from the import.
+        file.{' '}
+        {isSplitFleet
+          ? 'A fleet column is read as the seeding committee\u2019s initial assignment, which the first round starts from.'
+          : 'Fleet information can be detected from the import.'}
       </p>
       <CompetitorImport
         seriesId={seriesId}
         fleets={fleets ?? []}
+        splitFleetSeries={isSplitFleet}
         csvOnly
         onComplete={(result) => {
           if (result && result.added > 0) {
@@ -174,7 +257,7 @@ function Step2({
         <Button variant="ghost" onClick={onBack}>← Back</Button>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={onNext}>Skip for now</Button>
-          <Button onClick={onNext}>Next: Fleets →</Button>
+          <Button onClick={onNext}>{isSplitFleet ? 'Finish setup →' : 'Next: Fleets →'}</Button>
         </div>
       </div>
     </div>
@@ -187,20 +270,14 @@ function Step3({
   series,
   seriesId,
   lastImportResult,
-  isSplitFleet,
   onNext,
   onBack,
-  onFinish,
 }: {
   series: Series;
   seriesId: string;
   lastImportResult: ImportResult | null;
-  /** The series has a split-fleet format: fleets and scoring rules are the
-   *  Format section's business, so this is the last step. */
-  isSplitFleet: boolean;
   onNext: () => void;
   onBack: () => void;
-  onFinish: () => void;
 }) {
   const updateSeries = useUpdateSeries();
   const saveFleet = useSaveFleet();
@@ -223,9 +300,6 @@ function Step3({
 
   return (
     <div className="space-y-4">
-      <ChampionshipFormatBlock seriesId={seriesId} />
-
-      {isSplitFleet ? null : (
       <div className="space-y-2">
         <Label>How will this series be scored?</Label>
         <div className="space-y-2">
@@ -258,90 +332,28 @@ function Step3({
         </div>
       </div>
 
-      )}
-
-      {!isSplitFleet && (
-        <div className="space-y-2">
-          <Label>Fleets</Label>
-          {lastImportResult && lastImportResult.fleetsCreated.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {lastImportResult.fleetsCreated.length} fleet
-              {lastImportResult.fleetsCreated.length === 1 ? '' : 's'} created by the import:{' '}
-              {lastImportResult.fleetsCreated.join(', ')}. Names and scoring systems were
-              settled there — what is left is the order they appear in and their start groups.
-            </p>
-          )}
-          <FleetsCard mode="wizard" seriesId={seriesId} series={series} />
-        </div>
-      )}
+      <div className="space-y-2">
+        <Label>Fleets</Label>
+        {lastImportResult && lastImportResult.fleetsCreated.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {lastImportResult.fleetsCreated.length} fleet
+            {lastImportResult.fleetsCreated.length === 1 ? '' : 's'} created by the import:{' '}
+            {lastImportResult.fleetsCreated.join(', ')}. Names and scoring systems were
+            settled there — what is left is the order they appear in and their start groups.
+          </p>
+        )}
+        <FleetsCard mode="wizard" seriesId={seriesId} series={series} />
+      </div>
 
       <div className="flex justify-between pt-2">
         <Button variant="ghost" onClick={onBack}>← Back</Button>
-        {isSplitFleet ? (
-          <Button onClick={onFinish}>Finish setup →</Button>
-        ) : (
-          <Button onClick={onNext}>Next: Scoring →</Button>
-        )}
+        <Button onClick={onNext}>Next: Scoring →</Button>
       </div>
     </div>
   );
 }
 
 // ── Step 4: Scoring & Discards ────────────────────────────────────────────────
-
-/** Wizard opt-in for the split-fleet championship format (gated on the
- *  workspace feature). Enabling writes the config; the Split Fleets tab then
- *  leads the series tab bar. */
-function ChampionshipFormatBlock({ seriesId }: { seriesId: string }) {
-  const { has } = useFeatures();
-  const enabled = has('split-fleets');
-  const { data: sfState } = useSplitFleetState(seriesId, { enabled });
-  const { data: competitors } = useCompetitorsBySeries(seriesId);
-  const competitorCount = competitors?.length ?? 0;
-  const [wanted, setWanted] = useState(false);
-  if (!enabled) return null;
-
-  if (sfState?.config) {
-    return (
-      <div className="space-y-1 rounded-md border p-3">
-        <Label>Championship format</Label>
-        <p className="text-sm text-muted-foreground">
-          Split fleets enabled — {sfState.config.qualifyingFleets.map((f) => f.label).join(', ')} qualifying,
-          then {sfState.config.finalFleets.map((f) => f.label).join('/')}. Everything else lives on the
-          Split Fleets tab, including the Format section that holds these settings.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2 rounded-md border p-3">
-      <label className="flex items-start gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={wanted}
-          onChange={(e) => setWanted(e.target.checked)}
-          className="mt-0.5"
-        />
-        <div>
-          <span className="text-sm font-medium">Split-fleet championship</span>
-          <p className="text-xs text-muted-foreground">
-            Qualifying fleets reassigned by series rank after each day of racing,
-            then a Gold/Silver split for the final series.
-          </p>
-        </div>
-      </label>
-      {wanted && (
-        <SplitFleetEditor
-          seriesId={seriesId}
-          config={null}
-          competitorCount={competitorCount}
-          canEdit
-        />
-      )}
-    </div>
-  );
-}
 
 function Step4({
   series,
@@ -423,21 +435,20 @@ export default function SetupPage({
       {step === 2 && (
         <Step2
           seriesId={seriesId}
+          isSplitFleet={isSplitFleet}
           lastImportResult={lastImportResult}
           setLastImportResult={setLastImportResult}
-          onNext={() => setStep(3)}
+          onNext={isSplitFleet ? handleFinish : () => setStep(3)}
           onBack={() => setStep(1)}
         />
       )}
-      {step === 3 && (
+      {step === 3 && !isSplitFleet && (
         <Step3
           series={series}
           seriesId={seriesId}
           lastImportResult={lastImportResult}
-          isSplitFleet={isSplitFleet}
           onNext={() => setStep(4)}
           onBack={() => setStep(2)}
-          onFinish={handleFinish}
         />
       )}
       {step === 4 && !isSplitFleet && (

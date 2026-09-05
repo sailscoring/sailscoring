@@ -1,8 +1,9 @@
 'use client';
 
-// The one split-fleet configuration surface, used identically wherever a
-// scorer meets it: the series setup wizard, the Settings card's enable path,
-// and the Settings card once the series is running.
+// The one split-fleet configuration surface: the Format section of the Split
+// Fleets tab. A series is a split-fleet championship from the moment it is
+// created (the setup wizard asks), so there is nothing to enable here — every
+// change saves as it is made.
 //
 // Two things shape the design. First, scorers configure this once every year
 // or two, from an SI or NoR someone else wrote — so every field says what it
@@ -15,7 +16,6 @@
 // editable.
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
@@ -80,6 +80,12 @@ const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) =>
 /** What a new series starts from, and so what the settings below show first. */
 const INITIAL_FORMAT: FormatKey = 'ilca-2026';
 
+/** The format a series gets when the setup wizard makes it a split-fleet
+ *  championship: the current ILCA one, three qualifying fleets. */
+export function initialSplitFleetConfig(): SplitFleetConfig {
+  return FORMATS[INITIAL_FORMAT].build(3);
+}
+
 /**
  * Whether a config is still exactly the class format it was built from.
  *
@@ -140,23 +146,14 @@ export function SplitFleetEditor({
   competitorCount,
   canEdit,
   locked,
-  layout = 'stacked',
-  onEnabled,
 }: {
   seriesId: string;
-  /** The stored configuration, or null on a series that isn't split-fleet
-   *  yet — then the fields edit a local draft until Enable is pressed. */
-  config: SplitFleetConfig | null;
+  config: SplitFleetConfig;
   /** Entries so far, for the "what this means for your event" numbers. */
   competitorCount: number;
   canEdit: boolean;
   /** Racing has started: the structural fields are settled. */
   locked?: boolean;
-  /** 'wide' uses the full width of the Split Fleets tab's Format section:
-   *  settings on the left, the sailing-instruction translation beside them.
-   *  'stacked' is the narrow card/wizard form. */
-  layout?: 'stacked' | 'wide';
-  onEnabled?: () => void;
 }) {
   const save = useSaveSplitFleetConfig(seriesId);
   const [picked, setPicked] = useState<FormatKey>(INITIAL_FORMAT);
@@ -166,12 +163,8 @@ export function SplitFleetEditor({
   // rest.
   const [hovered, setHovered] = useState<readonly SplitFleetSentenceId[] | null>(null);
   const [focused, setFocused] = useState<readonly SplitFleetSentenceId[] | null>(null);
-  // The draft must be the format the picker is showing, or the settings below
-  // describe a format nobody chose.
-  const [draft, setDraft] = useState<SplitFleetConfig>(() => FORMATS[INITIAL_FORMAT].build(3));
 
-  const value = config ?? draft;
-  const isDraft = config === null;
+  const value = config;
   // Which format this *is*, derived rather than remembered. A scorer who
   // changes a setting and changes it back has the class format again, and
   // being told otherwise leaves them wondering what else they disturbed. It
@@ -188,15 +181,12 @@ export function SplitFleetEditor({
   ].join(', ');
 
   function patch(p: Partial<SplitFleetConfig>) {
-    if (isDraft) setDraft({ ...draft, ...p });
-    else save.mutate({ ...value, ...p });
+    save.mutate({ ...value, ...p });
   }
 
   function pickFormat(next: FormatKey) {
     setPicked(next);
-    const built = FORMATS[next].build(value.qualifyingFleets.length);
-    if (isDraft) setDraft(built);
-    else save.mutate(built);
+    save.mutate(FORMATS[next].build(value.qualifyingFleets.length));
   }
 
   function setFleetCount(n: number) {
@@ -268,7 +258,6 @@ export function SplitFleetEditor({
   const selectClass = 'w-full max-w-full rounded-md border bg-background px-2 py-1 text-sm';
   const hint = 'text-xs text-muted-foreground';
 
-  const wide = layout === 'wide';
   const fields = (
     <div className="space-y-4">
       <div className={rowClass}>
@@ -895,39 +884,19 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      {isDraft && (
-        <div className="flex items-center gap-2">
-          <Button disabled={!canEdit || save.isPending} onClick={async () => {
-            await save.mutateAsync(draft);
-            onEnabled?.();
-          }}>
-            {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Enable split fleets
-          </Button>
-        </div>
-      )}
       {save.isError && <p className="text-destructive">{String(save.error)}</p>}
     </div>
   );
 
-  // Wide: the settings and their sailing-instruction translation side by
-  // side, so the scorer reads one against the other without scrolling. The
-  // settings column is much the taller of the two, so the panel sticks to the
-  // top of the window rather than scrolling away with its own column — which
-  // is the whole point of marking a setting's sentences as the scorer reaches
-  // it.
-  if (wide) {
-    return (
-      <div className="grid gap-6 text-sm lg:grid-cols-2" data-testid="split-fleets-editor">
-        {fields}
-        <SiTranslation config={value} marked={marked} alwaysOpen sticky />
-      </div>
-    );
-  }
+  // The settings and their sailing-instruction translation side by side, so
+  // the scorer reads one against the other without scrolling. The settings
+  // column is much the taller of the two, so the panel sticks to the top of
+  // the window rather than scrolling away with its own column — which is the
+  // whole point of marking a setting's sentences as the scorer reaches it.
   return (
-    <div className="space-y-4 text-sm" data-testid="split-fleets-editor">
+    <div className="grid gap-6 text-sm lg:grid-cols-2" data-testid="split-fleets-editor">
       {fields}
-      <SiTranslation config={value} marked={marked} />
+      <SiTranslation config={value} marked={marked} alwaysOpen sticky />
     </div>
   );
 }
