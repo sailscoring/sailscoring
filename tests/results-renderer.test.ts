@@ -1867,6 +1867,72 @@ describe('renderCompetitorListHtml', () => {
     expect(html).toContain('No entries yet.');
     expect(html).not.toContain('<th>Sail Number</th>');
   });
+
+  describe('the starters checklist', () => {
+    const rows = [row(), row({ sailNumber: 'IRL 1234', names: ['A Boat'] })];
+    const checklist = [
+      { heading: 'Class 1', boats: [{ sailNumber: '4' }, { sailNumber: 'IRL 1234', boatName: 'Checkmate' }] },
+      { heading: 'Class 2', boats: [{ sailNumber: '2001' }] },
+    ];
+
+    it('is rendered into the page, hidden on screen, one table per start', () => {
+      const html = renderCompetitorListHtml(chrome, rows, {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist,
+      });
+      expect(html).toContain('<div class="starterslist">');
+      expect(html).toContain('<h3>Class 1</h3>');
+      expect(html).toContain('<h3>Class 2</h3>');
+      expect(html).toContain('<td class="sail">2001</td>');
+      expect(html).toContain('.starterslist { display: none; }');
+      expect(html).toContain('body.starters .starterslist { display: block;');
+    });
+
+    it('carries the boat name only on a table where some boat has one', () => {
+      const html = renderCompetitorListHtml(chrome, rows, {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist,
+      });
+      expect(html).toContain('<td class="sail">IRL 1234</td><td class="boat"><span>Checkmate</span></td><td class="tick"></td>');
+      expect(html).toContain('<td class="sail">4</td><td class="boat"><span></span></td><td class="tick"></td>');
+      expect(html).toContain('<td class="sail">2001</td><td class="tick"></td>');
+    });
+
+    it('offers to print it from the footer, beside Save as PDF', () => {
+      const html = renderCompetitorListHtml(chrome, rows, {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist,
+      });
+      expect(html).toContain('id="starters-print">Print starters checklist</button>');
+      expect(html).toContain('>Save as PDF</button>');
+      expect(html).toContain("getElementById('starters-print')");
+    });
+
+    it('heads no table on a series with a single start', () => {
+      const html = renderCompetitorListHtml(chrome, rows, {
+        enabledCompetitorFields: [],
+        multiFleet: false,
+        checklist: [{ heading: null, boats: [{ sailNumber: '4' }] }],
+      });
+      expect(html).toContain('<div class="starterslist">');
+      expect(html).not.toContain('<section class="startersstart">\n<h3>');
+    });
+
+    it('leaves the page as it was when there is nothing to list', () => {
+      for (const empty of [undefined, [], [{ heading: 'Class 1', boats: [] }]]) {
+        const html = renderCompetitorListHtml(chrome, rows, {
+          enabledCompetitorFields: [],
+          multiFleet: true,
+          checklist: empty,
+        });
+        expect(html).not.toContain('starterslist');
+        expect(html).not.toContain('starters-print');
+      }
+    });
+  });
 });
 
 // ---- Named DPI penalties (#424) ----

@@ -36,6 +36,7 @@ import {
   racePolicy,
   scoringOptionsLegend,
 } from './race-scoring-options';
+import type { ChecklistTable } from './starters-checklist';
 
 /** Column heading for a subdivision axis, falling back to the default label when
  *  the axis label is blank. */
@@ -887,6 +888,8 @@ export function renderCompetitorListHtml(
     /** Show the Fleet column; set when the series has more than one fleet. */
     multiFleet: boolean;
     flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
+    /** The starters checklist's tables, when the page is to carry one. */
+    checklist?: ChecklistTable[];
   },
   options?: { fontPercent?: number },
 ): string {
@@ -1015,11 +1018,112 @@ ${body}
       )
     : '';
 
+  const starters = renderStartersChecklist(context.checklist ?? []);
+
   return renderHtmlDocument(
     { ...chrome, fleetName: 'Competitor List' },
-    content,
-    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs },
+    `${content}${starters ? `\n${starters}` : ''}`,
+    { fontPercent, hasNhcDetail: false, hasEchoDetail: false, flagDefs, startersChecklist: starters !== '' },
   );
+}
+
+/**
+ * The starters checklist, rendered into the competitor-list page but shown
+ * only when it is printed as one (the `starters` body class, set by the
+ * footer button for the duration of the print). One table per start, each
+ * row the sail number, the boat name when the series records one, and a box
+ * to tick as the boat arrives in the starting area.
+ *
+ * The recorder is on a moving committee boat, so the sail number is set
+ * large; and a recorder switching pages while boats mill around loses the
+ * boat they were looking for, so the tables flow in columns across the page,
+ * short tables kept whole. Both are the print stylesheet's business.
+ */
+function renderStartersChecklist(tables: ChecklistTable[]): string {
+  const populated = tables.filter((t) => t.boats.length > 0);
+  if (populated.length === 0) return '';
+  const sections = populated.map((t) => {
+    const showBoat = t.boats.some((b) => !!b.boatName);
+    const rows = t.boats
+      .map(
+        (b) =>
+          `<tr><td class="sail">${esc(b.sailNumber)}</td>${showBoat ? `<td class="boat"><span>${esc(b.boatName ?? '')}</span></td>` : ''}<td class="tick"></td></tr>`,
+      )
+      .join('\n');
+    // A short table stays whole rather than straddling two columns; a long
+    // one has to break somewhere, and asking the browser to avoid it moves
+    // the whole table to the next page instead. Twenty rows fit a column on
+    // any paper.
+    return `<section class="startersstart${t.boats.length <= 20 ? ' keep' : ''}">
+${t.heading !== null ? `<h3>${esc(t.heading)}</h3>\n` : ''}<table class="starterstable" cellspacing="0" cellpadding="0" border="0">
+<tbody>
+${rows}
+</tbody>
+</table>
+</section>`;
+  });
+  return `<div class="starterslist">
+<h2 class="starterstitle">Starters checklist</h2>
+<div class="starterscols">
+${sections.join('\n')}
+</div>
+</div>`;
+}
+
+/** The print stylesheet for the starters checklist. Off screen it is hidden
+ *  outright; in print it shows only under the `starters` body class, which
+ *  also hides the entry list and the footer, leaving the page header. */
+function renderStartersChecklistCss(): string {
+  return `.starterslist { display: none; }
+@media print {
+  body.starters .starterslist { display: block; text-align: left; }
+  .starterscols { column-count: 3; column-gap: 8mm; column-fill: auto; }
+  body.starters .caption, body.starters .tablewrap, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .hardleft, body.starters .hardright, body.starters .credit { display: none; }
+  .starterslist h2.starterstitle { text-align: center; font-size: 18pt; margin: 0 0 4mm 0; }
+  .startersstart { margin: 0 0 6mm 0; }
+  .startersstart.keep { break-inside: avoid; }
+  .startersstart h3 { font-size: 14pt; margin: 0 0 1.5mm 0; break-after: avoid; }
+  table.starterstable { width: 100%; margin: 0; border: 0; }
+  table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.5mm 1mm; vertical-align: middle; font-size: 16pt; line-height: 1.1; }
+  table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
+  table.starterstable td.boat { font-size: 11pt; color: #333; }
+  table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.starterstable td.tick { width: 6mm; padding-right: 0; }
+  table.starterstable td.tick::before { content: ""; display: block; width: 6mm; height: 6mm; border: 0.5mm solid #1a1a1a; box-sizing: border-box; margin-left: auto; }
+}
+`;
+}
+
+/** The footer control that prints the page as a starters checklist, beside
+ *  "Save as PDF". Screen-only, like its neighbour. */
+function renderStartersButton(): string {
+  return `<button type="button" class="print-btn" id="starters-print">Print starters checklist</button>`;
+}
+
+/** Sets the `starters` body class for the duration of the print, so the
+ *  print stylesheet swaps the entry list for the checklist, and names the
+ *  document after the sheet so a saved PDF is called what it is. The class
+ *  comes off again on \`afterprint\`, so the page is its ordinary self once the
+ *  dialog closes and an ordinary "Save as PDF" afterwards prints the list. */
+function renderStartersScript(): string {
+  return `<script>(function(){
+var btn=document.getElementById('starters-print');
+if(!btn)return;
+var on=false,title=document.title;
+var h1=document.querySelector('h1');
+btn.addEventListener('click',function(){
+  on=true;
+  document.body.classList.add('starters');
+  document.title='Starters checklist'+(h1?' \\u2014 '+h1.textContent:'');
+  window.print();
+});
+window.addEventListener('afterprint',function(){
+  if(!on)return;
+  on=false;
+  document.body.classList.remove('starters');
+  document.title=title;
+});
+})();</script>`;
 }
 
 /** The full HTML document around already-rendered section content: styles,
@@ -1029,10 +1133,10 @@ ${body}
 export function renderHtmlDocument(
   chrome: DocumentChrome,
   content: string,
-  flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string },
+  flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean },
 ): string {
   const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials } = chrome;
-  const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs } = flags;
+  const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
   return `<!doctype html>
@@ -1115,7 +1219,7 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
   .headerlogo { height: 64px; margin: 0 auto 10px auto; }
   .headerlogo-right { margin: 0 auto 10px auto; }
 }
-${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
+${startersChecklist ? renderStartersChecklistCss() : ''}${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
 ${seriesIndexUrl ? `<p class="breadcrumb"><a href="${esc(seriesIndexUrl)}" target="_top" rel="noopener">&larr; ${esc(series.name)}</a></p>\n` : ''}<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
@@ -1142,10 +1246,11 @@ ${content}
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
 <div style="clear:both;"></div>
-<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''} &mdash; ${renderPrintButton()}</p>
+<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''} &mdash; ${renderPrintButton()}${startersChecklist ? ` &mdash; ${renderStartersButton()}` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 ${renderSortScript()}
+${startersChecklist ? renderStartersScript() : ''}
 </body>
 </html>`;
 }

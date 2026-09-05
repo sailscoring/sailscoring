@@ -42,6 +42,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
 import { isSyntheticFleetName } from './publishing';
+import { buildStartersChecklist } from './starters-checklist';
 import { seriesSlug } from './series-name';
 import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, ResultCode, PenaltyCode, Standing } from './types';
 
@@ -224,6 +225,19 @@ async function buildCompetitorListFile(
     Math.min(...c.fleetIds.map((id) => fleetOrder.get(id) ?? Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
   const ordered = [...competitors].sort((a, b) => firstFleetOrder(a) - firstFleetOrder(b));
 
+  // The starters checklist rides on the page, printable from it: one table
+  // per start, each boat once. The boat name goes on it only when the series
+  // records one, like every other optional column here.
+  const checklist = buildStartersChecklist({
+    fleets,
+    competitors: competitors.map((c) => ({
+      sailNumber: c.sailNumber,
+      fleetIds: c.fleetIds,
+      ...(enabledCompetitorFields.includes('boatName') && c.boatName ? { boatName: c.boatName } : {}),
+    })),
+    startGroups: series.defaultStartSequence,
+  });
+
   const rows: CompetitorListRow[] = ordered.map((c) => ({
     sailNumber: c.sailNumber,
     ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
@@ -271,6 +285,7 @@ async function buildCompetitorListFile(
         // synthetic ones would show a column of blanks.
         multiFleet: new Set(rows.flatMap((r) => r.fleetNames)).size > 1,
         ...(flagSvgByCode ? { flagSvgByCode } : {}),
+        checklist,
       },
     ),
   };

@@ -137,6 +137,18 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('<th>Fleet</th>');
   });
 
+  it('carries the starters checklist, one table per fleet-as-start', async () => {
+    const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
+      includeEntryList: true,
+    });
+    const html = files![0].html;
+    // Red and Blue share no boat, so each is its own start and its own table.
+    expect(html).toContain('<h3>Red</h3>');
+    expect(html).toContain('<h3>Blue</h3>');
+    expect(html).toContain('<td class="sail">201</td><td class="tick"></td>');
+    expect(html).toContain('Print starters checklist');
+  });
+
   it('publishes the entry list for a split-fleet series with no races', async () => {
     // A split-fleet series has no Standings tab, so the Split Fleets page is
     // the only place publishing is reachable — and before race one the entry
