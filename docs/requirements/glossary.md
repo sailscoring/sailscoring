@@ -77,7 +77,7 @@ be defined are collected at the bottom.
 | ECHO | A progressive, performance-based handicap system administered by Irish Sailing, widely used for cruiser racing in Ireland. Like NHC, ratings adjust race-by-race; often scored alongside IRC (see Dual scoring). |
 | VPRS | Velocity Performance Rating System (Stoneways) — a measurement-based handicap rating system for cruisers. Like IRC it is static, and certificates carry spinnaker and non-spinnaker coefficients; ratings are sourced from per-club listings. |
 | HPH | Howth Performance Handicap — Howth Yacht Club's progressive, performance-based handicap system applied to its keelboat and one-design fleets. An HYC-specific cousin of NHC. |
-| ORC | Offshore Racing Congress — a measurement-based rating system whose certificates publish the boat's VPP-predicted time allowances across a matrix of wind speeds and angles, rather than blending them into one number. A race is scored time-on-time or time-on-distance using a number chosen — or, under PCS, computed — for that race's course and conditions. Static, with annually expiring certificates. See `docs/design/orc-scoring.md`. |
+| ORC | Offshore Racing Congress — a measurement-based rating system whose certificates publish the boat's VPP-predicted time allowances across a matrix of wind speeds and angles, rather than blending them into one number. A race is scored time-on-time or time-on-distance using a number chosen — or, under PCS, computed — for that race's course and conditions. Static, with annually expiring certificates. See `docs/design/orc/orc-scoring.md`. |
 
 ### ORC Concepts
 

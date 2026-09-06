@@ -1089,7 +1089,7 @@ down.)
 
 ---
 
-## Phase 3: ORC Club (now active work — see `orc-scoring.md`)
+## Phase 3: ORC Club (now active work — see `orc/orc-scoring.md`)
 
 ORC assigns each yacht a **Time Allowance (TA)** in seconds per mile. The formula
 is different from TCF multiplication:
@@ -1105,7 +1105,7 @@ while the simpler systems bedded in.
 
 ORC support — including the advanced methods (PCS, constructed courses,
 wind-band scoring) once parked as far horizon — is now active, milestoned
-work: see #429 and [`orc-scoring.md`](orc-scoring.md), which supersedes
+work: see #429 and [`orc/orc-scoring.md`](orc/orc-scoring.md), which supersedes
 this sketch.
 
 ---

@@ -1262,7 +1262,7 @@ full 2026 handicap set — ECHO (Progressive), IRC, VPRS, ORC Club, YTC and PY.
 VPRS has since landed (a `scoringSystem` value behind the `vprs` gate, with
 `lib/vprs-rating.ts` reading `vprs.org/ratings.html`), so with IRC, ECHO and PY
 in production and ORC now active, milestoned work (#429,
-`docs/design/orc-scoring.md`), **YTC is the last missing piece for full DBSC
+`docs/design/orc/orc-scoring.md`), **YTC is the last missing piece for full DBSC
 coverage**.
 
 **YTC** (RYA Yacht Time Correction) is the RYA's national keelboat yardstick
@@ -1315,7 +1315,7 @@ IRC's).
 ### ORC *(graduated to active work)*
 
 ORC support is no longer horizon material: it is active, milestoned work
-(#429, M1–M7 in `docs/design/orc-scoring.md`) targeting the HYC Autumn
+(#429, M1–M7 in `docs/design/orc/orc-scoring.md`) targeting the HYC Autumn
 League 2026 — including the certificate layer, time-on-distance scoring,
 and the advanced methods (PCS, constructed courses, wind-band scoring)
 that were previously parked here as "far horizon".

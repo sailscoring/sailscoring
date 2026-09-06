@@ -452,7 +452,7 @@ is therefore "already supported" vs "genuinely new", not a fresh MVP list.
    gate).*
 2. **ORC Club** — new; time-on-time with a per-race wind band chosen by the
    RC. Needed only if a C0–3 class requests ORC this season. *Now active,
-   milestoned work (#429, `docs/design/orc-scoring.md`).*
+   milestoned work (#429, `docs/design/orc/orc-scoring.md`).*
 3. **YTC** — new; optional substitute for IRC/VPRS. *Still open — see
    horizon.md.*
 4. **Two-vessel single series (Saturday non-Green)** — two finish sheets,
