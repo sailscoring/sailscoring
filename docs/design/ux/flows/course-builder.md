@@ -288,12 +288,11 @@ elsewhere.
 
 ## Open UX questions
 
-1. **Do the libraries belong to the series or the workspace?** A club's laid
-   marks are dated and belong to the event; its fixed marks and its card do
-   not. Series-scoped is the smaller first cut, with the card providing the
-   only cross-series tier — but a club running weekly races will name
-   `Start — 6 Sep`, `Start — 13 Sep`, `Start — 20 Sep` and may want the library
-   to span the season.
+1. ~~**Do the libraries belong to the series or the workspace?**~~ Decided
+   (September 2026): **the series.** The card is the only cross-series tier;
+   a club's fixed marks come back into each series from it. Whether weekly
+   racing wants a season-spanning library is a question for after a season
+   of use.
 2. **How much naming should be automatic?** The proposal auto-fills date and
    race and leaves the qualifier to the scorer. The alternative — structured
    fields (date, race, variant) rather than a name — is more predictable and

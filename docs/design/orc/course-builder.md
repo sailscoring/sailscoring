@@ -122,11 +122,11 @@ Two things want work in `course-cards` rather than the app:
   repo's README prose. Proposal: an optional `courseIdEncoding` on the card
   file describing it, so the app can offer the number without hard-coding one
   club's habit.
-- **The start line.** DBSC's line is fixed — the hut, the committee vessel
-  station — and if the card knew it, a DBSC course would need no scorer-made
-  marks at all. The format has no place for it today. Either add a `startLine`
-  to the marks file, or let the line be a mark like any other with a
-  `placement`.
+- ~~**The start line.**~~ Landed in course-cards 0.2.0: a card carries a
+  `startLine` — a mark like any other, with a position where the line is
+  fixed (DBSC's hut) or a `placement` where it is laid on the day — and every
+  course's sequence begins with it. A DBSC hut course needs no scorer-made
+  marks at all.
 
 ## Data model sketch
 
@@ -180,8 +180,8 @@ keeps its current meaning. These are new persistent fields, so: series file
 version bump, public-export carriage, Drizzle tables, validation schemas.
 
 The first mark of a course's sequence is the start line like any other mark,
-which keeps the sequence uniform; the card's own sequences begin after the
-line, so adopting one prepends it.
+which keeps the sequence uniform; since course-cards 0.2.0 the card's own
+sequences begin with its `startLine`, so adopting one carries it through.
 
 ## Rendering the course
 
@@ -220,11 +220,12 @@ property of a course rather than of the series.
 
 ## Open questions
 
-1. **Series-scoped or workspace-scoped libraries?** Series is the smaller first
-   cut and matches how laid marks are dated. But a club running weekly races
-   accumulates `Start — 6 Sep`, `Start — 13 Sep`, … in every series, and the
-   fixed marks it keeps re-adopting are workspace facts. A workspace tier under
-   the series one is the logo-library shape, and may be the right end state.
+1. ~~**Series-scoped or workspace-scoped libraries?**~~ Decided (September
+   2026): **series-scoped.** It is the smaller first cut and matches how laid
+   marks are dated; the fixed marks a club keeps re-adopting arrive from the
+   card in one click, so the cost of re-adoption is small. A workspace tier
+   under the series one — the logo-library shape — stays a possible end state
+   if weekly-racing clubs find the per-series libraries tiresome.
 2. **What happens to a scored start when its course changes?** Rule 1 says the
    snapshot holds and recompute is explicit. Open: whether the app should
    *notice* — an "out of date" badge on starts whose course moved under them —
