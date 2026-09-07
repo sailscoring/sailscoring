@@ -12,6 +12,7 @@ import e2e specs).
 | `date1904.xlsx` | 1904-date-system workbook (legacy Mac Excel) with a time cell |
 | `racesense-regatta.xlsx` | a RaceSense regatta export in miniature — see below |
 | `racesense-sample-league.xlsx` | the same format at full size — it reproduces the sample club league's own first three races, except that race 3's sheet disagrees with what the app holds. Feeds the `racesense-import` feature shot, not a test |
+| `racesense-ilca7-gold.xlsx` | a real championship export, verbatim: the Gold division of the ILCA 7 Worlds 2026 Elimination Series, six races of 47 boats, written by RaceSense 0.12.9. One half of the fixture pair in `tests/racesense-regatta.test.ts` — the other is the regatta document behind the same regatta's player replay, in `../racesense/` — and the export carrying the hour-out finishing times the workbook parser flags |
 
 ## `racesense-regatta.xlsx`
 

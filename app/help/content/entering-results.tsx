@@ -332,6 +332,26 @@ export default function EnteringResults() {
           committee and you enter them yourself.
         </p>
         <p>
+          You don’t have to wait for the export. If the regatta has a replay on the{' '}
+          <strong className="text-foreground">RaceSense player</strong>{' '}
+          (player.vakaros.com), the app can read the committee’s record straight from
+          it: open the menu beside <strong className="text-foreground">Import from
+          RaceSense</strong>, choose <strong className="text-foreground">Read from the
+          RaceSense player…</strong> (or press{' '}
+          <strong className="text-foreground">Shift+I</strong>), and paste the replay’s
+          address. What comes back is the same record the export is written from — the
+          same starts, OCS calls and finishes to the millisecond — read the same way, so a
+          race read from the player as soon as it finishes comes back{' '}
+          <strong className="text-foreground">Unchanged</strong> when the committee’s
+          export arrives at the end of the day. A race still being sailed is left out and
+          listed at the top of the dialog rather than half-imported. The address is
+          remembered for the series, and the dialog has{' '}
+          <strong className="text-foreground">Read again</strong>, so importing the next
+          race is a couple of clicks. This reads the player’s own data rather than a
+          published service, so if Vakaros ever closes it the app says so and the export
+          is the way back.
+        </p>
+        <p>
           What the app takes from each finisher is her{' '}
           <strong className="text-foreground">elapsed time</strong>, not the time of day the
           export puts beside it. The export carries both, but the elapsed time is what the
