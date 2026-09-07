@@ -60,6 +60,15 @@ export class ConflictApiError extends ApiError {
   }
 }
 
+/** A third-party source the server reads on the user's behalf failed, and
+ *  the message says how in words meant for them. */
+export class UpstreamApiError extends ApiError {
+  constructor(message: string, public readonly source?: string) {
+    super(message, 502);
+    this.name = 'UpstreamApiError';
+  }
+}
+
 export class ValidationApiError extends ApiError {
   constructor(public readonly issues?: unknown) {
     super('invalid', 400);
@@ -160,6 +169,10 @@ export async function apiFetch<T = unknown>(
       );
     }
     if (res.status === 400) throw new ValidationApiError(typeof errBody === 'object' ? errBody?.issues : undefined);
+    if (res.status === 502 && typeof errBody === 'object' && errBody?.error === 'upstream') {
+      const upstream = errBody as { message?: string; source?: string };
+      throw new UpstreamApiError(upstream.message ?? 'upstream', upstream.source);
+    }
     throw new ApiError(`HTTP ${res.status}`, res.status);
   }
 

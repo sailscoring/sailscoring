@@ -50,6 +50,19 @@ export class BadRequestError extends Error {
 }
 
 /**
+ * Thrown when a read of a third-party source fails for a reason the user
+ * should hear in full: the source refused, is down, or answered with
+ * something else. Mapped to 502 with the message intact — it's a sentence
+ * written for the scorer, not a stack trace.
+ */
+export class UpstreamError extends Error {
+  constructor(message: string, public readonly source: string) {
+    super(message);
+    this.name = 'UpstreamError';
+  }
+}
+
+/**
  * Thrown when a write targets a read-only series: archived (#154), an
  * as-published archive (ADR-010), or one whose results have been marked
  * final. Mapped to 423 Locked — deliberately *not* 409, so it doesn't collide
@@ -170,6 +183,9 @@ export function errorToResponse(err: unknown): Response {
   }
   if (err instanceof BadRequestError) {
     return Response.json({ error: 'invalid', issues: err.issues, message: err.message }, { status: 400 });
+  }
+  if (err instanceof UpstreamError) {
+    return Response.json({ error: 'upstream', source: err.source, message: err.message }, { status: 502 });
   }
   if (err instanceof ZodError) {
     return Response.json({ error: 'invalid', issues: err.issues }, { status: 400 });

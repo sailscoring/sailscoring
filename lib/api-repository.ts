@@ -798,6 +798,18 @@ export function loadIrcRatings(): Promise<IrcRatings> {
 }
 
 /**
+ * The regatta behind a RaceSense player URL (or a bare regatta id), read
+ * server-side from Vakaros's Firestore and narrowed to what the import
+ * needs. Gated behind `racesense-import`; a refused or missing read throws
+ * `UpstreamApiError` with a message written for the scorer.
+ */
+export function loadRaceSenseRegatta(
+  ref: string,
+): Promise<import('./racesense-regatta').RaceSenseRegatta> {
+  return apiFetch(`/api/v1/racesense/regatta?ref=${encodeURIComponent(ref)}`);
+}
+
+/**
  * One country + family's active ORC certificates — the ORC handicap source
  * for the Update Handicaps dialog. Server-fetched from the ORC database and
  * cached; gated behind the `orc` feature.
