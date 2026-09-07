@@ -478,7 +478,9 @@ export default function ResultEntryPage({
 
       <RaceStartsSection
         ref={startsRef}
+        seriesId={seriesId}
         raceId={raceId}
+        race={race ? { date: race.date, raceNumber: race.raceNumber } : undefined}
         raceStarts={raceStarts}
         fleets={fleets ?? []}
         fleetById={fleetById}

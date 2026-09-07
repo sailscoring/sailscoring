@@ -27,7 +27,11 @@ export interface RaceStartsSectionHandle {
  * (the card is finish-tab-only, the dialog never was).
  */
 export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
+  seriesId: string;
   raceId: string;
+  /** The race's date and number — what the course picker proposes names
+   *  from when a course is made from here. */
+  race?: { date: string; raceNumber: number };
   raceStarts: RaceStart[];
   fleets: Fleet[];
   fleetById: Map<string, Fleet>;
@@ -36,7 +40,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
   competitors?: Competitor[];
   /** Whether to render the card itself (finish tab of a handicap series). */
   visible: boolean;
-}>(function RaceStartsSection({ raceId, raceStarts, fleets, fleetById, competitors, visible }, ref) {
+}>(function RaceStartsSection({ seriesId, raceId, race, raceStarts, fleets, fleetById, competitors, visible }, ref) {
   const saveRaceStart = useSaveRaceStart();
   const deleteRaceStartMutation = useDeleteRaceStart();
   const [startsExpanded, setStartsExpanded] = useState(false);
@@ -67,6 +71,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
       ...(draft.distanceNm != null ? { distanceNm: draft.distanceNm } : {}),
       ...(draft.orcScoringWind != null ? { orcScoringWind: draft.orcScoringWind } : {}),
       ...(draft.courseLegs?.length ? { courseLegs: draft.courseLegs } : {}),
+      ...(draft.course ? { course: draft.course } : {}),
       ...(draft.orcOption ? { orcOption: draft.orcOption } : {}),
     };
     await saveRaceStart.mutateAsync(raceStart);
@@ -117,6 +122,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                       ).toFixed(2)} NM
                     </span>
                   )}
+                  {s.course && <span>{' · '}{s.course.name}</span>}
                   {' — '}
                   {s.fleetIds.map((id) => fleetById.get(id)?.name ?? id).join(', ')}
                 </p>
@@ -142,6 +148,11 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                     {s.courseLegs?.length ? ` · ${s.courseLegs.length} legs` : ''}
                   </span>
                 )}
+                {s.course && (
+                  <span className="text-xs text-muted-foreground" title="The course this start sailed">
+                    {s.course.name}
+                  </span>
+                )}
                 {s.orcOption && (
                   <span className="font-mono text-xs text-muted-foreground" title="ORC scoring option for this start (overrides the fleet default)">
                     {s.orcOption}
@@ -164,6 +175,8 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
 
       <RaceStartDialog
         mode={startDialogMode}
+        seriesId={seriesId}
+        race={race}
         raceStarts={raceStarts}
         fleets={fleets}
         competitors={competitors}
