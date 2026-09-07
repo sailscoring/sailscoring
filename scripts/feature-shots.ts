@@ -630,6 +630,25 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Course builder — the Courses tab of the seeded ORC sample:
+    // the marks adopted from HYC's card and the two the race committee laid,
+    // the course built from card J2, and the drawing.
+    slug: 'course-builder',
+    group: 'Rating and handicap systems',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'orc');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      const orcSeriesId = new URL(page.url()).pathname.split('/')[2];
+      await page.goto(`${BASE}/series/${orcSeriesId}/courses`);
+      await settle(page);
+      await page.getByRole('heading', { name: 'Courses' }).scrollIntoViewIfNeeded();
+      await shot('course-builder.png', { fullPage: true });
+    },
+  },
+  {
     // Inventory: Starters checklist — the published competitor list as it
     // prints for the committee boat: one table per start, tick boxes. Seen
     // under print media with the print-mode body class set, since that is the

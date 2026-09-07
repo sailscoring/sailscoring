@@ -196,6 +196,47 @@ export default function RatingSystems() {
         </p>
       </Section>
       )}
+      {has('orc') && (
+      <Section id="course-builder" title="Building a constructed course">
+        <HelpShot
+          src="/help/shots/course-builder.webp"
+          alt="The Courses tab: the marks adopted from the club's course card and the ones the race committee laid, the courses built from them, and the drawing of them all."
+          caption="The Courses tab: the mark library, the course library, and the drawing that catches a mistyped coordinate."
+        />
+        <p>
+          Typing a constructed course leg by leg means a calculator and the course
+          card. The <strong className="text-foreground">Courses</strong> tab, which
+          appears when a fleet scores ORC, does the arithmetic instead. It holds two
+          libraries. <strong className="text-foreground">Marks</strong> are positions
+          on the water: the club’s charted marks, adopted from its course card with{' '}
+          <em>Add marks from a card…</em>, and the ones the race committee laid — the
+          line, the finish, the windward mark — which you make with{' '}
+          <em>New mark</em>, either as coordinates typed the way the log is written
+          (degrees and decimal minutes or decimal degrees; the canonical form is
+          echoed underneath as you type) or as a bearing and distance from a mark
+          already there, which is how a laid mark is actually recorded.{' '}
+          <strong className="text-foreground">Courses</strong> are named sequences
+          of those marks: pick a number on the club’s card and the dialog lists
+          exactly the marks the card cannot place itself, or build one by hand.
+          Every dialog draws the marks and legs as you edit, so a dropped digit
+          shows before you save.
+        </p>
+        <p>
+          A race start then <strong className="text-foreground">picks a course</strong>{' '}
+          from the list — most recently used first — and its legs fill in at the one
+          wind direction you give the start, pre-filled where the card lays the
+          course out for a wind. The leg table stays editable: split a leg on a wind
+          shift or nudge a distance and the start is marked <em>legs edited</em>{' '}
+          rather than silently recomputed; <em>Recompute from course</em> says what
+          it will discard first. Each start keeps its own record of the course as it
+          was when picked, drawn on the published page, so correcting a mark later
+          never moves a scored race. Names are how you find things again a
+          fortnight later: the date and race are proposed, and the qualifier that
+          matters — <em>inner</em>, <em>outer</em> — is yours to add. The second
+          course of a day is <em>Swap a mark…</em> on the first.
+        </p>
+      </Section>
+      )}
       <Section id="updating-handicaps" title="Updating handicaps from another series">
         <p>
           For NHC, ECHO, IRC, and PY fleets, the{' '}

@@ -8,7 +8,9 @@ The UX — screens, wireframes, entry affordances, states — is
 [`docs/design/ux/flows/course-builder.md`](../ux/flows/course-builder.md).
 This doc is the model behind it.
 
-**Status: draft.** First pass; expect iteration before any code.
+**Status: implemented** (September 2026, per-series libraries; #437). The
+model below is as built; the open questions at the end record what was
+decided and what is still open.
 
 ---
 

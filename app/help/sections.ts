@@ -74,6 +74,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     sections: [
       { id: 'rating-systems', title: 'Rating systems' },
       { id: 'scoring-orc', title: 'ORC scoring and performance curves', feature: 'orc' },
+      { id: 'course-builder', title: 'Building a constructed course', feature: 'orc' },
       { id: 'updating-handicaps', title: 'Updating handicaps from another series' },
       { id: 'update-handicaps-irc-rating', title: 'Updating IRC TCCs from the rating list', feature: 'irc-rating' },
       { id: 'update-handicaps-orc', title: 'Importing ORC certificates', feature: 'orc' },

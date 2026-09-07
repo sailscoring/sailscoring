@@ -9,7 +9,9 @@ Context: #437 (ORC M7). The model behind these screens — what is stored, what
 is derived, what the card format still owes — is
 [`docs/design/orc/course-builder.md`](../../orc/course-builder.md).
 
-**Status: draft.** Expect iteration before any code.
+**Status: implemented** (September 2026; #437). The screens below are as
+built, with the Courses tab after Races and the `n` / `c` shortcuts for a new
+mark and a new course; open UX questions 2–5 remain open.
 
 ---
 

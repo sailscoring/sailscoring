@@ -300,10 +300,11 @@ methods:
    the `markmate` model, a leg-computation + rendering library consumed by
    the app (course-number lookup filling a start's legs, published course
    rendering), and later a club-facing course-card designer. Raw leg entry
-   (milestone 4) remains the interchange floor either way. The repo shipped
-   its first release; the app integration is designed in
-   [`course-builder.md`](course-builder.md), with its UX in
-   [`../ux/flows/course-builder.md`](../ux/flows/course-builder.md).
+   (milestone 4) remains the interchange floor either way. The repo's 0.3.0
+   release and the app's Courses tab landed in September 2026; the model is
+   [`course-builder.md`](course-builder.md), the UX
+   [`../ux/flows/course-builder.md`](../ux/flows/course-builder.md). The
+   club-facing designer stays post-league.
 
 Milestones 1–4 are the Autumn League critical path; shadow-scoring
 alongside ORC Scorer mid-series is the fallback if 3–4 land late, and

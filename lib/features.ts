@@ -138,7 +138,7 @@ export const FEATURES = {
     // proven against the HYC Autumn League before any wider audience, per the
     // containment model.
     label: 'ORC scoring',
-    helpSectionIds: ['scoring-orc', 'update-handicaps-orc'],
+    helpSectionIds: ['scoring-orc', 'course-builder', 'update-handicaps-orc'],
     // Enabling it drops a worked ORC series (real certificates, every
     // scoring method across its races) into the series list.
     demoSample: 'orc.sailscoring',
