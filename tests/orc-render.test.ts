@@ -4,7 +4,7 @@ import {
   assembleSeriesResultsData,
   renderSeriesHtml,
 } from '@/lib/results-renderer';
-import type { OrcRaceCalc } from '@/lib/types';
+import type { OrcRaceCalc, RaceStartCourse } from '@/lib/types';
 
 /**
  * The published ORC audit trail: every PCS/ToD race table carries the line a
@@ -15,7 +15,7 @@ import type { OrcRaceCalc } from '@/lib/types';
 
 function assemble(options: {
   orc: (id: string) => OrcRaceCalc;
-  raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: Array<{ distanceNm: number; bearingDeg: number; windDirectionDeg: number }> }>;
+  raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: Array<{ distanceNm: number; bearingDeg: number; windDirectionDeg: number }>; course?: RaceStartCourse }>;
 }) {
   const scores = new Map([
     ['c1', { points: 1, place: 1, rank: 1, resultCode: null, finishTime: '15:00:00', tcfApplied: options.orc('c1').todApplied, elapsedTime: 3600, correctedTime: 3591, orc: options.orc('c1') }],
@@ -117,6 +117,53 @@ describe('published ORC transparency', () => {
     expect(html).toContain('8.11 NM');
     expect(html).toContain('2 legs');
     expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg;)');
+    // No course was picked, so there is no drawing.
+    expect(html).not.toContain('orc-course-drawing');
+  });
+
+  it('a constructed course picked from the library is drawn on the page, inertly', () => {
+    const calc = (id: string): OrcRaceCalc => ({
+      todApplied: id === 'c1' ? 600 : 620,
+      scratchTod: 600,
+      distanceNm: 1.08,
+      impliedWind: 18.06,
+      scoringWind: 18.06,
+      courseModel: 'CC',
+    });
+    const start = { lat: 53.4055, lng: -6.0675 };
+    const course: RaceStartCourse = {
+      courseId: 'c1',
+      name: 'W/L — 12 Sep R1',
+      windDirectionDeg: 190,
+      waypoints: [
+        { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng },
+        { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' },
+        { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng, side: 'port' },
+      ],
+    };
+    const html = renderSeriesHtml(
+      assemble({
+        orc: calc,
+        raceStarts: [{
+          raceId: 'r1',
+          fleetIds: ['f1'],
+          startTime: '14:00:00',
+          courseLegs: [
+            { distanceNm: 0.54, bearingDeg: 190, windDirectionDeg: 190 },
+            { distanceNm: 0.54, bearingDeg: 10, windDirectionDeg: 190 },
+          ],
+          course,
+        }],
+      }),
+    );
+    const from = html.indexOf('<div class="orc-course-drawing"');
+    expect(from).toBeGreaterThan(-1);
+    const block = html.slice(from, html.indexOf('</div>', from));
+    expect(block).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
+    expect(block).toContain('aria-label="Course W/L — 12 Sep R1"');
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 190° 0\.54 NM/);
+    expect(block).toContain('>Z</text>');
+    expect(block).not.toMatch(/<script|<style|<image|href=/);
   });
 
   it('a plain time-on-distance race states the correction ingredients without a scoring wind', () => {

@@ -24,8 +24,11 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { destination, parseCourseCardFile, parseMarksFile } from '@sailscoring/course-cards';
+
+import { courseFromCard, legsForStart, matchCardCourse, resolveCourse, snapshotOfCourse } from '../lib/course-geometry';
 import { scorePcsRace, type PcsAllowances, type PcsCourse } from '../lib/orc-pcs';
-import type { Competitor, Finish, CompetitorFieldKey, PrimaryPersonLabel } from '../lib/types';
+import type { Competitor, Finish, CompetitorFieldKey, PrimaryPersonLabel, RaceStartCourse, SeriesCourse, SeriesMark } from '../lib/types';
 import {
   DEFAULT_VOCABULARY,
   QUALIFYING_COLOR_SETS,
@@ -127,6 +130,8 @@ interface FileRaceStart {
    *  legs, the race's scoring option, and the RC scoring-wind override. */
   distanceNm?: number;
   courseLegs?: { distanceNm: number; bearingDeg: number; windDirectionDeg: number }[];
+  /** v45+ the library course those legs came from, as a snapshot. */
+  course?: RaceStartCourse;
   orcOption?: string;
   orcScoringWind?: number;
 }
@@ -194,6 +199,9 @@ interface SeriesFile {
   competitors: FileCompetitor[];
   races: FileRace[];
   subSeries?: FileSubSeries[];
+  /** v45+ the course library (the ORC sample). */
+  marks?: Omit<SeriesMark, 'seriesId'>[];
+  courses?: Omit<SeriesCourse, 'seriesId'>[];
   /** v23+ split-fleet block (the championship sample). */
   splitFleets?: { config: SplitFleetConfig; rounds: FileSplitRound[] };
 }
@@ -1392,15 +1400,71 @@ const ORC_SAMPLE_BOATS: OrcSampleBoat[] = [
 ];
 
 /** The ORC Race Management Guide's sample constructed course, 8.11 NM. */
-const ORC_SAMPLE_LEGS = [
-  { distanceNm: 2.09, bearingDeg: 162, windDirectionDeg: 160 },
-  { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 155 },
-  { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 155 },
-  { distanceNm: 1.89, bearingDeg: 161, windDirectionDeg: 160 },
-  { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 160 },
-  { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 160 },
-  { distanceNm: 0.19, bearingDeg: 316, windDirectionDeg: 160 },
-];
+/**
+ * The constructed-course race of the ORC sample is sailed over a course
+ * from HYC's Autumn League 2026 offshore card: the club's charted marks
+ * adopted from the card, the line and the laid windward mark logged the
+ * way a race officer logs them, and the card's course for a 160° wind.
+ * Built with the same library functions the Courses tab uses, on stable
+ * ids so the sample file is deterministic.
+ */
+const ORC_SAMPLE_CARD = { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'J2', release: '0.3.0' };
+const ORC_SAMPLE_WIND = 160;
+
+function buildOrcCourseLibrary(seriesId: string): {
+  marks: SeriesMark[];
+  course: SeriesCourse;
+  legs: { distanceNm: number; bearingDeg: number; windDirectionDeg: number }[];
+  snapshot: RaceStartCourse;
+} {
+  const fixtures = join(ROOT, 'tests', 'fixtures', 'course-cards', 'hyc', 'al-2026');
+  const marksFile = parseMarksFile(JSON.parse(readFileSync(join(fixtures, 'marks.json'), 'utf8')));
+  const cardFile = parseCourseCardFile(JSON.parse(readFileSync(join(fixtures, 'offshore.json'), 'utf8')));
+  const createdAt = Date.parse(EXPORTED_AT);
+  // The card's charted marks, on ids derived from the card's letters.
+  const adopted: SeriesMark[] = marksFile.marks
+    .filter((m) => m.position)
+    .map((m) => ({
+      id: `om-card-${m.id.toLowerCase()}`,
+      seriesId,
+      name: m.name ? `${m.id} ${m.name}` : m.id,
+      lat: m.position!.lat,
+      lng: m.position!.lng,
+      card: { set: ORC_SAMPLE_CARD.set, markId: m.id, release: ORC_SAMPLE_CARD.release },
+      ...(m.shape ? { shape: m.shape } : {}),
+      ...(m.color ? { color: m.color } : {}),
+      createdAt,
+    }));
+  // The line north of Ireland's Eye, Z a mile upwind of it on 160°.
+  const line = { lat: 53.4135, lng: -6.0605 };
+  const z = destination(line, ORC_SAMPLE_WIND, 1852);
+  const laid: SeriesMark[] = [
+    { id: 'om-line', seriesId, name: 'Start — 26 Sep', lat: line.lat, lng: line.lng, createdAt: createdAt + 1 },
+    {
+      id: 'om-z', seriesId, name: 'Z — 26 Sep R3', lat: z.lat, lng: z.lng,
+      from: { markId: 'om-line', bearingDeg: ORC_SAMPLE_WIND, distanceM: 1852 }, createdAt: createdAt + 2,
+    },
+  ];
+  const marks = [...adopted, ...laid];
+  // The 2026 draft cards have no start line yet, so the course begins at
+  // the first mark the card prints (Z); the line is prepended here as the
+  // sailing instructions will.
+  const entries = matchCardCourse(cardFile, marksFile, ORC_SAMPLE_CARD.courseId, ORC_SAMPLE_CARD.set, marks, { Z: 'om-z' });
+  const fromCard = courseFromCard(entries, ORC_SAMPLE_CARD, ORC_SAMPLE_CARD.courseId, seriesId, `${ORC_SAMPLE_CARD.courseId} — 26 Sep R3`, createdAt + 3);
+  const course: SeriesCourse = {
+    ...fromCard,
+    id: 'oco-j2',
+    marks: [{ markId: 'om-line' }, ...fromCard.marks, { markId: 'om-line', side: 'port' }],
+    modified: true,
+  };
+  const marksById = new Map(marks.map((m) => [m.id, m]));
+  const legs = legsForStart(resolveCourse(course.marks, marksById).legs, ORC_SAMPLE_WIND);
+  const snapshot = snapshotOfCourse(course, marksById, ORC_SAMPLE_WIND);
+  return { marks, course, legs, snapshot };
+}
+
+const ORC_LIBRARY = buildOrcCourseLibrary('sample-orc');
+const ORC_SAMPLE_LEGS = ORC_LIBRARY.legs;
 
 interface OrcRaceSpec {
   raceNumber: number;
@@ -1532,7 +1596,7 @@ function buildOrcSample(): SeriesFile {
       fleetIds: [ORC_FLEET, IRC_FLEET],
       startTime: hms(GUN),
       ...(spec.distanceNm != null ? { distanceNm: spec.distanceNm } : {}),
-      ...(spec.legs ? { courseLegs: spec.legs } : {}),
+      ...(spec.legs ? { courseLegs: spec.legs, course: ORC_LIBRARY.snapshot } : {}),
       ...(spec.orcOption ? { orcOption: spec.orcOption } : {}),
       ...(spec.orcScoringWind != null ? { orcScoringWind: spec.orcScoringWind } : {}),
     }];
@@ -1541,7 +1605,7 @@ function buildOrcSample(): SeriesFile {
   });
 
   return {
-    formatVersion: 40,
+    formatVersion: 45,
     seriesId: 'sample-orc',
     exportedAt: EXPORTED_AT,
     series: {
@@ -1567,6 +1631,8 @@ function buildOrcSample(): SeriesFile {
     fleets,
     competitors,
     races,
+    marks: ORC_LIBRARY.marks.map(({ seriesId: _s, ...m }) => m),
+    courses: [(({ seriesId: _s, ...c }) => c)(ORC_LIBRARY.course)],
   };
 }
 

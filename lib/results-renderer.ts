@@ -1,4 +1,6 @@
-import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, SubdivisionAxis } from './types';
+import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
+import { renderCourseSvg } from '@sailscoring/course-cards';
+import { drawnSnapshot } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
 import { elapsedSecondsOf } from './elapsed-time';
@@ -199,6 +201,10 @@ export interface OrcHeaderData {
   courseModel?: string;
   /** Constructed-course legs, published as the course record. */
   legs?: OrcCourseLeg[];
+  /** The course drawn: marks at their positions and the legs over them, as
+   *  the start recorded it — one inert SVG element, nothing fetched. A
+   *  competitor checking their track sees the picture the scorer checked. */
+  courseSvg?: string;
 }
 
 export interface NhcHeaderData {
@@ -1846,7 +1852,10 @@ function renderRaceTable(
               .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;)`)
               .join(' &middot; ')}</p>`
           : '';
-        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}\n`;
+        const drawing = h.courseSvg
+          ? `\n<div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>`
+          : '';
+        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}${drawing}\n`;
       })()
     : '';
   const echoHeaders = hasEchoExplain
@@ -2243,7 +2252,7 @@ export function assembleSeriesResultsData(
     /** Named subdivision axes; one prize-giving column each. */
     subdivisionAxes?: SubdivisionAxis[];
     /** RaceStart records for all races — used to find the gun time for this fleet */
-    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: OrcCourseLeg[] }>;
+    raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: OrcCourseLeg[]; course?: RaceStartCourse }>;
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
@@ -2322,6 +2331,13 @@ export function assembleSeriesResultsData(
           ...(firstOrc.courseModel ? { courseModel: firstOrc.courseModel } : {}),
           ...(firstOrc.courseModel === 'CC' && coveringStart?.courseLegs?.length
             ? { legs: coveringStart.courseLegs }
+            : {}),
+          ...(firstOrc.courseModel === 'CC' && coveringStart?.course
+            ? (() => {
+                const drawn = drawnSnapshot(coveringStart.course);
+                const svg = renderCourseSvg(drawn.marks, drawn.course, { width: 480, title: `Course ${coveringStart.course.name}` });
+                return svg ? { courseSvg: svg } : {};
+              })()
             : {}),
         };
       }

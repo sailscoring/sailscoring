@@ -69,6 +69,7 @@ function load(name: string) {
       // ORC race facts (the ORC sample): course, option, RC scoring wind.
       ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
       ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+      ...(s.course ? { course: s.course } : {}),
       ...(s.orcOption ? { orcOption: s.orcOption } : {}),
       ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
     })),
@@ -224,7 +225,7 @@ describe('sample series files', () => {
   it('orc: every method scores through the per-race option, PCS numbers coherent', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('orc.sailscoring');
 
-    expect(file.formatVersion).toBe(40);
+    expect(file.formatVersion).toBe(45);
     const orcFleet = fleets.find((f) => f.scoringSystem === 'orc')!;
     const ircFleet = fleets.find((f) => f.scoringSystem === 'irc')!;
     expect(orcFleet).toBeDefined();
@@ -257,7 +258,15 @@ describe('sample series files', () => {
     const r3 = optionOf('or-3');
     expect(r3?.option).toBe('CC');
     expect(r3?.courseModel).toBe('CC');
-    expect(r3?.distanceNm).toBeCloseTo(8.11, 2);
+    // The constructed course is HYC's Autumn League 2026 offshore J2 over
+    // the sample's library: the line, a laid Z, the card's charted marks.
+    expect(r3?.distanceNm).toBeCloseTo(8.81, 2);
+    const cc = raceStarts.find((s) => s.orcOption === 'CC')!;
+    expect(cc.course?.name).toBe('J2 — 26 Sep R3');
+    expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['Start', 'Z', 'O', 'U', 'K', 'H', 'K', 'Start']);
+    expect(cc.course?.windDirectionDeg).toBe(160);
+    expect(file.marks).toHaveLength(23);
+    expect(file.courses?.map((c) => c.card?.courseId)).toEqual(['J2']);
     // Implied winds recover the generation's fresh-breeze targets.
     expect(r3?.scoringWind).toBeGreaterThan(16);
     expect(r3?.scoringWind).toBeLessThan(21);

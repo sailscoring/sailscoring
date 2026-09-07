@@ -1,5 +1,5 @@
 {
-  "formatVersion": 40,
+  "formatVersion": 45,
   "seriesId": "sample-orc",
   "exportedAt": "2026-01-01T00:00:00.000Z",
   "series": {
@@ -4483,41 +4483,108 @@
           "startTime": "10:35:00",
           "courseLegs": [
             {
-              "distanceNm": 2.09,
-              "bearingDeg": 162,
+              "distanceNm": 1,
+              "bearingDeg": 160,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 0.06,
-              "bearingDeg": 60,
-              "windDirectionDeg": 155
-            },
-            {
-              "distanceNm": 1.91,
-              "bearingDeg": 340,
-              "windDirectionDeg": 155
-            },
-            {
-              "distanceNm": 1.89,
-              "bearingDeg": 161,
+              "distanceNm": 1.565,
+              "bearingDeg": 349.8,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 0.06,
-              "bearingDeg": 60,
+              "distanceNm": 1.185,
+              "bearingDeg": 313.2,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 1.91,
-              "bearingDeg": 340,
+              "distanceNm": 1.964,
+              "bearingDeg": 145.6,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 0.19,
-              "bearingDeg": 316,
+              "distanceNm": 1.361,
+              "bearingDeg": 324.7,
+              "windDirectionDeg": 160
+            },
+            {
+              "distanceNm": 1.361,
+              "bearingDeg": 144.7,
+              "windDirectionDeg": 160
+            },
+            {
+              "distanceNm": 0.375,
+              "bearingDeg": 304.1,
               "windDirectionDeg": 160
             }
           ],
+          "course": {
+            "courseId": "oco-j2",
+            "name": "J2 — 26 Sep R3",
+            "waypoints": [
+              {
+                "markId": "om-line",
+                "label": "Start",
+                "lat": 53.4135,
+                "lng": -6.0605
+              },
+              {
+                "markId": "om-z",
+                "label": "Z",
+                "lat": 53.39784862823774,
+                "lng": -6.050946211068322,
+                "side": "port"
+              },
+              {
+                "markId": "om-card-o",
+                "label": "O",
+                "lat": 53.4235,
+                "lng": -6.058667,
+                "side": "port",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-u",
+                "label": "U",
+                "lat": 53.437,
+                "lng": -6.082833,
+                "side": "port",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-k",
+                "label": "K",
+                "lat": 53.41,
+                "lng": -6.051833,
+                "side": "starboard",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-h",
+                "label": "H",
+                "lat": 53.4285,
+                "lng": -6.073833,
+                "side": "port",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-k",
+                "label": "K",
+                "lat": 53.41,
+                "lng": -6.051833,
+                "side": "starboard",
+                "fixed": true
+              },
+              {
+                "markId": "om-line",
+                "label": "Start",
+                "lat": 53.4135,
+                "lng": -6.0605,
+                "side": "port"
+              }
+            ],
+            "windDirectionDeg": 160
+          },
           "orcOption": "CC"
         }
       ],
@@ -4526,7 +4593,7 @@
           "id": "ofin-3-oc-07",
           "competitorId": "oc-07",
           "sortOrder": 1,
-          "finishTime": "11:52:33",
+          "finishTime": "11:56:23",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4536,17 +4603,7 @@
           "id": "ofin-3-oc-08",
           "competitorId": "oc-08",
           "sortOrder": 2,
-          "finishTime": "11:57:30",
-          "resultCode": null,
-          "startPresent": true,
-          "penaltyCode": null,
-          "penaltyOverride": null
-        },
-        {
-          "id": "ofin-3-oc-04",
-          "competitorId": "oc-04",
-          "sortOrder": 3,
-          "finishTime": "11:58:34",
+          "finishTime": "12:02:12",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4555,8 +4612,18 @@
         {
           "id": "ofin-3-oc-02",
           "competitorId": "oc-02",
+          "sortOrder": 3,
+          "finishTime": "12:02:52",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-3-oc-04",
+          "competitorId": "oc-04",
           "sortOrder": 4,
-          "finishTime": "11:58:55",
+          "finishTime": "12:03:23",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4566,7 +4633,7 @@
           "id": "ofin-3-oc-03",
           "competitorId": "oc-03",
           "sortOrder": 5,
-          "finishTime": "12:02:04",
+          "finishTime": "12:07:05",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4576,7 +4643,7 @@
           "id": "ofin-3-oc-01",
           "competitorId": "oc-01",
           "sortOrder": 6,
-          "finishTime": "12:02:32",
+          "finishTime": "12:07:27",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4586,7 +4653,7 @@
           "id": "ofin-3-oc-05",
           "competitorId": "oc-05",
           "sortOrder": 7,
-          "finishTime": "12:07:37",
+          "finishTime": "12:12:52",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4701,6 +4768,368 @@
           "penaltyOverride": null
         }
       ]
+    }
+  ],
+  "marks": [
+    {
+      "id": "om-card-a",
+      "name": "A Apex",
+      "lat": 53.446,
+      "lng": -6.054333,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "A",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-b",
+      "name": "B Balscadden",
+      "lat": 53.388333,
+      "lng": -6.054333,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "B",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "orange",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-c",
+      "name": "C Cush",
+      "lat": 53.410167,
+      "lng": -6.090833,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "C",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-d",
+      "name": "D Dunbo",
+      "lat": 53.412167,
+      "lng": -6.064167,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "D",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "yellow",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-e",
+      "name": "E East",
+      "lat": 53.433333,
+      "lng": -6.036667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "E",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-g",
+      "name": "G Garbh",
+      "lat": 53.416667,
+      "lng": -6.038667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "G",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-h",
+      "name": "H Hub",
+      "lat": 53.4285,
+      "lng": -6.073833,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "H",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-i",
+      "name": "I Island",
+      "lat": 53.411667,
+      "lng": -6.072667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "I",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-j",
+      "name": "J Thulla",
+      "lat": 53.396667,
+      "lng": -6.056667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "J",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-k",
+      "name": "K Stack",
+      "lat": 53.41,
+      "lng": -6.051833,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "K",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-m",
+      "name": "M Malahide",
+      "lat": 53.453833,
+      "lng": -6.093167,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "M",
+        "release": "0.3.0"
+      },
+      "shape": "inflatable",
+      "color": "yellow",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-o",
+      "name": "O Osprey",
+      "lat": 53.4235,
+      "lng": -6.058667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "O",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "orange",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-p",
+      "name": "P Portmarnock",
+      "lat": 53.427167,
+      "lng": -6.096667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "P",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-q",
+      "name": "Q Rowan Rocks",
+      "lat": 53.398,
+      "lng": -6.053667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "Q",
+        "release": "0.3.0"
+      },
+      "shape": "iala",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-r",
+      "name": "R South Rowan",
+      "lat": 53.396333,
+      "lng": -6.064667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "R",
+        "release": "0.3.0"
+      },
+      "shape": "iala",
+      "color": "green",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-s",
+      "name": "S Spit",
+      "lat": 53.405833,
+      "lng": -6.074667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "S",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-t",
+      "name": "T Talbot",
+      "lat": 53.455167,
+      "lng": -6.021667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "T",
+        "release": "0.3.0"
+      },
+      "shape": "inflatable",
+      "color": "yellow",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-u",
+      "name": "U Ulysses",
+      "lat": 53.437,
+      "lng": -6.082833,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "U",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "orange",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-v",
+      "name": "V Viceroy",
+      "lat": 53.418667,
+      "lng": -6.079667,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "V",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "orange",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-w",
+      "name": "W West",
+      "lat": 53.416,
+      "lng": -6.101167,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "W",
+        "release": "0.3.0"
+      },
+      "shape": "conical",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-x",
+      "name": "X Xebec",
+      "lat": 53.402,
+      "lng": -6.072167,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "X",
+        "release": "0.3.0"
+      },
+      "shape": "barrel",
+      "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-line",
+      "name": "Start — 26 Sep",
+      "lat": 53.4135,
+      "lng": -6.0605,
+      "createdAt": 1767225600001
+    },
+    {
+      "id": "om-z",
+      "name": "Z — 26 Sep R3",
+      "lat": 53.39784862823774,
+      "lng": -6.050946211068322,
+      "from": {
+        "markId": "om-line",
+        "bearingDeg": 160,
+        "distanceM": 1852
+      },
+      "createdAt": 1767225600002
+    }
+  ],
+  "courses": [
+    {
+      "id": "oco-j2",
+      "name": "J2 — 26 Sep R3",
+      "card": {
+        "set": "hyc/al-2026",
+        "cardId": "offshore",
+        "courseId": "J2",
+        "release": "0.3.0"
+      },
+      "marks": [
+        {
+          "markId": "om-line"
+        },
+        {
+          "markId": "om-z",
+          "side": "port"
+        },
+        {
+          "markId": "om-card-o",
+          "side": "port"
+        },
+        {
+          "markId": "om-card-u",
+          "side": "port"
+        },
+        {
+          "markId": "om-card-k",
+          "side": "starboard"
+        },
+        {
+          "markId": "om-card-h",
+          "side": "port"
+        },
+        {
+          "markId": "om-card-k",
+          "side": "starboard"
+        },
+        {
+          "markId": "om-line",
+          "side": "port"
+        }
+      ],
+      "createdAt": 1767225600003,
+      "modified": true
     }
   ]
 }
