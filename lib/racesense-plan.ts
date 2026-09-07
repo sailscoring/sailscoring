@@ -540,6 +540,7 @@ function changesBetween(
  *  against a race there is nothing wrong with. */
 const WORKBOOK_KINDS = new Set([
   'app-version', 'summary-mismatch', 'unknown-sheet', 'duplicate-race', 'finish-time-drift',
+  'player-read', 'race-skipped',
 ]);
 
 export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {

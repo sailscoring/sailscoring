@@ -90,6 +90,7 @@ function sourceRace(overrides: Partial<RaceSenseRace> & { number: number }): Rac
 function workbook(races: RaceSenseRace[], anomalies: RaceSenseWorkbook['anomalies'] = []): RaceSenseWorkbook {
   return {
     regatta: 'ILCA 7 Worlds',
+    regattaId: null,
     division: 'Yellow',
     appVersion: '0.10.11 (1)',
     regattaStartDate: '2026-08-23',

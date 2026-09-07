@@ -122,6 +122,7 @@ const FINISHES_COLUMNS = new Set([
 const KEY_ROWS = new Set([
   'RaceSense Event Report',
   'Regatta',
+  'Regatta ID',
   'Division',
   'Regatta Start Date',
   'Starts',
@@ -241,6 +242,11 @@ export interface RaceSenseSummaryEntry {
 
 export interface RaceSenseWorkbook {
   regatta: string | null;
+  /** RaceSense's own id for the regatta — the second path segment of a
+   *  player.vakaros.com watch URL. Championship exports print it on every
+   *  sheet; the club-series export this parser was first written against
+   *  predates it. What ties a workbook to the document behind the player. */
+  regattaId: string | null;
   division: string | null;
   appVersion: string | null;
   regattaStartDate: string | null;
@@ -579,6 +585,25 @@ function parseFinishes(ctx: Ctx, rows: string[][], headerAt: number): RaceSenseF
   return finishes;
 }
 
+/**
+ * Say so when a race started under a signal whose OCS handling isn't
+ * settled. Shared with the player-document reading, which sees the same
+ * signals spelled differently and normalises them to the export's spelling
+ * before asking.
+ */
+export function checkPreparatorySignal(
+  ctx: { sheet: string; anomalies: RaceSenseAnomaly[] },
+  preparatorySignal: string | null,
+): void {
+  if (preparatorySignal === null || ROUTINE_SIGNALS.has(preparatorySignal)) return;
+  const mapped = PREPARATORY_SIGNAL_CODES[preparatorySignal];
+  flag(ctx, 'warning', 'preparatory-signal',
+    mapped
+      ? `Started under "${preparatorySignal}", so an uncleared OCS is being read as ${mapped}. Only P has been seen in a real export — check this is what the committee meant.`
+      : `Started under "${preparatorySignal}", which this import has no mapping for. Any uncleared OCS in this race needs its code set by hand.`,
+    { where: 'Preparatory Signal Used', value: preparatorySignal });
+}
+
 function parseRaceSheet(sheet: WorkbookSheet, number: number, ctx: Ctx): RaceSenseRace {
   const rows = sheet.rows;
   const keys = keyValues(rows);
@@ -597,14 +622,7 @@ function parseRaceSheet(sheet: WorkbookSheet, number: number, ctx: Ctx): RaceSen
   const finishesAt = rows.findIndex((r) => cell(r, 0) === 'Finishes');
 
   const preparatorySignal = valueOrNull(keys.get('Preparatory Signal Used') ?? '');
-  if (preparatorySignal !== null && !ROUTINE_SIGNALS.has(preparatorySignal)) {
-    const mapped = PREPARATORY_SIGNAL_CODES[preparatorySignal];
-    flag(ctx, 'warning', 'preparatory-signal',
-      mapped
-        ? `Started under "${preparatorySignal}", so an uncleared OCS is being read as ${mapped}. Only P has been seen in a real export — check this is what the committee meant.`
-        : `Started under "${preparatorySignal}", which this import has no mapping for. Any uncleared OCS in this race needs its code set by hand.`,
-      { where: 'Preparatory Signal Used', value: preparatorySignal });
-  }
+  checkPreparatorySignal(ctx, preparatorySignal);
 
   const startNumber = valueOrNull(keys.get('Start #') ?? '');
   if (startNumber !== null && startNumber !== '1') {
@@ -849,6 +867,7 @@ export function parseRaceSenseWorkbook(sheets: WorkbookSheet[]): RaceSenseWorkbo
 
   return {
     regatta: valueOrNull(keys.get('Regatta') ?? ''),
+    regattaId: valueOrNull(keys.get('Regatta ID') ?? ''),
     division: valueOrNull(keys.get('Division') ?? ''),
     appVersion: version,
     regattaStartDate: valueOrNull(keys.get('Regatta Start Date') ?? ''),
