@@ -18,6 +18,7 @@ import { useSpectatorView } from '@/hooks/use-spectator';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
+import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { Button } from '@/components/ui/button';
 import { SeriesNotFound } from '@/components/series-not-found';
 
@@ -39,6 +40,11 @@ const splitFleetsTab = {
   chord: 'q',
   href: (id: string) => `/series/${id}/split-fleets`,
 };
+
+// The course library behind ORC constructed courses: marks and courses a
+// start picks from. ORC's extra work, so it appears only when a fleet in
+// the series scores ORC, and nothing of it leaks into any other series.
+const coursesTab = { label: 'Courses', chord: 'o', href: (id: string) => `/series/${id}/courses` };
 
 // What a spectator view shows (#475): the entry list, the racing (down to
 // each race's finish sheet, read-only since #486), the standings, and the
@@ -86,6 +92,10 @@ export default function SeriesLayout({
   const { data: sfState } = useSplitFleetState(id, { enabled: showSplitFleets });
   const isSplitFleetSeries = !!sfState?.config;
   const asPublished = series?.asPublished ?? false;
+  // The Courses tab needs the fleets to know whether any scores ORC. A
+  // spectator view has no workspace behind it, so the query is not asked.
+  const { data: fleetsForTabs } = useFleetsBySeries(id, { enabled: has('orc') && !isSpectator });
+  const showCourses = has('orc') && (fleetsForTabs ?? []).some((f) => f.scoringSystem === 'orc');
   // Prizes slots in after Standings — allocation reads the standings, so the
   // tabs follow the scorer's flow. Split Fleets leads the bar — on a
   // championship series it IS the workflow (and the standings view), so the
@@ -98,6 +108,11 @@ export default function SeriesLayout({
     : [...baseTabs];
   if (showSplitFleets && isSplitFleetSeries) {
     gatedTabs.unshift(splitFleetsTab);
+  }
+  // Courses sits after Races: the course library is race data, what the
+  // starts were scored over, and a scorer reaches it from a race.
+  if (showCourses) {
+    gatedTabs.splice(gatedTabs.findIndex((t) => t.label === 'Races') + 1, 0, coursesTab);
   }
   const visibleTabs = isSplitFleetSeries
     ? gatedTabs.filter((t) => t.label !== 'Standings')
