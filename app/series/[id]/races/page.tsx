@@ -521,6 +521,14 @@ export default function RacesPage({
       when: () => raceSenseEnabled,
       handler: () => raceSenseRef.current?.trigger(),
     },
+    {
+      key: 'I',
+      displayKeys: ['Shift+I'],
+      description: 'Read finishes from the RaceSense player',
+      section: 'Races',
+      when: () => raceSenseEnabled,
+      handler: () => raceSenseRef.current?.triggerPlayer(),
+    },
   ]);
   // Row-level keys bound on the focused race row itself.
   useShortcutHelp([
@@ -808,15 +816,38 @@ export default function RacesPage({
           {raceSenseEnabled && (
             <RaceSenseImport
               ref={raceSenseRef}
+              seriesId={seriesId}
               races={raceSenseRaces}
               fleets={fleets ?? []}
               competitors={competitors ?? []}
               finishes={allFinishes}
               onConfirm={applyRaceSenseImport}
               trigger={
-                <Button variant="outline" onClick={() => raceSenseRef.current?.trigger()}>
-                  Import from RaceSense
-                </Button>
+                <div className="inline-flex">
+                  <Button
+                    variant="outline"
+                    className="rounded-r-none"
+                    onClick={() => raceSenseRef.current?.trigger()}
+                  >
+                    Import from RaceSense
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        aria-label="More RaceSense import options"
+                        className="rounded-l-none border-l-0 px-2"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => raceSenseRef.current?.triggerPlayer()}>
+                        Read from the RaceSense player…
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               }
             />
           )}

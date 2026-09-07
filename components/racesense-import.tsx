@@ -12,7 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ImportFileErrorDialog } from '@/components/import-file-dialogs';
+import { ApiError, UpstreamApiError, ValidationApiError } from '@/lib/api-client';
+import { loadRaceSenseRegatta } from '@/lib/api-repository';
 import { parseWorkbookFile } from '@/lib/import-table';
 import type { Candidate } from '@/lib/finish-sheet-csv';
 import {
@@ -21,6 +25,12 @@ import {
   type RaceMatchState,
   type SeriesRace,
 } from '@/lib/racesense-plan';
+import {
+  parseRaceSensePlayerRef,
+  pickDivision,
+  regattaToWorkbook,
+  type RaceSenseRegatta,
+} from '@/lib/racesense-regatta';
 import {
   groupAnomalies,
   parseRaceSenseWorkbook,
@@ -33,6 +43,41 @@ const ACCEPT =
 
 const NOT_RACESENSE =
   "This workbook has no RaceSense race sheets in it. A regatta export has a sheet per race, named “Race 1”, “Race 2” and so on.";
+
+const NOT_A_PLAYER_URL =
+  'That isn’t a RaceSense player URL. It looks like https://player.vakaros.com/watch/<regatta id>/<division> — the address bar of the replay, or the Regatta ID printed on the committee’s export.';
+
+/** Where the last player URL read into a series is kept, per series, so
+ *  that reading again after the next race is one click. Browser-local: a
+ *  convenience, not a record. */
+const playerUrlKey = (seriesId: string) => `racesense-player-url:${seriesId}`;
+
+function rememberedPlayerUrl(seriesId: string): string {
+  try {
+    return window.localStorage.getItem(playerUrlKey(seriesId)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function rememberPlayerUrl(seriesId: string, url: string): void {
+  try {
+    window.localStorage.setItem(playerUrlKey(seriesId), url);
+  } catch {
+    // Nothing to do: the scorer pastes it again next time.
+  }
+}
+
+/** What to tell the scorer when the player read fails. The server writes
+ *  the sentence for a refused or missing regatta; the rest is ours. */
+function describeReadFailure(err: unknown): string {
+  if (err instanceof UpstreamApiError) return err.message;
+  if (err instanceof ValidationApiError) return NOT_A_PLAYER_URL;
+  if (err instanceof ApiError && err.status === 403) {
+    return 'Reading from the RaceSense player isn’t enabled for this workspace.';
+  }
+  return `Couldn’t read the regatta: ${err instanceof Error ? err.message : String(err)}.`;
+}
 
 /** Which fleet the workbook's division sailed in. `''` means the series has
  *  no fleets to choose between, or the scorer wants every race considered. */
@@ -52,14 +97,24 @@ const STATE_VARIANT: Record<RaceMatchState, 'default' | 'secondary' | 'destructi
   unmatched: 'outline',
 };
 
+/** Where the workbook came from. A player read keeps the regatta so the
+ *  scorer can switch division without reading again, and the URL so they
+ *  can read again without pasting it. */
+type PlayerSource = { kind: 'player'; ref: string; regatta: RaceSenseRegatta; division: string };
+
+type Source = { kind: 'file' } | PlayerSource;
+
 type Flow =
   | { step: 'idle' }
   | { step: 'fileError'; message: string }
-  | { step: 'plan'; workbook: RaceSenseWorkbook };
+  | { step: 'player'; ref: string; error: string | null; reading: boolean }
+  | { step: 'plan'; workbook: RaceSenseWorkbook; source: Source };
 
 export interface RaceSenseImportHandle {
   /** Programmatically open the file picker. */
   trigger: () => void;
+  /** Programmatically open the player-URL prompt. */
+  triggerPlayer: () => void;
 }
 
 /**
@@ -74,9 +129,16 @@ export interface RaceSenseImportHandle {
  * "Unchanged", which is a free confirmation that the app and the committee's
  * device agree about them.
  *
+ * The workbook can come from the committee's export or straight from the
+ * regatta document behind its replay on the RaceSense player — the same
+ * plan either way, which is what lets a race read from the player the
+ * moment it finishes be confirmed `unchanged` by the export at the end of
+ * the day.
+ *
  * `planRaceSenseImport` does the thinking; this renders it.
  */
 export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
+  seriesId: string;
   races: SeriesRace[];
   fleets: Fleet[];
   competitors: Candidate[];
@@ -84,7 +146,7 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
   onConfirm: (races: PlannedRace[]) => Promise<void> | void;
   trigger?: React.ReactNode;
 }>(function RaceSenseImport(
-  { races, fleets, competitors, finishes, onConfirm, trigger },
+  { seriesId, races, fleets, competitors, finishes, onConfirm, trigger },
   ref,
 ) {
   const [flow, setFlow] = useState<Flow>({ step: 'idle' });
@@ -99,6 +161,8 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
 
   useImperativeHandle(ref, () => ({
     trigger: () => fileInputRef.current?.click(),
+    triggerPlayer: () =>
+      setFlow({ step: 'player', ref: rememberedPlayerUrl(seriesId), error: null, reading: false }),
   }));
 
   function reset() {
@@ -133,7 +197,48 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
       setFlow({ step: 'fileError', message: NOT_RACESENSE });
       return;
     }
-    setFlow({ step: 'plan', workbook });
+    setFlow({ step: 'plan', workbook, source: { kind: 'file' } });
+  }
+
+  /** Read the regatta behind a player URL and open the plan on it. */
+  async function readPlayer(ref: string) {
+    const parsedRef = parseRaceSensePlayerRef(ref);
+    if (!parsedRef) {
+      setFlow({ step: 'player', ref, error: NOT_A_PLAYER_URL, reading: false });
+      return;
+    }
+    setFlow({ step: 'player', ref, error: null, reading: true });
+    let regatta: RaceSenseRegatta;
+    try {
+      regatta = await loadRaceSenseRegatta(ref);
+    } catch (err) {
+      setFlow({ step: 'player', ref, error: describeReadFailure(err), reading: false });
+      return;
+    }
+    const division = pickDivision(regatta, parsedRef.division) ?? regatta.divisions[0];
+    if (!division) {
+      setFlow({
+        step: 'player', ref, reading: false,
+        error: `${regatta.name ?? 'That regatta'} has no divisions on the player yet, so there is nothing to read.`,
+      });
+      return;
+    }
+    rememberPlayerUrl(seriesId, ref);
+    openPlayerPlan({ kind: 'player', ref, regatta, division: division.name });
+  }
+
+  /** Open the plan on a player read, or re-open it on another division. A
+   *  change of division re-derives the workbook, so the ticks go with it. */
+  function openPlayerPlan(source: PlayerSource) {
+    const division = pickDivision(source.regatta, source.division) ?? source.regatta.divisions[0];
+    rematch(() => {
+      setFlow({
+        step: 'plan',
+        workbook: regattaToWorkbook(source.regatta, division),
+        source: { ...source, division: division.name },
+      });
+      setOverrides({});
+    });
   }
 
   const plan = useMemo(() => {
@@ -204,6 +309,58 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
         onClose={reset}
       />
 
+      <Dialog open={flow.step === 'player'} onOpenChange={(open) => { if (!open) reset(); }}>
+        <DialogContent data-testid="racesense-player">
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (flow.step === 'player' && !flow.reading) void readPlayer(flow.ref);
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Read from the RaceSense player</DialogTitle>
+              <DialogDescription>
+                Paste the address of the regatta’s replay on player.vakaros.com. The app reads
+                the race committee’s record behind it — the same starts, OCS calls and finishes
+                their export carries — and shows what each finished race would do here before
+                anything is written.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <Label htmlFor="racesense-player-url">Player URL</Label>
+              <Input
+                id="racesense-player-url"
+                type="text"
+                inputMode="url"
+                autoFocus
+                placeholder="https://player.vakaros.com/watch/…"
+                value={flow.step === 'player' ? flow.ref : ''}
+                onChange={(e) =>
+                  setFlow({ step: 'player', ref: e.target.value, error: null, reading: false })
+                }
+                disabled={flow.step === 'player' && flow.reading}
+              />
+              {flow.step === 'player' && flow.error && (
+                <p className="text-sm text-destructive" data-testid="racesense-player-error">
+                  {flow.error}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={reset}>Cancel</Button>
+              <Button
+                type="submit"
+                disabled={flow.step !== 'player' || flow.reading || flow.ref.trim() === ''}
+                data-testid="racesense-player-read"
+              >
+                {flow.step === 'player' && flow.reading ? 'Reading…' : 'Read'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={flow.step === 'plan'} onOpenChange={(open) => { if (!open) reset(); }}>
         <DialogContent
           className="w-[95vw] max-w-5xl sm:max-w-5xl"
@@ -232,6 +389,21 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
                   <option value={EVERY_RACE}>every race in the series</option>
                   {fleets.map((f) => (
                     <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {flow.step === 'plan' && flow.source.kind === 'player' && flow.source.regatta.divisions.length > 1 && (
+              <label className="text-sm space-y-1">
+                <span className="font-medium block">Division</span>
+                <select
+                  className="rounded-md border bg-background px-2 py-1 text-sm"
+                  value={flow.source.division}
+                  onChange={(e) => openPlayerPlan({ ...(flow.source as PlayerSource), division: e.target.value })}
+                  data-testid="racesense-division"
+                >
+                  {flow.source.regatta.divisions.map((d) => (
+                    <option key={d.name} value={d.name}>{d.name}</option>
                   ))}
                 </select>
               </label>
@@ -379,6 +551,16 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
           </div>
 
           <DialogFooter>
+            {flow.step === 'plan' && flow.source.kind === 'player' && (
+              <Button
+                variant="outline"
+                className="sm:mr-auto"
+                onClick={() => readPlayer((flow.source as PlayerSource).ref)}
+                data-testid="racesense-read-again"
+              >
+                Read again
+              </Button>
+            )}
             <Button variant="outline" onClick={reset}>Cancel</Button>
             <Button
               onClick={confirm}
