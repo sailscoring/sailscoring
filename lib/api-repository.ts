@@ -960,6 +960,9 @@ export async function listSeriesNames(
 export async function deleteSeriesChildren(seriesId: string): Promise<void> {
   await raceRepo.deleteBySeries(seriesId);
   await subSeriesRepo.deleteBySeries(seriesId);
+  // Courses then marks: the server refuses a mark a course still names.
+  await seriesCourseRepo.deleteBySeries(seriesId);
+  await seriesMarkRepo.deleteBySeries(seriesId);
   await competitorRepo.deleteBySeries(seriesId);
   await fleetRepo.deleteBySeries(seriesId);
 }

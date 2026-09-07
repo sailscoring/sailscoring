@@ -49,6 +49,11 @@ results, and beyond that nothing that is not in the published HTML**:
   something published reads it: a prize clause keeps the field it
   selects on (club, gender, nationality, subdivision axis), and a
   split-fleet series keeps its seeding record (`seed`, `initialFleet`).
+- The course library behind ORC constructed courses travels: `marks`
+  and `courses` (keyed by name, as fleets are), and each start's own
+  `course` snapshot — the waypoints, the wind, and whether the legs were
+  edited — which the published drawing is rendered from. Course facts
+  are what competitors check their tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.
 - Never included: internal UUIDs (competitors are keyed by sail number,

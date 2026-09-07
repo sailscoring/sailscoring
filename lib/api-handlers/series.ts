@@ -415,9 +415,13 @@ export async function copySeries(
       ? await repos.raceStarts.listByRaces(sourceRaceIds)
       : [];
   const sourceFinishes = await repos.finishes.listBySeries(sourceSeriesId);
+  const sourceMarks = await repos.seriesMarks.listBySeries(sourceSeriesId);
+  const sourceCourses = await repos.seriesCourses.listBySeries(sourceSeriesId);
   // Build id remap tables. UUIDs are generated up front so child rows
   // can rewrite parent FKs consistently inside the transaction.
   const newSeriesId = crypto.randomUUID();
+  const markIdMap = new Map(sourceMarks.map((m) => [m.id, crypto.randomUUID()]));
+  const courseIdMap = new Map(sourceCourses.map((c) => [c.id, crypto.randomUUID()]));
   const fleetIdMap = new Map<string, string>();
   for (const f of sourceFleets) fleetIdMap.set(f.id, crypto.randomUUID());
   const competitorIdMap = new Map<string, string>();
@@ -603,6 +607,42 @@ export async function copySeries(
       }
     }
 
+    // The course library — marks first, courses naming them; the starts'
+    // snapshots below reference both.
+    if (sourceMarks.length > 0) {
+      await tx.insert(schema.seriesMarks).values(
+        sourceMarks.map((m) => ({
+          id: markIdMap.get(m.id)!,
+          seriesId: newSeriesId,
+          workspaceId: targetWorkspaceId,
+          name: m.name,
+          lat: m.lat,
+          lng: m.lng,
+          card: m.card ?? null,
+          shape: m.shape ?? null,
+          color: m.color ?? null,
+          from: m.from && markIdMap.has(m.from.markId) ? { ...m.from, markId: markIdMap.get(m.from.markId)! } : null,
+          createdAt: new Date(m.createdAt),
+        })),
+      );
+    }
+    if (sourceCourses.length > 0) {
+      await tx.insert(schema.seriesCourses).values(
+        sourceCourses.map((c) => ({
+          id: courseIdMap.get(c.id)!,
+          seriesId: newSeriesId,
+          workspaceId: targetWorkspaceId,
+          name: c.name,
+          card: c.card ?? null,
+          modified: c.modified ?? false,
+          marks: c.marks
+            .filter((cm) => markIdMap.has(cm.markId))
+            .map((cm) => ({ ...cm, markId: markIdMap.get(cm.markId)! })),
+          createdAt: new Date(c.createdAt),
+        })),
+      );
+    }
+
     // Race starts — fleet ids and parent race id need remapping.
     if (sourceRaceStarts.length > 0) {
       await tx.insert(schema.raceStarts).values(
@@ -616,6 +656,16 @@ export async function copySeries(
           distanceNm: s.distanceNm ?? null,
           orcScoringWind: s.orcScoringWind ?? null,
           courseLegs: s.courseLegs?.length ? s.courseLegs : null,
+          course: s.course
+            ? {
+                ...s.course,
+                courseId: s.course.courseId ? courseIdMap.get(s.course.courseId) : undefined,
+                waypoints: s.course.waypoints.map((w) => ({
+                  ...w,
+                  markId: w.markId ? markIdMap.get(w.markId) : undefined,
+                })),
+              }
+            : null,
           orcOption: s.orcOption ?? null,
         })),
       );

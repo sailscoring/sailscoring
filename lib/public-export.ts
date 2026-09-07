@@ -19,6 +19,9 @@ import type {
   RaceConditions,
   RaceDiscardPolicy,
   RaceOfficial,
+  RaceStartCourse,
+  SeriesCourse,
+  SeriesMark,
 } from './types';
 import type {
   CompetitorRepository,
@@ -29,6 +32,8 @@ import type {
   RaceRatingOverrideRepository,
   SeriesRepository,
   SubSeriesRepository,
+  SeriesCourseRepository,
+  SeriesMarkRepository,
 } from './repository';
 import { orcCertFromSummary, orcCertSummary } from './orc-certificate';
 import { hasConditions } from './race-conditions';
@@ -350,6 +355,26 @@ export interface PublicSeriesExport {
       /** Constructed-course legs (ORC 402.5) — the course record competitors
        *  check their tracks against, so it belongs in public results. */
       courseLegs?: import('./types').OrcCourseLeg[];
+      /** Where those legs came from: the course as it was when the start
+       *  picked it — its name, the resolved waypoints with positions, the
+       *  wind, and whether the legs were then edited. The published drawing
+       *  is rendered from this. `course` names the library course, by the
+       *  name `courses[]` carries it under, when it still exists there. */
+      course?: {
+        course?: string;
+        name: string;
+        waypoints: {
+          mark?: string;
+          label: string;
+          lat: number;
+          lng: number;
+          side?: 'port' | 'starboard';
+          passing?: boolean;
+          fixed?: boolean;
+        }[];
+        windDirectionDeg?: number;
+        legsEdited?: boolean;
+      };
       /** ORC wind-band field selection for this start — a scoring input. */
       orcOption?: string;
     }[];
@@ -444,6 +469,29 @@ export interface PublicSeriesExport {
      *  competitor identity (sail number + fleet names, as `competitors[*]`
      *  carries them). Sparse — omitted when the block has none. */
     competitorOverrides?: { sailNumber: string; fleetNames: string[]; status: 'included' | 'excluded' }[];
+  }[];
+  /** The course library (ORC constructed courses): the marks the series'
+   *  courses are built from, keyed by name (suffixed "(2)", "(3)" … where a
+   *  series names two the same, as fleets are), and the courses as sequences
+   *  of those names. Course facts are published — every start's own snapshot
+   *  travels above regardless — and the library is what a re-import needs
+   *  to build the next race's course from. Absent on a series with none. */
+  marks?: {
+    name: string;
+    lat: number;
+    lng: number;
+    card?: { set: string; markId: string; release: string };
+    shape?: string;
+    color?: string;
+    /** A laid mark's log entry: bearing and distance off another mark, by
+     *  that mark's exported name. */
+    from?: { mark: string; bearingDeg: number; distanceM: number };
+  }[];
+  courses?: {
+    name: string;
+    card?: { set: string; cardId: string; courseId: string; release: string };
+    modified?: boolean;
+    marks: { mark: string; side?: 'port' | 'starboard'; passing?: boolean }[];
   }[];
   /** Split-fleet championship state: the series' configuration and the
    *  assignment rounds behind its published pages. Absent on an ordinary
@@ -560,6 +608,11 @@ export interface ExportRepos {
   finishRepo: FinishRepository;
   raceStartRepo: RaceStartRepository;
   raceRatingOverrideRepo: RaceRatingOverrideRepository;
+  /** The course library (ORC constructed courses). Optional: a bundle
+   *  without it neither exports nor imports marks and courses; the starts'
+   *  own course snapshots travel regardless. */
+  seriesMarkRepo?: SeriesMarkRepository;
+  seriesCourseRepo?: SeriesCourseRepository;
   /** Optional workspace logo-defaults reader. When present, the publish/export
    *  builders fill a series' empty venue/event logo slots from the workspace
    *  defaults (see `applyWorkspaceLogoDefaults`). Absent on the `.sailscoring`
@@ -656,6 +709,48 @@ function uniqueFleetNames(fleets: Fleet[]): Map<string, string> {
   return byId;
 }
 
+/** Mark / course id → the name the export refers to it by, suffixed like
+ *  fleets where a series names two the same. */
+function uniqueNames(items: { id: string; name: string }[]): Map<string, string> {
+  const taken = new Set<string>();
+  const byId = new Map<string, string>();
+  for (const item of items) {
+    let name = item.name;
+    for (let n = 2; taken.has(name); n++) name = `${item.name} (${n})`;
+    taken.add(name);
+    byId.set(item.id, name);
+  }
+  return byId;
+}
+
+/** A start's course snapshot as the export carries it: ids replaced by the
+ *  exported names, positions kept — the snapshot must stand on its own. */
+function exportStartCourse(
+  course: RaceStartCourse,
+  courseNameById: Map<string, string>,
+  markNameById: Map<string, string>,
+): NonNullable<PublicSeriesExport['races'][number]['starts'][number]['course']> {
+  const courseName = course.courseId ? courseNameById.get(course.courseId) : undefined;
+  return {
+    ...(courseName ? { course: courseName } : {}),
+    name: course.name,
+    waypoints: course.waypoints.map((w) => {
+      const mark = w.markId ? markNameById.get(w.markId) : undefined;
+      return {
+        ...(mark ? { mark } : {}),
+        label: w.label,
+        lat: w.lat,
+        lng: w.lng,
+        ...(w.side ? { side: w.side } : {}),
+        ...(w.passing ? { passing: true } : {}),
+        ...(w.fixed ? { fixed: true } : {}),
+      };
+    }),
+    ...(course.windDirectionDeg != null ? { windDirectionDeg: course.windDirectionDeg } : {}),
+    ...(course.legsEdited ? { legsEdited: true } : {}),
+  };
+}
+
 export async function buildPublicExport(
   seriesId: string,
   repos: ExportRepos,
@@ -695,8 +790,12 @@ export function buildPublicExportFromSnapshot(
     finishes: allFinishes,
     raceStarts: allRaceStarts,
     ratingOverrides: allRatingOverrides,
+    marks: libraryMarks = [],
+    courses: libraryCourses = [],
   } = snapshot;
   if (competitors.length === 0 || races.length === 0) return null;
+  const markNameById = uniqueNames(libraryMarks);
+  const courseNameById = uniqueNames(libraryCourses);
   // The single place the officials opt-in is read. This export is embedded in
   // every published page, so leaving officials out of it is what "not
   // published" actually means for named non-competitors.
@@ -917,6 +1016,7 @@ export function buildPublicExportFromSnapshot(
         ...(rs.distanceNm != null ? { distanceNm: rs.distanceNm } : {}),
         ...(rs.orcScoringWind != null ? { orcScoringWind: rs.orcScoringWind } : {}),
         ...(rs.courseLegs?.length ? { courseLegs: rs.courseLegs } : {}),
+        ...(rs.course ? { course: exportStartCourse(rs.course, courseNameById, markNameById) } : {}),
         ...(rs.orcOption ? { orcOption: rs.orcOption } : {}),
       }));
     const nhcByFleetMap = nhcByFleetByRaceId.get(race.id);
@@ -1154,6 +1254,37 @@ export function buildPublicExportFromSnapshot(
       }));
       return { splitFleets: { config: sf.config, rounds } };
     })(),
+    ...(libraryMarks.length > 0
+      ? {
+          marks: libraryMarks.map((m) => ({
+            name: markNameById.get(m.id)!,
+            lat: m.lat,
+            lng: m.lng,
+            ...(m.card ? { card: m.card } : {}),
+            ...(m.shape ? { shape: m.shape } : {}),
+            ...(m.color ? { color: m.color } : {}),
+            ...(m.from && markNameById.has(m.from.markId)
+              ? { from: { mark: markNameById.get(m.from.markId)!, bearingDeg: m.from.bearingDeg, distanceM: m.from.distanceM } }
+              : {}),
+          })),
+        }
+      : {}),
+    ...(libraryCourses.length > 0
+      ? {
+          courses: libraryCourses.map((c) => ({
+            name: courseNameById.get(c.id)!,
+            ...(c.card ? { card: c.card } : {}),
+            ...(c.modified ? { modified: true } : {}),
+            marks: c.marks
+              .filter((cm) => markNameById.has(cm.markId))
+              .map((cm) => ({
+                mark: markNameById.get(cm.markId)!,
+                ...(cm.side ? { side: cm.side } : {}),
+                ...(cm.passing ? { passing: true } : {}),
+              })),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -1405,6 +1536,75 @@ export async function importPublicExport(
     ),
   );
 
+  // The course library, by the export's names. Written only where the
+  // bundle carries the repos (a spectator view has no library to show); the
+  // starts' snapshots below still resolve their names for provenance.
+  const markIdByName = new Map<string, string>();
+  const courseIdByName = new Map<string, string>();
+  for (const m of data.marks ?? []) if (!markIdByName.has(m.name)) markIdByName.set(m.name, newId());
+  for (const c of data.courses ?? []) if (!courseIdByName.has(c.name)) courseIdByName.set(c.name, newId());
+  if (repos.seriesMarkRepo && data.marks?.length) {
+    await repos.seriesMarkRepo.saveMany(
+      data.marks.map((m): SeriesMark => {
+        const fromId = m.from ? markIdByName.get(m.from.mark) : undefined;
+        return {
+          id: markIdByName.get(m.name)!,
+          seriesId: newSeriesId,
+          name: m.name,
+          lat: m.lat,
+          lng: m.lng,
+          ...(m.card ? { card: m.card } : {}),
+          ...(m.shape ? { shape: m.shape } : {}),
+          ...(m.color ? { color: m.color } : {}),
+          ...(fromId && m.from ? { from: { markId: fromId, bearingDeg: m.from.bearingDeg, distanceM: m.from.distanceM } } : {}),
+          createdAt: now,
+        };
+      }),
+    );
+  }
+  if (repos.seriesCourseRepo && data.courses?.length) {
+    await repos.seriesCourseRepo.saveMany(
+      data.courses.map((c): SeriesCourse => ({
+        id: courseIdByName.get(c.name)!,
+        seriesId: newSeriesId,
+        name: c.name,
+        ...(c.card ? { card: c.card } : {}),
+        ...(c.modified ? { modified: true } : {}),
+        marks: c.marks
+          .filter((cm) => markIdByName.has(cm.mark))
+          .map((cm) => ({
+            markId: markIdByName.get(cm.mark)!,
+            ...(cm.side ? { side: cm.side } : {}),
+            ...(cm.passing ? { passing: true } : {}),
+          })),
+        createdAt: now,
+      })),
+    );
+  }
+  const importStartCourse = (
+    c: NonNullable<PublicSeriesExport['races'][number]['starts'][number]['course']>,
+  ): RaceStartCourse => {
+    const courseId = c.course ? courseIdByName.get(c.course) : undefined;
+    return {
+      ...(courseId && repos.seriesCourseRepo ? { courseId } : {}),
+      name: c.name,
+      waypoints: c.waypoints.map((w) => {
+        const markId = w.mark ? markIdByName.get(w.mark) : undefined;
+        return {
+          ...(markId && repos.seriesMarkRepo ? { markId } : {}),
+          label: w.label,
+          lat: w.lat,
+          lng: w.lng,
+          ...(w.side ? { side: w.side } : {}),
+          ...(w.passing ? { passing: true } : {}),
+          ...(w.fixed ? { fixed: true } : {}),
+        };
+      }),
+      ...(c.windDirectionDeg != null ? { windDirectionDeg: c.windDirectionDeg } : {}),
+      ...(c.legsEdited ? { legsEdited: true } : {}),
+    };
+  };
+
   // Sub-series are saved after races (membership FKs to race rows); collect
   // each one's race ids during the race loop below.
   const subSeriesRaceIdsByName = new Map<string, string[]>(
@@ -1523,6 +1723,7 @@ export async function importPublicExport(
             ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
             ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
             ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+            ...(s.course ? { course: importStartCourse(s.course) } : {}),
             ...(s.orcOption ? { orcOption: s.orcOption } : {}),
           }),
         ),

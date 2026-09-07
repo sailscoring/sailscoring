@@ -26,7 +26,7 @@ import { getDb, type SailScoringDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { FEATURES, type FeatureDef, type FeatureKey } from '@/lib/features';
 import { openSeriesFromFile, parseSeriesFile, type SeriesFileRepos } from '@/lib/series-file';
-import type { Competitor, Fleet, Race, RaceStart, RaceRatingOverride, Finish, Series, SubSeries } from '@/lib/types';
+import type { Competitor, Fleet, Race, RaceStart, RaceRatingOverride, Finish, Series, SeriesCourse, SeriesMark, SubSeries } from '@/lib/types';
 
 /**
  * The committed sample data, in the order it appears in the list.
@@ -213,6 +213,46 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
       },
     } as unknown as SeriesFileRepos['subSeriesRepo'],
 
+    // The course library (the ORC sample's marks and courses).
+    seriesMarkRepo: {
+      async saveMany(marks: SeriesMark[]) {
+        if (marks.length === 0) return;
+        await db.insert(schema.seriesMarks).values(
+          marks.map((m) => ({
+            id: m.id,
+            seriesId: m.seriesId,
+            workspaceId,
+            name: m.name,
+            lat: m.lat,
+            lng: m.lng,
+            card: m.card ?? null,
+            shape: m.shape ?? null,
+            color: m.color ?? null,
+            from: m.from ?? null,
+            createdAt: new Date(m.createdAt),
+          })),
+        );
+      },
+    } as unknown as SeriesFileRepos['seriesMarkRepo'],
+
+    seriesCourseRepo: {
+      async saveMany(courses: SeriesCourse[]) {
+        if (courses.length === 0) return;
+        await db.insert(schema.seriesCourses).values(
+          courses.map((c) => ({
+            id: c.id,
+            seriesId: c.seriesId,
+            workspaceId,
+            name: c.name,
+            card: c.card ?? null,
+            modified: c.modified ?? false,
+            marks: c.marks,
+            createdAt: new Date(c.createdAt),
+          })),
+        );
+      },
+    } as unknown as SeriesFileRepos['seriesCourseRepo'],
+
     raceStartRepo: {
       async saveMany(starts: RaceStart[]) {
         if (starts.length === 0) return;
@@ -230,6 +270,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             distanceNm: s.distanceNm ?? null,
             orcScoringWind: s.orcScoringWind ?? null,
             courseLegs: s.courseLegs ?? null,
+            course: s.course ?? null,
             orcOption: s.orcOption ?? null,
           })),
         );

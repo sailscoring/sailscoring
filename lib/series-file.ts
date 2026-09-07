@@ -26,6 +26,9 @@ import type {
   RrsOrgPushConfig,
   Prize,
   MultiPersonFieldKey,
+  RaceStartCourse,
+  SeriesCourse,
+  SeriesMark,
 } from './types';
 import {
   defaultEnabledCompetitorFields,
@@ -46,6 +49,8 @@ import type {
   RaceRatingOverrideRepository,
   SeriesRepository,
   SubSeriesRepository,
+  SeriesCourseRepository,
+  SeriesMarkRepository,
 } from './repository';
 
 /**
@@ -61,6 +66,11 @@ export interface SeriesFileRepos {
   raceStartRepo: RaceStartRepository;
   raceRatingOverrideRepo: RaceRatingOverrideRepository;
   finishRepo: FinishRepository;
+  /** The course library (v45+). Optional: a bundle without it carries no
+   *  marks or courses through files and revisions; the starts' own course
+   *  snapshots travel regardless. */
+  seriesMarkRepo?: SeriesMarkRepository;
+  seriesCourseRepo?: SeriesCourseRepository;
   /** Split-fleet state (v23+). Optional: bundles that lack it simply don't
    *  carry split-fleet data through files/revisions. `replace` rewrites the
    *  series' rounds + config wholesale (ids freshly minted by the caller);
@@ -373,9 +383,20 @@ export interface SeriesFileRepos {
  *  `subSeries[*].competitorOverrides` — per-block entry pins ({competitorId,
  *  status: 'included' | 'excluded'}), and optional
  *  `series.excludeDncOnlyCompetitors` — the automatic all-DNC rule at series
- *  level — both sparse for the same reason. */
-export const FORMAT_VERSION = 44;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44];
+ *  level — both sparse for the same reason.
+ *
+ *  v45 adds the course library behind ORC constructed courses: top-level
+ *  `marks` (positions on the water — the club's charted marks adopted from a
+ *  course card, and the ones the race committee laid) and `courses` (named
+ *  sequences of them), plus `starts[*].course`, the snapshot of the course
+ *  a start sailed — waypoints, wind, whether the legs were then edited —
+ *  which the published drawing is rendered from. All sparse. `courseLegs`
+ *  is unchanged and still what is scored, so an older build scores a v45
+ *  file identically; it would, though, silently drop the library the scorer
+ *  built and the course record behind every published drawing on a
+ *  round trip, which is why this is a bump rather than a ride-along. */
+export const FORMAT_VERSION = 45;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -568,7 +589,31 @@ interface SeriesFileRaceStart {
   distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
   courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5)
+  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot
   orcOption?: string;  // v40+; the ORC scoring option for this start's races
+}
+
+/** A mark of the course library (v45+), as stored (see SeriesMark). */
+interface SeriesFileMark {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  card?: { set: string; markId: string; release: string };
+  shape?: string;
+  color?: string;
+  from?: { markId: string; bearingDeg: number; distanceM: number };
+  createdAt?: number;
+}
+
+/** A course of the course library (v45+), as stored (see SeriesCourse). */
+interface SeriesFileCourse {
+  id: string;
+  name: string;
+  card?: { set: string; cardId: string; courseId: string; release: string };
+  modified?: boolean;
+  marks: { markId: string; side?: 'port' | 'starboard'; passing?: boolean }[];
+  createdAt?: number;
 }
 
 interface SeriesFileRatingOverride {
@@ -655,6 +700,10 @@ export interface SeriesFile {
   /** Sub-series (v9+): named blocks of races, each scored independently.
    *  Absent or empty when the series has none. */
   subSeries?: SeriesFileSubSeries[];
+  /** The course library (v45+): marks and courses behind ORC constructed
+   *  courses. Absent or empty when the series has none. */
+  marks?: SeriesFileMark[];
+  courses?: SeriesFileCourse[];
   splitFleets?: SeriesFileSplitFleets;  // v23+; split-fleet config + rounds
   tcfHistory?: SeriesFileTcfRecord[];
   /** Pre-v4 alias for `tcfHistory`. Loader accepts either key; writer emits
@@ -690,6 +739,8 @@ export async function buildSeriesFile(
     finishes: allFinishes,
     raceStarts: allRaceStarts,
     ratingOverrides: allRatingOverrides,
+    marks: libraryMarks = [],
+    courses: libraryCourses = [],
   } = snapshot;
 
   // Compute progressive-handicap (NHC/ECHO) TCF history from the engine
@@ -765,6 +816,7 @@ export async function buildSeriesFile(
       ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
       ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
       ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+      ...(s.course ? { course: s.course } : {}),
       ...(s.orcOption ? { orcOption: s.orcOption } : {}),
     });
   }
@@ -888,6 +940,33 @@ export async function buildSeriesFile(
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
     })),
+    ...(libraryMarks.length > 0
+      ? {
+          marks: libraryMarks.map((m) => ({
+            id: m.id,
+            name: m.name,
+            lat: m.lat,
+            lng: m.lng,
+            ...(m.card ? { card: m.card } : {}),
+            ...(m.shape ? { shape: m.shape } : {}),
+            ...(m.color ? { color: m.color } : {}),
+            ...(m.from ? { from: m.from } : {}),
+            createdAt: m.createdAt,
+          })),
+        }
+      : {}),
+    ...(libraryCourses.length > 0
+      ? {
+          courses: libraryCourses.map((c) => ({
+            id: c.id,
+            name: c.name,
+            ...(c.card ? { card: c.card } : {}),
+            ...(c.modified ? { modified: true } : {}),
+            marks: c.marks,
+            createdAt: c.createdAt,
+          })),
+        }
+      : {}),
     ...(subSeries.length > 0
       ? {
           subSeries: subSeries.map((ss) => ({
@@ -1016,6 +1095,10 @@ export function parseSeriesFile(content: string): SeriesFile {
   if (!Array.isArray(obj.races)) throw new Error('Invalid file: missing races');
   if (obj.subSeries !== undefined && !Array.isArray(obj.subSeries))
     throw new Error('Invalid file: subSeries must be a list');
+  if (obj.marks !== undefined && !Array.isArray(obj.marks))
+    throw new Error('Invalid file: marks must be a list');
+  if (obj.courses !== undefined && !Array.isArray(obj.courses))
+    throw new Error('Invalid file: courses must be a list');
 
   migrateSeriesFileObject(obj);
 
@@ -1815,6 +1898,59 @@ async function writeFleetsCompetitorsRaces(
     }),
   );
 
+  // The course library (v45+): marks first (courses name them), then courses,
+  // both before the races whose starts snapshot them. Written only where the
+  // bundle carries the repos; the snapshots on the starts travel regardless,
+  // with their references remapped or dropped as the library allows.
+  const markIdMap = new Map((file.marks ?? []).map((m) => [m.id, crypto.randomUUID()]));
+  const courseIdMap = new Map((file.courses ?? []).map((c) => [c.id, crypto.randomUUID()]));
+  if (repos.seriesMarkRepo && file.marks?.length) {
+    await repos.seriesMarkRepo.saveMany(
+      file.marks.map((m): SeriesMark => {
+        const fromId = m.from ? markIdMap.get(m.from.markId) : undefined;
+        return {
+          id: markIdMap.get(m.id)!,
+          seriesId,
+          name: m.name,
+          lat: m.lat,
+          lng: m.lng,
+          ...(m.card ? { card: m.card } : {}),
+          ...(m.shape ? { shape: m.shape } : {}),
+          ...(m.color ? { color: m.color } : {}),
+          ...(fromId && m.from ? { from: { ...m.from, markId: fromId } } : {}),
+          createdAt: m.createdAt ?? now,
+        };
+      }),
+    );
+  }
+  if (repos.seriesCourseRepo && file.courses?.length) {
+    await repos.seriesCourseRepo.saveMany(
+      file.courses.map((c): SeriesCourse => ({
+        id: courseIdMap.get(c.id)!,
+        seriesId,
+        name: c.name,
+        ...(c.card ? { card: c.card } : {}),
+        ...(c.modified ? { modified: true } : {}),
+        marks: c.marks
+          .filter((cm) => markIdMap.has(cm.markId))
+          .map((cm) => ({ ...cm, markId: markIdMap.get(cm.markId)! })),
+        createdAt: c.createdAt ?? now,
+      })),
+    );
+  }
+  const remapStartCourse = (course: RaceStartCourse): RaceStartCourse => ({
+    ...course,
+    ...(course.courseId && repos.seriesCourseRepo && courseIdMap.has(course.courseId)
+      ? { courseId: courseIdMap.get(course.courseId)! }
+      : { courseId: undefined }),
+    waypoints: course.waypoints.map((w) => ({
+      ...w,
+      ...(w.markId && repos.seriesMarkRepo && markIdMap.has(w.markId)
+        ? { markId: markIdMap.get(w.markId)! }
+        : { markId: undefined }),
+    })),
+  });
+
   // Sub-series id remapping (saved after races: membership FKs to races).
   const subSeriesIdMap = new Map(
     (file.subSeries ?? []).map((ss) => [ss.id, crypto.randomUUID()]),
@@ -1857,6 +1993,7 @@ async function writeFleetsCompetitorsRaces(
         ...(s.distanceNm != null ? { distanceNm: s.distanceNm } : {}),
         ...(s.orcScoringWind != null ? { orcScoringWind: s.orcScoringWind } : {}),
         ...(s.courseLegs?.length ? { courseLegs: s.courseLegs } : {}),
+        ...(s.course ? { course: remapStartCourse(s.course) } : {}),
         ...(s.orcOption ? { orcOption: s.orcOption } : {}),
       })),
     );

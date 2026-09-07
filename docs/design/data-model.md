@@ -206,6 +206,28 @@ different start times in the same Race (e.g. Class 1 at 14:05, Class 2 at
 | fleet_id | uuid | Yes | Which Fleet this start is for |
 | start_time | time | No | Time of day the starting signal was given. Not needed for scratch/position-based scoring |
 
+### Mark and Course
+
+The course library behind ORC constructed courses, one per Series (see
+`docs/design/orc/course-builder.md`). A Mark is a position on the water:
+one of the club's charted marks adopted from a course card, or one the race
+committee laid on the day, logged as a bearing and distance off another. A
+Course is a named sequence of Marks in sailing order with the side each is
+left on, made from a card's numbered course or by hand. A Start that sails
+a Course keeps a snapshot of it — the resolved waypoints and the wind —
+beside the legs it is scored on, so what was scored never moves when the
+library is edited.
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| id | uuid | Yes | Unique identifier |
+| series_id | uuid | Yes | Parent Series |
+| name | string | Yes | The reuse key: "Z outer — 6 Sep R2", "004 outer — 6 Sep R2" |
+| lat, lng | number | Marks | Decimal degrees, WGS84 |
+| card | object | No | Which course-cards set, mark or course, and release it came from |
+| from | object | No | A laid mark's log entry: origin mark, bearing, distance |
+| marks | list | Courses | The sequence: mark id, side, passing |
+
 ### Finish
 
 The recorded data for a Competitor in a Race -- what was observed on the

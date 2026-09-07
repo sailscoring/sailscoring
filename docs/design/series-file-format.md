@@ -134,6 +134,21 @@ They are always derived from the stored data on load.
 
 ---
 
+## `marks` and `courses` Arrays (v45+)
+
+The course library behind ORC constructed courses. `marks` are positions on
+the water — the club's charted marks adopted from a course card (with their
+`card` provenance) and the ones the race committee laid on the day (with
+`from`, the bearing and distance they were logged off another mark).
+`courses` are named sequences of mark ids in sailing order, the side each
+is left on, and the card course they were made from. Both are omitted when
+empty. A race start that sailed a course carries its own snapshot of it in
+`starts[*].course` — waypoints with positions, the wind, whether the legs
+were then edited — beside the `courseLegs` it is scored on, so the record
+stands even if the library is later edited.
+
+---
+
 ## Lineage and Conflict Detection
 
 ### The problem

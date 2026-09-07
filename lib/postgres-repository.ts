@@ -2835,6 +2835,8 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
     raceStartRepo: repos.raceStarts,
     raceRatingOverrideRepo: repos.raceRatingOverrides,
     finishRepo: repos.finishes,
+    seriesMarkRepo: repos.seriesMarks,
+    seriesCourseRepo: repos.seriesCourses,
     logoRepo: repos.logos,
     // Split-fleet state (v23+): read for file/revision export; replace on
     // file replay (config onto the series row, rounds rewritten wholesale).
@@ -2879,6 +2881,8 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
     async deleteSeriesChildren(seriesId) {
       await repos.races.deleteBySeries(seriesId);
       await repos.subSeries.deleteBySeries(seriesId);
+      await repos.seriesCourses.deleteBySeries(seriesId);
+      await repos.seriesMarks.deleteBySeries(seriesId);
       await repos.competitors.deleteBySeries(seriesId);
       await repos.fleets.deleteBySeries(seriesId);
     },

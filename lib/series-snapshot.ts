@@ -8,6 +8,8 @@ import type {
   RaceRatingOverride,
   RaceStart,
   Series,
+  SeriesCourse,
+  SeriesMark,
   SubSeries,
 } from './types';
 
@@ -21,6 +23,10 @@ export interface SeriesSnapshot {
   finishes: Finish[];
   raceStarts: RaceStart[];
   ratingOverrides: RaceRatingOverride[];
+  /** The course library (ORC constructed courses). Empty on a series with
+   *  none; absent only from a bundle whose repos don't carry the library. */
+  marks?: SeriesMark[];
+  courses?: SeriesCourse[];
 }
 
 /**
@@ -45,6 +51,8 @@ export async function loadSeriesSnapshot(
     finishes,
     raceStarts,
     ratingOverrides,
+    marksUnsorted,
+    coursesUnsorted,
   ] = await Promise.all([
     repos.seriesRepo.get(seriesId),
     repos.competitorRepo.listBySeries(seriesId),
@@ -54,6 +62,8 @@ export async function loadSeriesSnapshot(
     repos.finishRepo.listBySeries(seriesId),
     repos.raceStartRepo.listBySeries(seriesId),
     repos.raceRatingOverrideRepo.listBySeries(seriesId),
+    repos.seriesMarkRepo?.listBySeries(seriesId) ?? Promise.resolve([] as SeriesMark[]),
+    repos.seriesCourseRepo?.listBySeries(seriesId) ?? Promise.resolve([] as SeriesCourse[]),
   ]);
   if (!series) return null;
 
@@ -63,6 +73,8 @@ export async function loadSeriesSnapshot(
   const fleets = [...fleetsUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
   const races = [...racesUnsorted].sort((a, b) => a.raceNumber - b.raceNumber);
   const subSeries = [...subSeriesUnsorted].sort((a, b) => a.displayOrder - b.displayOrder);
+  const marks = [...marksUnsorted].sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name));
+  const courses = [...coursesUnsorted].sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name));
 
-  return { series, competitors, fleets, races, subSeries, finishes, raceStarts, ratingOverrides };
+  return { series, competitors, fleets, races, subSeries, finishes, raceStarts, ratingOverrides, marks, courses };
 }
