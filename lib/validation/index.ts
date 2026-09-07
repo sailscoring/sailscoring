@@ -4,6 +4,7 @@ export * from './fleet';
 export * from './competitor';
 export * from './race';
 export * from './race-start';
+export * from './course-library';
 export * from './finish';
 export * from './ftp-server';
 export * from './feedback';

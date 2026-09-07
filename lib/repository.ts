@@ -1,4 +1,4 @@
-import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, RaceRatingOverride, SubSeries } from './types';
+import type { Series, Competitor, Fleet, Race, Finish, FtpServer, RaceStart, RaceRatingOverride, SeriesCourse, SeriesMark, SubSeries } from './types';
 
 /**
  * Thrown by the Postgres-backed `save*` methods when a compare-and-swap
@@ -148,6 +148,26 @@ export interface SubSeriesRepository {
   get(id: string): Promise<SubSeries | undefined>;
   save(subSeries: SubSeries, opts?: SaveOpts): Promise<SubSeries>;
   saveMany(list: SubSeries[], opts?: SaveOpts): Promise<void>;
+  delete(id: string): Promise<void>;
+  deleteBySeries(seriesId: string): Promise<void>;
+}
+
+/** The series' mark library (ORC constructed courses). */
+export interface SeriesMarkRepository {
+  listBySeries(seriesId: string): Promise<SeriesMark[]>;
+  get(id: string): Promise<SeriesMark | undefined>;
+  save(mark: SeriesMark, opts?: SaveOpts): Promise<SeriesMark>;
+  saveMany(marks: SeriesMark[], opts?: SaveOpts): Promise<void>;
+  delete(id: string): Promise<void>;
+  deleteBySeries(seriesId: string): Promise<void>;
+}
+
+/** The series' course library (ORC constructed courses). */
+export interface SeriesCourseRepository {
+  listBySeries(seriesId: string): Promise<SeriesCourse[]>;
+  get(id: string): Promise<SeriesCourse | undefined>;
+  save(course: SeriesCourse, opts?: SaveOpts): Promise<SeriesCourse>;
+  saveMany(courses: SeriesCourse[], opts?: SaveOpts): Promise<void>;
   delete(id: string): Promise<void>;
   deleteBySeries(seriesId: string): Promise<void>;
 }

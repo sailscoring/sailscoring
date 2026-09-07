@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { RaceStart } from '@/lib/types';
 
 import { uuidSchema, versionSchema, wallClockSchema } from './common';
+import { raceStartCourseSchema } from './course-library';
 
 export const raceStartSchema = z.object({
   id: uuidSchema,
@@ -35,6 +36,8 @@ export const raceStartSchema = z.object({
     )
     .max(60)
     .optional(),
+  // The library course those legs came from, as a snapshot (RaceStartCourse).
+  course: raceStartCourseSchema.optional(),
   version: versionSchema,
 });
 

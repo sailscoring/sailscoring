@@ -35,6 +35,8 @@ import type {
   OrcCertData,
   OrcCourseLeg,
   OrcProfile,
+  RaceStartCourse,
+  SeriesCourseMark,
   PrimaryPersonLabel,
   PublishingGroup,
   ProtestTimeLimit,
@@ -961,12 +963,80 @@ export const raceStarts = pgTable(
     distanceNm: real('distance_nm'),
     orcScoringWind: real('orc_scoring_wind'),
     courseLegs: jsonb('course_legs').$type<OrcCourseLeg[]>(),
+    // The library course those legs came from, snapshotted when picked (see
+    // RaceStartCourse). Null on a start whose legs were typed by hand.
+    course: jsonb('course').$type<RaceStartCourse>(),
     orcOption: text('orc_option'),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,
   },
   (table) => [index('race_starts_race_idx').on(table.raceId)],
+);
+
+/**
+ * The course library (ORC constructed courses): the marks a series' courses
+ * are built from, and the courses themselves. Series-scoped like sub-series;
+ * both cascade with the series. A course names its marks by id inside its
+ * JSONB sequence — never queried by content, and the handler refuses to
+ * delete a mark a course still names.
+ */
+export const seriesMarks = pgTable(
+  'series_marks',
+  {
+    id: uuid('id').primaryKey(),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    lat: doublePrecision('lat').notNull(),
+    lng: doublePrecision('lng').notNull(),
+    // Adopted from a course-cards data set: {set, markId, release}.
+    card: jsonb('card').$type<{ set: string; markId: string; release: string }>(),
+    shape: text('shape'),
+    color: text('color'),
+    // How a laid mark was logged: {markId, bearingDeg, distanceM} off another
+    // mark. `from` is reserved in SQL, hence the column name.
+    from: jsonb('laid_from').$type<{ markId: string; bearingDeg: number; distanceM: number }>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('series_marks_series_idx').on(table.seriesId),
+    index('series_marks_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+export const seriesCourses = pgTable(
+  'series_courses',
+  {
+    id: uuid('id').primaryKey(),
+    seriesId: uuid('series_id')
+      .notNull()
+      .references(() => series.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    // The card course it was made from: {set, cardId, courseId, release}.
+    card: jsonb('card').$type<{ set: string; cardId: string; courseId: string; release: string }>(),
+    modified: boolean('modified').notNull().default(false),
+    // The sequence, in sailing order: [{markId, side?, passing?}].
+    marks: jsonb('marks').$type<SeriesCourseMark[]>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    version: versionCol,
+    updatedAt: updatedAtCol,
+    updatedBy: updatedByCol,
+  },
+  (table) => [
+    index('series_courses_series_idx').on(table.seriesId),
+    index('series_courses_workspace_idx').on(table.workspaceId),
+  ],
 );
 
 export const raceRatingOverrides = pgTable(
