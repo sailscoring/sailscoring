@@ -48,6 +48,14 @@ export const queryKeys = {
     all: ['subSeries'] as const,
     bySeries: (seriesId: string) => ['subSeries', 'bySeries', seriesId] as const,
   },
+  seriesMarks: {
+    all: ['seriesMarks'] as const,
+    bySeries: (seriesId: string) => ['seriesMarks', 'bySeries', seriesId] as const,
+  },
+  seriesCourses: {
+    all: ['seriesCourses'] as const,
+    bySeries: (seriesId: string) => ['seriesCourses', 'bySeries', seriesId] as const,
+  },
   splitFleets: {
     all: ['splitFleets'] as const,
     bySeries: (seriesId: string) => ['splitFleets', 'bySeries', seriesId] as const,

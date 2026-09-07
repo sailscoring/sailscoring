@@ -54,6 +54,14 @@ export const ACTIVITY_ACTIONS = [
   'sub-series.updated',
   'sub-series.deleted',
   'sub-series.cleared',
+  'mark.created',
+  'mark.updated',
+  'mark.deleted',
+  'marks.cleared',
+  'course.created',
+  'course.updated',
+  'course.deleted',
+  'courses.cleared',
   'finishes.recorded',
   'finishes.entered',
   'finishes.cleared',
@@ -98,7 +106,8 @@ export function activityKind(action: string): ActivityKind {
   if (action.startsWith('competitor') || action.startsWith('identities.')) return 'competitor';
   if (action.startsWith('fleet') || action.startsWith('split-fleets.')) return 'fleet';
   if (action.startsWith('finish')) return 'finish';
-  if (action.startsWith('race') || action.startsWith('sub-series.') || action.startsWith('starts.') || action.startsWith('ratings.')) return 'race';
+  // The course library is race data: what the starts were scored over.
+  if (action.startsWith('race') || action.startsWith('sub-series.') || action.startsWith('starts.') || action.startsWith('ratings.') || action.startsWith('mark') || action.startsWith('course')) return 'race';
   // As-published ranking ingests (#309) are workspace-level series-regime
   // work; they group with the series activity.
   if (action.startsWith('rankings.')) return 'series';

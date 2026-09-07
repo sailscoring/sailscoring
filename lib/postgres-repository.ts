@@ -18,6 +18,8 @@ import {
   type RaceStartRepository,
   type RaceRatingOverrideRepository,
   type SaveOpts,
+  type SeriesCourseRepository,
+  type SeriesMarkRepository,
   type SeriesRepository,
   type SubSeriesRepository,
 } from './repository';
@@ -41,6 +43,8 @@ import type {
   RaceRatingOverride,
   ResultCode,
   Series,
+  SeriesCourse,
+  SeriesMark,
   SubSeries,
   RaceFleetExclusion,
 } from './types';
@@ -246,6 +250,7 @@ function raceStartRowToType(row: RaceStartRow): RaceStart {
     ...(row.distanceNm != null ? { distanceNm: row.distanceNm } : {}),
     ...(row.orcScoringWind != null ? { orcScoringWind: row.orcScoringWind } : {}),
     ...(row.courseLegs?.length ? { courseLegs: row.courseLegs } : {}),
+    ...(row.course ? { course: row.course } : {}),
     ...(row.orcOption ? { orcOption: row.orcOption } : {}),
     version: row.version,
   };
@@ -303,6 +308,8 @@ type Versionable =
   | typeof schema.competitors
   | typeof schema.races
   | typeof schema.subSeries
+  | typeof schema.seriesMarks
+  | typeof schema.seriesCourses
   | typeof schema.ftpServers;
 
 type RaceScopedVersionable =
@@ -1559,6 +1566,231 @@ export class PostgresSubSeriesRepository implements SubSeriesRepository {
   }
 }
 
+// ─── Course library: marks and courses ───────────────────────────────────────
+
+type SeriesMarkRow = typeof schema.seriesMarks.$inferSelect;
+type SeriesCourseRow = typeof schema.seriesCourses.$inferSelect;
+
+function seriesMarkRowToType(row: SeriesMarkRow): SeriesMark {
+  return {
+    id: row.id,
+    seriesId: row.seriesId,
+    name: row.name,
+    lat: row.lat,
+    lng: row.lng,
+    ...(row.card ? { card: row.card } : {}),
+    ...(row.shape ? { shape: row.shape } : {}),
+    ...(row.color ? { color: row.color } : {}),
+    ...(row.from ? { from: row.from } : {}),
+    createdAt: row.createdAt.getTime(),
+    version: row.version,
+  };
+}
+
+function seriesMarkToRow(m: SeriesMark, workspaceId: string) {
+  return {
+    id: m.id,
+    seriesId: m.seriesId,
+    workspaceId,
+    name: m.name,
+    lat: m.lat,
+    lng: m.lng,
+    card: m.card ?? null,
+    shape: m.shape ?? null,
+    color: m.color ?? null,
+    from: m.from ?? null,
+    createdAt: new Date(m.createdAt),
+  };
+}
+
+const seriesMarkUpdateColumns = [
+  'name', 'lat', 'lng', 'card', 'shape', 'color', 'from',
+] as const satisfies readonly (keyof ReturnType<typeof seriesMarkToRow>)[];
+
+function seriesCourseRowToType(row: SeriesCourseRow): SeriesCourse {
+  return {
+    id: row.id,
+    seriesId: row.seriesId,
+    name: row.name,
+    ...(row.card ? { card: row.card } : {}),
+    ...(row.modified ? { modified: true } : {}),
+    marks: row.marks,
+    createdAt: row.createdAt.getTime(),
+    version: row.version,
+  };
+}
+
+function seriesCourseToRow(c: SeriesCourse, workspaceId: string) {
+  return {
+    id: c.id,
+    seriesId: c.seriesId,
+    workspaceId,
+    name: c.name,
+    card: c.card ?? null,
+    modified: c.modified ?? false,
+    marks: c.marks,
+    createdAt: new Date(c.createdAt),
+  };
+}
+
+const seriesCourseUpdateColumns = [
+  'name', 'card', 'modified', 'marks',
+] as const satisfies readonly (keyof ReturnType<typeof seriesCourseToRow>)[];
+
+export class PostgresSeriesMarkRepository implements SeriesMarkRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async listBySeries(seriesId: string): Promise<SeriesMark[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.seriesMarks)
+      .where(
+        and(
+          eq(schema.seriesMarks.seriesId, seriesId),
+          eq(schema.seriesMarks.workspaceId, this.workspaceId),
+        ),
+      )
+      .orderBy(schema.seriesMarks.createdAt, schema.seriesMarks.name);
+    return rows.map(seriesMarkRowToType);
+  }
+
+  async get(id: string): Promise<SeriesMark | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(schema.seriesMarks)
+      .where(and(eq(schema.seriesMarks.id, id), eq(schema.seriesMarks.workspaceId, this.workspaceId)))
+      .limit(1);
+    return row ? seriesMarkRowToType(row) : undefined;
+  }
+
+  save(m: SeriesMark, opts?: SaveOpts): Promise<SeriesMark> {
+    return versionedSave({
+      db: this.db,
+      table: schema.seriesMarks,
+      rowToType: seriesMarkRowToType,
+      workspaceId: this.workspaceId,
+      id: m.id,
+      values: seriesMarkToRow(m, this.workspaceId),
+      updateColumns: seriesMarkUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
+  }
+
+  async saveMany(marks: SeriesMark[], opts?: SaveOpts): Promise<void> {
+    if (marks.length === 0) return;
+    await versionedSaveMany({
+      db: this.db,
+      table: schema.seriesMarks,
+      workspaceId: this.workspaceId,
+      values: marks.map((m) => seriesMarkToRow(m, this.workspaceId)),
+      updateColumns: seriesMarkUpdateColumns,
+      tenancy: 'workspace',
+      opts,
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db
+      .delete(schema.seriesMarks)
+      .where(and(eq(schema.seriesMarks.id, id), eq(schema.seriesMarks.workspaceId, this.workspaceId)));
+  }
+
+  async deleteBySeries(seriesId: string): Promise<void> {
+    await this.db
+      .delete(schema.seriesMarks)
+      .where(
+        and(
+          eq(schema.seriesMarks.seriesId, seriesId),
+          eq(schema.seriesMarks.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+}
+
+export class PostgresSeriesCourseRepository implements SeriesCourseRepository {
+  private readonly db: SailScoringDb;
+  private readonly workspaceId: string;
+
+  constructor(ctx: RepoCtx) {
+    this.db = ctx.db ?? getDb();
+    this.workspaceId = ctx.workspaceId;
+  }
+
+  async listBySeries(seriesId: string): Promise<SeriesCourse[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.seriesCourses)
+      .where(
+        and(
+          eq(schema.seriesCourses.seriesId, seriesId),
+          eq(schema.seriesCourses.workspaceId, this.workspaceId),
+        ),
+      )
+      .orderBy(schema.seriesCourses.createdAt, schema.seriesCourses.name);
+    return rows.map(seriesCourseRowToType);
+  }
+
+  async get(id: string): Promise<SeriesCourse | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(schema.seriesCourses)
+      .where(and(eq(schema.seriesCourses.id, id), eq(schema.seriesCourses.workspaceId, this.workspaceId)))
+      .limit(1);
+    return row ? seriesCourseRowToType(row) : undefined;
+  }
+
+  save(c: SeriesCourse, opts?: SaveOpts): Promise<SeriesCourse> {
+    return versionedSave({
+      db: this.db,
+      table: schema.seriesCourses,
+      rowToType: seriesCourseRowToType,
+      workspaceId: this.workspaceId,
+      id: c.id,
+      values: seriesCourseToRow(c, this.workspaceId),
+      updateColumns: seriesCourseUpdateColumns,
+      tenancy: { kind: 'workspace' },
+      opts,
+    });
+  }
+
+  async saveMany(courses: SeriesCourse[], opts?: SaveOpts): Promise<void> {
+    if (courses.length === 0) return;
+    await versionedSaveMany({
+      db: this.db,
+      table: schema.seriesCourses,
+      workspaceId: this.workspaceId,
+      values: courses.map((c) => seriesCourseToRow(c, this.workspaceId)),
+      updateColumns: seriesCourseUpdateColumns,
+      tenancy: 'workspace',
+      opts,
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db
+      .delete(schema.seriesCourses)
+      .where(and(eq(schema.seriesCourses.id, id), eq(schema.seriesCourses.workspaceId, this.workspaceId)));
+  }
+
+  async deleteBySeries(seriesId: string): Promise<void> {
+    await this.db
+      .delete(schema.seriesCourses)
+      .where(
+        and(
+          eq(schema.seriesCourses.seriesId, seriesId),
+          eq(schema.seriesCourses.workspaceId, this.workspaceId),
+        ),
+      );
+  }
+}
+
 // ─── Race-scoped child repositories: tenancy via the parent race ─────────────
 
 /** Returns the race ids that belong to this workspace, given a candidate set. */
@@ -1630,12 +1862,13 @@ function raceStartToRow(s: RaceStart) {
     distanceNm: s.distanceNm ?? null,
     orcScoringWind: s.orcScoringWind ?? null,
     courseLegs: s.courseLegs?.length ? s.courseLegs : null,
+    course: s.course ?? null,
     orcOption: s.orcOption ?? null,
   };
 }
 
 const raceStartUpdateColumns = [
-  'fleetIds', 'startTime', 'stage', 'stageRaceNumber', 'firstPlaceOffset', 'distanceNm', 'orcScoringWind', 'courseLegs', 'orcOption',
+  'fleetIds', 'startTime', 'stage', 'stageRaceNumber', 'firstPlaceOffset', 'distanceNm', 'orcScoringWind', 'courseLegs', 'course', 'orcOption',
 ] as const satisfies readonly (keyof ReturnType<typeof raceStartToRow>)[];
 
 export class PostgresRaceStartRepository implements RaceStartRepository {
@@ -2516,6 +2749,8 @@ export function createRepos(ctx: RepoCtx) {
     competitors: new PostgresCompetitorRepository(ctx),
     races: new PostgresRaceRepository(ctx),
     subSeries: new PostgresSubSeriesRepository(ctx),
+    seriesMarks: new PostgresSeriesMarkRepository(ctx),
+    seriesCourses: new PostgresSeriesCourseRepository(ctx),
     raceStarts: new PostgresRaceStartRepository(ctx),
     raceRatingOverrides: new PostgresRaceRatingOverrideRepository(ctx),
     finishes: new PostgresFinishRepository(ctx),
