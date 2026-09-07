@@ -1,0 +1,232 @@
+{
+  "formatVersion": 2,
+  "club": "HYC",
+  "name": "Autumn League racing marks, from the 2025 course card technical sheet",
+  "source": "https://hyc.ie/system/resources/2331/original/AL_Course_Card_Technical_Sheet.pdf",
+  "marks": [
+    {
+      "id": "A",
+      "name": "Apex",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.446,
+        "lng": -6.054333
+      }
+    },
+    {
+      "id": "B",
+      "name": "Balscadden",
+      "shape": "conical",
+      "color": "orange",
+      "position": {
+        "lat": 53.388333,
+        "lng": -6.054333
+      }
+    },
+    {
+      "id": "C",
+      "name": "Cush",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.410167,
+        "lng": -6.090833
+      }
+    },
+    {
+      "id": "D",
+      "name": "Dunbo",
+      "shape": "conical",
+      "color": "yellow",
+      "position": {
+        "lat": 53.412167,
+        "lng": -6.064167
+      }
+    },
+    {
+      "id": "E",
+      "name": "East",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.433333,
+        "lng": -6.036667
+      }
+    },
+    {
+      "id": "F",
+      "name": "Finish",
+      "shape": "cylindrical",
+      "color": "orange",
+      "placement": "Between Island Mark and Howth Sound"
+    },
+    {
+      "id": "G",
+      "name": "Garbh",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.416667,
+        "lng": -6.038667
+      }
+    },
+    {
+      "id": "H",
+      "name": "Hub",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.4285,
+        "lng": -6.073833
+      }
+    },
+    {
+      "id": "I",
+      "name": "Island",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.411667,
+        "lng": -6.072667
+      }
+    },
+    {
+      "id": "J",
+      "name": "Thulla",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.396667,
+        "lng": -6.056667
+      }
+    },
+    {
+      "id": "K",
+      "name": "Stack",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.41,
+        "lng": -6.051833
+      }
+    },
+    {
+      "id": "M",
+      "name": "Malahide",
+      "shape": "inflatable",
+      "color": "yellow",
+      "position": {
+        "lat": 53.453833,
+        "lng": -6.093167
+      }
+    },
+    {
+      "id": "O",
+      "name": "Osprey",
+      "shape": "conical",
+      "color": "orange",
+      "position": {
+        "lat": 53.4235,
+        "lng": -6.058667
+      }
+    },
+    {
+      "id": "P",
+      "name": "Portmarnock",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.427167,
+        "lng": -6.096667
+      }
+    },
+    {
+      "id": "Q",
+      "name": "Rowan Rocks",
+      "shape": "iala",
+      "color": "black",
+      "position": {
+        "lat": 53.398,
+        "lng": -6.053667
+      }
+    },
+    {
+      "id": "R",
+      "name": "South Rowan",
+      "shape": "iala",
+      "color": "green",
+      "position": {
+        "lat": 53.396333,
+        "lng": -6.064667
+      }
+    },
+    {
+      "id": "S",
+      "name": "Spit",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.405833,
+        "lng": -6.074667
+      }
+    },
+    {
+      "id": "T",
+      "name": "Talbot",
+      "shape": "inflatable",
+      "color": "yellow",
+      "position": {
+        "lat": 53.455167,
+        "lng": -6.021667
+      }
+    },
+    {
+      "id": "U",
+      "name": "Ulysses",
+      "shape": "conical",
+      "color": "orange",
+      "position": {
+        "lat": 53.437,
+        "lng": -6.082833
+      }
+    },
+    {
+      "id": "V",
+      "name": "Viceroy",
+      "shape": "conical",
+      "color": "orange",
+      "position": {
+        "lat": 53.418667,
+        "lng": -6.079667
+      }
+    },
+    {
+      "id": "W",
+      "name": "West",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.416,
+        "lng": -6.101167
+      }
+    },
+    {
+      "id": "X",
+      "name": "Xebec",
+      "shape": "barrel",
+      "color": "black",
+      "position": {
+        "lat": 53.402,
+        "lng": -6.072167
+      }
+    },
+    {
+      "id": "Z",
+      "name": "Zephyr",
+      "shape": "inflatable",
+      "color": "black",
+      "placement": "Upwind of Start Line"
+    }
+  ]
+}

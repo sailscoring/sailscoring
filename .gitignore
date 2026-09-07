@@ -60,5 +60,9 @@ next-env.d.ts
 # is committed, not the binary assets.
 /public/canonical-logos/
 
+# course-cards data — fetched at build by scripts/sync-course-cards.ts from the
+# pinned release; only the catalogue (lib/course-cards/generated) is committed.
+/public/course-cards/
+
 # Private local Claude context (private sibling-repo map)
 CLAUDE.local.md

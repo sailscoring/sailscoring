@@ -1,0 +1,95 @@
+{
+  "formatVersion": 2,
+  "club": "HYC",
+  "name": "Brass Monkey Winter Series 2025 racing marks",
+  "source": "https://hyc.ie/system/resources/2365/original/Brass_Monkey_SI_Winter_2025_.pdf",
+  "marks": [
+    {
+      "id": "C",
+      "name": "Cush",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.408333,
+        "lng": -6.090667
+      }
+    },
+    {
+      "id": "D",
+      "name": "Dunbo",
+      "shape": "conical",
+      "color": "yellow",
+      "position": {
+        "lat": 53.412167,
+        "lng": -6.064167
+      }
+    },
+    {
+      "id": "H",
+      "name": "Hub",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.4285,
+        "lng": -6.073833
+      }
+    },
+    {
+      "id": "I",
+      "name": "Island",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.411667,
+        "lng": -6.073167
+      }
+    },
+    {
+      "id": "P",
+      "name": "Portmarnock",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.427167,
+        "lng": -6.096667
+      }
+    },
+    {
+      "id": "S",
+      "name": "Spit",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.407,
+        "lng": -6.075167
+      }
+    },
+    {
+      "id": "V",
+      "name": "Viceroy",
+      "shape": "conical",
+      "color": "orange",
+      "position": {
+        "lat": 53.418667,
+        "lng": -6.079667
+      }
+    },
+    {
+      "id": "W",
+      "name": "West",
+      "shape": "conical",
+      "color": "black",
+      "position": {
+        "lat": 53.416,
+        "lng": -6.101167
+      }
+    },
+    {
+      "id": "F",
+      "name": "Finish",
+      "shape": "spherical",
+      "color": "orange",
+      "placement": "South of the Island mark in the vicinity of the Sound"
+    }
+  ]
+}

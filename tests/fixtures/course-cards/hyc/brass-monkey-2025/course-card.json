@@ -1,0 +1,665 @@
+{
+  "formatVersion": 2,
+  "club": "HYC",
+  "name": "Brass Monkey Winter Series 2025 course card",
+  "source": "https://hyc.ie/system/resources/2365/original/Brass_Monkey_SI_Winter_2025_.pdf",
+  "marks": "marks.json",
+  "startLine": {
+    "id": "SL",
+    "name": "Start line",
+    "placement": "The Race Area will be Northwest of Ireland’s Eye. The starting line will be between the red and white pole displaying an orange flag on the Committee Vessel and either a cylindrical orange buoy or an orange buoy with a flag on top. Boats shall keep clear of the starting line until their warning signal.",
+    "source": "HYC Brass Monkey Winter Series 2025 sailing instructions 8.1 and 12.1"
+  },
+  "notes": [
+    {
+      "title": "Wind",
+      "text": "1 N, 2 N, 3 N/E, 4 N/E, 5 E, 6 E, 7 S/E, 8 S/E, 9 S, 10 S, 11 S/W, 12 S/W, 13 W, 14 W, 15 N/W, 16 N/W"
+    },
+    {
+      "title": "8. Race Area",
+      "text": "8.1 The Race Area will be Northwest of Ireland’s Eye."
+    },
+    {
+      "title": "9. Courses",
+      "text": "9.1 Courses will be in accordance with the course card, which forms part of these Sailing Instructions, available on the www.hyc.ie website and will be indicated by numeral boards displayed on the Committee Vessel.\n9.2 The course applicable to each Class will be displayed for not less than 4 minutes before its start. This changes RRS 27.1."
+    },
+    {
+      "title": "10. Marks",
+      "text": "10.1 Special Brass Monkey marks may be laid for the series.\n10.2 Marks are orange spherical or black conical as follows:\nLetter Mark\nC Cush\nD Dunbo\nH Hub\nI Island\nP Portmarnock\nS Spit\nW West\nV Viceroy\nNote: The Spit mark is to be passed to the north and east."
+    },
+    {
+      "title": "14. The Finish",
+      "text": "14.1 The finishing line will be a line between a red and white pole displaying a blue flag on the Committee Vessel and a spherical orange cherry mark, unless a race is shortened.\n14.2 Unless a race is shortened, all finishes will be south of the Island mark in the vicinity of the Sound.\n14.3 Boats, having finished, are required to keep clear of all boats still racing (including on a different race course). Those not doing so may be disqualified without a hearing. This changes RRS 63.1 and A5.1.\n14.4 A race may be shortened at any mark on the course.\n14.5 Any boat retiring shall inform the Race Committee on VHF channel 77"
+    }
+  ],
+  "courses": [
+    {
+      "id": "1",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "V",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "V",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "V",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "V",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "P",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "V",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "P",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "P",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "V",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "H",
+          "side": "port"
+        },
+        {
+          "mark": "V",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "D",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "P",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "marks": [
+        {
+          "mark": "SL"
+        },
+        {
+          "mark": "P",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "port"
+        },
+        {
+          "mark": "P",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "C",
+          "side": "port"
+        },
+        {
+          "mark": "W",
+          "side": "port"
+        },
+        {
+          "mark": "I",
+          "side": "starboard"
+        },
+        {
+          "mark": "F"
+        }
+      ]
+    }
+  ]
+}
