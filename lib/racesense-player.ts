@@ -27,14 +27,16 @@ import {
 const PROJECT = 'vakaros-racesense';
 
 /**
- * The player's public Firebase web key, as shipped in its page bundle. A
- * web key identifies the Firebase project to the client SDK; it is not a
- * secret and grants nothing the rules don't. Overridable in case it is
- * rotated between deploys.
+ * The player's Firebase web key, as shipped in its page bundle. A web key
+ * identifies the Firebase project to the client SDK; it grants nothing
+ * the rules don't. It is Vakaros's, though, not ours, so it is configured
+ * on the server rather than written into this repo, and a deployment
+ * without it says so rather than reading.
  */
-const WEB_KEY = process.env.RACESENSE_PLAYER_WEB_KEY ?? '';
+const webKey = (): string | null => process.env.RACESENSE_PLAYER_WEB_KEY?.trim() || null;
 
-const SIGN_UP_URL = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${WEB_KEY}`;
+const signUpUrl = (key: string): string =>
+  `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(key)}`;
 
 const documentUrl = (regattaId: string): string =>
   `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/regattas/${encodeURIComponent(regattaId)}`;
@@ -46,6 +48,7 @@ const TOKEN_MARGIN_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 60_000;
 
 export type RaceSensePlayerFailure =
+  | 'unconfigured' // this server has no web key for the player
   | 'refused'      // the sign-in or the read was rejected: the rules or the key changed
   | 'not-found'    // no regatta with that id
   | 'unreachable'  // network, timeout, or an answer that wasn't the document
@@ -82,7 +85,13 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 async function anonymousToken(): Promise<string> {
   if (cached && cached.expiresAt > Date.now()) return cached.idToken;
 
-  const res = await fetchWithTimeout(SIGN_UP_URL, {
+  const key = webKey();
+  if (key === null) {
+    throw new RaceSensePlayerError('unconfigured',
+      `Reading from the RaceSense player isn’t set up on this server (no RACESENSE_PLAYER_WEB_KEY). ${FALLBACK}`);
+  }
+
+  const res = await fetchWithTimeout(signUpUrl(key), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ returnSecureToken: true }),

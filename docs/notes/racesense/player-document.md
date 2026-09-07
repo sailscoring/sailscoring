@@ -23,7 +23,9 @@ is the fallback.
 - The regatta id is the second path segment of the watch URL. Championship
   exports also print it on every sheet as `Regatta ID`, which ties a
   workbook to its document.
-- One anonymous sign-in, then one GET of
+- One anonymous sign-in with the player's Firebase web key — Vakaros's,
+  read off their page bundle, supplied to the app as
+  `RACESENSE_PLAYER_WEB_KEY` and never committed — then one GET of
   `regattas/{regattaId}` from the Firestore REST API as that user. The
   whole regatta — every division, every race — comes back as one document,
   about 10 MB for three divisions of 47 boats and six races, most of it

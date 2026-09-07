@@ -114,6 +114,25 @@ describe('fetchRaceSenseRegattaDocument', () => {
     expect((calls[3].init?.headers as Record<string, string>).authorization).toBe('Bearer tok-2');
   });
 
+  it('says so when this server has no web key, before touching the network', async () => {
+    const { fetchRaceSenseRegattaDocument: read } = await fresh();
+    vi.stubEnv('RACESENSE_PLAYER_WEB_KEY', '');
+
+    const err = await read('abc123abc123abc123ab').catch((e) => e);
+    expect(err.failure).toBe('unconfigured');
+    expect(err.message).toContain('no RACESENSE_PLAYER_WEB_KEY');
+    expect(calls).toHaveLength(0);
+    vi.unstubAllEnvs();
+  });
+
+  it('sends the configured web key with the sign-in', async () => {
+    const { fetchRaceSenseRegattaDocument: read } = await fresh();
+    answers.push(SIGN_UP.clone(), jsonResponse(200, DOCUMENT));
+
+    await read('abc123abc123abc123ab');
+    expect(calls[0].url).toBe('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=test-web-key');
+  });
+
   it('says so when the sign-in itself is refused', async () => {
     const { fetchRaceSenseRegattaDocument: read } = await fresh();
     answers.push(jsonResponse(400, { error: { message: 'ADMIN_ONLY_OPERATION' } }));
