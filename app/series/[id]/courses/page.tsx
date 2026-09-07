@@ -426,14 +426,14 @@ function SwapMarkDialogInner({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]">
         <DialogHeader>
           <DialogTitle>Swap a mark</DialogTitle>
           <DialogDescription>
             A duplicate of {course.name} with one mark exchanged — the second windward mark, the re-laid finish.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3 min-h-0 overflow-y-auto pr-1">
           <div className="grid grid-cols-[4rem_1fr] items-center gap-2 text-sm">
             <span>Replace</span>
             <Select value={fromId} onValueChange={(v) => { setFromId(v); setError(''); }}>
@@ -464,7 +464,7 @@ function SwapMarkDialogInner({
           <CourseDrawing marks={drawing.marks} course={drawing.course} width={480} title="Course drawing" />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 mt-2">
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
           <Button onClick={() => void handleSave()} data-testid="swap-save">Save as new course</Button>
         </div>
