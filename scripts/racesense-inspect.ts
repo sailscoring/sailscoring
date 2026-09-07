@@ -1,17 +1,32 @@
 /**
- * `pnpm racesense:inspect <file.xlsx…>` — read a RaceSense regatta export
- * and print what the parser made of it, plus everything it didn't recognise.
+ * `pnpm racesense:inspect <source…>` — read a RaceSense regatta and print
+ * what the import made of it, plus everything it didn't recognise.
+ *
+ * A source is the committee's export (`.xlsx`), a player URL or bare
+ * regatta id (read live from the RaceSense player), or a regatta document
+ * captured earlier (`.json`, as `--save` writes it).
  *
  * Meant for a regatta desk. When an export arrives mid-championship and the
  * import does something unexpected, this answers "what does the file
  * actually say" in one command, without a browser, a login or a series to
- * import into. `--race N` dumps a single race in full; `--anomalies` prints
- * every occurrence instead of one line per kind.
+ * import into — and when the player and the export disagree, `--save`
+ * keeps the document so the two can be diffed. `--race N` dumps a single
+ * race in full; `--division NAME` picks one division of a regatta with
+ * several; `--anomalies` prints every occurrence instead of one line per
+ * kind.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 import { parseWorkbookBytes } from '@/lib/import-table';
+import { fetchRaceSenseRegattaDocument } from '@/lib/racesense-player';
+import {
+  parseRaceSensePlayerRef,
+  pruneFirestoreDocument,
+  readRaceSenseRegattaDocument,
+  regattaToWorkbook,
+  type FirestoreDocument,
+} from '@/lib/racesense-regatta';
 import {
   groupAnomalies,
   parseRaceSenseWorkbook,
@@ -21,31 +36,40 @@ import {
 } from '@/lib/racesense-workbook';
 
 const USAGE =
-  'usage: pnpm racesense:inspect [--race N] [--anomalies] <file.xlsx…>';
+  'usage: pnpm racesense:inspect [--race N] [--division NAME] [--anomalies] [--save FILE.json] <file.xlsx | player URL | regatta id | capture.json>…';
 
 interface Options {
   race: number | null;
+  division: string | null;
   everyAnomaly: boolean;
-  paths: string[];
+  /** Where to write the (pruned) regatta document read from the player. */
+  save: string | null;
+  sources: string[];
 }
 
 function parseArgs(argv: string[]): Options | null {
-  const options: Options = { race: null, everyAnomaly: false, paths: [] };
+  const options: Options = { race: null, division: null, everyAnomaly: false, save: null, sources: [] };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--race') {
       const value = Number(argv[++i]);
       if (!Number.isInteger(value)) return null;
       options.race = value;
+    } else if (arg === '--division') {
+      options.division = argv[++i] ?? null;
+      if (options.division === null) return null;
+    } else if (arg === '--save') {
+      options.save = argv[++i] ?? null;
+      if (options.save === null) return null;
     } else if (arg === '--anomalies') {
       options.everyAnomaly = true;
     } else if (arg.startsWith('-')) {
       return null;
     } else {
-      options.paths.push(arg);
+      options.sources.push(arg);
     }
   }
-  return options.paths.length > 0 ? options : null;
+  return options.sources.length > 0 ? options : null;
 }
 
 function raceLine(race: RaceSenseRace): string {
@@ -102,10 +126,14 @@ function dumpRace(race: RaceSenseRace): void {
 }
 
 function report(workbook: RaceSenseWorkbook, options: Options): void {
-  console.log(`Regatta:  ${workbook.regatta ?? '(none)'}`);
+  console.log(`Regatta:  ${workbook.regatta ?? '(none)'}${workbook.regattaId ? ` (${workbook.regattaId})` : ''}`);
   console.log(`Division: ${workbook.division ?? '(none)'}`);
-  console.log(`Written by RaceSense ${workbook.appVersion ?? '(unstated)'}`);
-  console.log(`${workbook.races.length} races, ${workbook.summary?.length ?? 0} competitors in the Summary grid`);
+  if (workbook.appVersion !== null) console.log(`Written by RaceSense ${workbook.appVersion}`);
+  console.log(
+    workbook.summary === null
+      ? `${workbook.races.length} races`
+      : `${workbook.races.length} races, ${workbook.summary.length} competitors in the Summary grid`,
+  );
 
   if (options.race !== null) {
     const race = workbook.races.find((r) => r.number === options.race);
@@ -157,19 +185,60 @@ async function run(argv: string[]): Promise<number> {
   }
 
   let failed = false;
-  for (const path of options.paths) {
-    if (options.paths.length > 1) console.log(`\n=== ${path} ===`);
-    const buf = readFileSync(path);
-    const bytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
-    const parsed = await parseWorkbookBytes(bytes);
-    if (parsed.kind === 'error') {
-      console.error(`${path}: ${parsed.message}`);
+  for (const source of options.sources) {
+    if (options.sources.length > 1) console.log(`\n=== ${source} ===`);
+    try {
+      for (const workbook of await workbooksFrom(source, options)) report(workbook, options);
+    } catch (err) {
+      console.error(`${source}: ${err instanceof Error ? err.message : String(err)}`);
       failed = true;
-      continue;
     }
-    report(parseRaceSenseWorkbook(parsed.sheets), options);
   }
   return failed ? 1 : 0;
+}
+
+/** Every workbook a source yields: one for an export, one per division
+ *  (or the named one) for a regatta document. */
+async function workbooksFrom(source: string, options: Options): Promise<RaceSenseWorkbook[]> {
+  if (source.toLowerCase().endsWith('.xlsx')) {
+    const buf = readFileSync(source);
+    const bytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+    const parsed = await parseWorkbookBytes(bytes);
+    if (parsed.kind === 'error') throw new Error(parsed.message);
+    return [parseRaceSenseWorkbook(parsed.sheets)];
+  }
+
+  let doc: FirestoreDocument;
+  let id: string;
+  if (source.toLowerCase().endsWith('.json')) {
+    doc = JSON.parse(readFileSync(source, 'utf8')) as FirestoreDocument;
+    id = doc.name?.split('/').pop() ?? source;
+  } else {
+    const ref = parseRaceSensePlayerRef(source);
+    if (!ref) throw new Error('not an export, a capture, or a RaceSense player URL');
+    doc = await fetchRaceSenseRegattaDocument(ref.regattaId);
+    id = ref.regattaId;
+    if (options.division === null && ref.division !== null) options.division = ref.division;
+  }
+
+  if (options.save !== null) {
+    writeFileSync(options.save, JSON.stringify(pruneFirestoreDocument(doc), null, 1));
+    console.log(`Saved the regatta document (pruned of positions and devices) to ${options.save}`);
+  }
+
+  const regatta = readRaceSenseRegattaDocument(doc, id);
+  const wanted = options.division?.trim().toLowerCase() ?? null;
+  const divisions = wanted === null
+    ? regatta.divisions
+    : regatta.divisions.filter((d) => d.name.trim().toLowerCase() === wanted);
+  if (divisions.length === 0) {
+    throw new Error(
+      wanted === null
+        ? 'the regatta has no divisions'
+        : `no division "${options.division}" — the regatta has: ${regatta.divisions.map((d) => d.name).join(', ')}`,
+    );
+  }
+  return divisions.map((d) => regattaToWorkbook(regatta, d));
 }
 
 run(process.argv.slice(2)).then((code) => process.exit(code));

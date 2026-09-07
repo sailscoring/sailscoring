@@ -1,13 +1,17 @@
 {
  "name": "projects/vakaros-racesense/databases/(default)/documents/regattas/5JsqWPmBU6P7G5rk15ic",
- "createTime": "2026-08-26T20:39:34.790133Z",
- "updateTime": "2026-08-30T09:56:59.671889Z",
  "fields": {
-  "createdTs": {
-   "timestampValue": "2026-08-26T20:39:34.734737Z"
+  "endDate": {
+   "timestampValue": "2026-08-30T23:00:00Z"
   },
-  "modifiedTs": {
-   "timestampValue": "2026-08-30T09:56:50.497192Z"
+  "startDate": {
+   "timestampValue": "2026-08-26T23:00:00Z"
+  },
+  "name": {
+   "stringValue": "ILCA 7 Worlds Elimination Series"
+  },
+  "sequenceNumber": {
+   "integerValue": "80"
   },
   "divisions": {
    "arrayValue": {
@@ -646,7 +650,7 @@
                "booleanValue": false
               },
               "boatName": {
-               "stringValue": "Jonat\u00e1n Vadnai"
+               "stringValue": "Jonatán Vadnai"
               }
              }
             }
@@ -1096,7 +1100,7 @@
                "booleanValue": false
               },
               "boatName": {
-               "stringValue": "Erik Norl\u00e9n"
+               "stringValue": "Erik Norlén"
               }
              }
             }
@@ -1456,7 +1460,7 @@
                "booleanValue": false
               },
               "boatName": {
-               "stringValue": "Christoffer S\u00f8rlie"
+               "stringValue": "Christoffer Sørlie"
               }
              }
             }
@@ -14728,7 +14732,7 @@
                "booleanValue": false
               },
               "boatName": {
-               "stringValue": "Clemente Seguel Lac\u00e1mara"
+               "stringValue": "Clemente Seguel Lacámara"
               }
              }
             }
@@ -15148,7 +15152,7 @@
                "booleanValue": false
               },
               "boatName": {
-               "stringValue": "Jo\u00e3o Pontes"
+               "stringValue": "João Pontes"
               }
              }
             }
@@ -29449,7 +29453,7 @@
                "booleanValue": false
               },
               "boatName": {
-               "stringValue": "C\u00e9dric D'hondt"
+               "stringValue": "Cédric D'hondt"
               }
              }
             }
@@ -29509,7 +29513,7 @@
                "booleanValue": false
               },
               "boatName": {
-               "stringValue": "Louis Hup\u00e9"
+               "stringValue": "Louis Hupé"
               }
              }
             }
@@ -41505,32 +41509,28 @@
     ]
    }
   },
-  "numFrameBundlesPerSecond": {
-   "integerValue": "1"
+  "deleted": {
+   "booleanValue": false
+  },
+  "createdTs": {
+   "timestampValue": "2026-08-26T20:39:34.734737Z"
   },
   "rcDeviceGpsConfiguration": {
    "stringValue": "participantMode"
   },
-  "deleted": {
-   "booleanValue": false
+  "numFrameBundlesPerSecond": {
+   "integerValue": "1"
   },
-  "endDate": {
-   "timestampValue": "2026-08-30T23:00:00Z"
-  },
-  "name": {
-   "stringValue": "ILCA 7 Worlds Elimination Series"
-  },
-  "sequenceNumber": {
-   "integerValue": "80"
-  },
-  "startDate": {
-   "timestampValue": "2026-08-26T23:00:00Z"
-  },
-  "id": {
-   "stringValue": "5JsqWPmBU6P7G5rk15ic"
+  "modifiedTs": {
+   "timestampValue": "2026-08-30T09:56:50.497192Z"
   },
   "schemaVersion": {
    "integerValue": "4"
+  },
+  "id": {
+   "stringValue": "5JsqWPmBU6P7G5rk15ic"
   }
- }
+ },
+ "createTime": "2026-08-26T20:39:34.790133Z",
+ "updateTime": "2026-08-30T09:56:59.671889Z"
 }

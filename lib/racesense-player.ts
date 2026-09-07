@@ -1,4 +1,6 @@
-import 'server-only';
+// Not marked `server-only`: the desk script (`pnpm racesense:inspect`) reads
+// the player from node with the same code. Nothing here is a secret, and
+// the API handler that fronts it is the server seam.
 
 import {
   readRaceSenseRegattaDocument,
