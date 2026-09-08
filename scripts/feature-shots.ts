@@ -691,6 +691,37 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Notes on published pages — the note strip above the preview,
+    // with the note it wrote showing in the page below it. Written through
+    // the UI so the shot is of the real affordance, then cleared, so a
+    // re-run of the rig does not leave the sample series carrying a note.
+    slug: 'page-notes',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'page-notes');
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('heading', { name: 'Preview results' }).waitFor();
+      await page.frameLocator('iframe[title="Results preview"]').locator('body').waitFor();
+      await dialog.getByRole('button', { name: 'Add a note' }).click();
+      await dialog
+        .getByTestId('page-note-text')
+        .fill(
+          'Race 3 was abandoned after the first beat and resailed the same evening; the resail is the race scored here.',
+        );
+      await dialog.getByRole('button', { name: 'Save' }).click();
+      await dialog.getByRole('button', { name: 'Edit' }).waitFor();
+      await settle(page);
+      await shot('page-notes.png');
+      await dialog.getByRole('button', { name: 'Remove' }).click();
+      await dialog.getByRole('button', { name: 'Add a note' }).waitFor();
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
     // Inventory: Provisional and final results — the finalise checklist,
     // cancelled unconfirmed.
     slug: 'results-status-final',

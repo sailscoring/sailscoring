@@ -293,6 +293,62 @@ export default function Publishing() {
           </p>
         </Section>
       )}
+      {has('page-notes') && (
+        <Section id="page-notes" title="A note on a published page">
+          <HelpShot
+            src="/help/shots/page-notes.webp"
+            alt="The preview dialog with a note strip above the page: the note text, an Edit button and a Remove button."
+            caption="The note strip in Preview: what this page will say, above the page it will say it on."
+          />
+          <p>
+            Sometimes a results page has to say something the figures cannot say for themselves.
+            Tuesday’s fleet assignment was worked out from Q1 as posted, before a retirement was
+            applied to it, so re-deriving the split from today’s standings gives a different
+            answer — and that is correct, because the sailors raced to the posted assignment.
+            Q4 was abandoned and resailed. The finish order was corrected at 16:40. A reconstructed
+            archive differs from the club’s originals in a stated way, and here is the link to them.
+          </p>
+          <p>
+            A <strong className="text-foreground">note</strong> is free text that prints above the
+            results, styled as an editorial aside rather than as data. There are two kinds, and
+            both can be on a page at once:
+          </p>
+          <ul className="ml-5 list-disc space-y-1">
+            <li>
+              A <strong className="text-foreground">note on this page</strong> — it appears on that
+              page and nowhere else. A note about the fleet split has no business on the entry list.
+            </li>
+            <li>
+              A <strong className="text-foreground">note on every page</strong> — the standing
+              sentence for the whole publication, printed above the page’s own note.
+            </li>
+          </ul>
+          <p>
+            Write one in <strong className="text-foreground">Preview</strong>, where the page is in
+            front of you: pick the page in the dropdown, use{' '}
+            <strong className="text-foreground">Add a note</strong> in the strip above it, and the
+            preview rebuilds so you can read the note in place before anyone else does. You can
+            also write one from the <strong className="text-foreground">Publish</strong> dialog —
+            each page’s row has a note button, and a page that already carries one shows it filled,
+            with the note itself as the button’s tooltip. That is how a note written three days ago
+            gets noticed before it goes out again.
+          </p>
+          <p>
+            Notes are plain text. Blank lines and line breaks start new paragraphs, a bare web
+            address becomes a link, and <code>[the originals](https://…)</code> becomes a link with
+            your own wording — which is most of the point of a delta note. Nothing else is
+            interpreted, so nothing you type can break the page.
+          </p>
+          <p>
+            A note is part of the series, not of the publication: it survives a re-publish without
+            being retyped, travels in the saved <code>.sailscoring</code> file and in the published
+            data file, and — because saving one is an edit like any other — the publish dialog
+            immediately tells you there are edits to publish. Clear a note by emptying it and
+            saving. Renaming a fleet leaves its note behind, because the page it was written for no
+            longer exists; the publish dialog lists any such note once, so you can remove it.
+          </p>
+        </Section>
+      )}
       {has('entry-list') && (
         <Section id="competitor-list" title="Publishing the competitor list">
           <p>

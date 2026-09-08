@@ -99,6 +99,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     sections: [
       { id: 'publishing-results', title: 'Publishing results' },
       { id: 'combined-pages', title: 'Extra pages', feature: 'combined-pages' },
+      { id: 'page-notes', title: 'A note on a published page', feature: 'page-notes' },
       { id: 'results-status', title: 'Provisional and final results', feature: 'results-status' },
       { id: 'competitor-list', title: 'Publishing the competitor list', feature: 'entry-list' },
       { id: 'starters-checklist', title: 'The starters checklist', feature: 'entry-list' },
