@@ -63,6 +63,10 @@ results, and beyond that nothing that is not in the published HTML**:
   score that belongs to no race — a qualifying position carried into the
   final series, the medal boats' compressed opening score — travels beside
   the per-race arrays as `carriedPoints`.
+- The scorer's explanatory notes (`seriesNote`, `pageNotes`) travel: they
+  are printed on the pages this file sits beside, so a reader who takes
+  the data still has the sentence that said why the figures read as they
+  do. `pageNotes` keys each note by page name, as the publication does.
 - Never included: internal UUIDs (competitors are keyed by sail number,
   fleets and races by name/number), FTP configuration, revision history,
   workspace organisation.

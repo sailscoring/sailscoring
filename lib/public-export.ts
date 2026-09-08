@@ -216,6 +216,13 @@ export interface PublicSeriesExport {
      *  `publishOfficials`: the per-finish `trackData` appears only when this
      *  is set, and the flag itself is carried so a re-import keeps it. */
     publishTrackData?: boolean;
+    /** The scorer's explanatory notes (#511): the one on every published page
+     *  of the series, and the per-page ones keyed by page name. Published
+     *  output by construction — they are printed on the pages this file sits
+     *  beside — so they travel, and an import or the spectator viewer keeps
+     *  the sentence that explained the figures. Absent when there is none. */
+    seriesNote?: string;
+    pageNotes?: { page: string; text: string; updatedAt: number }[];
   };
   fleets: {
     /** How the export refers to this fleet: its name, or — where a series
@@ -1278,6 +1285,10 @@ export function buildPublicExportFromSnapshot(
       ...(exportOfficials(series.officials, publishOfficials)),
       ...(publishOfficials ? { publishOfficials: true } : {}),
       ...(publishTrackData ? { publishTrackData: true } : {}),
+      // Notes travel verbatim: the key is a page name, and the pages keep
+      // their names across the export.
+      ...(series.seriesNote?.trim() ? { seriesNote: series.seriesNote } : {}),
+      ...(series.pageNotes?.length ? { pageNotes: series.pageNotes } : {}),
       // NB: `categoryId`/`archived` (#154) and `previousSeriesId` are
       // deliberately not exported — workspace-local organisation and
       // lineage, not series data.
@@ -1628,6 +1639,10 @@ export async function importPublicExport(
     // Likewise for track data: the export only carries it when the source
     // series published it, so the flag comes back with the data.
     ...(data.series.publishTrackData ? { publishTrackData: true } : {}),
+    // The notes come back as they went out — the pages they key by keep
+    // their names through the round trip.
+    ...(data.series.seriesNote ? { seriesNote: data.series.seriesNote } : {}),
+    ...(data.series.pageNotes?.length ? { pageNotes: data.series.pageNotes } : {}),
     // Axis ids are series-local opaque keys; carried verbatim so the imported
     // competitors' `subdivisions` maps still resolve.
     subdivisionAxes: data.series.subdivisionAxes ?? [],

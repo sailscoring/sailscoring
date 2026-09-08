@@ -11,6 +11,7 @@ import {
   openSeriesFromFile,
   type SeriesFileRepos,
 } from '@/lib/series-file';
+import { buildPublicExportFromSnapshot } from '@/lib/public-export';
 import type { SeriesSnapshot } from '@/lib/series-snapshot';
 import type { Competitor, Fleet, Race, RaceStart, Series, SubSeries } from '@/lib/types';
 
@@ -123,6 +124,12 @@ describe('.sailscoring page notes', () => {
     const restored = savedSeries.at(-1)!;
     expect(restored.seriesNote).toBe(snapshot.series.seriesNote);
     expect(restored.pageNotes).toEqual(snapshot.series.pageNotes);
+  });
+
+  it('travels in the public export, which is what the pages print', async () => {
+    const exported = buildPublicExportFromSnapshot(snapshot, { exportedAt: new Date(0) })!;
+    expect(exported.series.seriesNote).toBe(snapshot.series.seriesNote);
+    expect(exported.series.pageNotes).toEqual(snapshot.series.pageNotes);
   });
 
   it('reads a file written before the field existed', async () => {
