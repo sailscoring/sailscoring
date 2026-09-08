@@ -56,6 +56,13 @@ results, and beyond that nothing that is not in the published HTML**:
   are what competitors check their tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.
+- `standings` is what the published pages show, scored by the engine that
+  rendered them. A split-fleet championship is one ranking across its
+  fleets rather than a table per fleet, so it exports a single entry named
+  "Championship", holding every boat in championship order; the carried
+  score that belongs to no race — a qualifying position carried into the
+  final series, the medal boats' compressed opening score — travels beside
+  the per-race arrays as `carriedPoints`.
 - Never included: internal UUIDs (competitors are keyed by sail number,
   fleets and races by name/number), FTP configuration, revision history,
   workspace organisation.

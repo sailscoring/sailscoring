@@ -12,8 +12,8 @@ import { describeSplitFleetConfig } from './split-fleets-si';
 import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
+  assembleSplitFleetData,
   capitaliseStage,
-  dropNonEntrants,
   fleetColorById,
   logicalRaces,
   provisionalCutIndexes,
@@ -25,8 +25,8 @@ import {
   STAGES,
   type CellScore,
   type SeriesStage,
+  type RenderSplitRound,
   type SplitFleetConfig,
-  type SplitFleetData,
   type SplitRound,
 } from './split-fleets';
 
@@ -35,15 +35,6 @@ function esc(s: string): string {
 }
 
 const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
-
-/** A round as the render path receives it: wide enough for both the server
- *  repo's `SplitRound` and the file-shaped rounds the client repo hands back
- *  (no `seriesId`, `method` as a bare string, `basis` optional). */
-export type RenderSplitRound = Omit<SplitRound, 'seriesId' | 'method' | 'basis'> & {
-  seriesId?: string;
-  method: string;
-  basis?: SplitRound['basis'];
-};
 
 export interface SplitFleetRenderInput {
   seriesName: string;
@@ -65,23 +56,6 @@ export interface SplitFleetRenderInput {
    *  feature AND the series' publishTrackData setting — and each column
    *  still renders only where a boat actually carries the value. */
   showTrackData?: boolean;
-}
-
-export function assembleSplitFleetData(input: SplitFleetRenderInput): SplitFleetData {
-  return dropNonEntrants({
-    config: input.config,
-    rounds: input.rounds.map((r) => ({
-      ...r,
-      seriesId: r.seriesId ?? '',
-      method: r.method as SplitRound['method'],
-      basis: r.basis ?? null,
-    })),
-    fleets: input.fleets,
-    competitors: input.competitors,
-    races: input.races,
-    raceStarts: input.raceStarts,
-    finishes: input.finishes,
-  });
 }
 
 /** Rules these pages need on top of the shared published-page styles: the

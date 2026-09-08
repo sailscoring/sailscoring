@@ -908,6 +908,43 @@ export function logicalRaces(data: SplitFleetData, stage: SeriesStage): LogicalR
     });
 }
 
+/** A round as the export and render paths receive it: wide enough for both
+ *  the server repo's `SplitRound` and the file-shaped rounds the client repo
+ *  hands back (no `seriesId`, `method` as a bare string, `basis` optional). */
+export type RenderSplitRound = Omit<SplitRound, 'seriesId' | 'method' | 'basis'> & {
+  seriesId?: string;
+  method: string;
+  basis?: SplitRound['basis'];
+};
+
+/** Build the engine's `SplitFleetData` from the pieces a caller holds — the
+ *  one place the widened rounds are narrowed and the entry list is resolved,
+ *  so every page and every data file is built from the same boats. */
+export function assembleSplitFleetData(input: {
+  config: SplitFleetConfig;
+  rounds: readonly RenderSplitRound[];
+  fleets: Fleet[];
+  competitors: Competitor[];
+  races: Race[];
+  raceStarts: RaceStart[];
+  finishes: Finish[];
+}): SplitFleetData {
+  return dropNonEntrants({
+    config: input.config,
+    rounds: input.rounds.map((r) => ({
+      ...r,
+      seriesId: r.seriesId ?? '',
+      method: r.method as SplitRound['method'],
+      basis: r.basis ?? null,
+    })),
+    fleets: input.fleets,
+    competitors: input.competitors,
+    races: input.races,
+    raceStarts: input.raceStarts,
+    finishes: input.finishes,
+  });
+}
+
 /**
  * The same data with the boats that are not entered dropped.
  *

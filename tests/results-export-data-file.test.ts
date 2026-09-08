@@ -10,7 +10,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { join } from 'node:path';
 
 import { buildFleetHtmlFiles } from '@/lib/results-export';
-import type { ExportRepos, PublicSeriesExport } from '@/lib/public-export';
+import {
+  buildPublicExportFromSnapshot,
+  type ExportRepos,
+  type PublicSeriesExport,
+} from '@/lib/public-export';
+import { splitFleetStandings, type SplitFleetData } from '@/lib/split-fleets';
 import type { Competitor, Finish, Fleet, Race, Series } from '@/lib/types';
 import { buildSplitFleetData, loadSplitFleetFixtures } from './fixtures/scoring/split-fleets/loader';
 
@@ -193,5 +198,70 @@ describe('buildFleetHtmlFiles — a championship\'s data file', () => {
       expect(file.html).not.toContain('Data (.sailscoring.json)');
       expect(file.html).not.toContain('#data=');
     }
+  });
+});
+
+/**
+ * The data file is the data behind the page it sits beside (ADR-012), so a
+ * championship's has to be scored by the engine that rendered the page. The
+ * plain engine reads the series' own discard thresholds, which a split-fleet
+ * series leaves empty — its ladder lives on the split-fleet config — so it
+ * used to write a sidecar with no discards at all, disagreeing with the HTML
+ * beside it on every boat.
+ */
+describe('a championship\'s data file — the standings behind the page', () => {
+  const fixtures = loadSplitFleetFixtures(join(__dirname, 'fixtures/scoring/split-fleets'));
+
+  function exportOf(data: SplitFleetData): PublicSeriesExport {
+    return buildPublicExportFromSnapshot(
+      {
+        series: SERIES,
+        competitors: data.competitors,
+        fleets: data.fleets,
+        races: data.races,
+        subSeries: [],
+        finishes: data.finishes,
+        raceStarts: data.raceStarts,
+        ratingOverrides: [],
+      },
+      { splitFleets: { config: data.config, rounds: data.rounds } },
+    )!;
+  }
+
+  // The whole corpus, because the disagreement this guards against is silent:
+  // a file that parses, opens, and ranks the event differently.
+  for (const fx of fixtures) {
+    it(`ranks ${fx.file} exactly as the championship page does`, () => {
+      const data = buildSplitFleetData(fx.fixture);
+      const exported = exportOf(data);
+      expect(exported.standings.map((s) => s.fleetName)).toEqual(['Championship']);
+      expect(
+        exported.standings[0].rows.map((r) => [r.sailNumber, r.rank, r.totalPoints, r.netPoints]),
+      ).toEqual(
+        splitFleetStandings(data).map((r) => [r.competitor.sailNumber, r.rank, r.total, r.net]),
+      );
+    });
+
+    it(`accounts for every point of ${fx.file}`, () => {
+      const data = buildSplitFleetData(fx.fixture);
+      for (const row of exportOf(data).standings[0].rows) {
+        const counted = (discarded: boolean) =>
+          row.racePoints
+            .filter((_, i) => !row.raceExcluded[i] && (discarded || !row.raceDiscards[i]))
+            .reduce((sum, p) => sum + p, 0) + (row.carriedPoints ?? 0);
+        expect(counted(true)).toBeCloseTo(row.totalPoints, 6);
+        expect(counted(false)).toBeCloseTo(row.netPoints, 6);
+      }
+    });
+  }
+
+  it('carries the discard ladder off the split-fleet config', () => {
+    // IODA's one discard, unlocked at five races: the series' own thresholds
+    // are empty, so a sidecar with nett == total everywhere is the tell.
+    const fx = fixtures.find((f) => f.file === '02-f1-ioda-single-discard.yaml')!;
+    const rows = exportOf(buildSplitFleetData(fx.fixture)).standings[0].rows;
+    expect(SERIES.discardThresholds).toEqual([]);
+    expect(rows.some((r) => r.netPoints < r.totalPoints)).toBe(true);
+    expect(rows.some((r) => r.raceDiscards.some(Boolean))).toBe(true);
   });
 });

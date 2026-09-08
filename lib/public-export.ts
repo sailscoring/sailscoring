@@ -18,6 +18,7 @@ import type {
   OfficialRole,
   RaceConditions,
   RaceDiscardPolicy,
+  Race,
   RaceOfficial,
   RaceStartCourse,
   SeriesCourse,
@@ -41,8 +42,13 @@ import { isOfficialRole, namedOfficials } from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
-import type { SplitFleetConfig } from './split-fleets';
-import type { RenderSplitRound } from './split-fleets-render';
+import {
+  assembleSplitFleetData,
+  splitFleetStandings,
+  type RenderSplitRound,
+  type SplitFleetConfig,
+  type SplitStandingRow,
+} from './split-fleets';
 import {
   defaultEnabledCompetitorFields,
   formatPrimaryNames,
@@ -437,12 +443,26 @@ export interface PublicSeriesExport {
      *  PI = ΣH_S / (T_E × Σ(1/T_E)) directly. */
     echoByFleet?: Record<string, EchoRaceFleetExport>;
   }[];
+  /**
+   * The standings as the published pages show them: one entry per fleet,
+   * rows in rank order, the per-race arrays positional against `races`.
+   *
+   * A split-fleet championship (`splitFleets` below) is one ranking across
+   * its fleets rather than a table per fleet, so it exports a single entry
+   * named "Championship" — the same page `results-export` builds — holding
+   * every boat in championship order. Its rows use the same fields, read
+   * the same way: a race a boat's fleet did not sail is `raceExcluded`, as
+   * is a score the format puts out of her total (a qualifying score
+   * superseded by a carry, a surplus score dropped under
+   * `equalization: 'exclude-extra-scores'`, a logical race not yet valid).
+   */
   standings: {
     fleetName: string;
     rows: {
       rank: number;
       sailNumber: string;
       name: string;
+      /** The boat's score for each race; 0 where `raceExcluded`. */
       racePoints: number[];
       raceCodes: (ResultCode | null)[];
       raceDiscards: boolean[];
@@ -450,8 +470,16 @@ export interface PublicSeriesExport {
       racePenaltyOverrides: (number | null)[];
       raceNonDiscardable: boolean[];
       raceRedressFlags: boolean[];
+      /** This race is out of the boat's score: 0 points, no discard. */
       raceExcluded: boolean[];
+      /** A championship's carried score — the qualifying position carried
+       *  into the final series, or the medal boats' compressed opening
+       *  score. It belongs to no race, and is never discardable. Present
+       *  only where the format carries one and it counts. */
+      carriedPoints?: number;
+      /** `sum(racePoints where not raceExcluded) + carriedPoints`. */
       totalPoints: number;
+      /** The same, less the races marked `raceDiscards`. */
       netPoints: number;
     }[];
   }[];
@@ -762,6 +790,82 @@ export async function buildPublicExport(
   return buildPublicExportFromSnapshot(snapshot, { splitFleets });
 }
 
+/** The additive penalty codes, which a split-fleet cell carries in the same
+ *  field as a result code but the export keeps in a column of its own. */
+const PENALTY_CODES: ReadonlySet<string> = new Set<PenaltyCode>(['ZFP', 'SCP', 'DPI']);
+
+/**
+ * A championship's standings in the export's row shape: one ranking across
+ * the fleets, the per-race arrays positional against `races`.
+ *
+ * The split engine scores a boat cell by cell — one per stage race her fleet
+ * sailed — rather than a full row per race, so a race she was not in has no
+ * cell and reads here as excluded, at 0 points, exactly like a score the
+ * format puts out of her total. What is left over is the carry: the
+ * qualifying position carried into the final series, and the medal boats'
+ * compressed opening score, neither of which belongs to a race. Those travel
+ * as `carriedPoints`, which keeps the row's arithmetic checkable —
+ * `sum(racePoints where not raceExcluded) + carriedPoints === totalPoints`.
+ */
+function championshipStandingRows(
+  rows: SplitStandingRow[],
+  races: Race[],
+  finishes: Finish[],
+): PublicSeriesExport['standings'][number]['rows'] {
+  const finishKey = (raceId: string, competitorId: string) => `${raceId}\u0000${competitorId}`;
+  const finishByRaceAndBoat = new Map(
+    finishes
+      .filter((f) => f.competitorId)
+      .map((f) => [finishKey(f.raceId, f.competitorId!), f] as const),
+  );
+  return rows.map((row) => {
+    const cellByRace = new Map(row.cells.filter((c) => c.raceId).map((c) => [c.raceId, c] as const));
+    const racePoints: number[] = [];
+    const raceCodes: (ResultCode | null)[] = [];
+    const raceDiscards: boolean[] = [];
+    const racePenaltyCodes: (PenaltyCode | null)[] = [];
+    const racePenaltyOverrides: (number | null)[] = [];
+    const raceNonDiscardable: boolean[] = [];
+    const raceRedressFlags: boolean[] = [];
+    const raceExcluded: boolean[] = [];
+    for (const race of races) {
+      const cell = cellByRace.get(race.id);
+      const counts = !!cell && cell.counts;
+      const code = cell?.code ?? null;
+      const penalty = code && PENALTY_CODES.has(code) ? (code as PenaltyCode) : null;
+      racePoints.push(counts ? cell.points : 0);
+      raceCodes.push(penalty ? null : (code as ResultCode | null));
+      raceDiscards.push(counts && cell.discarded);
+      racePenaltyCodes.push(penalty);
+      racePenaltyOverrides.push(
+        finishByRaceAndBoat.get(finishKey(race.id, row.competitor.id))?.penaltyOverride ?? null,
+      );
+      raceNonDiscardable.push(!!cell && !cell.discardable);
+      raceRedressFlags.push(code === 'RDG');
+      raceExcluded.push(!counts);
+    }
+    const carried = row.cells.filter((c) => c.counts && (c.carriedRank || c.carriedTransform));
+    return {
+      rank: row.rank,
+      sailNumber: row.competitor.sailNumber,
+      name: formatPrimaryNames(row.competitor.names),
+      racePoints,
+      raceCodes,
+      raceDiscards,
+      racePenaltyCodes,
+      racePenaltyOverrides,
+      raceNonDiscardable,
+      raceRedressFlags,
+      raceExcluded,
+      ...(carried.length > 0
+        ? { carriedPoints: carried.reduce((sum, c) => sum + c.points, 0) }
+        : {}),
+      totalPoints: row.total,
+      netPoints: row.net,
+    };
+  });
+}
+
 /**
  * Pure half of `buildPublicExport`: build the export from an
  * already-loaded snapshot. Callers that have both the snapshot and the
@@ -833,22 +937,33 @@ export function buildPublicExportFromSnapshot(
     }
   }
 
-  const fleetStandings =
-    opts?.fleetStandings ??
-    calculateFleetStandings(
-      fleets,
-      competitors,
-      races,
-      allFinishes,
-      series.discardThresholds,
-      series.dnfScoring,
-      allRaceStarts,
-      allRatingOverrides,
-      undefined,
-      buildRaceFleetExclusionMap(series.raceFleetExclusions),
-      series.proportionalDiscard,
-      { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
-    ).fleetStandings;
+  // A championship is scored by the split-fleet engine, and the data file
+  // published beside a page has to be the data behind that page (ADR-012).
+  // The plain engine reads neither the discard ladder nor the carry — both
+  // live on the split-fleet config, not on the series — so run on a
+  // split-fleet series it scores a different event. The block travels only
+  // once the first round is dealt, which is also when its pages start being
+  // published; before that there is no championship to score.
+  const championship =
+    opts?.splitFleets && opts.splitFleets.rounds.length > 0 ? opts.splitFleets : null;
+
+  const fleetStandings = championship
+    ? []
+    : (opts?.fleetStandings ??
+      calculateFleetStandings(
+        fleets,
+        competitors,
+        races,
+        allFinishes,
+        series.discardThresholds,
+        series.dnfScoring,
+        allRaceStarts,
+        allRatingOverrides,
+        undefined,
+        buildRaceFleetExclusionMap(series.raceFleetExclusions),
+        series.proportionalDiscard,
+        { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
+      ).fleetStandings);
 
   // Fleets are referred to by name throughout the export — the portable
   // identity, since internal UUIDs are not carried. A split-fleet
@@ -1046,24 +1161,45 @@ export function buildPublicExportFromSnapshot(
     };
   });
 
-  const exportedStandings = fleetStandings.map(({ fleet, standings }) => ({
-    fleetName: isSingleDefault ? 'Default' : fleet.name,
-    rows: standings.map((s) => ({
-      rank: s.rank,
-      sailNumber: s.competitor.sailNumber,
-      name: formatPrimaryNames(s.competitor.names),
-      racePoints: s.racePoints,
-      raceCodes: s.raceCodes,
-      raceDiscards: s.raceDiscards,
-      racePenaltyCodes: s.racePenaltyCodes,
-      racePenaltyOverrides: s.racePenaltyOverrides,
-      raceNonDiscardable: s.raceNonDiscardable,
-      raceRedressFlags: s.raceRedressFlags,
-      raceExcluded: s.raceExcluded,
-      totalPoints: s.totalPoints,
-      netPoints: s.netPoints,
-    })),
-  }));
+  const exportedStandings = championship
+    ? [
+        {
+          fleetName: 'Championship',
+          rows: championshipStandingRows(
+            splitFleetStandings(
+              assembleSplitFleetData({
+                config: championship.config,
+                rounds: championship.rounds,
+                fleets,
+                competitors,
+                races,
+                raceStarts: allRaceStarts,
+                finishes: allFinishes,
+              }),
+            ),
+            races,
+            allFinishes,
+          ),
+        },
+      ]
+    : fleetStandings.map(({ fleet, standings }) => ({
+        fleetName: isSingleDefault ? 'Default' : fleet.name,
+        rows: standings.map((s) => ({
+          rank: s.rank,
+          sailNumber: s.competitor.sailNumber,
+          name: formatPrimaryNames(s.competitor.names),
+          racePoints: s.racePoints,
+          raceCodes: s.raceCodes,
+          raceDiscards: s.raceDiscards,
+          racePenaltyCodes: s.racePenaltyCodes,
+          racePenaltyOverrides: s.racePenaltyOverrides,
+          raceNonDiscardable: s.raceNonDiscardable,
+          raceRedressFlags: s.raceRedressFlags,
+          raceExcluded: s.raceExcluded,
+          totalPoints: s.totalPoints,
+          netPoints: s.netPoints,
+        })),
+      }));
 
   let cumulativeOffset = 0;
   const exportedDefaultStartSequence: ExportStartGroup[] | undefined = series.defaultStartSequence?.length
