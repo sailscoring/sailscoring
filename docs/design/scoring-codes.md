@@ -201,6 +201,71 @@ the single code for any voluntary withdrawal. See also UK Sailmakers,
 
 ---
 
+## TLE (Time Limit Expired)
+
+A code that scorers reach for and the RRS does not have. Researched in
+September 2026 when the ILCA 6 Women's Worlds scorers revised a race to show
+`TLE` where we show `DNF`. Findings, so the question need not be re-opened:
+
+**Not in the RRS.** The 2025–2028 A10 list is DNC, DNS, OCS, ZFP, UFD, BFD,
+SCP, NSC, DNF, RET, DSQ, DNE, RDG and DPI. Plain RRS 35 scores *every* boat
+that finishes by her place, however late; it only abandons the race when no
+boat sails the course within the limit. A boat scored DNF for a late finish is
+always the work of an SI, which is why every finishing-window clause says
+"This changes RRS 35". Appendix S — the standard sailing instructions inside
+the rulebook — scores finishing-window failures DNF (S 12.3).
+
+**Where it comes from.** The World Sailing Sailing Instructions Guide,
+Appendix LG (`reference-docs:rrs/Appendix-LG-SI-Guide-2021.pdf` and
+`reference-docs:rrs/Appendix-LG-SI-Guide-2025-03.docx`), a template rather
+than a rule. Its clause 16.3 is where TLE is defined, and the wording moved:
+
+| Edition | TLE points |
+|---------|------------|
+| LG 2021 | "[one][two] more than the *points scored by the last boat that finished* within the Finishing Window" |
+| LG March 2025 | "[one][two] more than the *finishing place of the last boat that sailed the course* within the Finishing Window *and was not penalised under RRS 30.3 or 30.4*" — and offered as an alternative to a plain-DNF option |
+
+The 2025 rewording is the Racing Rules Committee's fix for the 2021 clause
+being ambiguous when the last boat across the line held a letter score; it
+makes the base "finishers, excluding UFD/BFD crossers".
+
+**What the SIs we hold do.** Of twenty-two event documents in `reference-docs`,
+one defines TLE: HYC's Frostbites 2025–26 SI 16.1, ILCA fleet only, on the
+2021 wording with "one". Every other SI with a finishing window scores DNF —
+the 29er, 420, 470, ILCA 7, Optimist, Skiff, Formula Kite, iQFOiL and WASZP
+championships, the three Irish Champions Cups, the Autumn League, and the
+ILCA 6 Women's Worlds itself (SI 16.2). DBSC's SI has no finishing-window
+clause and never mentions TLE, though DBSC's HalSail results use the code.
+
+**What published results actually score.**
+
+| Source | TLE | DNF in the same race |
+|--------|-----|----------------------|
+| ILCA 6 Worlds 2026 (Sailwave) | 55.0 | 55.0 — a label only, and outside their own SI |
+| HYC Frostbites 2026, PY fleet, R9 (4 finishers) | 5.0 | 9.0 — last finisher + 1 vs starters + 1 |
+| HYC Howth 17 mini series 2025, R3 (nobody finished) | 15.0 | 15.0 — the zero-finisher fallback |
+| DBSC Beneteau 31.7 2026 (HalSail) | 10 | 10 — DBSC scores TLE as DNF |
+
+**How the tools treat it.** None automates a finishing window. Sailwave has no
+built-in TLE; the manual lists it among codes that "must be defined in the NoR
+and/or SI" and the scorer builds it by hand, normally on the `Finishers +`
+method. ZW ships a TLE score type quoting LG 2021. HalSail lists TLE as "a
+thirteenth code added by Appendix LG" with points configurable on any base.
+ORC Scorer prints a per-boat time-limit table "for information purposes".
+Vakaros RaceSense exports TLE as a finish marker, which our workbook parser
+flags as an unknown position.
+
+**Decision.** Scoring as DNF is the standard, and a TLE that scores
+differently is esoteric — one club fleet in our corpus. Not adding the code.
+Where a scorer's results say TLE with DNF points, our DNF is the SI-correct
+rendering. If a series ever needs TLE scored off the finishers, it is a
+**custom scoring code** (Phase 4 below, and `horizon.md`) on a
+`finishers + N` base, N ∈ {1, 2}, capped at the fleet's DNF score — the cap is
+what handles the nobody-finished race. The converters' TLE→DNF mappings
+(HalSail, and RaceSense's unknown-position warning) stand.
+
+---
+
 ## A6.2 Analysis — When Other Boats' Scores Are Unchanged
 
 A key scoring principle in RRS A6.2 is that the scores of other boats shall
@@ -666,6 +731,10 @@ race both have RDG assigned; the engine should detect this and surface an error.
 - Per-series configurable scoring code table.
 - Custom code definitions: name, abbr., base points method, discardable flag,
   A6.2 flag, "came to start area" / "started" / "finished" semantics.
+- The leading motivation is TLE (above): a code that recurs in SIs and
+  scoring tools yet is not in the RRS, and whose points method is one we
+  nearly have (`finishers + N`). ARB, XPA, DFP, NDA and TPI/TPO from the
+  Sailwave manual are the same shape.
 - Pre-defined code library that matches the full RRS set but allows SI/NOR
   overrides (e.g. a club that uses a non-standard points value for DSQ).
 - Fleet-level scoring configuration override (per Sailwave model).

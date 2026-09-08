@@ -306,6 +306,28 @@ one day, as a fuller **recording sheet** rather than a check-off list:
 - Emphasising the trailing digits of each sail number, since that is the part people
   actually read and call out; and a few blank rows for boats nobody expected.
 
+### Finishing-window warning on the finish sheet
+
+Most SIs set a **finishing window** — boats failing to finish within N minutes
+of the first boat in their fleet sailing the course are scored DNF (or, rarely,
+TLE) without a hearing. The scorer applies it by hand from the times on the
+sheet. We hold what is needed to check it: timed finish rows, a gun time per
+start and fleet membership, so the first finisher per fleet and every row
+crossing later than the window are computable, the way the protest time limit
+already is from the last finisher.
+
+This should be a **check, not auto-scoring**. The SI clause carries provisos
+the scorer must judge ("and not subsequently retiring, penalized or given
+redress"), the race officer may shorten course or offer finishing positions
+instead, windows differ by fleet (HYC exempts its PY fleet outright), and a
+position-only sheet has no times to check. Vakaros RaceSense applies the window
+at source anyway. Shape: a `finishingWindow` setting modelled on
+`protestTimeLimit` (minutes, with a per-fleet override), and a non-blocking
+warning on the Races tab listing the boats outside the window with a one-click
+"score DNF" that keeps their times — plus the reverse check, a coded boat whose
+time is inside the window. The concrete beneficiary is HYC's Frostbites, a
+10-minute ILCA window on a timed sheet.
+
 ### Voice-driven start check-in and finish recording
 
 A browser-based accessory to Sail Scoring that replaces the manual finish-line recording
@@ -1116,38 +1138,47 @@ points value. One HalSail method remains unreproduced (see
   The HalSail converter maps types 1/2/3 (the averages, which the engine
   recomputes per fleet) and warns on type 4.
 
-### TLE (Time Limit Expired) — points relative to the last finisher
+### TLE (Time Limit Expired) — a code the RRS does not have
 
-A result code for boats that don't finish within a stated **Finishing Window**
-(the time allowed after the first boat sails the course and finishes). Unlike a
-plain time limit, TLE keeps the boat in the results rather than scoring it DNF:
-a boat scored TLE gets points for the finishing place a fixed number — `[one]`
-or `[two]`, chosen by the NoR/SI — *more* than the last boat that finished
-within the window. The World Sailing SI template wording (clause 16.3):
+Researched for #512 (September 2026) and closed not-planned; the findings are
+written up in `scoring-codes.md` under "TLE (Time Limit Expired)". The short
+version: TLE is not in the RRS. It comes from the World Sailing Sailing
+Instructions Guide (Appendix LG, `reference-docs:rrs/`), whose 2025 edition
+offers it as an *alternative* to the DNF option, and the rulebook's own
+standard SIs (Appendix S 12.3) score finishing-window failures DNF. Of the
+twenty-two SIs we hold, one defines TLE — HYC's Frostbites, ILCA fleet only,
+scored one more than the last finisher. Everyone else scores DNF. In the
+published results we can see, the ILCA 6 Worlds 2026 scorers label boats TLE
+but give them the DNF points, and DBSC's HalSail results do the same — so the
+HalSail converter's TLE→DNF mapping is *correct* for DBSC, not an
+over-penalty.
 
-> The Finishing Window is the time for boats to finish after the first boat
-> sails the course and finishes. Boats failing to finish within the Finishing
-> Window, and not subsequently retiring, penalized or given redress, will be
-> scored Time Limit Expired (TLE) without a hearing. A boat scored TLE shall be
-> scored points for the finishing place [one][two] more than the points scored
-> by the last boat that finished within the Finishing Window. This changes RRS
-> 35, A5.1, A5.2 and A10.
+So scoring as DNF is the standard, and a TLE that scores differently is
+esoteric. What would bring it back: a series that genuinely scores TLE off the
+finishers (HYC's Frostbites PY fleet did once, in 2026, against its own SI).
+The shape if it comes is a custom scoring code (below) on a `finishers + N`
+base, N ∈ {1, 2}, capped at the fleet's DNF score — the cap covers the
+nobody-finished race, where HYC's 2025 Howth 17 results show TLE falling back
+to DNF points. The 2025 LG wording counts places rather than points and
+excludes UFD/BFD boats from the "last finisher", which is what a finishers
+base already does.
 
-Source: <https://www.racingrulesofsailing.org/posts/896-time-limit-expired-tle>.
+### Custom scoring codes
 
-Sail Scoring has no TLE code today. **DBSC use it, and the HalSail converter
-currently maps it to DNF** — which over-penalises: a TLE boat should sit just
-behind the last finisher, not be lumped with the whole non-finishing field at
-`finishers + 1`.
-
-Shape of the change: a `TLE` entry in `lib/scoring-codes.ts` whose points aren't
-a fixed `finishers + 1` but are computed *relative to the last in-window
-finisher* — `(points of last finisher) + offset`, with `offset` ∈ {1, 2} a
-series-level setting (the `[one][two]` choice). All TLE boats in a race share
-that same points value and tie with each other. Note the cross-references it
-changes: A5.1/A5.2 (so a redress or scoring-penalty boat is excluded from the
-TLE set, per the SI proviso) and A10 (tie resolution). Worth scoring a fixture
-against a real DBSC race once the code lands.
+`lib/scoring-codes.ts` is a fixed registry: the RRS A10 set and nothing else.
+Sailwave, HalSail and ZW all let a scorer define a code that is not in the
+rulebook, and the codes that recur in real SIs are the case for doing the
+same: **TLE** above is the leading one; the Sailwave manual also lists ARB and
+XPA (Appendix T arbitration penalties), DFP (left before flag D), NDA (no
+advertising), TPI/TPO (tally in/out penalties) and per-value DPI variants.
+Each is a label the SI attaches to one of a small number of points methods
+we already have or nearly have — fixed penalty on an entries / starters /
+finishers base, an additive percentage, stated points — plus a discardable
+flag and the A6.2 "other scores unchanged" flag. `scoring-codes.md` Option B
+and Phase 4 sketch the definition entity and the per-series table; the
+import side needs to carry an unknown Sailwave code through to a definition
+rather than warn and drop it. Demand-driven: build it for the first series
+that needs one.
 
 ### High-point and bonus-point scoring systems
 
