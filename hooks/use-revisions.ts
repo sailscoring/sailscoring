@@ -32,6 +32,12 @@ export function useCreateCheckpoint(seriesId: string) {
  * Restore a series to an earlier revision (#166). The replay rewrites every
  * child entity with fresh ids server-side, so all of the series' caches are
  * dropped and refetched — mirroring the Update-from-File invalidation.
+ *
+ * The child caches are reset rather than removed: removing a query that a
+ * mounted component is observing drops its data without reliably driving a
+ * refetch, so the tab the scorer is looking at renders as though the series
+ * were empty until it remounts. resetQueries clears the same data and does
+ * refetch whatever is being observed.
  */
 export function useRevertToRevision(seriesId: string) {
   const queryClient = useQueryClient();
@@ -40,11 +46,14 @@ export function useRevertToRevision(seriesId: string) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.list() });
-      queryClient.removeQueries({ queryKey: queryKeys.fleets.all });
-      queryClient.removeQueries({ queryKey: queryKeys.competitors.all });
-      queryClient.removeQueries({ queryKey: queryKeys.races.all });
-      queryClient.removeQueries({ queryKey: queryKeys.finishes.all });
-      queryClient.removeQueries({ queryKey: queryKeys.raceStarts.all });
+      await queryClient.resetQueries({ queryKey: queryKeys.fleets.all });
+      await queryClient.resetQueries({ queryKey: queryKeys.competitors.all });
+      await queryClient.resetQueries({ queryKey: queryKeys.races.all });
+      await queryClient.resetQueries({ queryKey: queryKeys.finishes.all });
+      await queryClient.resetQueries({ queryKey: queryKeys.raceStarts.all });
+      // The snapshot is a series file and split-fleet config and rounds are
+      // part of that format, so the restore rolls the assignment back too.
+      await queryClient.resetQueries({ queryKey: queryKeys.splitFleets.bySeries(seriesId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.activity.bySeries(seriesId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.revisions.bySeries(seriesId) });
     },
