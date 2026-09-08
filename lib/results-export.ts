@@ -41,10 +41,11 @@ import {
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
+import { pageNoteFor, type NotePageRef } from './page-note';
 import { isSyntheticFleetName } from './publishing';
 import { buildStartersChecklist } from './starters-checklist';
 import { seriesSlug } from './series-name';
-import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, ResultCode, PenaltyCode, Standing } from './types';
+import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, ResultCode, PenaltyCode, Series, Standing } from './types';
 
 /**
  * Builds one fleet's page data. `section` replaces the standings with a slice
@@ -168,6 +169,22 @@ function footerDataLinks(
 }
 
 /**
+ * The scorer's notes for one page (#511), as `DocumentChrome` takes them: the
+ * publication-wide note, and this page's own. Empty keys are left out, so a
+ * series with nothing to say adds nothing to any chrome.
+ */
+function noteChrome(
+  series: Pick<Series, 'seriesNote' | 'pageNotes'>,
+  page: NotePageRef,
+): { seriesNote?: string; pageNote?: string } {
+  const pageNote = pageNoteFor(series.pageNotes, page);
+  return {
+    ...(series.seriesNote?.trim() ? { seriesNote: series.seriesNote } : {}),
+    ...(pageNote ? { pageNote } : {}),
+  };
+}
+
+/**
  * The competitor-list page (#423) — the entry list, buildable with no races
  * sailed. Kept separate from the per-fleet build below because it shares none
  * of its machinery: no standings, no scoring, no JSON export, nothing that
@@ -273,6 +290,7 @@ async function buildCompetitorListFile(
         rightUrl: series.eventUrl || undefined,
         generatedAt,
         ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
+        ...noteChrome(series, { fleetName: 'Entries' }),
       },
       rows,
       {
@@ -426,9 +444,17 @@ export async function buildFleetHtmlFiles(
     const splitExportJson = splitExport ? JSON.stringify(splitExport) : null;
     const splitLinks = footerDataLinks(splitExportJson, opts?.dataPath);
     const splitPageChrome = { ...splitChrome, ...splitLinks };
+    // Each of the three carries its own note: the assignments page is the one
+    // most likely to need a sentence saying it does not reconcile with the
+    // standings, and that sentence has no business on the standings.
+    const splitNote = (fleetName: string, isDefault = false) =>
+      noteChrome(snapshot.series, { fleetName, isDefault });
     // Null while no stage race has sheet rows — the championship page then
     // has nothing to link to either.
-    const raceResultsHtml = renderSplitFleetRaceResultsPage(input, splitPageChrome);
+    const raceResultsHtml = renderSplitFleetRaceResultsPage(input, {
+      ...splitPageChrome,
+      ...splitNote('Race results'),
+    });
     return { files: [
       {
         fleetName: 'Championship',
@@ -436,6 +462,7 @@ export async function buildFleetHtmlFiles(
         isNamedPage: true,
         html: renderSplitFleetStandingsPage(input, {
           ...splitPageChrome,
+          ...splitNote('Championship', true),
           ...(raceResultsHtml && opts?.raceResultsHref
             ? { raceResultsHref: opts.raceResultsHref }
             : {}),
@@ -455,7 +482,10 @@ export async function buildFleetHtmlFiles(
         fleetName: 'Fleet assignments',
         isDefault: false,
         isAuxiliary: true,
-        html: renderSplitFleetAssignmentsPage(input, splitPageChrome),
+        html: renderSplitFleetAssignmentsPage(input, {
+          ...splitPageChrome,
+          ...splitNote('Fleet assignments'),
+        }),
       },
       // The entry list rides along here too. This branch returns early, so
       // the append at the end of the per-fleet path below never runs for a
@@ -868,7 +898,20 @@ export async function buildFleetHtmlFiles(
         fleetName: fleet.name,
         isDefault: isSingleDefault,
         ...(subSeriesName ? { subSeriesName } : {}),
-        html: renderSeriesHtml(assemble(), { detail: pageDetail }),
+        html: renderSeriesHtml(
+          {
+            ...assemble(),
+            // Not inside `assemble`: its output is also a combined page's
+            // section, and a fleet's note there would print under a heading
+            // that is not the fleet's.
+            ...noteChrome(series, {
+              fleetName: fleet.name,
+              isDefault: isSingleDefault,
+              ...(subSeriesName ? { subSeriesName } : {}),
+            }),
+          },
+          { detail: pageDetail },
+        ),
       });
     }
   }
@@ -952,6 +995,10 @@ export async function buildFleetHtmlFiles(
           // The race-detail limit (#372) is a full-detail concern; the
           // renderer ignores it at the other detail levels.
           ...(group.recentRaces != null ? { recentRaces: group.recentRaces } : {}),
+          ...noteChrome(series, {
+            fleetName: group.name,
+            ...(subSeriesName ? { subSeriesName } : {}),
+          }),
         }),
       });
     }
@@ -1007,6 +1054,7 @@ export async function buildFleetHtmlFiles(
           ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
           ...(openInAppUrl ? { openInAppUrl } : {}),
           ...(dataFileUrl ? { dataFileUrl } : {}),
+          ...noteChrome(series, { fleetName: 'Prizes' }),
         },
         allocations,
         {

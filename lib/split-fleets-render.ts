@@ -151,6 +151,11 @@ export interface SplitFleetPageChrome {
   /** The publication's `.sailscoring.json`, linked in the footer and declared
    *  as the page's JSON alternate (ADR-012). Published pages only. */
   dataFileUrl?: string;
+  /** The scorer's note on every page of the publication, and the one on this
+   *  page (#511). A championship's three pages take different page notes from
+   *  the same caller, which is why this is per-render rather than shared. */
+  seriesNote?: string;
+  pageNote?: string;
 }
 
 function chromeFor(input: SplitFleetRenderInput, opts: SplitFleetPageChrome): DocumentChrome {
@@ -166,6 +171,8 @@ function chromeFor(input: SplitFleetRenderInput, opts: SplitFleetPageChrome): Do
     ...(opts.seriesIndexUrl ? { seriesIndexUrl: opts.seriesIndexUrl } : {}),
     ...(opts.openInAppUrl ? { openInAppUrl: opts.openInAppUrl } : {}),
     ...(opts.dataFileUrl ? { dataFileUrl: opts.dataFileUrl } : {}),
+    ...(opts.seriesNote ? { seriesNote: opts.seriesNote } : {}),
+    ...(opts.pageNote ? { pageNote: opts.pageNote } : {}),
   };
 }
 

@@ -693,6 +693,11 @@ export function renderCombinedSeriesHtml(
     /** Publish per-race detail for the last N races only (#372). Applies at
      *  full detail; the standings stay the whole series either way. */
     recentRaces?: number;
+    /** The scorer's notes (#511). Passed here rather than read off the first
+     *  section: the sections are fleets, and this page is not any of them —
+     *  taking the lead fleet's note would print it under the wrong heading. */
+    seriesNote?: string;
+    pageNote?: string;
   },
 ): string {
   if (sections.length === 0) {
@@ -778,6 +783,8 @@ export function renderCombinedSeriesHtml(
     openInAppUrl: first.openInAppUrl,
     dataFileUrl: first.dataFileUrl,
     officials: first.officials,
+    ...(options.seriesNote ? { seriesNote: options.seriesNote } : {}),
+    ...(options.pageNote ? { pageNote: options.pageNote } : {}),
   };
   return renderHtmlDocument(chrome, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
 }
