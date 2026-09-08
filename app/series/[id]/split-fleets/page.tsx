@@ -57,6 +57,7 @@ import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
   capitaliseStage,
+  dropNonEntrants,
   finalBlockSizes,
   fleetColorById,
   fleetMembers,
@@ -311,7 +312,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const sfData: SplitFleetData = {
+  const sfData: SplitFleetData = dropNonEntrants({
     config: sfState.config,
     rounds: sfState.rounds,
     fleets,
@@ -319,7 +320,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
     races,
     raceStarts,
     finishes: allFinishes,
-  };
+  });
 
   const fleetMeta = buildFleetMeta(sfData, fleets);
   const qualifyingRounds = roundsForStage(sfState.rounds, 'qualifying');
@@ -359,7 +360,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         <SplitFleetEditor
           seriesId={seriesId}
           config={sfState.config}
-          competitorCount={competitors.length}
+          competitorCount={sfData.competitors.length}
           canEdit={canManage}
           locked={allFinishes.length > 0}
         />

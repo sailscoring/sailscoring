@@ -13,6 +13,7 @@ import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
   capitaliseStage,
+  dropNonEntrants,
   fleetColorById,
   logicalRaces,
   provisionalCutIndexes,
@@ -67,7 +68,7 @@ export interface SplitFleetRenderInput {
 }
 
 export function assembleSplitFleetData(input: SplitFleetRenderInput): SplitFleetData {
-  return {
+  return dropNonEntrants({
     config: input.config,
     rounds: input.rounds.map((r) => ({
       ...r,
@@ -80,7 +81,7 @@ export function assembleSplitFleetData(input: SplitFleetRenderInput): SplitFleet
     races: input.races,
     raceStarts: input.raceStarts,
     finishes: input.finishes,
-  };
+  });
 }
 
 /** Rules these pages need on top of the shared published-page styles: the

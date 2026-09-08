@@ -347,6 +347,17 @@ describe('splitFleetStandings', () => {
     expect(c3cells.find((c) => c.stageRaceNumber === 2)!.counts).toBe(false);
   });
 
+  it('scores no excluded competitor, and does not count her in the base', () => {
+    // A boat on the list but never entered. Adding her to Yellow would make it
+    // the largest fleet at 4 and push every replacement score to 5.
+    const data = qualifyingData();
+    data.competitors.push({ ...competitor('c6', ['fy'], 6), excluded: true });
+    const rows = splitFleetStandings(data);
+    expect(rows.map((r) => r.competitor.id)).not.toContain('c6');
+    const net = Object.fromEntries(rows.map((r) => [r.competitor.id, r.net]));
+    expect(net).toEqual({ c1: 1, c2: 2, c3: 4, c4: 1, c5: 4 });
+  });
+
   it('ranks by net with A8.1 comparison on ties', () => {
     const rows = splitFleetStandings(qualifyingData());
     // c1 and c4 tie on 1 point with identical score lists — stable order,

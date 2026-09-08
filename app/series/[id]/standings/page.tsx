@@ -34,6 +34,7 @@ import {
 } from '@/components/split-fleet-standings';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import {
+  dropNonEntrants,
   roundsForStage,
   splitFleetStandings,
   type SplitFleetData,
@@ -130,7 +131,7 @@ export default function StandingsPage({
   // lives on its own tab, and a spectator has neither the tab nor the
   // permission behind it.
   if (splitState?.config) {
-    const splitData: SplitFleetData = {
+    const splitData: SplitFleetData = dropNonEntrants({
       config: splitState.config,
       rounds: splitState.rounds,
       fleets,
@@ -138,7 +139,7 @@ export default function StandingsPage({
       races,
       raceStarts: allRaceStarts,
       finishes: allFinishes,
-    };
+    });
     return (
       <div className="space-y-4">
         <SplitFleetStandings

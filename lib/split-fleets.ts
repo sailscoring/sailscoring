@@ -8,7 +8,7 @@
 
 import type { Competitor, Finish, Fleet, Race, RaceStart } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
-import { applyAdditivePenalty } from './scoring';
+import { applyAdditivePenalty, resolveEntrants } from './scoring';
 
 /**
  * The three stages of a split-fleet championship, as **structural
@@ -908,6 +908,25 @@ export function logicalRaces(data: SplitFleetData, stage: SeriesStage): LogicalR
     });
 }
 
+/**
+ * The same data with the boats that are not entered dropped.
+ *
+ * A competitor the scorer marked `excluded` is on the list but not an entrant,
+ * and a non-entrant is scored nowhere: off the standings, out of the fleet she
+ * was dealt into, and out of the count that sets everyone else's replacement
+ * score. That is the semantic `resolveEntrants` gives the plain engine, and a
+ * championship owes its competitors the same one.
+ *
+ * Every construction of a `SplitFleetData` goes through here, so that the
+ * fleet memberships every later pass reads are already the entered boats.
+ */
+export function dropNonEntrants(data: SplitFleetData): SplitFleetData {
+  const entrants = resolveEntrants(data.competitors, data.races, data.finishes);
+  return entrants.length === data.competitors.length
+    ? data
+    : { ...data, competitors: entrants };
+}
+
 export function fleetMembers(competitors: Competitor[], fleetId: string): Competitor[] {
   return competitors.filter((c) => c.fleetIds.includes(fleetId));
 }
@@ -1201,7 +1220,11 @@ function rankStageSeries(
  * (each by net), then — before any split — everyone by net over the
  * combined line. Returns rows with per-cell detail for rendering.
  */
-export function splitFleetStandings(data: SplitFleetData): SplitStandingRow[] {
+export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
+  // Applied here as well as at every construction site: the entry list is what
+  // the replacement score is counted from, so scoring a list that still holds
+  // non-entrants is wrong for every boat in the fleet, not just for them.
+  const data = dropNonEntrants(input);
   const { config, rounds, competitors } = data;
 
   const qRaces = logicalRaces(data, 'qualifying');
