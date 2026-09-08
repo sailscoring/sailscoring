@@ -273,6 +273,20 @@ export interface RaceConditions {
   notes?: string;
 }
 
+/**
+ * An explanatory note on one published page (#511).
+ *
+ * `page` is the key from `pageNoteKey` — the same name-handle publishing uses
+ * for the page, so the note follows the page it prints on. `updatedAt` is
+ * shown to the scorer when they reopen the note, which is how a note written
+ * three days ago is caught before it goes out again.
+ */
+export interface PageNote {
+  page: string;
+  text: string;
+  updatedAt: number;   // Date.now() when the text was last written
+}
+
 export interface Series {
   id: string;
   name: string;
@@ -372,6 +386,16 @@ export interface Series {
   // management, so putting it on public pages is a deliberate choice. Governs
   // the public JSON export too, same as publishOfficials.
   publishTrackData?: boolean;
+  // An explanatory note carried by every published page of this series
+  // (#511) — "corrected 16:40 — Q1 finish order revised". Plain text with
+  // links; see lib/page-note.ts. Sparse; absent/empty means no note. Distinct
+  // from RaceConditions.notes, which is the scorer's own record and is never
+  // published.
+  seriesNote?: string;
+  // Notes carried by one published page each, keyed the way publishing keys
+  // pages. Rendered under the series note. Sparse; absent/empty is the common
+  // case.
+  pageNotes?: PageNote[];
   // Display
   enabledCompetitorFields: CompetitorFieldKey[];  // which optional competitor fields are shown
   multiPersonFields?: MultiPersonFieldKey[];  // person fields opened to multiple names per entry (gated by the multi-person-fields feature); sparse — absent = all single
