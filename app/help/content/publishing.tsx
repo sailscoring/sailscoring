@@ -75,6 +75,14 @@ export default function Publishing() {
           order.
         </p>
         <p>
+          <strong className="text-foreground">Races that have not been sailed:</strong> a race
+          with no finishers and no start time is a slot in the schedule, not a result, and never
+          becomes a column on a published page — it would otherwise show a DNC against every
+          boat, adding up to nothing, which reads as a scoring error for a race that has not
+          happened. The race stays on the Races tab, and its column appears the moment it has a
+          start time or a single finisher.
+        </p>
+        <p>
           <strong className="text-foreground">Single-race events:</strong> some events are one
           race — a trophy race, a one-off open. Published as a series, such an event comes out
           as a standings table with a single race column, a total equal to that race’s

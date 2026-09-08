@@ -319,6 +319,40 @@ async function buildCompetitorListFile(
  *  With `series.publishIndividualFleetPages` off, a view that has a combined
  *  page emits no standalone fleet entries — its output is exactly its
  *  combined pages. */
+/**
+ * A race nobody has sailed: no finish row of any kind — not even a coded one
+ * a scorer entered by hand — and no gun time on any of its starts. It is a
+ * slot in the schedule, not a result.
+ *
+ * Such a race is dropped from everything this module builds: the summary
+ * table would otherwise carry a column of DNCs against every boat that adds
+ * up to nothing, which reads to a competitor as a scoring error against a
+ * race that has not happened. The scoring engine already treats it as
+ * unsailed — it counts toward no total and no discard threshold — so nothing
+ * about the standings changes but the column going away. The data file
+ * published beside the pages is built from the same snapshot and so agrees
+ * with them.
+ *
+ * This is a publishing decision, not a data one: the race stays in the
+ * series, on the Races tab and in a saved `.sailscoring` file.
+ */
+function dropUnsailedRaces(snapshot: SeriesSnapshot | null): SeriesSnapshot | null {
+  if (!snapshot) return null;
+  const hasFinish = new Set(snapshot.finishes.map((f) => f.raceId));
+  const hasGun = new Set(
+    snapshot.raceStarts.filter((rs) => rs.startTime).map((rs) => rs.raceId),
+  );
+  const sailed = snapshot.races.filter((r) => hasFinish.has(r.id) || hasGun.has(r.id));
+  if (sailed.length === snapshot.races.length) return snapshot;
+  const keep = new Set(sailed.map((r) => r.id));
+  return {
+    ...snapshot,
+    races: sailed,
+    raceStarts: snapshot.raceStarts.filter((rs) => keep.has(rs.raceId)),
+    ratingOverrides: snapshot.ratingOverrides.filter((o) => keep.has(o.raceId)),
+  };
+}
+
 export async function buildFleetHtmlFiles(
   // Only the six read repos are needed (same surface as `buildPublicExport`),
   // so this accepts the narrower `ExportRepos` — that lets the server publish
@@ -373,7 +407,7 @@ export async function buildFleetHtmlFiles(
     generatedAt?: Date;
   },
 ): Promise<FleetHtmlBuild | null> {
-  const snapshot = await loadSeriesSnapshot(repos, seriesId);
+  const snapshot = dropUnsailedRaces(await loadSeriesSnapshot(repos, seriesId));
   if (!snapshot || snapshot.competitors.length === 0) return null;
   const generatedAt = opts?.generatedAt ?? new Date();
   if (snapshot.races.length === 0) {

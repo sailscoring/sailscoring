@@ -395,6 +395,13 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await expect(page.getByRole('button', { name: 'Save as PDF' })).toBeVisible();
   await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
 
+  // Q2 was created with Q1 but has not been sailed, and an unsailed race is
+  // not published: a column of DNCs against all 24 boats, adding up to
+  // nothing, reads as a scoring error for a race that has not happened.
+  await expect(page.getByRole('columnheader', { name: 'Q1', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Q2', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('cell', { name: /DNC/ })).toHaveCount(0);
+
   // The Q1 column header deep-links into the per-race results page, which
   // pulls the start sequence's combined sheet apart into one ranked table per
   // fleet.
