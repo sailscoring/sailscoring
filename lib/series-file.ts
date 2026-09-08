@@ -24,6 +24,7 @@ import type {
   PublishingGroup,
   ProtestTimeLimit,
   RrsOrgPushConfig,
+  PageNote,
   Prize,
   MultiPersonFieldKey,
   RaceStartCourse,
@@ -394,9 +395,17 @@ export interface SeriesFileRepos {
  *  is unchanged and still what is scored, so an older build scores a v45
  *  file identically; it would, though, silently drop the library the scorer
  *  built and the course record behind every published drawing on a
- *  round trip, which is why this is a bump rather than a ride-along. */
-export const FORMAT_VERSION = 45;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45];
+ *  round trip, which is why this is a bump rather than a ride-along.
+ *
+ *  v46 adds optional `series.seriesNote` and `series.pageNotes` (#511): the
+ *  explanatory text a scorer puts on published pages — one note on every page
+ *  of the publication, and one per page, each keyed by the page name
+ *  publishing already uses. Both sparse. An older build reading a v46 file
+ *  drops them, republishing pages without the sentence that explained why the
+ *  figures read as they do, which is why this is a bump rather than a
+ *  ride-along. */
+export const FORMAT_VERSION = 46;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -491,6 +500,8 @@ interface SeriesFileSeries {
   officials?: RaceOfficial[];  // v27+; the standing race management team
   publishOfficials?: boolean;  // v27+; absent = not published
   publishTrackData?: boolean;  // v39+; RaceSense track data on published per-race tables; absent = not published
+  seriesNote?: string;  // v46+; note carried by every published page (sparse)
+  pageNotes?: PageNote[];  // v46+; per-page notes, keyed by page name (sparse)
 }
 
 interface SeriesFileCompetitor {
@@ -890,6 +901,8 @@ export async function buildSeriesFile(
       ...(series.officials?.length ? { officials: series.officials } : {}),
       ...(series.publishOfficials ? { publishOfficials: true } : {}),
       ...(series.publishTrackData ? { publishTrackData: true } : {}),
+      ...(series.seriesNote?.trim() ? { seriesNote: series.seriesNote } : {}),
+      ...(series.pageNotes?.length ? { pageNotes: series.pageNotes } : {}),
     },
     competitors: competitors.map((c) => ({
       id: c.id,
@@ -1409,6 +1422,8 @@ export async function openSeriesFromFile(
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
     publishTrackData: file.series.publishTrackData,
+    seriesNote: file.series.seriesNote,
+    pageNotes: file.series.pageNotes,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1518,6 +1533,8 @@ export async function restoreSeriesFromFile(
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
     publishTrackData: file.series.publishTrackData,
+    seriesNote: file.series.seriesNote,
+    pageNotes: file.series.pageNotes,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1622,6 +1639,8 @@ async function updateSeriesFromFileInner(
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
     publishTrackData: file.series.publishTrackData,
+    seriesNote: file.series.seriesNote,
+    pageNotes: file.series.pageNotes,
     enabledCompetitorFields: file.series.enabledCompetitorFields,
     ...(file.series.multiPersonFields?.length ? { multiPersonFields: file.series.multiPersonFields } : {}),
     primaryPersonLabel: file.series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
@@ -1792,6 +1811,8 @@ async function updateSeriesFromSailwaveInner(
     officials: file.series.officials,
     publishOfficials: file.series.publishOfficials,
     publishTrackData: file.series.publishTrackData,
+    seriesNote: file.series.seriesNote,
+    pageNotes: file.series.pageNotes,
     lastModifiedAt: now,
   });
 
