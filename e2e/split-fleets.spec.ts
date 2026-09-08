@@ -30,6 +30,16 @@ const sails = Array.from({ length: DEMO_COUNT }, (_, i) => `${210001 + i * 137}`
 const yellowSails = sails.filter((_, i) => [0, 3].includes(i % 4));
 const blueSails = sails.filter((_, i) => [1, 2].includes(i % 4));
 
+/**
+ * Tick the ceremony's offer to create its stage races. It is off by default:
+ * a race that exists before it is sailed shows a DNC against every boat, so
+ * the round advance deals fleets and nothing else. The tests below want the
+ * races the old unconditional behaviour created, so they ask for them.
+ */
+async function alsoCreateRaces(page: import('@playwright/test').Page) {
+  await page.getByRole('dialog').getByRole('checkbox', { name: /Also create/ }).check();
+}
+
 async function enterFinishes(page: import('@playwright/test').Page, sailNumbers: string[]) {
   for (const sail of sailNumbers) {
     await page.getByLabel('Sail number').fill(sail);
@@ -80,6 +90,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // ── Round 1: seeded, Q1–Q2 created ────────────────────────────────────────
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await expect(page.getByRole('dialog')).toContainText('Make the initial assignment');
+  await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
   await expect(page.getByText('does not count yet')).toHaveCount(2);
@@ -124,12 +135,14 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByRole('dialog')).toContainText(
     `${sails[0]}, ${sails[1]} share rank 1 and RRS A8 cannot separate them`,
   );
+  await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 2/ }).click();
   await expect(page.getByText('Round 2 · Q3 onward')).toBeVisible();
 
   // ── Split into Gold / Silver ──────────────────────────────────────────────
   await page.getByRole('button', { name: 'End the Preliminary series → split fleets' }).click();
   await expect(page.getByRole('dialog')).toContainText('The split is frozen once committed');
+  await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit split \(12 \/ 12\)/ }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
   // Labelled Q5, not F1: the default ILCA format numbers its final-series
@@ -217,6 +230,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // ── Medal fleet ───────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Select Final series fleet…' }).click();
   await expect(page.getByRole('dialog')).toContainText('Select the Final series fleet');
+  await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Final series fleet \(top 10\)/ }).click();
   // The ILCA format calls this stage the Final series and scores it ×1.
   await expect(page.getByText('Final series score ×1')).toBeVisible();
@@ -277,6 +291,7 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
+  await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
 
@@ -330,6 +345,7 @@ test('split fleets: publish lands the championship + race + assignments pages in
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
+  await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
 
   const q1Row = page.getByTestId('logical-race-qualifying-1');
@@ -507,6 +523,7 @@ test('split fleets: the format and rounds survive a file round-trip', async ({
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
+  await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
 
@@ -553,4 +570,47 @@ test('split fleets: the format and rounds survive a file round-trip', async ({
   const q1Row = page.getByTestId('logical-race-qualifying-1');
   await expect(q1Row.getByRole('link', { name: /Yellow · enter finishes/ })).toBeVisible();
   await expect(q1Row.getByRole('link', { name: /Blue · enter finishes/ })).toBeVisible();
+});
+
+/**
+ * Advancing a round deals fleets and schedules nothing. The ceremony used to
+ * create the day's races as part of the commit, and those arrived empty — a
+ * column of DNCs against every boat on the standings until they were sailed,
+ * which the scorer had to delete again after every round. So the round now
+ * commits with no races, and each is added when it is sailed.
+ */
+test('split fleets: a round commits without creating its races', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+  await createSplitFleetSeries(page, {
+    name: 'Unscheduled Worlds',
+    venue: 'Dun Laoghaire',
+    fleetCount: 2,
+  });
+  await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
+
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
+  // The offer names the races it would create, and is off until asked for.
+  await expect(
+    page.getByRole('dialog').getByRole('checkbox', { name: /Also create Q1 and Q2 now/ }),
+  ).not.toBeChecked();
+  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+
+  // The round is there with its fleets. No race is — nothing to delete, and
+  // nothing to score anyone DNC in.
+  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByTestId('logical-race-qualifying-1')).toHaveCount(0);
+  await expect(page.getByText('0 of 0 Preliminary series races count')).toBeVisible();
+
+  // Q1 arrives when Q1 is sailed.
+  await page.getByRole('button', { name: 'Add race Q1' }).click();
+  const q1Row = page.getByTestId('logical-race-qualifying-1');
+  await expect(q1Row).toBeVisible();
+  await expect(q1Row.getByRole('link', { name: /Yellow · enter finishes/ })).toBeVisible();
+  await expect(page.getByText('0 of 1 Preliminary series races count')).toBeVisible();
 });

@@ -989,6 +989,41 @@ function allSyntheticNames(fleets: Fleet[]): boolean {
   return fleets.length > 0 && fleets.every((f) => isSyntheticFleetName(f.name));
 }
 
+/** A ceremony's offer to schedule its stage races as well as deal its fleets.
+ *  Off by default: a race that exists before it is sailed stands in the
+ *  standings as a DNC against every boat, and advancing the round is what a
+ *  scorer came to do — the schedule is a separate decision. */
+function CreateRacesChoice({
+  labels,
+  checked,
+  onChange,
+}: {
+  labels: string[];
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  if (labels.length === 0) return null;
+  const list =
+    labels.length === 1
+      ? labels[0]
+      : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+  return (
+    <label className="flex items-start gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5"
+      />
+      <span>
+        Also create {list} now. A race with no finishers scores every boat DNC
+        until it is sailed, so unless you are laying the day out in advance,
+        leave this off and add each race from the round as it is sailed.
+      </span>
+    </label>
+  );
+}
+
 function AssignmentPreviewTable({
   rows,
   fleetLabels,
@@ -1083,6 +1118,7 @@ function SeedRoundDialog({
   // different assignment on a scorer. Spreading by nation is the better
   // choice at a charter event, so it's offered, not assumed.
   const [tailOrder, setTailOrder] = useState<SeedTailOrder>('sail-number');
+  const [createRaces, setCreateRaces] = useState(false);
   const [moves, setMoves] = useState<Record<string, number | null>>({});
   const qFleets = data.config.qualifyingFleets;
   const anyImported = data.competitors.some((c) => c.initialFleet);
@@ -1143,7 +1179,7 @@ function SeedRoundDialog({
   return (
     <CeremonyDialog
       title={`Assign ${words(data.config).qualifying.fleetNoun}s (Round 1)`}
-      description="Make the initial assignment — normally from the seeding committee's ranking — and create the first day's races."
+      description="Make the initial assignment — normally from the seeding committee's ranking. Races are added as they are sailed."
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit Round 1 (${preview.sizes.join(' / ')})`}
@@ -1164,7 +1200,7 @@ function SeedRoundDialog({
           fleets: qFleets,
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves).filter((cid) => moves[cid] != null),
-          stageRaceNumbers: plannedFirstRaces(data.config),
+          stageRaceNumbers: createRaces ? plannedFirstRaces(data.config) : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
@@ -1219,6 +1255,11 @@ function SeedRoundDialog({
         checked={dropLeftovers}
         onChange={setDropLeftovers}
       />
+      <CreateRacesChoice
+        labels={plannedFirstRaces(data.config).map((n) => raceLabel(data, 'qualifying', n))}
+        checked={createRaces}
+        onChange={setCreateRaces}
+      />
       <AssignmentPreviewTable
         rows={preview.rows}
         fleetLabels={qFleets.map((f) => f.label)}
@@ -1253,6 +1294,7 @@ function ReassignDialog({
 }) {
   const { commit, run } = useCommit(seriesId, onClose);
   const [moves, setMoves] = useState<Record<string, number>>({});
+  const [createRaces, setCreateRaces] = useState(false);
   const qFleets = data.config.qualifyingFleets;
   const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
   const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
@@ -1321,7 +1363,7 @@ function ReassignDialog({
           fleets: qFleets,
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
-          stageRaceNumbers: [fromStageRace, fromStageRace + 1],
+          stageRaceNumbers: createRaces ? [fromStageRace, fromStageRace + 1] : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
@@ -1330,6 +1372,13 @@ function ReassignDialog({
         fleets={leftovers}
         checked={dropLeftovers}
         onChange={setDropLeftovers}
+      />
+      <CreateRacesChoice
+        labels={[fromStageRace, fromStageRace + 1].map((n) =>
+          raceLabel(data, 'qualifying', n),
+        )}
+        checked={createRaces}
+        onChange={setCreateRaces}
       />
       {preview.tieWarnings.map((t) => (
         <p key={t} className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
@@ -1367,6 +1416,7 @@ function SplitDialog({
       : finalBlockSizes(rows.length, fFleets.length)[0];
   const [topSize, setTopSize] = useState(defaultTop);
   const [moves, setMoves] = useState<Record<string, number>>({});
+  const [createRaces, setCreateRaces] = useState(false);
   const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
   const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
 
@@ -1427,7 +1477,7 @@ function SplitDialog({
   return (
     <CeremonyDialog
       title={`Split into ${words(data.config).final.fleetNoun}s`}
-      description={`Basis: the ${words(data.config).qualifying.name} ranking after ${raceLabel(data, 'qualifying', throughStageRace)}. The split is frozen once committed — later rescoring will not change it (a redress decision may promote). Creates the ${words(data.config).final.fleetNoun}s and the first ${words(data.config).final.raceNoun}.`}
+      description={`Basis: the ${words(data.config).qualifying.name} ranking after ${raceLabel(data, 'qualifying', throughStageRace)}. The split is frozen once committed — later rescoring will not change it (a redress decision may promote). Creates the ${words(data.config).final.fleetNoun}s; their ${words(data.config).final.raceNoun}s are added as they are sailed.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit split (${preview.sizes.join(' / ')})`}
@@ -1441,7 +1491,7 @@ function SplitDialog({
           fleets: fFleets,
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves),
-          stageRaceNumbers: [1],
+          stageRaceNumbers: createRaces ? [1] : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
@@ -1450,6 +1500,11 @@ function SplitDialog({
         fleets={leftovers}
         checked={dropLeftovers}
         onChange={setDropLeftovers}
+      />
+      <CreateRacesChoice
+        labels={[raceLabel(data, 'final', 1)]}
+        checked={createRaces}
+        onChange={setCreateRaces}
       />
       <div className="flex items-center gap-2">
         <label className="text-sm" htmlFor="sf-top-size">
@@ -1785,6 +1840,7 @@ function MedalSelectDialog({
   const medalConfig = data.config.medal!;
   const w = words(data.config);
   const [size, setSize] = useState(medalConfig.size);
+  const [createRaces, setCreateRaces] = useState(false);
   const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
   const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
   const goldId = round.fleetIds[0];
@@ -1821,7 +1877,7 @@ function MedalSelectDialog({
           basis: { throughStageRace: 0 },
           fleets: [{ label: capitaliseStage(w.medal.name), color: MEDAL_FLEET_COLORS[0] }],
           assignments: medalAssignments,
-          stageRaceNumbers: [1],
+          stageRaceNumbers: createRaces ? [1] : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
@@ -1830,6 +1886,11 @@ function MedalSelectDialog({
         fleets={leftovers}
         checked={dropLeftovers}
         onChange={setDropLeftovers}
+      />
+      <CreateRacesChoice
+        labels={[raceLabel(data, 'medal', 1)]}
+        checked={createRaces}
+        onChange={setCreateRaces}
       />
       <div className="flex items-center gap-2">
         <label className="text-sm" htmlFor="sf-medal-size">

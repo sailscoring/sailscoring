@@ -143,7 +143,11 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">Assign Round N</strong> reassigns from the ranking
         over the races every fleet has completed, in the standard rank pattern (down the fleet
         list and back). The assignment is frozen when you commit it: a protest decided that
-        evening re-scores the standings but never re-deals fleets already racing.
+        evening re-scores the standings but never re-deals fleets already racing. An
+        assignment deals fleets and nothing else — each race is added from the round with{' '}
+        <strong className="text-foreground">Add race</strong> as it is sailed. The ceremony
+        offers to create the day’s races up front as well, off unless you ask for it: a race
+        that exists before it is sailed stands in the standings as a DNC against every boat.
       </p>
       <p>
         Often the committee hands over the assignment already made rather than an order to deal
