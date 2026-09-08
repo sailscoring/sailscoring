@@ -23,6 +23,7 @@ import {
   personFieldHeader,
   primaryPersonHeader,
 } from './competitor-fields';
+import { renderPageNoteHtml } from './page-note';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
 import { compareSailNumbers } from './sail-number-sort';
@@ -127,6 +128,10 @@ export interface SeriesResultsData {
   /** The event's standing race management team (#339). Set by the caller only
    *  when the series has opted into publishing officials. */
   officials?: RaceOfficial[];
+  /** The scorer's note on every page of the publication, and the one on this
+   *  page (#511) — see `DocumentChrome`. */
+  seriesNote?: string;
+  pageNote?: string;
 }
 
 export interface RaceData {
@@ -629,6 +634,11 @@ export interface DocumentChrome {
    *  stamp. The caller has already applied the series' publish opt-in — the
    *  renderer never decides whether officials may be shown. */
   officials?: RaceOfficial[];
+  /** The scorer's note on every page of this publication (#511), and the one
+   *  on this page. Both are plain text with links (`lib/page-note.ts`); they
+   *  render as an editorial block above the results, the series note first. */
+  seriesNote?: string;
+  pageNote?: string;
 }
 
 export function renderSeriesHtml(
@@ -1086,7 +1096,7 @@ function renderStartersChecklistCss(): string {
 @media print {
   body.starters .starterslist { display: block; text-align: left; }
   .starterscols { column-count: 3; column-gap: 8mm; column-fill: auto; }
-  body.starters .caption, body.starters .tablewrap, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .hardleft, body.starters .hardright, body.starters .credit { display: none; }
+  body.starters .caption, body.starters .tablewrap, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters .credit { display: none; }
   .starterslist h2.starterstitle { text-align: center; font-size: 18pt; margin: 0 0 4mm 0; }
   .startersstart { margin: 0 0 6mm 0; }
   .startersstart.keep { break-inside: avoid; }
@@ -1143,7 +1153,7 @@ export function renderHtmlDocument(
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean },
 ): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials } = chrome;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote } = chrome;
   const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
 
@@ -1208,6 +1218,15 @@ td.nat .nattext { font-size: 0.8em; }
 td.wsid { font-family: monospace; font-size: 0.85em; white-space: nowrap; }
 .print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .print-btn:hover { color: #fb3a3b; }
+/* The scorer's explanatory note (#511). Left-aligned prose on a centred
+   block, with a rule in the brand red — read as editorial rather than as
+   data, and deliberately unlike the bordered calculation explainers, which a
+   reader must not confuse it with. Kept in print: a note saying why the
+   figures do not reconcile has to be on the printout. */
+.pagenotes { max-width: 640px; margin: 0 auto 20px auto; padding: 2px 0 2px 14px; border-left: 3px solid #fb3a3b; text-align: left; }
+.pagenotes p { text-align: left; margin: 0 0 6px 0; }
+.pagenotes p:last-child { margin-bottom: 0; }
+.pagenotes .seriesnote { color: #444; }
 th[data-sortable] { cursor: pointer; }
 th[aria-sort="ascending"]::after { content: " ▲"; font-size: 0.75em; }
 th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
@@ -1249,7 +1268,7 @@ ${resultsFinal
   : generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
 ${hasOfficials(officials) ? `<p class="seriesofficials" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(formatOfficials(officials))}</p>` : ''}
 ${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
-${flagDefs}
+${renderPageNotes(seriesNote, pageNote)}${flagDefs}
 ${content}
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
@@ -1261,6 +1280,22 @@ ${renderSortScript()}
 ${startersChecklist ? renderStartersScript() : ''}
 </body>
 </html>`;
+}
+
+/**
+ * The note block above the results (#511): the series note, then this page's
+ * note. Rendered as one block so two notes read as one aside rather than as
+ * two competing announcements — the series note carries a class of its own so
+ * it can recede, since it is the standing sentence and the page note is the
+ * new one. Empty (and the block omitted) when the scorer has written neither.
+ */
+function renderPageNotes(seriesNote: string | undefined, pageNote: string | undefined): string {
+  const paragraphs = [
+    renderPageNoteHtml(seriesNote ?? '').replace(/<p>/g, '<p class="seriesnote">'),
+    renderPageNoteHtml(pageNote ?? ''),
+  ].filter((html) => html !== '');
+  if (paragraphs.length === 0) return '';
+  return `<div class="pagenotes">\n${paragraphs.join('\n')}\n</div>\n`;
 }
 
 /** Screen-only "Save as PDF" control, rendered inline in the footer credit line

@@ -1938,6 +1938,63 @@ describe('renderCompetitorListHtml', () => {
 
 // ---- Named DPI penalties (#424) ----
 
+const chromeForNotes = { series: { name: 'Worlds', venue: 'Dun Laoghaire' } };
+
+describe('the scorer’s note on a page (#511)', () => {
+  it('leaves no block on a page when nothing was written', () => {
+    expect(renderSeriesHtml(MINIMAL)).not.toContain('class="pagenotes"');
+  });
+
+  it('sits above the results, below the page heading', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      fleetName: 'Fleet assignments',
+      pageNote: 'Assigned from Q1 as posted, before the retirement was applied.',
+    });
+    const heading = html.indexOf('<h2>Fleet assignments</h2>');
+    const note = html.indexOf('class="pagenotes"');
+    const table = html.indexOf('<table class="summarytable"');
+    expect(heading).toBeGreaterThan(-1);
+    expect(note).toBeGreaterThan(heading);
+    expect(note).toBeLessThan(table);
+    expect(html).toContain('<p>Assigned from Q1 as posted, before the retirement was applied.</p>');
+  });
+
+  it('renders the series note first, and both in one block', () => {
+    const html = renderSeriesHtml({
+      ...MINIMAL,
+      seriesNote: 'Corrected 16:40.',
+      pageNote: 'See [the originals](https://results.hyc.ie/x).',
+    });
+    expect(html).toContain('<p class="seriesnote">Corrected 16:40.</p>');
+    expect(html).toContain('<a href="https://results.hyc.ie/x" target="_top" rel="noopener">the originals</a>');
+    expect(html.match(/class="pagenotes"/g)).toHaveLength(1);
+    expect(html.indexOf('Corrected 16:40.')).toBeLessThan(html.indexOf('the originals'));
+  });
+
+  it('prints with the results', () => {
+    const html = renderSeriesHtml({ ...MINIMAL, seriesNote: 'Corrected 16:40.' });
+    // The print stylesheet hides the chrome a printout doesn't want. The note
+    // is not on that list, because it is what explains the figures.
+    const printBlock = html.slice(html.indexOf('@media print'));
+    expect(printBlock.slice(0, printBlock.indexOf('}'))).not.toContain('.pagenotes');
+  });
+
+  it('is out of the way in the starters checklist, which is not about results', () => {
+    const html = renderCompetitorListHtml(
+      { ...chromeForNotes, seriesNote: 'Corrected 16:40.' },
+      [{ sailNumber: 'IRL 215', names: ['A Sailor'], fleetNames: ['Red'] }],
+      {
+        enabledCompetitorFields: [],
+        multiFleet: false,
+        checklist: [{ heading: 'Class 1', boats: [{ sailNumber: 'IRL 215' }] }],
+      },
+    );
+    expect(html).toContain('<div class="pagenotes">');
+    expect(html).toContain('body.starters .pagenotes');
+  });
+});
+
 describe('a scorer-named DPI penalty', () => {
   function withPenalty(label?: string): SeriesResultsData {
     const race = makeRace(1, [['1', 'Alice', 3, null]]);
