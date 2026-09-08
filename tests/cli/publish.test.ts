@@ -31,6 +31,7 @@ import * as series from '@/lib/api-handlers/series';
 import * as fleets from '@/lib/api-handlers/fleets';
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as races from '@/lib/api-handlers/races';
+import * as finishes from '@/lib/api-handlers/finishes';
 import { buildSeriesFile } from '@/lib/series-file';
 import { seriesFileReposFor } from '@/lib/postgres-repository';
 import { getPublishedGroupByWorkspaceSlug } from '@/lib/published-repository';
@@ -118,8 +119,10 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
     await sql?.end();
   });
 
-  /** Seed a series with the given fleet names (1 competitor each) and one race;
-   *  returns the series id (and writes its file when `toFile`). */
+  /** Seed a series with the given fleet names (1 competitor each) and one race
+   *  every boat finishes — an unpublished race is not a result and does not
+   *  publish (#513), so a series whose only race is empty has no pages.
+   *  Returns the series id (and writes its file when `toFile`). */
   async function seedSeries(name: string, fleetNames: string[], toFile?: boolean): Promise<string> {
     const srcId = uuid();
     await series.putSeries(ctx, srcId, {
@@ -134,6 +137,7 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
       primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
     });
     let n = 0;
+    const compIds: string[] = [];
     for (const fleetName of fleetNames) {
       const fleetId = uuid();
       await fleets.putFleet(ctx, srcId, fleetId, {
@@ -141,6 +145,7 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
         scoringSystem: 'scratch' as const,
       });
       const compId = uuid();
+      compIds.push(compId);
       await competitors.putCompetitor(ctx, srcId, compId, {
         id: compId, seriesId: srcId, fleetIds: [fleetId], sailNumber: `${n}`,
         names: [`${fleetName} boat`], club: 'HYC', gender: '' as const, age: null,
@@ -151,6 +156,16 @@ describe.skipIf(skip)('CLI publish (ADR-009 M3.1)', () => {
     await races.putRace(ctx, srcId, raceId, {
       id: raceId, seriesId: srcId, raceNumber: 1, date: '2026-07-04', createdAt: Date.now(),
     });
+    for (const [i, compId] of compIds.entries()) {
+      const finishId = uuid();
+      await finishes.putFinish(ctx, raceId, finishId, {
+        id: finishId, raceId, competitorId: compId, sortOrder: i + 1,
+        tiedWithPrevious: false, resultCode: null, startPresent: null,
+        penaltyCode: null, penaltyOverride: null, redressMethod: null,
+        redressExcludeRaceIds: null, redressIncludeRaceIds: null,
+        redressIncludeAllLater: false, redressPoints: null,
+      });
+    }
     if (toFile) {
       const file = await buildSeriesFile(srcId, seriesFileReposFor({ workspaceId }));
       await writeFile(join(tmp, `${name.replace(/\s+/g, '-')}.sailscoring`), JSON.stringify(file), 'utf8');

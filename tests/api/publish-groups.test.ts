@@ -20,6 +20,7 @@ import * as series from '@/lib/api-handlers/series';
 import * as fleets from '@/lib/api-handlers/fleets';
 import * as competitors from '@/lib/api-handlers/competitors';
 import * as races from '@/lib/api-handlers/races';
+import * as finishes from '@/lib/api-handlers/finishes';
 import * as subSeriesApi from '@/lib/api-handlers/sub-series';
 import { publishSeries } from '@/lib/api-handlers/publish';
 import { getPublishedBySeries } from '@/lib/published-repository';
@@ -32,6 +33,20 @@ const skip = !DATABASE_URL;
 
 function uuid() {
   return crypto.randomUUID();
+}
+
+/** A boat over the line. Races here need a real result: a race nobody has
+ *  sailed is not published (#513), so a fixture whose races are empty has
+ *  nothing to publish at all. */
+async function finish(ctx: WorkspaceContext, raceId: string, competitorId: string, sortOrder: number) {
+  const id = uuid();
+  await finishes.putFinish(ctx, raceId, id, {
+    id, raceId, competitorId, sortOrder,
+    tiedWithPrevious: false, resultCode: null, startPresent: null,
+    penaltyCode: null, penaltyOverride: null, redressMethod: null,
+    redressExcludeRaceIds: null, redressIncludeRaceIds: null,
+    redressIncludeAllLater: false, redressPoints: null,
+  });
 }
 
 describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
@@ -75,6 +90,7 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
       primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
     });
     let n = 0;
+    const compIds: string[] = [];
     for (const fleetName of ['Cruisers', 'Whitesails']) {
       const fleetId = uuid();
       fleetIds.push(fleetId);
@@ -83,6 +99,7 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
         scoringSystem: 'scratch' as const,
       });
       const compId = uuid();
+      compIds.push(compId);
       await competitors.putCompetitor(ctx, seriesId, compId, {
         id: compId, seriesId, fleetIds: [fleetId], sailNumber: `${n}`,
         names: [`${fleetName} boat`], club: 'HYC', gender: '' as const, age: null,
@@ -93,6 +110,7 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
     await races.putRace(ctx, seriesId, raceId, {
       id: raceId, seriesId, raceNumber: 1, date: '2026-07-04', createdAt: Date.now(),
     });
+    for (const [i, compId] of compIds.entries()) await finish(ctx, raceId, compId, i + 1);
   });
 
   afterAll(async () => {
@@ -196,6 +214,7 @@ describe.skipIf(skip)('publish handler — combined pages on a block series (#25
       primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
     });
     let n = 0;
+    const compIds: string[] = [];
     for (const fleetName of ['Cruisers', 'Whitesails']) {
       const fleetId = uuid();
       await fleets.putFleet(ctx, seriesId, fleetId, {
@@ -203,6 +222,7 @@ describe.skipIf(skip)('publish handler — combined pages on a block series (#25
         scoringSystem: 'scratch' as const,
       });
       const compId = uuid();
+      compIds.push(compId);
       await competitors.putCompetitor(ctx, seriesId, compId, {
         id: compId, seriesId, fleetIds: [fleetId], sailNumber: `${n}`,
         names: [`${fleetName} boat`], club: 'HYC', gender: '' as const, age: null,
@@ -216,6 +236,7 @@ describe.skipIf(skip)('publish handler — combined pages on a block series (#25
       await races.putRace(ctx, seriesId, raceId, {
         id: raceId, seriesId, raceNumber: i, date: `2026-07-0${i + 3}`, createdAt: Date.now(),
       });
+      for (const [j, compId] of compIds.entries()) await finish(ctx, raceId, compId, j + 1);
     }
     await subSeriesApi.createSubSeries(ctx, seriesId, { name: 'Winter', raceIds: [raceIds[0]] });
     await subSeriesApi.createSubSeries(ctx, seriesId, { name: 'Spring', raceIds: [raceIds[1]] });
