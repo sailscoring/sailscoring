@@ -438,7 +438,9 @@ export async function copySeries(
   const now = new Date();
 
   await db.transaction(async (tx) => {
-    // Series — strip ftp/publishing/file-tracking state.
+    // Series — strip ftp/publishing/file-tracking state. Page notes go with
+    // it: a note describes one publication's pages ("corrected 16:40"), not
+    // the event, so it must not follow a fork.
     await tx.insert(schema.series).values({
       id: newSeriesId,
       workspaceId: targetWorkspaceId,

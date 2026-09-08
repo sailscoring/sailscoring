@@ -481,6 +481,38 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository: published-page notes round-trip and clear', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+
+    // Sparse, like every other note-shaped field: absent until written.
+    const fresh = await repos.series.get(s.id);
+    expect(fresh?.seriesNote).toBeUndefined();
+    expect(fresh?.pageNotes).toBeUndefined();
+
+    await repos.series.save({
+      ...s,
+      seriesNote: 'Corrected 16:40 — Q1 finish order revised.',
+      pageNotes: [
+        { page: 'Fleet assignments', text: 'Assigned before the Q1 retirement.', updatedAt: 1_700_000_000_000 },
+      ],
+      version: fresh?.version,
+    });
+    const saved = await repos.series.get(s.id);
+    expect(saved?.seriesNote).toContain('Corrected 16:40');
+    expect(saved?.pageNotes).toEqual([
+      { page: 'Fleet assignments', text: 'Assigned before the Q1 retirement.', updatedAt: 1_700_000_000_000 },
+    ]);
+
+    await repos.series.save({ ...saved!, seriesNote: '', pageNotes: [] });
+    const cleared = await repos.series.get(s.id);
+    expect(cleared?.seriesNote).toBeUndefined();
+    expect(cleared?.pageNotes).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('RaceRepository: reorder renumbers 1..n without tripping the unique index', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = makeSeries();

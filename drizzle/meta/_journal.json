@@ -708,6 +708,13 @@
       "when": 1788762454918,
       "tag": "0100_clumsy_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1788862134843,
+      "tag": "0101_sweet_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

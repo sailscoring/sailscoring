@@ -46,6 +46,7 @@ import type {
   FinishTrackData,
   RaceOfficial,
   RrsOrgPushConfig,
+  PageNote,
   Prize,
   SeriesSource,
   StartGroup,
@@ -226,6 +227,15 @@ export const series = pgTable(
     // never queried by content, like publishing_groups.
     prizes: jsonb('prizes')
       .$type<Prize[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    // Explanatory notes on published pages (#511): one carried by every page
+    // of the publication, and one per page. Free text (with links) rather
+    // than data — the series note is a plain column, the per-page ones a
+    // small keyed list, never queried by content.
+    seriesNote: text('series_note').notNull().default(''),
+    pageNotes: jsonb('page_notes')
+      .$type<PageNote[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
     // Results lifecycle: provisional until the scorer marks the series final

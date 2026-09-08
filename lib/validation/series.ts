@@ -13,6 +13,7 @@ import type {
 } from '@/lib/types';
 
 import { SUBDIVISION_LABEL_MAX_LENGTH } from '@/lib/competitor-fields';
+import { PAGE_NOTE_MAX_LENGTH } from '@/lib/page-note';
 import { PUBLISHING_GROUP_NAME_MAX_LENGTH } from '@/lib/publishing-groups';
 import {
   PRIZE_CLAUSES_MAX,
@@ -182,6 +183,20 @@ export const seriesSchema = z.object({
   // Prize list (#240). Optional on the wire so sparse creation and older
   // clients round-trip cleanly.
   prizes: z.array(prizeSchema).optional(),
+  // Explanatory notes on published pages (#511). Optional on the wire so
+  // sparse creation and older clients round-trip cleanly. The length bound is
+  // the one the editor enforces; the key is free-form because it is a page
+  // name, which is whatever the scorer called the fleet.
+  seriesNote: z.string().max(PAGE_NOTE_MAX_LENGTH).optional(),
+  pageNotes: z
+    .array(
+      z.object({
+        page: z.string().min(1).max(200),
+        text: z.string().max(PAGE_NOTE_MAX_LENGTH),
+        updatedAt: epochMsSchema,
+      }),
+    )
+    .optional(),
   // Results lifecycle. Optional on the wire (absent = provisional). Status
   // changes normally go through the dedicated finalise/reopen endpoint —
   // a generic series PUT is rejected while the series is final anyway.

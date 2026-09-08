@@ -121,6 +121,8 @@ function seriesRowToType(row: SeriesRow): Series {
     publishDetail: row.publishDetail,
     rrsOrgPush: row.rrsOrgPush ?? undefined,
     prizes: row.prizes,
+    ...(row.seriesNote ? { seriesNote: row.seriesNote } : {}),
+    ...(row.pageNotes?.length ? { pageNotes: row.pageNotes } : {}),
     // Sparse like the file format: written only when final / configured, so a
     // provisional series round-trips without the fields.
     ...(row.resultsStatus === 'final' ? { resultsStatus: 'final' as const } : {}),
@@ -617,6 +619,8 @@ function seriesToRow(s: Series, workspaceId: string) {
     publishDetail: s.publishDetail ?? 'full',
     rrsOrgPush: s.rrsOrgPush ?? null,
     prizes: s.prizes ?? [],
+    seriesNote: s.seriesNote ?? '',
+    pageNotes: s.pageNotes ?? [],
     resultsStatus: s.resultsStatus ?? 'provisional',
     finalisedAt: s.finalisedAt != null ? new Date(s.finalisedAt) : null,
     protestTimeLimit: s.protestTimeLimit ?? null,
@@ -647,6 +651,7 @@ const seriesUpdateColumns = [
   'ftpLastUploadedAt', 'ftpUploadedVersion', 'includeJsonExport',
   'publishRatingCalculations', 'showPerRaceRatingsInSummary',
   'publishingGroups', 'publishIndividualFleetPages', 'publishDetail', 'rrsOrgPush', 'prizes',
+  'seriesNote', 'pageNotes',
   'resultsStatus', 'finalisedAt', 'protestTimeLimit', 'officials', 'publishOfficials', 'publishTrackData',
   'enabledCompetitorFields', 'multiPersonFields', 'primaryPersonLabel', 'subdivisionAxes',
   'categoryId', 'archived', 'source',
