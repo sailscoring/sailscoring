@@ -208,6 +208,7 @@ export default function StandingsPage({
                     }
                   : undefined
               }
+              canEditNotes={canScore && !spectator}
             />
             <PublishDialog
               series={series}

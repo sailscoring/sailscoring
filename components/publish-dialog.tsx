@@ -27,6 +27,16 @@ import {
   producesPage,
   resolvePublishingGroups,
 } from '@/lib/publishing-groups';
+import { StickyNote } from 'lucide-react';
+import {
+  describePageNoteKey,
+  orphanedPageNotes,
+  pageNoteFor,
+  pageNoteKey,
+  withPageNote,
+  type NotePageRef,
+} from '@/lib/page-note';
+import { PageNoteEditor } from '@/components/page-note-editor';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
@@ -192,6 +202,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
     'loading' | 'idle' | 'publishing' | 'unpublishing'
   >('loading');
   const [error, setError] = useState<string | null>(null);
+  // Which note is open in the editor, by note key — `SERIES_NOTE` for the one
+  // that goes on every page. Writing a note here is a series edit like any
+  // other, so the "N edits since" line above lights up the moment it is
+  // saved, which is exactly the prompt to re-publish.
+  const [openNote, setOpenNote] = useState<string | null>(null);
 
   const published = status?.published ?? null;
   const isPublished = published !== null;
@@ -524,6 +539,82 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
     setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.name)));
   }
 
+  // ---- Notes (#511) ----
+  //
+  // A block series is left out: this dialog lists one row per fleet across
+  // every sub-series ("one page per sub-series"), so no row here names the
+  // page a note would land on. Preview enumerates them, and is where a block
+  // series' notes are written.
+  const canNote = has('page-notes') && !hasBlocks;
+  const SERIES_NOTE = '@every-page';
+
+  function saveNote(page: NotePageRef | null, text: string) {
+    updateSeries.mutate({
+      id: series.id,
+      patch:
+        page === null
+          ? () => ({ seriesNote: text })
+          : (s) => ({ pageNotes: withPageNote(s.pageNotes, page, text) }),
+    });
+    setOpenNote(null);
+  }
+
+  /** The note affordance on a page's row: filled once the page carries one,
+   *  and titled with the note itself, so a note written three days ago is
+   *  seen before it goes out again rather than after. */
+  function noteButton(page: NotePageRef) {
+    if (!canNote) return null;
+    const key = pageNoteKey(page);
+    const note = pageNoteFor(series.pageNotes, page);
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 w-7 shrink-0 p-0"
+        aria-label={`Note on ${page.fleetName}`}
+        title={note || 'Add a note to this page'}
+        data-testid={`page-note-button-${key}`}
+        onClick={() => setOpenNote(openNote === key ? null : key)}
+      >
+        <StickyNote
+          className={`h-4 w-4 ${note ? 'fill-amber-200 text-amber-700 dark:fill-amber-900 dark:text-amber-400' : 'text-muted-foreground'}`}
+        />
+      </Button>
+    );
+  }
+
+  /** The editor, opened beneath the row it belongs to — rather than in a
+   *  window over the dialog, which would put a second modal between the
+   *  scorer and the page list they are working down. */
+  function noteEditor(page: NotePageRef, label: string) {
+    const key = pageNoteKey(page);
+    if (!canNote || openNote !== key) return null;
+    const entry = (series.pageNotes ?? []).find((n) => n.page === key);
+    return (
+      <PageNoteEditor
+        value={pageNoteFor(series.pageNotes, page)}
+        label={label}
+        {...(entry ? { updatedAt: entry.updatedAt } : {})}
+        onSave={(text) => saveNote(page, text)}
+        onCancel={() => setOpenNote(null)}
+      />
+    );
+  }
+
+  /** The lone results page's note identity — keyed by `isDefault`, since its
+   *  fleet name here may be the synthetic "Default" or "Unknown". */
+  const lonePageRef: NotePageRef = { fleetName: lonePageLabel, isDefault: true };
+
+  // Notes filed against pages this series no longer builds — a renamed fleet
+  // leaves one behind. Kept in the file rather than dropped, and surfaced
+  // here once so they can be cleared.
+  const orphanNotes = canNote
+    ? orphanedPageNotes(series.pageNotes, [
+        ...pageNames.map((name) => ({ fleetName: name })),
+        ...(multiFleet ? [] : [lonePageRef]),
+      ])
+    : [];
+
   async function handlePublish() {
     setPhase('publishing');
     setError(null);
@@ -845,8 +936,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                       // shouldn't read as removed.
                       const dim = !checked && !row.frozen;
                       return (
+                        <div key={row.name} className="space-y-1">
                         <div
-                          key={row.name}
                           className={`flex items-center gap-2 ${dim ? 'opacity-50' : ''}`}
                         >
                           <input
@@ -899,6 +990,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                               className="flex-1 min-w-0 h-7 text-xs font-mono"
                             />
                           )}
+                          {noteButton({ fleetName: row.name })}
                           {row.frozen && !hasBlocks && (
                             <Button
                               size="sm"
@@ -909,6 +1001,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                               Copy
                             </Button>
                           )}
+                        </div>
+                        {noteEditor({ fleetName: row.name }, row.name)}
                         </div>
                       );
                     })}
@@ -952,7 +1046,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
               // other extra pages keep their own rows below.
               <div className="space-y-1.5">
                 {(publishedResultPages ?? (singlePreview ? [singlePreview] : [])).map((p) => (
-                  <div key={p.url} className="flex items-center gap-2">
+                  <div key={p.url} className="space-y-1">
+                  <div className="flex items-center gap-2">
                     {/* Re-publishing is per page here as much as anywhere: a
                         live page left unticked stays up untouched rather than
                         being rebuilt. Only the lone default page can be
@@ -989,9 +1084,15 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                         {p.url}
                       </a>
                     </div>
+                    {noteButton(publishedResultPages ? { fleetName: p.fleetName } : lonePageRef)}
                     <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(p.url)}>
                       Copy
                     </Button>
+                  </div>
+                  {noteEditor(
+                    publishedResultPages ? { fleetName: p.fleetName } : lonePageRef,
+                    publishedResultPages ? p.fleetName : lonePageLabel,
+                  )}
                   </div>
                 ))}
                 {/* The results page has never gone out — the publication is an
@@ -1000,6 +1101,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                     page is offered below; otherwise there is no way to publish
                     it later. */}
                 {!publishedResultPages && !singlePreview && (
+                  <div className="space-y-1">
                   <div className={`flex items-center gap-2 ${loneSelected ? '' : 'opacity-50'}`}>
                     <input
                       type="checkbox"
@@ -1016,6 +1118,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                       aria-label="Page URL"
                       className="flex-1 min-w-0 h-7 text-xs font-mono"
                     />
+                    {noteButton(lonePageRef)}
+                  </div>
+                  {noteEditor(lonePageRef, lonePageLabel)}
                   </div>
                 )}
               </div>
@@ -1054,7 +1159,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                     aria-label="Page URL"
                     className="flex-1 min-w-0 h-7 text-xs font-mono"
                   />
+                  {noteButton(lonePageRef)}
                 </div>
+                {noteEditor(lonePageRef, lonePageLabel)}
               </div>
             )}
 
@@ -1069,8 +1176,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
               const checked = selected.has(name);
               const caption = captionByName.get(name);
               return (
+                <div key={name} className="space-y-1">
                 <div
-                  key={name}
                   className={`flex items-center gap-2 ${!checked && !frozen ? 'opacity-50' : ''}`}
                 >
                   <input
@@ -1119,6 +1226,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                       className="flex-1 min-w-0 h-7 text-xs font-mono"
                     />
                   )}
+                  {noteButton({ fleetName: name })}
                   {frozen && (
                     <Button
                       size="sm"
@@ -1130,8 +1238,77 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
                     </Button>
                   )}
                 </div>
+                {noteEditor({ fleetName: name }, name)}
+                </div>
               );
             })}
+
+            {/* The note that goes on every page of the publication, and any
+                note left behind by a page the series no longer builds. */}
+            {canNote && (
+              <div className="space-y-1 border-t pt-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-36 shrink-0 truncate text-sm text-muted-foreground">
+                    Every page
+                  </span>
+                  <span
+                    className="flex-1 min-w-0 truncate text-xs text-muted-foreground"
+                    title={series.seriesNote || undefined}
+                  >
+                    {series.seriesNote?.trim()
+                      ? series.seriesNote
+                      : 'No note on every page.'}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 p-0"
+                    aria-label="Note on every page"
+                    title={series.seriesNote || 'Add a note to every page'}
+                    data-testid="page-note-button-every-page"
+                    onClick={() => setOpenNote(openNote === SERIES_NOTE ? null : SERIES_NOTE)}
+                  >
+                    <StickyNote
+                      className={`h-4 w-4 ${series.seriesNote?.trim() ? 'fill-amber-200 text-amber-700 dark:fill-amber-900 dark:text-amber-400' : 'text-muted-foreground'}`}
+                    />
+                  </Button>
+                </div>
+                {openNote === SERIES_NOTE && (
+                  <PageNoteEditor
+                    value={series.seriesNote ?? ''}
+                    label="every page"
+                    placeholder="Something every page of this publication should say"
+                    onSave={(text) => saveNote(null, text)}
+                    onCancel={() => setOpenNote(null)}
+                  />
+                )}
+                {orphanNotes.map((note) => (
+                  <div key={note.page} className="flex items-center gap-2 opacity-60">
+                    <span className="w-36 shrink-0 truncate text-xs text-muted-foreground">
+                      {describePageNoteKey(note.page)}
+                    </span>
+                    <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground" title={note.text}>
+                      no such page any more — {note.text}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 shrink-0 px-2 text-xs"
+                      onClick={() =>
+                        updateSeries.mutate({
+                          id: series.id,
+                          patch: (s) => ({
+                            pageNotes: (s.pageNotes ?? []).filter((n) => n.page !== note.page),
+                          }),
+                        })
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,8 @@ import { ChevronDown } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
 import { buildFleetHtmlFiles, fleetHtmlFilename, fleetPdfTitle, triggerDownload } from '@/lib/results-export';
 import { useFeatures } from '@/components/features-provider';
+import { PageNoteStrip } from '@/components/page-note-editor';
+import { useUpdateSeries } from '@/hooks/use-series';
 import type { Fleet, Series } from '@/lib/types';
 
 type FleetHtmlFile = { fleetName: string; isDefault: boolean; subSeriesName?: string; html: string };
@@ -37,6 +39,10 @@ export interface PreviewDialogProps {
   /** Hand off to the Publish flow (parent closes this and opens PublishDialog).
    *  Omit when the viewer can't publish — the Publish button is hidden. */
   onPublish?: () => void;
+  /** Whether the viewer may write the page's note (#511). Preview itself asks
+   *  for no permission — anyone may see what a page would look like — so the
+   *  one editable thing on it carries its own gate. */
+  canEditNotes?: boolean;
 }
 
 /**
@@ -46,17 +52,30 @@ export interface PreviewDialogProps {
  * uploads nothing. The Download button serves the in-memory build (no rebuild);
  * Publish hands off to the PublishDialog.
  */
-export function PreviewDialog({ series, fleets, open, onClose, onPublish }: PreviewDialogProps) {
+export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEditNotes }: PreviewDialogProps) {
   const { has } = useFeatures();
   const includePrizes = has('prizes');
   const includeEntryList = has('entry-list');
   const includeTrackData = has('racesense-import');
+  const includePageNotes = has('page-notes');
+  const updateSeries = useUpdateSeries();
   const [files, setFiles] = useState<FleetHtmlFile[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'idle' | 'error'>('loading');
   /** The block the sub-series dropdown shows while a series-wide page (no
    *  block of its own) is selected; see the picker below. */
   const [chosenSubSeries, setChosenSubSeries] = useState<string | null>(null);
+
+  const buildFiles = useCallback(
+    () =>
+      buildFleetHtmlFiles(repos, series.id, undefined, {
+        includePrizes,
+        includeEntryList,
+        includeTrackData,
+        includePageNotes,
+      }).then((build) => build?.files ?? null),
+    [series.id, includePrizes, includeEntryList, includeTrackData, includePageNotes],
+  );
 
   // Rebuild each time the dialog opens so the preview reflects the latest
   // edits. Syncing with the external open signal, so the writes are expected.
@@ -68,10 +87,9 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     setFiles(null);
     setSelected(0);
     setChosenSubSeries(null);
-    buildFleetHtmlFiles(repos, series.id, undefined, { includePrizes, includeEntryList, includeTrackData })
-      .then((build) => {
+    buildFiles()
+      .then((built) => {
         if (cancelled) return;
-        const built = build?.files ?? null;
         setFiles(built);
         setPhase(built && built.length > 0 ? 'idle' : 'error');
       })
@@ -81,8 +99,19 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
     return () => {
       cancelled = true;
     };
-  }, [open, series.id, includePrizes, includeEntryList, includeTrackData]);
+  }, [open, buildFiles]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Saving a note rebuilds in place: the scorer types a sentence and watches
+  // it land in the page, which is the reason to write it here rather than in
+  // the publish dialog. The page list is unchanged by a note, so the current
+  // selection stays valid and the preview does not jump.
+  function saveNote(patch: (s: Series) => Partial<Series>) {
+    updateSeries.mutate(
+      { id: series.id, patch },
+      { onSuccess: () => buildFiles().then((built) => built && setFiles(built)) },
+    );
+  }
 
   const current = files?.[selected] ?? null;
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -247,6 +276,19 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish }: Prev
             )}
           </div>
         </div>
+
+        {includePageNotes && canEditNotes && current && (
+          <PageNoteStrip
+            series={series}
+            page={{
+              fleetName: current.fleetName,
+              ...(current.isDefault ? { isDefault: true } : {}),
+              ...(current.subSeriesName ? { subSeriesName: current.subSeriesName } : {}),
+            }}
+            pageLabel={current.fleetName}
+            onSave={saveNote}
+          />
+        )}
 
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-white">
           {phase === 'loading' && (

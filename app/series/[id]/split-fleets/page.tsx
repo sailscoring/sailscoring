@@ -477,6 +477,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         open={showPreview}
         onClose={() => setShowPreview(false)}
         onPublish={can('score') ? () => { setShowPreview(false); setShowPublish(true); } : undefined}
+        canEditNotes={can('score')}
       />
       <PublishDialog
         series={data.series}
