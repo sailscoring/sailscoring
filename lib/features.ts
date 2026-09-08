@@ -245,6 +245,16 @@ export const FEATURES = {
     label: 'Prizes',
     helpSectionIds: ['prizes'],
   },
+  'page-notes': {
+    // Explanatory notes on published pages (#511): the note editor in the
+    // preview and publish dialogs, and the note block those pages render.
+    // Opt-in (default off) while the shape of a note — one per page, one for
+    // the publication, plain text with links — proves out against what
+    // scorers actually need to say. Purely additive: a workspace with the
+    // feature off publishes exactly what it published before.
+    label: 'Notes on published pages',
+    helpSectionIds: ['page-notes'],
+  },
   'entry-list': {
     // The published competitor-list page (#423): the entry list, publishable
     // before any race is sailed, at `{slug}/entries`. Opt-in (default off)

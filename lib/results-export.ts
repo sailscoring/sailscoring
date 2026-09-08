@@ -176,7 +176,9 @@ function footerDataLinks(
 function noteChrome(
   series: Pick<Series, 'seriesNote' | 'pageNotes'>,
   page: NotePageRef,
+  enabled: boolean | undefined,
 ): { seriesNote?: string; pageNote?: string } {
+  if (!enabled) return {};
   const pageNote = pageNoteFor(series.pageNotes, page);
   return {
     ...(series.seriesNote?.trim() ? { seriesNote: series.seriesNote } : {}),
@@ -194,6 +196,7 @@ async function buildCompetitorListFile(
   snapshot: SeriesSnapshot,
   seriesIndexUrl: string | undefined,
   generatedAt: Date,
+  includePageNotes?: boolean,
 ): Promise<FleetHtmlFile> {
   const { series, competitors, fleets } = snapshot;
   const fleetById = new Map(fleets.map((f) => [f.id, f]));
@@ -290,7 +293,7 @@ async function buildCompetitorListFile(
         rightUrl: series.eventUrl || undefined,
         generatedAt,
         ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
-        ...noteChrome(series, { fleetName: 'Entries' }),
+        ...noteChrome(series, { fleetName: 'Entries' }, includePageNotes),
       },
       rows,
       {
@@ -342,6 +345,9 @@ export async function buildFleetHtmlFiles(
   // `includeTrackData` says the workspace's `racesense-import` feature is on;
   // the columns still need the series' own `publishTrackData` opt-in, and
   // each renders only where a boat carries the value.
+  // `includePageNotes` says the workspace's `page-notes` feature is on (#511).
+  // Same contract as the prize sheet: notes that arrive on an imported series
+  // are kept but stay off the pages until the workspace enables the feature.
   // `dataPath` is the site-relative path the publication's data file will be
   // served at (`/p/{ws}/{slug}/{name}.sailscoring.json`, ADR-012). Passed
   // when the output has a published data file behind it — the publish
@@ -361,6 +367,7 @@ export async function buildFleetHtmlFiles(
     includePrizes?: boolean;
     includeEntryList?: boolean;
     includeTrackData?: boolean;
+    includePageNotes?: boolean;
     raceResultsHref?: string;
     dataPath?: string;
     generatedAt?: Date;
@@ -373,7 +380,7 @@ export async function buildFleetHtmlFiles(
     // Before race one there are no results to render, but the entry list is
     // exactly what an event wants published in that window.
     return opts?.includeEntryList
-      ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt)] }
+      ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)] }
       : null;
   }
   // Empty venue/event logo slots inherit the workspace defaults, so the
@@ -448,7 +455,7 @@ export async function buildFleetHtmlFiles(
     // most likely to need a sentence saying it does not reconcile with the
     // standings, and that sentence has no business on the standings.
     const splitNote = (fleetName: string, isDefault = false) =>
-      noteChrome(snapshot.series, { fleetName, isDefault });
+      noteChrome(snapshot.series, { fleetName, isDefault }, opts?.includePageNotes);
     // Null while no stage race has sheet rows — the championship page then
     // has nothing to link to either.
     const raceResultsHtml = renderSplitFleetRaceResultsPage(input, {
@@ -492,7 +499,7 @@ export async function buildFleetHtmlFiles(
       // championship — and a championship is the regime most likely to want
       // its entry list published.
       ...(opts?.includeEntryList
-        ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt)]
+        ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)]
         : []),
     ], ...(splitExportJson ? { exportJson: splitExportJson } : {}) };
   }
@@ -904,11 +911,15 @@ export async function buildFleetHtmlFiles(
             // Not inside `assemble`: its output is also a combined page's
             // section, and a fleet's note there would print under a heading
             // that is not the fleet's.
-            ...noteChrome(series, {
-              fleetName: fleet.name,
-              isDefault: isSingleDefault,
-              ...(subSeriesName ? { subSeriesName } : {}),
-            }),
+            ...noteChrome(
+              series,
+              {
+                fleetName: fleet.name,
+                isDefault: isSingleDefault,
+                ...(subSeriesName ? { subSeriesName } : {}),
+              },
+              opts?.includePageNotes,
+            ),
           },
           { detail: pageDetail },
         ),
@@ -995,10 +1006,11 @@ export async function buildFleetHtmlFiles(
           // The race-detail limit (#372) is a full-detail concern; the
           // renderer ignores it at the other detail levels.
           ...(group.recentRaces != null ? { recentRaces: group.recentRaces } : {}),
-          ...noteChrome(series, {
-            fleetName: group.name,
-            ...(subSeriesName ? { subSeriesName } : {}),
-          }),
+          ...noteChrome(
+            series,
+            { fleetName: group.name, ...(subSeriesName ? { subSeriesName } : {}) },
+            opts?.includePageNotes,
+          ),
         }),
       });
     }
@@ -1054,7 +1066,7 @@ export async function buildFleetHtmlFiles(
           ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
           ...(openInAppUrl ? { openInAppUrl } : {}),
           ...(dataFileUrl ? { dataFileUrl } : {}),
-          ...noteChrome(series, { fleetName: 'Prizes' }),
+          ...noteChrome(series, { fleetName: 'Prizes' }, opts?.includePageNotes),
         },
         allocations,
         {
@@ -1070,7 +1082,7 @@ export async function buildFleetHtmlFiles(
   // The competitor list (#423) closes the page list: series-wide, and the
   // only page here that owes nothing to a race having been sailed.
   if (opts?.includeEntryList) {
-    results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt));
+    results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes));
   }
 
   return results.length > 0

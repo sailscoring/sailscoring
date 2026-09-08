@@ -365,6 +365,7 @@ export async function publishSeries(
       includePrizes: workspace.features.includes('prizes'),
       includeEntryList: workspace.features.includes('entry-list'),
       includeTrackData: workspace.features.includes('racesense-import'),
+      includePageNotes: workspace.features.includes('page-notes'),
       raceResultsHref,
       dataPath,
       // A rebuild says what the publish it re-renders said: the results are

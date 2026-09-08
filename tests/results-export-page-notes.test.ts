@@ -75,7 +75,7 @@ function makeRepos(series: Series): ExportRepos {
 }
 
 const build = async (series: Series) =>
-  (await buildFleetHtmlFiles(makeRepos(series), 's1', undefined, { includeEntryList: true }))!.files;
+  (await buildFleetHtmlFiles(makeRepos(series), 's1', undefined, { includeEntryList: true, includePageNotes: true }))!.files;
 
 const pageNamed = (files: Awaited<ReturnType<typeof build>>, name: string) =>
   files.find((f) => f.fleetName === name)!.html;
@@ -120,6 +120,18 @@ describe('notes on built pages', () => {
     expect(pageNamed(files, 'Class 1')).not.toContain('Late entries close Friday.');
   });
 
+  it('keeps a note off the pages while the workspace has the feature off', async () => {
+    const series = makeSeries({
+      seriesNote: 'Corrected 16:40.',
+      pageNotes: [{ page: 'Class 1', text: 'Protest 14 outstanding.', updatedAt: 1 }],
+    });
+    const files = (await buildFleetHtmlFiles(makeRepos(series), 's1'))!.files;
+    for (const file of files) {
+      expect(file.html).not.toContain('Corrected 16:40.');
+      expect(file.html).not.toContain('Protest 14 outstanding.');
+    }
+  });
+
   it('files a single-fleet series’ note against the lone results page', async () => {
     const one: Fleet[] = [FLEETS[0]];
     const repos = {
@@ -128,7 +140,7 @@ describe('notes on built pages', () => {
       competitorRepo: { listBySeries: async () => [COMPETITORS[0]] },
       finishRepo: { listBySeries: async () => [FINISHES[0]] },
     } as unknown as ExportRepos;
-    const files = (await buildFleetHtmlFiles(repos, 's1'))!.files;
+    const files = (await buildFleetHtmlFiles(repos, 's1', undefined, { includePageNotes: true }))!.files;
     expect(files).toHaveLength(1);
     expect(files[0].isDefault).toBe(true);
     expect(files[0].html).toContain('Sailed in fog.');
