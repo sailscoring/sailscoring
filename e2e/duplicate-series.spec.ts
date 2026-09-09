@@ -89,3 +89,31 @@ test('duplicate carries competitors and races; edits stay on the copy', async ({
   await expect(page.getByRole('cell', { name: 'D1' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'D3' })).not.toBeVisible();
 });
+
+test('the suggested name follows a rename made in the same session', async ({ page }) => {
+  // #525: these dialogs are mounted unconditionally by the series-header
+  // actions menu, which lives in the series layout — so on a series created
+  // through the setup wizard they mount while the name is still the generated
+  // placeholder. A useState initialiser captured that, and went on suggesting
+  // "Copy of <placeholder>" until something remounted the layout.
+  const realName = `Renamed In Session ${Date.now()}`;
+  await page.goto('/series/new');
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/setup$/);
+
+  const nameField = page.getByLabel('Name');
+  const placeholderName = await nameField.inputValue();
+  expect(placeholderName).not.toBe('');
+
+  await nameField.fill(realName);
+  // Let the live save land, so the header is showing the new name.
+  await expect(page.getByRole('heading', { name: realName })).toBeVisible();
+
+  // Open Duplicate… without reloading — the dialog is the one mounted at setup.
+  await openSeriesActionsMenu(page);
+  await page.getByRole('menuitem', { name: 'Duplicate…' }).click();
+  // Scoped to the dialog: the setup page's own Name field is still mounted
+  // behind it.
+  const suggested = page.getByRole('dialog').getByRole('textbox', { name: 'Name' });
+  await expect(suggested).toHaveValue(`Copy of ${realName}`);
+  await expect(suggested).not.toHaveValue(`Copy of ${placeholderName}`);
+});

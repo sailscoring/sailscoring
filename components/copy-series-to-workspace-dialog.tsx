@@ -60,13 +60,20 @@ export function CopySeriesToWorkspaceDialog({
   );
 
   const [targetId, setTargetId] = useState<string>('');
-  const [name, setName] = useState<string>(`Copy of ${seriesName}`);
+  // The suggestion is derived on render, not captured at mount. These dialogs
+  // are mounted unconditionally by the series-header actions menu, which lives
+  // in the series layout — so on a newly created series they mount while the
+  // name is still the generated placeholder, and a `useState` initialiser
+  // would keep suggesting "Copy of <placeholder>" long after the setup step
+  // renamed it. `null` means "no edit yet, use the current name" (#525).
+  const [nameEdit, setNameEdit] = useState<string | null>(null);
+  const name = nameEdit ?? `Copy of ${seriesName}`;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
     setTargetId('');
-    setName(`Copy of ${seriesName}`);
+    setNameEdit(null);
     setError(null);
     setBusy(false);
   }
@@ -144,7 +151,7 @@ export function CopySeriesToWorkspaceDialog({
             <Input
               id="copy-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setNameEdit(e.target.value)}
               disabled={busy}
             />
           </div>
