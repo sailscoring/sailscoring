@@ -419,6 +419,10 @@ export const fleets = pgTable(
     orcProfile: jsonb('orc_profile').$type<OrcProfile>(),
     splitRoundId: uuid('split_round_id'),
     color: text('color'),
+    // The CSV grouping values that have fed this fleet through the competitor
+    // importer. Read on a repeat import to rejoin the fleet whatever it has
+    // since been renamed to; see Fleet.importGroups.
+    importGroups: jsonb('import_groups').$type<string[]>(),
     version: versionCol,
     updatedAt: updatedAtCol,
     updatedBy: updatedByCol,

@@ -1,0 +1,1 @@
+ALTER TABLE "fleets" ADD COLUMN "import_groups" jsonb;

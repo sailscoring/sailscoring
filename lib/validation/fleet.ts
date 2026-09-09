@@ -52,6 +52,9 @@ export const fleetSchema = z.object({
   splitRoundId: uuidSchema.optional(),
   // The fleet's colour on published pages, likewise written at round commit.
   color: z.string().optional(),
+  // Importer bindings (see Fleet.importGroups); written by the importer and
+  // round-tripped by any client save.
+  importGroups: z.array(z.string()).optional(),
   version: versionSchema,
 });
 

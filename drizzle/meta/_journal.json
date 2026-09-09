@@ -729,6 +729,13 @@
       "when": 1788940292226,
       "tag": "0103_loving_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1788961872314,
+      "tag": "0104_striped_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

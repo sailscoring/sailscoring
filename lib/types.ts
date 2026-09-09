@@ -567,6 +567,13 @@ export interface Fleet {
   // it chose. Set by the split-fleet round commit; absent on every other
   // fleet, which nothing tints.
   color?: string;
+  // The competitor importer's grouping-column values that have fed this fleet
+  // ("Cruiser 1"). Written when an import creates or joins the fleet, and read
+  // on the next one to rejoin it — a binding, so a fleet renamed to whatever a
+  // club calls it ("Cruiser 1 (IRC)", "IRC 1") is still recognised as that
+  // group's fleet. Case is preserved as the file wrote it; matching is
+  // case-insensitive. Sparse: absent on fleets no import has touched.
+  importGroups?: string[];
   version?: number;   // server-side concurrency token (see Series.version)
 }
 

@@ -411,9 +411,16 @@ export interface SeriesFileRepos {
  *  carries neither key. The parser folds a legacy `club` into a one-element
  *  list on read, as it does `crewName`. An older build reading a v47 file
  *  would lose every club on it, which is why this is a bump rather than a
- *  ride-along. */
-export const FORMAT_VERSION = 47;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47];
+ *  ride-along.
+ *
+ *  v48 adds optional `fleets[*].importGroups` (#524): the competitor
+ *  importer's grouping values that have fed a fleet, so a repeat import
+ *  rejoins it whatever it has since been renamed to. Sparse — absent on
+ *  fleets no import has touched. An older build reading a v48 file drops the
+ *  bindings, which costs nothing permanent: the next import through a
+ *  matching name rewrites them. */
+export const FORMAT_VERSION = 48;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -458,6 +465,9 @@ interface SeriesFileFleet {
   // v40+: the fleet's default ORC scoring option; absent means
   // the APHT time-on-time default.
   orcProfile?: OrcProfile;
+  // v48+: the competitor importer's grouping values bound to this fleet.
+  // Absent on fleets no import has touched.
+  importGroups?: string[];
   // v42+: the colour the fleet is drawn in on published pages, as the
   // split-fleet round that created it chose. Absent on fleets no ceremony
   // created, which nothing tints.
@@ -860,6 +870,7 @@ export async function buildSeriesFile(
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
       ...(f.color ? { color: f.color } : {}),
+      ...(f.importGroups?.length ? { importGroups: f.importGroups } : {}),
     })),
     series: {
       id: series.id,
@@ -1897,6 +1908,7 @@ async function writeFleetsCompetitorsRaces(
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
       ...(f.color ? { color: f.color } : {}),
+      ...(f.importGroups?.length ? { importGroups: f.importGroups } : {}),
     })),
   );
 
