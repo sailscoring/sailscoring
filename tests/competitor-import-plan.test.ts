@@ -533,3 +533,96 @@ describe('planFleetCreation — multi-fleet rows (pipe-delimited)', () => {
     expect(m15.rowIndices).toEqual([0]); // only the dual-fleet row is in M15
   });
 });
+
+describe('planFleetCreation — a group whose fleets already exist under a suffix (#524)', () => {
+  // The shape a series is in once a scorer has set it up: one fleet per
+  // scoring system, named from the group plus a suffix. Re-importing the
+  // entry list — which carries the bare group name and no rating columns —
+  // used to propose a brand-new bare scratch fleet alongside them.
+  const cruiser1Irc = existingFleet('Cruiser 1 (IRC)', 'irc', 'f-irc');
+  const cruiser1Hph = existingFleet('Cruiser 1 (HPH)', 'nhc', 'f-hph');
+
+  it('proposes joining the existing suffixed fleets rather than creating a bare one', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [cruiser1Irc, cruiser1Hph],
+    });
+    expect(plan.proposed).toHaveLength(2);
+    expect(plan.proposed.every((p) => p.isExisting)).toBe(true);
+    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-irc', 'f-hph']);
+    expect(plan.proposed.map((p) => p.name)).toEqual(['Cruiser 1 (IRC)', 'Cruiser 1 (HPH)']);
+    // Every row of the group joins each of them.
+    expect(plan.proposed.map((p) => p.rowIndices)).toEqual([[0], [0]]);
+  });
+
+  it('matches a suffix the scorer wrote, not just the ones the app generates', () => {
+    // HPH is HYC's word for NHC; the app's own suffix would be "(NHC)".
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [cruiser1Hph],
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].existingFleetId).toBe('f-hph');
+  });
+
+  it('accepts a dashed suffix as well as a bracketed one', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [existingFleet('Cruiser 1 - IRC', 'irc', 'f-dash')],
+    });
+    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-dash']);
+  });
+
+  it('does not let one group claim another whose name merely extends it', () => {
+    // "Cruiser 1" must not match "Cruiser 10 (IRC)" — the character after the
+    // name continues it rather than opening a suffix.
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [existingFleet('Cruiser 10 (IRC)', 'irc', 'f-ten')],
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].isExisting).toBe(false);
+    expect(plan.proposed[0].name).toBe('Cruiser 1');
+  });
+
+  it('prefers an exact match over suffixed ones', () => {
+    const bare = existingFleet('Cruiser 1', 'scratch', 'f-bare');
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [bare, cruiser1Irc],
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].existingFleetId).toBe('f-bare');
+  });
+
+  it('proposes at most one fleet per system, so no two proposals share a plan key', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [cruiser1Irc, existingFleet('Cruiser 1 (IRC spare)', 'irc', 'f-irc2')],
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].existingFleetId).toBe('f-irc');
+    const keys = plan.proposed.map((p) => p.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('still creates a fleet when nothing existing resembles the group', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 3'])],
+      existingFleets: [cruiser1Irc, cruiser1Hph],
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].isExisting).toBe(false);
+    expect(plan.proposed[0].name).toBe('Cruiser 3');
+    expect(plan.proposed[0].scoringSystem).toBe('scratch');
+  });
+
+  it('lets the scorer drop a joined fleet like any other proposal', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [cruiser1Irc, cruiser1Hph],
+      overrides: planOverrides({ byFleet: { [planKeyFor('Cruiser 1', 'nhc')]: { drop: true } } }),
+    });
+    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-irc']);
+  });
+});

@@ -372,9 +372,15 @@ export function FleetsStepBody({
           return (
             <div key={groupName} className="rounded-md border p-3 space-y-2" data-testid="fleet-group">
               <p className="text-xs font-mono text-muted-foreground">{groupName}</p>
+              {/* Clearing a group's proposals is how a scorer says "these
+                  fleets already exist" on a re-import, so the note has to say
+                  what that actually does: existing competitors keep their
+                  membership (#527), and only boats new to the series arrive
+                  without one. */}
               {proposals.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No fleet — these boats will not be imported into any fleet.
+                  No fleet to create — boats already in this series keep the fleets
+                  they are in; boats new to it arrive in none.
                 </p>
               )}
               {proposals.map((p) => (

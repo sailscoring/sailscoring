@@ -194,6 +194,37 @@ function findByName(
   return fleets.find((f) => f.name.toLowerCase() === lower);
 }
 
+/**
+ * The existing fleets that read as this group's, under a per-system suffix:
+ * `Cruiser 1` → `Cruiser 1 (IRC)`, `Cruiser 1 (HPH)`.
+ *
+ * The suffix is whatever the scorer wrote, so this can't test against
+ * `SYSTEM_SUFFIX` — a club scoring NHC calls it HPH, and names its fleets that
+ * way. The test is the group's name followed by something that *opens* a
+ * suffix: a bracket or a dash. That is what keeps `Cruiser 1` from claiming
+ * `Cruiser 10`, where the next character continues the name instead.
+ *
+ * At most one fleet per scoring system is returned. Two fleets of the same
+ * system under one group is not a shape the plan can carry — proposals are
+ * identified by `planKeyFor(group, system)`, so a second would collide with
+ * the first (#523) — and the first is the better guess anyway.
+ */
+function findSuffixed(
+  fleets: Pick<Fleet, 'id' | 'name' | 'scoringSystem'>[],
+  name: string,
+): Pick<Fleet, 'id' | 'name' | 'scoringSystem'>[] {
+  const lower = name.toLowerCase();
+  const bySystem = new Map<ScoringSystem, Pick<Fleet, 'id' | 'name' | 'scoringSystem'>>();
+  for (const f of fleets) {
+    const n = f.name.toLowerCase();
+    if (!n.startsWith(lower)) continue;
+    const tail = n.slice(lower.length).trimStart();
+    if (!/^[([\-–—]/.test(tail)) continue;
+    if (!bySystem.has(f.scoringSystem)) bySystem.set(f.scoringSystem, f);
+  }
+  return [...bySystem.values()];
+}
+
 /** Filter group rows for a rating-filtered membership: rated boats join
  *  fleets matching their rating; unrated boats join all of the group's
  *  handicap fleets. */
@@ -279,15 +310,35 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
         const scratchFleets = existingFleets.filter((f) => f.scoringSystem === 'scratch');
         if (scratchFleets.length === 1) existing = scratchFleets[0];
       }
-      push({
-        name: existing?.name ?? group.canonicalName,
-        scoringSystem: existing?.scoringSystem ?? 'scratch',
-        isExisting: !!existing,
-        ...(existing ? { existingFleetId: existing.id } : {}),
-        source: 'no-ratings',
-        csvFleetName: group.canonicalName,
-        defaultMembership: 'all',
-      }, group);
+      // No exact match, but the group's fleets may already exist under a
+      // per-system suffix — the normal shape once a scorer has set a series
+      // up ("Cruiser 1 (IRC)" and "Cruiser 1 (HPH)" for a group named
+      // "Cruiser 1"). Re-importing to correct names or ratings should propose
+      // joining those, not minting a bare scratch fleet alongside them (#524).
+      const suffixed = existing ? [] : findSuffixed(existingFleets, group.canonicalName);
+      if (suffixed.length > 0) {
+        for (const f of suffixed) {
+          push({
+            name: f.name,
+            scoringSystem: f.scoringSystem,
+            isExisting: true,
+            existingFleetId: f.id,
+            source: 'no-ratings',
+            csvFleetName: group.canonicalName,
+            defaultMembership: 'all',
+          }, group);
+        }
+      } else {
+        push({
+          name: existing?.name ?? group.canonicalName,
+          scoringSystem: existing?.scoringSystem ?? 'scratch',
+          isExisting: !!existing,
+          ...(existing ? { existingFleetId: existing.id } : {}),
+          source: 'no-ratings',
+          csvFleetName: group.canonicalName,
+          defaultMembership: 'all',
+        }, group);
+      }
     } else if (systems.length === 1) {
       const system = systems[0];
       const bare = findByName(existingFleets, group.canonicalName);
