@@ -113,7 +113,8 @@ test('the Fleets step adds an IRC fleet the entry list says nothing about', asyn
   await expect(ircRow).toContainText('2 boats');
   // With no IRC column in the file, membership can't be filtered by rating.
   await expect(ircRow).toContainText('no IRC column in this file');
-  await expect(ircRow.getByRole('combobox')).toBeDisabled();
+  // Scoped by label: the row also carries a "Scored on" select (#519).
+  await expect(ircRow.getByRole('combobox', { name: /^Membership for/ })).toBeDisabled();
 
   await importMapColumns(page);
   await page.getByRole('button', { name: /Import 2 rows/i }).click();
