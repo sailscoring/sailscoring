@@ -205,6 +205,60 @@ test('co-owners: Add owner rows, gender/age single-individual rule, stacked expo
   expect(html).not.toContain('>44<');
 });
 
+test('two clubs: Add club rows, both in the column, both in the export', async ({ page }) => {
+  // Club is on by default, and the list is not gated — an entry list with a
+  // Club and an Other Club column is ordinary, not an opt-in.
+  await createSeriesQuick(page, { name: 'Visitors Trophy' });
+  await page.getByRole('link', { name: 'Competitors' }).click();
+
+  // ── 1. Add a competitor affiliated to two clubs ─────────────────────────
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('1234');
+  await page.getByLabel('Competitor name').fill('Aoife Murphy');
+  await page.getByLabel('Club 1').fill('HYC');
+  await page.getByRole('button', { name: 'Add club' }).click();
+  // "Add club" focuses the appended row — type straight into it.
+  await expect(page.getByLabel('Club 2')).toBeFocused();
+  await page.getByLabel('Club 2').fill('RIYC');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // ── 2. The Club column carries both ─────────────────────────────────────
+  const row = page.getByRole('row').filter({ hasText: '1234' });
+  await expect(row).toContainText('HYC');
+  await expect(row).toContainText('RIYC');
+
+  // ── 3. Removing a row updates the stored list ───────────────────────────
+  await row.click();
+  const editDialog = page.getByRole('dialog', { name: 'Edit competitor' });
+  await expect(editDialog.getByLabel('Club 2')).toHaveValue('RIYC');
+  await editDialog.getByLabel('Club 2').locator('..').getByRole('button', { name: 'Remove' }).click();
+  await editDialog.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('row').filter({ hasText: '1234' })).not.toContainText('RIYC');
+
+  // Put it back — the export is the point of the test.
+  await page.getByRole('row').filter({ hasText: '1234' }).click();
+  await page.getByRole('dialog', { name: 'Edit competitor' }).getByRole('button', { name: 'Add club' }).click();
+  await page.getByRole('dialog', { name: 'Edit competitor' }).getByLabel('Club 2').fill('RIYC');
+  await page.getByRole('dialog', { name: 'Edit competitor' }).getByRole('button', { name: 'Save' }).click();
+
+  // ── 4. Race + finish so the fleet HTML can be exported ──────────────────
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1234');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // ── 5. Published results stack both clubs, as the role columns do ───────
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const download = await downloadFleetHtml(page);
+  const path = await download.path();
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(path, 'utf-8');
+  expect(html).toContain('<th>Club</th>');
+  expect(html).toContain('<td>HYC<br>RIYC</td>');
+});
+
 test('class field shows Class column and exports in results', async ({ page }) => {
   await createSeriesQuick(page, { name: 'PY Handicap' });
 

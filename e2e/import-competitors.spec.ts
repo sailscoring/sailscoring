@@ -167,6 +167,32 @@ test('import CSV with Crew 1/Crew 2 columns and a semicolon-separated cell', asy
   await expect(splitRow).toContainText('Dan Egan');
 });
 
+test('import CSV with Club and Other Club columns keeps both affiliations', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Two Club Import' });
+
+  // The standard Irish OA entry sheet: a Club column and an Other Club one,
+  // two affiliations of the same boat.
+  const csv = [
+    'Sail Number,Boat Name,Owner Name,Club,Other Club',
+    '1234,Windshift,Aoife Murphy,HYC,RIYC',
+    '5678,Bandersnatch,Cormac Farrelly,Sutton DC,',
+  ].join('\n');
+  await uploadCsv(page, csv);
+
+  // Both club columns auto-detect as Club and are collected, not overwritten.
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  const twoClubs = page.getByRole('row').filter({ hasText: '1234' });
+  await expect(twoClubs).toContainText('HYC');
+  await expect(twoClubs).toContainText('RIYC');
+  const oneClub = page.getByRole('row').filter({ hasText: '5678' });
+  await expect(oneClub).toContainText('Sutton DC');
+});
+
 test('import competitors assigned to multiple fleets', async ({ page }) => {
   // ── 1. Create a series ────────────────────────────────────────────────────
   await createSeriesQuick(page, { name: 'Multi-Fleet Import' });
