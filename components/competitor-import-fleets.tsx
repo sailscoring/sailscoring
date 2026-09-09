@@ -256,6 +256,42 @@ export function FleetsStepBody({
     });
   }
 
+  /**
+   * Re-score a proposed fleet on a different system.
+   *
+   * A proposal's identity is `planKeyFor(group, system)`, so this can't be a
+   * field on the proposal — changing the system changes the identity. It is
+   * the two gestures the step already has, composed into one: retire the old
+   * proposal the way `removeFleet` would, and ask for the new system the way
+   * `addSystem` would. Both edits go out as a single override update, since
+   * calling the two functions in turn would compute the second from a stale
+   * `overrides` (#519). A rename the scorer already typed moves across with
+   * it — the fleet they were naming is the fleet they still mean.
+   */
+  function changeSystem(p: ProposedFleet, system: ScoringSystem) {
+    if (p.scoringSystem === system) return;
+    const group = p.csvFleetName;
+    const byFleet = { ...overrides.byFleet };
+    const carriedName = byFleet[p.key]?.name;
+
+    let extras = overrides.extraSystems[group] ?? [];
+    if (p.source === 'added') {
+      // Asked for, so un-ask — a drop flag would leave an invisible request.
+      extras = extras.filter((s) => s !== p.scoringSystem);
+    } else {
+      byFleet[p.key] = { ...byFleet[p.key], drop: true };
+    }
+
+    delete byFleet[planKeyFor(group, system)];
+    if (carriedName) byFleet[planKeyFor(group, system)] = { name: carriedName };
+    if (!extras.includes(system)) extras = [...extras, system];
+
+    const extraSystems = { ...overrides.extraSystems };
+    if (extras.length) extraSystems[group] = extras;
+    else delete extraSystems[group];
+    onOverridesChange({ byFleet, extraSystems });
+  }
+
   function removeFleet(p: ProposedFleet) {
     const group = p.csvFleetName;
     const extras = overrides.extraSystems[group] ?? [];
@@ -392,7 +428,12 @@ export function FleetsStepBody({
                 <FleetRow
                   key={p.key}
                   proposal={p}
+                  // Its own system, plus those the group doesn't already have.
+                  // Offering a system a sibling holds would land two proposals
+                  // on one plan key (#523).
+                  systemOptions={[p.scoringSystem, ...canAdd]}
                   onRename={(name) => patchFleet(p.key, { name: name || undefined })}
+                  onSystem={(s) => changeSystem(p, s)}
                   onMembership={(m) => patchFleet(p.key, { membership: m })}
                   onRemove={() => removeFleet(p)}
                 />
@@ -429,12 +470,18 @@ export function FleetsStepBody({
 
 function FleetRow({
   proposal,
+  systemOptions,
   onRename,
+  onSystem,
   onMembership,
   onRemove,
 }: {
   proposal: ProposedFleet;
+  /** Systems this proposal may be re-scored on: what the workspace offers,
+   *  less those its group already has a fleet of, plus its own current one. */
+  systemOptions: ScoringSystem[];
   onRename: (name: string) => void;
+  onSystem: (system: ScoringSystem) => void;
   onMembership: (membership: 'all' | 'rated') => void;
   onRemove: () => void;
 }) {
@@ -452,7 +499,26 @@ function FleetRow({
           aria-label={`Name for ${p.name}`}
         />
       )}
-      <span className="text-xs text-muted-foreground w-16">{SCORING_SYSTEM_LABEL[p.scoringSystem]}</span>
+      {/* An existing fleet's system is the fleet's own; the plan never mutates
+          one. Only a fleet this import would create is re-scorable here. */}
+      {p.isExisting ? (
+        <span className="text-xs text-muted-foreground w-24">
+          {SCORING_SYSTEM_LABEL[p.scoringSystem]}
+        </span>
+      ) : (
+        <Select value={p.scoringSystem} onValueChange={(v) => onSystem(v as ScoringSystem)}>
+          <SelectTrigger className="w-24 h-8 text-xs" aria-label={`Scored on for ${p.name}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {systemOptions.map((s) => (
+              <SelectItem key={s} value={s}>
+                {SCORING_SYSTEM_LABEL[s]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <Select
         value={p.membership}
         onValueChange={(v) => onMembership(v as 'all' | 'rated')}

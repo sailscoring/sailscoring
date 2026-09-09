@@ -594,3 +594,45 @@ test('re-import joins a group to its existing suffixed fleets instead of proposi
   await expect(fleetRows.nth(0)).toContainText('Cruiser 1 (IRC)');
   await expect(fleetRows.nth(1)).toContainText('Cruiser 2 (IRC)');
 });
+
+test('a proposed fleet can be re-scored in place, without deleting and re-adding', async ({ page }) => {
+  // #519: the system was static text, so the only way off the auto-proposed
+  // Scratch was to delete the proposal and add the one you wanted back.
+  await createSeriesQuick(page, { name: 'Rescore In Place' });
+
+  const csv = [
+    'Sail,Boat,Owner,Fleet',
+    '1543,Indian,Simon Knowles,Cruiser 1',
+    '2507,Impetuous,Fergal Noonan,Cruiser 2',
+  ].join('\n');
+  await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(csv));
+
+  const dialog = page.getByRole('dialog');
+  const proposals = dialog.getByTestId('fleet-row');
+  await expect(proposals).toHaveCount(2);
+
+  // No rating columns, so both groups are proposed as Scratch.
+  const cruiser1 = proposals.nth(0);
+  await expect(cruiser1).toContainText('Scratch');
+
+  // Re-score it on NHC in place; the name the plan chose is kept.
+  await cruiser1.getByRole('combobox', { name: /^Scored on for/ }).click();
+  await page.getByRole('option', { name: 'NHC' }).click();
+  await expect(proposals).toHaveCount(2);
+  await expect(proposals.nth(0)).toContainText('NHC');
+  await expect(proposals.nth(1)).toContainText('Scratch');
+
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── The created fleets carry the systems chosen on the step ──────────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.locator('h2', { hasText: 'Fleets' });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  const fleetRows = page.getByTestId('fleet-row');
+  await expect(fleetRows).toHaveCount(2);
+  await expect(fleetRows.nth(0)).toContainText('NHC');
+  await expect(fleetRows.nth(1)).toContainText('Scratch');
+});
