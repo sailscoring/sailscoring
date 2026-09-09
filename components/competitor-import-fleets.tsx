@@ -65,7 +65,8 @@ export const SCORING_SYSTEM_LABEL: Record<ScoringSystem, string> = {
 
 /** Which CSV column target holds each rating system's numbers. ORC is absent
  *  by design: its rating is a whole certificate, imported from the ORC
- *  database rather than a CSV column, so the importer never offers it. */
+ *  database rather than a CSV column, so no column is ever offered for it.
+ *  It is still offered as a fleet's scoring system — see FLEET_SYSTEMS. */
 const SYSTEM_TO_RATING_FIELD: Record<Exclude<ScoringSystem, 'scratch' | 'orc'>, CompetitorField> = {
   irc: 'tcc',
   vprs: 'vprsTcc',
@@ -190,8 +191,8 @@ export function FleetsStepBody({
   const offerable = availableSystems(has, systemsInUse);
 
   /** Systems with a column, plus any the scorer has asked to attach one to.
-   *  The rest stay behind "Add a rating" so the row doesn't list six systems
-   *  a club never uses. */
+   *  The rest stay behind "Add a rating column…" so the row doesn't list six
+   *  systems a club never uses. */
   const shownRatings = RATING_SYSTEMS.filter(
     (s) => ratingColumns.get(s) != null || pendingRatings.includes(s),
   );
@@ -363,10 +364,17 @@ export function FleetsStepBody({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium w-28 shrink-0">Ratings</span>
+          <span className="text-sm font-medium w-28 shrink-0">Rating columns</span>
+          {/* Name the system the fleets will actually get, and point at the
+              control that changes it. "Scored on the water" described the
+              outcome without naming the setting, and the nearest button —
+              "Add a rating column…" — asks for a column this file hasn't
+              got, which is the wrong turn to leave open (#520, #522). */}
           {shownRatings.length === 0 && (
             <span className="text-xs text-muted-foreground">
-              No rating columns detected — fleets will be scored on the water.
+              None detected — fleets will be created as Scratch. Change a
+              fleet&rsquo;s <em>Scored on</em> below to score it on a handicap
+              system instead.
             </span>
           )}
           {shownRatings.map((system) => (
@@ -396,7 +404,7 @@ export function FleetsStepBody({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="h-8 text-xs" data-testid="add-rating">
-                  Add a rating…
+                  Add a rating column…
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -458,7 +466,7 @@ export function FleetsStepBody({
                       className="h-7 text-xs"
                       data-testid={`add-system-${groupName}`}
                     >
-                      + Also score on…
+                      + Also score this group on…
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
