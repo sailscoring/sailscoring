@@ -1108,6 +1108,26 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Sailwave export — the pre-download dialog listing what the
+    // Sailwave copy will not carry. The sample series scores ECHO fleets, so
+    // the dialog always has something to say; nothing is downloaded.
+    slug: 'sailwave-export',
+    group: 'Data in and out',
+    async capture({ page, seriesId, shot }) {
+      await ensureFeature(page, 'sailwave-export');
+      await page.goto(`${BASE}/series/${await seriesId()}/competitors`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Series actions' }).click();
+      await page.getByTestId('export-to-sailwave').click();
+      const dialog = page.getByRole('dialog', { name: 'Export to Sailwave' });
+      await dialog.waitFor();
+      await settle(page);
+      await shot('sailwave-export.png');
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
     // Inventory: rrs.org competitor push — the import dialog's rrs section.
     slug: 'rrs-push',
     group: 'Data in and out',
