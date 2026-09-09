@@ -240,14 +240,19 @@ export function FleetsStepBody({
 
   function addSystem(group: string, system: ScoringSystem) {
     const existing = overrides.extraSystems[group] ?? [];
-    if (existing.includes(system)) return;
-    // Re-adding a system the scorer dropped should bring it back rather than
-    // stack a second, still-dropped entry.
+    // Asking for a system always clears a drop on that group's fleet of that
+    // system: "score this group on Scratch" means the same thing whether the
+    // fleet was dropped from the file's own proposals or from an earlier ask.
+    // The un-drop used to sit behind an early return when the system was
+    // already asked for, which left the group holding a drop and an ask that
+    // cancelled each other out and no way to undo either (#523).
     const byFleet = { ...overrides.byFleet };
     delete byFleet[planKeyFor(group, system)];
     onOverridesChange({
       byFleet,
-      extraSystems: { ...overrides.extraSystems, [group]: [...existing, system] },
+      extraSystems: existing.includes(system)
+        ? overrides.extraSystems
+        : { ...overrides.extraSystems, [group]: [...existing, system] },
     });
   }
 

@@ -266,16 +266,17 @@ describe('planFleetCreation — extra systems', () => {
     expect(scratch.rowIndices).toEqual([0, 1]);
   });
 
-  it('adds a scratch sibling to a group with no ratings of its own', () => {
-    // The group's own fleet is scratch under the bare name, so the added
-    // one is suffixed rather than colliding with it.
+  it('is a no-op when the group already has a fleet of that system', () => {
+    // This used to add a suffixed "CR 0 (Scratch)" beside the group's own
+    // scratch fleet. The two names differ but `planKeyFor` does not — both are
+    // `cr 0::scratch` — so they shared an identity: one drop flag removed
+    // both, and the ask could not be repeated afterwards (#523).
     const plan = callPlan({
       rows: [row(['CR 0'])],
       overrides: planOverrides({ extraSystems: { 'CR 0': ['scratch'] } }),
     });
     expect(plan.proposed.map((p) => [p.name, p.source])).toEqual([
       ['CR 0', 'no-ratings'],
-      ['CR 0 (Scratch)', 'added'],
     ]);
   });
 
@@ -664,5 +665,47 @@ describe('planFleetCreation — a rename is carried verbatim (#518)', () => {
       overrides: renameTo('Something else'),
     });
     expect(plan.proposed[0].name).toBe('Cruiser 3');
+  });
+});
+
+describe('planFleetCreation — asking for a system the group already has (#523)', () => {
+  it('does not stack a second proposal on a no-ratings group asked for Scratch', () => {
+    // The no-ratings branch's scratch fleet is in no `presentSystems` set, so
+    // seeding the skip-guard from the file let this through and produced two
+    // proposals sharing one plan key.
+    const plan = callPlan({
+      rows: [row(['Puppeteer 22'])],
+      overrides: planOverrides({ extraSystems: { 'Puppeteer 22': ['scratch'] } }),
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].scoringSystem).toBe('scratch');
+  });
+
+  it('never emits two proposals with the same plan key', () => {
+    const plan = callPlan({
+      rows: [row(['Squib']), row(['Squib'], ['irc'])],
+      overrides: planOverrides({ extraSystems: { Squib: ['scratch', 'irc'] } }),
+    });
+    const keys = plan.proposed.map((p) => p.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('still adds a system the group genuinely lacks', () => {
+    const plan = callPlan({
+      rows: [row(['Squib'])],
+      overrides: planOverrides({ extraSystems: { Squib: ['nhc'] } }),
+    });
+    expect(plan.proposed.map((p) => p.scoringSystem).sort()).toEqual(['nhc', 'scratch']);
+  });
+
+  it('a dropped fleet plus an ask for its system yields exactly one fleet', () => {
+    // What the UI produces after "delete the Scratch fleet, then ask for
+    // Scratch again": addSystem clears the drop, so the base proposal returns
+    // and the ask must not add a second alongside it.
+    const plan = callPlan({
+      rows: [row(['Howth 17'])],
+      overrides: planOverrides({ extraSystems: { 'Howth 17': ['scratch'] } }),
+    });
+    expect(plan.proposed).toHaveLength(1);
   });
 });

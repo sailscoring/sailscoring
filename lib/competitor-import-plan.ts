@@ -414,7 +414,18 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
     // every one of those was dropped, in which case the bare name is free
     // and an added fleet is the group's only fleet.
     const asked = overrides.extraSystems[group.canonicalName] ?? [];
-    const seen = new Set<ScoringSystem>(systems);
+    // Seeded from the systems already *proposed* for this group, not from the
+    // systems present in the file. Those differ wherever a proposal came from
+    // somewhere other than a rating column — above all the no-ratings branch,
+    // whose scratch fleet is in no `presentSystems` set. Seeding from the file
+    // let an asked-for Scratch through and pushed a second proposal under the
+    // first one's `planKeyFor`, so the group showed two Scratch fleets, one
+    // drop flag killed both, and the ask could never be repeated (#523).
+    const seen = new Set<ScoringSystem>(
+      proposed
+        .filter((p) => p.csvFleetName === group.canonicalName)
+        .map((p) => p.scoringSystem),
+    );
     let groupIsEmpty = !proposed.some((p) => p.csvFleetName === group.canonicalName);
     for (const system of asked) {
       if (seen.has(system)) continue;
