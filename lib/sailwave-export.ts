@@ -442,8 +442,10 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
         rh,
       );
     }
-    if (race.discardPolicy && race.discardPolicy !== 'normal') {
-      warn('discard-policy', `Race ${race.raceNumber}'s discard policy (${race.discardPolicy}) is not carried.`);
+    if (race.discardPolicy === 'mustCount') {
+      warn('discard-policy', `Race ${race.raceNumber} must count; Sailwave may discard it.`);
+    } else if (race.discardPolicy === 'discardFirst') {
+      warn('discard-policy', `Race ${race.raceNumber} is discarded first; Sailwave discards by points alone.`);
     }
     if (race.pointsMultiplier != null && race.pointsMultiplier !== 1) {
       warn('points-multiplier', `Race ${race.raceNumber}'s points multiplier is not carried.`);
