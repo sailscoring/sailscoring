@@ -390,9 +390,11 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     if (c.tallyNumber) w.row('comptally', c.tallyNumber, h);
     if (c.gender) w.row('comphelmsex', c.gender === 'F' ? 'Female' : 'Male', h);
     w.row('compfleet', fleetName.get(rec.fleet.id)!, h);
-    w.row('comprating', formatRating(ratingFor(c, rec.fleet)), h);
+    const rating = formatRating(ratingFor(c, rec.fleet));
+    if (rating) w.row('comprating', rating, h);
     w.row('compexclude', c.excluded ? '1' : '0', h);
     w.row('compalias', rec.primaryHandle === null ? '0' : String(rec.primaryHandle), h);
+    w.row('compmedicalflag', '0', h);
     w.row('comphigh', '0', h);
   }
 
@@ -471,6 +473,7 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
       }
     }
 
+    const written = new Set<number>();
     for (const f of race.finishes) {
       if (!f.competitorId) {
         warn('unknown-finish', `Race ${race.raceNumber}: an unresolved finish (${f.unknownSailNumber ?? '?'}) was left out.`);
@@ -480,12 +483,24 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
       for (const rec of recs) {
         const start = starts.get(rec.fleet.id);
         if (!start) continue; // the fleet is not in this race; blank = DNC to Sailwave
-        writeResult(
+        const wrote = writeResult(
           w, f, rec,
           timedFleets.has(rec.fleet.id) ? start : { fleetId: start.fleetId },
           race, elapsedMode, placeByRecord.get(rec.handle), overrides.get(f.competitorId), rh, warn,
         );
+        if (wrote) written.add(rec.handle);
       }
+    }
+    // Sailwave keeps a cell for every record in every race and repairs a
+    // file that lacks one ("missing results"), so the boats with nothing
+    // recorded get an empty cell — which Sailwave scores as DNC.
+    for (const rec of aliasRecords) {
+      if (written.has(rec.handle)) continue;
+      const ch = String(rec.handle);
+      w.row('rrestyp', '0', ch, rh);
+      w.row('rrset', '0', ch, rh);
+      w.row('rdisc', '0', ch, rh);
+      w.row('srat', '0', ch, rh);
     }
   });
 
@@ -508,6 +523,8 @@ function ratingFor(c: CompetitorRow, fleet: FleetRow): number | undefined {
   }
 }
 
+/** Write one result cell. Returns false when the finish amounts to nothing
+ *  Sailwave needs a cell for (a DNC, or nothing recorded). */
 function writeResult(
   w: BlwWriter,
   f: FinishRow,
@@ -519,7 +536,7 @@ function writeResult(
   ratingOverride: number | undefined,
   rh: string,
   warn: (code: string, message: string) => void,
-): void {
+): boolean {
   const ch = String(rec.handle);
   const raceLabel = `Race ${race.raceNumber}`;
   const boat = rec.competitor.sailNumber;
@@ -593,11 +610,11 @@ function writeResult(
       }
     }
   } else if (f.resultCode) {
-    if (f.resultCode === 'DNC') return; // blank is DNC to Sailwave
+    if (f.resultCode === 'DNC') return false; // blank is DNC to Sailwave
     w.row('rrestyp', '3', ch, rh);
     w.row('rcod', RESULT_CODE_TOKEN[f.resultCode], ch, rh);
   } else {
-    return; // nothing recorded
+    return false; // nothing recorded
   }
 
   if (ratingOverride != null) {
@@ -608,4 +625,5 @@ function writeResult(
   }
   w.row('rdisc', '0', ch, rh);
   w.row('srat', '0', ch, rh);
+  return true;
 }

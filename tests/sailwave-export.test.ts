@@ -113,6 +113,21 @@ describe('buildSailwaveBlw', () => {
     expect(rows.filter((r) => r.startsWith('"column"'))).toHaveLength(213);
   });
 
+  it('writes a cell for every record in every race, empty where nothing was recorded', () => {
+    // Sailwave refuses a file with "missing results" and repairs it by adding
+    // the empty cells itself; write them up front.
+    const original = importFixture(`${HYC}/2026 Tues Series 1.blw`);
+    const { blw } = roundTrip(original);
+    const rows = blw.split('\r\n');
+    const records = rows.filter((r) => r.startsWith('"compsailno"')).length;
+    const races = rows.filter((r) => r.startsWith('"racerank"')).length;
+    const cells = rows.filter((r) => r.startsWith('"rrestyp"'));
+    expect(cells).toHaveLength(records * races);
+    expect(cells.some((r) => r.startsWith('"rrestyp","0"'))).toBe(true);
+    expect(rows.filter((r) => r.startsWith('"compmedicalflag","0"'))).toHaveLength(records);
+    expect(rows.some((r) => r.startsWith('"comprating",""'))).toBe(false);
+  });
+
   it('models a boat in two fleets as a primary record plus an alias', () => {
     const original = importFixture(`${HYC}/2026 Tues Series 1.blw`);
     const dual = original.competitors.find((c) => c.fleetIds.length === 2)!;
