@@ -87,7 +87,7 @@ One object per competitor. Corresponds to the `Competitor` type in
     "id": "comp-uuid-...",
     "sailNumber": "IRL 1234",
     "name": "J Murphy",
-    "club": "HYC",
+    "clubs": ["HYC"],
     "fleet": "Junior",
     "division": "Gold"
   }

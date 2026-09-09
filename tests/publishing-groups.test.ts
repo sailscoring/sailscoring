@@ -181,7 +181,7 @@ function makeStanding(
       fleetIds: ['f-scratch'],
       sailNumber,
       names: [`Helm ${sailNumber}`],
-      club: '',
+      clubs: [],
       gender: '',
       age: null,
       createdAt: 0,

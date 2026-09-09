@@ -24,7 +24,7 @@ const COMPETITOR: Competitor = {
   fleetIds: [UUID_C],
   sailNumber: 'IRL-1',
   names: ['Helm'],
-  club: 'HYC',
+  clubs: ['HYC'],
   gender: 'M',
   age: 40,
   createdAt: 1,

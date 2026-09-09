@@ -96,6 +96,8 @@ import {
   isFieldDisabledByPrimary,
   formatPrimaryNames,
   samePersonNames,
+  cleanClubs,
+  sameClubs,
   sameFleetIdSet,
   subdivisionAxes,
   newSubdivisionAxis,
@@ -602,11 +604,13 @@ const MappingRow = memo(function MappingRow({
   multiPersonFields: MultiPersonFieldKey[];
   onChange: (index: number, value: ColumnTarget) => void;
 }) {
-  // A person-mapped column whose field is opened to multiple names previews
-  // the in-cell split ("Alice + Bob") so the scorer sees what will be stored.
+  // A column whose field holds a list previews the in-cell split ("Alice +
+  // Bob") so the scorer sees what will be stored: a person field opened to
+  // multiple names, or Club, which is always a list.
   const splits =
-    (columnValue === 'crewName' || columnValue === 'primary' || columnValue === 'owner' || columnValue === 'helm') &&
-    multiPersonFields.includes(columnValue === 'crewName' ? 'crewName' : columnValue);
+    columnValue === 'club' ||
+    ((columnValue === 'crewName' || columnValue === 'primary' || columnValue === 'owner' || columnValue === 'helm') &&
+      multiPersonFields.includes(columnValue === 'crewName' ? 'crewName' : columnValue));
   const sampleText =
     (splits
       ? sampleCells.map((c) => splitPersonCell(c).join(' + '))
@@ -1555,7 +1559,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const helmCells: string[] = [];
       const ownerCells: string[] = [];
       const crewCells: string[] = [];  // every column mapped to Crew, in column order
-      let club = '';
+      const clubCells: string[] = [];  // every column mapped to Club, in column order
       let nationality = '';
       let gender = '';
       let age = '';
@@ -1584,7 +1588,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'helm') { if (val) helmCells.push(val); }
         else if (field === 'owner') { if (val) ownerCells.push(val); }
         else if (field === 'crewName') { if (val) crewCells.push(val); }
-        else if (field === 'club') club = val;
+        else if (field === 'club') { if (val) clubCells.push(val); }
         else if (field === 'nationality') nationality = val;
         else if (field === 'gender') gender = val;
         else if (field === 'age') age = val;
@@ -1677,6 +1681,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const resolvedHelms = csvHelms.length ? csvHelms : existingCompetitor?.helms ?? [];
       const csvOwners = personCells(ownerCells, 'owner');
       const resolvedOwners = csvOwners.length ? csvOwners : existingCompetitor?.owners ?? [];
+      // Every column mapped to Club is collected, in column order — an entry
+      // list's "Club" and "Other Club" are two affiliations of one boat, not
+      // two answers to one question. A cell holding several splits too.
+      const csvClubs = cleanClubs(clubCells.flatMap(splitPersonCell));
+      const resolvedClubs = csvClubs.length ? csvClubs : existingCompetitor?.clubs ?? [];
       // Merge the mapped columns onto their axes, preserving any other axis
       // values the existing competitor already holds.
       const resolvedSubdivisions = cleanSubdivisions({
@@ -1714,7 +1723,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         ...(resolvedHelms.length ? { helms: resolvedHelms } : {}),
         ...(resolvedOwners.length ? { owners: resolvedOwners } : {}),
         ...(resolvedCrewNames.length ? { crewNames: resolvedCrewNames } : {}),
-        club: club || existingCompetitor?.club || '',
+        clubs: resolvedClubs,
         ...(cleanNationality ? { nationality: cleanNationality } : {}),
         gender: singlePrimary && (normGender === 'M' || normGender === 'F') ? normGender : (singlePrimary ? (existingCompetitor?.gender ?? '') : ''),
         age: singlePrimary ? (parsedAge !== null && !isNaN(parsedAge) ? parsedAge : (existingCompetitor?.age ?? null)) : null,
@@ -1752,7 +1761,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         samePersonNames(existingCompetitor.owners, competitor.owners) &&
         samePersonNames(existingCompetitor.helms, competitor.helms) &&
         samePersonNames(existingCompetitor.crewNames, competitor.crewNames) &&
-        existingCompetitor.club === competitor.club &&
+        sameClubs(existingCompetitor.clubs, competitor.clubs) &&
         (existingCompetitor.nationality ?? '') === (competitor.nationality ?? '') &&
         existingCompetitor.gender === competitor.gender &&
         existingCompetitor.age === competitor.age &&

@@ -565,3 +565,53 @@ describe('parseSeriesFile — v26 proportional discard', () => {
     expect(file.series.proportionalDiscard).toEqual({ firstAt: 3, everyRaces: 3 });
   });
 });
+
+// ≤v46 stored one `club` per competitor; v47 stores the ordered `clubs` list
+// (an entry list's Club and Other Club are two affiliations of one boat).
+describe('v46 → v47 club list migration', () => {
+  function fileWithClub(formatVersion: number, competitor: Record<string, unknown>): string {
+    return JSON.stringify({
+      formatVersion,
+      seriesId: 's1',
+      exportedAt: '2026-09-09T00:00:00.000Z',
+      series: {
+        id: 's1',
+        name: 'Autumn League',
+        venue: 'HYC',
+        startDate: '2026-09-01',
+        endDate: '2026-10-30',
+        venueLogoUrl: '',
+        eventLogoUrl: '',
+        discardThresholds: [],
+        dnfScoring: 'seriesEntries',
+        ftpHost: '',
+        ftpPath: '',
+        includeJsonExport: true,
+        enabledCompetitorFields: ['club'],
+        primaryPersonLabel: 'helm',
+        scoringMode: 'scratch',
+      },
+      fleets: [],
+      competitors: [
+        { id: 'c1', fleetIds: [], sailNumber: 'IRL-7', names: ['Skipper'], gender: '', age: null, ...competitor },
+      ],
+      races: [],
+    });
+  }
+
+  it('folds a legacy single club into a one-element list', () => {
+    const file = parseSeriesFile(fileWithClub(46, { club: 'HYC' }));
+    expect(file.competitors[0].clubs).toEqual(['HYC']);
+    expect(file.competitors[0].club).toBeUndefined();
+  });
+
+  it('reads a blank club as no affiliation at all, not as one blank one', () => {
+    const file = parseSeriesFile(fileWithClub(46, { club: '  ' }));
+    expect(file.competitors[0].clubs).toBeUndefined();
+  });
+
+  it('reads a v47 file’s list as written', () => {
+    const file = parseSeriesFile(fileWithClub(47, { clubs: ['HYC', 'RIYC'] }));
+    expect(file.competitors[0].clubs).toEqual(['HYC', 'RIYC']);
+  });
+});

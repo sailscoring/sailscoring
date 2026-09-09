@@ -126,7 +126,7 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
       fleetIds: input.fleetId ? [input.fleetId] : [],
       sailNumber: input.sailNumber,
       names: [input.name],
-      club: '',
+      clubs: [],
       gender: '',
       age: null,
       createdAt,

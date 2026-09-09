@@ -30,7 +30,7 @@ function competitor(id: string, fleetIds: string[], sail: number): Competitor {
     fleetIds,
     sailNumber: `IRL ${sail}`,
     names: [`Helm ${id}`],
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: sail,

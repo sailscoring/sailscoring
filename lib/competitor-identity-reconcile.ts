@@ -28,6 +28,7 @@ import type {
 } from '@/lib/competitor-identity-manifest';
 import {
   isLowSignalPersonName,
+  joinClubsForMatching,
   normalizePersonName,
   personNamesMatch,
   splitCrewCell,
@@ -124,7 +125,7 @@ export async function collectClusterInputs(
       names: competitors.names,
       crewNames: competitors.crewNames,
       sailNumber: competitors.sailNumber,
-      club: competitors.club,
+      clubs: competitors.clubs,
       nationality: competitors.nationality,
       age: competitors.age,
       startDate: series.startDate,
@@ -163,7 +164,7 @@ export async function collectClusterInputs(
     const base = {
       competitorId: r.competitorId,
       sailNumber: r.sailNumber,
-      club: r.club ?? undefined,
+      club: joinClubsForMatching(r.clubs),
       nationality: r.nationality ?? undefined,
       age: r.age,
       raceYear: Number.isFinite(year) ? year : null,

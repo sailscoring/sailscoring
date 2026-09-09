@@ -6,6 +6,7 @@
  * Pure — callers pass the already-computed per-fleet standings.
  */
 
+import { cleanClubs, isClubMember } from './competitor-fields';
 import type {
   Fleet,
   Prize,
@@ -87,17 +88,21 @@ function clauseMatches(
       // case-insensitively so a hand-typed "irl" still matches.
       return (competitor.nationality ?? '').trim().toUpperCase() === clause.value.trim().toUpperCase();
     case 'club':
-      return competitor.club.trim() === clause.value.trim();
+      // Membership, not equality: an entry affiliated to a home club and a
+      // visiting one is a member of both, and either can carry the prize.
+      return isClubMember(competitor.clubs, clause.value);
   }
 }
 
-/** The competitor field an intrinsic clause reads, for the no-data check. */
-function intrinsicValue(
+/** Whether a competitor states anything at all for an intrinsic field, for
+ *  the no-data check. */
+function hasIntrinsicValue(
   field: 'gender' | 'nationality' | 'club',
   standing: Standing,
-): string {
+): boolean {
   const c = standing.competitor;
-  return (field === 'gender' ? c.gender : field === 'nationality' ? c.nationality ?? '' : c.club).trim();
+  if (field === 'club') return cleanClubs(c.clubs).length > 0;
+  return (field === 'gender' ? c.gender : c.nationality ?? '').trim() !== '';
 }
 
 /** Allocate one prize against the standings. Eligible rows keep standings
@@ -140,7 +145,7 @@ export function allocatePrize(
       clause.kind === 'club'
     ) {
       const anyValue = fleetStandings.some((fs) =>
-        fs.standings.some((s) => intrinsicValue(clause.kind, s) !== ''),
+        fs.standings.some((s) => hasIntrinsicValue(clause.kind, s)),
       );
       if (!anyValue) warnings.push({ kind: 'field-no-data', field: clause.kind });
     }

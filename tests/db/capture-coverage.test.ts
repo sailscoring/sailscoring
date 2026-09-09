@@ -48,7 +48,7 @@ function makeRace(seriesId: string, n: number): Race {
 function makeCompetitor(seriesId: string, sail: string): Competitor {
   return {
     id: uuid(), seriesId, fleetIds: [], sailNumber: sail, names: [`Boat ${sail}`],
-    boatName: '', boatClass: '', club: '', gender: '', age: null, createdAt: Date.now(),
+    boatName: '', boatClass: '', clubs: [], gender: '', age: null, createdAt: Date.now(),
   } as Competitor;
 }
 

@@ -74,7 +74,7 @@ function makeCompetitor(
     fleetIds,
     sailNumber: sail,
     names: [`Helm ${sail}`],
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: 0,

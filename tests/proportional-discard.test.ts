@@ -16,7 +16,7 @@ import type {
  */
 
 function makeCompetitor(id: string, fleetId = 'f1'): Competitor {
-  return { id, seriesId: 's1', fleetIds: [fleetId], sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0 };
+  return { id, seriesId: 's1', fleetIds: [fleetId], sailNumber: id, names: [id], clubs: [], gender: '', age: null, createdAt: 0 };
 }
 
 function makeRace(id: string, raceNumber: number): Race {

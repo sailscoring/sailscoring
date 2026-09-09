@@ -52,7 +52,7 @@ describe.skipIf(skip)('republish — rebuilding a publication in place', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, seriesId, compId, {
       id: compId, seriesId, fleetIds: [], sailNumber: sail,
-      names: [name], club: 'HYC', gender: '' as const, age: null,
+      names: [name], clubs: ['HYC'], gender: '' as const, age: null,
       createdAt: Date.now(),
     });
     const finishId = uuid();

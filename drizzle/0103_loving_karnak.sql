@@ -1,0 +1,1 @@
+ALTER TABLE "competitors" DROP COLUMN "club";

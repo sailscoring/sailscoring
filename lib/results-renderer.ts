@@ -265,8 +265,9 @@ export interface RaceResultData {
   /** Helm(s) when recorded separately from the primary (owner-primary series). */
   helmRole?: string[];
   crewNames?: string[];
-  /** Sailing club affiliation. */
-  club?: string;
+  /** The clubs the entry is affiliated to, primary first; all of them are
+   *  published, stacked as a role column's people are. */
+  clubs?: string[];
   /** 3-letter national-letters code (RRS Appendix G / IOC). */
   nationality?: string;
   /** World Sailing Sailor ID, linked to the sailor's biography. */
@@ -365,8 +366,9 @@ export interface StandingRowData {
   /** Helm(s) when recorded separately (owner-primary series). */
   helmRole?: string[];
   crewNames?: string[];
-  /** Sailing club affiliation. */
-  club?: string;
+  /** The clubs the entry is affiliated to, primary first; all of them are
+   *  published, stacked as a role column's people are. */
+  clubs?: string[];
   /** 3-letter national-letters code (RRS Appendix G / IOC). */
   nationality?: string;
   /** World Sailing Sailor ID, linked to the sailor's biography. */
@@ -468,7 +470,7 @@ function computeSectionView(data: SeriesResultsData): SectionView {
   // Nat-column behaviour and checks both summary and race tables.
   const showClub =
     enabledCompetitorFields.includes('club') &&
-    (standings.some((s) => !!s.club) || races.some((r) => r.results.some((x) => !!x.club)));
+    (standings.some((s) => s.clubs?.length) || races.some((r) => r.results.some((x) => x.clubs?.length)));
   // Suppress the Nat column if nothing references it \u2014 the toggle being on
   // shouldn't add an empty column when no competitor has a nationality.
   const showNationality =
@@ -874,7 +876,7 @@ export interface CompetitorListRow {
   owners?: string[];
   helms?: string[];
   crewNames?: string[];
-  club?: string;
+  clubs?: string[];
   nationality?: string;
   worldSailingId?: string;
   subdivisions?: Record<string, string>;
@@ -941,7 +943,7 @@ export function renderCompetitorListHtml(
   const showCrewName = shown('crewName', (r) => r.crewNames);
   const showHelm = !isFieldDisabledByPrimary('helm', primaryLabel) && shown('helm', (r) => r.helms);
   const showOwner = !isFieldDisabledByPrimary('owner', primaryLabel) && shown('owner', (r) => r.owners);
-  const showClub = shown('club', (r) => r.club);
+  const showClub = shown('club', (r) => r.clubs?.length);
   const showNationality = shown('nationality', (r) => r.nationality);
   const showWorldSailingId = shown('worldSailingId', (r) => r.worldSailingId);
   const showAge = shown('age', (r) => r.age);
@@ -1000,9 +1002,9 @@ export function renderCompetitorListHtml(
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
         `<td>${renderHelmCell(r.names, r.crewNames, showCrewName, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
-        ...(showHelm ? [`<td>${renderPersonCell(r.helms)}</td>`] : []),
-        ...(showOwner ? [`<td>${renderPersonCell(r.owners)}</td>`] : []),
-        ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
+        ...(showHelm ? [`<td>${renderListCell(r.helms)}</td>`] : []),
+        ...(showOwner ? [`<td>${renderListCell(r.owners)}</td>`] : []),
+        ...(showClub ? [`<td>${renderListCell(r.clubs)}</td>`] : []),
         ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
         ...(showWorldSailingId ? [renderWorldSailingIdCell(r.worldSailingId)] : []),
         ...axes.map((axis) => `<td>${esc(r.subdivisions?.[axis.id] ?? '')}</td>`),
@@ -1642,9 +1644,9 @@ function renderSummaryTable(
         ...(showBoatName ? [`<td>${esc(s.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(s.boatClass ?? '')}</td>`] : []),
         `<td>${renderHelmCell(s.helm, s.crewNames, showCrewName, helmBioUrl(s.worldSailingId, showWorldSailingId))}</td>`,
-        ...(showHelm ? [`<td>${renderPersonCell(s.helmRole)}</td>`] : []),
-        ...(showOwner ? [`<td>${renderPersonCell(s.owner)}</td>`] : []),
-        ...(showClub ? [`<td>${esc(s.club ?? '')}</td>`] : []),
+        ...(showHelm ? [`<td>${renderListCell(s.helmRole)}</td>`] : []),
+        ...(showOwner ? [`<td>${renderListCell(s.owner)}</td>`] : []),
+        ...(showClub ? [`<td>${renderListCell(s.clubs)}</td>`] : []),
         ...(showNationality ? [renderNationalityCell(s.nationality, flagSvgByCode)] : []),
         ...(showWorldSailingId ? [renderWorldSailingIdCell(s.worldSailingId)] : []),
         ...subdivisionAxes.map((axis) => `<td>${esc(s.subdivisions?.[axis.id] ?? '')}</td>`),
@@ -1793,9 +1795,9 @@ function renderRaceTable(
         ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
         ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
         `<td>${renderHelmCell(r.helm, r.crewNames, showCrewName, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
-        ...(showHelm ? [`<td>${renderPersonCell(r.helmRole)}</td>`] : []),
-        ...(showOwner ? [`<td>${renderPersonCell(r.owner)}</td>`] : []),
-        ...(showClub ? [`<td>${esc(r.club ?? '')}</td>`] : []),
+        ...(showHelm ? [`<td>${renderListCell(r.helmRole)}</td>`] : []),
+        ...(showOwner ? [`<td>${renderListCell(r.owner)}</td>`] : []),
+        ...(showClub ? [`<td>${renderListCell(r.clubs)}</td>`] : []),
         ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
         ...(showWorldSailingId ? [renderWorldSailingIdCell(r.worldSailingId)] : []),
         ...subdivisionAxes.map((axis) => `<td>${esc(r.subdivisions?.[axis.id] ?? '')}</td>`),
@@ -2084,10 +2086,11 @@ function formatSigned(n: number, digits: number): string {
   return n >= 0 ? `+${n.toFixed(digits)}` : n.toFixed(digits);
 }
 
-/** One role column's cell: a single person as plain text, several stacked
- *  one per line. Returns escaped HTML — callers embed it as-is. */
-function renderPersonCell(names: string[] | undefined): string {
-  const list = (names ?? []).filter((n) => n.trim());
+/** One list column's cell — the role people (owner, helm) and the clubs: a
+ *  single value as plain text, several stacked one per line. Returns escaped
+ *  HTML — callers embed it as-is. */
+function renderListCell(values: string[] | undefined): string {
+  const list = (values ?? []).filter((v) => v.trim());
   if (list.length <= 1) return esc(list[0] ?? '');
   return list.map(esc).join('<br>');
 }
@@ -2268,7 +2271,7 @@ export function assembleSeriesResultsData(
   races: Array<{ id: string; raceNumber: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
   standings: Array<{
     rank: number;
-    competitor: { id: string; sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
+    competitor: { id: string; sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
     racePoints: number[];
     raceCodes: (ResultCode | null)[];
     racePenaltyCodes?: (PenaltyCode | null)[];
@@ -2281,7 +2284,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; club?: string; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -2477,7 +2480,7 @@ export function assembleSeriesResultsData(
         ...(competitor.owners?.length ? { owner: competitor.owners } : {}),
         ...(competitor.helms?.length ? { helmRole: competitor.helms } : {}),
         ...(competitor.crewNames?.length ? { crewNames: competitor.crewNames } : {}),
-        ...(competitor.club ? { club: competitor.club } : {}),
+        ...(competitor.clubs?.length ? { clubs: competitor.clubs } : {}),
         ...(competitor.nationality ? { nationality: competitor.nationality } : {}),
         ...(competitor.worldSailingId ? { worldSailingId: competitor.worldSailingId } : {}),
         ...(competitor.subdivisions && Object.keys(competitor.subdivisions).length > 0
@@ -2570,7 +2573,7 @@ export function assembleSeriesResultsData(
       ...(s.competitor.owners?.length ? { owner: s.competitor.owners } : {}),
       ...(s.competitor.helms?.length ? { helmRole: s.competitor.helms } : {}),
       ...(s.competitor.crewNames?.length ? { crewNames: s.competitor.crewNames } : {}),
-      ...(s.competitor.club ? { club: s.competitor.club } : {}),
+      ...(s.competitor.clubs?.length ? { clubs: s.competitor.clubs } : {}),
       ...(s.competitor.nationality ? { nationality: s.competitor.nationality } : {}),
       ...(s.competitor.worldSailingId ? { worldSailingId: s.competitor.worldSailingId } : {}),
       ...(s.competitor.subdivisions && Object.keys(s.competitor.subdivisions).length > 0

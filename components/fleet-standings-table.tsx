@@ -38,6 +38,7 @@ import {
   personFieldHeader,
   primaryPersonHeader,
   subdivisionAxisLabel,
+  formatClubs,
 } from '@/lib/competitor-fields';
 import type {
   CompetitorFieldKey,
@@ -170,7 +171,7 @@ export function FleetStandingsTable({
     { id: 'helm', compare: (a, b) => compareText(joinNames(a.competitor.helms), joinNames(b.competitor.helms)) },
     { id: 'owner', compare: (a, b) => compareText(joinNames(a.competitor.owners), joinNames(b.competitor.owners)) },
     { id: 'crew', compare: (a, b) => compareText(joinNames(a.competitor.crewNames), joinNames(b.competitor.crewNames)) },
-    { id: 'club', compare: (a, b) => compareText(a.competitor.club, b.competitor.club) },
+    { id: 'club', compare: (a, b) => compareText(formatClubs(a.competitor.clubs), formatClubs(b.competitor.clubs)) },
     { id: 'nationality', compare: (a, b) => compareText(a.competitor.nationality, b.competitor.nationality) },
     ...visibleAxes.map(
       (axis): SortableColumn<Standing> => ({
@@ -481,7 +482,7 @@ function StandingRow({
       {showHelm && <TableCell>{(competitor.helms ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
       {showOwner && <TableCell>{(competitor.owners ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
       {showCrew && <TableCell>{(competitor.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
-      {showClub && <TableCell className="text-muted-foreground">{competitor.club}</TableCell>}
+      {showClub && <TableCell className="text-muted-foreground">{competitor.clubs.map((c, i) => <div key={i}>{c}</div>)}</TableCell>}
       {showNationality && <TableCell className="font-mono">{competitor.nationality ?? ''}</TableCell>}
       {subdivisionAxes.map((axis) => (
         <TableCell key={axis.id}>{competitor.subdivisions?.[axis.id] ?? ''}</TableCell>

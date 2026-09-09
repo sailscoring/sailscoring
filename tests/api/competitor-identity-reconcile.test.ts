@@ -115,7 +115,7 @@ describe.skipIf(skip)('competitor-identity reconcile operations', () => {
       fleetIds: [],
       sailNumber: p.sailNumber,
       names: [p.name],
-      club: p.club ?? '',
+      clubs: p.club ? [p.club] : [],
       gender: '',
       age: null,
     });

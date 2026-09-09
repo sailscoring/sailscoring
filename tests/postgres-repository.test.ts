@@ -320,14 +320,14 @@ describe.skipIf(skip)('postgres repositories', () => {
       sailNumber: '1234',
       boatName: 'Big', boatClass: 'Half-Tonner',
       names: ['Helm'], owners: ['Owner'], helms: ['Helm'],
-      crewNames: ['Crew'], club: 'HYC', nationality: 'IRL', gender: 'M', age: 42,
+      crewNames: ['Crew'], clubs: ['HYC'], nationality: 'IRL', gender: 'M', age: 42,
       createdAt: Date.now(),
       ircTcc: 0.972, pyNumber: 1034,
       nhcStartingTcf: 0.95, echoStartingTcf: 0.97,
     };
     const c2: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleetA],
-      sailNumber: '0001', names: ['Other'], club: '', gender: '', age: null,
+      sailNumber: '0001', names: ['Other'], clubs: [], gender: '', age: null,
       createdAt: Date.now(),
     };
     await repos.competitors.save(c1);
@@ -341,7 +341,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       sailNumber: '1234',
       boatName: 'Big', boatClass: 'Half-Tonner',
       names: ['Helm'], owners: ['Owner'], helms: ['Helm'],
-      crewNames: ['Crew'], club: 'HYC', nationality: 'IRL', gender: 'M', age: 42,
+      crewNames: ['Crew'], clubs: ['HYC'], nationality: 'IRL', gender: 'M', age: 42,
       ircTcc: 0.972, pyNumber: 1034,
       nhcStartingTcf: 0.95, echoStartingTcf: 0.97,
     });
@@ -362,7 +362,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.save(s);
     const fleet = uuid();
     await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'Fleet', displayOrder: 0, scoringSystem: 'scratch' });
-    const base = { seriesId: s.id, fleetIds: [fleet], names: ['Helm'], club: '', gender: '' as const, age: null, createdAt: Date.now() };
+    const base = { seriesId: s.id, fleetIds: [fleet], names: ['Helm'], clubs: [], gender: '' as const, age: null, createdAt: Date.now() };
     const entered: Competitor = { ...base, id: uuid(), sailNumber: '1' };
     const reserve: Competitor = { ...base, id: uuid(), sailNumber: '2', excluded: true };
     await repos.competitors.save(entered);
@@ -577,7 +577,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     const competitor: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleet],
       sailNumber: '1', names: ['Boat'],
-      club: '', gender: '', age: null, createdAt: Date.now(),
+      clubs: [], gender: '', age: null, createdAt: Date.now(),
     };
     await repos.competitors.save(competitor);
     const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
@@ -656,7 +656,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'irc' });
     const competitor: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleet],
-      sailNumber: '1', names: ['Boat'], club: '', gender: '', age: null, createdAt: Date.now(),
+      sailNumber: '1', names: ['Boat'], clubs: [], gender: '', age: null, createdAt: Date.now(),
     };
     await repos.competitors.save(competitor);
     const race: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
@@ -687,7 +687,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       const c: Competitor = {
         id: uuid(), seriesId: s.id, fleetIds: [fleet],
         sailNumber: String(100 + i), names: [`Boat ${i}`],
-        club: '', gender: '', age: null, createdAt: Date.now(),
+        clubs: [], gender: '', age: null, createdAt: Date.now(),
       };
       competitors.push(c);
       await repos.competitors.save(c);
@@ -729,7 +729,7 @@ describe.skipIf(skip)('postgres repositories', () => {
     await reposA.fleets.save({ id: fleet, seriesId: s.id, name: 'F', displayOrder: 0, scoringSystem: 'scratch' });
     const competitor: Competitor = {
       id: uuid(), seriesId: s.id, fleetIds: [fleet],
-      sailNumber: '1', names: ['Boat'], club: '', gender: '', age: null,
+      sailNumber: '1', names: ['Boat'], clubs: [], gender: '', age: null,
       createdAt: Date.now(),
     };
     await reposA.competitors.save(competitor);
@@ -898,7 +898,7 @@ describe.skipIf(skip)('postgres repositories', () => {
         id: uuid(), seriesId: s.id, fleetIds: [fleet],
         sailNumber: String(1000 + i),
         names: [`Helm ${i}`],
-        club: 'HYC', gender: '', age: null, createdAt: Date.now(),
+        clubs: ['HYC'], gender: '', age: null, createdAt: Date.now(),
       });
     }
     await repos.competitors.saveMany(competitors);
@@ -927,7 +927,7 @@ describe.skipIf(skip)('postgres repositories', () => {
       reposB.competitors.saveMany([
         {
           id: uuid(), seriesId: s.id, fleetIds: [],
-          sailNumber: '1', names: ['X'], club: '', gender: '', age: null,
+          sailNumber: '1', names: ['X'], clubs: [], gender: '', age: null,
           createdAt: Date.now(),
         },
       ]),

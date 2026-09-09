@@ -94,6 +94,17 @@ export function personNamesMatch(
 }
 
 /**
+ * Render a competitor's club list as the one club field the identity layer
+ * reads — the `/`-separated form sailors already write by hand, and exactly
+ * what `normalizeClubs` and `buildClubCanonicalizer` split on. So an entry
+ * listing two clubs corroborates a match against either, and a row that
+ * always held `"WHSC / RCYC"` in one string behaves as it always did.
+ */
+export function joinClubsForMatching(clubs: readonly string[] | undefined): string {
+  return (clubs ?? []).map((c) => c.trim()).filter(Boolean).join(' / ');
+}
+
+/**
  * Split a club field into its normalised constituent clubs. Sailors commonly
  * list more than one (`"WHSC / RCYC"`, `"TBSC/CHSC"`) — splitting on `/` lets a
  * later season's `"RCYC"` corroborate an earlier `"WHSC / RCYC"`. Lowercased,

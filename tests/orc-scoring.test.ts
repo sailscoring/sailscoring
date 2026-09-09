@@ -30,7 +30,7 @@ const mojoCert: OrcCertData = {
 const fleet: Fleet = { id: 'f1', seriesId: 's1', name: 'Class 2 ORC', displayOrder: 0, scoringSystem: 'orc' };
 
 const baseComp = {
-  seriesId: 's1', fleetIds: ['f1'], names: ['x'], club: '', gender: '' as const, age: null, createdAt: 0,
+  seriesId: 's1', fleetIds: ['f1'], names: ['x'], clubs: [], gender: '' as const, age: null, createdAt: 0,
 };
 const impetuous: Competitor = { ...baseComp, id: 'imp', sailNumber: 'IRL 2507', orcCert: impetuousCert };
 const mojo: Competitor = { ...baseComp, id: 'mojo', sailNumber: 'IRL 1551', orcCert: mojoCert };

@@ -102,7 +102,7 @@ describe.skipIf(skip)('publish handler — combined pages (#255)', () => {
       compIds.push(compId);
       await competitors.putCompetitor(ctx, seriesId, compId, {
         id: compId, seriesId, fleetIds: [fleetId], sailNumber: `${n}`,
-        names: [`${fleetName} boat`], club: 'HYC', gender: '' as const, age: null,
+        names: [`${fleetName} boat`], clubs: ['HYC'], gender: '' as const, age: null,
         createdAt: Date.now(),
       });
     }
@@ -225,7 +225,7 @@ describe.skipIf(skip)('publish handler — combined pages on a block series (#25
       compIds.push(compId);
       await competitors.putCompetitor(ctx, seriesId, compId, {
         id: compId, seriesId, fleetIds: [fleetId], sailNumber: `${n}`,
-        names: [`${fleetName} boat`], club: 'HYC', gender: '' as const, age: null,
+        names: [`${fleetName} boat`], clubs: ['HYC'], gender: '' as const, age: null,
         createdAt: Date.now(),
       });
     }

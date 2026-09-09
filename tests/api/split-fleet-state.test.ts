@@ -119,7 +119,7 @@ describe.skipIf(skip)('split-fleet state replay (#365)', () => {
       const competitorId = uuid();
       await competitors.putCompetitor(ctx, seriesId, competitorId, {
         id: competitorId, seriesId, fleetIds: [fleetIds[0]],
-        sailNumber: sail, names: [`Helm ${sail}`], club: '',
+        sailNumber: sail, names: [`Helm ${sail}`], clubs: [],
         gender: '' as const, age: null, createdAt: Date.now(),
       });
       competitorIds.push(competitorId);

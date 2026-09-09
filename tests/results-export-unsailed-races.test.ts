@@ -51,7 +51,7 @@ const COMPETITORS: Competitor[] = ['101', '102'].map((sail) => ({
   fleetIds: ['f1'],
   sailNumber: sail,
   names: [`Helm ${sail}`],
-  club: '',
+  clubs: [],
   gender: '' as const,
   age: null,
   createdAt: 0,

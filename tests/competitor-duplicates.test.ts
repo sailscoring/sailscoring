@@ -14,7 +14,7 @@ function competitor(overrides: Partial<Competitor> & { id: string }): Competitor
     fleetIds: ['f1'],
     sailNumber: 'IRL100',
     names: ['Jane Doe'],
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: 1000,
@@ -74,7 +74,7 @@ describe('findDuplicateGroups', () => {
     const groups = findDuplicateGroups(
       [
         // The finish-less copy is more complete AND older — finishes still win.
-        competitor({ id: 'a', boatName: 'Windshift', club: 'HYC', createdAt: 1 }),
+        competitor({ id: 'a', boatName: 'Windshift', clubs: ['HYC'], createdAt: 1 }),
         competitor({ id: 'b', createdAt: 2 }),
       ],
       new Map([['b', 3]]),
@@ -86,7 +86,7 @@ describe('findDuplicateGroups', () => {
     const groups = findDuplicateGroups(
       [
         competitor({ id: 'a', createdAt: 1 }),
-        competitor({ id: 'b', boatName: 'Windshift', club: 'HYC', createdAt: 2 }),
+        competitor({ id: 'b', boatName: 'Windshift', clubs: ['HYC'], createdAt: 2 }),
       ],
       noFinishes,
     );
@@ -221,11 +221,11 @@ describe('planDuplicateMerge', () => {
   test('keeper keeps its id; the newest row wins the fields', () => {
     const keeper = competitor({
       id: 'old', sailNumber: 'IRL100', boatName: 'White Mischief',
-      club: 'HYC', createdAt: 1, ircTcc: 0.95, version: 4,
+      clubs: ['HYC'], createdAt: 1, ircTcc: 0.95, version: 4,
     });
     const newer = competitor({
       id: 'new', sailNumber: 'IRL150', boatName: 'White Mischief',
-      club: '', createdAt: 2, ircTcc: 0.97,
+      clubs: [], createdAt: 2, ircTcc: 0.97,
     });
     const plan = planDuplicateMerge(group(keeper, newer), []);
     expect(plan.ok).toBe(true);
@@ -235,7 +235,7 @@ describe('planDuplicateMerge', () => {
     expect(plan.survivor.createdAt).toBe(1);
     expect(plan.survivor.sailNumber).toBe('IRL150'); // newest wins
     expect(plan.survivor.ircTcc).toBe(0.97);         // newest wins
-    expect(plan.survivor.club).toBe('HYC');          // empty never blanks
+    expect(plan.survivor.clubs).toEqual(['HYC']);     // empty never blanks
     expect(plan.deleteIds).toEqual(['new']);
   });
 

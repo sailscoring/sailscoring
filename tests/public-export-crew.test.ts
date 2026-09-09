@@ -36,7 +36,7 @@ function makeCompetitor(id: string, sail: string, crewNames?: string[]): Competi
   return {
     id, seriesId: 's1', fleetIds: ['fl-1'], sailNumber: sail, names: [`Helm ${sail}`],
     ...(crewNames ? { crewNames } : {}),
-    club: '', gender: '', age: null, createdAt: 0,
+    clubs: [], gender: '', age: null, createdAt: 0,
   };
 }
 

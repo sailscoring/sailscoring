@@ -37,7 +37,7 @@ export const competitorSchema = z.object({
   owners: z.array(z.string()).optional(),
   helms: z.array(z.string()).optional(),
   crewNames: z.array(z.string()).optional(),
-  club: z.string(),
+  clubs: z.array(z.string()),
   nationality: z.string().regex(/^[A-Z]{3}$/, 'must be a 3-letter uppercase code').optional(),
   gender: genderSchema,
   age: z.number().int().nullable(),

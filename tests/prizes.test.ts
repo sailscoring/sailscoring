@@ -27,7 +27,7 @@ function makeCompetitor(
     fleetIds,
     sailNumber: id,
     names: [`Helm ${id}`],
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: 0,
@@ -278,7 +278,7 @@ describe('allocatePrize — intrinsic competitor-field clauses (v18)', () => {
       const c = makeCompetitor(id, ['fl-1']);
       c.gender = gender;
       if (nationality) c.nationality = nationality;
-      c.club = club;
+      c.clubs = club ? [club] : [];
       return makeStanding(c, i + 1);
     });
     return [{ fleet, standings }];
@@ -316,6 +316,21 @@ describe('allocatePrize — intrinsic competitor-field clauses (v18)', () => {
     };
     const a = allocatePrize(prize, intrinsicStandings(), []);
     expect(a.recipients.map((r) => r.standing.competitor.id)).toEqual(['c1']);
+  });
+
+  it('club clause is a membership test: a second affiliation still wins the prize', () => {
+    const prize: Prize = {
+      id: 'p1',
+      name: 'First HYC boat',
+      recipientCount: 1,
+      clauses: [{ kind: 'club', value: 'HYC' }],
+    };
+    const standings = intrinsicStandings();
+    // c2 leads c3 and lists HYC second, behind its own club.
+    standings[0].standings[1].competitor.clubs = ['RStGYC', 'HYC'];
+    const a = allocatePrize(prize, standings, []);
+    expect(a.recipients.map((r) => r.standing.competitor.id)).toEqual(['c1']);
+    expect(a.eligibleCount).toBe(3);
   });
 
   it('warns when the referenced intrinsic field has no data at all', () => {

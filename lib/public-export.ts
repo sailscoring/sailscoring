@@ -141,8 +141,10 @@ export interface PublicSeriesExport {
    *  carries a hidden competitor column only when scoring or a prize
    *  clause reads it, and drops unresolved rows (they are the scorer's
    *  unfinished business — unpublished, and score-neutral: scoring filters
-   *  to resolved rows before assigning places). Readers accept both. */
-  version: 1 | 2;
+   *  to resolved rows before assigning places); v3 replaces a competitor's
+   *  single `club` with the ordered `clubs` list. Readers accept all
+   *  three. */
+  version: 1 | 2 | 3;
   exportedAt: string;
   series: {
     name: string;
@@ -296,6 +298,10 @@ export interface PublicSeriesExport {
     /** Legacy single crew name, written by pre-crew-list exports; the importer
      *  folds it into a one-element `crewNames`. Never written by current builds. */
     crewName?: string;
+    /** The clubs the entry is affiliated to, in the order its entry list
+     *  wrote them — primary first, then any second affiliation. */
+    clubs?: string[];
+    /** Legacy single club from a v1/v2 export; folds into `clubs`. */
     club?: string;
     /** 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL". */
     nationality?: string;
@@ -1220,7 +1226,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 2 as const,
+    version: 3 as const,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
@@ -1321,7 +1327,7 @@ export function buildPublicExportFromSnapshot(
       ...(carry('owner') && c.owners?.length ? { owners: c.owners } : {}),
       ...(carry('helm') && c.helms?.length ? { helms: c.helms } : {}),
       ...(carry('crewName') && c.crewNames?.length ? { crewNames: c.crewNames } : {}),
-      ...(carryClub && c.club ? { club: c.club } : {}),
+      ...(carryClub && c.clubs.length ? { clubs: c.clubs } : {}),
       ...(carryNationality && c.nationality ? { nationality: c.nationality } : {}),
       ...(carryGender && c.gender ? { gender: c.gender } : {}),
       ...(carry('age') && c.age != null ? { age: c.age } : {}),
@@ -1440,7 +1446,7 @@ export function buildPublicExportFromSnapshot(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -1797,7 +1803,7 @@ export async function importPublicExport(
           const crew = c.crewNames?.length ? c.crewNames : c.crewName ? [c.crewName] : [];
           return crew.length ? { crewNames: crew } : {};
         })(),
-        club: c.club ?? '',
+        clubs: c.clubs ?? (c.club ? [c.club] : []),
         ...(c.nationality ? { nationality: c.nationality } : {}),
         gender: c.gender ?? '',
         age: c.age ?? null,

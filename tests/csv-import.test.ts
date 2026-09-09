@@ -47,6 +47,9 @@ describe('autoDetectField', () => {
     expect(autoDetectField('Helm')).toBe('helm');
     expect(autoDetectField('Owner')).toBe('owner');
     expect(autoDetectField('Club')).toBe('club');
+    // The standard OA entry sheet's second club column: both map to Club, and
+    // the importer collects each one rather than the last one winning.
+    expect(autoDetectField('Other Club')).toBe('club');
     expect(autoDetectField('IRC TCC')).toBe('tcc');
     expect(autoDetectField('PY')).toBe('py');
   });

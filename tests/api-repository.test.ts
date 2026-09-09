@@ -126,7 +126,7 @@ describe('api-repository routing', () => {
       fleetIds: [],
       sailNumber: '1',
       names: ['X'],
-      club: '', gender: '', age: null, createdAt: 0,
+      clubs: [], gender: '', age: null, createdAt: 0,
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, c));
     await competitorRepo.save(c);
@@ -345,7 +345,7 @@ describe('api-repository routing', () => {
     const competitor: Competitor = {
       id, seriesId: 'fafafafa-1111-4222-8333-ffffffffffff',
       fleetIds: [], sailNumber: '1', names: ['X'],
-      club: '', gender: '', age: null, createdAt: 0,
+      clubs: [], gender: '', age: null, createdAt: 0,
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, competitor));
     const got = await competitorRepo.get(id);
@@ -396,7 +396,7 @@ describe('api-repository routing', () => {
       fleetIds: [fleetId],
       sailNumber: '1',
       names: ['X'],
-      club: '',
+      clubs: [],
       gender: '',
       age: null,
       createdAt: 0,

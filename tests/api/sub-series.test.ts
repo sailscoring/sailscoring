@@ -264,7 +264,7 @@ describe.skipIf(skip)('sub-series handlers', () => {
     const addBoat = async (sail: string) => {
       const id = uuid();
       await competitorsApi.putCompetitor(ctxA, seriesId, id, {
-        id, seriesId, fleetIds: [f1], sailNumber: sail, names: [sail], club: '', gender: '', age: null, createdAt: Date.now(),
+        id, seriesId, fleetIds: [f1], sailNumber: sail, names: [sail], clubs: [], gender: '', age: null, createdAt: Date.now(),
       });
       return id;
     };

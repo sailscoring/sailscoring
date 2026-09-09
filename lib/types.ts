@@ -148,7 +148,10 @@ export interface PublishingGroup {
  * other fleet reference; axis ids are stable and travel verbatim; the
  * remaining kinds compare intrinsic competitor fields — gender for "Lady 1st,
  * 2nd, 3rd", nationality for restricted titles ("first IRL is national
- * champion"), club for the local-boat variant.
+ * champion"), club for the local-boat variant. `club` is a membership test
+ * rather than an equality one: an entry affiliated to several clubs is a
+ * member of each, so a home-club trophy still finds a boat that also lists a
+ * visiting club.
  */
 export type PrizeClause =
   | { kind: 'fleet'; fleetId: string }
@@ -755,7 +758,7 @@ export interface Competitor {
   owners?: string[];  // owner(s), when recorded separately from the primary (e.g. helm-primary series); sparse
   helms?: string[];   // helm(s), when recorded separately from the primary (e.g. owner-primary series); sparse
   crewNames?: string[]; // crew names in listed order — one for a two-person dinghy, several for a keelboat crew; sparse (absent when no crew recorded)
-  club: string;
+  clubs: string[];    // the clubs this entry is affiliated to, in the order the entry list writes them — primary first, then any second affiliation ("Club" and "Other Club" on the standard OA sheet). Empty when none is stated
   nationality?: string;  // 3-letter national-letters code (RRS Appendix G / IOC), e.g. "IRL"
   gender: 'M' | 'F' | '';
   age: number | null;

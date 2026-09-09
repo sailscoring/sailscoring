@@ -414,7 +414,7 @@ describe.skipIf(skip)('archive ingest', () => {
       fleetIds: [],
       sailNumber: '1605',
       names: ['Seán Murphy'],
-      club: 'HYC',
+      clubs: ['HYC'],
       gender: '',
       age: null,
     });

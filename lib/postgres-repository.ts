@@ -2,6 +2,7 @@ import 'server-only';
 import { and, asc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
 import type { PgInsertValue, PgUpdateSetSource } from 'drizzle-orm/pg-core';
 
+import { cleanClubs } from './competitor-fields';
 import { decryptCredential, encryptCredential } from './crypto';
 import { getDb, type SailScoringDb } from './db/client';
 import * as schema from './db/schema';
@@ -182,7 +183,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.owners?.length ? { owners: row.owners } : {}),
     ...(row.helms?.length ? { helms: row.helms } : {}),
     ...(row.crewNames?.length ? { crewNames: row.crewNames } : {}),
-    club: row.club,
+    clubs: row.clubs,
     ...(row.nationality ? { nationality: row.nationality } : {}),
     gender: row.gender as Competitor['gender'],
     age: row.age,
@@ -1004,7 +1005,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     owners: c.owners?.length ? c.owners : null,
     helms: c.helms?.length ? c.helms : null,
     crewNames: c.crewNames?.length ? c.crewNames : null,
-    club: c.club,
+    clubs: cleanClubs(c.clubs),
     nationality: c.nationality ?? null,
     gender: c.gender,
     age: c.age,
@@ -1023,7 +1024,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 const competitorUpdateColumns = [
   'fleetIds', 'sailNumber', 'bowNumber', 'alternativeSailNumbers', 'entryNumber', 'tallyNumber', 'seed', 'initialFleet', 'worldSailingId',
   'boatName', 'boatClass', 'names',
-  'owners', 'helms', 'crewNames', 'club', 'nationality',
+  'owners', 'helms', 'crewNames', 'clubs', 'nationality',
   'gender', 'age', 'subdivisions',
   'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert',
   'excluded',
@@ -1119,7 +1120,9 @@ export class PostgresCompetitorRepository implements CompetitorRepository {
     };
     switch (patch.field) {
       case 'club':
-        set.club = patch.value;
+        // One value across the selection: the bulk editor sets an
+        // affiliation, and clearing it leaves the entry with no club at all.
+        set.clubs = cleanClubs([patch.value]);
         break;
       case 'boatClass':
         set.boatClass = patch.value || null;

@@ -1490,7 +1490,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.boatClass ? { boatClass: c.boatClass } : {}),
       names: [c.name],
       ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
-      club: c.club,
+      ...(c.club ? { clubs: [c.club] } : {}),
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,

@@ -80,6 +80,7 @@ version up to their own; writers write the current one.
 |---|---|
 | 1 | Original shape: every competitor field carried regardless of displayed columns; unresolved finish rows included. |
 | 2 | The contract above: hidden non-scoring competitor fields dropped, unresolved rows dropped. |
+| 3 | A competitor's single `club` becomes the ordered `clubs` list — entry lists routinely carry a club and a second affiliation, and all of them are published. |
 
 The format is a public API surface: field removals or meaning changes
 bump the version; purely additive optional fields may not. The

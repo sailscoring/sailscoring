@@ -267,7 +267,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctxACopier, srcId, compId, {
       id: compId, seriesId: srcId, fleetIds: [fleetId],
-      sailNumber: 'IRL 7007', names: ['Helm'], club: 'HYC',
+      sailNumber: 'IRL 7007', names: ['Helm'], clubs: ['HYC'],
       gender: '' as const, age: null, createdAt: Date.now(),
       vprsTcc: 0.992,
     });
@@ -334,7 +334,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, srcId, compId, {
       id: compId, seriesId: srcId, fleetIds: [fleetId],
-      sailNumber: 'IRL 4242', names: ['Helm'], club: 'HYC',
+      sailNumber: 'IRL 4242', names: ['Helm'], clubs: ['HYC'],
       gender: '' as const, age: null, createdAt: Date.now(),
     });
     const category = await categories.createCategory(ctx, {
@@ -448,7 +448,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const competitor = {
       id: compId, seriesId, fleetIds: [fleetId],
       sailNumber: '1234', boatName: 'Big', names: ['Helm'],
-      club: 'HYC', gender: 'M' as const, age: 42,
+      clubs: ['HYC'], gender: 'M' as const, age: 42,
       createdAt: Date.now(), ircTcc: 0.972,
     };
     const created = await competitors.putCompetitor(ctxA, seriesId, compId, competitor);
@@ -478,7 +478,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       fleetIds: [fleetId],
       sailNumber: String(2000 + i),
       names: [`Helm ${i}`],
-      club: '', gender: '' as const, age: null,
+      clubs: [], gender: '' as const, age: null,
       createdAt: Date.now(),
     }));
     const result = await competitors.bulkPutCompetitors(ctxA, seriesId, { competitors: inputs });
@@ -493,7 +493,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       competitors.bulkPutCompetitors(ctxA, seriesId, {
         competitors: [{
           id: uuid(), seriesId: otherSeriesId, fleetIds: [],
-          sailNumber: '1', names: ['X'], club: '', gender: '' as const, age: null,
+          sailNumber: '1', names: ['X'], clubs: [], gender: '' as const, age: null,
           createdAt: Date.now(),
         }],
       }),
@@ -515,7 +515,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
       sailNumber: 'IRL 1', boatName: 'Zesty', names: ['Skipper'],
-      club: 'HYC', gender: 'M' as const, age: 40, createdAt: Date.now(),
+      clubs: ['HYC'], gender: 'M' as const, age: 40, createdAt: Date.now(),
       nhcStartingTcf: 1.201, ircTcc: 0.972,
     });
 
@@ -544,7 +544,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const otherCompId = uuid();
     const otherCreated = await competitors.putCompetitor(ctxA, otherSeriesId, otherCompId, {
       id: otherCompId, seriesId: otherSeriesId, fleetIds: [otherFleetId],
-      sailNumber: 'X', names: ['X'], club: '', gender: '' as const, age: null, createdAt: Date.now(),
+      sailNumber: 'X', names: ['X'], clubs: [], gender: '' as const, age: null, createdAt: Date.now(),
       ircTcc: 1.0,
     });
     await expect(
@@ -590,7 +590,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [scratchId],
-      sailNumber: 'IRL 7404', names: ['Skipper'], club: 'HYC', gender: 'M' as const, age: 50,
+      sailNumber: 'IRL 7404', names: ['Skipper'], clubs: ['HYC'], gender: 'M' as const, age: 50,
       createdAt: Date.now(),
     });
 
@@ -649,7 +649,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     const created = await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: '1', names: ['Boat'], club: '', gender: '' as const, age: null,
+      sailNumber: '1', names: ['Boat'], clubs: [], gender: '' as const, age: null,
       createdAt: Date.now(), ircTcc: 1.008,
     });
     // One scored race (the boat finished it on the old TCC) and one future race.
@@ -704,7 +704,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       await competitors.putCompetitor(ctxA, seriesId, id, {
         id, seriesId, fleetIds: [fleetId],
         sailNumber: String(100 + i), names: [`Boat ${i}`],
-        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+        clubs: [], gender: '' as const, age: null, createdAt: Date.now(),
       });
     }
 
@@ -824,7 +824,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       competitors: Array.from({ length: 5 }, (_, i) => ({
         id: uuid(), seriesId, fleetIds: [fleetId],
         sailNumber: String(3000 + i), names: [`Helm ${i}`],
-        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+        clubs: [], gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
     expect(await competitors.listCompetitors(ctxA, seriesId)).toHaveLength(5);
@@ -851,7 +851,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       competitors: ids.map((id, i) => ({
         id, seriesId, fleetIds: [fleetId],
         sailNumber: String(4000 + i), names: [`Helm ${i}`],
-        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+        clubs: [], gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
 
@@ -896,7 +896,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       competitors: ids.map((id, i) => ({
         id, seriesId, fleetIds: [fleetId],
         sailNumber: String(5000 + i), names: [`Helm ${i}`],
-        club: 'Old YC', gender: '' as const, age: null, createdAt: Date.now(),
+        clubs: ['Old YC'], gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
 
@@ -914,10 +914,10 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const after = new Map(
       (await competitors.listCompetitors(ctxA, seriesId)).map((c) => [c.id, c]),
     );
-    expect(after.get(ids[0])!.club).toBe('HYC'); // trimmed
-    expect(after.get(ids[1])!.club).toBe('Old YC');
-    expect(after.get(ids[2])!.club).toBe('HYC');
-    expect(after.get(ids[3])!.club).toBe('Old YC');
+    expect(after.get(ids[0])!.clubs).toEqual(['HYC']); // trimmed
+    expect(after.get(ids[1])!.clubs).toEqual(['Old YC']);
+    expect(after.get(ids[2])!.clubs).toEqual(['HYC']);
+    expect(after.get(ids[3])!.clubs).toEqual(['Old YC']);
     // Only the targeted rows get a version bump; other fields are untouched.
     expect(after.get(ids[0])!.version).toBe(2);
     expect(after.get(ids[1])!.version).toBe(1);
@@ -958,7 +958,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     await competitors.putCompetitor(ctxA, seriesId, id, {
       id, seriesId, fleetIds: [fleetId],
       sailNumber: '6000', names: ['Helm'], boatClass: 'Laser',
-      club: 'HYC', nationality: 'IRL', gender: 'M' as const,
+      clubs: ['HYC'], nationality: 'IRL', gender: 'M' as const,
       age: null, createdAt: Date.now(),
     });
 
@@ -969,7 +969,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const [after] = await competitors.listCompetitors(ctxA, seriesId);
     expect(after.boatClass).toBeUndefined();
     expect(after.nationality).toBeUndefined();
-    expect(after.club).toBe('');
+    expect(after.clubs).toEqual([]);
     expect(after.gender).toBe('F');
 
     // Nationality must be a 3-letter uppercase code (or empty to clear).
@@ -998,7 +998,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const id = uuid();
     await competitors.putCompetitor(ctxA, seriesId, id, {
       id, seriesId, fleetIds: [fleetId],
-      sailNumber: '7000', names: ['Helm'], club: '', gender: '' as const,
+      sailNumber: '7000', names: ['Helm'], clubs: [], gender: '' as const,
       age: null, createdAt: Date.now(),
       subdivisions: { [axisB]: 'Master' },
     });
@@ -1050,7 +1050,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       competitors: ids.map((id, i) => ({
         id, seriesId, fleetIds: i === 2 ? [fleetA, fleetB] : [fleetA],
         sailNumber: String(8000 + i), names: [`Helm ${i}`],
-        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+        clubs: [], gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
 
@@ -1083,7 +1083,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       competitors: [dupe, ...pair].map((id, i) => ({
         id, seriesId, fleetIds: [fleetA],
         sailNumber: i === 0 ? '8000' : '9000', names: [`Late entry ${i}`],
-        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+        clubs: [], gender: '' as const, age: null, createdAt: Date.now(),
       })),
     });
     await expect(
@@ -1136,7 +1136,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: '500', names: ['Boat'], club: '', gender: '' as const,
+      sailNumber: '500', names: ['Boat'], clubs: [], gender: '' as const,
       age: null, createdAt: Date.now(),
     });
     const raceId = uuid();
@@ -1216,7 +1216,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
       await competitors.putCompetitor(ctxA, seriesId, id, {
         id, seriesId, fleetIds: [fleetId],
         sailNumber: String(600 + i), names: [`Boat ${i}`],
-        club: '', gender: '' as const, age: null, createdAt: Date.now(),
+        clubs: [], gender: '' as const, age: null, createdAt: Date.now(),
       });
     }
     const raceId = uuid();
@@ -1257,7 +1257,7 @@ describe.skipIf(skip)('/api/v1 handler logic', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctxA, seriesId, compId, {
       id: compId, seriesId, fleetIds: [fleetId],
-      sailNumber: '7', names: ['Boat'], club: '', gender: '' as const, age: null,
+      sailNumber: '7', names: ['Boat'], clubs: [], gender: '' as const, age: null,
       createdAt: Date.now(), ircTcc: 1.0,
     });
     const raceIds = [uuid(), uuid()];

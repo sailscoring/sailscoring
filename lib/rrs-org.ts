@@ -10,6 +10,7 @@
  * UUID is the API's only credential and belongs on the server-to-RRS.org hop.
  */
 
+import { formatClubs } from './competitor-fields';
 import type { Competitor, Fleet, RrsOrgPushConfig } from './types';
 
 export const RRS_ORG_API_URL = 'https://www.racingrulesofsailing.org/api/competitors';
@@ -223,7 +224,7 @@ export function buildRrsOrgCompetitors(
       boat_name: c.boatName ?? '',
       boat_class: c.boatClass ?? '',
       division: divisionFor(c, config, fleetNameById),
-      club_name: c.club,
+      club_name: formatClubs(c.clubs),
       email: r?.email?.trim() ?? '',
       phone,
       // World Sailing MNA codes share the national-letters vocabulary, so the

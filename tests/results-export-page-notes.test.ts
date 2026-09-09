@@ -16,8 +16,8 @@ const FLEETS: Fleet[] = [
 ];
 
 const COMPETITORS: Competitor[] = [
-  { id: 'c1', seriesId: 's1', fleetIds: ['f-a'], sailNumber: '101', names: ['A'], club: '', gender: '', age: null, createdAt: 0 },
-  { id: 'c2', seriesId: 's1', fleetIds: ['f-b'], sailNumber: '201', names: ['B'], club: '', gender: '', age: null, createdAt: 0 },
+  { id: 'c1', seriesId: 's1', fleetIds: ['f-a'], sailNumber: '101', names: ['A'], clubs: [], gender: '', age: null, createdAt: 0 },
+  { id: 'c2', seriesId: 's1', fleetIds: ['f-b'], sailNumber: '201', names: ['B'], clubs: [], gender: '', age: null, createdAt: 0 },
 ];
 
 const RACES: Race[] = [{ id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2026-09-05', createdAt: 0 }];

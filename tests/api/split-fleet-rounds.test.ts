@@ -130,7 +130,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
       const competitorId = uuid();
       await competitors.putCompetitor(ctx, seriesId, competitorId, {
         id: competitorId, seriesId, fleetIds: [],
-        sailNumber: `IRL ${i}`, names: [`Helm ${i}`], club: '',
+        sailNumber: `IRL ${i}`, names: [`Helm ${i}`], clubs: [],
         gender: '' as const, age: null, createdAt: Date.now(),
       });
       competitorIds.push(competitorId);

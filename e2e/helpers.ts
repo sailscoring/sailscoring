@@ -428,7 +428,7 @@ export async function seedCareerArc(
         sailNumber: entry.sailNumber,
         names: [entry.crewFor ?? opts.label],
         crewNames: entry.crewFor ? [opts.label] : null,
-        club: entry.club ?? opts.club ?? '',
+        clubs: [entry.club ?? opts.club ?? ''].filter(Boolean),
         gender: '',
         age: null,
       });
@@ -448,7 +448,7 @@ export async function seedCareerArc(
           fleetIds: [fleetId],
           sailNumber: '9999',
           names: ['Filler Boat'],
-          club: '',
+          clubs: [],
           gender: '',
           age: null,
         });
@@ -580,7 +580,7 @@ export async function seedRankedSeries(
         fleetIds: [fleetIdByName.get(entrant.fleet ?? 'Main Fleet')!],
         sailNumber: entrant.sailNumber,
         names: [entrant.name],
-        club: entrant.club ?? '',
+        clubs: entrant.club ? [entrant.club] : [],
         nationality: entrant.nationality ?? null,
         gender: '',
         age: null,

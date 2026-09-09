@@ -25,6 +25,49 @@ export function samePersonNames(a: string[] | undefined, b: string[] | undefined
   return na.length === nb.length && na.every((v, i) => v === nb[i]);
 }
 
+/** Trim a competitor's club list, dropping blanks and repeats. Duplicates are
+ *  compared case-insensitively but the scorer's own spelling and order
+ *  survive, as they do for alternative sail numbers: an entry list that writes
+ *  the same club into both its Club and Other Club columns states one
+ *  affiliation, not two. */
+export function cleanClubs(clubs: readonly string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of clubs ?? []) {
+    const value = raw.trim();
+    if (!value) continue;
+    const key = value.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out;
+}
+
+/** One-line rendering of a club list — "HYC, RIYC". For the contexts that
+ *  have a single cell to spend: the competitors table, sorting and search, the
+ *  CLI's listing, and the RRS.org push's one `club_name` field. Published
+ *  tables have a column of their own and stack the clubs instead. */
+export function formatClubs(clubs: readonly string[] | undefined): string {
+  return cleanClubs(clubs).join(', ');
+}
+
+/** Whether an entry is affiliated to a named club. Membership, not equality:
+ *  a boat listing both its home club and a visiting one is a member of each,
+ *  which is what a prize clause ("first HYC boat") asks. */
+export function isClubMember(clubs: readonly string[] | undefined, club: string): boolean {
+  const wanted = club.trim();
+  return (clubs ?? []).some((c) => c.trim() === wanted);
+}
+
+/** Order-sensitive equality of two club lists, ignoring blanks and repeats.
+ *  Used to detect "no change" on CSV re-import. */
+export function sameClubs(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  const ca = cleanClubs(a);
+  const cb = cleanClubs(b);
+  return ca.length === cb.length && ca.every((v, i) => v === cb[i]);
+}
+
 /** One-line rendering of the primary person(s): a single name as-is, a
  *  multi-person primary joined " & " — "J. Murphy & M. Murphy". The joined
  *  form is also what sorting, search, and duplicate detection compare. */

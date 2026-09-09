@@ -75,7 +75,7 @@ export async function seriesGetCommand(
 export async function competitorListCommand(flags: Record<string, string>): Promise<number> {
   const sid = seriesScope(flags);
   if (!sid) return 1;
-  return read(flags, (c) => c.listCompetitors(sid), ['id', 'sailNumber', 'name', 'club']);
+  return read(flags, (c) => c.listCompetitors(sid), ['id', 'sailNumber', 'name', 'clubs']);
 }
 
 export async function raceListCommand(flags: Record<string, string>): Promise<number> {

@@ -467,7 +467,10 @@ export const competitors = pgTable(
     owners: jsonb('owners').$type<string[]>(),
     helms: jsonb('helms').$type<string[]>(),
     crewNames: jsonb('crew_names').$type<string[]>(),
-    club: text('club').notNull().default(''),
+    // The clubs an entry is affiliated to, in the order its entry list writes
+    // them (the standard OA sheet's "Club" then "Other Club"). Not null: an
+    // entry with no club stated stores the empty list.
+    clubs: jsonb('clubs').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     nationality: text('nationality'),
     gender: text('gender').notNull().default(''),
     age: integer('age'),

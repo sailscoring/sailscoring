@@ -16,7 +16,7 @@ function makeCompetitor(overrides: Partial<Competitor> & { id: string }): Compet
     fleetIds: ['fl-scratch'],
     sailNumber: '14302',
     names: ['Kevin Donnelly'],
-    club: 'Sutton DC',
+    clubs: ['Sutton DC'],
     gender: '',
     age: null,
     createdAt: 0,
@@ -96,8 +96,16 @@ describe('buildRrsOrgCompetitors', () => {
     }]);
   });
 
+  it('concatenates every club into the one club_name field', () => {
+    // RRS.org has a single free-text club field, so sending only the first
+    // affiliation would drop data the entry list carried.
+    const c = makeCompetitor({ id: 'c1', clubs: ['Sutton DC', 'HYC'] });
+    const [row] = buildRrsOrgCompetitors([c], fleets, { divisionSource: 'none' }).competitors;
+    expect(row.club_name).toBe('Sutton DC, HYC');
+  });
+
   it('uses empty strings, never null, for absent values', () => {
-    const c = makeCompetitor({ id: 'c1', club: '' });
+    const c = makeCompetitor({ id: 'c1', clubs: [] });
     const [row] = buildRrsOrgCompetitors([c], fleets, { divisionSource: 'none' }).competitors;
     for (const value of Object.values(row)) {
       expect(typeof value).toBe('string');

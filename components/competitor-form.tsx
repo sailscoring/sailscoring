@@ -44,7 +44,7 @@ export interface CompetitorFormData {
   owners: string[];  // dynamic rows; blanks dropped on save
   helms: string[];
   crewNames: string[];
-  club: string;
+  clubs: string[];  // dynamic rows, one club each; blanks dropped on save
   nationality: string;
   gender: '' | 'M' | 'F';
   age: string;
@@ -73,7 +73,7 @@ export const emptyCompetitorForm: CompetitorFormData = {
   owners: [],
   helms: [],
   crewNames: [],
-  club: '',
+  clubs: [],
   nationality: '',
   gender: '',
   age: '',
@@ -87,12 +87,12 @@ export const emptyCompetitorForm: CompetitorFormData = {
   echoStartingTcf: '',
 };
 
-/** One input row per person, shared by the primary, owner, helm, and crew
- *  fields. "Add" appends a row and focuses it (ref callback — no re-render);
+/** One input row per value, shared by the primary, owner, helm, and crew
+ *  person fields and by the club list. "Add" appends a row and focuses it (ref callback — no re-render);
  *  "Remove" appears once there is more than one row; blanks are dropped on
  *  save at the page boundary. Row aria-labels are numbered from 1 so a
  *  single-row field still answers to its base label as a prefix. */
-function PersonRowsField({
+function ListRowsField({
   heading,
   rowLabelBase,
   addLabel,
@@ -107,9 +107,10 @@ function PersonRowsField({
   rows: string[];
   onChange: (rows: string[]) => void;
   placeholder?: string;
-  /** Entry affordance gate (#316): false hides the add-a-row button, so the
-   *  field behaves as a single input. Stored extra rows still render (with
-   *  Remove) — data is never hidden by switching the setting off. */
+  /** Entry affordance gate for the person fields: false hides the add-a-row
+   *  button, so the field behaves as a single input. Stored extra rows still
+   *  render (with Remove) — data is never hidden by switching the setting
+   *  off. The club list is not gated and always passes true. */
   allowMultiple: boolean;
 }) {
   const displayRows = rows.length > 0 ? rows : [''];
@@ -336,7 +337,7 @@ export function CompetitorForm({
           )}
         </div>
         <div className="space-y-1.5">
-          <PersonRowsField
+          <ListRowsField
             heading={<>{primaryFieldLabel} {multiPersonFields.includes('primary') ? 'names' : 'name'} *</>}
             rowLabelBase={`${primaryFieldLabel} name`}
             addLabel="Add name"
@@ -465,7 +466,7 @@ export function CompetitorForm({
           </div>
         )}
         {enabledFields.includes('helm') && !isFieldDisabledByPrimary('helm', primaryLabel) && (
-          <PersonRowsField
+          <ListRowsField
             heading={personFieldFormLabel('helm', multiPersonFields)}
             rowLabelBase="Helm name"
             addLabel="Add helm"
@@ -476,7 +477,7 @@ export function CompetitorForm({
           />
         )}
         {enabledFields.includes('owner') && !isFieldDisabledByPrimary('owner', primaryLabel) && (
-          <PersonRowsField
+          <ListRowsField
             heading={personFieldFormLabel('owner', multiPersonFields)}
             rowLabelBase="Owner name"
             addLabel="Add owner"
@@ -487,7 +488,7 @@ export function CompetitorForm({
           />
         )}
         {showMore && extraRoleFields.includes('helm') && (
-          <PersonRowsField
+          <ListRowsField
             heading={personFieldFormLabel('helm', multiPersonFields)}
             rowLabelBase="Helm name"
             addLabel="Add helm"
@@ -498,7 +499,7 @@ export function CompetitorForm({
           />
         )}
         {showMore && extraRoleFields.includes('owner') && (
-          <PersonRowsField
+          <ListRowsField
             heading={personFieldFormLabel('owner', multiPersonFields)}
             rowLabelBase="Owner name"
             addLabel="Add owner"
@@ -509,7 +510,7 @@ export function CompetitorForm({
           />
         )}
         {enabledFields.includes('crewName') && (
-          <PersonRowsField
+          <ListRowsField
             heading={personFieldHeader('crewName', multiPersonFields)}
             rowLabelBase="Crew"
             addLabel="Add crew"
@@ -520,15 +521,15 @@ export function CompetitorForm({
           />
         )}
         {enabledFields.includes('club') && (
-          <div className="space-y-1.5">
-            <Label htmlFor="club">Club</Label>
-            <Input
-              id="club"
-              value={data.club}
-              onChange={(e) => set('club', e.target.value)}
-              placeholder="e.g. HYC"
-            />
-          </div>
+          <ListRowsField
+            heading="Club"
+            rowLabelBase="Club"
+            addLabel="Add club"
+            rows={data.clubs}
+            onChange={(rows) => set('clubs', rows)}
+            placeholder="e.g. HYC"
+            allowMultiple
+          />
         )}
         {enabledFields.includes('nationality') && (
           <div className="space-y-1.5">

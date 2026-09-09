@@ -87,7 +87,7 @@ describe.skipIf(skip)('reconcile-identities apply path', () => {
       fleetIds: [],
       sailNumber: p.sailNumber,
       names: [p.name],
-      club: p.club,
+      clubs: p.club ? [p.club] : [],
       gender: '',
       age: null,
       excluded: p.excluded ?? false,
@@ -282,7 +282,7 @@ describe.skipIf(skip)('reconcile-identities manifest apply path (#218)', () => {
       fleetIds: [],
       sailNumber: p.sailNumber,
       names: [p.name],
-      club: p.club ?? '',
+      clubs: p.club ? [p.club] : [],
       gender: '',
       age: null,
     });
@@ -532,7 +532,7 @@ describe.skipIf(skip)('reconcile-identities crew slot (#348)', () => {
       sailNumber: p.sailNumber,
       names: [p.name],
       crewNames: p.crewNames ?? null,
-      club: p.club ?? 'KSC',
+      clubs: [p.club ?? 'KSC'],
       gender: '',
       age: null,
     });

@@ -227,7 +227,7 @@ function buildDemoCompetitors(seriesId: string, defaultFleetId: string | null): 
     // of the string, so a country prefix would defeat number-only entry.
     sailNumber: `${210001 + i * 137}`,
     names: [name],
-    club: '',
+    clubs: [],
     nationality: DEMO_NATIONS[i % DEMO_NATIONS.length],
     gender: '',
     age: null,

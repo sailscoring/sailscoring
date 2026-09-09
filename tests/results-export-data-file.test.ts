@@ -47,8 +47,8 @@ const SERIES: Series = {
 const FLEET: Fleet = { id: 'f1', seriesId: 's1', name: 'Default', displayOrder: 0, scoringSystem: 'scratch' };
 
 const COMPETITORS: Competitor[] = [
-  { id: 'c1', seriesId: 's1', fleetIds: ['f1'], sailNumber: '101', names: ['Helm 101'], club: '', gender: '', age: null, createdAt: 0 },
-  { id: 'c2', seriesId: 's1', fleetIds: ['f1'], sailNumber: '102', names: ['Helm 102'], club: '', gender: '', age: null, createdAt: 0 },
+  { id: 'c1', seriesId: 's1', fleetIds: ['f1'], sailNumber: '101', names: ['Helm 101'], clubs: [], gender: '', age: null, createdAt: 0 },
+  { id: 'c2', seriesId: 's1', fleetIds: ['f1'], sailNumber: '102', names: ['Helm 102'], clubs: [], gender: '', age: null, createdAt: 0 },
 ];
 
 const RACES: Race[] = [

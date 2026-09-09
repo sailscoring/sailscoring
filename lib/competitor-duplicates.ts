@@ -38,7 +38,7 @@ function groupKey(c: Competitor): string {
  *  favour of the copy the scorer would least want to retype. */
 function completeness(c: Competitor): number {
   let n = 0;
-  for (const v of [c.boatName, c.boatClass, c.names.join(' '), c.owners?.join(' '), c.helms?.join(' '), c.crewNames?.join(' '), c.club, c.nationality]) {
+  for (const v of [c.boatName, c.boatClass, c.names.join(' '), c.owners?.join(' '), c.helms?.join(' '), c.crewNames?.join(' '), c.clubs.join(' '), c.nationality]) {
     if (v && v.trim()) n++;
   }
   for (const v of [c.ircTcc, c.vprsTcc, c.pyNumber, c.nhcStartingTcf, c.echoStartingTcf, c.age]) {
@@ -224,7 +224,7 @@ function overlayFields(base: Competitor, next: Competitor): Competitor {
     owners: next.owners?.length ? next.owners : base.owners,
     helms: next.helms?.length ? next.helms : base.helms,
     crewNames: next.crewNames?.length ? next.crewNames : base.crewNames,
-    club: str(next.club, base.club) ?? '',
+    clubs: next.clubs.length ? next.clubs : base.clubs,
     nationality: str(next.nationality, base.nationality),
     gender: next.gender || base.gender,
     age: next.age ?? base.age,

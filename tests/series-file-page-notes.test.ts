@@ -54,7 +54,7 @@ function makeSeries(): Series {
 
 const competitor: Competitor = {
   id: 'c1', seriesId: 's1', fleetIds: ['fl-1'], sailNumber: '214',
-  names: ['A Sailor'], club: '', gender: '', age: null, createdAt: 0,
+  names: ['A Sailor'], clubs: [], gender: '', age: null, createdAt: 0,
 };
 
 const snapshot: SeriesSnapshot = {

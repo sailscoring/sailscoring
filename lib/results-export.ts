@@ -269,7 +269,7 @@ async function buildCompetitorListFile(
     ...(c.owners?.length ? { owners: c.owners } : {}),
     ...(c.helms?.length ? { helms: c.helms } : {}),
     ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
-    ...(c.club ? { club: c.club } : {}),
+    ...(c.clubs.length ? { clubs: c.clubs } : {}),
     ...(c.nationality ? { nationality: c.nationality } : {}),
     ...(c.worldSailingId ? { worldSailingId: c.worldSailingId } : {}),
     ...(c.subdivisions && Object.keys(c.subdivisions).length > 0

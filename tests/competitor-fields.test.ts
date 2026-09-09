@@ -7,6 +7,10 @@ import {
   PRIMARY_PERSON_LABELS,
   PRIMARY_PERSON_LABEL_TEXT,
   cleanPersonNames,
+  cleanClubs,
+  formatClubs,
+  isClubMember,
+  sameClubs,
   competitorFleetNames,
   defaultEnabledCompetitorFields,
   formatAlternativeSailNumbers,
@@ -262,6 +266,49 @@ describe('cleanPersonNames', () => {
     expect(cleanPersonNames([])).toBeUndefined();
     expect(cleanPersonNames(['  '])).toBeUndefined();
     expect(cleanPersonNames(undefined)).toBeUndefined();
+  });
+});
+
+describe('cleanClubs', () => {
+  it('trims and drops blanks', () => {
+    expect(cleanClubs([' HYC ', '', '  ', 'RIYC'])).toEqual(['HYC', 'RIYC']);
+    expect(cleanClubs(undefined)).toEqual([]);
+  });
+
+  it('drops a repeat, keeping the first spelling', () => {
+    // The standard OA sheet has a Club and an Other Club column; a member of
+    // one club fills both in with the same answer.
+    expect(cleanClubs(['Howth YC', 'howth yc'])).toEqual(['Howth YC']);
+  });
+
+  it('keeps the order the entry list wrote', () => {
+    expect(cleanClubs(['RIYC', 'HYC'])).toEqual(['RIYC', 'HYC']);
+  });
+});
+
+describe('formatClubs', () => {
+  it('joins the list for one-line contexts', () => {
+    expect(formatClubs(['HYC', 'RIYC'])).toBe('HYC, RIYC');
+    expect(formatClubs(['HYC'])).toBe('HYC');
+    expect(formatClubs([])).toBe('');
+  });
+});
+
+describe('isClubMember', () => {
+  it('matches any club on the list, not just the first', () => {
+    expect(isClubMember(['RIYC', 'HYC'], 'HYC')).toBe(true);
+    expect(isClubMember(['RIYC', 'HYC'], ' HYC ')).toBe(true);
+    expect(isClubMember(['RIYC'], 'HYC')).toBe(false);
+    expect(isClubMember([], 'HYC')).toBe(false);
+  });
+});
+
+describe('sameClubs', () => {
+  it('ignores blanks and repeats, and is order-sensitive', () => {
+    expect(sameClubs(['HYC', ''], [' HYC '])).toBe(true);
+    expect(sameClubs(undefined, [])).toBe(true);
+    expect(sameClubs(['HYC', 'RIYC'], ['RIYC', 'HYC'])).toBe(false);
+    expect(sameClubs(['HYC'], ['HYC', 'RIYC'])).toBe(false);
   });
 });
 

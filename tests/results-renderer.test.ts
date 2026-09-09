@@ -799,14 +799,14 @@ describe('renderSeriesHtml', () => {
       ...MINIMAL,
       enabledCompetitorFields: ['club'],
       standings: [
-        { ...MINIMAL.standings[0], club: 'HYC' },
-        { ...MINIMAL.standings[1], club: 'RStGYC' },
+        { ...MINIMAL.standings[0], clubs: ['HYC'] },
+        { ...MINIMAL.standings[1], clubs: ['RStGYC'] },
       ],
       races: MINIMAL.races.map((r) => ({
         ...r,
         results: r.results.map((res) => ({
           ...res,
-          club: res.sailNumber === '42' ? 'HYC' : 'RStGYC',
+          clubs: res.sailNumber === '42' ? ['HYC'] : ['RStGYC'],
         })),
       })),
     };
@@ -823,6 +823,17 @@ describe('renderSeriesHtml', () => {
       // Summary table + two race tables each carry the header.
       const headerCount = html.split('<th>Club</th>').length - 1;
       expect(headerCount).toBe(3);
+    });
+
+    it('publishes every club an entry lists, stacked as the role columns are', () => {
+      const html = renderSeriesHtml({
+        ...withClub,
+        standings: [
+          { ...withClub.standings[0], clubs: ['HYC', 'RIYC'] },
+          withClub.standings[1],
+        ],
+      });
+      expect(html).toContain('<td>HYC<br>RIYC</td>');
     });
 
     it('suppresses the column when enabled but no competitor has a value', () => {
@@ -1039,21 +1050,21 @@ describe('assembleSeriesResultsData', () => {
       series,
       races,
       [
-        { ...standings[0], competitor: { ...standings[0].competitor, club: 'HYC' } },
-        { ...standings[1], competitor: { ...standings[1].competitor, club: 'RStGYC' } },
+        { ...standings[0], competitor: { ...standings[0].competitor, clubs: ['HYC'] } },
+        { ...standings[1], competitor: { ...standings[1].competitor, clubs: ['RStGYC'] } },
       ],
       raceScoresByRaceId,
       new Map([
-        ['c1', { id: 'c1', sailNumber: '42', names: ['Alice'], club: 'HYC' }],
-        ['c2', { id: 'c2', sailNumber: '99', names: ['Bob'], club: 'RStGYC' }],
+        ['c1', { id: 'c1', sailNumber: '42', names: ['Alice'], clubs: ['HYC'] }],
+        ['c2', { id: 'c2', sailNumber: '99', names: ['Bob'], clubs: ['RStGYC'] }],
       ]),
       ['club'],
       now,
     );
-    expect(data.standings[0].club).toBe('HYC');
-    expect(data.standings[1].club).toBe('RStGYC');
-    expect(data.races[0].results.find((r) => r.sailNumber === '42')?.club).toBe('HYC');
-    expect(data.races[0].results.find((r) => r.sailNumber === '99')?.club).toBe('RStGYC');
+    expect(data.standings[0].clubs).toEqual(['HYC']);
+    expect(data.standings[1].clubs).toEqual(['RStGYC']);
+    expect(data.races[0].results.find((r) => r.sailNumber === '42')?.clubs).toEqual(['HYC']);
+    expect(data.races[0].results.find((r) => r.sailNumber === '99')?.clubs).toEqual(['RStGYC']);
   });
 });
 
@@ -1734,7 +1745,7 @@ describe('renderPrizesHtml', () => {
         rank,
         competitor: {
           id: `c-${sailNumber}`, seriesId: 's1', fleetIds: ['fl-1'], sailNumber,
-          names: [name], club: '', gender: '' as const, age: null, createdAt: 0,
+          names: [name], clubs: [], gender: '' as const, age: null, createdAt: 0,
         },
         racePoints: [], raceRanks: [], raceCodes: [], racePenaltyCodes: [],
         racePenaltyOverrides: [], raceRedressFlags: [], totalPoints: rank,
@@ -1841,7 +1852,7 @@ describe('renderCompetitorListHtml', () => {
   it('carries the enabled competitor fields, tally number included', () => {
     const html = renderCompetitorListHtml(
       chrome,
-      [row({ tallyNumber: 'T0001', club: 'HYC' })],
+      [row({ tallyNumber: 'T0001', clubs: ['HYC'] })],
       { enabledCompetitorFields: ['tallyNumber', 'club'], multiFleet: false },
     );
     expect(html).toContain('<th>Tally</th>');

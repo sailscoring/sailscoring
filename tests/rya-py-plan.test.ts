@@ -12,7 +12,7 @@ function comp(id: string, fleetIds: string[], extras: Partial<Competitor> = {}):
     fleetIds,
     sailNumber: id,
     names: [id],
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: 0,

@@ -10,7 +10,7 @@ function competitor(overrides: Partial<Competitor>): Competitor {
     fleetIds: ['f1'],
     sailNumber: 'IRL1234',
     names: ['Jane Doe'],
-    club: 'HYC',
+    clubs: ['HYC'],
     gender: '',
     age: null,
     createdAt: 0,
@@ -40,7 +40,7 @@ describe('competitorMatchesFilter', () => {
       helms: ['Alice Helm'],
       owners: ['Bob Owner'],
       crewNames: ['Carol Crew'],
-      club: 'Howth YC',
+      clubs: ['Howth YC'],
     });
     expect(competitorMatchesFilter(c, 'jane')).toBe(true);
     expect(competitorMatchesFilter(c, 'windshift')).toBe(true);
@@ -69,7 +69,7 @@ describe('competitorMatchesFilter', () => {
   test('a word must not match across field boundaries', () => {
     // "DoeHYC" spanning name+club must not match: fields are joined with a
     // separator, not concatenated.
-    const c = competitor({ names: ['Jane Doe'], club: 'HYC' });
+    const c = competitor({ names: ['Jane Doe'], clubs: ['HYC'] });
     expect(competitorMatchesFilter(c, 'doehyc')).toBe(false);
   });
 });

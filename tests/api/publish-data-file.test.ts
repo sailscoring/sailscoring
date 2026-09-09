@@ -44,7 +44,7 @@ describe.skipIf(skip)('publish handler — the data file (ADR-012)', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, seriesId, compId, {
       id: compId, seriesId, fleetIds: [], sailNumber: sail,
-      names: [name], club: 'HYC', gender: '' as const, age: null,
+      names: [name], clubs: ['HYC'], gender: '' as const, age: null,
       createdAt: Date.now(),
     });
     const finishId = uuid();
@@ -112,13 +112,13 @@ describe.skipIf(skip)('publish handler — the data file (ADR-012)', () => {
     const json = await readPublishedHtml(stored.dataBlobUrl!);
     expect(json).not.toBeNull();
     const parsed = JSON.parse(json!) as PublicSeriesExport;
-    expect(parsed.version).toBe(2);
+    expect(parsed.version).toBe(3);
     expect(parsed.series.name).toBe('Summer Series');
     const boat = parsed.competitors.find((c) => c.sailNumber === '1')!;
     expect(boat.names).toEqual(['Aurelia']);
     // The v2 contract in the stored artifact: club is set on the competitor
     // but not displayed and read by nothing published, so it must not travel.
-    expect(boat.club).toBeUndefined();
+    expect(boat.clubs).toBeUndefined();
   });
 
   test('re-publish keeps the frozen sub-path and supersedes the blob', async () => {

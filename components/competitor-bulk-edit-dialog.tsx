@@ -42,7 +42,9 @@ export type BulkEditFieldOption =
       /** Reads the field off a competitor, feeding the datalist of existing
        *  values — inconsistencies ("HYC" vs "Howth YC") show up right where
        *  the scorer is about to fix them. */
-      suggestionFrom?: (c: Competitor) => string | undefined;
+      /** Values already in use, offered as datalist suggestions. A field
+       *  that holds several (the clubs) offers each of them. */
+      suggestionFrom?: (c: Competitor) => string | string[] | undefined;
     }
   | { key: 'fleet'; label: string; input: 'fleet'; fleets: Fleet[] };
 
@@ -66,7 +68,7 @@ export function bulkEditFieldOptions(
       label: COMPETITOR_FIELD_LABELS.club,
       input: 'text',
       patchFor: (value) => ({ field: 'club', value }),
-      suggestionFrom: (c) => c.club,
+      suggestionFrom: (c) => c.clubs,
     });
   }
   if (enabledFields.includes('boatClass')) {
@@ -161,8 +163,11 @@ export function CompetitorBulkEditDialog({
     if (option?.input === 'fleet' || !option?.suggestionFrom) return [];
     const values = new Set<string>();
     for (const c of allCompetitors) {
-      const v = option.suggestionFrom(c)?.trim();
-      if (v) values.add(v);
+      const read = option.suggestionFrom(c);
+      for (const raw of typeof read === 'string' ? [read] : read ?? []) {
+        const v = raw.trim();
+        if (v) values.add(v);
+      }
     }
     return [...values].sort((a, b) => a.localeCompare(b));
   }, [allCompetitors, option]);

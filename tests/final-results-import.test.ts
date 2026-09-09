@@ -57,8 +57,8 @@ const fleet: Fleet = {
   id: 'fl-1', seriesId: 's1', name: 'ILCA 7', displayOrder: 0, scoringSystem: 'scratch',
 };
 const competitors: Competitor[] = [
-  { id: 'c1', seriesId: 's1', fleetIds: ['fl-1'], sailNumber: '215001', names: ['Alice'], club: '', gender: '', age: null, createdAt: 0 },
-  { id: 'c2', seriesId: 's1', fleetIds: ['fl-1'], sailNumber: '215002', names: ['Bob'], club: '', gender: '', age: null, createdAt: 0 },
+  { id: 'c1', seriesId: 's1', fleetIds: ['fl-1'], sailNumber: '215001', names: ['Alice'], clubs: [], gender: '', age: null, createdAt: 0 },
+  { id: 'c2', seriesId: 's1', fleetIds: ['fl-1'], sailNumber: '215002', names: ['Bob'], clubs: [], gender: '', age: null, createdAt: 0 },
 ];
 const races: Race[] = [
   { id: 'r1', seriesId: 's1', raceNumber: 1, name: null, date: '2026-08-24', createdAt: 0 },

@@ -64,7 +64,7 @@ function makeCompetitor(seriesId: string, sailNumber: string): Competitor {
     names: [`Boat ${sailNumber}`],
     boatName: '',
     boatClass: '',
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: Date.now(),

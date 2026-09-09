@@ -128,7 +128,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             owners: c.owners?.length ? c.owners : null,
             helms: c.helms?.length ? c.helms : null,
             crewNames: c.crewNames?.length ? c.crewNames : null,
-            club: c.club,
+            clubs: c.clubs,
             nationality: c.nationality ?? null,
             gender: c.gender,
             age: c.age,

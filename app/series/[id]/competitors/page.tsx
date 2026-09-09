@@ -90,6 +90,8 @@ import {
   subdivisionAxes,
   subdivisionAxisLabel,
   cleanPersonNames,
+  cleanClubs,
+  formatClubs,
   formatPrimaryNames,
   cleanSubdivisions,
   parseAlternativeSailNumbers,
@@ -515,7 +517,7 @@ export default function CompetitorsPage({
         const crew = cleanPersonNames(data.crewNames);
         return crew ? { crewNames: crew } : {};
       })(),
-      club: data.club,
+      clubs: cleanClubs(data.clubs),
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       // Gender and age describe a single named primary; a multi-person entry
       // (syndicate, co-helms) carries neither. The dialog states this before
@@ -577,7 +579,7 @@ export default function CompetitorsPage({
         const crew = cleanPersonNames(data.crewNames);
         return crew ? { crewNames: crew } : {};
       })(),
-      club: data.club,
+      clubs: cleanClubs(data.clubs),
       ...(data.nationality.trim() ? { nationality: data.nationality.trim() } : {}),
       // Gender and age describe a single named primary; a multi-person entry
       // (syndicate, co-helms) carries neither. The dialog states this before
@@ -712,7 +714,7 @@ export default function CompetitorsPage({
     ...(showHelm ? [col('helms', (a, b) => compareText(names(a.helms), names(b.helms)))] : []),
     ...(showOwner ? [col('owners', (a, b) => compareText(names(a.owners), names(b.owners)))] : []),
     ...(showCrew ? [col('crewNames', (a, b) => compareText(names(a.crewNames), names(b.crewNames)))] : []),
-    ...(showClub ? [col('club', (a, b) => compareText(a.club, b.club))] : []),
+    ...(showClub ? [col('club', (a, b) => compareText(formatClubs(a.clubs), formatClubs(b.clubs)))] : []),
     ...(showNationality ? [col('nationality', (a, b) => compareText(a.nationality, b.nationality))] : []),
     ...(multipleFleets ? [col('fleets', (a, b) => compareText(fleetNames(a), fleetNames(b)))] : []),
     // A boat can carry more than one rating; sort on the one the cell shows
@@ -1031,7 +1033,7 @@ export default function CompetitorsPage({
                 {showHelm && <TableCell className="whitespace-normal break-words">{(c.helms ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
                 {showOwner && <TableCell className="whitespace-normal break-words">{(c.owners ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
                 {showCrew && <TableCell className="whitespace-normal break-words">{(c.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
-                {showClub && <TruncatedCell value={c.club} />}
+                {showClub && <TruncatedCell value={formatClubs(c.clubs)} />}
                 {showNationality && <TableCell className="font-mono">{c.nationality ?? ''}</TableCell>}
                 {multipleFleets && <TableCell className="whitespace-normal break-words">{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
                 {showRating && (
@@ -1238,7 +1240,7 @@ export default function CompetitorsPage({
                 owners: editingCompetitor.owners ?? [],
                 helms: editingCompetitor.helms ?? [],
                 crewNames: editingCompetitor.crewNames ?? [],
-                club: editingCompetitor.club,
+                clubs: editingCompetitor.clubs,
                 nationality: editingCompetitor.nationality ?? '',
                 gender: editingCompetitor.gender,
                 age: editingCompetitor.age?.toString() ?? '',

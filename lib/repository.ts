@@ -94,8 +94,9 @@ export interface SeriesRepository {
  * One-field write for the bulk "Set field…" action: the named field is set
  * to the given value on every targeted competitor; all other fields are
  * untouched. An empty value clears the field — optional columns go to null,
- * `club` (required) stays '', and a subdivision entry is removed from the
- * map rather than stored empty. Fleet membership is a set, not a scalar, so
+ * `club` writes a one-club list (empty, so no affiliation at all), and a
+ * subdivision entry is removed from the map rather than stored empty. Fleet
+ * membership is a set, not a scalar, so
  * its patch is an add/remove op against one fleet; both directions are
  * idempotent per row.
  */

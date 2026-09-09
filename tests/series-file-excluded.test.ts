@@ -87,7 +87,7 @@ function baseSeries(): Series {
 function competitor(id: string, sailNumber: string, extra: Partial<Competitor> = {}): Competitor {
   return {
     id, seriesId: 'file-series', fleetIds: ['fleet-1'], sailNumber, names: [sailNumber],
-    club: '', gender: '', age: null, createdAt: 0, ...extra,
+    clubs: [], gender: '', age: null, createdAt: 0, ...extra,
   };
 }
 
@@ -132,8 +132,8 @@ describe('excluded competitor file round-trip', () => {
       series: baseSeries(),
       fleets: [{ id: 'file-fleet', name: 'Fleet', displayOrder: 0, scoringSystem: 'scratch' }],
       competitors: [
-        { id: 'fc-1', fleetIds: ['file-fleet'], sailNumber: '1', names: ['One'], club: '', gender: '', age: null },
-        { id: 'fc-2', fleetIds: ['file-fleet'], sailNumber: '2', names: ['Two'], club: '', gender: '', age: null, excluded: true },
+        { id: 'fc-1', fleetIds: ['file-fleet'], sailNumber: '1', names: ['One'], clubs: [], gender: '', age: null },
+        { id: 'fc-2', fleetIds: ['file-fleet'], sailNumber: '2', names: ['Two'], clubs: [], gender: '', age: null, excluded: true },
       ],
       races: [],
     } as unknown as SeriesFile;

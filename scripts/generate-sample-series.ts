@@ -1019,7 +1019,7 @@ function buildChampionship(): SeriesFile {
       fleetIds: [],
       sailNumber: sail,
       names: [name],
-      club: '',
+      clubs: [],
       nationality: NATIONS[i],
       gender: female ? 'F' : 'M',
       age: null,

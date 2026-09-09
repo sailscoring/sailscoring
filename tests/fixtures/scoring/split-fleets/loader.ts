@@ -267,7 +267,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     const [sail, ...rest] = entry.trim().split(/\s+/);
     competitors.set(sail, {
       id: sail, seriesId: 's', fleetIds: [], sailNumber: sail,
-      names: [rest.join(' ') || sail], club: '', gender: '', age: null, createdAt: i,
+      names: [rest.join(' ') || sail], clubs: [], gender: '', age: null, createdAt: i,
     });
   }
   const requireCompetitor = (sail: string): Competitor => {

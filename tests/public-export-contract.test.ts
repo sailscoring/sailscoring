@@ -46,7 +46,7 @@ const fleet: Fleet = { id: 'fl-1', seriesId: 's1', name: 'Default', displayOrder
 function makeCompetitor(id: string, sail: string, overrides?: Partial<Competitor>): Competitor {
   return {
     id, seriesId: 's1', fleetIds: ['fl-1'], sailNumber: sail, names: [`Helm ${sail}`],
-    club: '', gender: '', age: null, createdAt: 0,
+    clubs: [], gender: '', age: null, createdAt: 0,
     ...overrides,
   };
 }
@@ -64,7 +64,7 @@ const fullCompetitor = makeCompetitor('c1', '101', {
   owners: ['O. Owner'],
   helms: ['H. Helm'],
   crewNames: ['C. Crew'],
-  club: 'HYC',
+  clubs: ['HYC'],
   nationality: 'IRL',
   gender: 'F',
   age: 34,
@@ -117,7 +117,7 @@ function makeRecordingRepos() {
 describe('public export v2 — hidden competitor columns', () => {
   it('drops every hidden non-scoring field and keeps identity + rating inputs', () => {
     const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
-    expect(data.version).toBe(2);
+    expect(data.version).toBe(3);
     const c = data.competitors.find((x) => x.sailNumber === '101')!;
     // Identity and scoring inputs stay.
     expect(c.names).toEqual(['Helm 101']);
@@ -136,7 +136,7 @@ describe('public export v2 — hidden competitor columns', () => {
     expect(c.owners).toBeUndefined();
     expect(c.helms).toBeUndefined();
     expect(c.crewNames).toBeUndefined();
-    expect(c.club).toBeUndefined();
+    expect(c.clubs).toBeUndefined();
     expect(c.nationality).toBeUndefined();
     expect(c.gender).toBeUndefined();
     expect(c.age).toBeUndefined();
@@ -148,7 +148,7 @@ describe('public export v2 — hidden competitor columns', () => {
     const data = buildPublicExportFromSnapshot(makeSnapshot(series))!;
     const c = data.competitors.find((x) => x.sailNumber === '101')!;
     expect(c.boatName).toBe('Windshift');
-    expect(c.club).toBe('HYC');
+    expect(c.clubs).toEqual(['HYC']);
     expect(c.crewNames).toEqual(['C. Crew']);
     expect(c.gender).toBeUndefined();
   });
@@ -165,7 +165,7 @@ describe('public export v2 — hidden competitor columns', () => {
     expect(c.gender).toBe('F');
     expect(c.subdivisions).toEqual({ 'axis-1': 'Silver' });
     // No clause reads club or nationality, and neither is displayed.
-    expect(c.club).toBeUndefined();
+    expect(c.clubs).toBeUndefined();
     expect(c.nationality).toBeUndefined();
   });
 
@@ -212,12 +212,33 @@ describe('public export v2 — hidden competitor columns', () => {
     expect(saved?.excludeDncOnlyCompetitors).toBe(true);
   });
 
+  it('carries every club and restores the list on import', async () => {
+    const series = makeSeries('s1', { enabledCompetitorFields: ['club'] });
+    const withTwo = { ...fullCompetitor, clubs: ['HYC', 'RIYC'] };
+    const data = buildPublicExportFromSnapshot(
+      makeSnapshot(series, { competitors: [withTwo, makeCompetitor('c2', '102')] }),
+    )!;
+    expect(data.competitors.find((c) => c.sailNumber === '101')!.clubs).toEqual(['HYC', 'RIYC']);
+    const { repos, savedCompetitors } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    expect(savedCompetitors.find((c) => c.sailNumber === '101')!.clubs).toEqual(['HYC', 'RIYC']);
+  });
+
+  it('reads a v1/v2 export’s single club as a one-element list', async () => {
+    const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
+    const legacy = { ...data, version: 2 as const };
+    legacy.competitors = data.competitors.map((c) => ({ ...c, clubs: undefined, club: 'HYC' }));
+    const { repos, savedCompetitors } = makeRecordingRepos();
+    await importPublicExport(legacy, repos);
+    expect(savedCompetitors.find((c) => c.sailNumber === '101')!.clubs).toEqual(['HYC']);
+  });
+
   it('defaults absent club/gender/age on import', async () => {
     const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
     const { repos, savedCompetitors } = makeRecordingRepos();
     await importPublicExport(data, repos);
     const imported = savedCompetitors.find((c) => c.sailNumber === '101')!;
-    expect(imported.club).toBe('');
+    expect(imported.clubs).toEqual([]);
     expect(imported.gender).toBe('');
     expect(imported.age).toBeNull();
   });

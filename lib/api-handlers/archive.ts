@@ -258,7 +258,7 @@ export async function putArchiveSeries(
         fleetIds: c.fleetIds,
         sailNumber: c.sailNumber,
         names: [c.name],
-        club: c.club ?? '',
+        clubs: c.club ? [c.club] : [],
         nationality: c.nationality ?? null,
         gender: c.gender ?? '',
         age: c.age ?? null,

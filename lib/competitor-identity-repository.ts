@@ -5,6 +5,7 @@ import { and, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import type { IdentityRole } from '@/lib/competitor-identity-cluster';
 import { workspaceIdentityFeatureOn } from '@/lib/competitor-identity-reconcile';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
+import { joinClubsForMatching } from '@/lib/competitor-identity-match';
 import { mintSlug } from '@/lib/competitor-slug';
 import { getDb } from '@/lib/db/client';
 import {
@@ -93,7 +94,7 @@ function assemble(
     venue: string | null;
     startDate: string | null;
     compSailNumber: string | null;
-    compClub: string | null;
+    compClubs: string[] | null;
     compNames: string[] | null;
     age: number | null;
     role: string | null;
@@ -129,7 +130,7 @@ function assemble(
         startDate: r.startDate ?? '',
         year: yearOf(r.startDate ?? ''),
         sailNumber: r.compSailNumber ?? '',
-        club: r.compClub ?? '',
+        club: joinClubsForMatching(r.compClubs ?? []),
         age: r.age,
         role,
         sailedWith:
@@ -164,7 +165,7 @@ const selection = {
   venue: series.venue,
   startDate: series.startDate,
   compSailNumber: competitors.sailNumber,
-  compClub: competitors.club,
+  compClubs: competitors.clubs,
   compNames: competitors.names,
   age: competitors.age,
   role: competitorIdentityLinks.role,
@@ -466,7 +467,7 @@ export async function splitIdentity(
         id: competitors.id,
         names: competitors.names,
         sailNumber: competitors.sailNumber,
-        club: competitors.club,
+        clubs: competitors.clubs,
         nationality: competitors.nationality,
         startDate: series.startDate,
         asPublished: series.asPublished,
@@ -513,7 +514,7 @@ export async function splitIdentity(
       label: formatPrimaryNames(rep.names),
       slug: mintSlug(formatPrimaryNames(rep.names), reserved),
       sailNumber: rep.sailNumber,
-      club: rep.club || null,
+      club: joinClubsForMatching(rep.clubs) || null,
       nationality: rep.nationality ?? null,
     });
     await tx

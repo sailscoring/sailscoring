@@ -55,7 +55,7 @@ function competitor(id: string, sail: string, fleetIds: string[], tallyNumber?: 
     fleetIds,
     sailNumber: sail,
     names: [`Helm ${sail}`],
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: 0,

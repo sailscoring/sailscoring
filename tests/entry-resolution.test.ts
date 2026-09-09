@@ -16,7 +16,7 @@ import type { Competitor, Finish, Fleet, Race, SubSeries } from '@/lib/types';
 const fleet: Fleet = { id: 'f1', seriesId: 's1', name: 'Fleet', displayOrder: 0, scoringSystem: 'scratch' };
 
 function competitor(id: string, extra: Partial<Competitor> = {}): Competitor {
-  return { id, seriesId: 's1', fleetIds: ['f1'], sailNumber: id, names: [id], club: '', gender: '', age: null, createdAt: 0, ...extra };
+  return { id, seriesId: 's1', fleetIds: ['f1'], sailNumber: id, names: [id], clubs: [], gender: '', age: null, createdAt: 0, ...extra };
 }
 function race(id: string, raceNumber: number): Race {
   return { id, seriesId: 's1', raceNumber, name: null, date: '2026-01-01', createdAt: 0 };

@@ -23,7 +23,7 @@ function comp(
     fleetIds,
     sailNumber,
     names: [id],
-    club: '',
+    clubs: [],
     gender: '',
     age: null,
     createdAt: 0,

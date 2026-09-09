@@ -5,6 +5,7 @@ import {
   buildClubCanonicalizer,
   impliedBirthYear,
   isLowSignalPersonName,
+  joinClubsForMatching,
   normalizeClubs,
   normalizePersonName,
   personNamesMatch,
@@ -86,6 +87,13 @@ describe('clubs', () => {
     expect(normalizeClubs('WHSC / RCYC')).toEqual(['whsc', 'rcyc']);
     expect(normalizeClubs('TBSC/CHSC')).toEqual(['tbsc', 'chsc']);
     expect(normalizeClubs('RStGYC')).toEqual(['rstgyc']);
+  });
+
+  it('renders a competitor’s club list into the field the matcher splits', () => {
+    // Round-trip: whatever the entry lists, the matcher sees every club.
+    expect(joinClubsForMatching(['WHSC', 'RCYC'])).toBe('WHSC / RCYC');
+    expect(normalizeClubs(joinClubsForMatching(['WHSC', 'RCYC']))).toEqual(['whsc', 'rcyc']);
+    expect(joinClubsForMatching([])).toBe('');
   });
 
   it('reads a spelled-out club and its acronym as one club', () => {

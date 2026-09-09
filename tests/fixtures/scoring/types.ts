@@ -329,7 +329,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       fleetIds: [fleetId],
       sailNumber: c.sailNumber,
       names: [c.name],
-      club: '',
+      clubs: [],
       gender: '',
       age: null,
       createdAt: 0,

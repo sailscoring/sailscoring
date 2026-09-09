@@ -81,7 +81,7 @@ describe.skipIf(skip)('publish handler — race-results detail (#347)', () => {
       const compId = uuid();
       await competitors.putCompetitor(ctx, seriesId, compId, {
         id: compId, seriesId, fleetIds: [], sailNumber: `${sort + 1}`,
-        names: [name], club: 'HYC', gender: '' as const, age: null,
+        names: [name], clubs: ['HYC'], gender: '' as const, age: null,
         createdAt: Date.now(),
       });
       sort += 1;
@@ -162,7 +162,7 @@ describe.skipIf(skip)('publish handler — race-results detail (#347)', () => {
     const compId = uuid();
     await competitors.putCompetitor(ctx, otherId, compId, {
       id: compId, seriesId: otherId, fleetIds: [], sailNumber: '7',
-      names: ['Carmen'], club: 'HYC', gender: '' as const, age: null,
+      names: ['Carmen'], clubs: ['HYC'], gender: '' as const, age: null,
       createdAt: Date.now(),
     });
     const otherFinishId = uuid();

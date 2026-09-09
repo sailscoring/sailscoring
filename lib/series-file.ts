@@ -403,9 +403,17 @@ export interface SeriesFileRepos {
  *  publishing already uses. Both sparse. An older build reading a v46 file
  *  drops them, republishing pages without the sentence that explained why the
  *  figures read as they do, which is why this is a bump rather than a
+ *  ride-along.
+ *
+ *  v47 replaces `competitors[*].club` (a single club) with `clubs` (an
+ *  ordered list, primary affiliation first — Irish entry lists routinely
+ *  carry a Club and an Other Club, #515). Sparse: an entry stating no club
+ *  carries neither key. The parser folds a legacy `club` into a one-element
+ *  list on read, as it does `crewName`. An older build reading a v47 file
+ *  would lose every club on it, which is why this is a bump rather than a
  *  ride-along. */
-export const FORMAT_VERSION = 46;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46];
+export const FORMAT_VERSION = 47;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -526,7 +534,8 @@ interface SeriesFileCompetitor {
   helm?: string;      // v2–v21 legacy; folds into `helms`
   crewNames?: string[];  // v21+; ordered crew list
   crewName?: string;     // ≤v20 legacy single crew; the parser folds it into `crewNames`
-  club: string;
+  clubs?: string[];   // v47+; the clubs the entry is affiliated to, primary first
+  club?: string;      // ≤v46 legacy single club; the parser folds it into `clubs`
   nationality?: string;  // v5+
   gender: 'M' | 'F' | '';
   age: number | null;
@@ -924,7 +933,7 @@ export async function buildSeriesFile(
       ...(c.owners?.length ? { owners: c.owners } : {}),
       ...(c.helms?.length ? { helms: c.helms } : {}),
       ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
-      club: c.club,
+      ...(c.clubs.length ? { clubs: c.clubs } : {}),
       ...(c.nationality ? { nationality: c.nationality } : {}),
       gender: c.gender,
       age: c.age,
@@ -1134,6 +1143,7 @@ export function migrateSeriesFileObject(obj: Record<string, unknown>): void {
   }
   if (obj.formatVersion < 21) migrateCrewNameToList(obj.competitors);
   if (obj.formatVersion < 22) migratePersonFieldsToLists(obj.competitors);
+  if (obj.formatVersion < 47) migrateClubToList(obj.competitors);
 }
 
 /** ≤v20 → v21: a single `crewName` becomes a one-element `crewNames` list.
@@ -1146,6 +1156,20 @@ function migrateCrewNameToList(competitors: unknown): void {
       c.crewNames = [c.crewName.trim()];
     }
     delete c.crewName;
+  }
+}
+
+/** ≤v46 → v47: the single `club` field becomes an ordered `clubs` list. A
+ *  blank club states no affiliation, so it folds to no key at all rather than
+ *  to a one-element list holding ''. Mutates in place. */
+function migrateClubToList(competitors: unknown): void {
+  if (!Array.isArray(competitors)) return;
+  for (const c of competitors as { club?: unknown; clubs?: string[] }[]) {
+    if (typeof c !== 'object' || c === null) continue;
+    if (c.clubs === undefined && typeof c.club === 'string' && c.club.trim()) {
+      c.clubs = [c.club.trim()];
+    }
+    delete c.club;
   }
 }
 
@@ -1894,7 +1918,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.owners?.length ? { owners: c.owners } : {}),
         ...(c.helms?.length ? { helms: c.helms } : {}),
         ...(c.crewNames?.length ? { crewNames: c.crewNames } : {}),
-        club: c.club,
+        clubs: c.clubs ?? [],
         ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
         ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
         ...(c.excluded ? { excluded: true } : {}),

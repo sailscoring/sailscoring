@@ -102,7 +102,7 @@ describe.skipIf(skip)('relinkIdentitiesAfterWrite', () => {
       fleetIds: [],
       sailNumber: p.sailNumber,
       names: p.names,
-      club: p.club ?? '',
+      clubs: p.club ? [p.club] : [],
       gender: '',
       age: null,
     });
