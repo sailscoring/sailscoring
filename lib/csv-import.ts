@@ -2,6 +2,8 @@
  * Helpers for CSV competitor import.
  */
 
+import type { MultiPersonFieldKey } from './types';
+
 /** Field roles a CSV column can map to in the importer's column-mapping
  *  dropdown. `primary` is the configurable primary-person slot (helm or
  *  owner depending on the series); `helm` and `owner` are the role-specific
@@ -51,6 +53,41 @@ export type ColumnTarget =
 
 /** A column-index-keyed map of what each CSV column maps to. */
 export type ColumnMap = Record<number, ColumnTarget>;
+
+/**
+ * Whether a column map fills the two slots an import can't do without, and
+ * which complaint to show when it doesn't.
+ *
+ * Sail number is always exactly one column. The primary name is one column
+ * too, *unless* the series has opened `primary` to several people — then every
+ * column mapped to it feeds `Competitor.names` in column order, which is how
+ * an entry list spreading a boat's owners over `Owner`, `Owner 2`, `Owner 3`
+ * imports intact (#517). The row resolver already collects those cells and
+ * splits them through `splitPersonCell`; this is the gate that used to refuse
+ * what it built.
+ *
+ * Shared by the mapping panel's messages and the dialog footer's disabled
+ * state, so the two can't drift apart.
+ */
+export function mappingSlotState(
+  columnMap: ColumnMap,
+  multiPersonFields: readonly MultiPersonFieldKey[],
+) {
+  const targets = Object.values(columnMap);
+  const primaryCount = targets.filter((t) => t === 'primary').length;
+  const sailCount = targets.filter((t) => t === 'sailNumber').length;
+  const hasSail = sailCount >= 1;
+  const hasPrimary = primaryCount >= 1;
+  const tooManySails = sailCount > 1;
+  const tooManyPrimaries = primaryCount > 1 && !multiPersonFields.includes('primary');
+  return {
+    hasSail,
+    hasPrimary,
+    tooManySails,
+    tooManyPrimaries,
+    ok: hasSail && hasPrimary && !tooManySails && !tooManyPrimaries,
+  };
+}
 
 /** Sentinel target: create a fresh subdivision axis from this column's header. */
 export const NEW_AXIS_TARGET = 'newaxis';

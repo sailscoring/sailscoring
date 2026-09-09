@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell, parseExcludedCell } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell, parseExcludedCell, mappingSlotState } from '@/lib/csv-import';
+import type { ColumnMap } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
   it('returns a single name for a plain cell', () => {
@@ -315,5 +316,48 @@ describe('routeSeedingColumn', () => {
     // mapping dropdown, and the seed dialog shows the fleet sizes before
     // anything commits.
     expect(routeSeedingColumn(['1', '2', '3', '1', '2', '3'])).toBe('seed');
+  });
+});
+
+describe('mappingSlotState', () => {
+  // The shape an OA entry list arrives in: sail, boat, then a column per owner
+  // (HYC's Autumn League sheet runs to Owner 4).
+  const ownersSpreadOverColumns: ColumnMap = {
+    0: 'sailNumber',
+    1: 'boatName',
+    2: 'primary',
+    3: 'primary',
+    4: 'primary',
+  };
+  const oneOwner: ColumnMap = { 0: 'sailNumber', 1: 'boatName', 2: 'primary' };
+
+  it('accepts the one-sail one-primary base case', () => {
+    const s = mappingSlotState(oneOwner, []);
+    expect(s.ok).toBe(true);
+    expect(s.tooManyPrimaries).toBe(false);
+  });
+
+  it('accepts several primary columns when the series opens primary to several people', () => {
+    const s = mappingSlotState(ownersSpreadOverColumns, ['primary']);
+    expect(s.ok).toBe(true);
+    expect(s.tooManyPrimaries).toBe(false);
+  });
+
+  it('still refuses several primary columns when primary holds one person', () => {
+    const s = mappingSlotState(ownersSpreadOverColumns, ['crewName']);
+    expect(s.ok).toBe(false);
+    expect(s.tooManyPrimaries).toBe(true);
+  });
+
+  it('refuses several sail-number columns however primary is configured', () => {
+    const twoSails: ColumnMap = { 0: 'sailNumber', 1: 'sailNumber', 2: 'primary' };
+    expect(mappingSlotState(twoSails, ['primary']).ok).toBe(false);
+    expect(mappingSlotState(twoSails, ['primary']).tooManySails).toBe(true);
+  });
+
+  it('requires each slot to be filled at all', () => {
+    expect(mappingSlotState({ 0: 'sailNumber' }, ['primary']).hasPrimary).toBe(false);
+    expect(mappingSlotState({ 0: 'primary' }, ['primary']).hasSail).toBe(false);
+    expect(mappingSlotState({}, ['primary']).ok).toBe(false);
   });
 });

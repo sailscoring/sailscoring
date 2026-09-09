@@ -31,6 +31,7 @@ import {
   relayFieldOf,
   splitPersonCell,
   isGroupingHeader,
+  mappingSlotState,
   routeSeedingColumn,
   NEW_AXIS_TARGET,
   RELAY_FIELDS,
@@ -824,13 +825,10 @@ function MappingDialogBody({
     () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionAxes, flow.rrs !== null),
     [flow.proposedPrimary, flow.subdivisionAxes, flow.rrs],
   );
-  const targets = Object.values(flow.columnMap);
-  const primaryCount = targets.filter((t) => t === 'primary').length;
-  const sailCount = targets.filter((t) => t === 'sailNumber').length;
-  const hasPrimary = primaryCount >= 1;
-  const hasSail = sailCount >= 1;
-  const tooManyPrimaries = primaryCount > 1;
-  const tooManySails = sailCount > 1;
+  const { hasSail, hasPrimary, tooManySails, tooManyPrimaries } = mappingSlotState(
+    flow.columnMap,
+    flow.multiPersonFields,
+  );
 
   const updateColumn = useCallback((index: number, value: ColumnTarget) => {
     setFlow((f) => {
@@ -1037,7 +1035,12 @@ function MappingDialogBody({
           {!hasSail && <p>Map one column to Sail number.</p>}
           {tooManySails && <p>Only one column may be Sail number.</p>}
           {!hasPrimary && <p>Map one column to {PRIMARY_PERSON_LABEL_TEXT[flow.proposedPrimary]} name (primary).</p>}
-          {tooManyPrimaries && <p>Only one column may be the primary name.</p>}
+          {tooManyPrimaries && (
+            <p>
+              Only one column may be the primary name. To keep a boat&apos;s other owners,
+              combine them into that one column as &ldquo;Alice &amp; Bob&rdquo;.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -2107,13 +2110,10 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                 </Button>
                 <Button
                   onClick={handleImport}
-                  disabled={(() => {
-                    if (importFlow.step !== 'mapping') return true;
-                    const t = Object.values(importFlow.columnMap);
-                    const primaryCount = t.filter((v) => v === 'primary').length;
-                    const sailCount = t.filter((v) => v === 'sailNumber').length;
-                    return sailCount !== 1 || primaryCount !== 1;
-                  })()}
+                  disabled={
+                    importFlow.step !== 'mapping' ||
+                    !mappingSlotState(importFlow.columnMap, importFlow.multiPersonFields).ok
+                  }
                 >
                   {importFlow.step === 'mapping'
                     ? `Import ${importFlow.rows.length} row${importFlow.rows.length === 1 ? '' : 's'}${importFlow.rrs ? ' & push' : ''}`
