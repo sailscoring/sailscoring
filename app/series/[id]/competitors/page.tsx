@@ -1099,7 +1099,7 @@ export default function CompetitorsPage({
       {/* Bulk delete confirm */}
       {/* Possible-duplicates review: one boat under two sail numbers, merge per group */}
       <Dialog open={possibleDuplicates !== null} onOpenChange={(open) => { if (!open) setPossibleDuplicates(null); }}>
-        <DialogContent className="w-[90vw] max-w-2xl sm:max-w-2xl">
+        <DialogContent className="w-[90vw] max-w-2xl sm:max-w-2xl max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]">
           <DialogHeader>
             <DialogTitle>Possible duplicates</DialogTitle>
             <DialogDescription>
@@ -1110,7 +1110,7 @@ export default function CompetitorsPage({
               sail number.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[55vh] overflow-y-auto space-y-3">
+          <div className="min-h-0 overflow-y-auto space-y-3">
             {possibleDuplicates?.groups.map((group) => {
               const plan = planDuplicateMerge(group, possibleDuplicates.finishes, possibleDuplicates.overrides);
               return (
@@ -1213,7 +1213,17 @@ export default function CompetitorsPage({
 
       {/* Edit dialog */}
       <Dialog open={editingCompetitor !== null} onOpenChange={(open) => { if (!open) setEditingCompetitor(null); }}>
-        <DialogContent aria-describedby={undefined}>
+        {/* The form grows with the series config — alternative sail numbers,
+            bow/entry/tally, seed, World Sailing ID, multi-person owner/helm/
+            crew lists, several clubs, subdivision axes, handicaps, ORC cert —
+            and a centred fixed dialog with no cap overflows top *and* bottom,
+            putting Save out of reach with nothing to scroll (#528). Cap it and
+            scroll the body; the form's own Save/Cancel row rides at its end,
+            which is enough to reach it. */}
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-h-[90vh] grid-rows-[auto_minmax(0,1fr)]"
+        >
           <DialogHeader>
             <DialogTitle>Edit competitor</DialogTitle>
             {editingCompetitor && (
@@ -1221,6 +1231,7 @@ export default function CompetitorsPage({
             )}
           </DialogHeader>
           {editingCompetitor && (
+          <div className="min-h-0 overflow-y-auto pr-1">
             <CompetitorForm
               orcCert={editingCompetitor.orcCert}
               initial={{
@@ -1263,6 +1274,7 @@ export default function CompetitorsPage({
               subdivisionAxes={axes}
               multiPersonFields={multiPersonFields}
             />
+          </div>
           )}
         </DialogContent>
       </Dialog>

@@ -671,3 +671,31 @@ test('an ORC fleet can be created from the import Fleets step', async ({ page, s
   await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
   await expect(page.getByTestId('fleet-row').nth(0)).toContainText('ORC');
 });
+
+test('the Edit competitor dialog keeps Save reachable on a short viewport', async ({ page }) => {
+  // #528: the dialog is fixed and centred with no height cap, so a form grown
+  // by the series config overflowed top and bottom at once and Save could not
+  // be scrolled to.
+  await createSeriesQuick(page, { name: 'Tall Edit Dialog' });
+  const csv = ['Sail,Boat,Owner,Club', '1543,Indian,Simon Knowles,HYC'].join('\n');
+  await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(csv));
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 1 row/i }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // A viewport the form comfortably outgrows.
+  await page.setViewportSize({ width: 1280, height: 320 });
+  await page.getByRole('row', { name: /1543/ }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  const save = dialog.getByRole('button', { name: /^Save/ });
+  await save.scrollIntoViewIfNeeded();
+  await expect(save).toBeInViewport();
+
+  // The dialog itself stays within the viewport, top and bottom.
+  const box = await dialog.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(320);
+});

@@ -261,7 +261,10 @@ export function CompetitorBulkEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      {/* Header, scrolling body, pinned footer — the field list and its value
+          editors grow with the series config, and Apply must stay reachable
+          on a laptop screen (#528). */}
+      <DialogContent className="max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto]">
         <DialogHeader>
           <DialogTitle>Set a field on {noun}</DialogTitle>
           <DialogDescription>
@@ -270,7 +273,7 @@ export function CompetitorBulkEditDialog({
               : 'Writes one value to every selected competitor. Leave the value empty to clear the field instead.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
           <div className="space-y-1.5">
             <Label htmlFor="bulk-edit-field">Field</Label>
             <Select
