@@ -13,17 +13,28 @@ import { useState } from 'react';
 
 import { setActiveWorkspace } from '@/lib/auth-client';
 import { useSeriesLocation } from '@/hooks/use-series';
+import type { SeriesLocation } from '@/lib/api-handlers/series';
 import { Button } from '@/components/ui/button';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 export function SeriesNotFound({ seriesId }: { seriesId: string }) {
   const { data: location, isLoading } = useSeriesLocation(seriesId);
-  const [busy, setBusy] = useState(false);
 
   // Hold the loading state while the lookup runs so the page never flashes
   // "Series not found." at a scorer whose series is one switch away.
   if (isLoading) return <SeriesTabFallback status="loading" />;
   if (!location) return <SeriesTabFallback status="missing" />;
+  return <SeriesElsewhereNotice location={location} />;
+}
+
+/**
+ * The switch-back offer itself, given a resolved location. Split out so a
+ * write that fails the same way can reuse it: a mutation from an
+ * already-loaded page hits the moved workspace pointer too, and a raw
+ * `not-found: series` is nothing a scorer can act on (#526).
+ */
+export function SeriesElsewhereNotice({ location }: { location: SeriesLocation }) {
+  const [busy, setBusy] = useState(false);
 
   const switchAndReload = async () => {
     setBusy(true);

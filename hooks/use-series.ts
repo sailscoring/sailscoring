@@ -107,10 +107,13 @@ export function useSeries(
  * notice, so it is only worth querying after the workspace-scoped detail
  * GET has come back empty.
  */
-export function useSeriesLocation(id: string) {
+export function useSeriesLocation(id: string, opts: { enabled?: boolean } = {}) {
   return useQuery<SeriesLocation | null>({
     queryKey: queryKeys.series.location(id),
     queryFn: () => locateSeries(id),
+    // Callers that only need the lookup after a write has already failed —
+    // the copy dialog — hold it off until then rather than asking on mount.
+    enabled: opts.enabled ?? true,
   });
 }
 

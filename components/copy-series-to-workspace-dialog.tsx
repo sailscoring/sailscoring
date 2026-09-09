@@ -13,6 +13,9 @@
 import { useMemo, useState } from 'react';
 
 import { setActiveWorkspace } from '@/lib/auth-client';
+import { NotFoundApiError } from '@/lib/api-client';
+import { SeriesElsewhereNotice } from '@/components/series-not-found';
+import { useSeriesLocation } from '@/hooks/use-series';
 import { hasPermission } from '@/lib/auth/permissions';
 import { copySeriesToWorkspace } from '@/lib/api-repository';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
@@ -70,11 +73,19 @@ export function CopySeriesToWorkspaceDialog({
   const name = nameEdit ?? `Copy of ${seriesName}`;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The copy 404s when the session's active workspace no longer holds the
+  // source series — another tab switched it, or an earlier copy attempt
+  // switched it and never navigated. The page keeps rendering from cache, so
+  // the write is the first thing to notice. Look up where the series actually
+  // lives and offer the switch, rather than showing "not-found: series" (#526).
+  const [stranded, setStranded] = useState(false);
+  const { data: elsewhere } = useSeriesLocation(seriesId, { enabled: stranded });
 
   function reset() {
     setTargetId('');
     setNameEdit(null);
     setError(null);
+    setStranded(false);
     setBusy(false);
   }
 
@@ -90,6 +101,7 @@ export function CopySeriesToWorkspaceDialog({
     }
     setBusy(true);
     setError(null);
+    setStranded(false);
     try {
       const result = await copySeriesToWorkspace(seriesId, {
         targetWorkspaceId: targetId,
@@ -101,9 +113,14 @@ export function CopySeriesToWorkspaceDialog({
       await setActiveWorkspace(targetId);
       window.location.assign(`/series/${result.id}/competitors`);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Could not copy this series.',
-      );
+      if (err instanceof NotFoundApiError && err.resource === 'series') {
+        setStranded(true);
+        setError(null);
+      } else {
+        setError(
+          err instanceof Error ? err.message : 'Could not copy this series.',
+        );
+      }
       setBusy(false);
     }
   }
@@ -155,6 +172,18 @@ export function CopySeriesToWorkspaceDialog({
               disabled={busy}
             />
           </div>
+          {stranded && (
+            <div role="alert">
+              {elsewhere ? (
+                <SeriesElsewhereNotice location={elsewhere} />
+              ) : (
+                <p className="text-sm text-red-600">
+                  This series isn&rsquo;t in your active workspace. Reload the
+                  page to see where it lives.
+                </p>
+              )}
+            </div>
+          )}
           {error && (
             <p className="text-sm text-red-600" role="alert">{error}</p>
           )}

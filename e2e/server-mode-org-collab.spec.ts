@@ -438,3 +438,44 @@ test.describe('Open in Sail Scoring workspace picker', () => {
     ).not.toBeVisible();
   });
 });
+
+test('copy from a page whose workspace pointer has moved offers the switch back', async ({ page }) => {
+  // #526: the active workspace is a session-level pointer shared by every tab.
+  // When it moves under an already-loaded series page — another tab switched,
+  // or an earlier copy switched it and never navigated — the page keeps
+  // rendering from cache and the first thing to notice is a write. The copy
+  // POST 404s on its *source* lookup, and the dialog used to print the raw
+  // `not-found: series`, which is nothing a scorer can act on.
+  const email = await signInFreshUser(page, 'stranded-copy');
+
+  const home = await createOrgWorkspace(`Home Org ${Date.now()}`);
+  await addMemberByEmail(home.id, email, 'owner');
+  const other = await createOrgWorkspace(`Other Org ${Date.now()}`);
+  await addMemberByEmail(other.id, email, 'owner');
+
+  await setActiveWorkspace(page, home.id);
+  await createSeriesQuick(page, { name: `Stranded Source ${Date.now()}` });
+
+  // Move the session pointer the way another tab would: same cookies, no
+  // reload, so this page carries on rendering the series from cache.
+  await page.evaluate(async (orgId) => {
+    const res = await fetch('/api/auth/organization/set-active', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ organizationId: orgId }),
+    });
+    if (!res.ok) throw new Error(`set-active failed: ${res.status}`);
+  }, other.id);
+
+  await openSeriesActionsMenu(page);
+  await page.getByRole('menuitem', { name: 'Copy to workspace…' }).click();
+  await page.getByTestId('copy-target-workspace').click();
+  await page.getByRole('option').first().click();
+  await page.getByTestId('copy-series-submit').click();
+
+  // The actionable offer, not the raw error.
+  const notice = page.getByTestId('series-elsewhere-notice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(/Home Org/);
+  await expect(page.getByRole('dialog')).not.toContainText('not-found');
+});
