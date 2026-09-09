@@ -21,7 +21,7 @@ interface FileCompetitor {
   sailNumber: string;
   names: string[];
   crewNames?: string[];
-  club: string;
+  clubs: string[];
   gender: string;
   age: number | null;
 }
@@ -238,7 +238,7 @@ test('series file: Update from File replaces the series in place (matched by ser
     series: { ...original.series, name: 'Updated by Co-scorer', venue: 'RIYC' },
     competitors: [
       ...original.competitors,
-      { id: crypto.randomUUID(), fleetIds: original.competitors[0].fleetIds, sailNumber: '99', names: ['New Helm'], club: 'RIYC', gender: '', age: null },
+      { id: crypto.randomUUID(), fleetIds: original.competitors[0].fleetIds, sailNumber: '99', names: ['New Helm'], clubs: ['RIYC'], gender: '', age: null },
     ],
   };
 

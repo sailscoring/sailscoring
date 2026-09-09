@@ -23,7 +23,7 @@ test('find duplicates pre-selects the extra copies for review', async ({ page })
           fleetIds: original.fleetIds,
           sailNumber: 'IRL100',
           names: ['Duplicate Entry'],
-          club: '',
+          clubs: [],
           gender: '',
           age: null,
           createdAt: Date.now(),
