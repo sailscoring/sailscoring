@@ -636,3 +636,38 @@ test('a proposed fleet can be re-scored in place, without deleting and re-adding
   await expect(fleetRows.nth(0)).toContainText('NHC');
   await expect(fleetRows.nth(1)).toContainText('Scratch');
 });
+
+test('an ORC fleet can be created from the import Fleets step', async ({ page, signedInEmail }) => {
+  // #521: ORC was offered by the series Fleets card but by nothing in the
+  // import step, so a series needing one (Non-Spinnaker 5, a sportsboat
+  // division) could not be finished here — with no reason given.
+  await createSeriesQuick(page, { name: 'ORC From Import' });
+  await enableFeatures(page, signedInEmail, ['orc']);
+  await page.goto(page.url());
+
+  const csv = [
+    'Sail,Boat,Owner,Fleet',
+    '971,Leeuwin,Eamonn Burke,Non-Spinnaker 5',
+  ].join('\n');
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(csv));
+
+  const dialog = page.getByRole('dialog');
+  const proposals = dialog.getByTestId('fleet-row');
+  await expect(proposals).toHaveCount(1);
+  await proposals.nth(0).getByRole('combobox', { name: /^Scored on for/ }).click();
+  await page.getByRole('option', { name: 'ORC' }).click();
+  await expect(proposals.nth(0)).toContainText('ORC');
+  // And it says where the ratings come from, rather than naming a missing column.
+  await expect(proposals.nth(0)).toContainText(/certificates come from the ORC database/i);
+
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 1 row/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.locator('h2', { hasText: 'Fleets' });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  await expect(page.getByTestId('fleet-row').nth(0)).toContainText('ORC');
+});

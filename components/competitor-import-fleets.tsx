@@ -83,7 +83,17 @@ const SYSTEM_FEATURE: Partial<Record<ScoringSystem, FeatureKey>> = {
   py: 'rya-py',
   vprs: 'vprs',
   echo: 'echo',
+  orc: 'orc',
 };
+
+/** Systems a fleet can be scored on here. Wider than `RATING_SYSTEMS`, which
+ *  is only about columns: ORC has no rating column — its rating is a whole
+ *  certificate off the ORC database — but it is a fleet's scoring system like
+ *  any other, and the series' Fleets card has always offered it. Leaving it
+ *  out of this step meant a series needing an ORC fleet (a non-spinnaker
+ *  class, a sportsboat division) had to be finished elsewhere, with nothing
+ *  said about why (#521). */
+const FLEET_SYSTEMS = ['scratch', ...RATING_SYSTEMS, 'orc'] as ScoringSystem[];
 
 const NO_COLUMN = '__none__';
 const NO_GROUPING = '__ungrouped__';
@@ -94,7 +104,7 @@ function availableSystems(
   has: (key: FeatureKey) => boolean,
   inUse: ReadonlySet<ScoringSystem>,
 ): ScoringSystem[] {
-  return (['scratch', ...RATING_SYSTEMS] as ScoringSystem[]).filter((s) => {
+  return FLEET_SYSTEMS.filter((s) => {
     const feature = SYSTEM_FEATURE[s];
     return !feature || has(feature) || inUse.has(s);
   });
@@ -536,7 +546,14 @@ function FleetRow({
         {boats} {boats === 1 ? 'boat' : 'boats'}
         {p.isExisting && ' · existing'}
       </span>
-      {p.scoringSystem !== 'scratch' && !p.canFilterByRating && (
+      {/* ORC is never short of a *column* — it doesn't have one to be short
+          of. Saying so would send a scorer looking for a column to map. */}
+      {p.scoringSystem === 'orc' && (
+        <span className="text-xs text-muted-foreground">
+          · certificates come from the ORC database, not this file
+        </span>
+      )}
+      {p.scoringSystem !== 'scratch' && p.scoringSystem !== 'orc' && !p.canFilterByRating && (
         <span className="text-xs text-muted-foreground">
           · no {SCORING_SYSTEM_LABEL[p.scoringSystem]} column in this file
         </span>
