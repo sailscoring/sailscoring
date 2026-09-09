@@ -1126,7 +1126,16 @@ export async function buildFleetHtmlFiles(
 
 /** Browser-only: download an HTML string as a file via a transient anchor. */
 export function triggerDownload(filename: string, html: string) {
-  const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+  triggerBlobDownload(filename, new Blob([html], { type: 'text/html; charset=utf-8' }));
+}
+
+/** Browser-only: download raw bytes (a file in an encoding the browser
+ *  shouldn't touch, such as a windows-1252 Sailwave `.blw`). */
+export function triggerBytesDownload(filename: string, bytes: Uint8Array) {
+  triggerBlobDownload(filename, new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
+}
+
+function triggerBlobDownload(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

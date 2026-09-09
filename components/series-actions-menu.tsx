@@ -16,6 +16,7 @@ import {
   Copy,
   CopyPlus,
   FileDown,
+  FileOutput,
   FileUp,
   Loader2,
   MoreVertical,
@@ -24,6 +25,7 @@ import {
 
 import * as repos from '@/lib/api-repository';
 import {
+  buildSeriesFile,
   saveSeriesFile,
   parseSeriesFile,
   openSeriesFromFile,
@@ -31,12 +33,19 @@ import {
   type SeriesFile,
 } from '@/lib/series-file';
 import { parseSailwaveBlw, SailwaveImportError } from '@/lib/sailwave-import';
+import {
+  buildSailwaveBlw,
+  encodeWindows1252,
+  type SailwaveExportWarning,
+} from '@/lib/sailwave-export';
+import { triggerBytesDownload } from '@/lib/results-export';
+import { seriesSlug } from '@/lib/series-name';
 import { describeOpenSeriesError } from '@/lib/open-series-error';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
 import { queryKeys } from '@/hooks/query-keys';
 import { useArchiveSeries, useDeleteSeriesCascade } from '@/hooks/use-series';
 import { usePublicationStatus } from '@/hooks/use-published';
-import { useGlobalKeyDown } from '@/hooks/use-keyboard-shortcut';
+import { useGlobalKeyDown, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
@@ -67,6 +76,7 @@ import type { Series } from '@/lib/types';
 
 const OPEN_ERROR_TITLE = 'Could not open file';
 const SAVE_ERROR_TITLE = 'Could not save the file';
+const SAILWAVE_EXPORT_ERROR_TITLE = 'Could not export to Sailwave';
 
 /** The `error` step reports any of the menu's file actions, save included, so
  *  it carries its own title rather than assuming the file was being opened. */
@@ -93,6 +103,12 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
   const [copyOpen, setCopyOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // A Sailwave export whose warnings the scorer has yet to see: the file is
+  // built, and downloads once they choose to go ahead.
+  const [sailwaveExport, setSailwaveExport] = useState<{
+    blw: string;
+    warnings: SailwaveExportWarning[];
+  } | null>(null);
   const { data: publication } = usePublicationStatus(confirmDelete ? seriesId : null);
 
   const archived = series.archived ?? false;
@@ -127,6 +143,41 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
       });
     }
   }
+
+  const canExportToSailwave = has('sailwave-export') && !asPublished;
+
+  function downloadSailwaveBlw(blw: string) {
+    triggerBytesDownload(`${seriesSlug(series.name)}.blw`, encodeWindows1252(blw));
+  }
+
+  // The scorer's fallback: the series as a Sailwave file. Anything Sailwave
+  // cannot express is shown first, so the scorer knows what the fallback
+  // copy is missing before they rely on it.
+  async function handleExportToSailwave() {
+    try {
+      const file = await buildSeriesFile(seriesId, repos);
+      const result = buildSailwaveBlw(file);
+      if (result.warnings.length === 0) downloadSailwaveBlw(result.blw);
+      else setSailwaveExport(result);
+    } catch (err) {
+      setUpdateFlow({
+        step: 'error',
+        title: SAILWAVE_EXPORT_ERROR_TITLE,
+        message: err instanceof Error ? err.message : 'The series could not be read.',
+      });
+    }
+  }
+
+  useShortcuts([
+    {
+      key: 'S',
+      description: 'Export to Sailwave',
+      section: 'Series',
+      displayKeys: ['⇧', 'S'],
+      when: () => canExportToSailwave,
+      handler: () => void handleExportToSailwave(),
+    },
+  ]);
 
   useGlobalKeyDown((e) => {
     if (e.ctrlKey && !e.metaKey && e.key === 's' && !/\/races\/[^/]+/.test(pathname)) {
@@ -289,6 +340,16 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
               Update from Sailwave file…
             </DropdownMenuItem>
           )}
+          {canExportToSailwave && (
+            <DropdownMenuItem
+              data-testid="export-to-sailwave"
+              onSelect={() => void handleExportToSailwave()}
+            >
+              <FileOutput className="h-4 w-4" />
+              Export to Sailwave…
+              <DropdownMenuShortcut>⇧S</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
           {!asPublished && (canManageSeries || hasCopyTargets) && (
             <DropdownMenuSeparator />
           )}
@@ -433,6 +494,41 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
           <div className="flex justify-center py-2">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sailwave export with something Sailwave cannot carry: say what,
+          then let the scorer decide whether the fallback copy is enough. */}
+      <Dialog open={sailwaveExport !== null} onOpenChange={(o) => { if (!o) setSailwaveExport(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export to Sailwave</DialogTitle>
+            <DialogDescription>
+              Sailwave cannot carry everything in this series. The file will open and
+              score in Sailwave, but without the following:
+            </DialogDescription>
+          </DialogHeader>
+          <ul
+            data-testid="sailwave-export-warnings"
+            className="max-h-64 list-disc space-y-1 overflow-y-auto pl-5 text-sm"
+          >
+            {sailwaveExport?.warnings.map((w, i) => (
+              <li key={i}>{w.message}</li>
+            ))}
+          </ul>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSailwaveExport(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (sailwaveExport) downloadSailwaveBlw(sailwaveExport.blw);
+                setSailwaveExport(null);
+              }}
+            >
+              Download anyway
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
