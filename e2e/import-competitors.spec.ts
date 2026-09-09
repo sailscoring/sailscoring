@@ -538,11 +538,12 @@ test('re-import that creates no fleets leaves existing fleet membership alone', 
   await expect(page.getByRole('row', { name: /2507/ })).toContainText('Cruiser 2 (IRC)');
 });
 
-test('re-import joins a group to its existing suffixed fleets instead of proposing a bare one', async ({ page }) => {
-  // #524: once fleets are named per scoring system — "Cruiser 1 (IRC)" — the
-  // entry list's bare "Cruiser 1" matched nothing, so a re-import proposed
-  // creating a parallel set of bare scratch fleets.
-  await createSeriesQuick(page, { name: 'Reimport Joins Suffixed' });
+test('re-import rejoins the fleets the last import bound to the group', async ({ page }) => {
+  // #524: an entry list keeps saying "Cruiser 1" while the fleets get renamed
+  // to whatever the club calls them. The import records which fleets a group
+  // fed, so the next one rejoins them by that binding rather than by reading
+  // their names — "IRC 1" carries nothing a name match could use.
+  await createSeriesQuick(page, { name: 'Reimport Rejoins Bound' });
 
   const csv = [
     'Sail,Boat,Owner,Fleet',
@@ -555,31 +556,31 @@ test('re-import joins a group to its existing suffixed fleets instead of proposi
   await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // Name the fleets per scoring system, as a scorer does.
+  // Rename both fleets to something no name match could tie back to the group.
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   const fleetsHeading = page.locator('h2', { hasText: 'Fleets' });
   await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
   const fleetRows = page.getByTestId('fleet-row');
   await expect(fleetRows).toHaveCount(2);
-  for (let i = 0; i < 2; i++) {
+  for (const [i, name] of [[0, 'IRC 1'], [1, 'The Twos']] as const) {
     await fleetRows.nth(i).getByRole('button', { name: 'Rename' }).click();
     const renameInput = fleetRows.nth(i).locator('input');
-    await renameInput.fill(`Cruiser ${i + 1} (IRC)`);
+    await renameInput.fill(name);
     await renameInput.press('Enter');
-    // Wait for the write to land before the next rename — two fleet saves in
-    // flight at once conflict on the series version.
-    await expect(fleetRows.nth(i)).toContainText(`Cruiser ${i + 1} (IRC)`);
+    // Wait for the write before the next rename — two fleet saves in flight
+    // at once conflict on the series version.
+    await expect(fleetRows.nth(i)).toContainText(name);
   }
 
-  // ── Re-import: the step proposes joining, not creating ───────────────────
+  // ── Re-import: the step proposes rejoining, not creating ─────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
   await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(csv));
   const dialog = page.getByRole('dialog');
   const proposals = dialog.getByTestId('fleet-row');
   await expect(proposals).toHaveCount(2);
-  await expect(proposals.nth(0)).toContainText('Cruiser 1 (IRC)');
-  await expect(proposals.nth(1)).toContainText('Cruiser 2 (IRC)');
-  // An existing fleet is shown as text, not a rename box — nothing is created.
+  await expect(proposals.nth(0)).toContainText('IRC 1');
+  await expect(proposals.nth(1)).toContainText('The Twos');
+  // An existing fleet shows as text, not a rename box — nothing is created.
   await expect(proposals.nth(0).locator('input')).toHaveCount(0);
 
   await importMapColumns(page);
@@ -587,12 +588,12 @@ test('re-import joins a group to its existing suffixed fleets instead of proposi
   await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // ── Still two fleets, still the suffixed ones ────────────────────────────
+  // ── Still two fleets, still the renamed ones ─────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
   await expect(fleetRows).toHaveCount(2);
-  await expect(fleetRows.nth(0)).toContainText('Cruiser 1 (IRC)');
-  await expect(fleetRows.nth(1)).toContainText('Cruiser 2 (IRC)');
+  await expect(fleetRows.nth(0)).toContainText('IRC 1');
+  await expect(fleetRows.nth(1)).toContainText('The Twos');
 });
 
 test('a proposed fleet can be re-scored in place, without deleting and re-adding', async ({ page }) => {

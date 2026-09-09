@@ -33,9 +33,15 @@
  * planner never proposes two fleets with the same (group, system), so the
  * pair is both stable and unique.
  *
- * Existing fleets are reused by case-insensitive name match. The plan
- * never proposes mutating an existing fleet's scoringSystem; if the bare
- * name is taken by a different system, the new fleet is created with the
+ * Existing fleets are reused two ways. First by *binding*: a fleet records
+ * the grouping values that have fed it (`Fleet.importGroups`, written when an
+ * import creates or joins it), and a group rejoins the fleets bound to it
+ * whatever they have since been renamed to — which is what makes a repeat
+ * import exact rather than a guess at what a name means (#524). Failing that,
+ * by case-insensitive name match.
+ *
+ * The plan never proposes mutating an existing fleet's scoringSystem; if the
+ * bare name is taken by a different system, the new fleet is created with the
  * suffixed name instead. The one exception is the implicit default group
  * (rows with no grouping column): when no fleet is literally named
  * "Default" it reuses the series' sole scratch fleet, so a renamed default
@@ -146,7 +152,7 @@ export type FleetPlan = {
 
 export type FleetPlanInput = {
   rows: PlanRow[];
-  existingFleets: Pick<Fleet, 'id' | 'name' | 'scoringSystem'>[];
+  existingFleets: Pick<Fleet, 'id' | 'name' | 'scoringSystem' | 'importGroups'>[];
   overrides: FleetPlanOverrides;
 };
 
@@ -195,31 +201,28 @@ function findByName(
 }
 
 /**
- * The existing fleets that read as this group's, under a per-system suffix:
- * `Cruiser 1` → `Cruiser 1 (IRC)`, `Cruiser 1 (HPH)`.
+ * The existing fleets bound to this group by a previous import.
  *
- * The suffix is whatever the scorer wrote, so this can't test against
- * `SYSTEM_SUFFIX` — a club scoring NHC calls it HPH, and names its fleets that
- * way. The test is the group's name followed by something that *opens* a
- * suffix: a bracket or a dash. That is what keeps `Cruiser 1` from claiming
- * `Cruiser 10`, where the next character continues the name instead.
+ * A fleet records the grouping values that have fed it (`Fleet.importGroups`),
+ * written whenever an import creates or joins it. That binding is what makes a
+ * repeat import exact: the entry list still says "Cruiser 1" while the fleets
+ * have long since been renamed to whatever the club calls them — "Cruiser 1
+ * (IRC)", "IRC 1", "Cruisers One" — and a name can't be inferred back to a
+ * group without guessing (#524).
  *
- * At most one fleet per scoring system is returned. Two fleets of the same
- * system under one group is not a shape the plan can carry — proposals are
- * identified by `planKeyFor(group, system)`, so a second would collide with
- * the first (#523) — and the first is the better guess anyway.
+ * At most one fleet per scoring system is returned. Two fleets of one system
+ * under one group is not a shape the plan can carry — proposals are identified
+ * by `planKeyFor(group, system)`, so a second would collide with the first
+ * (#523) — and the earliest binding is the better claim.
  */
-function findSuffixed(
-  fleets: Pick<Fleet, 'id' | 'name' | 'scoringSystem'>[],
+function findBound(
+  fleets: Pick<Fleet, 'id' | 'name' | 'scoringSystem' | 'importGroups'>[],
   name: string,
 ): Pick<Fleet, 'id' | 'name' | 'scoringSystem'>[] {
   const lower = name.toLowerCase();
   const bySystem = new Map<ScoringSystem, Pick<Fleet, 'id' | 'name' | 'scoringSystem'>>();
   for (const f of fleets) {
-    const n = f.name.toLowerCase();
-    if (!n.startsWith(lower)) continue;
-    const tail = n.slice(lower.length).trimStart();
-    if (!/^[([\-–—]/.test(tail)) continue;
+    if (!f.importGroups?.some((g) => g.toLowerCase() === lower)) continue;
     if (!bySystem.has(f.scoringSystem)) bySystem.set(f.scoringSystem, f);
   }
   return [...bySystem.values()];
@@ -307,24 +310,13 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
     const systems: RatingSystem[] = Array.from(group.presentSystems).sort();
 
     if (systems.length === 0) {
-      // No ratings (or scratch-mode series) → one scratch fleet, bare name.
-      let existing = findByName(existingFleets, group.canonicalName);
-      if (!existing && group.isImplicitDefault) {
-        // Rows with no fleet column belong to the series' implicit default
-        // fleet. Identify it as the sole scratch fleet rather than by the
-        // literal name "Default", so a default fleet the user has renamed
-        // (e.g. to "Scratch") is reused instead of duplicated.
-        const scratchFleets = existingFleets.filter((f) => f.scoringSystem === 'scratch');
-        if (scratchFleets.length === 1) existing = scratchFleets[0];
-      }
-      // No exact match, but the group's fleets may already exist under a
-      // per-system suffix — the normal shape once a scorer has set a series
-      // up ("Cruiser 1 (IRC)" and "Cruiser 1 (HPH)" for a group named
-      // "Cruiser 1"). Re-importing to correct names or ratings should propose
-      // joining those, not minting a bare scratch fleet alongside them (#524).
-      const suffixed = existing ? [] : findSuffixed(existingFleets, group.canonicalName);
-      if (suffixed.length > 0) {
-        for (const f of suffixed) {
+      // A previous import's bindings come first: they record where this
+      // group's boats actually went last time, which beats any reading of a
+      // name. A fleet renamed away from the group's name still claims it, and
+      // a name that happens to match no longer does (#524).
+      const bound = findBound(existingFleets, group.canonicalName);
+      if (bound.length > 0) {
+        for (const f of bound) {
           push({
             name: f.name,
             scoringSystem: f.scoringSystem,
@@ -336,6 +328,16 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
           }, group);
         }
       } else {
+        // No ratings (or scratch-mode series) → one scratch fleet, bare name.
+        let existing = findByName(existingFleets, group.canonicalName);
+        if (!existing && group.isImplicitDefault) {
+          // Rows with no fleet column belong to the series' implicit default
+          // fleet. Identify it as the sole scratch fleet rather than by the
+          // literal name "Default", so a default fleet the user has renamed
+          // (e.g. to "Scratch") is reused instead of duplicated.
+          const scratchFleets = existingFleets.filter((f) => f.scoringSystem === 'scratch');
+          if (scratchFleets.length === 1) existing = scratchFleets[0];
+        }
         push({
           name: existing?.name ?? group.canonicalName,
           scoringSystem: existing?.scoringSystem ?? 'scratch',

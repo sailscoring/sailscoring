@@ -535,82 +535,54 @@ describe('planFleetCreation — multi-fleet rows (pipe-delimited)', () => {
   });
 });
 
-describe('planFleetCreation — a group whose fleets already exist under a suffix (#524)', () => {
-  // The shape a series is in once a scorer has set it up: one fleet per
-  // scoring system, named from the group plus a suffix. Re-importing the
-  // entry list — which carries the bare group name and no rating columns —
-  // used to propose a brand-new bare scratch fleet alongside them.
-  const cruiser1Irc = existingFleet('Cruiser 1 (IRC)', 'irc', 'f-irc');
-  const cruiser1Hph = existingFleet('Cruiser 1 (HPH)', 'nhc', 'f-hph');
+describe('planFleetCreation — a group bound to fleets by a previous import (#524)', () => {
+  // The shape a series is in once a scorer has set it up: fleets renamed to
+  // whatever the club calls them, each still carrying the grouping value that
+  // fed it. The entry list keeps saying "Cruiser 1".
+  const boundIrc = { ...existingFleet('Cruiser 1 (IRC)', 'irc', 'f-irc'), importGroups: ['Cruiser 1'] };
+  const boundHph = { ...existingFleet('Cruiser 1 (HPH)', 'nhc', 'f-hph'), importGroups: ['Cruiser 1'] };
 
-  it('proposes joining the existing suffixed fleets rather than creating a bare one', () => {
+  it('rejoins the bound fleets rather than creating a bare one', () => {
     const plan = callPlan({
       rows: [row(['Cruiser 1'])],
-      existingFleets: [cruiser1Irc, cruiser1Hph],
+      existingFleets: [boundIrc, boundHph],
     });
     expect(plan.proposed).toHaveLength(2);
     expect(plan.proposed.every((p) => p.isExisting)).toBe(true);
     expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-irc', 'f-hph']);
-    expect(plan.proposed.map((p) => p.name)).toEqual(['Cruiser 1 (IRC)', 'Cruiser 1 (HPH)']);
-    // Every row of the group joins each of them.
     expect(plan.proposed.map((p) => p.rowIndices)).toEqual([[0], [0]]);
   });
 
-  it('matches a suffix the scorer wrote, not just the ones the app generates', () => {
-    // HPH is HYC's word for NHC; the app's own suffix would be "(NHC)".
-    const plan = callPlan({
-      rows: [row(['Cruiser 1'])],
-      existingFleets: [cruiser1Hph],
-    });
-    expect(plan.proposed).toHaveLength(1);
-    expect(plan.proposed[0].existingFleetId).toBe('f-hph');
+  it('does not care what the fleet was renamed to', () => {
+    // The name the heuristic this replaced could never have read.
+    const odd = { ...existingFleet('IRC 1', 'irc', 'f-odd'), importGroups: ['Cruiser 1'] };
+    const plan = callPlan({ rows: [row(['Cruiser 1'])], existingFleets: [odd] });
+    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-odd']);
   });
 
-  it('accepts a dashed suffix as well as a bracketed one', () => {
+  it('matches the group case-insensitively', () => {
     const plan = callPlan({
-      rows: [row(['Cruiser 1'])],
-      existingFleets: [existingFleet('Cruiser 1 - IRC', 'irc', 'f-dash')],
+      rows: [row(['CRUISER 1'])],
+      existingFleets: [boundIrc],
     });
-    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-dash']);
+    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-irc']);
   });
 
-  it('does not let one group claim another whose name merely extends it', () => {
-    // "Cruiser 1" must not match "Cruiser 10 (IRC)" — the character after the
-    // name continues it rather than opening a suffix.
-    const plan = callPlan({
-      rows: [row(['Cruiser 1'])],
-      existingFleets: [existingFleet('Cruiser 10 (IRC)', 'irc', 'f-ten')],
-    });
-    expect(plan.proposed).toHaveLength(1);
-    expect(plan.proposed[0].isExisting).toBe(false);
-    expect(plan.proposed[0].name).toBe('Cruiser 1');
-  });
-
-  it('prefers an exact match over suffixed ones', () => {
+  it('a binding beats an exact name match', () => {
+    // A fleet renamed away from the group keeps the group; a newer fleet that
+    // happens to carry the bare name does not take it.
     const bare = existingFleet('Cruiser 1', 'scratch', 'f-bare');
     const plan = callPlan({
       rows: [row(['Cruiser 1'])],
-      existingFleets: [bare, cruiser1Irc],
+      existingFleets: [bare, boundIrc],
     });
-    expect(plan.proposed).toHaveLength(1);
-    expect(plan.proposed[0].existingFleetId).toBe('f-bare');
+    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-irc']);
   });
 
-  it('proposes at most one fleet per system, so no two proposals share a plan key', () => {
-    const plan = callPlan({
-      rows: [row(['Cruiser 1'])],
-      existingFleets: [cruiser1Irc, existingFleet('Cruiser 1 (IRC spare)', 'irc', 'f-irc2')],
-    });
-    expect(plan.proposed).toHaveLength(1);
-    expect(plan.proposed[0].existingFleetId).toBe('f-irc');
-    const keys = plan.proposed.map((p) => p.key);
-    expect(new Set(keys).size).toBe(keys.length);
-  });
-
-  it('still creates a fleet when nothing existing resembles the group', () => {
+  it('ignores a binding for a different group', () => {
     const plan = callPlan({
       rows: [row(['Cruiser 3'])],
-      existingFleets: [cruiser1Irc, cruiser1Hph],
+      existingFleets: [boundIrc, boundHph],
     });
     expect(plan.proposed).toHaveLength(1);
     expect(plan.proposed[0].isExisting).toBe(false);
@@ -618,10 +590,46 @@ describe('planFleetCreation — a group whose fleets already exist under a suffi
     expect(plan.proposed[0].scoringSystem).toBe('scratch');
   });
 
-  it('lets the scorer drop a joined fleet like any other proposal', () => {
+  it('binds at most one fleet per system, so no two proposals share a plan key', () => {
+    const second = { ...existingFleet('Cruiser 1 spare', 'irc', 'f-irc2'), importGroups: ['Cruiser 1'] };
     const plan = callPlan({
       rows: [row(['Cruiser 1'])],
-      existingFleets: [cruiser1Irc, cruiser1Hph],
+      existingFleets: [boundIrc, second],
+    });
+    expect(plan.proposed).toHaveLength(1);
+    expect(plan.proposed[0].existingFleetId).toBe('f-irc');
+    const keys = plan.proposed.map((p) => p.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('falls back to an exact name match when nothing is bound', () => {
+    // A series built by hand, or one that predates bindings.
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [existingFleet('Cruiser 1', 'scratch', 'f-bare')],
+    });
+    expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-bare']);
+  });
+
+  it('reads a fleet carrying several groups', () => {
+    const shared = {
+      ...existingFleet('Non-Spinnaker', 'nhc', 'f-ns'),
+      importGroups: ['NS 4', 'NS 5'],
+    };
+    expect(
+      callPlan({ rows: [row(['NS 4'])], existingFleets: [shared] })
+        .proposed.map((p) => p.existingFleetId),
+    ).toEqual(['f-ns']);
+    expect(
+      callPlan({ rows: [row(['NS 5'])], existingFleets: [shared] })
+        .proposed.map((p) => p.existingFleetId),
+    ).toEqual(['f-ns']);
+  });
+
+  it('lets the scorer drop a rejoined fleet like any other proposal', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 1'])],
+      existingFleets: [boundIrc, boundHph],
       overrides: planOverrides({ byFleet: { [planKeyFor('Cruiser 1', 'nhc')]: { drop: true } } }),
     });
     expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-irc']);

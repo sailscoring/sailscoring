@@ -1515,6 +1515,9 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
           name,
           displayOrder: nextDisplayOrder++,
           scoringSystem: p.scoringSystem,
+          // Bind the fleet to the group that made it, so the next import
+          // rejoins it however it has been renamed by then (#524).
+          importGroups: [p.csvFleetName],
         });
         newFleetNames.push(name);
       }
@@ -1525,6 +1528,46 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       // (`crypto.randomUUID()`); existing fleets are looked up and their
       // ids reused without going through this code path.
       await saveFleets.mutateAsync(fleetsToCreate);
+    }
+
+    // Bindings on fleets that already existed: the ones this import joined
+    // gain the group, and any bound to a group the scorer cleared from the
+    // plan lose it, so a wrong binding has an exit. Best-effort — this is a
+    // convenience for the *next* import, and a stale version from another tab
+    // must not fail the import that is finishing here.
+    const boundNow = new Map<string, Set<string>>();  // fleetId → groups
+    for (const p of plan.proposed) {
+      if (!p.isExisting || !p.existingFleetId) continue;
+      const set = boundNow.get(p.existingFleetId) ?? new Set<string>();
+      set.add(p.csvFleetName);
+      boundNow.set(p.existingFleetId, set);
+    }
+    const groupsInFile = new Set(
+      plan.proposed.map((p) => p.csvFleetName.toLowerCase()),
+    );
+    const rebound: Fleet[] = [];
+    for (const f of fleets) {
+      const had = f.importGroups ?? [];
+      const keep = had.filter(
+        (g) =>
+          // A group this import didn't touch keeps its binding; one it did
+          // keeps it only if the fleet is still in that group's plan.
+          !groupsInFile.has(g.toLowerCase()) ||
+          [...(boundNow.get(f.id) ?? [])].some((n) => n.toLowerCase() === g.toLowerCase()),
+      );
+      const add = [...(boundNow.get(f.id) ?? [])].filter(
+        (g) => !keep.some((k) => k.toLowerCase() === g.toLowerCase()),
+      );
+      const next = [...keep, ...add];
+      if (next.length === had.length && add.length === 0) continue;
+      rebound.push({ ...f, importGroups: next });
+    }
+    if (rebound.length > 0) {
+      try {
+        await saveFleets.mutateAsync(rebound);
+      } catch (err) {
+        console.warn('import: could not record fleet bindings', err);
+      }
     }
     // Per-row resolved fleet IDs (deduped, preserving insertion order).
     const fleetIdsByRow: string[][] = rows.map(() => []);
