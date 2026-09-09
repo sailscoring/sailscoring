@@ -472,3 +472,68 @@ test('CSV import maps two columns to distinct subdivision axes', async ({ page }
   await expect(page.getByRole('columnheader', { name: 'Division' })).toHaveCount(1);
   await expect(page.getByRole('columnheader', { name: 'Age Category' })).toHaveCount(1);
 });
+
+test('re-import that creates no fleets leaves existing fleet membership alone', async ({ page }) => {
+  // Reported flow: the series' fleets are already built and named per scoring
+  // system — "Cruiser 1 (IRC)", "Cruiser 2 (IRC)" — so a re-import to pull in
+  // owner names the first pass couldn't carry proposes a *new* bare
+  // "Cruiser 1" for each group, since the group name now matches no fleet.
+  // The scorer clears those proposals, because the fleets are already there.
+  // Every row then reached the merge with an empty fleet list, which was
+  // written straight through and stripped each competitor out of the fleets
+  // it was scored in.
+  await createSeriesQuick(page, { name: 'Reimport Keeps Fleets' });
+
+  const initial = [
+    'Sail,Boat,Owner,Fleet',
+    '1543,Indian,Simon Knowles,Cruiser 1',
+    '2507,Impetuous,Fergal Noonan,Cruiser 2',
+  ].join('\n');
+  await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(initial));
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 1. Name the fleets the way a scorer does, per scoring system ──────────
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  const fleetsHeading = page.locator('h2', { hasText: 'Fleets' });
+  await fleetsHeading.locator('..').getByRole('button', { name: /Edit/ }).click();
+  const fleetRows = page.getByTestId('fleet-row');
+  await expect(fleetRows).toHaveCount(2);
+  for (let i = 0; i < 2; i++) {
+    await fleetRows.nth(i).getByRole('button', { name: 'Rename' }).click();
+    const renameInput = fleetRows.nth(i).locator('input');
+    await renameInput.fill(`Cruiser ${i + 1} (IRC)`);
+    await renameInput.press('Enter');
+    await expect(fleetRows.nth(i)).toContainText(`Cruiser ${i + 1} (IRC)`);
+  }
+
+  // ── 2. Re-import corrected owners, creating no fleets ─────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  const corrected = [
+    'Sail,Boat,Owner,Fleet',
+    '1543,Indian,Simon Knowles & Colm Buckley,Cruiser 1',
+    '2507,Impetuous,Fergal Noonan & Robert Chambers,Cruiser 2',
+  ].join('\n');
+  await page.getByTestId('competitor-import-input').setInputFiles(csvBuffer(corrected));
+
+  // Each proposal is a *new* bare fleet the scorer doesn't want — clear them.
+  const dialog = page.getByRole('dialog');
+  const proposals = dialog.getByTestId('fleet-row');
+  await expect(proposals).toHaveCount(2);
+  await proposals.nth(1).getByRole('button', { name: /^Remove / }).click();
+  await proposals.nth(0).getByRole('button', { name: /^Remove / }).click();
+  await expect(proposals).toHaveCount(0);
+
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByRole('heading', { name: /import complete/i })).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 3. The owners came in, and nobody left their fleet ───────────────────
+  const indian = page.getByRole('row', { name: /1543/ });
+  await expect(indian).toContainText('Colm Buckley');
+  await expect(indian).toContainText('Cruiser 1 (IRC)');
+  await expect(page.getByRole('row', { name: /2507/ })).toContainText('Cruiser 2 (IRC)');
+});

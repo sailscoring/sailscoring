@@ -1633,6 +1633,16 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         existingCompetitor = renameId ? existingById.get(renameId) ?? null : null;
       }
 
+      // A plan that proposes no fleet for this row is saying nothing about
+      // where the boat belongs — not that it belongs nowhere. Re-importing to
+      // correct names or ratings against a series whose fleets already exist
+      // is exactly that case: the scorer clears the create-these-fleets
+      // proposals because the fleets are already there, and every row arrives
+      // here with an empty list. Writing it through would strip a competitor
+      // out of the fleets it is scored in. Membership is only replaced when
+      // the plan actually names fleets for the row.
+      const resolvedFleetIds = fleetIds.length ? fleetIds : existingCompetitor?.fleetIds ?? [];
+
       const parsedTcc = tcc ? parseFloat(tcc) : null;
       const parsedVprs = vprsTccStr ? parseFloat(vprsTccStr) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
@@ -1698,7 +1708,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const competitor: Competitor = {
         id: existingCompetitor?.id ?? crypto.randomUUID(),
         seriesId,
-        fleetIds,
+        fleetIds: resolvedFleetIds,
         sailNumber: normSail,
         ...(resolvedBowNumber ? { bowNumber: resolvedBowNumber } : {}),
         ...(resolvedAlternatives.length
