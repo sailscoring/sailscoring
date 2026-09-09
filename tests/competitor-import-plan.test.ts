@@ -626,3 +626,43 @@ describe('planFleetCreation — a group whose fleets already exist under a suffi
     expect(plan.proposed.map((p) => p.existingFleetId)).toEqual(['f-irc']);
   });
 });
+
+describe('planFleetCreation — a rename is carried verbatim (#518)', () => {
+  const renameTo = (name: string) =>
+    planOverrides({ byFleet: { [planKeyFor('Cruiser 3', 'scratch')]: { name } } });
+
+  it('keeps a trailing space, so the Fleets step input can be typed into', () => {
+    // The plan feeds a controlled input. Trimming here trims between every
+    // keystroke and the space bar stops working at the end of the name.
+    const plan = callPlan({
+      rows: [row(['Cruiser 3'])],
+      overrides: renameTo('Cruiser 3 '),
+    });
+    expect(plan.proposed[0].name).toBe('Cruiser 3 ');
+  });
+
+  it('keeps a name mid-edit on its way to a suffix', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 3'])],
+      overrides: renameTo('Cruiser 3 (IRC)'),
+    });
+    expect(plan.proposed[0].name).toBe('Cruiser 3 (IRC)');
+  });
+
+  it('treats a whitespace-only rename as no rename at all', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 3'])],
+      overrides: renameTo('   '),
+    });
+    expect(plan.proposed[0].name).toBe('Cruiser 3');
+  });
+
+  it('ignores a rename aimed at a fleet that already exists', () => {
+    const plan = callPlan({
+      rows: [row(['Cruiser 3'])],
+      existingFleets: [existingFleet('Cruiser 3', 'scratch', 'f-3')],
+      overrides: renameTo('Something else'),
+    });
+    expect(plan.proposed[0].name).toBe('Cruiser 3');
+  });
+});

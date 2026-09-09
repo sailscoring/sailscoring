@@ -271,11 +271,18 @@ export function planFleetCreation(input: FleetPlanInput): FleetPlan {
           ? draft.defaultMembership
           : 'all';
 
-    const renamed = !draft.isExisting && override?.name?.trim();
+    // The scorer's rename is carried verbatim, whitespace and all. It is fed
+    // straight back into a controlled input, so trimming it here would trim it
+    // between every keystroke and a trailing space could never be typed —
+    // "Cruiser 3" + space renders as "Cruiser 3" again, caret stuck (#518).
+    // A name that is *only* whitespace still counts as no rename. Trimming
+    // happens where the fleet is created, which is the point that matters.
+    const overrideName = draft.isExisting ? undefined : override?.name;
+    const renamed = overrideName?.trim() ? overrideName : undefined;
 
     return {
       key,
-      name: renamed || draft.name,
+      name: renamed ?? draft.name,
       scoringSystem: system,
       isExisting: draft.isExisting,
       ...(draft.existingFleetId ? { existingFleetId: draft.existingFleetId } : {}),

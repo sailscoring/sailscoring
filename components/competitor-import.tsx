@@ -1505,14 +1505,18 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       } else {
         const id = crypto.randomUUID();
         fleetIdByPlanKey.set(p.key, id);
+        // The plan carries a rename exactly as it was typed so the Fleets
+        // step's input stays editable (#518); the fleet itself is created
+        // with the trimmed name.
+        const name = p.name.trim();
         fleetsToCreate.push({
           id,
           seriesId,
-          name: p.name,
+          name,
           displayOrder: nextDisplayOrder++,
           scoringSystem: p.scoringSystem,
         });
-        newFleetNames.push(p.name);
+        newFleetNames.push(name);
       }
     }
     if (fleetsToCreate.length > 0) {
