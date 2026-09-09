@@ -427,8 +427,9 @@ export default function Publishing() {
             <strong className="text-foreground">conditions</strong> on who is eligible — a
             subdivision value (a Division or age category recorded on the competitors), a fleet, a
             maximum series rank for “Overall” podiums, helm gender (“Lady 1st, 2nd, 3rd”),
-            nationality (“first IRL boat”), or club. The condition picker offers the fields your
-            competitors actually carry values for. The top-ranked eligible competitors are the
+            nationality (“first IRL boat”), or club. A club condition reads membership, so a
+            home-club trophy still finds a boat that lists a visiting club as well. The condition
+            picker offers the fields your competitors actually carry values for. The top-ranked eligible competitors are the
             recipients, updating as results come in. Press{' '}
             <strong className="text-foreground">a</strong> to add a prize; drag to reorder the
             prize-giving sheet.

@@ -34,7 +34,7 @@ be defined are collected at the bottom.
 | Helm | The person who steers and is in charge of the boat during a race. Also known as skipper. |
 | Crew | Any person on board other than the helm. Crew names are typically stored as a single string field. |
 | Nationality | The country a competitor represents, stored as a World Sailing three-letter country code (e.g. GBR, AUS). Used for flag display in published results. |
-| Club | The sailing club a competitor belongs to. A competitor attribute used for grouping and publishing. |
+| Club | A sailing club a competitor belongs to. A competitor attribute used for grouping and publishing; an entry can list more than one, primary affiliation first, as Irish entry lists' Club and Other Club columns do. |
 | Multi-fleet competitor | A boat entered in more than one fleet within the same series, scored separately in each. A single finish produces a rank in every fleet the boat belongs to, and penalty (DPI) or redress (RDG) points may differ per fleet. |
 | Competitor identity | A workspace-scoped record of a recurring competitor that links their separate per-series Competitor entries. Enables a cross-series timeline and season-long ranking for the same boat or sailor across many series. |
 

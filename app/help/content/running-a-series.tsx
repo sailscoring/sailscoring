@@ -109,6 +109,17 @@ export default function RunningASeries() {
           class alongside each entry. Enable{' '}
           <em>Crew</em> for classes that sail with crew.
         </p>
+        <p>
+          A competitor can be affiliated to more than one{' '}
+          <strong className="text-foreground">club</strong>, which is what Irish entry lists
+          expect — the standard entry sheet has a Club column and an Other Club one.{' '}
+          <em>Add club</em> in the competitor dialog adds a row, and importing an entry list
+          collects every column mapped to Club rather than the last one winning, so both
+          affiliations survive the import. List the club the entry is primarily sailing under
+          first: that order is kept everywhere, and published results show every club, one per
+          line, the way a syndicate’s owners are shown. A prize condition on a club reads
+          membership, so <em>first HYC boat</em> finds a boat that also lists a visiting club.
+        </p>
         {has('multi-person-fields') && (
           <>
             <p>
