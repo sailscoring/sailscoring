@@ -164,7 +164,7 @@ describe('buildSailwaveBlw', () => {
 });
 
 describe('buildSailwaveBlw unrated boats', () => {
-  it('warns once per fleet about boats with no rating for it', () => {
+  it('leaves a boat out of a rated fleet it has no rating for, as the app does', () => {
     const original = importFixture(`${HYC}/2026 Sat Cruisers Series 1.blw`);
     const irc = original.fleets.find((f) => f.scoringSystem === 'irc')!;
     const boats = original.competitors.filter((c) => c.fleetIds.includes(irc.id));
@@ -177,11 +177,15 @@ describe('buildSailwaveBlw unrated boats', () => {
         return rest;
       }),
     };
-    const { warnings } = buildSailwaveBlw(stripped);
-    const noRating = warnings.filter((w) => w.code === 'no-rating');
-    expect(noRating).toHaveLength(1);
-    expect(noRating[0].message).toContain(`Fleet "${irc.name}"`);
-    for (const b of boats) expect(noRating[0].message).toContain(b.sailNumber);
+    const { blw, warnings } = buildSailwaveBlw(stripped);
+    expect(warnings).toEqual([]);
+    const rows = blw.split('\r\n');
+    expect(rows.some((r) => r.startsWith(`"compfleet","${irc.name}"`))).toBe(false);
+    // Each of those boats keeps its record in the fleet it is rated for.
+    for (const b of boats) {
+      const inOtherFleet = b.fleetIds.some((id) => id !== irc.id);
+      expect(rows.filter((r) => r.startsWith(`"compsailno","${b.sailNumber}"`))).toHaveLength(inOtherFleet ? 1 : 0);
+    }
   });
 });
 

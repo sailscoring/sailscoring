@@ -349,14 +349,16 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
   const recordsByCompetitor = new Map<string, AliasRecord[]>();
   let nextHandle = 1;
   for (const c of file.competitors) {
+    // A boat with no rating for a rated fleet is scored nowhere in that
+    // fleet by the app, so it gets no record in that fleet here either —
+    // Sailwave would otherwise score it unrated, tied with the others like
+    // it. A boat left with no fleet at all is on no table in the app and is
+    // left out.
     const memberFleets = c.fleetIds
       .map((id) => fleetById.get(id))
-      .filter((f): f is FleetRow => f != null)
+      .filter((f): f is FleetRow => f != null && ratedIn(c, f))
       .sort((a, b) => a.displayOrder - b.displayOrder);
-    if (memberFleets.length === 0) {
-      warn('no-fleet', `${c.sailNumber} is in no fleet and was left out.`);
-      continue;
-    }
+    if (memberFleets.length === 0) continue;
     let primaryHandle: number | null = null;
     for (const fleet of memberFleets) {
       const rec: AliasRecord = { handle: nextHandle++, competitor: c, fleet, primaryHandle };
@@ -370,21 +372,6 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     if ((c.owners?.length ?? 0) > 0 || (c.helms?.length ?? 0) > 0) {
       warn('secondary-people', 'Only the primary person and crew are carried; separate owner / helm columns are not.');
     }
-  }
-
-  // A boat in a rated fleet without that fleet's rating: the app leaves it
-  // off the fleet's table; Sailwave scores it unrated, tied with the others
-  // like it. Say so once per fleet.
-  const unrated = new Map<string, string[]>();
-  for (const rec of aliasRecords) {
-    const system = rec.fleet.scoringSystem;
-    if (system === 'scratch' || system === 'orc') continue;
-    if (ratingFor(rec.competitor, rec.fleet) == null) {
-      (unrated.get(rec.fleet.id) ?? unrated.set(rec.fleet.id, []).get(rec.fleet.id)!).push(rec.competitor.sailNumber);
-    }
-  }
-  for (const [fleetId, sails] of unrated) {
-    warn('no-rating', `Fleet "${fleetById.get(fleetId)!.name}": ${sails.join(', ')} ${sails.length === 1 ? 'has' : 'have'} no rating for it, so Sailwave scores ${sails.length === 1 ? 'it' : 'them'} unrated where the app leaves ${sails.length === 1 ? 'it' : 'them'} off the table.`);
   }
 
   for (const rec of aliasRecords) {
@@ -523,6 +510,14 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
   for (const col of SAILWAVE_COLUMN_DEFAULTS) w.row('column', col);
 
   return { blw: w.text(), warnings };
+}
+
+/** Whether the boat can be scored in the fleet: scratch needs nothing, ORC
+ *  goes across unrated regardless (see the orc warning), the rest need the
+ *  fleet's rating. Mirrors the engine's hasFleetRating. */
+function ratedIn(c: CompetitorRow, fleet: FleetRow): boolean {
+  if (fleet.scoringSystem === 'scratch' || fleet.scoringSystem === 'orc') return true;
+  return ratingFor(c, fleet) != null;
 }
 
 function ratingFor(c: CompetitorRow, fleet: FleetRow): number | undefined {
