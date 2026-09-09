@@ -259,6 +259,48 @@ export default function DataInAndOut() {
           </>
         </Section>
       )}
+      {has('sailwave-export') && (
+        <Section id="sailwave-export" title="Exporting to Sailwave">
+          <HelpShot
+            src="/help/shots/sailwave-export.webp"
+            alt="The Export to Sailwave dialog listing what the Sailwave copy will not carry"
+            caption="Before the download, the export says what Sailwave cannot carry from this series."
+          />
+          <>
+            <p>
+              What if Sail Scoring is down, or breaks, on the day it matters? You can carry any
+              series across to Sailwave and finish the scoring there. Open the series&rsquo;{' '}
+              <strong className="text-foreground">⋯</strong> menu and click{' '}
+              <strong className="text-foreground">Export to Sailwave…</strong> (or press{' '}
+              <strong className="text-foreground">Shift+S</strong> on any tab of the series).
+              This downloads a <code className="text-foreground text-sm">.blw</code> file that
+              opens in Sailwave 2.38; run <em>Score series</em> there and the standings are yours
+              again. If you want a warm standby, export at the end of each race day — the{' '}
+              <code className="text-foreground text-sm">.sailscoring</code> file from{' '}
+              <strong className="text-foreground">Save to File</strong> remains the complete
+              copy of the series.
+            </p>
+            <p>
+              The file carries the scoring inputs, laid out the way Sailwave expects them: each
+              fleet with its scoring system and ratings (a boat scored in two fleets becomes a
+              primary record plus an alias, as Sailwave models dual scoring), the entry list, each
+              race&rsquo;s starts, and every finish with its time, place or code, redress included,
+              plus the discard profile and whether DNF scores from series entries or from the
+              starting area. Sail Scoring&rsquo;s own results do not travel &mdash; Sailwave
+              re-scores from the inputs, which is what makes the copy a fallback rather than a
+              frozen snapshot.
+            </p>
+            <p>
+              Sailwave cannot express everything a series can hold. Sub-series, split-fleet
+              rounds, races that must count or are discarded first, points multipliers, custom
+              NHC parameters, ORC ratings, the progressive side of ECHO, and subdivision columns
+              stay behind, as do a discretionary penalty other than one point and a scoring
+              penalty other than 20%. When any of these apply, the export lists them before the
+              download so you know what the Sailwave copy is missing.
+            </p>
+          </>
+        </Section>
+      )}
       <Section id="json-export" title="Open in Sail Scoring, and the data behind published results">
         <HelpShot
           src="/help/shots/open-in-sailscoring.webp"
