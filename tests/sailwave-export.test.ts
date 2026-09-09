@@ -163,6 +163,28 @@ describe('buildSailwaveBlw', () => {
   });
 });
 
+describe('buildSailwaveBlw unrated boats', () => {
+  it('warns once per fleet about boats with no rating for it', () => {
+    const original = importFixture(`${HYC}/2026 Sat Cruisers Series 1.blw`);
+    const irc = original.fleets.find((f) => f.scoringSystem === 'irc')!;
+    const boats = original.competitors.filter((c) => c.fleetIds.includes(irc.id));
+    expect(boats.length).toBeGreaterThan(0);
+    const stripped: SeriesFile = {
+      ...original,
+      competitors: original.competitors.map((c) => {
+        if (!c.fleetIds.includes(irc.id)) return c;
+        const { ircTcc: _drop, ...rest } = c;
+        return rest;
+      }),
+    };
+    const { warnings } = buildSailwaveBlw(stripped);
+    const noRating = warnings.filter((w) => w.code === 'no-rating');
+    expect(noRating).toHaveLength(1);
+    expect(noRating[0].message).toContain(`Fleet "${irc.name}"`);
+    for (const b of boats) expect(noRating[0].message).toContain(b.sailNumber);
+  });
+});
+
 describe('discardListFor', () => {
   it('expands thresholds into a cumulative per-race list with headroom', () => {
     expect(discardListFor([{ minRaces: 4, discardCount: 1 }, { minRaces: 8, discardCount: 2 }], undefined, 7))

@@ -372,6 +372,21 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     }
   }
 
+  // A boat in a rated fleet without that fleet's rating: the app leaves it
+  // off the fleet's table; Sailwave scores it unrated, tied with the others
+  // like it. Say so once per fleet.
+  const unrated = new Map<string, string[]>();
+  for (const rec of aliasRecords) {
+    const system = rec.fleet.scoringSystem;
+    if (system === 'scratch' || system === 'orc') continue;
+    if (ratingFor(rec.competitor, rec.fleet) == null) {
+      (unrated.get(rec.fleet.id) ?? unrated.set(rec.fleet.id, []).get(rec.fleet.id)!).push(rec.competitor.sailNumber);
+    }
+  }
+  for (const [fleetId, sails] of unrated) {
+    warn('no-rating', `Fleet "${fleetById.get(fleetId)!.name}": ${sails.join(', ')} ${sails.length === 1 ? 'has' : 'have'} no rating for it, so Sailwave scores ${sails.length === 1 ? 'it' : 'them'} unrated where the app leaves ${sails.length === 1 ? 'it' : 'them'} off the table.`);
+  }
+
   for (const rec of aliasRecords) {
     const c = rec.competitor;
     const h = String(rec.handle);
