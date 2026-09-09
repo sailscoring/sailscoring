@@ -275,7 +275,9 @@ export default function DataInAndOut() {
               <strong className="text-foreground">Shift+S</strong> on any tab of the series).
               This downloads a <code className="text-foreground text-sm">.blw</code> file that
               opens in Sailwave 2.38; run <em>Score series</em> there and the standings are yours
-              again. If you want a warm standby, export at the end of each race day — the{' '}
+              again. (Sailwave’s NHC wants a race to put the adjusted handicaps into, so on
+              a one-race series it asks you to add a second, empty race first.) If you want a warm
+              standby, export at the end of each race day — the{' '}
               <code className="text-foreground text-sm">.sailscoring</code> file from{' '}
               <strong className="text-foreground">Save to File</strong> remains the complete
               copy of the series.
