@@ -57,6 +57,14 @@ export const FEATURES = {
     label: 'Sailwave import',
     helpSectionIds: ['sailwave-import'],
   },
+  'sailwave-export': {
+    // The scorer's fallback: download the series as a Sailwave .blw at any
+    // time and carry on in Sailwave if the app is ever down when it matters.
+    // An adoption aid rather than a second results pipeline, so it stays
+    // gated and can be retired with a known audience to tell.
+    label: 'Sailwave export',
+    helpSectionIds: ['sailwave-export'],
+  },
   'csv-finish-import': {
     label: 'Finish-sheet import (CSV / Excel)',
     helpSectionIds: ['importing-finish-sheet'],
