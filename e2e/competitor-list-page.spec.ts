@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { addCompetitor, createFleets, createSeriesQuick, enableFeatures } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, enableFeatures, setScoringMode } from './helpers';
 
 /**
  * The published competitor list (#423). The point of the page is the window it
@@ -213,7 +213,9 @@ test('the competitor list prints as a starters checklist, one table per start', 
   // tables headed by the class, and Checkmate once.
   await page.emulateMedia({ media: 'print' });
   await expect(checklist).toBeVisible();
-  await expect(page.locator('table.summarytable')).toBeHidden();
+  // The entry list is two tables — Class 1 is scored two ways — and print
+  // hides both of them.
+  await expect(page.locator('table.summarytable:visible')).toHaveCount(0);
   await expect(checklist.getByRole('heading', { name: 'Class 1', exact: true })).toBeVisible();
   await expect(checklist.getByRole('heading', { name: 'Class 2 HPH', exact: true })).toBeVisible();
   await expect(checklist.locator('td.sail', { hasText: 'IRL 1234' })).toHaveCount(1);
@@ -225,5 +227,90 @@ test('the competitor list prints as a starters checklist, one table per start', 
   await page.emulateMedia({ media: 'screen' });
   await expect(page.locator('body')).not.toHaveClass(/\bstarters\b/);
   await expect(checklist).toBeHidden();
-  await expect(page.locator('table.summarytable')).toBeVisible();
+  await expect(page.locator('table.summarytable:visible')).toHaveCount(2);
+});
+
+/**
+ * A class scored under a club handicap and IRC at once (#534). The entry list
+ * is tabled by class, each table carrying a rating column per fleet the class
+ * is scored under — so a boat is one row, and the ratings say which fleets it
+ * is in.
+ */
+test('the competitor list tables a two-system class with its ratings', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['entry-list']);
+  await createSeriesQuick(page, { name: 'Autumn League 2026', venue: 'Howth' });
+
+  // ── 1. Two classes, the first scored two ways ────────────────────────────
+  await createFleets(page, ['Class 1 HPH', 'Class 1 IRC', 'Class 2 HPH']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  for (const [fleet, system] of [
+    ['Class 1 HPH', 'NHC'],
+    ['Class 1 IRC', 'IRC'],
+    ['Class 2 HPH', 'NHC'],
+  ] as const) {
+    await page.locator('[data-testid="fleet-row"]').filter({ hasText: fleet }).getByRole('combobox').click();
+    await page.getByRole('option', { name: system, exact: true }).click();
+  }
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 2. The boats, and deliberately no races ──────────────────────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
+  const dualScored = [
+    { sailNumber: '1543', name: 'Simon Knowles', nhc: '1.025', irc: '1.002' },
+    // Racing under both, but its certificate has not arrived yet.
+    { sailNumber: '9970', name: 'Stephen Quinn', nhc: '0.972', irc: '' },
+  ];
+  for (const b of dualScored) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number *').fill(b.sailNumber);
+    await page.getByLabel('Competitor name').fill(b.name);
+    await page.getByRole('checkbox', { name: 'Class 1 HPH' }).check();
+    await page.getByRole('checkbox', { name: 'Class 1 IRC' }).check();
+    await page.getByLabel('NHC starting TCF', { exact: true }).fill(b.nhc);
+    if (b.irc) await page.getByLabel('IRC TCC', { exact: true }).fill(b.irc);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: b.sailNumber })).toBeVisible();
+  }
+  await addCompetitor(page, { sailNumber: '32032', name: 'Darren Wright', fleet: 'Class 1 IRC', ircTcc: '1.141' });
+  await addCompetitor(page, { sailNumber: '100', name: 'Windsor Steffi', fleet: 'Class 2 HPH', nhcStartingTcf: '0.850' });
+
+  // ── 3. Publish the entry list ────────────────────────────────────────────
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByText('The competitor list can be published now.')).toBeVisible();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/entries$/ });
+  await expect(link).toBeVisible();
+  await page.goto(new URL((await link.getAttribute('href')) ?? '').pathname);
+
+  // ── 4. A table per class, each with its own rating columns ───────────────
+  await expect(page.getByRole('heading', { name: /^Class 1 3 entries$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Class 2 HPH 1 entry$/ })).toBeVisible();
+  await expect(page.getByText('Entries: 4')).toBeVisible();
+  // Which fleets a boat is in is said by the ratings, so no Fleet column.
+  await expect(page.getByRole('columnheader', { name: 'Fleet' })).toHaveCount(0);
+
+  const classOne = page.locator('table.summarytable').first();
+  await expect(classOne.getByRole('columnheader', { name: 'HPH', exact: true })).toBeVisible();
+  await expect(classOne.getByRole('columnheader', { name: 'IRC', exact: true })).toBeVisible();
+  await expect(classOne.getByRole('cell', { name: '1.025', exact: true })).toBeVisible();
+  await expect(classOne.getByRole('cell', { name: '1.002', exact: true })).toBeVisible();
+  // Not entered under the club handicap at all: a dash, not a blank.
+  const ircOnly = classOne.getByRole('row').filter({ hasText: '32032' });
+  await expect(ircOnly.getByRole('cell', { name: '—', exact: true })).toBeVisible();
+  // Nothing tells Class 2's single fleet apart, so its column says what the
+  // number is instead.
+  const classTwo = page.locator('table.summarytable').nth(1);
+  await expect(classTwo.getByRole('columnheader', { name: 'TCF', exact: true })).toBeVisible();
+  await expect(classTwo.getByRole('cell', { name: '0.850', exact: true })).toBeVisible();
+
+  // ── 5. The boats entered under both fleets lead the table ────────────────
+  const sails = await classOne.getByRole('row').allInnerTexts();
+  expect(sails.findIndex((r) => r.includes('9970'))).toBeLessThan(
+    sails.findIndex((r) => r.includes('32032')),
+  );
 });
