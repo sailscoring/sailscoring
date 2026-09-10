@@ -58,6 +58,15 @@ td.nat .nattext { font-size: 0.8em; }
 td.wsid { font-family: monospace; font-size: 0.85em; white-space: nowrap; }
 .print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .print-btn:hover { color: #fb3a3b; }
+/* The scorer's explanatory note (#511). Left-aligned prose on a centred
+   block, with a rule in the brand red — read as editorial rather than as
+   data, and deliberately unlike the bordered calculation explainers, which a
+   reader must not confuse it with. Kept in print: a note saying why the
+   figures do not reconcile has to be on the printout. */
+.pagenotes { max-width: 640px; margin: 0 auto 20px auto; padding: 2px 0 2px 14px; border-left: 3px solid #fb3a3b; text-align: left; }
+.pagenotes p { text-align: left; margin: 0 0 6px 0; }
+.pagenotes p:last-child { margin-bottom: 0; }
+.pagenotes .seriesnote { color: #444; }
 th[data-sortable] { cursor: pointer; }
 th[aria-sort="ascending"]::after { content: " ▲"; font-size: 0.75em; }
 th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
@@ -531,5 +540,6 @@ var tables=document.querySelectorAll('table.summarytable,table.racetable');
 window.addEventListener('beforeprint',function(){[].forEach.call(tables,function(t){if(t.ssPrint)t.ssPrint(true);});});
 window.addEventListener('afterprint',function(){[].forEach.call(tables,function(t){if(t.ssPrint)t.ssPrint(false);});});
 })();</script>
+
 </body>
 </html>
