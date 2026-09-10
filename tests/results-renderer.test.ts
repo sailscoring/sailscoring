@@ -1911,10 +1911,11 @@ describe('renderCompetitorListHtml', () => {
         multiFleet: true,
         checklist,
       });
-      // The box comes straight after the number, before the name.
-      expect(html).toContain('<td class="sail">IRL 1234</td><td class="tick"></td><td class="boat"><span>Checkmate</span></td>');
-      expect(html).toContain('<td class="sail">4</td><td class="tick"></td><td class="boat"><span></span></td>');
-      expect(html).toContain('<td class="sail">2001</td><td class="tick"></td></tr>');
+      // The box comes straight after the number, before the name; the space
+      // to write in ends every row, named or not.
+      expect(html).toContain('<td class="sail">IRL 1234</td><td class="tick"></td><td class="boat"><span>Checkmate</span></td><td class="write"></td>');
+      expect(html).toContain('<td class="sail">4</td><td class="tick"></td><td class="boat"><span></span></td><td class="write"></td>');
+      expect(html).toContain('<td class="sail">2001</td><td class="tick"></td><td class="write"></td></tr>');
     });
 
     it('offers to print it from the footer, beside Save as PDF', () => {

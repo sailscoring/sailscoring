@@ -1096,7 +1096,7 @@ ${body}
       )
     : '';
 
-  const starters = renderStartersChecklist(context.checklist ?? []);
+  const starters = renderStartersChecklist(context.checklist ?? [], chrome.series);
 
   return renderHtmlDocument(
     { ...chrome, fleetName: 'Competitor List' },
@@ -1110,68 +1110,138 @@ ${body}
  * only when it is printed as one (the `starters` body class, set by the
  * footer button for the duration of the print). One table per start, each
  * row the sail number, a box to tick as the boat arrives in the starting
- * area, and the boat name when the series records one. The box sits right
- * after the number so the eye lands on it from the number, rather than
- * tracking across the row to the far edge and hoping it is the right one.
+ * area, the boat name when the series records one, and blank ruled space to
+ * write on. The box sits right after the number so the eye lands on it from
+ * the number, rather than tracking across the row to the far edge and hoping
+ * it is the right one.
+ *
+ * It is a working sheet, so it is built around what the recorder writes on
+ * it as much as what is printed on it. Boats turn up under a number other
+ * than the one they entered under, and boats enter too late to be on the
+ * sheet at all; both have to be recorded on the committee boat and read back
+ * when the results are scored. So each row ends in blank space, each start's
+ * table ends in spare rows a boat nobody expected can be written into, and
+ * the sheet ends in a ruled block for everything that belongs to the day
+ * rather than to a boat.
+ *
+ * That space is paid for by everything the sheet does not need: the print
+ * stylesheet drops the club logos, the page title and the series heading in
+ * favour of one line naming the series and leaving Date, Race(s) and
+ * Recorder blank to fill, since the entry list cannot know which race day it
+ * is being printed for and the sheet is filed and read back afterwards.
  *
  * The recorder is on a moving committee boat, so the sail number is set
  * large; and a recorder switching pages while boats mill around loses the
- * boat they were looking for, so the tables flow in columns across the page,
- * short tables kept whole. Both are the print stylesheet's business.
+ * boat they were looking for, so the tables flow in columns across the page.
+ * Both are the print stylesheet's business.
  */
-function renderStartersChecklist(tables: ChecklistTable[]): string {
+function renderStartersChecklist(tables: ChecklistTable[], series: { name: string; venue: string }): string {
   const populated = tables.filter((t) => t.boats.length > 0);
   if (populated.length === 0) return '';
   const sections = populated.map((t) => {
     const showBoat = t.boats.some((b) => !!b.boatName);
+    const cells = (sail: string, boat: string) =>
+      `<td class="sail">${sail}</td><td class="tick"></td>${showBoat ? `<td class="boat"><span>${boat}</span></td>` : ''}<td class="write"></td>`;
     const rows = t.boats
-      .map(
-        (b) =>
-          `<tr><td class="sail">${esc(b.sailNumber)}</td><td class="tick"></td>${showBoat ? `<td class="boat"><span>${esc(b.boatName ?? '')}</span></td>` : ''}</tr>`,
-      )
+      .map((b) => `<tr>${cells(esc(b.sailNumber), esc(b.boatName ?? ''))}</tr>`)
       .join('\n');
-    // A short table stays whole rather than straddling two columns; a long
-    // one has to break somewhere, and asking the browser to avoid it moves
-    // the whole table to the next page instead. Twenty rows fit a column on
-    // any paper.
-    return `<section class="startersstart${t.boats.length <= 20 ? ' keep' : ''}">
+    // Room for the boats that are not on the list: a very late entry, or one
+    // the recorder is told about on the water. Ruled and boxed like the rest,
+    // under the start it belongs to, rather than written in the margin.
+    const spare = Array.from(
+      { length: SPARE_ROWS },
+      () => `<tr class="spare"><td></td><td class="tick"></td>${showBoat ? '<td></td>' : ''}<td></td></tr>`,
+    ).join('\n');
+    // A table of a few boats stays whole rather than straddling two
+    // columns, where the split would be more distracting than the space it
+    // saves. A longer one is allowed to split: a column holds around thirty
+    // rows and a class is routinely half that, so keeping every table whole
+    // leaves a third of each column empty and costs a page.
+    return `<section class="startersstart${t.boats.length + SPARE_ROWS <= KEEP_WHOLE_ROWS ? ' keep' : ''}">
 ${t.heading !== null ? `<h3>${esc(t.heading)}</h3>\n` : ''}<table class="starterstable" cellspacing="0" cellpadding="0" border="0">
 <tbody>
 ${rows}
+${spare}
 </tbody>
 </table>
 </section>`;
   });
+  const blank = (label: string) => `<span class="startersblank">${label} <i></i></span>`;
   return `<div class="starterslist">
-<h2 class="starterstitle">Starters checklist</h2>
+<div class="startersident">
+<span class="startersfor">${esc(series.name)}${series.venue ? ` — ${esc(series.venue)}` : ''}</span>
+<span class="startersblanks">${blank('Date')}${blank('Race(s)')}${blank('Recorder')}</span>
+</div>
 <div class="starterscols">
 ${sections.join('\n')}
+</div>
+<div class="startersnotes">
+<span class="startersnoteslabel">Notes</span>
+${Array.from({ length: NOTE_LINES }, () => '<div class="startersrule"></div>').join('\n')}
 </div>
 </div>`;
 }
 
+/** How short a table has to be to be kept off a column boundary. */
+const KEEP_WHOLE_ROWS = 8;
+
+/** Blank rows at the foot of each start's table, for boats that are not on
+ *  the list. Three is a guess at what a club night needs; a forty-boat class
+ *  may well want more. */
+const SPARE_ROWS = 3;
+
+/** Ruled lines in the sheet's closing notes block. Five is about 32mm, which
+ *  is what is left over once the header the sheet no longer prints is
+ *  reclaimed. */
+const NOTE_LINES = 5;
+
 /** The print stylesheet for the starters checklist. Off screen it is hidden
  *  outright; in print it shows only under the `starters` body class, which
- *  also hides the entry list and the footer, leaving the page header. */
+ *  also hides everything the sheet is not — the entry list, the footer, and
+ *  the page header with its logos and series heading, whose 40mm the sheet
+ *  spends on writing space instead.
+ *
+ *  Two columns rather than three: a column has to be wide enough to leave
+ *  blank space after the boat name, which is where the number a boat
+ *  actually turned up under gets written. The columns balance rather than
+ *  filling, so a short list stays short and the notes block lands under it
+ *  on the same page instead of being pushed to a second by a first column
+ *  drawn out to the full page height. */
 function renderStartersChecklistCss(): string {
   return `.starterslist { display: none; }
 @media print {
   body.starters .starterslist { display: block; text-align: left; }
-  .starterscols { column-count: 3; column-gap: 8mm; column-fill: auto; }
-  body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters .credit { display: none; }
-  .starterslist h2.starterstitle { text-align: center; font-size: 18pt; margin: 0 0 4mm 0; }
+  .starterscols { column-count: 2; column-gap: 6mm; column-fill: auto; }
+  body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters .credit, body.starters table.headertable { display: none; }
+  .startersident { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
+  .startersident .startersfor { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .startersident .startersblanks { flex: none; white-space: nowrap; color: #333; }
+  .startersident .startersblank { margin-left: 4mm; }
+  .startersident .startersblank i { display: inline-block; width: 18mm; border-bottom: 0.3mm solid #666; }
   .startersstart { margin: 0 0 6mm 0; }
   .startersstart.keep { break-inside: avoid; }
   .startersstart h3 { font-size: 14pt; margin: 0 0 1.5mm 0; break-after: avoid; }
   table.starterstable { width: 100%; margin: 0; border: 0; }
   table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.5mm 1mm; vertical-align: middle; font-size: 16pt; line-height: 1.1; }
   table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
-  table.starterstable td.boat { font-size: 11pt; color: #333; }
+  table.starterstable td.boat { font-size: 10pt; color: #333; width: 38%; }
   table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.starterstable td.write { width: 26%; }
   table.starterstable td.tick { width: 6mm; padding: 1.5mm 2mm 1.5mm 1mm; }
   table.starterstable td.tick::before { content: ""; display: block; width: 6mm; height: 6mm; border: 0.5mm solid #1a1a1a; box-sizing: border-box; }
+  .startersnotes { break-inside: avoid; margin: 2mm 0 0 0; }
+  .startersnotes .startersnoteslabel { display: block; font-size: 10pt; font-weight: 600; margin: 0 0 1mm 0; }
+  .startersnotes .startersrule { height: 6.5mm; border-bottom: 0.3mm solid #999; }
 }
 `;
+}
+
+/** The page box the checklist prints in: tighter margins than the results
+ *  pages, because a working sheet wants the paper. `@page` cannot be
+ *  qualified by a body class, so it rides in its own stylesheet that the
+ *  footer button switches on for the duration of the print. */
+function renderStartersPageCss(): string {
+  return `<style id="starters-page" media="not all" type="text/css">@page { margin: 8mm; }</style>`;
 }
 
 /** The footer control that prints the page as a starters checklist, beside
@@ -1181,19 +1251,23 @@ function renderStartersButton(): string {
 }
 
 /** Sets the `starters` body class for the duration of the print, so the
- *  print stylesheet swaps the entry list for the checklist, and names the
- *  document after the sheet so a saved PDF is called what it is. The class
- *  comes off again on \`afterprint\`, so the page is its ordinary self once the
- *  dialog closes and an ordinary "Save as PDF" afterwards prints the list. */
+ *  print stylesheet swaps the entry list for the checklist, switches on the
+ *  sheet's own tighter page box, and names the document after the sheet so a
+ *  saved PDF is called what it is. All three come off again on
+ *  \`afterprint\`, so the page is its ordinary self once the dialog closes and
+ *  an ordinary "Save as PDF" afterwards prints the list at the ordinary
+ *  margins. */
 function renderStartersScript(): string {
   return `<script>(function(){
 var btn=document.getElementById('starters-print');
 if(!btn)return;
 var on=false,title=document.title;
 var h1=document.querySelector('h1');
+var pageCss=document.getElementById('starters-page');
 btn.addEventListener('click',function(){
   on=true;
   document.body.classList.add('starters');
+  if(pageCss)pageCss.media='print';
   document.title='Starters checklist'+(h1?' \\u2014 '+h1.textContent:'');
   window.print();
 });
@@ -1201,6 +1275,7 @@ window.addEventListener('afterprint',function(){
   if(!on)return;
   on=false;
   document.body.classList.remove('starters');
+  if(pageCss)pageCss.media='not all';
   document.title=title;
 });
 })();</script>`;
@@ -1318,6 +1393,7 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
   .headerlogo-right { margin: 0 auto 10px auto; }
 }
 ${startersChecklist ? renderStartersChecklistCss() : ''}${hasNhcDetail ? 'body.hide-nhc-detail .nhc-detail { display: none; }\np.nhc-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.nhc-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.nhc-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.nhc-explainer p:last-child { margin-bottom: 0; }\ndiv.nhc-explainer .formula { font-family: monospace; }\ndiv.nhc-explainer dl { margin: 4px 0 0 0; }\ndiv.nhc-explainer dt { font-weight: bold; display: inline; }\ndiv.nhc-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.nhc-explainer dd:after { content: ""; display: block; }\n' : ''}${hasEchoDetail ? 'body.hide-echo-detail .echo-detail { display: none; }\np.echo-toggle { text-align: center; margin: 0 0 10px 0; font-size: 0.9em; }\ndiv.echo-explainer { max-width: 640px; margin: 0 auto 16px auto; padding: 10px 14px; border: 1px #ccd solid; background: #f6f6fb; font-size: 0.9em; text-align: left; }\ndiv.echo-explainer p { text-align: left; margin: 0 0 6px 0; }\ndiv.echo-explainer p:last-child { margin-bottom: 0; }\ndiv.echo-explainer .formula { font-family: monospace; }\ndiv.echo-explainer dl { margin: 4px 0 0 0; }\ndiv.echo-explainer dt { font-weight: bold; display: inline; }\ndiv.echo-explainer dd { display: inline; margin: 0 0 0 4px; }\ndiv.echo-explainer dd:after { content: ""; display: block; }\n' : ''}</style>
+${startersChecklist ? renderStartersPageCss() : ''}
 </head>
 <body${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).length > 0 ? ` class="${[hasNhcDetail ? 'hide-nhc-detail' : '', hasEchoDetail ? 'hide-echo-detail' : ''].filter(Boolean).join(' ')}"` : ''}>
 ${seriesIndexUrl ? `<p class="breadcrumb"><a href="${esc(seriesIndexUrl)}" target="_top" rel="noopener">&larr; ${esc(series.name)}</a></p>\n` : ''}<table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">

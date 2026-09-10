@@ -222,6 +222,16 @@ test('the competitor list prints as a starters checklist, one table per start', 
   await expect(checklist.locator('td.sail')).toHaveCount(3);
   await expect(checklist.getByRole('heading', { name: 'Class 1 IRC' })).toHaveCount(0);
 
+  // And what makes it a working sheet rather than a reference one: the page
+  // header gone, one line naming the series with the rest left blank, spare
+  // rows under each start for a boat that entered too late to be printed, and
+  // a ruled block at the end.
+  await expect(page.locator('table.headertable')).toBeHidden();
+  await expect(checklist.getByText('Autumn League')).toBeVisible();
+  await expect(checklist.getByText('Recorder')).toBeVisible();
+  await expect(checklist.locator('tr.spare')).toHaveCount(6);
+  await expect(checklist.getByText('Notes')).toBeVisible();
+
   // Once the dialog closes the page is its ordinary self again.
   await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   await page.emulateMedia({ media: 'screen' });

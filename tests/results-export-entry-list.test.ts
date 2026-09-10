@@ -149,6 +149,40 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('Print starters checklist');
   });
 
+  it('leaves the recorder room to write on the checklist', async () => {
+    const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
+      includeEntryList: true,
+    });
+    const html = files![0].html;
+    // Blank space at the end of every listed boat's row: where the number a
+    // boat actually turned up under gets written.
+    expect(html).toContain('<td class="tick"></td><td class="write"></td>');
+    // Spare rows under each start, for a boat that entered too late to be on
+    // the sheet. Two starts, three rows each, and none of them a listed boat.
+    expect(html.match(/<tr class="spare">/g)).toHaveLength(6);
+    expect(html.match(/<td class="sail">/g)).toHaveLength(2);
+    // And a ruled block at the end for what belongs to the day, not a boat.
+    expect(html).toContain('<span class="startersnoteslabel">Notes</span>');
+    expect(html.match(/<div class="startersrule"><\/div>/g)).toHaveLength(5);
+  });
+
+  it('heads the checklist with the series and blanks to fill', async () => {
+    const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
+      includeEntryList: true,
+    });
+    const html = files![0].html;
+    // The sheet says which series it is for, and leaves the rest to the
+    // recorder: the entry list cannot know which race day it is printed for.
+    expect(html).toContain('<span class="startersfor">Worlds — Dun Laoghaire</span>');
+    expect(html).toContain('Date <i></i>');
+    expect(html).toContain('Race(s) <i></i>');
+    expect(html).toContain('Recorder <i></i>');
+    // The page header the sheet spends its space on instead, and the tighter
+    // page box it prints in.
+    expect(html).toContain('body.starters table.headertable');
+    expect(html).toContain('<style id="starters-page" media="not all"');
+  });
+
   it('publishes the entry list for a split-fleet series with no races', async () => {
     // A split-fleet series has no Standings tab, so the Split Fleets page is
     // the only place publishing is reachable — and before race one the entry

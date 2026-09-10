@@ -413,8 +413,8 @@ export default function Publishing() {
         <Section id="starters-checklist" title="The starters checklist">
           <HelpShot
             src="/help/shots/starters-checklist.webp"
-            alt="A printed starters checklist: three class tables of large sail numbers, each row with a box to tick."
-            caption="The starters checklist as it prints: one table per start, sail numbers set large, a box beside each."
+            alt="A printed starters checklist: class tables of large sail numbers, each row with a box to tick and blank space to write in."
+            caption="The starters checklist as it prints: one table per start, sail numbers set large, a box beside each and room to write."
           />
           <p>
             The published competitor list also prints as a{' '}
@@ -425,12 +425,32 @@ export default function Publishing() {
             beside Save as PDF. Anyone with the link can print it; the race team needs no account.
           </p>
           <p>
-            Each row is the sail number, a box to tick beside it, and the boat name if your series
-            records one. There is one table per <em>start</em>, not per fleet: a class scored under IRC
-            and ECHO at once is one table, with every boat on it once. The starts come from your
-            default start sequence (Settings → Fleets) when you have set one up; otherwise fleets
-            that share a boat are taken to share a start. Sail numbers are set large for a moving
-            boat, and the tables run in columns so a club night’s classes fit on one page.
+            Each row is the sail number, a box to tick beside it, the boat name if your series
+            records one, and blank ruled space to write in. There is one table per <em>start</em>,
+            not per fleet: a class scored under IRC and ECHO at once is one table, with every boat
+            on it once. The starts come from your default start sequence (Settings → Fleets) when
+            you have set one up; otherwise fleets that share a boat are taken to share a start.
+            Sail numbers are set large for a moving boat, and the tables run in columns.
+          </p>
+          <p>
+            It is a working sheet, so most of it is space to write on. A boat that turns up under
+            a number other than the one it entered under gets that number written on its row —
+            which is what makes the results add up afterwards. Each start’s table ends in{' '}
+            <strong className="text-foreground">three spare rows</strong>, ruled and boxed like the
+            rest, for a boat that entered too late to be printed on the sheet or that you are told
+            about on the water. The sheet then ends in a ruled{' '}
+            <strong className="text-foreground">Notes</strong> block for anything that belongs to
+            the day rather than to one boat.
+          </p>
+          <p>
+            That space is paid for by what the sheet leaves out. Printed as a checklist it drops
+            the club logos, the page title and the series heading — about a sixth of the page —
+            and heads itself with a single line: the series name, then{' '}
+            <strong className="text-foreground">Date</strong>,{' '}
+            <strong className="text-foreground">Race(s)</strong> and{' '}
+            <strong className="text-foreground">Recorder</strong> left blank to fill in. The entry
+            list cannot know which race day you are printing it for, and a sheet that gets filed
+            and read back when the results are scored needs to say.
           </p>
           <p>
             To print one without publishing, open{' '}
