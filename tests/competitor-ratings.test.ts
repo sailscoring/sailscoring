@@ -8,6 +8,7 @@ import {
   competitorRatings,
   configuredRatingSystems,
   formatRatingValue,
+  ratingGaps,
 } from '@/lib/competitor-ratings';
 
 function mkFleet(over: Partial<Fleet> & { id: string; name: string; scoringSystem: Fleet['scoringSystem'] }): Fleet {
@@ -221,5 +222,96 @@ describe('requiredForFleetsHint', () => {
 
   it('empty list produces empty string', () => {
     expect(requiredForFleetsHint([])).toBe('');
+  });
+});
+
+
+describe('ratingGaps', () => {
+  const scratch = mkFleet({ id: 'sc', name: 'Cruisers 1', scoringSystem: 'scratch' });
+  const irc = mkFleet({ id: 'irc', name: 'Cruisers 1 (IRC)', scoringSystem: 'irc' });
+  const nhc = mkFleet({ id: 'nhc', name: 'Cruisers 1 (NHC)', scoringSystem: 'nhc' });
+
+  it('reports the unrated boats in a rated fleet', () => {
+    const gaps = ratingGaps(
+      [
+        mkCompetitor({ id: 'a', fleetIds: ['sc', 'irc'], ircTcc: 1.02 }),
+        mkCompetitor({ id: 'b', fleetIds: ['sc', 'irc'] }),
+        mkCompetitor({ id: 'c', fleetIds: ['sc', 'irc'] }),
+      ],
+      [scratch, irc],
+    );
+    expect(gaps).toEqual([
+      {
+        system: 'irc',
+        ratingLabel: 'IRC TCC',
+        fleets: [{ id: 'irc', name: 'Cruisers 1 (IRC)' }],
+        missing: 2,
+        total: 3,
+      },
+    ]);
+  });
+
+  it('says nothing about a fleet everybody is rated for', () => {
+    const gaps = ratingGaps(
+      [mkCompetitor({ id: 'a', fleetIds: ['irc'], ircTcc: 1.02 })],
+      [scratch, irc],
+    );
+    expect(gaps).toEqual([]);
+  });
+
+  it('ignores scratch fleets and boats outside the rated fleet', () => {
+    const gaps = ratingGaps(
+      [
+        mkCompetitor({ id: 'a', fleetIds: ['sc'] }),
+        mkCompetitor({ id: 'b', fleetIds: ['irc'], ircTcc: 1.02 }),
+      ],
+      [scratch, irc],
+    );
+    expect(gaps).toEqual([]);
+  });
+
+  it('leaves excluded boats out — a non-entrant needs no rating', () => {
+    const gaps = ratingGaps(
+      [
+        mkCompetitor({ id: 'a', fleetIds: ['irc'], ircTcc: 1.02 }),
+        mkCompetitor({ id: 'b', fleetIds: ['irc'], excluded: true }),
+      ],
+      [irc],
+    );
+    expect(gaps).toEqual([]);
+  });
+
+  it('has nothing to offer for NHC, which no list publishes', () => {
+    const gaps = ratingGaps([mkCompetitor({ id: 'a', fleetIds: ['nhc'] })], [nhc]);
+    expect(gaps).toEqual([]);
+  });
+
+  it('counts a boat in two fleets of one system once', () => {
+    const irc2 = mkFleet({ id: 'irc2', name: 'Cruisers 2 (IRC)', scoringSystem: 'irc' });
+    const gaps = ratingGaps(
+      [mkCompetitor({ id: 'a', fleetIds: ['irc', 'irc2'] })],
+      [irc, irc2],
+    );
+    expect(gaps).toEqual([
+      {
+        system: 'irc',
+        ratingLabel: 'IRC TCC',
+        fleets: [
+          { id: 'irc', name: 'Cruisers 1 (IRC)' },
+          { id: 'irc2', name: 'Cruisers 2 (IRC)' },
+        ],
+        missing: 1,
+        total: 1,
+      },
+    ]);
+  });
+
+  it('reports each system separately, in source-list order', () => {
+    const echo = mkFleet({ id: 'echo', name: 'Cruisers 1 (ECHO)', scoringSystem: 'echo' });
+    const gaps = ratingGaps(
+      [mkCompetitor({ id: 'a', fleetIds: ['irc', 'echo'] })],
+      [echo, irc],
+    );
+    expect(gaps.map((g) => g.system)).toEqual(['irc', 'echo']);
   });
 });

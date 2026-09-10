@@ -4,14 +4,21 @@ import { hasFleetRating } from '@/lib/scoring';
 
 export type MissingRating = { fleetName: string; ratingLabel: string };
 
+/** What a fleet of each system needs of a boat before it can be scored,
+ *  named as the scorer would ask for it. */
+const RATING_REQUIREMENT_LABEL: Record<RatingSystemCode, string> = {
+  irc: 'IRC TCC',
+  vprs: 'VPRS TCC',
+  py: 'PY number',
+  nhc: 'NHC starting TCF',
+  echo: 'ECHO starting handicap',
+  orc: 'ORC certificate',
+};
+
 export function fleetRatingLabel(fleet: Fleet): string | null {
-  if (fleet.scoringSystem === 'irc') return 'IRC TCC';
-  if (fleet.scoringSystem === 'vprs') return 'VPRS TCC';
-  if (fleet.scoringSystem === 'py') return 'PY number';
-  if (fleet.scoringSystem === 'nhc') return 'NHC starting TCF';
-  if (fleet.scoringSystem === 'echo') return 'ECHO starting handicap';
-  if (fleet.scoringSystem === 'orc') return 'ORC certificate';
-  return null;
+  return fleet.scoringSystem === 'scratch'
+    ? null
+    : RATING_REQUIREMENT_LABEL[fleet.scoringSystem];
 }
 
 export function missingRatings(
@@ -132,6 +139,79 @@ export function configuredRatingSystems(fleets: Fleet[]): RatingSystemCode[] {
     if (f.scoringSystem === 'scratch' || seen.has(f.scoringSystem)) continue;
     seen.add(f.scoringSystem);
     out.push(f.scoringSystem);
+  }
+  return out;
+}
+
+/** Systems a published list or certificate database can fill in, so an offer
+ *  to fetch one means something. NHC is absent: a starting TCF comes from the
+ *  boat's previous series or the scorer's own reckoning, never from a list. */
+export const SOURCED_RATING_SYSTEMS: readonly RatingSystemCode[] = [
+  'irc',
+  'orc',
+  'echo',
+  'vprs',
+  'py',
+];
+
+/** One rating system the series scores on and can't yet score everybody on. */
+export type RatingGap = {
+  system: RatingSystemCode;
+  /** What the boats are missing, e.g. "IRC TCC". */
+  ratingLabel: string;
+  /** The fleets of that system that hold unrated boats, in fleet order. */
+  fleets: { id: string; name: string }[];
+  /** Distinct unrated boats across those fleets. */
+  missing: number;
+  /** Distinct boats in every fleet of the system, rated or not. */
+  total: number;
+};
+
+/**
+ * Where the series scores a system it has no rating for yet, per system in
+ * {@link SOURCED_RATING_SYSTEMS} order.
+ *
+ * This is the state a competitor import leaves behind whenever a group is
+ * scored on a handicap system the entry list says nothing about: the fleet is
+ * created holding the whole group, because a file with no IRC column cannot
+ * say who holds a certificate, and the rating list is the first thing that
+ * knows better. Excluded boats are left out — a non-entrant needs no rating.
+ */
+export function ratingGaps(
+  competitors: readonly Competitor[],
+  fleets: readonly Fleet[],
+): RatingGap[] {
+  const out: RatingGap[] = [];
+  for (const system of SOURCED_RATING_SYSTEMS) {
+    const systemFleets = fleets.filter((f) => f.scoringSystem === system);
+    if (systemFleets.length === 0) continue;
+
+    // Counted per boat, not per membership: a boat in two IRC fleets is one
+    // boat to chase a certificate for.
+    const members = new Set<string>();
+    const unrated = new Set<string>();
+    const gapFleetIds = new Set<string>();
+    for (const c of competitors) {
+      if (c.excluded) continue;
+      for (const f of systemFleets) {
+        if (!c.fleetIds.includes(f.id)) continue;
+        members.add(c.id);
+        if (hasFleetRating(c, f)) continue;
+        unrated.add(c.id);
+        gapFleetIds.add(f.id);
+      }
+    }
+    if (unrated.size === 0) continue;
+
+    out.push({
+      system,
+      ratingLabel: RATING_REQUIREMENT_LABEL[system],
+      fleets: systemFleets
+        .filter((f) => gapFleetIds.has(f.id))
+        .map((f) => ({ id: f.id, name: f.name })),
+      missing: unrated.size,
+      total: members.size,
+    });
   }
   return out;
 }
