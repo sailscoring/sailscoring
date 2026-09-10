@@ -418,9 +418,18 @@ export interface SeriesFileRepos {
  *  rejoins it whatever it has since been renamed to. Sparse — absent on
  *  fleets no import has touched. An older build reading a v48 file drops the
  *  bindings, which costs nothing permanent: the next import through a
- *  matching name rewrites them. */
-export const FORMAT_VERSION = 48;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48];
+ *  matching name rewrites them.
+ *
+ *  v49 adds optional `splitFleets.config.raceLabels` — the prefix per stage
+ *  and whether the second stage numbers on from the first, as this event's
+ *  notice board writes them rather than as its class's sailing instructions
+ *  do. Sparse (absent = the vocabulary's own scheme). `splitFleets.config`
+ *  travels verbatim, so no parser change; an older build reading a v49 file
+ *  falls back to that scheme and relabels every race of the championship —
+ *  the labels a competitor names on a scoring enquiry — which is why this is
+ *  a bump rather than a ride-along. */
+export const FORMAT_VERSION = 49;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----

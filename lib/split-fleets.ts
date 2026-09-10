@@ -113,11 +113,12 @@ export interface SplitFleetConfig {
    *  assignment: registration/seeding order, or LE's fleet-order scatter. */
   reassignmentTieOrder: 'a8-then-entry-order' | 'fleet-order';
   /** Which set of words this championship's sailing instructions use for its
-   *  stages and races (see `Vocabulary`). The race prefixes and whether the
-   *  second stage numbers on from the first follow from the choice — they are
-   *  not separately configurable, because only some combinations mean
-   *  anything. */
+   *  stages and races (see `Vocabulary`). */
   vocabulary: VocabularyKey;
+  /** What the notice board actually calls the races, when that differs from
+   *  the scheme the vocabulary's own sailing instructions write (see
+   *  `RaceLabelScheme`). Absent = the vocabulary's. */
+  raceLabels?: RaceLabelScheme;
   /** Wording for a class the table doesn't cover. Engine-only: no UI writes
    *  it, and `vocabulary` still records which tabulated set it started from. */
   vocabularyOverride?: Vocabulary;
@@ -187,7 +188,7 @@ export interface SplitFleetConfig {
  *   stage 1 (fleets re-dealt)     qualifying series    Preliminary series
  *   stage 2 (fleets locked)       final series         Elimination series
  *   stage 3 (the decider)         medal races          Final series
- *   race labels                   Q… / F… / M…         Q… running on / F…
+ *   race labels in its SIs        Q… / F… / M…         Q… running on / F…
  *
  * So mixing them is not a cosmetic slip: "the final series begins when
  * qualifying ends" is true under the first and false under the second, where
@@ -213,10 +214,12 @@ export interface Vocabulary {
    *  after a stage: "opening series", "Qualification series". */
   seriesName: string;
   stages: Record<SeriesStage, StageWords>;
-  /** Race-label prefixes ("Q3", "F1"). */
+  /** Race-label prefixes ("Q3", "F1") as this vocabulary's own sailing
+   *  instructions write them. What a given event's notice board writes is a
+   *  separate matter — see `RaceLabelScheme` and `config.raceLabels`. */
   prefixes: Record<SeriesStage, string>;
   /** Stage 2's races continue stage 1's numbering under stage 1's prefix
-   *  rather than restarting — which follows from the two sharing a prefix. */
+   *  rather than restarting. */
   continuousOpeningNumbers: boolean;
 }
 
@@ -307,6 +310,90 @@ export function resolveVocabulary(config: SplitFleetConfig): Vocabulary {
   return config.vocabularyOverride ?? VOCABULARIES[config.vocabulary ?? DEFAULT_VOCABULARY];
 }
 
+/**
+ * How this event's notice board numbers its races: a prefix per stage, and
+ * whether stage 2 numbers on from stage 1 or restarts at 1.
+ *
+ * Separate from the vocabulary, because the words and the labels turn out to
+ * be separate decisions. The two 2026 ILCA Worlds at Dun Laoghaire were
+ * sailed under one class's sailing instructions, whose own discard table
+ * numbers the Qualification series straight through (Q1–Q2, Q3–Q9, Q10–Q12),
+ * and published three schemes between them: Q1–Q5 then E1–E7 at the men's,
+ * QP1–QP5 then QE1–QE… at the women's, and the SIs' continuous Q… in neither.
+ * The stage words were identical at both. So the scheme cannot be derived
+ * from the vocabulary — a scorer has to be able to say what their own notice
+ * board wrote, since the label is what a competitor names on a scoring
+ * enquiry.
+ *
+ * The prefixes of stages 1 and 2 must differ unless numbering is continuous,
+ * or the two stages produce the same label for different races.
+ */
+export interface RaceLabelScheme {
+  prefixes: Record<SeriesStage, string>;
+  continuousOpeningNumbers: boolean;
+}
+
+/** The schemes seen on notice boards, as the stage 1 / stage 2 half a scorer
+ *  picks; stage 3's prefix comes from the vocabulary, which every one of them
+ *  agrees with. Carries no description: the labels a scheme produces are the
+ *  clearest one, and a caller can render them with `stageRaceLabel`. */
+export const RACE_LABEL_SCHEMES: {
+  key: RaceLabelSchemeKey;
+  qualifying: string;
+  final: string;
+  continuousOpeningNumbers: boolean;
+}[] = [
+  { key: 'continuous', qualifying: 'Q', final: 'Q', continuousOpeningNumbers: true },
+  { key: 'q-f', qualifying: 'Q', final: 'F', continuousOpeningNumbers: false },
+  { key: 'q-e', qualifying: 'Q', final: 'E', continuousOpeningNumbers: false },
+  { key: 'qp-qe', qualifying: 'QP', final: 'QE', continuousOpeningNumbers: false },
+];
+
+export type RaceLabelSchemeKey = 'continuous' | 'q-f' | 'q-e' | 'qp-qe';
+
+/** The labels this series writes: its own scheme, or the one its
+ *  vocabulary's sailing instructions use. */
+export function resolveRaceLabels(config: SplitFleetConfig): RaceLabelScheme {
+  if (config.raceLabels) return config.raceLabels;
+  const vocab = resolveVocabulary(config);
+  return {
+    prefixes: vocab.prefixes,
+    continuousOpeningNumbers: vocab.continuousOpeningNumbers,
+  };
+}
+
+/** Which tabulated scheme a series is using, or null for a scheme of its own.
+ *  Derived rather than stored, so a scorer who edits a prefix back to a
+ *  tabulated one is told they have that scheme again. */
+export function raceLabelSchemeKey(config: SplitFleetConfig): RaceLabelSchemeKey | null {
+  const labels = resolveRaceLabels(config);
+  return (
+    RACE_LABEL_SCHEMES.find(
+      (s) =>
+        s.qualifying === labels.prefixes.qualifying &&
+        s.final === labels.prefixes.final &&
+        s.continuousOpeningNumbers === labels.continuousOpeningNumbers,
+    )?.key ?? null
+  );
+}
+
+/** Adopt a tabulated scheme, keeping the last stage's prefix — no scheme in
+ *  circulation disagrees with the vocabulary about that one. */
+export function applyRaceLabelScheme(
+  config: SplitFleetConfig,
+  key: RaceLabelSchemeKey,
+): RaceLabelScheme {
+  const scheme = RACE_LABEL_SCHEMES.find((s) => s.key === key) ?? RACE_LABEL_SCHEMES[0];
+  return {
+    prefixes: {
+      qualifying: scheme.qualifying,
+      final: scheme.final,
+      medal: resolveRaceLabels(config).prefixes.medal,
+    },
+    continuousOpeningNumbers: scheme.continuousOpeningNumbers,
+  };
+}
+
 /** A stage name as a heading or the start of a sentence. */
 export function capitaliseStage(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
@@ -330,6 +417,12 @@ export function qualifyingRaceCount(data: SplitFleetData): number {
   return max;
 }
 
+/** "qualifying series" -> "QS", "Preliminary series" -> "PS": a series named
+ *  by its initials, which is how a column too narrow for its name is headed. */
+export function stageInitials(name: string): string {
+  return (name.match(/[a-z0-9]+/gi) ?? []).map((w) => w[0].toUpperCase()).join('');
+}
+
 /** A race's label as the notice board writes it ("Q3", "F1"). Stage race 0 is
  *  not a race but a carried score: the qualifying position under `rank-seed`,
  *  the compressed opening-series score under a carry transform. */
@@ -339,17 +432,19 @@ export function stageRaceLabel(
   n: number,
   qualifyingRaces = 0,
 ): string {
-  const vocab = resolveVocabulary(config);
+  const labels = resolveRaceLabels(config);
   // Stage race 0 is a carried score, not a race: the position carried under
-  // `rank-seed`, or the compressed score under a carry transform.
+  // `rank-seed`, or the compressed score under a carry transform. So it is
+  // headed for the series it was carried from and not from a race prefix,
+  // which would read "QPS" where the prefix is QP.
   if (n === 0) {
     return stage === 'medal'
       ? 'Carried'
-      : `${vocab.prefixes.qualifying}S`;
+      : stageInitials(resolveVocabulary(config).stages.qualifying.name);
   }
-  return stage === 'final' && vocab.continuousOpeningNumbers
-    ? `${vocab.prefixes.qualifying}${qualifyingRaces + n}`
-    : `${vocab.prefixes[stage]}${n}`;
+  return stage === 'final' && labels.continuousOpeningNumbers
+    ? `${labels.prefixes.qualifying}${qualifyingRaces + n}`
+    : `${labels.prefixes[stage]}${n}`;
 }
 
 /** How a medal boat's opening-series score is compressed before the medal

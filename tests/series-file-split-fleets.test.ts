@@ -195,6 +195,26 @@ describe('split-fleet block on file import', () => {
     expect(round.createdAt).toBe(1_754_000_000_000);
   });
 
+  it('carries the labels the notice board used, which travel in the config', async () => {
+    // `splitFleets.config` travels verbatim, so this is a round-trip check on
+    // the one field a reader can't reconstruct: what a race was called.
+    const file = makeFile();
+    file.splitFleets!.config = {
+      ...CONFIG,
+      raceLabels: {
+        prefixes: { qualifying: 'QP', final: 'QE', medal: 'F' },
+        continuousOpeningNumbers: false,
+      },
+    };
+    const repos = makeRepos();
+    await openSeriesFromFile(file, repos);
+
+    expect(repos.replaceCalls[0].config?.raceLabels).toEqual({
+      prefixes: { qualifying: 'QP', final: 'QE', medal: 'F' },
+      continuousOpeningNumbers: false,
+    });
+  });
+
   it('drops references the import didn’t carry over', async () => {
     const file = makeFile();
     file.splitFleets!.rounds[0].fleetIds = ['file-fleet-yellow', 'no-such-fleet'];

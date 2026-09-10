@@ -112,12 +112,15 @@ describe('split-fleet vocabulary', () => {
         expect(words.name, `${key}.${stage}.name`).toBeTruthy();
         expect(words.raceNoun, `${key}.${stage}.raceNoun`).toBeTruthy();
         expect(words.fleetNoun, `${key}.${stage}.fleetNoun`).toBeTruthy();
-        expect(vocab.prefixes[stage], `${key}.prefixes.${stage}`).toMatch(/^[A-Z]{1,2}$/);
+        expect(vocab.prefixes[stage], `${key}.prefixes.${stage}`).toMatch(/^[A-Z]{1,3}$/);
       }
-      // Two stages sharing a prefix is what continuous numbering is for, and
-      // is the only way the labels stay unique across them.
-      const sharesPrefix = vocab.prefixes.qualifying === vocab.prefixes.final;
-      expect(vocab.continuousOpeningNumbers, `${key} numbering`).toBe(sharesPrefix);
+      // The rule is one-directional: two stages sharing a prefix have to
+      // number continuously, or the same label names two different races.
+      // The converse is not a rule — an event can and does restart the
+      // numbering under a prefix of its own (`RaceLabelScheme`).
+      if (vocab.prefixes.qualifying === vocab.prefixes.final) {
+        expect(vocab.continuousOpeningNumbers, `${key} numbering`).toBe(true);
+      }
     }
   });
 

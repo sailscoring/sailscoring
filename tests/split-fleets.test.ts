@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyRaceLabelScheme,
   assignByRankPattern,
   assignFromInitialFleet,
+  RACE_LABEL_SCHEMES,
+  raceLabelSchemeKey,
   ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
   ilca2026SplitFleetConfig,
@@ -22,6 +25,12 @@ import {
   type SplitRound,
 } from '@/lib/split-fleets';
 import type { Competitor, Finish, Fleet, Race, RaceStart } from '@/lib/types';
+
+/** What the 2026 ILCA 6 Women's Worlds notice board wrote. */
+const qpQeLabels = {
+  prefixes: { qualifying: 'QP', final: 'QE', medal: 'F' },
+  continuousOpeningNumbers: false,
+};
 
 function competitor(id: string, fleetIds: string[], sail: number): Competitor {
   return {
@@ -756,6 +765,59 @@ describe('stageRaceLabel', () => {
     expect(stageRaceLabel(config, 'final', 0)).toBe('QS');
     expect(stageRaceLabel(config, 'medal', 0)).toBe('Carried');
   });
+
+  it('writes the labels the notice board used, not the ones its SIs did', () => {
+    // The 2026 ILCA 6 Women's Worlds: the same sailing instructions whose
+    // discard table numbers the Qualification series Q1–Q12, sailed as
+    // QP1–QP5 then QE1 onward. Two weeks earlier the men's event, under the
+    // same instructions, used Q1–Q5 then E1 onward.
+    const women = { ...ilca2026SplitFleetConfig(2), raceLabels: qpQeLabels };
+    expect(stageRaceLabel(women, 'qualifying', 5, 5)).toBe('QP5');
+    expect(stageRaceLabel(women, 'final', 1, 5)).toBe('QE1');
+    expect(stageRaceLabel(women, 'final', 4, 5)).toBe('QE4');
+    expect(stageRaceLabel(women, 'medal', 1, 5)).toBe('F1');
+    const men = { ...ilca2026SplitFleetConfig(3), raceLabels: applyRaceLabelScheme(ilca2026SplitFleetConfig(3), 'q-e') };
+    expect(stageRaceLabel(men, 'qualifying', 5, 5)).toBe('Q5');
+    expect(stageRaceLabel(men, 'final', 1, 5)).toBe('E1');
+    expect(stageRaceLabel(men, 'medal', 1, 5)).toBe('F1');
+  });
+});
+
+describe('race label schemes', () => {
+  const ilca = ilca2026SplitFleetConfig(2);
+
+  it('keeps the last stage’s prefix when a scheme is adopted', () => {
+    // No scheme in circulation disagrees with the vocabulary about the last
+    // stage, so picking one is a choice about the first two.
+    for (const scheme of RACE_LABEL_SCHEMES) {
+      expect(applyRaceLabelScheme(ilca, scheme.key).prefixes.medal).toBe('F');
+      expect(applyRaceLabelScheme(defaultSplitFleetConfig(2), scheme.key).prefixes.medal).toBe('M');
+    }
+  });
+
+  it('names the scheme a series is using, and admits when it is its own', () => {
+    expect(raceLabelSchemeKey(ilca)).toBe('continuous');
+    expect(raceLabelSchemeKey(defaultSplitFleetConfig(2))).toBe('q-f');
+    expect(raceLabelSchemeKey({ ...ilca, raceLabels: qpQeLabels })).toBe('qp-qe');
+    expect(
+      raceLabelSchemeKey({
+        ...ilca,
+        raceLabels: { prefixes: { qualifying: 'P', final: 'E', medal: 'F' }, continuousOpeningNumbers: false },
+      }),
+    ).toBeNull();
+  });
+
+  it('gives every tabulated scheme labels that cannot collide', () => {
+    // A scheme restarting the second stage at 1 under the first stage's
+    // prefix would call two different races the same thing.
+    for (const scheme of RACE_LABEL_SCHEMES) {
+      if (!scheme.continuousOpeningNumbers) {
+        expect(scheme.final, scheme.key).not.toBe(scheme.qualifying);
+      }
+      expect(scheme.qualifying, scheme.key).toMatch(/^[A-Z]{1,3}$/);
+      expect(scheme.final, scheme.key).toMatch(/^[A-Z]{1,3}$/);
+    }
+  });
 });
 
 
@@ -786,9 +848,19 @@ describe('vocabulary', () => {
   });
 
   it('derives the carried-score column header from the vocabulary', () => {
+    // The initials of the series the score was carried from, and not the
+    // race prefix: those are the same letter under the default wording and
+    // nothing like it under a QP/QE notice board.
     expect(stageRaceLabel(defaultSplitFleetConfig(2), 'final', 0)).toBe('QS');
-    expect(stageRaceLabel(ilca2026SplitFleetConfig(2), 'final', 0)).toBe('QS');
+    expect(stageRaceLabel(ilca2026SplitFleetConfig(2), 'final', 0)).toBe('PS');
     expect(stageRaceLabel(defaultSplitFleetConfig(2), 'medal', 0)).toBe('Carried');
+    expect(
+      stageRaceLabel(
+        { ...ilca2026SplitFleetConfig(2), raceLabels: qpQeLabels },
+        'final',
+        0,
+      ),
+    ).toBe('PS');
   });
 
   describe('reading a v33 config, which authored the words directly', () => {

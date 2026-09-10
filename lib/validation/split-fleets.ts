@@ -10,6 +10,12 @@ const fleetSpecSchema = z.object({
   color: z.string(),
 });
 
+/** A race-label prefix as a notice board writes one: "Q", "QP", "F". Short
+ *  and letters only — it sits in front of a number in a table heading. */
+const racePrefixSchema = z
+  .string()
+  .regex(/^[A-Za-z]{1,3}$/, 'a race prefix is one to three letters');
+
 export const splitFleetConfigSchema = z.object({
   qualifyingFleets: z.array(fleetSpecSchema).min(2).max(4),
   finalFleets: z.array(fleetSpecSchema).min(2).max(4),
@@ -41,6 +47,25 @@ export const splitFleetConfigSchema = z.object({
   vocabulary: z
     .enum(['opening-medal', 'qualification-final'])
     .default(DEFAULT_VOCABULARY),
+  // What the notice board calls the races, when that differs from the scheme
+  // the vocabulary's own sailing instructions write. Stages 1 and 2 need
+  // distinct prefixes unless the numbering runs continuously through them:
+  // restarting at 1 under one prefix labels two different races the same, and
+  // the label is what a competitor names on a scoring enquiry.
+  raceLabels: z
+    .object({
+      prefixes: z.object({
+        qualifying: racePrefixSchema,
+        final: racePrefixSchema,
+        medal: racePrefixSchema,
+      }),
+      continuousOpeningNumbers: z.boolean(),
+    })
+    .refine(
+      (v) => v.continuousOpeningNumbers || v.prefixes.qualifying !== v.prefixes.final,
+      'race labels restarting at 1 need a different prefix for each stage',
+    )
+    .optional(),
   // Engine-only escape hatch (see `Vocabulary`), and the shape a v33 file's
   // authored wording upgrades into. Passed through rather than rejected so a
   // config written by a build that knows a vocabulary this one doesn't still
