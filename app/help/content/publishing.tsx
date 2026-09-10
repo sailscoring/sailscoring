@@ -430,13 +430,15 @@ export default function Publishing() {
             not per fleet: a class scored under IRC and ECHO at once is one table, with every boat
             on it once. The starts come from your default start sequence (Settings → Fleets) when
             you have set one up; otherwise fleets that share a boat are taken to share a start.
-            Sail numbers are set large for a moving boat, and the tables run in columns.
+            Sail numbers are set large for a moving boat, and the tables run in columns. A class
+            that runs from one column into the next carries its name over, so a column never
+            starts with boats you cannot place.
           </p>
           <p>
             It is a working sheet, so most of it is space to write on. A boat that turns up under
             a number other than the one it entered under gets that number written on its row —
             which is what makes the results add up afterwards. Each start’s table ends in{' '}
-            <strong className="text-foreground">three spare rows</strong>, ruled and boxed like the
+            <strong className="text-foreground">two spare rows</strong>, ruled and boxed like the
             rest, for a boat that entered too late to be printed on the sheet or that you are told
             about on the water. The sheet then ends in a ruled{' '}
             <strong className="text-foreground">Notes</strong> block for anything that belongs to

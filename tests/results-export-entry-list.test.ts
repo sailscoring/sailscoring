@@ -143,8 +143,8 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     });
     const html = files![0].html;
     // Red and Blue share no boat, so each is its own start and its own table.
-    expect(html).toContain('<h3>Red</h3>');
-    expect(html).toContain('<h3>Blue</h3>');
+    expect(html).toContain('>Red</th>');
+    expect(html).toContain('>Blue</th>');
     expect(html).toContain('<td class="sail">201</td><td class="tick"></td>');
     expect(html).toContain('Print starters checklist');
   });
@@ -158,12 +158,12 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     // boat actually turned up under gets written.
     expect(html).toContain('<td class="tick"></td><td class="write"></td>');
     // Spare rows under each start, for a boat that entered too late to be on
-    // the sheet. Two starts, three rows each, and none of them a listed boat.
-    expect(html.match(/<tr class="spare">/g)).toHaveLength(6);
+    // the sheet. Two starts, two rows each, and none of them a listed boat.
+    expect(html.match(/<tr class="spare">/g)).toHaveLength(4);
     expect(html.match(/<td class="sail">/g)).toHaveLength(2);
     // And a ruled block at the end for what belongs to the day, not a boat.
     expect(html).toContain('<span class="startersnoteslabel">Notes</span>');
-    expect(html.match(/<div class="startersrule"><\/div>/g)).toHaveLength(5);
+    expect(html.match(/<div class="startersrule"><\/div>/g)).toHaveLength(4);
   });
 
   it('heads the checklist with the series and blanks to fill', async () => {

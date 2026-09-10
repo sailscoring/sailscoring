@@ -216,11 +216,13 @@ test('the competitor list prints as a starters checklist, one table per start', 
   // The entry list is two tables — Class 1 is scored two ways — and print
   // hides both of them.
   await expect(page.locator('table.summarytable:visible')).toHaveCount(0);
-  await expect(checklist.getByRole('heading', { name: 'Class 1', exact: true })).toBeVisible();
-  await expect(checklist.getByRole('heading', { name: 'Class 2 HPH', exact: true })).toBeVisible();
+  // The start's name heads its table from inside it, as a header row, so that
+  // it repeats wherever the table runs from one column into the next.
+  await expect(checklist.locator('th.startershead', { hasText: /^Class 1$/ })).toBeVisible();
+  await expect(checklist.locator('th.startershead', { hasText: /^Class 2 HPH$/ })).toBeVisible();
   await expect(checklist.locator('td.sail', { hasText: 'IRL 1234' })).toHaveCount(1);
   await expect(checklist.locator('td.sail')).toHaveCount(3);
-  await expect(checklist.getByRole('heading', { name: 'Class 1 IRC' })).toHaveCount(0);
+  await expect(checklist.locator('th.startershead', { hasText: 'Class 1 IRC' })).toHaveCount(0);
 
   // And what makes it a working sheet rather than a reference one: the page
   // header gone, one line naming the series with the rest left blank, spare
@@ -229,7 +231,7 @@ test('the competitor list prints as a starters checklist, one table per start', 
   await expect(page.locator('table.headertable')).toBeHidden();
   await expect(checklist.getByText('Autumn League')).toBeVisible();
   await expect(checklist.getByText('Recorder')).toBeVisible();
-  await expect(checklist.locator('tr.spare')).toHaveCount(6);
+  await expect(checklist.locator('tr.spare')).toHaveCount(4);
   await expect(checklist.getByText('Notes')).toBeVisible();
 
   // Once the dialog closes the page is its ordinary self again.

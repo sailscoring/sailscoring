@@ -1152,14 +1152,23 @@ function renderStartersChecklist(tables: ChecklistTable[], series: { name: strin
       { length: SPARE_ROWS },
       () => `<tr class="spare"><td></td><td class="tick"></td>${showBoat ? '<td></td>' : ''}<td></td></tr>`,
     ).join('\n');
+    // The start's name heads the table from inside it, as a header row rather
+    // than as a heading above it, so that it repeats wherever the table
+    // breaks. A table that runs from one column into the next is the ordinary
+    // case on this sheet, and a column of boats under no name at all tells
+    // the recorder nothing about which start they are.
+    const head =
+      t.heading !== null
+        ? `<thead>\n<tr><th class="startershead" colspan="${showBoat ? 4 : 3}">${esc(t.heading)}</th></tr>\n</thead>\n`
+        : '';
     // A table of a few boats stays whole rather than straddling two
     // columns, where the split would be more distracting than the space it
     // saves. A longer one is allowed to split: a column holds around thirty
     // rows and a class is routinely half that, so keeping every table whole
     // leaves a third of each column empty and costs a page.
     return `<section class="startersstart${t.boats.length + SPARE_ROWS <= KEEP_WHOLE_ROWS ? ' keep' : ''}">
-${t.heading !== null ? `<h3>${esc(t.heading)}</h3>\n` : ''}<table class="starterstable" cellspacing="0" cellpadding="0" border="0">
-<tbody>
+<table class="starterstable" cellspacing="0" cellpadding="0" border="0">
+${head}<tbody>
 ${rows}
 ${spare}
 </tbody>
@@ -1174,10 +1183,10 @@ ${spare}
 </div>
 <div class="starterscols">
 ${sections.join('\n')}
-</div>
 <div class="startersnotes">
 <span class="startersnoteslabel">Notes</span>
 ${Array.from({ length: NOTE_LINES }, () => '<div class="startersrule"></div>').join('\n')}
+</div>
 </div>
 </div>`;
 }
@@ -1186,14 +1195,12 @@ ${Array.from({ length: NOTE_LINES }, () => '<div class="startersrule"></div>').j
 const KEEP_WHOLE_ROWS = 8;
 
 /** Blank rows at the foot of each start's table, for boats that are not on
- *  the list. Three is a guess at what a club night needs; a forty-boat class
+ *  the list. Two is a guess at what a club night needs; a forty-boat class
  *  may well want more. */
-const SPARE_ROWS = 3;
+const SPARE_ROWS = 2;
 
-/** Ruled lines in the sheet's closing notes block. Five is about 32mm, which
- *  is what is left over once the header the sheet no longer prints is
- *  reclaimed. */
-const NOTE_LINES = 5;
+/** Ruled lines in the sheet's closing notes block. */
+const NOTE_LINES = 4;
 
 /** The print stylesheet for the starters checklist. Off screen it is hidden
  *  outright; in print it shows only under the `starters` body class, which
@@ -1220,18 +1227,18 @@ function renderStartersChecklistCss(): string {
   .startersident .startersblank i { display: inline-block; width: 18mm; border-bottom: 0.3mm solid #666; }
   .startersstart { margin: 0 0 6mm 0; }
   .startersstart.keep { break-inside: avoid; }
-  .startersstart h3 { font-size: 14pt; margin: 0 0 1.5mm 0; break-after: avoid; }
+  table.starterstable th.startershead { background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; border: 0; padding: 3mm 0 1.2mm 0; }
   table.starterstable { width: 100%; margin: 0; border: 0; }
-  table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.5mm 1mm; vertical-align: middle; font-size: 16pt; line-height: 1.1; }
+  table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.2mm 1mm; vertical-align: middle; font-size: 13pt; line-height: 1.1; }
   table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
-  table.starterstable td.boat { font-size: 10pt; color: #333; width: 38%; }
+  table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; }
   table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.starterstable td.write { width: 26%; }
-  table.starterstable td.tick { width: 6mm; padding: 1.5mm 2mm 1.5mm 1mm; }
-  table.starterstable td.tick::before { content: ""; display: block; width: 6mm; height: 6mm; border: 0.5mm solid #1a1a1a; box-sizing: border-box; }
-  .startersnotes { break-inside: avoid; margin: 2mm 0 0 0; }
+  table.starterstable td.tick { width: 5mm; padding: 1.2mm 2mm 1.2mm 1mm; }
+  table.starterstable td.tick::before { content: ""; display: block; width: 5mm; height: 5mm; border: 0.4mm solid #1a1a1a; box-sizing: border-box; }
+  .startersnotes { break-inside: avoid; }
   .startersnotes .startersnoteslabel { display: block; font-size: 10pt; font-weight: 600; margin: 0 0 1mm 0; }
-  .startersnotes .startersrule { height: 6.5mm; border-bottom: 0.3mm solid #999; }
+  .startersnotes .startersrule { height: 6mm; border-bottom: 0.3mm solid #999; }
 }
 `;
 }

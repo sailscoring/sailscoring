@@ -1898,8 +1898,8 @@ describe('renderCompetitorListHtml', () => {
         checklist,
       });
       expect(html).toContain('<div class="starterslist">');
-      expect(html).toContain('<h3>Class 1</h3>');
-      expect(html).toContain('<h3>Class 2</h3>');
+      expect(html).toContain('<th class="startershead" colspan="4">Class 1</th>');
+      expect(html).toContain('<th class="startershead" colspan="3">Class 2</th>');
       expect(html).toContain('<td class="sail">2001</td>');
       expect(html).toContain('.starterslist { display: none; }');
       expect(html).toContain('body.starters .starterslist { display: block;');
@@ -1936,7 +1936,7 @@ describe('renderCompetitorListHtml', () => {
         checklist: [{ heading: null, boats: [{ sailNumber: '4' }] }],
       });
       expect(html).toContain('<div class="starterslist">');
-      expect(html).not.toContain('<section class="startersstart">\n<h3>');
+      expect(html).not.toContain('<th class="startershead"');
     });
 
     it('leaves the page as it was when there is nothing to list', () => {
