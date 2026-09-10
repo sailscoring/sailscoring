@@ -15,7 +15,7 @@ import { createRepos, replaceSplitFleetState } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { defaultRaceDate } from '@/lib/race-schedule';
-import { normalizeSplitFleetConfig, stageRaceLabel } from '@/lib/split-fleets';
+import { normalizeSplitFleetConfig, resolveRaceLabels, stageRaceLabel } from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitAbandonStartSchema,
@@ -131,6 +131,7 @@ export async function putSplitFleetConfig(
   }
 
   await repos.splitRounds.setConfig(seriesId, config);
+  if (existing) await relabelStageRaces(seriesId, workspace.workspaceId, existing, config);
   await trackChange(workspace, {
     action: 'split-fleets.configured',
     seriesId,
@@ -406,6 +407,74 @@ function sequenceName(
       : label(nums[0]);
   }
   return spec.starts.map((s) => `${label(s.stageRaceNumber)} · ${s.label}`).join(' + ');
+}
+
+/**
+ * Rewrite the names of the series' stage races after its labels change.
+ *
+ * A race's name is written when it is created, so a scorer who corrects the
+ * scheme mid-event — the notice board says QE1 and we called it Q6 — would
+ * otherwise get relabelled standings columns above a races list still saying
+ * Q6. Only races still holding the name the old configuration wrote are
+ * touched: a name the scorer typed themselves is theirs, and so is the name
+ * of a race whose starts we cannot put back in the order they were written
+ * in (an out-of-step sequence, whose name spans two stage races).
+ */
+async function relabelStageRaces(
+  seriesId: string,
+  workspaceId: string,
+  before: SplitFleetConfig,
+  after: SplitFleetConfig,
+): Promise<void> {
+  const wasLabelled = JSON.stringify(resolveRaceLabels(before));
+  if (wasLabelled === JSON.stringify(resolveRaceLabels(after))) return;
+  const db = getDb();
+  const rows = await db
+    .select({
+      raceId: schema.races.id,
+      name: schema.races.name,
+      stage: schema.raceStarts.stage,
+      stageRaceNumber: schema.raceStarts.stageRaceNumber,
+      fleetIds: schema.raceStarts.fleetIds,
+    })
+    .from(schema.raceStarts)
+    .innerJoin(schema.races, eq(schema.raceStarts.raceId, schema.races.id))
+    .where(and(eq(schema.races.seriesId, seriesId), eq(schema.races.workspaceId, workspaceId)));
+  const fleetRows = await db
+    .select({ id: schema.fleets.id, name: schema.fleets.name })
+    .from(schema.fleets)
+    .where(and(eq(schema.fleets.seriesId, seriesId), eq(schema.fleets.workspaceId, workspaceId)));
+  const fleetName = new Map(fleetRows.map((f) => [f.id, f.name]));
+  const qRaces = Math.max(
+    0,
+    ...rows
+      .filter((r) => r.stage === 'qualifying' && r.stageRaceNumber != null)
+      .map((r) => r.stageRaceNumber as number),
+  );
+  const byRace = new Map<string, { name: string | null; specs: typeof rows }>();
+  for (const row of rows) {
+    if (!row.stage || row.stageRaceNumber == null) continue;
+    const entry = byRace.get(row.raceId) ?? { name: row.name, specs: [] };
+    entry.specs.push(row);
+    byRace.set(row.raceId, entry);
+  }
+  for (const [raceId, entry] of byRace) {
+    const starts = [...entry.specs]
+      .map((r) => ({
+        fleetId: r.fleetIds[0] ?? '',
+        label: r.fleetIds.map((id) => fleetName.get(id) ?? '?').join(' + '),
+        stageRaceNumber: r.stageRaceNumber as number,
+      }))
+      .sort((a, b) => a.stageRaceNumber - b.stageRaceNumber || a.label.localeCompare(b.label));
+    const spec: StageRaceSpec = { stage: entry.specs[0].stage as SplitRound['stage'], starts };
+    const was = sequenceName(spec, before, qRaces);
+    const now = sequenceName(spec, after, qRaces);
+    if (entry.name !== was || now === was) continue;
+    await db
+      .update(schema.races)
+      .set({ name: now })
+      .where(and(eq(schema.races.id, raceId), eq(schema.races.workspaceId, workspaceId)));
+  }
 }
 
 /**

@@ -621,3 +621,73 @@ test('split fleets: a round commits without creating its races', async ({
   await expect(q1Row.getByRole('link', { name: /Yellow · enter finishes/ })).toBeVisible();
   await expect(page.getByText('0 of 1 Preliminary series races count')).toBeVisible();
 });
+
+/** The races list, waiting for its own rows: a series nav click leaves the
+ *  page it came from mounted, and both pages carry race labels. */
+async function gotoRaces(page: import('@playwright/test').Page) {
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+}
+
+/**
+ * The race labels a series shows are its notice board's, not its class's.
+ * The 2026 ILCA 6 Women's Worlds numbered its races QP1–QP5 then QE1 onward
+ * under sailing instructions whose own discard table numbers them Q1–Q12, and
+ * the men's event two weeks earlier used Q1–Q5 then E1 onward. So the scheme
+ * is set here, and changing it has to reach the races already created — a
+ * relabelled standings column above a races list still saying Q6 is worse
+ * than either label on its own.
+ */
+test('split fleets: the notice board’s race labels reach every surface', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+  await createSplitFleetSeries(page, {
+    name: 'Notice Board Worlds',
+    venue: 'Dun Laoghaire',
+    fleetCount: 2,
+  });
+  await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
+
+  // The default is the scheme this format's sailing instructions write, and
+  // the sailing-instruction translation states it.
+  const labels = page.locator('#sf-race-labels');
+  await expect(labels).toHaveValue('continuous');
+  await expect(page.getByTestId('sf-si-translation')).toContainText(
+    'races in the Preliminary series and the Elimination series will be numbered Q1, Q2',
+  );
+
+  // What the women's Worlds actually posted.
+  await labels.selectOption('qp-qe');
+  await expect(page.getByTestId('sf-si-translation')).toContainText(
+    'races in the Preliminary series will be numbered QP1, QP2 and so on; races in the ' +
+      'Elimination series, QE1, QE2 and so on',
+  );
+
+  // ── The ceremony, the round card and the race rows follow ─────────────────
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
+  await expect(
+    page.getByRole('dialog').getByRole('checkbox', { name: /Also create QP1 and QP2 now/ }),
+  ).toBeVisible();
+  await alsoCreateRaces(page);
+  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
+  await expect(page.getByTestId('logical-race-qualifying-1')).toContainText('QP1');
+
+  // The races were named when they were created, so correcting the scheme
+  // afterwards has to rename them: the men's event's labels, over the races
+  // the women's labels created.
+  await gotoRaces(page);
+  await expect(page.getByTestId('race-row').first()).toContainText('QP1');
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await page.getByRole('button', { name: /^Format/ }).click();
+  await page.locator('#sf-race-labels').selectOption('q-e');
+  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await gotoRaces(page);
+  await expect(page.getByTestId('race-row').first()).toContainText('Q1');
+  await expect(page.getByTestId('race-row').first()).not.toContainText('QP1');
+});

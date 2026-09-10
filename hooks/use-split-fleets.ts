@@ -47,6 +47,9 @@ export function useSaveSplitFleetConfig(seriesId: string) {
     onSuccess: async (state) => {
       qc.setQueryData(queryKeys.splitFleets.bySeries(seriesId), state);
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
+      // Changing what the notice board calls the races renames them, so the
+      // races list is stale in a way this page can't see.
+      await qc.invalidateQueries({ queryKey: queryKeys.races.bySeries(seriesId) });
     },
   });
 }
