@@ -1408,7 +1408,7 @@ const ORC_SAMPLE_BOATS: OrcSampleBoat[] = [
  * Built with the same library functions the Courses tab uses, on stable
  * ids so the sample file is deterministic.
  */
-const ORC_SAMPLE_CARD = { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'J2', release: '0.3.1' };
+const ORC_SAMPLE_CARD = { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'J2', release: '0.3.2' };
 const ORC_SAMPLE_WIND = 160;
 
 function buildOrcCourseLibrary(seriesId: string): {
