@@ -50,8 +50,8 @@ describe('dtlAtStart', () => {
 });
 
 describe('elapsedText', () => {
-  it('rounds to the second the published column shows', () => {
-    expect(elapsedText({ elapsedSecs: 5071.4 })).toBe('1:24:31');
+  it('shows the reading as recorded, fraction and all', () => {
+    expect(elapsedText({ elapsedSecs: 5071.4 })).toBe('1:24:31.4');
     expect(elapsedText({ elapsedSecs: 154 })).toBe('2:34');
   });
 });

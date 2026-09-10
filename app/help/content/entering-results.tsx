@@ -228,9 +228,17 @@ export default function EnteringResults() {
         <p>
           Type them the way they are written: <code className="text-foreground text-sm">10:32</code>{' '}
           for ten and a half minutes, <code className="text-foreground text-sm">1:04:32</code>{' '}
-          when a race runs past the hour, or a plain number of seconds. Fractions of a second
-          are kept as you enter them; the corrected time is worked from whole seconds, rounded
-          half up.
+          when a race runs past the hour, or a plain number of seconds. A sheet of whole
+          seconds is corrected to the whole second, rounded half up, which is what a
+          stopwatch reading is worth: two boats inside the same second finished together as
+          far as anyone aboard could tell, and they tie.
+        </p>
+        <p>
+          Fractions are kept as you enter them, and a race with a fraction anywhere on its
+          sheet is corrected to the millisecond instead. That is for the races timed
+          electronically rather than by hand — a device that measured the gap between two
+          boats crossing inside one second has recorded who was ahead, and scoring the race
+          to the second would throw that away and tie them.
         </p>
         <p>
           Handicap scoring behaves identically either way — a boat’s elapsed time is a boat’s

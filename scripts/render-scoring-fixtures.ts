@@ -205,11 +205,18 @@ function generateScratchFixtureHtml(fixture: Fixture, yamlSource: string): strin
 
 // ─── Handicap renderer shared helpers ────────────────────────────────────────
 
+/** A time in minutes and seconds, keeping any fraction the race was timed to
+ *  — a fixture about two boats inside the same second is unreadable without
+ *  it. A derived figure such as the NHC fleet average is a float rather than
+ *  a reading, so its call site rounds before printing. */
 function fmtSeconds(s: number | null | undefined): string {
   if (s === null || s === undefined) return '—';
   const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
-  return `${m}m ${sec.toString().padStart(2, '0')}s`;
+  const sec = s % 60;
+  const whole = Math.floor(sec);
+  const fraction = sec - whole;
+  const tail = fraction > 0 ? String(Number(fraction.toFixed(3))).slice(1) : '';
+  return `${m}m ${whole.toString().padStart(2, '0')}${tail}s`;
 }
 
 function fmtTcf(tcf: number | null | undefined, sys: 'irc' | 'py' | 'nhc' | 'echo'): string {
@@ -479,7 +486,7 @@ function generateNhcFixtureHtml(fixture: Fixture, yamlSource: string): string {
 <div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
   <strong>Gun time:</strong> ${esc(fixtureRace.startTime ?? '')} &nbsp;
   <strong>Finishers:</strong> ${aggs.finisherCount} &nbsp;
-  <strong>CT<sub>avg</sub>:</strong> ${fmtSeconds(aggs.ctAvg)} &nbsp;
+  <strong>CT<sub>avg</sub>:</strong> ${fmtSeconds(Math.round(aggs.ctAvg))} &nbsp;
   <strong>mean(TCF):</strong> ${aggs.meanTcf.toFixed(4)}
 </div>
 <div style="margin:0 0 0.6em; color:#444; font-size:90%;">${headerLine}</div>

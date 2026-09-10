@@ -50,7 +50,9 @@ export function finishTimeText(c: TrackDataCell | undefined): string {
 }
 
 export function elapsedText(c: TrackDataCell | undefined): string {
-  return c?.elapsedSecs != null ? formatElapsedInput(Math.round(c.elapsedSecs)) : '';
+  // As recorded, fraction and all. A device that measured to the millisecond
+  // is the only thing that puts a fraction here, and it is the reading.
+  return c?.elapsedSecs != null ? formatElapsedInput(c.elapsedSecs) : '';
 }
 
 export function distanceKmText(c: TrackDataCell | undefined): string {

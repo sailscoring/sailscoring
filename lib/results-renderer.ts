@@ -3,8 +3,8 @@ import { renderCourseSvg } from '@sailscoring/course-cards';
 import { drawnSnapshot } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
-import { elapsedSecondsOf } from './elapsed-time';
-import { parseHmsToSeconds } from './time-parse';
+import { elapsedSecondsOf, timingPrecisionOf, type TimedFinish } from './elapsed-time';
+import { formatElapsedInput, parseHmsToSeconds } from './time-parse';
 import {
   avgSpeedKnText,
   distanceKmText,
@@ -292,11 +292,14 @@ export interface RaceResultData {
   impliedWind?: number;      // ORC PCS: the boat's implied wind (kt)
   finishTime?: string;       // "HH:MM:SS"; also set for scratch fleets when track data is published
   /** The elapsed time as recorded, fractional part kept. Distinct from
-   *  `elapsedTimeSecs`: that is the whole-second ET the engine scored from,
-   *  this is what the finish sheet or the device actually wrote down. */
+   *  `elapsedTimeSecs`: that is the ET the engine scored from, this is what
+   *  the finish sheet or the device actually wrote down. */
   elapsedSecs?: number;
-  elapsedTimeSecs?: number;  // integer seconds (finishTime − startTime)
-  correctedTimeSecs?: number; // integer seconds, rounded half-up (elapsedTimeSecs × tcc)
+  /** The elapsed time the race was scored from, in the unit it was timed in:
+   *  whole seconds off a clock or a stopwatch, a fraction where a device
+   *  recorded one. */
+  elapsedTimeSecs?: number;
+  correctedTimeSecs?: number; // elapsedTimeSecs × tcc, rounded half-up to the same unit
   /** RaceSense track data (published only on the series' opt-in). */
   trackData?: FinishTrackData;
   // NHC fields — only set for NHC fleets when explainability is enabled
@@ -1773,9 +1776,9 @@ function renderRaceTable(
       const handicapCells = hasHandicapCols
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
-            `<td class="mono">${r.elapsedTimeSecs != null ? formatDurationSecs(r.elapsedTimeSecs) : ''}</td>`,
+            `<td class="mono">${r.elapsedTimeSecs != null ? formatElapsedInput(r.elapsedTimeSecs) : ''}</td>`,
             `<td class="mono">${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
-            `<td class="mono">${r.correctedTimeSecs != null ? formatCorrectedSecs(r.correctedTimeSecs) : ''}</td>`,
+            `<td class="mono">${r.correctedTimeSecs != null ? formatElapsedInput(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
       const orcIwCell = isOrcPcs
@@ -2227,22 +2230,6 @@ function formatIsoDate(iso: string): string {
   return d.toLocaleDateString('en-IE', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** Parse "HH:MM:SS" → total seconds */
-/** Format integer seconds as H:MM:SS or M:SS */
-function formatDurationSecs(secs: number): string {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = Math.floor(secs % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-/** Format corrected time as H:MM:SS or M:SS. Per-finisher CT is already
- *  integer seconds; the NHC ctAvg header is a float, so round half-up here. */
-function formatCorrectedSecs(secs: number): string {
-  return formatDurationSecs(Math.floor(secs + 0.5));
-}
-
 /** Escape HTML special characters */
 /** Ensure a link URL is absolute so it points outward rather than resolving
  *  relative to the results page. Sailwave (and scorers) often store a bare host
@@ -2358,6 +2345,12 @@ export function assembleSeriesResultsData(
     const scoresForRace = raceScoresByRaceId.get(race.id) ?? new Map();
     const startTime = startTimeByRaceId.get(race.id);
     const startSecs = startTime ? parseHmsToSeconds(startTime) ?? NaN : null;
+    // The unit this race was timed in, for the corrected times worked out
+    // below rather than taken from the engine — read the same way the engine
+    // reads it, off every row in the race.
+    const precision = timingPrecisionOf(
+      (scoresForRace as Map<string, TimedFinish>).values(),
+    );
     // The ORC audit header: correction ingredients from any scored cell's
     // audit block, plus the constructed-course record off the covering start.
     let orcHeaderData: OrcHeaderData | undefined;
@@ -2427,7 +2420,7 @@ export function assembleSeriesResultsData(
           // Prefer the engine's corrected time when the score carries one —
           // for time-on-distance the ET × TCF recompute would be wrong, and
           // for time-on-time the two are identical by construction.
-          correctedTimeSecs = score.correctedTime ?? roundCorrectedSecs(et, tcc);
+          correctedTimeSecs = score.correctedTime ?? roundCorrectedSecs(et, tcc, precision);
         }
       }
 

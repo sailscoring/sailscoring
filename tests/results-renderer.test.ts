@@ -2048,6 +2048,73 @@ describe('a scorer-named DPI penalty', () => {
   });
 });
 
+// ---- elapsed and corrected time columns ----
+
+describe('handicap time columns', () => {
+  const series = { name: 'Test', venue: 'HYC' };
+  const races = [{ id: 'r1', raceNumber: 1, date: '2025-06-01' }];
+  const competitorsById = new Map([
+    ['c1', { id: 'c1', sailNumber: '42', names: ['Alice'], ircTcc: 1.0 }],
+    ['c2', { id: 'c2', sailNumber: '99', names: ['Bob'], ircTcc: 0.9 }],
+  ]);
+  const standings = [
+    {
+      rank: 1,
+      competitor: { id: 'c1', sailNumber: '42', names: ['Alice'] },
+      racePoints: [1], raceCodes: [null] as (ResultCode | null)[],
+      totalPoints: 1, netPoints: 1, raceDiscards: [false],
+    },
+    {
+      rank: 2,
+      competitor: { id: 'c2', sailNumber: '99', names: ['Bob'] },
+      racePoints: [2], raceCodes: [null] as (ResultCode | null)[],
+      totalPoints: 2, netPoints: 2, raceDiscards: [false],
+    },
+  ];
+  const now = new Date(2025, 5, 14, 19, 0);
+
+  function html(rows: Array<[string, { elapsedSecs: number; tcfApplied: number }]>) {
+    const scores = new Map([
+      ['r1', new Map(rows.map(([id, row], i) => [id, {
+        points: i + 1, place: i + 1, rank: i + 1, resultCode: null as ResultCode | null,
+        finishTime: null, elapsedSecs: row.elapsedSecs, tcfApplied: row.tcfApplied,
+      }]))],
+    ]);
+    return renderSeriesHtml(assembleSeriesResultsData(
+      series, races, standings, scores, competitorsById, [], now, undefined,
+      {
+        scoringSystem: 'irc',
+        raceStarts: [{ raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00' }],
+        fleetId: 'f1',
+      },
+    ));
+  }
+
+  it('prints whole seconds for a race timed off a clock', () => {
+    const out = html([
+      ['c1', { elapsedSecs: 2751, tcfApplied: 1.0 }],
+      ['c2', { elapsedSecs: 3057, tcfApplied: 0.9 }],
+    ]);
+    // Elapsed 45:51 and 50:57; both correct to 45:51, which is the tie the
+    // second is entitled to when the second is all that was recorded.
+    expect(out).toContain('>45:51</td>');
+    expect(out).toContain('>50:57</td>');
+    expect(out).not.toContain('45:51.');
+  });
+
+  it('prints the fraction for a race timed to the millisecond', () => {
+    const out = html([
+      ['c1', { elapsedSecs: 2751.31, tcfApplied: 1.0 }],
+      ['c2', { elapsedSecs: 3056.4, tcfApplied: 0.9 }],
+    ]);
+    // Elapsed as recorded, and the corrected times the half-second between
+    // the two boats survives into: 2751.31 against 2750.76.
+    expect(out).toContain('>45:51.31</td>');
+    expect(out).toContain('>50:56.4</td>');
+    expect(out).toContain('>45:50.76</td>');
+  });
+});
+
 // ---- track-data columns on the ordinary race tables ----
 
 describe('track-data columns', () => {

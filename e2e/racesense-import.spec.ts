@@ -232,9 +232,10 @@ test('the scorer can see what the device recorded, without publishing it', async
   const strip = page.getByTestId('track-data-15');
   await expect(strip).toBeHidden();
   await page.getByTestId('track-data-toggle-15').click();
-  // 1.19 km in 560.5 s is 4.13 kn. Her DTL is stored as -0.9: she was over
+  // 1.19 km in 560.5 s is 4.13 kn, and the elapsed time reads as the device
+  // measured it, half-second and all. Her DTL is stored as -0.9: she was over
   // the line at the gun, and in the app that reads as words, not a sign.
-  await expect(strip).toContainText('Elapsed 9:21');
+  await expect(strip).toContainText('Elapsed 9:20.5');
   await expect(strip).toContainText('1.19 km');
   await expect(strip).toContainText('4.13 kn avg');
   await expect(strip).toContainText('7 kn max');
