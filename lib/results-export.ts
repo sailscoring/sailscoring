@@ -267,10 +267,12 @@ async function buildCompetitorListFile(
   const displayedFleets = fleets.filter((f) =>
     competitors.some((c) => displayed.get(c.id)!.some((df) => df.id === f.id)),
   );
+  const entered = (c: Competitor, fleetId: string): boolean =>
+    displayed.get(c.id)!.some((f) => f.id === fleetId);
   const membersByFleetId = new Map(
     displayedFleets.map((f) => [
       f.id,
-      new Set(competitors.filter((c) => displayed.get(c.id)!.includes(f)).map((c) => c.id)),
+      new Set(competitors.filter((c) => entered(c, f.id)).map((c) => c.id)),
     ]),
   );
   const groups = groupFleets(displayedFleets, membersByFleetId);
@@ -341,15 +343,12 @@ async function buildCompetitorListFile(
       })
       .filter((c): c is { fleet: Fleet; label: string } => c !== null);
     const rank = (c: Competitor): [number, number] => {
-      const mine = displayed.get(c.id)!;
       const indices = group.fleets
-        .map((gf, i) => (mine.some((f) => f.id === gf.id) ? i : -1))
+        .map((gf, i) => (entered(c, gf.id) ? i : -1))
         .filter((i) => i >= 0);
       return [-indices.length, indices[0] ?? group.fleets.length];
     };
-    const members = ordered.filter((c) =>
-      group.fleets.some((gf) => displayed.get(c.id)!.some((f) => f.id === gf.id)),
-    );
+    const members = ordered.filter((c) => group.fleets.some((gf) => entered(c, gf.id)));
     const sorted = [...members].sort((a, b) => {
       const [ac, ai] = rank(a);
       const [bc, bi] = rank(b);
@@ -361,7 +360,7 @@ async function buildCompetitorListFile(
       rows: sorted.map((c) => ({
         ...rowFor(c),
         ratings: columns.map(({ fleet }) => {
-          if (!displayed.get(c.id)!.some((f) => f.id === fleet.id)) return null;
+          if (!entered(c, fleet.id)) return null;
           if (fleet.scoringSystem === 'scratch') return '\u2713';
           return competitorRatingFor(c, fleet) ?? '';
         }),
