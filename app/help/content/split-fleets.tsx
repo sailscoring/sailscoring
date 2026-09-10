@@ -14,6 +14,7 @@ import {
   capitaliseStage,
   parseVocabularyKey,
   stageAdjective,
+  stageInitials,
   type SeriesStage,
   type Vocabulary,
   type VocabularyKey,
@@ -94,19 +95,14 @@ function VocabulariesCompared() {
     <p>
       Two vocabularies are in use for the same three stages, and they borrow each other’s
       words. One has an <em>{om.seriesName}</em> made of {article(om.stages.qualifying.name)} and{' '}
-      {article(om.stages.final.name)}, with {om.stages.medal.name} on top, and numbers its
-      races {om.prefixes.qualifying}, {om.prefixes.final} and {om.prefixes.medal}. The other —
+      {article(om.stages.final.name)}, with {om.stages.medal.name} on top. The other —
       the 2026 ILCA wording — has a <em>{qf.seriesName}</em> made of{' '}
       {article(qf.stages.qualifying.name)} and {article(qf.stages.final.name)}, then{' '}
-      {article(qf.stages.medal.name)}, and runs {qf.prefixes.qualifying}1–{qf.prefixes.final}12
-      straight through the first two before restarting at {qf.prefixes.medal}. So “the{' '}
-      {om.stages.final.name}” means the second stage in one and the last stage in the other,
-      and a race the notice board calls {qf.prefixes.final}6 is {om.prefixes.final}1 in the
-      other scheme. A championship picks one in its{' '}
+      {article(qf.stages.medal.name)}. So “the {om.stages.final.name}” means the second stage
+      in one and the last stage in the other. A championship picks one in its{' '}
       <strong className="text-foreground">Format</strong> settings, and the tab, its dialogs,
       the standings columns and the published pages all follow it — as does this section,
-      through the control above. Race prefixes and numbering come with the choice rather than
-      being set separately.
+      through the control above.
     </p>
   );
 }
@@ -218,6 +214,18 @@ export function SplitFleetsSection() {
         the setting.
       </p>
       <p>
+        <strong className="text-foreground">What the notice board calls the races</strong> is
+        set there too, separately from the words above, because it turns out to be a decision
+        of the event rather than of the class. The two 2026 ILCA Worlds in Dun Laoghaire were
+        sailed under one set of sailing instructions, which number the {q.name} and {f.name}{' '}
+        races in a single sequence — the discard table is written that way — and posted
+        QP1–QP5 then QE1 onward at one of them and Q1–Q5 then E1 onward at the other. So pick
+        the scheme your own notice board used, or type a prefix per stage where it is none of
+        them. The standings columns, the race rows, the races list and the published pages all
+        follow it, and races you have already created are renamed to match. It is worth
+        getting right: the race label is what a competitor writes on a scoring enquiry.
+      </p>
+      <p>
         Three ways of carrying {qAdj} results into the {f.name} are supported:{' '}
         <strong className="text-foreground">one continuous series</strong> (ILCA, Optimist —
         every race totals together), <strong className="text-foreground">two series added
@@ -225,7 +233,7 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">the {q.name} position carried forward</strong> as
         one score that can never be discarded, replacing the {q.raceNoun} scores (470, Topper).
         The standings show a carried position in a{' '}
-        <strong className="text-foreground">QS</strong> column.
+        <strong className="text-foreground">{stageInitials(q.name)}</strong> column.
       </p>
       <p>
         <strong className="text-foreground">Compressing the score</strong> before the {m.name}{' '}

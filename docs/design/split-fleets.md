@@ -393,6 +393,15 @@ rather than as a gap list:
   two** and restart at **F1–F2** for the third. Both vocabularies use the
   words "qualifying/qualification series" and "final series" for different
   stages, so a series picks one and every word follows (`vocabulary`).
+- **Neither event numbered its races the way those SIs do**, and the two did
+  not agree with each other. The men's published **Q1–Q5 then E1–E7**; the
+  women's **QP1–QP5 then QE1** onward, with the Final series **F**. The SIs'
+  own continuous Q1–Q12 appeared nowhere, though the discard table keyed to
+  it (Q1–Q2 / Q3–Q9 / Q10–Q12) governed the discards at both: the ladder
+  counts races, and only the headings differ. The stage *words* were
+  identical at both events. So the labels are the event's, not the class's,
+  and they are configured on their own (`raceLabels`, see open question 9);
+  the label is what a competitor names on a scoring enquiry under SI 17.6.
 
 Starts and OCS/BFD calls are via Vakaros RaceSense (electronic
 identification replaces visual for 30.3/30.4). The 2025 Qingdao edition
@@ -592,16 +601,17 @@ export interface SplitFleetConfig {
   reassignmentTieOrder: 'fleet-order' | 'a8-then-entry-order';
   /** Races needed to constitute the championship (2026 ILCA SI 18.2);
    *  0 = the SIs set no minimum. */
-  /** What the SIs call the three stages, their race prefixes, and whether
-   *  the final stage numbers on from the qualifying one rather than
-   *  restarting (2026 ILCA: Q1…Q12 across both, then F1–F2). */
   /** Which set of words this championship's SIs use for its stages and
-   *  races. Prefixes and whether stage 2 numbers on from stage 1 follow from
-   *  the choice — only some combinations mean anything. */
+   *  races. */
   vocabulary: VocabularyKey;
   /** Wording for a class the table doesn't cover. Engine-only; no UI writes
    *  it. */
   vocabularyOverride?: Vocabulary;
+  /** What this event's notice board calls the races: a prefix per stage, and
+   *  whether stage 2 numbers on from stage 1 rather than restarting. Absent =
+   *  the vocabulary's own scheme. Separate from the words because the two
+   *  2026 ILCA Worlds proved it is: same SIs, same words, three schemes. */
+  raceLabels?: RaceLabelScheme;
   /** Medal race(s): fleet size, race count, points multiplier, and whether
    *  the one more race the boats who miss the cut sail starts scoring below
    *  the medal fleet (2024 ILCA SI 18.3.4, 2026 ILCA SI 18.5.3: first
@@ -1096,12 +1106,23 @@ for.
    Race 1" holding Yellow Q3 + Blue Q3 + Red Q3 (or Gold F2 + Silver F2 +
    Bronze F1), and Q3 / F2 are per-start labels. The **words** are settled,
    and settled as one choice rather than a naming pass: `vocabulary` picks a
-   whole coherent set (see Part 1's 2026 ILCA section), `stageRaceLabel`
-   derives every race label from it, and a unit test fails the build if a
-   stage word is written into a surface directly. The two vocabularies share
-   terms for different stages, so nothing less than a complete swap would
-   have been safe. What `raceNumber` should *mean* on a split-fleet series
-   is still open, and still belongs with open questions 1–2.
+   whole coherent set (see Part 1's 2026 ILCA section), and a unit test fails
+   the build if a stage word is written into a surface directly. The two
+   vocabularies share terms for different stages, so nothing less than a
+   complete swap would have been safe.
+
+   The **labels** are settled separately, which is the part this question got
+   wrong first time round: they came with the vocabulary until the 2026 ILCA
+   Worlds published three schemes under one set of sailing instructions (see
+   Part 1). `raceLabels` carries a prefix per stage and whether stage 2
+   numbers on from stage 1, defaulting to the vocabulary's own scheme, and
+   `stageRaceLabel` derives every label in the app from it. Two consequences
+   worth remembering: a scheme restarting stage 2 under stage 1's prefix
+   would label two races the same and is refused, and changing the scheme
+   renames the races already created, since a race's name is written when it
+   is created (the exception is a name the scorer typed, which is theirs).
+   What `raceNumber` should *mean* on a split-fleet series is still open, and
+   still belongs with open questions 1–2.
 
 ### Feature-checklist mapping
 
