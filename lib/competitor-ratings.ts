@@ -83,27 +83,60 @@ export function formatRatingValue(
   return system === 'orc' ? value.toFixed(4) : value.toFixed(3);
 }
 
-function ratingValueFor(competitor: Competitor, system: RatingSystemCode, fleet?: Fleet): string {
+function rawRatingFor(
+  competitor: Competitor,
+  system: RatingSystemCode,
+  fleet?: Fleet,
+): number | null {
   switch (system) {
     case 'irc':
-      return formatRatingValue(competitor.ircTcc, 'irc');
+      return competitor.ircTcc ?? null;
     case 'vprs':
-      return formatRatingValue(competitor.vprsTcc, 'vprs');
+      return competitor.vprsTcc ?? null;
     case 'py':
-      return formatRatingValue(competitor.pyNumber, 'py');
+      return competitor.pyNumber ?? null;
     case 'nhc':
-      return formatRatingValue(competitor.nhcStartingTcf, 'nhc');
+      return competitor.nhcStartingTcf ?? null;
     case 'echo':
-      return formatRatingValue(competitor.echoStartingTcf, 'echo');
+      return competitor.echoStartingTcf ?? null;
     case 'orc':
       // The fleet's configured time-on-time rating off the certificate
       // (default APHT). A time-on-distance option has no TCF-shaped value;
       // fall back to APHT so the column still identifies the certificate.
-      return formatRatingValue(
-        (fleet ? orcTotRating(competitor, fleet) : null)
-          ?? orcTotRating(competitor, {}),
-        'orc',
-      );
+      return (fleet ? orcTotRating(competitor, fleet) : null) ?? orcTotRating(competitor, {});
+  }
+}
+
+function ratingValueFor(competitor: Competitor, system: RatingSystemCode, fleet?: Fleet): string {
+  return formatRatingValue(rawRatingFor(competitor, system, fleet), system);
+}
+
+/** The rating a boat brings to one fleet, formatted as its certificate prints
+ *  it — or null when the boat holds none, which a published entry list shows
+ *  as a gap rather than as a dash. A scratch fleet has no rating at all. */
+export function competitorRatingFor(competitor: Competitor, fleet: Fleet): string | null {
+  if (fleet.scoringSystem === 'scratch') return null;
+  const raw = rawRatingFor(competitor, fleet.scoringSystem, fleet);
+  return raw == null ? null : formatRatingValue(raw, fleet.scoringSystem);
+}
+
+/** What the number in a rating column is called, in the vocabulary the
+ *  certificate and the results tables use. Heads the column on a published
+ *  entry list where the fleet's own name doesn't already say it. */
+export function ratingUnitLabel(fleet: Fleet): string | null {
+  switch (fleet.scoringSystem) {
+    case 'scratch':
+      return null;
+    case 'nhc':
+      return 'TCF';
+    case 'echo':
+      return 'Starting H';
+    case 'py':
+      return 'PY';
+    case 'orc':
+      return 'ORC';
+    default:
+      return 'TCC';
   }
 }
 
