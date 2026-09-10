@@ -15,6 +15,7 @@ import {
 import { queryKeys } from '@/hooks/query-keys';
 import { finishRepo, raceRepo, type HandicapUpdateRow } from '@/lib/api-repository';
 import { formatRatingValue } from '@/lib/competitor-ratings';
+import type { OrcFamily } from '@/lib/orc-certificate';
 import type { IrcTccVariant } from '@/lib/rating-match';
 import type {
   FleetAdditionCandidate,
@@ -52,11 +53,28 @@ export function rowKey(r: PreviewRow): string {
 }
 
 
-/** System label for a preview row — IRC rows from Irish Sailing also show
- *  which TCC variant was used, so a mixed spin/non-spin run is auditable. */
-export function systemLabel(r: PreviewRow): string {
+/** How a certificate from outside a fleet's own family is named in the row
+ *  that used it. */
+const ORC_FAMILY_NOTE: Record<OrcFamily, string> = {
+  ORC: 'standard cert',
+  NS: 'non-spinnaker cert',
+  DH: 'double-handed cert',
+};
+
+/** System label for a preview row or an addition candidate — IRC rows from
+ *  Irish Sailing show which TCC variant was used, so a mixed spin/non-spin
+ *  run is auditable, and an ORC row scored on a certificate from another
+ *  family says which one. */
+export function systemLabel(r: {
+  system: HandicapSystem;
+  ircVariant?: IrcTccVariant;
+  orcCertFamily?: OrcFamily;
+}): string {
   if ((r.system === 'irc' || r.system === 'vprs') && r.ircVariant) {
     return `${SYSTEM_LABEL[r.system]} (${r.ircVariant === 'non-spin' ? 'non-spin' : 'spin'})`;
+  }
+  if (r.system === 'orc' && r.orcCertFamily) {
+    return `${SYSTEM_LABEL.orc} (${ORC_FAMILY_NOTE[r.orcCertFamily]})`;
   }
   return SYSTEM_LABEL[r.system];
 }

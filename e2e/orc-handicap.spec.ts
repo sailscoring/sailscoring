@@ -32,11 +32,31 @@ const LISTING_FIXTURE = {
   scoringOptions: [],
 };
 
+/** Mojo's non-spinnaker certificate: a separate issue, at its own rating.
+ *  Impetuous holds no non-spinnaker certificate. */
+function nsListing() {
+  const mojo = cert('MOJO');
+  return {
+    ...LISTING_FIXTURE,
+    family: 'NS',
+    records: [
+      {
+        ...mojo,
+        record: { ...mojo.record, RefNo: '051800051NS', Family: 'NS', APHT: 0.9712 },
+      },
+    ],
+  };
+}
+
 test.beforeEach(async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['orc']);
-  // Stub the server fetch of the ORC active-certificates listing.
+  // Stub the server fetch of the ORC active-certificates listing, per family.
   await page.route('**/api/v1/handicap-sources/orc?*', (route) =>
-    route.fulfill({ json: LISTING_FIXTURE }),
+    route.fulfill({
+      json: new URL(route.request().url()).searchParams.get('family') === 'NS'
+        ? nsListing()
+        : LISTING_FIXTURE,
+    }),
   );
 });
 
@@ -115,6 +135,44 @@ test('import seeds whole certificates by sail number', async ({ page }) => {
   await expect(page.getByRole('link', { name: '051800048LU' })).toBeVisible();
   await expect(page.getByText(/APHT 0\.9631/)).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
+});
+
+test('non-spinnaker fleet: a boat with no NS certificate gets its standard one', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC Non-Spin Test 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('ORC certificates', { exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('ORC certificates as of 19/08/2026')).toBeVisible();
+
+  // Race the fleet under non-spinnaker certificates.
+  await page.getByRole('combobox').filter({ hasText: 'Standard (fully crewed)' }).click();
+  await page.getByRole('option', { name: 'Non-spinnaker' }).click();
+
+  // Mojo holds one; Impetuous doesn't, and is rated off its standard
+  // certificate instead — said once above the table and marked on the row.
+  await expect(
+    page.getByText('1 boat holds no certificate in its fleet’s family'),
+  ).toBeVisible();
+  await expect(page.getByRole('cell', { name: '— → 0.9712' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '— → 0.9631' })).toBeVisible();
+  const impRow = page.getByRole('row').filter({ hasText: 'IRL 2507' });
+  await expect(impRow).toContainText('ORC (standard cert)');
+  await expect(page.getByRole('row').filter({ hasText: 'IRL 1551' })).not.toContainText('standard cert');
+  // Neither boat is offered for removal — both hold a certificate.
+  await expect(page.getByText('Not on the rating list')).toHaveCount(0);
+
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await expect(page.getByText('2 ORC')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await expect(page.getByRole('row').filter({ hasText: 'IRL 1551' })).toContainText('0.9712');
+  await expect(page.getByRole('row').filter({ hasText: 'IRL 2507' })).toContainText('0.9631');
 });
 
 test('ORC fleet: standings ordered by APHT corrected time', async ({ page }) => {

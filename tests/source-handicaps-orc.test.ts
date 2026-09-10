@@ -152,6 +152,41 @@ describe('planOrcUpdates', () => {
     expect(rows[0].orcCert?.record.Family).toBe('NS');
   });
 
+  it('imports the standard certificate for a boat the fleet\u2019s family doesn\u2019t rate', () => {
+    const rows = planOrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-orc-ns']), comp('c2', 'IRL2222', ['f-orc-ns'])],
+      targetFleets: [nsFleet],
+      entriesByFamily: {
+        ORC: [entry('IRL1431', { APHT: 0.95 }), entry('IRL2222', { APHT: 0.99 })],
+        NS: [entry('IRL2222', { APHT: 0.91, Family: 'NS' })],
+      },
+      familyByFleet: { 'f-orc-ns': 'NS' },
+      now: NOW,
+    });
+    const byId = new Map(rows.map((r) => [r.competitorId, r]));
+    // No non-spinnaker certificate: the standard one, annotated as such.
+    expect(byId.get('c1')).toMatchObject({ newTcf: 0.95, status: 'change', orcCertFamily: 'ORC' });
+    // Its own family rates it — untouched, and unannotated.
+    expect(byId.get('c2')).toMatchObject({ newTcf: 0.91, status: 'change' });
+    expect(byId.get('c2')?.orcCertFamily).toBeUndefined();
+    expect(byId.get('c2')?.orcCert?.record.Family).toBe('NS');
+  });
+
+  it('never falls back past an ambiguous match in the fleet\u2019s own family', () => {
+    const rows = planOrcUpdates({
+      targetCompetitors: [comp('c1', '1431', ['f-orc-ns'])],
+      targetFleets: [nsFleet],
+      entriesByFamily: {
+        ORC: [entry('IRL1431', { APHT: 0.95 })],
+        NS: [entry('IRL1431', { Family: 'NS' }), entry('GBR1431', { Family: 'NS' })],
+      },
+      familyByFleet: { 'f-orc-ns': 'NS' },
+      defaultCountry: '',
+      now: NOW,
+    });
+    expect(rows[0]).toMatchObject({ status: 'not-found', notFoundReason: 'ambiguous-match' });
+  });
+
   it('produces no rows for a family whose listing is not loaded', () => {
     const rows = planOrcUpdates({
       targetCompetitors: [comp('c1', 'IRL1431', ['f-orc-ns'])],
@@ -216,6 +251,40 @@ describe('planOrcFleetAdditions / planOrcFleetRemovals', () => {
     expect(adds).toHaveLength(1);
     expect(adds[0]).toMatchObject({ system: 'orc', targetFleetId: 'f-orc', proposedTcf: 0.9631 });
     expect(adds[0].orcCert?.record.RefNo).toBe('ref-IRL1431');
+  });
+
+  it('offers a standard-only boat for a non-spinnaker fleet, annotated', () => {
+    const adds = planOrcFleetAdditions({
+      targetCompetitors: [comp('c1', 'IRL1431', [])],
+      targetFleets: [nsFleet],
+      entriesByFamily: { ORC: [entry('IRL1431', { APHT: 0.9631 })], NS: [] },
+      familyByFleet: { 'f-orc-ns': 'NS' },
+      now: NOW,
+    });
+    expect(adds).toHaveLength(1);
+    expect(adds[0]).toMatchObject({
+      targetFleetId: 'f-orc-ns',
+      proposedTcf: 0.9631,
+      orcCertFamily: 'ORC',
+    });
+  });
+
+  it('spares a standard-only boat in a non-spinnaker fleet from removal', () => {
+    const input = {
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-orc-ns']), comp('c2', 'IRL9999', ['f-orc-ns'])],
+      targetFleets: [nsFleet],
+      entriesByFamily: { ORC: [entry('IRL1431')], NS: [] },
+      familyByFleet: { 'f-orc-ns': 'NS' } as const,
+      now: NOW,
+    };
+    // c1 holds a standard certificate — the fallback rates it, so it stays.
+    // c2 holds none at all, in either family.
+    expect(planOrcFleetRemovals(input).map((r) => r.competitorId)).toEqual(['c2']);
+
+    // …and with the standard listing still loading, neither is proposed.
+    expect(
+      planOrcFleetRemovals({ ...input, entriesByFamily: { NS: [] } }),
+    ).toHaveLength(0);
   });
 
   it('offers removal for an uncertified boat in an ORC fleet, sparing boats with results', () => {

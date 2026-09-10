@@ -83,9 +83,14 @@ export function OrcSourceStep({
     () => (fleets ?? []).filter((f) => f.scoringSystem === 'orc'),
     [fleets],
   );
+  // Every family a fleet races under, plus the standard listing whenever
+  // there are ORC fleets at all: a boat with no certificate in its fleet's
+  // family is rated off its standard one, and a removal is only proposed
+  // once we know it holds neither.
   const familiesNeeded = useMemo(() => {
     const set = new Set<OrcFamily>();
     for (const f of orcFleets) set.add(familyByFleet[f.id] ?? 'ORC');
+    if (orcFleets.length > 0) set.add('ORC');
     return set;
   }, [orcFleets, familyByFleet]);
 
@@ -178,6 +183,14 @@ export function OrcSourceStep({
     [split.appliedChangeRows, checkedAdditions, now],
   );
 
+  // Boats being rated off a certificate from outside their fleet's family.
+  const fallbackBoats = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of previewRows) if (r.orcCertFamily && r.status !== 'not-found') ids.add(r.competitorId);
+    for (const c of additionCandidates) if (c.orcCertFamily) ids.add(c.competitorId);
+    return ids.size;
+  }, [previewRows, additionCandidates]);
+
   const targetFleetById = useMemo(() => new Map((fleets ?? []).map((f) => [f.id, f])), [fleets]);
   const targetCompetitorById = useMemo(
     () => new Map((competitors ?? []).map((c) => [c.id, c])),
@@ -265,6 +278,16 @@ export function OrcSourceStep({
                 {checks.expiredCount === 1
                   ? '1 certificate to be imported has expired.'
                   : `${checks.expiredCount} certificates to be imported have expired.`}
+              </p>
+            )}
+            {fallbackBoats > 0 && (
+              <p className="text-sm text-amber-600 dark:text-amber-500">
+                {fallbackBoats === 1
+                  ? '1 boat holds no certificate in its fleet’s family'
+                  : `${fallbackBoats} boats hold no certificate in their fleet’s family`}
+                {' '}— the standard certificate is used instead, marked below. A boat is
+                scored on the certificate it entered on (ORC 301.5–301.6); untick a row
+                to leave the boat as it is.
               </p>
             )}
             {checks.vppYears.length > 1 && (

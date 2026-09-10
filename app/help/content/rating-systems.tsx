@@ -335,6 +335,16 @@ export default function RatingSystems() {
           standard one; it is scored on the family its fleet races under.
         </p>
         <p>
+          A boat in a non-spinnaker or double-handed fleet that holds no certificate
+          in that family gets its <strong className="text-foreground">standard
+          certificate</strong> instead, rather than being left unrated — the preview
+          says how many boats that is, and each such row is marked{' '}
+          <em>ORC (standard cert)</em> so you can see what the boat would be scored
+          on. ORC scores a boat on the certificate it entered on, so this is your
+          call: untick the row to leave the boat as it is. Only a boat holding no
+          certificate at all is offered for removal from the fleet.
+        </p>
+        <p>
           What’s imported is the <em>whole certificate</em> — the published ratings,
           the class-division numbers (CDL and GPH, shown as sortable columns on the
           Competitors tab), the expiry date, and the full time-allowance matrix that

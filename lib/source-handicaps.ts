@@ -228,6 +228,10 @@ export interface PreviewRow {
    *  whole document, so the payload rides with the row rather than through
    *  the numeric-field machinery. */
   orcCert?: OrcCertData;
+  /** ORC rows only, and only when the certificate isn't from the fleet's own
+   *  certificate family: which family it did come from. Set by the standard
+   *  fallback, so the row can say what the boat would be scored on. */
+  orcCertFamily?: OrcFamily;
 }
 
 /** One selectable certificate for a boat that holds more than one. */
@@ -849,6 +853,9 @@ export interface FleetAdditionCandidate {
   certChoice?: CertChoice;
   /** ORC candidates only: the certificate the addition writes. */
   orcCert?: OrcCertData;
+  /** ORC candidates only: set when that certificate isn't from the target
+   *  fleet's own family — see {@link PreviewRow.orcCertFamily}. */
+  orcCertFamily?: OrcFamily;
 }
 
 /** Stable key for a `(competitor, system)` addition candidate. */
@@ -1264,6 +1271,61 @@ function sameOrcCert(current: OrcCertData | undefined, entry: OrcCertEntry): boo
 }
 
 /**
+ * The families a boat in a fleet is matched against, in order: the fleet's
+ * own, then the standard fully-crewed listing. A boat racing a non-spinnaker
+ * or double-handed class often holds only a standard certificate; rather than
+ * leave it unrated, the standard one is imported and every row it produces
+ * says which certificate it used. ORC scores a boat on the certificate it
+ * entered on (301.5-301.6), so what the fallback offers is the scorer's
+ * decision, taken row by row.
+ */
+function orcFamilyChain(family: OrcFamily): OrcFamily[] {
+  return family === 'ORC' ? ['ORC'] : [family, 'ORC'];
+}
+
+/** One matcher per loaded family listing, shared by the three ORC planners. */
+function orcMatchersFor(input: OrcPlanInput): Map<OrcFamily, RatingMatcher<OrcMatchRecord>> {
+  const out = new Map<OrcFamily, RatingMatcher<OrcMatchRecord>>();
+  for (const [family, entries] of Object.entries(input.entriesByFamily)) {
+    if (entries) {
+      out.set(
+        family as OrcFamily,
+        new RatingMatcher(orcMatchRecords(entries), input.defaultCountry ?? ''),
+      );
+    }
+  }
+  return out;
+}
+
+/**
+ * Match a boat down its fleet's family chain. The fleet's own family decides
+ * the outcome whenever it has anything to say — a match there, or an
+ * ambiguous one, is never second-guessed — and only a boat that family
+ * doesn't list at all falls through to the standard listing.
+ *
+ * `null` means the fleet's own listing hasn't loaded, which the planners
+ * treat as "say nothing" rather than as an absent certificate.
+ */
+function matchOrcChain(
+  matchers: ReadonlyMap<OrcFamily, RatingMatcher<OrcMatchRecord>>,
+  fleetFamily: OrcFamily,
+  competitor: Competitor,
+  matchByName: boolean,
+): { family: OrcFamily; match: MatchResult<OrcMatchRecord> } | null {
+  const chain = orcFamilyChain(fleetFamily);
+  if (!matchers.has(chain[0])) return null;
+  let last: { family: OrcFamily; match: MatchResult<OrcMatchRecord> } | null = null;
+  for (const family of chain) {
+    const matcher = matchers.get(family);
+    if (!matcher) continue;
+    const match = matcher.match(competitor, matchByName);
+    last = { family, match };
+    if (match.kind !== 'none') break;
+  }
+  return last;
+}
+
+/**
  * Preview rows for the ORC certificate source. One row per target ORC fleet
  * membership, matched by sail number against the fleet's family listing
  * (with the usual country-default and opt-in name fallback). A changed row
@@ -1271,15 +1333,7 @@ function sameOrcCert(current: OrcCertData | undefined, entry: OrcCertEntry): boo
  */
 export function planOrcUpdates(input: OrcPlanInput): PreviewRow[] {
   const matchByName = input.matchByName ?? false;
-  const matcherByFamily = new Map<OrcFamily, RatingMatcher<OrcMatchRecord>>();
-  for (const [family, entries] of Object.entries(input.entriesByFamily)) {
-    if (entries) {
-      matcherByFamily.set(
-        family as OrcFamily,
-        new RatingMatcher(orcMatchRecords(entries), input.defaultCountry ?? ''),
-      );
-    }
-  }
+  const matcherByFamily = orcMatchersFor(input);
   const fleetById = new Map(input.targetFleets.map((f) => [f.id, f] as const));
 
   const rows: PreviewRow[] = [];
@@ -1288,8 +1342,12 @@ export function planOrcUpdates(input: OrcPlanInput): PreviewRow[] {
       const fleet = fleetById.get(fleetId);
       if (!fleet || fleet.scoringSystem !== 'orc') continue;
       const family = orcFamilyForFleet(fleetId, input.familyByFleet);
-      const matcher = matcherByFamily.get(family);
-      if (!matcher) continue; // listing not loaded — no rows rather than noise
+      const chained = matchOrcChain(matcherByFamily, family, comp, matchByName);
+      if (!chained) continue; // listing not loaded — no rows rather than noise
+      const { match } = chained;
+      // Annotate only a certificate from outside the fleet's own family.
+      const fromFamily: { orcCertFamily?: OrcFamily } =
+        chained.family === family ? {} : { orcCertFamily: chained.family };
 
       const base = {
         competitorId: comp.id,
@@ -1298,7 +1356,6 @@ export function planOrcUpdates(input: OrcPlanInput): PreviewRow[] {
         currentTcf: orcStoredRating(comp, fleet),
       };
 
-      const match = matcher.match(comp, matchByName);
       if (match.kind === 'none') {
         rows.push({ ...base, newTcf: null, status: 'not-found', notFoundReason: 'no-source-competitor' });
         continue;
@@ -1323,6 +1380,7 @@ export function planOrcUpdates(input: OrcPlanInput): PreviewRow[] {
 
       rows.push({
         ...base,
+        ...fromFamily,
         newTcf,
         status: sameOrcCert(comp.orcCert, entry) ? 'unchanged' : 'change',
         match: matchAnno,
@@ -1359,13 +1417,7 @@ export function planOrcFleetAdditions(
     }
     fleetsByFamily.get(family)!.push({ fleetId: f.id, name: f.name });
   }
-  const matcherByFamily = new Map<OrcFamily, RatingMatcher<OrcMatchRecord>>();
-  for (const family of familiesInOrder) {
-    const entries = input.entriesByFamily[family];
-    if (entries) {
-      matcherByFamily.set(family, new RatingMatcher(orcMatchRecords(entries), input.defaultCountry ?? ''));
-    }
-  }
+  const matcherByFamily = orcMatchersFor(input);
 
   const candidates: FleetAdditionCandidate[] = [];
   for (const comp of input.targetCompetitors) {
@@ -1373,10 +1425,9 @@ export function planOrcFleetAdditions(
     if (inOrcFleet) continue;
 
     for (const family of familiesInOrder) {
-      const matcher = matcherByFamily.get(family);
-      if (!matcher) continue;
-      const match = matcher.match(comp, matchByName);
-      if (match.kind !== 'matched') continue;
+      const chained = matchOrcChain(matcherByFamily, family, comp, matchByName);
+      if (!chained || chained.match.kind !== 'matched') continue;
+      const { match } = chained;
 
       const entry = latestOrcEntry(match.records as readonly OrcMatchRecord[]);
       const fleetOptions = fleetsByFamily.get(family)!;
@@ -1395,6 +1446,7 @@ export function planOrcFleetAdditions(
           ? {}
           : { match: { method: match.method, sail: entry.record.SailNo ?? '', name: entry.record.YachtName } }),
         orcCert: orcCertDataFor(entry, input.now),
+        ...(chained.family === family ? {} : { orcCertFamily: chained.family }),
       });
       break; // one candidate per boat
     }
@@ -1402,14 +1454,20 @@ export function planOrcFleetAdditions(
   return candidates;
 }
 
-/** Boats in an ORC fleet that the fleet's family listing doesn't rate. */
+/**
+ * Boats in an ORC fleet that hold no certificate the fleet could be scored
+ * on — neither in its own family nor, for a non-spinnaker or double-handed
+ * fleet, the standard one the fallback would import. Every listing in the
+ * chain must have loaded first: a removal is never proposed on data we
+ * haven't got.
+ */
 export function planOrcFleetRemovals(
   input: OrcPlanInput & { competitorIdsWithResults?: ReadonlySet<string> },
 ): FleetRemovalCandidate[] {
   const matchByName = input.matchByName ?? false;
   const withResults = input.competitorIdsWithResults ?? new Set<string>();
   const fleetById = new Map(input.targetFleets.map((f) => [f.id, f] as const));
-  const matcherByFamily = new Map<OrcFamily, RatingMatcher<OrcMatchRecord>>();
+  const matcherByFamily = orcMatchersFor(input);
 
   const out: FleetRemovalCandidate[] = [];
   for (const comp of input.targetCompetitors) {
@@ -1418,14 +1476,9 @@ export function planOrcFleetRemovals(
       const fleet = fleetById.get(fid);
       if (!fleet || fleet.scoringSystem !== 'orc') continue;
       const family = orcFamilyForFleet(fid, input.familyByFleet);
-      const entries = input.entriesByFamily[family];
-      if (!entries) continue; // listing not loaded — never propose removal
-      let matcher = matcherByFamily.get(family);
-      if (!matcher) {
-        matcher = new RatingMatcher(orcMatchRecords(entries), input.defaultCountry ?? '');
-        matcherByFamily.set(family, matcher);
-      }
-      if (matcher.match(comp, matchByName).kind === 'matched') continue;
+      if (orcFamilyChain(family).some((f) => !matcherByFamily.has(f))) continue;
+      const chained = matchOrcChain(matcherByFamily, family, comp, matchByName);
+      if (chained?.match.kind === 'matched') continue;
       out.push({ competitorId: comp.id, fleetId: fid, fleetName: fleet.name, system: 'orc' });
     }
   }
