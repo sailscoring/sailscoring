@@ -1109,11 +1109,16 @@ ${body}
  * The starters checklist, rendered into the competitor-list page but shown
  * only when it is printed as one (the `starters` body class, set by the
  * footer button for the duration of the print). One table per start, each
- * row the sail number, a box to tick as the boat arrives in the starting
- * area, the boat name when the series records one, and blank ruled space to
- * write on. The box sits right after the number so the eye lands on it from
- * the number, rather than tracking across the row to the far edge and hoping
- * it is the right one.
+ * row a box to tick as the boat arrives in the starting area, the sail
+ * number, the boat name when the series records one, and blank ruled space
+ * to write on.
+ *
+ * The box leads the row, so the boxes stand in one column down the left edge
+ * and the recorder ticks down it. The number is right-aligned against the
+ * name rather than left-aligned after the box, which reads the number and
+ * the boat it belongs to as one thing and leaves the ragged space a column
+ * of unequal numbers has to have between the box and the number, where it
+ * is not between anything.
  *
  * It is a working sheet, so it is built around what the recorder writes on
  * it as much as what is printed on it. Boats turn up under a number other
@@ -1141,7 +1146,7 @@ function renderStartersChecklist(tables: ChecklistTable[], series: { name: strin
   const sections = populated.map((t) => {
     const showBoat = t.boats.some((b) => !!b.boatName);
     const cells = (sail: string, boat: string) =>
-      `<td class="sail">${sail}</td><td class="tick"></td>${showBoat ? `<td class="boat"><span>${boat}</span></td>` : ''}<td class="write"></td>`;
+      `<td class="tick"></td><td class="sail">${sail}</td>${showBoat ? `<td class="boat"><span>${boat}</span></td>` : ''}<td class="write"></td>`;
     const rows = t.boats
       .map((b) => `<tr>${cells(esc(b.sailNumber), esc(b.boatName ?? ''))}</tr>`)
       .join('\n');
@@ -1150,7 +1155,7 @@ function renderStartersChecklist(tables: ChecklistTable[], series: { name: strin
     // under the start it belongs to, rather than written in the margin.
     const spare = Array.from(
       { length: SPARE_ROWS },
-      () => `<tr class="spare"><td></td><td class="tick"></td>${showBoat ? '<td></td>' : ''}<td></td></tr>`,
+      () => `<tr class="spare"><td class="tick"></td><td></td>${showBoat ? '<td></td>' : ''}<td></td></tr>`,
     ).join('\n');
     // The start's name heads the table from inside it, as a header row rather
     // than as a heading above it, so that it repeats wherever the table
@@ -1231,10 +1236,10 @@ function renderStartersChecklistCss(): string {
   table.starterstable { width: 100%; margin: 0; border: 0; }
   table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.2mm 1mm; vertical-align: middle; font-size: 13pt; line-height: 1.1; }
   table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
-  table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; }
+  table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; padding-left: 2mm; }
   table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.starterstable td.write { width: 26%; }
-  table.starterstable td.tick { width: 5mm; padding: 1.2mm 2mm 1.2mm 1mm; }
+  table.starterstable td.tick { width: 5mm; padding: 1.2mm 1mm 1.2mm 0; }
   table.starterstable td.tick::before { content: ""; display: block; width: 5mm; height: 5mm; border: 0.4mm solid #1a1a1a; box-sizing: border-box; }
   .startersnotes { break-inside: avoid; }
   .startersnotes .startersnoteslabel { display: block; font-size: 10pt; font-weight: 600; margin: 0 0 1mm 0; }

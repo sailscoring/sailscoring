@@ -413,8 +413,8 @@ export default function Publishing() {
         <Section id="starters-checklist" title="The starters checklist">
           <HelpShot
             src="/help/shots/starters-checklist.webp"
-            alt="A printed starters checklist: class tables of large sail numbers, each row with a box to tick and blank space to write in."
-            caption="The starters checklist as it prints: one table per start, sail numbers set large, a box beside each and room to write."
+            alt="A printed starters checklist: class tables with a tick box down the left, large sail numbers, and blank space to write in."
+            caption="The starters checklist as it prints: one table per start, a box to tick down the left, sail numbers set large and room to write."
           />
           <p>
             The published competitor list also prints as a{' '}
@@ -425,8 +425,10 @@ export default function Publishing() {
             beside Save as PDF. Anyone with the link can print it; the race team needs no account.
           </p>
           <p>
-            Each row is the sail number, a box to tick beside it, the boat name if your series
-            records one, and blank ruled space to write in. There is one table per <em>start</em>,
+            Each row is a box to tick, the sail number, the boat name if your series records one,
+            and blank ruled space to write in. The boxes stand in one column down the left edge to
+            tick down, and the number is set against the boat’s name rather than against the box,
+            so the two read as one thing. There is one table per <em>start</em>,
             not per fleet: a class scored under IRC and ECHO at once is one table, with every boat
             on it once. The starts come from your default start sequence (Settings → Fleets) when
             you have set one up; otherwise fleets that share a boat are taken to share a start.

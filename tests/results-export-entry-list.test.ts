@@ -145,7 +145,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     // Red and Blue share no boat, so each is its own start and its own table.
     expect(html).toContain('>Red</th>');
     expect(html).toContain('>Blue</th>');
-    expect(html).toContain('<td class="sail">201</td><td class="tick"></td>');
+    expect(html).toContain('<td class="tick"></td><td class="sail">201</td>');
     expect(html).toContain('Print starters checklist');
   });
 
@@ -156,7 +156,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     const html = files![0].html;
     // Blank space at the end of every listed boat's row: where the number a
     // boat actually turned up under gets written.
-    expect(html).toContain('<td class="tick"></td><td class="write"></td>');
+    expect(html).toContain('<td class="sail">201</td><td class="write"></td>');
     // Spare rows under each start, for a boat that entered too late to be on
     // the sheet. Two starts, two rows each, and none of them a listed boat.
     expect(html.match(/<tr class="spare">/g)).toHaveLength(4);
