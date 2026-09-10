@@ -1,0 +1,108 @@
+description: "F1 ILCA 2026: the labels the notice board posted (QP/QE), and a discard that may fall in either stage"
+provenance:
+  class: "ILCA 6"
+  year: 2026
+  event: "ILCA 6 Women's World Championship, Dun Laoghaire IRL"
+  si: "reference-docs:events/ilca6-women-worlds-2026/SI-with-Amendment-4.md"
+  results: "https://www.sailwave.com/results/2026ilca6women.htm"
+  code: F1
+  scenarios: []
+  alternatives: "The 2026 ILCA 7 Men's Worlds, two weeks earlier under the same sailing instructions, posted Q1–Q5 then E1–E7."
+runnable: true
+notes: |
+  What a championship calls its races is the event's decision, not the class's.
+  These sailing instructions number the Preliminary and Elimination series in
+  one sequence — SI 18.4's discard table is keyed to it, "Q1-Q2 … Q3-Q9 …
+  Q10-Q12" — and the event posted QP1–QP5 then QE1 onward instead. The men's
+  Worlds, two weeks earlier under the same instructions, posted Q1–Q5 then
+  E1–E7. So this fixture carries `raceLabels`, and its preview column headings
+  are the ones on the real published page.
+
+  The labels change no arithmetic: the discard ladder counts races, and at 9
+  races the real event allowed one discard exactly as SI 18.4's Q3-Q9 row
+  says. Real Dun Laoghaire was 2 fleets of ~54 (Gold/Yellow and Silver/Blue in
+  the published tables), 5 Preliminary races then 4 Elimination races at the
+  point this was captured, one discard, DNC = largest Preliminary fleet + 1.
+  Reduced here to 2 fleets of 3 over QP1-QP3 + QE1-QE2, so the single discard
+  is unlocked (ILCA's 2026 ladder opens it at 3 races) and every cell is
+  checkable by hand.
+
+  Two things worth reading off the table. The discard may land in either
+  stage: y1 and b1 each drop an Elimination score, which SI 18.4 permits
+  because two Elimination races were completed and at most one may be
+  excluded. And where a boat's worst score is tied — b2 scored 3 in both QP3
+  and QE1 — the earlier race is the one excluded (RRS A2.1), so her discard
+  stays in the Preliminary series. `expected` verified against the engine.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  vocabulary: qualification-final
+  raceLabels:
+    prefixes: { qualifying: QP, final: QE, medal: F }
+    continuousOpeningNumbers: false
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+    - minRaces: 10
+      discardCount: 2
+  maxFinalDiscards: 1
+  protectLoneFinalRace: true
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b2, b1, b3]
+      - n: 3
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b3, b2]
+
+  - stage: final
+    from: 1
+    # Split of the QP1-QP3 ranking (y1 2, b1 2, b2 3, y2 4, b3 5, y3 6). y1 and
+    # b1 are tied on 2 with the same counted scores {1,1} and the same score in
+    # the last race, so A8.2 falls through to QP2, where y1 scored 1 and b1 2.
+    assign: { split: true }
+    expectedFleets:
+      Gold: [y1, b1, b2]
+      Silver: [y2, b3, y3]
+    races:
+      - n: 1
+        results:
+          Gold: [b1, y1, b2]
+          Silver: [y2, b3, y3]
+      - n: 2
+        results:
+          Gold: [y1, b2, b1]
+          Silver: [b3, y2, y3]
+
+expected:
+  # Gold outranks Silver whatever the points: b3 (Silver, net 8) ties b2
+  # (Gold, net 8) and still finishes behind her.
+  standings:
+    - { rank: 1, sail: y1, total: 6, net: 4, fleet: Gold }    # discards QE1 (2)
+    - { rank: 2, sail: b1, total: 8, net: 5, fleet: Gold }    # discards QE2 (3)
+    - { rank: 3, sail: b2, total: 11, net: 8, fleet: Gold }   # 3 in QP3 and QE1; the earlier goes
+    - { rank: 4, sail: y2, total: 9, net: 7, fleet: Silver }
+    - { rank: 5, sail: b3, total: 11, net: 8, fleet: Silver }
+    - { rank: 6, sail: y3, total: 15, net: 12, fleet: Silver }

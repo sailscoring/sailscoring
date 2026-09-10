@@ -21,13 +21,16 @@ import {
   finalBlockSizes,
   seedOrder,
   splitFleetStandings,
+  stageRaceLabel,
 } from '@/lib/split-fleets';
 import type {
   CarryTransform,
+  RaceLabelScheme,
   SplitFleetConfig,
   SplitFleetData,
   SplitRound,
   SeriesStage,
+  VocabularyKey,
 } from '@/lib/split-fleets';
 import type { Competitor, Finish, Fleet, Race, RaceStart, ResultCode } from '@/lib/types';
 
@@ -114,6 +117,11 @@ export interface SplitFleetFixture {
     discardThresholds: { minRaces: number; discardCount: number }[];
     maxFinalDiscards: number;
     protectLoneFinalRace?: boolean;
+    /** The words the event's SIs use; default the generic ones. */
+    vocabulary?: VocabularyKey;
+    /** What its notice board called the races, where that differed from the
+     *  scheme its SIs wrote (see `RaceLabelScheme`). */
+    raceLabels?: RaceLabelScheme;
     medal?: {
       size: number;
       raceCount: number;
@@ -149,11 +157,7 @@ const RESULT_CODES = new Set<ResultCode>([
 
 // ─── Build SplitFleetData ────────────────────────────────────────────────────
 
-const PREFIX: Record<SeriesStage, string> = {
-  qualifying: 'Q',
-  final: 'F',
-  medal: 'M',
-};
+
 
 /** Fleet id is scoped to the ROUND, not just the colour: a round-1 "Yellow"
  *  and a round-2 "Yellow" are distinct fleets with distinct memberships (as
@@ -212,6 +216,14 @@ const sortedMembers = (m: Record<string, string[]>): Record<string, string[]> =>
  */
 export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
   const dummy = (names: string[]) => names.map((label) => ({ label, color: '#000' }));
+  // What a continuous scheme's second stage numbers on from: the fixture's
+  // own count of first-stage races.
+  const qualifyingRaces = Math.max(
+    0,
+    ...fx.stages
+      .filter((st) => st.stage === 'qualifying')
+      .flatMap((st) => (st.races ?? []).map((r) => r.n)),
+  );
   const config: SplitFleetConfig = {
     qualifyingFleets: dummy(fx.config.qualifyingFleets),
     finalFleets: dummy(fx.config.finalFleets ?? []),
@@ -225,7 +237,8 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     maxFinalDiscards: fx.config.maxFinalDiscards,
     protectLoneFinalRace: fx.config.protectLoneFinalRace ?? false,
     reassignmentTieOrder: 'a8-then-entry-order',
-    vocabulary: DEFAULT_VOCABULARY,
+    vocabulary: fx.config.vocabulary ?? DEFAULT_VOCABULARY,
+    ...(fx.config.raceLabels ? { raceLabels: fx.config.raceLabels } : {}),
     medal: fx.config.medal
       ? {
           companionRace: 'scored-below' as const,
@@ -393,7 +406,8 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         const raceId = `${st}${r.n}:${name}`;
         races.push({
           id: raceId, seriesId: 's', raceNumber: races.length + 1,
-          name: `${PREFIX[st]}${r.n} ${name}`, date: '2020-01-01', createdAt: createdAt++,
+          name: `${stageRaceLabel(config, st, r.n, qualifyingRaces)} ${name}`,
+          date: '2020-01-01', createdAt: createdAt++,
         });
         raceStarts.push({
           id: `start:${raceId}`, raceId, fleetIds: [fid(name)],
