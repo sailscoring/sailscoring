@@ -56,6 +56,14 @@ td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; bo
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
 td.nat .nattext { font-size: 0.8em; }
 td.wsid { font-family: monospace; font-size: 0.85em; white-space: nowrap; }
+/* The competitor list tabled by class (#534): a heading per class, and a
+   rating column per fleet the class is scored under. A boat not entered in a
+   column's fleet is dashed and greyed, so a column of ratings reads as
+   ratings and the gaps read as gaps. */
+h3.grouptitle { font-size: 1.15em; color: #073358; margin: 0 0 6px 0; }
+h3.grouptitle .groupcount { font-weight: normal; font-size: 0.75em; color: #555; }
+td.ratingcell { font-family: monospace; text-align: right; white-space: nowrap; }
+td.ratingcell.notentered { color: #bbb; }
 .print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .print-btn:hover { color: #fb3a3b; }
 /* The scorer's explanatory note (#511). Left-aligned prose on a centred
@@ -77,6 +85,7 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
   h3.racetitle { break-after: avoid; }
+  h3.grouptitle { break-after: avoid; }
   table { break-inside: auto; }
   .tablewrap { overflow-x: visible; }
 }
@@ -87,6 +96,7 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
   .headerlogo-right { margin: 0 auto 10px auto; }
 }
 </style>
+
 </head>
 <body>
 <table class="headertable" cellspacing="0" width="100%" cellpadding="0" border="0">
