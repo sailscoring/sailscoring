@@ -173,6 +173,9 @@ export function SplitFleetEditor({
   // fields should see the field they are on, not wherever the pointer came to
   // rest.
   const [hovered, setHovered] = useState<readonly SplitFleetSentenceId[] | null>(null);
+  // Asked for a scheme of their own: the prefixes are shown to be typed. A
+  // series already carrying one shows them without asking.
+  const [labelsByHand, setLabelsByHand] = useState(false);
   const [focused, setFocused] = useState<readonly SplitFleetSentenceId[] | null>(null);
 
   const value = config;
@@ -337,11 +340,14 @@ export function SplitFleetEditor({
             id="sf-race-labels"
             className={selectClass}
             disabled={!canEdit}
-            value={labelScheme ?? 'custom'}
-            onChange={(e) =>
-              e.target.value !== 'custom' &&
-              patch({ raceLabels: applyRaceLabelScheme(value, e.target.value as RaceLabelSchemeKey) })
-            }
+            value={labelsByHand ? 'custom' : (labelScheme ?? 'custom')}
+            onChange={(e) => {
+              if (e.target.value === 'custom') return setLabelsByHand(true);
+              setLabelsByHand(false);
+              patch({
+                raceLabels: applyRaceLabelScheme(value, e.target.value as RaceLabelSchemeKey),
+              });
+            }}
           >
             {RACE_LABEL_SCHEMES.map((scheme) => (
               <option key={scheme.key} value={scheme.key}>
@@ -350,7 +356,7 @@ export function SplitFleetEditor({
             ))}
             <option value="custom">{labelScheme ? 'Something else…' : exampleLabels}</option>
           </select>
-          {labelScheme === null && (
+          {(labelScheme === null || labelsByHand) && (
             <div className="flex flex-wrap items-center gap-2">
               {STAGES.filter((stage) => stage !== 'medal' || value.medal).map((stage) => (
                 <label key={stage} className="flex items-center gap-1 text-xs">
@@ -361,17 +367,28 @@ export function SplitFleetEditor({
                     value={raceLabels.prefixes[stage]}
                     maxLength={3}
                     aria-label={`${capitaliseStage(vocab.stages[stage].name)} race prefix`}
-                    onChange={(e) =>
-                      patch({
-                        raceLabels: {
-                          ...raceLabels,
-                          prefixes: {
-                            ...raceLabels.prefixes,
-                            [stage]: e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase(),
-                          },
+                    onChange={(e) => {
+                      const next = {
+                        ...raceLabels,
+                        prefixes: {
+                          ...raceLabels.prefixes,
+                          [stage]: e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase(),
                         },
-                      })
-                    }
+                      };
+                      // A prefix shared by the first two stages labels two
+                      // races the same unless the numbering runs on, and is
+                      // refused on the way in. Hold the last good value
+                      // rather than save a rejected one; the hint below says
+                      // why the field is not taking the letter.
+                      if (
+                        next.prefixes.qualifying &&
+                        next.prefixes.final &&
+                        (next.continuousOpeningNumbers ||
+                          next.prefixes.qualifying !== next.prefixes.final)
+                      ) {
+                        patch({ raceLabels: next });
+                      }
+                    }}
                   />
                 </label>
               ))}
@@ -388,6 +405,10 @@ export function SplitFleetEditor({
                 />
                 numbered on from the {vocab.stages.qualifying.name}
               </label>
+              <span className="text-xs text-muted-foreground">
+                One to three letters each, and the first two differ unless the numbering runs
+                on.
+              </span>
             </div>
           )}
           <p className={hint}>

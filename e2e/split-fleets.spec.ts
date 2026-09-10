@@ -668,6 +668,15 @@ test('split fleets: the notice board’s race labels reach every surface', async
       'Elimination series, QE1, QE2 and so on',
   );
 
+  // A scheme of the event's own: the prefixes are there to be typed, and the
+  // sentence follows those too.
+  await labels.selectOption('custom');
+  await page.getByLabel('Preliminary series race prefix').fill('P');
+  await expect(page.getByTestId('sf-si-translation')).toContainText(
+    'races in the Preliminary series will be numbered P1, P2 and so on',
+  );
+  await labels.selectOption('qp-qe');
+
   // ── The ceremony, the round card and the race rows follow ─────────────────
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await expect(
