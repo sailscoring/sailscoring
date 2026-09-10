@@ -58,10 +58,13 @@ export default function DataInAndOut() {
         </p>
         {has('multi-person-fields') && (
         <p>
-          Fields with <em>Allow multiple</em> ticked (owners, helms, crew, or the primary itself)
-          import two ways, and both can be combined. Sheets with one column per person (<em>Owner 1</em>,{' '}
+          Person fields (owners, helms, crew, or the primary itself) take several names two ways,
+          and both can be combined. Sheets with one column per person (<em>Owner 1</em>,{' '}
           <em>Owner 2</em>, or <em>Crew 1</em>…<em>Crew 3</em>) map every column to the same
-          field; the names are kept in column order. Or several names can share one cell
+          field; the names are kept in column order. Mapping a second column to a field is
+          taken as asking for it — the mapping step says which fields it is opening to several
+          names, and ticks <em>Allow multiple</em> for them on the series when you import, so a
+          new series does not have to be set up for it first. Or several names can share one cell
           separated by semicolons (Sailwave’s{' '}
           <code className="text-foreground text-sm">{'<br>'}</code> convention and line breaks
           also work) — the sample column previews how a cell will split before you import.

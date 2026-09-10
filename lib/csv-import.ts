@@ -2,6 +2,7 @@
  * Helpers for CSV competitor import.
  */
 
+import { MULTI_PERSON_FIELD_KEYS } from './competitor-fields';
 import type { MultiPersonFieldKey } from './types';
 
 /** Field roles a CSV column can map to in the importer's column-mapping
@@ -87,6 +88,40 @@ export function mappingSlotState(
     tooManyPrimaries,
     ok: hasSail && hasPrimary && !tooManySails && !tooManyPrimaries,
   };
+}
+
+/**
+ * The person fields this column map asks to be opened to several names per
+ * entry, on top of those the series already opens.
+ *
+ * Two or more columns mapped to the same person field is a statement that one
+ * entry carries several of those names — an entry list spreading a boat's
+ * owners over `Owner`, `Owner 2`, `Owner 3`, or its crew over `Crew 1`,
+ * `Crew 2`. Without the field opened, the row resolver keeps the last mapped
+ * column and drops the rest, and the primary slot refuses the mapping
+ * outright, so the sheet cannot come in as it reads.
+ *
+ * The mapping wizard already proposes the primary identifier label and the
+ * optional fields a column targets; this is the same rule for the one piece
+ * of series shape it used to snapshot read-only. Additive: a field the series
+ * already opens stays open however few columns target it, because the setting
+ * is the scorer's intent for the whole series and one import's columns are
+ * not a reason to close it.
+ *
+ * The caller applies the `multi-person-fields` feature gate — with the
+ * feature off the setting has no UI to undo it in, so the import must not set
+ * it behind the scorer's back.
+ */
+export function proposeMultiPersonFields(
+  columnMap: ColumnMap,
+  current: readonly MultiPersonFieldKey[],
+): MultiPersonFieldKey[] {
+  const targets = Object.values(columnMap);
+  const wanted = new Set(current);
+  for (const key of MULTI_PERSON_FIELD_KEYS) {
+    if (targets.filter((t) => t === key).length > 1) wanted.add(key);
+  }
+  return MULTI_PERSON_FIELD_KEYS.filter((k) => wanted.has(k));
 }
 
 /** Sentinel target: create a fresh subdivision axis from this column's header. */

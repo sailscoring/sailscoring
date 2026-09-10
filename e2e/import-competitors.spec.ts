@@ -167,6 +167,62 @@ test('import CSV with Crew 1/Crew 2 columns and a semicolon-separated cell', asy
   await expect(splitRow).toContainText('Dan Egan');
 });
 
+// The shape an OA entry list arrives in: one column per owner, and a series
+// nobody has been to Settings for yet — the import is where the need for
+// several names first shows, so the mapping step has to propose the setting
+// rather than refuse the columns.
+const fourOwnerCsv = [
+  'Sail Number,Boat Name,Owner,Owner 2,Owner 3,Club',
+  '8188,Freelance,Sarah Allen,Tom Johns,Ruth Arthurs,HYC',
+  '2070,Out & About,Terry McCoy,,,HYC',
+].join('\n');
+
+test('import proposes opening the primary field when several columns are owners', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['multi-person-fields']);
+  await createSeriesQuick(page, { name: 'Autumn League Entries' });
+
+  await uploadCsv(page, fourOwnerCsv);
+
+  // All three Owner columns map to the primary slot, and the panel states the
+  // series change that lets them through instead of refusing the mapping.
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Allowing several names per entry: Owners');
+  await expect(dialog).not.toContainText('Only one column may be the primary name');
+
+  await importMapColumns(page);
+  await page.getByRole('button', { name: /Import 2 rows/i }).click();
+  await expect(page.getByText(/2 competitor.* added/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Every owner lands on the boat, in column order.
+  const freelance = page.getByRole('row').filter({ hasText: '8188' });
+  await expect(freelance).toContainText('Sarah Allen');
+  await expect(freelance).toContainText('Tom Johns');
+  await expect(freelance).toContainText('Ruth Arthurs');
+  const singleOwner = page.getByRole('row').filter({ hasText: '2070' });
+  await expect(singleOwner).toContainText('Terry McCoy');
+
+  // The setting was persisted, not just honoured for the one import — the
+  // plural column header is the series carrying `primary` in multiPersonFields.
+  await expect(page.getByRole('columnheader', { name: 'Owners' })).toBeVisible();
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Allow multiple Owner' })).toBeChecked();
+});
+
+test('without the multi-person feature several owner columns are still refused', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Single Owner Entries' });
+
+  await uploadCsv(page, fourOwnerCsv);
+
+  // Nothing to propose: the setting has no UI to undo it in, so the mapping
+  // keeps its one-column limit and names the way through.
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Only one column may be the primary name');
+  await expect(dialog).not.toContainText('Allowing several names per entry');
+});
+
 test('import CSV with Club and Other Club columns keeps both affiliations', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Two Club Import' });
 

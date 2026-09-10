@@ -308,6 +308,17 @@ export function primaryPersonHeader(
     : PRIMARY_PERSON_LABEL_TEXT[label];
 }
 
+/** The plural noun for a person field opened to several names, for naming the
+ *  setting in prose. The primary slot takes the series' own label. */
+export function multiPersonFieldLabel(
+  key: MultiPersonFieldKey,
+  primaryLabel: PrimaryPersonLabel,
+): string {
+  return key === 'primary'
+    ? primaryPersonHeader(primaryLabel, ['primary'])
+    : personFieldHeader(key, [key]);
+}
+
 /** Short descriptions to help scorers choose a primary-label option. */
 export const PRIMARY_PERSON_LABEL_HINTS: Record<PrimaryPersonLabel, string> = {
   competitor: 'Generic — works for mixed fleets or when you don’t want to commit to a role.',

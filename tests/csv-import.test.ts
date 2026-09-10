@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell, parseExcludedCell, mappingSlotState } from '@/lib/csv-import';
+import { parseFleetCell, autoDetectField, isGroupingHeader, matchSubdivisionAxis, routeSeedingColumn, splitPersonCell, parseExcludedCell, mappingSlotState, proposeMultiPersonFields } from '@/lib/csv-import';
 import type { ColumnMap } from '@/lib/csv-import';
 
 describe('parseFleetCell', () => {
@@ -359,5 +359,59 @@ describe('mappingSlotState', () => {
     expect(mappingSlotState({ 0: 'sailNumber' }, ['primary']).hasPrimary).toBe(false);
     expect(mappingSlotState({ 0: 'primary' }, ['primary']).hasSail).toBe(false);
     expect(mappingSlotState({}, ['primary']).ok).toBe(false);
+  });
+});
+
+describe('proposeMultiPersonFields', () => {
+  // The shape HYC's Autumn League sheet arrives in: every Owner column
+  // auto-detects as `owner`, and the owner primary label re-labels them all
+  // to `primary`, so the map reaching the gate holds four primary columns.
+  const fourOwnerColumns: ColumnMap = {
+    0: 'sailNumber',
+    1: 'boatName',
+    2: 'primary',
+    3: 'primary',
+    4: 'primary',
+    5: 'club',
+  };
+
+  it('proposes nothing for a map with one column per person field', () => {
+    const map: ColumnMap = { 0: 'sailNumber', 1: 'primary', 2: 'crewName', 3: 'club' };
+    expect(proposeMultiPersonFields(map, [])).toEqual([]);
+  });
+
+  it('proposes the primary slot when several columns are mapped to it', () => {
+    expect(proposeMultiPersonFields(fourOwnerColumns, [])).toEqual(['primary']);
+  });
+
+  it('proposes the role fields on the same rule', () => {
+    const map: ColumnMap = { 0: 'sailNumber', 1: 'primary', 2: 'crewName', 3: 'crewName' };
+    expect(proposeMultiPersonFields(map, [])).toEqual(['crewName']);
+    const both: ColumnMap = { ...map, 4: 'owner', 5: 'owner' };
+    expect(proposeMultiPersonFields(both, [])).toEqual(['owner', 'crewName']);
+  });
+
+  it('returns the keys in settings order, not column order', () => {
+    const map: ColumnMap = {
+      0: 'crewName', 1: 'crewName', 2: 'helm', 3: 'helm', 4: 'owner', 5: 'owner',
+    };
+    expect(proposeMultiPersonFields(map, [])).toEqual(['owner', 'helm', 'crewName']);
+  });
+
+  it('keeps a field the series already opens, whatever the columns say', () => {
+    const map: ColumnMap = { 0: 'sailNumber', 1: 'primary', 2: 'crewName' };
+    expect(proposeMultiPersonFields(map, ['crewName'])).toEqual(['crewName']);
+  });
+
+  it('adds to what the series already opens rather than replacing it', () => {
+    expect(proposeMultiPersonFields(fourOwnerColumns, ['crewName'])).toEqual([
+      'primary',
+      'crewName',
+    ]);
+  });
+
+  it('ignores repeated non-person columns', () => {
+    const map: ColumnMap = { 0: 'sailNumber', 1: 'primary', 2: 'club', 3: 'club', 4: 'ignore', 5: 'ignore' };
+    expect(proposeMultiPersonFields(map, [])).toEqual([]);
   });
 });

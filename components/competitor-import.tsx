@@ -32,6 +32,7 @@ import {
   splitPersonCell,
   isGroupingHeader,
   mappingSlotState,
+  proposeMultiPersonFields,
   routeSeedingColumn,
   NEW_AXIS_TARGET,
   RELAY_FIELDS,
@@ -105,6 +106,8 @@ import {
   cleanSubdivisions,
   subdivisionsEqual,
   parseAlternativeSailNumbers,
+  multiPersonFieldLabel,
+  MULTI_PERSON_FIELD_KEYS,
 } from '@/lib/competitor-fields';
 import { log } from '@/lib/debug';
 
@@ -193,8 +196,14 @@ type ImportFlow =
       /** The series' configured subdivision axes, each offered as a distinct
        *  dropdown target for a subdivision column. */
       subdivisionAxes: SubdivisionAxis[];
-      /** Person fields opened to multiple names (#316). Governs whether
-       *  person-mapped columns append/split; absent affordance = single. */
+      /** Person fields currently opened to multiple names on the series. */
+      currentMultiPersonFields: MultiPersonFieldKey[];
+      /** Proposed person fields opened to multiple names, persisted on
+       *  confirm. Governs whether person-mapped columns append/split (absent
+       *  affordance = single), so the gate, the mapping table's split preview
+       *  and the row resolver all read the value the import is about to
+       *  persist rather than the one it opened with. Derived from the column
+       *  map: two columns mapped to one person field ask for it. */
       multiPersonFields: MultiPersonFieldKey[];
       /** Series scoring mode at upload time. The planner doesn't take this
        *  as input — column mappings drive system choice. We track it here
@@ -821,6 +830,8 @@ function MappingDialogBody({
   setFlow: React.Dispatch<React.SetStateAction<ImportFlow>>;
   onBackToFleets: () => void;
 }) {
+  const { has } = useFeatures();
+  const multiPersonEnabled = has('multi-person-fields');
   const fieldLabels = useMemo(
     () => buildFieldLabels(flow.proposedPrimary, flow.subdivisionAxes, flow.rrs !== null),
     [flow.proposedPrimary, flow.subdivisionAxes, flow.rrs],
@@ -828,6 +839,18 @@ function MappingDialogBody({
   const { hasSail, hasPrimary, tooManySails, tooManyPrimaries } = mappingSlotState(
     flow.columnMap,
     flow.multiPersonFields,
+  );
+
+  // Re-derive the multi-name proposal from the map every time it changes, so
+  // it tracks the mapping both ways: a second Owner column raises it, and
+  // remapping back to one withdraws it. Additive over what the series already
+  // opens, so it never closes a field the scorer set in Settings.
+  const reproposeMulti = useCallback(
+    (f: MappingFlow, columnMap: ColumnMap): MultiPersonFieldKey[] =>
+      multiPersonEnabled
+        ? proposeMultiPersonFields(columnMap, f.currentMultiPersonFields)
+        : f.currentMultiPersonFields,
+    [multiPersonEnabled],
   );
 
   const updateColumn = useCallback((index: number, value: ColumnTarget) => {
@@ -842,9 +865,10 @@ function MappingDialogBody({
         value !== NEW_AXIS_TARGET
           ? { eventUuid: f.rrs.eventUuid, divisionSource: 'none' as const }
           : f.rrs;
-      return { ...f, columnMap: { ...f.columnMap, [index]: value }, rrs };
+      const columnMap = { ...f.columnMap, [index]: value };
+      return { ...f, columnMap, rrs, multiPersonFields: reproposeMulti(f, columnMap) };
     });
-  }, [setFlow]);
+  }, [setFlow, reproposeMulti]);
 
   const updatePrimary = useCallback((label: PrimaryPersonLabel) => {
     setFlow((f) => {
@@ -854,9 +878,15 @@ function MappingDialogBody({
       const nextProposedFields = f.proposedFields.filter(
         (field) => !isFieldDisabledByPrimary(field, label),
       );
-      return { ...f, proposedPrimary: label, columnMap: nextMap, proposedFields: nextProposedFields };
+      return {
+        ...f,
+        proposedPrimary: label,
+        columnMap: nextMap,
+        proposedFields: nextProposedFields,
+        multiPersonFields: reproposeMulti(f, nextMap),
+      };
     });
-  }, [setFlow]);
+  }, [setFlow, reproposeMulti]);
 
   const toggleField = useCallback((field: CompetitorFieldKey, checked: boolean) => {
     setFlow((f) => {
@@ -871,6 +901,9 @@ function MappingDialogBody({
   const primaryChanged = flow.proposedPrimary !== flow.currentPrimary;
   const fieldAdditions = flow.proposedFields.filter((f) => !flow.currentFields.includes(f));
   const fieldRemovals = flow.currentFields.filter((f) => !flow.proposedFields.includes(f));
+  const multiAdditions = flow.multiPersonFields.filter(
+    (f) => !flow.currentMultiPersonFields.includes(f),
+  );
 
   // The columns the Fleets step owns, restated here so the mapping table
   // isn't silently missing them.
@@ -949,7 +982,7 @@ function MappingDialogBody({
             })}
           </div>
         </div>
-        {(primaryChanged || fieldAdditions.length > 0 || fieldRemovals.length > 0) && (
+        {(primaryChanged || fieldAdditions.length > 0 || fieldRemovals.length > 0 || multiAdditions.length > 0) && (
           <div className="text-xs text-muted-foreground space-y-0.5 border-t pt-2">
             {primaryChanged && (
               <p>
@@ -966,6 +999,15 @@ function MappingDialogBody({
             {fieldRemovals.length > 0 && (
               <p>
                 Disabling optional fields: {fieldRemovals.map((f) => COMPETITOR_FIELD_LABELS[f]).join(', ')}
+              </p>
+            )}
+            {multiAdditions.length > 0 && (
+              <p>
+                Allowing several names per entry:{' '}
+                {multiAdditions
+                  .map((f) => multiPersonFieldLabel(f, flow.proposedPrimary))
+                  .join(', ')}
+                {' '}— more than one column is mapped to each. Map fewer to keep them single.
               </p>
             )}
           </div>
@@ -1352,6 +1394,16 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     }
     const proposedFields = [...currentFields, ...optionalAdditions];
 
+    // Propose opening a person field to several names when several columns
+    // target it — the same additive rule as the optional fields above, for
+    // the entry lists that spread a boat's owners or crew over numbered
+    // columns. Gated: with the feature off the setting has no UI to undo it
+    // in, so the mapping keeps its single-column limit and says so.
+    const currentMultiPersonFields = series?.multiPersonFields ?? [];
+    const multiPersonFields = has('multi-person-fields')
+      ? proposeMultiPersonFields(columnMap, currentMultiPersonFields)
+      : currentMultiPersonFields;
+
     setImportFlow({
       step: 'mapping',
       headers,
@@ -1364,7 +1416,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       currentFields,
       proposedFields,
       subdivisionAxes: axes,
-      multiPersonFields: series?.multiPersonFields ?? [],
+      currentMultiPersonFields,
+      multiPersonFields,
       seriesScoringMode,
       stage: 'fleets',
       groupByColumn: groupByColumn >= 0 ? groupByColumn : null,
@@ -1415,7 +1468,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
    *  sail number matched nothing, so an accepted rename updates that
    *  competitor in place (keeping its id, and with it its results). */
   async function executeImport(flow: MappingFlow, renameByRowIndex: Map<number, string>) {
-    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, groupByColumn, fleetOverrides, rrs, multiPersonFields } = flow;
+    const { rows, headers, columnMap, proposedPrimary, proposedFields, currentPrimary, currentFields, seriesScoringMode, groupByColumn, fleetOverrides, rrs, multiPersonFields, currentMultiPersonFields } = flow;
 
     const existing = await competitorRepo.listBySeries(seriesId);
     const existingById = new Map(existing.map((c) => [c.id, c]));
@@ -1461,6 +1514,8 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       primaryPersonLabel?: PrimaryPersonLabel;
       scoringMode?: 'scratch' | 'handicap';
       subdivisionAxes?: SubdivisionAxis[];
+      enabledCompetitorFields?: CompetitorFieldKey[];
+      multiPersonFields?: MultiPersonFieldKey[];
       lastModifiedAt?: number;
     } = {};
     if (proposedPrimary !== currentPrimary) seriesPatch.primaryPersonLabel = proposedPrimary;
@@ -1471,23 +1526,31 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
     const fieldAdditions = proposedFields.filter((f) => !currentFields.includes(f));
     const fieldRemovals = currentFields.filter((f) => !proposedFields.includes(f));
     const fieldsChanged = fieldAdditions.length > 0 || fieldRemovals.length > 0;
+    // The multi-name proposal is additive by construction, so its delta is
+    // additions only — re-applied to the landing row on the same reasoning.
+    const multiAdditions = multiPersonFields.filter((f) => !currentMultiPersonFields.includes(f));
     const planHasHandicapFleet = plan.proposed.some((p) => p.scoringSystem !== 'scratch');
     if (seriesScoringMode === 'scratch' && planHasHandicapFleet) {
       seriesPatch.scoringMode = 'handicap';
     }
-    if (Object.keys(seriesPatch).length > 0 || fieldsChanged) {
+    if (Object.keys(seriesPatch).length > 0 || fieldsChanged || multiAdditions.length > 0) {
       seriesPatch.lastModifiedAt = Date.now();
       await updateSeries.mutateAsync({
         id: seriesId,
         patch: (current) => {
-          if (!fieldsChanged) return seriesPatch;
-          const fields = new Set(current.enabledCompetitorFields ?? defaultEnabledCompetitorFields());
-          for (const f of fieldAdditions) fields.add(f);
-          for (const f of fieldRemovals) fields.delete(f);
-          return {
-            ...seriesPatch,
-            enabledCompetitorFields: ALL_COMPETITOR_FIELDS.filter((f) => fields.has(f)),
-          };
+          const next = { ...seriesPatch };
+          if (fieldsChanged) {
+            const fields = new Set(current.enabledCompetitorFields ?? defaultEnabledCompetitorFields());
+            for (const f of fieldAdditions) fields.add(f);
+            for (const f of fieldRemovals) fields.delete(f);
+            next.enabledCompetitorFields = ALL_COMPETITOR_FIELDS.filter((f) => fields.has(f));
+          }
+          if (multiAdditions.length > 0) {
+            const multi = new Set(current.multiPersonFields ?? []);
+            for (const f of multiAdditions) multi.add(f);
+            next.multiPersonFields = MULTI_PERSON_FIELD_KEYS.filter((f) => multi.has(f));
+          }
+          return next;
         },
       });
     }
