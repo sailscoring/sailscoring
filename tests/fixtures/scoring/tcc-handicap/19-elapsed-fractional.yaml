@@ -1,18 +1,22 @@
-description: "IRC — a recorded elapsed time with a fractional part rounds half-up before correction"
-rrs_notes: "ORC rule 401.2: times are taken to whole seconds. The engine rounds half-up, as it does every other elapsed time."
+description: "IRC — a race timed to the millisecond is corrected to the millisecond"
+rrs_notes: "ORC rule 401.2 takes times to whole seconds, which is what a clock or a stopwatch records. A race timed electronically was not recorded that way, and rounding it to the second would discard the only evidence of who was ahead."
 
 notes: |
   Electronic race management measures to the millisecond, so an imported
-  elapsed time arrives with a fractional part. The fraction is kept as
-  recorded — it is the measurement — but the corrected time is worked from
-  whole seconds, so the elapsed time rounds half-up on the way into the
-  calculation.
+  elapsed time arrives with a fractional part. The fraction is the
+  measurement, so it is kept — through the correction as well as in storage —
+  and the corrected time is rounded to the millisecond rather than to the
+  second.
 
-  Boat 1: elapsed 3599.500 s → 3600   CT = 3600 × 1.05 = 3780.00 → 3780  → 3rd
-  Boat 2: elapsed 4077.600 s → 4078   CT = 4078 × 0.88 = 3588.64 → 3589  → 1st
-  Boat 3: elapsed 3810.400 s → 3810   CT = 3810 × 0.95 = 3619.50 → 3620  → 2nd
+  Boat 1: elapsed 3599.500 s   CT = 3599.500 × 1.05 = 3779.475  → 3rd
+  Boat 2: elapsed 4077.600 s   CT = 4077.600 × 0.88 = 3588.288  → 1st
+  Boat 3: elapsed 3810.400 s   CT = 3810.400 × 0.95 = 3619.880  → 2nd
 
-  Boat 1 is the case that matters: exactly half a second rounds up, not down.
+  A race whose finishes are all whole seconds is corrected to the second
+  exactly as before — the fraction on the sheet is what decides, and no race
+  recorded off a clock or a stopwatch has one. Fixture 20 is the pair of
+  races that shows the difference.
+
   The three boats are otherwise fixture 01's, so the ranking is unchanged and
   the fraction is the only thing under test.
 
@@ -47,20 +51,20 @@ races:
       - sailor: "1"
         rank: 3
         points: 3.0
-        elapsedTime: 3600
-        correctedTime: 3780
+        elapsedTime: 3599.5
+        correctedTime: 3779.475
         tcfApplied: 1.05
       - sailor: "2"
         rank: 1
         points: 1.0
-        elapsedTime: 4078
-        correctedTime: 3589
+        elapsedTime: 4077.6
+        correctedTime: 3588.288
         tcfApplied: 0.88
       - sailor: "3"
         rank: 2
         points: 2.0
-        elapsedTime: 3810
-        correctedTime: 3620
+        elapsedTime: 3810.4
+        correctedTime: 3619.88
         tcfApplied: 0.95
 
 expected:

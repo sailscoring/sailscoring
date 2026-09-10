@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-import { crossingTimeOf, elapsedSecondsOf } from '@/lib/elapsed-time';
+import {
+  crossingTimeOf,
+  elapsedSecondsOf,
+  roundToPrecision,
+  timingPrecisionOf,
+} from '@/lib/elapsed-time';
 
 describe('elapsedSecondsOf', () => {
   it('subtracts the gun from a recorded time of day', () => {
@@ -11,10 +16,9 @@ describe('elapsedSecondsOf', () => {
     expect(elapsedSecondsOf({ elapsedSecs: 3600 }, null)).toBe(3600);
   });
 
-  it('rounds a fractional elapsed time half-up', () => {
-    expect(elapsedSecondsOf({ elapsedSecs: 2751.785 }, null)).toBe(2752);
-    expect(elapsedSecondsOf({ elapsedSecs: 3599.5 }, null)).toBe(3600);
-    expect(elapsedSecondsOf({ elapsedSecs: 3599.4 }, null)).toBe(3599);
+  it('keeps a recorded fraction rather than rounding it away', () => {
+    expect(elapsedSecondsOf({ elapsedSecs: 2751.785 }, null)).toBe(2751.785);
+    expect(elapsedSecondsOf({ elapsedSecs: 3599.5 }, null)).toBe(3599.5);
   });
 
   it('prefers the recorded elapsed time over a time of day that disagrees', () => {
@@ -22,7 +26,7 @@ describe('elapsedSecondsOf', () => {
     // its elapsed figure stayed right. The measurement wins.
     expect(
       elapsedSecondsOf({ finishTime: '14:09:45', elapsedSecs: 3885.608 }, 50700),
-    ).toBe(3886);
+    ).toBe(3885.608);
   });
 
   it('says nothing when the row records neither', () => {
@@ -32,6 +36,40 @@ describe('elapsedSecondsOf', () => {
 
   it('says nothing for a time of day with no gun to measure from', () => {
     expect(elapsedSecondsOf({ finishTime: '15:05:00' }, null)).toBeNull();
+  });
+});
+
+describe('timingPrecisionOf', () => {
+  it('reads a sheet of whole seconds as timed to the second', () => {
+    expect(timingPrecisionOf([{ elapsedSecs: 3600 }, { finishTime: '15:05:00' }]))
+      .toBe('second');
+  });
+
+  it('reads one fraction anywhere in the race as timed to the millisecond', () => {
+    expect(timingPrecisionOf([{ elapsedSecs: 3600 }, { elapsedSecs: 3600.45 }]))
+      .toBe('millisecond');
+  });
+
+  it('reads a race with no times at all as timed to the second', () => {
+    expect(timingPrecisionOf([])).toBe('second');
+    expect(timingPrecisionOf([{ elapsedSecs: null, finishTime: null }])).toBe('second');
+  });
+});
+
+describe('roundToPrecision', () => {
+  it('rounds half-up at either unit', () => {
+    expect(roundToPrecision(3599.5, 'second')).toBe(3600);
+    expect(roundToPrecision(3599.4, 'second')).toBe(3599);
+    expect(roundToPrecision(3599.4444, 'millisecond')).toBe(3599.444);
+    expect(roundToPrecision(3599.4445, 'millisecond')).toBe(3599.445);
+  });
+
+  it('puts two arithmetically equal corrected times back on one number', () => {
+    // 645 × 1.4 and 903 × 1 are the same corrected time, and doubles disagree
+    // about it. Rounding to the millisecond ties them again.
+    expect(645 * 1.4).not.toBe(903 * 1);
+    expect(roundToPrecision(645 * 1.4, 'millisecond'))
+      .toBe(roundToPrecision(903 * 1, 'millisecond'));
   });
 });
 

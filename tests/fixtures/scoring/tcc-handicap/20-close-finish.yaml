@@ -1,0 +1,128 @@
+description: "IRC — boats inside the same second are ranked when the race was timed to the millisecond, and tied when it was timed to the second"
+rrs_notes: "RRS A7: boats that tie in a race are scored the average of the places they would have taken. Whether two boats tie is a question about the timing, not about the rule — the rule applies to whatever the race committee recorded."
+
+notes: |
+  The same two boats finish the same way twice. What differs is how the race
+  was timed, and that is what decides whether they tie.
+
+  Race 1 was timed electronically, so the sheet carries fractions and the
+  corrected times are worked out to the millisecond:
+
+    Alpha   (TCC 1.00)  elapsed 2751.310  CT = 2751.310  → 2nd
+    Bravo   (TCC 0.90)  elapsed 3056.400  CT = 2750.760  → 1st
+    Charlie (TCC 0.95)  elapsed 2900.200  CT = 2755.190  → 3rd
+
+  Alpha and Bravo are 0.55 s apart. Rounded to the second they would both be
+  2751 and would tie for 1st, taking 1.5 points each — a tie the device did
+  not record.
+
+  Race 2 was timed off the ship's clock, so every elapsed time is a whole
+  number of seconds and the corrected times round to the second, exactly as
+  they always have:
+
+    Alpha   (TCC 1.00)  elapsed 2751  CT = 2751.0 → 2751  ┐ tied 1st,
+    Bravo   (TCC 0.90)  elapsed 3057  CT = 2751.3 → 2751  ┘ 1.5 points each
+    Charlie (TCC 0.95)  elapsed 2900  CT = 2755.0 → 2755  → 3rd
+
+  Here the tie is real: a committee reading a clock cannot say who was ahead
+  inside that second, and the boats are scored together under RRS A7.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: irc
+
+competitors:
+  - sailNumber: "1"
+    name: "Alpha"
+    ircTcc: 1.0
+  - sailNumber: "2"
+    name: "Bravo"
+    ircTcc: 0.9
+  - sailNumber: "3"
+    name: "Charlie"
+    ircTcc: 0.95
+
+races:
+  - number: 1
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "1"
+        elapsed: 2751.31
+      - sailor: "2"
+        elapsed: 3056.4
+      - sailor: "3"
+        elapsed: 2900.2
+    expected:
+      - sailor: "1"
+        rank: 2
+        points: 2.0
+        elapsedTime: 2751.31
+        correctedTime: 2751.31
+        tcfApplied: 1.0
+      - sailor: "2"
+        rank: 1
+        points: 1.0
+        elapsedTime: 3056.4
+        correctedTime: 2750.76
+        tcfApplied: 0.9
+      - sailor: "3"
+        rank: 3
+        points: 3.0
+        elapsedTime: 2900.2
+        correctedTime: 2755.19
+        tcfApplied: 0.95
+
+  - number: 2
+    startTime: "14:00:00"
+    finishes:
+      - sailor: "1"
+        finishTime: "14:45:51"
+      - sailor: "2"
+        finishTime: "14:50:57"
+      - sailor: "3"
+        finishTime: "14:48:20"
+    expected:
+      - sailor: "1"
+        rank: 1
+        points: 1.5
+        elapsedTime: 2751
+        correctedTime: 2751
+        tcfApplied: 1.0
+      - sailor: "2"
+        rank: 1
+        points: 1.5
+        elapsedTime: 3057
+        correctedTime: 2751
+        tcfApplied: 0.9
+      - sailor: "3"
+        rank: 3
+        points: 3.0
+        elapsedTime: 2900
+        correctedTime: 2755
+        tcfApplied: 0.95
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "2"
+      racePoints: [1, 1.5]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 2.5
+      netPoints: 2.5
+    - rank: 2
+      sailor: "1"
+      racePoints: [2, 1.5]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3.5
+      netPoints: 3.5
+    - rank: 3
+      sailor: "3"
+      racePoints: [3, 3]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 6
+      netPoints: 6

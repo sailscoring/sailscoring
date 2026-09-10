@@ -1,5 +1,5 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
-import { elapsedSecondsOf } from './elapsed-time';
+import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
 import { getCodeDefinition } from './scoring-codes';
 import { orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
@@ -31,11 +31,17 @@ export const DEFAULT_NHC_PROFILE: NhcProfile = {
   minFin: 3,
 };
 
-// Round-half-up to whole seconds. Matches HalSail/Sailwave display and ranking,
-// so ties surface at the second boundary instead of being broken by sub-second
-// float jitter (see issue #97).
-export function roundCorrectedSecs(elapsedSecs: number, tcf: number): number {
-  return Math.floor(elapsedSecs * tcf + 0.5);
+// Round half-up to the unit the race was timed in. Whole seconds by default,
+// which matches HalSail/Sailwave display and ranking and puts ties on the
+// second boundary rather than on sub-second float jitter; the millisecond for
+// a race whose finishes were recorded with a fraction, where the second
+// boundary would be the invention.
+export function roundCorrectedSecs(
+  elapsedSecs: number,
+  tcf: number,
+  precision: TimingPrecision = 'second',
+): number {
+  return roundToPrecision(elapsedSecs * tcf, precision);
 }
 
 /**
@@ -346,6 +352,10 @@ export interface TodCorrectionContext {
  *   CT = ET × TCF   where ET is the boat's elapsed time — recorded outright,
  *                   or finishTime − startTime (seconds-since-midnight)
  *
+ * Corrected times are rounded to the unit the race was timed in, and boats
+ * sharing one are tied. That unit is a whole second unless a finish on the
+ * sheet was recorded with a fraction — see `timingPrecisionOf`.
+ *
  * The applied TCF for each competitor is supplied in `appliedTcfByCompetitorId`.
  * The caller is responsible for resolving where that TCF comes from:
  *   · static fleet (IRC)  → competitor.ircTcc
@@ -413,6 +423,10 @@ export function calculateHandicapRaceScores(
   // count too, not series entries.
   const dncPenalty = dnfScoring === 'startingAreaInclDnc' ? startingAreaPenalty : seriesEntryPenalty;
 
+  // How finely this race is scored — decided once, off every finish in it, so
+  // that boats ranked against each other are corrected the same way.
+  const precision = timingPrecisionOf(finishes);
+
   // First pass: compute ET, CT, TCF for each competitor
   interface Candidate {
     competitorId: string;
@@ -446,13 +460,16 @@ export function calculateHandicapRaceScores(
       candidates.push({ competitorId: competitor.id, elapsedTime: null, correctedTime: null, tcfApplied: tcf, resultCode: 'DNF', isFinisher: false });
       continue;
     }
-    // Both forms round half-up to whole seconds (ORC rule 401.2 states the
-    // same convention the engine has always used for time-on-time).
+    // Both forms round half-up to the unit the race was timed in (ORC rule
+    // 401.2 states the whole-second convention the engine has always used for
+    // time-on-time, and it governs the allowance products either way — what
+    // the millisecond keeps is the boat's own elapsed time, which passes
+    // through the time-on-distance subtraction untouched).
     const ct = todContext
       ? todContext.roundEachProduct
         ? et - Math.round(tcf * todContext.distanceNm) + Math.round(todContext.scratchTod * todContext.distanceNm)
-        : Math.floor(et - (tcf - todContext.scratchTod) * todContext.distanceNm + 0.5)
-      : roundCorrectedSecs(et, tcf);
+        : roundToPrecision(et - (tcf - todContext.scratchTod) * todContext.distanceNm, precision)
+      : roundCorrectedSecs(et, tcf, precision);
     candidates.push({ competitorId: competitor.id, elapsedTime: et, correctedTime: ct, tcfApplied: tcf, resultCode: null, isFinisher: true });
   }
 
