@@ -96,6 +96,47 @@ describe('planOrcUpdates', () => {
     expect(todRows[0].newTcf).toBe(0.9631);
   });
 
+  it('reads the current rating off the held certificate the same way as the new one', () => {
+    // A boat whose certificate is already imported: current is read off the
+    // stored record under the fleet's option, with the same APHT fallback the
+    // incoming certificate gets — so the delta is the re-rating, not the
+    // whole number against a blank.
+    const stored: OrcCertData = {
+      record: { RefNo: 'ref-old', IssueDate: '2026-03-01T00:00:00.000Z', APHT: 0.95, APHD: 640 },
+      importedAt: 1,
+    };
+    const held = [comp('c1', 'IRL1431', ['f-orc'], { orcCert: stored })];
+    const listing = { ORC: [entry('IRL1431', { APHT: 0.9631, IssueDate: '2026-08-01T00:00:00.000Z' })] };
+
+    for (const configured of [
+      orcFleet,
+      fleet('f-orc', 'orc', { orcProfile: { option: 'APHD', kind: 'tod' } }),
+      fleet('f-orc', 'orc', { orcProfile: { option: 'WL', kind: 'pcs' } }),
+    ]) {
+      const rows = planOrcUpdates({
+        targetCompetitors: held,
+        targetFleets: [configured],
+        entriesByFamily: listing,
+        now: NOW,
+      });
+      expect(rows[0]).toMatchObject({ currentTcf: 0.95, newTcf: 0.9631, status: 'change' });
+    }
+  });
+
+  it('falls back to APHT on both sides when the stored certificate lacks the fleet option', () => {
+    const stored: OrcCertData = {
+      record: { RefNo: 'ref-old', IssueDate: '2026-03-01T00:00:00.000Z', APHT: 0.95 },
+      importedAt: 1,
+    };
+    const rows = planOrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL1431', ['f-orc'], { orcCert: stored })],
+      targetFleets: [fleet('f-orc', 'orc', { orcProfile: { option: 'TMF_Inshore', kind: 'tot' } })],
+      entriesByFamily: { ORC: [entry('IRL1431', { TMF_Inshore: 1.02, IssueDate: '2026-08-01T00:00:00.000Z' })] },
+      now: NOW,
+    });
+    expect(rows[0]).toMatchObject({ currentTcf: 0.95, newTcf: 1.02 });
+  });
+
   it('reads the family listing the fleet is configured for', () => {
     const rows = planOrcUpdates({
       targetCompetitors: [comp('c1', 'IRL1431', ['f-orc-ns'])],

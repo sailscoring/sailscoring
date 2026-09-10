@@ -42,6 +42,7 @@ import {
   orcTotRating,
   type OrcCertEntry,
   type OrcFamily,
+  type OrcRmsRecord,
 } from './orc-certificate';
 import type { Competitor, Fleet, OrcCertData, Race, TcfRecord } from './types';
 
@@ -1223,11 +1224,23 @@ function orcFamilyForFleet(
 
 /** The preview's comparable scalar for a certificate under a fleet's
  *  configured option: the time-on-time rating, falling back to APHT for a
- *  time-on-distance option so the row still shows the certificate. */
-function orcPreviewRating(entry: OrcCertEntry, fleet: Fleet): number | null {
+ *  time-on-distance or performance-curve option — neither prints a
+ *  TCF-shaped number — so the row still shows the certificate. Both sides of
+ *  a preview delta are read this way, so they compare like with like. */
+function orcRecordRating(record: OrcRmsRecord, fleet: Fleet): number | null {
   const profile = orcFleetProfile(fleet);
   const field = profile.kind === 'tot' ? profile.option : 'APHT';
-  return orcRecordNumber(entry.record, field) ?? orcRecordNumber(entry.record, 'APHT') ?? null;
+  return orcRecordNumber(record, field) ?? orcRecordNumber(record, 'APHT') ?? null;
+}
+
+function orcPreviewRating(entry: OrcCertEntry, fleet: Fleet): number | null {
+  return orcRecordRating(entry.record, fleet);
+}
+
+/** The same scalar off the certificate the boat already holds — what the
+ *  preview shows as its current rating. */
+function orcStoredRating(competitor: Competitor, fleet: Fleet): number | null {
+  return competitor.orcCert ? orcRecordRating(competitor.orcCert.record, fleet) : null;
 }
 
 function orcCertDataFor(entry: OrcCertEntry, now: number): OrcCertData {
@@ -1282,7 +1295,7 @@ export function planOrcUpdates(input: OrcPlanInput): PreviewRow[] {
         competitorId: comp.id,
         targetFleetId: fleetId,
         system: 'orc' as const,
-        currentTcf: orcTotRating(comp, fleet),
+        currentTcf: orcStoredRating(comp, fleet),
       };
 
       const match = matcher.match(comp, matchByName);
