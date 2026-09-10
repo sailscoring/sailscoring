@@ -8,6 +8,8 @@ import {
   type SeriesResultsData,
   type RaceData,
   type StandingRowData,
+  type CompetitorListRow,
+  type CompetitorListGroup,
 } from '@/lib/results-renderer';
 import type { ResultCode } from '@/lib/types';
 
@@ -1811,15 +1813,18 @@ describe('renderCompetitorListHtml', () => {
     series: { name: 'Worlds', venue: 'Dun Laoghaire' },
     generatedAt: new Date('2026-08-20T10:00:00Z'),
   };
-  const row = (over: Partial<Parameters<typeof renderCompetitorListHtml>[1][number]> = {}) => ({
+  const row = (over: Partial<CompetitorListRow> = {}): CompetitorListRow => ({
     sailNumber: 'IRL 215',
     names: ['Mark McLoughlin'],
     fleetNames: ['Red'],
     ...over,
   });
+  /** The page as one ungrouped table — what it is on a series whose fleets
+   *  are nothing to do with each other, and on one with no fleets at all. */
+  const flat = (rows: CompetitorListRow[]): CompetitorListGroup[] => [{ ratingColumns: [], rows }];
 
   it('lists the entries with no results columns on it', () => {
-    const html = renderCompetitorListHtml(chrome, [row(), row({ sailNumber: 'GBR 41', names: ['Hannah Mills'] })], {
+    const html = renderCompetitorListHtml(chrome, flat([row(), row({ sailNumber: 'GBR 41', names: ['Hannah Mills'] })]), {
       enabledCompetitorFields: [],
       multiFleet: false,
     });
@@ -1834,7 +1839,7 @@ describe('renderCompetitorListHtml', () => {
   });
 
   it('titles the page as the competitor list', () => {
-    const html = renderCompetitorListHtml(chrome, [row()], {
+    const html = renderCompetitorListHtml(chrome, flat([row()]), {
       enabledCompetitorFields: [],
       multiFleet: false,
     });
@@ -1843,16 +1848,16 @@ describe('renderCompetitorListHtml', () => {
 
   it('shows the Fleet column only on a multi-fleet series', () => {
     const opts = { enabledCompetitorFields: [] as never[], multiFleet: false };
-    expect(renderCompetitorListHtml(chrome, [row()], opts)).not.toContain('<th>Fleet</th>');
+    expect(renderCompetitorListHtml(chrome, flat([row()]), opts)).not.toContain('<th>Fleet</th>');
     expect(
-      renderCompetitorListHtml(chrome, [row()], { ...opts, multiFleet: true }),
+      renderCompetitorListHtml(chrome, flat([row()]), { ...opts, multiFleet: true }),
     ).toContain('<th>Fleet</th>');
   });
 
   it('carries the enabled competitor fields, tally number included', () => {
     const html = renderCompetitorListHtml(
       chrome,
-      [row({ tallyNumber: 'T0001', clubs: ['HYC'] })],
+      flat([row({ tallyNumber: 'T0001', clubs: ['HYC'] })]),
       { enabledCompetitorFields: ['tallyNumber', 'club'], multiFleet: false },
     );
     expect(html).toContain('<th>Tally</th>');
@@ -1861,7 +1866,7 @@ describe('renderCompetitorListHtml', () => {
   });
 
   it('suppresses an enabled field no entry fills', () => {
-    const html = renderCompetitorListHtml(chrome, [row()], {
+    const html = renderCompetitorListHtml(chrome, flat([row()]), {
       enabledCompetitorFields: ['tallyNumber', 'club', 'boatName'],
       multiFleet: false,
     });
@@ -1871,7 +1876,7 @@ describe('renderCompetitorListHtml', () => {
   });
 
   it('says so rather than rendering an empty table when there are no entries', () => {
-    const html = renderCompetitorListHtml(chrome, [], {
+    const html = renderCompetitorListHtml(chrome, flat([]), {
       enabledCompetitorFields: [],
       multiFleet: false,
     });
@@ -1887,7 +1892,7 @@ describe('renderCompetitorListHtml', () => {
     ];
 
     it('is rendered into the page, hidden on screen, one table per start', () => {
-      const html = renderCompetitorListHtml(chrome, rows, {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],
         multiFleet: true,
         checklist,
@@ -1901,7 +1906,7 @@ describe('renderCompetitorListHtml', () => {
     });
 
     it('carries the boat name only on a table where some boat has one', () => {
-      const html = renderCompetitorListHtml(chrome, rows, {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],
         multiFleet: true,
         checklist,
@@ -1913,7 +1918,7 @@ describe('renderCompetitorListHtml', () => {
     });
 
     it('offers to print it from the footer, beside Save as PDF', () => {
-      const html = renderCompetitorListHtml(chrome, rows, {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],
         multiFleet: true,
         checklist,
@@ -1924,7 +1929,7 @@ describe('renderCompetitorListHtml', () => {
     });
 
     it('heads no table on a series with a single start', () => {
-      const html = renderCompetitorListHtml(chrome, rows, {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],
         multiFleet: false,
         checklist: [{ heading: null, boats: [{ sailNumber: '4' }] }],
@@ -1935,7 +1940,7 @@ describe('renderCompetitorListHtml', () => {
 
     it('leaves the page as it was when there is nothing to list', () => {
       for (const empty of [undefined, [], [{ heading: 'Class 1', boats: [] }]]) {
-        const html = renderCompetitorListHtml(chrome, rows, {
+        const html = renderCompetitorListHtml(chrome, flat(rows), {
           enabledCompetitorFields: [],
           multiFleet: true,
           checklist: empty,
@@ -1994,7 +1999,7 @@ describe('the scorer’s note on a page (#511)', () => {
   it('is out of the way in the starters checklist, which is not about results', () => {
     const html = renderCompetitorListHtml(
       { ...chromeForNotes, seriesNote: 'Corrected 16:40.' },
-      [{ sailNumber: 'IRL 215', names: ['A Sailor'], fleetNames: ['Red'] }],
+      [{ ratingColumns: [], rows: [{ sailNumber: 'IRL 215', names: ['A Sailor'], fleetNames: ['Red'] }] }],
       {
         enabledCompetitorFields: [],
         multiFleet: false,

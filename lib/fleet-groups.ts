@@ -98,14 +98,17 @@ function sharedImportGroup(fleets: GroupableFleet[]): string | null {
   return null;
 }
 
-/** Whether two fleets hold largely the same boats: they overlap at all, and
- *  the overlap covers at least half of the smaller of the two. */
+/** Whether two fleets hold largely the same boats: most of the smaller of the
+ *  two is also in the larger. A bare majority is enough — a club handicap
+ *  fleet holds the whole class while its IRC fleet holds only the boats with
+ *  certificates — but a handful of boats entered in both of two classes is
+ *  not, which is the case this has to turn down. */
 function largelyTheSameBoats(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   const [small, large] = a.size <= b.size ? [a, b] : [b, a];
   if (small.size === 0) return false;
   let shared = 0;
   for (const id of small) if (large.has(id)) shared++;
-  return shared > 0 && shared * 2 >= small.size;
+  return shared * 2 > small.size;
 }
 
 function shareAWordAtOneEnd(a: string, b: string): boolean {

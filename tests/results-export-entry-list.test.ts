@@ -296,3 +296,137 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true })).toBeNull();
   });
 });
+
+// ---- Tabled by class, with the ratings each class is scored on (#534) ----
+
+/** Howth's autumn league in miniature: two classes, the first scored under a
+ *  club handicap and IRC at once, the second under the handicap alone. */
+const HYC_FLEETS: Fleet[] = [
+  { id: 'c1-hph', seriesId: 's1', name: 'Class 1 HPH', displayOrder: 0, scoringSystem: 'nhc' },
+  { id: 'c1-irc', seriesId: 's1', name: 'Class 1 IRC', displayOrder: 1, scoringSystem: 'irc' },
+  { id: 'c2-hph', seriesId: 's1', name: 'Class 2 HPH', displayOrder: 2, scoringSystem: 'nhc' },
+];
+
+function boat(
+  id: string,
+  sail: string,
+  fleetIds: string[],
+  ratings: { nhcStartingTcf?: number; ircTcc?: number } = {},
+): Competitor {
+  return { ...competitor(id, sail, fleetIds), ...ratings };
+}
+
+const HYC_BOATS: Competitor[] = [
+  boat('b1', '1543', ['c1-hph', 'c1-irc'], { nhcStartingTcf: 1.025, ircTcc: 1.002 }),
+  // Rated under the club handicap; its certificate has not arrived yet.
+  boat('b2', '9970', ['c1-hph', 'c1-irc'], { nhcStartingTcf: 0.972 }),
+  // Racing under IRC alone.
+  boat('b3', '32032', ['c1-irc'], { ircTcc: 1.141 }),
+  // Racing under the club handicap alone.
+  boat('b4', '571', ['c1-hph'], { nhcStartingTcf: 0.93 }),
+  boat('b5', '100', ['c2-hph'], { nhcStartingTcf: 0.85 }),
+];
+
+function hycRepos(fleets = HYC_FLEETS, competitors = HYC_BOATS): ExportRepos {
+  return {
+    ...makeRepos([], []),
+    fleetRepo: { listBySeries: async () => fleets },
+    competitorRepo: { listBySeries: async () => competitors },
+  } as unknown as ExportRepos;
+}
+
+const entryList = async (repos: ExportRepos): Promise<string> =>
+  (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+
+describe('the competitor list of a class scored under two systems', () => {
+  it('gives each class its own table, headed and counted', async () => {
+    const html = await entryList(hycRepos());
+    expect(html).toContain('<h3 class="grouptitle">Class 1 <span class="groupcount">4 entries</span></h3>');
+    expect(html).toContain('<h3 class="grouptitle">Class 2 HPH <span class="groupcount">1 entry</span></h3>');
+    // Five entries across the two tables, and the caption counts boats.
+    expect(html).toContain('Entries: 5');
+  });
+
+  it('drops the Fleet column — each table is one class already', async () => {
+    expect(await entryList(hycRepos())).not.toContain('<th>Fleet</th>');
+  });
+
+  it('heads a rating column with what tells the class\'s fleets apart', async () => {
+    const html = await entryList(hycRepos());
+    expect(html).toContain('<th>HPH</th>');
+    expect(html).toContain('<th>IRC</th>');
+    // Nothing tells Class 2\'s single fleet apart, so its column is named for
+    // what the number is: an NHC starting TCF.
+    expect(html).toContain('<th>TCF</th>');
+  });
+
+  it('prints each rating as its certificate does', async () => {
+    const html = await entryList(hycRepos());
+    expect(html).toContain('<td class="ratingcell">1.025</td>');
+    expect(html).toContain('<td class="ratingcell">1.002</td>');
+    // Three places even where the stored value has fewer.
+    expect(html).toContain('<td class="ratingcell">0.930</td>');
+  });
+
+  it('dashes a fleet the boat is not entered in, and leaves a missing rating blank', async () => {
+    const html = await entryList(hycRepos());
+    const rows = html.split('<tr ');
+    const irconly = rows.find((r) => r.includes('32032'))!;
+    // Not in the club-handicap fleet at all.
+    expect(irconly).toContain('<td class="ratingcell notentered">—</td>');
+    expect(irconly).toContain('<td class="ratingcell">1.141</td>');
+    // Entered under IRC but holding no certificate yet: a gap, not a dash.
+    const awaiting = rows.find((r) => r.includes('9970'))!;
+    expect(awaiting).toContain('<td class="ratingcell">0.972</td>');
+    expect(awaiting).toContain('<td class="ratingcell"></td>');
+    expect(awaiting).not.toContain('notentered');
+  });
+
+  it('leads each table with the boats entered under every one of its fleets', async () => {
+    const html = await entryList(hycRepos());
+    const table = html.slice(html.indexOf('Class 1'), html.indexOf('Class 2 HPH'));
+    expect(
+      ['1543', '9970', '571', '32032'].map((sail) => table.indexOf(sail)),
+    ).toEqual([...['1543', '9970', '571', '32032'].map((sail) => table.indexOf(sail))].sort((a, b) => a - b));
+    // The two dual-entered boats lead, ahead of both single-system ones.
+    expect(table.indexOf('9970')).toBeLessThan(table.indexOf('571'));
+  });
+
+  it('keeps two classes apart even where they share a boat', async () => {
+    const shared = [
+      ...HYC_BOATS,
+      boat('b6', '2848', ['c1-hph', 'c2-hph'], { nhcStartingTcf: 0.8 }),
+    ];
+    const html = await entryList(hycRepos(HYC_FLEETS, shared));
+    expect(html).toContain('<h3 class="grouptitle">Class 1 ');
+    expect(html).toContain('<h3 class="grouptitle">Class 2 HPH ');
+  });
+
+  it('stays one table when no class is scored under more than one fleet', async () => {
+    // Two fleets that are nothing to do with each other: the Fleet column is
+    // still the only thing that says which is which.
+    const html = await entryList(makeRepos([], []));
+    expect(html).toContain('<th>Fleet</th>');
+    expect(html).not.toContain('<h3 class="grouptitle">');
+  });
+
+  it('stays one table rather than leave a fleetless boat off the page', async () => {
+    const stray = [...HYC_BOATS, boat('b7', '4115', [])];
+    const html = await entryList(hycRepos(HYC_FLEETS, stray));
+    expect(html).not.toContain('<h3 class="grouptitle">');
+    expect(html).toContain('4115');
+    expect(html).toContain('<th>Fleet</th>');
+  });
+
+  it('marks the entry where a class is scored on line honours as well', async () => {
+    // Nothing to print in a scratch fleet\'s column but the fact of the entry
+    // — and without it, being in that fleet would not show on the page at all.
+    const fleets: Fleet[] = [
+      { id: 'c1-hph', seriesId: 's1', name: 'Class 1 Scratch', displayOrder: 0, scoringSystem: 'scratch' },
+      ...HYC_FLEETS.slice(1),
+    ];
+    const html = await entryList(hycRepos(fleets));
+    expect(html).toContain('<th>Scratch</th>');
+    expect(html).toContain('<td class="ratingcell">\u2713</td>');
+  });
+});

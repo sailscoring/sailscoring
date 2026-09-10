@@ -885,8 +885,35 @@ export interface CompetitorListRow {
   subdivisions?: Record<string, string>;
   gender?: 'M' | 'F' | '';
   age?: number | null;
-  /** Names of every fleet the boat is entered in, joined for display. */
+  /** Names of every fleet the boat is entered in, joined for display. Read
+   *  only on an ungrouped page: a page tabled by class says it in the rating
+   *  columns instead. */
   fleetNames: string[];
+  /** One cell per rating column of the row's table, in the same order: the
+   *  boat's rating, an empty string when it is entered in that fleet but
+   *  holds no rating yet, and null when it is not entered in that fleet at
+   *  all. The two absences are different things and read differently. */
+  ratings?: (string | null)[];
+}
+
+/**
+ * One table on the competitor list — a class, and the boats entered in it.
+ *
+ * A class scored under two systems at once has a fleet for each, so its table
+ * carries a rating column per fleet: the boat is one row, and which fleets it
+ * is in is said by which ratings it has. Where the whole list is one table —
+ * a series whose fleets are nothing to do with each other, or none at all —
+ * there is a single group with no heading and no rating columns, and the
+ * Fleet column names the fleets instead.
+ */
+export interface CompetitorListGroup {
+  /** Heading above the table. Absent on a page of one ungrouped table. */
+  heading?: string;
+  /** One column per fleet the class is scored under, in fleet order, headed
+   *  by what distinguishes that fleet ("IRC", "HPH") or by what the number is
+   *  called where nothing does ("TCF"). */
+  ratingColumns: string[];
+  rows: CompetitorListRow[];
 }
 
 /**
@@ -897,9 +924,9 @@ export interface CompetitorListRow {
  *
  * Every column except sail number and the primary person is optional: the set
  * comes from the series' `enabledCompetitorFields`, and each is suppressed
- * when no entry fills it, exactly as the results tables treat Club and Nat. A
- * Fleet column leads on a multi-fleet series, since the rows are grouped by
- * fleet.
+ * when no entry fills it, exactly as the results tables treat Club and Nat.
+ * That set is decided once across the whole page rather than per table, so
+ * every table carries the same columns and they line up down the page.
  *
  * Nothing here is derived from results. No rank, no points, no discards, and
  * none of the standings caption's "Sailed: 0" framing, which reads as a
@@ -907,14 +934,20 @@ export interface CompetitorListRow {
  */
 export function renderCompetitorListHtml(
   chrome: CompetitorListPageChrome,
-  rows: CompetitorListRow[],
+  groups: CompetitorListGroup[],
   context: {
     enabledCompetitorFields: CompetitorFieldKey[];
     subdivisionAxes?: SubdivisionAxis[];
     primaryPersonLabel?: PrimaryPersonLabel;
     multiPersonFields?: MultiPersonFieldKey[];
-    /** Show the Fleet column; set when the series has more than one fleet. */
+    /** Show the Fleet column; set when the page is one table and the series
+     *  has more than one fleet. */
     multiFleet: boolean;
+    /** Distinct boats on the page. A boat entered in two classes appears on
+     *  both tables but is one entry, so the count can't be read off the rows.
+     *  Defaults to the row count, which is right whenever the page is one
+     *  table. */
+    entryCount?: number;
     flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
     /** The starters checklist's tables, when the page is to carry one. */
     checklist?: ChecklistTable[];
@@ -928,6 +961,8 @@ export function renderCompetitorListHtml(
   const helmHeader = personFieldHeader('helm', context.multiPersonFields);
   const ownerHeader = personFieldHeader('owner', context.multiPersonFields);
   const crewHeader = personFieldHeader('crewName', context.multiPersonFields);
+  const tables = groups.filter((g) => g.rows.length > 0);
+  const rows = tables.flatMap((g) => g.rows);
 
   // A column shows when the series enables it *and* some entry fills it —
   // the results tables' rule, for the same reason: a field switched on but
@@ -972,7 +1007,7 @@ export function renderCompetitorListHtml(
     ...axes.map((axis) => `<th>${esc(axisHeader(axis))}</th>`),
     ...(showAge ? ['<th>Age</th>'] : []),
     ...(showGender ? ['<th>Gender</th>'] : []),
-  ].join('\n');
+  ];
 
   const cols = [
     ...(multiFleet ? ['<col class="fleet" />'] : []),
@@ -991,52 +1026,67 @@ export function renderCompetitorListHtml(
     ...axes.map(() => '<col class="subdivision" />'),
     ...(showAge ? ['<col class="age" />'] : []),
     ...(showGender ? ['<col class="gender" />'] : []),
-  ].join('\n');
+  ];
 
-  const body = rows
-    .map((r, i) =>
-      [
-        `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">`,
-        ...(multiFleet ? [`<td>${esc(r.fleetNames.join(', '))}</td>`] : []),
-        `<td>${esc(r.sailNumber)}</td>`,
-        ...(showBowNumber ? [`<td>${esc(r.bowNumber ?? '')}</td>`] : []),
-        ...(showEntryNumber ? [`<td>${esc(r.entryNumber ?? '')}</td>`] : []),
-        ...(showTallyNumber ? [`<td>${esc(r.tallyNumber ?? '')}</td>`] : []),
-        ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
-        ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
-        `<td>${renderHelmCell(r.names, r.crewNames, showCrewName, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
-        ...(showHelm ? [`<td>${renderListCell(r.helms)}</td>`] : []),
-        ...(showOwner ? [`<td>${renderListCell(r.owners)}</td>`] : []),
-        ...(showClub ? [`<td>${renderListCell(r.clubs)}</td>`] : []),
-        ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
-        ...(showWorldSailingId ? [renderWorldSailingIdCell(r.worldSailingId)] : []),
-        ...axes.map((axis) => `<td>${esc(r.subdivisions?.[axis.id] ?? '')}</td>`),
-        ...(showAge ? [`<td>${r.age != null ? r.age : ''}</td>`] : []),
-        ...(showGender ? [`<td>${esc(r.gender ?? '')}</td>`] : []),
-        '</tr>',
-      ].join('\n'),
-    )
-    .join('\n');
+  // A boat that isn't entered in the column's fleet is dashed; one that is
+  // entered but holds no rating yet is left blank, which is the state a
+  // scorer is chasing a certificate for.
+  const ratingCell = (value: string | null | undefined): string =>
+    value == null
+      ? '<td class="ratingcell notentered">—</td>'
+      : `<td class="ratingcell">${esc(value)}</td>`;
 
-  // The entry count, and nothing else. The standings caption's companions
-  // (sailed, discards, to count) are all zero before racing and say only that
-  // nothing has happened yet.
-  const caption = `<div class="caption">Entries: ${rows.length}</div>`;
-  const content = rows.length > 0
-    ? `${caption}
-<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
+  const renderTable = (group: CompetitorListGroup): string => {
+    const body = group.rows
+      .map((r, i) =>
+        [
+          `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">`,
+          ...(multiFleet ? [`<td>${esc(r.fleetNames.join(', '))}</td>`] : []),
+          `<td>${esc(r.sailNumber)}</td>`,
+          ...(showBowNumber ? [`<td>${esc(r.bowNumber ?? '')}</td>`] : []),
+          ...(showEntryNumber ? [`<td>${esc(r.entryNumber ?? '')}</td>`] : []),
+          ...(showTallyNumber ? [`<td>${esc(r.tallyNumber ?? '')}</td>`] : []),
+          ...(showBoatName ? [`<td>${esc(r.boatName ?? '')}</td>`] : []),
+          ...(showBoatClass ? [`<td>${esc(r.boatClass ?? '')}</td>`] : []),
+          `<td>${renderHelmCell(r.names, r.crewNames, showCrewName, helmBioUrl(r.worldSailingId, showWorldSailingId))}</td>`,
+          ...(showHelm ? [`<td>${renderListCell(r.helms)}</td>`] : []),
+          ...(showOwner ? [`<td>${renderListCell(r.owners)}</td>`] : []),
+          ...(showClub ? [`<td>${renderListCell(r.clubs)}</td>`] : []),
+          ...(showNationality ? [renderNationalityCell(r.nationality, flagSvgByCode)] : []),
+          ...(showWorldSailingId ? [renderWorldSailingIdCell(r.worldSailingId)] : []),
+          ...axes.map((axis) => `<td>${esc(r.subdivisions?.[axis.id] ?? '')}</td>`),
+          ...(showAge ? [`<td>${r.age != null ? r.age : ''}</td>`] : []),
+          ...(showGender ? [`<td>${esc(r.gender ?? '')}</td>`] : []),
+          ...group.ratingColumns.map((_, ci) => ratingCell(r.ratings?.[ci])),
+          '</tr>',
+        ].join('\n'),
+      )
+      .join('\n');
+    const count = group.rows.length;
+    const heading = group.heading
+      ? `<h3 class="grouptitle">${esc(group.heading)} <span class="groupcount">${count} ${count === 1 ? 'entry' : 'entries'}</span></h3>\n`
+      : '';
+    return `${heading}<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup>
-${cols}
+${[...cols, ...group.ratingColumns.map(() => '<col class="ratingcol" />')].join('\n')}
 </colgroup>
 <thead>
 <tr class="titlerow">
-${headerCells}
+${[...headerCells, ...group.ratingColumns.map((label) => `<th>${esc(label)}</th>`)].join('\n')}
 </tr>
 </thead>
 <tbody>
 ${body}
 </tbody>
-</table></div>`
+</table></div>`;
+  };
+
+  // The entry count, and nothing else. The standings caption's companions
+  // (sailed, discards, to count) are all zero before racing and say only that
+  // nothing has happened yet.
+  const caption = `<div class="caption">Entries: ${context.entryCount ?? rows.length}</div>`;
+  const content = tables.length > 0
+    ? `${caption}\n${tables.map(renderTable).join('\n')}`
     : '<p>No entries yet.</p>';
 
   const flagDefs = showNationality
@@ -1108,7 +1158,7 @@ function renderStartersChecklistCss(): string {
 @media print {
   body.starters .starterslist { display: block; text-align: left; }
   .starterscols { column-count: 3; column-gap: 8mm; column-fill: auto; }
-  body.starters .caption, body.starters .tablewrap, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters .credit { display: none; }
+  body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters .credit { display: none; }
   .starterslist h2.starterstitle { text-align: center; font-size: 18pt; margin: 0 0 4mm 0; }
   .startersstart { margin: 0 0 6mm 0; }
   .startersstart.keep { break-inside: avoid; }
@@ -1228,6 +1278,14 @@ td.nat .flag { display: block; width: 20px; height: 13px; margin-bottom: 2px; bo
 td.nat .flag svg { display: block; width: 100%; height: 100%; }
 td.nat .nattext { font-size: 0.8em; }
 td.wsid { font-family: monospace; font-size: 0.85em; white-space: nowrap; }
+/* The competitor list tabled by class (#534): a heading per class, and a
+   rating column per fleet the class is scored under. A boat not entered in a
+   column's fleet is dashed and greyed, so a column of ratings reads as
+   ratings and the gaps read as gaps. */
+h3.grouptitle { font-size: 1.15em; color: #073358; margin: 0 0 6px 0; }
+h3.grouptitle .groupcount { font-weight: normal; font-size: 0.75em; color: #555; }
+td.ratingcell { font-family: monospace; text-align: right; white-space: nowrap; }
+td.ratingcell.notentered { color: #bbb; }
 .print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .print-btn:hover { color: #fb3a3b; }
 /* The scorer's explanatory note (#511). Left-aligned prose on a centred
@@ -1249,6 +1307,7 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
   h3.racetitle { break-after: avoid; }
+  h3.grouptitle { break-after: avoid; }
   table { break-inside: auto; }
   .tablewrap { overflow-x: visible; }
 }

@@ -16,8 +16,11 @@ import {
   type SectionDetail,
   type SeriesResultsData,
   type CompetitorListRow,
+  type CompetitorListGroup,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
+import { competitorRatingFor, ratingUnitLabel } from './competitor-ratings';
+import { groupFleets } from './fleet-groups';
 import { orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
 import {
   resolvePublishingGroups,
@@ -218,7 +221,7 @@ async function buildCompetitorListFile(
    * all kept. Rounds mint their fleets with an increasing `displayOrder`, so
    * that is the ordering.
    */
-  const displayFleetNames = (c: Competitor): string[] => {
+  const displayFleets = (c: Competitor): Fleet[] => {
     const own = c.fleetIds
       .map((id) => fleetById.get(id))
       .filter((f): f is Fleet => !!f && !isSyntheticFleetName(f.name));
@@ -227,9 +230,7 @@ async function buildCompetitorListFile(
       (best, f) => (best === null || f.displayOrder > best.displayOrder ? f : best),
       null,
     );
-    return own
-      .filter((f) => !f.splitRoundId || f.id === latestRound?.id)
-      .map((f) => f.name);
+    return own.filter((f) => !f.splitRoundId || f.id === latestRound?.id);
   };
   const enabledCompetitorFields =
     series.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
@@ -258,7 +259,40 @@ async function buildCompetitorListFile(
     startGroups: series.defaultStartSequence,
   });
 
-  const rows: CompetitorListRow[] = ordered.map((c) => ({
+  // The classes the page is tabled by, and which fleets each is scored under
+  // (#534). Worked out from the fleets themselves — nothing on a fleet says
+  // which class it belongs to — over the fleets the page actually displays,
+  // so a championship's per-round fleets are grouped as they are shown.
+  const displayed = new Map(competitors.map((c) => [c.id, displayFleets(c)]));
+  const displayedFleets = fleets.filter((f) =>
+    competitors.some((c) => displayed.get(c.id)!.some((df) => df.id === f.id)),
+  );
+  const membersByFleetId = new Map(
+    displayedFleets.map((f) => [
+      f.id,
+      new Set(competitors.filter((c) => displayed.get(c.id)!.includes(f)).map((c) => c.id)),
+    ]),
+  );
+  const groups = groupFleets(displayedFleets, membersByFleetId);
+
+  /**
+   * Whether to table the page by class at all.
+   *
+   * It earns its place only where some class is scored under more than one
+   * fleet — that is the shape a single table reads badly for. A championship
+   * dealing Yellow and Blue fleets, or a one-design series, groups into a
+   * table per fleet and gains nothing from it, so those keep the one table
+   * and its Fleet column.
+   *
+   * And a boat entered in no fleet the page displays has no table to sit in;
+   * publishing an entry list that quietly omits a boat is worse than
+   * publishing a flat one, so its presence keeps the page flat too.
+   */
+  const tabled =
+    groups.some((g) => g.fleets.length > 1) &&
+    competitors.every((c) => displayed.get(c.id)!.length > 0);
+
+  const rowFor = (c: Competitor): CompetitorListRow => ({
     sailNumber: c.sailNumber,
     ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
     ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
@@ -277,8 +311,67 @@ async function buildCompetitorListFile(
       : {}),
     ...(c.gender ? { gender: c.gender } : {}),
     ...(c.age != null ? { age: c.age } : {}),
-    fleetNames: displayFleetNames(c),
-  }));
+    fleetNames: displayed.get(c.id)!.map((f) => f.name),
+  });
+
+  /**
+   * One table's columns and rows.
+   *
+   * A class scored under two systems gets a rating column per fleet, headed
+   * by what tells the fleets apart — `IRC`, `HPH` — so a boat is one row and
+   * which fleets it is in is said by which ratings it carries. Where nothing
+   * tells them apart the column takes the name the certificate and the
+   * results tables use for the number: `TCC`, `TCF`, `Starting H`.
+   *
+   * A fleet scored on line honours has no rating to print, so its column
+   * marks the entry instead — but only where the class holds more than one
+   * fleet and the column is the only thing that would say a boat is in it.
+   *
+   * Rows lead with the boats entered under every one of the class's fleets,
+   * so the fully rated boats are read together rather than interleaved with
+   * the ones racing under a single system.
+   */
+  const buildGroup = (group: (typeof groups)[number]): CompetitorListGroup => {
+    const columns = group.fleets
+      .map((gf) => {
+        const fleet = fleetById.get(gf.id)!;
+        const label =
+          gf.label ?? ratingUnitLabel(fleet) ?? (group.fleets.length > 1 ? fleet.name : null);
+        return label === null ? null : { fleet, label };
+      })
+      .filter((c): c is { fleet: Fleet; label: string } => c !== null);
+    const rank = (c: Competitor): [number, number] => {
+      const mine = displayed.get(c.id)!;
+      const indices = group.fleets
+        .map((gf, i) => (mine.some((f) => f.id === gf.id) ? i : -1))
+        .filter((i) => i >= 0);
+      return [-indices.length, indices[0] ?? group.fleets.length];
+    };
+    const members = ordered.filter((c) =>
+      group.fleets.some((gf) => displayed.get(c.id)!.some((f) => f.id === gf.id)),
+    );
+    const sorted = [...members].sort((a, b) => {
+      const [ac, ai] = rank(a);
+      const [bc, bi] = rank(b);
+      return ac - bc || ai - bi;
+    });
+    return {
+      heading: group.name,
+      ratingColumns: columns.map((c) => c.label),
+      rows: sorted.map((c) => ({
+        ...rowFor(c),
+        ratings: columns.map(({ fleet }) => {
+          if (!displayed.get(c.id)!.some((f) => f.id === fleet.id)) return null;
+          if (fleet.scoringSystem === 'scratch') return '\u2713';
+          return competitorRatingFor(c, fleet) ?? '';
+        }),
+      })),
+    };
+  };
+
+  const listGroups: CompetitorListGroup[] = tabled
+    ? groups.map(buildGroup)
+    : [{ ratingColumns: [], rows: ordered.map(rowFor) }];
 
   return {
     fleetName: 'Entries',
@@ -295,7 +388,7 @@ async function buildCompetitorListFile(
         ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
         ...noteChrome(series, { fleetName: 'Entries' }, includePageNotes),
       },
-      rows,
+      listGroups,
       {
         enabledCompetitorFields,
         subdivisionAxes: series.subdivisionAxes ?? [],
@@ -303,8 +396,10 @@ async function buildCompetitorListFile(
         ...(series.multiPersonFields ? { multiPersonFields: series.multiPersonFields } : {}),
         // The column earns its place only when the roster is actually
         // split across fleets a reader would recognise — counting the
-        // synthetic ones would show a column of blanks.
-        multiFleet: new Set(rows.flatMap((r) => r.fleetNames)).size > 1,
+        // synthetic ones would show a column of blanks. A page tabled by
+        // class has no use for it: each table is one class already.
+        multiFleet: !tabled && new Set(displayedFleets.map((f) => f.name)).size > 1,
+        entryCount: competitors.length,
         ...(flagSvgByCode ? { flagSvgByCode } : {}),
         checklist,
       },
