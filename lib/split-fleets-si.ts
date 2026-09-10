@@ -9,7 +9,7 @@
 // Deliberately our own wording rather than extracts from real events' SIs:
 // those are third-party documents, and this has to stay distributable.
 
-import { resolveVocabulary, stageAdjective } from './split-fleets';
+import { resolveRaceLabels, resolveVocabulary, stageAdjective, stageRaceLabel } from './split-fleets';
 import type { SplitFleetConfig } from './split-fleets';
 
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -45,6 +45,33 @@ function discardClause(config: SplitFleetConfig): string {
   return `A boat’s series score will be the total of her race scores, ${parts.join(', ')}.`;
 }
 
+/** How the races are numbered, in the labels the notice board will carry:
+ *  "Races in the Preliminary series will be numbered QP1, QP2 and so on".
+ *  The examples come from `stageRaceLabel`, so the sentence cannot drift from
+ *  what the standings and the published pages go on to show. */
+function raceLabelClause(config: SplitFleetConfig): string {
+  const vocab = resolveVocabulary(config);
+  const first = (stage: 'qualifying' | 'final' | 'medal', qualifyingRaces = 0) =>
+    `${stageRaceLabel(config, stage, 1, qualifyingRaces)}, ${stageRaceLabel(config, stage, 2, qualifyingRaces)} and so on`;
+  const q = vocab.stages.qualifying.name;
+  const f = vocab.stages.final.name;
+  const parts: string[] = [];
+  // Continuous numbering is one clause over both stages, since the second's
+  // labels are not a series of their own: they are the first's, running on.
+  if (resolveRaceLabels(config).continuousOpeningNumbers) {
+    parts.push(
+      `races in the ${q} and the ${f} will be numbered ${first('qualifying')}, continuing through both`,
+    );
+  } else {
+    parts.push(`races in the ${q} will be numbered ${first('qualifying')}`);
+    parts.push(`races in the ${f}, ${first('final')}`);
+  }
+  if (config.medal) {
+    parts.push(`races in the ${vocab.stages.medal.name}, ${first('medal')}`);
+  }
+  return `For the purposes of these instructions, ${parts.join('; ')}.`;
+}
+
 /**
  * Which sentence is which, independent of where it lands in the list — the
  * list is not positionally stable, since a medal stage opens with two
@@ -57,6 +84,7 @@ function discardClause(config: SplitFleetConfig): string {
 export type SplitFleetSentenceId =
   | 'format'
   | 'series-division'
+  | 'race-labels'
   | 'fleet-assignment'
   | 'reassignment'
   | 'fleet-equalisation'
@@ -84,6 +112,7 @@ export type SplitFleetSentence = { id: SplitFleetSentenceId; text: string };
  * information.
  */
 export const SENTENCES_BY_SETTING = {
+  raceLabels: ['race-labels'],
   fleetCount: ['fleet-assignment', 'split'],
   carry: ['totals', 'discards', 'final-discard-cap'],
   split: ['split'],
@@ -133,6 +162,7 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
   } else {
     push('format', `The championship will be sailed as ${article(q)} followed by ${article(f)}.`);
   }
+  push('race-labels', raceLabelClause(config));
   push(
     'fleet-assignment',
     `Boats will be assigned to ${countWord(config.qualifyingFleets.length)} ${qAdj} fleets (${qualifying}) of, as nearly as possible, equal size and ability.`,

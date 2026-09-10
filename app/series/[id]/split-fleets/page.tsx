@@ -786,7 +786,9 @@ function LogicalRaceRow({
       className="flex flex-wrap items-center gap-2 text-sm"
       data-testid={`logical-race-${stage}-${stageRaceNumber}`}
     >
-      <span className="w-8 font-medium">{raceLabel(data, stage, stageRaceNumber)}</span>
+      {/* Wide enough for the longest label a notice board writes ("QE10"),
+          so the fleet chips beside it stay in a column. */}
+      <span className="w-12 font-medium">{raceLabel(data, stage, stageRaceNumber)}</span>
       {round.fleetIds.map((fid) => {
         const ref = refs.get(fid);
         const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };

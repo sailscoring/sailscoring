@@ -31,10 +31,16 @@ import {
   ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
   capitaliseStage,
+  resolveRaceLabels,
   resolveVocabulary,
   VOCABULARY_OPTIONS,
+  applyRaceLabelScheme,
+  RACE_LABEL_SCHEMES,
+  raceLabelSchemeKey,
   stageRaceLabel,
+  STAGES,
   type CarryTransform,
+  type RaceLabelSchemeKey,
   type SplitFleetConfig,
   type Vocabulary,
   type VocabularyKey,
@@ -92,11 +98,16 @@ export function initialSplitFleetConfig(): SplitFleetConfig {
  * Compared field by field against a freshly built one rather than tracked as
  * "has been edited", so undoing an edit restores the format's name instead of
  * leaving the series marked Custom forever. The fleet count is passed through
- * because it is a choice of its own, not a departure from the format.
+ * because it is a choice of its own, not a departure from the format, and so
+ * are the race labels: a format is how a championship is scored, and what its
+ * notice board writes on the race column is a matter for the event.
  */
 function matchesFormat(config: SplitFleetConfig, format: FormatKey): boolean {
   const built = FORMATS[format].build(config.qualifyingFleets.length);
-  return JSON.stringify(canonical(built)) === JSON.stringify(canonical(config));
+  const scoring = ({ raceLabels: _labels, ...rest }: SplitFleetConfig) => rest;
+  return (
+    JSON.stringify(canonical(scoring(built))) === JSON.stringify(canonical(scoring(config)))
+  );
 }
 
 /** Key order varies with how a config was assembled; sort it away. */
@@ -174,11 +185,21 @@ export function SplitFleetEditor({
   const format = matched ?? picked;
   const customised = matched === undefined;
   const vocab = resolveVocabulary(value);
-  const exampleLabels = [
-    stageRaceLabel(value, 'qualifying', 1),
-    stageRaceLabel(value, 'final', 1, 5),
-    ...(value.medal ? [stageRaceLabel(value, 'medal', 1)] : []),
-  ].join(', ');
+  // A worked example rather than a description: five races, then the first
+  // race of each stage after them. That is where the difference shows — a
+  // scheme numbering on writes Q6 where one restarting writes F1 or QE1.
+  const labelsFor = (config: SplitFleetConfig) => {
+    const rest = [
+      stageRaceLabel(config, 'final', 1, 5),
+      ...(config.medal ? [stageRaceLabel(config, 'medal', 1)] : []),
+    ];
+    return `${stageRaceLabel(config, 'qualifying', 1)} … ${stageRaceLabel(config, 'qualifying', 5)}, then ${rest.join(', then ')}`;
+  };
+  const exampleLabels = labelsFor(value);
+  // Which tabulated scheme this is, derived like the format above it, so a
+  // scorer who types a prefix back to a tabulated one has that scheme again.
+  const labelScheme = raceLabelSchemeKey(value);
+  const raceLabels = resolveRaceLabels(value);
 
   function patch(p: Partial<SplitFleetConfig>) {
     save.mutate({ ...value, ...p });
@@ -302,8 +323,78 @@ export function SplitFleetEditor({
             {VOCABULARY_OPTIONS.find((o) => o.key === value.vocabulary)?.terms}. Both sets of
             words are in use and each borrows the other&rsquo;s for a different stage, so this
             is one choice rather than a name per stage. Set it first: every setting below is
-            worded in it, as are the standings and the published pages. Races here read{' '}
-            {exampleLabels}.
+            worded in it, as are the standings and the published pages.
+          </p>
+        </div>
+      </div>
+
+      <div {...row('raceLabels')}>
+        <label className="font-medium" htmlFor="sf-race-labels">
+          What the notice board calls the races
+        </label>
+        <div className="space-y-1">
+          <select
+            id="sf-race-labels"
+            className={selectClass}
+            disabled={!canEdit}
+            value={labelScheme ?? 'custom'}
+            onChange={(e) =>
+              e.target.value !== 'custom' &&
+              patch({ raceLabels: applyRaceLabelScheme(value, e.target.value as RaceLabelSchemeKey) })
+            }
+          >
+            {RACE_LABEL_SCHEMES.map((scheme) => (
+              <option key={scheme.key} value={scheme.key}>
+                {labelsFor({ ...value, raceLabels: applyRaceLabelScheme(value, scheme.key) })}
+              </option>
+            ))}
+            <option value="custom">{labelScheme ? 'Something else…' : exampleLabels}</option>
+          </select>
+          {labelScheme === null && (
+            <div className="flex flex-wrap items-center gap-2">
+              {STAGES.filter((stage) => stage !== 'medal' || value.medal).map((stage) => (
+                <label key={stage} className="flex items-center gap-1 text-xs">
+                  {capitaliseStage(vocab.stages[stage].name)}
+                  <input
+                    className="w-14 rounded-md border bg-background px-2 py-1 text-sm"
+                    disabled={!canEdit}
+                    value={raceLabels.prefixes[stage]}
+                    maxLength={3}
+                    aria-label={`${capitaliseStage(vocab.stages[stage].name)} race prefix`}
+                    onChange={(e) =>
+                      patch({
+                        raceLabels: {
+                          ...raceLabels,
+                          prefixes: {
+                            ...raceLabels.prefixes,
+                            [stage]: e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase(),
+                          },
+                        },
+                      })
+                    }
+                  />
+                </label>
+              ))}
+              <label className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  disabled={!canEdit}
+                  checked={raceLabels.continuousOpeningNumbers}
+                  onChange={(e) =>
+                    patch({
+                      raceLabels: { ...raceLabels, continuousOpeningNumbers: e.target.checked },
+                    })
+                  }
+                />
+                numbered on from the {vocab.stages.qualifying.name}
+              </label>
+            </div>
+          )}
+          <p className={hint}>
+            Races here read {exampleLabels}. Sailing instructions and notice boards disagree
+            about this even within one class, and the label is what a competitor writes on a
+            scoring enquiry &mdash; so it is set here rather than following the words above.
+            The standings columns, the races list and the published pages all use it.
           </p>
         </div>
       </div>

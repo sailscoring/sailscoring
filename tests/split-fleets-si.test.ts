@@ -52,6 +52,32 @@ describe('describeSplitFleetConfig', () => {
     expect(text).toContain('the first Gold boat will be scored 11 points');
   });
 
+  it('states how the races are numbered, in the labels the notice board will use', () => {
+    // A scorer checks this sentence against their own paperwork, and the
+    // three schemes below all came off notice boards under sailing
+    // instructions that numbered the races a fourth way.
+    expect(joined(defaultSplitFleetConfig(3))).toContain(
+      'races in the qualifying series will be numbered Q1, Q2 and so on; races in the ' +
+        'final series, F1, F2 and so on; races in the medal races, M1, M2 and so on',
+    );
+    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+      'races in the Preliminary series and the Elimination series will be numbered Q1, ' +
+        'Q2 and so on, continuing through both; races in the Final series, F1, F2 and so on',
+    );
+    expect(
+      joined({
+        ...ilca2026SplitFleetConfig(2),
+        raceLabels: {
+          prefixes: { qualifying: 'QP', final: 'QE', medal: 'F' },
+          continuousOpeningNumbers: false,
+        },
+      }),
+    ).toContain(
+      'races in the Preliminary series will be numbered QP1, QP2 and so on; races in the ' +
+        'Elimination series, QE1, QE2 and so on',
+    );
+  });
+
   it('says what the boats who miss the cut sail, and how it is scored', () => {
     // Part of the same SI clause, and the first thing a scorer checks after
     // the medal fleet itself. The race is the same either way — one more of
