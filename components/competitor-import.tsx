@@ -17,8 +17,15 @@ import {
   type RrsOrgRelayFields,
 } from '@/lib/rrs-org';
 import { useUpdateSeries } from '@/hooks/use-series';
-import { useSaveFleets } from '@/hooks/use-fleets';
-import { useSaveCompetitors } from '@/hooks/use-competitors';
+import { useFleetsBySeries, useSaveFleets } from '@/hooks/use-fleets';
+import { useCompetitorsBySeries, useSaveCompetitors } from '@/hooks/use-competitors';
+import {
+  SOURCE_FOR_SYSTEM,
+  UPDATE_HANDICAPS_CONTENT_CLASS,
+  UpdateHandicapsFlow,
+} from '@/components/update-handicaps/flow';
+import type { HandicapSource } from '@/components/update-handicaps/shared';
+import { ratingGaps } from '@/lib/competitor-ratings';
 import {
   parseFleetCell,
   autoDetectField,
@@ -242,9 +249,20 @@ type ImportFlow =
       csv: { added: number; updated: number; unchanged: number; fleetsCreated: string[]; errors: { rowIndex: number; reason: string }[] } | null;
       /** rrs.org push outcome; null for a plain CSV import. */
       push: PushOutcome | null;
+    }
+  | {
+      /** The last step: fetch the ratings for a system the import has left a
+       *  fleet unrated for. Hosts the Update Handicaps flow, which is where
+       *  the certificate listing settles both the ratings and who is actually
+       *  in the fleet. */
+      step: 'ratings';
+      /** The summary to return to when the scorer backs out of the source. */
+      done: DoneFlow;
+      source: HandicapSource;
     };
 
 type MappingFlow = Extract<ImportFlow, { step: 'mapping' }>;
+type DoneFlow = Extract<ImportFlow, { step: 'done' }>;
 
 /** One suspected sail-number change, for the review step. */
 interface RenameCandidate {
@@ -1187,6 +1205,66 @@ function PushConfirmBody({
   );
 }
 
+/**
+ * The import's last offer: fetch the ratings for a system the import has left a
+ * fleet unrated for.
+ *
+ * An entry list can't say who holds an IRC or ORC certificate — the club doesn't
+ * know who renewed — so a group scored on a handicap system the file says
+ * nothing about gets a fleet holding every boat in the group (see
+ * docs/design/ux/flows/competitor-import.md, "Membership: the subset problem").
+ * The certificate listing is the first thing that knows better, and this is the
+ * moment the scorer is still in the flow that created the gap, so the offer is
+ * made here rather than left to be discovered.
+ */
+function RatingsOffer({
+  seriesId,
+  onFetch,
+}: {
+  seriesId: string;
+  onFetch: (source: HandicapSource) => void;
+}) {
+  const { has } = useFeatures();
+  // Post-import series state: the import's writes invalidated both queries, so
+  // these are the fleets and boats it just created.
+  const competitors = useCompetitorsBySeries(seriesId);
+  const fleets = useFleetsBySeries(seriesId);
+
+  const offers = useMemo(() => {
+    if (!competitors.data || !fleets.data) return [];
+    return ratingGaps(competitors.data, fleets.data).flatMap((gap) => {
+      const entry = SOURCE_FOR_SYSTEM[gap.system];
+      // A workspace with the source's gate off has no way to run it.
+      return entry && has(entry.feature) ? [{ gap, entry }] : [];
+    });
+  }, [competitors.data, fleets.data, has]);
+
+  if (offers.length === 0) return null;
+
+  return (
+    <div className="border-t pt-3 space-y-3" data-testid="import-ratings-offer">
+      <p className="text-sm font-medium">Ratings</p>
+      {offers.map(({ gap, entry }) => {
+        const where = gap.fleets.map((f) => f.name).join(', ');
+        return (
+          <div key={gap.system} className="space-y-2">
+            <p className="text-sm">
+              {gap.missing === 1
+                ? `1 boat in ${where} has no ${gap.ratingLabel}.`
+                : `${gap.missing} of ${gap.total} boats in ${where} have no ${gap.ratingLabel}.`}
+            </p>
+            <p className="text-xs text-muted-foreground">{entry.pitch}</p>
+            <Button variant="outline" size="sm" onClick={() => onFetch(entry.source)}>
+              {entry.action}
+            </Button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export interface CompetitorImportHandle {
@@ -1223,6 +1301,11 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   const { has } = useFeatures();
   const rrsEnabled = has('rrs-import') && !csvOnly;
   const [importFlow, setImportFlow] = useState<ImportFlow>({ step: 'idle' });
+  // The ratings step's equivalent of the Update Handicaps dialog's own toggle.
+  // Only the "another series" source renders its checkbox, and the ratings step
+  // never opens on that source, so in practice this is the default carried
+  // through to the apply.
+  const [freezeScoredRaces, setFreezeScoredRaces] = useState(true);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   async function openImport() {
@@ -1247,12 +1330,20 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
   }));
 
   function resetImport() {
-    const result = importFlow.step === 'done' && importFlow.csv ? {
-      added: importFlow.csv.added,
-      updated: importFlow.csv.updated,
-      unchanged: importFlow.csv.unchanged,
-      fleetsCreated: importFlow.csv.fleetsCreated,
-      errors: importFlow.csv.errors,
+    // Closing from the ratings step still reports what the import did: the
+    // summary the caller shows is about the import, not the step it ended on.
+    const csv =
+      importFlow.step === 'done'
+        ? importFlow.csv
+        : importFlow.step === 'ratings'
+          ? importFlow.done.csv
+          : null;
+    const result = csv ? {
+      added: csv.added,
+      updated: csv.updated,
+      unchanged: csv.unchanged,
+      fleetsCreated: csv.fleetsCreated,
+      errors: csv.errors,
     } : null;
     setImportFlow({ step: 'idle' });
     if (csvInputRef.current) csvInputRef.current.value = '';
@@ -2395,11 +2486,42 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
                   )}
                 </div>
               )}
+              {/* Only after an actual competitor import — a push-only run
+                  changed nothing here to leave a rating gap behind. */}
+              {importFlow.csv && (
+                <RatingsOffer
+                  seriesId={seriesId}
+                  onFetch={(source) =>
+                    setImportFlow({ step: 'ratings', done: importFlow, source })
+                  }
+                />
+              )}
             </div>
           )}
           <DialogFooter>
             <Button onClick={resetImport}>Done</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ratings: the Update Handicaps flow, entered at the source for the
+          system the import left a fleet unrated for. Backing out returns to the
+          import summary; finishing closes the import. */}
+      <Dialog
+        open={importFlow.step === 'ratings'}
+        onOpenChange={(open) => { if (!open) resetImport(); }}
+      >
+        <DialogContent className={UPDATE_HANDICAPS_CONTENT_CLASS}>
+          {importFlow.step === 'ratings' && (
+            <UpdateHandicapsFlow
+              seriesId={seriesId}
+              initialSource={importFlow.source}
+              freezeScoredRaces={freezeScoredRaces}
+              onFreezeScoredRacesChange={setFreezeScoredRaces}
+              onCancel={() => setImportFlow(importFlow.done)}
+              onFinish={resetImport}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>

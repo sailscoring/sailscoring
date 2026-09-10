@@ -150,8 +150,11 @@ This matters because the two are not the same group. At HYC every boat in
 Cruisers 1 carries an NHC rating but only some buy an IRC certificate, and
 an entry list with no IRC column cannot say which. The competitor importer
 therefore has to create an added IRC fleet holding the whole group and leave
-it over-full (see [competitor-import.md](competitor-import.md), Step 3 —
-Membership: the subset problem). Nothing else ever corrects it.
+it over-full (see [competitor-import.md](competitor-import.md), Step 2 —
+Membership: the subset problem). Nothing else ever corrects it, which is why
+the import's last step offers this flow directly rather than leaving a scorer
+to find it: same steps, entered at the source for the system the import left
+a fleet unrated for (competitor-import.md, Step 6 — Ratings).
 
 So when a certificate source runs against a fleet of its own system, step 2
 should offer, alongside the rating diff:

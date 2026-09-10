@@ -9,6 +9,8 @@ import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { useFeatures } from '@/components/features-provider';
 import { ConflictApiError } from '@/lib/api-client';
 import type { HandicapUpdateRow } from '@/lib/api-repository';
+import type { RatingSystemCode } from '@/lib/competitor-ratings';
+import type { FeatureKey } from '@/lib/features';
 import type { HandicapSystem } from '@/lib/source-handicaps';
 
 import { IrcRatingSourceStep } from './irc-rating-source-step';
@@ -26,6 +28,60 @@ import { VprsSourceStep } from './vprs-source-step';
  *  standalone dialog. */
 export const UPDATE_HANDICAPS_CONTENT_CLASS =
   'grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] w-[95vw] max-w-5xl sm:max-w-5xl';
+
+/**
+ * The source that fills in each rating system, for a caller that knows which
+ * rating is missing and wants to go straight there — the competitor importer's
+ * last step. Keyed by the systems a published list or certificate database can
+ * fill (`SOURCED_RATING_SYSTEMS`); the `feature` is the gate that must be on,
+ * the same one the picker honours.
+ *
+ * `pitch` says what the source actually does for this system, and differs
+ * because the sources differ: IRC and ORC settle fleet membership as well as
+ * ratings, Irish Sailing can only add, and the PY list is matched by class.
+ */
+export const SOURCE_FOR_SYSTEM: Partial<
+  Record<
+    RatingSystemCode,
+    { source: HandicapSource; feature: FeatureKey; action: string; pitch: string }
+  >
+> = {
+  irc: {
+    source: 'irc-rating',
+    feature: 'irc-rating',
+    action: 'Fetch IRC TCCs',
+    pitch:
+      "The IRC list is the first thing that knows who holds a certificate: it fills in the TCCs it has, and offers the boats it doesn't rate for removal from the fleet.",
+  },
+  orc: {
+    source: 'orc',
+    feature: 'orc',
+    action: 'Import ORC certificates',
+    pitch:
+      'The ORC database is the first thing that knows who holds a certificate: it imports the ones it has, and offers the boats with no certificate for removal from the fleet.',
+  },
+  echo: {
+    source: 'irish-sailing',
+    feature: 'echo',
+    action: 'Fetch ECHO handicaps',
+    pitch:
+      "The Irish Sailing list carries each rated boat's current ECHO handicap, matched by sail number.",
+  },
+  vprs: {
+    source: 'vprs-rating',
+    feature: 'vprs',
+    action: 'Fetch VPRS TCCs',
+    pitch:
+      "A club's published VPRS list carries each rated boat's current TCC, matched by sail number.",
+  },
+  py: {
+    source: 'rya-py',
+    feature: 'rya-py',
+    action: 'Fetch PY numbers',
+    pitch:
+      "The RYA's published list sets each class's PY number, matched by boat class rather than sail number.",
+  },
+};
 
 type Step =
   | 'source-picker'

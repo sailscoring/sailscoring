@@ -104,9 +104,8 @@ export default function DataInAndOut() {
           <strong className="text-foreground">Also score on</strong> — scratch alongside a handicap
           fleet for line-honours awards, or an IRC fleet when the certificates haven’t arrived yet.
           An added rating fleet takes the whole group, because the entry list can’t say who holds a
-          certificate; importing the ratings later from{' '}
-          <strong className="text-foreground">Update handicaps</strong> offers to trim it to the
-          boats the rating list actually rates.
+          certificate; the import’s last step offers to fetch the ratings, which is what trims the
+          fleet to the boats the rating list actually rates.
         </p>
         <p>
           When the grouping column is doing double duty as a class label — a <em>Fleet</em> column
@@ -122,6 +121,17 @@ export default function DataInAndOut() {
           unchanged by the import, they are counted as{' '}
           <strong className="text-foreground">unchanged</strong> rather than updated. Any rows
           missing a sail number are skipped and listed in the summary.
+        </p>
+        <p>
+          When the import leaves a fleet scored on a system nobody has a rating for — an IRC or
+          ORC fleet added to an entry list that carried no certificates — the summary ends with{' '}
+          <strong className="text-foreground">Ratings</strong>: it names how many boats in which
+          fleet are missing which rating, and offers to fetch them. That runs the same{' '}
+          <strong className="text-foreground">Update handicaps</strong> source you would reach from
+          the Competitors tab, so the rating list both fills in the ratings it has and offers the
+          boats it doesn’t rate for removal from the fleet — the import finishes with nobody left
+          carrying a missing-rating warning. Skipping it changes nothing: the same source is there
+          whenever the certificates are.
         </p>
         <p>
           Because matching is by sail number, a boat that changed its number between imports

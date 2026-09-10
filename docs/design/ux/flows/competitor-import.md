@@ -60,14 +60,16 @@ Both navigate to the same import screen.
 ## Steps
 
 ```
-  [1. Upload] ──▶ [2. Fleets] ──▶ [3. Map & Preview] ──▶ [4. Renames] ──▶ [5. Confirm]
+  [1. Upload] ──▶ [2. Fleets] ──▶ [3. Map & Preview] ──▶ [4. Renames] ──▶ [5. Confirm] ──▶ [6. Ratings]
 ```
 
 Steps 2 and 3 are iterative — the scorer can adjust freely before
 committing. Step 4 appears only when the file looks like it contains
 sail-number changes. Steps 1 and 5 are one-time actions. The scorer can go
 back from any step to the one before it, and from step 2 to upload a
-different file.
+different file. Step 6 is offered on the confirm screen when the import has
+left a fleet scored on a rating nobody holds yet — see
+[Membership: the subset problem](#membership-the-subset-problem).
 
 **Fleets comes first.** It is the consequential step: it creates persistent
 objects, decides who is scored against whom, and sets the series' scoring
@@ -302,12 +304,12 @@ all boats.
 
 An added **rating** fleet with no column in the file — the case this step
 exists to serve — can only default to all boats, because the file does not
-say who holds a certificate. The scorer prunes afterwards. The moment that
-truth actually arrives is the Update handicaps wizard: the boats the IRC
-listing matches are precisely the certificated ones, so that wizard is where
-the fleet gets trimmed to them. Specified in
-[update-handicaps.md](update-handicaps.md#fleet-membership-shipped); not part
-of this step.
+say who holds a certificate. The moment that truth arrives is the certificate
+source: the boats the IRC listing matches are precisely the certificated ones,
+so that is where the fleet gets trimmed to them (specified in
+[update-handicaps.md](update-handicaps.md#fleet-membership-shipped)). Not part
+of this step — but the import doesn't leave the scorer to find it, either. See
+[Step 6: Ratings](#step-6-ratings).
 
 ### Series scoring mode
 
@@ -594,6 +596,41 @@ banner:
 
 The banner reports fleet creation alongside the competitor count so the
 result is never a surprise.
+
+---
+
+## Step 6: Ratings
+
+A rated fleet the file carried no ratings for is the one thing the import
+knowingly leaves wrong, and the fix has always lived in another dialog. So the
+confirm screen ends by naming it and offering the source:
+
+> **Ratings**
+> 3 of 3 boats in Cruisers 1 (IRC) have no IRC TCC.
+> The IRC list is the first thing that knows who holds a certificate: it fills
+> in the TCCs it has, and offers the boats it doesn't rate for removal from the
+> fleet.
+> `[Fetch IRC TCCs]`
+
+One offer per rating system with a gap, in the order IRC, ORC, ECHO, VPRS, PY
+(`ratingGaps`, `lib/competitor-ratings.ts`), each shown only where the
+workspace has that source's gate on. NHC is never offered: no list publishes a
+starting TCF. Excluded boats don't count — a non-entrant needs no rating.
+
+Taking the offer hands the rest of the step to the Update handicaps flow,
+entered at that system's source with the picker skipped
+(`UpdateHandicapsFlow`, `initialSource`). It is the same step the Competitors
+tab reaches, not a copy of it: same preview, same add-to-fleet and
+not-on-the-rating-list sections, same apply. Backing out returns to the import
+summary; finishing closes the import.
+
+The offer is made from the series' state after the import rather than from the
+plan, so what it says is what a scorer would find on the Competitors tab — and
+re-importing a roster into a series that has carried a rating gap for weeks
+surfaces it too.
+
+Declining is a normal outcome: the certificates are often not out yet, and the
+same source is there whenever they are.
 
 ---
 
