@@ -1408,7 +1408,7 @@ const ORC_SAMPLE_BOATS: OrcSampleBoat[] = [
  * Built with the same library functions the Courses tab uses, on stable
  * ids so the sample file is deterministic.
  */
-const ORC_SAMPLE_CARD = { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'J2', release: '0.3.0' };
+const ORC_SAMPLE_CARD = { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'J2', release: '0.3.1' };
 const ORC_SAMPLE_WIND = 160;
 
 function buildOrcCourseLibrary(seriesId: string): {
@@ -1446,15 +1446,15 @@ function buildOrcCourseLibrary(seriesId: string): {
     },
   ];
   const marks = [...adopted, ...laid];
-  // The 2026 draft cards have no start line yet, so the course begins at
-  // the first mark the card prints (Z); the line is prepended here as the
-  // sailing instructions will.
-  const entries = matchCardCourse(cardFile, marksFile, ORC_SAMPLE_CARD.courseId, ORC_SAMPLE_CARD.set, marks, { Z: 'om-z' });
+  // Every course on the card begins at the line the sailing instructions
+  // define, so the line and the laid windward mark are the two the scorer
+  // places; finishing back at the line is the day's change to the card.
+  const entries = matchCardCourse(cardFile, marksFile, ORC_SAMPLE_CARD.courseId, ORC_SAMPLE_CARD.set, marks, { SL: 'om-line', Z: 'om-z' });
   const fromCard = courseFromCard(entries, ORC_SAMPLE_CARD, ORC_SAMPLE_CARD.courseId, seriesId, `${ORC_SAMPLE_CARD.courseId} — 26 Sep R3`, createdAt + 3);
   const course: SeriesCourse = {
     ...fromCard,
     id: 'oco-j2',
-    marks: [{ markId: 'om-line' }, ...fromCard.marks, { markId: 'om-line', side: 'port' }],
+    marks: [...fromCard.marks, { markId: 'om-line', side: 'port' }],
     modified: true,
   };
   const marksById = new Map(marks.map((m) => [m.id, m]));

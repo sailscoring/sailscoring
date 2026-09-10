@@ -28,7 +28,7 @@ describe('the vendored course-cards catalogue', () => {
       for (const card of set.cards) expect(card.courses).toBeGreaterThan(0);
     }
     const hyc = findCourseCardSet('hyc/al-2026')!;
-    expect(courseCardSetLabel(hyc)).toBe('Howth Yacht Club — Autumn League 2026 (draft cards)');
+    expect(courseCardSetLabel(hyc)).toBe('Howth Yacht Club — Autumn League 2026');
     expect(hyc.cards.map((c) => c.id)).toEqual(['offshore', 'inshore']);
   });
 

@@ -30,7 +30,7 @@ export function findCourseCardSet(path: string): CatalogueSet | undefined {
   return COURSE_CARD_CATALOGUE.sets.find((s) => s.path === path);
 }
 
-/** "Howth Yacht Club — Autumn League 2026 (draft cards)". */
+/** "Howth Yacht Club — Autumn League 2026". */
 export function courseCardSetLabel(set: CatalogueSet): string {
   return `${set.club} — ${set.event}`;
 }

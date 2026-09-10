@@ -94,11 +94,15 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await expect(zRow).toContainText('0.54 NM @ 190° from Start — 12 Sep');
 
   // A course from the card: HYC's 2026 offshore K1 (laid out for 180°),
-  // whose Z the card cannot place — pick the mark just made for it.
+  // whose start line and Z the card cannot place — the card quotes the
+  // sailing instructions for the line and says Z is laid upwind of it, so
+  // pick the marks just made for both.
   await page.getByTestId('new-course').click();
-  await pick(page, 'course-card-set', 'Howth Yacht Club — Autumn League 2026 (draft cards)');
+  await pick(page, 'course-card-set', 'Howth Yacht Club — Autumn League 2026');
   await pick(page, 'course-card', /offshore/);
   await pick(page, 'course-number', /^K1\b/);
+  await expect(page.getByTestId('placement-SL')).toBeVisible();
+  await pick(page, 'placement-SL', 'Start — 12 Sep');
   await expect(page.getByTestId('placement-Z')).toBeVisible();
   await pick(page, 'placement-Z', 'Z — 12 Sep R1');
   await expect(page.getByTestId('course-summary')).toContainText('legs');
@@ -110,9 +114,11 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   // The card's charted marks were adopted along with it.
   await expect(page.getByText('From the card')).toBeVisible();
 
-  // Swap a mark…: a duplicate with one mark exchanged.
+  // Swap a mark…: a duplicate with one mark exchanged — the course shortened
+  // to finish at the line rather than out at Stack.
   await courseRow.getByRole('button', { name: 'Actions for K1 — 12 Sep R1' }).click();
   await page.getByRole('menuitem', { name: 'Swap a mark…' }).click();
+  await pick(page, 'swap-from', 'K Stack');
   await pick(page, 'swap-to', 'Start — 12 Sep');
   await page.getByLabel('New course name').fill('K1 short — 12 Sep R1');
   await page.getByTestId('swap-save').click();

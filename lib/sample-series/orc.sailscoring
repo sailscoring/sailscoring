@@ -4779,7 +4779,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "A",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4793,7 +4793,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "B",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "orange",
@@ -4807,7 +4807,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "C",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4821,7 +4821,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "D",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "yellow",
@@ -4835,7 +4835,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "E",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4849,7 +4849,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "G",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4863,7 +4863,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "H",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4877,7 +4877,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "I",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4891,7 +4891,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "J",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4905,7 +4905,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "K",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4919,7 +4919,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "M",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "inflatable",
       "color": "yellow",
@@ -4933,7 +4933,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "O",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "orange",
@@ -4947,7 +4947,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "P",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -4961,7 +4961,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "Q",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "iala",
       "color": "black",
@@ -4975,7 +4975,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "R",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "iala",
       "color": "green",
@@ -4989,7 +4989,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "S",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -5003,7 +5003,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "T",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "inflatable",
       "color": "yellow",
@@ -5017,7 +5017,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "U",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "orange",
@@ -5031,7 +5031,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "V",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "orange",
@@ -5045,7 +5045,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "W",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "conical",
       "color": "black",
@@ -5059,7 +5059,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "X",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "shape": "barrel",
       "color": "black",
@@ -5093,7 +5093,7 @@
         "set": "hyc/al-2026",
         "cardId": "offshore",
         "courseId": "J2",
-        "release": "0.3.0"
+        "release": "0.3.1"
       },
       "marks": [
         {
