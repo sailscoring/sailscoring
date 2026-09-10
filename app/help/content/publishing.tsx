@@ -381,8 +381,31 @@ export default function Publishing() {
           <p>
             The columns are whichever competitor fields your series has enabled — nationality,
             club, tally number, division, and the rest — and any field no entry fills is left out
-            rather than published as an empty column. A Fleet column appears when the series has
-            more than one fleet, and the entries are grouped by fleet in that order.
+            rather than published as an empty column.
+          </p>
+          <HelpShot
+            src="/help/shots/published-competitor-list.webp"
+            alt="A published entry list with a table per class, each carrying an IRC and an ECHO rating column."
+            caption="A league whose classes are scored under IRC and ECHO at once: a table per class, a rating column per fleet."
+          />
+          <p>
+            Where a class is scored under more than one system at once — an IRC fleet and a club
+            handicap fleet holding much the same boats — the page is{' '}
+            <strong className="text-foreground">tabled by class</strong>, and each table carries a
+            rating column per fleet the class is scored under, headed by whatever tells the fleets
+            apart: <em>IRC</em> and <em>ECHO</em>, say. A boat stays on one row, and which fleets
+            it is in is said by which ratings it carries. A boat not entered in a column&rsquo;s
+            fleet is dashed; one that is entered but whose certificate has not arrived is left
+            blank, so you can see at a glance who you are still chasing. Each table leads with the
+            boats entered under every one of its fleets.
+          </p>
+          <p>
+            Sail Scoring works the classes out from the fleets themselves, so nothing needs setting
+            up — it groups fleets that hold much the same boats and whose names share a word, and
+            it trusts the grouping your spreadsheet import recorded where there is one. On a series
+            where that finds nothing — a championship dealing Yellow and Blue fleets, a one-design
+            regatta — the page stays a single table with a Fleet column, grouped by fleet in
+            display order.
           </p>
         </Section>
       )}

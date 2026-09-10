@@ -649,6 +649,22 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Published competitor list — the sample league's classes are
+    // each scored under IRC and ECHO at once, so the page is a table per
+    // class with a rating column per fleet.
+    slug: 'published-competitor-list',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      await ensureFeature(page, 'entry-list');
+      const href = await publishEntriesPage(page, await seriesId());
+      const pub = await anon.newPage();
+      await pub.goto(new URL(href, BASE).toString());
+      await settle(pub);
+      await shot('published-competitor-list.png', { page: pub, fullPage: true });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: Starters checklist — the published competitor list as it
     // prints for the committee boat: one table per start, tick boxes. Seen
     // under print media with the print-mode body class set, since that is the
@@ -657,22 +673,7 @@ const SHOTS: Shot[] = [
     group: 'Publishing',
     async capture({ page, anon, seriesId, shot }) {
       await ensureFeature(page, 'entry-list');
-      // In a full run the sample league was published before the gate went
-      // on, so its Entries page does not exist yet; publish (again) with it
-      // ticked. The dialog's button reads Re-publish the second time.
-      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
-      await settle(page);
-      await page.getByRole('button', { name: 'Publish', exact: true }).click();
-      const dialog = page.getByRole('dialog');
-      await dialog.waitFor();
-      await dialog.getByRole('button', { name: /^(Re-)?[Pp]ublish$/ }).click();
-      const entriesHref = await dialog
-        .locator('a[href$="/entries"]')
-        .first()
-        .getAttribute('href', { timeout: 30_000 });
-      if (!entriesHref) throw new Error('no entries page link after publishing');
-      await page.keyboard.press('Escape');
-      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+      const entriesHref = await publishEntriesPage(page, await seriesId());
 
       const pub = await anon.newPage();
       await pub.goto(new URL(entriesHref, BASE).toString());
@@ -1888,6 +1889,31 @@ async function openRace(page: Page, seriesId: string, raceNumber: number) {
   const finishTab = page.getByRole('button', { name: 'Finish entry' });
   if (await finishTab.isVisible().catch(() => false)) await finishTab.click();
   await settle(page);
+}
+
+/**
+ * Publish the series' Entries page and hand back its public href.
+ *
+ * In a full run the sample league was published before the entry-list gate
+ * went on, so its Entries page does not exist yet — hence publishing again
+ * with it ticked, which is why the dialog's button reads Re-publish the
+ * second time round.
+ */
+async function publishEntriesPage(page: Page, seriesId: string): Promise<string> {
+  await page.goto(`${BASE}/series/${seriesId}/standings`);
+  await settle(page);
+  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.waitFor();
+  await dialog.getByRole('button', { name: /^(Re-)?[Pp]ublish$/ }).click();
+  const href = await dialog
+    .locator('a[href$="/entries"]')
+    .first()
+    .getAttribute('href', { timeout: 30_000 });
+  if (!href) throw new Error('no entries page link after publishing');
+  await page.keyboard.press('Escape');
+  await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+  return href;
 }
 
 /** LOCAL-mode prep only: publish a series by name from its Standings tab.
