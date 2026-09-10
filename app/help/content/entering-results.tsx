@@ -409,6 +409,14 @@ export default function EnteringResults() {
           so and leaves the code to you rather than guessing.
         </p>
         <p>
+          Each race in the dialog says how its start went: how many boats came to the line,
+          how many were over it and stayed over — as a count and a share of the fleet — and
+          how many were over and got back. The cleared boats are worth a line of their own
+          because nothing else records them: clearing costs a boat nothing, so she never
+          reaches the finish sheet, and a start where a dozen were over and nine returned is
+          a different start from one where three were over and stayed there.
+        </p>
+        <p>
           Every other boat who didn’t finish comes across as a{' '}
           <strong className="text-foreground">DNF</strong>, because that is the only code
           RaceSense writes: it has no way to tell a retirement from a boat who never left

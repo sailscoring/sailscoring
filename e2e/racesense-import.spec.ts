@@ -78,6 +78,12 @@ test('import a RaceSense regatta export race by race', async ({ page }) => {
   await expect(page.getByTestId('racesense-row-1'))
     .toContainText('correct it on the finish sheet');
 
+  // How each start went. Race 1 was clean; race 2 had a boat over and a boat
+  // over and back, and the cleared one is recorded nowhere else.
+  await expect(page.getByTestId('racesense-row-1')).toContainText('3 starters, a clean start');
+  await expect(page.getByTestId('racesense-row-2'))
+    .toContainText('3 starters, 1 OCS (33%), 1 cleared');
+
   await expect(page.getByTestId('racesense-confirm')).toHaveText('Import 2 races');
   await page.getByTestId('racesense-confirm').click();
   await expect(plan).toBeHidden();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { finishRowsFromImport } from '@/lib/finish-entry';
-import { planRaceSenseImport, type SeriesRace } from '@/lib/racesense-plan';
+import { describeStartLine, planRaceSenseImport, type SeriesRace } from '@/lib/racesense-plan';
 import type { Candidate } from '@/lib/finish-sheet-csv';
 import type {
   RaceSenseFinish,
@@ -688,5 +688,35 @@ describe('what the device captured', () => {
     expect(change?.incoming).toContain('2.73 km sailed');
     expect(change?.incoming).toContain('max 14.6 kn');
     expect(change?.incoming).toContain('DTL 8.45 m');
+  });
+});
+
+describe('describeStartLine', () => {
+  it('says how many were over, and what share of the boats that is', () => {
+    expect(describeStartLine({ starters: 42, ocs: 3, cleared: 0 }))
+      .toBe('42 starters, 3 OCS (7%)');
+  });
+
+  it('counts the boats that got back separately from the ones that did not', () => {
+    expect(describeStartLine({ starters: 42, ocs: 3, cleared: 9 }))
+      .toBe('42 starters, 3 OCS (7%), 9 cleared');
+    expect(describeStartLine({ starters: 42, ocs: 0, cleared: 9 }))
+      .toBe('42 starters, no OCS, 9 cleared');
+  });
+
+  it('says a quiet start was quiet rather than saying nothing', () => {
+    expect(describeStartLine({ starters: 42, ocs: 0, cleared: 0 }))
+      .toBe('42 starters, a clean start');
+    expect(describeStartLine({ starters: 1, ocs: 0, cleared: 0 }))
+      .toBe('1 starter, a clean start');
+  });
+
+  it('does not round a real OCS down to none of the fleet', () => {
+    expect(describeStartLine({ starters: 300, ocs: 1, cleared: 0 }))
+      .toBe('300 starters, 1 OCS (<1%)');
+  });
+
+  it('says nothing at all when no boat came to the line', () => {
+    expect(describeStartLine({ starters: 0, ocs: 0, cleared: 0 })).toBeNull();
   });
 });

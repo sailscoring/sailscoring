@@ -40,10 +40,13 @@ import {
 } from './finish-sheet-csv';
 import { ordinal } from './ordinal';
 import {
+  neverCameToTheLine,
+  startLineCounts,
   startStatusCode,
   type RaceSenseAnomaly,
   type RaceSenseRace,
   type RaceSenseWorkbook,
+  type StartLineCounts,
 } from './racesense-workbook';
 import type { SeriesStage } from './split-fleets';
 import { hasTrackData } from './track-data';
@@ -62,6 +65,28 @@ const COLUMN_MAP: FinishSheetColumnMap = {
   1: 'elapsed',
   2: 'resultCode',
 };
+
+/**
+ * The start, in one line: how many came to the line and how the line went.
+ *
+ * `null` for a sheet with no Starts block worth reading. A start where nobody
+ * was over still says so — "a clean start" is the answer to the question, and
+ * a race officer scanning the list for the crowded ones needs the quiet races
+ * to look quiet rather than to look unreported.
+ */
+export function describeStartLine(counts: StartLineCounts): string | null {
+  const { starters, ocs, cleared } = counts;
+  if (starters === 0) return null;
+  const parts = [`${starters} starter${starters === 1 ? '' : 's'}`];
+  if (ocs > 0) {
+    const share = (ocs / starters) * 100;
+    parts.push(`${ocs} OCS (${share < 1 ? '<1' : Math.round(share)}%)`);
+  } else {
+    parts.push(cleared > 0 ? 'no OCS' : 'a clean start');
+  }
+  if (cleared > 0) parts.push(`${cleared} cleared`);
+  return parts.join(', ');
+}
 
 /** A race in the series a sheet might land in. Starts carry the fleet and
  *  stage identity; a series with no fleets has one start naming none. */
@@ -98,6 +123,10 @@ export interface PlannedRace {
   /** The finishes that would be written, ready for the CSV import's own
    *  commit path. `null` when there's no race to write them to. */
   result: ParseFinishSheetResult | null;
+  /** What the Starts block says about the start: how many boats came to the
+   *  line, how many were over it, how many got back. Set for every sheet,
+   *  matched or not — it is a reading of the export, not of the series. */
+  startLine: StartLineCounts;
   /** How many of those finishes carry track data — what the device recorded
    *  beyond the finishing order. Zero for a sheet with no metrics in it, and
    *  worth saying on every race: a `new` race is committed unseen otherwise,
@@ -191,13 +220,8 @@ function buildRows(race: RaceSenseRace): BuiltRows {
     }
   }
 
-  /** Boats whose Starts row holds no evidence that they came to the starting
-   *  area: the device never checked in, and it never registered a distance to
-   *  the line either. */
   const neverAppeared = new Set(
-    race.starters
-      .filter((s) => s.meaning === 'not-checked-in' && s.dtlAtStartM === null)
-      .map((s) => s.sailNumber),
+    race.starters.filter(neverCameToTheLine).map((s) => s.sailNumber),
   );
 
   /**
@@ -585,6 +609,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
         state: 'unmatched',
         recommended: false,
         result: null,
+        startLine: startLineCounts(source),
         trackData: 0,
         changes: [],
         notes,
@@ -657,6 +682,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
         && notes.every((n) => !blocksRecommendation(n))
         && result.errors.length === 0,
       result,
+      startLine: startLineCounts(source),
       trackData: result.finishes.filter((f) => hasTrackData(f.trackData)).length,
       changes: state === 'differs' ? changesBetween(stored, incoming, label) : [],
       notes,

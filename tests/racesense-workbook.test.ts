@@ -4,6 +4,7 @@ import {
   parseRaceSenseWorkbook,
   normalizeRaceSenseElapsed,
   normalizeRaceSenseTime,
+  startLineCounts,
   startStatusCode,
   VERIFIED_APP_VERSION,
 } from '@/lib/racesense-workbook';
@@ -496,6 +497,38 @@ describe('track data', () => {
       kind: 'unreadable-time',
       value: 'wat',
     }));
+  });
+});
+
+describe('startLineCounts', () => {
+  const countsFor = (starters: string[][]) =>
+    startLineCounts(parseRaceSenseWorkbook([raceSheet({ number: 1, starters })]).races[0]);
+
+  it('counts the boats over the line, penalised and cleared apart', () => {
+    expect(countsFor([
+      ['1022', '', '', 'OCS', '-326.16'],
+      ['1023', '', '', 'OCS', '-12.1'],
+      ['1024', '', '', 'OCS (Cleared)', '-4.2'],
+      ['563', '', '', '', '--'],
+      ['567', '', '', '', '8.45'],
+    ])).toEqual({ starters: 5, ocs: 2, cleared: 1 });
+  });
+
+  it('reads a manually-cleared OCS as cleared, like the one the device saw', () => {
+    expect(countsFor([
+      ['1022', '', '', 'OCS *', '-326.16'],
+      ['563', '', '', '', '--'],
+    ])).toEqual({ starters: 2, ocs: 0, cleared: 1 });
+  });
+
+  it('leaves out a boat whose device never checked in and never saw the line', () => {
+    // The same boats the import scores DNC rather than DNF: on the sheet
+    // because she is entered, not because she came to the line.
+    expect(countsFor([
+      ['1022', '', '', 'Not Checked-In', '--'],
+      ['1023', '', '', 'Not Checked-In', '-4.2'],
+      ['563', '', '', '', '--'],
+    ])).toEqual({ starters: 2, ocs: 0, cleared: 0 });
   });
 });
 

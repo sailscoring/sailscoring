@@ -20,6 +20,7 @@ import { loadRaceSenseRegatta } from '@/lib/api-repository';
 import { parseWorkbookFile } from '@/lib/import-table';
 import type { Candidate } from '@/lib/finish-sheet-csv';
 import {
+  describeStartLine,
   planRaceSenseImport,
   type PlannedRace,
   type RaceMatchState,
@@ -453,6 +454,7 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
               <tbody>
                 {plan?.races.map((race) => {
                   const warnings = race.notes.filter((n) => n.severity === 'warning');
+                  const startLine = describeStartLine(race.startLine);
                   const open = expanded === race.sheetName;
                   return (
                     <Fragment key={race.sheetName}>
@@ -503,6 +505,9 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
                               ].filter(Boolean).join(', ')}
                               {race.trackData > 0 && ` \u00b7 track data for ${race.trackData}`}
                             </p>
+                          )}
+                          {startLine && (
+                            <p className="text-muted-foreground">{startLine}</p>
                           )}
                           {warnings.map((note, i) => (
                             <p key={i} className="text-xs text-muted-foreground">{note.message}</p>

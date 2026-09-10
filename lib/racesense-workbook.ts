@@ -195,6 +195,44 @@ export interface RaceSenseStarter {
   dtlAtStartM: number | null;
 }
 
+/**
+ * A Starts row holding no evidence that the boat came to the starting area:
+ * her device never checked in, and it never registered a distance to the line
+ * either. She is on the sheet because she is entered, not because she raced.
+ */
+export function neverCameToTheLine(starter: RaceSenseStarter): boolean {
+  return starter.meaning === 'not-checked-in' && starter.dtlAtStartM === null;
+}
+
+/**
+ * What the Starts block says about the start itself: how many boats came to
+ * the line, how many were over it and stayed over, and how many were over it
+ * and got back.
+ *
+ * The two are worth counting apart. An uncleared OCS costs the boat her race;
+ * a cleared one costs her nothing at all, so it never reaches the finish
+ * sheet and would otherwise go unrecorded — but a start where twelve boats
+ * were over and nine returned is a different start from one where three were
+ * over and stayed there, and that is the difference a race officer is asking
+ * about.
+ */
+export interface StartLineCounts {
+  starters: number;
+  ocs: number;
+  cleared: number;
+}
+
+export function startLineCounts(race: RaceSenseRace): StartLineCounts {
+  const counts = { starters: 0, ocs: 0, cleared: 0 };
+  for (const starter of race.starters) {
+    if (neverCameToTheLine(starter)) continue;
+    counts.starters++;
+    if (starter.meaning === 'ocs') counts.ocs++;
+    else if (starter.meaning === 'cleared') counts.cleared++;
+  }
+  return counts;
+}
+
 export interface RaceSenseFinish {
   /** 1-based finishing position, or `null` for the coded tail. */
   position: number | null;
