@@ -1,6 +1,6 @@
 # OSS Health Report: Lock-in Risks in Your Next.js / Vercel / Postgres Stack
 
-*Compiled April 2026; updated July 8, 2026 for the Vercel/Better Auth acquisition. Focus: the projects you'd find hardest to migrate away from.*
+*Compiled April 2026; updated July 8, 2026 for the Vercel/Better Auth acquisition and September 11, 2026 for the Shopify/Tailwind Labs acquisition. Focus: the projects you'd find hardest to migrate away from.*
 
 ## Scope and method
 
@@ -61,7 +61,7 @@ The relevant comparison is Kubernetes joining the CNCF — it took several years
 
 **React 19 + Server Components are recent.** RSCs only really stabilized with React 19 (Dec 2024), and they were the locus of December 2025's CVSS-10 RCE. You're adopting a young technology with one major catastrophic CVE already in its history. That's not a reason to avoid it, but it is a reason to keep your update discipline tight.
 
-## 3. Tailwind CSS — strong technically, recently fragile financially
+## 3. Tailwind CSS — strong technically, and now Shopify-owned
 
 **Origin.** Adam Wathan and Jonathan Reinink, first release 2017. Now operated by **Tailwind Labs**, a small private company headquartered effectively wherever the founders live (the Latvian registration in some databases is a remnant of an earlier setup). Other principals: Steve Schoger (design), and a small engineering team. The OSS project is permissive-licensed (MIT).
 
@@ -71,9 +71,15 @@ Tailwind Labs has historically been **bootstrapped, not VC-funded**. Revenue cam
 
 Within days, the project was rescued (at least in the short term) by sponsorships from Sentry's Open Source Pledge, Railway, and a number of smaller backers. Adam Wathan went public about the emotional cost; the `tailwindcss` repo was briefly made private during the worst of the GitHub backlash. As of early 2026, the project is technically healthy and still shipping.
 
+**The sequel to those layoffs: Shopify acquired Tailwind Labs, announced 9–10 September 2026.** Terms were not disclosed. Wathan's framing is that Shopify — an early and heavy adopter of Tailwind CSS — gives the project "a stable, long-term home" where it is developed in service of a real product. Per the announcement, Tailwind CSS and the other open-source projects stay **MIT-licensed** and continue to be led and maintained by the same team, now with Shopify's backing. Tobias Lütke confirmed the deal the same day.
+
+The commercial side is what actually changes: **Tailwind Plus and ui.sh stop accepting new sign-ups**, with existing customers retaining access. That is the honest reading of the deal — the paid products that were supposed to fund the framework are being wound down, and Shopify is absorbing the maintenance cost directly. The Register's coverage puts it plainly as a lifeline after AI-assisted coding eroded the revenue base (the framework itself is at 110M+ weekly installs, so usage was never the problem).
+
+Read it the way this report reads the Neon/Databricks, Drizzle/PlanetScale and Better Auth/Vercel deals: the funding question is answered, the independence question is not. Tailwind's direction now flows from an e-commerce company that uses it internally. That is a *better* alignment than most acquirers would offer — Shopify's incentive is a framework that works well for building storefront UI, which is close to what everyone else wants from it — and there is no hosting or lock-in angle the way there is with Vercel. But §"Cross-cutting observations" loses another entry from the independent column.
+
 **Tailwind v4** (released late 2024) is a significant rewrite: a Rust-based engine (Oxide), a new CSS-first configuration model using `@theme` and CSS custom properties, and dramatic performance gains. Your stack is on v4. The migration from v3 was non-trivial; if you're greenfielding on v4 you avoid that pain, but you're also early on a relatively young architecture.
 
-**Bottom line.** Technically excellent, deep ecosystem, near-ubiquitous in modern AI-assisted coding workflows, MIT-licensed and forkable. But its corporate steward had a financial near-miss within the last few months, and its long-term funding model is unresolved. The project would survive Tailwind Labs going under — it's MIT and forkable, and the ecosystem is large enough — but velocity and direction would suffer. Worth tracking sponsorship announcements over the next year as a leading indicator.
+**Bottom line.** Technically excellent, deep ecosystem, near-ubiquitous in modern AI-assisted coding workflows, MIT-licensed and forkable. The January 2026 funding crisis that this report flagged as the thing to watch resolved eight months later by acquisition rather than by a sustainable independent model — which removes the "does it run out of money" risk and replaces it with the ordinary single-corporate-steward risk. The project would still survive Shopify losing interest: it's MIT, forkable, and the ecosystem is large enough. Your own exposure is unchanged either way — Tailwind is compiled CSS in your markup, so a fork or a frozen version keeps working indefinitely; what you'd lose is future velocity, not a running app.
 
 ## 4. Drizzle ORM — sustainable but recently entangled with PlanetScale
 
@@ -146,11 +152,11 @@ Brief, since it's not strictly an OSS project, but it's relevant context.
 
 ## Cross-cutting observations
 
-**Concentration around Vercel and Meta.** Vercel's footprint in your stack widened in July 2026: on top of Next.js (direct), React (Core team seats and Foundation board), and shadcn/ui (via employment), it now owns Better Auth — so the *auth* layer joined the *framework* and *component* layers under a single vendor. Better Auth had been one of the independent choices in this list; that's no longer true. Tailwind and TanStack are now the only meaningfully independent projects here, with Drizzle PlanetScale-backed. This is not unusual for modern JavaScript stacks — it is structural to that ecosystem — but the asymmetry is worth being clear-eyed about: the pieces you'd have called "independent" keep getting acquired.
+**Concentration around Vercel and Meta.** Vercel's footprint in your stack widened in July 2026: on top of Next.js (direct), React (Core team seats and Foundation board), and shadcn/ui (via employment), it now owns Better Auth — so the *auth* layer joined the *framework* and *component* layers under a single vendor. Better Auth had been one of the independent choices in this list; that's no longer true. Tailwind followed in September 2026 (Shopify), leaving **TanStack Query as the only meaningfully independent project in this stack** — Drizzle is PlanetScale-backed, Neon is Databricks-owned, and Next.js, React, shadcn/ui and Better Auth all sit inside Vercel's orbit. This is not unusual for modern JavaScript stacks — it is structural to that ecosystem — but the asymmetry is worth being clear-eyed about: the pieces you'd have called "independent" keep getting acquired.
 
 **Recent security pattern.** Two CVSS 9+ vulnerabilities in Next.js / React in 13 months (CVE-2025-29927, CVE-2025-55182), plus a hosting-provider supply-chain breach (April 2026), plus a maintainer transition in your auth library (Sept 2025). The stack itself is technically excellent; the *operational security posture* of running it requires more active vigilance than, say, a Rails or Django stack with a lower release velocity.
 
-**Funding-model fragility in adjacent projects.** Tailwind Labs' January 2026 layoffs are part of a broader pattern of OSS funding pressure as AI-generated code reduces docs traffic (the long-standing proxy for monetizable attention). Several of your dependencies are sustained by sponsorship from companies (Sentry's Open Source Pledge, Railway) rather than by the projects' own revenue. This is not a stable equilibrium across an industry, though the specific projects sponsoring Tailwind, Drizzle, and TanStack are themselves healthy.
+**Funding-model fragility in adjacent projects.** Tailwind Labs' January 2026 layoffs were part of a broader pattern of OSS funding pressure as AI-generated code reduces docs traffic (the long-standing proxy for monetizable attention); the September 2026 Shopify acquisition is how that particular case ended — sponsorship bought eight months, not a new equilibrium. Note the direction of travel: the resolution was acquisition by a large company that uses the project, not independent sustainability. Several of your remaining dependencies are sustained by sponsorship rather than by their own revenue (TanStack's 16 partner companies being the healthiest example, precisely because no single one of them could buy it).
 
 **A note on your "low-lock-in" choices.** Two ADR-008 choices stand out as particularly well-judged from a sustainability angle:
 
@@ -172,11 +178,11 @@ Brief, since it's not strictly an OSS project, but it's relevant context.
 6. **Track Postgres-level portability tests as part of CI.** A weekly job that dumps your Neon DB and restores it onto a vanilla Postgres in a container will catch any inadvertent reliance on Neon-specific extensions or behavior. Cheap insurance against a future Databricks-direction-shift scenario.
 
 7. **Watch four indicators over the next 12 months:**
-   - Tailwind Labs' sponsorship/runway updates — second consecutive year of layoffs would be a red flag.
+   - Tailwind under Shopify — whether the team stays intact past the first year, and whether Shopify-specific needs (storefront/Liquid/Polaris integration) start shaping the core. The Tailwind Plus wind-down is already done; watch what happens to the docs and the free component examples that fed off it.
    - React Foundation's first independent technical decisions — does the TSC actually disagree with Meta/Vercel on anything visible?
    - PlanetScale's treatment of Drizzle — does it remain genuinely vendor-neutral, or does Drizzle's MySQL dialect quietly start outpacing its Postgres one?
    - Better Auth under Vercel — now that Vercel owns it (July 2026), watch whether agent-identity / Vercel-platform priorities start shaping the OSS core, and whether a free-vs-paid boundary emerges around the hosted or agent-identity pieces. The "same open governance, still MIT" promises are worth holding them to.
 
 ---
 
-*Sources and dates checked April 26, 2026. **Updated July 8, 2026** to reflect Vercel's acquisition of Better Auth (announced 7 July 2026) — see §5, §8, the concentration note, and recommendations 1 and 7; the rest of the report still reflects the April snapshot. The fast-moving ones — Vercel breach scope, React Foundation TSC formation, Tailwind Labs financial recovery, and now Better Auth's direction under Vercel — will continue to develop; this report reflects two points in time, not a live view.*
+*Sources and dates checked April 26, 2026. **Updated July 8, 2026** to reflect Vercel's acquisition of Better Auth (announced 7 July 2026) — see §5, §8, the concentration note, and recommendations 1 and 7. **Updated September 11, 2026** to reflect Shopify's acquisition of Tailwind Labs (announced 9–10 September 2026) — see §3, the concentration and funding notes, and recommendation 7. The rest of the report still reflects the April snapshot. The fast-moving ones — Vercel breach scope, React Foundation TSC formation, Better Auth's direction under Vercel, and now Tailwind's under Shopify — will continue to develop; this report reflects three points in time, not a live view.*
