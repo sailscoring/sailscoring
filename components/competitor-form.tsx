@@ -614,7 +614,7 @@ export function CompetitorForm({
                   />
                   {f.name}
                   {f.scoringSystem !== 'scratch' && (
-                    <span className="text-xs text-muted-foreground">({f.scoringSystem.toUpperCase()})</span>
+                    <span className="text-xs text-muted-foreground">({ratingSystemLabel(f)})</span>
                   )}
                 </label>
               ))}

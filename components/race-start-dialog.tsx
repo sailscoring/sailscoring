@@ -25,6 +25,7 @@ import { useSaveSeriesCourse, useSaveSeriesMark, useSaveSeriesMarks, useSeriesCo
 import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
 import { useRacesBySeries } from '@/hooks/use-races';
 import { seriesMarkRepo } from '@/lib/api-repository';
+import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import { loadCourseCard } from '@/lib/course-cards';
 import {
   courseOutOfDate,
@@ -630,7 +631,7 @@ function RaceStartDialogInner({
                   />
                   {f.name}
                   {f.scoringSystem !== 'scratch' && (
-                    <span className="text-xs text-muted-foreground">({f.scoringSystem.toUpperCase()})</span>
+                    <span className="text-xs text-muted-foreground">({ratingSystemLabel(f)})</span>
                   )}
                 </label>
               ))}

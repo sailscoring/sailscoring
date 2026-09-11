@@ -44,6 +44,7 @@ import {
   type FleetStandingsTableProps,
 } from '@/components/fleet-standings-table';
 import { ScoringRejectionsWarning } from '@/components/scoring-rejections-warning';
+import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import type { Competitor, DiscardThreshold, Race } from '@/lib/types';
 
 
@@ -521,13 +522,13 @@ export default function StandingsPage({
               <h3 className="text-sm font-semibold pt-2">
                 {fleet.name}
                 {fleet.scoringSystem !== 'scratch' && (
-                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">({fleet.scoringSystem.toUpperCase()})</span>
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">({ratingSystemLabel(fleet)})</span>
                 )}
               </h3>
             )}
             {isSingleFleet && fleet.scoringSystem !== 'scratch' && (
               <p className="text-xs text-muted-foreground">
-                Scored on {fleet.scoringSystem.toUpperCase()} — points based on corrected time.
+                Scored on {ratingSystemLabel(fleet)} — points based on corrected time.
               </p>
             )}
             {rejections.length > 0 && (
