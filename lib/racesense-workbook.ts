@@ -25,6 +25,7 @@
  * series is `lib/racesense-plan.ts`.
  */
 
+import { normalizeTimeInput } from './time-parse';
 import type { WorkbookSheet } from './import-table';
 import type { ResultCode } from './types';
 
@@ -308,20 +309,20 @@ const valueOrNull = (value: string): string | null => (isBlank(value) ? null : v
 /**
  * Normalise a RaceSense time of day to `HH:MM:SS`.
  *
- * `Start Time` is written `11:03` and `Finishing Time` `11:11:20.830`, and
- * `normalizeTimeInput` accepts neither. Loosening that gate would loosen it
- * for hand-typed entry too, where its strictness is the point — so the
- * shapes this one format uses are handled here. Fractional seconds truncate,
- * as a stopwatch does.
+ * `Start Time` is written `11:03` and `Finishing Time` `11:11:20.830`. The
+ * shared gate reads the first of those now, so this trims the fractional
+ * seconds — truncating, as a stopwatch does — and hands the rest over. The
+ * hour bound is this format's own: a clock reading past 23 is a corrupt
+ * cell, not a race that ran long.
  */
 export function normalizeRaceSenseTime(raw: string): string | null {
   const value = raw.trim();
   if (isBlank(value)) return null;
-  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/.exec(value);
+  const match = /^(\d{1,2}:\d{2}(?::\d{2})?)(?:\.\d+)?$/.exec(value);
   if (!match) return null;
-  const [, h, m, s] = match;
-  if (Number(h) > 23 || Number(m) > 59 || (s !== undefined && Number(s) > 59)) return null;
-  return `${h.padStart(2, '0')}:${m}:${s ?? '00'}`;
+  const normalized = normalizeTimeInput(match[1]);
+  if (!normalized || Number(normalized.slice(0, 2)) > 23) return null;
+  return normalized;
 }
 
 /**

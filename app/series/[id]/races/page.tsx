@@ -562,7 +562,7 @@ export default function RacesPage({
     if (addingRace) return;
     const normalized = normalizeTimeInput(firstStartTime);
     if (!normalized) {
-      setNewRaceError('Enter a valid time, e.g. 14:05:00 or 140500.');
+      setNewRaceError('Enter a valid time, e.g. 14:05, 14:05:00 or 1405.');
       return;
     }
     if (!hasStartSequence) {
@@ -636,7 +636,7 @@ export default function RacesPage({
     if (genUsesStartTime) {
       startTime = normalizeTimeInput(genStartTime);
       if (!startTime) {
-        setGenError('Enter a valid first start time, e.g. 14:05:00 or 140500.');
+        setGenError('Enter a valid first start time, e.g. 14:05, 14:05:00 or 1405.');
         return;
       }
     }
@@ -961,7 +961,7 @@ export default function RacesPage({
                 id="firstStartTime"
                 value={firstStartTime}
                 onChange={(e) => { setFirstStartTime(e.target.value); setNewRaceError(''); }}
-                placeholder="e.g. 14:05:00"
+                placeholder="e.g. 14:05"
                 autoFocus
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddRaceHandicap(); } }}
               />
@@ -1090,7 +1090,7 @@ export default function RacesPage({
                   id="genStartTime"
                   value={genStartTime}
                   onChange={(e) => { setGenStartTime(e.target.value); setGenError(''); }}
-                  placeholder="e.g. 14:05:00"
+                  placeholder="e.g. 14:05"
                 />
                 <p className="text-xs text-muted-foreground">
                   The default start sequence runs from this time in every race.

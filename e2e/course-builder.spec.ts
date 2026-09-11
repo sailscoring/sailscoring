@@ -185,7 +185,7 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   // Saved without a course first: PCS has no curve to look an implied wind up
   // on, so the race is not scored — and the standings say so rather than
   // quietly ranking it on crossing order.

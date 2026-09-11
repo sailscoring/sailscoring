@@ -282,8 +282,13 @@ export default function EnteringResults() {
             <strong className="text-foreground">Finish time</strong> — optional; accepts{' '}
             <code className="text-foreground text-sm">HH:MM:SS</code>,{' '}
             <code className="text-foreground text-sm">H:MM:SS</code>, dot-separated{' '}
-            <code className="text-foreground text-sm">HH.MM.SS</code>, or bare digits like{' '}
-            <code className="text-foreground text-sm">143210</code>.
+            <code className="text-foreground text-sm">HH.MM.SS</code>, the same forms without
+            seconds (<code className="text-foreground text-sm">14:32</code>), or bare digits
+            like <code className="text-foreground text-sm">143210</code> and{' '}
+            <code className="text-foreground text-sm">1432</code>. Seconds left off are
+            read as <code className="text-foreground text-sm">00</code>. The same forms work
+            wherever you type a time of day by hand — a gun time, a finish, the last
+            finisher.
           </li>
           <li>
             <strong className="text-foreground">Elapsed time</strong> — optional; for a sheet

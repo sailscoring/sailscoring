@@ -67,7 +67,7 @@ test('VPRS fleet: standings ordered by corrected time', async ({ page }) => {
   await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'VPRS' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();

@@ -70,13 +70,14 @@ test('frostbite mixed-mode: interleaved ILCA (scratch) and PY rows keep crossing
   // Add two starts: ILCA at 14:05:00 (scratch — no time needed), PY+M15 at 14:10:00
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:05:00');
+  // Four bare digits, as a Sailwave scorer types a gun time.
+  await page.getByPlaceholder('14:05', { exact: true }).fill('1405');
   await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:05:00')).toBeVisible();
 
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:10:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:10:00');
   await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:10:00')).toBeVisible();
@@ -182,7 +183,7 @@ test('auto-slot: a late timed entry inserts at its correct crossing-order slot',
   await page.getByText('Race 1').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -246,7 +247,7 @@ test('edit finish time: re-slots to the new position and persists the new time',
   await page.getByText('Race 1').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -312,7 +313,7 @@ test('scoring-system change blocked: Scratch → PY with untimed finishes', asyn
   // Add a start for the Dinghy fleet (required in handicap series)
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'Dinghy' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   // The start must be on the sheet before a finish can be entered against it —
@@ -383,7 +384,7 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
 
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'PY' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
 
@@ -407,7 +408,7 @@ test('finish blocked for competitor whose fleet has no start when handicap fleet
   // ── Add an ILCA start, then G1 should be finishable ───────────────────────
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:05:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:05:00');
   await page.getByRole('checkbox', { name: 'ILCA' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Done' }).first().click();

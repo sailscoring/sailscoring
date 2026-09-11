@@ -72,7 +72,8 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
   await page.getByText('Race 1').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  // Typed the way a scorer says it — a gun on the hour, no seconds.
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00');
   await page.getByRole('checkbox', { name: 'NHC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -95,7 +96,7 @@ test('NHC fleet: standings + propagation across two races', async ({ page }) => 
   await page.getByText('Race 2').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'NHC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -178,7 +179,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
   await page.getByText('Race 1').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'NHC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
@@ -199,7 +200,7 @@ test('NHC fleet: retroactive edit propagates to subsequent race', async ({ page 
   await page.getByText('Race 2').click();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   await page.getByRole('checkbox', { name: 'NHC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();

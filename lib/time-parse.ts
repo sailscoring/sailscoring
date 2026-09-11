@@ -1,19 +1,33 @@
 /**
- * Accept flexible time input: "HH:MM:SS", "H:MM:SS", the dot-separated
- * "HH.MM.SS" Sailwave writes and scorers type, or bare digits "HHMMSS" /
- * "HMMSS". Returns a normalised "HH:MM:SS" string, or null if the input
- * cannot be parsed.
+ * Accept flexible time-of-day input: "HH:MM:SS", "H:MM:SS", the
+ * dot-separated "HH.MM.SS" Sailwave writes and scorers type, the same forms
+ * without seconds ("13:05", "13.05"), or bare digits "HHMM" / "HMM" /
+ * "HMMSS" / "HHMMSS". Seconds default to "00" — a gun at five past one is
+ * "13:05", and that is what a scorer types. Returns a normalised
+ * "HH:MM:SS" string, or null if the input cannot be parsed.
+ *
+ * The bare-digit forms are unambiguous here because this reads times of day
+ * only; the ambiguity that rules them out of `parseElapsedInput` is that
+ * "432" could as well be 432 seconds as 4:32.
  */
 export function normalizeTimeInput(raw: string): string | null {
   const s = raw.trim();
   let h: number, m: number, sec: number;
   if (/^\d{1,2}:\d{2}:\d{2}$/.test(s) || /^\d{1,2}\.\d{2}\.\d{2}$/.test(s)) {
     [h, m, sec] = s.split(/[:.]/).map(Number);
+  } else if (/^\d{1,2}:\d{2}$/.test(s) || /^\d{1,2}\.\d{2}$/.test(s)) {
+    [h, m] = s.split(/[:.]/).map(Number);
+    sec = 0;
   } else if (/^\d{5,6}$/.test(s)) {
     const p = s.padStart(6, '0');
     h = parseInt(p.slice(0, 2), 10);
     m = parseInt(p.slice(2, 4), 10);
     sec = parseInt(p.slice(4, 6), 10);
+  } else if (/^\d{3,4}$/.test(s)) {
+    const p = s.padStart(4, '0');
+    h = parseInt(p.slice(0, 2), 10);
+    m = parseInt(p.slice(2, 4), 10);
+    sec = 0;
   } else {
     return null;
   }
@@ -28,9 +42,13 @@ export function normalizeTimeInput(raw: string): string | null {
  * should not silently lose the fraction. Returns seconds, or null.
  *
  * Distinct from `normalizeTimeInput`, which reads times of day: `"4:32"` is
- * four and a half minutes here and not a time at all there, and there is no
- * bare-digit form because `"432"` would be as good a case for 432 seconds as
- * for 4:32 and a scorer should not have to guess which.
+ * four and a half minutes here and half past four in the morning there. The
+ * two read the same string differently because they read different things —
+ * a duration from the gun against a clock reading — and which one applies is
+ * decided by the field, not by the value. There is no bare-digit form here
+ * because `"432"` would be as good a case for 432 seconds as for 4:32 and a
+ * scorer should not have to guess which; in a time-of-day field there is no
+ * such doubt, so that gate does take bare digits.
  *
  * The dot is a separator only where it cannot also be a decimal point:
  * `"1.04.32"` is an hour four and a half minutes, but `"4.32"` is 4.32

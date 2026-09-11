@@ -69,7 +69,7 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   // Expand the race starts card, then add a start time: 14:00:00 for the IRC fleet
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
   // Check the IRC fleet checkbox in the start dialog
   await page.getByRole('checkbox', { name: 'IRC' }).check();
   await page.getByRole('button', { name: 'Save' }).click();

@@ -285,7 +285,7 @@ function RaceStartDialogInner({
     if (startTimeInput.trim()) {
       const parsed = normalizeTimeInput(startTimeInput);
       if (!parsed) {
-        setError('Enter a valid time, e.g. 14:05:00 or 140500 — or leave blank for fleets only.');
+        setError('Enter a valid time, e.g. 14:05, 14:05:00 or 1405 — or leave blank for fleets only.');
         return;
       }
       normalizedStart = parsed;
@@ -388,7 +388,7 @@ function RaceStartDialogInner({
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm"
               value={startTimeInput}
               onChange={(e) => { setStartTimeInput(e.target.value); setError(''); }}
-              placeholder="14:05:00"
+              placeholder="14:05"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             />

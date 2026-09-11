@@ -68,8 +68,21 @@ describe('normalizeTimeInput', () => {
     expect(normalizeTimeInput('   ')).toBeNull();
   });
 
-  it('rejects 4-digit input (ambiguous)', () => {
-    expect(normalizeTimeInput('1432')).toBeNull();
+  it('accepts a time of day without seconds', () => {
+    expect(normalizeTimeInput('13:05')).toBe('13:05:00');
+    expect(normalizeTimeInput('9:05')).toBe('09:05:00');
+    expect(normalizeTimeInput('13.05')).toBe('13:05:00');
+  });
+
+  it('accepts bare digits without seconds', () => {
+    // Scorers coming from Sailwave type the gun as four digits.
+    expect(normalizeTimeInput('1432')).toBe('14:32:00');
+    expect(normalizeTimeInput('905')).toBe('09:05:00');
+  });
+
+  it('still rejects minutes out of range in the short forms', () => {
+    expect(normalizeTimeInput('13:65')).toBeNull();
+    expect(normalizeTimeInput('1365')).toBeNull();
   });
 });
 
@@ -151,10 +164,11 @@ describe('parseElapsedInput', () => {
     expect(parseElapsedInput('soon')).toBeNull();
   });
 
-  it('reads "4:32" as four and a half minutes, not a time of day', () => {
-    // The distinction from normalizeTimeInput, which rejects it outright.
+  it('reads "4:32" as four and a half minutes, where a time of day reads it as 04:32', () => {
+    // The same string, read by the two functions that read different things:
+    // an elapsed time counts from the gun, a time of day is a clock reading.
     expect(parseElapsedInput('4:32')).toBe(272);
-    expect(normalizeTimeInput('4:32')).toBeNull();
+    expect(normalizeTimeInput('4:32')).toBe('04:32:00');
   });
 });
 

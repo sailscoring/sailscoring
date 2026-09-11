@@ -69,7 +69,7 @@ test('fixed-TCF fleet: scored on the club number, and published under its name',
 
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
-  await page.getByPlaceholder('14:05:00').fill('11:25:00');
+  await page.getByPlaceholder('14:05', { exact: true }).fill('11:25:00');
   // The fleet is named by the club's word for its handicap here too.
   await page.getByRole('checkbox', { name: 'Class 1 HPH (HPH)' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
