@@ -156,6 +156,11 @@ describe('published ORC transparency', () => {
         }],
       }),
     );
+    // Folded away: the legs line is the course record and stays on the page,
+    // the drawing is the illustration and waits to be asked for.
+    expect(html).toContain('<details class="orc-course"><summary>Show course</summary>');
+    expect(html).not.toContain('<details class="orc-course" open');
+    expect(html.indexOf('class="orc-course-legs"')).toBeLessThan(html.indexOf('<details class="orc-course"'));
     const from = html.indexOf('<div class="orc-course-drawing"');
     expect(from).toBeGreaterThan(-1);
     const block = html.slice(from, html.indexOf('</div>', from));

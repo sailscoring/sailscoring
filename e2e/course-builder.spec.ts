@@ -226,6 +226,7 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   const download = await downloadFleetHtml(page);
   const html = readFileSync(await download.path(), 'utf-8');
   expect(html).toContain('Constructed course');
+  expect(html).toContain('<details class="orc-course"><summary>Show course</summary>');
   expect(html).toContain('class="orc-course-drawing"');
   expect(html).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
   expect(html).toContain('aria-label="Course K1 — 12 Sep R1"');

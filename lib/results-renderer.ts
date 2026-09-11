@@ -1357,6 +1357,13 @@ td.excluded { color: #888; text-align: center; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .penaltylabels { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
+/* The course drawing, folded away: the legs line states the course in words,
+   so the picture is there for whoever wants to look at it. */
+details.orc-course { margin: 0 0 8px 0; text-align: center; }
+details.orc-course > summary { font-size: 0.85em; color: #444; cursor: pointer; display: inline-block; list-style: none; }
+details.orc-course > summary::-webkit-details-marker { display: none; }
+details.orc-course > summary::before { content: '\u25B8 '; }
+details.orc-course[open] > summary::before { content: '\u25BE '; }
 /* A combined page's per-fleet race block: the rule and the space above it are
    what separate one fleet's set of races from the next when scrolling. */
 .fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
@@ -2051,8 +2058,12 @@ function renderRaceTable(
               .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;)`)
               .join(' &middot; ')}</p>`
           : '';
+        // Folded away by default: the drawing is an illustration of the legs
+        // line above it, and unfolded it pushes the results table off a
+        // phone. A closed <details> doesn't print, which matches how the
+        // NHC and ECHO calculation toggles already behave.
         const drawing = h.courseSvg
-          ? `\n<div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>`
+          ? `\n<details class="orc-course"><summary>Show course</summary><div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div></details>`
           : '';
         return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}${drawing}\n`;
       })()
