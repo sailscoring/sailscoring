@@ -271,9 +271,15 @@ function CourseDialogInner({
             )}
             {source === 'card' && (
               <div className="space-y-2">
+                {/* w-full min-w-0 on every trigger below: the select trigger is
+                    w-fit and whitespace-nowrap by default, and a card name runs
+                    well past half this dialog. In a grid track that overflows
+                    the track rather than clamping, so the two triggers draw on
+                    top of each other; min-w-0 lets them shrink and the value's
+                    line-clamp do its job. */}
                 <div className="grid grid-cols-2 gap-2">
                   <Select value={setPath} onValueChange={(v) => { setSetPath(v); setCourseId(''); setPlacements({}); setEdited(null); setError(''); setLoadError(''); }} disabled={Boolean(editing)}>
-                    <SelectTrigger aria-label="Course card set" data-testid="course-card-set"><SelectValue placeholder="Club and event" /></SelectTrigger>
+                    <SelectTrigger className="w-full min-w-0" aria-label="Course card set" data-testid="course-card-set"><SelectValue placeholder="Club and event" /></SelectTrigger>
                     <SelectContent>
                       {sets.map((s) => (
                         <SelectItem key={s.path} value={s.path}>{courseCardSetLabel(s)}</SelectItem>
@@ -281,7 +287,7 @@ function CourseDialogInner({
                     </SelectContent>
                   </Select>
                   <Select value={effectiveCardId} onValueChange={(v) => { setCardId(v); setCourseId(''); setPlacements({}); setEdited(null); setError(''); setLoadError(''); }} disabled={Boolean(editing) || !set}>
-                    <SelectTrigger aria-label="Course card" data-testid="course-card"><SelectValue placeholder="Card" /></SelectTrigger>
+                    <SelectTrigger className="w-full min-w-0" aria-label="Course card" data-testid="course-card"><SelectValue placeholder="Card" /></SelectTrigger>
                     <SelectContent>
                       {(set?.cards ?? []).map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -293,7 +299,7 @@ function CourseDialogInner({
                 <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-sm">
                   <span>Course</span>
                   <Select value={courseId} onValueChange={(v) => { setCourseId(v); setPlacements({}); setEdited(null); setEditorOpen(false); setError(''); }} disabled={!card || Boolean(editing)}>
-                    <SelectTrigger aria-label="Course number" data-testid="course-number">
+                    <SelectTrigger className="w-full min-w-0" aria-label="Course number" data-testid="course-number">
                       <SelectValue placeholder={card ? 'Pick the course the committee boat showed' : 'Loading the card…'} />
                     </SelectTrigger>
                     <SelectContent>
@@ -330,7 +336,7 @@ function CourseDialogInner({
                                 }
                               }}
                             >
-                              <SelectTrigger aria-label={`Mark for ${cardMark.id}`} data-testid={`placement-${cardMark.id}`}>
+                              <SelectTrigger className="w-full min-w-0" aria-label={`Mark for ${cardMark.id}`} data-testid={`placement-${cardMark.id}`}>
                                 <SelectValue placeholder={`needs one — ${cardMark.placement ?? cardMark.name ?? ''}`} />
                               </SelectTrigger>
                               <SelectContent>

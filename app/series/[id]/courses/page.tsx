@@ -437,7 +437,7 @@ function SwapMarkDialogInner({
           <div className="grid grid-cols-[4rem_1fr] items-center gap-2 text-sm">
             <span>Replace</span>
             <Select value={fromId} onValueChange={(v) => { setFromId(v); setError(''); }}>
-              <SelectTrigger aria-label="Mark to replace" data-testid="swap-from"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full min-w-0" aria-label="Mark to replace" data-testid="swap-from"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {inCourse.map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
@@ -446,7 +446,7 @@ function SwapMarkDialogInner({
             </Select>
             <span>with</span>
             <Select value={toId} onValueChange={(v) => { setToId(v); setError(''); }}>
-              <SelectTrigger aria-label="Replacement mark" data-testid="swap-to"><SelectValue placeholder="Pick a mark" /></SelectTrigger>
+              <SelectTrigger className="w-full min-w-0" aria-label="Replacement mark" data-testid="swap-to"><SelectValue placeholder="Pick a mark" /></SelectTrigger>
               <SelectContent>
                 {marks.filter((m) => m.id !== fromId).map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
@@ -530,7 +530,7 @@ function AdoptCardDialogInner({
         </DialogHeader>
         <div className="space-y-2">
           <Select value={setPath} onValueChange={(v) => { setSetPath(v); setCardId(''); }}>
-            <SelectTrigger aria-label="Course card set"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full min-w-0" aria-label="Course card set" data-testid="adopt-card-set"><SelectValue /></SelectTrigger>
             <SelectContent>
               {sets.map((s) => (
                 <SelectItem key={s.path} value={s.path}>{courseCardSetLabel(s)}</SelectItem>
@@ -538,7 +538,7 @@ function AdoptCardDialogInner({
             </SelectContent>
           </Select>
           <Select value={effectiveCardId} onValueChange={setCardId} disabled={!set}>
-            <SelectTrigger aria-label="Course card"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full min-w-0" aria-label="Course card" data-testid="adopt-card"><SelectValue /></SelectTrigger>
             <SelectContent>
               {(set?.cards ?? []).map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>

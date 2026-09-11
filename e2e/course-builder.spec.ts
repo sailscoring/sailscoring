@@ -100,6 +100,13 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await page.getByTestId('new-course').click();
   await pick(page, 'course-card-set', 'Howth Yacht Club — Autumn League 2026');
   await pick(page, 'course-card', /offshore/);
+  // The two card selects share a grid row and the catalogue's names are long:
+  // neither may overlap the other or run past the dialog.
+  const dialogBox = (await page.getByRole('dialog').boundingBox())!;
+  const setBox = (await page.getByTestId('course-card-set').boundingBox())!;
+  const cardBox = (await page.getByTestId('course-card').boundingBox())!;
+  expect(setBox.x + setBox.width).toBeLessThanOrEqual(cardBox.x + 1);
+  expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width + 1);
   await pick(page, 'course-number', /^K1\b/);
   await expect(page.getByTestId('placement-SL')).toBeVisible();
   await pick(page, 'placement-SL', 'Start — 12 Sep');
