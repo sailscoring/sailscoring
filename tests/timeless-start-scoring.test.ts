@@ -54,3 +54,38 @@ describe('membership-only (timeless) starts in scoring', () => {
     expect(rankOrder([timedStart])).toEqual(['b', 'a']);
   });
 });
+
+function gaps(starts: RaceStart[], fleets = [fleet], allFinishes = finishes) {
+  const result = calculateFleetStandings(fleets, competitors, races, allFinishes, [], 'seriesEntries', starts);
+  return result.fleetStandings[0].raceGaps;
+}
+
+describe('a handicap fleet in none of a race\'s starts', () => {
+  it('reports the race as a scoring gap', () => {
+    expect(gaps([])).toEqual([{ raceId: 'r1', fleetId: 'f1', reason: 'fleet_not_in_start' }]);
+  });
+
+  it('reports nothing for a membership-only start — that fleet is waiting for a gun', () => {
+    expect(gaps([timelessStart])).toEqual([]);
+  });
+
+  it('reports nothing once the start has a gun', () => {
+    expect(gaps([timedStart])).toEqual([]);
+  });
+
+  it('reports nothing for a start that covers the fleet alongside others', () => {
+    const other: Fleet = { id: 'f2', seriesId: 's1', name: 'HPH', displayOrder: 1, scoringSystem: 'tcf' };
+    const shared: RaceStart = { id: 'rs1', raceId: 'r1', fleetIds: ['f2', 'f1'], startTime: '14:00:00' };
+    expect(gaps([shared], [fleet, other])).toEqual([]);
+  });
+
+  it('reports nothing for a scratch fleet, which has no correction to lose', () => {
+    const scratch: Fleet = { id: 'f1', seriesId: 's1', name: 'Scratch', displayOrder: 0, scoringSystem: 'scratch' };
+    expect(gaps([], [scratch])).toEqual([]);
+  });
+
+  it('reports nothing for a race the fleet did not come to the start of', () => {
+    const dnc = finishes.map((f) => ({ ...f, resultCode: 'DNC' as const, finishTime: null }));
+    expect(gaps([], [fleet], dnc)).toEqual([]);
+  });
+});

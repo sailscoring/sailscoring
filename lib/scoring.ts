@@ -1686,8 +1686,14 @@ function calculateHandicapStandings(
   // back would score the race scratch under an ORC fleet's name. It is caught
   // in the loop below, where nobody is scored and the gap is reported.
   const startsByRaceId = new Map<string, RaceStart>();
+  // The races this fleet was put in at all, gun or no gun. A race missing from
+  // here isn't waiting for a time — nobody said this fleet sailed it — which is
+  // what separates the deliberate scratch fallback from the gap reported below.
+  const racesWithAStart = new Set<string>();
   for (const rs of raceStarts) {
-    if (rs.fleetIds.includes(fleet.id) && rs.startTime) startsByRaceId.set(rs.raceId, rs);
+    if (!rs.fleetIds.includes(fleet.id)) continue;
+    racesWithAStart.add(rs.raceId);
+    if (rs.startTime) startsByRaceId.set(rs.raceId, rs);
   }
 
   const finishesByRace = groupFinishesByRace(allFinishes);
@@ -1885,6 +1891,16 @@ function calculateHandicapStandings(
     // fleet (issue #129 — see computeRaceExclusion).
     const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
     raceExcluded[raceIdx] = computeRaceExclusion(raceFinishes, fleetRaceFinishes) || forcedExcluded;
+
+    // This fleet came to the start of a race it is in no start for, so the
+    // scores just built are finishing order carrying a rating system's name.
+    // Corrected times are what the fleet exists to publish and a standings
+    // table looks the same either way, so say so rather than let it pass for
+    // scored. A race that doesn't count for the fleet — not held, or all-DNC,
+    // or struck — says nothing about starts and is left alone.
+    if (!racesWithAStart.has(race.id) && !raceExcluded[raceIdx]) {
+      raceGaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'fleet_not_in_start' });
+    }
 
     // Additive scoring penalties (ZFP/SCP/DPI) apply to finishers in handicap
     // fleets too, capped at this race's DNF score.

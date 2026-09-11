@@ -535,7 +535,7 @@ export default function StandingsPage({
             {rejections.length > 0 && (
               <ScoringRejectionsWarning rejections={rejections} competitors={competitors} />
             )}
-            <RaceScoringGapsWarning gaps={raceGaps} races={raceLabels} />
+            <RaceScoringGapsWarning gaps={raceGaps} races={raceLabels} fleet={isRealFleet ? fleet : undefined} />
             <FleetStandingsTable
               standings={standings}
               races={raceLabels}

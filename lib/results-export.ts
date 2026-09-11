@@ -715,10 +715,14 @@ export async function buildFleetHtmlFiles(
 
   // Races no fleet could score. Reported off the whole-series scoring rather
   // than per view: a race a fleet can't score is unscorable in every block
-  // that holds it, and the scorer fixes it once.
+  // that holds it, and the scorer fixes it once. Only the ORC gap belongs
+  // here: it leaves the race a column of blanks, which is what publishing
+  // refuses over. A fleet missing from a race's start still scores the race,
+  // on finishing order — wrong, and worth the Standings tab saying so, but
+  // not a page of nothing, so it doesn't hold the publish.
   const raceByIdForGaps = new Map(races.map((r) => [r.id, r]));
   const unscorable: UnscorableRace[] = fleetResults.flatMap(({ fleet, raceGaps }) =>
-    raceGaps.map((gap) => {
+    raceGaps.filter((gap) => gap.reason === 'orc_course_missing').map((gap) => {
       const race = raceByIdForGaps.get(gap.raceId);
       return {
         fleetName: fleet.name,

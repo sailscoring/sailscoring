@@ -1421,13 +1421,19 @@ export interface ScoringRejection {
   reason: ScoringRejectionReason;
 }
 
-/** Why a race can't be scored under the option its fleet resolved it to.
- *  Unlike a ScoringRejection this is about the race, not a boat in it. */
+/** Why a race isn't scored the way its fleet's rating system says it should
+ *  be. Unlike a ScoringRejection this is about the race, not a boat in it. */
 export type RaceScoringGapReason =
   // An ORC race resolved to an option that corrects over a course the start
   // doesn't carry: a constructed course's legs, or the distance a
-  // time-on-distance or model-course race needs.
-  | 'orc_course_missing';
+  // time-on-distance or model-course race needs. Nobody in the race is
+  // scored.
+  | 'orc_course_missing'
+  // A handicap fleet that appears in none of the race's starts. A start with
+  // no gun yet is a fleet waiting for its time; a fleet in no start at all was
+  // never put in the race, so there is no elapsed time to correct and the race
+  // falls back to finishing order under the handicap fleet's name.
+  | 'fleet_not_in_start';
 
 export interface RaceScoringGap {
   raceId: string;
