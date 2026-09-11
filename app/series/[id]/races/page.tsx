@@ -258,6 +258,9 @@ function RaceRow({
 
 /** Plural weekday label for an ISO date, e.g. "2026-05-05" → "Tuesdays".
  *  Interprets the date as UTC so the weekday doesn't drift by timezone. */
+/** The "Add multiple races" controls an error can belong to. */
+type GenField = 'date' | 'count' | 'until' | 'startTime';
+
 function weekdayLabel(isoDate: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -354,6 +357,11 @@ export default function RacesPage({
   const [genName, setGenName] = useState('');
   const [genStartTime, setGenStartTime] = useState('');
   const [genError, setGenError] = useState('');
+  // Which control the generator's error belongs to, so it can be marked and
+  // brought back into view — the dialog body scrolls, and an error rendered
+  // at the bottom of it is below the fold once a date preview is showing.
+  const [genErrorField, setGenErrorField] = useState<GenField | null>(null);
+  const genFieldRefs = useRef<Partial<Record<GenField, HTMLInputElement | null>>>({});
 
   // Sub-series editor dialog. `editingSubSeries` null while open = create;
   // a SubSeries = edit that one. A sub-series is a named selection of races.
@@ -656,21 +664,35 @@ export default function RacesPage({
     setGenUntilDate('');
     setGenName('');
     setGenStartTime('');
-    setGenError('');
+    clearGenError();
     setShowGenerateDialog(true);
+  }
+
+  // Fail the generator at a named control: the message renders above the
+  // footer, outside the scroll region, and the control it belongs to is
+  // marked invalid and focused — which scrolls it back into view.
+  function failGen(message: string, field: GenField) {
+    setGenError(message);
+    setGenErrorField(field);
+    genFieldRefs.current[field]?.focus();
+  }
+
+  function clearGenError() {
+    setGenError('');
+    setGenErrorField(null);
   }
 
   async function handleGenerateRaces() {
     if (generateRaces.isPending) return;
     if (!genStartDate) {
-      setGenError('Pick the date of the first race.');
+      failGen('Pick the date of the first race.', 'date');
       return;
     }
     let startTime: string | null = null;
     if (genUsesStartTime) {
       startTime = normalizeTimeInput(genStartTime);
       if (!startTime) {
-        setGenError('Enter a valid first start time, e.g. 14:05, 14:05:00 or 1405.');
+        failGen('Enter a valid first start time, e.g. 14:05, 14:05:00 or 1405.', 'startTime');
         return;
       }
     }
@@ -681,11 +703,11 @@ export default function RacesPage({
       untilDate: genMode === 'until' ? genUntilDate || undefined : undefined,
     });
     if (dates.length === 0) {
-      setGenError(
-        genMode === 'until'
-          ? 'That range produces no races — check the dates.'
-          : 'Enter how many races to create.',
-      );
+      if (genMode === 'until') {
+        failGen('That range produces no races — check the dates.', 'until');
+      } else {
+        failGen('Enter how many races to create.', 'count');
+      }
       return;
     }
 
@@ -1040,8 +1062,10 @@ export default function RacesPage({
               <Input
                 id="genStartDate"
                 type="date"
+                ref={(el) => { genFieldRefs.current.date = el; }}
+                aria-invalid={genErrorField === 'date'}
                 value={genStartDate}
-                onChange={(e) => { setGenStartDate(e.target.value); setGenError(''); }}
+                onChange={(e) => { setGenStartDate(e.target.value); clearGenError(); }}
                 autoFocus
               />
               {genWeekday && (
@@ -1070,7 +1094,7 @@ export default function RacesPage({
                     type="radio"
                     name="genMode"
                     checked={genMode === 'count'}
-                    onChange={() => { setGenMode('count'); setGenError(''); }}
+                    onChange={() => { setGenMode('count'); clearGenError(); }}
                   />
                   <span>Number of races</span>
                 </label>
@@ -1081,7 +1105,9 @@ export default function RacesPage({
                   max={MAX_GENERATED_RACES}
                   className="h-8 w-24"
                   value={genCount}
-                  onChange={(e) => { setGenCount(e.target.value); setGenError(''); }}
+                  ref={(el) => { genFieldRefs.current.count = el; }}
+                  aria-invalid={genErrorField === 'count'}
+                  onChange={(e) => { setGenCount(e.target.value); clearGenError(); }}
                   onFocus={() => setGenMode('count')}
                 />
               </div>
@@ -1091,7 +1117,7 @@ export default function RacesPage({
                     type="radio"
                     name="genMode"
                     checked={genMode === 'until'}
-                    onChange={() => { setGenMode('until'); setGenError(''); }}
+                    onChange={() => { setGenMode('until'); clearGenError(); }}
                   />
                   <span>Until date</span>
                 </label>
@@ -1100,7 +1126,9 @@ export default function RacesPage({
                   aria-label="Last race on or before"
                   className="h-8 w-44"
                   value={genUntilDate}
-                  onChange={(e) => { setGenUntilDate(e.target.value); setGenError(''); }}
+                  ref={(el) => { genFieldRefs.current.until = el; }}
+                  aria-invalid={genErrorField === 'until'}
+                  onChange={(e) => { setGenUntilDate(e.target.value); clearGenError(); }}
                   onFocus={() => setGenMode('until')}
                 />
               </div>
@@ -1122,8 +1150,10 @@ export default function RacesPage({
                 <Label htmlFor="genStartTime">First start time</Label>
                 <Input
                   id="genStartTime"
+                  ref={(el) => { genFieldRefs.current.startTime = el; }}
+                  aria-invalid={genErrorField === 'startTime'}
                   value={genStartTime}
-                  onChange={(e) => { setGenStartTime(e.target.value); setGenError(''); }}
+                  onChange={(e) => { setGenStartTime(e.target.value); clearGenError(); }}
                   placeholder="e.g. 14:05"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -1150,8 +1180,12 @@ export default function RacesPage({
                 )}
               </div>
             )}
-            {genError && <p className="text-sm text-destructive">{genError}</p>}
           </div>
+          {/* Outside the scrolling body: with a run of dates previewed the body
+              is already scrolled past its height, and an error rendered at the
+              bottom of it lands below the fold — the button you pressed stays
+              in view while the reason it did nothing does not. */}
+          {genError && <p className="text-sm text-destructive pt-2">{genError}</p>}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowGenerateDialog(false)}>Cancel</Button>
             <Button onClick={handleGenerateRaces} disabled={generateRaces.isPending}>

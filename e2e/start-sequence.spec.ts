@@ -102,6 +102,26 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
   await expect(page.getByText('15:05:00')).toBeVisible();
   await expect(page.getByText('15:10:00')).toBeVisible();
   await expect(page.getByText('15:15:00')).toBeVisible();
+
+  // ── Add multiple races: a rejected start time must be readable ───────────
+  // With a long date preview the dialog body is scrolled past its height, so
+  // an error rendered inside it lands below the fold and the button looks
+  // like it did nothing.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  await page.getByRole('button', { name: 'More add-race options' }).click();
+  await page.getByRole('menuitem', { name: 'Add multiple races…' }).click();
+  const genDialog = page.getByRole('dialog');
+  await genDialog.getByLabel('First race date').fill('2026-05-05');
+  await genDialog.getByRole('spinbutton').fill('20');
+  await expect(genDialog.getByText('20 races will be created:')).toBeVisible();
+  const genStartTime = genDialog.getByLabel('First start time');
+  await genStartTime.fill('half one');
+  await genDialog.getByRole('button', { name: 'Create 20 races' }).click();
+  const genError = genDialog.getByText(/Enter a valid first start time/);
+  await expect(genError).toBeVisible();
+  await expect(genError).toBeInViewport();
+  await expect(genStartTime).toHaveAttribute('aria-invalid', 'true');
 });
 
 test('deleting a fleet strips it from the default start sequence and existing race starts', async ({ page }) => {
