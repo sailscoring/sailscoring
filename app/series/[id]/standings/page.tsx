@@ -43,6 +43,7 @@ import {
   FleetStandingsTable,
   type FleetStandingsTableProps,
 } from '@/components/fleet-standings-table';
+import { RaceScoringGapsWarning } from '@/components/race-scoring-gaps-warning';
 import { ScoringRejectionsWarning } from '@/components/scoring-rejections-warning';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import type { Competitor, DiscardThreshold, Race } from '@/lib/types';
@@ -507,7 +508,7 @@ export default function StandingsPage({
         </div>
       </div>
 
-      {fleetResults.map(({ fleet, standings, rejections }) => {
+      {fleetResults.map(({ fleet, standings, rejections, raceGaps }) => {
         const hasDiscards = standings.some((s) => s.netPoints !== s.totalPoints);
         // Struck races for this fleet in the active scope (block or series).
         // Shown to every viewer so the strike isn't invisible; the toggle
@@ -534,6 +535,7 @@ export default function StandingsPage({
             {rejections.length > 0 && (
               <ScoringRejectionsWarning rejections={rejections} competitors={competitors} />
             )}
+            <RaceScoringGapsWarning gaps={raceGaps} races={raceLabels} />
             <FleetStandingsTable
               standings={standings}
               races={raceLabels}

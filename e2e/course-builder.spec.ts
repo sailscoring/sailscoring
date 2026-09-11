@@ -186,6 +186,20 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Add start' }).click();
   await page.getByPlaceholder('14:05:00').fill('14:00:00');
+  // Saved without a course first: PCS has no curve to look an implied wind up
+  // on, so the race is not scored — and the standings say so rather than
+  // quietly ranking it on crossing order.
+  await page.getByRole('checkbox', { name: 'Class 2' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByText(/its start has no course/)).toBeVisible();
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Edit start' }).click();
   await pick(page, 'start-course-picker', 'K1 — 12 Sep R1');
   await expect(page.getByLabel('Wind direction')).toHaveValue('180');
   await expect(page.getByTestId('legs-disclosure')).toContainText(/Legs \(\d+\)/);
@@ -193,7 +207,6 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await expect(page.getByLabel('Leg 1 distance')).not.toHaveValue('');
   await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue('180');
   await expect(page.getByTestId('legs-edited')).toHaveCount(0);
-  await page.getByRole('checkbox', { name: 'Class 2' }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByTitle('The course this start sailed')).toHaveText('K1 — 12 Sep R1');

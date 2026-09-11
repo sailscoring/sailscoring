@@ -1,0 +1,84 @@
+description: "ORC — a time-on-distance race with no recorded course length scores nobody"
+rrs_notes: "ORC Rating Systems 403.2 corrects over the course length, so a race with none cannot be scored under the fleet's option. It is not quietly scored by some other method: ranking it on crossing order would put a scratch race in front of competitors under an ORC fleet's name. Everyone in it is scored as if they had not come to the start, and the standings page names the race and what it is waiting for."
+
+# The same two boats and the same first race as 16-orc-aphd-tod.
+#   Mojo (J-80)           APHD 594.7 s/NM — the scratch boat
+#   Impetuous (Corby 25)  APHD 623.0 s/NM
+#
+# Race 1, 3.24 NM, start 15:15:00 — scored normally:
+#   Mojo:      finish 15:50:51  ET = 2151 s  CT = 2151            → 2nd
+#   Impetuous: finish 15:51:49  ET = 2209 s  CT = 2209 − 91.692   → 1st
+#
+# Race 2 has a gun and two finishers but no recorded course length, so
+# there is nothing to correct over. Neither boat is scored: both take the
+# series-entries penalty of 3 (two entries + 1), and Mojo crossing first
+# earns nothing for it.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: orc
+  orcOption:
+    option: APHD
+    kind: tod
+
+competitors:
+  - sailNumber: "IRL 2507"
+    name: "Impetuous"
+    orcCertFields:
+      APHT: 0.9631
+      APHD: 623.0
+  - sailNumber: "IRL 1551"
+    name: "Mojo"
+    orcCertFields:
+      APHT: 1.0089
+      APHD: 594.7
+
+races:
+  - number: 1
+    startTime: "15:15:00"
+    distanceNm: 3.24
+    finishes:
+      - sailor: "IRL 1551"
+        finishTime: "15:50:51"
+      - sailor: "IRL 2507"
+        finishTime: "15:51:49"
+    expected:
+      - sailor: "IRL 2507"
+        rank: 1
+        points: 1.0
+        elapsedTime: 2209
+        correctedTime: 2117
+        tcfApplied: 623.0
+      - sailor: "IRL 1551"
+        rank: 2
+        points: 2.0
+        elapsedTime: 2151
+        correctedTime: 2151
+        tcfApplied: 594.7
+  - number: 2
+    startTime: "16:30:00"
+    # No distanceNm — the race cannot be scored on time-on-distance.
+    finishes:
+      - sailor: "IRL 1551"
+        finishTime: "17:05:00"
+      - sailor: "IRL 2507"
+        finishTime: "17:06:00"
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "IRL 2507"
+      racePoints: [1, 3]
+      raceCodes: [null, DNC]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 2
+      sailor: "IRL 1551"
+      racePoints: [2, 3]
+      raceCodes: [null, DNC]
+      raceDiscards: [false, false]
+      totalPoints: 5
+      netPoints: 5

@@ -1419,6 +1419,22 @@ export interface ScoringRejection {
   reason: ScoringRejectionReason;
 }
 
+/** Why a race can't be scored under the option its fleet resolved it to.
+ *  Unlike a ScoringRejection this is about the race, not a boat in it. */
+export type RaceScoringGapReason =
+  // An ORC race resolved to an option that corrects over a course the start
+  // doesn't carry: a constructed course's legs, or the distance a
+  // time-on-distance or model-course race needs.
+  | 'orc_course_missing';
+
+export interface RaceScoringGap {
+  raceId: string;
+  fleetId: string;
+  reason: RaceScoringGapReason;
+  /** The ORC scoring option the race resolved to. */
+  option?: string;
+}
+
 /**
  * Activity log entry (#153). The shape returned by the `/api/v1/activity`
  * endpoints and rendered by the Activity tab + series-list recency strips.

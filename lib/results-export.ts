@@ -151,6 +151,20 @@ export interface FleetHtmlFile {
 export interface FleetHtmlBuild {
   files: FleetHtmlFile[];
   exportJson?: string;
+  /** Races a fleet can't score under the ORC option they resolved to — the
+   *  start carries no course to correct over, so nobody in them is scored.
+   *  A download says so on the page; publishing refuses. Absent on the
+   *  split-fleet path, which builds its pages separately. */
+  unscorable?: UnscorableRace[];
+}
+
+/** One fleet's race that went unscored, named the way a scorer reads it. */
+export interface UnscorableRace {
+  fleetName: string;
+  raceNumber: number;
+  raceName?: string;
+  /** The ORC scoring option the race resolved to. */
+  option?: string;
 }
 
 /**
@@ -693,6 +707,22 @@ export async function buildFleetHtmlFiles(
     buildRaceFleetExclusionMap(series.raceFleetExclusions),
     series.proportionalDiscard,
     { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
+  );
+
+  // Races no fleet could score. Reported off the whole-series scoring rather
+  // than per view: a race a fleet can't score is unscorable in every block
+  // that holds it, and the scorer fixes it once.
+  const raceByIdForGaps = new Map(races.map((r) => [r.id, r]));
+  const unscorable: UnscorableRace[] = fleetResults.flatMap(({ fleet, raceGaps }) =>
+    raceGaps.map((gap) => {
+      const race = raceByIdForGaps.get(gap.raceId);
+      return {
+        fleetName: fleet.name,
+        raceNumber: race?.raceNumber ?? 0,
+        ...(race?.name ? { raceName: race.name } : {}),
+        ...(gap.option ? { option: gap.option } : {}),
+      };
+    }),
   );
 
   const isSingleDefault = fleets.length <= 1;
@@ -1263,7 +1293,11 @@ export async function buildFleetHtmlFiles(
   }
 
   return results.length > 0
-    ? { files: results, ...(publicExportJson ? { exportJson: publicExportJson } : {}) }
+    ? {
+        files: results,
+        ...(publicExportJson ? { exportJson: publicExportJson } : {}),
+        ...(unscorable.length > 0 ? { unscorable } : {}),
+      }
     : null;
 }
 

@@ -700,8 +700,27 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
       setPhase('idle');
       if (e instanceof ValidationApiError) {
         const issues = e.issues as
-          | { code?: string; sharedWith?: string[]; fleetName?: string }
+          | {
+              code?: string;
+              sharedWith?: string[];
+              fleetName?: string;
+              races?: { fleetName: string; raceNumber: number; raceName?: string; option?: string }[];
+            }
           | undefined;
+        if (issues?.code === 'unscorable-race') {
+          const list = (issues.races ?? []).map(
+            (r) =>
+              `${r.fleetName} Race ${r.raceNumber}${r.raceName ? ` (${r.raceName})` : ''}${
+                r.option === 'CC' ? ' — the start has no course' : ' — the start records no course distance'
+              }`,
+          );
+          setError(
+            `Not published: ${formatNameList(list)} cannot be scored under the fleet's ORC option, so nobody in ${
+              list.length === 1 ? 'it' : 'them'
+            } is scored. Enter the course on the race's start, or change the race's scoring option.`,
+          );
+          return;
+        }
         if (issues?.code === 'slug-shared') {
           // Publishing into a season joins silently; this fires when the
           // top-level URL (a block series' folder, or a season's URL form)

@@ -115,12 +115,14 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     expect(byRank).toEqual(['imp', 'mojo']);
   });
 
-  it('standings: a ToD race with no recorded distance falls back to scratch', () => {
+  it('standings: a ToD race with no recorded distance scores nobody and reports the gap', () => {
     const finishes = [finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49')];
     const result = calculateFleetStandings([todFleet], [impetuous, mojo], races, finishes, [], 'seriesEntries', [{ ...start, startTime: '15:15:00' }]);
-    // Crossing order: Mojo first.
-    const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
-    expect(byRank).toEqual(['mojo', 'imp']);
+    // Scoring it on crossing order would publish a scratch race under an ORC
+    // fleet's name, so it isn't scored at all.
+    const entry = result.fleetStandings[0];
+    expect(entry.raceGaps).toEqual([{ raceId: 'r1', fleetId: todFleet.id, reason: 'orc_course_missing', option: 'APHD' }]);
+    expect(entry.standings.every((s) => s.raceRanks[0] === null)).toBe(true);
   });
 
   it('a certificate lacking the ToD field leaves the boat unrated', () => {
@@ -186,11 +188,11 @@ describe('ORC Performance Curve Scoring in the standings engine', () => {
     expect(imp?.orc?.scoringWindOverridden).toBe(true);
   });
 
-  it('a PCS race with no recorded distance falls back to scratch', () => {
+  it('a PCS race with no recorded distance scores nobody and reports the gap', () => {
     const result = calculateFleetStandings([pcsFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [start]);
-    const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
-    // Crossing order: Mojo first.
-    expect(byRank).toEqual(['mojo', 'imp']);
+    const entry = result.fleetStandings[0];
+    expect(entry.raceGaps.map((g) => g.reason)).toEqual(['orc_course_missing']);
+    expect(entry.standings.every((s) => s.raceRanks[0] === null)).toBe(true);
   });
 
   it('scores a constructed course from the start legs, matching the module', () => {
@@ -230,12 +232,13 @@ describe('ORC Performance Curve Scoring in the standings engine', () => {
     }
   });
 
-  it('a constructed-course race with no recorded legs falls back to scratch', () => {
+  it('a constructed-course race with no recorded legs scores nobody and reports the gap', () => {
     const ccFleet: Fleet = { ...fleet, orcProfile: { option: 'CC', kind: 'pcs' } };
     // A distance alone is not a constructed course.
     const result = calculateFleetStandings([ccFleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [pcsStart]);
-    const byRank = [...result.fleetStandings[0].standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.id);
-    expect(byRank).toEqual(['mojo', 'imp']);
+    const entry = result.fleetStandings[0];
+    expect(entry.raceGaps).toEqual([{ raceId: 'r1', fleetId: ccFleet.id, reason: 'orc_course_missing', option: 'CC' }]);
+    expect(entry.standings.every((s) => s.raceRanks[0] === null)).toBe(true);
   });
 
   it('a certificate without the allowance matrix is rejected on a PCS fleet', () => {
@@ -290,10 +293,12 @@ describe('ORC wind-band selection (per-start option)', () => {
     expect(imp?.orc?.distanceNm).toBe(3.9);
   });
 
-  it('a race switched to time-on-distance without a course distance falls back to scratch', () => {
+  it('a race switched to time-on-distance without a course distance scores nobody', () => {
     const mismatched: RaceStart = { ...start, orcOption: 'IRL_5B_WL_M_TOD' };
-    // Crossing order: Mojo first.
-    expect(rankOrder(fleet, mismatched)).toEqual(['mojo', 'imp']);
+    const result = calculateFleetStandings([fleet], [impFull, mojoFull], races, finishes, [], 'seriesEntries', [mismatched]);
+    const entry = result.fleetStandings[0];
+    expect(entry.raceGaps.map((g) => g.option)).toEqual(['IRL_5B_WL_M_TOD']);
+    expect(entry.standings.every((s) => s.raceRanks[0] === null)).toBe(true);
   });
 
   it('a time-on-distance fleet takes ToD bands, scratch per race', () => {

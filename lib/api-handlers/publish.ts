@@ -400,6 +400,28 @@ export async function publishSeries(
   const toBuild = allFiles.filter(included);
   const carriedAll = (existing?.pages ?? []).filter((p) => !included(p));
 
+  // A race whose fleet couldn't score it goes out as a column of blanks under
+  // that fleet's rating system — the one outward-facing, irreversible step is
+  // the wrong place to discover it. A fleet's own page is refused when that
+  // fleet has a gap; a page drawn from several fleets' standings is refused
+  // when any fleet does, since the build doesn't say which it drew on. Pages
+  // that aren't scored at all — the entry list, the fleet assignments — go
+  // out regardless.
+  const unscorable = build.unscorable ?? [];
+  if (unscorable.length > 0) {
+    const blocking = toBuild.some((f) => {
+      if (f.isEntryList || f.isAuxiliary) return false;
+      if (f.isCombined || f.isNamedPage || f.isPrizes) return true;
+      return unscorable.some((u) => u.fleetName === f.fleetName);
+    });
+    if (blocking) {
+      throw new BadRequestError('a race cannot be scored under its fleet\'s option', {
+        code: 'unscorable-race',
+        races: unscorable,
+      });
+    }
+  }
+
   if (opts.rebuildOnly) {
     // Compared against everything the build produced, not just what was
     // ticked: a page the build would add is exactly what ticking only the

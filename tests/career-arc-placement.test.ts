@@ -20,6 +20,7 @@ function result(
       fleet: f.fleet,
       standings: f.ids.map(([id, rank]) => standing(id, rank)),
       rejections: [],
+      raceGaps: [],
     })),
     circularRedressRaces: [],
   };
