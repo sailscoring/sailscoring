@@ -22,11 +22,14 @@ import { sharedFolderSegment } from '@/lib/published-tree';
 import {
   describeGroupMembers,
   describeGroupSections,
-  fleetPagesSuppressed,
-  groupApplies,
-  producesPage,
   resolvePublishingGroups,
 } from '@/lib/publishing-groups';
+import {
+  isExtraPage,
+  resolvePublishPages,
+  PRIZES_PAGE,
+  type PublishPage,
+} from '@/lib/publish-pages';
 import { StickyNote } from 'lucide-react';
 import {
   describePageNoteKey,
@@ -38,6 +41,7 @@ import {
 } from '@/lib/page-note';
 import { PageNoteEditor } from '@/components/page-note-editor';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
+import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
@@ -54,17 +58,6 @@ export interface PublishDialogProps {
   /** Whether FTP upload is available (feature-gated + manage-workspace). When
    *  true the dialog offers a persistent switch to the FTP destination. */
   canFtp: boolean;
-  /** What to call the lone default page, when the caller knows better than the
-   *  generic "Standings" — a split-fleet series publishes its championship
-   *  there, and Preview calls it "Championship". Naming only; the sub-path is
-   *  unchanged. */
-  lonePageName?: string;
-  /** Pages the build emits that the dialog cannot work out for itself,
-   *  because they come from neither a fleet nor a publishing group — a
-   *  split-fleet series' rolling fleet-assignments page. Named by the caller,
-   *  then treated like any other page: tickable, with an editable URL until
-   *  the first publish freezes it. */
-  extraPages?: string[];
 }
 
 /** Sanitise free-typed slug / sub-path input to the allowed character set. */
@@ -118,23 +111,10 @@ interface SuppressedRow {
  * fleet name ("Puppeteers HPH") point at a disambiguated URL segment
  * ("tuesday-puppeteers-hph") when several series share one slug.
  */
-/** Pages that ride the publish machinery alongside a series' results pages,
- *  each with its own row in the dialog: the prize sheet (#240) and the
- *  competitor list (#423). Neither is a fleet's results, so neither counts
- *  when working out whether a publication has a lone results page — and a
- *  caller-declared page (`extraPages`) joins them. */
-const BUILT_IN_EXTRA_PAGES = ['Prizes', 'Entries'];
-
-export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageName, extraPages }: PublishDialogProps) {
+export function PublishDialog({ series, fleets, open, onClose, canFtp }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
   const confirm = useConfirm();
   const { has } = useFeatures();
-  // The prize sheet (#240) publishes as one more name-keyed page, "Prizes".
-  const hasPrizes = has('prizes') && (series.prizes?.length ?? 0) > 0;
-  // The competitor list (#423) publishes the same way, as "Entries". No
-  // per-series condition to check: every series has a roster, which is why
-  // the page is gated rather than always offered.
-  const hasEntryList = has('entry-list');
   // Destination mode. Persisted per-series (`series.publishMode`) so the dialog
   // reopens where the scorer left it; clamped to Sail Scoring when FTP isn't
   // available so a workspace that loses the feature isn't stranded in FTP mode.
@@ -143,41 +123,42 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
   // `{block}/{leaf}` paths, so the per-fleet URL editors don't apply.
   const { data: subSeriesList } = useSubSeriesBySeries(series.id);
   const hasBlocks = (subSeriesList?.length ?? 0) > 0;
-  // Extra pages (#255, #390): defined on the Settings tab, *reflected* here.
-  // Shown whenever config exists — the feature gate hides only the editor.
-  // A single-fleet series has nothing to combine but can still section its
-  // fleet by a subdivision axis (mirrors the build); on a block series a
-  // group publishes one page per sub-series, like a fleet.
-  const resolvedGroups = useMemo(
-    () =>
-      resolvePublishingGroups(series.publishingGroups, fleets)
-        .filter(({ group }) => groupApplies(group, fleets.length > 1))
-        .filter(producesPage),
-    [series.publishingGroups, fleets],
-  );
-  // With individual fleet pages off, every fleet publishes only through the
-  // combined pages (inert while none are configured).
-  const suppressed = useMemo(
-    () =>
-      fleetPagesSuppressed(series.publishIndividualFleetPages, resolvedGroups)
-        ? new Set(fleets.map((f) => f.id))
-        : new Set<string>(),
-    [series.publishIndividualFleetPages, fleets, resolvedGroups],
-  );
-  // The names that publish as pages this round: combined pages first, then
-  // the fleets that keep a standalone page, then the prize sheet — mirroring
-  // the build order. Pages are name-keyed, so groups and the prize sheet ride
-  // the same selection/sub-path machinery.
-  const pageNames = useMemo(
-    () => [
-      ...resolvedGroups.map((r) => r.group.name.trim()),
-      ...fleets.filter((f) => !suppressed.has(f.id)).map((f) => f.name),
-      ...(extraPages ?? []),
-      ...(hasPrizes ? ['Prizes'] : []),
-      ...(hasEntryList ? ['Entries'] : []),
-    ],
-    [resolvedGroups, fleets, suppressed, hasPrizes, hasEntryList, extraPages],
-  );
+  // A championship publishes its own pages rather than its round fleets' —
+  // the same condition the build applies, a committed round rather than a
+  // configured format. Asked for only where it can exist: a workspace
+  // without the gate has no championship.
+  const { data: splitState } = useSplitFleetState(series.id, {
+    enabled: has('split-fleets'),
+  });
+  const isChampionship = (splitState?.rounds?.length ?? 0) > 0;
+  // What this series publishes — the one derivation, shared with the build
+  // and with the FTP pane below, so a destination can never offer a set of
+  // pages the other doesn't. Combined pages (#255, #390) are defined on the
+  // Settings tab and *reflected* here; the prize sheet (#240) and the entry
+  // list (#423) arrive with their workspace features.
+  const pages = resolvePublishPages({
+    series,
+    fleets,
+    splitFleets: isChampionship,
+    features: { prizes: has('prizes'), entryList: has('entry-list') },
+  });
+  // The lone default page, when there is one: a single-fleet series' results,
+  // or a championship's standings. Its name can be synthetic ("Default",
+  // "Unknown"), which is why the server takes it by flag rather than by name
+  // — and why the dialog labels it generically unless the page names itself.
+  const defaultPage = pages.find((p) => p.isDefault) ?? null;
+  // The pages that carry a name the scorer would recognise, each with its own
+  // row: everything except that lone page.
+  const namedPages = pages.filter((p) => !p.isDefault);
+  const pageNames = namedPages.map((p) => p.name);
+  // The pages that are not a fleet's results: the prize sheet, the entry
+  // list, and a championship's race-results and assignments pages. They ride
+  // the publish machinery like any other page, but none of them counts when
+  // asking whether a publication has results — or which live page the lone
+  // results row should preview.
+  const extraPageSet = new Set(pages.filter(isExtraPage).map((p) => p.name));
+  // Combined-page detail, for the row captions — the group behind each page.
+  const resolvedGroups = resolvePublishingGroups(series.publishingGroups, fleets);
   const [status, setStatus] = useState<PublicationStatus | null>(null);
   const [slug, setSlug] = useState('');
   // Where a first publish lands (ADR-011): a season folder — "Season: 2026,
@@ -213,40 +194,38 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
   const workspaceSlug = status?.workspaceSlug ?? '';
 
   // A single-race event's lone page is its race result (#347), so it is named
-  // and served as one.
-  const raceResults = series.publishDetail === 'races';
-  // A split-fleet series' lone default page is its championship standings, and
-  // Preview names it "Championship" — so the caller passes that name rather
-  // than letting the two surfaces disagree about what the page is called. The
-  // URL is unaffected: it stays `standings`, which is already published.
-  const lonePageLabel = lonePageName ?? (raceResults ? 'Results' : 'Standings');
+  // and served as one. A championship's lone page is its standings whatever
+  // the setting says — the setting has no say over a tiered table.
+  const raceResults = series.publishDetail === 'races' && !isChampionship;
+  // What the lone page is called. A page that names itself ("Championship")
+  // says so; a fleet's page is labelled generically, because the fleet behind
+  // it is often the synthetic "Default" the series was created with.
+  const lonePageLabel =
+    defaultPage && defaultPage.kind !== 'fleet'
+      ? defaultPage.name
+      : raceResults
+        ? 'Results'
+        : 'Standings';
 
-  // Derived default sub-path for an unpublished fleet: `standings` (or
-  // `results`) for a lone (default) fleet, otherwise the kebab-cased name —
-  // mirrors the server. The prize sheet defaults to `prizes` regardless of the
-  // fleet count (when co-publishing the server disambiguates to
-  // `{series-slug}-prizes`).
-  const groupNames = useMemo(
-    () => new Set(resolvedGroups.map((r) => r.group.name.trim())),
-    [resolvedGroups],
-  );
-  const defaultSubPath = useMemo(() => {
-    // Only the *fleet's* page is the lone default one — an extra page beside
-    // it (#390) is served at its own name, exactly as on a multi-fleet series.
-    const loneFleet = fleets.length <= 1;
-    return (name: string) =>
-      name === 'Prizes'
-        ? 'prizes'
-        : name === 'Entries'
-          ? 'entries'
-          : // A caller-named page is served at its own name, never at the lone
-            // page's slug — it is a page beside the results, not the results.
-            (extraPages ?? []).includes(name)
-            ? fleetSubPath(name, false)
-            : loneFleet && !groupNames.has(name)
-              ? defaultPageSlug(raceResults)
-              : fleetSubPath(name, false);
-  }, [fleets.length, raceResults, groupNames, extraPages]);
+  // Derived default sub-path for an unpublished page: `standings` (or
+  // `results`) for the lone default page, `prizes` / `entries` for those two
+  // regardless of the fleet count (when co-publishing the server
+  // disambiguates to `{series-slug}-prizes`), otherwise the kebab-cased name
+  // — mirroring the server. Every other page is served at its own name, the
+  // lone page's slug being the lone page's.
+  const defaultSubPathFor = (page: PublishPage): string =>
+    page.kind === 'prizes'
+      ? 'prizes'
+      : page.kind === 'entries'
+        ? 'entries'
+        : page.isDefault
+          ? defaultPageSlug(raceResults)
+          : fleetSubPath(page.name, false);
+  const pageByName = new Map(pages.map((p) => [p.name, p]));
+  const defaultSubPath = (name: string): string => {
+    const page = pageByName.get(name);
+    return page ? defaultSubPathFor(page) : fleetSubPath(name, false);
+  };
 
   // Load publication state each time the dialog opens, and seed the per-fleet
   // selection + sub-paths from it. Syncing with the external open signal, so the
@@ -284,9 +263,8 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
         // Same rule as the named pages: everything on a first publish, only
         // what is already live on a re-publish, so re-publishing never
         // silently puts out a page the scorer had left back.
-        const extraNames = new Set([...BUILT_IN_EXTRA_PAGES, ...(extraPages ?? [])]);
         setLoneSelected(
-          !pub || (pub.pages ?? []).some((pg) => !extraNames.has(pg.fleetName)),
+          !pub || (pub.pages ?? []).some((pg) => !extraPageSet.has(pg.fleetName)),
         );
         setPhase('idle');
       })
@@ -322,7 +300,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
 
   /** What each non-fleet page is, for the row's caption — shared by the
    *  multi-fleet row list and the extra-page rows of a single-fleet series. */
-  const captionByName = useMemo(() => {
+  const captionByName = (() => {
     const captions = new Map(
       resolvedGroups.map((r) => [
         r.group.name.trim(),
@@ -331,14 +309,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
           : `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}`,
       ]),
     );
-    if (hasPrizes) {
+    if (pages.some((p) => p.kind === 'prizes')) {
       const prizeCount = series.prizes?.length ?? 0;
       captions.set('Prizes', `prize list · ${prizeCount} prize${prizeCount === 1 ? '' : 's'}`);
     }
     return captions;
-  }, [resolvedGroups, hasPrizes, series.prizes, series.subdivisionAxes]);
+  })();
 
-  const rows = useMemo<FleetRow[]>(() => {
+  const rows: FleetRow[] = (() => {
     const publishedByName = new Map(
       (published?.pages ?? []).map((p) => [p.fleetName, p.url]),
     );
@@ -348,22 +326,28 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       publishedUrl: publishedByName.get(name) ?? null,
       ...(captionByName.has(name) ? { caption: captionByName.get(name)! } : {}),
     }));
-  }, [pageNames, published, captionByName]);
+  })();
 
   // Fleets while individual pages are off: listed dimmed so the scorer sees
   // where each fleet went — its combined page(s), or a warning when no
   // combined page covers it (it isn't published at all).
-  const suppressedRows = useMemo<SuppressedRow[]>(() => {
-    if (suppressed.size === 0) return [];
+  const suppressedRows: SuppressedRow[] = (() => {
+    // A championship's round fleets are internal — they are not fleets whose
+    // page went missing, so they are not listed as such.
+    if (isChampionship) return [];
+    const published = new Set(
+      pages.filter((p) => p.kind === 'fleet').map((p) => p.fleetId),
+    );
+    const combinedIds = new Set(pages.filter((p) => p.kind === 'combined').map((p) => p.groupId));
     return fleets
-      .filter((f) => suppressed.has(f.id))
+      .filter((f) => !published.has(f.id))
       .map((f) => ({
         name: f.name,
         groupNames: resolvedGroups
-          .filter((r) => r.fleets.some((m) => m.id === f.id))
+          .filter((r) => combinedIds.has(r.group.id) && r.fleets.some((m) => m.id === f.id))
           .map((r) => r.group.name.trim()),
       }));
-  }, [fleets, suppressed, resolvedGroups]);
+  })();
 
   // The sub-path each row resolves to (frozen path, or the editable value).
   const segmentFor = (row: FleetRow): string =>
@@ -402,29 +386,21 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
   // multi-fleet row, just without the per-fleet selection. Sending it explicitly
   // keeps the URL WYSIWYG: the server no longer silently renames it to the series
   // slug when the page co-publishes into a shared slug.
-  const multiFleet = fleets.length > 1;
+  const multiFleet = defaultPage === null;
 
   // The publication's live results pages when there are several in single-page
-  // mode (server-built pages the dialog can't enumerate, e.g. a split-fleet
-  // series' championship + fleet-assignments pages); null means one page and
-  // the `singlePreview` link renders alone. Blocks link their index instead,
-  // and the prizes page keeps its dedicated row.
-  // Rows the extra-pages block below owns. They must not also be listed as
-  // results pages, or a published page shows up twice.
-  const extraPageSet = useMemo(
-    () => new Set([...BUILT_IN_EXTRA_PAGES, ...(extraPages ?? [])]),
-    [extraPages],
-  );
-
-  const publishedResultPages = useMemo(() => {
+  // mode (a championship's standings + race-results + assignments); null means
+  // one page and the `singlePreview` link renders alone. Blocks link their
+  // index instead, and the prizes page keeps its dedicated row.
+  const publishedResultPages = (() => {
     if (hasBlocks) return null;
-    const pages = (published?.pages ?? []).filter((p) => !extraPageSet.has(p.fleetName));
-    return pages.length > 1 ? pages : null;
-  }, [published, hasBlocks, extraPageSet]);
+    const live = (published?.pages ?? []).filter((p) => !extraPageSet.has(p.fleetName));
+    return live.length > 1 ? live : null;
+  })();
 
   // The single default page once published — the server's actual live page, used
   // for the frozen read-only link + Copy.
-  const singlePreview = useMemo(() => {
+  const singlePreview = (() => {
     // The prize sheet and the competitor list have their own rows below — the
     // preview is the results page. A publication that is *only* those (an
     // entry list published before race one) has no results page to preview,
@@ -441,7 +417,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
         : (page?.url ??
           `${urlPrefix}/${folderPrefix ? `${folderPrefix}/` : ''}${singlePath || 'standings'}`),
     };
-  }, [published, fleets, urlPrefix, singlePath, hasBlocks, folderPrefix, extraPageSet]);
+  })();
 
 
   // Client-side guard so the button reflects what the server would reject. The
@@ -450,7 +426,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
   // multi-fleet UI, the pages that will be live afterwards are the ticked ones
   // plus any already-published fleet (which stays live even when unticked) — we
   // need at least one, with distinct sub-paths.
-  const prizesFrozen = (published?.pages ?? []).some((p) => p.fleetName === 'Prizes');
+  const prizesFrozen = (published?.pages ?? []).some((p) => p.fleetName === PRIZES_PAGE);
 
   /** Whether a page of this name is already live (its URL frozen). */
   const frozenPage = (name: string) =>
@@ -459,14 +435,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
   // Pages listed beneath the lone results page of a single-fleet series: the
   // extra pages defined for it (#390) and the prize sheet. A multi-fleet
   // series lists all of these as ordinary rows above instead.
-  const extraPageNames = multiFleet
-    ? []
-    : [
-        ...resolvedGroups.map((r) => r.group.name.trim()),
-        ...(extraPages ?? []),
-        ...(hasPrizes ? ['Prizes'] : []),
-        ...(hasEntryList ? ['Entries'] : []),
-      ];
+  const extraPageNames = multiFleet ? [] : pageNames;
 
   const validation = useMemo(() => {
     if (seasonMode) {
@@ -482,7 +451,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       );
       for (const name of ticked) {
         if (!(subPaths[name] ?? '')) {
-          return name === 'Prizes' ? 'Give the prize list a URL.' : `Give “${name}” a URL.`;
+          return name === PRIZES_PAGE ? 'Give the prize list a URL.' : `Give “${name}” a URL.`;
         }
       }
       // Something has to go out. A page already live counts: leaving it
@@ -498,7 +467,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
       for (const name of ticked) {
         const seg = subPaths[name];
         if (seenExtra.has(seg)) {
-          return name === 'Prizes' && seg === singlePath
+          return name === PRIZES_PAGE && seg === singlePath
             ? 'The prize list and the results page share a URL. Make them unique.'
             : `Two pages share the URL “${seg}”. Make them unique.`;
         }
@@ -665,9 +634,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, lonePageN
           if (!frozenPage(name) && seg !== defaultSubPath(name)) overrides[name] = seg;
         }
         selection = {
-          ...(skipPages.includes('Prizes') ? { prizes: false } : {}),
-          ...(skipPages.some((n) => n !== 'Prizes')
-            ? { skipPages: skipPages.filter((n) => n !== 'Prizes') }
+          ...(skipPages.includes(PRIZES_PAGE) ? { prizes: false } : {}),
+          ...(skipPages.some((n) => n !== PRIZES_PAGE)
+            ? { skipPages: skipPages.filter((n) => n !== PRIZES_PAGE) }
             : {}),
           ...(Object.keys(overrides).length > 0 ? { subPaths: overrides } : {}),
           ...(!isPublished && !hasBlocks ? { defaultSubPath: singlePath } : {}),

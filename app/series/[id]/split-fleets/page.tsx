@@ -485,8 +485,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         open={showPublish}
         onClose={() => setShowPublish(false)}
         canFtp={false}
-        lonePageName="Championship"
-        extraPages={['Race results', 'Fleet assignments']}
       />
       <FinaliseResultsDialog
         series={data.series}
