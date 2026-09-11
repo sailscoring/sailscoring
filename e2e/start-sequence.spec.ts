@@ -78,6 +78,30 @@ test('three-start sequence at 5-minute intervals resolves to distinct start time
   await expect(page.getByText('14:05:00')).toBeVisible();
   await expect(page.getByText('14:10:00')).toBeVisible();
   await expect(page.getByText('14:15:00')).toBeVisible();
+
+  // ── Insert race takes the same branch: it asks for the gun and generates ──
+  // the sequence, rather than landing a race with no starts at all.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  const rows = page.getByTestId('race-row');
+  await expect(rows).toHaveCount(1);
+  await rows.first().getByLabel(/^Actions for Race/).click();
+  await page.getByRole('menuitem', { name: 'Insert race below' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByLabel('First start time').fill('15:05');
+  await expect(page.getByRole('dialog').getByText('15:15:00')).toBeVisible();
+  await page.getByRole('button', { name: 'Insert race' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(rows).toHaveCount(2);
+
+  // The inserted race is Race 2 and carries the whole sequence.
+  // A two-race series heads the page with the race switcher rather than a
+  // plain title, so the starts card is the anchor to wait on.
+  await page.getByText('Race 2', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Race starts' })).toBeVisible();
+  await expect(page.getByText('15:05:00')).toBeVisible();
+  await expect(page.getByText('15:10:00')).toBeVisible();
+  await expect(page.getByText('15:15:00')).toBeVisible();
 });
 
 test('deleting a fleet strips it from the default start sequence and existing race starts', async ({ page }) => {

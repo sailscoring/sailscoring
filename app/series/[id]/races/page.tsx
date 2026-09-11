@@ -335,6 +335,9 @@ export default function RacesPage({
   const [showNewRaceDialog, setShowNewRaceDialog] = useState(false);
   const [firstStartTime, setFirstStartTime] = useState('');
   const [newRaceError, setNewRaceError] = useState('');
+  // Where the race being created goes: null appends, a number splices it in
+  // at that index (Insert race above / below).
+  const [insertAt, setInsertAt] = useState<number | null>(null);
   // Local in-flight guard for Add race. Covers the `listBySeries` →
   // `saveRace.mutateAsync` window where `saveRace.isPending` is still
   // false but a second click would compute the same raceNumber and
@@ -464,10 +467,26 @@ export default function RacesPage({
     });
   }
 
-  // Insert a new (unnamed) race at a position: create it appended, then
-  // reorder with its id spliced into place so the tail renumbers. Starts
-  // can be added on the new race's page.
+  // Insert a race at a position. A handicap series with a default start
+  // sequence asks for the first gun the way New race does, and generates the
+  // starts: inserting mid-series is exactly the case where the sequence
+  // should match the races either side of it, and rebuilding one by hand
+  // from the race-entry page is the long way round.
   async function insertRaceAt(index: number) {
+    if (!races || addingRace) return;
+    if (isHandicap && hasStartSequence) {
+      setInsertAt(index);
+      setFirstStartTime('');
+      setNewRaceError('');
+      setShowNewRaceDialog(true);
+      return;
+    }
+    await insertPlainRaceAt(index);
+  }
+
+  // Create the race appended, then reorder with its id spliced into place so
+  // the tail renumbers.
+  async function insertPlainRaceAt(index: number) {
     if (!races || addingRace) return;
     setAddingRace(true);
     try {
@@ -543,12 +562,17 @@ export default function RacesPage({
     try {
       const existingRaces = await raceRepo.listBySeries(seriesId);
       const nextNumber = existingRaces.length + 1;
+      // Inserting: dated from the races the new one lands after — or, going
+      // in above the first race, from that first race.
+      const datedFrom = insertAt === null
+        ? existingRaces
+        : insertAt > 0 ? existingRaces.slice(0, insertAt) : existingRaces.slice(0, 1);
       const race: Race = {
         id: crypto.randomUUID(),
         seriesId,
         raceNumber: nextNumber,
         name: null,
-        date: newRaceDate(existingRaces),
+        date: newRaceDate(datedFrom),
         createdAt: Date.now(),
       };
       log('races', 'adding', race);
@@ -596,7 +620,16 @@ export default function RacesPage({
         })),
       );
 
+      // The race was created appended, so an insert reorders it into place
+      // afterwards and the tail renumbers.
+      if (insertAt !== null) {
+        const ids = existingRaces.map((r) => r.id);
+        ids.splice(insertAt, 0, race.id);
+        await reorderRaces.mutateAsync(ids);
+      }
+
       setShowNewRaceDialog(false);
+      setInsertAt(null);
     } finally {
       setAddingRace(false);
     }
@@ -604,6 +637,7 @@ export default function RacesPage({
 
   function handleAddRaceClick() {
     if (isHandicap && hasStartSequence) {
+      setInsertAt(null);
       setFirstStartTime('');
       setNewRaceError('');
       setShowNewRaceDialog(true);
@@ -948,10 +982,10 @@ export default function RacesPage({
       )}
 
       {/* Handicap race creation dialog */}
-      <Dialog open={showNewRaceDialog} onOpenChange={(open) => { if (!open) setShowNewRaceDialog(false); }}>
+      <Dialog open={showNewRaceDialog} onOpenChange={(open) => { if (!open) { setShowNewRaceDialog(false); setInsertAt(null); } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New race</DialogTitle>
+            <DialogTitle>{insertAt === null ? 'New race' : `Insert race ${insertAt + 1}`}</DialogTitle>
             <DialogDescription>Set the first start time to generate the start sequence.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -984,8 +1018,8 @@ export default function RacesPage({
             {newRaceError && <p className="text-sm text-destructive">{newRaceError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowNewRaceDialog(false)}>Cancel</Button>
-            <Button onClick={handleAddRaceHandicap}>Create race</Button>
+            <Button variant="ghost" onClick={() => { setShowNewRaceDialog(false); setInsertAt(null); }}>Cancel</Button>
+            <Button onClick={handleAddRaceHandicap}>{insertAt === null ? 'Create race' : 'Insert race'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
