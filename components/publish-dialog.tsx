@@ -15,6 +15,7 @@ import { ValidationApiError } from '@/lib/api-client';
 import {
   getPublication,
   publishSeries,
+  retractPublishedPage,
   unpublishSeries,
 } from '@/lib/api-repository';
 import { defaultPageSlug, fleetSubPath, kebab } from '@/lib/publishing';
@@ -30,7 +31,7 @@ import {
   PRIZES_PAGE,
   type PublishPage,
 } from '@/lib/publish-pages';
-import { StickyNote } from 'lucide-react';
+import { Pencil, StickyNote } from 'lucide-react';
 import {
   describePageNoteKey,
   orphanedPageNotes,
@@ -68,6 +69,13 @@ function sanitizeSlug(raw: string): string {
 /** Last path segment of a public fleet URL — the part under the shared slug. */
 function lastSegment(url: string): string {
   return url.split('/').filter(Boolean).pop() ?? '';
+}
+
+/** A published page's path under the slug — everything after `/p/{ws}/{slug}/`.
+ *  This is the sub-path the server froze; a sub-series page carries two
+ *  segments, every other page one. */
+function subPathOf(url: string): string {
+  return new URL(url).pathname.split('/').filter(Boolean).slice(3).join('/');
 }
 
 /** Join names as `A`, `A and B`, or `A, B and C` for prose. */
@@ -180,7 +188,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // flag rather than by name.
   const [loneSelected, setLoneSelected] = useState(true);
   const [phase, setPhase] = useState<
-    'loading' | 'idle' | 'publishing' | 'unpublishing'
+    'loading' | 'idle' | 'publishing' | 'unpublishing' | 'retracting'
   >('loading');
   const [error, setError] = useState<string | null>(null);
   // Which note is open in the editor, by note key — `SERIES_NOTE` for the one
@@ -367,11 +375,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // publishes its `{block}/{fleet}` pages directly under its slug.
   const publishedFolder = useMemo(() => {
     if (!published) return null;
-    return sharedFolderSegment(
-      published.pages.map((p) =>
-        new URL(p.url).pathname.split('/').filter(Boolean).slice(3).join('/'),
-      ),
-    );
+    return sharedFolderSegment(published.pages.map((p) => subPathOf(p.url)));
   }, [published]);
   const folderPrefix = hasBlocks
     ? ''
@@ -764,6 +768,66 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     }
   }
 
+  /**
+   * Change a live page's URL. The sub-path is frozen for as long as the page is
+   * live, so this takes that one page down — the rest of the publication stays
+   * up — and hands its old segment back to the editor it has just unfrozen. The
+   * page returns, at whatever the scorer types, on the next publish.
+   */
+  async function handleChangeUrl(
+    label: string,
+    url: string,
+    reseed: (segment: string) => void,
+  ) {
+    if (!published) return;
+    // The only live page is the publication: taking it down frees the slug,
+    // withdraws the data file and puts the dialog back to a first publish.
+    // That is Unpublish, and it is the next button along.
+    const onlyPage = `“${label}” is the only published page, so changing its URL means taking the whole publication down. Use Unpublish, then publish again at the new URL.`;
+    if (published.pages.length === 1) {
+      setError(onlyPage);
+      return;
+    }
+    const ok = await confirm({
+      title: `Change the URL for “${label}”?`,
+      description:
+        'The page goes offline now and comes back at its new URL when you publish again. Every other page stays live throughout.',
+      confirmLabel: 'Take the page down',
+      destructive: true,
+    });
+    if (!ok) return;
+    setPhase('retracting');
+    setError(null);
+    try {
+      await retractPublishedPage(series.id, subPathOf(url));
+      setStatus((s) =>
+        s?.published
+          ? {
+              ...s,
+              published: {
+                ...s.published,
+                pages: s.published.pages.filter((p) => p.url !== url),
+              },
+            }
+          : s,
+      );
+      // Seed the now-editable field with the segment the page just had: the
+      // scorer is shortening a URL, not composing one from nothing.
+      reseed(lastSegment(url));
+      setPhase('idle');
+    } catch (e) {
+      setPhase('idle');
+      if (
+        e instanceof ValidationApiError &&
+        (e.issues as { code?: string } | undefined)?.code === 'last-page'
+      ) {
+        setError(onlyPage);
+        return;
+      }
+      setError(e instanceof Error ? e.message : 'Taking the page down failed.');
+    }
+  }
+
   async function handleUnpublish() {
     const ok = await confirm({
       title: `Unpublish “${series.name}”?`,
@@ -795,6 +859,32 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   const isLoading = phase === 'loading';
   const isPublishing = phase === 'publishing';
   const isUnpublishing = phase === 'unpublishing';
+  const isRetracting = phase === 'retracting';
+
+  /** "Change URL" on a live page's row. Offered only where the dialog can
+   *  re-path the page once it unfreezes — so not on a sub-series page, whose
+   *  path the server derives per block, and not on a championship's several
+   *  results pages, whose standings page carries a link to its race results
+   *  baked into the rendered HTML. */
+  function changeUrlButton(
+    label: string,
+    url: string,
+    reseed: (segment: string) => void,
+  ) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 w-7 shrink-0 p-0"
+        aria-label={`Change URL for ${label}`}
+        title="Change this page's URL — it goes offline until you publish again"
+        disabled={isPublishing || isUnpublishing || isRetracting}
+        onClick={() => handleChangeUrl(label, url, reseed)}
+      >
+        <Pencil className="h-4 w-4 text-muted-foreground" />
+      </Button>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -984,6 +1074,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                             />
                           )}
                           {noteButton({ fleetName: row.name })}
+                          {row.frozen &&
+                            !hasBlocks &&
+                            changeUrlButton(row.name, row.publishedUrl ?? url, (segment) => {
+                              setSubPaths((p) => ({ ...p, [row.name]: segment }));
+                              setSelected((sel) => new Set(sel).add(row.name));
+                            })}
                           {row.frozen && !hasBlocks && (
                             <Button
                               size="sm"
@@ -1078,6 +1174,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                       </a>
                     </div>
                     {noteButton(publishedResultPages ? { fleetName: p.fleetName } : lonePageRef)}
+                    {!publishedResultPages &&
+                      !hasBlocks &&
+                      changeUrlButton(lonePageLabel, p.url, (segment) => {
+                        setSinglePath(segment);
+                        setLoneSelected(true);
+                      })}
                     <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigator.clipboard.writeText(p.url)}>
                       Copy
                     </Button>
@@ -1220,6 +1322,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                     />
                   )}
                   {noteButton({ fleetName: name })}
+                  {frozen &&
+                    !hasBlocks &&
+                    changeUrlButton(name, url, (segment) => {
+                      setSubPaths((p) => ({ ...p, [name]: segment }));
+                      setSelected((sel) => new Set(sel).add(name));
+                    })}
                   {frozen && (
                     <Button
                       size="sm"
@@ -1315,7 +1423,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
             <Button
               variant="destructive"
               onClick={handleUnpublish}
-              disabled={isPublishing || isUnpublishing}
+              disabled={isPublishing || isUnpublishing || isRetracting}
             >
               {isUnpublishing ? 'Unpublishing…' : 'Unpublish'}
             </Button>
@@ -1326,6 +1434,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               isLoading ||
               isPublishing ||
               isUnpublishing ||
+              isRetracting ||
               (!isPublished && !season) ||
               validation !== null
             }
