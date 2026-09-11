@@ -78,8 +78,9 @@ test.describe('feature demo seeding (#256)', () => {
     await expect(page).toHaveURL(/\/races$/);
     await page.getByText('Race 3').click();
     await expect(page.getByRole('heading', { name: 'Race starts' })).toBeVisible();
-    // The sample's course is HYC's 2026 offshore J2 over the seeded library.
-    await expect(page.getByText('8.81 NM')).toBeVisible();
+    // The sample's course is HYC's 2026 offshore J2 over the seeded library,
+    // run home to the finish the card carries.
+    await expect(page.getByText('9.66 NM')).toBeVisible();
     await expect(page.getByText('J2 — 26 Sep R3')).toBeVisible();
     // The scripted DNF is on the sheet.
     await expect(page.getByRole('heading', { name: 'Non-finishers (1)' })).toBeVisible();

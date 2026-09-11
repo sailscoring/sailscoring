@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { CourseCardFile, MarksFile } from '@sailscoring/course-cards';
+import { printedMarks, type CourseCardFile, type MarksFile } from '@sailscoring/course-cards';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -157,6 +157,17 @@ function CourseDialogInner({
     return () => { cancelled = true; };
   }, [loadKey, loaded?.key, setPath, effectiveCardId]);
   const card = loaded?.key === loadKey ? loaded : null;
+
+  // The courses to choose from, each labelled with the sequence the club
+  // prints — not the one sailed, which carries the line at its head and the
+  // run home at its tail.
+  const courseOptions = useMemo(
+    () => (card ? card.cardFile.courses.map((c) => ({
+      id: c.id,
+      printed: printedMarks(card.cardFile, c.id).map((m) => `${m.mark}${m.passing ? '(p)' : ''}`).join(' › '),
+    })) : []),
+    [card],
+  );
 
   // The library as it will be once the set's marks are adopted: the rows
   // already there keep their ids, so a course built against this list is
@@ -314,12 +325,10 @@ function CourseDialogInner({
                       <SelectValue placeholder={card ? 'Pick the course the committee boat showed' : 'Loading the card…'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {(card?.cardFile.courses ?? []).map((c) => (
+                      {courseOptions.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           <span className="font-mono">{c.id}</span>
-                          <span className="ml-2 text-muted-foreground text-xs">
-                            {c.marks.map((m) => `${m.mark}${m.passing ? '(p)' : ''}`).join(' › ')}
-                          </span>
+                          <span className="ml-2 text-muted-foreground text-xs">{c.printed}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>

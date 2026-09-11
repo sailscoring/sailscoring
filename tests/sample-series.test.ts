@@ -259,13 +259,14 @@ describe('sample series files', () => {
     expect(r3?.option).toBe('CC');
     expect(r3?.courseModel).toBe('CC');
     // The constructed course is HYC's Autumn League 2026 offshore J2 over
-    // the sample's library: the line, a laid Z, the card's charted marks.
-    expect(r3?.distanceNm).toBeCloseTo(8.81, 2);
+    // the sample's library: the line, a laid Z, the card's charted marks,
+    // and the run home past Rowan Rocks and the Howth Mark to the finish.
+    expect(r3?.distanceNm).toBeCloseTo(9.66, 2);
     const cc = raceStarts.find((s) => s.orcOption === 'CC')!;
     expect(cc.course?.name).toBe('J2 — 26 Sep R3');
-    expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['Start', 'Z', 'O', 'U', 'K', 'H', 'K', 'Start']);
+    expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['Start', 'Z', 'O', 'U', 'K', 'H', 'K', 'Q', 'HM', 'FH']);
     expect(cc.course?.windDirectionDeg).toBe(160);
-    expect(file.marks).toHaveLength(23);
+    expect(file.marks).toHaveLength(25);
     expect(file.courses?.map((c) => c.card?.courseId)).toEqual(['J2']);
     // Implied winds recover the generation's fresh-breeze targets.
     expect(r3?.scoringWind).toBeGreaterThan(16);

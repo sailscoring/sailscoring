@@ -4513,8 +4513,18 @@
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 0.375,
-              "bearingDeg": 304.1,
+              "distanceNm": 0.723,
+              "bearingDeg": 185.2,
+              "windDirectionDeg": 160
+            },
+            {
+              "distanceNm": 0.27,
+              "bearingDeg": 235.5,
+              "windDirectionDeg": 160
+            },
+            {
+              "distanceNm": 0.231,
+              "bearingDeg": 236.8,
               "windDirectionDeg": 160
             }
           ],
@@ -4576,11 +4586,29 @@
                 "fixed": true
               },
               {
-                "markId": "om-line",
-                "label": "Start",
-                "lat": 53.4135,
-                "lng": -6.0605,
-                "side": "port"
+                "markId": "om-card-q",
+                "label": "Q",
+                "lat": 53.398,
+                "lng": -6.053667,
+                "side": "starboard",
+                "passing": true,
+                "fixed": true
+              },
+              {
+                "markId": "om-card-hm",
+                "label": "HM",
+                "lat": 53.395451,
+                "lng": -6.059883,
+                "side": "starboard",
+                "passing": true,
+                "fixed": true
+              },
+              {
+                "markId": "om-card-fh",
+                "label": "FH",
+                "lat": 53.39334,
+                "lng": -6.06529,
+                "fixed": true
               }
             ],
             "windDirectionDeg": 160
@@ -4593,7 +4621,7 @@
           "id": "ofin-3-oc-07",
           "competitorId": "oc-07",
           "sortOrder": 1,
-          "finishTime": "11:56:23",
+          "finishTime": "12:04:52",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4603,17 +4631,7 @@
           "id": "ofin-3-oc-08",
           "competitorId": "oc-08",
           "sortOrder": 2,
-          "finishTime": "12:02:12",
-          "resultCode": null,
-          "startPresent": true,
-          "penaltyCode": null,
-          "penaltyOverride": null
-        },
-        {
-          "id": "ofin-3-oc-02",
-          "competitorId": "oc-02",
-          "sortOrder": 3,
-          "finishTime": "12:02:52",
+          "finishTime": "12:11:06",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4622,8 +4640,18 @@
         {
           "id": "ofin-3-oc-04",
           "competitorId": "oc-04",
+          "sortOrder": 3,
+          "finishTime": "12:12:42",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-3-oc-02",
+          "competitorId": "oc-02",
           "sortOrder": 4,
-          "finishTime": "12:03:23",
+          "finishTime": "12:13:05",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4633,7 +4661,7 @@
           "id": "ofin-3-oc-03",
           "competitorId": "oc-03",
           "sortOrder": 5,
-          "finishTime": "12:07:05",
+          "finishTime": "12:16:57",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4643,7 +4671,7 @@
           "id": "ofin-3-oc-01",
           "competitorId": "oc-01",
           "sortOrder": 6,
-          "finishTime": "12:07:27",
+          "finishTime": "12:17:26",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4653,7 +4681,7 @@
           "id": "ofin-3-oc-05",
           "competitorId": "oc-05",
           "sortOrder": 7,
-          "finishTime": "12:12:52",
+          "finishTime": "12:23:01",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4779,7 +4807,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "A",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4793,7 +4821,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "B",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "orange",
@@ -4807,7 +4835,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "C",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4821,7 +4849,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "D",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "yellow",
@@ -4835,7 +4863,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "E",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4849,7 +4877,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "G",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4863,7 +4891,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "H",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4877,7 +4905,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "I",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4891,7 +4919,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "J",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4905,7 +4933,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "K",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4919,7 +4947,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "M",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "inflatable",
       "color": "yellow",
@@ -4933,7 +4961,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "O",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "orange",
@@ -4947,7 +4975,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "P",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -4961,7 +4989,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "Q",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "iala",
       "color": "black",
@@ -4975,7 +5003,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "R",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "iala",
       "color": "green",
@@ -4989,7 +5017,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "S",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -5003,7 +5031,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "T",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "inflatable",
       "color": "yellow",
@@ -5017,7 +5045,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "U",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "orange",
@@ -5031,7 +5059,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "V",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "orange",
@@ -5045,7 +5073,7 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "W",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "conical",
       "color": "black",
@@ -5059,10 +5087,36 @@
       "card": {
         "set": "hyc/al-2026",
         "markId": "X",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "shape": "barrel",
       "color": "black",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-hm",
+      "name": "HM Howth",
+      "lat": 53.395451,
+      "lng": -6.059883,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "HM",
+        "release": "0.4.0"
+      },
+      "shape": "iala",
+      "color": "green",
+      "createdAt": 1767225600000
+    },
+    {
+      "id": "om-card-fh",
+      "name": "FH Finish line",
+      "lat": 53.39334,
+      "lng": -6.06529,
+      "card": {
+        "set": "hyc/al-2026",
+        "markId": "FH",
+        "release": "0.4.0"
+      },
       "createdAt": 1767225600000
     },
     {
@@ -5093,7 +5147,7 @@
         "set": "hyc/al-2026",
         "cardId": "offshore",
         "courseId": "J2",
-        "release": "0.3.2"
+        "release": "0.4.0"
       },
       "marks": [
         {
@@ -5124,12 +5178,20 @@
           "side": "starboard"
         },
         {
-          "markId": "om-line",
-          "side": "port"
+          "markId": "om-card-q",
+          "side": "starboard",
+          "passing": true
+        },
+        {
+          "markId": "om-card-hm",
+          "side": "starboard",
+          "passing": true
+        },
+        {
+          "markId": "om-card-fh"
         }
       ],
-      "createdAt": 1767225600003,
-      "modified": true
+      "createdAt": 1767225600003
     }
   ]
 }

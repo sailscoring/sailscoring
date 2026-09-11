@@ -1404,11 +1404,12 @@ const ORC_SAMPLE_BOATS: OrcSampleBoat[] = [
  * The constructed-course race of the ORC sample is sailed over a course
  * from HYC's Autumn League 2026 offshore card: the club's charted marks
  * adopted from the card, the line and the laid windward mark logged the
- * way a race officer logs them, and the card's course for a 160° wind.
+ * way a race officer logs them, and the card's course for a 160° wind,
+ * sailed through to the finish the card carries.
  * Built with the same library functions the Courses tab uses, on stable
  * ids so the sample file is deterministic.
  */
-const ORC_SAMPLE_CARD = { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'J2', release: '0.3.2' };
+const ORC_SAMPLE_CARD = { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'J2', release: '0.4.0' };
 const ORC_SAMPLE_WIND = 160;
 
 function buildOrcCourseLibrary(seriesId: string): {
@@ -1421,8 +1422,9 @@ function buildOrcCourseLibrary(seriesId: string): {
   const marksFile = parseMarksFile(JSON.parse(readFileSync(join(fixtures, 'marks.json'), 'utf8')));
   const cardFile = parseCourseCardFile(JSON.parse(readFileSync(join(fixtures, 'offshore.json'), 'utf8')));
   const createdAt = Date.parse(EXPORTED_AT);
-  // The card's charted marks, on ids derived from the card's letters.
-  const adopted: SeriesMark[] = marksFile.marks
+  // The card's charted marks and the finishing line it places, on ids
+  // derived from the card's letters.
+  const adopted: SeriesMark[] = [...marksFile.marks, ...(cardFile.finish ? [cardFile.finish] : [])]
     .filter((m) => m.position)
     .map((m) => ({
       id: `om-card-${m.id.toLowerCase()}`,
@@ -1446,17 +1448,12 @@ function buildOrcCourseLibrary(seriesId: string): {
     },
   ];
   const marks = [...adopted, ...laid];
-  // Every course on the card begins at the line the sailing instructions
-  // define, so the line and the laid windward mark are the two the scorer
-  // places; finishing back at the line is the day's change to the card.
+  // The card runs each course from the line its sailing instructions define
+  // to the finish on the East Pier, so the line and the laid windward mark
+  // are the only two the scorer places.
   const entries = matchCardCourse(cardFile, marksFile, ORC_SAMPLE_CARD.courseId, ORC_SAMPLE_CARD.set, marks, { SL: 'om-line', Z: 'om-z' });
   const fromCard = courseFromCard(entries, ORC_SAMPLE_CARD, ORC_SAMPLE_CARD.courseId, seriesId, `${ORC_SAMPLE_CARD.courseId} — 26 Sep R3`, createdAt + 3);
-  const course: SeriesCourse = {
-    ...fromCard,
-    id: 'oco-j2',
-    marks: [...fromCard.marks, { markId: 'om-line', side: 'port' }],
-    modified: true,
-  };
+  const course: SeriesCourse = { ...fromCard, id: 'oco-j2' };
   const marksById = new Map(marks.map((m) => [m.id, m]));
   const legs = legsForStart(resolveCourse(course.marks, marksById).legs, ORC_SAMPLE_WIND);
   const snapshot = snapshotOfCourse(course, marksById, ORC_SAMPLE_WIND);

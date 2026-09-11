@@ -81,6 +81,14 @@ describe('adopting a card', () => {
     expect(adopted.some((m) => m.card!.markId === 'F' || m.card!.markId === 'SL')).toBe(false);
   });
 
+  it('adopts a finishing line the card places, and leaves one laid per race', () => {
+    const al = adoptCardMarks(alMarks, alCard, { set: 'hyc/al-2026', release: '0.4.0' }, 's1', [], NOW);
+    // The offshore card finishes at a transit on the East Pier, a position
+    // it carries; the Brass Monkey's finish is a buoy laid for the race.
+    expect(al.find((m) => m.card!.markId === 'FH')).toMatchObject({ name: 'FH Finish line', lat: 53.39334 });
+    expect(adoptCardMarks(bmMarks, bmCard, BM, 's1', [], NOW).some((m) => m.card!.markId === 'F')).toBe(false);
+  });
+
   it('re-adopting keeps the rows and names already in the library and refreshes positions', () => {
     const first = adoptCardMarks(bmMarks, bmCard, BM, 's1', [], NOW);
     const renamed = first.map((m) => (m.card!.markId === 'C' ? { ...m, name: 'Cush (moved)', lat: 0 } : m));
@@ -150,8 +158,8 @@ describe('adopting a card', () => {
     expect(windForCardCourse(alCard, 'K3')).toBe(180);
     expect(windForCardCourse(alCard, 'A1')).toBe(0);
     expect(windForCardCourse(bmCard, '10')).toBeUndefined();
-    const adopted = adoptCardMarks(alMarks, alCard, { set: 'hyc/al-2026', release: '0.3.0' }, 's1', [], NOW);
-    expect(adopted).toHaveLength(21);
+    const adopted = adoptCardMarks(alMarks, alCard, { set: 'hyc/al-2026', release: '0.4.0' }, 's1', [], NOW);
+    expect(adopted).toHaveLength(23);
   });
 });
 

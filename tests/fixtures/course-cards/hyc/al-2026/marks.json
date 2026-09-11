@@ -1,7 +1,7 @@
 {
   "formatVersion": 2,
   "club": "HYC",
-  "name": "Autumn League racing marks, from the 2025 course card technical sheet",
+  "name": "Autumn League racing marks, from the 2025 course card technical sheet, with the Howth Mark SI 6.1 D names",
   "source": "https://hyc.ie/system/resources/2331/original/AL_Course_Card_Technical_Sheet.pdf",
   "marks": [
     {
@@ -227,6 +227,16 @@
       "shape": "inflatable",
       "color": "black",
       "placement": "Upwind of Start Line"
+    },
+    {
+      "id": "HM",
+      "name": "Howth",
+      "shape": "iala",
+      "color": "green",
+      "position": {
+        "lat": 53.395451,
+        "lng": -6.059883
+      }
     }
   ]
 }

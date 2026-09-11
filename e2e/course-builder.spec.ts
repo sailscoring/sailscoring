@@ -139,10 +139,10 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await expect(page.getByText('From the card')).toBeVisible();
 
   // Swap a mark…: a duplicate with one mark exchanged — the course shortened
-  // to finish at the line rather than out at Stack.
+  // to finish at the committee boat rather than at the card's line ashore.
   await courseRow.getByRole('button', { name: 'Actions for K1 — 12 Sep R1' }).click();
   await page.getByRole('menuitem', { name: 'Swap a mark…' }).click();
-  await pick(page, 'swap-from', 'K Stack');
+  await pick(page, 'swap-from', 'FH Finish line');
   await pick(page, 'swap-to', 'Start — 12 Sep');
   await page.getByLabel('New course name').fill('K1 short — 12 Sep R1');
   await page.getByTestId('swap-save').click();

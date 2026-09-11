@@ -253,10 +253,11 @@ export interface CardRef {
 
 /**
  * The marks a card set places itself, as library rows: every mark with a
- * position, and the card's start line where that is fixed. A mark already
- * adopted from the same set (matched on the card's mark id) keeps its row
- * and takes the set's current position and description; the rest are new.
- * Marks laid per race are not adopted — the scorer makes those.
+ * position, and the card's start and finishing lines where those are fixed.
+ * A mark already adopted from the same set (matched on the card's mark id)
+ * keeps its row and takes the set's current position and description; the
+ * rest are new. Marks laid per race are not adopted — the scorer makes
+ * those.
  */
 export function adoptCardMarks(
   marksFile: MarksFile,
@@ -267,7 +268,11 @@ export function adoptCardMarks(
   now: number,
 ): SeriesMark[] {
   const byCardId = new Map(existing.filter((m) => m.card?.set === ref.set).map((m) => [m.card!.markId, m]));
-  const placed = [...marksFile.marks, ...(card?.startLine ? [card.startLine] : [])].filter(
+  const placed = [
+    ...marksFile.marks,
+    ...(card?.startLine ? [card.startLine] : []),
+    ...(card?.finish ? [card.finish] : []),
+  ].filter(
     (m): m is typeof m & { position: Position } => m.position != null,
   );
   return placed.map((m) => {
