@@ -164,6 +164,9 @@ export interface RaceData {
    *  explainability columns (1/T_E, PI, Adjustment, New H) hidden under
    *  the ECHO viewer toggle. */
   isEcho?: boolean;
+  /** What the rating column is headed, when it isn't the system's own word:
+   *  a fixed-TCF fleet is scored on the number the club names ("HPH"). */
+  ratingColumnLabel?: string;
   /** True for an ORC race scored time-on-distance (the option resolves per
    *  race): the rating column holds allowances in s/NM (labelled "ToD",
    *  printed to 1 dp) and corrected times come from the engine rather than
@@ -287,7 +290,7 @@ export interface RaceResultData {
   /** DPI only: the scorer's own name for the penalty (#424). */
   penaltyLabel?: string;
   // Handicap fields — only set for IRC/PY fleets
-  tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY)
+  tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY, the club's number for a fixed TCF)
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
   impliedWind?: number;      // ORC PCS: the boat's implied wind (kt)
   finishTime?: string;       // "HH:MM:SS"; also set for scratch fleets when track data is published
@@ -1895,10 +1898,12 @@ function renderRaceTable(
   );
   // ECHO uses "Starting H" per the IS guide; NHC uses "TCF"; static handicap
   // fleets use "TCC" — except ORC time-on-distance, whose rating is an
-  // allowance in seconds per nautical mile.
+  // allowance in seconds per nautical mile, and a fixed-TCF fleet, which is
+  // headed by whatever the club calls its handicap.
   const isOrcTod = race.isOrcTod === true;
   const isOrcPcs = race.isOrcPcs === true;
-  const ratingLabel = isOrcTod ? 'ToD' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC'));
+  const ratingLabel = race.ratingColumnLabel
+    ?? (isOrcTod ? 'ToD' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC')));
   const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
@@ -2418,7 +2423,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -2435,7 +2440,10 @@ export function assembleSeriesResultsData(
     /** ID of the fleet being rendered */
     fleetId?: string;
     /** Scoring system of the fleet */
-    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
+    scoringSystem?: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+    /** Heads the rating column in place of the system's own word — the club's
+     *  name for a fixed TCF ("HPH"). */
+    ratingColumnLabel?: string;
     /** When set (NHC fleets only), per-race aggregates that drive the
      *  rating-calculation fleet header line above each race table and the
      *  per-row explainability columns. Pass undefined to suppress the
@@ -2473,8 +2481,8 @@ export function assembleSeriesResultsData(
     showTrackData?: boolean;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData } = options ?? {};
-  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
+  const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData } = options ?? {};
+  const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'tcf' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
 
@@ -2546,6 +2554,8 @@ export function assembleSeriesResultsData(
           tcc = score.tcfApplied ?? competitor.ircTcc ?? undefined;
         } else if (scoringSystem === 'vprs') {
           tcc = score.tcfApplied ?? competitor.vprsTcc ?? undefined;
+        } else if (scoringSystem === 'tcf') {
+          tcc = score.tcfApplied ?? competitor.fixedTcf ?? undefined;
         } else if (scoringSystem === 'py') {
           tcc = score.tcfApplied
             ?? (competitor.pyNumber != null && competitor.pyNumber > 0 ? 1000 / competitor.pyNumber : undefined);
@@ -2671,6 +2681,7 @@ export function assembleSeriesResultsData(
       ...(publishOfficials && hasOfficials(race.officials) ? { officials: race.officials } : {}),
       ...(startTime ? { startTime } : {}),
       ...(scoringSystem === 'nhc' ? { isNhc: true } : {}),
+      ...(ratingColumnLabel ? { ratingColumnLabel } : {}),
       ...(scoringSystem === 'echo' ? { isEcho: true } : {}),
       // The scoring option resolves per race, so the ToD presentation (s/NM
       // rating column, engine corrected times) is a per-race property too,

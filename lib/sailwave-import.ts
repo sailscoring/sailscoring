@@ -175,7 +175,7 @@ const SCORING_SUFFIX_TO_SYSTEM: ReadonlyArray<readonly [string, ScoringSystem]> 
 ];
 
 const VALID_SCORING_SYSTEMS: ReadonlySet<ScoringSystem> = new Set([
-  'scratch', 'irc', 'py', 'nhc', 'echo',
+  'scratch', 'irc', 'py', 'nhc', 'echo', 'tcf',
 ]);
 
 const SAILWAVE_METHOD_SERIES_PLUS = 'Boats in series +';
@@ -1293,6 +1293,7 @@ interface CompetitorBuild {
   ircTcc?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
+  fixedTcf?: number;
 }
 
 interface FinishBuild {
@@ -1500,6 +1501,7 @@ export function buildSeriesFileFromSailwave(
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
+      ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
@@ -1639,6 +1641,7 @@ function buildCompetitors(
     let ircTcc: number | null = null;
     let nhcTcf: number | null = null;
     let pyNumber: number | null = null;
+    let fixedTcf: number | null = null;
 
     for (const [, rec] of records) {
       const compfleet = fleetNameOf(rec);
@@ -1651,6 +1654,7 @@ function buildCompetitors(
       if (system === 'nhc') nhcTcf = rating;
       else if (system === 'irc') ircTcc = rating;
       else if (system === 'py') pyNumber = rating;
+      else if (system === 'tcf') fixedTcf = rating;
     }
 
     if (fleetIds.length === 0) continue;
@@ -1708,6 +1712,7 @@ function buildCompetitors(
     if (ircTcc != null) built.ircTcc = ircTcc;
     if (nhcTcf != null) built.nhcStartingTcf = nhcTcf;
     if (pyNumber != null) built.pyNumber = pyNumber;
+    if (fixedTcf != null) built.fixedTcf = fixedTcf;
     out.push(built);
   }
 

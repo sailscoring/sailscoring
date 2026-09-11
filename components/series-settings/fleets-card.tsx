@@ -148,6 +148,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       ...(system === 'echo' ? { echoAlpha: fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA } : { echoAlpha: undefined }),
       ...(system === 'nhc' ? {} : { nhcProfile: undefined }),
       ...(system === 'orc' ? {} : { orcProfile: undefined }),
+      ...(system === 'tcf' ? {} : { ratingLabel: undefined }),
     };
 
     if (wasScratch === willBeScratch) {
@@ -196,6 +197,14 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
     if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) return;
     if (parsed === fleet.echoAlpha) return;
     await saveFleet.mutateAsync({ ...fleet, echoAlpha: parsed });
+  }
+
+  /** The club's name for a fixed TCF ("HPH"). Empty clears it back to the
+   *  generic "TCF" the column is headed by default. */
+  async function commitRatingLabel(fleet: Fleet, raw: string) {
+    const trimmed = raw.trim().slice(0, 32);
+    if (trimmed === (fleet.ratingLabel ?? '')) return;
+    await saveFleet.mutateAsync({ ...fleet, ratingLabel: trimmed || undefined });
   }
 
   async function commitNhcProfile(fleet: Fleet, next: import('@/lib/types').NhcProfile | null) {
@@ -351,6 +360,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                       {(has('orc') || fleet.scoringSystem === 'orc') && (
                         <SelectItem value="orc">ORC</SelectItem>
                       )}
+                      <SelectItem value="tcf">Fixed TCF</SelectItem>
                       <SelectItem value="nhc">NHC</SelectItem>
                       {/* ECHO is experimental/gated (#155); still offer it for a
                           fleet that already uses it so the control isn't broken. */}
@@ -377,6 +387,25 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                           }
                         }}
                         title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
+                      />
+                    </label>
+                  )}
+                  {fleet.scoringSystem === 'tcf' && (
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      called
+                      <Input
+                        defaultValue={fleet.ratingLabel ?? ''}
+                        placeholder="TCF"
+                        maxLength={32}
+                        className="w-20 h-7 text-xs"
+                        onBlur={(e) => commitRatingLabel(fleet, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitRatingLabel(fleet, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                        title="What the club calls this handicap (e.g. HPH) — heads the rating column on published results"
                       />
                     </label>
                   )}
@@ -606,6 +635,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                 if (f.scoringSystem === 'scratch') return f.name;
                 if (f.scoringSystem === 'nhc') return `${f.name} (NHC${f.nhcProfile ? ', custom' : ''})`;
                 if (f.scoringSystem === 'echo') return `${f.name} (ECHO, α=${f.echoAlpha ?? ECHO_DEFAULT_ALPHA})`;
+                if (f.scoringSystem === 'tcf') return `${f.name} (fixed ${f.ratingLabel?.trim() || 'TCF'})`;
                 return `${f.name} (${f.scoringSystem.toUpperCase()})`;
               }).join(' · ')}
         </p>

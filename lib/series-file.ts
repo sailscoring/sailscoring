@@ -427,9 +427,16 @@ export interface SeriesFileRepos {
  *  travels verbatim, so no parser change; an older build reading a v49 file
  *  falls back to that scheme and relabels every race of the championship —
  *  the labels a competitor names on a scoring enquiry — which is why this is
- *  a bump rather than a ride-along. */
-export const FORMAT_VERSION = 49;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49];
+ *  a bump rather than a ride-along.
+ *
+ *  v50 adds the `tcf` fleet scoring system — a handicap the club assigns and
+ *  holds for the series — with the optional `Competitor.fixedTcf` rating,
+ *  `fixedTcf` as a per-race rating-override field, and optional
+ *  `fleets[*].ratingLabel` (what the club calls the number). Additive, but an
+ *  older build reading a v50 file has no rating to score such a fleet on,
+ *  which is why the system is a bump. */
+export const FORMAT_VERSION = 50;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -465,7 +472,10 @@ interface SeriesFileFleet {
   id: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+  // v50+: what the club calls the number a fixed-TCF fleet is scored on
+  // ("HPH"). Present iff scoringSystem === 'tcf' AND the club has named it.
+  ratingLabel?: string;
   echoAlpha?: number; // present iff scoringSystem === 'echo'
   // Inline NHC profile override (per-fleet). Present iff scoringSystem === 'nhc'
   // AND parameters differ from the SWNHC2015 defaults; absent means "use
@@ -562,6 +572,7 @@ interface SeriesFileCompetitor {
   subdivision?: string;  // v6–v12 (read-only legacy): single subdivision value, upgraded into subdivisions on load
   ircTcc?: number;
   vprsTcc?: number;
+  fixedTcf?: number;  // v50+
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
@@ -658,7 +669,7 @@ interface SeriesFileCourse {
 interface SeriesFileRatingOverride {
   id: string;
   competitorId: string;
-  field: 'ircTcc' | 'pyNumber' | 'vprsTcc';
+  field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf';
   value: number;
 }
 
@@ -875,6 +886,7 @@ export async function buildSeriesFile(
       name: f.name,
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
+      ...(f.ratingLabel ? { ratingLabel: f.ratingLabel } : {}),
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
@@ -962,6 +974,7 @@ export async function buildSeriesFile(
         : {}),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
+      ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
@@ -1913,6 +1926,7 @@ async function writeFleetsCompetitorsRaces(
       name: f.name,
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
+      ...(f.ratingLabel ? { ratingLabel: f.ratingLabel } : {}),
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
@@ -1956,6 +1970,7 @@ async function writeFleetsCompetitorsRaces(
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
+        ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),

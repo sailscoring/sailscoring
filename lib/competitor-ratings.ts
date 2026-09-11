@@ -6,7 +6,7 @@ export type MissingRating = { fleetName: string; ratingLabel: string };
 
 /** What a fleet of each system needs of a boat before it can be scored,
  *  named as the scorer would ask for it. */
-const RATING_REQUIREMENT_LABEL: Record<RatingSystemCode, string> = {
+const RATING_REQUIREMENT_LABEL: Record<Exclude<RatingSystemCode, 'tcf'>, string> = {
   irc: 'IRC TCC',
   vprs: 'VPRS TCC',
   py: 'PY number',
@@ -16,9 +16,11 @@ const RATING_REQUIREMENT_LABEL: Record<RatingSystemCode, string> = {
 };
 
 export function fleetRatingLabel(fleet: Fleet): string | null {
-  return fleet.scoringSystem === 'scratch'
-    ? null
-    : RATING_REQUIREMENT_LABEL[fleet.scoringSystem];
+  if (fleet.scoringSystem === 'scratch') return null;
+  // A fixed TCF is asked for by the name the club gives it — a Howth scorer
+  // is looking for an HPH number, not for "a TCF".
+  if (fleet.scoringSystem === 'tcf') return ratingSystemLabel(fleet);
+  return RATING_REQUIREMENT_LABEL[fleet.scoringSystem];
 }
 
 export function missingRatings(
@@ -50,7 +52,7 @@ export function requiredForFleetsHint(fleetNames: string[]): string {
   return `Required for ${fleetNames.join(', ')} ${suffix}.`;
 }
 
-export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
+export type RatingSystemCode = 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
 
 export type RatingDisplay = {
   system: RatingSystemCode;
@@ -65,7 +67,18 @@ const RATING_LABEL: Record<RatingSystemCode, string> = {
   nhc: 'NHC',
   echo: 'ECHO',
   orc: 'ORC',
+  tcf: 'TCF',
 };
+
+/** How a fleet's rating is named in a column head or a prompt. Every system
+ *  but one answers for itself; a fixed TCF answers to whatever the club calls
+ *  it ("HPH"), falling back to the generic "TCF". */
+export function ratingSystemLabel(fleet: Fleet): string {
+  if (fleet.scoringSystem === 'scratch') return '';
+  return fleet.scoringSystem === 'tcf'
+    ? (fleet.ratingLabel?.trim() || RATING_LABEL.tcf)
+    : RATING_LABEL[fleet.scoringSystem];
+}
 
 /** Render a rating for display. The multiplier-style ratings — IRC TCC, VPRS
  *  TCC, NHC starting TCF, ECHO starting handicap — always carry three decimal
@@ -93,6 +106,8 @@ function rawRatingFor(
       return competitor.ircTcc ?? null;
     case 'vprs':
       return competitor.vprsTcc ?? null;
+    case 'tcf':
+      return competitor.fixedTcf ?? null;
     case 'py':
       return competitor.pyNumber ?? null;
     case 'nhc':
@@ -135,6 +150,8 @@ export function ratingUnitLabel(fleet: Fleet): string | null {
       return 'PY';
     case 'orc':
       return 'ORC';
+    case 'tcf':
+      return ratingSystemLabel(fleet);
     default:
       return 'TCC';
   }
@@ -155,7 +172,7 @@ export function competitorRatings(
     seen.add(f.scoringSystem);
     out.push({
       system: f.scoringSystem,
-      label: RATING_LABEL[f.scoringSystem],
+      label: ratingSystemLabel(f),
       value: ratingValueFor(competitor, f.scoringSystem, f),
     });
   }
@@ -177,9 +194,10 @@ export function configuredRatingSystems(fleets: Fleet[]): RatingSystemCode[] {
 }
 
 /** Systems a published list or certificate database can fill in, so an offer
- *  to fetch one means something. NHC is absent: a starting TCF comes from the
- *  boat's previous series or the scorer's own reckoning, never from a list. */
-export const SOURCED_RATING_SYSTEMS: readonly RatingSystemCode[] = [
+ *  to fetch one means something. NHC and a fixed TCF are absent: both come
+ *  from the boat's previous series or the club's own reckoning, never from a
+ *  list. */
+export const SOURCED_RATING_SYSTEMS: readonly Exclude<RatingSystemCode, 'tcf'>[] = [
   'irc',
   'orc',
   'echo',

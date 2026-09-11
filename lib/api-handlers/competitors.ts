@@ -243,6 +243,7 @@ export async function bulkUpdateHandicaps(
         fleetIds,
         ...(u.ircTcc !== undefined ? { ircTcc: u.ircTcc } : {}),
         ...(u.vprsTcc !== undefined ? { vprsTcc: u.vprsTcc } : {}),
+        ...(u.fixedTcf !== undefined ? { fixedTcf: u.fixedTcf } : {}),
         ...(u.pyNumber !== undefined ? { pyNumber: u.pyNumber } : {}),
         ...(u.nhcStartingTcf !== undefined ? { nhcStartingTcf: u.nhcStartingTcf } : {}),
         ...(u.echoStartingTcf !== undefined ? { echoStartingTcf: u.echoStartingTcf } : {}),
@@ -252,7 +253,7 @@ export async function bulkUpdateHandicaps(
       // Freeze-past: for each static rating that actually changes, pin the
       // boat's already-scored races to the OLD value (unless already pinned).
       if (freezeScoredRaces) {
-        const fields: RaceRatingOverride['field'][] = ['ircTcc', 'pyNumber', 'vprsTcc'];
+        const fields: RaceRatingOverride['field'][] = ['ircTcc', 'pyNumber', 'vprsTcc', 'fixedTcf'];
         for (const field of fields) {
           const oldValue = existing[field];
           const newValue = u[field];

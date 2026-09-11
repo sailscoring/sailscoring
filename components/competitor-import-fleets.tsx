@@ -57,6 +57,7 @@ export const SCORING_SYSTEM_LABEL: Record<ScoringSystem, string> = {
   scratch: 'Scratch',
   irc: 'IRC',
   vprs: 'VPRS',
+  tcf: 'Fixed TCF',
   py: 'PY',
   nhc: 'NHC',
   echo: 'ECHO',
@@ -70,6 +71,7 @@ export const SCORING_SYSTEM_LABEL: Record<ScoringSystem, string> = {
 const SYSTEM_TO_RATING_FIELD: Record<Exclude<ScoringSystem, 'scratch' | 'orc'>, CompetitorField> = {
   irc: 'tcc',
   vprs: 'vprsTcc',
+  tcf: 'fixedTcf',
   py: 'py',
   nhc: 'nhcStartingTcf',
   echo: 'echoStartingTcf',

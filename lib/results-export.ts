@@ -19,7 +19,7 @@ import {
   type CompetitorListGroup,
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
-import { competitorRatingFor, ratingUnitLabel } from './competitor-ratings';
+import { competitorRatingFor, ratingSystemLabel, ratingUnitLabel } from './competitor-ratings';
 import { groupFleets } from './fleet-groups';
 import { orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
 import {
@@ -822,7 +822,7 @@ export async function buildFleetHtmlFiles(
         let orcCalcByComp: Map<string, OrcRaceCalc> | undefined;
         // Per-race static-rating overrides (mid-series rating change) for this
         // fleet's system, keyed by competitor.
-        const overrideField = fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'vprs' ? 'vprsTcc' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
+        const overrideField = fleet.scoringSystem === 'irc' ? 'ircTcc' : fleet.scoringSystem === 'vprs' ? 'vprsTcc' : fleet.scoringSystem === 'tcf' ? 'fixedTcf' : fleet.scoringSystem === 'py' ? 'pyNumber' : null;
         const overrideByComp = new Map<string, number>();
         if (overrideField) {
           for (const o of allRatingOverrides) {
@@ -842,7 +842,8 @@ export async function buildFleetHtmlFiles(
         const isOrcPcs = orcProfile?.kind === 'pcs';
         if (isHandicap && raceStart && orcStartHasCourse(orcProfile, raceStart)) {
           // Applied-TCF map from each competitor's static rating, honouring any
-          // per-race override (IRC/PY only — NHC/ECHO took the early returns).
+          // per-race override (static systems only — NHC/ECHO took the early
+          // returns).
           let tcfMap = new Map<string, number>();
           for (const c of fleetCompetitors) {
             if (fleet.scoringSystem === 'irc') {
@@ -851,6 +852,9 @@ export async function buildFleetHtmlFiles(
             } else if (fleet.scoringSystem === 'vprs') {
               const tcc = overrideByComp.get(c.id) ?? c.vprsTcc;
               if (tcc != null) tcfMap.set(c.id, tcc);
+            } else if (fleet.scoringSystem === 'tcf') {
+              const tcf = overrideByComp.get(c.id) ?? c.fixedTcf;
+              if (tcf != null) tcfMap.set(c.id, tcf);
             } else if (fleet.scoringSystem === 'py') {
               const py = overrideByComp.get(c.id) ?? c.pyNumber;
               if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
@@ -992,6 +996,7 @@ export async function buildFleetHtmlFiles(
           raceStarts: allRaceStarts,
           fleetId: fleet.id,
           scoringSystem: fleet.scoringSystem,
+          ...(fleet.scoringSystem === 'tcf' ? { ratingColumnLabel: ratingSystemLabel(fleet) } : {}),
           primaryPersonLabel: series.primaryPersonLabel ?? DEFAULT_PRIMARY_PERSON_LABEL,
           multiPersonFields: series.multiPersonFields ?? [],
           // The section heading already names the value, so the axis it was

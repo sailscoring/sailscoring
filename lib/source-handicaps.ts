@@ -159,7 +159,7 @@ export function endOfSeriesTcfs(
  * systems (`irc`, `py`) are sourced directly from the source competitor
  * record.
  */
-export type HandicapSystem = 'nhc' | 'echo' | 'irc' | 'py' | 'vprs' | 'orc';
+export type HandicapSystem = 'nhc' | 'echo' | 'irc' | 'py' | 'vprs' | 'orc' | 'tcf';
 
 export type NotFoundReason =
   /** Target fleet was not mapped to a source fleet — the scorer picked
@@ -273,6 +273,7 @@ function systemForFleet(fleet: Fleet): HandicapSystem | null {
     case 'irc':
     case 'py':
     case 'vprs':
+    case 'tcf':
       return fleet.scoringSystem;
     case 'scratch':
       return null;
@@ -293,6 +294,8 @@ function currentTcfFor(competitor: Competitor, system: HandicapSystem): number |
       return competitor.ircTcc ?? null;
     case 'vprs':
       return competitor.vprsTcc ?? null;
+    case 'tcf':
+      return competitor.fixedTcf ?? null;
     case 'py':
       return competitor.pyNumber ?? null;
     case 'orc':
@@ -362,6 +365,8 @@ export function planHandicapUpdates(input: PlanInput): PreviewRow[] {
         newTcf = sourceComp.ircTcc ?? null;
       } else if (system === 'vprs') {
         newTcf = sourceComp.vprsTcc ?? null;
+      } else if (system === 'tcf') {
+        newTcf = sourceComp.fixedTcf ?? null;
       } else {
         // system === 'py'
         newTcf = sourceComp.pyNumber ?? null;

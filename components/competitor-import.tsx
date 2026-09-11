@@ -305,6 +305,7 @@ const STATIC_FIELD_LABELS: Record<Exclude<CompetitorField, 'primary' | 'helm' | 
   subdivision: 'Division',  // fallback; overridden per-series in buildFieldLabels
   tcc: 'IRC TCC',
   vprsTcc: 'VPRS TCC',
+  fixedTcf: 'Fixed TCF',
   py: 'PY number',
   nhcStartingTcf: 'NHC starting TCF',
   echoStartingTcf: 'ECHO starting handicap',
@@ -470,6 +471,7 @@ function defaultMappingRrsConfig(
 const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
   tcc: 'irc',
   vprsTcc: 'vprs',
+  fixedTcf: 'tcf',
   py: 'py',
   nhcStartingTcf: 'nhc',
   echoStartingTcf: 'echo',
@@ -481,6 +483,7 @@ const RATING_FIELD_TO_SYSTEM: Partial<Record<CompetitorField, RatingSystem>> = {
 const RATING_TARGET_LABEL: Partial<Record<CompetitorField, string>> = {
   tcc: 'IRC rating',
   vprsTcc: 'VPRS rating',
+  fixedTcf: 'Fixed TCF',
   py: 'PY number',
   nhcStartingTcf: 'NHC rating',
   echoStartingTcf: 'ECHO rating',
@@ -1770,6 +1773,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
       const subdivisionCells: Record<string, string> = {};
       let tcc = '';
       let vprsTccStr = '';
+      let fixedTcfStr = '';
       let py = '';
       let nhcStartingTcfStr = '';
       let echoStartingTcfStr = '';
@@ -1798,6 +1802,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         else if (field === 'age') age = val;
         else if (field === 'tcc') tcc = val;
         else if (field === 'vprsTcc') vprsTccStr = val;
+        else if (field === 'fixedTcf') fixedTcfStr = val;
         else if (field === 'py') py = val;
         else if (field === 'nhcStartingTcf') nhcStartingTcfStr = val;
         else if (field === 'echoStartingTcf') echoStartingTcfStr = val;
@@ -1846,11 +1851,13 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
 
       const parsedTcc = tcc ? parseFloat(tcc) : null;
       const parsedVprs = vprsTccStr ? parseFloat(vprsTccStr) : null;
+      const parsedFixedTcf = fixedTcfStr ? parseFloat(fixedTcfStr) : null;
       const parsedPy = py ? parseInt(py, 10) : null;
       const parsedNhc = nhcStartingTcfStr ? parseFloat(nhcStartingTcfStr) : null;
       const parsedEcho = echoStartingTcfStr ? parseFloat(echoStartingTcfStr) : null;
       const ircTcc = parsedTcc != null && !isNaN(parsedTcc) ? parsedTcc : existingCompetitor?.ircTcc;
       const vprsTcc = parsedVprs != null && !isNaN(parsedVprs) ? parsedVprs : existingCompetitor?.vprsTcc;
+      const fixedTcf = parsedFixedTcf != null && !isNaN(parsedFixedTcf) ? parsedFixedTcf : existingCompetitor?.fixedTcf;
       const pyNumber = parsedPy != null && !isNaN(parsedPy) ? parsedPy : existingCompetitor?.pyNumber;
       const nhcStartingTcf = parsedNhc != null && !isNaN(parsedNhc) ? parsedNhc : existingCompetitor?.nhcStartingTcf;
       const echoStartingTcf = parsedEcho != null && !isNaN(parsedEcho) ? parsedEcho : existingCompetitor?.echoStartingTcf;
@@ -1945,6 +1952,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         createdAt: existingCompetitor?.createdAt ?? Date.now(),
         ...(ircTcc != null ? { ircTcc } : {}),
         ...(vprsTcc != null ? { vprsTcc } : {}),
+        ...(fixedTcf != null ? { fixedTcf } : {}),
         ...(pyNumber != null ? { pyNumber } : {}),
         ...(nhcStartingTcf != null ? { nhcStartingTcf } : {}),
         ...(echoStartingTcf != null ? { echoStartingTcf } : {}),
@@ -1982,6 +1990,7 @@ export const CompetitorImport = forwardRef<CompetitorImportHandle, {
         subdivisionsEqual(existingCompetitor.subdivisions, competitor.subdivisions) &&
         existingCompetitor.ircTcc === competitor.ircTcc &&
         existingCompetitor.vprsTcc === competitor.vprsTcc &&
+        existingCompetitor.fixedTcf === competitor.fixedTcf &&
         existingCompetitor.pyNumber === competitor.pyNumber &&
         existingCompetitor.nhcStartingTcf === competitor.nhcStartingTcf &&
         existingCompetitor.echoStartingTcf === competitor.echoStartingTcf

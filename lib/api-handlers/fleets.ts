@@ -176,6 +176,7 @@ export async function ensureFleet(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const fleetId = await repos.fleets.ensureFleet(seriesId, input.name, {
     scoringSystem: input.scoringSystem,
+    ratingLabel: input.ratingLabel,
     echoAlpha: input.echoAlpha,
     nhcProfile: input.nhcProfile,
     updatedBy: workspace.userId,

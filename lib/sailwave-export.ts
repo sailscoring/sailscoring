@@ -47,7 +47,8 @@ type RaceRow = SeriesFile['races'][number];
 type FinishRow = RaceRow['finishes'][number];
 
 /** Sailwave's rating-system token for each of our fleet scoring systems.
- *  `TCF` is Sailwave's plain time-on-time factor (IRC, VPRS); `NHC1` is its
+ *  `TCF` is Sailwave's plain time-on-time factor (IRC, VPRS, and a club's own
+ *  fixed TCF); `NHC1` is its
  *  built-in RYA NHC; `PY` its Portsmouth Yardstick. Static ECHO is a Sailwave
  *  option but the token is unverified against a real file. ORC has no
  *  single-number rating to hand over, so an ORC fleet exports unrated. */
@@ -55,6 +56,7 @@ const RATING_SYSTEM_TOKEN: Record<FleetRow['scoringSystem'], string> = {
   scratch: 'None',
   irc: 'TCF',
   vprs: 'TCF',
+  tcf: 'TCF',
   py: 'PY',
   nhc: 'NHC1',
   echo: 'ECHO',
@@ -524,6 +526,7 @@ function ratingFor(c: CompetitorRow, fleet: FleetRow): number | undefined {
   switch (fleet.scoringSystem) {
     case 'irc': return c.ircTcc;
     case 'vprs': return c.vprsTcc;
+    case 'tcf': return c.fixedTcf;
     case 'py': return c.pyNumber;
     case 'nhc': return c.nhcStartingTcf;
     case 'echo': return c.echoStartingTcf;

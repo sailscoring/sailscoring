@@ -544,7 +544,11 @@ export interface Fleet {
   seriesId: string;
   name: string;
   displayOrder: number;
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+  // What the club calls the number a fixed-TCF fleet is scored on — Howth's
+  // autumn league calls it "HPH". Present iff scoringSystem === 'tcf' AND the
+  // club has named it; absent means the rating is headed "TCF".
+  ratingLabel?: string;
   echoAlpha?: number; // present iff scoringSystem === 'echo'; default 0.25 (75/25 club racing)
   // Inline (unshared) NHC profile override. Present iff scoringSystem === 'nhc'
   // AND the scorer has customised the parameters away from the SWNHC2015
@@ -728,22 +732,22 @@ export interface RaceStart {
 }
 
 /** A static-rating field that can be overridden per race. */
-export type RatingField = 'ircTcc' | 'pyNumber' | 'vprsTcc';
+export type RatingField = 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf';
 
 /**
  * Per-race override of a competitor's static rating (mid-series rating change,
  * e.g. a new IRC certificate). The competitor keeps its *current* rating; an
  * override pins a *past* race to the value in effect then. Sparse — present
- * only for re-rated boats. Applies to static fleets only (irc/py); progressive
- * systems (nhc/echo) recompute ratings per race and ignore overrides. See
- * docs/design/horizon.md.
+ * only for re-rated boats. Applies to static fleets only (irc/vprs/py/tcf);
+ * progressive systems (nhc/echo) recompute ratings per race and ignore
+ * overrides. See docs/design/horizon.md.
  */
 export interface RaceRatingOverride {
   id: string;
   raceId: string;
   competitorId: string;
   field: RatingField;
-  value: number;     // in the field's own units (IRC TCC, or PY number)
+  value: number;     // in the field's own units (a TCC or TCF, or a PY number)
   version?: number;  // server-side concurrency token (see Series.version)
 }
 
@@ -772,6 +776,10 @@ export interface Competitor {
   subdivisions?: Record<string, string>;  // subdivision/category values for prize-giving/filtering, not scoring (e.g. {<divisionAxisId>: "Silver", <categoryAxisId>: "Master"}). Keyed by Series.subdivisionAxes[].id; sparse
   createdAt: number;
   ircTcc?: number;    // IRC Time Correction Coefficient, e.g. 0.972
+  // A handicap the club assigns and holds for the series, applied time-on-time
+  // exactly as a TCC is. Named by the fleet (Howth's "HPH"); required for
+  // fixed-TCF competitors.
+  fixedTcf?: number;
   vprsTcc?: number;   // VPRS Time Correction Coefficient, e.g. 0.992 (single applied value; the spin/non-spin pair lives in the rating-source layer, like IRC)
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors

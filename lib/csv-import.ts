@@ -32,6 +32,7 @@ export type CompetitorField =
   | 'subdivision'
   | 'tcc'
   | 'vprsTcc'
+  | 'fixedTcf'
   | 'py'
   | 'nhcStartingTcf'
   | 'echoStartingTcf'
@@ -311,6 +312,10 @@ export function autoDetectField(header: string): CompetitorField {
   if (/\bnhc\b|nhc.*tcf|nhc.*rating/.test(h)) return 'nhcStartingTcf';
   if (/\becho\b|echo.*tcf|echo.*rating|echo.*handicap/.test(h)) return 'echoStartingTcf';
   if (/starting.*tcf/.test(h)) return 'nhcStartingTcf';
+  // A club's own fixed handicap, by the club's name for it or by the generic
+  // one. Last of the rating rules: every system that spells its number a TCF
+  // has already claimed its own header above.
+  if (/\bhph\b|\btcf\b/.test(h)) return 'fixedTcf';
   return 'ignore';
 }
 

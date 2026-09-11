@@ -59,6 +59,7 @@ const SCORING_SYSTEM_OPTIONS: { value: ScoringSystem; label: string }[] = [
   { value: 'py', label: 'Portsmouth Yardstick' },
   { value: 'nhc', label: 'NHC' },
   { value: 'echo', label: 'ECHO' },
+  { value: 'tcf', label: 'Fixed TCF' },
 ];
 
 export default function ImportSailwavePage() {

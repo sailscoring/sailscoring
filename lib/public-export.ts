@@ -236,7 +236,10 @@ export interface PublicSeriesExport {
      *  Absent when the two are the same, which is every ordinary series. */
     label?: string;
     displayOrder: number;
-    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
+    scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+    /** What the club calls the number a fixed-TCF fleet is scored on ("HPH").
+     *  Present iff scoringSystem === 'tcf' and the club has named it. */
+    ratingLabel?: string;
     /** ECHO blend rate α (present iff scoringSystem === 'echo'). */
     echoAlpha?: number;
     /** Inline NHC profile (present iff scoringSystem === 'nhc' and parameters differ from SWNHC2015 defaults). */
@@ -314,6 +317,8 @@ export interface PublicSeriesExport {
     ircTcc?: number;
     /** VPRS Time Correction Coefficient. */
     vprsTcc?: number;
+    /** The club's fixed handicap for the series, applied time-on-time. */
+    fixedTcf?: number;
     pyNumber?: number;
     /** NHC starting TCF (race-1 input). */
     nhcStartingTcf?: number;
@@ -1304,6 +1309,7 @@ export function buildPublicExportFromSnapshot(
       ...(fleetNameById.get(f.id) !== f.name ? { label: f.name } : {}),
       displayOrder: f.displayOrder,
       scoringSystem: f.scoringSystem,
+      ...(f.ratingLabel ? { ratingLabel: f.ratingLabel } : {}),
       ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
       ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
@@ -1337,6 +1343,7 @@ export function buildPublicExportFromSnapshot(
       fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
+      ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
@@ -1685,6 +1692,7 @@ export async function importPublicExport(
         name: f.label ?? f.name,
         displayOrder: f.displayOrder,
         scoringSystem: f.scoringSystem,
+        ...(f.ratingLabel ? { ratingLabel: f.ratingLabel } : {}),
         ...(f.echoAlpha != null ? { echoAlpha: f.echoAlpha } : {}),
         ...(f.nhcProfile != null ? { nhcProfile: f.nhcProfile } : {}),
         ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
@@ -1813,6 +1821,7 @@ export async function importPublicExport(
         createdAt: now,
         ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
         ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
+        ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
         ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),

@@ -35,16 +35,18 @@ export const SYSTEM_LABEL: Record<HandicapSystem, string> = {
   vprs: 'VPRS',
   py: 'PY',
   orc: 'ORC',
+  tcf: 'Fixed TCF',
 };
 
 /** The TCF field on `Competitor` written for each handicap system. ORC is
  *  absent by design: its rating is a whole certificate, carried on the row
  *  as `orcCert` — see {@link buildPreviewUpdateRows}. */
-export const SYSTEM_FIELD: Record<Exclude<HandicapSystem, 'orc'>, keyof Pick<Competitor, 'nhcStartingTcf' | 'echoStartingTcf' | 'ircTcc' | 'vprsTcc' | 'pyNumber'>> = {
+export const SYSTEM_FIELD: Record<Exclude<HandicapSystem, 'orc'>, keyof Pick<Competitor, 'nhcStartingTcf' | 'echoStartingTcf' | 'ircTcc' | 'vprsTcc' | 'fixedTcf' | 'pyNumber'>> = {
   nhc: 'nhcStartingTcf',
   echo: 'echoStartingTcf',
   irc: 'ircTcc',
   vprs: 'vprsTcc',
+  tcf: 'fixedTcf',
   py: 'pyNumber',
 };
 

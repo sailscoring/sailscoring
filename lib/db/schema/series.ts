@@ -414,6 +414,7 @@ export const fleets = pgTable(
     name: text('name').notNull(),
     displayOrder: integer('display_order').notNull(),
     scoringSystem: text('scoring_system').notNull(),
+    ratingLabel: text('rating_label'),
     echoAlpha: real('echo_alpha'),
     nhcProfile: jsonb('nhc_profile').$type<NhcProfile>(),
     orcProfile: jsonb('orc_profile').$type<OrcProfile>(),
@@ -432,7 +433,7 @@ export const fleets = pgTable(
     index('fleets_workspace_idx').on(table.workspaceId),
     check(
       'fleets_scoring_system_chk',
-      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo','vprs','orc')`,
+      sql`${table.scoringSystem} in ('scratch','irc','py','nhc','echo','vprs','orc','tcf')`,
     ),
   ],
 );
@@ -486,6 +487,7 @@ export const competitors = pgTable(
       .defaultNow(),
     ircTcc: real('irc_tcc'),
     vprsTcc: real('vprs_tcc'),
+    fixedTcf: real('fixed_tcf'),
     pyNumber: real('py_number'),
     nhcStartingTcf: real('nhc_starting_tcf'),
     echoStartingTcf: real('echo_starting_tcf'),
@@ -1081,7 +1083,7 @@ export const raceRatingOverrides = pgTable(
     ),
     check(
       'race_rating_overrides_field_chk',
-      sql`${table.field} in ('ircTcc','pyNumber','vprsTcc')`,
+      sql`${table.field} in ('ircTcc','pyNumber','vprsTcc','fixedTcf')`,
     ),
   ],
 );

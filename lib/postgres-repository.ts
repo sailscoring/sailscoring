@@ -153,6 +153,7 @@ function fleetRowToType(row: FleetRow): Fleet {
     name: row.name,
     displayOrder: row.displayOrder,
     scoringSystem: row.scoringSystem as Fleet['scoringSystem'],
+    ...(row.ratingLabel != null ? { ratingLabel: row.ratingLabel } : {}),
     ...(row.echoAlpha != null ? { echoAlpha: row.echoAlpha } : {}),
     ...(row.nhcProfile != null ? { nhcProfile: row.nhcProfile } : {}),
     ...(row.orcProfile != null ? { orcProfile: row.orcProfile } : {}),
@@ -194,6 +195,7 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     createdAt: row.createdAt.getTime(),
     ...(row.ircTcc != null ? { ircTcc: row.ircTcc } : {}),
     ...(row.vprsTcc != null ? { vprsTcc: row.vprsTcc } : {}),
+    ...(row.fixedTcf != null ? { fixedTcf: row.fixedTcf } : {}),
     ...(row.pyNumber != null ? { pyNumber: row.pyNumber } : {}),
     ...(row.nhcStartingTcf != null ? { nhcStartingTcf: row.nhcStartingTcf } : {}),
     ...(row.echoStartingTcf != null ? { echoStartingTcf: row.echoStartingTcf } : {}),
@@ -777,6 +779,7 @@ function fleetToRow(f: Fleet, workspaceId: string) {
     name: f.name,
     displayOrder: f.displayOrder,
     scoringSystem: f.scoringSystem,
+    ratingLabel: f.ratingLabel ?? null,
     echoAlpha: f.echoAlpha ?? null,
     nhcProfile: f.nhcProfile ?? null,
     orcProfile: f.orcProfile ?? null,
@@ -787,7 +790,7 @@ function fleetToRow(f: Fleet, workspaceId: string) {
 }
 
 const fleetUpdateColumns = [
-  'name', 'displayOrder', 'scoringSystem', 'echoAlpha', 'nhcProfile', 'orcProfile', 'splitRoundId',
+  'name', 'displayOrder', 'scoringSystem', 'ratingLabel', 'echoAlpha', 'nhcProfile', 'orcProfile', 'splitRoundId',
   'color', 'importGroups',
 ] as const satisfies readonly (keyof ReturnType<typeof fleetToRow>)[];
 
@@ -902,6 +905,7 @@ export class PostgresFleetRepository implements FleetRepository {
     name: string,
     options?: {
       scoringSystem?: Fleet['scoringSystem'];
+      ratingLabel?: string;
       echoAlpha?: number;
       nhcProfile?: NhcProfile;
       orcProfile?: OrcProfile;
@@ -966,6 +970,10 @@ export class PostgresFleetRepository implements FleetRepository {
         name: fleetName,
         displayOrder,
         scoringSystem,
+        ratingLabel:
+          scoringSystem === 'tcf' && options?.ratingLabel
+            ? options.ratingLabel
+            : null,
         echoAlpha:
           scoringSystem === 'echo'
             ? (options?.echoAlpha ?? ECHO_DEFAULT_ALPHA)
@@ -1015,6 +1023,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     createdAt: new Date(c.createdAt),
     ircTcc: c.ircTcc ?? null,
     vprsTcc: c.vprsTcc ?? null,
+    fixedTcf: c.fixedTcf ?? null,
     pyNumber: c.pyNumber ?? null,
     nhcStartingTcf: c.nhcStartingTcf ?? null,
     echoStartingTcf: c.echoStartingTcf ?? null,
@@ -1028,7 +1037,7 @@ const competitorUpdateColumns = [
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'clubs', 'nationality',
   'gender', 'age', 'subdivisions',
-  'ircTcc', 'vprsTcc', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert',
+  'ircTcc', 'vprsTcc', 'fixedTcf', 'pyNumber', 'nhcStartingTcf', 'echoStartingTcf', 'orcCert',
   'excluded',
 ] as const satisfies readonly (keyof ReturnType<typeof competitorToRow>)[];
 

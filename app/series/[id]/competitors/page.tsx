@@ -462,15 +462,17 @@ export default function CompetitorsPage({
     { key: 'x', description: 'Select/deselect focused row', section: 'Competitors' },
   ]);
 
-  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'vprsTcc' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
+  function ratingFieldsFromForm(data: CompetitorFormData): Pick<Competitor, 'ircTcc' | 'vprsTcc' | 'fixedTcf' | 'pyNumber' | 'nhcStartingTcf' | 'echoStartingTcf'> {
     const tcc = data.ircTcc.trim() ? parseFloat(data.ircTcc.trim()) : undefined;
     const vprs = data.vprsTcc.trim() ? parseFloat(data.vprsTcc.trim()) : undefined;
+    const fixedTcf = data.fixedTcf.trim() ? parseFloat(data.fixedTcf.trim()) : undefined;
     const py = data.pyNumber.trim() ? parseInt(data.pyNumber.trim(), 10) : undefined;
     const nhc = data.nhcStartingTcf.trim() ? parseFloat(data.nhcStartingTcf.trim()) : undefined;
     const echo = data.echoStartingTcf.trim() ? parseFloat(data.echoStartingTcf.trim()) : undefined;
     return {
       ...(tcc != null && !isNaN(tcc) ? { ircTcc: tcc } : {}),
       ...(vprs != null && !isNaN(vprs) ? { vprsTcc: vprs } : {}),
+      ...(fixedTcf != null && !isNaN(fixedTcf) ? { fixedTcf } : {}),
       ...(py != null && !isNaN(py) ? { pyNumber: py } : {}),
       ...(nhc != null && !isNaN(nhc) ? { nhcStartingTcf: nhc } : {}),
       ...(echo != null && !isNaN(echo) ? { echoStartingTcf: echo } : {}),
@@ -595,6 +597,7 @@ export default function CompetitorsPage({
     // Clear ratings no longer relevant
     if (!updated.ircTcc) delete updated.ircTcc;
     if (!updated.vprsTcc) delete updated.vprsTcc;
+    if (!updated.fixedTcf) delete updated.fixedTcf;
     if (!updated.pyNumber) delete updated.pyNumber;
     if (!updated.nhcStartingTcf) delete updated.nhcStartingTcf;
     if (!updated.echoStartingTcf) delete updated.echoStartingTcf;
@@ -1260,6 +1263,7 @@ export default function CompetitorsPage({
                 fleetIds: editingCompetitor.fleetIds,
                 ircTcc: editingCompetitor.ircTcc?.toString() ?? '',
                 vprsTcc: editingCompetitor.vprsTcc?.toString() ?? '',
+                fixedTcf: editingCompetitor.fixedTcf?.toString() ?? '',
                 pyNumber: editingCompetitor.pyNumber?.toString() ?? '',
                 nhcStartingTcf: editingCompetitor.nhcStartingTcf?.toString() ?? '',
                 echoStartingTcf: editingCompetitor.echoStartingTcf?.toString() ?? '',

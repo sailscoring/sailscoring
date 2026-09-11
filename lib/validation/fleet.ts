@@ -12,6 +12,7 @@ export const scoringSystemSchema = z.enum([
   'echo',
   'vprs',
   'orc',
+  'tcf',
 ]);
 
 // ORC scoring configuration: which certificate rating field the fleet scores
@@ -44,6 +45,9 @@ export const fleetSchema = z.object({
   name: z.string(),
   displayOrder: z.number().int(),
   scoringSystem: scoringSystemSchema,
+  // The club's name for a fixed TCF ("HPH"). Free text — it is a label, and
+  // what a club calls its own handicap is not ours to enumerate.
+  ratingLabel: z.string().max(32).optional(),
   echoAlpha: z.number().optional(),
   nhcProfile: nhcProfileSchema.optional(),
   orcProfile: orcProfileSchema.optional(),
@@ -70,6 +74,7 @@ export const fleetsBulkInputSchema = z.object({
 export const ensureFleetInputSchema = z.object({
   name: z.string(),
   scoringSystem: scoringSystemSchema.optional(),
+  ratingLabel: z.string().max(32).optional(),
   echoAlpha: z.number().optional(),
   nhcProfile: nhcProfileSchema.optional(),
   orcProfile: orcProfileSchema.optional(),

@@ -277,6 +277,7 @@ export function calculateRaceScores(
  * Derive the Time Correction Factor for a competitor in a handicap fleet.
  * IRC:  TCF = TCC (stored directly on the competitor).
  * VPRS: TCF = TCC (same static time-on-time shape as IRC).
+ * TCF:  the fixed handicap the club assigned, stored directly on the competitor.
  * PY:   TCF = 1000 / pyNumber.
  * ORC:  the fleet's configured time-on-time rating field, read off the
  *       stored certificate (default APHT — ToT ratings are 600/ToD, so a
@@ -323,6 +324,13 @@ function getTCF(competitor: Competitor, fleet: Fleet): number | null {
     // VPRS is time-on-time: CT = ET × TCC, the same static-TCF shape as IRC
     // (vprs.org: "multiply the elapsed time by the yacht's TCC").
     return competitor.vprsTcc ?? null;
+  }
+  if (fleet.scoringSystem === 'tcf') {
+    // A club handicap assigned once and held for the series — the number is
+    // already a TCF, so it applies exactly as a TCC does. Where it came from
+    // (a handicapper's list, or the end of a progressive series) is the
+    // club's business and leaves no trace on the scoring.
+    return competitor.fixedTcf ?? null;
   }
   if (fleet.scoringSystem === 'py') {
     return competitor.pyNumber != null ? 1000 / competitor.pyNumber : null;
@@ -1636,8 +1644,9 @@ function calculateHandicapStandings(
   const overrideField: RaceRatingOverride['field'] | null =
     fleet.scoringSystem === 'irc' ? 'ircTcc'
       : fleet.scoringSystem === 'vprs' ? 'vprsTcc'
-        : fleet.scoringSystem === 'py' ? 'pyNumber'
-          : null;
+        : fleet.scoringSystem === 'tcf' ? 'fixedTcf'
+          : fleet.scoringSystem === 'py' ? 'pyNumber'
+            : null;
   const overrideTcfByRace = new Map<string, Map<string, number>>();
   if (overrideField && !isProgressive) {
     for (const o of ratingOverrides) {
