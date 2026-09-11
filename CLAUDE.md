@@ -129,7 +129,16 @@ When implementing any new user-facing feature, ensure the following are covered 
 
 - **Keyboard shortcut** — if the feature is a page-level action (add, import, export, etc.), add a `ShortcutSpec` via `useShortcuts` (`hooks/use-keyboard-shortcut.ts`) in the relevant page; the `?` help dialog renders from the shortcut registry automatically. Keys a page binds itself (element-level handlers, custom `useGlobalKeyDown` logic) contribute their dialog rows via `useShortcutHelp`. Document the shortcut in the relevant help chapter if it covers the area.
 - **Help documentation** — help is chaptered (`/help/<group>`, see `docs/design/user-docs.md`): if the feature introduces a workflow or concept a new scorer would need guidance on, add a section to its chapter page (`app/help/<group>/page.tsx`) **and** register it in the manifest (`app/help/sections.ts`) — the manifest drives the chapter TOC, the landing index, per-user gating, and old-anchor redirects. Gated features also list the section id in their `FEATURES.helpSectionIds`. Section ids are shareable URLs — never rename one.
-- **Feature inventory, screenshot, and marketing entry** — add a row for the feature to `docs/design/feature-inventory.md` (the source of truth feeding both the help docs and the marketing site's `/features` page), add a capture to `scripts/feature-shots.ts` (`pnpm feature-shots:local` — one run writes the WebPs for both surfaces), and add the sales-shaped entry to the marketing repo's `app/features/page.tsx` (cross-repo: `sailscoring/sailscoring.ie`). Help sections embed the shot via `HelpShot` where it teaches.
+- **Feature inventory, screenshot, and marketing entry** — add a row for the feature to `docs/design/feature-inventory.md` (the source of truth feeding both the help docs and the marketing site's `/features` page), add a capture to `scripts/feature-shots.ts`, and add the sales-shaped entry to the marketing repo's `app/features/page.tsx` (cross-repo: `sailscoring/sailscoring.ie`). Help sections embed the shot via `HelpShot` where it teaches.
+  **Run the capture yourself, in the same session as the feature** — registering it in the rig is half the job, and a note saying the operator should run it later will be missed. One run writes both WebPs:
+
+  ```
+  pnpm db:up && pnpm db:migrate:test
+  E2E_DISABLE_RATE_LIMIT=1 pnpm start:test   # background; the bypass keeps repeat runs signing in
+  pnpm feature-shots:local <slug>            # name the slug to capture just yours
+  ```
+
+  Then **look at the PNG** it wrote to `screenshots/features/` before wiring it in — the brief is a guess until the image exists — embed the app-repo WebP (`public/help/shots/<slug>.webp`) in the help section, commit the marketing-repo WebP with the `/features` entry that references it, and kill the hand-started server before running e2e (it lacks the suite's rate-limit bypass).
 - **Unit tests** — if the feature includes pure logic (calculations, parsers, validators), add Vitest tests in `tests/`. E2e covers workflows; unit tests cover correctness of the underlying functions.
 - **E2E test** — add a Playwright test in `e2e/` covering the happy path. Console errors and page errors fail tests automatically (see `e2e/` setup).
 - **Series file format** — if the feature adds new persistent fields to any type in `lib/types.ts`, update the serialization in `lib/series-file.ts` and consider whether the format version needs bumping. Omitting this causes silent data loss on file round-trips.
