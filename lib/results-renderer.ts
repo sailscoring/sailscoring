@@ -238,6 +238,20 @@ export interface NhcHeaderData {
   realignmentFactor: number;
   /** True when finisherCount < MinFin (3 by default); no rating update. */
   updateSuppressed: boolean;
+  /** The profile's MinFin this race was gated on — the fleet's, which need
+   *  not be the default, so the suppression note can state it. Absent on an
+   *  export written before the threshold was recorded. */
+  minFinishers?: number;
+}
+
+/** Why a progressive rating update was held back. The threshold is the
+ *  fleet's own MinFin, which need not be the default — a fleet scored with
+ *  MinFin 5 must not publish a race claiming it was gated at 3. An export
+ *  written before the threshold was recorded says so without a number. */
+function suppressionReason(minFinishers: number | undefined): string {
+  return minFinishers == null
+    ? 'too few finishers'
+    : `fewer than ${minFinishers} finisher${minFinishers === 1 ? '' : 's'}`;
 }
 
 export interface EchoHeaderData {
@@ -249,6 +263,9 @@ export interface EchoHeaderData {
   sumReciprocalEt: number;
   /** True when the IS guide's ≤2-finisher gate fired (no rating update). */
   updateSuppressed: boolean;
+  /** The threshold this race was gated on, for the suppression note. Absent
+   *  on an export written before it was recorded. */
+  minFinishers?: number;
 }
 
 export interface RaceResultData {
@@ -2010,7 +2027,7 @@ function renderRaceTable(
     : '';
   const nhcSubheading = hasExplain
     ? (race.nhcHeader!.updateSuppressed
-        ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 (SWNHC2015) &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; <strong>Rating update suppressed (fewer than 3 finishers)</strong></p>`
+        ? `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 (SWNHC2015) &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; <strong>Rating update suppressed (${suppressionReason(race.nhcHeader!.minFinishers)})</strong></p>`
         : `<p class="nhc-fleet-header nhc-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: NHC1 (SWNHC2015) &middot; Finishers: ${race.nhcHeader!.finisherCount} &middot; μ(S) = ${race.nhcHeader!.sMean.toFixed(4)} &middot; σ(S) = ${race.nhcHeader!.sStdev.toFixed(4)} &middot; extreme if S &gt; ${race.nhcHeader!.sHi.toFixed(4)} or S &lt; ${race.nhcHeader!.sLo.toFixed(4)} (${race.nhcHeader!.extremeCount} this race) &middot; P50 = ${race.nhcHeader!.p50.toFixed(6)}${race.nhcHeader!.w51 != null ? ` &middot; W51 = ${race.nhcHeader!.w51.toFixed(6)}` : ''} &middot; Z51 = ${race.nhcHeader!.realignmentFactor.toFixed(6)}</p>`)
     : '';
   // ECHO IS-notation columns: 1/T_E, PI, Adjustment hide under the calculation
@@ -2075,7 +2092,7 @@ function renderRaceTable(
     ? '\n<col class="recip echo-detail" />\n<col class="pi echo-detail" />\n<col class="adjustment echo-detail" />'
     : '';
   const echoSubheading = hasEchoExplain
-    ? `<p class="echo-fleet-header echo-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: ECHO &middot; α = ${race.echoHeader!.alpha} &middot; Finishers: ${race.echoHeader!.finisherCount} &middot; ΣH_S = ${race.echoHeader!.sumH.toFixed(3)} &middot; Σ(1/T_E) = ${race.echoHeader!.sumReciprocalEt.toFixed(5)}${race.echoHeader!.updateSuppressed ? ' &middot; <strong>Rating update suppressed (fewer than 3 finishers)</strong>' : ''}</p>`
+    ? `<p class="echo-fleet-header echo-detail" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">Rating system: ECHO &middot; α = ${race.echoHeader!.alpha} &middot; Finishers: ${race.echoHeader!.finisherCount} &middot; ΣH_S = ${race.echoHeader!.sumH.toFixed(3)} &middot; Σ(1/T_E) = ${race.echoHeader!.sumReciprocalEt.toFixed(5)}${race.echoHeader!.updateSuppressed ? ` &middot; <strong>Rating update suppressed (${suppressionReason(race.echoHeader!.minFinishers)})</strong>` : ''}</p>`
     : '';
 
   const primaryTh = esc(showCrewName ? `${primaryHeader} / ${crewHeader}` : primaryHeader);

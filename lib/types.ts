@@ -1109,7 +1109,8 @@ export interface NhcRaceAggregates {
   sLo: number;               // sMean − sdUnder·sStdev  (default sdUnder = 1.0)
   extremeCount: number;
   realignmentFactor: number; // Z51 = ΣL / ΣZ over finishers
-  updateSuppressed: boolean; // true when finisherCount < minFin
+  updateSuppressed: boolean; // true when finisherCount < minFinishers
+  minFinishers: number;      // the profile's MinFin this race was gated on
 }
 
 // ECHO per-finisher intermediate calculations (for explainability).
@@ -1135,6 +1136,7 @@ export interface EchoRaceAggregates {
   sumH: number;             // ΣH_S — sum of starting handicaps across finishers
   sumReciprocalEt: number;  // Σ(1/T_E) — seconds⁻¹
   updateSuppressed: boolean; // true when finisherCount < minFinishers (≤2 for ECHO)
+  minFinishers: number;      // the threshold this race was gated on
 }
 
 // Per-finisher intermediates produced by the handicap-adjustment phase.

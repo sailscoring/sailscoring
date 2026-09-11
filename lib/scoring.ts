@@ -771,6 +771,7 @@ function swnhc2015Adjustment(
       extremeCount: 0,
       realignmentFactor: 1,
       updateSuppressed: true,
+      minFinishers: config.minFinishers,
     };
     return { newTcfByCompetitorId, perFinisherCalc, aggregates };
   }
@@ -887,6 +888,7 @@ function swnhc2015Adjustment(
     extremeCount: extreme.filter(Boolean).length,
     realignmentFactor: z51,
     updateSuppressed: false,
+    minFinishers: config.minFinishers,
   };
 
   return { newTcfByCompetitorId, perFinisherCalc, aggregates };
@@ -962,6 +964,7 @@ function symmetricBlendAdjustment(
     sumH: tcfSum,
     sumReciprocalEt,
     updateSuppressed,
+    minFinishers: config.minFinishers,
   };
 
   return { newTcfByCompetitorId, perFinisherCalc, aggregates };

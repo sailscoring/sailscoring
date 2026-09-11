@@ -1120,6 +1120,39 @@ function nhcFixture(withExplain = true): SeriesResultsData {
   };
 }
 
+describe('renderSeriesHtml suppressed rating update', () => {
+  function suppressedFixture(minFinishers?: number): SeriesResultsData {
+    const base = nhcFixture();
+    const race = base.races[0];
+    return {
+      ...base,
+      races: [{
+        ...race,
+        nhcHeader: {
+          ...race.nhcHeader!,
+          updateSuppressed: true,
+          ...(minFinishers != null ? { minFinishers } : {}),
+        },
+      }],
+    };
+  }
+
+  it('names the fleet\'s own MinFin rather than the default', () => {
+    expect(renderSeriesHtml(suppressedFixture(5))).toContain(
+      'Rating update suppressed (fewer than 5 finishers)',
+    );
+    expect(renderSeriesHtml(suppressedFixture(3))).toContain(
+      'Rating update suppressed (fewer than 3 finishers)',
+    );
+  });
+
+  it('states no threshold on an export written before it was recorded', () => {
+    const html = renderSeriesHtml(suppressedFixture());
+    expect(html).toContain('Rating update suppressed (too few finishers)');
+    expect(html).not.toContain('fewer than');
+  });
+});
+
 describe('renderSeriesHtml rating column label', () => {
   function fixedTcfFixture(ratingColumnLabel?: string): SeriesResultsData {
     return {

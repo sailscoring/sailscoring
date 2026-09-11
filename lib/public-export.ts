@@ -593,6 +593,9 @@ export interface NhcRaceFleetExport {
   extremeCount: number;
   realignmentFactor: number;
   updateSuppressed: boolean;
+  /** The fleet's MinFin this race was gated on. Absent on exports written
+   *  before it was recorded. */
+  minFinishers?: number;
   rows: {
     sailNumber: string;
     tcfApplied: number;
@@ -622,6 +625,9 @@ export interface EchoRaceFleetExport {
   sumReciprocalEt: number;
   /** True when the IS guide's ≤2-finisher gate fired (no rating update). */
   updateSuppressed: boolean;
+  /** The threshold this race was gated on. Absent on exports written before
+   *  it was recorded. */
+  minFinishers?: number;
   rows: {
     sailNumber: string;
     tcfApplied: number;
@@ -1042,6 +1048,7 @@ export function buildPublicExportFromSnapshot(
         extremeCount: agg.extremeCount,
         realignmentFactor: agg.realignmentFactor,
         updateSuppressed: agg.updateSuppressed,
+        minFinishers: agg.minFinishers,
         rows,
       };
       const byFleet = nhcByFleetByRaceId.get(raceId) ?? new Map();
@@ -1075,6 +1082,7 @@ export function buildPublicExportFromSnapshot(
         sumH: agg.sumH,
         sumReciprocalEt: agg.sumReciprocalEt,
         updateSuppressed: agg.updateSuppressed,
+        minFinishers: agg.minFinishers,
         rows,
       };
       const byFleet = echoByFleetByRaceId.get(raceId) ?? new Map();
