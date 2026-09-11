@@ -999,6 +999,21 @@ export function buildPublicExportFromSnapshot(
   // carries its real one alongside, for an importer to restore.
   const fleetNameById = uniqueFleetNames(fleets);
   const sailNumberById = new Map(competitors.map((c) => [c.id, c.sailNumber]));
+  // A boat's fleet names, in the series' own fleet order rather than in the
+  // order its membership happened to be written — so the JSON agrees with the
+  // published page beside it, and two boats in the same fleets export the same
+  // bytes. An id no fleet answers to is kept verbatim (the importer matches on
+  // it) and sorts last, having no order of its own.
+  const fleetOrderById = new Map(fleets.map((f) => [f.id, f]));
+  const exportedFleetNames = (fleetIds: readonly string[]): string[] =>
+    [...fleetIds]
+      .sort((a, b) => {
+        const fa = fleetOrderById.get(a);
+        const fb = fleetOrderById.get(b);
+        if (!fa || !fb) return (fa ? 0 : 1) - (fb ? 0 : 1);
+        return fa.displayOrder - fb.displayOrder || fa.name.localeCompare(fb.name);
+      })
+      .map((id) => fleetNameById.get(id) ?? id);
 
   // Per-fleet point maps (per-fleet RDG / DPI) are stored internally keyed by
   // fleetId, but the export's portable identity is the fleet name — so re-key
@@ -1348,7 +1363,7 @@ export function buildPublicExportFromSnapshot(
       ...(carrySubdivisions && c.subdivisions && Object.keys(c.subdivisions).length > 0
         ? { subdivisions: c.subdivisions }
         : {}),
-      fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+      fleetNames: exportedFleetNames(c.fleetIds),
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
       ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
@@ -1379,7 +1394,7 @@ export function buildPublicExportFromSnapshot(
             if (!c) return [];
             return [{
               sailNumber: c.sailNumber,
-              fleetNames: c.fleetIds.map((id) => fleetNameById.get(id) ?? id),
+              fleetNames: exportedFleetNames(c.fleetIds),
               status: o.status,
             }];
           });

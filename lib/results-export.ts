@@ -51,6 +51,7 @@ import {
   renderSplitFleetStandingsPage,
 } from './split-fleets-render';
 import {
+  competitorFleets,
   defaultEnabledCompetitorFields,
   DEFAULT_PRIMARY_PERSON_LABEL,
 } from './competitor-fields';
@@ -254,11 +255,14 @@ async function buildCompetitorListFile(
    * ordinary fleets, which a boat can genuinely be scored in several of, are
    * all kept. Rounds mint their fleets with an increasing `displayOrder`, so
    * that is the ordering.
+   *
+   * `displayOrder` also decides what comes first, rather than the order this
+   * boat's membership happened to be written in: two boats in the same pair
+   * of fleets must read the same way on a page competitors read.
    */
   const displayFleets = (c: Competitor): Fleet[] => {
-    const own = c.fleetIds
-      .map((id) => fleetById.get(id))
-      .filter((f): f is Fleet => !!f && !isSyntheticFleetName(f.name));
+    const own = competitorFleets(c.fleetIds, fleetById)
+      .filter((f) => !isSyntheticFleetName(f.name));
     const rounds = own.filter((f) => f.splitRoundId);
     const latestRound = rounds.reduce<Fleet | null>(
       (best, f) => (best === null || f.displayOrder > best.displayOrder ? f : best),
