@@ -799,7 +799,7 @@ export default function CompetitorsPage({
             fleets={fleets ?? []}
             open={showPublishDialog}
             onClose={() => setShowPublishDialog(false)}
-            canFtp={false}
+            canFtp={features.has('ftp-upload') && can('manage-workspace')}
           />
         )}
         <UpdateHandicaps ref={updateHandicapsRef} seriesId={seriesId} />
