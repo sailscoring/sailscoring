@@ -499,7 +499,11 @@ function AdoptCardDialogInner({
   onCancel: () => void;
 }) {
   const sets = courseCardSets();
-  const [setPath, setSetPath] = useState(sets[0]?.path ?? '');
+  // Adopting a second card from the same club is the common case, so start at
+  // the set the library's marks already came from rather than at the top of
+  // the catalogue.
+  const setsInUse = [...new Set(marks.filter((m) => m.card).map((m) => m.card!.set))];
+  const [setPath, setSetPath] = useState(setsInUse[0] ?? sets[0]?.path ?? '');
   const [cardId, setCardId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -530,7 +534,7 @@ function AdoptCardDialogInner({
         </DialogHeader>
         <div className="space-y-2">
           <Select value={setPath} onValueChange={(v) => { setSetPath(v); setCardId(''); }}>
-            <SelectTrigger className="w-full min-w-0" aria-label="Course card set" data-testid="adopt-card-set"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full min-w-0" aria-label="Course card set" data-testid="adopt-dialog-set"><SelectValue /></SelectTrigger>
             <SelectContent>
               {sets.map((s) => (
                 <SelectItem key={s.path} value={s.path}>{courseCardSetLabel(s)}</SelectItem>
@@ -538,7 +542,7 @@ function AdoptCardDialogInner({
             </SelectContent>
           </Select>
           <Select value={effectiveCardId} onValueChange={setCardId} disabled={!set}>
-            <SelectTrigger className="w-full min-w-0" aria-label="Course card" data-testid="adopt-card"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full min-w-0" aria-label="Course card" data-testid="adopt-dialog-card"><SelectValue /></SelectTrigger>
             <SelectContent>
               {(set?.cards ?? []).map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>

@@ -114,9 +114,20 @@ function CourseDialogInner({
   const sets = courseCardSets();
   // The card offered first: the one the most recent course was made from.
   const recentCard = [...courses].sort((a, b) => b.createdAt - a.createdAt).find((c) => c.card)?.card;
+  // The set offered first is one the library's marks came from. A card course
+  // resolves against marks already adopted, so any other set is a choice that
+  // cannot work — the dialog would just report marks it can't place. The most
+  // recent course's card breaks the tie when the library holds several sets.
+  const setsInUse = [...new Set(marks.filter((m) => m.card).map((m) => m.card!.set))];
+  const defaultSet =
+    (recentCard && setsInUse.includes(recentCard.set) ? recentCard.set : undefined) ??
+    setsInUse[0] ??
+    recentCard?.set ??
+    sets[0]?.path ??
+    '';
 
   const [source, setSource] = useState<'card' | 'hand'>(seed ? (seed.card ? 'card' : 'hand') : sets.length > 0 ? 'card' : 'hand');
-  const [setPath, setSetPath] = useState(seed?.card?.set ?? recentCard?.set ?? sets[0]?.path ?? '');
+  const [setPath, setSetPath] = useState(seed?.card?.set ?? defaultSet);
   const set = findCourseCardSet(setPath);
   const [cardId, setCardId] = useState(seed?.card?.cardId ?? recentCard?.cardId ?? '');
   const effectiveCardId = set?.cards.some((c) => c.id === cardId) ? cardId : set?.cards[0]?.id ?? '';

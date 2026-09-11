@@ -93,6 +93,23 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await expect(zRow).toBeVisible();
   await expect(zRow).toContainText('0.54 NM @ 190° from Start — 12 Sep');
 
+  // Adopt the club's charted marks first — the natural order of the tab. The
+  // catalogue's first set belongs to another club, so both dialogs have to
+  // start from the set the library's marks came from, not from the top of it.
+  await page.getByTestId('adopt-card').click();
+  await pick(page, 'adopt-dialog-set', 'Howth Yacht Club — Autumn League 2026');
+  await pick(page, 'adopt-dialog-card', /offshore/);
+  await page.getByTestId('adopt-save').click();
+  await expect(page.getByText('From the card')).toBeVisible();
+  await page.getByTestId('adopt-card').click();
+  await expect(page.getByTestId('adopt-dialog-set')).toContainText('Howth Yacht Club');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.getByTestId('new-course').click();
+  await expect(page.getByTestId('course-card-set')).toContainText('Howth Yacht Club');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
   // A course from the card: HYC's 2026 offshore K1 (laid out for 180°),
   // whose start line and Z the card cannot place — the card quotes the
   // sailing instructions for the line and says Z is laid upwind of it, so
