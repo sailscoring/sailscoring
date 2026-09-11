@@ -134,6 +134,11 @@ export default function Publishing() {
         </p>
         {has('ftp-upload') && (
           <>
+            <HelpShot
+              src="/help/shots/ftp-upload.webp"
+              alt="The Publish dialog uploading to a club's own web server: a remote path per page."
+              caption="Uploading to your own web server: a remote path per page, ticked one by one."
+            />
             <p>
               <strong className="text-foreground">Upload via FTP:</strong>{' '}
               if your club has a web hosting account, you can push results directly to it without

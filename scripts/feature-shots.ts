@@ -692,6 +692,72 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: FTP upload to your own site — the Publish dialog's second
+    // destination, with a remote path per published page (#541). Sits after
+    // the entry-list shots on purpose: their gate is on by then, so the
+    // picture shows what the destination is for — every page the series
+    // publishes, the entry list among them, not just the fleets.
+    //
+    // Operator-gated, and it needs a server to upload to, so local mode
+    // flips the gate and adds a throwaway one. The paths are typed in to
+    // show what the rows are for; nothing is uploaded, and the series is put
+    // back in Sail Scoring mode so later shots open the dialog as found.
+    slug: 'ftp-upload',
+    group: 'Publishing',
+    async capture({ page, seriesId, shot }) {
+      await dbEnableOperatorFeature('ftp-upload');
+      await page.evaluate(() => localStorage.clear());
+      // Asked for by name rather than inherited from the entry-list shots
+      // above, so the picture is the same whether the rig runs this slug on
+      // its own or the whole registry.
+      await ensureFeature(page, 'entry-list');
+      const host = 'results.example.ie';
+      await page.goto(`${BASE}/workspace`);
+      await settle(page);
+      const server = page.getByText(`ftp://${host}:21`);
+      if (!(await server.isVisible().catch(() => false))) {
+        await page.getByRole('button', { name: 'Add server' }).click();
+        await page.getByLabel('Host').fill(host);
+        await page.getByLabel('Username').fill('scorer');
+        await page.locator('#ftp-password').fill('not-a-real-password');
+        await page.getByRole('button', { name: 'Save' }).click();
+        await server.waitFor();
+      }
+
+      await page.goto(`${BASE}/series/${await seriesId()}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByRole('button', { name: 'Your website (FTP)' }).click();
+      await dialog.getByRole('combobox').click();
+      await page.getByRole('option', { name: new RegExp(host.replace('.', '\\.')) }).click();
+
+      // A path per page, named the way a club site would name them — the
+      // page's own label, which is what the row is offering to send.
+      const paths = dialog.locator('input[aria-label$=" path"]');
+      await paths.first().waitFor({ timeout: 10_000 });
+      const rows = await paths.all();
+      for (const input of rows) {
+        const label = (await input.getAttribute('aria-label'))!.replace(/ path$/, '');
+        const leaf = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        await input.fill(`/public_html/results/tuesday-${leaf}.html`);
+      }
+      // Typed-in text leaves a focus ring on the last row; the picture is of
+      // the list, not of a field being edited.
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await settle(page);
+      await shot('ftp-upload.png');
+
+      // Leave the dialog where it was found: the destination is remembered
+      // per series, and every later shot of it expects Sail Scoring pages.
+      await dialog.getByRole('button', { name: 'Sail Scoring pages' }).click();
+      await settle(page);
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
     // Inventory: Notes on published pages — the note strip above the preview,
     // with the note it wrote showing in the page below it. Written through
     // the UI so the shot is of the real affordance, then cleared, so a
