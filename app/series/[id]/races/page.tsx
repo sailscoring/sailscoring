@@ -54,6 +54,7 @@ import { defaultEnabledCompetitorFields, displayCompetitorLabel } from '@/lib/co
 import type { SeriesRace } from '@/lib/racesense-plan';
 import { log } from '@/lib/debug';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
+import { useRovingFocus } from '@/hooks/use-roving-focus';
 import { generateStarts } from '@/lib/start-sequence';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import { hasTrackData } from '@/lib/track-data';
@@ -72,16 +73,24 @@ function RaceRow({
   rowRef,
   rowStyle,
   dragHandle,
+  rovingProps,
   onNudge,
   onInsert,
+  onDeleted,
 }: {
   race: Race;
   seriesId: string;
   rowRef?: (node: HTMLElement | null) => void;
   rowStyle?: CSSProperties;
   dragHandle?: HTMLAttributes<HTMLElement> | null;
+  /** Roving-tabindex bookkeeping: which row holds the list's one tab stop. */
+  rovingProps: { 'data-roving-id': string; tabIndex: number; onFocus: () => void };
   onNudge?: (direction: -1 | 1) => void;
   onInsert?: (position: 'above' | 'below') => void;
+  /** Called with this row's index before the delete lands, so the page can
+   *  put focus on the row that takes its place. A row can't focus its own
+   *  successor after unmounting itself. */
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const { can } = useWorkspacePermissions();
@@ -96,6 +105,10 @@ function RaceRow({
   const raceSenseGated = has('racesense-import');
   const [scoringOptionsOpen, setScoringOptionsOpen] = useState(false);
   const [raceRecordOpen, setRaceRecordOpen] = useState(false);
+  // Controlled so the row can open it from the keyboard: the trigger is out
+  // of the tab order, which would otherwise leave its items mouse-only.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const rowElRef = useRef<HTMLDivElement | null>(null);
   const finisherCount = finishes?.filter((f) => f.sortOrder !== null).length;
   // Every boat with a row in this race against the ones the device recorded.
   // A bare count says the import captured the race whole; a fraction is the
@@ -112,21 +125,27 @@ function RaceRow({
       destructive: true,
     });
     if (!ok) return;
+    onDeleted?.();
     // Finishes / race-starts cascade with the race row in Postgres.
     await deleteRace.mutateAsync({ id: race.id, seriesId });
   }
 
   return (
     <div
-      ref={rowRef}
+      ref={(node) => { rowElRef.current = node; rowRef?.(node); }}
       style={rowStyle}
       data-testid="race-row"
       className="flex items-center justify-between bg-card border rounded-lg px-5 py-4 cursor-pointer hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      tabIndex={0}
+      {...rovingProps}
       onClick={() => router.push(`/series/${seriesId}/races/${race.id}`)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           router.push(`/series/${seriesId}/races/${race.id}`);
+        } else if (e.key === 'a' && !readOnly) {
+          // The actions trigger is out of the tab order, so this is how its
+          // menu is reached without a mouse.
+          e.preventDefault();
+          setActionsOpen(true);
         } else if ((e.key === 'd' || e.key === 'Delete') && !readOnly) {
           e.preventDefault();
           handleDelete();
@@ -148,7 +167,7 @@ function RaceRow({
       }}
     >
       <div className="flex items-center gap-2">
-        {dragHandle && <DragHandle {...dragHandle} aria-label={`Reorder Race ${race.raceNumber}`} />}
+        {dragHandle && <DragHandle {...dragHandle} tabIndex={-1} aria-label={`Reorder Race ${race.raceNumber}`} />}
         <div>
           <span className="font-medium">Race {race.raceNumber}</span>
           {race.name && <span className="ml-2">{race.name}</span>}
@@ -182,18 +201,26 @@ function RaceRow({
       </div>
       <div className="flex items-center gap-1">
         {!readOnly && (onInsert || scoringOptionsGated || raceRecordGated) && (
-          <DropdownMenu>
+          <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
+                tabIndex={-1}
                 aria-label={`Actions for Race ${race.raceNumber}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <ChevronsUpDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {/* Back to the row, not to the trigger: the trigger is out of the
+                tab order, so leaving focus on it strands the keyboard between
+                the row's keys and the page's. */}
+            <DropdownMenuContent
+              align="end"
+              onClick={(e) => e.stopPropagation()}
+              onCloseAutoFocus={(e) => { e.preventDefault(); rowElRef.current?.focus(); }}
+            >
               {onInsert && (
                 <>
                   <DropdownMenuItem onClick={() => onInsert('above')}>
@@ -221,6 +248,7 @@ function RaceRow({
           <Button
             variant="ghost"
             size="icon"
+            tabIndex={-1}
             aria-label={`Delete Race ${race.raceNumber}`}
             onClick={(e) => { e.stopPropagation(); handleDelete(); }}
           >
@@ -330,8 +358,14 @@ export default function RacesPage({
   const createSubSeries = useCreateSubSeries();
   const saveSubSeries = useSaveSubSeries();
   const deleteSubSeries = useDeleteSubSeries();
-  const raceListRef = useRef<HTMLDivElement>(null);
   const didAutoFocus = useRef(false);
+  const raceIds = useMemo(() => (races ?? []).map((r) => r.id), [races]);
+  const {
+    containerRef: raceListRef,
+    rowProps: raceRowProps,
+    focusActive: focusRaceList,
+    focusIndexAfterChange: focusRaceAfterChange,
+  } = useRovingFocus<HTMLDivElement>(raceIds);
   const raceSenseRef = useRef<RaceSenseImportHandle>(null);
 
   // Handicap race creation dialog state
@@ -512,18 +546,23 @@ export default function RacesPage({
       });
       const ids = races.map((r) => r.id);
       ids.splice(index, 0, newId);
+      // Focus follows the new row rather than staying on the one the menu was
+      // opened from, which is now a row later.
+      focusRaceAfterChange(index);
       await reorderRaces.mutateAsync(ids);
     } finally {
       setAddingRace(false);
     }
   }
 
-  // Auto-focus first row when list first loads
+  // Auto-focus the first row when the list first loads. Fires once per mount,
+  // so `l` below rather than this is what gets you back in after an action
+  // has moved focus elsewhere.
   useEffect(() => {
     if (didAutoFocus.current || !races?.length) return;
     didAutoFocus.current = true;
-    (raceListRef.current?.querySelector<HTMLElement>('[tabindex="0"]'))?.focus();
-  }, [races]);
+    focusRaceList();
+  }, [races, focusRaceList]);
 
   useShortcuts([
     {
@@ -556,10 +595,18 @@ export default function RacesPage({
       when: () => raceSenseEnabled,
       handler: () => raceSenseRef.current?.triggerPlayer(),
     },
+    {
+      key: 'l',
+      description: 'Jump to the race list',
+      section: 'Races',
+      when: () => (races?.length ?? 0) > 0,
+      handler: () => focusRaceList(),
+    },
   ]);
   // Row-level keys bound on the focused race row itself.
   useShortcutHelp([
     { key: '↵', description: 'Open focused race', section: 'Races' },
+    { key: 'a', description: 'Actions for focused race', section: 'Races' },
     { key: 'd', description: 'Delete focused race', section: 'Races' },
     { key: 'Alt+↑ / Alt+↓', description: 'Move focused race earlier / later', section: 'Races' },
   ]);
@@ -633,6 +680,7 @@ export default function RacesPage({
       if (insertAt !== null) {
         const ids = existingRaces.map((r) => r.id);
         ids.splice(insertAt, 0, race.id);
+        focusRaceAfterChange(insertAt);
         await reorderRaces.mutateAsync(ids);
       }
 
@@ -980,7 +1028,12 @@ export default function RacesPage({
         <div className="space-y-2" ref={raceListRef}>
           {readOnly ? (
             races.map((race) => (
-              <RaceRow key={race.id} race={race} seriesId={seriesId} />
+              <RaceRow
+                key={race.id}
+                race={race}
+                seriesId={seriesId}
+                rovingProps={raceRowProps(race.id)}
+              />
             ))
           ) : (
             <SortableList items={races} onReorder={(orderedIds) => reorderRaces.mutate(orderedIds)}>
@@ -993,8 +1046,13 @@ export default function RacesPage({
                     rowRef={ref}
                     rowStyle={style}
                     dragHandle={handleProps}
+                    rovingProps={raceRowProps(race.id)}
                     onNudge={(direction) => nudgeRace(race.id, direction)}
                     onInsert={(position) => insertRaceAt(position === 'above' ? index : index + 1)}
+                    // The row that takes this one's place keeps the focus; a
+                    // confirm dialog would otherwise restore it to an element
+                    // that has just unmounted, i.e. to <body>.
+                    onDeleted={() => focusRaceAfterChange(index)}
                   />
                 );
               }}

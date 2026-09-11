@@ -107,6 +107,7 @@ import {
 } from '@/lib/competitor-duplicates';
 import { competitorMatchesFilter } from '@/lib/competitor-filter';
 import { log } from '@/lib/debug';
+import { useRovingFocus } from '@/hooks/use-roving-focus';
 import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 
 function TruncatedCell({ value }: { value: string | null | undefined }) {
@@ -195,7 +196,6 @@ export default function CompetitorsPage({
   // the tab returns the list to its default sail-number order.
   const [sortKeys, setSortKeys] = useState<SortKey[]>([]);
   const editingRowRef = useRef<HTMLTableRowElement | null>(null);
-  const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const importRef = useRef<CompetitorImportHandle>(null);
   const worldSailingCheckRef = useRef<WorldSailingCheckHandle>(null);
   const updateHandicapsRef = useRef<UpdateHandicapsHandle>(null);
@@ -373,13 +373,6 @@ export default function CompetitorsPage({
     });
   }
 
-  // Auto-focus first row when list first loads
-  useEffect(() => {
-    if (didAutoFocus.current || !competitors?.length) return;
-    didAutoFocus.current = true;
-    (tbodyRef.current?.querySelector<HTMLElement>('tr[tabindex="0"]'))?.focus();
-  }, [competitors]);
-
   // Return focus to the row that triggered the edit dialog
   useEffect(() => {
     if (editingCompetitor === null) {
@@ -431,6 +424,13 @@ export default function CompetitorsPage({
       ? [{ key: 'p', description: 'Publish competitor list', section: 'Competitors', handler: () => setShowPublishDialog(true) }]
       : []),
     { key: '/', description: 'Filter competitors', section: 'Competitors', handler: () => filterInputRef.current?.focus() },
+    {
+      key: 'l',
+      description: 'Jump to the competitor list',
+      section: 'Competitors',
+      when: () => sortedCompetitors.length > 0,
+      handler: () => focusCompetitorList(),
+    },
     {
       key: 's',
       description: 'Set a field on selected competitors',
@@ -734,6 +734,24 @@ export default function CompetitorsPage({
   const handleSort = (columnId: string, additive: boolean) =>
     setSortKeys((keys) => toggleSortKey(keys, columnId, additive));
 
+  // Roving tabindex over the rendered rows: the table is one tab stop rather
+  // than two per row (the row and its select checkbox), and tabbing back in
+  // returns to the row you left. Declared here because it takes the rows in
+  // the order they render, which is the sorted, filtered list.
+  const {
+    containerRef: competitorListRef,
+    rowProps: competitorRowProps,
+    focusActive: focusCompetitorList,
+  } = useRovingFocus<HTMLTableSectionElement>(sortedCompetitors.map((c) => c.id));
+
+  // Auto-focus the first row when the list first loads. Fires once per mount,
+  // so `l` is what gets you back in after an action has moved focus away.
+  useEffect(() => {
+    if (didAutoFocus.current || !competitors?.length) return;
+    didAutoFocus.current = true;
+    focusCompetitorList();
+  }, [competitors, focusCompetitorList]);
+
   return (
     <div className="space-y-6">
       {series?.previousSeriesId && (
@@ -937,11 +955,11 @@ export default function CompetitorsPage({
               </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody ref={tbodyRef}>
+          <TableBody ref={competitorListRef}>
             {sortedCompetitors.map((c) => (
               <TableRow
                 key={c.id}
-                tabIndex={0}
+                {...competitorRowProps(c.id)}
                 className={`group/row focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset${readOnly ? '' : ' cursor-pointer'}${isExcluded(c) || autoExcluded.has(c.id) ? ' text-muted-foreground' : ''}`}
                 data-excluded={isExcluded(c) ? 'true' : autoExcluded.has(c.id) ? 'auto' : undefined}
                 onClick={(e) => {
@@ -974,6 +992,7 @@ export default function CompetitorsPage({
                         suite. The row itself provides the context. */}
                     <input
                       type="checkbox"
+                      tabIndex={-1}
                       checked={selectedIds.has(c.id)}
                       onChange={() => toggleSelected(c.id)}
                       aria-label="Select row"

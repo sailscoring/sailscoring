@@ -64,3 +64,47 @@ test('races can be reordered and the renumbering persists', async ({ page }) => 
     expect(after[2]).toMatch(/Race 3.*Charlie/);
   }).toPass();
 });
+
+/**
+ * The race list is one stop in the Tab order, not four per row, and an action
+ * that changes the list leaves focus somewhere useful rather than on <body>.
+ */
+test('the race list is one tab stop and keeps focus across a delete', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Roving Focus Series' });
+  await page.getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByTestId('race-row')).toHaveCount(i + 1);
+  }
+  const rows = page.getByTestId('race-row');
+
+  const focusIsInTheList = () =>
+    page.evaluate(() => {
+      const active = document.activeElement;
+      return Boolean(active?.closest('[data-testid="race-row"]'));
+    });
+
+  // One Tab out of the middle row leaves the list entirely — the drag handle,
+  // actions trigger and delete button are all out of the tab order.
+  await rows.nth(1).focus();
+  expect(await focusIsInTheList()).toBe(true);
+  await page.keyboard.press('Tab');
+  expect(await focusIsInTheList()).toBe(false);
+
+  // `l` goes back in, to the row left rather than to the first.
+  await page.keyboard.press('l');
+  await expect(rows.nth(1)).toBeFocused();
+
+  // `a` opens that row's actions menu, which the mouse would otherwise own.
+  await page.keyboard.press('a');
+  await expect(page.getByRole('menuitem', { name: 'Insert race above' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Deleting leaves focus on the row that took the deleted one's place.
+  await expect(rows.nth(1)).toBeFocused();
+  await page.keyboard.press('d');
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(1)).toBeFocused();
+});
