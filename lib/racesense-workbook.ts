@@ -151,6 +151,19 @@ const FINISH_CODES: Readonly<Record<string, ResultCode>> = {
   'NSC': 'NSC',
 };
 
+/**
+ * How much of the fleet's median distance a boat must be under before her
+ * finish is worth a second look, and how many timed finishes a race needs
+ * before a median means anything at all.
+ *
+ * The bound is deliberately loose — the boats it has to catch were 19% and
+ * 81% short, while boats reading 13% and 50% short had finished exactly where
+ * they should — because the early elapsed time is doing the discriminating.
+ * Both numbers want more events behind them than one championship.
+ */
+const SHORT_COURSE_DISTANCE_RATIO = 0.9;
+const SHORT_COURSE_MIN_FINISHES = 5;
+
 /** The footnote RaceSense drops below the starters when a race has a
  *  manually-cleared OCS. It sits in the sail-number column and reads like a
  *  boat, so it is matched and consumed rather than parsed as one. */
@@ -700,7 +713,10 @@ function parseRaceSheet(sheet: WorkbookSheet, number: number, ctx: Ctx): RaceSen
     }
   }
 
-  if (finishes) checkFinishingTimes(ctx, startTime, finishes);
+  if (finishes) {
+    checkFinishingTimes(ctx, startTime, finishes);
+    checkShortCourseFinishes(ctx, finishes);
+  }
 
   return {
     sheetName: sheet.name,
@@ -773,6 +789,60 @@ function describeDrift(drift: number): string {
   }
   return `${size}s ${direction}`;
 }
+
+/**
+ * Say so when a boat's finish looks like the line crossed a lap early.
+ *
+ * RaceSense sometimes takes an earlier lap's crossing for a boat's finish.
+ * She lands near the front of the results having sailed well short of the
+ * fleet and taken well less time than it, and everyone she wrongly beat is
+ * pushed down a place. It happened twice in the ten races of the 2026 ILCA 6
+ * Women's Worlds, and both times only the committee's own results caught it:
+ * one boat 7 km and 36 minutes short, and a race where seven boats came in
+ * 2 km and a quarter of an hour short and took the first seven places
+ * between them, moving 42 of the 54 boats in the fleet.
+ *
+ * Short distance on its own doesn't mean this. A GPS dropout loses part of a
+ * boat's track and still catches her real finish, so she reads short and
+ * places correctly — one boat at that event sailed nearly 5 km short and
+ * finished exactly where she should have. What makes a finish false is short
+ * distance *and* an early time: crossing the line a lap early necessarily
+ * means both, and nothing else does. The elapsed condition is what separates
+ * the two, which is why the distance bound can afford to be loose.
+ *
+ * A warning, and one the scorer is expected to overrule sometimes: a boat can
+ * be genuinely quick and genuinely economical round the course. The check
+ * says which finish to look up in the committee's results, not which one is
+ * wrong.
+ */
+export function checkShortCourseFinishes(
+  ctx: { sheet: string; anomalies: RaceSenseAnomaly[] },
+  finishes: readonly RaceSenseFinish[],
+): void {
+  const measured = finishes.filter(
+    (f): f is RaceSenseFinish & { distanceKm: number; totalTimeSecs: number } =>
+      f.position !== null && f.code === null
+      && f.distanceKm !== null && f.totalTimeSecs !== null,
+  );
+  if (measured.length < SHORT_COURSE_MIN_FINISHES) return;
+
+  const medianDistanceKm = median(measured.map((f) => f.distanceKm));
+  const medianElapsed = median(measured.map((f) => f.totalTimeSecs));
+  const shortOfKm = medianDistanceKm * SHORT_COURSE_DISTANCE_RATIO;
+
+  for (const f of measured) {
+    if (f.distanceKm >= shortOfKm || f.totalTimeSecs >= medianElapsed) continue;
+    flag(ctx, 'warning', 'short-course-finish',
+      `${f.sailNumber} finished ${f.distanceKm.toFixed(2)} km in ${formatElapsed(Math.round(f.totalTimeSecs))}, against a fleet median of ${medianDistanceKm.toFixed(2)} km and ${formatElapsed(Math.round(medianElapsed))}. A boat crossing the line a lap early looks like this. Check her finish against the race committee's.`,
+      { where: `finish row for ${f.sailNumber}`, value: f.sailNumber });
+  }
+}
+
+const median = (values: readonly number[]): number => {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+};
 
 function parseSummarySheet(sheet: WorkbookSheet, ctx: Ctx): RaceSenseSummaryEntry[] | null {
   const rows = sheet.rows;

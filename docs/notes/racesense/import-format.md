@@ -213,6 +213,54 @@ every one of them carrying a DTL. Across both corpora no boat is ever
 hand the DTL clause never changes an outcome — it is there because the
 rule it encodes is what makes the reading defensible.
 
+### A finish recorded a lap early
+
+RaceSense sometimes takes a boat's crossing on an earlier lap for her
+finish. She lands near the front of the results having sailed well short
+of the fleet and taken well less time than it, and every boat she wrongly
+beat is pushed down a place. It happened twice in the ten races of the
+2026 ILCA 6 Women's Worlds, both in the Silver fleet, and both times the
+organising authority's own results were what caught it:
+
+| Race | Boats | Distance | Elapsed | Imported | Actual |
+|---|---|---|---|---|---|
+| QE3 | 1 | 1.66 km (−7.0 vs median) | −36 min | 1st | 25th |
+| QE5 | 7 | ~6.2 km (−2.0) | −15 to −17 min | 1st–7th | 16th–42nd |
+
+The second moved 42 of 54 boats.
+
+Short distance alone doesn't say it. A GPS dropout loses part of a boat's
+track and still catches her real finish, so she reads short and places
+correctly — across the same ten races, four boats read short and only
+two were wrong:
+
+| Race | Distance vs median | Elapsed vs median | Finish |
+|---|---|---|---|
+| QE3 | −7.0 km | −36 min | **wrong** |
+| QE5 | ~−2.0 km | −15 min | **wrong** |
+| QE1 | −0.87 km | +5.5 min | correct |
+| QP2 | −4.67 km | +1.7 min | correct |
+
+The percentages don't separate the two — the wrong finishes were 19% and
+81% short, the right ones 13% and 50% — so what makes a finish false is
+short distance **and** an early time, which is what crossing the line a
+lap early necessarily means and nothing else does. Hence the conjunction,
+over the boats with a place and no code, per race:
+
+    distanceKm < median(distanceKm) × 0.9   AND   totalTimeSecs < median(totalTimeSecs)
+
+On that event it fires on the eight bad rows and nothing else. Distance
+alone would have raised two false alarms; an early time alone fires on the
+whole front of every fleet.
+
+A `short-course-finish` anomaly, `warning`, raised by both the export
+parser and the player reading. It is expected to be overruled sometimes:
+the check says which finish to look up in the committee's results, not
+which one is wrong. On the ILCA 7 Worlds Gold fixture it fires once, on a
+boat who finished 18th of 46 with half her track missing and 22 seconds
+under the median — a lost track, not a lost lap. Both bounds want more
+events behind them than one championship.
+
 ### Discarded
 
 No Sail Scoring analogue: GPS positions. Distance-to-line, distance

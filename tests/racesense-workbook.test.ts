@@ -581,3 +581,61 @@ describe('the finishing time as a cross-check', () => {
     expect(parsed.anomalies.map((a) => a.kind)).not.toContain('finish-time-drift');
   });
 });
+
+describe('a finish that is both short and early', () => {
+  /** A fleet round a course of about 8.25 km in about an hour: the median
+   *  either figure is measured against. Rows run in finishing order, as the
+   *  export writes them. */
+  const FLEET: Array<[string, string]> = [
+    ['57:00', '8.10'],
+    ['58:00', '8.20'],
+    ['59:00', '8.20'],
+    ['59:30', '8.25'],
+    ['1:00:00', '8.30'],
+    ['1:01:00', '8.30'],
+    ['1:02:00', '8.40'],
+    ['1:03:00', '8.50'],
+  ];
+
+  const shortCourse = (rows: Array<[string, string]>) => parseRaceSenseWorkbook([
+    raceSheet({
+      number: 1,
+      finishes: rows.map(([elapsed, km], i) =>
+        [`${i + 1}.`, `IRL ${21100 + i}`, '', '', elapsed, '---', '14.6', km]),
+    }),
+  ]).anomalies.filter((a) => a.kind === 'short-course-finish');
+
+  it('flags the boat who sailed short and took less time, quoting both against the fleet', () => {
+    // The 2026 ILCA 6 Women's Worlds case: a lap short, a quarter of an hour
+    // early, and first over the line.
+    const [anomaly] = shortCourse([['43:58', '6.25'], ...FLEET]);
+    expect(anomaly.severity).toBe('warning');
+    expect(anomaly.message).toContain('IRL 21100 finished 6.25 km in 43:58');
+    expect(anomaly.message).toContain('median of 8.25 km and 59:30');
+    expect(anomaly.where).toBe('finish row for IRL 21100');
+  });
+
+  it('says nothing about a boat who sailed short and took longer: a lost track, not a lost lap', () => {
+    expect(shortCourse([...FLEET, ['1:04:00', '3.60']])).toEqual([]);
+  });
+
+  it('says nothing about the front of the fleet, who are early and sailed the course', () => {
+    expect(shortCourse([['52:00', '8.00'], ...FLEET])).toEqual([]);
+  });
+
+  it('says nothing where there are too few finishers for a median to mean anything', () => {
+    expect(shortCourse([['43:58', '6.25'], ...FLEET.slice(0, 3)])).toEqual([]);
+  });
+
+  it('measures against the boats who finished, not the coded tail', () => {
+    const rows = [['43:58', '6.25'], ...FLEET].map(([elapsed, km], i) =>
+      [`${i + 1}.`, `IRL ${21100 + i}`, '', '', elapsed, '---', '14.6', km]);
+    const parsed = parseRaceSenseWorkbook([
+      raceSheet({
+        number: 1,
+        finishes: [...rows, ['DNF', '567', 'Ciao', '567', '---', '---', '---', '']],
+      }),
+    ]);
+    expect(parsed.anomalies.filter((a) => a.kind === 'short-course-finish')).toHaveLength(1);
+  });
+});

@@ -384,6 +384,18 @@ export default function EnteringResults() {
           but it is worth knowing the device did it.
         </p>
         <p>
+          How far a boat sailed is worth the same kind of attention. RaceSense sometimes
+          takes a boat’s crossing on an earlier lap for her finish: she appears near the
+          front of the results having sailed well short of the fleet and taken well less
+          time than it, and every boat she wrongly beat drops a place. The import says so
+          against her by name, with her distance and elapsed time beside the fleet’s, so
+          you can check that finish against the committee’s record before importing the
+          race. It is a warning rather than a verdict — a boat can be genuinely quick and
+          sail a genuinely economical course — but the two together are what a lap crossed
+          early looks like, and at the 2026 ILCA 6 Women’s Worlds it happened twice, once
+          moving 42 boats in a fleet of 54.
+        </p>
+        <p>
           The export always contains the <em>whole</em> regatta, so the file you get on the
           last day still holds the first day’s races. That is why the import asks race by
           race rather than writing everything:

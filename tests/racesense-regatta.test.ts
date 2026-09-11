@@ -249,6 +249,25 @@ describe('the same regatta from the player and from the export', () => {
     }
   });
 
+  it('raises the same short-course warning from either source', async () => {
+    // One boat in race 5 of this event reads 3.91 km against a fleet median
+    // of 7.23 km — half the course missing — with an elapsed time 22 seconds
+    // under the median, so she trips the check while finishing 18th of 46.
+    // That is a lost track rather than a lost lap, and exactly the call the
+    // warning leaves to the scorer: it says which finish to look up in the
+    // committee's results, not which one is wrong.
+    const short = (w: RaceSenseWorkbook) =>
+      w.anomalies.filter((a) => a.kind === 'short-course-finish')
+        .map((a) => `${a.sheet}: ${a.message}`);
+    const fromExport = await loadWorkbook();
+    expect(short(fromExport)).toEqual([
+      'Race 5: ITA 221118 finished 3.91 km in 55:41, against a fleet median of 7.23 km'
+      + " and 56:03. A boat crossing the line a lap early looks like this. Check her"
+      + " finish against the race committee's.",
+    ]);
+    expect(short(goldFromPlayer())).toEqual(short(fromExport));
+  });
+
   it('has the right time of day where the export’s rendering is an hour out', async () => {
     // The export has been seen writing individual boats' finishing times an
     // hour out while their elapsed times stayed right; the document's

@@ -36,6 +36,7 @@
 
 import {
   checkPreparatorySignal,
+  checkShortCourseFinishes,
   START_STATUSES,
   type RaceSenseAnomaly,
   type RaceSenseFinish,
@@ -602,6 +603,8 @@ function buildRace(
       distanceKm: null,
     });
   }
+
+  checkShortCourseFinishes(ctx, finishes);
 
   return {
     sheetName,
