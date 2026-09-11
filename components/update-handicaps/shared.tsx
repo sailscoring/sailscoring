@@ -231,6 +231,40 @@ export function buildPreviewUpdateRows(
 
 // ── State machinery shared by the rating-list sources (IRC, Irish Sailing) ──
 
+/** A selection set with `keys` added or removed. */
+function withKeys(prev: ReadonlySet<string>, keys: readonly string[], on: boolean): Set<string> {
+  const next = new Set(prev);
+  for (const key of keys) {
+    if (on) next.add(key);
+    else next.delete(key);
+  }
+  return next;
+}
+
+/**
+ * The preview rows the scorer has unticked, and the toggles that maintain
+ * them. Separate from {@link useRatingListSelections} because the two sources
+ * that show nothing but a preview — another series, VPRS — need none of the
+ * rest of it.
+ *
+ * Held as the rows *excluded* rather than the rows included, because every
+ * proposed change applies unless the scorer says otherwise: a row the planner
+ * adds on a later render is in by default, with no state to seed.
+ */
+export function useExcludedRowIds() {
+  const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
+  return {
+    excludedRowIds,
+    /** Back to "every proposed change applies" — for a step whose whole plan
+     *  has been replaced under the scorer. */
+    clearExclusions: () => setExcludedRowIds(new Set()),
+    toggleRow: (key: string, included: boolean) =>
+      setExcludedRowIds((prev) => withKeys(prev, [key], !included)),
+    toggleAllRows: (keys: string[], included: boolean) =>
+      setExcludedRowIds((prev) => withKeys(prev, keys, !included)),
+  };
+}
+
 /** The selection state a rating-list step holds: the match-by-name toggle,
  *  per-boat certificate overrides, the add-to-fleet ticks and their target
  *  fleets, and the preview rows the scorer has unticked. */
@@ -243,7 +277,7 @@ export function useRatingListSelections() {
   const [addTargetFleetByKey, setAddTargetFleetByKey] = useState<Record<string, string>>({});
   // Remove-from-fleet: which unrated boats the scorer has ticked to take out.
   const [removeSelected, setRemoveSelected] = useState<Set<string>>(new Set());
-  const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
+  const exclusions = useExcludedRowIds();
 
   return {
     matchByName,
@@ -253,40 +287,20 @@ export function useRatingListSelections() {
       setCertChoiceByCompetitor((prev) => ({ ...prev, [competitorId]: certId })),
     addSelected,
     toggleAddition: (key: string, on: boolean) =>
-      setAddSelected((prev) => {
-        const next = new Set(prev);
-        if (on) next.add(key);
-        else next.delete(key);
-        return next;
-      }),
+      setAddSelected((prev) => withKeys(prev, [key], on)),
+    toggleAllAdditions: (keys: string[], on: boolean) =>
+      setAddSelected((prev) => withKeys(prev, keys, on)),
     addTargetFleetByKey,
     chooseAdditionFleet: (key: string, fleetId: string) =>
       setAddTargetFleetByKey((prev) => ({ ...prev, [key]: fleetId })),
     removeSelected,
     toggleRemoval: (key: string, on: boolean) =>
-      setRemoveSelected((prev) => {
-        const next = new Set(prev);
-        if (on) next.add(key);
-        else next.delete(key);
-        return next;
-      }),
+      setRemoveSelected((prev) => withKeys(prev, [key], on)),
     toggleAllRemovals: (keys: string[], on: boolean) =>
-      setRemoveSelected((prev) => {
-        const next = new Set(prev);
-        for (const key of keys) {
-          if (on) next.add(key);
-          else next.delete(key);
-        }
-        return next;
-      }),
-    excludedRowIds,
-    toggleRow: (key: string, included: boolean) =>
-      setExcludedRowIds((prev) => {
-        const next = new Set(prev);
-        if (included) next.delete(key);
-        else next.add(key);
-        return next;
-      }),
+      setRemoveSelected((prev) => withKeys(prev, keys, on)),
+    excludedRowIds: exclusions.excludedRowIds,
+    toggleRow: exclusions.toggleRow,
+    toggleAllRows: exclusions.toggleAllRows,
   };
 }
 
@@ -314,6 +328,49 @@ export function useCompetitorIdsWithResults(seriesId: string): ReadonlySet<strin
 }
 
 // ── Small shared UI pieces ──────────────────────────────────────────────────
+
+/**
+ * The select-all box at the head of a tick-list's checkbox column.
+ *
+ * Part-way through, the box shows neither state as a promise: it goes
+ * indeterminate, and clicking it selects everything — it never silently
+ * unticks. That holds whichever way round a list starts. A list that begins
+ * empty (boats to add to a fleet, boats to take out of one) reaches "all" in
+ * one click; a list that begins full (the proposed rating changes) is cleared
+ * by unticking a box that is genuinely all-ticked, and any click from a
+ * part-way state puts it back to all rather than compounding the scorer's
+ * unticking.
+ *
+ * `what` names the items for the accessible label, for a table carrying more
+ * than one of these.
+ */
+export function SelectAllCheckbox({
+  selectedCount,
+  total,
+  onToggleAll,
+  what,
+}: {
+  selectedCount: number;
+  total: number;
+  onToggleAll: (on: boolean) => void;
+  what?: string;
+}) {
+  const allSelected = total > 0 && selectedCount === total;
+  const suffix = what ? ` ${what}` : '';
+  return (
+    <input
+      type="checkbox"
+      checked={allSelected}
+      disabled={total === 0}
+      ref={(el) => {
+        if (el) el.indeterminate = selectedCount > 0 && !allSelected;
+      }}
+      onChange={(e) => onToggleAll(e.target.checked)}
+      className="h-3.5 w-3.5"
+      aria-label={allSelected ? `Deselect all${suffix}` : `Select all${suffix}`}
+    />
+  );
+}
 
 export function MatchByNameCheckbox({
   checked,

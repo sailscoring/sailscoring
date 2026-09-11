@@ -11,7 +11,7 @@ import {
 import { removalKey, type FleetRemovalCandidate } from '@/lib/source-handicaps';
 import type { Competitor } from '@/lib/types';
 
-import { SYSTEM_LABEL } from './shared';
+import { SYSTEM_LABEL, SelectAllCheckbox } from './shared';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 
 /**
@@ -40,7 +40,6 @@ export function RemoveFromFleetSection({
 }) {
   const keys = candidates.map((c) => removalKey(c.competitorId, c.fleetId));
   const selectedCount = keys.filter((k) => selected.has(k)).length;
-  const allSelected = keys.length > 0 && selectedCount === keys.length;
 
   if (candidates.length === 0) return null;
 
@@ -55,17 +54,10 @@ export function RemoveFromFleetSection({
         <TableHeader>
           <TableRow>
             <TableHead className="w-8">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                // Part-way through, the box shows neither state as a promise:
-                // clicking it selects everything, it never silently unticks.
-                ref={(el) => {
-                  if (el) el.indeterminate = selectedCount > 0 && !allSelected;
-                }}
-                onChange={(e) => onToggleAll(keys, e.target.checked)}
-                className="h-3.5 w-3.5"
-                aria-label={allSelected ? 'Deselect all' : 'Select all'}
+              <SelectAllCheckbox
+                selectedCount={selectedCount}
+                total={keys.length}
+                onToggleAll={(on) => onToggleAll(keys, on)}
               />
             </TableHead>
             <TableHead>Sail no.</TableHead>
