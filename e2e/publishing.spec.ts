@@ -740,6 +740,45 @@ test('selective publishing: choose fleets and override a fleet URL segment', asy
   expect((await page.request.get(`${base}/cruiser`)).status()).toBe(200);
 });
 
+test("changing one page's URL leaves the rest of the publication live", async ({ page }) => {
+  await createTwoFleetSeries(page, 'HYC Club Series 3');
+
+  // Publish IRC at a URL the scorer will think better of.
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('Folder').fill('club-3');
+  await dialog.getByRole('textbox', { name: 'URL for IRC' }).fill('irc-division-one-2026');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  const ircLink = dialog.getByRole('link', { name: /\/club-3\/irc-division-one-2026$/ });
+  await expect(ircLink).toBeVisible();
+  const ircPath = new URL((await ircLink.getAttribute('href')) ?? '').pathname;
+  const base = ircPath.replace(/\/irc-division-one-2026$/, '');
+  expect((await page.request.get(`${base}/irc-division-one-2026`)).status()).toBe(200);
+  expect((await page.request.get(`${base}/cruiser`)).status()).toBe(200);
+
+  // Change its URL: that page alone comes down, and the sibling stays up —
+  // with the retracted page gone from the cascade it renders at serve time.
+  await dialog.getByRole('button', { name: 'Change URL for IRC' }).click();
+  await page.getByRole('button', { name: 'Take the page down' }).click();
+  const ircUrl = dialog.getByRole('textbox', { name: 'URL for IRC' });
+  await expect(ircUrl).toBeVisible();
+  expect((await page.request.get(`${base}/irc-division-one-2026`)).status()).toBe(404);
+  const cruiserWhileDown = await page.request.get(`${base}/cruiser`);
+  expect(cruiserWhileDown.status()).toBe(200);
+  expect(await cruiserWhileDown.text()).not.toContain('irc-division-one-2026');
+
+  // The field comes back seeded with the segment the page had, to be edited.
+  await expect(ircUrl).toHaveValue('irc-division-one-2026');
+  await ircUrl.fill('irc');
+  await dialog.getByRole('button', { name: 'Re-publish' }).click();
+
+  await expect(dialog.getByRole('link', { name: /\/club-3\/irc$/ })).toBeVisible();
+  expect((await page.request.get(`${base}/irc`)).status()).toBe(200);
+  expect((await page.request.get(`${base}/irc-division-one-2026`)).status()).toBe(404);
+  expect((await page.request.get(`${base}/cruiser`)).status()).toBe(200);
+});
+
 test('the cascade moves between a publication\'s fleet pages (#320/ADR-011)', async ({ page }) => {
   await createTwoFleetSeries(page, 'HYC Spring League');
 
