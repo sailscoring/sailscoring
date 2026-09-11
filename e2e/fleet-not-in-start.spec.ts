@@ -1,6 +1,6 @@
 import { signedInTest as test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { addCompetitor, createFleets, createSeriesQuick, setScoringMode } from './helpers';
+import { addCompetitor, createFleets, createSeriesQuick, downloadFleetHtml, setScoringMode } from './helpers';
 
 /**
  * A fleet added to a series whose races already have their starts is in none
@@ -20,6 +20,15 @@ const boats = [
   { sailNumber: 'FAST', name: 'First Across', ircTcc: '1.200', finishTime: '14:30:00' },
   { sailNumber: 'SLOW', name: 'Second Across', ircTcc: '0.800', finishTime: '14:35:00' },
 ];
+
+/** The published HTML for one fleet, off the Preview dialog's download. */
+async function fleetHtml(page: Page, fleetName: string): Promise<string> {
+  const download = await downloadFleetHtml(page, fleetName);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString();
+}
 
 /** A one-race IRC series whose single race has a start covering "Class 1". */
 async function seriesWithOneStartedRace(page: Page, name: string) {
@@ -107,8 +116,8 @@ async function scoreFleetOnIrc(page: Page, name: string) {
 
 test('a fleet left out of the race\'s start is flagged as scored on finishing order', async ({ page }) => {
   await seriesWithOneStartedRace(page, 'Left Out of the Start 2026');
-  await addFleet(page, 'Class 1 Shadow', null);
-  await scoreFleetOnIrc(page, 'Class 1 Shadow');
+  await addFleet(page, 'Shadow Fleet', null);
+  await scoreFleetOnIrc(page, 'Shadow Fleet');
 
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);
@@ -123,6 +132,15 @@ test('a fleet left out of the race\'s start is flagged as scored on finishing or
   await expect(tables).toHaveCount(2);
   await expect(tables.first().getByRole('row').nth(1)).toContainText('SLOW');
   await expect(tables.last().getByRole('row').nth(1)).toContainText('FAST');
+
+  // The page still breaks the race down (#563): a fleet scored on crossing
+  // order publishes its race table, without the rating and corrected-time
+  // columns it had nothing to put in them.
+  const html = await fleetHtml(page, 'Shadow Fleet');
+  expect(html).toContain('class="racetable"');
+  expect(html).not.toContain('<th>CT</th>');
+  const corrected = await fleetHtml(page, 'Class 1');
+  expect(corrected).toContain('<th>CT</th>');
 });
 
 test('adding a fleet offers to put it in the starts a racing fleet already has', async ({ page }) => {

@@ -1743,7 +1743,7 @@ function calculateHandicapStandings(
     // across the struck race, as if it weren't sailed for this fleet).
     const forcedExcluded = excludedRaceIds?.has(race.id) ?? false;
 
-    let scores: Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null }>;
+    let scores: Map<string, HandicapRaceScore>;
     if (raceStart) {
       // Phase A — race scoring (applies to both static and progressive fleets).
       // For static fleets, apply this race's rating overrides over the base map.
@@ -1882,10 +1882,37 @@ function calculateHandicapStandings(
 
       scores = raceScores;
     } else {
-      // No start recorded yet — fall back to scratch scoring
+      // No start recorded yet — fall back to scratch scoring. Nothing was
+      // corrected, so the handicap fields are empty rather than absent: the
+      // publishing path reads them per cell and a blank rating column is the
+      // page saying this race wasn't corrected.
       const scratchScores = calculateRaceScores(raceFinishes, competitors, dnfScoring, fleet.id);
-      scores = new Map([...scratchScores.entries()].map(([id, s]) => [id, { points: s.points, place: s.place, rank: s.rank, resultCode: s.resultCode }]));
+      scores = new Map(
+        [...scratchScores.entries()].map(([id, s]) => [
+          id,
+          {
+            competitorId: id,
+            points: s.points,
+            place: s.place,
+            rank: s.rank,
+            resultCode: s.resultCode,
+            elapsedTime: null,
+            correctedTime: null,
+            tcfApplied: null,
+            newTcf: null,
+          },
+        ]),
+      );
     }
+
+    // Phase B records the progressive scores for the races it ran on. Record
+    // what the other races scored too: a race Phase B skipped — no gun to
+    // correct against, or struck for this fleet — is still a scored column in
+    // the standings, and the publishing path reads these maps for its per-race
+    // detail. A race missing from them publishes a summary column whose points
+    // nothing on the page explains.
+    if (isNhc && !nhcRaceScoresByRaceId.has(race.id)) nhcRaceScoresByRaceId.set(race.id, scores);
+    if (isEcho && !echoRaceScoresByRaceId.has(race.id)) echoRaceScoresByRaceId.set(race.id, scores);
 
     // `raceFinishes` here is the whole sheet; `fleetRaceFinishes` is this
     // fleet (issue #129 — see computeRaceExclusion).

@@ -834,11 +834,16 @@ export async function buildFleetHtmlFiles(
         // See #130.
         const hasExplicitFinish = (id: string) => finishByCompetitorId.has(id);
 
-        if (isNhc && nhcRaceScoresByRaceId) {
-          // NHC: scores already computed by calculateFleetStandings (with running TCF map)
-          const nhcScores = nhcRaceScoresByRaceId.get(race.id);
+        // A progressive fleet's races are scored once, by the engine, with the
+        // running rating chain — there is nothing to recompute here, only to
+        // read. A race absent from the map falls through to the scoring below
+        // rather than rendering as an empty table: the summary is showing
+        // points for it either way, and a page that prints points it won't
+        // break down reads as detail gone missing.
+        const nhcScores = isNhc ? nhcRaceScoresByRaceId?.get(race.id) : undefined;
+        if (nhcScores) {
           const scoreMap = new Map<string, RaceScoreCellForRender>(
-            [...(nhcScores ?? new Map()).entries()]
+            [...nhcScores.entries()]
               .filter(([id]) => hasExplicitFinish(id))
               .map(([id, s]) => [
                 id,
@@ -864,11 +869,10 @@ export async function buildFleetHtmlFiles(
           return [race.id, scoreMap] as const;
         }
 
-        if (isEcho && echoRaceScoresByRaceId) {
-          // ECHO: scores already computed by calculateFleetStandings.
-          const echoScores = echoRaceScoresByRaceId.get(race.id);
+        const echoScores = isEcho ? echoRaceScoresByRaceId?.get(race.id) : undefined;
+        if (echoScores) {
           const scoreMap = new Map<string, RaceScoreCellForRender>(
-            [...(echoScores ?? new Map()).entries()]
+            [...echoScores.entries()]
               .filter(([id]) => hasExplicitFinish(id))
               .map(([id, s]) => [
                 id,
@@ -917,10 +921,15 @@ export async function buildFleetHtmlFiles(
           : null;
         const isOrcTod = orcProfile?.kind === 'tod';
         const isOrcPcs = orcProfile?.kind === 'pcs';
-        if (isHandicap && raceStart && orcStartHasCourse(orcProfile, raceStart)) {
+        // Progressive fleets are excluded here on purpose. Their ratings come
+        // from the engine's chain, so this path builds no rating for them and
+        // would score nobody — a race that reached it (the map above had no
+        // entry) belongs on crossing order, the way the engine scored it,
+        // not in a table of blanks.
+        if (isHandicap && !isNhc && !isEcho && raceStart && orcStartHasCourse(orcProfile, raceStart)) {
           // Applied-TCF map from each competitor's static rating, honouring any
-          // per-race override (static systems only — NHC/ECHO took the early
-          // returns).
+          // per-race override (static systems only — a progressive fleet's
+          // rating is the chain's, read above).
           let tcfMap = new Map<string, number>();
           for (const c of fleetCompetitors) {
             if (fleet.scoringSystem === 'irc') {
