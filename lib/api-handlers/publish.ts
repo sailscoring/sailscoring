@@ -787,3 +787,59 @@ export async function unpublishBySeries(
   }
   await unpublish(published);
 }
+
+/**
+ * Take one page of a live publication down, leaving every other page of it
+ * untouched.
+ *
+ * This is what makes a published page's URL changeable. A page's sub-path is
+ * frozen for as long as the page is live (see `subPathFor` above), so moving one
+ * means retracting it and publishing it again at the new path. Without this the
+ * only retraction available is the whole publication, which takes every sibling
+ * page offline to shorten one URL.
+ *
+ * The page leaves the row first and its blob is deleted after, so the row never
+ * points at an object that has gone. Nothing else needs rebuilding: the
+ * navigation cascade, the folder and season indexes and the workspace listing
+ * are all rendered at serve time from this row, so they stop offering the page
+ * the moment it leaves.
+ *
+ * The last remaining page is refused rather than cascaded into a full
+ * unpublish. Dropping the row also frees the `(workspace, slug)` for reuse,
+ * deletes the data file, clears the split-fleet round stamps and turns the next
+ * publish back into a first publish — a much larger act than the one being
+ * asked for, and one that already has a name. The caller is told to use it.
+ */
+export async function retractPage(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  subPath: string,
+): Promise<void> {
+  const published = await getPublishedBySeries(seriesId);
+  if (!published || published.workspaceId !== workspace.workspaceId) {
+    throw new NotFoundError('publication');
+  }
+  const page = published.pages.find((p) => p.subPath === subPath);
+  if (!page) throw new NotFoundError('published page');
+  if (published.pages.length === 1) {
+    throw new BadRequestError('cannot retract the only page of a publication', {
+      code: 'last-page',
+    });
+  }
+
+  await savePublished({
+    ...published,
+    pages: published.pages.filter((p) => p.subPath !== subPath),
+    // The content hash is invalidated, and deliberately not by recomputing it
+    // over what remains. Publishing this page again can land on exactly the
+    // hash the publication carried before the retraction — the same pages
+    // rendering the same HTML — and the unchanged-re-publish short-circuit
+    // would then read that publish as a no-op, leaving the page retracted
+    // while the dialog reported success. A hash shaped like nothing a publish
+    // computes cannot collide with one.
+    contentHash: `retracted:${subPath}:${published.contentHash}`,
+  });
+  // Unreferenced now. Best-effort, as on publish: a failed delete leaks a blob
+  // but never serves a page the publication no longer lists.
+  await deletePublishedHtml(page.blobUrl);
+}
