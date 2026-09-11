@@ -26,8 +26,8 @@
  *     results page of a series whose first race is still to be sailed.
  *   - A page can appear that isn't listed here: competitors belonging to no
  *     fleet are scored as a synthetic "Unknown" fleet, which needs the
- *     competitor rows to know about. `unknownFleetPage` names that page for a
- *     caller holding a built file that matches no listed page.
+ *     competitor rows to know about. A caller matching built files against
+ *     this list handles the one that matches nothing rather than dropping it.
  *
  * A sub-series (block) series publishes one page per block *per* entry here —
  * the block grid shares the fleet's row, its selection and its stored path,
@@ -141,21 +141,12 @@ export function isExtraPage(page: PublishPage): boolean {
   return EXTRA_PAGE_KINDS.has(page.kind);
 }
 
-/** The page a built file belongs to, by name. A file naming no listed page
- *  is a synthetic "Unknown" fleet's — see the module note. */
-export function findPublishPage(
-  pages: PublishPage[],
-  fleetName: string,
-): PublishPage | undefined {
-  return pages.find((p) => p.name === fleetName);
-}
-
 /** The page the scoring engine's fleetless bucket renders as, when a series'
- *  competitors belong to no fleet at all. `resolvePublishPages` returns it as
- *  the lone default page of a series with no fleet rows; a series that has
- *  fleets *and* orphan competitors grows it as a second page, which only the
- *  scored competitor rows reveal. */
-export function unknownFleetPage(): PublishPage {
+ *  competitors belong to no fleet at all. Returned below as the lone default
+ *  page of a series with no fleet rows; a series that has fleets *and* orphan
+ *  competitors grows it as a second page, which only the scored competitor
+ *  rows reveal — and which no caller can list in advance. */
+function unknownFleetPage(): PublishPage {
   return { key: fleetPageKey('__unknown__'), name: 'Unknown', kind: 'fleet', isDefault: true };
 }
 
