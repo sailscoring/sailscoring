@@ -27,6 +27,7 @@ import {
   endOfSeriesTcfs,
   planHandicapUpdates,
   proposeFleetMapping,
+  type HandicapSystem,
   type PreviewRow,
 } from '@/lib/source-handicaps';
 
@@ -43,8 +44,17 @@ import {
 /**
  * "Another series in this workspace" source: pick a prior series, map its
  * fleets onto this one, and propose each boat's end-of-series handicap as
- * its starting handicap here. Covers NHC, ECHO, IRC, and PY.
+ * its starting handicap here. Covers every system the dialog can write,
+ * including a fixed-TCF fleet fed by a progressive one — the shape of a club
+ * league whose handicaps are set from the season just gone.
  */
+/** Systems whose rating is one number on the competitor, so an already-scored
+ *  race can be pinned to the old value. Progressive systems recompute per race
+ *  and ORC's rating is a whole certificate; neither can be frozen this way. */
+const FREEZABLE_SYSTEMS: ReadonlySet<HandicapSystem> = new Set<HandicapSystem>([
+  'irc', 'vprs', 'py', 'tcf',
+]);
+
 export function SeriesSourceStep({
   seriesId,
   competitors,
@@ -129,10 +139,11 @@ export function SeriesSourceStep({
       targetCompetitors: competitors,
       targetFleets: fleets,
       sourceCompetitors: sourceCompetitors.data,
+      sourceFleets: sourceFleets.data ?? [],
       endOfSourceTcfs: endTcfs,
       fleetMapping,
     });
-  }, [competitors, fleets, sourceCompetitors.data, endTcfs, fleetMapping]);
+  }, [competitors, fleets, sourceCompetitors.data, sourceFleets.data, endTcfs, fleetMapping]);
 
   const split = splitPreviewRows(previewRows, excludedRowIds);
 
@@ -236,7 +247,7 @@ export function SeriesSourceStep({
         )}
       </div>
 
-      {split.appliedChangeRows.some((r) => r.system === 'irc' || r.system === 'py') && (
+      {split.appliedChangeRows.some((r) => FREEZABLE_SYSTEMS.has(r.system)) && (
         <label className="flex items-start gap-2 px-1 pt-1 cursor-pointer text-sm">
           <input
             type="checkbox"

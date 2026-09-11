@@ -258,12 +258,49 @@ export interface PlanInput {
   targetCompetitors: readonly Competitor[];
   targetFleets: readonly Fleet[];
   sourceCompetitors: readonly Competitor[];
+  /** The source series' fleets. A fixed-TCF target can be fed by a fleet of
+   *  another system, so where a boat's number comes from depends on what the
+   *  mapped source fleet is scored on, not on the target alone. */
+  sourceFleets: readonly Fleet[];
   /** Output of {@link endOfSeriesTcfs} for the source series. */
   endOfSourceTcfs: ReadonlyMap<string, EndOfSeriesTcf>;
   /** `targetFleetId → sourceFleetId | null`. `null` means "skip this
    *  target fleet" (boats in it surface as `no-source-fleet-mapping`).
    *  A target fleet missing from the mapping is also treated as skipped. */
   fleetMapping: Readonly<Record<string, string | null>>;
+}
+
+/**
+ * The source systems a target fleet can take a number from.
+ *
+ * Every system answers for itself: an IRC fleet is seeded from an IRC fleet.
+ * A fixed TCF is the exception — the number a club fixes for a league is
+ * routinely the one a boat finished a progressive series on, which is where
+ * Howth's autumn-league HPH numbers come from. A TCC is deliberately not on
+ * the list: an IRC certificate is not a club handicap.
+ */
+function sourceSystemsFor(target: HandicapSystem): readonly HandicapSystem[] {
+  return target === 'tcf' ? ['tcf', 'nhc', 'echo'] : [target];
+}
+
+/**
+ * The source fleets offerable for one target fleet, same-system first so the
+ * obvious mapping leads. Empty for a scratch target (nothing to update).
+ */
+export function sourceFleetCandidates(
+  targetFleet: Fleet,
+  sourceFleets: readonly Fleet[],
+): Fleet[] {
+  const target = systemForFleet(targetFleet);
+  if (target === null) return [];
+  const allowed = sourceSystemsFor(target);
+  const rank = new Map(allowed.map((sys, i) => [sys, i] as const));
+  return sourceFleets
+    .filter((f) => {
+      const system = systemForFleet(f);
+      return system !== null && rank.has(system);
+    })
+    .sort((a, b) => rank.get(systemForFleet(a)!)! - rank.get(systemForFleet(b)!)!);
 }
 
 function systemForFleet(fleet: Fleet): HandicapSystem | null {
@@ -312,6 +349,9 @@ function currentTcfFor(competitor: Competitor, system: HandicapSystem): number |
  */
 export function planHandicapUpdates(input: PlanInput): PreviewRow[] {
   const targetFleetById = new Map(input.targetFleets.map((f) => [f.id, f]));
+  const sourceFleetById = new Map(
+    input.sourceFleets.map((f) => [f.id, systemForFleet(f)] as const),
+  );
   const sourceCompBySail = new Map<string, Competitor>();
   for (const c of input.sourceCompetitors) {
     sourceCompBySail.set(c.sailNumber.toUpperCase(), c);
@@ -357,16 +397,20 @@ export function planHandicapUpdates(input: PlanInput): PreviewRow[] {
         continue;
       }
 
+      // The number comes from whatever the *mapped source fleet* is scored
+      // on: a fixed-TCF fleet seeded from a progressive one reads that
+      // fleet's end-of-series TCF, not the source boat's own fixed number.
+      const sourceSystem = sourceFleetById.get(mapped) ?? system;
       let newTcf: number | null = null;
-      if (system === 'nhc' || system === 'echo') {
+      if (sourceSystem === 'nhc' || sourceSystem === 'echo') {
         const entry = input.endOfSourceTcfs.get(endOfSeriesTcfKey(sourceComp.id, mapped));
         newTcf = entry?.endTcf ?? null;
+      } else if (system === 'tcf') {
+        newTcf = sourceComp.fixedTcf ?? null;
       } else if (system === 'irc') {
         newTcf = sourceComp.ircTcc ?? null;
       } else if (system === 'vprs') {
         newTcf = sourceComp.vprsTcc ?? null;
-      } else if (system === 'tcf') {
-        newTcf = sourceComp.fixedTcf ?? null;
       } else {
         // system === 'py'
         newTcf = sourceComp.pyNumber ?? null;
@@ -413,18 +457,10 @@ export function proposeFleetMapping(
   targetFleets: readonly Fleet[],
   sourceFleets: readonly Fleet[],
 ): Record<string, string | null> {
-  const sourceBySystem = new Map<Fleet['scoringSystem'], Fleet[]>();
-  for (const f of sourceFleets) {
-    if (f.scoringSystem === 'scratch') continue;
-    const list = sourceBySystem.get(f.scoringSystem) ?? [];
-    list.push(f);
-    sourceBySystem.set(f.scoringSystem, list);
-  }
-
   const mapping: Record<string, string | null> = {};
   for (const tf of targetFleets) {
     if (tf.scoringSystem === 'scratch') continue;
-    const candidates = sourceBySystem.get(tf.scoringSystem) ?? [];
+    const candidates = sourceFleetCandidates(tf, sourceFleets);
 
     const exact = candidates.find((c) => c.name.toLowerCase() === tf.name.toLowerCase());
     if (exact) {

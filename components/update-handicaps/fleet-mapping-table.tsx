@@ -7,7 +7,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ratingSystemLabel } from '@/lib/competitor-ratings';
+import { sourceFleetCandidates } from '@/lib/source-handicaps';
 import type { Fleet } from '@/lib/types';
+
+/** A fleet's system as the mapping row names it. A fixed-TCF fleet goes by
+ *  the club's word for its handicap, which is how a scorer knows the row. */
+function systemLabel(fleet: Fleet): string {
+  return fleet.scoringSystem === 'tcf'
+    ? ratingSystemLabel(fleet)
+    : fleet.scoringSystem.toUpperCase();
+}
 
 export function FleetMappingTable({
   targetFleets,
@@ -28,7 +38,7 @@ export function FleetMappingTable({
       <div className="text-sm font-medium">Fleet mapping</div>
       <div className="rounded-md border">
         {handicapTargets.map((tf, i) => {
-          const candidates = sourceFleets.filter((sf) => sf.scoringSystem === tf.scoringSystem);
+          const candidates = sourceFleetCandidates(tf, sourceFleets);
           const value = fleetMapping[tf.id] ?? '__skip__';
           return (
             <div
@@ -38,7 +48,7 @@ export function FleetMappingTable({
               <div className="flex-1 text-sm">
                 <span className="font-medium">{tf.name}</span>{' '}
                 <span className="text-muted-foreground">
-                  ({tf.scoringSystem.toUpperCase()})
+                  ({systemLabel(tf)})
                 </span>
               </div>
               <div className="text-muted-foreground text-sm">←</div>
@@ -55,12 +65,15 @@ export function FleetMappingTable({
                   <SelectItem value="__skip__">— skip —</SelectItem>
                   {candidates.length === 0 && (
                     <SelectItem value="__none__" disabled>
-                      No matching {tf.scoringSystem.toUpperCase()} fleet
+                      No fleet here can feed a {systemLabel(tf)} fleet
                     </SelectItem>
                   )}
                   {candidates.map((sf) => (
                     <SelectItem key={sf.id} value={sf.id}>
                       {sf.name}
+                      {sf.scoringSystem !== tf.scoringSystem && (
+                        <span className="text-muted-foreground"> ({systemLabel(sf)})</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>

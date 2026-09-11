@@ -180,6 +180,14 @@ function endTcf(competitorId: string, fleetId: string, system: 'nhc' | 'echo', e
   };
 }
 
+/** The source series' fleets, as the ids the mappings below point at. */
+const SOURCE_FLEETS: Fleet[] = [
+  fleet('src-nhc', 'nhc'),
+  fleet('src-echo', 'echo'),
+  fleet('src-irc', 'irc'),
+  fleet('src-py', 'py'),
+];
+
 describe('planHandicapUpdates', () => {
   it('emits a "change" row when the new TCF differs', () => {
     const targetFleet = fleet('tgt-nhc', 'nhc', 'Puppeteer');
@@ -191,6 +199,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [sourceComp],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: endMap,
       fleetMapping: { 'tgt-nhc': 'src-nhc' },
     });
@@ -216,6 +225,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [sourceComp],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: endMap,
       fleetMapping: { 'tgt-echo': 'src-echo' },
     });
@@ -229,6 +239,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [comp('A', [])],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: new Map(),
       fleetMapping: {},
     });
@@ -242,6 +253,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [comp('A', [])],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: new Map(),
       fleetMapping: { 'tgt-nhc': null },
     });
@@ -260,6 +272,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [], // no source boats
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: new Map(),
       fleetMapping: { 'tgt-nhc': 'src-nhc' },
     });
@@ -279,6 +292,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [comp('A', ['src-other-fleet'])],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: new Map(),
       fleetMapping: { 'tgt-nhc': 'src-nhc' },
     });
@@ -297,6 +311,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [sourceComp],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: endMap,
       fleetMapping: { 'tgt-nhc': 'src-nhc' },
     });
@@ -311,6 +326,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [sourceComp],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: new Map(), // irrelevant for IRC
       fleetMapping: { 'tgt-irc': 'src-irc' },
     });
@@ -325,6 +341,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: [targetFleet],
       sourceCompetitors: [sourceComp],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: new Map(),
       fleetMapping: { 'tgt-py': 'src-py' },
     });
@@ -346,6 +363,7 @@ describe('planHandicapUpdates', () => {
       targetCompetitors: [targetComp],
       targetFleets: fleets,
       sourceCompetitors: [sourceComp],
+      sourceFleets: SOURCE_FLEETS,
       endOfSourceTcfs: endMap,
       fleetMapping: { 'tgt-nhc': 'src-nhc', 'tgt-echo': 'src-echo' },
     });
@@ -393,5 +411,81 @@ describe('proposeFleetMapping', () => {
     const target = [fleet('tgt-nhc', 'nhc', 'Class 3')];
     const source = [fleet('src-echo', 'echo', 'Class 3')];
     expect(proposeFleetMapping(target, source)).toEqual({ 'tgt-nhc': null });
+  });
+
+  it('matches a fixed-TCF fleet to the progressive fleet of the same name', () => {
+    const target = [fleet('tgt-hph', 'tcf', 'Class 1 HPH')];
+    const source = [fleet('src-hph', 'nhc', 'Class 1 HPH')];
+    expect(proposeFleetMapping(target, source)).toEqual({ 'tgt-hph': 'src-hph' });
+  });
+
+  it('prefers a fixed-TCF source over a progressive one when both match the name', () => {
+    const target = [fleet('tgt-hph', 'tcf', 'Class 1 HPH')];
+    const source = [
+      fleet('src-nhc', 'nhc', 'Class 1 HPH'),
+      fleet('src-tcf', 'tcf', 'Class 1 HPH'),
+    ];
+    expect(proposeFleetMapping(target, source)).toEqual({ 'tgt-hph': 'src-tcf' });
+  });
+
+  it('does not offer an IRC fleet to a fixed-TCF one — a TCC is not a club handicap', () => {
+    const target = [fleet('tgt-hph', 'tcf', 'Class 1')];
+    const source = [fleet('src-irc', 'irc', 'Class 1')];
+    expect(proposeFleetMapping(target, source)).toEqual({ 'tgt-hph': null });
+  });
+});
+
+describe('planHandicapUpdates — fixed TCF', () => {
+  const targetFleet = fleet('tgt-hph', 'tcf', 'Class 1 HPH');
+
+  it('pins the end-of-series TCF of a progressive source fleet', () => {
+    const targetComp = comp('A', ['tgt-hph'], { fixedTcf: 0.850 });
+    const endMap = new Map([
+      [endOfSeriesTcfKey('A', 'src-nhc'), endTcf('A', 'src-nhc', 'nhc', 0.865)],
+    ]);
+    const rows = planHandicapUpdates({
+      targetCompetitors: [targetComp],
+      targetFleets: [targetFleet],
+      sourceCompetitors: [comp('A', ['src-nhc'])],
+      sourceFleets: SOURCE_FLEETS,
+      endOfSourceTcfs: endMap,
+      fleetMapping: { 'tgt-hph': 'src-nhc' },
+    });
+    expect(rows[0]).toMatchObject({
+      system: 'tcf',
+      status: 'change',
+      currentTcf: 0.850,
+      newTcf: 0.865,
+    });
+  });
+
+  it('reads the fixed TCF off the source competitor when the source fleet is one too', () => {
+    const targetComp = comp('A', ['tgt-hph'], { fixedTcf: 0.850 });
+    const sourceComp = comp('A', ['src-tcf'], { fixedTcf: 0.872 });
+    const rows = planHandicapUpdates({
+      targetCompetitors: [targetComp],
+      targetFleets: [targetFleet],
+      sourceCompetitors: [sourceComp],
+      sourceFleets: [...SOURCE_FLEETS, fleet('src-tcf', 'tcf')],
+      endOfSourceTcfs: new Map(),
+      fleetMapping: { 'tgt-hph': 'src-tcf' },
+    });
+    expect(rows[0]).toMatchObject({ status: 'change', newTcf: 0.872 });
+  });
+
+  it('is not-found when the boat never produced a TCF in the mapped progressive fleet', () => {
+    const targetComp = comp('A', ['tgt-hph'], { fixedTcf: 0.850 });
+    // The boat carries a fixed TCF of its own in the source series; the
+    // mapped fleet is what was asked for, so its silence is the answer.
+    const sourceComp = comp('A', ['src-nhc'], { fixedTcf: 0.999 });
+    const rows = planHandicapUpdates({
+      targetCompetitors: [targetComp],
+      targetFleets: [targetFleet],
+      sourceCompetitors: [sourceComp],
+      sourceFleets: SOURCE_FLEETS,
+      endOfSourceTcfs: new Map(),
+      fleetMapping: { 'tgt-hph': 'src-nhc' },
+    });
+    expect(rows[0]).toMatchObject({ status: 'not-found', notFoundReason: 'no-source-value' });
   });
 });
