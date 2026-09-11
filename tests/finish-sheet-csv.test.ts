@@ -33,6 +33,14 @@ describe('autoDetectFinishSheetField', () => {
     expect(autoDetectFinishSheetField('Time')).toBe('finishTime');
   });
 
+  it('detects the class column', () => {
+    expect(autoDetectFinishSheetField('Class')).toBe('fleet');
+    expect(autoDetectFinishSheetField('fleet')).toBe('fleet');
+    expect(autoDetectFinishSheetField('Division')).toBe('fleet');
+    // Not a bare "Boat Class" — that is the boat's design, not its fleet.
+    expect(autoDetectFinishSheetField('Boat Class')).toBe('ignore');
+  });
+
   it('detects elapsed headers ahead of finishTime', () => {
     // "Elapsed time" would match the finish-time pattern on the bare word
     // "time", so the elapsed check has to come first.
@@ -228,9 +236,81 @@ describe('parseFinishSheetCsv', () => {
     expect(result.errors).toEqual([
       {
         rowIndex: 2,
-        reason: 'sail 15 is ambiguous — multiple competitors share this number',
+        reason:
+          'sail 15 is ambiguous — multiple competitors share this number; map the sheet\'s class column to tell them apart',
       },
     ]);
+  });
+
+  describe('a sail number two classes share', () => {
+    // The HYC Autumn League inshore case: Howth 17s and Puppeteer 22s both
+    // number from 1, and three numbers collide across the two classes. Both
+    // classes are in the same race, so the collision is real.
+    const oneDesigns: Candidate[] = [
+      { id: 'h21', sailNumber: '21', fleetIds: ['h-s', 'h-h'], fleetNames: ['Howth 17 (Scratch)', 'Howth 17 (HPH)'] },
+      { id: 'p21', sailNumber: '21', fleetIds: ['p-s', 'p-h'], fleetNames: ['Puppeteer 22 (Scratch)', 'Puppeteer 22 (HPH)'] },
+    ];
+    const withFleet: FinishSheetColumnMap = { 0: 'sailNumber', 1: 'finishTime', 2: 'fleet' };
+
+    it('resolves on the class column, matching the class the fleets are named for', () => {
+      const result = parseFinishSheetCsv({
+        rows: [['21', '11:00:00', 'Howth 17'], ['21', '11:02:00', 'Puppeteer']],
+        columnMap: withFleet,
+        candidates: oneDesigns,
+      });
+      expect(result.errors).toEqual([]);
+      expect(result.finishes.map((f) => f.competitorId)).toEqual(['h21', 'p21']);
+    });
+
+    it('says the column would settle it when the sheet has none', () => {
+      const result = parseFinishSheetCsv({
+        rows: [['21', '11:00:00', '']],
+        columnMap: { 0: 'sailNumber', 1: 'finishTime', 2: 'resultCode' },
+        candidates: oneDesigns,
+      });
+      expect(result.errors[0].reason).toContain('map the sheet');
+    });
+
+    it('says the cell is blank when the column is mapped but the row is empty', () => {
+      const result = parseFinishSheetCsv({
+        rows: [['21', '11:00:00', '']],
+        columnMap: withFleet,
+        candidates: oneDesigns,
+      });
+      expect(result.errors[0].reason).toContain("class column is blank");
+    });
+
+    it('says so when the value names no fleet in the race', () => {
+      const result = parseFinishSheetCsv({
+        rows: [['21', '11:00:00', 'Squib']],
+        columnMap: withFleet,
+        candidates: oneDesigns,
+      });
+      expect(result.errors[0].reason).toContain('no fleet in this race matches "Squib"');
+    });
+
+    it('stays ambiguous when two boats of the same class share a number', () => {
+      const sameClass: Candidate[] = [
+        { id: 'a', sailNumber: '21', fleetIds: ['h'], fleetNames: ['Howth 17 (Scratch)'] },
+        { id: 'b', sailNumber: '21', fleetIds: ['h'], fleetNames: ['Howth 17 (Scratch)'] },
+      ];
+      const result = parseFinishSheetCsv({
+        rows: [['21', '11:00:00', 'Howth 17']],
+        columnMap: withFleet,
+        candidates: sameClass,
+      });
+      expect(result.errors[0].reason).toContain('shared by more than one boat in "Howth 17"');
+    });
+
+    it('leaves an unambiguous sheet alone whatever the class column says', () => {
+      const result = parseFinishSheetCsv({
+        rows: [['15', '11:00:00', 'Anything At All'], ['22', '11:01:00', '']],
+        columnMap: withFleet,
+        candidates,
+      });
+      expect(result.errors).toEqual([]);
+      expect(result.finishes.map((f) => f.competitorId)).toEqual(['c1', 'c2']);
+    });
   });
 
   it('uppercases sail numbers for case-insensitive matching', () => {
@@ -339,7 +419,11 @@ describe('parseFinishSheetCsv bow-number matching', () => {
       candidates: shared,
     });
     expect(result.errors).toEqual([
-      { rowIndex: 2, reason: 'bow 9 is ambiguous — multiple competitors share this number' },
+      {
+        rowIndex: 2,
+        reason:
+          'bow 9 is ambiguous — multiple competitors share this number; map the sheet\'s class column to tell them apart',
+      },
     ]);
   });
 
@@ -420,7 +504,11 @@ describe('parseFinishSheetCsv alternative sail numbers', () => {
       candidates: shared,
     });
     expect(result.errors).toEqual([
-      { rowIndex: 2, reason: 'sail 9 is ambiguous — multiple competitors share this number' },
+      {
+        rowIndex: 2,
+        reason:
+          'sail 9 is ambiguous — multiple competitors share this number; map the sheet\'s class column to tell them apart',
+      },
     ]);
   });
 });
@@ -490,7 +578,11 @@ describe('parseFinishSheetCsv nationality-qualified sail numbers', () => {
       candidates: shared,
     });
     expect(result.errors).toEqual([
-      { rowIndex: 2, reason: 'sail 1234 is ambiguous — multiple competitors share this number' },
+      {
+        rowIndex: 2,
+        reason:
+          'sail 1234 is ambiguous — multiple competitors share this number; map the sheet\'s class column to tell them apart',
+      },
     ]);
   });
 });

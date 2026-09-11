@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type Ref } from 'react';
+import { useMemo, useRef, useState, type Ref } from 'react';
 import { X, Activity, AlertTriangle, Ban, ChevronDown, ChevronRight, Flag, Scale, MoreHorizontal, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,6 +170,25 @@ export function FinishTab(props: FinishTabProps) {
   // and the combination is usually a leftover — a boat coded RET from the
   // jury sheet before the finish sheet placed her — rather than the
   // intended DSQ-after-finishing.
+  // What an imported sheet's sail numbers resolve against: the boats in this
+  // race's fleets, carrying those fleets' names so a shared sail number can be
+  // told apart by the sheet's class column. The parser's contract is that the
+  // caller filters — a race the Howth 17s have no start in must not reject
+  // Puppeteer 1 as ambiguous.
+  const importCandidates = useMemo(
+    () =>
+      competitors
+        .filter((c) => raceFleetIds.size === 0 || c.fleetIds.some((id) => raceFleetIds.has(id)))
+        .map((c) => ({
+          ...c,
+          fleetNames: c.fleetIds
+            .filter((id) => raceFleetIds.size === 0 || raceFleetIds.has(id))
+            .map((id) => fleetById.get(id)?.name)
+            .filter((name): name is string => Boolean(name)),
+        })),
+    [competitors, raceFleetIds, fleetById],
+  );
+
   const codedFinishers = finishingOrder.flatMap((entry) => {
     if (entry.kind !== 'known') return [];
     const code = finisherCodes.get(entry.competitorId);
@@ -431,7 +450,7 @@ export function FinishTab(props: FinishTabProps) {
           {has('csv-finish-import') && !readOnly && (
             <FinishSheetImport
               ref={finishSheetImportRef}
-              candidates={competitors}
+              candidates={importCandidates}
               needsFinishTime={needsFinishTime}
               existingFinishes={savedFinishes ?? []}
               onConfirm={applyCsvImport}

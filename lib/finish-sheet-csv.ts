@@ -14,6 +14,10 @@
  *                are different measurements and nothing here can say which
  *                the scorer meant
  *   resultCode   optional — DNF, DSQ, OCS, RET, DNE, UFD, BFD, DNS, NSC, DNC
+ *   fleet        optional — the boat's class, used only to break a tie when a
+ *                sail number belongs to more than one boat in the race. Two
+ *                one-design classes racing together both number from 1, and
+ *                the finish hut's sheet already records which is which
  *
  * Row order is crossing order (ADR-007). Row produces one of:
  *   - a finisher: sortOrder = rank among finishers (1-based by row order); finishTime may be set
@@ -28,7 +32,9 @@
  *
  * Matching mirrors keyboard finish entry's tier order: exact registered sail
  * number first, then exact alternative sail number, then exact bow number for
- * rows that would otherwise be unresolved. It stops there — the unique-prefix
+ * rows that would otherwise be unresolved. A value matching two boats is
+ * narrowed by the row's class, if the sheet has one; the fallback tiers
+ * cannot help there, since they sit below a tier that already found matches. It stops there — the unique-prefix
  * tiers the keyboard path offers are a typing convenience with a scorer
  * watching each suggestion, and an imported sheet carries whole numbers with
  * nobody reading the rows one at a time.
@@ -50,7 +56,7 @@ import {
   type SailEntryMatch,
 } from './rating-match';
 
-export type FinishSheetField = 'sailNumber' | 'finishTime' | 'elapsed' | 'resultCode' | 'ignore';
+export type FinishSheetField = 'sailNumber' | 'finishTime' | 'elapsed' | 'resultCode' | 'fleet' | 'ignore';
 
 export type FinishSheetColumnMap = Record<number, FinishSheetField>;
 
@@ -88,6 +94,11 @@ export interface Candidate {
   bowNumber?: string;
   alternativeSailNumbers?: string[];
   fleetIds: string[];
+  /** The names of the fleets the boat is entered in, for the sheet's class
+   *  column to break a tie against. A boat is usually in both of its class's
+   *  fleets ("Howth 17 (Scratch)" and "Howth 17 (HPH)"), and either one
+   *  answers the question the column is asked. */
+  fleetNames?: string[];
 }
 
 /**
@@ -130,6 +141,12 @@ function fractionOfDayToTime(raw: string): string | null {
   return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
 }
 
+/** Fleet names compared the way a finish hut writes them: case, spacing and
+ *  punctuation are noise, the letters and digits are the name. */
+function normalizeFleetName(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
 export function autoDetectFinishSheetField(header: string): FinishSheetField {
   const h = header.trim().toLowerCase();
   if (/sail\s*(number|no|#)?|^#$/.test(h) || h === 'sail') return 'sailNumber';
@@ -138,6 +155,7 @@ export function autoDetectFinishSheetField(header: string): FinishSheetField {
   if (/elapsed|^ET$/i.test(h) || h === 'total time') return 'elapsed';
   if (/finish\s*time|^time$|\btime\b/.test(h)) return 'finishTime';
   if (/result\s*code|^code$|\bcode\b/.test(h)) return 'resultCode';
+  if (/^(class|fleet|division|div)$/.test(h)) return 'fleet';
   return 'ignore';
 }
 
@@ -164,6 +182,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     time: -1,
     elapsed: -1,
     code: -1,
+    fleet: -1,
   };
   for (const [colStr, field] of Object.entries(columnMap)) {
     const col = parseInt(colStr, 10);
@@ -171,6 +190,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     else if (field === 'finishTime') cols.time = col;
     else if (field === 'elapsed') cols.elapsed = col;
     else if (field === 'resultCode') cols.code = col;
+    else if (field === 'fleet') cols.fleet = col;
   }
 
   // Resolve a sheet value against one set of identifiers. Sail numbers (the
@@ -196,6 +216,25 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     { matchedOn: 'bow', resolve: resolver((c) => (c.bowNumber ? [c.bowNumber] : []), matchPlainEntry) },
   ];
 
+  // Narrowing an ambiguous sail number by the sheet's class column. Two
+  // one-design classes racing together both number from 1, so a shared sail
+  // number is ordinary club racing rather than an edge case — and the sheet
+  // already carries the answer, because the finish hut records the class.
+  // The comparison is forgiving: the sheet says "Howth 17" where the fleets
+  // are "Howth 17 (Scratch)" and "Howth 17 (HPH)", and a boat is in both, so
+  // landing on either settles it. The tie is between classes, never within
+  // one.
+  const narrowByFleet = (matches: Candidate[], typedFleet: string): Candidate[] => {
+    const wanted = normalizeFleetName(typedFleet);
+    if (!wanted) return matches;
+    return matches.filter((c) =>
+      (c.fleetNames ?? []).some((name) => {
+        const candidate = normalizeFleetName(name);
+        return candidate.startsWith(wanted) || candidate.includes(wanted);
+      }),
+    );
+  };
+
   const errors: FinishSheetRowError[] = [];
   const warnings: FinishSheetRowError[] = [];
   const finishes: Omit<Finish, 'id' | 'raceId'>[] = [];
@@ -219,6 +258,7 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
     const rawTime = cols.time >= 0 ? (row[cols.time]?.trim() ?? '') : '';
     const rawElapsed = cols.elapsed >= 0 ? (row[cols.elapsed]?.trim() ?? '') : '';
     const rawCode = cols.code >= 0 ? (row[cols.code]?.trim() ?? '') : '';
+    const rawFleet = cols.fleet >= 0 ? (row[cols.fleet]?.trim() ?? '') : '';
 
     if (!rawSail) {
       errors.push({ rowIndex: csvRowNumber, reason: 'missing sail number' });
@@ -287,15 +327,31 @@ export function parseFinishSheetCsv(input: ParseFinishSheetInput): ParseFinishSh
       errors.push({ rowIndex: csvRowNumber, reason: `${idLabel} ${rawSail} already used earlier in this sheet` });
       continue;
     }
-    if (available.length > 1) {
+    let resolvedMatches = available;
+    if (resolvedMatches.length > 1 && rawFleet) {
+      const narrowed = narrowByFleet(resolvedMatches, rawFleet);
+      if (narrowed.length === 0) {
+        errors.push({
+          rowIndex: csvRowNumber,
+          reason: `${idLabel} ${rawSail} is shared, and no fleet in this race matches "${rawFleet}"`,
+        });
+        continue;
+      }
+      resolvedMatches = narrowed;
+    }
+    if (resolvedMatches.length > 1) {
       errors.push({
         rowIndex: csvRowNumber,
-        reason: `${idLabel} ${rawSail} is ambiguous — multiple competitors share this number`,
+        reason: rawFleet
+          ? `${idLabel} ${rawSail} is shared by more than one boat in "${rawFleet}"`
+          : cols.fleet >= 0
+            ? `${idLabel} ${rawSail} is shared — this row's class column is blank, so there is nothing to tell them apart`
+            : `${idLabel} ${rawSail} is ambiguous — multiple competitors share this number; map the sheet's class column to tell them apart`,
       });
       continue;
     }
 
-    const competitor = available[0];
+    const competitor = resolvedMatches[0];
     const resolved = competitor !== undefined;
 
     // The committed row shows the registered sail number, so a row matched on

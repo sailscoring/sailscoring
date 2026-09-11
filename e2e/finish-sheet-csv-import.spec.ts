@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createFleets, createSeriesQuick, enableFeatures } from './helpers';
 import { resolve } from 'path';
 
 /**
@@ -220,4 +220,67 @@ test('finish sheet CSV import replaces existing finishes', async ({ page }) => {
   await expect(page.getByRole('listitem').nth(0)).toContainText('C');
   await expect(page.getByRole('listitem').nth(1)).toContainText('B');
   await expect(page.getByRole('listitem').nth(2)).toContainText('A');
+});
+
+/**
+ * Two one-design classes racing together both number from 1, so the same sail
+ * number can be two boats. The sheet's class column is what tells them apart —
+ * and a race only one of the classes starts in has no collision to resolve.
+ */
+test('a sail number two classes share is resolved by the sheet class column', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Autumn League Inshore' });
+  await createFleets(page, ['Howth 17', 'Puppeteer 22']);
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const c of [
+    { sail: '21', name: 'Orla', fleet: 'Howth 17' },
+    { sail: '22', name: 'Anna', fleet: 'Howth 17' },
+    { sail: '21', name: 'Nimon', fleet: 'Puppeteer 22' },
+    { sail: '22', name: 'Weyhey', fleet: 'Puppeteer 22' },
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sail);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('checkbox', { name: c.fleet, exact: true }).check();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.name })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  // One start covering both classes: the collision is genuine.
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00');
+  await page.getByRole('checkbox', { name: 'Howth 17', exact: true }).check();
+  await page.getByRole('checkbox', { name: 'Puppeteer 22', exact: true }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  const csv = [
+    'Sail,Finish Time,Class',
+    '21,14:41:00,Howth 17',
+    '21,14:42:00,Puppeteer',
+    '22,14:43:00,Puppeteer',
+    '22,14:44:00,Howth 17',
+  ].join('\n');
+  await page.getByTestId('finish-sheet-csv-input').setInputFiles(csvBuffer(csv));
+
+  // The class header auto-detects, so nothing has to be mapped by hand.
+  await expect(page.getByRole('heading', { name: /map columns/i })).toBeVisible();
+  await page.getByRole('button', { name: /Preview 4 rows/i }).click();
+  await expect(page.getByRole('heading', { name: /confirm finish sheet import/i })).toBeVisible();
+  await expect(page.getByText(/4 finishers/i)).toBeVisible();
+  await page.getByRole('button', { name: /import/i }).click();
+
+  // Each number went to the boat its class names, in sheet order.
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+  const items = page.getByRole('listitem');
+  await expect(items.nth(0)).toContainText('Orla');
+  await expect(items.nth(1)).toContainText('Nimon');
+  await expect(items.nth(2)).toContainText('Weyhey');
+  await expect(items.nth(3)).toContainText('Anna');
 });

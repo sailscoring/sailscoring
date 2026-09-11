@@ -52,6 +52,7 @@ const FIELD_LABELS: Record<FinishSheetField, string> = {
   finishTime: 'Finish time',
   elapsed: 'Elapsed time',
   resultCode: 'Result code',
+  fleet: 'Class / fleet',
   ignore: '(ignore)',
 };
 

@@ -271,7 +271,7 @@ export default function EnteringResults() {
           Both CSV and Excel (.xlsx) files work; Excel time cells import as the
           time shown in the spreadsheet.
         </p>
-        <p>The importer reads four columns:</p>
+        <p>The importer reads five columns:</p>
         <ul className="list-disc list-inside space-y-1 pl-2">
           <li>
             <strong className="text-foreground">Sail number</strong> — required; matched
@@ -303,6 +303,15 @@ export default function EnteringResults() {
             <strong className="text-foreground">Result code</strong> — optional; any standard
             RRS code (DNF, DSQ, OCS, RET, DNE, UFD, BFD, DNS, NSC, DNC). Rows with a code are
             recorded as non-finishers and the finish time is ignored.
+          </li>
+          <li>
+            <strong className="text-foreground">Class</strong> — optional; only consulted when a
+            sail number belongs to more than one boat in the race. Two one-design classes racing
+            together often both number from 1, so the same number can be two boats — writing the
+            class beside it says which. The match is forgiving:{' '}
+            <em>Howth 17</em> on the sheet finds the boat entered in{' '}
+            <em>Howth 17 (Scratch)</em> and <em>Howth 17 (HPH)</em>. A sheet with no shared
+            numbers imports the same with or without the column.
           </li>
         </ul>
         <p>
