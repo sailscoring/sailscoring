@@ -133,6 +133,20 @@ describe('buildRrsOrgCompetitors', () => {
     expect(row.division).toBe('Scratch / HPH');
   });
 
+  it('pushes the same division whichever order membership was written in', () => {
+    // RRS.org runs the jury side of the event; two boats in the same two
+    // fleets must not arrive there described differently.
+    const rows = buildRrsOrgCompetitors(
+      [
+        makeCompetitor({ id: 'c1', fleetIds: ['fl-scratch', 'fl-hph'] }),
+        makeCompetitor({ id: 'c2', fleetIds: ['fl-hph', 'fl-scratch'] }),
+      ],
+      fleets,
+      { divisionSource: 'fleet' },
+    ).competitors;
+    expect(rows[1].division).toBe(rows[0].division);
+  });
+
   it('divisionSource axis reads the competitor subdivision value', () => {
     const c = makeCompetitor({ id: 'c1', subdivisions: { 'axis-1': 'Silver' } });
     const config = { divisionSource: 'axis' as const, divisionAxisId: 'axis-1' };

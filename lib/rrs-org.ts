@@ -10,7 +10,7 @@
  * UUID is the API's only credential and belongs on the server-to-RRS.org hop.
  */
 
-import { formatClubs } from './competitor-fields';
+import { competitorFleetNames, formatClubs } from './competitor-fields';
 import type { Competitor, Fleet, RrsOrgPushConfig } from './types';
 
 export const RRS_ORG_API_URL = 'https://www.racingrulesofsailing.org/api/competitors';
@@ -152,18 +152,17 @@ export function splitName(name: string): { first: string; last: string } {
 function divisionFor(
   competitor: Competitor,
   config: Pick<RrsOrgPushConfig, 'divisionSource' | 'divisionAxisId'>,
-  fleetNameById: Map<string, string>,
+  fleetById: Map<string, Fleet>,
 ): string {
   switch (config.divisionSource) {
     case 'none':
       return '';
     case 'fleet':
       // Multi-fleet competitors are real (a boat can race Scratch and HPH);
-      // RRS.org has one slot, so join the memberships.
-      return competitor.fleetIds
-        .map((id) => fleetNameById.get(id))
-        .filter((name): name is string => !!name)
-        .join(' / ');
+      // RRS.org has one slot, so join the memberships — in the series' own
+      // fleet order, so two boats in the same fleets push the same string to
+      // an event the app doesn't control.
+      return competitorFleetNames(competitor.fleetIds, fleetById).join(' / ');
     case 'axis':
       return (config.divisionAxisId && competitor.subdivisions?.[config.divisionAxisId]) || '';
   }
@@ -180,7 +179,7 @@ export function buildRrsOrgCompetitors(
   config: Pick<RrsOrgPushConfig, 'divisionSource' | 'divisionAxisId'>,
   relay?: Map<string, RrsOrgRelayFields>,
 ): RrsOrgBuildResult {
-  const fleetNameById = new Map(fleets.map((f) => [f.id, f.name]));
+  const fleetById = new Map(fleets.map((f) => [f.id, f]));
   const warnings: RrsOrgBuildWarning[] = [];
   let relayCount = 0;
 
@@ -223,7 +222,7 @@ export function buildRrsOrgCompetitors(
       last_name: last,
       boat_name: c.boatName ?? '',
       boat_class: c.boatClass ?? '',
-      division: divisionFor(c, config, fleetNameById),
+      division: divisionFor(c, config, fleetById),
       club_name: formatClubs(c.clubs),
       email: r?.email?.trim() ?? '',
       phone,
