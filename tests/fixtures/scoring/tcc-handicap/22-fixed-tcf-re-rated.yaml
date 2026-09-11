@@ -1,0 +1,72 @@
+description: "Fixed TCF — a boat re-rated mid-series, earlier races left as sailed"
+rrs_notes: >
+  A fixed club handicap is fixed, not frozen: a handicapper who has a boat
+  badly wrong re-rates it, and the races already sailed keep the number they
+  were sailed under. The boat carries its *current* HPH; each earlier race is
+  pinned to the old value with a per-race rating override on the fixedTcf
+  field — the same mechanism a new IRC certificate uses.
+
+  Kestrel is re-rated from 0.865 to 0.885 after race 1. It won race 1 on 0.865
+  and that result stands; races 2 and 3 are scored on 0.885, and Marlin takes
+  both.
+
+# Start 11:25:00 in all three races.
+#
+# Race 1 — Kestrel on its old 0.865 (per-race override):
+#   Kestrel  ET 6000 s  CT = 6000 × 0.865 = 5190.0 → 5190  → 1st
+#   Marlin   ET 5740 s  CT = 5740 × 0.910 = 5223.4 → 5223  → 2nd
+# Scored on the new 0.885 instead, race 1 would have gone the other way
+# (6000 × 0.885 = 5310 > 5223) — the override is what preserves it.
+#
+# Races 2 and 3 — Kestrel on its current 0.885, no override:
+#   Kestrel  ET 6000 s  CT = 6000 × 0.885 = 5310.0 → 5310  → 2nd
+#   Marlin   ET 5740 s  CT = 5740 × 0.910 = 5223.4 → 5223  → 1st
+#
+# Series: Marlin 2+1+1 = 4 wins; Kestrel 1+2+2 = 5.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: tcf
+  ratingLabel: HPH
+
+competitors:
+  - { sailNumber: "1405", name: "Kestrel", fixedTcf: 0.885 }   # current (races 2-3) rating
+  - { sailNumber: "1410", name: "Marlin", fixedTcf: 0.910 }
+
+races:
+  - number: 1
+    startTime: "11:25:00"
+    ratingOverrides:
+      - { sailor: "1405", field: fixedTcf, value: 0.865 }      # the rating it raced under
+    finishes:
+      - { sailor: "1405", finishTime: "13:05:00" }
+      - { sailor: "1410", finishTime: "13:00:40" }
+  - number: 2
+    startTime: "11:25:00"
+    finishes:
+      - { sailor: "1405", finishTime: "13:05:00" }
+      - { sailor: "1410", finishTime: "13:00:40" }
+  - number: 3
+    startTime: "11:25:00"
+    finishes:
+      - { sailor: "1405", finishTime: "13:05:00" }
+      - { sailor: "1410", finishTime: "13:00:40" }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1410"
+      racePoints: [2, 1, 1]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 2
+      sailor: "1405"
+      racePoints: [1, 2, 2]
+      raceCodes: [null, null, null]
+      raceDiscards: [false, false, false]
+      totalPoints: 5
+      netPoints: 5

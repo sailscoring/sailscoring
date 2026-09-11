@@ -43,6 +43,7 @@ describe('TCC handicap scoring fixtures', () => {
         for (const c of competitors) {
           if (fleet.scoringSystem === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
           else if (fleet.scoringSystem === 'vprs' && c.vprsTcc != null) tcfMap.set(c.id, c.vprsTcc);
+          else if (fleet.scoringSystem === 'tcf' && c.fixedTcf != null) tcfMap.set(c.id, c.fixedTcf);
           else if (fleet.scoringSystem === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
           else if (orcProfile) {
             const rating = orcProfileRating(c, orcProfile);

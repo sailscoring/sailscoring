@@ -219,7 +219,7 @@ function fmtSeconds(s: number | null | undefined): string {
   return `${m}m ${whole.toString().padStart(2, '0')}${tail}s`;
 }
 
-function fmtTcf(tcf: number | null | undefined, sys: 'irc' | 'py' | 'nhc' | 'echo'): string {
+function fmtTcf(tcf: number | null | undefined, sys: 'irc' | 'py' | 'nhc' | 'echo' | 'tcf'): string {
   if (tcf === null || tcf === undefined) return '—';
   const suffix = sys === 'py' ? ' (1000/PY)' : '';
   return `${tcf.toFixed(4)}${suffix}`;
@@ -275,11 +275,14 @@ function renderStandingsTable(fixture: Fixture): string {
 // ─── IRC / PY renderer ───────────────────────────────────────────────────────
 
 function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): string {
-  if (!fixture.fleet || (fixture.fleet.scoringSystem !== 'irc' && fixture.fleet.scoringSystem !== 'py' && fixture.fleet.scoringSystem !== 'orc')) {
+  if (!fixture.fleet || (fixture.fleet.scoringSystem !== 'irc' && fixture.fleet.scoringSystem !== 'py' && fixture.fleet.scoringSystem !== 'orc' && fixture.fleet.scoringSystem !== 'tcf')) {
     throw new Error(`Expected handicap fleet, got ${fixture.fleet?.scoringSystem}`);
   }
   const sys = fixture.fleet.scoringSystem;
-  const sysUpper = sys.toUpperCase();
+  // A fixed TCF goes by the club's name for it wherever the system is named.
+  const sysUpper = sys === 'tcf'
+    ? `Fixed ${fixture.fleet.ratingLabel ?? 'TCF'}`
+    : sys.toUpperCase();
   const { competitors, races, finishes, raceStarts, fleets } = buildFixtureInputs(fixture);
   const competitorByIdMap = new Map(competitors.map((c) => [c.id, c]));
   const fleet = fleets[0];
@@ -296,6 +299,7 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
     const tcfMap = new Map<string, number>();
     for (const c of competitors) {
       if (sys === 'irc' && c.ircTcc != null) tcfMap.set(c.id, c.ircTcc);
+      else if (sys === 'tcf' && c.fixedTcf != null) tcfMap.set(c.id, c.fixedTcf);
       else if (sys === 'py' && c.pyNumber != null) tcfMap.set(c.id, 1000 / c.pyNumber);
       else if (orcProfile) {
         const rating = orcProfileRating(c, orcProfile);
@@ -323,7 +327,9 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
       const c = competitorByIdMap.get(cId)!;
       const ratingDisplay = sys === 'irc'
         ? (c.ircTcc?.toFixed(3) ?? '—')
-        : sys === 'orc'
+        : sys === 'tcf'
+          ? (c.fixedTcf?.toFixed(3) ?? '—')
+          : sys === 'orc'
           ? (tcfMap.has(cId) ? tcfMap.get(cId)!.toFixed(isOrcTod ? 1 : 4) : '—')
           : (c.pyNumber?.toString() ?? '—');
       const finishTimeDisplay = finishTimeByCompetitorId.get(cId) ?? (score.resultCode ?? '—');
@@ -341,7 +347,10 @@ function generateHandicapFixtureHtml(fixture: Fixture, yamlSource: string): stri
 </tr>`;
     }).join('\n');
 
-    const ratingHeader = sys === 'irc' ? 'TCC' : sys === 'orc' ? (orcProfile?.option ?? 'APHT') : 'PY';
+    const ratingHeader = sys === 'irc' ? 'TCC'
+      : sys === 'tcf' ? (fixture.fleet!.ratingLabel ?? 'TCF')
+        : sys === 'orc' ? (orcProfile?.option ?? 'APHT')
+          : 'PY';
     const raceLabel = fixture.races.length > 1 ? `Race ${fixtureRace.number ?? ri + 1}` : 'Race arithmetic';
     const distanceNote = raceStart.distanceNm != null
       ? ` &nbsp; <strong>Course:</strong> ${esc(raceStart.distanceNm.toFixed(2))} NM`
@@ -757,7 +766,7 @@ function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
   const sys = fixture.fleet?.scoringSystem ?? 'scratch';
   if (sys === 'nhc') return generateNhcFixtureHtml(fixture, yamlSource);
   if (sys === 'echo') return generateEchoFixtureHtml(fixture, yamlSource);
-  if (sys === 'irc' || sys === 'py' || sys === 'orc') return generateHandicapFixtureHtml(fixture, yamlSource);
+  if (sys === 'irc' || sys === 'py' || sys === 'orc' || sys === 'tcf') return generateHandicapFixtureHtml(fixture, yamlSource);
   return generateScratchFixtureHtml(fixture, yamlSource);
 }
 

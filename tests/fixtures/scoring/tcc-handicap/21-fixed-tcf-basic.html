@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>Fixed TCF — a club handicap held for the whole series — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; }
+h2 { font-size: 1.1em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5em; }
+td, th { text-align: left; padding: 6px 8px; border: 1px solid #ddd; }
+th { background: #f5f5f0; font-weight: bold; }
+tr:nth-child(even) { background: #fafafa; }
+.mono { font-family: monospace; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All Fixed HPH handicap examples</a></p>
+<h1>Fixed TCF — a club handicap held for the whole series</h1>
+<p style="font-style:italic; color:#444;">A club handicap the race committee assigns before the series and does not adjust. It is already a TCF, so it is applied exactly as a TCC is: CT = ET × TCF, ranked by lowest corrected time. Howth calls its number HPH, which is what the rating column is headed here.
+The point of the system is what does *not* happen: Kestrel wins race 1 by three minutes on corrected time and starts race 2 on the same 0.865. Under a progressive handicap (NHC, ECHO) that win would have cost it rating.
+</p>
+<div style="margin:0.8em 0; padding:0.6em 1em; background:#f5f5f0; border:1px solid #ccc; font-size:90%;">
+  <strong>Scoring system:</strong> Fixed HPH
+</div>
+<pre style="margin:0.6em 0 0; padding:0.5em; background:#fff; border:1px solid #ddd; font-size:0.95em; line-height:1.4; white-space:pre-wrap;">Start 11:25:00 (= 41100 s since midnight) in both races. Corrected times are
+rounded half-up to whole seconds before ranking.
+
+Race 1
+  Kestrel  HPH 0.865  finish 13:05:00  ET 6000 s  CT = 6000 × 0.865 = 5190.0 → 5190  → 1st
+  Marlin   HPH 0.910  finish 13:00:40  ET 5740 s  CT = 5740 × 0.910 = 5223.4 → 5223  → 2nd
+  Osprey   HPH 1.020  finish 12:52:30  ET 5250 s  CT = 5250 × 1.020 = 5355.0 → 5355  → 3rd
+
+Osprey is first over the line and last on handicap.
+
+Race 2 — same three numbers, unchanged by race 1:
+  Kestrel  HPH 0.865  finish 13:10:00  ET 6300 s  CT = 6300 × 0.865 = 5449.5 → 5450  → 3rd
+  Marlin   HPH 0.910  finish 13:03:20  ET 5900 s  CT = 5900 × 0.910 = 5369.0 → 5369  → 2nd
+  Osprey   HPH 1.020  finish 12:52:00  ET 5220 s  CT = 5220 × 1.020 = 5324.4 → 5324  → 1st
+
+Series: all three tie on 4 points, so RRS A8 decides.
+  A8.1 — most firsts: Kestrel and Osprey have one each, Marlin none, so
+         Marlin is 3rd and the other two are still tied (equal 1sts, equal
+         2nds, equal 3rds).
+  A8.2 — the last race: Osprey was 1st there, Kestrel 3rd. Osprey wins.</pre>
+<h2 style="margin-top:1.5em;">Race 1</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 11:25:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>HPH</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Kestrel</td>
+  <td class="mono">1405</td>
+  <td class="mono">0.865</td>
+  <td class="mono">13:05:00</td>
+  <td class="mono">100m 00s</td>
+  <td class="mono">0.8650</td>
+  <td class="mono">86m 30s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Marlin</td>
+  <td class="mono">1410</td>
+  <td class="mono">0.910</td>
+  <td class="mono">13:00:40</td>
+  <td class="mono">95m 40s</td>
+  <td class="mono">0.9100</td>
+  <td class="mono">87m 03s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Osprey</td>
+  <td class="mono">1425</td>
+  <td class="mono">1.020</td>
+  <td class="mono">12:52:30</td>
+  <td class="mono">87m 30s</td>
+  <td class="mono">1.0200</td>
+  <td class="mono">89m 15s</td>
+  <td>3</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Race 2</h2>
+<div style="margin:0.4em 0 0.6em; color:#444; font-size:90%;">
+  <strong>Gun time:</strong> 11:25:00
+</div>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>HPH</th><th>Finish time</th><th>ET</th><th>TCF</th><th>CT</th><th>Points</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Osprey</td>
+  <td class="mono">1425</td>
+  <td class="mono">1.020</td>
+  <td class="mono">12:52:00</td>
+  <td class="mono">87m 00s</td>
+  <td class="mono">1.0200</td>
+  <td class="mono">88m 44s</td>
+  <td>1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Marlin</td>
+  <td class="mono">1410</td>
+  <td class="mono">0.910</td>
+  <td class="mono">13:03:20</td>
+  <td class="mono">98m 20s</td>
+  <td class="mono">0.9100</td>
+  <td class="mono">89m 29s</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Kestrel</td>
+  <td class="mono">1405</td>
+  <td class="mono">0.865</td>
+  <td class="mono">13:10:00</td>
+  <td class="mono">105m 00s</td>
+  <td class="mono">0.8650</td>
+  <td class="mono">90m 50s</td>
+  <td>3</td>
+</tr>
+</tbody>
+</table>
+<h2 style="margin-top:1.5em;">Series standings</h2>
+<table>
+<thead>
+<tr><th>Rank</th><th>Name</th><th>Sail #</th><th>R1</th><th>R2</th><th>Total</th><th>Net</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>Osprey</td>
+  <td class="mono">1425</td>
+  <td class="mono">3</td><td class="mono">1</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>Kestrel</td>
+  <td class="mono">1405</td>
+  <td class="mono">1</td><td class="mono">3</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>Marlin</td>
+  <td class="mono">1410</td>
+  <td class="mono">2</td><td class="mono">2</td>
+  <td class="mono">4</td>
+  <td class="mono">4</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

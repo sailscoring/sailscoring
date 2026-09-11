@@ -1120,6 +1120,40 @@ function nhcFixture(withExplain = true): SeriesResultsData {
   };
 }
 
+describe('renderSeriesHtml rating column label', () => {
+  function fixedTcfFixture(ratingColumnLabel?: string): SeriesResultsData {
+    return {
+      series: { name: 'Autumn League', venue: 'HYC' },
+      enabledCompetitorFields: [],
+      races: [{
+        raceNumber: 1,
+        date: '2026-09-05',
+        label: 'R1',
+        anchorId: 'r1',
+        ...(ratingColumnLabel ? { ratingColumnLabel } : {}),
+        results: [{
+          rank: 1, sailNumber: '1405', helm: ['Alice'],
+          place: 1, points: 1, resultCode: null, penaltyCode: null, penaltyOverride: null,
+          tcc: 0.865, finishTime: '13:05:00',
+          elapsedTimeSecs: 6000, correctedTimeSecs: 5190,
+        }],
+      }],
+      standings: [makeStanding(1, '1405', 'Alice', [{ points: 1, podiumRank: 1 }])],
+    };
+  }
+
+  it('heads the rating column with the club name for the handicap', () => {
+    const html = renderSeriesHtml(fixedTcfFixture('HPH'));
+    expect(html).toContain('<th>HPH</th>');
+    expect(html).not.toContain('<th>TCC</th>');
+  });
+
+  it('falls back to the static-handicap label when the fleet names nothing', () => {
+    const html = renderSeriesHtml(fixedTcfFixture());
+    expect(html).toContain('<th>TCC</th>');
+  });
+});
+
 describe('renderSeriesHtml NHC viewer toggle', () => {
   it('emits the checkbox, body class, and script on NHC fleets', () => {
     const html = renderSeriesHtml(nhcFixture());

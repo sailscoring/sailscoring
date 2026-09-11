@@ -6,6 +6,8 @@ import {
   formatMissingRatings,
   requiredForFleetsHint,
   competitorRatings,
+  ratingSystemLabel,
+  ratingUnitLabel,
   configuredRatingSystems,
   formatRatingValue,
   ratingGaps,
@@ -45,6 +47,23 @@ describe('fleetRatingLabel', () => {
 
   it('returns null for scratch fleets (no rating required)', () => {
     expect(fleetRatingLabel(mkFleet({ id: 'd', name: 'D', scoringSystem: 'scratch' }))).toBeNull();
+  });
+
+  it('asks for a fixed TCF by the club name for it', () => {
+    const hph = mkFleet({ id: 'e', name: 'Class 1 HPH', scoringSystem: 'tcf', ratingLabel: 'HPH' });
+    expect(fleetRatingLabel(hph)).toBe('HPH');
+  });
+
+  it('falls back to the generic word when the club has named nothing', () => {
+    const unnamed = mkFleet({ id: 'f', name: 'Class 1', scoringSystem: 'tcf' });
+    expect(fleetRatingLabel(unnamed)).toBe('TCF');
+    expect(ratingSystemLabel(unnamed)).toBe('TCF');
+    expect(ratingUnitLabel(unnamed)).toBe('TCF');
+  });
+
+  it('treats a blank label as unnamed rather than heading a column with nothing', () => {
+    const blank = mkFleet({ id: 'g', name: 'Class 1', scoringSystem: 'tcf', ratingLabel: '  ' });
+    expect(ratingUnitLabel(blank)).toBe('TCF');
   });
 });
 
@@ -153,6 +172,14 @@ describe('competitorRatings', () => {
     const c = mkCompetitor({ id: 'c1', fleetIds: ['irc'], ircTcc: 1.13 });
     expect(competitorRatings(c, fleetMap([irc]))).toEqual([
       { system: 'irc', label: 'IRC', value: '1.130' },
+    ]);
+  });
+
+  it('labels a fixed-TCF rating with the club name for it', () => {
+    const hph = mkFleet({ id: 'hph', name: 'Class 1 HPH', scoringSystem: 'tcf', ratingLabel: 'HPH' });
+    const c = mkCompetitor({ id: 'c1', fleetIds: ['hph'], fixedTcf: 0.865 });
+    expect(competitorRatings(c, fleetMap([hph]))).toEqual([
+      { system: 'tcf', label: 'HPH', value: '0.865' },
     ]);
   });
 

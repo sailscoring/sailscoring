@@ -55,6 +55,20 @@ describe('autoDetectField', () => {
     expect(autoDetectField('PY')).toBe('py');
   });
 
+  it('reads a club handicap column as the fixed TCF', () => {
+    expect(autoDetectField('HPH')).toBe('fixedTcf');
+    expect(autoDetectField('HPH number')).toBe('fixedTcf');
+    expect(autoDetectField('TCF')).toBe('fixedTcf');
+  });
+
+  it('leaves the systems that spell their rating a TCF to their own columns', () => {
+    // Each of these contains "TCF" but names a system of its own; only a
+    // header with no system attached is the club's fixed number.
+    expect(autoDetectField('NHC TCF')).toBe('nhcStartingTcf');
+    expect(autoDetectField('ECHO TCF')).toBe('echoStartingTcf');
+    expect(autoDetectField('Starting TCF')).toBe('nhcStartingTcf');
+  });
+
   it('reads Sailor ID headers as the World Sailing ID, not the sail number', () => {
     // Every spelling of the header contains "sail", which the sail-number rule
     // would otherwise claim.

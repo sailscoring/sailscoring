@@ -1,0 +1,89 @@
+description: "Fixed TCF — a club handicap held for the whole series"
+rrs_notes: >
+  A club handicap the race committee assigns before the series and does not
+  adjust. It is already a TCF, so it is applied exactly as a TCC is:
+  CT = ET × TCF, ranked by lowest corrected time. Howth calls its number HPH,
+  which is what the rating column is headed here.
+
+  The point of the system is what does *not* happen: Kestrel wins race 1 by
+  three minutes on corrected time and starts race 2 on the same 0.865. Under a
+  progressive handicap (NHC, ECHO) that win would have cost it rating.
+
+# Start 11:25:00 (= 41100 s since midnight) in both races. Corrected times are
+# rounded half-up to whole seconds before ranking.
+#
+# Race 1
+#   Kestrel  HPH 0.865  finish 13:05:00  ET 6000 s  CT = 6000 × 0.865 = 5190.0 → 5190  → 1st
+#   Marlin   HPH 0.910  finish 13:00:40  ET 5740 s  CT = 5740 × 0.910 = 5223.4 → 5223  → 2nd
+#   Osprey   HPH 1.020  finish 12:52:30  ET 5250 s  CT = 5250 × 1.020 = 5355.0 → 5355  → 3rd
+#
+# Osprey is first over the line and last on handicap.
+#
+# Race 2 — same three numbers, unchanged by race 1:
+#   Kestrel  HPH 0.865  finish 13:10:00  ET 6300 s  CT = 6300 × 0.865 = 5449.5 → 5450  → 3rd
+#   Marlin   HPH 0.910  finish 13:03:20  ET 5900 s  CT = 5900 × 0.910 = 5369.0 → 5369  → 2nd
+#   Osprey   HPH 1.020  finish 12:52:00  ET 5220 s  CT = 5220 × 1.020 = 5324.4 → 5324  → 1st
+#
+# Series: all three tie on 4 points, so RRS A8 decides.
+#   A8.1 — most firsts: Kestrel and Osprey have one each, Marlin none, so
+#          Marlin is 3rd and the other two are still tied (equal 1sts, equal
+#          2nds, equal 3rds).
+#   A8.2 — the last race: Osprey was 1st there, Kestrel 3rd. Osprey wins.
+
+series:
+  discardThresholds: []
+
+fleet:
+  scoringSystem: tcf
+  ratingLabel: HPH
+
+competitors:
+  - { sailNumber: "1405", name: "Kestrel", fixedTcf: 0.865 }
+  - { sailNumber: "1410", name: "Marlin", fixedTcf: 0.910 }
+  - { sailNumber: "1425", name: "Osprey", fixedTcf: 1.020 }
+
+races:
+  - number: 1
+    startTime: "11:25:00"
+    finishes:
+      - { sailor: "1405", finishTime: "13:05:00" }
+      - { sailor: "1410", finishTime: "13:00:40" }
+      - { sailor: "1425", finishTime: "12:52:30" }
+    expected:
+      - { sailor: "1405", rank: 1, points: 1.0, elapsedTime: 6000, correctedTime: 5190, tcfApplied: 0.865 }
+      - { sailor: "1410", rank: 2, points: 2.0, elapsedTime: 5740, correctedTime: 5223, tcfApplied: 0.910 }
+      - { sailor: "1425", rank: 3, points: 3.0, elapsedTime: 5250, correctedTime: 5355, tcfApplied: 1.020 }
+  - number: 2
+    startTime: "11:25:00"
+    finishes:
+      - { sailor: "1405", finishTime: "13:10:00" }
+      - { sailor: "1410", finishTime: "13:03:20" }
+      - { sailor: "1425", finishTime: "12:52:00" }
+    expected:
+      - { sailor: "1405", rank: 3, points: 3.0, elapsedTime: 6300, correctedTime: 5450, tcfApplied: 0.865 }
+      - { sailor: "1410", rank: 2, points: 2.0, elapsedTime: 5900, correctedTime: 5369, tcfApplied: 0.910 }
+      - { sailor: "1425", rank: 1, points: 1.0, elapsedTime: 5220, correctedTime: 5324, tcfApplied: 1.020 }
+
+expected:
+  standings:
+    - rank: 1
+      sailor: "1425"
+      racePoints: [3, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 2
+      sailor: "1405"
+      racePoints: [1, 3]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4
+    - rank: 3
+      sailor: "1410"
+      racePoints: [2, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4

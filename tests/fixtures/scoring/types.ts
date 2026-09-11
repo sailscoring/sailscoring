@@ -147,7 +147,7 @@ export interface FixtureRace {
   aggregates?: FixtureAggregates;
   rejected?: FixtureRejection[];
   /** Per-race static-rating overrides (mid-series rating change). */
-  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber' | 'vprsTcc'; value: number }[];
+  ratingOverrides?: { sailor: string; field: 'ircTcc' | 'pyNumber' | 'vprsTcc' | 'fixedTcf'; value: number }[];
 }
 
 export interface FixtureStanding {
@@ -171,6 +171,7 @@ export interface FixtureCompetitor {
   fleet?: string;            // multi-fleet scratch fixtures
   ircTcc?: number;
   vprsTcc?: number;
+  fixedTcf?: number;
   pyNumber?: number;
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
@@ -184,7 +185,10 @@ export interface FixtureCompetitor {
 }
 
 export interface FixtureFleet {
-  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc';
+  scoringSystem: 'scratch' | 'irc' | 'py' | 'nhc' | 'echo' | 'vprs' | 'orc' | 'tcf';
+  // Fixed TCF only — what the club calls the handicap ("HPH"); heads the
+  // rating column on the rendered fixture. Absent means the generic "TCF".
+  ratingLabel?: string;
   alpha?: number;            // ECHO only (mapped to echoAlpha); NHC ignores
   // NHC only — full inline profile override (mapped to fleet.nhcProfile).
   // Absent means the engine falls back to DEFAULT_NHC_PROFILE.
@@ -295,6 +299,9 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       ...(topFleet.scoringSystem === 'orc' && topFleet.orcOption != null
         ? { orcProfile: topFleet.orcOption }
         : {}),
+      ...(topFleet.scoringSystem === 'tcf' && topFleet.ratingLabel != null
+        ? { ratingLabel: topFleet.ratingLabel }
+        : {}),
     }];
     fleetIdByName = new Map([['Fleet', 'fl-0']]);
   } else if (hasPerCompetitorFleet) {
@@ -335,6 +342,7 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       createdAt: 0,
       ...(c.ircTcc != null ? { ircTcc: c.ircTcc } : {}),
       ...(c.vprsTcc != null ? { vprsTcc: c.vprsTcc } : {}),
+      ...(c.fixedTcf != null ? { fixedTcf: c.fixedTcf } : {}),
       ...(c.pyNumber != null ? { pyNumber: c.pyNumber } : {}),
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
