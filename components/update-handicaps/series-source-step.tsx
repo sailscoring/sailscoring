@@ -38,6 +38,7 @@ import {
   buildPreviewUpdateRows,
   previewOutcome,
   splitPreviewRows,
+  useExcludedRowIds,
   type SourceStepProps,
 } from './shared';
 
@@ -74,7 +75,7 @@ export function SeriesSourceStep({
   const allSeries = useSeriesList();
   const [sourceSeriesId, setSourceSeriesId] = useState<string | null>(null);
   const [fleetMapping, setFleetMapping] = useState<Record<string, string | null>>({});
-  const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
+  const exclusions = useExcludedRowIds();
 
   // ── Source data, loaded only after the source series is picked ─────────────
   // Inline `useQuery` (not the wrapper hooks) so we can gate with `enabled`
@@ -118,7 +119,7 @@ export function SeriesSourceStep({
   ) {
     setSeededForSourceSeriesId(sourceSeriesId);
     setFleetMapping(proposeFleetMapping(fleets, sourceFleets.data));
-    setExcludedRowIds(new Set());
+    exclusions.clearExclusions();
   }
 
   const endTcfs = useMemo(() => {
@@ -145,7 +146,7 @@ export function SeriesSourceStep({
     });
   }, [competitors, fleets, sourceCompetitors.data, sourceFleets.data, endTcfs, fleetMapping]);
 
-  const split = splitPreviewRows(previewRows, excludedRowIds);
+  const split = splitPreviewRows(previewRows, exclusions.excludedRowIds);
 
   const targetFleetById = useMemo(() => new Map((fleets ?? []).map((f) => [f.id, f])), [fleets]);
   const sourceFleetById = useMemo(
@@ -226,15 +227,9 @@ export function SeriesSourceStep({
               changedRows={split.changedRows}
               unchangedRows={split.unchangedRows}
               notFoundRows={split.notFoundRows}
-              excludedRowIds={excludedRowIds}
-              onToggleRow={(key, included) => {
-                setExcludedRowIds((prev) => {
-                  const next = new Set(prev);
-                  if (included) next.delete(key);
-                  else next.add(key);
-                  return next;
-                });
-              }}
+              excludedRowIds={exclusions.excludedRowIds}
+              onToggleRow={exclusions.toggleRow}
+              onToggleAllRows={exclusions.toggleAllRows}
               targetCompetitorById={targetCompetitorById}
               targetFleetById={targetFleetById}
               sourceFleetById={sourceFleetById}

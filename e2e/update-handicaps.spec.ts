@@ -84,6 +84,12 @@ test('Update Handicaps dialog: carry IRC TCCs from source series to target', asy
   await expect(page.getByText('1.000 → 0.985')).toBeVisible();
   await expect(page.getByText('1.000 → 1.075')).toBeVisible();
 
+  // The preview arrives all-ticked, so its header box is there to clear the
+  // lot — the scorer who came back for one boat and wants none of the rest.
+  await page.getByRole('checkbox', { name: 'Deselect all' }).uncheck();
+  await expect(page.getByRole('button', { name: 'Apply 0' })).toBeDisabled();
+  await page.getByRole('checkbox', { name: 'Select all' }).check();
+
   // ── 5. Apply ──────────────────────────────────────────────────────────────
   await page.getByRole('button', { name: /Apply 3/ }).click();
   await expect(page.getByRole('heading', { name: 'Handicaps updated' })).toBeVisible();

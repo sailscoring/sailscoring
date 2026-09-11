@@ -15,6 +15,7 @@ import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { formatRatingValue } from '@/lib/competitor-ratings';
 import {
   SYSTEM_LABEL,
+  SelectAllCheckbox,
   describeMatch,
   formatDelta,
   rowKey,
@@ -27,6 +28,7 @@ export function PreviewSection({
   notFoundRows,
   excludedRowIds,
   onToggleRow,
+  onToggleAllRows,
   targetCompetitorById,
   targetFleetById,
   sourceFleetById,
@@ -37,6 +39,7 @@ export function PreviewSection({
   notFoundRows: PreviewRow[];
   excludedRowIds: Set<string>;
   onToggleRow: (key: string, included: boolean) => void;
+  onToggleAllRows: (keys: string[], included: boolean) => void;
   targetCompetitorById: Map<string, Competitor>;
   targetFleetById: Map<string, Fleet>;
   sourceFleetById: Map<string, Fleet>;
@@ -45,6 +48,12 @@ export function PreviewSection({
 }) {
   // Suppress the unused-prop warning — kept for future "source fleet" column.
   void sourceFleetById;
+
+  // Every change applies unless unticked, so the header box reads "all in" on
+  // arrival and is there to clear them — the scorer re-running a source to
+  // pick up one boat's new certificate wants none of the rest.
+  const changedKeys = changedRows.map(rowKey);
+  const includedCount = changedKeys.filter((k) => !excludedRowIds.has(k)).length;
 
   const summary = `Preview: ${changedRows.length} change${changedRows.length === 1 ? '' : 's'}, ${unchangedRows.length} unchanged, ${notFoundRows.length} not found`;
 
@@ -56,7 +65,13 @@ export function PreviewSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8"></TableHead>
+              <TableHead className="w-8">
+                <SelectAllCheckbox
+                  selectedCount={includedCount}
+                  total={changedKeys.length}
+                  onToggleAll={(on) => onToggleAllRows(changedKeys, on)}
+                />
+              </TableHead>
               <TableHead>Sail no.</TableHead>
               <TableHead>Boat</TableHead>
               <TableHead>Fleet</TableHead>
@@ -79,6 +94,7 @@ export function PreviewSection({
                       checked={included}
                       onChange={(e) => onToggleRow(key, e.target.checked)}
                       className="h-3.5 w-3.5"
+                      aria-label={`Apply the change to ${comp?.sailNumber ?? ''}`}
                     />
                   </TableCell>
                   <TableCell>{comp?.sailNumber}</TableCell>

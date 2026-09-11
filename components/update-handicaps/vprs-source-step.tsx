@@ -31,6 +31,7 @@ import {
   buildPreviewUpdateRows,
   previewOutcome,
   splitPreviewRows,
+  useExcludedRowIds,
   type SourceStepProps,
 } from './shared';
 
@@ -52,7 +53,7 @@ export function VprsSourceStep({
   // Spin/no-spin per VPRS fleet; a fleet absent from the map defaults to spin.
   const [variantByFleet, setVariantByFleet] = useState<Record<string, IrcTccVariant>>({});
   const [matchByName, setMatchByName] = useState(false);
-  const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
+  const exclusions = useExcludedRowIds();
 
   // The club index loads when the step opens; the selected club's listing
   // loads only once a club is picked, matching the server's per-club caching.
@@ -94,7 +95,7 @@ export function VprsSourceStep({
     });
   }, [competitors, fleets, vprsRatings.data, variantByFleet, matchByName, defaultCountry]);
 
-  const split = splitPreviewRows(previewRows, excludedRowIds);
+  const split = splitPreviewRows(previewRows, exclusions.excludedRowIds);
 
   // VPRS fleets — each gets its own spin/no-spin selector.
   const vprsFleets = useMemo(
@@ -195,15 +196,9 @@ export function VprsSourceStep({
                   changedRows={split.changedRows}
                   unchangedRows={split.unchangedRows}
                   notFoundRows={split.notFoundRows}
-                  excludedRowIds={excludedRowIds}
-                  onToggleRow={(key, included) => {
-                    setExcludedRowIds((prev) => {
-                      const next = new Set(prev);
-                      if (included) next.delete(key);
-                      else next.add(key);
-                      return next;
-                    });
-                  }}
+                  excludedRowIds={exclusions.excludedRowIds}
+                  onToggleRow={exclusions.toggleRow}
+                  onToggleAllRows={exclusions.toggleAllRows}
                   targetCompetitorById={targetCompetitorById}
                   targetFleetById={targetFleetById}
                   sourceFleetById={new Map()}
