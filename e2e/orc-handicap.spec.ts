@@ -122,18 +122,22 @@ test('import seeds whole certificates by sail number', async ({ page }) => {
   await expect(page.getByText('2 ORC')).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
 
-  // The class-division columns render the certificate numbers.
-  await expect(page.getByRole('columnheader', { name: 'CDL' })).toBeVisible();
+  // The listing carries the one rating a scorer reads — the fleet's — and not
+  // the class-division numbers beside it.
+  await expect(page.getByRole('columnheader', { name: 'CDL' })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'GPH' })).toHaveCount(0);
   const impRow = page.getByRole('row').filter({ hasText: 'IRL 2507' });
-  await expect(impRow).toContainText('6.989');
   await expect(impRow).toContainText('0.9631');
 
   // The edit dialog shows the stored certificate, read-only, with its
-  // reference number linked to the printable ORC page.
+  // reference number linked to the printable ORC page — and the class-division
+  // numbers, which are read per boat rather than scanned down a table.
   await impRow.click();
   await expect(page.getByText('ORC certificate', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '051800048LU' })).toBeVisible();
   await expect(page.getByText(/APHT 0\.9631/)).toBeVisible();
+  await expect(page.getByText(/CDL 6\.989/)).toBeVisible();
+  await expect(page.getByText(/GPH /)).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
 });
 

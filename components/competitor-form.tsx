@@ -680,6 +680,11 @@ export function CompetitorForm({
                 ) : 'No reference number'}
                 {orcCert.record.C_Type ? ` · ${orcCert.record.C_Type}` : ''}
                 {orcCert.record.APHT != null ? ` · APHT ${orcCert.record.APHT.toFixed(4)}` : ''}
+                {/* The class-division numbers race management splits an entry
+                    list on. Here rather than as columns on the listing: they
+                    are read per boat, not scanned down a table. */}
+                {orcCert.record.CDL != null ? ` · CDL ${orcCert.record.CDL.toFixed(3)}` : ''}
+                {orcCert.record.GPH != null ? ` · GPH ${orcCert.record.GPH.toFixed(1)}` : ''}
                 {orcCert.expiryDate
                   ? ` · expires ${orcCert.expiryDate.slice(0, 10)}`
                   : ''}

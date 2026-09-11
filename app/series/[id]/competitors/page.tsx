@@ -169,13 +169,6 @@ export default function CompetitorsPage({
   const ratingSystems = configuredRatingSystems(fleets ?? []);
   const showRating = ratingSystems.length > 0;
   const showRatingLabels = ratingSystems.length > 1;
-  // ORC certificates carry the class-division sort keys (CDL, GPH) race
-  // management splits an entry list on — the ORC analogue of sorting by IRC
-  // TCC. Shown once the series scores ORC or any boat holds a certificate.
-  const showOrcDivision =
-    (fleets ?? []).some((f) => f.scoringSystem === 'orc') ||
-    (competitors ?? []).some((c) => c.orcCert != null);
-
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
@@ -723,12 +716,6 @@ export default function CompetitorsPage({
     // A boat can carry more than one rating; sort on the one the cell shows
     // first, since mixed systems have no single scale to order across.
     ...(showRating ? [col('rating', (a, b) => compareNumeric(ratingValue(a), ratingValue(b)))] : []),
-    ...(showOrcDivision
-      ? [
-          col('orcCdl', (a, b) => compareNumeric(a.orcCert?.record.CDL ?? null, b.orcCert?.record.CDL ?? null)),
-          col('orcGph', (a, b) => compareNumeric(a.orcCert?.record.GPH ?? null, b.orcCert?.record.GPH ?? null)),
-        ]
-      : []),
     ...(showGender ? [col('gender', (a, b) => compareText(a.gender, b.gender))] : []),
     ...(showAge ? [col('age', (a, b) => compareNumeric(a.age, b.age))] : []),
     ...visibleAxes.map((axis) =>
@@ -937,8 +924,6 @@ export default function CompetitorsPage({
               {showNationality && <SortableTableHead columnId="nationality" sortKeys={sortKeys} onSort={handleSort}>Nat</SortableTableHead>}
               {multipleFleets && <SortableTableHead columnId="fleets" sortKeys={sortKeys} onSort={handleSort} className="whitespace-normal break-words">Fleet</SortableTableHead>}
               {showRating && <SortableTableHead columnId="rating" sortKeys={sortKeys} onSort={handleSort}>Rating</SortableTableHead>}
-              {showOrcDivision && <SortableTableHead columnId="orcCdl" sortKeys={sortKeys} onSort={handleSort}>CDL</SortableTableHead>}
-              {showOrcDivision && <SortableTableHead columnId="orcGph" sortKeys={sortKeys} onSort={handleSort}>GPH</SortableTableHead>}
               {showGender && <SortableTableHead columnId="gender" sortKeys={sortKeys} onSort={handleSort}>Gender</SortableTableHead>}
               {showAge && <SortableTableHead columnId="age" sortKeys={sortKeys} onSort={handleSort}>Age</SortableTableHead>}
               {visibleAxes.map((axis) => (
@@ -1042,12 +1027,6 @@ export default function CompetitorsPage({
                         .join(' · ');
                     })()}
                   </TableCell>
-                )}
-                {showOrcDivision && (
-                  <TableCell className="font-mono">{c.orcCert?.record.CDL?.toFixed(3) ?? ''}</TableCell>
-                )}
-                {showOrcDivision && (
-                  <TableCell className="font-mono">{c.orcCert?.record.GPH?.toFixed(1) ?? ''}</TableCell>
                 )}
                 {showGender && <TableCell>{c.gender}</TableCell>}
                 {showAge && <TableCell>{c.age ?? ''}</TableCell>}

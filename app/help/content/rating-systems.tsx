@@ -400,8 +400,8 @@ export default function RatingSystems() {
         </p>
         <p>
           What’s imported is the <em>whole certificate</em> — the published ratings,
-          the class-division numbers (CDL and GPH, shown as sortable columns on the
-          Competitors tab), the expiry date, and the full time-allowance matrix that
+          the class-division numbers (CDL and GPH, shown on the boat’s row in the
+          edit dialog), the expiry date, and the full time-allowance matrix that
           performance-curve scoring runs on. The preview shows each boat’s
           time-on-time number as the <code className="font-mono text-xs">current →
           new</code> delta, flags certificates that have expired or mix VPP years
