@@ -13,7 +13,7 @@ import { useCompetitorsBySeries, useSaveCompetitors } from '@/hooks/use-competit
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
-import type { Fleet, Series } from '@/lib/types';
+import type { Fleet, RaceStart, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -72,6 +72,10 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   const [confirmToScratch, setConfirmToScratch] = useState<{ fleet: Fleet } | null>(null);
   const [confirmDeleteFleet, setConfirmDeleteFleet] = useState<Fleet | null>(null);
   const [editingNhcProfileFor, setEditingNhcProfileFor] = useState<Fleet | null>(null);
+  // A fleet just added to a series whose races already have starts, and the
+  // starts it could join. See handleAddFleet.
+  const [joinStarts, setJoinStarts] = useState<{ fleet: Fleet; starts: RaceStart[] } | null>(null);
+  const [companionFleetId, setCompanionFleetId] = useState('');
 
   const isOnlyDefault = fleets.length === 1 && fleets[0].name === 'Default';
 
@@ -243,16 +247,63 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       return;
     }
     const maxOrder = fleets.reduce((max, f) => Math.max(max, f.displayOrder), -1);
-    await saveFleet.mutateAsync({
+    const added: Fleet = {
       id: crypto.randomUUID(),
       seriesId,
       name,
       displayOrder: maxOrder + 1,
       scoringSystem: 'scratch',
-    });
+    };
+    await saveFleet.mutateAsync(added);
     setNewFleetName('');
     setNewFleetError('');
     setAddingFleet(false);
+    // Starts are per race, so a fleet added to a series whose races are
+    // already set up is in none of them — it goes on to collect finishes with
+    // no gun to measure them from, which for a handicap fleet means results
+    // scored on crossing order under a rating system's name. The fix is a
+    // gun the fleet shares with one already racing, which is a question only
+    // the scorer can answer, so ask it now rather than leave the fleet to be
+    // added to every race by hand.
+    const starts = await raceStartRepo.listBySeries(seriesId);
+    // Round-owned fleets (split-fleet ceremonies) get their starts when the
+    // round is committed, so a series whose only started fleets are those has
+    // nothing to offer and the question isn't worth asking.
+    const joinable = starts.some((s) =>
+      s.fleetIds.some((id) => fleets.some((f) => f.id === id && !f.splitRoundId)),
+    );
+    if (joinable) {
+      setCompanionFleetId('');
+      setJoinStarts({ fleet: added, starts });
+    }
+  }
+
+  /** Put the newly added fleet in every start the chosen fleet starts in,
+   *  and in its group of the default sequence so later races carry it too. */
+  async function joinCompanionStarts() {
+    if (!joinStarts || !companionFleetId) return;
+    const { fleet, starts } = joinStarts;
+    setJoinStarts(null);
+    const affected = starts.filter(
+      (s) => s.fleetIds.includes(companionFleetId) && !s.fleetIds.includes(fleet.id),
+    );
+    await Promise.all(
+      affected.map((s) => saveRaceStart.mutateAsync({ ...s, fleetIds: [...s.fleetIds, fleet.id] })),
+    );
+    if (series.defaultStartSequence?.some((g) => g.fleetIds.includes(companionFleetId))) {
+      // Functional patch for the same reason the delete path uses one: the
+      // sequence the save lands on, not the prop.
+      await updateSeries.mutateAsync({
+        id: seriesId,
+        patch: (current) => ({
+          defaultStartSequence: (current.defaultStartSequence ?? []).map((g) =>
+            g.fleetIds.includes(companionFleetId) && !g.fleetIds.includes(fleet.id)
+              ? { ...g, fleetIds: [...g.fleetIds, fleet.id] }
+              : g,
+          ),
+        }),
+      });
+    }
   }
 
   async function handleDeleteFleet(fleet: Fleet) {
@@ -295,6 +346,21 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   }
 
   const sorted = [...fleets].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  // How many races each fleet starts in, so the offer below says what taking
+  // it will change. Counted over races rather than start rows: a fleet can
+  // hold more than one start in a race.
+  const raceCountByFleetId = new Map<string, Set<string>>();
+  for (const start of joinStarts?.starts ?? []) {
+    for (const id of start.fleetIds) {
+      const races = raceCountByFleetId.get(id) ?? new Set<string>();
+      races.add(start.raceId);
+      raceCountByFleetId.set(id, races);
+    }
+  }
+  const companionFleets = sorted.filter(
+    (f) => f.id !== joinStarts?.fleet.id && !f.splitRoundId && raceCountByFleetId.has(f.id),
+  );
 
   const body = (
     <div className="space-y-3">
@@ -586,6 +652,40 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
           if (editingNhcProfileFor) void commitNhcProfile(editingNhcProfileFor, next);
         }}
       />
+      <Dialog open={joinStarts !== null} onOpenChange={(open) => { if (!open) setJoinStarts(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Which fleet does &ldquo;{joinStarts?.fleet.name}&rdquo; start with?</DialogTitle>
+            <DialogDescription>
+              This series&apos; races already have their starts, and the new fleet is in none of
+              them. Pick the fleet it shares a gun with and it joins that start in every race, and
+              in the default start sequence.
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={companionFleetId} onValueChange={setCompanionFleetId}>
+            <SelectTrigger data-testid="companion-fleet-select">
+              <SelectValue placeholder="Starts with…" />
+            </SelectTrigger>
+            <SelectContent>
+              {companionFleets.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.name} ({raceCountByFleetId.get(f.id)!.size}{' '}
+                  {raceCountByFleetId.get(f.id)!.size === 1 ? 'race' : 'races'})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setJoinStarts(null)}>Not now</Button>
+            <Button
+              disabled={!companionFleetId}
+              onClick={() => { void joinCompanionStarts(); }}
+            >
+              Add to those starts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={confirmDeleteFleet !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteFleet(null); }}>
         <DialogContent>
           <DialogHeader>

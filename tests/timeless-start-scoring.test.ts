@@ -85,7 +85,7 @@ describe('a handicap fleet in none of a race\'s starts', () => {
   });
 
   it('reports nothing for a race the fleet did not come to the start of', () => {
-    const dnc = finishes.map((f) => ({ ...f, resultCode: 'DNC' as const, finishTime: null }));
+    const dnc = finishes.map((f) => ({ ...f, resultCode: 'DNC' as const, finishTime: undefined, sortOrder: null }));
     expect(gaps([], [fleet], dnc)).toEqual([]);
   });
 });

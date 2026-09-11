@@ -465,6 +465,18 @@ export default function RunningASeries() {
           with no gun time is still scored on finishing order. Add a gun time
           later if the race turns out to need one.
         </p>
+        <p>
+          A fleet in <em>none</em> of a race’s starts is a different matter. It
+          has no gun to measure elapsed time from, so a handicap fleet’s boats
+          there are scored on the order they crossed the line — under the
+          fleet’s rating system’s name, in a table that looks exactly like a
+          corrected one. The{' '}
+          <strong className="text-foreground">Standings</strong> tab says so
+          above the fleet’s table, naming the races. This is what happens to a
+          fleet added to a series whose races are already set up: adding one
+          offers to put it in the starts a fleet already racing has, and taking
+          that offer is the whole fix.
+        </p>
       </Section>
       <Section id="adding-races" title="Adding races">
         <HelpShot
