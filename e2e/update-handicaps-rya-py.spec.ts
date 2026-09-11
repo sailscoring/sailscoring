@@ -52,6 +52,18 @@ test('Update handicaps from the RYA PY list sets numbers and normalises classes'
   await expect(page.getByRole('cell', { name: '— → 1178' })).toBeVisible();
   await expect(page.getByText(/RYA Portsmouth Number List 2026/)).toBeVisible();
 
+  // The Name column's header box drops every rename in one click — the club
+  // that wants the RYA's numbers but keeps its own spellings — and puts them
+  // back again.
+  await page.getByRole('checkbox', { name: 'Deselect all class names' }).uncheck();
+  await expect(
+    page.getByRole('checkbox', { name: 'Normalise the class name for Laser' }),
+  ).not.toBeChecked();
+  await page.getByRole('checkbox', { name: 'Select all class names' }).check();
+  await expect(
+    page.getByRole('checkbox', { name: 'Normalise the class name for Laser' }),
+  ).toBeChecked();
+
   await page.getByRole('button', { name: /^Apply/ }).click();
   await expect(page.getByText('Handicaps updated')).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();

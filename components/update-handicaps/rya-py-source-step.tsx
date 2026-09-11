@@ -33,6 +33,23 @@ export function RyaPySourceStep({
   const [renameOff, setRenameOff] = useState<Set<string>>(new Set());
   const [numberOff, setNumberOff] = useState<Set<string>>(new Set());
 
+  /** Switch a half of the proposals on or off. The sets hold what is *off*,
+   *  so applying is the absence of a key. */
+  function setHalf(
+    set: (fn: (prev: Set<string>) => Set<string>) => void,
+    keys: readonly string[],
+    on: boolean,
+  ) {
+    set((prev) => {
+      const next = new Set(prev);
+      for (const key of keys) {
+        if (on) next.delete(key);
+        else next.add(key);
+      }
+      return next;
+    });
+  }
+
   // Proposals are pure over the bundled dataset — one per distinct class
   // across the series' PY fleets.
   const proposals = useMemo<PyClassProposal[]>(() => {
@@ -91,22 +108,10 @@ export function RyaPySourceStep({
           targetCompetitorById={targetCompetitorById}
           renameOff={renameOff}
           numberOff={numberOff}
-          onToggleRename={(key, on) =>
-            setRenameOff((prev) => {
-              const next = new Set(prev);
-              if (on) next.delete(key);
-              else next.add(key);
-              return next;
-            })
-          }
-          onToggleNumber={(key, on) =>
-            setNumberOff((prev) => {
-              const next = new Set(prev);
-              if (on) next.delete(key);
-              else next.add(key);
-              return next;
-            })
-          }
+          onToggleRename={(key, on) => setHalf(setRenameOff, [key], on)}
+          onToggleNumber={(key, on) => setHalf(setNumberOff, [key], on)}
+          onToggleAllRenames={(keys, on) => setHalf(setRenameOff, keys, on)}
+          onToggleAllNumbers={(keys, on) => setHalf(setNumberOff, keys, on)}
           onChoose={(key, value) => {
             setChosenByClass((prev) => ({ ...prev, [key]: value }));
             // Picking (or skipping) a class clears any typed local number.

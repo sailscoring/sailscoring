@@ -14,6 +14,8 @@ import type { RyaPyClass } from '@/lib/rya-py/types';
 import type { PyClassProposal } from '@/lib/source-handicaps';
 import type { Competitor } from '@/lib/types';
 
+import { SelectAllCheckbox } from './shared';
+
 const TIER_LABEL: Partial<Record<RyaPyClass['tier'], string>> = {
   experimental: 'experimental',
   'limited-data': 'limited data',
@@ -100,6 +102,8 @@ export function RyaPyPreview({
   numberOff,
   onToggleRename,
   onToggleNumber,
+  onToggleAllRenames,
+  onToggleAllNumbers,
   onChoose,
   onManualNumber,
 }: {
@@ -110,6 +114,8 @@ export function RyaPyPreview({
   /** `on` = apply this half (remove the class from the off-set). */
   onToggleRename: (key: string, on: boolean) => void;
   onToggleNumber: (key: string, on: boolean) => void;
+  onToggleAllRenames: (keys: string[], on: boolean) => void;
+  onToggleAllNumbers: (keys: string[], on: boolean) => void;
   /** Resolve an ambiguous/unmatched class: value is a class key, or `'__skip__'`. */
   onChoose: (key: string, value: string) => void;
   /** Set a local PY number for an unmatched class (`null` clears it). */
@@ -122,6 +128,19 @@ export function RyaPyPreview({
       </p>
     );
   }
+
+  // The two halves are each their own column of ticks, because wanting the
+  // RYA's numbers is not the same as wanting its spellings: a club that has
+  // always written "Laser" doesn't stop because the register says "ILCA 7".
+  const renameKeys: string[] = [];
+  const numberKeys: string[] = [];
+  for (const p of proposals) {
+    const { canRename, canSetNumber } = ryaPyChanges(p, targetCompetitorById);
+    if (canRename) renameKeys.push(p.enteredKey);
+    if (canSetNumber) numberKeys.push(p.enteredKey);
+  }
+  const renameOnCount = renameKeys.filter((k) => !renameOff.has(k)).length;
+  const numberOnCount = numberKeys.filter((k) => !numberOff.has(k)).length;
 
   const resolvedCount = proposals.filter((p) => p.resolved || p.manualNumber !== null).length;
   const unresolved = proposals.length - resolvedCount;
@@ -138,7 +157,29 @@ export function RyaPyPreview({
             <TableHead>Class (entered)</TableHead>
             <TableHead>RYA class</TableHead>
             <TableHead className="text-right">PY number</TableHead>
-            <TableHead>Apply</TableHead>
+            <TableHead>
+              Apply
+              <div className="mt-0.5 flex flex-col gap-0.5 text-xs font-normal">
+                <label className="flex items-center gap-1">
+                  <SelectAllCheckbox
+                    selectedCount={renameOnCount}
+                    total={renameKeys.length}
+                    onToggleAll={(on) => onToggleAllRenames(renameKeys, on)}
+                    what="class names"
+                  />
+                  Name
+                </label>
+                <label className="flex items-center gap-1">
+                  <SelectAllCheckbox
+                    selectedCount={numberOnCount}
+                    total={numberKeys.length}
+                    onToggleAll={(on) => onToggleAllNumbers(numberKeys, on)}
+                    what="PY numbers"
+                  />
+                  Number
+                </label>
+              </div>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -230,6 +271,7 @@ export function RyaPyPreview({
                           checked={renameApplied}
                           disabled={!canRename}
                           onChange={(e) => onToggleRename(p.enteredKey, e.target.checked)}
+                          aria-label={`Normalise the class name for ${p.enteredClass}`}
                         />
                         Name
                       </label>
@@ -240,6 +282,7 @@ export function RyaPyPreview({
                           checked={numberApplied}
                           disabled={!canSetNumber}
                           onChange={(e) => onToggleNumber(p.enteredKey, e.target.checked)}
+                          aria-label={`Set the PY number for ${p.enteredClass}`}
                         />
                         Number
                       </label>
