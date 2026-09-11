@@ -114,7 +114,11 @@ export function SequenceEditor({
           <SelectTrigger className="h-8 w-44 text-xs" aria-label="Add mark" data-testid="sequence-add-mark">
             <span className="flex items-center gap-1"><Plus className="h-3.5 w-3.5" />Add mark</span>
           </SelectTrigger>
-          <SelectContent>
+          {/* Positioned off the trigger, not off a selected item: this select
+              is an action menu that holds no value, so the default
+              item-aligned placement has nothing to align to and never places
+              the menu at all. Same for "Shorten at…" below. */}
+          <SelectContent position="popper">
             {marks.map((m) => (
               <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
             ))}
@@ -151,7 +155,7 @@ export function SequenceEditor({
             <SelectTrigger className="h-8 w-44 text-xs" aria-label="Shorten at mark" autoFocus data-testid="sequence-shorten-at">
               <SelectValue placeholder="Shorten at…" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper">
               {sequence.slice(1).map((cm, i) => (
                 <SelectItem key={i + 1} value={String(i + 1)}>
                   {i + 2}. {byId.get(cm.markId)?.name ?? '?'}

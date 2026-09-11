@@ -75,8 +75,11 @@ function SelectContent({
         <SelectPrimitive.Viewport
           className={cn(
             "p-1",
+            // No fixed height in popper mode: the upstream class pins the
+            // viewport to the trigger's height, which leaves a menu one row
+            // tall. Width still tracks the trigger so the menu lines up with it.
             position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
+              "w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
           )}
         >
           {children}

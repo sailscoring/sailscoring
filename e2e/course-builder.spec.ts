@@ -124,6 +124,35 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await page.getByTestId('swap-save').click();
   await expect(page.getByTestId('course-row').filter({ hasText: 'K1 short — 12 Sep R1' })).toBeVisible();
 
+  // Build by hand: Add mark is an action select holding no value, so it has
+  // to position off its trigger — item-aligned placement has no selected item
+  // to align to and never places the menu at all.
+  await page.getByTestId('new-course').click();
+  await page.getByText('Build by hand').click();
+  const addMark = page.getByTestId('sequence-add-mark');
+  await addMark.click();
+  const menu = page.getByRole('listbox');
+  await expect(menu).toBeVisible();
+  const triggerBox = (await addMark.boundingBox())!;
+  const menuBox = (await menu.boundingBox())!;
+  // Over the trigger, and tall enough to be a list rather than one clipped row.
+  expect(Math.abs(menuBox.x - triggerBox.x)).toBeLessThan(40);
+  expect(menuBox.height).toBeGreaterThan(triggerBox.height * 2);
+  await page.getByRole('option', { name: 'Start — 12 Sep', exact: true }).click();
+  await addMark.click();
+  await page.getByRole('option', { name: 'Z — 12 Sep R1', exact: true }).click();
+  await addMark.click();
+  await page.getByRole('option', { name: 'Start — 12 Sep', exact: true }).click();
+  // Shorten at… is the same shape — a select whose value is never set.
+  await page.getByRole('button', { name: 'Shorten at…' }).click();
+  await page.getByTestId('sequence-shorten-at').click();
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await page.getByRole('option', { name: /Z — 12 Sep R1/ }).click();
+  // Shortened at Z, so the hand-built course is line → Z and nothing more.
+  await expect(page.getByTestId('course-summary')).toContainText('1 leg');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
   // A race start picks the course: legs fill in at the card's 180° wind.
   await page.getByRole('link', { name: 'Races' }).click();
   await page.getByRole('button', { name: 'Add race' }).click();
