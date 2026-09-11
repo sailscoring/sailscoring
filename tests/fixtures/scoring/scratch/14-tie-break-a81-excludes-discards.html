@@ -45,6 +45,13 @@ td.excluded { color: #888; text-align: center; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .penaltylabels { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
+/* The course drawing, folded away: the legs line states the course in words,
+   so the picture is there for whoever wants to look at it. */
+details.orc-course { margin: 0 0 8px 0; text-align: center; }
+details.orc-course > summary { font-size: 0.85em; color: #444; cursor: pointer; display: inline-block; list-style: none; }
+details.orc-course > summary::-webkit-details-marker { display: none; }
+details.orc-course > summary::before { content: '▸ '; }
+details.orc-course[open] > summary::before { content: '▾ '; }
 /* A combined page's per-fleet race block: the rule and the space above it are
    what separate one fleet's set of races from the next when scrolling. */
 .fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
