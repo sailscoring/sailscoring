@@ -203,6 +203,18 @@ describe('competitorRatings', () => {
     ]);
   });
 
+  it('reads the same whichever order membership was written in', () => {
+    // A class scored two ways: the Rating cell sits beside the Fleet column
+    // and must not contradict it, whichever way round the boat was entered.
+    const hph = mkFleet({ id: 'hph', name: 'Class 1 HPH', scoringSystem: 'tcf', ratingLabel: 'HPH', displayOrder: 0 });
+    const ircLater = mkFleet({ id: 'irc2', name: 'Class 1 IRC', scoringSystem: 'irc', displayOrder: 1 });
+    const fleets = fleetMap([hph, ircLater]);
+    const ordered = mkCompetitor({ id: 'c1', fleetIds: ['hph', 'irc2'], fixedTcf: 0.865, ircTcc: 0.972 });
+    const reversed = mkCompetitor({ id: 'c2', fleetIds: ['irc2', 'hph'], fixedTcf: 0.865, ircTcc: 0.972 });
+    expect(competitorRatings(ordered, fleets).map((r) => r.label)).toEqual(['HPH', 'IRC']);
+    expect(competitorRatings(reversed, fleets)).toEqual(competitorRatings(ordered, fleets));
+  });
+
   it('skips scratch fleets', () => {
     const c = mkCompetitor({ id: 'c1', fleetIds: ['s', 'py'], pyNumber: 1034 });
     expect(competitorRatings(c, fleetMap([scratch, py]))).toEqual([

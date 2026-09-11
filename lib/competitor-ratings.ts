@@ -1,4 +1,5 @@
 import type { Competitor, Fleet } from '@/lib/types';
+import { competitorFleets } from '@/lib/competitor-fields';
 import { orcTotRating } from '@/lib/orc-certificate';
 import { hasFleetRating } from '@/lib/scoring';
 
@@ -28,9 +29,10 @@ export function missingRatings(
   fleetById: Map<string, Fleet>,
 ): MissingRating[] {
   const out: MissingRating[] = [];
-  for (const id of competitor.fleetIds) {
-    const f = fleetById.get(id);
-    if (f == null || hasFleetRating(competitor, f)) continue;
+  // Fleet order, not membership order: two boats missing the same two
+  // ratings must say so the same way.
+  for (const f of competitorFleets(competitor.fleetIds, fleetById)) {
+    if (hasFleetRating(competitor, f)) continue;
     const ratingLabel = fleetRatingLabel(f);
     if (ratingLabel) out.push({ fleetName: f.name, ratingLabel });
   }
@@ -159,16 +161,16 @@ export function ratingUnitLabel(fleet: Fleet): string | null {
 
 /** Rating values to display for a competitor in the Competitors table.
  *  Returns one entry per non-scratch scoring system that any of the
- *  competitor's fleets uses, deduplicated, in fleet order. */
+ *  competitor's fleets uses, deduplicated, in the series' fleet order — so a
+ *  class scored two ways reads the same on every boat's row. */
 export function competitorRatings(
   competitor: Competitor,
   fleetById: Map<string, Fleet>,
 ): RatingDisplay[] {
   const seen = new Set<RatingSystemCode>();
   const out: RatingDisplay[] = [];
-  for (const id of competitor.fleetIds) {
-    const f = fleetById.get(id);
-    if (!f || f.scoringSystem === 'scratch' || seen.has(f.scoringSystem)) continue;
+  for (const f of competitorFleets(competitor.fleetIds, fleetById)) {
+    if (f.scoringSystem === 'scratch' || seen.has(f.scoringSystem)) continue;
     seen.add(f.scoringSystem);
     out.push({
       system: f.scoringSystem,
