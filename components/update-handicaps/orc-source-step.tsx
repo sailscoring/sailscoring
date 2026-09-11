@@ -303,6 +303,7 @@ export function OrcSourceStep({
               notFoundRows={split.notFoundRows}
               excludedRowIds={sel.excludedRowIds}
               onToggleRow={sel.toggleRow}
+              onToggleAllRows={sel.toggleAllRows}
               targetCompetitorById={targetCompetitorById}
               targetFleetById={targetFleetById}
               sourceFleetById={new Map()}
@@ -313,6 +314,7 @@ export function OrcSourceStep({
               candidates={additionCandidates}
               selected={sel.addSelected}
               onToggle={sel.toggleAddition}
+              onToggleAll={sel.toggleAllAdditions}
               onChooseFleet={sel.chooseAdditionFleet}
               onChooseCert={sel.chooseCert}
               targetCompetitorById={targetCompetitorById}

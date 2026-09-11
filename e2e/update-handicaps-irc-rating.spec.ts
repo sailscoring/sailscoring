@@ -162,8 +162,13 @@ test('add a newly-rated boat to the IRC fleet (#170)', async ({ page }) => {
   await expect(page.getByRole('columnheader', { name: 'Currently in' })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'White Sail' })).toBeVisible();
 
-  // Tick the candidate (target IRC fleet auto-selected) and apply.
-  await page.getByRole('checkbox').last().check();
+  // Tick the candidate (target IRC fleet auto-selected) and apply. The
+  // section's select-all covers it, as it would a whole cruiser entry list.
+  const addSection = page.getByText('Add to handicap fleet').locator('..');
+  await addSection.getByRole('checkbox', { name: 'Select all' }).check();
+  await expect(
+    addSection.getByRole('checkbox', { name: /Add IRL1431/ }),
+  ).toBeChecked();
   await page.getByRole('button', { name: /^Apply/ }).click();
   await expect(page.getByText('Handicaps updated')).toBeVisible();
   await expect(page.getByText('1 added to a handicap fleet')).toBeVisible();

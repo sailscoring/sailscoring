@@ -11,14 +11,22 @@ import {
 import { additionKey, type FleetAdditionCandidate } from '@/lib/source-handicaps';
 import type { Competitor, Fleet } from '@/lib/types';
 
-import { describeMatch, systemLabel } from './shared';
+import { SelectAllCheckbox, describeMatch, systemLabel } from './shared';
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { formatRatingValue } from '@/lib/competitor-ratings';
+
+/** Whether a candidate has everything an apply needs: somewhere to go, and a
+ *  rating to seed. One that doesn't is shown, but can't be ticked — the scorer
+ *  picks its fleet first. */
+function canApply(c: FleetAdditionCandidate): boolean {
+  return c.targetFleetId !== null && c.proposedTcf !== null;
+}
 
 export function AddToFleetSection({
   candidates,
   selected,
   onToggle,
+  onToggleAll,
   onChooseFleet,
   onChooseCert,
   targetCompetitorById,
@@ -28,12 +36,21 @@ export function AddToFleetSection({
   candidates: FleetAdditionCandidate[];
   selected: Set<string>;
   onToggle: (key: string, on: boolean) => void;
+  onToggleAll: (keys: string[], on: boolean) => void;
   onChooseFleet: (key: string, fleetId: string) => void;
   onChooseCert: (competitorId: string, certId: string) => void;
   targetCompetitorById: Map<string, Competitor>;
   targetFleetById: Map<string, Fleet>;
   seriesHasRaces: boolean;
 }) {
+  // Select-all covers the candidates an apply could actually write; the rest
+  // are waiting on a fleet, and sweeping them in would promise something the
+  // apply wouldn't deliver.
+  const appliableKeys = candidates
+    .filter(canApply)
+    .map((c) => additionKey(c.competitorId, c.system));
+  const selectedCount = appliableKeys.filter((k) => selected.has(k)).length;
+
   if (candidates.length === 0) return null;
 
   return (
@@ -51,7 +68,13 @@ export function AddToFleetSection({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-8"></TableHead>
+            <TableHead className="w-8">
+              <SelectAllCheckbox
+                selectedCount={selectedCount}
+                total={appliableKeys.length}
+                onToggleAll={(on) => onToggleAll(appliableKeys, on)}
+              />
+            </TableHead>
             <TableHead>Sail no.</TableHead>
             <TableHead>Boat</TableHead>
             <TableHead>Currently in</TableHead>
@@ -69,17 +92,17 @@ export function AddToFleetSection({
             const currentFleets = (comp?.fleetIds ?? [])
               .map((id) => targetFleetById.get(id)?.name)
               .filter((name): name is string => name !== undefined);
-            const checked = selected.has(key);
-            const canApply = c.targetFleetId !== null && c.proposedTcf !== null;
+            const appliable = canApply(c);
             return (
               <TableRow key={key}>
                 <TableCell>
                   <input
                     type="checkbox"
-                    checked={checked && canApply}
-                    disabled={!canApply}
+                    checked={selected.has(key) && appliable}
+                    disabled={!appliable}
                     onChange={(e) => onToggle(key, e.target.checked)}
                     className="h-3.5 w-3.5"
+                    aria-label={`Add ${comp?.sailNumber ?? ''} to a handicap fleet`}
                   />
                 </TableCell>
                 <TableCell>{comp?.sailNumber}</TableCell>
