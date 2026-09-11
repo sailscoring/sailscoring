@@ -225,7 +225,10 @@ export default function RatingSystems() {
           already there, which is how a laid mark is actually recorded.{' '}
           <strong className="text-foreground">Courses</strong> are named sequences
           of those marks: pick a number on the club’s card and the dialog lists
-          exactly the marks the card cannot place itself, or build one by hand.
+          exactly the marks the card cannot place itself, or build one by hand. A
+          course runs from the start line to the finish, so it includes the run
+          home the sailing instructions add after the last mark the card prints —
+          which is why it is longer than the printed sequence beside its number.
           Every dialog draws the marks and legs as you edit, so a dropped digit
           shows before you save.
         </p>
