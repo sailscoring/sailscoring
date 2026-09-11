@@ -813,7 +813,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
         </DialogHeader>
 
         {mode === 'ftp' ? (
-          <FtpPublishPane series={series} fleets={fleets} onClose={onClose} />
+          <FtpPublishPane
+            series={series}
+            pages={pages}
+            lonePageLabel={lonePageLabel}
+            onClose={onClose}
+          />
         ) : (
         <>
         {isLoading ? (

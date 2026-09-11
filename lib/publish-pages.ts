@@ -9,10 +9,12 @@
  * here rather than each working it out again. A destination decides where a
  * page is served, never which pages there are.
  *
- * Page names are the identity: `PublishPage.name` is the `fleetName` the
- * build stamps on the file it renders, which is the key a publication stores
- * its pages under and the name the publish API ticks. Names are unique within
- * a series — the group editor rejects a group named after a fleet.
+ * Page names are the identity the publishing path uses: `PublishPage.name` is
+ * the `fleetName` the build stamps on the file it renders, which is the key a
+ * publication stores its pages under and the name the publish API ticks.
+ * Names are unique within a series — the group editor rejects a group named
+ * after a fleet. Alongside it every page carries a `key`, which survives a
+ * rename: what a scorer's stored FTP path for a page is filed under.
  *
  * This is config-level: it reads the series, its fleets and the workspace's
  * feature flags, and never scores a race. Two consequences, both of which the
@@ -72,6 +74,11 @@ export const PRIZES_PAGE = 'Prizes';
 export const ENTRIES_PAGE = 'Entries';
 
 export interface PublishPage {
+  /** Stable identity for settings remembered per page — the FTP path a
+   *  scorer typed for it. Derived from what the page *is* (a fleet, a
+   *  publishing group, one of the fixed pages), so renaming a fleet keeps
+   *  its remembered path; page *names* key the published pages themselves. */
+  key: string;
   /** The page's name: its heading, the `fleetName` of the file the build
    *  renders for it, and the key its published page is stored under. */
   name: string;
@@ -83,6 +90,37 @@ export interface PublishPage {
   fleetId?: string;
   /** The publishing group behind the page, for `kind: 'combined'`. */
   groupId?: string;
+}
+
+/** The stable key of a fleet's page. The scoring engine's fleetless bucket
+ *  has no fleet row, so it keys off its own id. */
+export function fleetPageKey(fleetId: string): string {
+  return `fleet:${fleetId}`;
+}
+
+/** The stable key of a publishing group's combined page. */
+export function groupPageKey(groupId: string): string {
+  return `group:${groupId}`;
+}
+
+/** The keys of the pages that belong to the series rather than to one of its
+ *  fleets or groups. Fixed, so a stored setting survives every rename. */
+const FIXED_PAGE_KEYS = new Set([
+  'championship',
+  'race-results',
+  'assignments',
+  'prizes',
+  'entries',
+]);
+
+/** The fleet whose page a key belongs to, or null for any other page. Takes
+ *  the bare fleet id an older setting was keyed by as well as the current
+ *  `fleet:` form — which is how a setting stored before pages had keys is
+ *  still read, and re-keyed, today. */
+export function fleetIdFromPageKey(key: string): string | null {
+  if (key.startsWith('fleet:')) return key.slice('fleet:'.length);
+  if (key.startsWith('group:') || FIXED_PAGE_KEYS.has(key)) return null;
+  return key;
 }
 
 export interface PublishPagesInput {
@@ -118,7 +156,7 @@ export function findPublishPage(
  *  fleets *and* orphan competitors grows it as a second page, which only the
  *  scored competitor rows reveal. */
 export function unknownFleetPage(): PublishPage {
-  return { name: 'Unknown', kind: 'fleet', isDefault: true };
+  return { key: fleetPageKey('__unknown__'), name: 'Unknown', kind: 'fleet', isDefault: true };
 }
 
 /**
@@ -131,14 +169,14 @@ export function resolvePublishPages(input: PublishPagesInput): PublishPage[] {
   const wantsPrizes = !!input.features?.prizes && (series.prizes?.length ?? 0) > 0;
   const wantsEntries = !!input.features?.entryList;
   const entriesPage: PublishPage[] = wantsEntries
-    ? [{ name: ENTRIES_PAGE, kind: 'entries', isDefault: false }]
+    ? [{ key: 'entries', name: ENTRIES_PAGE, kind: 'entries', isDefault: false }]
     : [];
 
   if (input.splitFleets) {
     return [
-      { name: CHAMPIONSHIP_PAGE, kind: 'championship', isDefault: true },
-      { name: RACE_RESULTS_PAGE, kind: 'race-results', isDefault: false },
-      { name: FLEET_ASSIGNMENTS_PAGE, kind: 'assignments', isDefault: false },
+      { key: 'championship', name: CHAMPIONSHIP_PAGE, kind: 'championship', isDefault: true },
+      { key: 'race-results', name: RACE_RESULTS_PAGE, kind: 'race-results', isDefault: false },
+      { key: 'assignments', name: FLEET_ASSIGNMENTS_PAGE, kind: 'assignments', isDefault: false },
       ...entriesPage,
     ];
   }
@@ -155,6 +193,7 @@ export function resolvePublishPages(input: PublishPagesInput): PublishPage[] {
     : fleets.length === 0
       ? [unknownFleetPage()]
       : fleets.map((fleet) => ({
+          key: fleetPageKey(fleet.id),
           name: fleet.name,
           kind: 'fleet' as const,
           isDefault: isSingleDefault,
@@ -163,13 +202,16 @@ export function resolvePublishPages(input: PublishPagesInput): PublishPage[] {
 
   return [
     ...groups.map(({ group }) => ({
+      key: groupPageKey(group.id),
       name: group.name.trim(),
       kind: 'combined' as const,
       isDefault: false,
       groupId: group.id,
     })),
     ...fleetPages,
-    ...(wantsPrizes ? [{ name: PRIZES_PAGE, kind: 'prizes' as const, isDefault: false }] : []),
+    ...(wantsPrizes
+      ? [{ key: 'prizes', name: PRIZES_PAGE, kind: 'prizes' as const, isDefault: false }]
+      : []),
     ...entriesPage,
   ];
 }

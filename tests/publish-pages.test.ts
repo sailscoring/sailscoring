@@ -63,13 +63,13 @@ describe('resolvePublishPages', () => {
   it('makes a lone fleet the publication default page', () => {
     const pages = resolvePublishPages({ series: makeSeries(), fleets: [FLEETS[0]] });
     expect(pages).toEqual([
-      { name: 'Scratch', kind: 'fleet', isDefault: true, fleetId: 'f-scratch' },
+      { key: 'fleet:f-scratch', name: 'Scratch', kind: 'fleet', isDefault: true, fleetId: 'f-scratch' },
     ]);
   });
 
   it('names the fleetless bucket for a series with no fleets at all', () => {
     expect(resolvePublishPages({ series: makeSeries(), fleets: [] })).toEqual([
-      { name: 'Unknown', kind: 'fleet', isDefault: true },
+      { key: 'fleet:__unknown__', name: 'Unknown', kind: 'fleet', isDefault: true },
     ]);
   });
 

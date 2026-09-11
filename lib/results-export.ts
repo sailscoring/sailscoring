@@ -36,6 +36,7 @@ import {
   PRIZES_PAGE,
   RACE_RESULTS_PAGE,
   resolvePublishPages,
+  type PublishPage,
   type PublishPageKind,
 } from './publish-pages';
 import {
@@ -87,20 +88,30 @@ export function fleetFtpPath(base: string, fleetName: string, isSingleDefault: b
   return base + suffix;
 }
 
-/** Derive prefilled FTP paths for the dialog. Per-fleet `ftpPaths` entries
- *  are used verbatim; missing entries fall back to deriving from the legacy
- *  `ftpPath` (older series uploaded before per-fleet paths landed — #131). */
+/**
+ * Prefilled remote paths for the FTP destination, one per page the series
+ * publishes, keyed by page key. A stored entry is used verbatim — the path a
+ * scorer typed is theirs, whatever naming convention it follows (#131).
+ *
+ * Two fallbacks for a page with no entry of its own: a fleet's page reads the
+ * entry the fleet id used to key (paths were per fleet before they were per
+ * page), and anything still missing derives from the legacy single `ftpPath`
+ * — bare for the lone default page, suffixed with the page's slug otherwise.
+ */
 export function derivePrefillPaths(
-  fleets: { id: string; name: string }[],
+  pages: PublishPage[],
   ftpPaths: Record<string, string> | undefined,
   legacyFtpPath: string,
-  isSingleDefault: boolean,
-): string[] {
+): Record<string, string> {
   const stored = ftpPaths ?? {};
-  if (fleets.length === 0) return [legacyFtpPath];
-  return fleets.map(
-    (f) => stored[f.id] ?? fleetFtpPath(legacyFtpPath, f.name, isSingleDefault),
-  );
+  const paths: Record<string, string> = {};
+  for (const page of pages) {
+    paths[page.key] =
+      stored[page.key] ??
+      (page.fleetId ? stored[page.fleetId] : undefined) ??
+      (page.isDefault ? legacyFtpPath : fleetFtpPath(legacyFtpPath, page.name, false));
+  }
+  return paths;
 }
 
 /** One entry of `buildFleetHtmlFiles`' output: a fleet's page, a (sub-series,

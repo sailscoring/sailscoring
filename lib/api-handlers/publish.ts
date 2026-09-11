@@ -12,6 +12,7 @@ import {
   kebab,
   publicationSubPath,
   publishedBlobKey,
+  relativeSubPath,
 } from '@/lib/publishing';
 import {
   deletePublished,
@@ -58,19 +59,6 @@ export function isValidSlugSegment(value: string): boolean {
 
 function appBase(): string {
   return (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
-}
-
-/** `to`'s URL relative to `from`'s document, both slug-rooted sub-paths
- *  (`folder/leaf`). Pages of a publication usually share one folder, making
- *  this the bare leaf, but an override can put them in different ones. */
-export function relativeSubPath(from: string, to: string): string {
-  const fromDir = from.split('/').slice(0, -1);
-  const toSegments = to.split('/');
-  while (fromDir.length > 0 && toSegments.length > 1 && fromDir[0] === toSegments[0]) {
-    fromDir.shift();
-    toSegments.shift();
-  }
-  return [...fromDir.map(() => '..'), ...toSegments].join('/');
 }
 
 function toResult(

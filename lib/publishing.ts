@@ -34,6 +34,20 @@ export function deriveSeriesSlug(seriesName: string): string {
   return kebab(seriesName);
 }
 
+/** `to`'s URL relative to `from`'s document — publication sub-paths
+ *  (`folder/leaf`) for the in-app destination, remote paths for an FTP
+ *  upload. Pages of a publication usually share one folder, making this the
+ *  bare leaf, but an override can put them in different ones. */
+export function relativeSubPath(from: string, to: string): string {
+  const fromDir = from.split('/').slice(0, -1);
+  const toSegments = to.split('/');
+  while (fromDir.length > 0 && toSegments.length > 1 && fromDir[0] === toSegments[0]) {
+    fromDir.shift();
+    toSegments.shift();
+  }
+  return [...fromDir.map(() => '..'), ...toSegments].join('/');
+}
+
 /** Human-readable title derived from a slug, for a shared-namespace listing
  *  with several contributing series (no single series name fits). Splits on
  *  hyphens and title-cases: `2026-lambay-races` → `2026 Lambay Races`. */
