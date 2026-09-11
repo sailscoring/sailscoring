@@ -7,6 +7,11 @@
  * scoring error against a race that has not happened. Any route to an empty
  * race does the same, so the build drops them rather than the ceremony alone
  * being fixed.
+ *
+ * What counts as sailed is a boat row — a finisher, a code, or a start-area
+ * check-in. A gun time is not one (#556): it can be a scheduled start typed
+ * in ahead of the day, or race two's real start on a two-race day, fired
+ * while race one is still being entered.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -86,6 +91,12 @@ function finish(raceId: string, competitorId: string, sortOrder: number | null, 
   };
 }
 
+/** A boat seen in the starting area and nothing more: no place, no code.
+ *  The engine reads it as a starter (and scores it DNF). */
+function checkIn(raceId: string, competitorId: string): Finish {
+  return { ...finish(raceId, competitorId, null), startPresent: true };
+}
+
 const R1_FINISHES = [finish('r1', 'c101', 1), finish('r1', 'c102', 2)];
 
 function makeRepos(finishes: Finish[], raceStarts: RaceStart[] = []): ExportRepos {
@@ -113,14 +124,26 @@ describe('buildFleetHtmlFiles — races nobody has sailed', () => {
     expect(html).not.toContain('DNC');
   });
 
-  it('keeps a race the committee started but nobody finished', async () => {
-    // A gun went off, so DNC against the fleet is a real result and the
-    // column belongs on the page — the engine excludes it from the totals
-    // either way.
+  it('drops a race whose only mark is a gun time (#556)', async () => {
+    // A start time on its own says nothing about whether the race happened:
+    // it may be the scheduled gun typed in from the SIs when the schedule was
+    // set up, or — on a two-race day — race two's real start, fired while
+    // race one's results are being entered. Neither is a result to publish.
     const starts: RaceStart[] = [
       { id: 'st2', raceId: 'r2', fleetIds: ['f1'], startTime: '11:00:00' },
     ];
     const html = await standingsHtml(makeRepos(R1_FINISHES, starts));
+    expect(html).not.toContain('>R2<');
+    expect(html).not.toContain('DNC');
+  });
+
+  it('keeps a race the committee started and boats checked into', async () => {
+    // Started, then abandoned — or everyone retired. Nobody finished, but the
+    // boats were seen in the starting area, and that check-in is the boat row
+    // that makes the race real. The engine already counts such a row as a
+    // starter; the column belongs on the page.
+    const checkedIn = [checkIn('r2', 'c101'), checkIn('r2', 'c102')];
+    const html = await standingsHtml(makeRepos([...R1_FINISHES, ...checkedIn]));
     expect(html).toContain('>R2<');
   });
 

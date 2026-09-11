@@ -167,11 +167,14 @@ describe('buildFleetHtmlFiles — split-fleet per-race results', () => {
     expect(plain![0].html).not.toContain('race-results#q1');
   });
 
-  it('emits no page — and no dangling links — before any stage race has sheet rows', async () => {
+  it('publishes nothing before any stage race has sheet rows (#556)', async () => {
+    // The stage races have their guns and not one boat row, so they are not
+    // published (#513, #556) — which leaves the championship with no race at
+    // all, the same window as a series before race one. No page, and so no
+    // championship page to dangle a race-results link off.
     const files = await buildFleetFiles(makeRepos(RACE_STARTS, []), 's1', undefined, {
       raceResultsHref: 'race-results',
     });
-    expect(files!.map((f) => f.fleetName)).toEqual(['Championship', 'Fleet assignments']);
-    expect(files![0].html).not.toContain('race-results#');
+    expect(files).toBeNull();
   });
 });

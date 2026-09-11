@@ -434,9 +434,19 @@ async function buildCompetitorListFile(
  *  page emits no standalone fleet entries — its output is exactly its
  *  combined pages. */
 /**
- * A race nobody has sailed: no finish row of any kind — not even a coded one
- * a scorer entered by hand — and no gun time on any of its starts. It is a
- * slot in the schedule, not a result.
+ * A race nobody has sailed: not one boat has a row in it — no finisher, no
+ * code a scorer entered by hand, not even a start-area check-in. It is a slot
+ * in the schedule, not a result.
+ *
+ * A gun time is not evidence: it can be the scheduled start typed in from the
+ * sailing instructions when the schedule was set up, and on a two-race day it
+ * can be race two's real gun, fired while race one's results are still being
+ * entered — publishing then puts a column of DNCs on the page for the race
+ * the fleet is out sailing. What makes a race publishable is a boat row. The
+ * race that was started and then abandoned, or that everyone retired from,
+ * keeps its column on the strength of its check-ins (`startPresent`, which
+ * the engine already counts as a starter) and the codes a scorer recorded —
+ * all of them finish rows.
  *
  * Such a race is dropped from everything this module builds: the summary
  * table would otherwise carry a column of DNCs against every boat that adds
@@ -452,11 +462,8 @@ async function buildCompetitorListFile(
  */
 function dropUnsailedRaces(snapshot: SeriesSnapshot | null): SeriesSnapshot | null {
   if (!snapshot) return null;
-  const hasFinish = new Set(snapshot.finishes.map((f) => f.raceId));
-  const hasGun = new Set(
-    snapshot.raceStarts.filter((rs) => rs.startTime).map((rs) => rs.raceId),
-  );
-  const sailed = snapshot.races.filter((r) => hasFinish.has(r.id) || hasGun.has(r.id));
+  const hasBoatRow = new Set(snapshot.finishes.map((f) => f.raceId));
+  const sailed = snapshot.races.filter((r) => hasBoatRow.has(r.id));
   if (sailed.length === snapshot.races.length) return snapshot;
   const keep = new Set(sailed.map((r) => r.id));
   return {

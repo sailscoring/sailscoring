@@ -76,11 +76,14 @@ export default function Publishing() {
         </p>
         <p>
           <strong className="text-foreground">Races that have not been sailed:</strong> a race
-          with no finishers and no start time is a slot in the schedule, not a result, and never
-          becomes a column on a published page — it would otherwise show a DNC against every
-          boat, adding up to nothing, which reads as a scoring error for a race that has not
-          happened. The race stays on the Races tab, and its column appears the moment it has a
-          start time or a single finisher.
+          no boat has a row in — no finisher, no code, not even a start-area check-in — is a
+          slot in the schedule, not a result, and never becomes a column on a published page. It
+          would otherwise show a DNC against every boat, adding up to nothing, which reads as a
+          scoring error for a race that has not happened. A start time on its own does not count:
+          it may be the scheduled gun typed in ahead of the day, or, on a two-race day, race
+          two’s real start while race one is still being entered. The race stays on the Races
+          tab, and its column appears the moment one boat has a result, a code, or a check-in
+          recorded in it.
         </p>
         <p>
           <strong className="text-foreground">Single-race events:</strong> some events are one
