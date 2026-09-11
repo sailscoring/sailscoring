@@ -86,6 +86,27 @@ are a single multiplier applied to elapsed time. The scoring engine uses one
 (raw decimal for IRC; derived from PY integer for PY) and how it is presented
 to the scorer.
 
+### Fixed TCF — a club's own handicap ✓ Implemented
+
+A club that handicaps its own racing sets a number per boat before the series
+and holds it for every race (`Fleet.scoringSystem === 'tcf'`,
+`Competitor.fixedTcf`). Mechanically this is the IRC path — the number is
+already a TCF — so the engine gains nothing new; what the system adds is that
+the club owns the number and names it. `Fleet.ratingLabel` carries that name
+("HPH") and heads the rating column wherever the fleet is shown or published.
+
+Howth's autumn league is the case it was built for (#550): boats are given an
+HPH number derived from their recent form and race the league on it. The same
+club's summer series scores HPH progressively as NHC — the number is the club's
+either way; whether it moves race to race is the league's decision, and the two
+regimes are now separately expressible. Update handicaps carries an
+end-of-series NHC or ECHO TCF into a fixed-TCF fleet, which is how the league's
+numbers are set from the season just gone.
+
+A fixed handicap is not a frozen one: a boat re-rated mid-series keeps its
+already-sailed races on the rating they were sailed under, through the same
+per-race `RaceRatingOverride` mechanism a new IRC certificate uses.
+
 ---
 
 ## Phase 2: Progressive handicaps — NHC and ECHO

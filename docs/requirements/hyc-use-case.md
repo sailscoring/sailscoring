@@ -16,7 +16,9 @@ The HYC Autumn League introduces key scoring concepts not present in the
 IODAI use case:
 
 - **Time-based finish recording** rather than position-based
-- **Handicap correction** using IRC (fixed TCC) and HPH (progressive NHC)
+- **Handicap correction** using IRC (fixed TCC) and HPH — scored progressively
+  (NHC) in the club series, and as a fixed number assigned from recent form in
+  the autumn league
 - **Dual scoring** -- one boat's finish time produces results under multiple
   handicap systems, each with its own series standings
 - **One-design scratch scoring** alongside handicap scoring

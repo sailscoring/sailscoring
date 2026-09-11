@@ -1585,6 +1585,32 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Fixed club handicap — the Fleets card with a fleet scored on
+    // a club handicap and the club's own name for the number beside it.
+    // LOCAL-only mutation: adds a fleet to the league, so it sits late in the
+    // registry, after every shot that frames the fleet list.
+    slug: 'fixed-tcf',
+    group: 'Rating and handicap systems',
+    async capture({ page, seriesId, shot }) {
+      if (!LOCAL) throw new Error('fixed-tcf adds a fleet, so it is local-mode only');
+      await page.goto(`${BASE}/series/${await seriesId()}/settings`);
+      await settle(page);
+      await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+      await page.getByRole('button', { name: '+ Add fleet' }).click();
+      await page.getByPlaceholder('Fleet name').fill('Class 1 HPH');
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      const row = page.getByTestId('fleet-row').filter({ hasText: 'Class 1 HPH' });
+      await row.getByRole('combobox').first().click();
+      await page.getByRole('option', { name: 'Fixed TCF', exact: true }).click();
+      const label = row.getByPlaceholder('TCF');
+      await label.fill('HPH');
+      await label.blur();
+      await settle(page);
+      await scrollTo(page.locator('h2', { hasText: 'Fleets' }));
+      await shot('fixed-tcf.png');
+    },
+  },
+  {
     // Inventory: Archive and trash — the foot of the series list with both
     // sections populated. LOCAL-only mutations, deliberately dead last.
     slug: 'archive-trash',

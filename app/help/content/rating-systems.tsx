@@ -43,6 +43,14 @@ export default function RatingSystems() {
             </li>
           )}
           <li>
+            <strong className="text-foreground">Fixed TCF</strong> — a handicap the
+            club sets itself and holds for the whole series. The number is a TCF, so
+            corrected time is elapsed time × TCF, exactly as for IRC; what differs is
+            where it comes from. Howth’s autumn league works this way: each boat is
+            given an HPH number from its recent form and races the league on it. See{' '}
+            <em>A club handicap fixed for the series</em> below.
+          </li>
+          <li>
             <strong className="text-foreground">PY (Portsmouth Yardstick)</strong> —
             static handicap for mixed dinghy fleets. Each class carries a published PY
             number; corrected time is elapsed time × 1000 / PY.
@@ -237,14 +245,54 @@ export default function RatingSystems() {
         </p>
       </Section>
       )}
+      <Section id="fixed-tcf" title="A club handicap fixed for the series">
+        <p>
+          Some clubs handicap their own racing. A committee sets a number per boat
+          before the series — from last season’s results, from the handicapper’s
+          judgement, or both — and that number stands for every race. Set the fleet’s
+          scoring system to <strong className="text-foreground">Fixed TCF</strong> on
+          the <strong className="text-foreground">Settings</strong> tab and enter each
+          boat’s number on the Competitors tab.
+        </p>
+        <p>
+          Beside the system picker is a <em>called</em> box: type what your club calls
+          the number — Howth’s is <strong className="text-foreground">HPH</strong> —
+          and that word heads the rating column everywhere the fleet is shown and
+          published, instead of the generic TCF. Leave it empty and the column reads
+          TCF.
+        </p>
+        <p>
+          A fixed handicap is not a frozen one. If the committee re-rates a boat
+          part-way through, change its number on the Competitors tab and leave{' '}
+          <strong className="text-foreground">Keep already-scored races on the old
+          rating</strong> ticked: the races already sailed keep the number they were
+          sailed under and only later races use the new one.
+        </p>
+        <p>
+          This is the difference from <strong className="text-foreground">NHC</strong>{' '}
+          and <strong className="text-foreground">ECHO</strong>, which recalculate
+          every boat’s rating after every race. If the club’s intent is that a good
+          result costs you rating next week, those are the systems you want. If the
+          intent is that the number was set in advance and the racing is scored
+          against it, this is.
+        </p>
+      </Section>
       <Section id="updating-handicaps" title="Updating handicaps from another series">
         <p>
-          For NHC, ECHO, IRC, and PY fleets, the{' '}
-          <strong className="text-foreground">Update handicaps</strong> button on the Competitors
-          tab carries each boat’s handicap forward from a prior series in this workspace. For
-          progressive systems (NHC, ECHO) the new starting handicap is the boat’s TCF after
-          the source series’ last scored race; for static systems (IRC, PY) it is whatever
-          value the source series currently has on that competitor.
+          The <strong className="text-foreground">Update handicaps</strong> button on the
+          Competitors tab carries each boat’s handicap forward from a prior series in this
+          workspace. For progressive systems (NHC, ECHO) the new starting handicap is the
+          boat’s TCF after the source series’ last scored race; for static systems (IRC,
+          VPRS, PY) it is whatever value the source series currently has on that competitor.
+        </p>
+        <p>
+          A <strong className="text-foreground">Fixed TCF</strong> fleet can be fed by a
+          progressive one, which is how a club league is usually set up: map your{' '}
+          <em>Class 1 HPH</em> fixed-TCF fleet onto the <em>Class 1 HPH</em> NHC fleet of
+          the season just gone, and each boat’s handicap at the end of that series becomes
+          the number it races the league on — fixed from there. Mapping it onto another
+          fixed-TCF fleet carries the numbers over unchanged. Measurement ratings are not
+          offered as a source: an IRC TCC is a certificate, not a club handicap.
         </p>
         <p>
           The dialog previews every change as{' '}
@@ -253,7 +301,8 @@ export default function RatingSystems() {
           in the source series, or that has no value to copy, is left at its current handicap.
         </p>
         <p>
-          When a change affects an <strong className="text-foreground">IRC or PY</strong> rating and
+          When a change affects a rating the boat carries as a single number —{' '}
+          <strong className="text-foreground">IRC, VPRS, PY or a fixed TCF</strong> — and
           the boat has already-scored races, the dialog offers{' '}
           <strong className="text-foreground">Keep already-scored races on the old rating</strong>{' '}
           (on by default). Leave it on for a <em>mid-series rating change</em> — a new certificate —
