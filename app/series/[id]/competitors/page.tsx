@@ -799,17 +799,10 @@ export default function CompetitorsPage({
         {canPublishEntryList && series && (
           <PublishDialog
             series={series}
-            // A split-fleet series' round fleets are internal — its published
-            // output is the championship, race-results and assignments pages
-            // — so the dialog runs in single-default-page mode there, as it
-            // does on the Split Fleets page.
-            fleets={isSplitFleetSeries ? [] : (fleets ?? [])}
+            fleets={fleets ?? []}
             open={showPublishDialog}
             onClose={() => setShowPublishDialog(false)}
-            canFtp={false}
-            {...(isSplitFleetSeries
-              ? { lonePageName: 'Championship', extraPages: ['Race results', 'Fleet assignments'] }
-              : {})}
+            canFtp={features.has('ftp-upload') && can('manage-workspace')}
           />
         )}
         <UpdateHandicaps ref={updateHandicapsRef} seriesId={seriesId} />

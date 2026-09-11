@@ -30,6 +30,16 @@ import {
   subdivisionSections,
 } from './publishing-groups';
 import {
+  CHAMPIONSHIP_PAGE,
+  ENTRIES_PAGE,
+  FLEET_ASSIGNMENTS_PAGE,
+  PRIZES_PAGE,
+  RACE_RESULTS_PAGE,
+  resolvePublishPages,
+  type PublishPage,
+  type PublishPageKind,
+} from './publish-pages';
+import {
   buildPublicExportFromSnapshot,
   resolveSeriesLogoDefaults,
   type ExportRepos,
@@ -78,20 +88,30 @@ export function fleetFtpPath(base: string, fleetName: string, isSingleDefault: b
   return base + suffix;
 }
 
-/** Derive prefilled FTP paths for the dialog. Per-fleet `ftpPaths` entries
- *  are used verbatim; missing entries fall back to deriving from the legacy
- *  `ftpPath` (older series uploaded before per-fleet paths landed — #131). */
+/**
+ * Prefilled remote paths for the FTP destination, one per page the series
+ * publishes, keyed by page key. A stored entry is used verbatim — the path a
+ * scorer typed is theirs, whatever naming convention it follows (#131).
+ *
+ * Two fallbacks for a page with no entry of its own: a fleet's page reads the
+ * entry the fleet id used to key (paths were per fleet before they were per
+ * page), and anything still missing derives from the legacy single `ftpPath`
+ * — bare for the lone default page, suffixed with the page's slug otherwise.
+ */
 export function derivePrefillPaths(
-  fleets: { id: string; name: string }[],
+  pages: PublishPage[],
   ftpPaths: Record<string, string> | undefined,
   legacyFtpPath: string,
-  isSingleDefault: boolean,
-): string[] {
+): Record<string, string> {
   const stored = ftpPaths ?? {};
-  if (fleets.length === 0) return [legacyFtpPath];
-  return fleets.map(
-    (f) => stored[f.id] ?? fleetFtpPath(legacyFtpPath, f.name, isSingleDefault),
-  );
+  const paths: Record<string, string> = {};
+  for (const page of pages) {
+    paths[page.key] =
+      stored[page.key] ??
+      (page.fleetId ? stored[page.fleetId] : undefined) ??
+      (page.isDefault ? legacyFtpPath : fleetFtpPath(legacyFtpPath, page.name, false));
+  }
+  return paths;
 }
 
 /** One entry of `buildFleetHtmlFiles`' output: a fleet's page, a (sub-series,
@@ -373,7 +393,7 @@ async function buildCompetitorListFile(
     : [{ ratingColumns: [], rows: ordered.map(rowFor) }];
 
   return {
-    fleetName: 'Entries',
+    fleetName: ENTRIES_PAGE,
     isDefault: false,
     isEntryList: true,
     html: renderCompetitorListHtml(
@@ -385,7 +405,7 @@ async function buildCompetitorListFile(
         rightUrl: series.eventUrl || undefined,
         generatedAt,
         ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
-        ...noteChrome(series, { fleetName: 'Entries' }, includePageNotes),
+        ...noteChrome(series, { fleetName: ENTRIES_PAGE }, includePageNotes),
       },
       listGroups,
       {
@@ -504,10 +524,29 @@ export async function buildFleetHtmlFiles(
   const snapshot = dropUnsailedRaces(await loadSeriesSnapshot(repos, seriesId));
   if (!snapshot || snapshot.competitors.length === 0) return null;
   const generatedAt = opts?.generatedAt ?? new Date();
+  // Split-fleet series (#328): the published output is the championship
+  // standings page (tiered, fleet-tinted, cut line), the per-race results
+  // page (every stage race, one table per fleet), and the rolling
+  // fleet-assignments page — the per-round fleets never get standings pages
+  // of their own. Shared by preview, download, and publish, like the
+  // per-fleet path below.
+  const splitFleets = await repos.splitFleets?.get(seriesId);
+  const isChampionship = !!splitFleets && splitFleets.rounds.length > 0;
+  // What this series publishes, from the one function that answers that —
+  // the same list the publish dialog renders its rows from, for either
+  // destination. Which of these actually render is decided below: a page
+  // with nothing in it is dropped rather than published empty.
+  const pages = resolvePublishPages({
+    series: snapshot.series,
+    fleets: snapshot.fleets,
+    splitFleets: isChampionship,
+    features: { prizes: !!opts?.includePrizes, entryList: !!opts?.includeEntryList },
+  });
+  const publishes = (kind: PublishPageKind): boolean => pages.some((p) => p.kind === kind);
   if (snapshot.races.length === 0) {
     // Before race one there are no results to render, but the entry list is
     // exactly what an event wants published in that window.
-    return opts?.includeEntryList
+    return publishes('entries')
       ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)] }
       : null;
   }
@@ -516,14 +555,7 @@ export async function buildFleetHtmlFiles(
   // split-fleet branch: a championship's pages take the same header as
   // everything else, so they need the same resolution.
   snapshot.series = await resolveSeriesLogoDefaults(snapshot.series, repos.logoRepo);
-  // Split-fleet series (#328): the published output is the championship
-  // standings page (tiered, fleet-tinted, cut line), the per-race results
-  // page (every stage race, one table per fleet), and the rolling
-  // fleet-assignments page — the per-round fleets never get standings pages
-  // of their own. Shared by preview, download, and publish, like the
-  // per-fleet path below.
-  const splitFleets = await repos.splitFleets?.get(seriesId);
-  if (splitFleets && splitFleets.rounds.length > 0) {
+  if (isChampionship && splitFleets) {
     // Same on-demand flag loading as the per-fleet path below: the ~2.5 MB
     // SVG payload is pulled only when the Nat column will actually render.
     const enabledCompetitorFields =
@@ -588,16 +620,16 @@ export async function buildFleetHtmlFiles(
     // has nothing to link to either.
     const raceResultsHtml = renderSplitFleetRaceResultsPage(input, {
       ...splitPageChrome,
-      ...splitNote('Race results'),
+      ...splitNote(RACE_RESULTS_PAGE),
     });
     return { files: [
       {
-        fleetName: 'Championship',
+        fleetName: CHAMPIONSHIP_PAGE,
         isDefault: true,
         isNamedPage: true,
         html: renderSplitFleetStandingsPage(input, {
           ...splitPageChrome,
-          ...splitNote('Championship', true),
+          ...splitNote(CHAMPIONSHIP_PAGE, true),
           ...(raceResultsHtml && opts?.raceResultsHref
             ? { raceResultsHref: opts.raceResultsHref }
             : {}),
@@ -606,7 +638,7 @@ export async function buildFleetHtmlFiles(
       ...(raceResultsHtml
         ? [
             {
-              fleetName: 'Race results',
+              fleetName: RACE_RESULTS_PAGE,
               isDefault: false,
               isNamedPage: true,
               html: raceResultsHtml,
@@ -614,19 +646,19 @@ export async function buildFleetHtmlFiles(
           ]
         : []),
       {
-        fleetName: 'Fleet assignments',
+        fleetName: FLEET_ASSIGNMENTS_PAGE,
         isDefault: false,
         isAuxiliary: true,
         html: renderSplitFleetAssignmentsPage(input, {
           ...splitPageChrome,
-          ...splitNote('Fleet assignments'),
+          ...splitNote(FLEET_ASSIGNMENTS_PAGE),
         }),
       },
       // The entry list rides along here too. This branch returns early, so
       // the append at the end of the per-fleet path below never runs for a
       // championship — and a championship is the regime most likely to want
       // its entry list published.
-      ...(opts?.includeEntryList
+      ...(publishes('entries')
         ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)]
         : []),
     ], ...(splitExportJson ? { exportJson: splitExportJson } : {}) };
@@ -1078,6 +1110,11 @@ export async function buildFleetHtmlFiles(
     const standingsByFleetId = new Map(
       viewFleetResults.map((fr) => [fr.fleet.id, fr.standings]),
     );
+    // Resolved per view, not taken from the series-level page list above: a
+    // block scores its own fleets, so a group can cover fleets in one block
+    // and none in another. The page list holds one entry per group and per
+    // fleet however many blocks they render in — which is what the publish
+    // dialog offers a row for, and what the publish API ticks.
     const resolvedGroups = resolvePublishingGroups(series.publishingGroups, viewFleets)
       .filter(({ group }) => groupApplies(group, !isSingleDefault))
       .filter(producesPage);
@@ -1175,11 +1212,11 @@ export async function buildFleetHtmlFiles(
 
   // The prize sheet (#240) closes the page list: one series-wide page,
   // allocated from the whole-series standings (also on a block series).
-  if (opts?.includePrizes && (series.prizes?.length ?? 0) > 0) {
+  if (publishes('prizes')) {
     const axes = series.subdivisionAxes ?? [];
     const allocations = allocatePrizes(series.prizes!, fleetResults, axes);
     results.push({
-      fleetName: 'Prizes',
+      fleetName: PRIZES_PAGE,
       isDefault: false,
       isPrizes: true,
       html: renderPrizesHtml(
@@ -1199,7 +1236,7 @@ export async function buildFleetHtmlFiles(
           ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
           ...(openInAppUrl ? { openInAppUrl } : {}),
           ...(dataFileUrl ? { dataFileUrl } : {}),
-          ...noteChrome(series, { fleetName: 'Prizes' }, opts?.includePageNotes),
+          ...noteChrome(series, { fleetName: PRIZES_PAGE }, opts?.includePageNotes),
         },
         allocations,
         {
@@ -1214,7 +1251,7 @@ export async function buildFleetHtmlFiles(
 
   // The competitor list (#423) closes the page list: series-wide, and the
   // only page here that owes nothing to a race having been sailed.
-  if (opts?.includeEntryList) {
+  if (publishes('entries')) {
     results.push(await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes));
   }
 

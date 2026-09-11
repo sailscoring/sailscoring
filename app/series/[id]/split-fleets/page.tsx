@@ -484,9 +484,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         fleets={[]}
         open={showPublish}
         onClose={() => setShowPublish(false)}
-        canFtp={false}
-        lonePageName="Championship"
-        extraPages={['Race results', 'Fleet assignments']}
+        canFtp={has('ftp-upload') && can('manage-workspace')}
       />
       <FinaliseResultsDialog
         series={data.series}

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { derivePrefillPaths, fleetHtmlFilename, fleetPdfTitle } from '@/lib/results-export';
+import type { PublishPage } from '@/lib/publish-pages';
 
 // Regression coverage for #131. The dialog used to round-trip a single
 // "base" path and reconstruct each fleet's path by appending the fleet
@@ -7,52 +8,69 @@ import { derivePrefillPaths, fleetHtmlFilename, fleetPdfTitle } from '@/lib/resu
 // returns per-fleet paths verbatim when stored in ftpPaths.
 
 describe('derivePrefillPaths', () => {
-  const fleets = [
-    { id: 'fleet-puppeteer', name: 'Puppeteer HPH' },
-    { id: 'fleet-cruiser', name: 'Cruiser' },
+  const pages: PublishPage[] = [
+    {
+      key: 'fleet:fleet-puppeteer',
+      name: 'Puppeteer HPH',
+      kind: 'fleet',
+      isDefault: false,
+      fleetId: 'fleet-puppeteer',
+    },
+    {
+      key: 'fleet:fleet-cruiser',
+      name: 'Cruiser',
+      kind: 'fleet',
+      isDefault: false,
+      fleetId: 'fleet-cruiser',
+    },
   ];
 
-  it('returns stored per-fleet paths verbatim regardless of fleet-name convention (#131)', () => {
+  it('returns stored per-page paths verbatim regardless of naming convention (#131)', () => {
     const stored = {
-      'fleet-puppeteer': '/reshyc/sc-test/series1_tue_pup_hph.htm',
-      'fleet-cruiser': '/reshyc/sc-test/series1_tue_cruiser.htm',
+      'fleet:fleet-puppeteer': '/reshyc/sc-test/series1_tue_pup_hph.htm',
+      'fleet:fleet-cruiser': '/reshyc/sc-test/series1_tue_cruiser.htm',
     };
-    expect(derivePrefillPaths(fleets, stored, '/legacy.htm', false)).toEqual([
-      '/reshyc/sc-test/series1_tue_pup_hph.htm',
-      '/reshyc/sc-test/series1_tue_cruiser.htm',
-    ]);
+    expect(derivePrefillPaths(pages, stored, '/legacy.htm')).toEqual({
+      'fleet:fleet-puppeteer': '/reshyc/sc-test/series1_tue_pup_hph.htm',
+      'fleet:fleet-cruiser': '/reshyc/sc-test/series1_tue_cruiser.htm',
+    });
   });
 
-  it('falls back to deriving from legacy ftpPath when a fleet has no stored entry', () => {
+  it('reads the entry a fleet id keyed, from before paths were per page', () => {
     const stored = { 'fleet-puppeteer': '/custom/pup.htm' };
-    expect(derivePrefillPaths(fleets, stored, '/results/series.html', false)).toEqual([
-      '/custom/pup.htm',
-      '/results/series-cruiser.html',
-    ]);
+    expect(derivePrefillPaths(pages, stored, '/results/series.html')).toEqual({
+      'fleet:fleet-puppeteer': '/custom/pup.htm',
+      'fleet:fleet-cruiser': '/results/series-cruiser.html',
+    });
   });
 
   it('falls back entirely to legacy derivation for pre-#131 series', () => {
-    expect(derivePrefillPaths(fleets, undefined, '/results/series.html', false)).toEqual([
-      '/results/series-puppeteer-hph.html',
-      '/results/series-cruiser.html',
-    ]);
+    expect(derivePrefillPaths(pages, undefined, '/results/series.html')).toEqual({
+      'fleet:fleet-puppeteer': '/results/series-puppeteer-hph.html',
+      'fleet:fleet-cruiser': '/results/series-cruiser.html',
+    });
   });
 
-  it('single-fleet series uses ftpPath as-is', () => {
-    expect(
-      derivePrefillPaths(
-        [{ id: 'only', name: 'Only Fleet' }],
-        undefined,
-        '/results/series.html',
-        true,
-      ),
-    ).toEqual(['/results/series.html']);
+  it('gives the lone default page the legacy path as-is', () => {
+    const lone: PublishPage[] = [
+      { key: 'fleet:only', name: 'Only Fleet', kind: 'fleet', isDefault: true, fleetId: 'only' },
+    ];
+    expect(derivePrefillPaths(lone, undefined, '/results/series.html')).toEqual({
+      'fleet:only': '/results/series.html',
+    });
   });
 
-  it('zero-fleet series returns the legacy path once', () => {
-    expect(derivePrefillPaths([], {}, '/results/series.html', true)).toEqual([
-      '/results/series.html',
-    ]);
+  it('suffixes the pages published beside a lone results page', () => {
+    const withExtras: PublishPage[] = [
+      { key: 'fleet:only', name: 'Only Fleet', kind: 'fleet', isDefault: true, fleetId: 'only' },
+      { key: 'prizes', name: 'Prizes', kind: 'prizes', isDefault: false },
+      { key: 'entries', name: 'Entries', kind: 'entries', isDefault: false },
+    ];
+    expect(derivePrefillPaths(withExtras, undefined, '/results/series.html')).toEqual({
+      'fleet:only': '/results/series.html',
+      prizes: '/results/series-prizes.html',
+      entries: '/results/series-entries.html',
+    });
   });
 });
 

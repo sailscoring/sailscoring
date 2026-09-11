@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { relativeSubPath } from '@/lib/api-handlers/publish';
+import { relativeSubPath } from '@/lib/publishing';
 
 describe('relativeSubPath', () => {
   it('reduces same-folder pages to the bare leaf', () => {

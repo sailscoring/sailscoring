@@ -36,6 +36,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   upgradeSubdivisionAxes,
 } from './competitor-fields';
+import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
 import { hasConditions } from './race-conditions';
 import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
@@ -510,7 +511,7 @@ interface SeriesFileSeries {
   raceFleetExclusions?: RaceFleetExclusion[];  // v14+; whole-series per-fleet race strikes
   ftpHost: string;
   ftpPath: string;
-  ftpPaths?: Record<string, string>;  // v4+; absent in older files
+  ftpPaths?: Record<string, string>;  // v4+; absent in older files. Keyed by published page (see Series.ftpPaths); bare fleet-id keys are the older per-fleet form
   publishMode?: 'sailscoring' | 'ftp';  // additive; which Publish destination this series last used (absent = 'sailscoring')
   ftpLastUploadedAt?: number;  // additive; epoch ms of the last FTP upload
   ftpUploadedVersion?: number;  // additive; series version reflected by that upload
@@ -1246,18 +1247,25 @@ function migrateStartSequenceCumulativeToIntervals(series: unknown): void {
   s.defaultStartSequence = intervals;
 }
 
-/** Rewrite ftpPaths keys through a fleet-id remap. Entries pointing at fleets
- *  that aren't in the remap are dropped (the file referenced a fleet that no
- *  longer exists in the export). */
+/** Rewrite ftpPaths keys through a fleet-id remap. The paths are keyed by
+ *  page: a fleet's page follows its fleet through the remap (dropping out if
+ *  the file no longer has that fleet), while a page that is nobody's fleet —
+ *  the prize sheet, the entry list, a championship's pages, a publishing
+ *  group's — keeps its key, which no remap touches. */
 function remapFtpPaths(
   ftpPaths: Record<string, string> | undefined,
   fleetIdMap: Map<string, string>,
 ): Record<string, string> {
   if (!ftpPaths) return {};
   const out: Record<string, string> = {};
-  for (const [oldId, path] of Object.entries(ftpPaths)) {
-    const newId = fleetIdMap.get(oldId);
-    if (newId) out[newId] = path;
+  for (const [key, path] of Object.entries(ftpPaths)) {
+    const fleetId = fleetIdFromPageKey(key);
+    if (fleetId === null) {
+      out[key] = path;
+      continue;
+    }
+    const newId = fleetIdMap.get(fleetId);
+    if (newId) out[fleetPageKey(newId)] = path;
   }
   return out;
 }
@@ -1729,11 +1737,18 @@ function remapFtpPathsByFleetName(
     if (newId) newIdByName.set(f.name, newId);
   }
   const out: Record<string, string> = {};
-  for (const [oldId, path] of Object.entries(ftpPaths)) {
-    const name = nameByCurrentId.get(oldId);
+  for (const [key, path] of Object.entries(ftpPaths)) {
+    // A page that is nobody's fleet needs no bridge: its key names what the
+    // page is, which a re-import doesn't change.
+    const fleetId = fleetIdFromPageKey(key);
+    if (fleetId === null) {
+      out[key] = path;
+      continue;
+    }
+    const name = nameByCurrentId.get(fleetId);
     if (name == null) continue;
     const newId = newIdByName.get(name);
-    if (newId) out[newId] = path;
+    if (newId) out[fleetPageKey(newId)] = path;
   }
   return out;
 }

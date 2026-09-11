@@ -16,24 +16,35 @@ import {
 import * as repos from '@/lib/api-repository';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { useFtpServers } from '@/hooks/use-ftp-servers';
+import { useFeatures } from '@/components/features-provider';
 import { uploadViaScupper } from '@/lib/scupper';
+import { relativeSubPath } from '@/lib/publishing';
+import {
+  CHAMPIONSHIP_PAGE,
+  RACE_RESULTS_PAGE,
+  type PublishPage,
+} from '@/lib/publish-pages';
 import {
   buildFleetHtmlFiles,
   derivePrefillPaths,
   fleetFtpPath,
   seriesSlug,
 } from '@/lib/results-export';
-import type { Fleet, Series } from '@/lib/types';
+import type { Series } from '@/lib/types';
 
 type UploadState =
   | 'idle'
   | 'uploading'
-  | { success: true }
+  | { success: true; count: number; unplaced: string[] }
   | { success: false; error: string };
 
 export interface FtpPublishPaneProps {
   series: Series;
-  fleets: Fleet[];
+  /** The pages this series publishes — the same list the Sail Scoring pane
+   *  lists, handed down so the two destinations cannot drift apart. */
+  pages: PublishPage[];
+  /** What the dialog calls the lone default page, when there is one. */
+  lonePageLabel: string;
   onClose: () => void;
 }
 
@@ -42,22 +53,31 @@ export interface FtpPublishPaneProps {
  * to a club's own web server (via the scupper relay). Rendered inside the
  * shared Publish dialog shell when the series is in `ftp` publish mode, so it
  * owns its own body + footer but no Dialog wrapper. Since it mounts only while
- * FTP mode is active, it seeds its per-fleet paths on mount rather than on an
+ * FTP mode is active, it seeds its per-page paths on mount rather than on an
  * external open signal.
+ *
+ * One row per published page — a fleet's results, a combined page, a
+ * championship's standings, the prize sheet, the entry list — each with the
+ * remote path it goes to. The destination is all this pane decides: which
+ * pages exist is `resolvePublishPages`' answer, shared with the in-app
+ * destination and with the build.
  */
-export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps) {
+export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPublishPaneProps) {
   const updateSeries = useUpdateSeries();
   const { data: ftpServers } = useFtpServers();
+  const { has } = useFeatures();
   const [selectedServerId, setSelectedServerId] = useState('');
-  const [fleetPaths, setFleetPaths] = useState<string[]>(() =>
-    derivePrefillPaths(fleets, series.ftpPaths, series.ftpPath ?? '', fleets.length <= 1),
+  const [paths, setPaths] = useState<Record<string, string>>(() =>
+    derivePrefillPaths(pages, series.ftpPaths, series.ftpPath ?? ''),
   );
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(fleets.map((f) => f.id)),
+    () => new Set(pages.map((p) => p.key)),
   );
   const [uploadState, setUploadState] = useState<UploadState>('idle');
 
-  const isSingleDefault = fleets.length <= 1;
+  // A series with one page has nothing to choose between: the lone path is
+  // the upload, with no tick box to leave it out of.
+  const isSinglePage = pages.length <= 1;
 
   // Auto-select the server whose host matches the series' saved ftpHost, once
   // the server list resolves.
@@ -74,39 +94,43 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
   }, [ftpServers]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  function setPath(index: number, value: string) {
-    setFleetPaths((prev) => prev.map((p, i) => (i === index ? value : p)));
+  function setPath(key: string, value: string) {
+    setPaths((prev) => ({ ...prev, [key]: value }));
   }
 
-  const allSelected = fleets.length > 0 && fleets.every((f) => selected.has(f.id));
+  const allSelected = pages.length > 0 && pages.every((p) => selected.has(p.key));
 
-  function toggle(id: string) {
+  function toggle(key: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
 
   function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(fleets.map((f) => f.id)));
+    setSelected(allSelected ? new Set() : new Set(pages.map((p) => p.key)));
   }
+
+  /** The path a page will be uploaded to, trimmed as typed. */
+  const pathFor = (page: PublishPage): string => (paths[page.key] ?? '').trim();
+
+  /** Pages going out this round: ticked (or the lone page), with a path. */
+  const uploading = isSinglePage
+    ? pages.filter((p) => pathFor(p))
+    : pages.filter((p) => selected.has(p.key) && pathFor(p));
 
   async function handleUpload() {
     const server = ftpServers?.find((s) => s.id === selectedServerId);
     if (!server) return;
-    // A selected fleet must have a path; unticked fleets are skipped and don't
-    // block the upload. Single-fleet series have no selection UI — the lone
-    // path standing in for the whole thing.
-    if (isSingleDefault) {
-      if (!(fleetPaths[0] ?? '').trim()) return;
+    // A page ticked with no path blocks the upload rather than going out
+    // somewhere unintended; unticked pages are skipped and block nothing.
+    if (isSinglePage) {
+      if (uploading.length === 0) return;
     } else {
-      const anySelected = fleets.some((f) => selected.has(f.id));
-      const selectedHavePaths = fleets.every(
-        (f, i) => !selected.has(f.id) || (fleetPaths[i] ?? '').trim(),
-      );
-      if (!anySelected || !selectedHavePaths) return;
+      const ticked = pages.filter((p) => selected.has(p.key));
+      if (ticked.length === 0 || ticked.some((p) => !pathFor(p))) return;
     }
 
     setUploadState('uploading');
@@ -117,38 +141,56 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
     // publication carries no data file.
     const status = await repos.getPublication(series.id).catch(() => null);
     const dataUrl = status?.published?.dataUrl;
+    // A championship's standings page deep-links its race results, which this
+    // destination knows the address of: both paths are right here.
+    const championshipPath = pages.find((p) => p.name === CHAMPIONSHIP_PAGE);
+    const raceResultsPage = pages.find((p) => p.name === RACE_RESULTS_PAGE);
+    const raceResultsHref =
+      championshipPath && raceResultsPage && pathFor(championshipPath) && pathFor(raceResultsPage)
+        ? relativeSubPath(pathFor(championshipPath), pathFor(raceResultsPage))
+        : undefined;
     const build = await buildFleetHtmlFiles(
       repos,
       series.id,
       undefined,
-      dataUrl ? { dataPath: new URL(dataUrl).pathname } : undefined,
+      {
+        // The same pages, with the same content, as the in-app destination:
+        // the workspace's features decide, not where the HTML is going.
+        includePrizes: has('prizes'),
+        includeEntryList: has('entry-list'),
+        includeTrackData: has('racesense-import'),
+        includePageNotes: has('page-notes'),
+        ...(raceResultsHref ? { raceResultsHref } : {}),
+        ...(dataUrl ? { dataPath: new URL(dataUrl).pathname } : {}),
+      },
     );
     if (!build) {
       setUploadState({ success: false, error: 'No results to upload.' });
       return;
     }
-    const fleetFiles = build.files;
 
-    // Match each file back to its fleet by name (the path inputs are per
-    // fleet, in fleet order). A series with sub-series yields several files
-    // per fleet; each block's page goes to the fleet's configured path with
-    // a block suffix before the extension (frostbites.html →
+    // Match each built file to its page by name — the same key the in-app
+    // publication stores its pages under. A series with sub-series yields
+    // several files per page; each block's page goes to the page's configured
+    // path with a block suffix before the extension (frostbites.html →
     // frostbites-winter.html).
-    const fleetByName = new Map(fleets.map((f) => [f.name, f]));
-    const pathByFleetName = new Map(
-      fleets.map((f, i) => [f.name, (fleetPaths[i] ?? '').trim()]),
-    );
-
+    const pageByName = new Map(pages.map((p) => [p.name, p]));
     const uploadedPaths: Record<string, string> = {};
-    for (const file of fleetFiles) {
-      // Skip fleets the scorer unticked — they keep their prior published page
-      // and their saved path (persistence below merges, never overwrites).
-      if (!isSingleDefault) {
-        const fleet = fleetByName.get(file.fleetName);
-        if (!fleet || !selected.has(fleet.id)) continue;
+    const unplaced = new Set<string>();
+    let uploaded = 0;
+    for (const file of build.files) {
+      const page = pageByName.get(file.fleetName);
+      // A page nobody offered a path for — the synthetic "Unknown" fleet of a
+      // series whose competitors are in no fleet. Reported below rather than
+      // dropped in silence.
+      if (!page) {
+        unplaced.add(file.fleetName);
+        continue;
       }
-      const basePath =
-        pathByFleetName.get(file.fleetName) ?? (fleetPaths[0] ?? '').trim();
+      // Skip pages the scorer unticked — they keep their prior uploaded page
+      // and their saved path (persistence below merges, never overwrites).
+      if (!isSinglePage && !selected.has(page.key)) continue;
+      const basePath = pathFor(page);
       if (!basePath) continue;
       const path = file.subSeriesName
         ? fleetFtpPath(basePath, file.subSeriesName, false)
@@ -166,13 +208,26 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
         setUploadState({ success: false, error: result.error });
         return;
       }
-      const fleet = fleetByName.get(file.fleetName);
-      if (fleet) uploadedPaths[fleet.id] = basePath;
+      uploaded += 1;
+      uploadedPaths[page.key] = basePath;
     }
 
-    // Persist verbatim per-fleet paths so the next dialog open reproduces
+    if (uploaded === 0) {
+      // Every page was either unticked or produced nothing — say so, rather
+      // than reporting an upload that put no file on the server.
+      setUploadState({
+        success: false,
+        error:
+          unplaced.size > 0
+            ? `Nothing was uploaded — no path is configured for ${[...unplaced].join(', ')}.`
+            : 'Nothing was uploaded — no page selected here has results yet.',
+      });
+      return;
+    }
+
+    // Persist verbatim per-page paths so the next dialog open reproduces
     // exactly what the user typed (#131). Merge into existing ftpPaths so
-    // fleets that weren't uploaded this round retain their prior entry —
+    // pages that weren't uploaded this round retain their prior entry —
     // merging into the freshest row, not the prop, so an in-flight save's
     // entries survive. Stamp the upload provenance too: this write bumps the
     // series version by one, so `current.version + 1` is the version this
@@ -187,7 +242,7 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
         ftpUploadedVersion: (current.version ?? 1) + 1,
       }),
     });
-    setUploadState({ success: true });
+    setUploadState({ success: true, count: uploaded, unplaced: [...unplaced] });
   }
 
   // Edits landed since the last successful upload — mirrors the in-app
@@ -198,15 +253,20 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
       : 0;
 
   const noServers = ftpServers !== undefined && ftpServers.length === 0;
-  const uploading = uploadState === 'uploading';
+  const inFlight = uploadState === 'uploading';
   const succeeded = typeof uploadState === 'object' && uploadState.success;
   const canUpload =
     !!selectedServerId &&
-    !uploading &&
-    (isSingleDefault
-      ? !!(fleetPaths[0] ?? '').trim()
-      : fleets.some((f) => selected.has(f.id)) &&
-        fleets.every((f, i) => !selected.has(f.id) || !!(fleetPaths[i] ?? '').trim()));
+    !inFlight &&
+    (isSinglePage
+      ? uploading.length > 0
+      : pages.some((p) => selected.has(p.key)) &&
+        pages.every((p) => !selected.has(p.key) || !!pathFor(p)));
+
+  /** What a page is called in this pane: the lone default page takes the
+   *  dialog's own label for it, since its fleet name is often synthetic. */
+  const labelFor = (page: PublishPage): string =>
+    page.isDefault && page.kind === 'fleet' ? lonePageLabel : page.name;
 
   return (
     <>
@@ -245,60 +305,57 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
               </SelectContent>
             </Select>
           </div>
-          {isSingleDefault ? (
+          {isSinglePage ? (
             <div className="space-y-1.5">
               <Label htmlFor="ftp-path-0">Path</Label>
               <Input
                 id="ftp-path-0"
-                value={fleetPaths[0] ?? ''}
-                onChange={(e) => setPath(0, e.target.value)}
+                value={pages[0] ? (paths[pages[0].key] ?? '') : ''}
+                onChange={(e) => pages[0] && setPath(pages[0].key, e.target.value)}
                 placeholder="/public_html/results/series.html"
                 autoFocus
               />
             </div>
           ) : (
             <div className="space-y-1">
-              {/* One line per fleet — checkbox · name · path — mirroring the
-                  Sail Scoring destination's fleet list. */}
+              {/* One line per page — checkbox · name · path — mirroring the
+                  Sail Scoring destination's page list. */}
               <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground pb-1 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleAll}
                   className="h-4 w-4 shrink-0"
-                  aria-label="All fleets"
+                  aria-label="All pages"
                 />
-                <span className="flex-1">Fleet</span>
+                <span className="flex-1">Page</span>
                 <span>Path</span>
               </label>
               <div className="space-y-1 max-h-[50vh] overflow-y-auto">
-                {fleets.map((fleet, i) => {
-                  const checked = selected.has(fleet.id);
+                {pages.map((page) => {
+                  const checked = selected.has(page.key);
+                  const label = labelFor(page);
                   return (
                     <div
-                      key={fleet.id}
+                      key={page.key}
                       className={`flex items-center gap-2 ${checked ? '' : 'opacity-50'}`}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggle(fleet.id)}
+                        onChange={() => toggle(page.key)}
                         className="h-4 w-4 shrink-0"
-                        aria-label={`Upload ${fleet.name}`}
+                        aria-label={`Upload ${label}`}
                       />
-                      <span
-                        className="w-36 shrink-0 truncate text-sm"
-                        title={fleet.name}
-                      >
-                        {fleet.name}
+                      <span className="w-36 shrink-0 truncate text-sm" title={label}>
+                        {label}
                       </span>
                       <Input
-                        id={`ftp-path-${i}`}
-                        value={fleetPaths[i] ?? ''}
-                        onChange={(e) => setPath(i, e.target.value)}
-                        placeholder={`/public_html/results/series-${seriesSlug(fleet.name)}.html`}
+                        value={paths[page.key] ?? ''}
+                        onChange={(e) => setPath(page.key, e.target.value)}
+                        placeholder={`/public_html/results/series-${seriesSlug(page.name)}.html`}
                         disabled={!checked}
-                        aria-label={`${fleet.name} path`}
+                        aria-label={`${label} path`}
                         className="flex-1 min-w-0 h-7 text-xs font-mono"
                       />
                     </div>
@@ -308,7 +365,15 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
             </div>
           )}
           {typeof uploadState === 'object' && uploadState.success && (
-            <p className="text-sm text-green-600 dark:text-green-400">Uploaded successfully.</p>
+            <p className="text-sm text-green-600 dark:text-green-400">
+              Uploaded {uploadState.count} page{uploadState.count === 1 ? '' : 's'}.
+              {uploadState.unplaced.length > 0 && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  {' '}
+                  {uploadState.unplaced.join(', ')} had no path here and stayed behind.
+                </span>
+              )}
+            </p>
           )}
           {typeof uploadState === 'object' && !uploadState.success && (
             <p className="text-sm text-destructive">{uploadState.error}</p>
@@ -326,7 +391,7 @@ export function FtpPublishPane({ series, fleets, onClose }: FtpPublishPaneProps)
             form="ftp-upload-form"
             disabled={!canUpload}
           >
-            {uploading ? 'Uploading…' : 'Upload'}
+            {inFlight ? 'Uploading…' : 'Upload'}
           </Button>
         )}
       </DialogFooter>

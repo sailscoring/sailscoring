@@ -124,7 +124,7 @@ test('Publish dialog · FTP mode: no-servers message, then remembered across reo
   await expect(page.getByRole('button', { name: 'Sail Scoring pages' })).toBeVisible();
 });
 
-test('Publish dialog · FTP mode: per-fleet selection lets you upload a subset', async ({ page }) => {
+test('Publish dialog · FTP mode: per-page selection lets you upload a subset', async ({ page }) => {
   // ── Configure a server ────────────────────────────────────────────────────
   await page.goto('/workspace');
   await page.getByRole('button', { name: 'Add server' }).click();
@@ -168,7 +168,7 @@ test('Publish dialog · FTP mode: per-fleet selection lets you upload a subset',
   await expect(fastPath).toBeVisible();
   await expect(slowPath).toBeVisible();
 
-  // All fleets ticked by default → both inputs enabled, Upload gated on paths.
+  // Every page ticked by default → both inputs enabled, Upload gated on paths.
   await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
   await fastPath.fill('/public_html/fast.html');
   await slowPath.fill('/public_html/slow.html');
@@ -184,9 +184,50 @@ test('Publish dialog · FTP mode: per-fleet selection lets you upload a subset',
   await page.getByRole('checkbox', { name: 'Upload Fast' }).uncheck();
   await expect(page.getByRole('button', { name: 'Upload' })).toBeDisabled();
 
-  // The master "All fleets" toggle re-selects everything.
-  await page.getByRole('checkbox', { name: 'All fleets' }).check();
+  // The master "All pages" toggle re-selects everything.
+  await page.getByRole('checkbox', { name: 'All pages' }).check();
   await expect(fastPath).toBeEnabled();
   await expect(slowPath).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
+});
+
+test('Publish dialog: FTP offers the same pages as Sail Scoring', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['ftp-upload', 'entry-list']);
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add server' }).click();
+  await page.getByLabel('Host').fill('ftp.example.com');
+  await page.getByLabel('Username').fill('scorer');
+  await page.locator('#ftp-password').fill('s3cret');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
+
+  await createSeriesQuick(page, { name: 'Same Pages' });
+  await createFleets(page, ['Fast', 'Slow']);
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await addCompetitor(page, { sailNumber: '1', name: 'Alice', fleet: 'Fast' });
+  await addCompetitor(page, { sailNumber: '2', name: 'Bob', fleet: 'Slow' });
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByLabel('Sail number').fill('2');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog).toBeVisible();
+
+  // The entry list (#423) is a page like any other on the Sail Scoring side …
+  await expect(dialog.getByRole('checkbox', { name: 'Publish Entries' })).toBeVisible();
+
+  // … and on the club's own web server, with a remote path of its own.
+  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
+  await expect(dialog.getByLabel('Fast path')).toBeVisible();
+  await expect(dialog.getByLabel('Slow path')).toBeVisible();
+  await expect(dialog.getByLabel('Entries path')).toBeVisible();
+  await expect(dialog.getByRole('checkbox', { name: 'Upload Entries' })).toBeVisible();
 });

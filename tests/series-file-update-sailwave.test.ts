@@ -235,13 +235,14 @@ describe('updateSeriesFromSailwave', () => {
     expect(saved.defaultStartSequence).toBeUndefined();
   });
 
-  it('re-keys ftpPaths from old fleet ids to new ones by matching fleet name', async () => {
+  it('re-keys ftpPaths onto the new fleets by matching fleet name', async () => {
     await updateSeriesFromSailwave('series-1', makeFile(), repos);
     const saved = repos.savedSeries.at(-1)!;
     const newCruisersId = repos.savedFleets.find((f) => f.name === 'Cruisers')!.id;
-    // "Cruisers" path carries over onto the new fleet id; "Whitesail" had no
-    // match in the new file, so its destination is dropped.
-    expect(saved.ftpPaths).toEqual({ [newCruisersId]: '/results/cruisers' });
+    // "Cruisers" path carries over onto that fleet's page — keyed by page, as
+    // paths are now, from the bare fleet id it was stored under. "Whitesail"
+    // had no match in the new file, so its destination is dropped.
+    expect(saved.ftpPaths).toEqual({ [`fleet:${newCruisersId}`]: '/results/cruisers' });
   });
 
   it('bumps lastModifiedAt but leaves lastSavedAt untouched', async () => {
