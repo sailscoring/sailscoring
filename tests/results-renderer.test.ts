@@ -1985,15 +1985,37 @@ describe('renderCompetitorListHtml', () => {
       expect(html).toContain('<td class="tick"></td><td class="sail">2001</td><td class="write"></td></tr>');
     });
 
-    it('offers to print it from the footer, beside Save as PDF', () => {
+    it('is a view with its own address, reachable from the footer', () => {
       const html = renderCompetitorListHtml(chrome, flat(rows), {
         enabledCompetitorFields: [],
         multiFleet: true,
         checklist,
       });
-      expect(html).toContain('id="starters-print">Print starters checklist</button>');
+      expect(html).toContain('<a class="starterslink" href="#starters">Starters checklist</a>');
+      expect(html).toContain('<a class="startersback" href="#entries">Back to the entry list</a>');
       expect(html).toContain('>Save as PDF</button>');
-      expect(html).toContain("getElementById('starters-print')");
+      // The class is set from the fragment, on navigation — nothing about
+      // the sheet depends on a print event firing.
+      const script = html.slice(html.indexOf('var pageCss=document.getElementById(\'starters-page\')'));
+      expect(script).toContain("location.hash==='#starters'");
+      expect(script).toContain("window.addEventListener('hashchange',apply)");
+      expect(script).not.toContain('afterprint');
+      expect(script).not.toContain('window.print');
+      expect(html).not.toContain('starters-print');
+    });
+
+    it('shows the sheet on screen, not only on paper', () => {
+      const html = renderCompetitorListHtml(chrome, flat(rows), {
+        enabledCompetitorFields: [],
+        multiFleet: true,
+        checklist,
+      });
+      const printBlock = html.slice(html.indexOf('@media print {\n  body.starters .credit'));
+      // What the sheet looks like applies in both media; only pagination and
+      // hiding the footer are print's business.
+      expect(printBlock).not.toContain('table.starterstable td.tick::before');
+      expect(html).toContain('body.starters .starterslist { display: block;');
+      expect(html).toContain('table.starterstable td.tick::before');
     });
 
     it('heads no table on a series with a single start', () => {
@@ -2014,7 +2036,7 @@ describe('renderCompetitorListHtml', () => {
           checklist: empty,
         });
         expect(html).not.toContain('starterslist');
-        expect(html).not.toContain('starters-print');
+        expect(html).not.toContain('#starters');
       }
     });
   });

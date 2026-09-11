@@ -165,7 +165,7 @@ test('the results page can be left unpublished while the entry list goes out', a
  * the duration of the print and the print stylesheet does the rest, so the
  * test stubs the print dialog and looks at the page under print media.
  */
-test('the competitor list prints as a starters checklist, one table per start', async ({
+test('the competitor list carries a starters checklist, one table per start', async ({
   page,
   signedInEmail,
 }) => {
@@ -196,26 +196,26 @@ test('the competitor list prints as a starters checklist, one table per start', 
   await page.goto(entriesPath);
   await expect(page.getByText('Entries: 3')).toBeVisible();
 
-  // On screen the checklist is nowhere to be seen; the button is.
+  // On the entry list the checklist is nowhere to be seen; the link to it is.
   const checklist = page.locator('.starterslist');
   await expect(checklist).toBeHidden();
-  await page.evaluate(() => {
-    (window as unknown as { __printed: boolean }).__printed = false;
-    window.print = () => {
-      (window as unknown as { __printed: boolean }).__printed = true;
-    };
-  });
-  await page.getByRole('button', { name: 'Print starters checklist' }).click();
-  expect(await page.evaluate(() => (window as unknown as { __printed: boolean }).__printed)).toBe(true);
-  await expect(page.locator('body')).toHaveClass(/\bstarters\b/);
 
-  // What the printer sees: the checklist in place of the entry list, two
-  // tables headed by the class, and Checkmate once.
+  // It is a view with its own address, not a print-time alter ego: following
+  // the link shows the sheet on screen, so the browser's own Print — an
+  // iPhone share sheet included — prints what is in front of you with no
+  // script in the way.
+  await page.getByRole('link', { name: 'Starters checklist' }).click();
+  await expect(page).toHaveURL(/#starters$/);
+  await expect(page.locator('body')).toHaveClass(/\bstarters\b/);
+  await expect(checklist).toBeVisible();
+  await expect(page).toHaveTitle(/^Starters checklist —/);
+  // The entry list is two tables — Class 1 is scored two ways — and the
+  // checklist view hides both on screen as well as on paper.
+  await expect(page.locator('table.summarytable:visible')).toHaveCount(0);
+
+  // What the printer sees: two tables headed by the class, and Checkmate once.
   await page.emulateMedia({ media: 'print' });
   await expect(checklist).toBeVisible();
-  // The entry list is two tables — Class 1 is scored two ways — and print
-  // hides both of them.
-  await expect(page.locator('table.summarytable:visible')).toHaveCount(0);
   // The start's name heads its table from inside it, as a header row, so that
   // it repeats wherever the table runs from one column into the next.
   await expect(checklist.locator('th.startershead', { hasText: /^Class 1$/ })).toBeVisible();
@@ -234,12 +234,18 @@ test('the competitor list prints as a starters checklist, one table per start', 
   await expect(checklist.locator('tr.spare')).toHaveCount(4);
   await expect(checklist.getByText('Notes')).toBeVisible();
 
-  // Once the dialog closes the page is its ordinary self again.
-  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  // Back to the entry list the ordinary way — a navigation, with nothing to
+  // undo on a print event that WebKit may never fire.
   await page.emulateMedia({ media: 'screen' });
+  await page.getByRole('link', { name: 'Back to the entry list' }).click();
   await expect(page.locator('body')).not.toHaveClass(/\bstarters\b/);
   await expect(checklist).toBeHidden();
   await expect(page.locator('table.summarytable:visible')).toHaveCount(2);
+
+  // The sheet has an address, so it survives a reload straight into it.
+  await page.goto(`${entriesPath}#starters`);
+  await expect(page.locator('body')).toHaveClass(/\bstarters\b/);
+  await expect(page.locator('.starterslist')).toBeVisible();
 });
 
 /**

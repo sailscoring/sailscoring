@@ -666,9 +666,9 @@ const SHOTS: Shot[] = [
   },
   {
     // Inventory: Starters checklist — the published competitor list as it
-    // prints for the committee boat: one table per start, tick boxes. Seen
-    // under print media with the print-mode body class set, since that is the
-    // only time the sheet is visible.
+    // prints for the committee boat: one table per start, tick boxes. The
+    // sheet is a view of the page with its own address, so the capture goes
+    // to it; print media is emulated for the two-column paper layout.
     slug: 'starters-checklist',
     group: 'Publishing',
     async capture({ page, anon, seriesId, shot }) {
@@ -676,10 +676,9 @@ const SHOTS: Shot[] = [
       const entriesHref = await publishEntriesPage(page, await seriesId());
 
       const pub = await anon.newPage();
-      await pub.goto(new URL(entriesHref, BASE).toString());
+      await pub.goto(`${new URL(entriesHref, BASE).toString()}#starters`);
       await settle(pub);
       await pub.evaluate(() => {
-        document.body.classList.add('starters');
         // On paper the page height makes the columns fill across; a viewport
         // has no such bound, so give the column box one for the capture.
         const cols = document.querySelector<HTMLElement>('.starterscols');

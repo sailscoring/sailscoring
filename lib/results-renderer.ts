@@ -1227,11 +1227,19 @@ const SPARE_ROWS = 2;
 /** Ruled lines in the sheet's closing notes block. */
 const NOTE_LINES = 4;
 
-/** The print stylesheet for the starters checklist. Off screen it is hidden
- *  outright; in print it shows only under the `starters` body class, which
- *  also hides everything the sheet is not — the entry list, the footer, and
- *  the page header with its logos and series heading, whose 40mm the sheet
- *  spends on writing space instead.
+/** The stylesheet for the starters checklist.
+ *
+ *  The sheet is a view of the page, not a print-media alter ego of it: under
+ *  the `starters` body class it replaces the entry list on screen as well as
+ *  on paper, hiding everything the sheet is not — the entry list, and the
+ *  page header with its logos and series heading, whose 40mm the sheet
+ *  spends on writing space instead. Seeing it before printing it is worth
+ *  having on its own — a working sheet is meant to be checked — and it is
+ *  what lets the browser's own Print, from an iPhone share sheet or
+ *  anywhere else, print the right document with no script involved.
+ *
+ *  The footer survives on screen, because it carries the way back to the
+ *  entry list; print hides it with the rest.
  *
  *  Two columns rather than three: a column has to be wide enough to leave
  *  blank space after the boat name, which is where the number a boat
@@ -1241,75 +1249,78 @@ const NOTE_LINES = 4;
  *  drawn out to the full page height. */
 function renderStartersChecklistCss(): string {
   return `.starterslist { display: none; }
+body.starters .starterslist { display: block; text-align: left; }
+body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters table.headertable { display: none; }
+.startersback { display: none; }
+body.starters .startersback { display: inline; }
+body.starters .starterslink { display: none; }
+.startersident { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
+.startersident .startersfor { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.startersident .startersblanks { flex: none; white-space: nowrap; color: #333; }
+.startersident .startersblank { margin-left: 4mm; }
+.startersident .startersblank i { display: inline-block; width: 18mm; border-bottom: 0.3mm solid #666; }
+.startersstart { margin: 0 0 6mm 0; }
+table.starterstable th.startershead { background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; border: 0; padding: 3mm 0 1.2mm 0; }
+table.starterstable { width: 100%; margin: 0; border: 0; }
+table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.2mm 1mm; vertical-align: middle; font-size: 13pt; line-height: 1.1; }
+table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
+table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; padding-left: 2mm; }
+table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.starterstable td.write { width: 26%; }
+table.starterstable td.tick { width: 5mm; padding: 1.2mm 1mm 1.2mm 0; }
+table.starterstable td.tick::before { content: ""; display: block; width: 5mm; height: 5mm; border: 0.4mm solid #1a1a1a; box-sizing: border-box; }
+.startersnotes .startersnoteslabel { display: block; font-size: 10pt; font-weight: 600; margin: 0 0 1mm 0; }
+.startersnotes .startersrule { height: 6mm; border-bottom: 0.3mm solid #999; }
+/* Paper only: how the sheet is laid out across the page, and the footer that
+   is the way back to the entry list on screen and nothing on paper. */
 @media print {
-  body.starters .starterslist { display: block; text-align: left; }
+  body.starters .credit { display: none; }
   .starterscols { column-count: 2; column-gap: 6mm; column-fill: auto; }
-  body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters .credit, body.starters table.headertable { display: none; }
-  .startersident { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; margin: 0 0 4mm 0; font-size: 10pt; }
-  .startersident .startersfor { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .startersident .startersblanks { flex: none; white-space: nowrap; color: #333; }
-  .startersident .startersblank { margin-left: 4mm; }
-  .startersident .startersblank i { display: inline-block; width: 18mm; border-bottom: 0.3mm solid #666; }
-  .startersstart { margin: 0 0 6mm 0; }
   .startersstart.keep { break-inside: avoid; }
-  table.starterstable th.startershead { background: none; color: #1a1a1a; font-size: 12pt; font-weight: 700; text-align: left; border: 0; padding: 3mm 0 1.2mm 0; }
-  table.starterstable { width: 100%; margin: 0; border: 0; }
-  table.starterstable td { border: 0; border-bottom: 0.3mm solid #999; padding: 1.2mm 1mm; vertical-align: middle; font-size: 13pt; line-height: 1.1; }
-  table.starterstable td.sail { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
-  table.starterstable td.boat { font-size: 9pt; color: #333; width: 38%; padding-left: 2mm; }
-  table.starterstable td.boat span { display: block; width: 0; min-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  table.starterstable td.write { width: 26%; }
-  table.starterstable td.tick { width: 5mm; padding: 1.2mm 1mm 1.2mm 0; }
-  table.starterstable td.tick::before { content: ""; display: block; width: 5mm; height: 5mm; border: 0.4mm solid #1a1a1a; box-sizing: border-box; }
   .startersnotes { break-inside: avoid; }
-  .startersnotes .startersnoteslabel { display: block; font-size: 10pt; font-weight: 600; margin: 0 0 1mm 0; }
-  .startersnotes .startersrule { height: 6mm; border-bottom: 0.3mm solid #999; }
 }
 `;
 }
 
 /** The page box the checklist prints in: tighter margins than the results
  *  pages, because a working sheet wants the paper. `@page` cannot be
- *  qualified by a body class, so it rides in its own stylesheet that the
- *  footer button switches on for the duration of the print. */
+ *  qualified by a body class, so it rides in its own stylesheet switched on
+ *  when the checklist view is entered — at navigation time, not print time,
+ *  so that whatever prints the page afterwards gets the right page box. */
 function renderStartersPageCss(): string {
   return `<style id="starters-page" media="not all" type="text/css">@page { margin: 8mm; }</style>`;
 }
 
-/** The footer control that prints the page as a starters checklist, beside
- *  "Save as PDF". Screen-only, like its neighbour. */
+/** The footer links between the entry list and the checklist, beside "Save as
+ *  PDF". An address rather than a print trigger: the sheet is a view of the
+ *  page, so the browser's own Print prints whichever of the two is showing. */
 function renderStartersButton(): string {
-  return `<button type="button" class="print-btn" id="starters-print">Print starters checklist</button>`;
+  return `<a class="starterslink" href="#starters">Starters checklist</a><a class="startersback" href="#entries">Back to the entry list</a>`;
 }
 
-/** Sets the `starters` body class for the duration of the print, so the
- *  print stylesheet swaps the entry list for the checklist, switches on the
- *  sheet's own tighter page box, and names the document after the sheet so a
- *  saved PDF is called what it is. All three come off again on
- *  \`afterprint\`, so the page is its ordinary self once the dialog closes and
- *  an ordinary "Save as PDF" afterwards prints the list at the ordinary
- *  margins. */
+/** Reflects the `#starters` fragment into the `starters` body class, the
+ *  sheet's own tighter page box, and the document title — so a PDF saved
+ *  from the checklist view is named after the sheet.
+ *
+ *  All of it runs on navigation, none of it on printing. The version this
+ *  replaced added the class and called `window.print()` in one go and undid
+ *  the lot on `afterprint`; on WebKit neither end of that is dependable, and
+ *  an iPhone tapping the button got the ordinary entry list out of the share
+ *  sheet instead. Printing now has nothing to do with script: the page is
+ *  already the sheet. */
 function renderStartersScript(): string {
   return `<script>(function(){
-var btn=document.getElementById('starters-print');
-if(!btn)return;
-var on=false,title=document.title;
+var title=document.title;
 var h1=document.querySelector('h1');
 var pageCss=document.getElementById('starters-page');
-btn.addEventListener('click',function(){
-  on=true;
-  document.body.classList.add('starters');
-  if(pageCss)pageCss.media='print';
-  document.title='Starters checklist'+(h1?' \\u2014 '+h1.textContent:'');
-  window.print();
-});
-window.addEventListener('afterprint',function(){
-  if(!on)return;
-  on=false;
-  document.body.classList.remove('starters');
-  if(pageCss)pageCss.media='not all';
-  document.title=title;
-});
+function apply(){
+  var on=location.hash==='#starters';
+  document.body.classList.toggle('starters',on);
+  if(pageCss)pageCss.media=on?'print':'not all';
+  document.title=on?('Starters checklist'+(h1?' \\u2014 '+h1.textContent:'')):title;
+}
+apply();
+window.addEventListener('hashchange',apply);
 })();</script>`;
 }
 

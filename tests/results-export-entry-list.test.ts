@@ -146,7 +146,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('>Red</th>');
     expect(html).toContain('>Blue</th>');
     expect(html).toContain('<td class="tick"></td><td class="sail">201</td>');
-    expect(html).toContain('Print starters checklist');
+    expect(html).toContain('href="#starters">Starters checklist</a>');
   });
 
   it('leaves the recorder room to write on the checklist', async () => {
