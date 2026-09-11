@@ -161,9 +161,11 @@ export default function Publishing() {
               <code className="text-foreground text-sm">/public_html/results/fleet-a.html</code>),
               and click <strong className="text-foreground">Upload</strong>. The series remembers
               this choice and reopens in FTP mode next time — switch back to{' '}
-              <strong className="text-foreground">Sail Scoring pages</strong> whenever you like. A
-              multi-fleet series shows one path per fleet, each with a checkbox, so you can upload
-              just the fleets you tick.
+              <strong className="text-foreground">Sail Scoring pages</strong> whenever you like.
+              A series that publishes several pages shows one path per page — each fleet, each
+              extra page, the prize list, the entry list — every one with a checkbox, so you can
+              upload just the pages you tick. The two destinations offer the same pages: what
+              you can put on Sail Scoring’s pages, you can put on your own site.
             </p>
             <p>
               If the upload fails, the raw FTP error from the server is shown — this is usually
