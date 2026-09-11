@@ -11,7 +11,7 @@ import { useStartCheckIn } from '@/hooks/use-start-check-in';
 import { seriesRowMutationKey, useSeries } from '@/hooks/use-series';
 import { competitorRowMutationKey, useCompetitorsBySeries, useUpdateCompetitorsField } from '@/hooks/use-competitors';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
-import { useRace, useRacesBySeries, useSaveRace } from '@/hooks/use-races';
+import { useRace, useRacesBySeries, useSaveRaceFields } from '@/hooks/use-races';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import {
@@ -126,7 +126,9 @@ export default function ResultEntryPage({
   const saveFinish = useSaveFinish();
   const saveFinishes = useSaveFinishes();
   const deleteFinish = useDeleteFinish();
-  const saveRace = useSaveRace();
+  // Every header edit goes through this rather than spreading the render's
+  // `race`, so two quick edits don't write each other's stale fields back.
+  const saveRaceFields = useSaveRaceFields(raceId);
   // Counted into the autosave badge below — these fire from the resolve
   // dialog, which owns its own mutations rather than the page's.
   const competitorSavesInFlight = useIsMutating({ mutationKey: competitorRowMutationKey });
@@ -387,10 +389,10 @@ export default function ResultEntryPage({
         race={race}
         readOnly={readOnly}
         onSaveName={async (name) => {
-          await saveRace.mutateAsync({ ...race, name });
+          await saveRaceFields({ name });
         }}
         onSaveDate={async (date) => {
-          await saveRace.mutateAsync({ ...race, date });
+          await saveRaceFields({ date });
         }}
         isSaving={isSaving}
         lastFinisher={
@@ -401,7 +403,7 @@ export default function ResultEntryPage({
               raceStarts={raceStarts}
               readOnly={readOnly}
               onSave={async (lastFinisherTime) => {
-                await saveRace.mutateAsync({ ...race, lastFinisherTime });
+                await saveRaceFields({ lastFinisherTime });
               }}
             />
           ) : undefined
@@ -414,8 +416,7 @@ export default function ResultEntryPage({
               open={scoringOptionsOpen}
               onOpenChange={setScoringOptionsOpen}
               onSave={async ({ discardPolicy, pointsMultiplier }) => {
-                await saveRace.mutateAsync({
-                  ...race,
+                await saveRaceFields({
                   discardPolicy: discardPolicy === 'normal' ? undefined : discardPolicy,
                   pointsMultiplier: pointsMultiplier === 1 ? undefined : pointsMultiplier,
                 });
@@ -431,7 +432,7 @@ export default function ResultEntryPage({
               open={raceRecordOpen}
               onOpenChange={setRaceRecordOpen}
               onSave={async ({ conditions, officials }) => {
-                await saveRace.mutateAsync({ ...race, conditions, officials });
+                await saveRaceFields({ conditions, officials });
               }}
             />
           ) : undefined
@@ -505,7 +506,7 @@ export default function ResultEntryPage({
           enabledCompetitorFields={enabledCompetitorFields}
           finishRecording={race?.finishRecording}
           onSetFinishRecording={readOnly ? undefined : (mode) => {
-            void saveRace.mutateAsync({ ...race, finishRecording: mode });
+            void saveRaceFields({ finishRecording: mode });
           }}
           derived={derived}
           savedFinishes={savedFinishes}

@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { Pencil } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
+import { useInlineEdit } from '@/hooks/use-inline-edit';
 
 /** Inline editor for a race's optional name (a human label distinct from the
  *  number). Renders the name as a subtle button that swaps to a text input on
  *  click; commits on blur/Enter, cancels on Escape. An empty value clears the
- *  name. Read-only series show plain text (or nothing when unnamed). */
+ *  name. A save that fails keeps the typed name and says so. Read-only series
+ *  show plain text (or nothing when unnamed). */
 export function RaceNameEditor({
   race,
   readOnly,
@@ -18,54 +19,53 @@ export function RaceNameEditor({
   readOnly: boolean;
   onSave: (name: string | null) => Promise<void>;
 }) {
-  // `draft === null` means not editing; otherwise it holds the in-progress
-  // value (a string, possibly empty). Kept separate from the `race.name` prop
-  // so an update underneath us doesn't clobber the edit buffer.
-  const [draft, setDraft] = useState<string | null>(null);
+  // The buffer holds the raw typed string; the trim to null-or-value happens
+  // on the way to the save, so an edit down to blank still clears the name.
+  const { draft, setDraft, begin, cancel, commit, saving, error } = useInlineEdit({
+    value: race.name ?? '',
+    onSave: async (next) => {
+      const trimmed = next.trim();
+      await onSave(trimmed === '' ? null : trimmed);
+    },
+  });
 
   if (readOnly) {
     return race.name ? <p className="text-base font-medium">{race.name}</p> : null;
   }
 
-  async function commit() {
-    const next = draft;
-    setDraft(null);
-    if (next === null) return;
-    const trimmed = next.trim();
-    const normalized = trimmed === '' ? null : trimmed;
-    if (normalized !== race.name) {
-      await onSave(normalized);
-    }
-  }
-
   if (draft !== null) {
     return (
-      <Input
-        type="text"
-        autoFocus
-        value={draft}
-        placeholder="Race name"
-        aria-label={`Name for Race ${race.raceNumber}`}
-        className="h-7 w-auto text-sm"
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            void commit();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            setDraft(null);
-          }
-        }}
-      />
+      <div>
+        <Input
+          type="text"
+          autoFocus
+          value={draft}
+          disabled={saving}
+          aria-invalid={error !== null}
+          placeholder="Race name"
+          aria-label={`Name for Race ${race.raceNumber}`}
+          className="h-7 w-auto text-sm"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void commit();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+        />
+        {error && <p className="text-xs text-destructive mt-0.5">{error}</p>}
+      </div>
     );
   }
 
   return (
     <button
       type="button"
-      onClick={() => setDraft(race.name ?? '')}
+      onClick={() => begin(race.name ?? '')}
       className="group flex items-center gap-1 text-base font-medium hover:text-foreground"
       aria-label={`Edit name for Race ${race.raceNumber}`}
     >

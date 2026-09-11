@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { raceRepo } from '@/lib/api-repository';
@@ -61,6 +62,26 @@ export function useSaveRace() {
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
   });
+}
+
+/**
+ * Save a patch over the race's row as it is cached *now*, rather than over
+ * whatever a render captured. The result-entry header edits several fields
+ * from separate controls, and spreading a stale `race` writes a sibling
+ * field back to its pre-edit value — which reads to the scorer as an edit
+ * that undid itself.
+ */
+export function useSaveRaceFields(raceId: string): (patch: Partial<Race>) => Promise<void> {
+  const qc = useQueryClient();
+  const { mutateAsync } = useSaveRace();
+  return useCallback(
+    async (patch: Partial<Race>) => {
+      const current = qc.getQueryData<Race | null>(queryKeys.races.detail(raceId));
+      if (!current) throw new Error('The race is still loading. Try again.');
+      await mutateAsync({ ...current, ...patch });
+    },
+    [qc, raceId, mutateAsync],
+  );
 }
 
 /**
