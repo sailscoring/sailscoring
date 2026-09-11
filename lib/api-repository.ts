@@ -914,6 +914,25 @@ export async function unpublishSeries(seriesId: string): Promise<void> {
   await apiFetch(`/api/v1/series/${seriesId}/publish`, { method: 'DELETE' });
 }
 
+/**
+ * Retract one page of this series' publication, leaving every other page live.
+ * `subPath` is the page's path under the slug, as it appears in its public URL
+ * — a sub-series page carries two segments.
+ *
+ * This is how a published page's URL changes: a live page's sub-path is frozen,
+ * so the page comes down, unfreezes, and goes back up at the new path on the
+ * next publish.
+ */
+export async function retractPublishedPage(
+  seriesId: string,
+  subPath: string,
+): Promise<void> {
+  const path = subPath.split('/').map(encodeURIComponent).join('/');
+  await apiFetch(`/api/v1/series/${seriesId}/publish/page/${path}`, {
+    method: 'DELETE',
+  });
+}
+
 /** Every publication in the active workspace — the "Published" management page
  *  (#164), including orphaned snapshots. */
 export function listPublished(): Promise<PublishedListItem[]> {
