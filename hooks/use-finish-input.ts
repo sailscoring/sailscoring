@@ -13,6 +13,7 @@ import {
   type MatchTier,
   type NonFinisherView,
 } from '@/lib/finish-entry';
+import { competitorFleetNames } from '@/lib/competitor-fields';
 import { matchSailEntry, registeredSailForEntry } from '@/lib/rating-match';
 import { ordinal } from '@/lib/ordinal';
 import { formatElapsedInput, normalizeTimeInput, parseElapsedInput } from '@/lib/time-parse';
@@ -341,10 +342,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       return;
     }
     if (isHandicapSeries && !hasStartForRace(competitor.id)) {
-      const fleetNames = competitor.fleetIds
-        .map((id) => fleetById.get(id)?.name)
-        .filter(Boolean)
-        .join(', ');
+      const fleetNames = competitorFleetNames(competitor.fleetIds, fleetById).join(', ');
       setSailInput('');
       setHighlightedIndex(-1);
       setPendingUnknownSail(null);

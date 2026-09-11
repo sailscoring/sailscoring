@@ -12,7 +12,7 @@ import { additionKey, type FleetAdditionCandidate } from '@/lib/source-handicaps
 import type { Competitor, Fleet } from '@/lib/types';
 
 import { SelectAllCheckbox, describeMatch, systemLabel } from './shared';
-import { formatPrimaryNames } from '@/lib/competitor-fields';
+import { competitorFleetNames, formatPrimaryNames } from '@/lib/competitor-fields';
 import { formatRatingValue } from '@/lib/competitor-ratings';
 
 /** Whether a candidate has everything an apply needs: somewhere to go, and a
@@ -89,9 +89,7 @@ export function AddToFleetSection({
             // The fleets the boat is already in are what tell the scorer which
             // target fleet to pick — a boat in "Cruisers 1 (NHC)" belongs in
             // "Cruisers 1 (IRC)".
-            const currentFleets = (comp?.fleetIds ?? [])
-              .map((id) => targetFleetById.get(id)?.name)
-              .filter((name): name is string => name !== undefined);
+            const currentFleets = competitorFleetNames(comp?.fleetIds ?? [], targetFleetById);
             const appliable = canApply(c);
             return (
               <TableRow key={key}>
