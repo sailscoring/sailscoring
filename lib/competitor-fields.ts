@@ -110,17 +110,43 @@ export function displayCompetitorLabel(
   return person;
 }
 
-/** Names of every fleet a competitor belongs to, in stored order. A boat can be
- *  entered in more than one fleet (e.g. a handicap fleet and a scratch fleet
- *  sharing a start); callers should reflect all of them, not just the first.
- *  Unresolvable ids are dropped. */
+/**
+ * The fleets a competitor belongs to, in the series' own fleet order.
+ * Unresolvable ids are dropped.
+ *
+ * Ordered here rather than by the caller because `fleetIds` order is an
+ * accident of how membership came to be written — a CSV import writes the
+ * order the fleet names first appear in the file, adding a fleet by hand
+ * appends, and an import that correctly skips an unchanged row leaves
+ * whatever order that row already had. A series can end up holding several
+ * orders at once, so two boats with identical membership read differently in
+ * the same table. Membership order is not data.
+ *
+ * `displayOrder` decides, with the name as tiebreak: fleets can share a
+ * `displayOrder` in older data (see the self-heal in
+ * `components/series-settings/fleets-card.tsx`), and `sort` being stable
+ * would otherwise quietly fall back to `fleetIds` order for exactly those
+ * series.
+ */
+export function competitorFleets<T extends Pick<Fleet, 'name' | 'displayOrder'>>(
+  fleetIds: readonly string[],
+  fleetById: Map<string, T>,
+): T[] {
+  return fleetIds
+    .map((id) => fleetById.get(id))
+    .filter((f): f is T => f != null)
+    .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+}
+
+/** Names of every fleet a competitor belongs to, in the series' own fleet
+ *  order (see {@link competitorFleets}). A boat can be entered in more than
+ *  one fleet (e.g. a handicap fleet and a scratch fleet sharing a start);
+ *  callers should reflect all of them, not just the first. */
 export function competitorFleetNames(
   fleetIds: readonly string[],
-  fleetById: Map<string, Pick<Fleet, 'name'>>,
+  fleetById: Map<string, Pick<Fleet, 'name' | 'displayOrder'>>,
 ): string[] {
-  return fleetIds
-    .map((id) => fleetById.get(id)?.name)
-    .filter((name): name is string => name != null);
+  return competitorFleets(fleetIds, fleetById).map((f) => f.name);
 }
 
 /** Canonical ordering of all configurable competitor fields. The settings UI

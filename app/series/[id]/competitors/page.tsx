@@ -94,6 +94,7 @@ import {
   formatClubs,
   formatPrimaryNames,
   cleanSubdivisions,
+  competitorFleetNames,
   parseAlternativeSailNumbers,
   formatAlternativeSailNumbers,
 } from '@/lib/competitor-fields';
@@ -673,8 +674,10 @@ export default function CompetitorsPage({
     compare: (a: Competitor, b: Competitor) => number,
   ): SortableColumn<Competitor> => ({ id, compare });
   const names = (values: string[] | undefined) => (values ?? []).filter((n) => n.trim()).join(' ');
+  // Sorted on what the cell shows — the fleets in the series' own order, not
+  // in the order this boat's membership happened to be written.
   const fleetNames = (c: Competitor) =>
-    c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ');
+    competitorFleetNames(c.fleetIds, fleetById).join(', ');
   // The rating cell renders a display string, with an em dash where the boat
   // has no certificate. Sort on the number behind it, and treat the dash as
   // the blank it stands for.
@@ -1035,7 +1038,7 @@ export default function CompetitorsPage({
                 {showCrew && <TableCell className="whitespace-normal break-words">{(c.crewNames ?? []).map((n, i) => <div key={i}>{n}</div>)}</TableCell>}
                 {showClub && <TruncatedCell value={formatClubs(c.clubs)} />}
                 {showNationality && <TableCell className="font-mono">{c.nationality ?? ''}</TableCell>}
-                {multipleFleets && <TableCell className="whitespace-normal break-words">{c.fleetIds.map((id) => fleetById.get(id)?.name ?? '').join(', ')}</TableCell>}
+                {multipleFleets && <TableCell className="whitespace-normal break-words">{fleetNames(c)}</TableCell>}
                 {showRating && (
                   <TableCell className="font-mono">
                     {(() => {

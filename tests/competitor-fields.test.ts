@@ -150,22 +150,36 @@ describe('displayCompetitorLabel', () => {
 
 describe('competitorFleetNames', () => {
   const fleetById = new Map([
-    ['f-hph', { name: 'Puppeteer HPH' }],
-    ['f-scr', { name: 'Puppeteer Scr' }],
+    ['f-hph', { name: 'Puppeteer HPH', displayOrder: 1 }],
+    ['f-scr', { name: 'Puppeteer Scr', displayOrder: 0 }],
   ]);
 
-  it('returns every fleet a competitor belongs to, in stored order', () => {
+  it('returns every fleet a competitor belongs to, in the series fleet order', () => {
     expect(competitorFleetNames(['f-hph', 'f-scr'], fleetById)).toEqual([
-      'Puppeteer HPH',
       'Puppeteer Scr',
+      'Puppeteer HPH',
     ]);
   });
 
-  it('preserves order rather than always leading with the first-registered fleet', () => {
-    expect(competitorFleetNames(['f-scr', 'f-hph'], fleetById)).toEqual([
-      'Puppeteer Scr',
-      'Puppeteer HPH',
+  it('reads the same whichever order membership was written in', () => {
+    // The bug this replaced: an import writes one order, adding a fleet by
+    // hand writes another, and two boats in the same two fleets ended up
+    // spelled differently in the same table.
+    expect(competitorFleetNames(['f-scr', 'f-hph'], fleetById)).toEqual(
+      competitorFleetNames(['f-hph', 'f-scr'], fleetById),
+    );
+  });
+
+  it('falls back to the name when two fleets share a displayOrder', () => {
+    // Older data can hold duplicates (a historical race through ensureFleet);
+    // a bare displayOrder sort is stable, so it would quietly keep stored
+    // order for exactly those series.
+    const shared = new Map([
+      ['f-b', { name: 'Beta', displayOrder: 0 }],
+      ['f-a', { name: 'Alpha', displayOrder: 0 }],
     ]);
+    expect(competitorFleetNames(['f-b', 'f-a'], shared)).toEqual(['Alpha', 'Beta']);
+    expect(competitorFleetNames(['f-a', 'f-b'], shared)).toEqual(['Alpha', 'Beta']);
   });
 
   it('returns a single name for a single-fleet competitor', () => {
