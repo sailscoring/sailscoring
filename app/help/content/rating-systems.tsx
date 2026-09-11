@@ -246,6 +246,11 @@ export default function RatingSystems() {
       </Section>
       )}
       <Section id="fixed-tcf" title="A club handicap fixed for the series">
+        <HelpShot
+          src="/help/shots/fixed-tcf.webp"
+          alt="A fleet scored on a fixed club handicap, called HPH."
+          caption="A fleet scored on a fixed club handicap, called HPH."
+        />
         <p>
           Some clubs handicap their own racing. A committee sets a number per boat
           before the series — from last season’s results, from the handicapper’s
