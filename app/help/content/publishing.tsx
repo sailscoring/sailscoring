@@ -119,6 +119,21 @@ export default function Publishing() {
           publish dialog.
         </p>
         <p>
+          <strong className="text-foreground">Changing a page’s URL:</strong>{' '}
+          a page’s URL is fixed once it is published — people bookmark it and clubs link to
+          it, so it must not move under them by accident. To change one anyway, click the
+          pencil beside the page in the <strong className="text-foreground">Publish</strong>{' '}
+          dialog. That page comes down straight away and its URL segment becomes editable
+          again, filled in with what it had; edit it and publish, and the page returns at the
+          new URL. Every other page of the series stays live throughout — only the page you
+          are moving is offline, and only until you publish again. The old URL stops working
+          for good, so this is worth doing promptly, while the address is still fresh, rather
+          than months into a season. If the page is the only one the series has published,
+          there is nothing to leave live: use{' '}
+          <strong className="text-foreground">Unpublish</strong> instead, then publish again at
+          the URL you want.
+        </p>
+        <p>
           <strong className="text-foreground">Managing published pages:</strong>{' '}
           the <strong className="text-foreground">Published</strong> tab on the workspace pages
           lists every page your workspace has published, with its public URL, when it was last
