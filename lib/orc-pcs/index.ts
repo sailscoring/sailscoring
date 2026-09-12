@@ -10,3 +10,4 @@ export {
   type PcsRaceInput,
   type PcsRaceResult,
 } from './pcs';
+export { buildCubicSpline, splineInterpolate, type SplineCoefficients } from './spline';
