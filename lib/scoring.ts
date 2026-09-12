@@ -1244,16 +1244,22 @@ function emptyStandings(competitors: Competitor[]): Standing[] {
  * still scores the race (came-to-start + 1), matching how a multi-fleet sheet
  * is published.
  */
+/** Whether anyone sailed this race — one boat with a result and no code. A
+ *  race with nothing in it yet reads the same as one nobody finished, and the
+ *  difference matters to what the scorer is told about it. */
+function raceWasHeld(allRaceFinishes: Finish[]): boolean {
+  return allRaceFinishes.some(
+    (f) => f.resultCode === null
+      && (f.finishTime != null || f.elapsedSecs != null || f.sortOrder !== null),
+  );
+}
+
 function computeRaceExclusion(
   allRaceFinishes: Finish[],
   fleetFinishes: Finish[],
 ): boolean {
-  const raceHeld = allRaceFinishes.some(
-    (f) => f.resultCode === null
-      && (f.finishTime != null || f.elapsedSecs != null || f.sortOrder !== null),
-  );
   const fleetCameToStart = fleetFinishes.some((f) => f.resultCode !== 'DNC');
-  return !(raceHeld && fleetCameToStart);
+  return !(raceWasHeld(allRaceFinishes) && fleetCameToStart);
 }
 
 /**
@@ -1926,18 +1932,26 @@ function calculateHandicapStandings(
     raceExcluded[raceIdx] = computeRaceExclusion(raceFinishes, fleetRaceFinishes) || forcedExcluded;
 
     // Nobody in this race is scored: the option it resolved to corrects over a
-    // course the start doesn't carry. Reported only for a race that counts for
-    // the fleet — one it didn't sail is a column of nothing either way, and
-    // saying a course is missing from a race this fleet never started tells
-    // the scorer to fix something that isn't holding anything up.
+    // course the start doesn't carry.
     //
-    // It is then excluded, like a race nobody finished. Left to score, every
-    // boat in it takes a DNC — boats that started, sailed and crossed the line
-    // carrying the code for not coming to the start, in a race the scorer is
-    // still assembling. A race waiting for its course hasn't been scored yet;
-    // that is what the standings should say, and `raceNotScored` is what tells
-    // the page to say it in those words rather than "nobody finished".
-    if (orcCourseMissing && !raceExcluded[raceIdx]) {
+    // Two of this fleet's races have nothing to say about a course, and they
+    // are not the same as each other. A race the fleet sat out while others
+    // sailed it is settled — the course would change nothing for them, and
+    // naming it sends the scorer after a course that is holding nothing up.
+    // A race struck for the fleet is settled the same way. But a race with
+    // nothing entered in it at all is not settled, it is unstarted work: the
+    // scorer has laid a start and not yet a course, and that is precisely when
+    // being told so is worth something.
+    //
+    // A reported race is then excluded, like a race nobody finished. Left to
+    // score, every boat in it takes a DNC — boats that started, sailed and
+    // crossed the line carrying the code for not coming to the start, in a
+    // race the scorer is still assembling. A race waiting for its course
+    // hasn't been scored yet; that is what the standings should say, and
+    // `raceNotScored` is what tells the page to say it in those words rather
+    // than "nobody finished".
+    const fleetSatOutAHeldRace = raceExcluded[raceIdx] && raceWasHeld(raceFinishes);
+    if (orcCourseMissing && !forcedExcluded && !fleetSatOutAHeldRace) {
       raceGaps.push({
         raceId: race.id,
         fleetId: fleet.id,

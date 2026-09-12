@@ -177,6 +177,17 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     expect(didNot.raceGaps).toEqual([]);
   });
 
+  it('a race with nothing entered in it yet still says the course is missing', () => {
+    // Not the same as the fleet sitting out a race that happened: the scorer
+    // has laid a start and not yet a course, and nobody has finished anything.
+    // That is unstarted work, and the moment the warning is worth having.
+    const result = calculateFleetStandings(
+      [todFleet], [impetuous, mojo], races, [], [], 'seriesEntries',
+      [{ ...start, startTime: '15:15:00' }],
+    );
+    expect(result.fleetStandings[0].raceGaps.map((g) => g.reason)).toEqual(['orc_course_missing']);
+  });
+
   it('a certificate lacking the ToD field leaves the boat unrated', () => {
     const noField: Competitor = { ...baseComp, id: 'nf', sailNumber: 'X', orcCert: { record: { APHT: 0.95 }, importedAt: 0 } };
     const todStart: RaceStart = { ...start, distanceNm: 3.24 };
