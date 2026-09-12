@@ -671,7 +671,14 @@ export default function RacesPage({
         startTime: start.startTime,
       }));
       log('races', 'adding with starts', race);
-      await generateRaces.mutateAsync({ races: [race], starts });
+      try {
+        await generateRaces.mutateAsync({ races: [race], starts });
+      } catch {
+        // The create is one transaction, so a failure leaves nothing behind.
+        // Say so in the dialog rather than letting the button look inert.
+        setNewRaceError("The race couldn't be created. Nothing was saved — try again.");
+        return;
+      }
 
       // The race was created appended, so an insert reorders it into place
       // afterwards and the tail renumbers.
