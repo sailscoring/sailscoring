@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { HelpHint } from '@/components/help-panel/hint';
 import { Input } from '@/components/ui/input';
 import type { NhcProfile } from '@/lib/types';
 import { DEFAULT_NHC_PROFILE } from '@/lib/scoring';
@@ -169,25 +170,40 @@ function NhcProfileForm({
       <DialogHeader>
         <DialogTitle>NHC parameters — {fleetName}</DialogTitle>
         <DialogDescription>
-          Override the SWNHC2015 blend rates and extreme thresholds for this fleet.
-          Defaults reproduce Sailwave NHC1 to 3 dp. Editing recomputes the fleet&apos;s
-          handicap history automatically.
+          Each blend rate is how far a boat&apos;s handicap moves after a race towards
+          the one that would have put it on the fleet average — raise them and ratings
+          chase recent form, lower them and they barely move. The defaults are
+          SWNHC2015 and reproduce Sailwave NHC1 to 3 dp; editing them recomputes this
+          fleet&apos;s handicap history from race 1.
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-4 py-2 text-sm">
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Blend rates</p>
+          <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+            Blend rates
+            <HelpHint
+              chapter="rating-systems"
+              section="tuning-progressive-handicaps"
+              label="the NHC blend rates"
+            />
+          </p>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="α non-extreme over" hint="α_p, default 0.300" id="alphaP" value={form.alphaP} onChange={update} error={errors.alphaP} />
-            <Field label="α non-extreme under" hint="α_n, default 0.150" id="alphaN" value={form.alphaN} onChange={update} error={errors.alphaN} />
-            <Field label="α extreme over" hint="α_px, default 0.150" id="alphaPX" value={form.alphaPX} onChange={update} error={errors.alphaPX} />
-            <Field label="α extreme under" hint="α_nx, default 0.075" id="alphaNX" value={form.alphaNX} onChange={update} error={errors.alphaNX} />
+            <Field label="α non-extreme over" hint="α_p, default 0.300 — beat its rating" id="alphaP" value={form.alphaP} onChange={update} error={errors.alphaP} />
+            <Field label="α non-extreme under" hint="α_n, default 0.150 — fell short" id="alphaN" value={form.alphaN} onChange={update} error={errors.alphaN} />
+            <Field label="α extreme over" hint="α_px, default 0.150 — outlier, beat it" id="alphaPX" value={form.alphaPX} onChange={update} error={errors.alphaPX} />
+            <Field label="α extreme under" hint="α_nx, default 0.075 — outlier, fell short" id="alphaNX" value={form.alphaNX} onChange={update} error={errors.alphaNX} />
           </div>
         </div>
 
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Extreme thresholds (SDs of S = Q/H)</p>
+          <p className="text-xs font-medium text-muted-foreground mb-1">
+            Extreme thresholds (SDs of S = Q/H)
+          </p>
+          <p className="text-[11px] text-muted-foreground mb-2">
+            How far from the fleet mean a boat&apos;s race has to be before it counts as
+            a one-off and moves at the halved extreme rates.
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="σ over" hint="default 1.5" id="sdOver" value={form.sdOver} onChange={update} error={errors.sdOver} />
             <Field label="σ under" hint="default 1.0" id="sdUnder" value={form.sdUnder} onChange={update} error={errors.sdUnder} />
@@ -196,7 +212,7 @@ function NhcProfileForm({
 
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-1">Minimum finishers</p>
-          <Field label="MinFin" hint="default 3 — skip update if fewer finish" id="minFin" value={form.minFin} onChange={update} error={errors.minFin} step="1" />
+          <Field label="MinFin" hint="default 3 — fewer finishers, no rating changes at all" id="minFin" value={form.minFin} onChange={update} error={errors.minFin} step="1" />
         </div>
       </div>
 

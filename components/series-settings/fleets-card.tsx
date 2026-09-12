@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useFeatures } from '@/components/features-provider';
+import { HelpHint } from '@/components/help-panel/hint';
 import {
   competitorRepo,
   raceRepo,
@@ -454,6 +455,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                         }}
                         title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
                       />
+                      <HelpHint
+                        chapter="rating-systems"
+                        section="tuning-progressive-handicaps"
+                        label="the ECHO blend rate"
+                      />
                     </label>
                   )}
                   {fleet.scoringSystem === 'tcf' && (
@@ -585,6 +591,17 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
           )}
         </SortableList>
       </div>
+      {/* The α box is too small to say what it does, and a tooltip is no use
+          to anyone on a touch screen. One line under the list, once, however
+          many ECHO fleets there are. */}
+      {sorted.some((f) => f.scoringSystem === 'echo') && (
+        <p className="text-xs text-muted-foreground" data-testid="echo-alpha-note">
+          α is how far a boat&apos;s handicap moves after each race towards the one that
+          would have put it on the fleet average — 0.25 (Irish Sailing&apos;s club
+          figure) settles ratings over a season, 0.50 (its regatta figure) makes them
+          chase recent form.
+        </p>
+      )}
       {addingFleet ? (
         <div className="flex items-center gap-2">
           <input
