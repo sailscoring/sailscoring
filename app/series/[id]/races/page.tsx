@@ -22,7 +22,6 @@ import { useRaceSenseImport } from '@/hooks/use-racesense-import';
 import { pickableFleets } from '@/lib/split-fleets';
 import { useFinishesByRace, useFinishesBySeries } from '@/hooks/use-finishes';
 import { LastFinisherStrip } from '@/components/last-finisher-strip';
-import { useSaveRaceStarts } from '@/hooks/use-race-starts';
 import {
   useCreateSubSeries,
   useDeleteSubSeries,
@@ -351,10 +350,8 @@ export default function RacesPage({
   const { data: series } = useSeries(seriesId);
   const { data: fleets } = useFleetsBySeries(seriesId);
   const { data: subSeriesList } = useSubSeriesBySeries(seriesId);
-  const saveRace = useSaveRace();
   const generateRaces = useGenerateRaces(seriesId);
   const reorderRaces = useReorderRaces(seriesId);
-  const saveRaceStarts = useSaveRaceStarts();
   const createSubSeries = useCreateSubSeries();
   const saveSubSeries = useSaveSubSeries();
   const deleteSubSeries = useDeleteSubSeries();
@@ -376,9 +373,8 @@ export default function RacesPage({
   // at that index (Insert race above / below).
   const [insertAt, setInsertAt] = useState<number | null>(null);
   // Local in-flight guard for Add race. Covers the `listBySeries` →
-  // `saveRace.mutateAsync` window where `saveRace.isPending` is still
-  // false but a second click would compute the same raceNumber and
-  // 500 on the (series_id, race_number) unique index.
+  // `generateRaces.mutateAsync` window where the mutation's own `isPending`
+  // is still false, so a double click can't create two races.
   const [addingRace, setAddingRace] = useState(false);
 
   // Recurring race generator ("Add multiple races") dialog state.
@@ -536,13 +532,18 @@ export default function RacesPage({
       // Dated from the races the new one lands after — or, inserting above
       // the first race, from that first race.
       const before = index > 0 ? races.slice(0, index) : races.slice(0, 1);
-      await saveRace.mutateAsync({
-        id: newId,
-        seriesId,
-        raceNumber: races.length + 1,
-        name: null,
-        date: newRaceDate(before),
-        createdAt: Date.now(),
+      await generateRaces.mutateAsync({
+        races: [{
+          id: newId,
+          seriesId,
+          // The server numbers an appended race from the series' current
+          // max; this is only an ordering hint.
+          raceNumber: races.length + 1,
+          name: null,
+          date: newRaceDate(before),
+          createdAt: Date.now(),
+        }],
+        starts: [],
       });
       const ids = races.map((r) => r.id);
       ids.splice(index, 0, newId);
@@ -616,7 +617,6 @@ export default function RacesPage({
     setAddingRace(true);
     try {
       const existingRaces = await raceRepo.listBySeries(seriesId);
-      const nextNumber = existingRaces.length + 1;
       // Inserting: dated from the races the new one lands after — or, going
       // in above the first race, from that first race.
       const datedFrom = insertAt === null
@@ -625,13 +625,14 @@ export default function RacesPage({
       const race: Race = {
         id: crypto.randomUUID(),
         seriesId,
-        raceNumber: nextNumber,
+        // Hint only — the server assigns the authoritative number.
+        raceNumber: existingRaces.length + 1,
         name: null,
         date: newRaceDate(datedFrom),
         createdAt: Date.now(),
       };
       log('races', 'adding', race);
-      await saveRace.mutateAsync(race);
+      await generateRaces.mutateAsync({ races: [race], starts: [] });
     } finally {
       setAddingRace(false);
     }
@@ -652,28 +653,25 @@ export default function RacesPage({
     setAddingRace(true);
     try {
       const existingRaces = await raceRepo.listBySeries(seriesId);
-      const nextNumber = existingRaces.length + 1;
       const race: Race = {
         id: crypto.randomUUID(),
         seriesId,
-        raceNumber: nextNumber,
+        // Hint only — the server assigns the authoritative number.
+        raceNumber: existingRaces.length + 1,
         name: null,
         date: newRaceDate(existingRaces),
         createdAt: Date.now(),
       };
+      // The race and the starts its sequence generates go in one call, so
+      // the two land together or not at all.
+      const starts = generateStarts(startSequence!, normalized).map((start) => ({
+        id: crypto.randomUUID(),
+        raceId: race.id,
+        fleetIds: start.fleetIds,
+        startTime: start.startTime,
+      }));
       log('races', 'adding with starts', race);
-      await saveRace.mutateAsync(race);
-
-      // Create RaceStart records from the start sequence
-      const starts = generateStarts(startSequence!, normalized);
-      await saveRaceStarts.mutateAsync(
-        starts.map((start) => ({
-          id: crypto.randomUUID(),
-          raceId: race.id,
-          fleetIds: start.fleetIds,
-          startTime: start.startTime,
-        })),
-      );
+      await generateRaces.mutateAsync({ races: [race], starts });
 
       // The race was created appended, so an insert reorders it into place
       // afterwards and the tail renumbers.
