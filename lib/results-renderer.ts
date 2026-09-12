@@ -430,6 +430,10 @@ export interface RaceScoreData {
   isRedress: boolean;
   /** True when the race had no finishers and was excluded from scoring (issue #129). */
   isExcluded?: boolean;
+  /** Narrows `isExcluded`: the race is out of the standings because it hasn't
+   *  been scored yet — its start carries no course for the fleet's ORC option
+   *  to correct over — rather than because nobody finished it. */
+  isNotScored?: boolean;
   podiumRank: 1 | 2 | 3 | null;
   /** Applied rating for this competitor in this race (NHC TCF / ECHO H).
    *  Surfaced beneath the score when the summary table is rendering per-race
@@ -1391,6 +1395,7 @@ td.excluded { color: #888; text-align: center; }
 .override-marker { color: #b45309; font-weight: bold; margin-left: 1px; cursor: help; }
 .raceoptions { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .penaltylabels { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
+.notscored { font-size: 0.85em; color: #444; margin: -20px auto 30px auto; max-width: 60em; }
 .racelimitnote { font-size: 0.85em; color: #444; margin: 0 auto 24px auto; max-width: 60em; }
 /* The course drawing, folded away: the legs line states the course in words,
    so the picture is there for whoever wants to look at it. */
@@ -1827,7 +1832,10 @@ function renderSummaryTable(
       const scoreCells = s.raceScores
         .map((score) => {
           if (score.isExcluded) {
-            return `<td class="excluded" title="No finishers in this race — excluded from scoring">&mdash;</td>`;
+            const why = score.isNotScored
+              ? 'Not scored yet — this race is waiting for the course its scoring option corrects over'
+              : 'No finishers in this race — excluded from scoring';
+            return `<td class="excluded" title="${esc(why)}">&mdash;</td>`;
           }
           const classes = [
             score.isDiscard ? 'discard' : '',
@@ -1888,6 +1896,11 @@ function renderSummaryTable(
   const labelsLegend = penaltyLabelLegend(
     standings.flatMap((s) => s.raceScores.map((sc) => sc.penaltyLabel ?? '')),
   );
+  // A race still waiting for its course is a dash in every row, the same dash
+  // a race nobody finished leaves. Say which it is: a reader who sailed the
+  // race deserves better than a column that looks abandoned, and the sentence
+  // is also what tells them the standings are not yet the whole story.
+  const notScoredLegend = notYetScoredLegend(standings, races);
 
   return `<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
@@ -1901,7 +1914,7 @@ ${headerCells}
 <tbody>
 ${rows}
 </tbody>
-</table></div>${optionsLegend}${labelsLegend ? `\n${labelsLegend}` : ''}`;
+</table></div>${optionsLegend}${labelsLegend ? `\n${labelsLegend}` : ''}${notScoredLegend ? `\n${notScoredLegend}` : ''}`;
 }
 
 // ---- Race detail table ----
@@ -2368,6 +2381,27 @@ function formatPenaltyLabel(code: PenaltyCode, override: number | null, label?: 
   return `${shown}(${override}%)`;
 }
 
+/** A sentence naming the races left out of these standings because they are
+ *  not scored yet — their start carries no course for the fleet's scoring
+ *  option to correct over. Empty when every race is scored. Read off the
+ *  first row: the flag is a property of the race, not of the competitor. */
+function notYetScoredLegend(
+  standings: { raceScores: RaceScoreData[] }[],
+  races: { label: string }[],
+): string {
+  const first = standings[0];
+  if (!first) return '';
+  const names = first.raceScores
+    .map((sc, i) => (sc.isNotScored ? races[i]?.label : undefined))
+    .filter((label): label is string => !!label);
+  if (names.length === 0) return '';
+  const list = names.length === 1
+    ? names[0]
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  const verb = names.length === 1 ? 'is' : 'are';
+  return `<p class="notscored">${esc(list)} ${verb} not scored yet — waiting for the course the fleet's scoring option corrects over, and left out of these standings until it is entered.</p>`;
+}
+
 /** A sentence naming every scorer-named DPI on a page, so a reader meeting
  *  "TPO" in a score cell can find out what it is. Empty when none is named. */
 function penaltyLabelLegend(labels: Iterable<string>): string {
@@ -2601,6 +2635,7 @@ export function assembleSeriesResultsData(
     netPoints: number;
     raceDiscards: boolean[];
     raceExcluded?: boolean[];
+    raceNotScored?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
   competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData }>,
@@ -2946,6 +2981,7 @@ export function assembleSeriesResultsData(
           isDiscard: s.raceDiscards[i] ?? false,
           isRedress,
           isExcluded: s.raceExcluded?.[i] ?? false,
+          ...(s.raceNotScored?.[i] ? { isNotScored: true } : {}),
           podiumRank,
           ...(appliedRating != null ? { appliedRating } : {}),
         };

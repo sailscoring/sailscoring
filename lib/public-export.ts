@@ -490,6 +490,11 @@ export interface PublicSeriesExport {
       raceRedressFlags: boolean[];
       /** This race is out of the boat's score: 0 points, no discard. */
       raceExcluded: boolean[];
+      /** Narrows `raceExcluded`: the race is out because it is not scored
+       *  yet — its start carries no course for the fleet's ORC option to
+       *  correct over — rather than because it was not sailed. Sparse:
+       *  present only where a race in the fleet is waiting on one. */
+      raceNotScored?: boolean[];
       /** A championship's carried score — the qualifying position carried
        *  into the final series, or the medal boats' compressed opening
        *  score. It belongs to no race, and is never discardable. Present
@@ -1237,6 +1242,7 @@ export function buildPublicExportFromSnapshot(
           raceNonDiscardable: s.raceNonDiscardable,
           raceRedressFlags: s.raceRedressFlags,
           raceExcluded: s.raceExcluded,
+          ...(s.raceNotScored?.some(Boolean) ? { raceNotScored: s.raceNotScored } : {}),
           totalPoints: s.totalPoints,
           netPoints: s.netPoints,
         })),

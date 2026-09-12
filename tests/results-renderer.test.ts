@@ -918,6 +918,34 @@ describe('renderSeriesHtml per-race table (#130)', () => {
     expect(body).not.toContain('>99<');
   });
 
+  it('says a race is not scored yet rather than leaving it an unexplained dash', () => {
+    // The same em-dash a race nobody finished leaves, and the reader sailed
+    // this one: the page has to say which of the two it is looking at.
+    const notScored = (points: number) => ({
+      points, resultCode: null, isDiscard: false, isRedress: false,
+      penaltyCode: null, penaltyOverride: null, podiumRank: null,
+      isExcluded: true, isNotScored: true,
+    });
+    const data: SeriesResultsData = {
+      series: { name: 'S', venue: '' },
+      enabledCompetitorFields: [],
+      races: [makeRace(1, [['1', 'A', 1, null]]), makeRace(2, [['1', 'A', 1, null]])],
+      standings: [
+        {
+          ...makeStanding(1, '1', 'A', [{ points: 1, podiumRank: 1 }]),
+          raceScores: [
+            { points: 1, resultCode: null, isDiscard: false, isRedress: false, penaltyCode: null, penaltyOverride: null, podiumRank: 1 },
+            notScored(0),
+          ],
+        },
+      ],
+    };
+    const html = renderSeriesHtml(data);
+    expect(html).toContain('Not scored yet — this race is waiting for the course');
+    expect(html).not.toContain('No finishers in this race');
+    expect(html).toContain('R2 is not scored yet — waiting for the course');
+  });
+
   it('omits the race section entirely when no competitor has an explicit Finish for that race', () => {
     // Race 2 has zero results (every competitor in the series was an implicit
     // DNC). Per #129 this race is also excluded from scoring; per #130 the

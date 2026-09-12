@@ -63,6 +63,11 @@ results, and beyond that nothing that is not in the published HTML**:
   score that belongs to no race — a qualifying position carried into the
   final series, the medal boats' compressed opening score — travels beside
   the per-race arrays as `carriedPoints`.
+- A race still waiting for the course its ORC option corrects over is not
+  scored at all: it carries 0 points and `raceExcluded` for every boat, and
+  `raceNotScored` alongside says that is why. A reader adding up the totals
+  reads it the same way either flag reads; a reader showing the table should
+  say the race is not scored yet rather than that nobody sailed it.
 - The scorer's explanatory notes (`seriesNote`, `pageNotes`) travel: they
   are printed on the pages this file sits beside, so a reader who takes
   the data still has the sentence that said why the figures read as they

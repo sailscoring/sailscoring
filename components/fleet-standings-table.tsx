@@ -245,16 +245,19 @@ export function FleetStandingsTable({
             // exclusion, which shows up in every standing's raceExcluded flag.
             const isManual = excludedRaceIds?.has(race.id) ?? false;
             const isColumnExcluded = isManual || standings.some((s) => s.raceExcluded?.[i]);
-            const isAuto = isColumnExcluded && !isManual;
+            const isNotScored = standings.some((s) => s.raceNotScored?.[i]);
+            const isAuto = isColumnExcluded && !isManual && !isNotScored;
             // Series-wide identity: within a sub-series R6 might be Race 13.
             const overallNumber = race.overallNumber ?? race.raceNumber;
             const raceTitle = race.name ? `${race.name} (Race ${overallNumber})` : `Race ${overallNumber}`;
             const dateLabel = formatRaceDate(race.date);
             const reason = isManual
               ? 'excluded from this fleet'
-              : isAuto
-                ? 'no entrants — excluded automatically'
-                : null;
+              : isNotScored
+                ? 'not scored yet — waiting for its course'
+                : isAuto
+                  ? 'no entrants — excluded automatically'
+                  : null;
             const optionsNote = scoringOptionsLegend(race, raceTitle);
             const headTitle =
               `${raceTitle}${dateLabel ? ` · ${dateLabel}` : ''}${reason ? ` — ${reason}` : ''}` +
@@ -493,6 +496,7 @@ function StandingRow({
         const isDiscard = raceDiscards[i] ?? false;
         const isNonDiscardable = raceNonDiscardable[i] ?? false;
         const isExcluded = raceExcluded?.[i] ?? false;
+        const isNotScored = standing.raceNotScored?.[i] ?? false;
         const code = raceCodes[i];
         const penaltyCode = racePenaltyCodes?.[i] ?? null;
         const penaltyOverride = racePenaltyOverrides?.[i] ?? null;
@@ -516,7 +520,11 @@ function StandingRow({
             <TableCell
               key={i}
               className="text-center text-muted-foreground"
-              title="No finishers in this race — excluded from scoring"
+              title={
+                isNotScored
+                  ? 'Not scored yet — this race is waiting for the course its scoring option corrects over'
+                  : 'No finishers in this race — excluded from scoring'
+              }
             >
               —
             </TableCell>
