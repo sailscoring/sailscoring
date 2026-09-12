@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "ftp_pages_excluded" jsonb;

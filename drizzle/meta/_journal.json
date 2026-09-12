@@ -750,6 +750,13 @@
       "when": 1789221912177,
       "tag": "0106_vengeful_psylocke",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1789222324175,
+      "tag": "0107_left_mentor",
+      "breakpoints": true
     }
   ]
 }

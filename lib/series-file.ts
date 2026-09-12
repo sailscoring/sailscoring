@@ -513,6 +513,7 @@ interface SeriesFileSeries {
   ftpHost: string;
   ftpPath: string;
   ftpPaths?: Record<string, string>;  // v4+; absent in older files. Keyed by published page (see Series.ftpPaths); bare fleet-id keys are the older per-fleet form
+  ftpPagesExcluded?: string[];  // additive; pages left unticked on the last FTP upload, by PublishPage key
   publishMode?: 'sailscoring' | 'ftp';  // additive; which Publish destination this series last used (absent = 'sailscoring')
   ftpLastUploadedAt?: number;  // additive; epoch ms of the last FTP upload
   ftpUploadedVersion?: number;  // additive; series version reflected by that upload
@@ -917,6 +918,9 @@ export async function buildSeriesFile(
       ftpPath: series.ftpPath ?? '',
       ...(series.ftpPaths && Object.keys(series.ftpPaths).length > 0
         ? { ftpPaths: series.ftpPaths }
+        : {}),
+      ...(series.ftpPagesExcluded && series.ftpPagesExcluded.length > 0
+        ? { ftpPagesExcluded: series.ftpPagesExcluded }
         : {}),
       ...(series.publishMode ? { publishMode: series.publishMode } : {}),
       ...(series.ftpLastUploadedAt != null ? { ftpLastUploadedAt: series.ftpLastUploadedAt } : {}),
@@ -1475,6 +1479,7 @@ export async function openSeriesFromFile(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
+    ftpPagesExcluded: file.series.ftpPagesExcluded,
     publishMode: file.series.publishMode,
     ftpLastUploadedAt: file.series.ftpLastUploadedAt,
     ftpUploadedVersion: file.series.ftpUploadedVersion,
@@ -1585,6 +1590,7 @@ export async function restoreSeriesFromFile(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
+    ftpPagesExcluded: file.series.ftpPagesExcluded,
     publishMode: file.series.publishMode,
     ftpLastUploadedAt: file.series.ftpLastUploadedAt,
     ftpUploadedVersion: file.series.ftpUploadedVersion,
@@ -1692,6 +1698,7 @@ async function updateSeriesFromFileInner(
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
+    ftpPagesExcluded: file.series.ftpPagesExcluded,
     publishMode: file.series.publishMode,
     ftpLastUploadedAt: file.series.ftpLastUploadedAt,
     ftpUploadedVersion: file.series.ftpUploadedVersion,

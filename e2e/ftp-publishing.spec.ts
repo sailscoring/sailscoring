@@ -259,6 +259,88 @@ test('Publish dialog · FTP mode: per-page selection lets you upload a subset', 
   await expect(page.getByRole('button', { name: 'Upload' })).toBeEnabled();
 });
 
+/**
+ * Page ticks are remembered too: the pane opens on the pages that have gone
+ * out before, minus any the scorer unticked when they last uploaded.
+ *
+ * Both records are written by a successful upload, which needs a live scupper
+ * relay and FTP server, so they go in through /api/v1 the way the FTP host
+ * does in series-file.spec.ts — the read side is what this covers.
+ */
+test('Publish dialog · FTP mode: page ticks are remembered', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['ftp-upload', 'entry-list']);
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add server' }).click();
+  await page.getByLabel('Host').fill('ftp.example.com');
+  await page.getByLabel('Username').fill('scorer');
+  await page.locator('#ftp-password').fill('s3cret');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('ftp://ftp.example.com:21')).toBeVisible();
+
+  await createSeriesQuick(page, { name: 'Remembered Pages' });
+  const seriesId = page.url().match(/\/series\/([^/]+)/)![1];
+  await createFleets(page, ['Fast', 'Slow']);
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await addCompetitor(page, { sailNumber: '1', name: 'Alice', fleet: 'Fast' });
+  await addCompetitor(page, { sailNumber: '2', name: 'Bob', fleet: 'Slow' });
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await page.getByLabel('Sail number').fill('2');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // ── Both fleet pages uploaded before; Entries never has been ─────────────
+  await page.evaluate(async (id) => {
+    const fleets = await (await fetch(`/api/v1/series/${id}/fleets`)).json();
+    const fleetId = (name: string) => fleets.find((f: { name: string }) => f.name === name).id;
+    const get = await fetch(`/api/v1/series/${id}`);
+    const series = await get.json();
+    series.ftpPaths = {
+      [`fleet:${fleetId('Fast')}`]: '/public_html/fast.html',
+      [`fleet:${fleetId('Slow')}`]: '/public_html/slow.html',
+    };
+    const put = await fetch(`/api/v1/series/${id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'If-Match': String(series.version) },
+      body: JSON.stringify(series),
+    });
+    if (!put.ok) throw new Error(`PUT series ${id}: ${put.status}`);
+  }, seriesId);
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Upload Fast' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Upload Slow' })).toBeChecked();
+  // A page that has never gone out isn't swept into the next upload.
+  await expect(page.getByRole('checkbox', { name: 'Upload Entries' })).not.toBeChecked();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  // ── Slow left out of the last upload, though it has gone out before ──────
+  await page.evaluate(async (id) => {
+    const fleets = await (await fetch(`/api/v1/series/${id}/fleets`)).json();
+    const slow = fleets.find((f: { name: string }) => f.name === 'Slow').id;
+    const get = await fetch(`/api/v1/series/${id}`);
+    const series = await get.json();
+    series.ftpPagesExcluded = [`fleet:${slow}`];
+    const put = await fetch(`/api/v1/series/${id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'If-Match': String(series.version) },
+      body: JSON.stringify(series),
+    });
+    if (!put.ok) throw new Error(`PUT series ${id}: ${put.status}`);
+  }, seriesId);
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Upload Fast' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Upload Slow' })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Upload Entries' })).not.toBeChecked();
+});
+
 test('Publish dialog: FTP offers the same pages as Sail Scoring', async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['ftp-upload', 'entry-list']);
   await page.goto('/workspace');

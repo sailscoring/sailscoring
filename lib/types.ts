@@ -331,6 +331,7 @@ export interface Series {
   ftpHost: string;   // host of that server, kept alongside the id so a series carried between workspaces can still be matched by host (empty if not yet published)
   ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a page (series uploaded before per-page paths landed)
   ftpPaths: Record<string, string>;  // last-uploaded remote path per published page, keyed by PublishPage.key ('fleet:{id}', 'group:{id}', 'prizes', …); entries keyed by a bare fleetId are the pre-page form and are still read
+  ftpPagesExcluded?: string[];  // PublishPage keys the scorer left unticked on the last FTP upload; they stay unticked next time. Absent/empty is the common case
   publishMode?: 'sailscoring' | 'ftp';  // which destination the Publish dialog opens in (default 'sailscoring'); 'ftp' only takes effect when the ftp-upload feature is enabled
   ftpLastUploadedAt?: number;   // epoch ms of the last successful FTP upload (absent = never uploaded)
   ftpUploadedVersion?: number;  // series version reflected by that upload; drives the "N edits since" indicator, mirroring the in-app publishedVersion

@@ -189,6 +189,9 @@ export const series = pgTable(
       .$type<Record<string, string>>()
       .notNull()
       .default(sql`'{}'::jsonb`),
+    // Null rather than an empty array: absent is the common case, and the
+    // column is never queried by content.
+    ftpPagesExcluded: jsonb('ftp_pages_excluded').$type<string[]>(),
     publishMode: text('publish_mode')
       .$type<'sailscoring' | 'ftp'>()
       .notNull()

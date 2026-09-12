@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveFtpServerId } from '@/lib/ftp-publish';
+import { resolveFtpPageSelection, resolveFtpServerId } from '@/lib/ftp-publish';
+import { fleetPageKey, type PublishPage } from '@/lib/publish-pages';
 import type { FtpServer } from '@/lib/types';
 
 function server(id: string, host: string): FtpServer {
@@ -44,5 +45,59 @@ describe('resolveFtpServerId', () => {
 
   it('has nothing to open on when the workspace has no servers', () => {
     expect(resolveFtpServerId([], { ftpServerId: hyc.id, ftpHost: 'ftp.hyc.ie' })).toBe('');
+  });
+});
+
+const fast: PublishPage = {
+  key: fleetPageKey('fleet-fast'),
+  name: 'Fast',
+  kind: 'fleet',
+  isDefault: false,
+  fleetId: 'fleet-fast',
+};
+const slow: PublishPage = {
+  key: fleetPageKey('fleet-slow'),
+  name: 'Slow',
+  kind: 'fleet',
+  isDefault: false,
+  fleetId: 'fleet-slow',
+};
+const entries: PublishPage = { key: 'entries', name: 'Entries', kind: 'entries', isDefault: false };
+const pages = [fast, slow, entries];
+
+describe('resolveFtpPageSelection', () => {
+  it('ticks every page on a series that has never been uploaded to', () => {
+    expect(resolveFtpPageSelection(pages, {})).toEqual(
+      new Set([fast.key, slow.key, entries.key]),
+    );
+  });
+
+  it('ticks only the pages that have gone out before', () => {
+    const stored = { [fast.key]: '/fast.html', [slow.key]: '/slow.html' };
+    expect(resolveFtpPageSelection(pages, stored)).toEqual(new Set([fast.key, slow.key]));
+  });
+
+  it('reads the older bare fleet-id path keys', () => {
+    // What scripts/update-ftp-paths.ts threads onto a series.
+    expect(resolveFtpPageSelection(pages, { 'fleet-fast': '/fast.html' })).toEqual(
+      new Set([fast.key]),
+    );
+  });
+
+  it('leaves out a page the scorer unticked, even one uploaded before', () => {
+    const stored = { [fast.key]: '/fast.html', [entries.key]: '/entries.html' };
+    expect(resolveFtpPageSelection(pages, stored, [entries.key])).toEqual(new Set([fast.key]));
+  });
+
+  it('applies the exclusion to a series that has never been uploaded to', () => {
+    expect(resolveFtpPageSelection(pages, {}, [entries.key])).toEqual(
+      new Set([fast.key, slow.key]),
+    );
+  });
+
+  it('ignores exclusions naming pages that no longer exist', () => {
+    expect(resolveFtpPageSelection(pages, {}, ['fleet:gone'])).toEqual(
+      new Set([fast.key, slow.key, entries.key]),
+    );
   });
 });

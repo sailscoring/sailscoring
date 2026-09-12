@@ -59,7 +59,7 @@ import { disambiguateSeriesName } from './series-name';
 // ---- Public export type ----
 //
 // A stripped-down, public-facing snapshot of a series. Intentionally excludes all
-// scorer-private fields: ftpServerId, ftpHost, ftpPath, ftpPaths, and all internal UUIDs
+// scorer-private fields: ftpServerId, ftpHost, ftpPath, ftpPaths, ftpPagesExcluded, and all internal UUIDs
 // (competitors are keyed by sailNumber instead).
 
 /** Start sequence group as it appears in the public export. Refers to fleets

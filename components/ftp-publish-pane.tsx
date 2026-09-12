@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import { useFtpServers } from '@/hooks/use-ftp-servers';
 import { useFeatures } from '@/components/features-provider';
 import { uploadViaScupper } from '@/lib/scupper';
 import { relativeSubPath } from '@/lib/publishing';
-import { resolveFtpServerId } from '@/lib/ftp-publish';
+import { resolveFtpPageSelection, resolveFtpServerId } from '@/lib/ftp-publish';
 import {
   CHAMPIONSHIP_PAGE,
   RACE_RESULTS_PAGE,
@@ -38,6 +38,12 @@ type UploadState =
   | 'uploading'
   | { success: true; count: number; unplaced: string[] }
   | { success: false; error: string };
+
+/** Whether two tick sets hold the same pages — lets the re-seed below leave
+ *  state untouched when it recomputes the same answer. */
+function sameKeys(a: Set<string>, b: Set<string>): boolean {
+  return a.size === b.size && [...a].every((k) => b.has(k));
+}
 
 export interface FtpPublishPaneProps {
   series: Series;
@@ -71,8 +77,8 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
   const [paths, setPaths] = useState<Record<string, string>>(() =>
     derivePrefillPaths(pages, series.ftpPaths, series.ftpPath ?? ''),
   );
-  const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(pages.map((p) => p.key)),
+  const [selected, setSelected] = useState<Set<string>>(() =>
+    resolveFtpPageSelection(pages, series.ftpPaths, series.ftpPagesExcluded),
   );
   const [uploadState, setUploadState] = useState<UploadState>('idle');
 
@@ -88,6 +94,24 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ftpServers]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // `pages` waits on the sub-series and split-fleet state, so it can arrive
+  // incomplete and grow while the pane is open. Re-seed from the series until
+  // the scorer touches a tick box: a seed taken against half the list ticks
+  // pages the record says to leave back, and pages that show up afterwards
+  // would otherwise sit unticked with a disabled path box, indistinguishable
+  // from a deliberate untick.
+  const touched = useRef(false);
+  useEffect(() => {
+    if (touched.current) return;
+    const ticked = resolveFtpPageSelection(pages, series.ftpPaths, series.ftpPagesExcluded);
+    setSelected((prev) => (sameKeys(prev, ticked) ? prev : ticked));
+    // Their paths with them, without disturbing anything already typed.
+    setPaths((prev) => ({
+      ...derivePrefillPaths(pages, series.ftpPaths, series.ftpPath ?? ''),
+      ...prev,
+    }));
+  }, [pages, series.ftpPaths, series.ftpPath, series.ftpPagesExcluded]);
 
   /** Picking a server remembers it there and then. Waiting for a successful
    *  upload to record the choice loses it whenever the upload doesn't finish
@@ -112,6 +136,7 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
   const allSelected = pages.length > 0 && pages.every((p) => selected.has(p.key));
 
   function toggle(key: string) {
+    touched.current = true;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -121,6 +146,7 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
   }
 
   function toggleAll() {
+    touched.current = true;
     setSelected(allSelected ? new Set() : new Set(pages.map((p) => p.key)));
   }
 
@@ -254,6 +280,12 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
           ftpServerId: server.id,
           ftpHost: server.host,
           ftpPaths: { ...(current.ftpPaths ?? {}), ...uploadedPaths },
+          // What the scorer left out this round, so the next open leaves it
+          // out too. Replaced rather than merged: this is the tick state as
+          // it stood, and a page that isn't listed here no longer exists.
+          ftpPagesExcluded: isSinglePage
+            ? []
+            : pages.filter((p) => !selected.has(p.key)).map((p) => p.key),
           ftpLastUploadedAt: Date.now(),
           ftpUploadedVersion: (current.version ?? 1) + 1,
         }),
