@@ -384,7 +384,7 @@ test('Publish dialog: FTP offers the same pages as Sail Scoring', async ({ page,
 });
 
 /**
- * Opening the Publish dialog is not an edit to the series (#575).
+ * Opening the Publish dialog is not an edit to the series.
  *
  * Switching destination and picking a server both write to the series row —
  * that is how they are remembered — but they went through the general series
@@ -435,4 +435,74 @@ test('Publish dialog · FTP mode: choosing a destination is not recorded as a se
   await page.goto('/workspace/activity');
   await expect(page.getByTestId('activity-entry').first()).toBeVisible();
   await expect(page.locator('[data-action="series.updated"]')).toHaveCount(0);
+});
+
+/**
+ * An upload to a club's own web server is recorded.
+ *
+ * It used to leave no trace of itself at all: the scupper call runs in the
+ * browser, so the only server-side write was the provenance, and that arrived
+ * as a general series save reading "Updated series settings". The History tab
+ * couldn't say when results last went out to the club, and offered no state to
+ * restore to.
+ *
+ * The upload itself needs a live scupper relay and FTP server, so the record
+ * goes in through /api/v1 the way the FTP host does in series-file.spec.ts;
+ * what this covers is that the record is a publishing milestone.
+ */
+test('Publish dialog · FTP mode: an upload is pinned in the history', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Recorded Upload Series' });
+  const seriesId = page.url().match(/\/series\/([^/]+)/)![1];
+  await addCompetitor(page, { sailNumber: '1', name: 'Alice' });
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  const versionBefore = await page.evaluate(async (id) => {
+    const series = await (await fetch(`/api/v1/series/${id}`)).json();
+    return series.version as number;
+  }, seriesId);
+
+  await page.evaluate(async (id) => {
+    const res = await fetch(`/api/v1/series/${id}/ftp-upload`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        host: 'ftp.example.com',
+        paths: { standings: '/public_html/standings.html' },
+        excluded: [],
+        pageCount: 2,
+      }),
+    });
+    if (!res.ok) throw new Error(`POST ftp-upload ${id}: ${res.status}`);
+  }, seriesId);
+
+  // The History tab pins it the way it pins an in-app publish: a Published
+  // badge, naming where the results went.
+  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/history$/);
+  const revisions = page.getByTestId('revision-list');
+  await expect(revisions).toContainText('Uploaded 2 pages to ftp.example.com');
+  await expect(revisions).toContainText('Published');
+  // And not as a settings edit, which is all it used to leave.
+  await expect(revisions).not.toContainText('Updated series settings');
+
+  // The workspace feed has it too.
+  await page.goto('/workspace/activity');
+  await expect(page.locator('[data-action="publish.ftp-uploaded"]')).toContainText(
+    'Uploaded 2 pages to ftp.example.com',
+  );
+  await expect(page.locator('[data-action="series.updated"]')).toHaveCount(0);
+
+  // Recording the upload is not itself an edit, so the series reads as fully
+  // published rather than one edit behind the moment it finished.
+  const after = await page.evaluate(async (id) => {
+    const series = await (await fetch(`/api/v1/series/${id}`)).json();
+    return { version: series.version, uploaded: series.ftpUploadedVersion };
+  }, seriesId);
+  expect(after.version).toBe(versionBefore);
+  expect(after.uploaded).toBe(versionBefore);
 });

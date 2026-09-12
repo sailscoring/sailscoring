@@ -15,6 +15,7 @@ import {
   deleteSeriesCascade,
   listSeriesNames,
   locateSeries,
+  recordFtpUpload,
   setSeriesCategory,
   setSeriesPublishPrefs,
   setSeriesResultsStatus,
@@ -201,7 +202,7 @@ export function useUpdateSeries() {
 
 /**
  * Write publish bookkeeping — the destination the dialog opens in, the FTP
- * server picked, where a completed upload put each page (#575).
+ * server picked, where a completed upload put each page.
  *
  * Not `useUpdateSeries`: that replaces the whole row under a compare-and-swap
  * and files the write as an edit to the series, which is neither what these
@@ -220,6 +221,36 @@ export function useUpdateSeriesPublishPrefs() {
     },
     // Same scope as the row saves, so a preference write can't interleave
     // with an in-flight save of the same row.
+    scope: { id: 'series' },
+  });
+}
+
+/**
+ * Record a completed FTP upload. Stores where each page went and puts
+ * the upload in the activity feed and the version history — the account of an
+ * upload that the browser-side scupper call leaves no trace of.
+ */
+export function useRecordFtpUpload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (
+      vars: {
+        id: string;
+        serverId?: string;
+        host: string;
+        paths: Record<string, string>;
+        excluded: string[];
+        pageCount: number;
+      },
+    ) => recordFtpUpload(vars.id, vars),
+    onSuccess: (saved) => {
+      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+      // The upload pinned a revision and logged an entry, so the History tab's
+      // two reads are both stale.
+      qc.invalidateQueries({ queryKey: queryKeys.revisions.all });
+      qc.invalidateQueries({ queryKey: queryKeys.activity.all });
+    },
     scope: { id: 'series' },
   });
 }

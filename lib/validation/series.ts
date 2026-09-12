@@ -246,7 +246,7 @@ export const seriesArchiveInputSchema = z.object({
 
 /**
  * Body for PATCH /api/v1/series/:id/publish-prefs — publish bookkeeping
- * (#575). Every field is optional: the dialog writes the one or two it just
+ * Every field is optional: the dialog writes the one or two it just
  * learned, never the whole set.
  */
 export const seriesPublishPrefsSchema = z

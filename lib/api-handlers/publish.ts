@@ -38,8 +38,9 @@ import type {
   PublishedListItem,
   PublishedSeries,
   PublishedSeriesPage,
+  Series,
 } from '@/lib/types';
-import type { PublishInput } from '@/lib/validation/publish';
+import type { FtpUploadInput, PublishInput } from '@/lib/validation/publish';
 
 const MAX_SLUG_LENGTH = 60;
 
@@ -698,6 +699,61 @@ export async function publishSeries(
   }
 
   return toResult(workspace.workspaceSlug, published);
+}
+
+/**
+ * Record a completed FTP upload to a club's own web server.
+ *
+ * The upload runs in the browser, against the scupper relay, so nothing
+ * server-side witnesses it — this call is the only account of it there will
+ * be. Before this endpoint existed the account was a general series PUT,
+ * which put "Updated series settings" in the history and left publishing to a
+ * club site absent from it entirely: no milestone, no restore point, and no
+ * answer to when results last went out to the club.
+ *
+ * So it does what an in-app publish does. The provenance goes to the quiet
+ * publish-prefs write, and then the upload is recorded as a publishing act:
+ * an activity entry, a pinned `publish` revision capturing exactly what went
+ * out, and a seal on the open editing session so later edits start a fresh
+ * version instead of folding back into the pre-upload one.
+ *
+ * The paths merge into what the series already holds, so a page left unticked
+ * keeps the path its last upload used; the exclusions replace the stored list,
+ * which is the tick state as it stood. `ftpUploadedVersion` is the series'
+ * live version, read here rather than guessed by the caller — the prefs write
+ * doesn't bump it, so the version this upload reflects is simply the current
+ * one.
+ */
+export async function recordFtpUpload(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  input: FtpUploadInput,
+): Promise<Series> {
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const series = await repos.series.get(seriesId);
+  if (!series) throw new NotFoundError('series');
+
+  const saved = await repos.series.setPublishPrefs(seriesId, {
+    ftpServerId: input.serverId,
+    ftpHost: input.host,
+    ftpPaths: { ...(series.ftpPaths ?? {}), ...input.paths },
+    ftpPagesExcluded: input.excluded,
+    ftpLastUploadedAt: Date.now(),
+    ftpUploadedVersion: series.version ?? 1,
+  });
+  if (!saved) throw new NotFoundError('series');
+
+  const what =
+    `Uploaded ${input.pageCount} page${input.pageCount === 1 ? '' : 's'} to ${input.host}`;
+  await recordActivity(workspace, {
+    action: 'publish.ftp-uploaded',
+    seriesId,
+    summary: what,
+  });
+  const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
+  await sealOpenRevisions(workspace.workspaceId, seriesId);
+  await captureRevision(actor, seriesId, { kind: 'publish', label: what });
+  return saved;
 }
 
 /**

@@ -179,7 +179,7 @@ export async function putSeries(
 
 /**
  * Write publish bookkeeping — the destination the publish dialog opens in, the
- * FTP server it was pointed at — and nothing else (#575).
+ * FTP server it was pointed at — and nothing else.
  *
  * Its own endpoint rather than a field on the general PUT for two reasons.
  * The PUT replaces the whole row under a compare-and-swap and records an

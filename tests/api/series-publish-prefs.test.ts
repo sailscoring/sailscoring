@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 /**
- * Publish bookkeeping is written quietly (#575): the fields land, and the
+ * Publish bookkeeping is written quietly: the fields land, and the
  * series is not treated as edited. The version counter stays where it was —
  * it is what the "N edits since you last published" indicators count, and
  * these very fields feed those indicators — `lastModifiedAt` stays put, and

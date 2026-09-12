@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 /**
- * Publishing is recorded (#576). Putting results on a public page, taking them
+ * Publishing is recorded. Putting results on a public page, taking them
  * down, and retracting one page of a publication are all publishing acts, and
  * each leaves an entry in the workspace activity feed naming where the results
  * went. A re-publish that changes nothing, and an operator rebuild pass, are

@@ -744,7 +744,7 @@ export function setSeriesCategory(
 }
 
 /**
- * Write publish bookkeeping and nothing else (#575) — the destination the
+ * Write publish bookkeeping and nothing else — the destination the
  * publish dialog opens in, the FTP server picked, where a completed upload
  * put each page. No compare-and-swap and no version bump: none of it changes
  * the results, so counting it as an edit would have the publish indicators
@@ -933,6 +933,30 @@ export function checkWorldSailingIds(seriesId: string): Promise<WorldSailingChec
  *  current publication if any) — drives the publish dialog. */
 export function getPublication(seriesId: string): Promise<PublicationStatus> {
   return apiFetch<PublicationStatus>(`/api/v1/series/${seriesId}/publish`);
+}
+
+/**
+ * Record a completed FTP upload to a club's own web server: where each
+ * page went, which pages were left out, and how many reached the server.
+ *
+ * The upload runs in the browser, so this is the only account of it the server
+ * gets. It stores the provenance and records the upload in the activity feed
+ * and the version history, the way an in-app publish is recorded.
+ */
+export function recordFtpUpload(
+  seriesId: string,
+  upload: {
+    serverId?: string;
+    host: string;
+    paths: Record<string, string>;
+    excluded: string[];
+    pageCount: number;
+  },
+): Promise<Series> {
+  return apiFetch<Series>(`/api/v1/series/${seriesId}/ftp-upload`, {
+    method: 'POST',
+    body: upload,
+  });
 }
 
 /** Unpublish this series' live publication (the publish dialog's convenience

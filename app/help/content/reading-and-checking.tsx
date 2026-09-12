@@ -137,7 +137,8 @@ export default function ReadingAndChecking() {
         <p>
           Key moments are marked for you, too: <strong className="text-foreground">publishing</strong>{' '}
           results pins a <em>Published</em> version (the exact state that went
-          public — a clean point to restore to), and{' '}
+          public — a clean point to restore to), whether they went to a Sail
+          Scoring page or up to your own club website, and{' '}
           <strong className="text-foreground">Save to File</strong> pins a{' '}
           <em>Saved</em> version. Both also close off the current editing session,
           so later edits start a fresh version rather than blurring into the one

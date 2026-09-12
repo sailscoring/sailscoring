@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 type Params = { id: string };
 
-// PATCH /api/v1/series/:id/publish-prefs — publish bookkeeping only (#575):
+// PATCH /api/v1/series/:id/publish-prefs — publish bookkeeping only:
 // which destination the publish dialog opens in, the FTP server it was
 // pointed at, and where a completed upload put each page. Its own endpoint so
 // none of it travels through the general PUT, which would replace the whole

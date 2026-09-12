@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import * as repos from '@/lib/api-repository';
-import { useUpdateSeries, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
+import { useRecordFtpUpload, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
 import { useFtpServers } from '@/hooks/use-ftp-servers';
 import { useFeatures } from '@/components/features-provider';
 import { uploadViaScupper } from '@/lib/scupper';
@@ -70,8 +70,8 @@ export interface FtpPublishPaneProps {
  * destination and with the build.
  */
 export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPublishPaneProps) {
-  const updateSeries = useUpdateSeries();
   const updatePublishPrefs = useUpdateSeriesPublishPrefs();
+  const recordUpload = useRecordFtpUpload();
   const { data: ftpServers } = useFtpServers();
   const { has } = useFeatures();
   const [selectedServerId, setSelectedServerId] = useState('');
@@ -264,33 +264,30 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
       return;
     }
 
-    // Persist verbatim per-page paths so the next dialog open reproduces
-    // exactly what the user typed (#131). Merge into existing ftpPaths so
-    // pages that weren't uploaded this round retain their prior entry —
-    // merging into the freshest row, not the prop, so an in-flight save's
-    // entries survive. Stamp the upload provenance too: this write bumps the
-    // series version by one, so `current.version + 1` is the version this
-    // upload reflects — comparing the live version against it later yields the
-    // "N edits since" count, exactly like the in-app publishedVersion.
-    // The files are already on the server; a rejected write (a series marked
-    // final, a lost connection) must report that the record didn't stick
-    // rather than leave the dialog sitting on "Uploading…".
+    // Report the upload to the server, which is the only account of it there
+    // will be: the scupper call above ran here in the browser, so nothing
+    // server-side witnessed it. That record is both halves — the verbatim
+    // per-page paths, so the next dialog open reproduces exactly what was
+    // typed, and the publishing entry, so the History tab shows when
+    // results last went out to the club and offers the state that went.
+    //
+    // Merging the paths and stamping the version are the server's job: it
+    // holds the freshest row. The files are already on the club's server, so
+    // a rejected write must report that the record didn't stick rather than
+    // leave the dialog sitting on "Uploading…".
     try {
-      await updateSeries.mutateAsync({
+      await recordUpload.mutateAsync({
         id: series.id,
-        patch: (current) => ({
-          ftpServerId: server.id,
-          ftpHost: server.host,
-          ftpPaths: { ...(current.ftpPaths ?? {}), ...uploadedPaths },
-          // What the scorer left out this round, so the next open leaves it
-          // out too. Replaced rather than merged: this is the tick state as
-          // it stood, and a page that isn't listed here no longer exists.
-          ftpPagesExcluded: isSinglePage
-            ? []
-            : pages.filter((p) => !selected.has(p.key)).map((p) => p.key),
-          ftpLastUploadedAt: Date.now(),
-          ftpUploadedVersion: (current.version ?? 1) + 1,
-        }),
+        serverId: server.id,
+        host: server.host,
+        paths: uploadedPaths,
+        // What the scorer left out this round, so the next open leaves it out
+        // too. Replaced rather than merged: this is the tick state as it
+        // stood, and a page that isn't listed here no longer exists.
+        excluded: isSinglePage
+          ? []
+          : pages.filter((p) => !selected.has(p.key)).map((p) => p.key),
+        pageCount: uploaded,
       });
     } catch {
       setUploadState({

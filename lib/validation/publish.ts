@@ -68,3 +68,31 @@ export const publishInputSchema = z.object({
 });
 
 export type PublishInput = z.infer<typeof publishInputSchema>;
+
+/**
+ * Body for POST /api/v1/series/:id/ftp-upload — what a completed upload to a
+ * club's own web server put where.
+ *
+ * The upload itself runs in the browser, against the scupper relay, so the
+ * server learns of it only from this call. It carries what went out this
+ * round, not the whole record: `paths` is merged into the series' stored
+ * paths, so a page left unticked keeps the path its last upload used, while
+ * `excluded` replaces the stored list outright — it is the tick state as it
+ * stood, and a page missing from it no longer exists.
+ */
+export const ftpUploadInputSchema = z
+  .object({
+    /** The workspace FTP server the pages went to; absent for one deleted
+     *  mid-upload, where `host` is all that is left to record. */
+    serverId: z.string().uuid().optional(),
+    host: z.string().min(1),
+    /** Remote path per uploaded page, keyed by `PublishPage.key`. */
+    paths: z.record(z.string(), z.string()),
+    /** Page keys the scorer left unticked, so the next open leaves them out. */
+    excluded: z.array(z.string()),
+    /** How many pages actually reached the server — what the entry reports. */
+    pageCount: z.number().int().positive(),
+  })
+  .strict();
+
+export type FtpUploadInput = z.infer<typeof ftpUploadInputSchema>;
