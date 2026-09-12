@@ -1405,7 +1405,6 @@ table.orc-mix-grid th, table.orc-mix-grid td { padding: 3px 5px; text-align: cen
 table.orc-mix-grid thead th, table.orc-mix-grid tfoot th { color: #555; font-size: 0.9em; }
 table.orc-mix-grid th.mcorner, table.orc-mix-grid tbody th, table.orc-mix-grid tfoot th { text-align: left; padding-right: 8px; }
 table.orc-mix-grid tbody th { font-weight: 600; }
-table.orc-mix-grid tbody th span { display: block; color: #777; font-size: 0.85em; font-weight: normal; }
 table.orc-mix-grid td { min-width: 34px; }
 table.orc-mix-grid .mtot { background: #eee; color: #333; }
 table.orc-mix-grid .m0 { color: #aaa; }
@@ -2497,20 +2496,22 @@ function orcScratchBoat(
   return { name: competitor.boatName || competitor.sailNumber, allowances };
 }
 
-/** The mix for a PCS race, when the course model is one the weights are
- *  defined over. Time-on-distance and band races have no scoring wind and
- *  no course model; all-purpose and coastal have no decomposition. */
+/** The mix for a PCS race, when the course is one the weights are defined
+ *  over. Time-on-distance and band races have no scoring wind and no course
+ *  model at all; the coastal model has no published course definition to
+ *  decompose. */
 function orcMixFor(
   calc: OrcRaceCalc,
   legs: OrcCourseLeg[] | undefined,
   allowances: PcsAllowances | undefined,
 ): OrcMix | undefined {
   if (!allowances || calc.scoringWind == null) return undefined;
-  if (calc.courseModel === 'WL') {
-    return buildOrcMix({ allowances, model: 'WL', scoringWind: calc.scoringWind });
+  const scoringWind = calc.scoringWind;
+  if (calc.courseModel === 'WL' || calc.courseModel === 'CR') {
+    return buildOrcMix({ allowances, model: calc.courseModel, scoringWind });
   }
   if (calc.courseModel === 'CC' && legs?.length) {
-    return buildOrcMix({ allowances, model: 'CC', legs, scoringWind: calc.scoringWind });
+    return buildOrcMix({ allowances, model: 'CC', legs, scoringWind });
   }
   return undefined;
 }
@@ -2555,7 +2556,7 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined): string {
         })
         .join('');
       const share = mix.cells[ri].reduce((sum, c) => sum + c, 0);
-      return `<tr><th scope="row">${esc(row.label)}<span>${esc(row.detail)}</span></th>${cells}<td class="mtot">${mixPct(share)}</td></tr>`;
+      return `<tr><th scope="row">${esc(row.label)}</th>${cells}<td class="mtot">${mixPct(share)}</td></tr>`;
     })
     .join('\n');
   const foot = mix.columns.map((c) => `<td>${mixPct(c.weight)}</td>`).join('');
@@ -2571,7 +2572,7 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined): string {
       : `These weights come to ${mix.weightedSum.toFixed(1)} s/NM against the <strong>${mix.appliedTod.toFixed(1)} s/NM</strong> actually applied. ${interpolated} so the grid attributes the rating without reproducing it.`;
   const whose = boat ? `${esc(boat)}&rsquo;s certificate` : 'the scratch boat&rsquo;s certificate';
   return (
-    `<table class="orc-mix-grid"><thead><tr><th class="mcorner">True wind (kt)</th>${head}<th class="mtot">Course</th></tr></thead>\n` +
+    `<table class="orc-mix-grid"><thead><tr><th class="mcorner">Time allowances in secs/NM</th>${head}<th class="mtot">Course</th></tr></thead>\n` +
     `<tbody>\n${body}\n</tbody>\n` +
     `<tfoot><tr><th scope="row">Wind weight</th>${foot}<td class="mtot">&nbsp;</td></tr></tfoot></table>\n` +
     `<p class="orc-mix-note">Read off ${whose}, at a scoring wind of ${mix.scoringWind.toFixed(2)} kt. ${reconcile}</p>`

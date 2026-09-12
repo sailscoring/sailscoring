@@ -278,11 +278,16 @@ describe('published ORC handicap mix', () => {
     expect(html).toContain('Read off Impetuous&rsquo;s certificate, at a scoring wind of 12.00 kt.');
   });
 
-  it('splits a windward/leeward model half beat, half run', () => {
+  it('is the certificate\u2019s own table, with the rating in the cells', () => {
     const html = renderSeriesHtml(assemble({ orc: wlCalc(12), certs: true }));
     const grid = gridOf(html);
-    expect(grid).toContain('Beat<span>optimum VMG</span>');
-    expect(grid).toContain('Run<span>optimum VMG</span>');
+    // Every row the certificate prints, in its order — including the eight
+    // a windward/leeward race never touches.
+    for (const label of ['Beat VMG', '52\u00b0', '90\u00b0', '150\u00b0', 'Run VMG']) {
+      expect(grid).toContain(`<th scope="row">${label}</th>`);
+    }
+    expect(grid).toContain('<th>4</th>');
+    expect(grid).toContain('<th>24</th>');
     // The scoring wind is tabulated, so the 12 kt column takes the lot: two
     // cells at 50% and, since no other column carries any, two row totals
     // reading the same.
@@ -313,7 +318,7 @@ describe('published ORC handicap mix', () => {
     expect(html).not.toContain('attributes the rating without reproducing it');
   });
 
-  it('gives a constructed course a row per leg, weighted by distance', () => {
+  it('weights a constructed course by the angles its legs were sailed at', () => {
     const html = renderSeriesHtml(
       assemble({
         orc: (id) => ({ ...wlCalc(12)(id), courseModel: 'CC' }),
@@ -332,8 +337,10 @@ describe('published ORC handicap mix', () => {
       }),
     );
     const grid = gridOf(html);
-    expect(grid).toContain('Leg 1<span>2.00 NM · TWA 2° · beating</span>');
-    expect(grid).toContain('Leg 2<span>2.00 NM · TWA 180° · running</span>');
+    // One leg dead downwind and one 2° off dead upwind, equal distances:
+    // the two VMG rows take essentially the whole rating between them.
+    expect(grid).toMatch(/<th scope="row">Beat VMG<\/th>(?:(?!<\/tr>).)*>50</);
+    expect(grid).toMatch(/<th scope="row">Run VMG<\/th>(?:(?!<\/tr>).)*>50</);
   });
 
   it('says nothing at all without a certificate to read', () => {
@@ -342,11 +349,25 @@ describe('published ORC handicap mix', () => {
     expect(html).not.toContain('Show handicap mix');
   });
 
-  it('says nothing for a course model the weights are not defined over', () => {
+  it('spreads an all-purpose race across every row', () => {
     const html = renderSeriesHtml(
       assemble({ orc: (id) => ({ ...wlCalc(12)(id), courseModel: 'CR', option: 'CR' }), certs: true }),
     );
     expect(html).toContain('All-purpose course model');
+    const grid = gridOf(html);
+    // Equal distance at every wind direction, so every row carries some of
+    // the rating — read off the course totals, since at a tabulated scoring
+    // wind only the one column is lit either way.
+    const totals = [...grid.matchAll(/<td class="mtot">([\d.]+)<\/td>/g)].map((m) => Number(m[1]));
+    expect(totals).toHaveLength(10);
+    for (const t of totals) expect(t).toBeGreaterThan(0);
+  });
+
+  it('says nothing for a course model the weights are not defined over', () => {
+    const html = renderSeriesHtml(
+      assemble({ orc: (id) => ({ ...wlCalc(12)(id), courseModel: 'OC', option: 'OC' }), certs: true }),
+    );
+    expect(html).toContain('Coastal course model');
     expect(html).not.toContain('Show handicap mix');
   });
 

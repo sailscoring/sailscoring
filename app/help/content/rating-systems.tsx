@@ -204,20 +204,20 @@ export default function RatingSystems() {
         </p>
         <HelpShot
           src="/help/shots/orc-handicap-mix.webp"
-          alt="The handicap mix opened on a published constructed-course race: the certificate's wind speeds across the top, one row per leg down the side, and the share of the rating in each cell."
-          caption="The handicap mix, opened: one row per leg, the certificate's wind speeds across the top, and the share of the rating each cell carried."
+          alt="The handicap mix opened on a published constructed-course race: the certificate's allowance table, with the share of the rating in each cell instead of the allowance."
+          caption="The handicap mix, opened: the certificate’s own allowance table, with the share of the rating each cell carried."
         />
         <p>
           Beside the course sits{' '}
           <strong className="text-foreground">Show handicap mix</strong>, folded away
           until you open it. A certificate is a matrix — an allowance in seconds per
           mile at each wind speed and each angle to the wind — and every ORC method is
-          a weighted mix of its cells. The grid puts those weights back in the matrix:
-          the wind speeds across the top, the course down the side, and in each cell
-          the share of the rating it carries. A windward/leeward race is half the beat
-          allowance and half the run allowance, and nothing else; a constructed course
-          is one row per leg, weighted by its share of the distance. Hovering a cell
-          gives the allowance itself and what it contributed.
+          a weighted mix of its cells. The grid is that same table, laid out the way
+          the certificate prints it, with the share of the rating in each cell instead
+          of the allowance. A windward/leeward race is half beat VMG and half run VMG,
+          and the eight reaching rows stay empty; a constructed course spreads over the
+          angles its legs were actually sailed at; an all-purpose race touches every
+          row. Hovering a cell gives the allowance itself and what it contributed.
         </p>
         <p>
           The wind axis is where PCS shows its hand. A single-number rating averages
@@ -229,6 +229,13 @@ export default function RatingSystems() {
           neighbouring columns — some weights go slightly negative, and the note says
           the grid attributes the rating rather than reproducing it. The grid is drawn
           from the scratch boat’s certificate, and names it.
+        </p>
+        <p>
+          The weights come to a hundred per cent on a course sailed dead upwind and
+          dead downwind. On a real course they come to a shade less, and that is worth
+          reading rather than ignoring: a beat leg sailed fifteen degrees off the wind
+          covers its distance for a little less than the full windward allowance,
+          because not all of it was made good to windward.
         </p>
       </Section>
       )}
