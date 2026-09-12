@@ -183,6 +183,19 @@ describe.skipIf(skip)('publish handler — a race the fleet cannot score (#554)'
     expect(result.pages.map((p) => p.fleetName)).toEqual(['Class 1 HPH results']);
   });
 
+  test('allowUnscorable publishes the held page anyway', async () => {
+    // The scorer has been told which race is unscored and has chosen to
+    // publish the ones that are. Nothing about the output changes: the race
+    // is already out of the standings, and the page says what it waits for.
+    const result = await publishSeries(ctx, seriesId, {
+      fleets: ['Class 1 ORC results'],
+      allowUnscorable: true,
+    });
+    // The result lists everything live, the HPH page from the test above
+    // included; the held page joining it is what the waiver did.
+    expect(result.pages.map((p) => p.fleetName)).toContain('Class 1 ORC results');
+  });
+
   test('publishes once the start carries the course length', async () => {
     const repos = createRepos({ workspaceId });
     const current = (await repos.raceStarts.listByRace(raceId))[0];

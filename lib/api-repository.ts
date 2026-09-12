@@ -862,6 +862,7 @@ export function publishSeries(
     prizes?: boolean;
     season?: string;
     folder?: string;
+    allowUnscorable?: boolean;
   } = {},
 ): Promise<PublishResult> {
   return apiFetch<PublishResult>(`/api/v1/series/${seriesId}/publish`, {

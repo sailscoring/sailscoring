@@ -51,6 +51,16 @@ import type { Fleet, PublicationStatus, Series } from '@/lib/types';
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 
+/** A race a fleet cannot score yet, as the page that holds it needs to say:
+ *  the fleet it belongs to and the race's own label. Passed in by the
+ *  standings page, which has already scored the series to draw its tables —
+ *  the dialog would otherwise have to score it a second time to find out. */
+export interface UnscoredRaceNote {
+  fleetId: string;
+  fleetName: string;
+  raceLabel: string;
+}
+
 export interface PublishDialogProps {
   series: Series;
   fleets: Fleet[];
@@ -59,6 +69,10 @@ export interface PublishDialogProps {
   /** Whether FTP upload is available (feature-gated + manage-workspace). When
    *  true the dialog offers a persistent switch to the FTP destination. */
   canFtp: boolean;
+  /** Races waiting for a course. Pages carrying the fleets these belong to are
+   *  refused by the server, so the dialog marks them before Publish is pressed
+   *  rather than letting the refusal be the first news of it. */
+  unscored?: UnscoredRaceNote[];
 }
 
 /** Sanitise free-typed slug / sub-path input to the allowed character set. */
@@ -119,7 +133,7 @@ interface SuppressedRow {
  * fleet name ("Puppeteers HPH") point at a disambiguated URL segment
  * ("tuesday-puppeteers-hph") when several series share one slug.
  */
-export function PublishDialog({ series, fleets, open, onClose, canFtp }: PublishDialogProps) {
+export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored = [] }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
   const confirm = useConfirm();
   const { has } = useFeatures();
@@ -187,6 +201,10 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
   // be the synthetic "Default"/"Unknown"), which is why the server skips it by
   // flag rather than by name.
   const [loneSelected, setLoneSelected] = useState(true);
+  // The scorer's explicit "publish the races that are scored" — off every time
+  // the dialog opens, because it is a decision about the state of the results
+  // in front of them now, not a setting.
+  const [allowUnscored, setAllowUnscored] = useState(false);
   const [phase, setPhase] = useState<
     'loading' | 'idle' | 'publishing' | 'unpublishing' | 'retracting'
   >('loading');
@@ -244,6 +262,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     let cancelled = false;
     setPhase('loading');
     setError(null);
+    setAllowUnscored(false);
     getPublication(series.id)
       .then((s) => {
         if (cancelled) return;
@@ -323,6 +342,40 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
     }
     return captions;
   })();
+
+  /** The unscored races each page would carry, by page name. A fleet page
+   *  answers for its own fleet, a combined page for the fleets it carries, and
+   *  the prize sheet for every fleet — the same reach the server refuses on,
+   *  so what the dialog marks and what the server holds are the same set. */
+  const unscoredByPage = (() => {
+    const byPage = new Map<string, UnscoredRaceNote[]>();
+    if (unscored.length === 0) return byPage;
+    const fleetsOfGroup = new Map(resolvedGroups.map((r) => [r.group.id, r.fleets.map((f) => f.id)]));
+    for (const page of pages) {
+      const ids =
+        page.kind === 'fleet' ? (page.fleetId ? [page.fleetId] : [])
+        : page.kind === 'combined' ? (fleetsOfGroup.get(page.groupId ?? '') ?? [])
+        : page.kind === 'prizes' ? fleets.map((f) => f.id)
+        : [];
+      if (ids.length === 0) continue;
+      const held = unscored.filter((u) => ids.includes(u.fleetId));
+      if (held.length > 0) byPage.set(page.name, held);
+    }
+    return byPage;
+  })();
+  /** The unscored races held by the pages going out this round — what the
+   *  dialog has to say something about, and nothing more: a gap on a page the
+   *  scorer left unticked is not holding this publish up. The lone default
+   *  page of a single-fleet series is not in `pageNames`, so it is asked about
+   *  through its own selection flag, exactly as the publish call reports it. */
+  const heldNow = [
+    ...new Set(
+      [...unscoredByPage]
+        .filter(([name]) => (pageNames.includes(name) ? selected.has(name) : loneSelected))
+        .flatMap(([, held]) => held),
+    ),
+  ];
+  const heldSelected = heldNow.length > 0;
 
   const rows: FleetRow[] = (() => {
     const publishedByName = new Map(
@@ -692,6 +745,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               ...(folderPrefix ? { folder: folderPrefix } : {}),
             }),
         ...selection,
+        ...(allowUnscored ? { allowUnscorable: true } : {}),
       });
       // The server freezes the slug it actually used — the season, in season
       // mode — which is not the name-derived suggestion this state was seeded
@@ -1091,6 +1145,14 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
                             </Button>
                           )}
                         </div>
+                        {unscoredByPage.has(row.name) && (
+                          <p className="pl-6 text-xs text-destructive">
+                            {formatNameList(unscoredByPage.get(row.name)!.map((u) => u.raceLabel))}
+                            {unscoredByPage.get(row.name)!.length === 1 ? ' is' : ' are'} not scored
+                            yet — waiting for the course. This page is held until you enter it, or
+                            publish without the race.
+                          </p>
+                        )}
                         {noteEditor({ fleetName: row.name }, row.name)}
                         </div>
                       );
@@ -1411,6 +1473,35 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               </div>
             )}
 
+            {/* The refusal, before the button rather than after it: which
+                race is unscored, and the one decision that gets past it.
+                Publishing without the race is not publishing a blank column —
+                the race is already out of the standings, and every page says
+                what it is waiting for. */}
+            {heldSelected && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 space-y-2">
+                <p className="text-sm text-destructive">
+                  {formatNameList(heldNow.map((u) => `${u.raceLabel} (${u.fleetName})`))}{' '}
+                  {heldNow.length === 1 ? 'is' : 'are'} not scored yet — the start has no course for
+                  the fleet&apos;s scoring option to correct over. Enter the course, or publish the
+                  races that are scored.
+                </p>
+                <label className="flex items-start gap-2 text-sm text-destructive">
+                  <input
+                    type="checkbox"
+                    checked={allowUnscored}
+                    onChange={(e) => { setAllowUnscored(e.target.checked); setError(null); }}
+                    className="h-4 w-4 mt-0.5 shrink-0"
+                  />
+                  <span>
+                    Publish without{' '}
+                    {formatNameList([...new Set(heldNow.map((u) => u.raceLabel))])}. The pages say
+                    the race is waiting for its course.
+                  </span>
+                </label>
+              </div>
+            )}
+
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         )}
@@ -1436,6 +1527,11 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp }: Publish
               isUnpublishing ||
               isRetracting ||
               (!isPublished && !season) ||
+              // Held, and the scorer hasn't said to publish without the race.
+              // Unticking the held page clears this as surely as the checkbox
+              // does — both are the decision the server would otherwise make
+              // for them at the worst moment to hear it.
+              (heldSelected && !allowUnscored) ||
               validation !== null
             }
           >

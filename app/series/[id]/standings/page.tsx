@@ -351,6 +351,25 @@ export default function StandingsPage({
       ` · ${entrantCount} competitor${entrantCount === 1 ? '' : 's'}`;
   }
 
+  // The races the publish dialog has to hold a page over: the ones the engine
+  // could not score, named as the tables name them. Derived here because the
+  // series has already been scored to draw those tables — the dialog would
+  // otherwise score it a second time to ask the same question.
+  const unscoredRaces = fleetResults.flatMap(({ fleet, raceGaps }) =>
+    raceGaps
+      .filter((g) => g.reason === 'orc_course_missing')
+      .map((g) => {
+        const race = raceLabels.find((r) => r.id === g.raceId);
+        return {
+          fleetId: fleet.id,
+          fleetName: fleet.name,
+          raceLabel: race
+            ? `Race ${race.raceNumber}${race.name ? ` (${race.name})` : ''}`
+            : 'A race',
+        };
+      }),
+  );
+
   // Per-fleet race exclusions for the standings on screen. When sub-series take
   // over, the scope is the selected block (writing SubSeries.raceFleetExclusions);
   // otherwise it's the whole series (Series.raceFleetExclusions). Either way the
@@ -612,6 +631,7 @@ export default function StandingsPage({
         open={showPublishDialog}
         onClose={() => setShowPublishDialog(false)}
         canFtp={canFtp}
+        unscored={unscoredRaces}
       />
       <FinaliseResultsDialog
         series={series}

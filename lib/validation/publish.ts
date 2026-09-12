@@ -47,6 +47,11 @@ import { z } from 'zod';
  *   - `folder` — the event folder the pages were prefixed into (ADR-011),
  *     so its display label can be pinned to the series name (first publisher
  *     wins; a joiner never renames the folder). Ignored on re-publish.
+ *   - `allowUnscorable` — publish pages holding a race that isn't scored yet,
+ *     which are otherwise refused with `unscorable-race`. The race is left out
+ *     of the standings and the page says so, so the scorer is choosing to
+ *     publish the races that are scored rather than to publish blanks. Says
+ *     nothing about what is rendered: only that the refusal is waived.
  */
 export const publishInputSchema = z.object({
   slug: z.string().optional(),
@@ -59,6 +64,7 @@ export const publishInputSchema = z.object({
   skipPages: z.array(z.string()).optional(),
   season: z.string().trim().max(40).optional(),
   folder: z.string().trim().max(60).optional(),
+  allowUnscorable: z.boolean().optional(),
 });
 
 export type PublishInput = z.infer<typeof publishInputSchema>;

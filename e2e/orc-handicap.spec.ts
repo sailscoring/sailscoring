@@ -599,3 +599,79 @@ test('ORC fleet: time-on-distance over the start course length', async ({ page }
   await expect(page.getByRole('row').nth(1)).toContainText('IRL 2507');
   await expect(page.getByRole('row').nth(2)).toContainText('IRL 1551');
 });
+
+test('a race waiting on its course holds the publish until the scorer publishes without it', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC Autumn League 2026' });
+  await setUpOrcFleet(page, [
+    { sailNumber: 'IRL 2507', name: 'Impetuous' },
+    { sailNumber: 'IRL 1551', name: 'Mojo' },
+  ]);
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
+  await page.getByRole('option', { name: 'All-purpose · time-on-distance (APHD)' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await importCertificates(page, 2);
+
+  // Two races on the night. Race 1 gets its course; race 2's finishes are in
+  // before anyone has said how long the course was — the offshore-league order
+  // of events, and the reason publishing has to have something to say about it.
+  await page.getByRole('link', { name: 'Races' }).click();
+  for (const [n, distance, times] of [
+    ['Race 1', '3.24', ['15:50:51', '15:51:49']],
+    ['Race 2', '', ['17:05:00', '17:06:00']],
+  ] as const) {
+    await page.getByRole('button', { name: 'Add race' }).click();
+    await expect(page.getByText(n)).toBeVisible();
+    await page.getByText(n).click();
+    // With a second race on the page the heading becomes a race switcher, so
+    // the stable landmark is the race's own name control rather than a title.
+    await expect(page.getByRole('button', { name: `Edit name for ${n}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit ▸' }).click();
+    await page.getByRole('button', { name: 'Add start' }).click();
+    await page.getByPlaceholder('14:05', { exact: true }).fill('15:15:00');
+    if (distance) await page.getByLabel(/Course length/).fill(distance);
+    await page.getByRole('checkbox', { name: 'Class 2' }).check();
+    await page.getByRole('button', { name: 'Save' }).click();
+    // The start row, not the dialog's absence: the finish sheet below only
+    // takes entries once the start it belongs to is on the page.
+    await expect(page.getByText('15:15:00')).toBeVisible();
+    if (distance) await expect(page.getByText(`${distance} NM`)).toBeVisible();
+    for (const [i, sailNumber] of ['IRL 1551', 'IRL 2507'].entries()) {
+      await page.getByLabel('Sail number').fill(sailNumber);
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(times[i]);
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+    }
+    await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+    await page.getByRole('link', { name: 'Races' }).click();
+    await expect(page.getByRole('button', { name: 'Add race' })).toBeVisible();
+  }
+
+  // The standings show race 2 as a dash, not a DNC against boats that sailed,
+  // and the totals are race 1's scores alone.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await expect(page.getByText(/its start records none/)).toBeVisible();
+  const impetuous = page.getByRole('row').filter({ hasText: 'IRL 2507' });
+  await expect(impetuous).not.toContainText('DNC');
+  await expect(impetuous).toContainText('—');
+
+  // Publishing says which race is holding it, before the button is pressed.
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await expect(dialog.getByText(/Race 2 \(Class 2\) is not scored yet/)).toBeVisible();
+  const publish = dialog.getByRole('button', { name: 'Publish', exact: true });
+  await expect(publish).toBeDisabled();
+
+  await dialog.getByRole('checkbox', { name: /Publish without Race 2/ }).check();
+  await expect(publish).toBeEnabled();
+  await publish.click();
+
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  await page.goto(new URL((await link.getAttribute('href')) ?? '').pathname);
+  // The page publishes race 1's standings and says what race 2 is waiting for.
+  await expect(page.getByText('IRL 2507').first()).toBeVisible();
+  await expect(page.getByText(/R2 is not scored yet — waiting for the course/)).toBeVisible();
+});

@@ -410,7 +410,11 @@ export async function publishSeries(
   // fixing nothing. The prize sheet is allocated from every fleet's standings,
   // so any gap reaches it. Pages that aren't scored at all — the entry list,
   // the fleet assignments — go out regardless.
-  const unscorable = build.unscorable ?? [];
+  // `allowUnscorable` waives the refusal — the scorer has been told which race
+  // is unscored and has chosen to publish the ones that are scored. It changes
+  // nothing about what goes out: the race is already out of the standings, and
+  // the page already says it is waiting for its course.
+  const unscorable = input.allowUnscorable ? [] : (build.unscorable ?? []);
   if (unscorable.length > 0) {
     // Only the races that hold a page being published now are reported: a gap
     // on a fleet nobody ticked is not what this publish is waiting for, and

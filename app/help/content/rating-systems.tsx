@@ -309,6 +309,19 @@ export default function RatingSystems() {
           covers its distance for a little less than the full windward allowance,
           because not all of it was made good to windward.
         </p>
+        <p>
+          <strong className="text-foreground">Before the course is in.</strong>{' '}
+          Finish times often arrive before anyone has said how long the course was, and
+          an option that corrects over a course cannot score the race without it. The
+          race is then left unscored rather than quietly ranked on crossing order: it
+          shows as a dash in the standings, counts towards nobody’s total and towards no
+          discard, and the Standings tab says which race is waiting for what. Publishing
+          holds the pages that carry the fleet — but only those pages, so a class scored
+          on another system goes out as usual. If the course will not be settled tonight,
+          tick <em>Publish without</em> in the publish dialog and the races that are
+          scored go out; each page says the race is still waiting for its course. Enter
+          the course later and the race scores in place, with no finishes to re-enter.
+        </p>
       </Section>
       )}
       {has('orc') && (
