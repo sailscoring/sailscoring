@@ -52,6 +52,24 @@ details.orc-course > summary { font-size: 0.85em; color: #444; cursor: pointer; 
 details.orc-course > summary::-webkit-details-marker { display: none; }
 details.orc-course > summary::before { content: '▸ '; }
 details.orc-course[open] > summary::before { content: '▾ '; }
+div.orc-mix-body { max-width: 640px; margin: 0 auto 8px auto; overflow-x: auto; text-align: left; }
+table.orc-mix-grid { border-collapse: separate; border-spacing: 2px; margin: 4px auto 0 auto; font-size: 0.8em; }
+table.orc-mix-grid th, table.orc-mix-grid td { padding: 3px 5px; text-align: center; font-weight: normal; white-space: nowrap; background: transparent; color: #1a1a1a; border: 0; }
+table.orc-mix-grid thead th, table.orc-mix-grid tfoot th { color: #555; font-size: 0.9em; }
+table.orc-mix-grid th.mcorner, table.orc-mix-grid tbody th, table.orc-mix-grid tfoot th { text-align: left; padding-right: 8px; }
+table.orc-mix-grid tbody th { font-weight: 600; }
+table.orc-mix-grid td { min-width: 34px; }
+table.orc-mix-grid .mtot { background: #eee; color: #333; }
+table.orc-mix-grid .m0 { color: #aaa; }
+table.orc-mix-grid .m1 { background: #e8f0fa; }
+table.orc-mix-grid .m2 { background: #cde2fb; }
+table.orc-mix-grid .m3 { background: #9ec5f4; }
+table.orc-mix-grid .m4 { background: #5598e7; color: #fff; }
+table.orc-mix-grid .m5 { background: #256abf; color: #fff; }
+table.orc-mix-grid .mn1 { background: #fadedd; }
+table.orc-mix-grid .mn2 { background: #f0a9a7; }
+table.orc-mix-grid .mn3 { background: #d03b3b; color: #fff; }
+p.orc-mix-note { max-width: 640px; margin: 6px auto 0 auto; font-size: 0.8em; color: #555; text-align: left; }
 /* A combined page's per-fleet race block: the rule and the space above it are
    what separate one fleet's set of races from the next when scrolling. */
 .fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
