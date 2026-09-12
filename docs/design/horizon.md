@@ -1292,6 +1292,61 @@ designing anything. The cheapest useful piece is the first bullet — carrying
 the rating across a switch — which is worth doing on its own regardless of
 where the rest lands.
 
+### A blend rate that changes during the series
+
+After an initial review of the HYC Autumn League 2026 ECHO results — scored
+at 50/50 (`echoAlpha` 0.50, the Irish Sailing recommendation for regattas) —
+the Irish Sailing Handicap and Ratings Working Group asked for something the
+engine can't express:
+
+> I would try 40/60 at the beginning of the series, to help reduce any
+> initial anomalies, then reduce to 30/70 later in the series as the deltas
+> hopefully reduce.
+
+`Fleet.echoAlpha` is a single number applied to every race in the series, and
+`deriveProgressiveHandicapConfig(fleet)` is called once before the race loop
+in `lib/scoring.ts`, so there is nowhere to put a rate that differs between
+race 3 and race 7. The same is true of the seven NHC1 parameters on
+`Fleet.nhcProfile`. This is the same shape as the entry above: a scoring
+parameter that is a property of the fleet wanting to be a property of the
+fleet in a race.
+
+**The rates asked for are α = 0.40 then α = 0.30.** The working group writes
+the split new/old — 40% of the new handicap blended with 60% of the existing
+one — which is the reverse of the IS guide's own ordering, where 75/25 means
+α = 0.25. Worth stating explicitly, because a reader who lines "50/50 → 40/60
+→ 30/70" up against the IS table will read it backwards. The request is a
+monotone damping away from the 0.50 the league was scored at: each race moves
+a boat's handicap less than the one before.
+
+**There is precedent, in Sailwave.** Its regatta protocol SWNHC4-NHC2013
+damps the adjustment by race number: race 1 moves a boat 100% of the way to
+its back-calculated rating, races 2 and on 60%, with a second, faster-decaying
+series for boats adjusting downwards (`docs/notes/sailwave/excel-handicap-protocol.md`).
+So a rate that varies by race number is established practice for short
+regattas, and it decays in the same direction — though Sailwave makes race 1
+the most responsive race of all, to shake out bad starting handicaps, where
+the working group wants the early races damped *below* the 0.50 baseline to
+keep anomalies from moving handicaps in the first place. Either way, Sailwave
+hard-codes its table in the protocol spreadsheet; nothing we have seen lets a
+scorer author one.
+
+Shape of the change: resolve the blend rate per race rather than per fleet.
+The cheap version is an optional per-race override the scorer sets when
+scoring that race, with the fleet value as the default — the engine already
+resolves ORC rating options per race inside the same loop, so the machinery
+is there. The fuller version is a schedule on the fleet (`from race N, α`),
+or a Sailwave-style table indexed by race number, which has the advantage of
+being declarable in advance — in the Sailing Instructions — rather than
+chosen after seeing the results. Per-race explainability already prints the
+α actually applied to each boat, so a varying rate would be visible in
+published results without further work.
+
+Open questions: where "later in the series" begins and who decides; whether
+the schedule must be fixed before the first race for the series to be fair;
+and whether a mid-series change needs its own record in the activity log and
+a line on the published page, since it rescores every race already sailed.
+
 ### Scoring-inquiry rating adjustments
 
 NHC and ECHO can be configured to exclude specific results (e.g. RDG, BFD,
