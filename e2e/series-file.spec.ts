@@ -120,6 +120,18 @@ test('series file: save exports correct JSON with all series fields, competitors
   await page.getByLabel('Event website URL').fill('https://example.com/autumn-league');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Howth Yacht Club').first()).toBeVisible();
+  // That assertion is client-rendered, so the save may still be in flight. The
+  // inject below reads the series' version and writes it back under If-Match,
+  // and a save landing between the two moves the version and earns a 409. Poll
+  // server truth first, the same way the finish below does.
+  await expect
+    .poll(() =>
+      page.evaluate(async (sid) => {
+        const res = await fetch(`/api/v1/series/${sid}`);
+        return res.ok ? ((await res.json()) as { venue?: string }).venue ?? null : null;
+      }, seriesId),
+    )
+    .toBe('Howth Yacht Club');
 
   // ── Inject ftpHost/ftpPath via the API ────────────────────────────────────
   // (These fields are normally set on a successful FTP upload; we can't do
