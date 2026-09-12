@@ -74,6 +74,10 @@ export const ACTIVITY_ACTIONS = [
   'split-fleets.removed',
   'split-fleets.round-committed',
   'split-fleets.round-deleted',
+  'publish.published',
+  'publish.unpublished',
+  'publish.page-retracted',
+  'publish.ftp-uploaded',
   'support.joined',
   'support.left',
   'member.invited',
@@ -92,6 +96,7 @@ export type ActivityKind =
   | 'fleet'
   | 'race'
   | 'finish'
+  | 'publish'
   | 'member'
   | 'other';
 
@@ -111,6 +116,11 @@ export function activityKind(action: string): ActivityKind {
   // As-published ranking ingests (#309) are workspace-level series-regime
   // work; they group with the series activity.
   if (action.startsWith('rankings.')) return 'series';
+  // Results going out — to a Sail Scoring page or a club's own web server.
+  // Its own kind: publishing is the act a reader of the feed most often wants
+  // to find, and it is neither an edit to the series nor a change to who can
+  // see it.
+  if (action.startsWith('publish.')) return 'publish';
   // Who is in the workspace: invitations, joins, role changes, removals,
   // and a support session joining and leaving.
   if (

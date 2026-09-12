@@ -39,6 +39,17 @@ const NO_REVISION_BY_DESIGN: Record<string, string> = {
   'archive.ts:series.archive-ingested': 'as-published series are display-only',
   'archive.ts:series.archive-removed': 'as-published series are display-only',
 
+  // Captures its revision explicitly a few lines down, with kind 'publish' —
+  // `trackChange` would file it as an ordinary coalescing auto revision, and
+  // the point of the publish milestone is that it doesn't coalesce.
+  'publish.ts:publish.published': 'captures a publish revision directly',
+
+  // Taking results down changes no series data: the row, its competitors and
+  // its results are all exactly as they were, and only the public copy goes.
+  // A snapshot here would be byte-identical to its predecessor.
+  'publish.ts:publish.unpublished': 'unpublishing changes no series data',
+  'publish.ts:publish.page-retracted': 'retracting a page changes no series data',
+
   // Captures its revision explicitly on the next line, with kind 'revert' —
   // `trackChange` would file it as an ordinary coalescing auto revision.
   'revisions.ts:series.reverted': 'captures a revert revision directly',

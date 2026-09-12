@@ -4,6 +4,7 @@ import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { deletePublishedHtml, putPublishedHtml } from '@/lib/blob-storage';
 import { mapWithConcurrency } from '@/lib/concurrency';
+import { recordActivity } from '@/lib/activity-log';
 import { createRepos } from '@/lib/postgres-repository';
 import { captureRevision, sealOpenRevisions } from '@/lib/revision-log';
 import {
@@ -676,12 +677,23 @@ export async function publishSeries(
   // Revision milestone (#166): seal the open session and pin a `publish`
   // revision capturing exactly what went public — a clean "restore to what I
   // published" point and an audit anchor. Best-effort; never fails the publish.
+  //
+  // The activity entry rides along here for the same reasons: both sit past
+  // the unchanged-content short-circuit, so a re-publish that changes nothing
+  // records nothing, and neither runs for a `rebuildOnly` pass — the operator
+  // re-publish is not an act of the scorer it would be attributed to.
   if (!opts.rebuildOnly) {
     const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
+    const where = `/p/${workspace.workspaceSlug}/${slug}`;
+    await recordActivity(workspace, {
+      action: 'publish.published',
+      seriesId,
+      summary: `Published to ${where}`,
+    });
     await sealOpenRevisions(workspace.workspaceId, seriesId);
     await captureRevision(actor, seriesId, {
       kind: 'publish',
-      label: `Published to /p/${workspace.workspaceSlug}/${slug}`,
+      label: `Published to ${where}`,
     });
   }
 
@@ -750,7 +762,10 @@ export async function listPublished(
  * pages (#162) are rendered live from `published_series`, so there is no index
  * blob to regenerate here.
  */
-async function unpublish(published: PublishedSeries): Promise<void> {
+async function unpublish(
+  workspace: WorkspaceContext,
+  published: PublishedSeries,
+): Promise<void> {
   for (const page of published.pages) {
     await deletePublishedHtml(page.blobUrl);
   }
@@ -771,6 +786,16 @@ async function unpublish(published: PublishedSeries): Promise<void> {
       if (round.publishedAt) await splitRounds.setPublishedAt(round.id, null);
     }
   }
+  // Taking results down is as much a publishing act as putting them up, and
+  // the one the feed is asked about after the fact ("the page is gone — who
+  // took it?"). An orphan's entry carries no seriesId, so it lands at
+  // workspace level like a deleted series' does; the slug says which page it
+  // was either way.
+  await recordActivity(workspace, {
+    action: 'publish.unpublished',
+    seriesId: published.seriesId,
+    summary: `Unpublished /p/${workspace.workspaceSlug}/${published.slug}`,
+  });
 }
 
 /** Unpublish by publication id — the management page's canonical path, the only
@@ -783,7 +808,7 @@ export async function unpublishById(
   if (!published || published.workspaceId !== workspace.workspaceId) {
     throw new NotFoundError('publication');
   }
-  await unpublish(published);
+  await unpublish(workspace, published);
 }
 
 /** Unpublish a live series' publication — the publish dialog's convenience
@@ -797,7 +822,7 @@ export async function unpublishBySeries(
   if (published.workspaceId !== workspace.workspaceId) {
     throw new NotFoundError('publication');
   }
-  await unpublish(published);
+  await unpublish(workspace, published);
 }
 
 /**
@@ -854,4 +879,9 @@ export async function retractPage(
   // Unreferenced now. Best-effort, as on publish: a failed delete leaks a blob
   // but never serves a page the publication no longer lists.
   await deletePublishedHtml(page.blobUrl);
+  await recordActivity(workspace, {
+    action: 'publish.page-retracted',
+    seriesId,
+    summary: `Retracted /p/${workspace.workspaceSlug}/${published.slug}/${subPath}`,
+  });
 }
