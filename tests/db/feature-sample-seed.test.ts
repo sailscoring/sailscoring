@@ -158,7 +158,8 @@ describe.skipIf(skip)('seedFeatureSample', () => {
     expect(options.filter((o) => o != null).sort()).toEqual(['CC', 'IRL_5B_WL_M_TOT', 'WL']);
     expect(options.filter((o) => o == null)).toHaveLength(1);
     const cc = startRows.find((s) => s.orcOption === 'CC')!;
-    expect(cc.courseLegs).toHaveLength(7);
+    // J2 from the card, run home to the finish: nine legs.
+    expect(cc.courseLegs).toHaveLength(9);
     const wl = startRows.find((s) => s.orcOption === 'WL')!;
     expect(wl.orcScoringWind).toBe(12);
   });
