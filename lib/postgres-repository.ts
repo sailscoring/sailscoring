@@ -1339,48 +1339,86 @@ export class PostgresRaceRepository implements RaceRepository {
   }
 
   /**
-   * Renumber the series' races 1..n in the given order. Two-phase so the
-   * `(series_id, race_number)` unique index is never transiently violated:
-   * first park every race at the negative of its current number (distinct, and
-   * disjoint from the positive targets), then assign each its final number.
-   * Reordering is a list-organisation gesture, so — like series reorder — it
-   * doesn't bump `version`. `orderedIds` is expected to be the full set.
+   * Renumber the series' races 1..n in the given order, on the given handle
+   * (a transaction). Two-phase so the `(series_id, race_number)` unique index
+   * is never transiently violated: first park every race at the negative of
+   * its current number (distinct, and disjoint from the positive targets),
+   * then assign each its final number. `orderedIds` is expected to be the
+   * full set.
    */
-  async reorder(seriesId: string, orderedIds: string[]): Promise<void> {
-    await this.db.transaction(async (tx) => {
+  private async renumber(
+    tx: SailScoringDb,
+    seriesId: string,
+    orderedIds: string[],
+  ): Promise<void> {
+    await tx
+      .update(schema.races)
+      .set({ raceNumber: sql`-${schema.races.raceNumber}` })
+      .where(
+        and(
+          eq(schema.races.seriesId, seriesId),
+          eq(schema.races.workspaceId, this.workspaceId),
+        ),
+      );
+    for (let i = 0; i < orderedIds.length; i++) {
       await tx
         .update(schema.races)
-        .set({ raceNumber: sql`-${schema.races.raceNumber}` })
+        .set({ raceNumber: i + 1 })
         .where(
           and(
+            eq(schema.races.id, orderedIds[i]),
             eq(schema.races.seriesId, seriesId),
             eq(schema.races.workspaceId, this.workspaceId),
           ),
         );
-      for (let i = 0; i < orderedIds.length; i++) {
-        await tx
-          .update(schema.races)
-          .set({ raceNumber: i + 1 })
-          .where(
-            and(
-              eq(schema.races.id, orderedIds[i]),
-              eq(schema.races.seriesId, seriesId),
-              eq(schema.races.workspaceId, this.workspaceId),
-            ),
-          );
-      }
+    }
+  }
+
+  /**
+   * Renumber the series' races to match `orderedIds`. Reordering is a
+   * list-organisation gesture, so — like series reorder — it doesn't bump
+   * `version`.
+   */
+  async reorder(seriesId: string, orderedIds: string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await this.renumber(tx as unknown as SailScoringDb, seriesId, orderedIds);
     });
   }
 
+  /**
+   * Delete a race and close the gap it leaves: the survivors are renumbered
+   * 1..n in the same transaction, so a series' races are always numbered
+   * contiguously from 1. Without this the numbering carries the deletion
+   * forever, and the next appended race collides with an existing number.
+   */
   async delete(id: string): Promise<void> {
-    await this.db
-      .delete(schema.races)
-      .where(
-        and(
-          eq(schema.races.id, id),
-          eq(schema.races.workspaceId, this.workspaceId),
-        ),
+    await this.db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .delete(schema.races)
+        .where(
+          and(
+            eq(schema.races.id, id),
+            eq(schema.races.workspaceId, this.workspaceId),
+          ),
+        )
+        .returning({ seriesId: schema.races.seriesId });
+      if (!deleted) return;
+      const remaining = await tx
+        .select({ id: schema.races.id })
+        .from(schema.races)
+        .where(
+          and(
+            eq(schema.races.seriesId, deleted.seriesId),
+            eq(schema.races.workspaceId, this.workspaceId),
+          ),
+        )
+        .orderBy(schema.races.raceNumber);
+      await this.renumber(
+        tx as unknown as SailScoringDb,
+        deleted.seriesId,
+        remaining.map((r) => r.id),
       );
+    });
   }
 
   async deleteBySeries(seriesId: string): Promise<void> {

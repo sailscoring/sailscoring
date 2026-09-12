@@ -537,6 +537,58 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('RaceRepository: delete closes the numbering gap it would leave', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const r1: Race = { id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
+    const r2: Race = { id: uuid(), seriesId: s.id, raceNumber: 2, name: null, date: '2026-04-08', createdAt: Date.now() };
+    const r3: Race = { id: uuid(), seriesId: s.id, raceNumber: 3, name: null, date: '2026-04-15', createdAt: Date.now() };
+    await repos.races.save(r1);
+    await repos.races.save(r2);
+    await repos.races.save(r3);
+
+    await repos.races.delete(r1.id);
+
+    const list = await repos.races.listBySeries(s.id);
+    expect(list.map((r) => [r.id, r.raceNumber])).toEqual([
+      [r2.id, 1],
+      [r3.id, 2],
+    ]);
+
+    // The next appended race therefore continues from the compacted max,
+    // rather than colliding with a number the gap left in place.
+    const g: Race = { id: uuid(), seriesId: s.id, raceNumber: 99, name: null, date: '2026-04-22', createdAt: Date.now() };
+    const [created] = await repos.races.generateMany(s.id, [g], []);
+    expect(created.raceNumber).toBe(3);
+
+    await repos.series.delete(s.id);
+  });
+
+  test('RaceRepository: delete leaves other series untouched', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const a = makeSeries();
+    const b = makeSeries();
+    await repos.series.save(a);
+    await repos.series.save(b);
+    const a1: Race = { id: uuid(), seriesId: a.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
+    const b1: Race = { id: uuid(), seriesId: b.id, raceNumber: 1, name: null, date: '2026-04-01', createdAt: Date.now() };
+    const b2: Race = { id: uuid(), seriesId: b.id, raceNumber: 2, name: null, date: '2026-04-08', createdAt: Date.now() };
+    await repos.races.save(a1);
+    await repos.races.save(b1);
+    await repos.races.save(b2);
+
+    await repos.races.delete(b1.id);
+
+    expect((await repos.races.listBySeries(a.id)).map((r) => r.raceNumber)).toEqual([1]);
+    expect((await repos.races.listBySeries(b.id)).map((r) => [r.id, r.raceNumber])).toEqual([
+      [b2.id, 1],
+    ]);
+
+    await repos.series.delete(a.id);
+    await repos.series.delete(b.id);
+  });
+
   test('RaceRepository: generateMany appends numbered races and their starts', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = makeSeries();
