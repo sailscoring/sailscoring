@@ -158,6 +158,9 @@ export const seriesSchema = z.object({
   // Whole-series per-fleet race exclusions. Optional on the wire so sparse
   // creation and older clients round-trip cleanly.
   raceFleetExclusions: z.array(raceFleetExclusionSchema).optional(),
+  // Free-form rather than a uuid: an id that no longer resolves is handled
+  // by falling back to the host, not by rejecting the whole series save.
+  ftpServerId: z.string().optional(),
   ftpHost: z.string(),
   ftpPath: z.string(),
   ftpPaths: z.record(z.string(), z.string()),

@@ -509,6 +509,7 @@ interface SeriesFileSeries {
   dnfScoring: DnfScoring;
   excludeDncOnlyCompetitors?: boolean;  // v44+; all-DNC boats are non-entrants (absent = off)
   raceFleetExclusions?: RaceFleetExclusion[];  // v14+; whole-series per-fleet race strikes
+  ftpServerId?: string;  // additive; the workspace FTP server row this series uploads to. Workspace-local, so a file opened elsewhere falls back to matching ftpHost
   ftpHost: string;
   ftpPath: string;
   ftpPaths?: Record<string, string>;  // v4+; absent in older files. Keyed by published page (see Series.ftpPaths); bare fleet-id keys are the older per-fleet form
@@ -911,6 +912,7 @@ export async function buildSeriesFile(
       ...(series.raceFleetExclusions && series.raceFleetExclusions.length > 0
         ? { raceFleetExclusions: series.raceFleetExclusions }
         : {}),
+      ...(series.ftpServerId ? { ftpServerId: series.ftpServerId } : {}),
       ftpHost: series.ftpHost ?? '',
       ftpPath: series.ftpPath ?? '',
       ...(series.ftpPaths && Object.keys(series.ftpPaths).length > 0
@@ -1469,6 +1471,7 @@ export async function openSeriesFromFile(
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
+    ftpServerId: file.series.ftpServerId,
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
@@ -1578,6 +1581,7 @@ export async function restoreSeriesFromFile(
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
+    ftpServerId: file.series.ftpServerId,
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),
@@ -1684,6 +1688,7 @@ async function updateSeriesFromFileInner(
     dnfScoring: file.series.dnfScoring,
     excludeDncOnlyCompetitors: file.series.excludeDncOnlyCompetitors ?? false,
     raceFleetExclusions: remapRaceFleetExclusions(file.series.raceFleetExclusions, raceIdMap, fleetIdMap),
+    ftpServerId: file.series.ftpServerId,
     ftpHost: file.series.ftpHost,
     ftpPath: file.series.ftpPath,
     ftpPaths: remapFtpPaths(file.series.ftpPaths, fleetIdMap),

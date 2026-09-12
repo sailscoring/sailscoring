@@ -19,6 +19,7 @@ import { useFtpServers } from '@/hooks/use-ftp-servers';
 import { useFeatures } from '@/components/features-provider';
 import { uploadViaScupper } from '@/lib/scupper';
 import { relativeSubPath } from '@/lib/publishing';
+import { resolveFtpServerId } from '@/lib/ftp-publish';
 import {
   CHAMPIONSHIP_PAGE,
   RACE_RESULTS_PAGE,
@@ -79,20 +80,30 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
   // the upload, with no tick box to leave it out of.
   const isSinglePage = pages.length <= 1;
 
-  // Auto-select the server whose host matches the series' saved ftpHost, once
-  // the server list resolves.
+  // Open on the server the series remembers, once the server list resolves.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!ftpServers) return;
-    if (series.ftpHost) {
-      const match = ftpServers.find((s) => s.host === series.ftpHost);
-      setSelectedServerId(match?.id ?? '');
-    } else {
-      setSelectedServerId('');
-    }
+    setSelectedServerId(resolveFtpServerId(ftpServers, series));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ftpServers]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  /** Picking a server remembers it there and then. Waiting for a successful
+   *  upload to record the choice loses it whenever the upload doesn't finish
+   *  — and never records it at all on a series whose paths were filled in
+   *  some other way. The host rides along as the cross-workspace fallback.
+   *  Fire-and-forget like the destination toggle: a rejected write (a final
+   *  or archived series) leaves the pick usable for this upload. */
+  function pickServer(id: string) {
+    setSelectedServerId(id);
+    const server = ftpServers?.find((s) => s.id === id);
+    if (!server) return;
+    updateSeries.mutate({
+      id: series.id,
+      patch: () => ({ ftpServerId: server.id, ftpHost: server.host }),
+    });
+  }
 
   function setPath(key: string, value: string) {
     setPaths((prev) => ({ ...prev, [key]: value }));
@@ -233,15 +244,29 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
     // series version by one, so `current.version + 1` is the version this
     // upload reflects — comparing the live version against it later yields the
     // "N edits since" count, exactly like the in-app publishedVersion.
-    await updateSeries.mutateAsync({
-      id: series.id,
-      patch: (current) => ({
-        ftpHost: server.host,
-        ftpPaths: { ...(current.ftpPaths ?? {}), ...uploadedPaths },
-        ftpLastUploadedAt: Date.now(),
-        ftpUploadedVersion: (current.version ?? 1) + 1,
-      }),
-    });
+    // The files are already on the server; a rejected write (a series marked
+    // final, a lost connection) must report that the record didn't stick
+    // rather than leave the dialog sitting on "Uploading…".
+    try {
+      await updateSeries.mutateAsync({
+        id: series.id,
+        patch: (current) => ({
+          ftpServerId: server.id,
+          ftpHost: server.host,
+          ftpPaths: { ...(current.ftpPaths ?? {}), ...uploadedPaths },
+          ftpLastUploadedAt: Date.now(),
+          ftpUploadedVersion: (current.version ?? 1) + 1,
+        }),
+      });
+    } catch {
+      setUploadState({
+        success: false,
+        error:
+          `Uploaded ${uploaded} page${uploaded === 1 ? '' : 's'}, but couldn't record it ` +
+          'on the series — the paths and server here were not saved.',
+      });
+      return;
+    }
     setUploadState({ success: true, count: uploaded, unplaced: [...unplaced] });
   }
 
@@ -292,7 +317,7 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
         <form id="ftp-upload-form" onSubmit={(e) => { e.preventDefault(); handleUpload(); }} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Server</Label>
-            <Select value={selectedServerId} onValueChange={setSelectedServerId}>
+            <Select value={selectedServerId} onValueChange={pickServer}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a server…" />
               </SelectTrigger>

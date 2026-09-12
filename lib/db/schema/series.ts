@@ -180,7 +180,9 @@ export const series = pgTable(
       .$type<RaceFleetExclusion[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
-    // Publishing.
+    // Publishing. No FK on ftp_server_id: deleting a server must not touch
+    // the series, and a dangling id simply falls back to the host match.
+    ftpServerId: uuid('ftp_server_id'),
     ftpHost: text('ftp_host').notNull().default(''),
     ftpPath: text('ftp_path').notNull().default(''),
     ftpPaths: jsonb('ftp_paths')

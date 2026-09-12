@@ -124,6 +124,74 @@ test('Publish dialog · FTP mode: no-servers message, then remembered across reo
   await expect(page.getByRole('button', { name: 'Sail Scoring pages' })).toBeVisible();
 });
 
+/**
+ * The server choice is remembered on the series, so a scorer who publishes to
+ * the same club server week after week never re-picks it. Covers all three
+ * ways the pane resolves a server: the sole configured one, nothing when
+ * several could be meant, and the one the scorer picked.
+ */
+test('Publish dialog · FTP mode: the server choice is remembered', async ({ page }) => {
+  // ── One server configured ────────────────────────────────────────────────
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add server' }).click();
+  await page.getByLabel('Host').fill('ftp.first.example');
+  await page.getByLabel('Username').fill('scorer');
+  await page.locator('#ftp-password').fill('s3cret');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('ftp://ftp.first.example:21')).toBeVisible();
+
+  // ── A series with a race, so Standings and Publish are reachable ─────────
+  await createSeriesQuick(page, { name: 'Remembered Server' });
+  await addCompetitor(page, { sailNumber: '1', name: 'Alice' });
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
+
+  // The only server there is, is the one meant: no picking required.
+  await expect(page.getByRole('combobox')).toContainText('ftp.first.example');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  // ── A second server: now the pane can't guess, and says so ───────────────
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add server' }).click();
+  await page.getByLabel('Host').fill('ftp.second.example');
+  await page.getByLabel('Username').fill('scorer');
+  await page.locator('#ftp-password').fill('s3cret');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('ftp://ftp.second.example:21')).toBeVisible();
+
+  await page.goto('/');
+  await page.getByText('Remembered Server').click();
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await expect(page.getByRole('combobox')).toContainText('Select a server');
+
+  // ── Pick the second one; the choice is written to the series on the pick,
+  //    with no upload needed to record it ──────────────────────────────────
+  const saved = page.waitForResponse(
+    (r) => /\/api\/v1\/series\/[0-9a-f-]{36}$/.test(new URL(r.url()).pathname)
+      && r.request().method() === 'PUT'
+      && r.ok(),
+  );
+  await page.getByRole('combobox').click();
+  await page.getByRole('option', { name: /ftp\.second\.example/ }).click();
+  await saved;
+
+  // ── A fresh load opens on it ─────────────────────────────────────────────
+  await page.goto('/');
+  await page.getByText('Remembered Server').click();
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await expect(page.getByRole('combobox')).toContainText('ftp.second.example');
+});
+
 test('Publish dialog · FTP mode: per-page selection lets you upload a subset', async ({ page }) => {
   // ── Configure a server ────────────────────────────────────────────────────
   await page.goto('/workspace');

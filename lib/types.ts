@@ -327,7 +327,8 @@ export interface Series {
   // still counts for every other fleet. Absent/empty is the common case.
   raceFleetExclusions?: RaceFleetExclusion[];
   // Publishing
-  ftpHost: string;   // saved FTP server host for this series (empty if not yet published)
+  ftpServerId?: string;  // the workspace FTP server this series uploads to, remembered as soon as it is picked; absent on a series that has never had one chosen (or one imported from another workspace, where the id means nothing — `ftpHost` is the fallback)
+  ftpHost: string;   // host of that server, kept alongside the id so a series carried between workspaces can still be matched by host (empty if not yet published)
   ftpPath: string;   // legacy single path; falls back here when ftpPaths has no entry for a page (series uploaded before per-page paths landed)
   ftpPaths: Record<string, string>;  // last-uploaded remote path per published page, keyed by PublishPage.key ('fleet:{id}', 'group:{id}', 'prizes', …); entries keyed by a bare fleetId are the pre-page form and are still read
   publishMode?: 'sailscoring' | 'ftp';  // which destination the Publish dialog opens in (default 'sailscoring'); 'ftp' only takes effect when the ftp-upload feature is enabled
