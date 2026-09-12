@@ -29,6 +29,7 @@ import {
 import { seasonLikeSlug, sharedFolderSegment } from '@/lib/published-tree';
 import { groupApplies, producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
+import type { UnscorableRace } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
 import type {
   PublicationStatus,
@@ -403,21 +404,28 @@ export async function publishSeries(
   // A race whose fleet couldn't score it goes out as a column of blanks under
   // that fleet's rating system — the one outward-facing, irreversible step is
   // the wrong place to discover it. A fleet's own page is refused when that
-  // fleet has a gap; a page drawn from several fleets' standings is refused
-  // when any fleet does, since the build doesn't say which it drew on. Pages
-  // that aren't scored at all — the entry list, the fleet assignments — go
-  // out regardless.
+  // fleet has a gap, and a combined page when one of the fleets it carries
+  // does: an ECHO overall page has nothing to answer for when an ORC fleet's
+  // start is missing its course, and holding it back publishes nothing while
+  // fixing nothing. The prize sheet is allocated from every fleet's standings,
+  // so any gap reaches it. Pages that aren't scored at all — the entry list,
+  // the fleet assignments — go out regardless.
   const unscorable = build.unscorable ?? [];
   if (unscorable.length > 0) {
-    const blocking = toBuild.some((f) => {
-      if (f.isEntryList || f.isAuxiliary) return false;
-      if (f.isCombined || f.isNamedPage || f.isPrizes) return true;
-      return unscorable.some((u) => u.fleetName === f.fleetName);
-    });
-    if (blocking) {
+    // Only the races that hold a page being published now are reported: a gap
+    // on a fleet nobody ticked is not what this publish is waiting for, and
+    // naming it sends the scorer looking for a course that isn't in the way.
+    const blocking = new Set<UnscorableRace>();
+    for (const f of toBuild) {
+      if (f.isEntryList || f.isAuxiliary) continue;
+      const answersFor = (u: UnscorableRace): boolean =>
+        f.isPrizes || f.isNamedPage || (f.memberFleetNames ?? [f.fleetName]).includes(u.fleetName);
+      for (const u of unscorable) if (answersFor(u)) blocking.add(u);
+    }
+    if (blocking.size > 0) {
       throw new BadRequestError('a race cannot be scored under its fleet\'s option', {
         code: 'unscorable-race',
-        races: unscorable,
+        races: unscorable.filter((u) => blocking.has(u)),
       });
     }
   }

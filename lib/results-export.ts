@@ -125,6 +125,10 @@ export interface FleetHtmlFile {
   /** Set on a publishing group's combined page; `fleetName` is then the
    *  group name (pages are name-keyed alongside fleet pages). */
   isCombined?: boolean;
+  /** Combined pages: the fleets whose standings the page carries. What makes
+   *  a gap in one fleet answerable for this page — and, just as much, what
+   *  keeps an unrelated fleet's gap off it. */
+  memberFleetNames?: string[];
   /** Set on the prize-sheet page (#240); `fleetName` is then "Prizes". The
    *  publish handler special-cases its default sub-path. */
   isPrizes?: boolean;
@@ -1211,6 +1215,7 @@ export async function buildFleetHtmlFiles(
         fleetName: group.name,
         isDefault: false,
         isCombined: true,
+        memberFleetNames: members.map((f) => f.name),
         ...(subSeriesName ? { subSeriesName } : {}),
         html: renderCombinedSeriesHtml(sections, {
           pageName: group.name,

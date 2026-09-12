@@ -6,6 +6,9 @@
  * without it nobody in the race is scored, and a page of blanks under the
  * fleet's rating system is not something to discover after it is public.
  *
+ * A page carrying other fleets is refused only when one of *those* fleets has
+ * the gap: an ECHO overall page answers for nothing an ORC start is missing.
+ *
  * Skipped when DATABASE_URL is unset.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
@@ -39,6 +42,7 @@ describe.skipIf(skip)('publish handler — a race the fleet cannot score (#554)'
   let seriesId: string;
   let raceId: string;
   let startId: string;
+  let orcFleetId: string;
 
   beforeAll(async () => {
     sql = postgres(DATABASE_URL!, { max: 1, prepare: false });
@@ -72,7 +76,8 @@ describe.skipIf(skip)('publish handler — a race the fleet cannot score (#554)'
       primaryPersonLabel: 'helm' as const, subdivisionAxes: [],
     });
 
-    const fleetId = uuid();
+    orcFleetId = uuid();
+    const fleetId = orcFleetId;
     await fleets.putFleet(ctx, seriesId, fleetId, {
       id: fleetId, seriesId, name: 'Class 1 ORC', displayOrder: 0,
       scoringSystem: 'orc' as const, orcProfile: { option: 'APHD', kind: 'tod' },
@@ -126,12 +131,69 @@ describe.skipIf(skip)('publish handler — a race the fleet cannot score (#554)'
     });
   });
 
+  test('publishes a combined page carrying only fleets with no gap', async () => {
+    // The Autumn League's shape: individual fleet pages off, one combined page
+    // per rating system. The HPH page carries no ORC fleet, so the ORC start's
+    // missing course is nothing it is waiting for.
+    const hphFleetId = uuid();
+    await fleets.putFleet(ctx, seriesId, hphFleetId, {
+      id: hphFleetId, seriesId, name: 'Class 1 HPH', displayOrder: 1,
+      scoringSystem: 'tcf' as const, ratingLabel: 'HPH',
+    });
+    let sort = 0;
+    for (const [name, tcf] of [['Windsor', 0.981], ['Tsunami', 1.024]] as const) {
+      const compId = uuid();
+      await competitors.putCompetitor(ctx, seriesId, compId, {
+        id: compId, seriesId, fleetIds: [hphFleetId], sailNumber: `H${sort + 1}`,
+        names: [name], clubs: ['HYC'], gender: '' as const, age: null,
+        createdAt: Date.now(), fixedTcf: tcf,
+      });
+      sort += 1;
+      const finishId = uuid();
+      await finishes.putFinish(ctx, raceId, finishId, {
+        id: finishId, raceId, competitorId: compId, sortOrder: 10 + sort,
+        finishTime: `15:1${sort}:00`,
+        tiedWithPrevious: false, resultCode: null, startPresent: null,
+        penaltyCode: null, penaltyOverride: null, redressMethod: null,
+        redressExcludeRaceIds: null, redressIncludeRaceIds: null,
+        redressIncludeAllLater: false, redressPoints: null,
+      });
+    }
+    // The HPH fleet sails the same gun; it just isn't scored on a course.
+    const repos = createRepos({ workspaceId });
+    const start = (await repos.raceStarts.listByRace(raceId))[0];
+    await repos.raceStarts.save({ ...start, fleetIds: [...start.fleetIds, hphFleetId] });
+
+    const current = (await repos.series.get(seriesId))!;
+    await series.putSeries(ctx, seriesId, {
+      ...current,
+      publishIndividualFleetPages: false,
+      publishingGroups: [
+        { id: uuid(), name: 'Class 1 ORC results', fleetMode: 'chosen' as const, fleetIds: [orcFleetId], detail: 'full' as const },
+        { id: uuid(), name: 'Class 1 HPH results', fleetMode: 'chosen' as const, fleetIds: [hphFleetId], detail: 'full' as const },
+      ],
+    });
+
+    // Ticking the ORC page still refuses — and names only its own race.
+    await expect(publishSeries(ctx, seriesId, { fleets: ['Class 1 ORC results'] })).rejects.toMatchObject({
+      issues: { code: 'unscorable-race', races: [{ fleetName: 'Class 1 ORC', raceNumber: 1 }] },
+    });
+
+    const result = await publishSeries(ctx, seriesId, { fleets: ['Class 1 HPH results'] });
+    expect(result.pages.map((p) => p.fleetName)).toEqual(['Class 1 HPH results']);
+  });
+
   test('publishes once the start carries the course length', async () => {
     const repos = createRepos({ workspaceId });
     const current = (await repos.raceStarts.listByRace(raceId))[0];
     await repos.raceStarts.save({ ...current, distanceNm: 3.24 });
 
+    // Both combined pages now go out: the ORC one is no longer held, and the
+    // HPH one never was.
     const result = await publishSeries(ctx, seriesId, {});
-    expect(result.pages).toHaveLength(1);
+    expect(result.pages.map((p) => p.fleetName).sort()).toEqual([
+      'Class 1 HPH results',
+      'Class 1 ORC results',
+    ]);
   });
 });
