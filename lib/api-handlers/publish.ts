@@ -686,7 +686,7 @@ export async function publishSeries(
   if (!opts.rebuildOnly) {
     const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
     const where = `/p/${workspace.workspaceSlug}/${slug}`;
-    await recordActivity(workspace, {
+    const activityEntryId = await recordActivity(workspace, {
       action: 'publish.published',
       seriesId,
       summary: `Published to ${where}`,
@@ -695,6 +695,10 @@ export async function publishSeries(
     await captureRevision(actor, seriesId, {
       kind: 'publish',
       label: `Published to ${where}`,
+      // The revision claims the entry it belongs to. Unclaimed, the History
+      // tab reads it as a change nothing snapshotted and stands it beside the
+      // very revision that did.
+      activityEntryId: activityEntryId ?? undefined,
     });
   }
 
@@ -745,14 +749,20 @@ export async function recordFtpUpload(
 
   const what =
     `Uploaded ${input.pageCount} page${input.pageCount === 1 ? '' : 's'} to ${input.host}`;
-  await recordActivity(workspace, {
+  const activityEntryId = await recordActivity(workspace, {
     action: 'publish.ftp-uploaded',
     seriesId,
     summary: what,
   });
   const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
   await sealOpenRevisions(workspace.workspaceId, seriesId);
-  await captureRevision(actor, seriesId, { kind: 'publish', label: what });
+  await captureRevision(actor, seriesId, {
+    kind: 'publish',
+    label: what,
+    // As on an in-app publish: the revision claims its own entry, so the
+    // History tab attributes the upload to the version that captured it.
+    activityEntryId: activityEntryId ?? undefined,
+  });
   return saved;
 }
 

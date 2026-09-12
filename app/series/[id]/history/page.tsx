@@ -77,7 +77,12 @@ function RevisionRow({
   onRestore: (rev: RevisionEntry) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const expandable = capturedActivity.length > 0;
+  // A milestone's entry says exactly what its label says — a publish claims
+  // the entry describing that publish — so it is no drill-down at all. Drop
+  // it rather than offer a chevron onto a repeat of the headline.
+  const title = revisionTitle(rev, capturedActivity);
+  const changes = capturedActivity.filter((a) => a.summary !== title);
+  const expandable = changes.length > 0;
 
   return (
     <li className="py-3">
@@ -100,12 +105,12 @@ function RevisionRow({
           </span>
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-sm">
-              <span className="font-medium">{revisionTitle(rev, capturedActivity)}</span>
+              <span className="font-medium">{title}</span>
               <KindBadge kind={rev.kind} />
             </p>
             <p className="text-xs text-muted-foreground">
               {actorLabel(rev.actor)} · {formatRelativeTime(rev.createdAt)}
-              {expandable && ` · ${capturedActivity.length} change${capturedActivity.length === 1 ? '' : 's'}`}
+              {expandable && ` · ${changes.length} change${changes.length === 1 ? '' : 's'}`}
               {!rev.hasSnapshot && ' · snapshot no longer kept'}
             </p>
           </div>
@@ -124,7 +129,7 @@ function RevisionRow({
       </div>
       {open && expandable && (
         <ul className="mt-2 ml-10 space-y-1 border-l pl-4">
-          {capturedActivity.map((a) => (
+          {changes.map((a) => (
             <li key={a.id} className="text-xs text-muted-foreground">
               {a.summary}
               {a.count > 1 && <span className="ml-1">×{a.count}</span>}

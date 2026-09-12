@@ -179,6 +179,16 @@ describe.skipIf(skip)('recording an FTP upload', () => {
     const pinned = revisions.find((r) => r.kind === 'publish');
     expect(pinned).toBeDefined();
     expect(pinned!.label).toBe('Uploaded 2 pages to results.hyc.ie');
+
+    // And claims the entry describing the upload, so the History tab
+    // attributes it to the version that captured it rather than standing it
+    // alongside as a change nothing snapshotted.
+    const { items } = await listActivity({
+      workspaceId,
+      seriesId: id,
+      page: { limit: 50, cursor: null },
+    });
+    expect(items[0].revisionId).toBe(pinned!.id);
   });
 
   test('seals the open session, so later edits start a fresh version', async () => {

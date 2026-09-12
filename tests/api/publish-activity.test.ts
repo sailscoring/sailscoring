@@ -28,6 +28,7 @@ import {
   unpublishBySeries,
 } from '@/lib/api-handlers/publish';
 import { listActivity } from '@/lib/activity-log';
+import { listRevisions } from '@/lib/revision-log';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;
@@ -143,6 +144,18 @@ describe.skipIf(skip)('publish handler — activity', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].action).toBe('publish.published');
     expect(entries[0].summary).toBe(`Published to /p/${workspaceSlug}/activity-league`);
+  });
+
+  test('the pinned revision claims the publish entry', async () => {
+    const seriesId = await makeSeries('Claimed Entry Series', []);
+    await publishSeries(ctx, seriesId, { slug: 'claimed-entry-series' });
+
+    const revisions = await listRevisions(ctx, seriesId);
+    const pinned = revisions.find((r) => r.kind === 'publish')!;
+    const entries = await publishEntries(seriesId);
+    // Unclaimed, the History tab reads the entry as a change nothing
+    // snapshotted and stands it beside the very revision that did.
+    expect(entries[0].revisionId).toBe(pinned.id);
   });
 
   test('a re-publish that changes nothing records nothing', async () => {
