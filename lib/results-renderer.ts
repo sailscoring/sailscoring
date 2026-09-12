@@ -1,4 +1,6 @@
-import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
+import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
+import { buildOrcMix, type OrcMix } from './orc-mix';
+import type { PcsAllowances } from './orc-pcs';
 import { renderCourseSvg } from '@sailscoring/course-cards';
 import { drawnSnapshot } from './course-geometry';
 import { escapeHtml as esc } from './html';
@@ -213,6 +215,11 @@ export interface OrcHeaderData {
    *  the start recorded it — one inert SVG element, nothing fetched. A
    *  competitor checking their track sees the picture the scorer checked. */
   courseSvg?: string;
+  /** Which cells of the certificate's allowance matrix this race's rating
+   *  was mixed from, and whose certificate the mix was read off. Present
+   *  only for the models the mix is defined over (see lib/orc-mix.ts). */
+  mix?: OrcMix;
+  mixBoat?: string;
 }
 
 export interface NhcHeaderData {
@@ -1392,6 +1399,25 @@ details.orc-course > summary { font-size: 0.85em; color: #444; cursor: pointer; 
 details.orc-course > summary::-webkit-details-marker { display: none; }
 details.orc-course > summary::before { content: '\u25B8 '; }
 details.orc-course[open] > summary::before { content: '\u25BE '; }
+div.orc-mix-body { max-width: 640px; margin: 0 auto 8px auto; overflow-x: auto; text-align: left; }
+table.orc-mix-grid { border-collapse: separate; border-spacing: 2px; margin: 4px auto 0 auto; font-size: 0.8em; }
+table.orc-mix-grid th, table.orc-mix-grid td { padding: 3px 5px; text-align: center; font-weight: normal; white-space: nowrap; background: transparent; color: #1a1a1a; border: 0; }
+table.orc-mix-grid thead th, table.orc-mix-grid tfoot th { color: #555; font-size: 0.9em; }
+table.orc-mix-grid th.mcorner, table.orc-mix-grid tbody th, table.orc-mix-grid tfoot th { text-align: left; padding-right: 8px; }
+table.orc-mix-grid tbody th { font-weight: 600; }
+table.orc-mix-grid tbody th span { display: block; color: #777; font-size: 0.85em; font-weight: normal; }
+table.orc-mix-grid td { min-width: 34px; }
+table.orc-mix-grid .mtot { background: #eee; color: #333; }
+table.orc-mix-grid .m0 { color: #aaa; }
+table.orc-mix-grid .m1 { background: #e8f0fa; }
+table.orc-mix-grid .m2 { background: #cde2fb; }
+table.orc-mix-grid .m3 { background: #9ec5f4; }
+table.orc-mix-grid .m4 { background: #5598e7; color: #fff; }
+table.orc-mix-grid .m5 { background: #256abf; color: #fff; }
+table.orc-mix-grid .mn1 { background: #fadedd; }
+table.orc-mix-grid .mn2 { background: #f0a9a7; }
+table.orc-mix-grid .mn3 { background: #d03b3b; color: #fff; }
+p.orc-mix-note { max-width: 640px; margin: 6px auto 0 auto; font-size: 0.8em; color: #555; text-align: left; }
 /* A combined page's per-fleet race block: the rule and the space above it are
    what separate one fleet's set of races from the next when scrolling. */
 .fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
@@ -2093,7 +2119,13 @@ function renderRaceTable(
         const drawing = h.courseSvg
           ? `\n<details class="orc-course"><summary>Show course</summary><div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div></details>`
           : '';
-        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}${drawing}\n`;
+        // Beside the course and folded the same way: this is what the course
+        // bought off the certificate, and a competitor goes looking for it
+        // only once they've understood the course itself.
+        const mix = h.mix
+          ? `\n<details class="orc-course orc-mix"><summary>Show handicap mix</summary><div class="orc-mix-body">${renderOrcMixHtml(h.mix, h.mixBoat)}</div></details>`
+          : '';
+        return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}${drawing}${mix}\n`;
       })()
     : '';
   const echoHeaders = hasEchoExplain
@@ -2438,6 +2470,114 @@ function maybeLink(url: string | undefined, inner: string): string {
   return `<a href="${esc(externalHref(url))}" target="_top" rel="noopener">${inner}</a>`;
 }
 
+/** The boat the fleet's corrected times were anchored to: the one whose
+ *  applied allowance is the scratch allowance. Float equality is no use on
+ *  numbers that have been through a spline, so it's the closest match. */
+function orcScratchBoat(
+  scores: Map<string, { orc?: OrcRaceCalc }>,
+  competitorsById: Map<string, { sailNumber: string; boatName?: string; orcCert?: OrcCertData }>,
+  scratchTod: number | undefined,
+): { name: string; allowances: PcsAllowances } | undefined {
+  if (scratchTod == null) return undefined;
+  let bestId: string | undefined;
+  let bestGap = Infinity;
+  for (const [competitorId, score] of scores) {
+    const tod = score.orc?.todApplied;
+    if (tod == null) continue;
+    const gap = Math.abs(tod - scratchTod);
+    if (gap < bestGap) {
+      bestGap = gap;
+      bestId = competitorId;
+    }
+  }
+  if (bestId == null || bestGap > 0.05) return undefined;
+  const competitor = competitorsById.get(bestId);
+  const allowances = competitor?.orcCert?.record?.Allowances as PcsAllowances | undefined;
+  if (!competitor || !allowances) return undefined;
+  return { name: competitor.boatName || competitor.sailNumber, allowances };
+}
+
+/** The mix for a PCS race, when the course model is one the weights are
+ *  defined over. Time-on-distance and band races have no scoring wind and
+ *  no course model; all-purpose and coastal have no decomposition. */
+function orcMixFor(
+  calc: OrcRaceCalc,
+  legs: OrcCourseLeg[] | undefined,
+  allowances: PcsAllowances | undefined,
+): OrcMix | undefined {
+  if (!allowances || calc.scoringWind == null) return undefined;
+  if (calc.courseModel === 'WL') {
+    return buildOrcMix({ allowances, model: 'WL', scoringWind: calc.scoringWind });
+  }
+  if (calc.courseModel === 'CC' && legs?.length) {
+    return buildOrcMix({ allowances, model: 'CC', legs, scoringWind: calc.scoringWind });
+  }
+  return undefined;
+}
+
+/** How much of a cell's shade it gets: five steps, so the grid reads as a
+ *  shape at a glance without the number ever being the only signal. Scaled
+ *  to the grid's own largest weight — a constructed course with a short
+ *  offset leg would otherwise be one dark row and six blank ones. */
+function mixCellClass(weight: number, largest: number): string {
+  if (Math.abs(weight) < 5e-5) return 'm0';
+  const step = Math.min(5, Math.max(1, Math.ceil((Math.abs(weight) / largest) * 5)));
+  return weight < 0 ? `mn${Math.min(3, step)}` : `m${step}`;
+}
+
+function mixPct(weight: number): string {
+  if (Math.abs(weight) < 5e-5) return '0';
+  const pct = weight * 100;
+  return Math.abs(pct) < 9.95 ? pct.toFixed(1) : pct.toFixed(0);
+}
+
+/**
+ * The handicap-mix grid: which cells of the scratch boat's allowance matrix
+ * this race's rating was mixed from. Folded away by the caller, like the
+ * course drawing it sits beside.
+ */
+function renderOrcMixHtml(mix: OrcMix, boat: string | undefined): string {
+  const largest = Math.max(
+    ...mix.cells.map((row) => Math.max(...row.map((c) => Math.abs(c)))),
+    1e-9,
+  );
+  const head = mix.columns.map((c) => `<th>${c.windKt}</th>`).join('');
+  const body = mix.rows
+    .map((row, ri) => {
+      const cells = row.allowances
+        .map((allowance, ci) => {
+          const weight = mix.cells[ri][ci];
+          const title =
+            Math.abs(weight) < 5e-5
+              ? `${allowance.toFixed(1)} s/NM — not used at this scoring wind`
+              : `${allowance.toFixed(1)} s/NM, contributing ${(weight * allowance).toFixed(1)} s/NM`;
+          return `<td class="${mixCellClass(weight, largest)}" title="${esc(title)}">${mixPct(weight)}</td>`;
+        })
+        .join('');
+      const share = mix.cells[ri].reduce((sum, c) => sum + c, 0);
+      return `<tr><th scope="row">${esc(row.label)}<span>${esc(row.detail)}</span></th>${cells}<td class="mtot">${mixPct(share)}</td></tr>`;
+    })
+    .join('\n');
+  const foot = mix.columns.map((c) => `<td>${mixPct(c.weight)}</td>`).join('');
+  // Both numbers, always: at a tabulated scoring wind they agree exactly, and
+  // where they don't the gap is the spline interpolating boat speeds rather
+  // than allowances. Saying so is cheaper than a competitor finding it.
+  const interpolated =
+    'Between tabulated wind speeds the curve is interpolated through boat speeds rather than allowances,';
+  const reconcile = mix.exact
+    ? `The scoring wind landed on a tabulated speed, so one column carries the whole rating: these weights come to <strong>${mix.weightedSum.toFixed(1)} s/NM</strong>, the allowance the fleet was corrected on.`
+    : Math.abs(mix.weightedSum - mix.appliedTod) < 0.05
+      ? `These weights come to <strong>${mix.weightedSum.toFixed(1)} s/NM</strong>, the allowance the fleet was corrected on. ${interpolated} so the grid attributes the rating rather than reproducing it — here the two agree to the tenth anyway.`
+      : `These weights come to ${mix.weightedSum.toFixed(1)} s/NM against the <strong>${mix.appliedTod.toFixed(1)} s/NM</strong> actually applied. ${interpolated} so the grid attributes the rating without reproducing it.`;
+  const whose = boat ? `${esc(boat)}&rsquo;s certificate` : 'the scratch boat&rsquo;s certificate';
+  return (
+    `<table class="orc-mix-grid"><thead><tr><th class="mcorner">True wind (kt)</th>${head}<th class="mtot">Course</th></tr></thead>\n` +
+    `<tbody>\n${body}\n</tbody>\n` +
+    `<tfoot><tr><th scope="row">Wind weight</th>${foot}<td class="mtot">&nbsp;</td></tr></tfoot></table>\n` +
+    `<p class="orc-mix-note">Read off ${whose}, at a scoring wind of ${mix.scoringWind.toFixed(2)} kt. ${reconcile}</p>`
+  );
+}
+
 // ---- Assembly helper ----
 
 /**
@@ -2462,7 +2602,7 @@ export function assembleSeriesResultsData(
     raceExcluded?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number }>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -2554,6 +2694,11 @@ export function assembleSeriesResultsData(
         const coveringStart = fleetId
           ? raceStarts?.find((rs) => rs.raceId === race.id && rs.fleetIds.includes(fleetId))
           : undefined;
+        // The mix is read off the scratch boat's certificate — the boat the
+        // whole fleet's corrected times are anchored to, and the one the
+        // scratch allowance in the header line above already refers to.
+        const scratch = orcScratchBoat(scoresForRace, competitorsById, firstOrc.scratchTod);
+        const mix = orcMixFor(firstOrc, coveringStart?.courseLegs, scratch?.allowances);
         orcHeaderData = {
           ...(firstOrc.option ? { option: firstOrc.option } : {}),
           ...(firstOrc.scratchTod != null ? { scratchTod: firstOrc.scratchTod } : {}),
@@ -2571,6 +2716,7 @@ export function assembleSeriesResultsData(
                 return svg ? { courseSvg: svg } : {};
               })()
             : {}),
+          ...(mix ? { mix, ...(scratch?.name ? { mixBoat: scratch.name } : {}) } : {}),
         };
       }
     }

@@ -315,8 +315,10 @@ describe('the championship links to the per-race results page', () => {
     const html = renderSplitFleetStandingsPage(renderInputFor('14-f6-rank-seed-carry.yaml'), {
       raceResultsHref: 'race-results',
     });
-    expect(html).not.toContain('#f0');
-    expect(html).not.toContain('#m0');
+    // Matched against the href rather than the bare fragment: a stylesheet
+    // colour is free to be #f0something, and one now is.
+    expect(html).not.toContain('race-results#f0');
+    expect(html).not.toContain('race-results#m0');
     expect(html).toContain('<th><a href="race-results#q1">Q1</a></th>');
   });
 
