@@ -90,7 +90,9 @@ export default function Collaboration() {
         />
         <p>
           Every change anyone makes in a shared workspace is recorded: who did
-          it, when, and to which series. A series’{' '}
+          it, when, and to which series — and so is every time results go
+          out, whether they were published to a Sail Scoring page, uploaded to
+          your own club website, or taken down again. A series’{' '}
           <strong className="text-foreground">History</strong> tab shows that
           series’ own changes grouped under the versions that captured
           them. The <strong className="text-foreground">Activity</strong> tab
