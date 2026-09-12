@@ -1434,9 +1434,12 @@ export function planOrcUpdates(input: OrcPlanInput): PreviewRow[] {
 
 /**
  * Boats holding a certificate in some fleet's family listing but sitting in
- * no ORC fleet — candidates to add. When the series' ORC fleets span more
- * than one family, a boat is offered once, for the first family (in fleet
- * display order) whose listing rates it.
+ * no ORC fleet — candidates to add. A boat is offered once, with every ORC
+ * fleet in the series to choose between: one holding both a standard and a
+ * non-spinnaker certificate belongs in either division, and the scorer says
+ * which. It defaults to the first family (in fleet display order) whose
+ * listing rates the boat, and the certificate follows the chosen fleet's own
+ * family — so changing the fleet changes the certificate seeded with it.
  */
 export function planOrcFleetAdditions(
   input: OrcPlanInput & { targetFleetByKey?: Readonly<Record<string, string>> },
@@ -1444,13 +1447,16 @@ export function planOrcFleetAdditions(
   const matchByName = input.matchByName ?? false;
   const targetFleetByKey = input.targetFleetByKey ?? {};
 
-  const orcFleets = input.targetFleets.filter((f) => f.scoringSystem === 'orc');
+  const orcFleets = input.targetFleets
+    .filter((f) => f.scoringSystem === 'orc')
+    .sort((a, b) => a.displayOrder - b.displayOrder);
   if (orcFleets.length === 0) return [];
   const fleetById = new Map(input.targetFleets.map((f) => [f.id, f] as const));
-  // Families in fleet display order, each with its fleets and matcher.
+  const fleetOptions = orcFleets.map((f) => ({ fleetId: f.id, name: f.name }));
+  // Families in fleet display order, each with its fleets.
   const familiesInOrder: OrcFamily[] = [];
   const fleetsByFamily = new Map<OrcFamily, { fleetId: string; name: string }[]>();
-  for (const f of [...orcFleets].sort((a, b) => a.displayOrder - b.displayOrder)) {
+  for (const f of orcFleets) {
     const family = orcFamilyForFleet(f.id, input.familyByFleet);
     if (!fleetsByFamily.has(family)) {
       familiesInOrder.push(family);
@@ -1465,32 +1471,50 @@ export function planOrcFleetAdditions(
     const inOrcFleet = comp.fleetIds.some((id) => fleetById.get(id)?.scoringSystem === 'orc');
     if (inOrcFleet) continue;
 
-    for (const family of familiesInOrder) {
-      const chained = matchOrcChain(matcherByFamily, family, comp, matchByName);
-      if (!chained || chained.match.kind !== 'matched') continue;
-      const { match } = chained;
+    // A boat is a candidate if any family rates it; the first that does is
+    // where its target fleet defaults.
+    const ratedBy = familiesInOrder.find(
+      (f) => matchOrcChain(matcherByFamily, f, comp, matchByName)?.match.kind === 'matched',
+    );
+    if (!ratedBy) continue;
 
-      const entry = latestOrcEntry(match.records as readonly OrcMatchRecord[]);
-      const fleetOptions = fleetsByFamily.get(family)!;
-      const chosen =
-        targetFleetByKey[additionKey(comp.id, 'orc')] ??
-        (fleetOptions.length === 1 ? fleetOptions[0].fleetId : null);
-      const chosenFleet = chosen ? fleetById.get(chosen) : undefined;
+    const defaultOptions = fleetsByFamily.get(ratedBy)!;
+    const chosen =
+      targetFleetByKey[additionKey(comp.id, 'orc')] ??
+      (defaultOptions.length === 1 ? defaultOptions[0].fleetId : null);
+    const chosenFleet = chosen ? fleetById.get(chosen) : undefined;
 
-      candidates.push({
-        competitorId: comp.id,
-        system: 'orc',
-        fleetOptions,
-        targetFleetId: chosen,
-        proposedTcf: chosenFleet ? orcPreviewRating(entry, chosenFleet) : null,
-        ...(match.method === 'exact-sail'
-          ? {}
-          : { match: { method: match.method, sail: entry.record.SailNo ?? '', name: entry.record.YachtName } }),
-        orcCert: orcCertDataFor(entry, input.now),
-        ...(chained.family === family ? {} : { orcCertFamily: chained.family }),
-      });
-      break; // one candidate per boat
-    }
+    // Read the certificate through the chosen fleet's own family, so moving
+    // a boat to the non-spinnaker division seeds its non-spinnaker rating.
+    // Until a fleet is chosen, the family that rated it stands in — enough to
+    // show the certificate and how it was matched. A fleet whose family
+    // doesn't rate the boat at all leaves the row without a rating, and an
+    // apply won't write it.
+    const family = chosenFleet ? orcFamilyForFleet(chosenFleet.id, input.familyByFleet) : ratedBy;
+    const chained = matchOrcChain(matcherByFamily, family, comp, matchByName);
+    const entry =
+      chained?.match.kind === 'matched'
+        ? latestOrcEntry(chained.match.records as readonly OrcMatchRecord[])
+        : null;
+
+    candidates.push({
+      competitorId: comp.id,
+      system: 'orc',
+      fleetOptions,
+      targetFleetId: chosen,
+      proposedTcf: entry && chosenFleet ? orcPreviewRating(entry, chosenFleet) : null,
+      ...(entry && chained && chained.match.kind === 'matched' && chained.match.method !== 'exact-sail'
+        ? {
+            match: {
+              method: chained.match.method,
+              sail: entry.record.SailNo ?? '',
+              name: entry.record.YachtName,
+            },
+          }
+        : {}),
+      ...(entry ? { orcCert: orcCertDataFor(entry, input.now) } : {}),
+      ...(entry && chained && chained.family !== family ? { orcCertFamily: chained.family } : {}),
+    });
   }
   return candidates;
 }

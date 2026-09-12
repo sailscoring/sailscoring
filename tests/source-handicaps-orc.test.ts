@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { OrcCertEntry } from '@/lib/orc-certificate';
 import {
+  additionKey,
   orcPlanChecks,
   planOrcFleetAdditions,
   planOrcFleetRemovals,
@@ -267,6 +268,49 @@ describe('planOrcFleetAdditions / planOrcFleetRemovals', () => {
       proposedTcf: 0.9631,
       orcCertFamily: 'ORC',
     });
+  });
+
+  it('offers every ORC fleet when the series spans two certificate families', () => {
+    const input = {
+      targetCompetitors: [comp('c1', 'IRL1431', [])],
+      targetFleets: [orcFleet, nsFleet],
+      entriesByFamily: {
+        ORC: [entry('IRL1431', { APHT: 0.9631 })],
+        NS: [entry('IRL1431', { APHT: 0.9412 })],
+      },
+      familyByFleet: { 'f-orc-ns': 'NS' } as const,
+      now: NOW,
+    };
+    const adds = planOrcFleetAdditions(input);
+    expect(adds).toHaveLength(1);
+    // Both divisions are on offer; the standard fleet comes first, so that is
+    // the default — and it is what seeds the rating.
+    expect(adds[0].fleetOptions.map((f) => f.fleetId)).toEqual(['f-orc', 'f-orc-ns']);
+    expect(adds[0]).toMatchObject({ targetFleetId: 'f-orc', proposedTcf: 0.9631 });
+
+    // Choosing the non-spinnaker fleet seeds the non-spinnaker certificate.
+    const moved = planOrcFleetAdditions({
+      ...input,
+      targetFleetByKey: { [additionKey('c1', 'orc')]: 'f-orc-ns' },
+    });
+    expect(moved[0]).toMatchObject({ targetFleetId: 'f-orc-ns', proposedTcf: 0.9412 });
+    expect(moved[0].orcCertFamily).toBeUndefined();
+  });
+
+  it('leaves no rating when the chosen fleet\'s family does not rate the boat', () => {
+    const adds = planOrcFleetAdditions({
+      targetCompetitors: [comp('c1', 'IRL1431', [])],
+      targetFleets: [orcFleet, nsFleet],
+      // A non-spinnaker certificate only: it rates the NS fleet, but nothing
+      // rates the spinnaker division.
+      entriesByFamily: { ORC: [], NS: [entry('IRL1431', { APHT: 0.9412 })] },
+      familyByFleet: { 'f-orc-ns': 'NS' },
+      targetFleetByKey: { [additionKey('c1', 'orc')]: 'f-orc' },
+      now: NOW,
+    });
+    expect(adds).toHaveLength(1);
+    expect(adds[0]).toMatchObject({ targetFleetId: 'f-orc', proposedTcf: null });
+    expect(adds[0].orcCert).toBeUndefined();
   });
 
   it('spares a standard-only boat in a non-spinnaker fleet from removal', () => {
