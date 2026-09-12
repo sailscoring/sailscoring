@@ -630,6 +630,42 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: ORC handicap mix — the grid folded away beside the course
+    // on the same published constructed-course race, opened.
+    slug: 'orc-handicap-mix',
+    group: 'Rating and handicap systems',
+    async capture({ page, anon, shot }) {
+      await ensureFeature(page, 'orc');
+      if (LOCAL) await publishSeries(page, 'Sample ORC Series 2026');
+      await page.goto(`${BASE}/workspace/published`);
+      await settle(page);
+      const anyHref = await page
+        .locator('a[href*="/p/"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!anyHref) throw new Error('no published pages found');
+      const ws = new URL(anyHref, BASE).pathname.split('/')[2];
+      const pub = await anon.newPage();
+      await pub.goto(`${BASE}/p/${ws}`);
+      await settle(pub);
+      const orcHref = await pub
+        .locator('a[href*="cruisers-orc"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!orcHref) throw new Error('no cruisers-orc link on the public index');
+      await pub.goto(new URL(orcHref, BASE).toString());
+      await settle(pub);
+      // The fold is closed on the page as published; open it, since the
+      // grid is the thing being shown.
+      const fold = pub.locator('details.orc-mix').first();
+      await fold.locator('summary').click();
+      await settle(pub);
+      await fold.scrollIntoViewIfNeeded();
+      await shot('orc-handicap-mix.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: Course builder — the Courses tab of the seeded ORC sample:
     // the marks adopted from HYC's card and the two the race committee laid,
     // the course built from card J2, and the drawing.

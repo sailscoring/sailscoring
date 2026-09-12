@@ -357,6 +357,15 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   expect(html).toContain("Scoring wind 18.06 kt (winner's implied wind)");
   expect(html).toContain('<th>Implied wind</th>');
   expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg;)');
+
+  // And, folded away beside the course, what that course bought off the
+  // certificate: a row per leg weighted by distance, over the certificate's
+  // tabulated wind speeds. 18.06 kt is not one of them, so the grid says it
+  // attributes the rating rather than reproducing it.
+  expect(html).toContain('<details class="orc-course orc-mix"><summary>Show handicap mix</summary>');
+  expect(html).toContain('Leg 1<span>2.09 NM · TWA 2° · beating</span>');
+  expect(html).toContain('certificate, at a scoring wind of 18.06 kt.');
+  expect(html).toContain('attributes the rating without reproducing it');
 });
 
 test('ORC fleet: the wind band picked on the start re-scores the race', async ({ page }) => {

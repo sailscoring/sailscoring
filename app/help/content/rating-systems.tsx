@@ -202,6 +202,34 @@ export default function RatingSystems() {
           transparency is deliberate, because implied wind is the part of ORC scoring
           competitors ask about most.
         </p>
+        <HelpShot
+          src="/help/shots/orc-handicap-mix.webp"
+          alt="The handicap mix opened on a published constructed-course race: the certificate's wind speeds across the top, one row per leg down the side, and the share of the rating in each cell."
+          caption="The handicap mix, opened: one row per leg, the certificate's wind speeds across the top, and the share of the rating each cell carried."
+        />
+        <p>
+          Beside the course sits{' '}
+          <strong className="text-foreground">Show handicap mix</strong>, folded away
+          until you open it. A certificate is a matrix — an allowance in seconds per
+          mile at each wind speed and each angle to the wind — and every ORC method is
+          a weighted mix of its cells. The grid puts those weights back in the matrix:
+          the wind speeds across the top, the course down the side, and in each cell
+          the share of the rating it carries. A windward/leeward race is half the beat
+          allowance and half the run allowance, and nothing else; a constructed course
+          is one row per leg, weighted by its share of the distance. Hovering a cell
+          gives the allowance itself and what it contributed.
+        </p>
+        <p>
+          The wind axis is where PCS shows its hand. A single-number rating averages
+          over a fixed spread of wind strengths whatever the day did; PCS reads the
+          curve at the one scoring wind the race produced. Land on a wind speed the
+          certificate tabulates and a single column carries the whole rating, and the
+          note under the grid says the weights come to the allowance applied. Land
+          between two and the curve is interpolated, which reaches a little past the
+          neighbouring columns — some weights go slightly negative, and the note says
+          the grid attributes the rating rather than reproducing it. The grid is drawn
+          from the scratch boat’s certificate, and names it.
+        </p>
       </Section>
       )}
       {has('orc') && (
