@@ -125,6 +125,29 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     expect(entry.standings.every((s) => s.raceRanks[0] === null)).toBe(true);
   });
 
+  it('a fleet that sailed none of the race reports no gap, however missing the course', () => {
+    // The offshore-league shape: one start sequence covers every class, the
+    // early classes finish, and a class that has entered nothing yet is not
+    // waiting on the course — the race doesn't count for it either way.
+    const ns4: Fleet = { ...todFleet, id: 'f2', name: 'Non-Spinnaker Class 4 ORC' };
+    const ns4Boat: Competitor = { ...baseComp, id: 'ns4a', fleetIds: ['f2'], sailNumber: 'IRL 9', orcCert: mojoCert };
+    const sharedStart: RaceStart = { ...start, fleetIds: ['f1', 'f2'], startTime: '15:15:00' };
+    const finishes = [finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49')];
+    const result = calculateFleetStandings(
+      [todFleet, ns4],
+      [impetuous, mojo, ns4Boat],
+      races,
+      finishes,
+      [],
+      'seriesEntries',
+      [sharedStart],
+    );
+    const sailed = result.fleetStandings.find((f) => f.fleet.id === 'f1')!;
+    const didNot = result.fleetStandings.find((f) => f.fleet.id === 'f2')!;
+    expect(sailed.raceGaps.map((g) => g.reason)).toEqual(['orc_course_missing']);
+    expect(didNot.raceGaps).toEqual([]);
+  });
+
   it('a certificate lacking the ToD field leaves the boat unrated', () => {
     const noField: Competitor = { ...baseComp, id: 'nf', sailNumber: 'X', orcCert: { record: { APHT: 0.95 }, importedAt: 0 } };
     const todStart: RaceStart = { ...start, distanceNm: 3.24 };

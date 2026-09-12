@@ -1744,6 +1744,9 @@ function calculateHandicapStandings(
     const forcedExcluded = excludedRaceIds?.has(race.id) ?? false;
 
     let scores: Map<string, HandicapRaceScore>;
+    // Reported below, once this race's exclusion for the fleet is known.
+    let orcCourseMissing = false;
+    let orcCourseOption: string | null = null;
     if (raceStart) {
       // Phase A — race scoring (applies to both static and progressive fleets).
       // For static fleets, apply this race's rating overrides over the base map.
@@ -1766,10 +1769,8 @@ function calculateHandicapStandings(
       // correct with, and correcting by some other method would publish a
       // race scored under rules nobody agreed to, so nobody is scored here
       // and the standings page says which race is waiting for what.
-      const orcCourseMissing = orcProfile != null && !orcStartHasCourse(orcProfile, raceStart);
-      if (orcCourseMissing) {
-        raceGaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'orc_course_missing', option: orcProfile!.option });
-      }
+      orcCourseMissing = orcProfile != null && !orcStartHasCourse(orcProfile, raceStart);
+      orcCourseOption = orcCourseMissing ? orcProfile!.option : null;
       const isOrcTod = orcProfile?.kind === 'tod';
       const isOrcPcs = orcProfile?.kind === 'pcs';
       let todContext: TodCorrectionContext | undefined;
@@ -1918,6 +1919,20 @@ function calculateHandicapStandings(
     // fleet (issue #129 — see computeRaceExclusion).
     const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
     raceExcluded[raceIdx] = computeRaceExclusion(raceFinishes, fleetRaceFinishes) || forcedExcluded;
+
+    // Nobody in this race is scored: the option it resolved to corrects over a
+    // course the start doesn't carry. Reported only for a race that counts for
+    // the fleet — one it didn't sail is a column of nothing either way, and
+    // saying a course is missing from a race this fleet never started tells
+    // the scorer to fix something that isn't holding anything up.
+    if (orcCourseMissing && !raceExcluded[raceIdx]) {
+      raceGaps.push({
+        raceId: race.id,
+        fleetId: fleet.id,
+        reason: 'orc_course_missing',
+        ...(orcCourseOption ? { option: orcCourseOption } : {}),
+      });
+    }
 
     // This fleet came to the start of a race it is in no start for, so the
     // scores just built are finishing order carrying a rating system's name.
