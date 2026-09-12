@@ -16,9 +16,11 @@ import {
   listSeriesNames,
   locateSeries,
   setSeriesCategory,
+  setSeriesPublishPrefs,
   setSeriesResultsStatus,
 } from '@/lib/api-repository';
 import type { SeriesLocation } from '@/lib/api-handlers/series';
+import type { SeriesPublishPrefs } from '@/lib/repository';
 import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
 
@@ -195,6 +197,31 @@ export function updateSeriesMutationOptions(
 export function useUpdateSeries() {
   const qc = useQueryClient();
   return useMutation(updateSeriesMutationOptions(qc));
+}
+
+/**
+ * Write publish bookkeeping — the destination the dialog opens in, the FTP
+ * server picked, where a completed upload put each page (#575).
+ *
+ * Not `useUpdateSeries`: that replaces the whole row under a compare-and-swap
+ * and files the write as an edit to the series, which is neither what these
+ * fields are nor how the scorer would describe having opened a dialog. This
+ * writes only the named fields, and doesn't touch the version the publish
+ * indicators count.
+ */
+export function useUpdateSeriesPublishPrefs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, prefs }: { id: string; prefs: SeriesPublishPrefs }) =>
+      setSeriesPublishPrefs(id, prefs),
+    onSuccess: (saved) => {
+      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
+    // Same scope as the row saves, so a preference write can't interleave
+    // with an in-flight save of the same row.
+    scope: { id: 'series' },
+  });
 }
 
 export function useDeleteSeriesCascade() {

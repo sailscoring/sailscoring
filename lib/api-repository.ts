@@ -33,6 +33,7 @@ import type {
   SaveOpts,
   SeriesCourseRepository,
   SeriesMarkRepository,
+  SeriesPublishPrefs,
   SeriesRepository,
   SubSeriesRepository,
 } from './repository';
@@ -91,6 +92,14 @@ class ApiSeriesRepository implements SeriesRepository {
     await apiFetch('/api/v1/series/reorder', {
       method: 'POST',
       body: { orderedIds },
+    });
+  }
+
+  setPublishPrefs(id: string, prefs: SeriesPublishPrefs): Promise<Series | undefined> {
+    return apiFetch<Series | undefined>(`/api/v1/series/${id}/publish-prefs`, {
+      method: 'PATCH',
+      body: prefs,
+      allow404: true,
     });
   }
 }
@@ -731,6 +740,23 @@ export function setSeriesCategory(
   return apiFetch<Series>(`/api/v1/series/${seriesId}/category`, {
     method: 'POST',
     body: { categoryId },
+  });
+}
+
+/**
+ * Write publish bookkeeping and nothing else (#575) — the destination the
+ * publish dialog opens in, the FTP server picked, where a completed upload
+ * put each page. No compare-and-swap and no version bump: none of it changes
+ * the results, so counting it as an edit would have the publish indicators
+ * report unpublished edits that don't exist.
+ */
+export function setSeriesPublishPrefs(
+  seriesId: string,
+  prefs: SeriesPublishPrefs,
+): Promise<Series> {
+  return apiFetch<Series>(`/api/v1/series/${seriesId}/publish-prefs`, {
+    method: 'PATCH',
+    body: prefs,
   });
 }
 

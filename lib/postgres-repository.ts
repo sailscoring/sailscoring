@@ -21,6 +21,7 @@ import {
   type SaveOpts,
   type SeriesCourseRepository,
   type SeriesMarkRepository,
+  type SeriesPublishPrefs,
   type SeriesRepository,
   type SubSeriesRepository,
 } from './repository';
@@ -742,6 +743,52 @@ export class PostgresSeriesRepository implements SeriesRepository {
           );
       }
     });
+  }
+
+  /**
+   * Publish bookkeeping only — the destination the dialog opens in, the FTP
+   * server picked, and where a completed upload put each page. Deliberately
+   * leaves `version` and `lastModifiedAt` alone: see `setPublishPrefs` on
+   * `SeriesRepository` for why counting these as edits misreports the
+   * publish indicators they feed.
+   *
+   * `updatedAt` moves, since the row did change; `updatedBy` does not, so it
+   * keeps naming whoever last made a real edit — the question it exists to
+   * answer.
+   */
+  async setPublishPrefs(
+    id: string,
+    prefs: SeriesPublishPrefs,
+  ): Promise<Series | undefined> {
+    const patch: Partial<typeof schema.series.$inferInsert> = {};
+    if (prefs.publishMode !== undefined) patch.publishMode = prefs.publishMode;
+    if (prefs.ftpServerId !== undefined) patch.ftpServerId = prefs.ftpServerId ?? null;
+    if (prefs.ftpHost !== undefined) patch.ftpHost = prefs.ftpHost;
+    if (prefs.ftpPaths !== undefined) patch.ftpPaths = prefs.ftpPaths;
+    if (prefs.ftpPagesExcluded !== undefined) {
+      patch.ftpPagesExcluded = prefs.ftpPagesExcluded;
+    }
+    if (prefs.ftpLastUploadedAt !== undefined) {
+      patch.ftpLastUploadedAt =
+        prefs.ftpLastUploadedAt != null ? new Date(prefs.ftpLastUploadedAt) : null;
+    }
+    if (prefs.ftpUploadedVersion !== undefined) {
+      patch.ftpUploadedVersion = prefs.ftpUploadedVersion ?? null;
+    }
+    // Nothing to write: return the row as it stands rather than issuing an
+    // update whose SET clause would be empty.
+    if (Object.keys(patch).length === 0) return this.get(id);
+    const [row] = await this.db
+      .update(schema.series)
+      .set({ ...patch, updatedAt: sql`now()` })
+      .where(
+        and(
+          eq(schema.series.id, id),
+          eq(schema.series.workspaceId, this.workspaceId),
+        ),
+      )
+      .returning();
+    return row ? seriesRowToType(row) : undefined;
   }
 
   /**

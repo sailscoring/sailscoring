@@ -81,6 +81,24 @@ export interface FleetRepository {
   deleteBySeries(seriesId: string): Promise<void>;
 }
 
+/**
+ * Publish bookkeeping: which destination the publish dialog opens in, the FTP
+ * server it was pointed at, and where a completed upload put each page. None
+ * of it is scoring data — it records where results went, not what they are.
+ */
+export type SeriesPublishPrefs = Partial<
+  Pick<
+    Series,
+    | 'publishMode'
+    | 'ftpServerId'
+    | 'ftpHost'
+    | 'ftpPaths'
+    | 'ftpPagesExcluded'
+    | 'ftpLastUploadedAt'
+    | 'ftpUploadedVersion'
+  >
+>;
+
 export interface SeriesRepository {
   list(): Promise<Series[]>;
   get(id: string): Promise<Series | undefined>;
@@ -88,6 +106,22 @@ export interface SeriesRepository {
   delete(id: string): Promise<void>;
   /** Rewrite the manual sort order to match the given id sequence. */
   reorder(orderedIds: string[]): Promise<void>;
+  /**
+   * Write publish bookkeeping and nothing else — no compare-and-swap, and no
+   * `version` / `lastModifiedAt` bump.
+   *
+   * These fields ride on the series row but are not part of it in the sense
+   * the version counter means: the results are unchanged, so counting the
+   * write as an edit makes the "N edits since you last published" indicators
+   * — which read these very fields — report unpublished edits that don't
+   * exist. Going through the general save also files the write as an ordinary
+   * settings edit in the history, which is what a scorer reads as "did I
+   * change something?".
+   *
+   * Only the named fields are touched, so a preference write can't lose a
+   * race against a real edit either.
+   */
+  setPublishPrefs(id: string, prefs: SeriesPublishPrefs): Promise<Series | undefined>;
 }
 
 /**

@@ -43,7 +43,7 @@ import {
 import { PageNoteEditor } from '@/components/page-note-editor';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
-import { useUpdateSeries } from '@/hooks/use-series';
+import { useUpdateSeries, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { FtpPublishPane } from '@/components/ftp-publish-pane';
@@ -135,6 +135,7 @@ interface SuppressedRow {
  */
 export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored = [] }: PublishDialogProps) {
   const updateSeries = useUpdateSeries();
+  const updatePublishPrefs = useUpdateSeriesPublishPrefs();
   const confirm = useConfirm();
   const { has } = useFeatures();
   // Destination mode. Persisted per-series (`series.publishMode`) so the dialog
@@ -319,10 +320,15 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
   // Flip destination and persist the choice so it sticks for next time. Fire
   // and forget — a preference write shouldn't block the UI, and a failure just
   // means the dialog reopens in the previous mode.
+  //
+  // Through the publish-prefs write, not a series save: opening a dialog on a
+  // different tab is not an edit to the series, and filing it as one told the
+  // scorer they had changed a setting and left the publish indicators
+  // counting an edit that never happened.
   function switchMode(next: 'sailscoring' | 'ftp') {
     if (next === mode || (next === 'ftp' && !canFtp)) return;
     setMode(next);
-    updateSeries.mutate({ id: series.id, patch: () => ({ publishMode: next }) });
+    updatePublishPrefs.mutate({ id: series.id, prefs: { publishMode: next } });
   }
 
   /** What each non-fleet page is, for the row's caption — shared by the

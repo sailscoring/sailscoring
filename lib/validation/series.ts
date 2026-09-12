@@ -244,6 +244,23 @@ export const seriesArchiveInputSchema = z.object({
   archived: z.boolean(),
 });
 
+/**
+ * Body for PATCH /api/v1/series/:id/publish-prefs — publish bookkeeping
+ * (#575). Every field is optional: the dialog writes the one or two it just
+ * learned, never the whole set.
+ */
+export const seriesPublishPrefsSchema = z
+  .object({
+    publishMode: z.enum(['sailscoring', 'ftp']).optional(),
+    ftpServerId: uuidSchema.optional(),
+    ftpHost: z.string().optional(),
+    ftpPaths: z.record(z.string(), z.string()).optional(),
+    ftpPagesExcluded: z.array(z.string()).optional(),
+    ftpLastUploadedAt: z.number().int().optional(),
+    ftpUploadedVersion: z.number().int().optional(),
+  })
+  .strict();
+
 /** Body for POST /api/v1/series/:id/results-status — mark the series' results
  *  final, or reopen them as provisional. */
 export const seriesResultsStatusInputSchema = z.object({

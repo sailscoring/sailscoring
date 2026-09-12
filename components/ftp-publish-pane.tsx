@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import * as repos from '@/lib/api-repository';
-import { useUpdateSeries } from '@/hooks/use-series';
+import { useUpdateSeries, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
 import { useFtpServers } from '@/hooks/use-ftp-servers';
 import { useFeatures } from '@/components/features-provider';
 import { uploadViaScupper } from '@/lib/scupper';
@@ -71,6 +71,7 @@ export interface FtpPublishPaneProps {
  */
 export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPublishPaneProps) {
   const updateSeries = useUpdateSeries();
+  const updatePublishPrefs = useUpdateSeriesPublishPrefs();
   const { data: ftpServers } = useFtpServers();
   const { has } = useFeatures();
   const [selectedServerId, setSelectedServerId] = useState('');
@@ -117,15 +118,16 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
    *  upload to record the choice loses it whenever the upload doesn't finish
    *  — and never records it at all on a series whose paths were filled in
    *  some other way. The host rides along as the cross-workspace fallback.
-   *  Fire-and-forget like the destination toggle: a rejected write (a final
-   *  or archived series) leaves the pick usable for this upload. */
+   *  Fire-and-forget like the destination toggle, and through the same
+   *  publish-prefs write: choosing where results will go is not an edit to
+   *  the series. */
   function pickServer(id: string) {
     setSelectedServerId(id);
     const server = ftpServers?.find((s) => s.id === id);
     if (!server) return;
-    updateSeries.mutate({
+    updatePublishPrefs.mutate({
       id: series.id,
-      patch: () => ({ ftpServerId: server.id, ftpHost: server.host }),
+      prefs: { ftpServerId: server.id, ftpHost: server.host },
     });
   }
 

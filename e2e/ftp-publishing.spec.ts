@@ -174,10 +174,11 @@ test('Publish dialog · FTP mode: the server choice is remembered', async ({ pag
   await expect(page.getByRole('combobox')).toContainText('Select a server');
 
   // ── Pick the second one; the choice is written to the series on the pick,
-  //    with no upload needed to record it ──────────────────────────────────
+  //    with no upload needed to record it. A publish-prefs write, not a series
+  //    save: choosing where results go is not an edit to the series ────────
   const saved = page.waitForResponse(
-    (r) => /\/api\/v1\/series\/[0-9a-f-]{36}$/.test(new URL(r.url()).pathname)
-      && r.request().method() === 'PUT'
+    (r) => /\/api\/v1\/series\/[0-9a-f-]{36}\/publish-prefs$/.test(new URL(r.url()).pathname)
+      && r.request().method() === 'PATCH'
       && r.ok(),
   );
   await page.getByRole('combobox').click();
@@ -380,4 +381,58 @@ test('Publish dialog: FTP offers the same pages as Sail Scoring', async ({ page,
   await expect(dialog.getByLabel('Slow path')).toBeVisible();
   await expect(dialog.getByLabel('Entries path')).toBeVisible();
   await expect(dialog.getByRole('checkbox', { name: 'Upload Entries' })).toBeVisible();
+});
+
+/**
+ * Opening the Publish dialog is not an edit to the series (#575).
+ *
+ * Switching destination and picking a server both write to the series row —
+ * that is how they are remembered — but they went through the general series
+ * save, which recorded them as "Updated series settings" on the History tab.
+ * A scorer who had only opened a dialog was told they had changed a setting,
+ * and the version bump left the publish indicator counting an edit that never
+ * happened.
+ */
+test('Publish dialog · FTP mode: choosing a destination is not recorded as a settings edit', async ({ page }) => {
+  await page.goto('/workspace');
+  await page.getByRole('button', { name: 'Add server' }).click();
+  await page.getByLabel('Host').fill('ftp.quiet.example');
+  await page.getByLabel('Username').fill('scorer');
+  await page.locator('#ftp-password').fill('s3cret');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('ftp://ftp.quiet.example:21')).toBeVisible();
+
+  await createSeriesQuick(page, { name: 'Quiet Prefs Series' });
+  await addCompetitor(page, { sailNumber: '1', name: 'Alice' });
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('1');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // Switch destination, which persists `publishMode`, and land on the server.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const prefsWritten = page.waitForResponse(
+    (r) => /\/api\/v1\/series\/[0-9a-f-]{36}\/publish-prefs$/.test(new URL(r.url()).pathname)
+      && r.request().method() === 'PATCH'
+      && r.ok(),
+  );
+  await page.getByRole('button', { name: 'Publish' }).click();
+  await page.getByRole('button', { name: 'Your website (FTP)' }).click();
+  await prefsWritten;
+  await expect(page.getByRole('combobox')).toContainText('ftp.quiet.example');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  // Nothing in the history says a setting changed.
+  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/history$/);
+  const revisions = page.getByTestId('revision-list');
+  await expect(revisions).toContainText('Added Race 1');
+  await expect(revisions).not.toContainText('Updated series settings');
+
+  // Nor in the workspace feed, which is where that row came from.
+  await page.goto('/workspace/activity');
+  await expect(page.getByTestId('activity-entry').first()).toBeVisible();
+  await expect(page.locator('[data-action="series.updated"]')).toHaveCount(0);
 });

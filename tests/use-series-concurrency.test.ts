@@ -72,6 +72,13 @@ function makeRepo(initial: Series): { repo: SeriesRepository; current: () => Ser
     },
     delete: async () => {},
     reorder: async () => {},
+    // Publish bookkeeping writes no version, so the fake mirrors that: the
+    // fields land and the CAS token stays where it was.
+    setPublishPrefs: async (id, prefs) => {
+      if (id !== current.id) return undefined;
+      current = { ...current, ...prefs };
+      return { ...current };
+    },
   };
   return { repo, current: () => current };
 }

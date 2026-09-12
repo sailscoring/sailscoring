@@ -39,6 +39,7 @@ import {
   seriesArchiveInputSchema,
   seriesCategoryInputSchema,
   seriesInputSchema,
+  seriesPublishPrefsSchema,
   seriesReorderSchema,
   seriesResultsStatusInputSchema,
 } from '@/lib/validation/series';
@@ -173,6 +174,35 @@ export async function putSeries(
     dedupeKey: existing ? `series:${id}` : undefined,
     touch: false,
   });
+  return saved;
+}
+
+/**
+ * Write publish bookkeeping — the destination the publish dialog opens in, the
+ * FTP server it was pointed at — and nothing else (#575).
+ *
+ * Its own endpoint rather than a field on the general PUT for two reasons.
+ * The PUT replaces the whole row under a compare-and-swap and records an
+ * "Updated series settings" edit, so a preference write both collided with
+ * real edits and told the scorer they had changed a setting when they had
+ * only opened a dialog. And it bumped `version`, which is what the "N edits
+ * since you last published" indicators count — so choosing a destination
+ * reported an unpublished edit that didn't exist.
+ *
+ * Deliberately not behind the read-only guard: publishing a finalised series
+ * is allowed — that is much of the point of finalising it — so recording
+ * where the results went has to be allowed too. The repository's
+ * workspace-scoped update is the tenancy check.
+ */
+export async function setSeriesPublishPrefs(
+  workspace: WorkspaceContext,
+  id: string,
+  body: unknown,
+): Promise<Series> {
+  const prefs = seriesPublishPrefsSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const saved = await repos.series.setPublishPrefs(id, prefs);
+  if (!saved) throw new NotFoundError('series');
   return saved;
 }
 
