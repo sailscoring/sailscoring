@@ -179,6 +179,63 @@ test('non-spinnaker fleet: a boat with no NS certificate gets its standard one',
   await expect(page.getByRole('row').filter({ hasText: 'IRL 2507' })).toContainText('0.9631');
 });
 
+test('add to fleet: both divisions are offered, and the fleet picks the certificate', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'ORC Add Test 2026' });
+
+  // A scratch entry fleet holding the boat, so it starts in no ORC fleet.
+  await createFleets(page, ['Entries']);
+  await setScoringMode(page, 'handicap');
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL 1551');
+  await page.getByLabel('Competitor name').fill('Mojo');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL 1551' })).toBeVisible();
+
+  // Two ORC divisions: a spinnaker class and a non-spinnaker one.
+  await createFleets(page, ['Class 2', 'Non-Spin']);
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  for (const name of ['Class 2', 'Non-Spin']) {
+    await page.getByTestId('fleet-row').filter({ hasText: name }).getByRole('combobox').click();
+    await page.getByRole('option', { name: 'ORC' }).click();
+  }
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('ORC certificates', { exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // Race the non-spinnaker division under non-spinnaker certificates.
+  const familyCard = page.getByText('Certificate family per fleet').locator('..');
+  await familyCard.locator('div').filter({ hasText: /^Non-Spin/ }).getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Non-spinnaker' }).click();
+
+  // Mojo holds both certificates, so either division could have it — both are
+  // on offer, and the spinnaker class is the default with its standard rating.
+  await expect(page.getByText('Add to handicap fleet')).toBeVisible();
+  const target = page.getByLabel('Target fleet');
+  await expect(target.locator('option')).toHaveText(['Class 2', 'Non-Spin']);
+  await expect(target).toHaveValue(/.+/);
+  const addRow = page.getByRole('row').filter({ hasText: 'IRL 1551' });
+  await expect(addRow).toContainText('1.0089');
+
+  // Choosing the non-spinnaker division seeds its non-spinnaker certificate.
+  await target.selectOption({ label: 'Non-Spin' });
+  await expect(addRow).toContainText('0.9712');
+
+  const addSection = page.getByText('Add to handicap fleet').locator('..');
+  await addSection.getByRole('checkbox', { name: /Add IRL 1551/ }).check();
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await expect(page.getByText('1 added to a handicap fleet')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  const compRow = page.getByRole('row').filter({ hasText: 'IRL 1551' });
+  await expect(compRow).toContainText('Non-Spin');
+  await expect(compRow).toContainText('0.9712');
+});
+
 test('ORC fleet: standings ordered by APHT corrected time', async ({ page }) => {
   await createSeriesQuick(page, { name: 'ORC Scoring Test 2026' });
   await setUpOrcFleet(page, [
