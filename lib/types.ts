@@ -1406,6 +1406,12 @@ export interface Standing {
   raceNonDiscardable: boolean[];         // true = this code cannot be excluded by discard rules (DNE)
   raceRedressFlags: boolean[];           // true = this race score was calculated via RDG (A9 average)
   raceExcluded: boolean[];               // true = nobody finished this race; it scores 0 and does not count toward discards
+  // true = this race is excluded because it isn't scored yet: its start is
+  // missing the course the fleet's ORC option corrects over. A subset of
+  // raceExcluded — the standings treat the two alike, but the page says which
+  // it is, and only this one is something the scorer can go and fix. Sparse:
+  // absent when no race in the fleet is waiting on a course.
+  raceNotScored?: boolean[];
 }
 
 export type ScoringRejectionReason =

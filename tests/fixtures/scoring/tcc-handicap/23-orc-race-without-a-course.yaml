@@ -1,5 +1,5 @@
 description: "ORC — a time-on-distance race with no recorded course length scores nobody"
-rrs_notes: "ORC Rating Systems 403.2 corrects over the course length, so a race with none cannot be scored under the fleet's option. It is not quietly scored by some other method: ranking it on crossing order would put a scratch race in front of competitors under an ORC fleet's name. Everyone in it is scored as if they had not come to the start, and the standings page names the race and what it is waiting for."
+rrs_notes: "ORC Rating Systems 403.2 corrects over the course length, so a race with none cannot be scored under the fleet's option. It is not quietly scored by some other method: ranking it on crossing order would put a scratch race in front of competitors under an ORC fleet's name. Nor is it scored against the boats in it — a DNC apiece would read as if none of them had come to the start, when what has actually happened is that the scorer has not finished entering the race. It is left out of the standings entirely, the way a race nobody finished is, until the course is entered; the standings page names the race and what it is waiting for."
 
 # The same two boats and the same first race as 16-orc-aphd-tod.
 #   Mojo (J-80)           APHD 594.7 s/NM — the scratch boat
@@ -10,9 +10,10 @@ rrs_notes: "ORC Rating Systems 403.2 corrects over the course length, so a race 
 #   Impetuous: finish 15:51:49  ET = 2209 s  CT = 2209 − 91.692   → 1st
 #
 # Race 2 has a gun and two finishers but no recorded course length, so
-# there is nothing to correct over. Neither boat is scored: both take the
-# series-entries penalty of 3 (two entries + 1), and Mojo crossing first
-# earns nothing for it.
+# there is nothing to correct over. Neither boat is scored, and the race
+# counts for neither: it contributes no points, is out of the discard
+# count, and the standings are the standings after race 1 alone. Enter
+# the course and race 2 scores in place.
 
 series:
   discardThresholds: []
@@ -70,15 +71,19 @@ expected:
   standings:
     - rank: 1
       sailor: "IRL 2507"
-      racePoints: [1, 3]
-      raceCodes: [null, DNC]
+      racePoints: [1, 0]
+      raceCodes: [null, null]
       raceDiscards: [false, false]
-      totalPoints: 4
-      netPoints: 4
+      raceExcluded: [false, true]
+      raceNotScored: [false, true]
+      totalPoints: 1
+      netPoints: 1
     - rank: 2
       sailor: "IRL 1551"
-      racePoints: [2, 3]
-      raceCodes: [null, DNC]
+      racePoints: [2, 0]
+      raceCodes: [null, null]
       raceDiscards: [false, false]
-      totalPoints: 5
-      netPoints: 5
+      raceExcluded: [false, true]
+      raceNotScored: [false, true]
+      totalPoints: 2
+      netPoints: 2

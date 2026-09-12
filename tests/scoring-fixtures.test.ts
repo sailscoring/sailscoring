@@ -59,6 +59,9 @@ function assertExpectedStandings(
     if (expected.raceExcluded !== undefined) {
       expect(standing.raceExcluded, `${label}: raceExcluded`).toEqual(expected.raceExcluded);
     }
+    if (expected.raceNotScored !== undefined) {
+      expect(standing.raceNotScored, `${label}: raceNotScored`).toEqual(expected.raceNotScored);
+    }
     if (expected.racePenaltyCodes !== undefined) {
       expect(standing.racePenaltyCodes, `${label}: racePenaltyCodes`).toEqual(expected.racePenaltyCodes);
     }

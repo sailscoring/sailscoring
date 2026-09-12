@@ -125,6 +125,35 @@ describe('ORC time-on-distance scoring (403.2)', () => {
     expect(entry.standings.every((s) => s.raceRanks[0] === null)).toBe(true);
   });
 
+  it('a race waiting on its course is left out of the standings, not scored DNC', () => {
+    const races2 = [
+      races[0],
+      { id: 'r2', seriesId: 's1', raceNumber: 2, name: null, date: '2026-09-19', createdAt: 0 },
+    ];
+    const scored: RaceStart = { ...start, id: 'rs2', raceId: 'r2', startTime: '15:15:00', distanceNm: 3.24 };
+    const finishes = [
+      // Race 1 has the finishes but no course; race 2 is scored normally.
+      finish('mojo', 1, '15:50:51'), finish('imp', 2, '15:51:49'),
+      { ...finish('mojo', 1, '15:50:51'), id: 'r2-mojo', raceId: 'r2' },
+      { ...finish('imp', 2, '15:51:49'), id: 'r2-imp', raceId: 'r2' },
+    ];
+    const result = calculateFleetStandings(
+      [todFleet], [impetuous, mojo], races2, finishes, [], 'seriesEntries',
+      [{ ...start, startTime: '15:15:00' }, scored],
+    );
+    const entry = result.fleetStandings[0];
+    for (const s of entry.standings) {
+      // Scoring it would hand a DNC to boats that sailed and finished.
+      expect(s.racePoints[0]).toBe(0);
+      expect(s.raceCodes[0]).toBeNull();
+      expect(s.raceExcluded[0]).toBe(true);
+      expect(s.raceNotScored?.[0]).toBe(true);
+      // The scored race is untouched, and the totals are its scores alone.
+      expect(s.raceNotScored?.[1]).toBe(false);
+      expect(s.totalPoints).toBe(s.racePoints[1]);
+    }
+  });
+
   it('a fleet that sailed none of the race reports no gap, however missing the course', () => {
     // The offshore-league shape: one start sequence covers every class, the
     // early classes finish, and a class that has entered nothing yet is not

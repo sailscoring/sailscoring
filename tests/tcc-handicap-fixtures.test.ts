@@ -134,6 +134,12 @@ describe('TCC handicap scoring fixtures', () => {
         expect(standing.racePoints, `${label}: racePoints`).toEqual(exp.racePoints);
         expect(standing.raceCodes, `${label}: raceCodes`).toEqual(exp.raceCodes);
         expect(standing.raceDiscards, `${label}: raceDiscards`).toEqual(exp.raceDiscards);
+        if (exp.raceExcluded !== undefined) {
+          expect(standing.raceExcluded, `${label}: raceExcluded`).toEqual(exp.raceExcluded);
+        }
+        if (exp.raceNotScored !== undefined) {
+          expect(standing.raceNotScored, `${label}: raceNotScored`).toEqual(exp.raceNotScored);
+        }
         expect(standing.totalPoints, `${label}: totalPoints`).toBe(exp.totalPoints);
         expect(standing.netPoints, `${label}: netPoints`).toBe(exp.netPoints);
       }

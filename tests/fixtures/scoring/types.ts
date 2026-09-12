@@ -159,6 +159,7 @@ export interface FixtureStanding {
   raceDiscards: boolean[];
   raceNonDiscardable?: boolean[];
   raceExcluded?: boolean[];
+  raceNotScored?: boolean[];
   racePenaltyCodes?: (PenaltyCode | null)[];
   raceRedressFlags?: boolean[];
   totalPoints: number;

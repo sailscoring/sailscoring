@@ -1363,6 +1363,7 @@ function assembleStandings(
   per: PerCompetitorSeries,
   raceExcluded: boolean[],
   discardCount: number,
+  raceNotScored?: boolean[],
 ): Standing[] {
   return competitors.map((competitor) => {
     const rawPoints = per.racePoints.get(competitor.id)!;
@@ -1420,7 +1421,7 @@ function assembleStandings(
       0,
     ));
 
-    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, racePenaltyLabels, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded] };
+    return { rank: 0, competitor, racePoints, raceRanks, raceCodes, racePenaltyCodes, racePenaltyOverrides, racePenaltyLabels, raceRedressFlags, totalPoints, netPoints, raceDiscards, raceNonDiscardable, raceExcluded: [...raceExcluded], ...(raceNotScored?.some(Boolean) ? { raceNotScored: [...raceNotScored] } : {}) };
   });
 }
 
@@ -1732,6 +1733,10 @@ function calculateHandicapStandings(
 
   const per = initPerCompetitorSeries(competitors);
   const raceExcluded = new Array<boolean>(races.length).fill(false);
+  // The subset of `raceExcluded` that is excluded for want of a course rather
+  // than for want of finishers — the two read identically in the standings and
+  // do not mean the same thing.
+  const raceNotScored = new Array<boolean>(races.length).fill(false);
   const fleetCompetitorIds = new Set(competitors.map((c) => c.id));
 
   for (let raceIdx = 0; raceIdx < races.length; raceIdx++) {
@@ -1925,6 +1930,13 @@ function calculateHandicapStandings(
     // the fleet — one it didn't sail is a column of nothing either way, and
     // saying a course is missing from a race this fleet never started tells
     // the scorer to fix something that isn't holding anything up.
+    //
+    // It is then excluded, like a race nobody finished. Left to score, every
+    // boat in it takes a DNC — boats that started, sailed and crossed the line
+    // carrying the code for not coming to the start, in a race the scorer is
+    // still assembling. A race waiting for its course hasn't been scored yet;
+    // that is what the standings should say, and `raceNotScored` is what tells
+    // the page to say it in those words rather than "nobody finished".
     if (orcCourseMissing && !raceExcluded[raceIdx]) {
       raceGaps.push({
         raceId: race.id,
@@ -1932,6 +1944,8 @@ function calculateHandicapStandings(
         reason: 'orc_course_missing',
         ...(orcCourseOption ? { option: orcCourseOption } : {}),
       });
+      raceNotScored[raceIdx] = true;
+      raceExcluded[raceIdx] = true;
     }
 
     // This fleet came to the start of a race it is in no start for, so the
@@ -1958,7 +1972,12 @@ function calculateHandicapStandings(
       const points = isFinisher ? applyAdditivePenalty(rawPoints, finish, penaltyCap, fleet.id) : rawPoints;
       per.racePoints.get(competitor.id)!.push(raceExcluded[raceIdx] ? 0 : points);
       per.raceRanks.get(competitor.id)!.push(raceExcluded[raceIdx] ? null : (score?.rank ?? null));
-      per.raceCodes.get(competitor.id)!.push(score !== undefined ? score.resultCode : 'DNC');
+      // Nothing is scored in a race that isn't scored yet, and that includes
+      // the codes: the boats in it finished, and the DNC an unscored boat
+      // otherwise takes would say they never started.
+      per.raceCodes.get(competitor.id)!.push(
+        raceNotScored[raceIdx] ? null : (score !== undefined ? score.resultCode : 'DNC'),
+      );
       per.racePenaltyCodes.get(competitor.id)!.push(isFinisher ? (finish?.penaltyCode ?? null) : null);
       per.racePenaltyOverrides.get(competitor.id)!.push(isFinisher ? (finish?.penaltyOverride ?? null) : null);
       per.racePenaltyLabels.get(competitor.id)!.push(isFinisher ? (finish?.penaltyLabel ?? null) : null);
@@ -1987,7 +2006,7 @@ function calculateHandicapStandings(
     fleetId: fleet.id,
   });
 
-  const standings = assembleStandings(ratedCompetitors, races, per, raceExcluded, discardCount);
+  const standings = assembleStandings(ratedCompetitors, races, per, raceExcluded, discardCount, raceNotScored);
   sortAndRank(standings);
 
   return {
