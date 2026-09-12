@@ -13,6 +13,7 @@ import {
   toCompetitorIndexEntries,
 } from '@/lib/published-competitor-index';
 import { publishedCacheTag } from '@/lib/published-cache';
+import { renderSponsorFooterHtml, SPONSORS_REVISION } from '@/lib/sponsors';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
   renderAsPublishedRankingHtml,
@@ -39,6 +40,7 @@ import {
 import {
   folderSegmentOf,
   injectAfterBodyTag,
+  injectBeforeBodyEnd,
   interiorFolderLabels,
   pagesInFolder,
   renderFolderIndexHtml,
@@ -93,9 +95,22 @@ const CACHE_CONTROL = 'public, no-cache';
 // is the property being bought.
 const CDN_CACHE_CONTROL = 'public, s-maxage=60';
 
+/** The served ETag for an HTML page: the caller's content-derived tag plus the
+ *  sponsor revision. The burgee footer is injected into every page this route
+ *  serves and is therefore part of what a caller has cached — without folding
+ *  it in, a sponsorship that starts or lapses would never reach a browser
+ *  holding a revalidatable copy of a publication that hasn't otherwise
+ *  changed, and "always current" is the whole point of that surface. */
+function pageEtag(contentEtag: string): string {
+  return `"${contentEtag.replaceAll('"', '')}+s${SPONSORS_REVISION}"`;
+}
+
 /** 304 when the caller's `If-None-Match` already has this version, else null.
- *  Checked before rendering/reading so an unchanged page costs nothing. */
-function notModified(req: NextRequest, etag: string): Response | null {
+ *  Checked before rendering/reading so an unchanged page costs nothing.
+ *  Takes the *content* ETag and compares what `htmlResponse` would serve, so
+ *  the two can never drift apart. */
+function notModified(req: NextRequest, contentEtag: string): Response | null {
+  const etag = pageEtag(contentEtag);
   if (req.headers.get('if-none-match') !== etag) return null;
   return new Response(null, {
     status: 304,
@@ -105,17 +120,17 @@ function notModified(req: NextRequest, etag: string): Response | null {
 
 function htmlResponse(
   html: string,
-  etag: string,
+  contentEtag: string,
   workspaceId: string,
 ): Response {
-  return new Response(html, {
+  return new Response(injectBeforeBodyEnd(html, renderSponsorFooterHtml()), {
     status: 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': CACHE_CONTROL,
       'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
       'Vercel-Cache-Tag': publishedCacheTag(workspaceId),
-      etag,
+      etag: pageEtag(contentEtag),
     },
   });
 }
@@ -684,9 +699,17 @@ async function fleetPage(
     (p) => p.dataSubPath === subPath && p.dataBlobUrl,
   );
   if (dataOwner) {
+    // Its own 304 check, not `notModified`: that one answers for the HTML
+    // pages, whose served ETag carries the sponsor revision. The data file
+    // gets no footer, so its ETag is the publication's content hash and
+    // nothing else.
     const etag = `"${dataOwner.contentHash}"`;
-    const cached = notModified(req, etag);
-    if (cached) return cached;
+    if (req.headers.get('if-none-match') === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: { etag, 'cache-control': CACHE_CONTROL },
+      });
+    }
     const json = await readPublishedHtml(dataOwner.dataBlobUrl!);
     if (json === null) return NOT_FOUND;
     return new Response(json, {

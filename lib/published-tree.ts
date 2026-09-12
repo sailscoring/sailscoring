@@ -527,3 +527,14 @@ export function injectAfterBodyTag(html: string, fragment: string): string {
   const at = bodyOpen.index + bodyOpen[0].length;
   return html.slice(0, at) + fragment + html.slice(at);
 }
+
+/** Insert a fragment immediately before the closing `</body>`. The twin of
+ *  `injectAfterBodyTag`, for chrome that belongs at the foot of the page; same
+ *  contract, including returning a document without the tag unchanged. Matches
+ *  the *last* `</body>` so a page that quotes the string in escaped sample
+ *  markup still gets the fragment in the right place. */
+export function injectBeforeBodyEnd(html: string, fragment: string): string {
+  const at = html.toLowerCase().lastIndexOf('</body>');
+  if (at === -1) return html;
+  return html.slice(0, at) + fragment + html.slice(at);
+}

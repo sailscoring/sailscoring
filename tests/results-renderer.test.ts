@@ -87,6 +87,15 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('</html>');
   });
 
+  it('carries no sponsor recognition', () => {
+    // The published artifact is the scorer's output and the club's record.
+    // The same HTML goes to blob storage, to a club's own web host over FTP,
+    // and into a downloaded archive, so a burgee baked in here would be one
+    // we could never take back out. Recognition is injected by the `/p/...`
+    // route on the pages we serve instead (see lib/sponsors.ts).
+    expect(renderSeriesHtml(MINIMAL)).not.toContain('ss-sponsors');
+  });
+
   it('includes a print stylesheet and a Save as PDF button', () => {
     const html = renderSeriesHtml(MINIMAL);
     // @media print block tuned for a clean printout (#207).

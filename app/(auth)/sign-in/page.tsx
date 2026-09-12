@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getOptionalSession } from '@/lib/auth/require-session';
 import { safeInternalPath, stripAuthErrorParam } from '@/lib/safe-redirect';
 import { Button } from '@/components/ui/button';
+import { SponsorCredit } from '@/components/sponsor-credit';
 import { SignInForm } from './sign-in-form';
 
 export const dynamic = 'force-dynamic';
@@ -63,8 +64,11 @@ export default async function SignInPage({
   }
 
   return (
-    <Suspense>
-      <SignInForm />
-    </Suspense>
+    <>
+      <Suspense>
+        <SignInForm />
+      </Suspense>
+      <SponsorCredit className="max-w-sm mx-auto mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground" />
+    </>
   );
 }

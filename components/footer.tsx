@@ -1,6 +1,8 @@
+import { SponsorCredit } from '@/components/sponsor-credit';
+
 export function Footer() {
   return (
-    <footer className="border-t px-6 py-3 mt-8 text-xs text-muted-foreground flex flex-wrap items-baseline gap-x-4 gap-y-1">
+    <footer className="border-t px-6 py-3 mt-8 text-xs text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-2">
       <a
         href="https://sailscoring.ie/legal/privacy"
         target="_blank"
@@ -17,6 +19,7 @@ export function Footer() {
       >
         Terms
       </a>
+      <SponsorCredit className="flex flex-wrap items-center gap-x-3 gap-y-1" />
       <span className="ml-auto">
         © {new Date().getFullYear()} Mark McLoughlin. Sail Scoring™ is an
         unregistered trademark of Mark McLoughlin.

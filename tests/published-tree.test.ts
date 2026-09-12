@@ -4,6 +4,7 @@ import {
   buildTreeNav,
   folderSegmentOf,
   injectAfterBodyTag,
+  injectBeforeBodyEnd,
   leafLabel,
   pagesInFolder,
   publicationPath,
@@ -600,5 +601,27 @@ describe('injectAfterBodyTag', () => {
 
   it('leaves a document without a body tag unchanged', () => {
     expect(injectAfterBodyTag('<p>bare</p>', '<nav/>')).toBe('<p>bare</p>');
+  });
+});
+
+describe('injectBeforeBodyEnd', () => {
+  it('inserts the fragment right before the closing body tag', () => {
+    const html = '<html><body class="x"><p>hi</p></body></html>';
+    expect(injectBeforeBodyEnd(html, '<footer/>')).toBe(
+      '<html><body class="x"><p>hi</p><footer/></body></html>',
+    );
+  });
+
+  it('uses the last closing body tag', () => {
+    // A results page can quote the string inside escaped sample markup; the
+    // real document end is the last one.
+    const html = '<html><body><code>&lt;/body&gt;</code></body></html>';
+    expect(injectBeforeBodyEnd(html, '<footer/>')).toBe(
+      '<html><body><code>&lt;/body&gt;</code><footer/></body></html>',
+    );
+  });
+
+  it('leaves a document without a body tag unchanged', () => {
+    expect(injectBeforeBodyEnd('<p>bare</p>', '<footer/>')).toBe('<p>bare</p>');
   });
 });
