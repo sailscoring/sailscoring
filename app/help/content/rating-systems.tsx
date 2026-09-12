@@ -130,6 +130,78 @@ export default function RatingSystems() {
           in the same Publishing card.
         </p>
       </Section>
+      <Section id="tuning-progressive-handicaps" title="Tuning a progressive handicap">
+        <p>
+          NHC and ECHO both work the same way underneath. After every race the engine
+          works out the handicap each boat <em>would</em> have needed to finish on the
+          fleet average — call it the fair handicap — and then moves the boat part of
+          the way toward it. How far it moves is the blend rate, written α, and the
+          boat carries the result into the next race. NHC does more arithmetic around
+          that step than ECHO does, but the blend rate is the part you can change.
+        </p>
+        <p>
+          So α is a dial between two failure modes. Set it high and a rating chases the
+          last race: a boat that got a lucky shift is handicapped as though it had
+          found real speed, and one bad race hands back a rating it did not earn. Set
+          it low and a rating lags the boat: someone who has genuinely got quicker —
+          new sails, a better crew — keeps winning on an old number for weeks before it
+          catches up. Neither is wrong; they suit different events.
+        </p>
+        <p>
+          Changing any of these values re-scores the fleet from race 1, because every
+          rating after the first is derived from the one before it. Published standings
+          will move. Change them between series rather than mid-series unless you mean
+          to restate results already announced.
+        </p>
+
+        <h3 className="text-base font-medium text-foreground pt-2">ECHO</h3>
+        <p>
+          ECHO has a single rate, on the fleet row in{' '}
+          <strong className="text-foreground">Settings → Fleets</strong>. At the default{' '}
+          <strong className="text-foreground">0.25</strong> a boat closes a quarter of
+          the gap to its fair handicap each race, so ratings settle over a season
+          rather than swinging week to week. Irish Sailing’s 2022 ECHO Guide
+          gives 0.25 for club racing and{' '}
+          <strong className="text-foreground">0.50</strong> for regattas and major
+          events — a weekend has too few races to converge slowly, so a regatta buys
+          responsiveness and accepts the noise. Those two are the figures to reach for;
+          a number you invented is a number you will have to defend to the fleet.
+        </p>
+
+        <h3 className="text-base font-medium text-foreground pt-2">NHC</h3>
+        <p>
+          NHC splits the same idea four ways, because the RYA’s SWNHC2015
+          procedure treats boats differently depending on which way they missed and by
+          how much. A boat that beat its rating is pulled back at{' '}
+          <strong className="text-foreground">0.300</strong>, while one that fell short
+          is helped up at only <strong className="text-foreground">0.150</strong> — the
+          system corrects a boat that is winning on handicap twice as fast as it
+          compensates one that is losing. A boat whose race was a statistical outlier
+          moves at half those rates again (<strong className="text-foreground">0.150</strong>{' '}
+          and <strong className="text-foreground">0.075</strong>), so a freak result — a
+          hole in the wind, a boat that sailed a different course — does not wreck a
+          rating built over a season.
+        </p>
+        <p>
+          The two thresholds decide what counts as a freak result: a boat is treated as
+          extreme when its performance is more than{' '}
+          <strong className="text-foreground">1.5</strong> standard deviations above
+          the fleet mean, or <strong className="text-foreground">1.0</strong> below.
+          Lower them and more boats are treated as outliers, so the fleet’s
+          ratings move more slowly overall; raise them and only the truly strange races
+          are damped. <strong className="text-foreground">MinFin</strong> is the
+          smallest number of finishers that will update ratings at all — at the default{' '}
+          <strong className="text-foreground">3</strong>, a race two boats finish
+          scores normally but leaves every rating untouched, because a fleet average
+          over two boats is not a fleet average.
+        </p>
+        <p>
+          The defaults reproduce Sailwave’s NHC1 to three decimal places, which
+          is the practical reason to leave them alone: a club that changes them can no
+          longer check its numbers against anyone else’s. They are there for
+          parameter-tuning experiments, not for race day.
+        </p>
+      </Section>
       {has('orc') && (
       <Section id="scoring-orc" title="ORC scoring and performance curves">
         <HelpShot

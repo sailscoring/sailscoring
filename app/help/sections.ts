@@ -73,6 +73,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'Scratch, IRC, ECHO, PY, NHC, VPRS and club handicaps — and keeping ratings up to date.',
     sections: [
       { id: 'rating-systems', title: 'Rating systems' },
+      { id: 'tuning-progressive-handicaps', title: 'Tuning a progressive handicap' },
       { id: 'fixed-tcf', title: 'A club handicap fixed for the series' },
       { id: 'scoring-orc', title: 'ORC scoring and performance curves', feature: 'orc' },
       { id: 'course-builder', title: 'Building a constructed course', feature: 'orc' },
