@@ -1251,6 +1251,47 @@ profiles by name across fleets, series, and workspaces:
 See the scoping discussion in #135 for the original options analysis;
 the inline per-fleet step landed under #143 as the bridge.
 
+### Changing a fleet between fixed TCF and progressive NHC
+
+Howth's autumn league organising authority has more than once changed its
+mind, class by class, about whether a fleet is scored on a fixed rating (HPH
+applied unchanged all league) or on progressive NHC seeded from that same
+number. Sometimes the decision moves after racing has started.
+
+What works today: `Fleet.scoringSystem` is already per fleet, so one series
+can score Class 1 on `tcf` and Class 2 on `nhc`, and the Settings picker will
+flip a fleet from one to the other at any point. The flip is retroactive and
+all-or-nothing — every race in the series is rescored under the new system —
+which is the right answer when the OA settles on "the whole league was NHC
+after all".
+
+What doesn't:
+
+- **The rating doesn't come with it.** A fixed-TCF fleet reads
+  `Competitor.fixedTcf`; an NHC fleet reads `Competitor.nhcStartingTcf`. At
+  Howth both are the same HPH number, but flipping the fleet means retyping
+  or re-importing it into the other column, and flipping back means the
+  first column is now stale. A switch could carry the rating across, or the
+  two could share one seed.
+- **No mid-series switch.** Scoring races 1–3 on fixed HPH and races 4
+  onward progressively isn't representable: the system is a property of the
+  fleet, not of the fleet-in-a-race. This is what an OA that announces a
+  change partway through the league actually wants, and the honest
+  alternative — two series — breaks the standings.
+- **No way to see both before deciding.** The OA is choosing between two
+  sets of results it can't see side by side. A fleet scored both ways, with
+  the alternate standings visible to the scorer but not published, would
+  turn the indecision into a comparison. Related to the what-if
+  experimentation the spectator viewer (ADR-012) imports a copy for.
+
+Whether this is worth building is genuinely open. It may be one indecisive
+committee, in which case the answer is "publish provisional results and let
+them argue"; or OAs may routinely defer this choice and every club scorer
+quietly retypes ratings to cope. Worth asking a few other clubs before
+designing anything. The cheapest useful piece is the first bullet — carrying
+the rating across a switch — which is worth doing on its own regardless of
+where the rest lands.
+
 ### Scoring-inquiry rating adjustments
 
 NHC and ECHO can be configured to exclude specific results (e.g. RDG, BFD,
