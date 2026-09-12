@@ -79,10 +79,12 @@ export async function putRace(
 }
 
 /**
- * Bulk-create appended races (the "Add multiple races" generator, #237). The
- * body is `{ races, starts }`; every race must carry the path's seriesId.
- * Numbers are assigned server-side, so the client's `raceNumber` values are
- * hints only. Returns the created races with their assigned numbers, in order.
+ * Create appended races: the "Add multiple races" generator, and the single
+ * Add race / Insert race, which append through here so the numbering is the
+ * server's. The body is `{ races, starts }`; every race must carry the path's
+ * seriesId. Numbers are assigned server-side, so the client's `raceNumber`
+ * values are hints only. Returns the created races with their assigned
+ * numbers, in order.
  */
 export async function generateRaces(
   workspace: WorkspaceContext,
@@ -114,11 +116,15 @@ export async function generateRaces(
   const created = await repos.races.generateMany(seriesId, races, starts, {
     updatedBy: workspace.userId,
   });
-  const n = created.length;
+  // A single race reads as the scorer's own gesture — Add race appends
+  // through here too, and "Generated 1 race" describes neither control.
+  const [single] = created.length === 1 ? created : [];
   await trackChange(workspace, {
-    action: 'races.generated',
+    action: single ? 'race.added' : 'races.generated',
     seriesId,
-    summary: `Generated ${n} race${n === 1 ? '' : 's'}`,
+    summary: single
+      ? `Added Race ${single.raceNumber}`
+      : `Generated ${created.length} races`,
     sessionKey: 'races',
   });
   return created;

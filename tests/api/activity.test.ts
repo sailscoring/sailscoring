@@ -176,6 +176,37 @@ describe.skipIf(skip)('activity log wiring (#153)', () => {
     await series.deleteSeries(ctx, seriesId);
   });
 
+  test('adding one race logs race.added; a generated run logs races.generated', async () => {
+    const seriesId = uuid();
+    await series.putSeries(ctx, seriesId, sampleSeries(seriesId));
+
+    // What Add race / Insert race send: one race through the append endpoint.
+    const solo = uuid();
+    await races.generateRaces(ctx, seriesId, {
+      races: [{ id: solo, seriesId, raceNumber: 1, date: '2026-04-01', createdAt: Date.now() }],
+      starts: [],
+    });
+
+    let { items } = await feed(ctx, seriesId);
+    expect(items.some((i) => i.action === 'race.added' && i.summary === 'Added Race 1')).toBe(true);
+    expect(items.some((i) => i.action === 'races.generated')).toBe(false);
+
+    // The generator's own run keeps its wording.
+    await races.generateRaces(ctx, seriesId, {
+      races: [
+        { id: uuid(), seriesId, raceNumber: 2, date: '2026-04-08', createdAt: Date.now() },
+        { id: uuid(), seriesId, raceNumber: 3, date: '2026-04-15', createdAt: Date.now() },
+      ],
+      starts: [],
+    });
+
+    ({ items } = await feed(ctx, seriesId));
+    expect(items.some((i) => i.action === 'races.generated' && i.summary === 'Generated 2 races')).toBe(true);
+
+    await series.setSeriesArchived(ctx, seriesId, { archived: true });
+    await series.deleteSeries(ctx, seriesId);
+  });
+
   test('reordering races renumbers them and logs races.reordered', async () => {
     const seriesId = uuid();
     await series.putSeries(ctx, seriesId, sampleSeries(seriesId));
