@@ -31,14 +31,14 @@ export function HelpHint({
   chapter: string;
   /** Section anchor within that chapter. */
   section: string;
-  /** What this explains, as a noun phrase — "the ECHO blend rate". Reads as
-   *  the link's accessible name and its tooltip. */
+  /** The link's accessible name and its tooltip, written out in full —
+   *  "What the blend rate does". A whole phrase rather than a noun to build
+   *  one from: the thing being explained is as often plural as singular. */
   label: string;
   className?: string;
 }) {
   const { available, openHelp } = useHelpPanel();
   const href = helpHrefForSection(chapter, section);
-  const title = `What ${label} does`;
 
   function handleClick(e: MouseEvent<HTMLAnchorElement>) {
     // Anything but a plain left click is the reader asking the browser for
@@ -56,8 +56,8 @@ export function HelpHint({
       target="_blank"
       rel="noreferrer"
       onClick={handleClick}
-      title={title}
-      aria-label={title}
+      title={label}
+      aria-label={label}
       data-testid={`help-hint-${section}`}
       className={cn(
         'inline-flex shrink-0 text-muted-foreground/70 hover:text-foreground',

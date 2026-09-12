@@ -455,12 +455,16 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                         }}
                         title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
                       />
-                      <HelpHint
-                        chapter="rating-systems"
-                        section="tuning-progressive-handicaps"
-                        label="the ECHO blend rate"
-                      />
                     </label>
+                  )}
+                  {/* Outside the label: inside, the link's name is read as
+                      part of the α input's own. */}
+                  {fleet.scoringSystem === 'echo' && (
+                    <HelpHint
+                      chapter="rating-systems"
+                      section="tuning-progressive-handicaps"
+                      label="What the blend rate does"
+                    />
                   )}
                   {fleet.scoringSystem === 'tcf' && (
                     <label className="flex items-center gap-1 text-xs text-muted-foreground">

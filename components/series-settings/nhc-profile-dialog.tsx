@@ -185,7 +185,7 @@ function NhcProfileForm({
             <HelpHint
               chapter="rating-systems"
               section="tuning-progressive-handicaps"
-              label="the NHC blend rates"
+              label="What the blend rates do"
             />
           </p>
           <div className="grid grid-cols-2 gap-3">
