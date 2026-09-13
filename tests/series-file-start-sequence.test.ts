@@ -12,14 +12,17 @@ import type { Series, Fleet, Competitor, Race, RaceStart, Finish } from '@/lib/t
 function makeRepos(initialSeries?: Series): SeriesFileRepos & {
   savedSeries: Series[];
   savedFleets: Fleet[];
+  savedStarts: RaceStart[];
 } {
   let series = initialSeries;
   const savedSeries: Series[] = [];
   const savedFleets: Fleet[] = [];
+  const savedStarts: RaceStart[] = [];
 
   return {
     savedSeries,
     savedFleets,
+    savedStarts,
     seriesRepo: {
       async get(id: string) {
         return series && id === series.id ? series : undefined;
@@ -52,7 +55,9 @@ function makeRepos(initialSeries?: Series): SeriesFileRepos & {
       deleteBySeries: async () => {},
     } as unknown as SeriesFileRepos['subSeriesRepo'],
     raceStartRepo: {
-      async saveMany(_: RaceStart[]) {},
+      async saveMany(starts: RaceStart[]) {
+        savedStarts.push(...starts);
+      },
     } as unknown as SeriesFileRepos['raceStartRepo'],
     raceRatingOverrideRepo: { listByRaces: async () => [], saveMany: async () => {}, delete: async () => {}, deleteByRaces: async () => {} } as unknown as SeriesFileRepos['raceRatingOverrideRepo'],
     finishRepo: {
@@ -156,5 +161,53 @@ describe('defaultStartSequence fleet remap on import', () => {
     const repos = makeRepos(existing);
     await updateSeriesFromFile('series-1', makeFile(), repos);
     expectRemapped(repos.savedSeries.at(-1)!, repos.savedFleets);
+  });
+});
+
+describe('a race start naming a fleet the file doesn’t carry', () => {
+  /** A file whose start lists a fleet that is not in `fleets` — what a
+   *  hand-edited file looks like when a fleet was removed and the start it
+   *  was on wasn't. */
+  function fileWithDanglingStart(): SeriesFile {
+    const file = makeFile();
+    file.races = [{
+      id: 'file-race-1',
+      raceNumber: 1,
+      date: '2026-09-03',
+      starts: [{
+        id: 'file-start-1',
+        fleetIds: ['file-fleet-a', 'file-fleet-gone'],
+        startTime: '19:00:00',
+      }],
+      finishes: [],
+    }];
+    return file;
+  }
+
+  it('drops it rather than writing the id through', async () => {
+    const repos = makeRepos();
+    await openSeriesFromFile(fileWithDanglingStart(), repos);
+    const idByName = new Map(repos.savedFleets.map((f) => [f.name, f.id]));
+    expect(repos.savedStarts).toHaveLength(1);
+    // Only the fleet the file actually carries, on its new id — a stale id
+    // written through would stand in for a fleet name on the start, which is
+    // how a raw UUID ends up on screen.
+    expect(repos.savedStarts[0].fleetIds).toEqual([idByName.get('Cruisers')]);
+    expect(repos.savedStarts[0].fleetIds).not.toContain('file-fleet-gone');
+  });
+
+  it('the update path drops it too — both share the writer', async () => {
+    const existing: Series = {
+      id: 'series-1', name: 'Old', venue: '', startDate: '2026-01-01', endDate: '2026-01-02',
+      venueLogoUrl: '', eventLogoUrl: '', venueUrl: '', eventUrl: '',
+      createdAt: 1000, lastSavedAt: 1000, lastModifiedAt: 1000,
+      discardThresholds: [], dnfScoring: 'seriesEntries', ftpHost: '', ftpPath: '',
+      includeJsonExport: true, enabledCompetitorFields: [], primaryPersonLabel: 'helm',
+      scoringMode: 'handicap',
+    } as unknown as Series;
+    const repos = makeRepos(existing);
+    await updateSeriesFromFile('series-1', fileWithDanglingStart(), repos);
+    const idByName = new Map(repos.savedFleets.map((f) => [f.name, f.id]));
+    expect(repos.savedStarts[0].fleetIds).toEqual([idByName.get('Cruisers')]);
   });
 });

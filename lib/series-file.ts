@@ -2113,7 +2113,12 @@ async function writeFleetsCompetitorsRaces(
       r.starts.map((s) => ({
         id: crypto.randomUUID(),
         raceId: newRaceId,
-        fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id) ?? id),
+        // A fleet the file doesn't carry is dropped rather than written
+        // through: the id means nothing in the new series, and keeping it
+        // leaves a raw UUID standing in for a fleet name on the start. Every
+        // other remap here — competitors, sub-series, the start sequence —
+        // already filters.
+        fleetIds: s.fleetIds.map((id) => fleetIdMap.get(id)).filter((id): id is string => !!id),
         startTime: s.startTime,
         // v24 carries stage identity per start; a v23 file carries it on the
         // race — inherit so old split-fleet files land on the new model.
