@@ -18,6 +18,7 @@ import {
   courseFromCard,
   courseIsLegTable,
   drawnCourse,
+  drawnLegTable,
   drawnMarks,
   matchCardCourse,
   proposeCourseName,
@@ -224,6 +225,23 @@ function CourseDialogInner({
     const used = new Set(sequence.map((cm) => cm.markId));
     return { marks: drawnMarks(library.filter((m) => used.has(m.id))), course: drawnCourse(sequence.filter((cm) => libraryById.has(cm.markId))) };
   }, [sequence, library, libraryById]);
+
+  // A leg table has no positions, but its bearings and distances fix the
+  // shape and the orientation exactly — so it draws, and a dropped digit is
+  // visible before it ever scores.
+  const legDrawing = useMemo(() => {
+    if (source !== 'legs') return null;
+    const legs = legRows
+      .map((r) => ({ distanceNm: Number(r.distance), bearingDeg: Number(r.bearing) }))
+      .filter((l) => Number.isFinite(l.distanceNm) && l.distanceNm > 0
+        && Number.isFinite(l.bearingDeg) && l.bearingDeg >= 0 && l.bearingDeg <= 360);
+    if (legs.length === 0) return null;
+    const drawn = drawnLegTable(legs);
+    // Rounding a leg to a tenth of a mile can misplace its end by half of
+    // that, so this is the drift the committee's own precision explains.
+    const explained = 0.05 * legs.length;
+    return { ...drawn, rounding: drawn.closureNm <= explained };
+  }, [source, legRows]);
 
   const scorerMarks = library.filter((m) => !m.card);
 
@@ -490,8 +508,29 @@ function CourseDialogInner({
             {source !== 'legs' && resolved.missingMarkIds.length > 0 && (
               <p className="text-xs text-destructive">A mark this course used is no longer in the library; its rows are skipped.</p>
             )}
-            {source !== 'legs' && (
+            {source !== 'legs' ? (
               <CourseDrawing marks={drawing.marks} course={drawing.course} width={520} title="Course drawing" />
+            ) : (
+              <>
+                <CourseDrawing
+                  marks={legDrawing?.marks ?? []}
+                  course={legDrawing?.course ?? []}
+                  width={520}
+                  title="Course drawing"
+                />
+                {legDrawing && (
+                  <p className="text-xs text-muted-foreground" data-testid="leg-course-closure">
+                    Drawn from the legs: the bearings and distances are the
+                    committee&apos;s, so the shape and the orientation are right — where
+                    it sits on the water isn&apos;t recorded. The legs end{' '}
+                    <span className="font-mono">{legDrawing.closureNm.toFixed(2)} NM</span>{' '}
+                    from where they started
+                    {legDrawing.rounding
+                      ? ', which is what rounding each leg to a tenth of a mile does.'
+                      : ' — more than rounding explains, so worth a second look if the course was meant to finish near the line.'}
+                  </p>
+                )}
+              </>
             )}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

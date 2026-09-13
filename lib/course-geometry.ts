@@ -12,6 +12,7 @@ import {
   METRES_PER_NM,
   courseMarks,
   destination,
+  distanceNm as positionsApartNm,
   legsFromWaypoints,
   type CourseCardFile,
   type CourseLeg,
@@ -325,6 +326,42 @@ export function courseOutOfDate(
 }
 
 // ─── Drawing ─────────────────────────────────────────────────────────────────
+
+/**
+ * A leg table drawn: its legs walked from an arbitrary origin, so the shape
+ * and the orientation are the committee's own and the position on the water
+ * is not claimed at all. Nothing here is stored — a course defined by legs
+ * has no positions, and inventing some to keep would be a fiction the
+ * published page would go on repeating.
+ *
+ * `closureNm` is how far the last leg ends from where the first began. A
+ * table rounded to a tenth of a mile does not close exactly, so this is a
+ * figure to read rather than an error to flag — but a course with a leg
+ * missing or a digit dropped will not close by anything like a rounding.
+ */
+export function drawnLegTable(legs: readonly SeriesCourseLeg[]): {
+  marks: DrawnMark[];
+  course: DrawnCourseMark[];
+  closureNm: number;
+} {
+  // Mid-latitude so the projection behaves; which point is immaterial, and
+  // the drawing shows no coordinates.
+  let at: Position = { lat: 53.5, lng: -6.1 };
+  const marks: DrawnMark[] = [{ id: 'p0', label: 'Start', position: at }];
+  for (const [i, leg] of legs.entries()) {
+    at = destination(at, leg.bearingDeg, leg.distanceNm * METRES_PER_NM);
+    marks.push({
+      id: `p${i + 1}`,
+      label: i === legs.length - 1 ? 'Finish' : String(i + 1),
+      position: at,
+    });
+  }
+  return {
+    marks,
+    course: marks.map((m) => ({ mark: m.id })),
+    closureNm: legs.length > 0 ? positionsApartNm(marks[0].position, at) : 0,
+  };
+}
 
 /** The library's marks as the renderer takes them. */
 export function drawnMarks(marks: SeriesMark[]): DrawnMark[] {
