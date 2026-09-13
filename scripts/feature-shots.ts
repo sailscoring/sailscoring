@@ -630,6 +630,41 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: ORC — the same published constructed course scored at the
+    // wind the race committee recorded instead: the audit line names the
+    // wind and the correction, the rating column is a ToT, and there is no
+    // implied wind because nothing was derived from the finish times.
+    slug: 'orc-recorded-wind',
+    group: 'Rating and handicap systems',
+    async capture({ page, anon, shot }) {
+      await ensureFeature(page, 'orc');
+      if (LOCAL) await publishSeries(page, 'Sample ORC Series 2026');
+      await page.goto(`${BASE}/workspace/published`);
+      await settle(page);
+      const anyHref = await page
+        .locator('a[href*="/p/"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!anyHref) throw new Error('no published pages found');
+      const ws = new URL(anyHref, BASE).pathname.split('/')[2];
+      const pub = await anon.newPage();
+      await pub.goto(`${BASE}/p/${ws}`);
+      await settle(pub);
+      const orcHref = await pub
+        .locator('a[href*="cruisers-orc"]')
+        .first()
+        .getAttribute('href', { timeout: 10_000 });
+      if (!orcHref) throw new Error('no cruisers-orc link on the public index');
+      await pub.goto(new URL(orcHref, BASE).toString());
+      await settle(pub);
+      // Race 5 is race 3's course scored at the recorded wind.
+      await pub.locator('#r5').scrollIntoViewIfNeeded();
+      await settle(pub);
+      await shot('orc-recorded-wind.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: ORC handicap mix — the grid folded away beside the course
     // on the same published constructed-course race, opened.
     slug: 'orc-handicap-mix',

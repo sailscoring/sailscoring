@@ -1,5 +1,5 @@
 {
-  "formatVersion": 45,
+  "formatVersion": 51,
   "seriesId": "sample-orc",
   "exportedAt": "2026-01-01T00:00:00.000Z",
   "series": {
@@ -7,7 +7,7 @@
     "name": "Sample ORC Series 2026",
     "venue": "Howth Yacht Club",
     "startDate": "2026-09-12",
-    "endDate": "2026-10-03",
+    "endDate": "2026-10-10",
     "venueLogoUrl": "",
     "eventLogoUrl": "",
     "venueUrl": "",
@@ -59,7 +59,9 @@
       "names": [
         "Fergal Noonan"
       ],
-      "club": "HYC",
+      "clubs": [
+        "HYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -588,7 +590,9 @@
       "names": [
         "Patrick O'Neill"
       ],
-      "club": "HYC",
+      "clubs": [
+        "HYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -1118,7 +1122,9 @@
       "names": [
         "Patrick Kyne"
       ],
-      "club": "HYC",
+      "clubs": [
+        "HYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -1646,7 +1652,9 @@
       "names": [
         "No Excuse"
       ],
-      "club": "HYC",
+      "clubs": [
+        "HYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -2173,7 +2181,9 @@
       "names": [
         "Jambalya"
       ],
-      "club": "RCYC",
+      "clubs": [
+        "RCYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -2701,7 +2711,9 @@
       "names": [
         "Chinook"
       ],
-      "club": "HYC",
+      "clubs": [
+        "HYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -3228,7 +3240,9 @@
       "names": [
         "Indian"
       ],
-      "club": "HYC",
+      "clubs": [
+        "HYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -3755,7 +3769,9 @@
       "names": [
         "Bandersnatch of Howth"
       ],
-      "club": "HYC",
+      "clubs": [
+        "HYC"
+      ],
       "nationality": "IRL",
       "gender": "",
       "age": null,
@@ -4792,6 +4808,246 @@
           "sortOrder": null,
           "resultCode": "DNC",
           "startPresent": false,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        }
+      ]
+    },
+    {
+      "id": "or-5",
+      "raceNumber": 5,
+      "date": "2026-10-10",
+      "starts": [
+        {
+          "id": "ors-5",
+          "fleetIds": [
+            "of-orc",
+            "of-irc"
+          ],
+          "startTime": "10:35:00",
+          "courseLegs": [
+            {
+              "distanceNm": 1,
+              "bearingDeg": 160,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 1.565,
+              "bearingDeg": 349.8,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 1.185,
+              "bearingDeg": 313.2,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 1.964,
+              "bearingDeg": 145.6,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 1.361,
+              "bearingDeg": 324.7,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 1.361,
+              "bearingDeg": 144.7,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 0.723,
+              "bearingDeg": 185.2,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 0.27,
+              "bearingDeg": 235.5,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            },
+            {
+              "distanceNm": 0.231,
+              "bearingDeg": 236.8,
+              "windDirectionDeg": 160,
+              "windSpeedKts": 11
+            }
+          ],
+          "course": {
+            "courseId": "oco-j2",
+            "name": "J2 — 26 Sep R3",
+            "waypoints": [
+              {
+                "markId": "om-line",
+                "label": "Start",
+                "lat": 53.4135,
+                "lng": -6.0605
+              },
+              {
+                "markId": "om-z",
+                "label": "Z",
+                "lat": 53.39784862823774,
+                "lng": -6.050946211068322,
+                "side": "port"
+              },
+              {
+                "markId": "om-card-o",
+                "label": "O",
+                "lat": 53.4235,
+                "lng": -6.058667,
+                "side": "port",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-u",
+                "label": "U",
+                "lat": 53.437,
+                "lng": -6.082833,
+                "side": "port",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-k",
+                "label": "K",
+                "lat": 53.41,
+                "lng": -6.051833,
+                "side": "starboard",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-h",
+                "label": "H",
+                "lat": 53.4285,
+                "lng": -6.073833,
+                "side": "port",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-k",
+                "label": "K",
+                "lat": 53.41,
+                "lng": -6.051833,
+                "side": "starboard",
+                "fixed": true
+              },
+              {
+                "markId": "om-card-q",
+                "label": "Q",
+                "lat": 53.398,
+                "lng": -6.053667,
+                "side": "starboard",
+                "passing": true,
+                "fixed": true
+              },
+              {
+                "markId": "om-card-hm",
+                "label": "HM",
+                "lat": 53.395451,
+                "lng": -6.059883,
+                "side": "starboard",
+                "passing": true,
+                "fixed": true
+              },
+              {
+                "markId": "om-card-fh",
+                "label": "FH",
+                "lat": 53.39334,
+                "lng": -6.06529,
+                "fixed": true
+              }
+            ],
+            "windDirectionDeg": 160,
+            "windSpeedKts": 11
+          },
+          "orcOption": "CC_TOT"
+        }
+      ],
+      "finishes": [
+        {
+          "id": "ofin-5-oc-07",
+          "competitorId": "oc-07",
+          "sortOrder": 1,
+          "finishTime": "12:15:00",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-5-oc-01",
+          "competitorId": "oc-01",
+          "sortOrder": 2,
+          "finishTime": "12:27:14",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-5-oc-06",
+          "competitorId": "oc-06",
+          "sortOrder": 3,
+          "finishTime": "12:27:49",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-5-oc-02",
+          "competitorId": "oc-02",
+          "sortOrder": 4,
+          "finishTime": "12:27:53",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-5-oc-08",
+          "competitorId": "oc-08",
+          "sortOrder": 5,
+          "finishTime": "12:28:37",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-5-oc-03",
+          "competitorId": "oc-03",
+          "sortOrder": 6,
+          "finishTime": "12:32:34",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-5-oc-04",
+          "competitorId": "oc-04",
+          "sortOrder": 7,
+          "finishTime": "12:32:47",
+          "resultCode": null,
+          "startPresent": true,
+          "penaltyCode": null,
+          "penaltyOverride": null
+        },
+        {
+          "id": "ofin-5-oc-05",
+          "competitorId": "oc-05",
+          "sortOrder": 8,
+          "finishTime": "12:37:23",
+          "resultCode": null,
+          "startPresent": true,
           "penaltyCode": null,
           "penaltyOverride": null
         }

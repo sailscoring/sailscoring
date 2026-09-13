@@ -225,7 +225,7 @@ describe('sample series files', () => {
   it('orc: every method scores through the per-race option, PCS numbers coherent', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('orc.sailscoring');
 
-    expect(file.formatVersion).toBe(45);
+    expect(file.formatVersion).toBe(51);
     const orcFleet = fleets.find((f) => f.scoringSystem === 'orc')!;
     const ircFleet = fleets.find((f) => f.scoringSystem === 'irc')!;
     expect(orcFleet).toBeDefined();
@@ -275,6 +275,20 @@ describe('sample series files', () => {
     expect(r4?.option).toBe('WL');
     expect(r4?.scoringWind).toBe(12);
     expect(r4?.scoringWindOverridden).toBe(true);
+    // Race 5 is race 3's course scored the other way the rules allow: at the
+    // wind the committee recorded, applied time-on-time.
+    const r5 = optionOf('or-5');
+    expect(r5?.option).toBe('CC_TOT');
+    expect(r5?.courseModel).toBe('CC');
+    expect(r5?.windRecorded).toBe(true);
+    // The distance-weighted mean of one figure, so 11 to float noise.
+    expect(r5?.scoringWind).toBeCloseTo(11, 9);
+    expect(r5?.impliedWind).toBeUndefined();
+    expect(r5?.scratchTod).toBeUndefined();
+    expect(r5?.totApplied).toBeCloseTo(600 / r5!.todApplied!, 9);
+    const recorded = raceStarts.find((s) => s.orcOption === 'CC_TOT')!;
+    expect(recorded.courseLegs?.every((leg) => leg.windSpeedKts === 11)).toBe(true);
+    expect(recorded.course?.windSpeedKts).toBe(11);
 
     // The scripted non-finishers survive the round-trip.
     const codes = finishes.filter((f) => f.resultCode != null).map((f) => f.resultCode);

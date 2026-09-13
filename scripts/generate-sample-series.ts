@@ -96,7 +96,10 @@ interface FileCompetitor {
   owner?: string;
   helm?: string;
   crewName?: string;
-  club: string;
+  /** Pre-v47 single club; the parser folds it into `clubs` on read. */
+  club?: string;
+  /** v47+ ordered club list — the samples written at v47 or later. */
+  clubs?: string[];
   nationality?: string;
   gender: 'M' | 'F' | '';
   age: number | null;
@@ -129,7 +132,7 @@ interface FileRaceStart {
   /** v39+ ORC race facts (the ORC sample): course length, constructed-course
    *  legs, the race's scoring option, and the RC scoring-wind override. */
   distanceNm?: number;
-  courseLegs?: { distanceNm: number; bearingDeg: number; windDirectionDeg: number }[];
+  courseLegs?: { distanceNm: number; bearingDeg: number; windDirectionDeg: number; windSpeedKts?: number }[];
   /** v45+ the library course those legs came from, as a snapshot. */
   course?: RaceStartCourse;
   orcOption?: string;
@@ -1470,6 +1473,12 @@ interface OrcRaceSpec {
   trueWindKts: number;
   distanceNm?: number;
   legs?: typeof ORC_SAMPLE_LEGS;
+  /** The wind the race committee recorded on every leg (kt) — set only for
+   *  the options scored at the recorded wind, which is what the legs then
+   *  carry. The synthetic finish times still come from `trueWindKts` and
+   *  each boat's form, so a boat that sailed above the day's wind corrects
+   *  out ahead, exactly as it would on the water. */
+  recordedWindKts?: number;
   orcOption?: string;
   orcScoringWind?: number;
   codes?: Record<string, string>; // yacht → result code
@@ -1480,6 +1489,11 @@ const ORC_SAMPLE_RACES: OrcRaceSpec[] = [
   { raceNumber: 2, date: '2026-09-19', trueWindKts: 12, distanceNm: 3.2, orcOption: 'IRL_5B_WL_M_TOT' },
   { raceNumber: 3, date: '2026-09-26', trueWindKts: 18, legs: ORC_SAMPLE_LEGS, orcOption: 'CC', codes: { CHINOOK: 'DNF' } },
   { raceNumber: 4, date: '2026-10-03', trueWindKts: 14, distanceNm: 3.9, orcOption: 'WL', orcScoringWind: 12, codes: { JAMBALYA: 'DNC' } },
+  // The same course as race 3, scored the other way the rules allow: at the
+  // wind the committee measured rather than at one derived from the times,
+  // and applied time-on-time. Side by side with race 3 in the demo, which is
+  // the point of the sample.
+  { raceNumber: 5, date: '2026-10-10', trueWindKts: 11, legs: ORC_SAMPLE_LEGS, recordedWindKts: 11, orcOption: 'CC_TOT' },
 ];
 
 function buildOrcSample(): SeriesFile {
@@ -1513,7 +1527,7 @@ function buildOrcSample(): SeriesFile {
       boatClass: String(r.Class ?? ''),
       name: b.owner ?? b.display,
       names: [b.owner ?? b.display],
-      club: b.club,
+      clubs: [b.club],
       nationality: 'IRL',
       gender: '' as const,
       age: null,
@@ -1593,7 +1607,16 @@ function buildOrcSample(): SeriesFile {
       fleetIds: [ORC_FLEET, IRC_FLEET],
       startTime: hms(GUN),
       ...(spec.distanceNm != null ? { distanceNm: spec.distanceNm } : {}),
-      ...(spec.legs ? { courseLegs: spec.legs, course: ORC_LIBRARY.snapshot } : {}),
+      ...(spec.legs
+        ? {
+            courseLegs: spec.recordedWindKts != null
+              ? spec.legs.map((l) => ({ ...l, windSpeedKts: spec.recordedWindKts }))
+              : spec.legs,
+            course: spec.recordedWindKts != null
+              ? { ...ORC_LIBRARY.snapshot, windSpeedKts: spec.recordedWindKts }
+              : ORC_LIBRARY.snapshot,
+          }
+        : {}),
       ...(spec.orcOption ? { orcOption: spec.orcOption } : {}),
       ...(spec.orcScoringWind != null ? { orcScoringWind: spec.orcScoringWind } : {}),
     }];
@@ -1602,7 +1625,7 @@ function buildOrcSample(): SeriesFile {
   });
 
   return {
-    formatVersion: 45,
+    formatVersion: 51,
     seriesId: 'sample-orc',
     exportedAt: EXPORTED_AT,
     series: {
