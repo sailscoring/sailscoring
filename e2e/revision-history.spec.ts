@@ -122,3 +122,32 @@ test('history tab: same-context edits coalesce, different contexts split', async
   await expect(list).toContainText('Created the series');
   await expect(list).toContainText('Added Race 1');
 });
+
+/**
+ * A settings save has to say which setting (#580). The series row carries
+ * everything from the discard profile to a publish note and one endpoint
+ * writes all of it, so every such save used to read as "Updated series
+ * settings" — leaving a scorer unable to tell an accidental change to how the
+ * series is scored from someone editing a note.
+ */
+test('history tab: a scoring change is named, not filed as "settings"', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Named Change Series' });
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page
+    .getByRole('heading', { name: 'Scoring', exact: true })
+    .locator('..')
+    .getByRole('button', { name: 'Edit ▸' })
+    .click();
+  await page.getByRole('button', { name: 'Add rule' }).click();
+  await page.getByLabel('Rule 1: races sailed').fill('3');
+  await page.getByLabel('Rule 1: discards').fill('1');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('1 discard from 3 races ·')).toBeVisible();
+
+  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+  const list = page.getByTestId('revision-list');
+  await expect(list).toContainText('Changed the discard profile');
+  await expect(list).not.toContainText('Updated series settings');
+});

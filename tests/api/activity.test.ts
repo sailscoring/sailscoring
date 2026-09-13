@@ -108,7 +108,7 @@ describe.skipIf(skip)('activity log wiring (#153)', () => {
     await sql?.end();
   });
 
-  test('series create then edit logs created + (coalesced) updated', async () => {
+  test('series create then edit logs created + (coalesced) rename', async () => {
     const id = uuid();
     await series.putSeries(ctx, id, sampleSeries(id));
     await series.putSeries(ctx, id, { ...sampleSeries(id), name: 'Renamed' });
@@ -117,8 +117,8 @@ describe.skipIf(skip)('activity log wiring (#153)', () => {
     const { items } = await feed(ctx, id);
     const actions = items.map((i) => i.action);
     expect(actions).toContain('series.created');
-    // The two edits coalesce into a single series.updated entry.
-    expect(actions.filter((a) => a === 'series.updated')).toHaveLength(1);
+    // Both edits moved the same facet, so they coalesce into one entry.
+    expect(actions.filter((a) => a === 'series.renamed')).toHaveLength(1);
     const created = items.find((i) => i.action === 'series.created');
     expect(created?.actor).toMatchObject({ id: ACTOR, displayName: 'Scorer' });
 

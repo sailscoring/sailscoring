@@ -197,7 +197,7 @@ describe.skipIf(skip)('activity is attributed to the revision that captured it',
     await series.putSeries(ctx, id, { ...sampleSeries(id), name: 'Renamed' });
     await series.putSeries(ctx, id, { ...sampleSeries(id), name: 'Renamed twice' });
 
-    const entry = await attributed(id, 'series.updated');
+    const entry = await attributed(id, 'series.renamed');
     // Coalescing survives attribution: two edits are still one entry, not one
     // row per revision capture.
     expect(entry.count).toBe(2);

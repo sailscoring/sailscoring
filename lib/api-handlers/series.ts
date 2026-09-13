@@ -23,6 +23,7 @@ import {
   assertSeriesWritable,
 } from '@/lib/api-handlers/series-access';
 import { listTcfHistory } from '@/lib/api-handlers/tcf-history';
+import { describeSeriesChange } from '@/lib/series-change';
 import { suggestFollowOnName } from '@/lib/series-name';
 import { importPublicExport, parsePublicExport } from '@/lib/public-export';
 import {
@@ -158,20 +159,37 @@ export async function putSeries(
       merged.eventLogoUrl = defaults.eventLogoUrl;
     }
   }
+  // One endpoint writes the whole series row, so "what did this save change?"
+  // has to be answered by comparing, not by which button was pressed. A null
+  // answer means nothing changed at all.
+  const change = existing ? describeSeriesChange(existing, merged) : null;
+  if (existing && !change) {
+    // A save that changes nothing is not an edit: writing it would bump
+    // `version` — the token the "N edits since you published" indicators
+    // subtract — and file an activity entry for something that didn't happen.
+    // The compare-and-swap is skipped with it, which costs nothing: a payload
+    // identical to the stored row has nothing to conflict over, and the caller
+    // gets back the current row either way.
+    return existing;
+  }
   const saved = await repos.series.save(merged, {
     expectedVersion: opts?.expectedVersion,
     updatedBy: workspace.userId,
   });
-  // Activity (#153): distinguish first write (create) from later edits. Edits
-  // coalesce per series+actor so a run of saves reads as one "updated" entry.
+  // Activity (#153): distinguish first write (create) from later edits, and
+  // say which facet of the series an edit moved — the row carries everything
+  // from the discard profile to a publish note, so a reader needs to know
+  // which. Coalescing is per facet as well as per series+actor, so a run of
+  // saves to the same facet reads as one entry while a scoring change is never
+  // folded into an unrelated one and hidden.
   // touch: false — the PUT carries its own lastModifiedAt and the saved row's
   // version is already in the client's hands.
   await trackChange(workspace, {
-    action: existing ? 'series.updated' : 'series.created',
+    action: change ? change.action : 'series.created',
     seriesId: id,
-    summary: existing ? 'Updated series settings' : 'Created the series',
+    summary: change ? change.summary : 'Created the series',
     sessionKey: 'settings',
-    dedupeKey: existing ? `series:${id}` : undefined,
+    dedupeKey: change ? `series:${id}:${change.facet}` : undefined,
     touch: false,
   });
   return saved;
