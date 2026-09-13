@@ -396,6 +396,9 @@ export interface PublicSeriesExport {
           passing?: boolean;
           fixed?: boolean;
         }[];
+        /** The leg table the course gave, on a course defined by legs —
+         *  which has no waypoints to snapshot. */
+        legs?: { distanceNm: number; bearingDeg: number }[];
         windDirectionDeg?: number;
         windSpeedKts?: number;
         legsEdited?: boolean;
@@ -544,6 +547,9 @@ export interface PublicSeriesExport {
     card?: { set: string; cardId: string; courseId: string; release: string };
     modified?: boolean;
     marks: { mark: string; side?: 'port' | 'starboard'; passing?: boolean }[];
+    /** The race committee's own leg table, on a course defined that way
+     *  rather than by marks. Exactly one of the two is non-empty. */
+    legs?: { distanceNm: number; bearingDeg: number }[];
   }[];
   /** Split-fleet championship state: the series' configuration and the
    *  assignment rounds behind its published pages. Absent on an ordinary
@@ -804,6 +810,7 @@ function exportStartCourse(
         ...(w.fixed ? { fixed: true } : {}),
       };
     }),
+    ...(course.legs?.length ? { legs: course.legs } : {}),
     ...(course.windDirectionDeg != null ? { windDirectionDeg: course.windDirectionDeg } : {}),
     ...(course.windSpeedKts != null ? { windSpeedKts: course.windSpeedKts } : {}),
     ...(course.legsEdited ? { legsEdited: true } : {}),
@@ -1473,6 +1480,7 @@ export function buildPublicExportFromSnapshot(
                 ...(cm.side ? { side: cm.side } : {}),
                 ...(cm.passing ? { passing: true } : {}),
               })),
+            ...(c.legs?.length ? { legs: c.legs } : {}),
           })),
         }
       : {}),
@@ -1773,6 +1781,7 @@ export async function importPublicExport(
             ...(cm.side ? { side: cm.side } : {}),
             ...(cm.passing ? { passing: true } : {}),
           })),
+        ...(c.legs?.length ? { legs: c.legs } : {}),
         createdAt: now,
       })),
     );
@@ -1796,6 +1805,7 @@ export async function importPublicExport(
           ...(w.fixed ? { fixed: true } : {}),
         };
       }),
+      ...(c.legs?.length ? { legs: c.legs } : {}),
       ...(c.windDirectionDeg != null ? { windDirectionDeg: c.windDirectionDeg } : {}),
       ...(c.windSpeedKts != null ? { windSpeedKts: c.windSpeedKts } : {}),
       ...(c.legsEdited ? { legsEdited: true } : {}),

@@ -36,6 +36,7 @@ import type {
   OrcCourseLeg,
   OrcProfile,
   RaceStartCourse,
+  SeriesCourseLeg,
   SeriesCourseMark,
   PrimaryPersonLabel,
   PublishingGroup,
@@ -1050,8 +1051,12 @@ export const seriesCourses = pgTable(
     // The card course it was made from: {set, cardId, courseId, release}.
     card: jsonb('card').$type<{ set: string; cardId: string; courseId: string; release: string }>(),
     modified: boolean('modified').notNull().default(false),
-    // The sequence, in sailing order: [{markId, side?, passing?}].
+    // The sequence, in sailing order: [{markId, side?, passing?}]. Empty on a
+    // course defined by its leg table instead.
     marks: jsonb('marks').$type<SeriesCourseMark[]>().notNull(),
+    // The race committee's own leg table: [{distanceNm, bearingDeg}]. Null on
+    // a course defined by marks; exactly one of the two is populated.
+    legs: jsonb('legs').$type<SeriesCourseLeg[]>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     version: versionCol,
     updatedAt: updatedAtCol,

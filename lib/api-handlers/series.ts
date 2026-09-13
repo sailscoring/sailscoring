@@ -737,6 +737,8 @@ export async function copySeries(
           marks: c.marks
             .filter((cm) => markIdMap.has(cm.markId))
             .map((cm) => ({ ...cm, markId: markIdMap.get(cm.markId)! })),
+          // A leg table names no marks, so it copies verbatim.
+          legs: c.legs?.length ? c.legs : null,
           createdAt: new Date(c.createdAt),
         })),
       );

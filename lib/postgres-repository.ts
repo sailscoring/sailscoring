@@ -1763,6 +1763,7 @@ function seriesCourseRowToType(row: SeriesCourseRow): SeriesCourse {
     ...(row.card ? { card: row.card } : {}),
     ...(row.modified ? { modified: true } : {}),
     marks: row.marks,
+    ...(row.legs?.length ? { legs: row.legs } : {}),
     createdAt: row.createdAt.getTime(),
     version: row.version,
   };
@@ -1777,12 +1778,13 @@ function seriesCourseToRow(c: SeriesCourse, workspaceId: string) {
     card: c.card ?? null,
     modified: c.modified ?? false,
     marks: c.marks,
+    legs: c.legs?.length ? c.legs : null,
     createdAt: new Date(c.createdAt),
   };
 }
 
 const seriesCourseUpdateColumns = [
-  'name', 'card', 'modified', 'marks',
+  'name', 'card', 'modified', 'marks', 'legs',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesCourseToRow>)[];
 
 export class PostgresSeriesMarkRepository implements SeriesMarkRepository {

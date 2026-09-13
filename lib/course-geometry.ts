@@ -28,6 +28,7 @@ import type {
   RaceStartCourse,
   RaceStartCourseWaypoint,
   SeriesCourse,
+  SeriesCourseLeg,
   SeriesCourseMark,
   SeriesMark,
 } from './types';
@@ -139,6 +140,29 @@ export function legsOfWaypoints(waypoints: RaceStartCourseWaypoint[]): CourseLeg
   return legsFromWaypoints(waypoints.map(toLibraryWaypoint));
 }
 
+/** Whether a course is the race committee's leg table rather than a mark
+ *  sequence — the one question a caller has to ask about which kind it has,
+ *  and the invariant `SeriesCourse` documents (exactly one is non-empty). */
+export function courseIsLegTable(
+  course: Pick<SeriesCourse, 'marks' | 'legs'>,
+): boolean {
+  return course.marks.length === 0 && (course.legs?.length ?? 0) > 0;
+}
+
+/**
+ * The legs a course gives, however it is defined: computed from its marks'
+ * positions, or the leg table the course *is*. The single seam between the
+ * two kinds — every consumer of a course's geometry goes through here rather
+ * than reading `marks` or `legs` itself.
+ */
+export function courseLegsOf(
+  course: Pick<SeriesCourse, 'marks' | 'legs'>,
+  marksById: ReadonlyMap<string, SeriesMark>,
+): SeriesCourseLeg[] {
+  if (courseIsLegTable(course)) return course.legs!;
+  return resolveCourse(course.marks, marksById).legs;
+}
+
 const round = (n: number, dp: number): number => Math.round(n * 10 ** dp) / 10 ** dp;
 
 /** Fill a start's leg table: each leg's distance to 0.001 NM and bearing to
@@ -147,7 +171,7 @@ const round = (n: number, dp: number): number => Math.round(n * 10 ** dp) / 10 *
  *  race committee recorded. Per-leg overrides and sub-legs are then edits to
  *  the table itself. */
 export function legsForStart(
-  legs: CourseLeg[],
+  legs: readonly SeriesCourseLeg[],
   windDirectionDeg: number,
   windSpeedKts?: number,
 ): OrcCourseLeg[] {
@@ -194,33 +218,49 @@ export function recordedWindSummary(legs: OrcCourseLeg[] | undefined): string | 
   return lo === hi ? `${lo} kt` : `${lo}–${hi} kt`;
 }
 
-/** The snapshot a start keeps when it picks a course. */
+/** The snapshot a start keeps when it picks a course: the marks' positions
+ *  as they were, or — on a course defined by legs, which has no positions —
+ *  the leg table it gave. */
 export function snapshotOfCourse(
-  course: Pick<SeriesCourse, 'id' | 'name' | 'marks'>,
+  course: Pick<SeriesCourse, 'id' | 'name' | 'marks' | 'legs'>,
   marksById: ReadonlyMap<string, SeriesMark>,
   windDirectionDeg?: number,
   windSpeedKts?: number,
 ): RaceStartCourse {
-  const { waypoints } = resolveCourse(course.marks, marksById);
+  const legTable = courseIsLegTable(course);
+  const { waypoints } = legTable ? { waypoints: [] } : resolveCourse(course.marks, marksById);
   return {
     courseId: course.id,
     name: course.name,
     waypoints,
+    ...(legTable ? { legs: course.legs } : {}),
     ...(windDirectionDeg != null ? { windDirectionDeg } : {}),
     ...(windSpeedKts != null ? { windSpeedKts } : {}),
   };
 }
 
 /** Has the library course moved under a start's snapshot — a mark corrected,
- *  the sequence edited — since the start picked it? Positions compare to the
- *  metre. A course no longer in the library is not "out of date": there is
+ *  the sequence edited, a leg retyped — since the start picked it? Positions
+ *  compare to the metre; a leg table compares to the precision it is entered
+ *  at. A course no longer in the library is not "out of date": there is
  *  nothing to recompute from. */
 export function courseOutOfDate(
   snapshot: RaceStartCourse,
-  course: Pick<SeriesCourse, 'marks'> | undefined,
+  course: Pick<SeriesCourse, 'marks' | 'legs'> | undefined,
   marksById: ReadonlyMap<string, SeriesMark>,
 ): boolean {
   if (!course) return false;
+  // A course defined by legs has no positions to compare; what can have
+  // moved is the table itself.
+  if (courseIsLegTable(course)) {
+    const then = snapshot.legs ?? [];
+    const now = course.legs ?? [];
+    if (then.length !== now.length) return true;
+    return now.some((leg, i) => (
+      Math.abs(leg.distanceNm - then[i].distanceNm) > 1e-9 ||
+      Math.abs(((leg.bearingDeg - then[i].bearingDeg + 540) % 360) - 180) > 1e-9
+    ));
+  }
   const now = resolveCourse(course.marks, marksById).waypoints;
   if (now.length !== snapshot.waypoints.length) return true;
   return now.some((w, i) => {

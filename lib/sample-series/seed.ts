@@ -247,6 +247,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
             card: c.card ?? null,
             modified: c.modified ?? false,
             marks: c.marks,
+            legs: c.legs?.length ? c.legs : null,
             createdAt: new Date(c.createdAt),
           })),
         );

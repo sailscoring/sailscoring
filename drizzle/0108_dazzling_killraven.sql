@@ -1,0 +1,1 @@
+ALTER TABLE "series_courses" ADD COLUMN "legs" jsonb;

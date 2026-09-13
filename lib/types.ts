@@ -657,11 +657,35 @@ export interface SeriesCourseMark {
 }
 
 /**
- * A named course in the series' library: marks in sailing order, the first
- * of them the start line. Distances and bearings are derived from the marks
- * when needed, never stored here — a corrected mark corrects every course
- * built on it. A start that sails the course takes a snapshot
- * (RaceStartCourse), so what was scored never moves under it.
+ * One leg of a course as the race committee states it: how far, and on what
+ * bearing. There is no position behind it and no wind on it — the wind
+ * belongs to the race, not the course (see RaceStart.courseLegs).
+ */
+export interface SeriesCourseLeg {
+  distanceNm: number;
+  bearingDeg: number;
+}
+
+/**
+ * A named course in the series' library, defined one of two ways.
+ *
+ * **By marks** — the sequence in sailing order, the first of them the start
+ * line. Distances and bearings are derived from the marks when needed, never
+ * stored, so a corrected mark corrects every course built on it.
+ *
+ * **By legs** — the race committee's own leg table, which is all a committee
+ * boat often hands over and the only thing a course is in ORC Scorer. Here
+ * the leg list *is* the course: there are no positions to correct, and so no
+ * sides, no passing marks, and no located drawing.
+ *
+ * Exactly one of `marks` and `legs` is non-empty; `courseLegsOf` in
+ * `course-geometry.ts` is the one seam between them, and every consumer of a
+ * course's geometry goes through it. There is deliberately no conversion:
+ * legs to marks would have to invent positions, and marks to legs would
+ * freeze away the correction rule above.
+ *
+ * A start that sails the course takes a snapshot (RaceStartCourse), so what
+ * was scored never moves under it.
  */
 export interface SeriesCourse {
   id: string;
@@ -676,6 +700,9 @@ export interface SeriesCourse {
   // as "004 (modified)".
   modified?: boolean;
   marks: SeriesCourseMark[];
+  // The committee's leg table, on a course defined by legs. Present iff
+  // `marks` is empty.
+  legs?: SeriesCourseLeg[];
   createdAt: number;   // Date.now()
   version?: number;    // server-side concurrency token (see Series.version)
 }
@@ -704,6 +731,12 @@ export interface RaceStartCourse {
   courseId?: string;   // the library course; provenance and the key for recompute
   name: string;
   waypoints: RaceStartCourseWaypoint[];
+  /** The leg table the course gave, on a course defined by legs — which has
+   *  no waypoints to snapshot. What the course gave, where `courseLegs` is
+   *  what was scored: the two differ once the scorer edits a leg, which is
+   *  how `legsEdited` is worked out and how a course that has moved in the
+   *  library since is told apart from one the scorer changed by hand. */
+  legs?: SeriesCourseLeg[];
   windDirectionDeg?: number;
   /** The wind speed (kt) the scorer gave for the whole course, where the
    *  option scores at the recorded wind. Held so a recompute puts it back
