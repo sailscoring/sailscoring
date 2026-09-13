@@ -570,20 +570,6 @@ function RaceStartDialogInner({
                     />
                     °
                   </label>
-                  {offerWindSpeed && (
-                    <label className="flex items-center gap-1">
-                      at
-                      <input
-                        aria-label="Wind speed"
-                        className="flex h-7 w-14 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                        value={windSpeedInput}
-                        inputMode="decimal"
-                        onChange={(e) => changeWindSpeed(e.target.value)}
-                        placeholder="9"
-                      />
-                      kt
-                    </label>
-                  )}
                   {legsEdited && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="legs-edited">legs edited</span>
                   )}
@@ -618,6 +604,20 @@ function RaceStartDialogInner({
               )}
               {(legsOpen || !offerCourse) && (
               <div className="space-y-1">
+                {offerWindSpeed && (
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    Wind speed
+                    <input
+                      aria-label="Wind speed"
+                      className="flex h-7 w-16 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                      value={windSpeedInput}
+                      inputMode="decimal"
+                      onChange={(e) => changeWindSpeed(e.target.value)}
+                      placeholder="9"
+                    />
+                    kt — put on every leg below
+                  </label>
+                )}
                 <div className={`grid ${legGridCols} gap-1 text-xs text-muted-foreground`}>
                   <span>Distance (NM)</span>
                   <span>Bearing (°)</span>
