@@ -31,12 +31,39 @@ import { ConfirmDialogProvider } from '@/components/confirm-dialog';
 import {
   CONFLICT_NOTICE_MS,
   NoticeProvider,
+  WRITE_FAILURE_NOTICE_MS,
   conflictNoticeMessage,
   useNotice,
 } from '@/components/notice';
 import { AuthError, ConflictApiError } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
 import { stripAuthErrorParam } from '@/lib/safe-redirect';
+import { describeWriteFailure } from '@/lib/write-failure';
+
+/**
+ * Whether a failed mutation is a write nobody is telling the scorer about.
+ *
+ * Both the console log below and the notice banner in `WriteFailureSubscriber`
+ * turn on this one answer, so that what gets logged and what gets shown can't
+ * drift apart. Three kinds are already spoken for:
+ *
+ *  - an AuthError, by the session re-check above;
+ *  - a 409, by the conflict notice or the finish-entry row dialog (see
+ *    `ConflictMutationSubscriber`);
+ *  - a mutation whose caller renders the refusal itself — a "no" that is an
+ *    answer rather than a lost write — which says so via `meta`.
+ *
+ * Everything else goes nowhere on its own: `mutate` swallows rejections, so a
+ * caller that passes no onError loses the write in silence, and the scorer
+ * sees the interaction succeed with the data not there.
+ */
+export function isLostWrite(
+  error: unknown,
+  mutation: { meta?: Record<string, unknown> },
+): boolean {
+  if (error instanceof AuthError || error instanceof ConflictApiError) return false;
+  return !mutation.meta?.errorShownToUser;
+}
 
 /**
  * Self-heal for a present-but-invalid session cookie. The proxy's
@@ -151,19 +178,11 @@ export function createQueryClient(): QueryClient {
     mutationCache: new MutationCache({
       onError: (error, _vars, _ctx, mutation) => {
         onApiError(error);
-        // Two failure kinds have somewhere to go already: an AuthError to the
-        // session re-check above, and a 409 to the conflict notice or the
-        // finish-entry row dialog (see ConflictMutationSubscriber below).
-        if (error instanceof AuthError || error instanceof ConflictApiError) return;
-        // A mutation whose caller shows the rejection to the user (a refusal
-        // rendered in the form it came from) says so via `meta`, and is not
-        // a lost write either.
-        if (mutation.meta?.errorShownToUser) return;
-        // Everything else goes nowhere. `mutate` swallows rejections, so a
-        // caller that passes no onError loses the write in silence: the
-        // scorer sees the interaction succeed and the data isn't there. Log
-        // it, so it shows up in the console during development and fails the
-        // e2e suite, which treats a console error as a test failure.
+        if (!isLostWrite(error, mutation)) return;
+        // The scorer is told by the banner; this is the other half — it shows
+        // up in the console during development and fails the e2e suite, which
+        // treats a console error as a test failure. A lost write that only a
+        // human notices is how #567 got to a race day.
         console.error(
           `Mutation failed${mutation.options.mutationKey ? ` (${JSON.stringify(mutation.options.mutationKey)})` : ''}:`,
           error,
@@ -199,6 +218,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <NoticeProvider>
           <ConflictMutationSubscriber />
+          <WriteFailureSubscriber />
           <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
         </NoticeProvider>
       </QueryClientProvider>
@@ -234,6 +254,36 @@ function ConflictMutationSubscriber() {
         });
         qc.invalidateQueries();
       }
+    });
+    return () => unsub();
+  }, [qc, show]);
+  return null;
+}
+
+/**
+ * Shows the notice banner for any write that failed with nothing else to
+ * report it — the case where the scorer pressed a button that saved
+ * directly, with no dialog to put a message in.
+ *
+ * Only the `error` action is acted on, which the cache dispatches exactly
+ * once per failed attempt. Unlike the conflict path this doesn't invalidate
+ * anything: a write that failed didn't change the server's state, and the
+ * handful of optimistic mutations roll their own cache back in `onError`.
+ */
+function WriteFailureSubscriber() {
+  const { show } = useNotice();
+  const qc = useQueryClient();
+  useEffect(() => {
+    const unsub = qc.getMutationCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'error') return;
+      const error = event.action.error;
+      if (!isLostWrite(error, event.mutation)) return;
+      show({
+        tone: 'error',
+        message: describeWriteFailure(error),
+        dismissAfterMs: WRITE_FAILURE_NOTICE_MS,
+        error,
+      });
     });
     return () => unsub();
   }, [qc, show]);

@@ -1,7 +1,7 @@
 import { ApiError, ArchivedApiError, ValidationApiError } from '@/lib/api-client';
 
 /** What each read-only state means for the person who just tried to write. */
-const READ_ONLY_MESSAGES = {
+export const READ_ONLY_MESSAGES = {
   'series-archived':
     'That series is archived, so it can’t be changed. Unarchive it first, then try again.',
   'series-as-published':

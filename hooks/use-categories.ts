@@ -29,6 +29,8 @@ export function useCreateCategory() {
     mutationFn: (name: string) => createCategory(name),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.categories.all }),
+    // A duplicate name is a refusal the dialog states beside the field.
+    meta: { errorShownToUser: true },
   });
 }
 
@@ -39,6 +41,8 @@ export function useRenameCategory() {
       renameCategory(id, name),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.categories.all }),
+    // As with creating one — the dialog says so beside the row.
+    meta: { errorShownToUser: true },
   });
 }
 

@@ -102,6 +102,9 @@ export function useUpdateHandicaps(seriesId: string) {
       await qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
     scope: { id: 'competitors' },
+    // The update flow holds the scorer in its own dialog, which distinguishes
+    // a conflict from anything else and says which it was.
+    meta: { errorShownToUser: true },
   });
 }
 

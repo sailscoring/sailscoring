@@ -26,6 +26,8 @@ export function useCreateLogo() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.logos.list() });
     },
+    // The upload dialog stays open on a refusal and says so in place.
+    meta: { errorShownToUser: true },
   });
 }
 
@@ -37,6 +39,8 @@ export function useUpdateLogo() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.logos.list() });
     },
+    // Same dialog, same refusal.
+    meta: { errorShownToUser: true },
   });
 }
 

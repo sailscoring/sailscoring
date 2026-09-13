@@ -70,6 +70,8 @@ export function useCommitSplitRound(seriesId: string) {
   return useMutation({
     mutationFn: (payload: SplitRoundCommit) => commitSplitRound(seriesId, payload),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+    // The ceremony dialog stays open and renders the refusal itself.
+    meta: { errorShownToUser: true },
   });
 }
 

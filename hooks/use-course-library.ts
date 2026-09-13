@@ -68,6 +68,8 @@ export function useDeleteSeriesMark() {
       await qc.invalidateQueries({ queryKey: queryKeys.seriesMarks.bySeries(seriesId) });
       qc.invalidateQueries({ queryKey: queryKeys.series.all });
     },
+    // A mark in use names the courses holding it, in the page's own notice.
+    meta: { errorShownToUser: true },
   });
 }
 

@@ -70,6 +70,9 @@ export function useInviteMember() {
       authClient.organization.inviteMember({ email, role }).then(unwrap),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.workspaceMembers.all }),
+    // Already a member, already invited: the card renders the plugin's
+    // refusal beside the form, as it does for leaving.
+    meta: { errorShownToUser: true },
   });
 }
 
@@ -80,6 +83,7 @@ export function useUpdateMemberRole() {
       authClient.organization.updateMemberRole({ memberId, role }).then(unwrap),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.workspaceMembers.all }),
+    meta: { errorShownToUser: true },
   });
 }
 
@@ -90,6 +94,7 @@ export function useRemoveMember() {
       authClient.organization.removeMember({ memberIdOrEmail }).then(unwrap),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.workspaceMembers.all }),
+    meta: { errorShownToUser: true },
   });
 }
 
@@ -115,5 +120,6 @@ export function useCancelInvitation() {
       authClient.organization.cancelInvitation({ invitationId }).then(unwrap),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.workspaceMembers.all }),
+    meta: { errorShownToUser: true },
   });
 }

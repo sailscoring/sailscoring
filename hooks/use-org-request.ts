@@ -22,5 +22,7 @@ export function useSubmitOrgRequest() {
       submitOrgRequest(input),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.orgRequest.mine() }),
+    // A refusal (one request at a time) is rendered in the card's form.
+    meta: { errorShownToUser: true },
   });
 }

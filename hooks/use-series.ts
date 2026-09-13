@@ -357,6 +357,8 @@ export function useCreateFollowOnSeries() {
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });
     },
     scope: { id: 'series' },
+    // The dialog stays open on a failure and puts the message in it.
+    meta: { errorShownToUser: true },
   });
 }
 
