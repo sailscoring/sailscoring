@@ -430,6 +430,62 @@ describe('published transparency for a recorded-wind race', () => {
     expect(html).not.toContain('the allowance the fleet was corrected on');
   });
 
+  it('publishes the course drawn from the legs alone, captioned as unlocated', () => {
+    // The snapshot a start keeps of a course defined by the committee's leg
+    // table: no waypoints, and the table it gave.
+    const html = renderSeriesHtml(assemble({
+      orc: totCalc,
+      raceStarts: [{
+        raceId: 'r1',
+        fleetIds: ['f1'],
+        startTime: '14:00:00',
+        courseLegs: legs,
+        course: {
+          courseId: 'c-legs',
+          name: 'RC table — 12 Sep R1',
+          waypoints: [],
+          legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
+          windDirectionDeg: 225,
+          windSpeedKts: 9,
+        },
+      }],
+    }));
+    // Drawn, folded away beside the leg record like any other course.
+    expect(html).toContain('<details class="orc-course"><summary>Show course</summary>');
+    expect(html).toContain('class="orc-course-drawing"');
+    expect(html).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
+    expect(html).toContain('aria-label="Course RC table — 12 Sep R1"');
+    // And captioned, because on a page a located drawing and an unlocated
+    // one are otherwise indistinguishable.
+    expect(html).toContain('the course&rsquo;s position on the water is not recorded');
+    // Inert, as every published drawing must be.
+    const svg = html.slice(html.indexOf('<svg xmlns'), html.indexOf('</svg>'));
+    expect(svg).not.toMatch(/<script|href=|xlink:href/i);
+  });
+
+  it('a course drawn from marks carries no such caption', () => {
+    const html = renderSeriesHtml(assemble({
+      orc: totCalc,
+      raceStarts: [{
+        raceId: 'r1',
+        fleetIds: ['f1'],
+        startTime: '14:00:00',
+        courseLegs: legs,
+        course: {
+          name: 'W/L — 12 Sep',
+          waypoints: [
+            { label: 'Start', lat: 53.4055, lng: -6.0675 },
+            { label: 'Z', lat: 53.3967, lng: -6.0702 },
+            { label: 'Start', lat: 53.4055, lng: -6.0675 },
+          ],
+          windDirectionDeg: 225,
+        },
+      }],
+    }));
+    expect(html).toContain('class="orc-course-drawing"');
+    expect(html).not.toContain('position on the water is not recorded');
+  });
+
   it('legs recorded at different wind speeds get no mix', () => {
     const mixed = legs.map((leg, i) => ({ ...leg, windSpeedKts: i === 0 ? 8 : 14 }));
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(mixed), certs: true }));

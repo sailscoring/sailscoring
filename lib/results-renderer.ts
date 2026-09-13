@@ -2,7 +2,7 @@ import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKe
 import { buildOrcMix, type OrcMix } from './orc-mix';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseSvg } from '@sailscoring/course-cards';
-import { drawnSnapshot } from './course-geometry';
+import { drawnStartCourse } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
 import { elapsedSecondsOf, timingPrecisionOf, type TimedFinish } from './elapsed-time';
@@ -226,6 +226,11 @@ export interface OrcHeaderData {
    *  the start recorded it — one inert SVG element, nothing fetched. A
    *  competitor checking their track sees the picture the scorer checked. */
   courseSvg?: string;
+  /** The drawing came from the course's leg table, so it carries no
+   *  position: shape and direction are the committee's, and where it sits on
+   *  the water is not recorded. Captioned, because a located drawing and an
+   *  unlocated one are otherwise indistinguishable on a page. */
+  courseSvgFromLegs?: boolean;
   /** Which cells of the certificate's allowance matrix this race's rating
    *  was mixed from, and whose certificate the mix was read off. Present
    *  only for the models the mix is defined over (see lib/orc-mix.ts). */
@@ -2150,8 +2155,11 @@ function renderRaceTable(
         // line above it, and unfolded it pushes the results table off a
         // phone. A closed <details> doesn't print, which matches how the
         // NHC and ECHO calculation toggles already behave.
+        const drawnNote = h.courseSvgFromLegs
+          ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.</p>'
+          : '';
         const drawing = h.courseSvg
-          ? `\n<details class="orc-course"><summary>Show course</summary><div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div></details>`
+          ? `\n<details class="orc-course"><summary>Show course</summary><div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>${drawnNote}</details>`
           : '';
         // Beside the course and folded the same way: this is what the course
         // bought off the certificate, and a competitor goes looking for it
@@ -2799,9 +2807,12 @@ export function assembleSeriesResultsData(
             : {}),
           ...(firstOrc.courseModel === 'CC' && coveringStart?.course
             ? (() => {
-                const drawn = drawnSnapshot(coveringStart.course);
+                // Either kind draws: a course defined by the committee's leg
+                // table has no marks, but its bearings and distances fix the
+                // shape and the direction exactly.
+                const drawn = drawnStartCourse(coveringStart.course);
                 const svg = renderCourseSvg(drawn.marks, drawn.course, { width: 480, title: `Course ${coveringStart.course.name}` });
-                return svg ? { courseSvg: svg } : {};
+                return svg ? { courseSvg: svg, ...(drawn.fromLegs ? { courseSvgFromLegs: true } : {}) } : {};
               })()
             : {}),
           ...(mix ? { mix, ...(scratch?.name ? { mixBoat: scratch.name } : {}) } : {}),

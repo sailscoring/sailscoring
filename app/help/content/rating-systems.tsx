@@ -455,9 +455,10 @@ export default function RatingSystems() {
           the table onto each start. What it hasn’t got is positions, so there are no
           sides to leave marks on and nowhere on the water to put it; and the wind
           is still the race’s, so each start gives its own. It is drawn all the
-          same, from the bearings and distances alone: the shape and the direction
-          are the committee’s, and under the drawing you are told how far the last
-          leg ends from where the first began. A table rounded to a tenth of a mile
+          same, from the bearings and distances alone — on the race start and on the
+          published page, where it says in as many words that the course’s position
+          on the water is not recorded. In the course dialog you are also told how
+          far the last leg ends from where the first began. A table rounded to a tenth of a mile
           never closes exactly, so that figure is there to read rather than to
           worry about — but a course missing a leg, or carrying one it shouldn’t,
           misses by much more than rounding, and this is where you see it.

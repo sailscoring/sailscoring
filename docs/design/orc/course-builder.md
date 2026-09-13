@@ -219,9 +219,14 @@ at all. It discriminates well enough to be worth showing: the course behind
 #583 closes to 0.07 NM as its committee gave it, and to 0.93 NM with the one
 stray leg that actually reached the scoring.
 
-Not on the race start, and so not on the published page: there the leg record
-is the honest artefact, and a drawing off an arbitrary origin is a working
-tool rather than a course to publish.
+Published too, on the same fold as a mark course's drawing, and captioned
+there: *the bearings and distances are the race committee's; the course's
+position on the water is not recorded.* The caption is the whole condition of
+publishing it — a located drawing and an unlocated one are indistinguishable
+on a page, and a competitor measuring off one has to know which they have.
+The closure figure stays in the authoring dialog: it is a scorer's check, and
+on a published page it would invite "your course doesn't close" over what is
+usually rounding.
 
 ## Rendering the course
 
