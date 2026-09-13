@@ -175,8 +175,14 @@ export interface RaceData {
    *  an ET × TCF recompute. Also set for PCS races — their applied rating
    *  is a ToD at the scoring wind. */
   isOrcTod?: boolean;
+  /** True for an ORC race whose rating is a time-on-time multiplier computed
+   *  over the course rather than read off the certificate: the column is
+   *  headed "ToT" and printed to the four decimals the method publishes. */
+  isOrcTot?: boolean;
   /** True for an ORC race scored by performance curves: adds the implied
-   *  wind column so competitors can check the scoring wind derivation. */
+   *  wind column so competitors can check the scoring wind derivation. Not
+   *  set where the wind was recorded rather than derived — there is no
+   *  implied wind to show. */
   isOrcPcs?: boolean;
   /** ORC fleet-race header: the option the race was scored on and the
    *  correction ingredients — and, for PCS, the scoring wind with its
@@ -207,6 +213,11 @@ export interface OrcHeaderData {
   scoringWind?: number;
   /** PCS: the scoring wind was set by the race committee (rule 402.12). */
   scoringWindOverridden?: boolean;
+  /** The wind was recorded on the legs, not derived from the finish times. */
+  windRecorded?: boolean;
+  /** The computed allowance was applied time-on-time — which changes what
+   *  the mix grid's note says the weights add up to. */
+  appliedAsTot?: boolean;
   /** PCS: 'WL' | 'CR' | 'OC' | 'CC'. */
   courseModel?: string;
   /** Constructed-course legs, published as the course record. */
@@ -1974,9 +1985,10 @@ function renderRaceTable(
   // allowance in seconds per nautical mile, and a fixed-TCF fleet, which is
   // headed by whatever the club calls its handicap.
   const isOrcTod = race.isOrcTod === true;
+  const isOrcTot = race.isOrcTot === true;
   const isOrcPcs = race.isOrcPcs === true;
   const ratingLabel = race.ratingColumnLabel
-    ?? (isOrcTod ? 'ToD' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC')));
+    ?? (isOrcTod ? 'ToD' : isOrcTot ? 'ToT' : (isEcho ? 'Starting H' : (isNhc ? 'TCF' : 'TCC')));
   const ratingColClass = isEcho ? 'starth' : (isNhc ? 'tcf' : 'tcc');
   // Detect ties in within-fleet rank
   const rankCounts = new Map<number, number>();
@@ -2002,7 +2014,7 @@ function renderRaceTable(
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
             `<td class="mono">${r.elapsedTimeSecs != null ? formatElapsedInput(r.elapsedTimeSecs) : ''}</td>`,
-            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
+            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
             `<td class="mono">${r.correctedTimeSecs != null ? formatElapsedInput(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
@@ -2108,20 +2120,30 @@ function renderRaceTable(
         // for certificate single numbers and bands.
         if (h.option && h.scoringWind == null) parts.push(`Rating field ${esc(h.option)}`);
         if (h.scoringWind != null) {
+          // Where the wind was recorded rather than derived, the legs say what
+          // it was and the figure here is their distance-weighted average —
+          // so it is the wind, not a finding about the fleet.
           parts.push(
-            `Scoring wind ${h.scoringWind.toFixed(2)} kt (${h.scoringWindOverridden ? 'set by the race committee' : "winner's implied wind"})`,
+            h.windRecorded
+              ? `Wind ${h.scoringWind.toFixed(2)} kt`
+              : `Scoring wind ${h.scoringWind.toFixed(2)} kt (${h.scoringWindOverridden ? 'set by the race committee' : "winner's implied wind"})`,
           );
         }
         if (h.scratchTod != null) parts.push(`Scratch allowance ${h.scratchTod.toFixed(1)} s/NM`);
+        // Performance curves always correct time-on-distance (rule 402.9), so
+        // only the recorded-wind options leave the correction to say.
+        if (h.windRecorded) parts.push(h.appliedAsTot ? 'Time-on-time' : 'Time-on-distance');
         const lead =
-          h.scoringWind != null
-            ? 'Scored on ORC performance curves'
-            : h.scratchTod != null
-              ? 'Scored on ORC time-on-distance'
-              : 'Scored on an ORC certificate rating';
+          h.windRecorded
+            ? 'Scored on ORC performance curves at the recorded wind'
+            : h.scoringWind != null
+              ? 'Scored on ORC performance curves'
+              : h.scratchTod != null
+                ? 'Scored on ORC time-on-distance'
+                : 'Scored on an ORC certificate rating';
         const legsLine = h.legs?.length
           ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
-              .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;)`)
+              .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''})`)
               .join(' &middot; ')}</p>`
           : '';
         // Folded away by default: the drawing is an illustration of the legs
@@ -2135,7 +2157,7 @@ function renderRaceTable(
         // bought off the certificate, and a competitor goes looking for it
         // only once they've understood the course itself.
         const mix = h.mix
-          ? `\n<details class="orc-course orc-mix"><summary>Show handicap mix</summary><div class="orc-mix-body">${renderOrcMixHtml(h.mix, h.mixBoat)}</div></details>`
+          ? `\n<details class="orc-course orc-mix"><summary>Show handicap mix</summary><div class="orc-mix-body">${renderOrcMixHtml(h.mix, h.mixBoat, h.appliedAsTot === true)}</div></details>`
           : '';
         return `<p class="orc-fleet-header" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${lead}${parts.length ? ` &middot; ${parts.join(' &middot; ')}` : ''}</p>${legsLine}${drawing}${mix}\n`;
       })()
@@ -2503,16 +2525,35 @@ function maybeLink(url: string | undefined, inner: string): string {
   return `<a href="${esc(externalHref(url))}" target="_top" rel="noopener">${inner}</a>`;
 }
 
-/** The boat the fleet's corrected times were anchored to: the one whose
- *  applied allowance is the scratch allowance. Float equality is no use on
- *  numbers that have been through a spline, so it's the closest match. */
-function orcScratchBoat(
+/** Whose certificate the handicap mix is read off: the boat the fleet's
+ *  corrected times were anchored to, meaning the one whose applied allowance
+ *  is the scratch allowance. Float equality is no use on numbers that have
+ *  been through a spline, so it's the closest match. A time-on-time race has
+ *  no scratch boat to anchor to, so the fastest-rated boat stands in — the
+ *  same boat, just not doing that job. */
+function orcMixBoat(
   scores: Map<string, { orc?: OrcRaceCalc }>,
   competitorsById: Map<string, { sailNumber: string; boatName?: string; orcCert?: OrcCertData }>,
   scratchTod: number | undefined,
 ): { name: string; allowances: PcsAllowances } | undefined {
-  if (scratchTod == null) return undefined;
+  const allowancesOf = (competitorId: string) => {
+    const competitor = competitorsById.get(competitorId);
+    const allowances = competitor?.orcCert?.record?.Allowances as PcsAllowances | undefined;
+    return competitor && allowances
+      ? { name: competitor.boatName || competitor.sailNumber, allowances }
+      : undefined;
+  };
   let bestId: string | undefined;
+  if (scratchTod == null) {
+    let lowest = Infinity;
+    for (const [competitorId, score] of scores) {
+      const tod = score.orc?.todApplied;
+      if (tod == null || tod >= lowest) continue;
+      lowest = tod;
+      bestId = competitorId;
+    }
+    return bestId == null ? undefined : allowancesOf(bestId);
+  }
   let bestGap = Infinity;
   for (const [competitorId, score] of scores) {
     const tod = score.orc?.todApplied;
@@ -2524,10 +2565,7 @@ function orcScratchBoat(
     }
   }
   if (bestId == null || bestGap > 0.05) return undefined;
-  const competitor = competitorsById.get(bestId);
-  const allowances = competitor?.orcCert?.record?.Allowances as PcsAllowances | undefined;
-  if (!competitor || !allowances) return undefined;
-  return { name: competitor.boatName || competitor.sailNumber, allowances };
+  return allowancesOf(bestId);
 }
 
 /** The mix for a PCS race, when the course is one the weights are defined
@@ -2571,7 +2609,7 @@ function mixPct(weight: number): string {
  * this race's rating was mixed from. Folded away by the caller, like the
  * course drawing it sits beside.
  */
-function renderOrcMixHtml(mix: OrcMix, boat: string | undefined): string {
+function renderOrcMixHtml(mix: OrcMix, boat: string | undefined, appliedAsTot = false): string {
   const largest = Math.max(
     ...mix.cells.map((row) => Math.max(...row.map((c) => Math.abs(c)))),
     1e-9,
@@ -2599,17 +2637,25 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined): string {
   // than allowances. Saying so is cheaper than a competitor finding it.
   const interpolated =
     'Between tabulated wind speeds the curve is interpolated through boat speeds rather than allowances,';
+  // Time-on-time never anchors on a scratch allowance, so what the weights
+  // add up to is the allowance this boat's own rating came out of.
+  const whatItIs = appliedAsTot
+    ? `the allowance ${boat ? `${esc(boat)}&rsquo;s` : 'its'} time-on-time rating is 600 divided by`
+    : 'the allowance the fleet was corrected on';
   const reconcile = mix.exact
-    ? `The scoring wind landed on a tabulated speed, so one column carries the whole rating: these weights come to <strong>${mix.weightedSum.toFixed(1)} s/NM</strong>, the allowance the fleet was corrected on.`
+    ? `The scoring wind landed on a tabulated speed, so one column carries the whole rating: these weights come to <strong>${mix.weightedSum.toFixed(1)} s/NM</strong>, ${whatItIs}.`
     : Math.abs(mix.weightedSum - mix.appliedTod) < 0.05
-      ? `These weights come to <strong>${mix.weightedSum.toFixed(1)} s/NM</strong>, the allowance the fleet was corrected on. ${interpolated} so the grid attributes the rating rather than reproducing it — here the two agree to the tenth anyway.`
+      ? `These weights come to <strong>${mix.weightedSum.toFixed(1)} s/NM</strong>, ${whatItIs}. ${interpolated} so the grid attributes the rating rather than reproducing it — here the two agree to the tenth anyway.`
       : `These weights come to ${mix.weightedSum.toFixed(1)} s/NM against the <strong>${mix.appliedTod.toFixed(1)} s/NM</strong> actually applied. ${interpolated} so the grid attributes the rating without reproducing it.`;
   const whose = boat ? `${esc(boat)}&rsquo;s certificate` : 'the scratch boat&rsquo;s certificate';
+  const at = appliedAsTot
+    ? `the wind recorded on the course, ${mix.scoringWind.toFixed(2)} kt`
+    : `a scoring wind of ${mix.scoringWind.toFixed(2)} kt`;
   return (
     `<table class="orc-mix-grid"><thead><tr><th class="mcorner">Time allowances in secs/NM</th>${head}<th class="mtot">Course</th></tr></thead>\n` +
     `<tbody>\n${body}\n</tbody>\n` +
     `<tfoot><tr><th scope="row">Wind weight</th>${foot}<td class="mtot">&nbsp;</td></tr></tfoot></table>\n` +
-    `<p class="orc-mix-note">Read off ${whose}, at a scoring wind of ${mix.scoringWind.toFixed(2)} kt. ${reconcile}</p>`
+    `<p class="orc-mix-note">Read off ${whose}, at ${at}. ${reconcile}</p>`
   );
 }
 
@@ -2733,7 +2779,7 @@ export function assembleSeriesResultsData(
         // The mix is read off the scratch boat's certificate — the boat the
         // whole fleet's corrected times are anchored to, and the one the
         // scratch allowance in the header line above already refers to.
-        const scratch = orcScratchBoat(scoresForRace, competitorsById, firstOrc.scratchTod);
+        const scratch = orcMixBoat(scoresForRace, competitorsById, firstOrc.scratchTod);
         const mix = orcMixFor(firstOrc, coveringStart?.courseLegs, scratch?.allowances);
         orcHeaderData = {
           ...(firstOrc.option ? { option: firstOrc.option } : {}),
@@ -2741,6 +2787,8 @@ export function assembleSeriesResultsData(
           ...(firstOrc.distanceNm != null ? { distanceNm: firstOrc.distanceNm } : {}),
           ...(firstOrc.scoringWind != null ? { scoringWind: firstOrc.scoringWind } : {}),
           ...(firstOrc.scoringWindOverridden ? { scoringWindOverridden: true } : {}),
+          ...(firstOrc.windRecorded ? { windRecorded: true } : {}),
+          ...(firstOrc.totApplied != null ? { appliedAsTot: true } : {}),
           ...(firstOrc.courseModel ? { courseModel: firstOrc.courseModel } : {}),
           ...(firstOrc.courseModel === 'CC' && coveringStart?.courseLegs?.length
             ? { legs: coveringStart.courseLegs }
@@ -2908,8 +2956,11 @@ export function assembleSeriesResultsData(
       // rating column, engine corrected times) is a per-race property too,
       // read off the audit block rather than the fleet configuration.
       ...(orcHeaderData?.scratchTod != null ? { isOrcTod: true } : {}),
+      ...(orcHeaderData?.appliedAsTot ? { isOrcTot: true } : {}),
       ...(orcHeaderData ? { orcHeader: orcHeaderData } : {}),
-      ...(orcHeaderData?.scoringWind != null ? { isOrcPcs: true } : {}),
+      ...(orcHeaderData?.scoringWind != null && !orcHeaderData.windRecorded
+        ? { isOrcPcs: true }
+        : {}),
       results,
       ...(nhcHeader ? { nhcHeader } : {}),
       ...(echoHeader ? { echoHeader } : {}),

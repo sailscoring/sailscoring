@@ -31,8 +31,10 @@
  *
  * **Columns: the wind.** Performance Curve Scoring reads the curve at one
  * scoring wind (rule 402.9) through a cubic spline over the tabulated wind
- * speeds. A spline is linear in its node values, so the weights it applies
- * are exact and recoverable — one column at 100 % when the scoring wind
+ * speeds; the recorded-wind options read it at the wind the race committee
+ * measured instead, which is the same arithmetic at a wind that came from
+ * somewhere else. A spline is linear in its node values, so the weights it
+ * applies are exact and recoverable — one column at 100 % when the wind
  * lands on a tabulated speed, and otherwise a signed kernel spread over the
  * neighbours. That kernel sums to one only to within a few parts in ten
  * thousand: the module pins its spline through the origin, and off a
@@ -88,6 +90,9 @@ export interface OrcMixInput {
   model: OrcMixModel;
   /** Required for 'CC'. */
   legs?: OrcCourseLeg[];
+  /** The wind the curve is read at — derived from the race, or recorded on
+   *  the legs. Either way one figure, so legs recorded at different speeds
+   *  have no mix. */
   scoringWind: number;
 }
 
@@ -265,6 +270,10 @@ function angleShares(
   // A current on any leg puts a term in the allowance that belongs to no
   // cell, so the course as a whole stops being a mix of the certificate.
   if (legs.some((leg) => (leg.currentSpeedKts ?? 0) !== 0)) return undefined;
+  // Legs recorded at different wind speeds are read at different points of
+  // the wind axis, and the grid has one. Rather than attribute a course
+  // sailed in a building breeze to the wrong columns, decline to.
+  if (new Set(legs.map((leg) => leg.windSpeedKts ?? 0)).size > 1) return undefined;
   const distance = legs.reduce((sum, leg) => sum + leg.distanceNm, 0);
   if (!(distance > 0)) return undefined;
   return legs.map((leg) => ({ twa: legTwa(leg), share: leg.distanceNm / distance }));
