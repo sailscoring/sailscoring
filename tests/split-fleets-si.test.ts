@@ -99,6 +99,16 @@ describe('describeSplitFleetConfig', () => {
     ).toContain(
       'the boats that do not qualify for it will sail one more Elimination series race in their own fleets.',
     );
+    // And where no such race is scheduled at all, the sentence has to say the
+    // other thing — that they stop, and what the medal race scores them.
+    expect(
+      joined({
+        ...defaultSplitFleetConfig(3),
+        medal: { ...defaultSplitFleetConfig(3).medal!, companionRace: 'dnc' },
+      }),
+    ).toContain(
+      'the boats that do not qualify for it will be scored Did Not Come to the Starting Area in the medal race.',
+    );
   });
 
   it('says what an abandoned finale does to the divided score, where that is the rule', () => {

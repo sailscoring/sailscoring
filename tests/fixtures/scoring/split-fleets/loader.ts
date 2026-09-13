@@ -132,7 +132,7 @@ export interface SplitFleetFixture {
       carryTransform?: Omit<CarryTransform, 'appliesFrom'> &
         Partial<Pick<CarryTransform, 'appliesFrom'>>;
       tieBreak?: 'stage-rank' | 'last-race';
-      companionRace?: 'scored-below' | 'none';
+      companionRace?: 'scored-below' | 'none' | 'dnc';
     };
   };
   competitors: string[]; // "sail name..." — first token is the sail number

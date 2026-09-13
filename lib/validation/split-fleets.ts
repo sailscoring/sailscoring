@@ -122,7 +122,7 @@ export const splitFleetConfigSchema = z.object({
         })
         .optional(),
       tieBreak: z.enum(['stage-rank', 'last-race']).optional(),
-      companionRace: z.enum(['scored-below', 'none']).default('scored-below'),
+      companionRace: z.enum(['scored-below', 'none', 'dnc']).default('scored-below'),
     })
     .optional(),
 });

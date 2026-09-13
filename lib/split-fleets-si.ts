@@ -249,16 +249,19 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
       config.medal.multiplier === 1
         ? 'A boat’s score there may not be excluded'
         : `A boat’s score there will be multiplied by ${config.medal.multiplier} and may not be excluded`;
-    // What the boats who miss the cut sail is part of the same clause in the
+    // What the boats who miss the cut do is part of the same clause in the
     // SIs, and a scorer checking ours against theirs looks for it: one more
     // race of the second stage in their own fleets (2024 ILCA SI 7.4, 2026
     // ILCA SI 7.7), scored below the medal fleet where the SIs say so (2024
-    // SI 18.3.4, 2026 SI 18.5.3).
+    // SI 18.3.4, 2026 SI 18.5.3) — or nothing at all, where the event
+    // schedules no such race and scores them DNC instead.
     const rest =
-      `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets` +
-      (config.medal.companionRace === 'scored-below'
-        ? `, in which the first ${topFleet} boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
-        : '');
+      config.medal.companionRace === 'dnc'
+        ? `; the boats that do not qualify for it will be scored Did Not Come to the Starting Area in the ${vocab.stages.medal.raceNoun}`
+        : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets` +
+          (config.medal.companionRace === 'scored-below'
+            ? `, in which the first ${topFleet} boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
+            : '');
     push(
       'medal',
       `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,

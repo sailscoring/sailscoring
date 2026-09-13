@@ -170,8 +170,17 @@ export interface SplitFleetConfig {
      *    medal fleet are still assigned to it. That is what lines the race
      *    up — the top fleet's 37 starters score 11 to 47 against a base of
      *    48, exactly as if the ten had taken the places above them.
-     *  - `none` — scored from 1, like every other race of the stage. */
-    companionRace: 'scored-below' | 'none';
+     *  - `none` — scored from 1, like every other race of the stage.
+     *  - `dnc` — there is no such race. The boats who miss the cut stop
+     *    sailing, and the deciding race is scored DNC against them (Irish
+     *    Sailing Junior Champions' Cup, whose NoR schedules an opening series
+     *    and a medal race and nothing else). Their score for it is RRS A5.2's
+     *    series entries + 1 — not the medal fleet's own base, since they are
+     *    not in that fleet and never came to its starting area — weighted
+     *    like every other cell of the race. Without it their totals would
+     *    span one race fewer than the medal boats' and be compared as though
+     *    they did not. */
+    companionRace: 'scored-below' | 'none' | 'dnc';
   };
 }
 
@@ -1464,6 +1473,46 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
   addStage(qRaces, 'qualifying');
   addStage(fRaces, 'final');
   addStage(mRaces, 'medal');
+
+  // `companionRace: 'dnc'` — no one outside the medal fleet races again, so
+  // the deciding race is scored against them rather than simply missing from
+  // their row. RRS A5.2's series entries + 1, weighted with the rest of the
+  // race; the medal fleet's own base is the fleet's size and says nothing
+  // about a boat who was never in it.
+  if (config.medal?.companionRace === 'dnc' && medalFleetId) {
+    const codePoints = weightedRacePoints(
+      competitors.length + 1,
+      config.medal.multiplier,
+    );
+    for (const lr of mRaces) {
+      if (!lr.round) continue;
+      const ref = lr.races.get(medalFleetId);
+      if (!ref) continue;
+      const counts = physicalRaceCompleted(ref, competitors, data.finishes);
+      // Anyone the stage already scored for this race — the medal fleet, and
+      // any other fleet the round happens to carry — keeps what it gave them.
+      const scored = new Set<string>();
+      for (const [id, row] of rowByCompetitor) {
+        if (row.cells.some((c) => c.stage === 'medal' && c.stageRaceNumber === lr.stageRaceNumber)) {
+          scored.add(id);
+        }
+      }
+      for (const [id, row] of rowByCompetitor) {
+        if (scored.has(id)) continue;
+        row.cells.push({
+          stage: 'medal',
+          stageRaceNumber: lr.stageRaceNumber,
+          fleetId: medalFleetId,
+          raceId: ref.race.id,
+          points: codePoints,
+          code: 'DNC',
+          counts,
+          discardable: false,
+          discarded: false,
+        });
+      }
+    }
+  }
 
   const rows = [...rowByCompetitor.values()];
 

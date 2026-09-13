@@ -1,0 +1,98 @@
+description: "F2: no race for the boats who miss the cut — the medal race is scored DNC against them, at series entries + 1, doubled"
+provenance:
+  class: "TR 3.6 (mixed junior classes)"
+  year: 2025
+  event: "Irish Sailing Junior Champions' Cup, Fastnet Marine, Schull (NoR 8.1-8.2, 15.1-15.2)"
+  si: "reference-docs:events/irish-champions-cup-junior-2026/NoR.md"
+  results: "reference-docs:events/irish-champions-cup-junior-2025/results-sailwave.html"
+  code: F2
+  scenarios: []
+  alternatives: "Any medal-race event whose notice of race schedules the opening series and the medal race and nothing else."
+runnable: true
+notes: |
+  Most medal-race sailing instructions give the boats who miss the cut one
+  more race of their own fleet while the medal fleet sails (2024 ILCA SI 7.4,
+  2026 ILCA SI 7.7) — fixture 17. Some schedule no such race at all: the
+  Junior Champions' Cup NoR 8.1 is "an opening series of up to 8 races and a
+  Medal Race", and that is the whole regatta. The boats outside the medal
+  fleet stop racing, and the medal race is scored DNC against them.
+
+  Their score for it is RRS A5.2's **series entries + 1**, not the medal
+  fleet's own base: they are not in that fleet, and A5.2 counts the boats
+  entered in the series. NoR 15.2 then doubles it with everything else in the
+  race. Here that is 6 entries + 1 = 7, x2 = 14 — the same arithmetic the
+  real event published at full scale, where 16 entries and a ten-boat medal
+  fleet put **34.0 DNC** against each of the six boats who missed it.
+
+  The alternative — leaving them with no cell at all — would total their
+  series over one race fewer than the medal boats' and then compare the two
+  as though they were the same thing.
+
+  The real event sails this with a single fleet and no split at all; the
+  qualifying/final structure here is only the fixture harness's, and the
+  scoring rule under test is the same either way.
+
+  No discards (threshold empty) so every cell is visible.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds: []
+  maxFinalDiscards: 0
+  medal:
+    size: 2
+    raceCount: 1
+    multiplier: 2
+    companionRace: dnc
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+
+  - stage: final
+    from: 1
+    fleets:
+      Gold: [y1, y2, b1]
+      Silver: [y3, b2, b3]
+    races:
+      - n: 1
+        results:
+          Gold: [b1, y1, y2]
+          Silver: [b2, y3, b3]
+
+  - stage: medal
+    from: 1
+    fleets:
+      Medal: [y1, b1]
+    medalAfter: 1
+    races:
+      # No companion race: F2 is never scheduled. y2, y3, b2 and b3 are
+      # scored DNC here — 6 entries + 1 = 7, x2 = 14.
+      - n: 1
+        results:
+          Medal: [y1, b1]       # y1 1x2=2; b1 2x2=4
+
+expected:
+  standings:
+    - { rank: 1, sail: y1, total: 5, net: 5, fleet: Gold, medal: true }
+    - { rank: 2, sail: b1, total: 6, net: 6, fleet: Gold, medal: true }
+    - { rank: 3, sail: y2, total: 19, net: 19, fleet: Gold, medal: false }
+    - { rank: 4, sail: b2, total: 17, net: 17, fleet: Silver }
+    - { rank: 5, sail: y3, total: 19, net: 19, fleet: Silver }
+    - { rank: 6, sail: b3, total: 20, net: 20, fleet: Silver }

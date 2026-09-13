@@ -955,6 +955,34 @@ export function SplitFleetEditor({
                 </label>
               )}
               <label className="flex flex-wrap items-center gap-1.5">
+                The boats who miss the cut
+                <select
+                  className="rounded-md border bg-background px-2 py-1 text-sm"
+                  aria-label="What the boats who miss the cut do"
+                  disabled={!canEdit}
+                  value={value.medal.companionRace}
+                  onChange={(e) =>
+                    patch({
+                      medal: {
+                        ...value.medal!,
+                        companionRace: e.target.value as NonNullable<
+                          SplitFleetConfig['medal']
+                        >['companionRace'],
+                      },
+                    })
+                  }
+                >
+                  <option value="scored-below">
+                    sail one more race, scored from {value.medal.size + 1} in the fleet they
+                    left
+                  </option>
+                  <option value="none">sail one more race, scored from 1</option>
+                  <option value="dnc">
+                    stop racing, and are scored DNC in the {vocab.stages.medal.raceNoun}
+                  </option>
+                </select>
+              </label>
+              <label className="flex flex-wrap items-center gap-1.5">
                 Ties between these boats
                 <select
                   className="rounded-md border bg-background px-2 py-1 text-sm"
@@ -982,11 +1010,14 @@ export function SplitFleetEditor({
                 </select>
               </label>
               <p className={hint}>
-                Never discarded. Everyone else stays in their fleet and sails its remaining races
-                {value.medal.companionRace === 'scored-below'
-                  ? `, and in the fleet they left the last one scores from ${value.medal.size + 1}`
-                  : ''}
-                .
+                Never discarded.{' '}
+                {value.medal.companionRace === 'dnc'
+                  ? `Everyone else has finished racing, and is scored DNC in the ${vocab.stages.medal.raceNoun} at the entry list plus one — weighted like every other score in it.`
+                  : `Everyone else stays in their fleet and sails its remaining races${
+                      value.medal.companionRace === 'scored-below'
+                        ? `, and in the fleet they left the last one scores from ${value.medal.size + 1}`
+                        : ''
+                    }.`}
                 {value.medal.carryTransform
                   ? ` Dividing the score so far pulls the leaders together before the last races, so a qualified boat’s championship score is that one carried number plus her ${vocab.stages.medal.name}.`
                   : ''}
