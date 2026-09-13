@@ -86,6 +86,7 @@ export const raceStartCourseSchema = z.object({
     )
     .max(MAX_COURSE_MARKS),
   windDirectionDeg: bearingSchema.optional(),
+  windSpeedKts: z.number().positive().max(99).optional(),
   legsEdited: z.boolean().optional(),
 });
 

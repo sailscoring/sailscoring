@@ -439,7 +439,9 @@ export interface SeriesFileRepos {
  *
  *  v51 adds optional `starts[*].courseLegs[*].windSpeedKts` — the true wind
  *  speed the race committee recorded on a leg, which is what the ORC
- *  recorded-wind constructed-course options (`CC_TOT`, `CC_TOD`) score at.
+ *  recorded-wind constructed-course options (`CC_TOT`, `CC_TOD`) score at —
+ *  and optional `starts[*].course.windSpeedKts`, the one speed the scorer
+ *  gave for the whole course, held so a recompute puts it back on every leg.
  *  Sparse: a leg scored by performance curves carries no wind speed, because
  *  PCS derives the wind from the finish times instead. An older build
  *  reading a v51 file drops the speeds and cannot score those options at

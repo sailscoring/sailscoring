@@ -38,7 +38,13 @@ import {
   windForCardCourse,
   type NamingContext,
 } from '@/lib/course-geometry';
-import { ORC_STANDARD_OPTIONS, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
+import {
+  ORC_STANDARD_OPTIONS,
+  orcConstructedOption,
+  orcOptionKind,
+  orcRecordedWindOption,
+  orcSelectableOptions,
+} from '@/lib/orc-certificate';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import type { Competitor, Fleet, OrcCourseLeg, RaceStart, RaceStartCourse, SeriesCourse, SeriesMark } from '@/lib/types';
 
@@ -135,21 +141,35 @@ function RaceStartDialogInner({
     selectedKind === 'pcs' ||
     fleets.some((f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs') ||
     seed?.orcScoringWind != null;
-  // Constructed-course legs, for races scored PCS over the actual course.
+  // Constructed-course legs, for races scored over the actual course.
+  const orcFleetOptions = fleets
+    .filter((f) => f.scoringSystem === 'orc')
+    .map((f) => f.orcProfile?.option ?? '');
   const offerLegs =
-    orcOptionValue === 'CC' ||
-    fleets.some(
-      (f) => f.scoringSystem === 'orc' && f.orcProfile?.kind === 'pcs' && f.orcProfile.option === 'CC',
-    ) || Boolean(seed?.courseLegs?.length);
-  interface LegRow { distance: string; bearing: string; wind: string }
+    orcConstructedOption(orcOptionValue) ||
+    orcFleetOptions.some(orcConstructedOption) ||
+    Boolean(seed?.courseLegs?.length);
+  // The wind speed is a scoring input only where the option scores at the
+  // wind the race committee recorded; PCS derives the wind instead, and
+  // offering a speed there would invite the scorer to fill in a number
+  // nothing reads.
+  const offerWindSpeed =
+    orcRecordedWindOption(orcOptionValue) ||
+    (!orcOptionValue && orcFleetOptions.some(orcRecordedWindOption)) ||
+    (seed?.courseLegs ?? []).some((leg) => leg.windSpeedKts != null);
+  interface LegRow { distance: string; bearing: string; wind: string; windSpeed: string }
   const [legRows, setLegRows] = useState<LegRow[]>(
     (seed?.courseLegs ?? []).map((leg) => ({
       distance: String(leg.distanceNm),
       bearing: String(leg.bearingDeg),
       wind: String(leg.windDirectionDeg),
+      windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
     })),
   );
   const legsTotal = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
+  const legGridCols = offerWindSpeed
+    ? 'grid-cols-[1fr_1fr_1fr_1fr_auto]'
+    : 'grid-cols-[1fr_1fr_1fr_auto]';
 
   // The course library (ORC constructed courses): the start picks a course,
   // and its legs fill in from there — the wind is the start's own. Offered
@@ -185,6 +205,9 @@ function RaceStartDialogInner({
 
   const [snapshot, setSnapshot] = useState<RaceStartCourse | undefined>(seed?.course);
   const [windInput, setWindInput] = useState(seed?.course?.windDirectionDeg != null ? String(seed.course.windDirectionDeg) : '');
+  const [windSpeedInput, setWindSpeedInput] = useState(
+    seed?.course?.windSpeedKts != null ? String(seed.course.windSpeedKts) : '',
+  );
   const [legsEdited, setLegsEdited] = useState(Boolean(seed?.course?.legsEdited));
   const [legsOpen, setLegsOpen] = useState(!seed?.course);
   const [courseDialog, setCourseDialog] = useState<CourseDialogMode | null>(null);
@@ -192,13 +215,25 @@ function RaceStartDialogInner({
   const outOfDate = snapshot ? courseOutOfDate(snapshot, libraryCourse, marksById) : false;
   const windDeg = windInput.trim() ? Number(windInput.trim()) : undefined;
   const windValid = windDeg == null || (Number.isFinite(windDeg) && windDeg >= 0 && windDeg <= 360);
+  const windKt = windSpeedInput.trim() ? Number(windSpeedInput.trim()) : undefined;
+  const windSpeedValid = windKt == null || (Number.isFinite(windKt) && windKt > 0 && windKt < 100);
 
   /** Fill the leg table from a course at the wind, as a fresh snapshot. */
-  function applyCourse(course: SeriesCourse, wind: number | undefined, marks: ReadonlyMap<string, SeriesMark> = marksById) {
+  function applyCourse(
+    course: SeriesCourse,
+    wind: number | undefined,
+    marks: ReadonlyMap<string, SeriesMark> = marksById,
+    speed: number | undefined = windKt,
+  ) {
     const resolved = resolveCourse(course.marks, marks);
-    const legs = legsForStart(resolved.legs, wind ?? 0);
-    setSnapshot(snapshotOfCourse(course, marks, wind));
-    setLegRows(legs.map((leg) => ({ distance: String(leg.distanceNm), bearing: String(leg.bearingDeg), wind: wind != null ? String(wind) : '' })));
+    const legs = legsForStart(resolved.legs, wind ?? 0, offerWindSpeed ? speed : undefined);
+    setSnapshot(snapshotOfCourse(course, marks, wind, offerWindSpeed ? speed : undefined));
+    setLegRows(legs.map((leg) => ({
+      distance: String(leg.distanceNm),
+      bearing: String(leg.bearingDeg),
+      wind: wind != null ? String(wind) : '',
+      windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
+    })));
     setLegsEdited(false);
     setLegsOpen(false);
     setError('');
@@ -240,6 +275,20 @@ function RaceStartDialogInner({
     }
   }
 
+  /** The same for the wind speed: one figure for the course, spread over
+   *  every leg, and a leg the scorer has since given its own keeps it. */
+  function changeWindSpeed(value: string) {
+    setWindSpeedInput(value);
+    setError('');
+    const kt = value.trim() ? Number(value.trim()) : undefined;
+    const valid = kt != null && Number.isFinite(kt);
+    if (!legsEdited) {
+      setLegRows((rows) => rows.map((r) => ({ ...r, windSpeed: valid ? String(kt) : '' })));
+    }
+    if (!snapshot) return;
+    setSnapshot({ ...snapshot, ...(valid ? { windSpeedKts: kt } : { windSpeedKts: undefined }) });
+  }
+
   async function recompute() {
     if (!libraryCourse) return;
     const ok = await confirm({
@@ -249,7 +298,7 @@ function RaceStartDialogInner({
         : 'The legs will be replaced by the course as it is now in the library.',
       confirmLabel: 'Recompute',
     });
-    if (ok) applyCourse(libraryCourse, windDeg);
+    if (ok) applyCourse(libraryCourse, windDeg, marksById, windKt);
   }
 
   const drawing = useMemo(() => (snapshot ? drawnSnapshot(snapshot) : null), [snapshot]);
@@ -258,11 +307,15 @@ function RaceStartDialogInner({
   // saving is still allowed — the race falls back to scratch until the
   // course is recorded, matching how the engine scores it.
   const optionHint =
-    orcOptionValue === 'CC' && legsTotal === 0
+    orcConstructedOption(orcOptionValue) && legsTotal === 0
       ? 'Constructed-course scoring needs the course legs below.'
-      : (selectedKind === 'tod' || (selectedKind === 'pcs' && orcOptionValue !== 'CC')) && !distanceInput.trim()
-        ? 'This option needs the course length below to score.'
-        : null;
+      : orcRecordedWindOption(orcOptionValue) && legRows.some((r) => !r.windSpeed.trim())
+        ? 'This option scores at the recorded wind, so every leg needs its wind speed.'
+        : (selectedKind === 'tod' || selectedKind === 'pcs')
+          && !orcConstructedOption(orcOptionValue)
+          && !distanceInput.trim()
+          ? 'This option needs the course length below to score.'
+          : null;
   function setLegRow(i: number, field: keyof LegRow, value: string) {
     setLegRows((rows) => rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
     if (snapshot) setLegsEdited(true);
@@ -273,7 +326,12 @@ function RaceStartDialogInner({
     if (snapshot) setLegsEdited(true);
   }
   function addLegRow() {
-    setLegRows((rows) => [...rows, { distance: '', bearing: '', wind: snapshot && windDeg != null ? String(windDeg) : '' }]);
+    setLegRows((rows) => [...rows, {
+      distance: '',
+      bearing: '',
+      wind: snapshot && windDeg != null ? String(windDeg) : '',
+      windSpeed: offerWindSpeed && windKt != null ? String(windKt) : '',
+    }]);
     if (snapshot) setLegsEdited(true);
   }
 
@@ -304,7 +362,9 @@ function RaceStartDialogInner({
       distanceNm = parsed;
     }
     let courseLegs: OrcCourseLeg[] | undefined;
-    const nonEmptyLegs = legRows.filter((r) => r.distance.trim() || r.bearing.trim() || r.wind.trim());
+    const nonEmptyLegs = legRows.filter(
+      (r) => r.distance.trim() || r.bearing.trim() || r.wind.trim() || r.windSpeed.trim(),
+    );
     if (nonEmptyLegs.length > 0) {
       courseLegs = [];
       for (const row of nonEmptyLegs) {
@@ -319,22 +379,41 @@ function RaceStartDialogInner({
           setError('Each course leg needs a distance in NM and bearings in degrees (0–360).');
           return;
         }
-        courseLegs.push({ distanceNm: distance, bearingDeg: bearing, windDirectionDeg: wind });
+        let legWindSpeed: number | undefined;
+        if (row.windSpeed.trim()) {
+          const kt = Number(row.windSpeed.trim());
+          if (!Number.isFinite(kt) || kt <= 0 || kt >= 100) {
+            setError("Enter each leg's wind speed in knots, e.g. 9 — or leave it blank.");
+            return;
+          }
+          legWindSpeed = kt;
+        }
+        courseLegs.push({
+          distanceNm: distance,
+          bearingDeg: bearing,
+          windDirectionDeg: wind,
+          ...(legWindSpeed != null ? { windSpeedKts: legWindSpeed } : {}),
+        });
       }
     }
     if (!windValid) {
       setError('Enter the wind direction in degrees (0–360).');
       return;
     }
+    if (!windSpeedValid) {
+      setError('Enter the wind speed in knots, e.g. 9.');
+      return;
+    }
     // Whether the legs still match the course: a flag the scorer's typing
     // sets, confirmed against the arithmetic so a no-op edit is not an edit.
     let course: RaceStartCourse | undefined;
     if (snapshot) {
-      const fromCourse = legsForStart(legsOfWaypoints(snapshot.waypoints), windDeg ?? 0);
+      const fromCourse = legsForStart(legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt);
       const edited = legsEdited && (courseLegs ? !legsMatch(courseLegs, fromCourse) : true);
       course = {
         ...snapshot,
         ...(windDeg != null ? { windDirectionDeg: windDeg } : { windDirectionDeg: undefined }),
+        ...(windKt != null ? { windSpeedKts: windKt } : { windSpeedKts: undefined }),
         ...(edited ? { legsEdited: true } : { legsEdited: undefined }),
       };
     }
@@ -491,6 +570,20 @@ function RaceStartDialogInner({
                     />
                     °
                   </label>
+                  {offerWindSpeed && (
+                    <label className="flex items-center gap-1">
+                      at
+                      <input
+                        aria-label="Wind speed"
+                        className="flex h-7 w-14 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                        value={windSpeedInput}
+                        inputMode="decimal"
+                        onChange={(e) => changeWindSpeed(e.target.value)}
+                        placeholder="9"
+                      />
+                      kt
+                    </label>
+                  )}
                   {legsEdited && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="legs-edited">legs edited</span>
                   )}
@@ -525,14 +618,15 @@ function RaceStartDialogInner({
               )}
               {(legsOpen || !offerCourse) && (
               <div className="space-y-1">
-                <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1 text-xs text-muted-foreground">
+                <div className={`grid ${legGridCols} gap-1 text-xs text-muted-foreground`}>
                   <span>Distance (NM)</span>
                   <span>Bearing (°)</span>
                   <span>Wind dir (°)</span>
+                  {offerWindSpeed && <span>Wind (kt)</span>}
                   <span />
                 </div>
                 {legRows.map((row, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-1">
+                  <div key={i} className={`grid ${legGridCols} gap-1`}>
                     <input
                       aria-label={`Leg ${i + 1} distance`}
                       className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
@@ -554,6 +648,15 @@ function RaceStartDialogInner({
                       inputMode="decimal"
                       onChange={(e) => setLegRow(i, 'wind', e.target.value)}
                     />
+                    {offerWindSpeed && (
+                      <input
+                        aria-label={`Leg ${i + 1} wind speed`}
+                        className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                        value={row.windSpeed}
+                        inputMode="decimal"
+                        onChange={(e) => setLegRow(i, 'windSpeed', e.target.value)}
+                      />
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
@@ -587,6 +690,7 @@ function RaceStartDialogInner({
                 <p className="text-xs text-muted-foreground">
                   One row per leg, in sailing order; split a leg into two rows when
                   the wind shifts along it. The course distance is the total.
+                  {offerWindSpeed && ' This option scores at the wind recorded here, so every leg needs a speed.'}
                 </p>
               )}
             </div>

@@ -705,6 +705,10 @@ export interface RaceStartCourse {
   name: string;
   waypoints: RaceStartCourseWaypoint[];
   windDirectionDeg?: number;
+  /** The wind speed (kt) the scorer gave for the whole course, where the
+   *  option scores at the recorded wind. Held so a recompute puts it back
+   *  on every leg rather than dropping it and leaving the race unscored. */
+  windSpeedKts?: number;
   legsEdited?: boolean;  // courseLegs no longer match the waypoints
 }
 

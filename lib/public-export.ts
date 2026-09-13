@@ -397,6 +397,7 @@ export interface PublicSeriesExport {
           fixed?: boolean;
         }[];
         windDirectionDeg?: number;
+        windSpeedKts?: number;
         legsEdited?: boolean;
       };
       /** ORC wind-band field selection for this start — a scoring input. */
@@ -804,6 +805,7 @@ function exportStartCourse(
       };
     }),
     ...(course.windDirectionDeg != null ? { windDirectionDeg: course.windDirectionDeg } : {}),
+    ...(course.windSpeedKts != null ? { windSpeedKts: course.windSpeedKts } : {}),
     ...(course.legsEdited ? { legsEdited: true } : {}),
   };
 }
@@ -1795,6 +1797,7 @@ export async function importPublicExport(
         };
       }),
       ...(c.windDirectionDeg != null ? { windDirectionDeg: c.windDirectionDeg } : {}),
+      ...(c.windSpeedKts != null ? { windSpeedKts: c.windSpeedKts } : {}),
       ...(c.legsEdited ? { legsEdited: true } : {}),
     };
   };

@@ -142,13 +142,20 @@ export function legsOfWaypoints(waypoints: RaceStartCourseWaypoint[]): CourseLeg
 const round = (n: number, dp: number): number => Math.round(n * 10 ** dp) / 10 ** dp;
 
 /** Fill a start's leg table: each leg's distance to 0.001 NM and bearing to
- *  0.1°, with the one wind direction the scorer gave for the whole course.
- *  Per-leg overrides and sub-legs are then edits to the table itself. */
-export function legsForStart(legs: CourseLeg[], windDirectionDeg: number): OrcCourseLeg[] {
+ *  0.1°, with the one wind the scorer gave for the whole course — its
+ *  direction always, and its speed where the option scores at the wind the
+ *  race committee recorded. Per-leg overrides and sub-legs are then edits to
+ *  the table itself. */
+export function legsForStart(
+  legs: CourseLeg[],
+  windDirectionDeg: number,
+  windSpeedKts?: number,
+): OrcCourseLeg[] {
   return legs.map((leg) => ({
     distanceNm: round(leg.distanceNm, 3),
     bearingDeg: round(leg.bearingDeg, 1),
     windDirectionDeg,
+    ...(windSpeedKts != null ? { windSpeedKts } : {}),
   }));
 }
 
@@ -163,10 +170,28 @@ export function legsMatch(legs: OrcCourseLeg[], fromCourse: OrcCourseLeg[]): boo
       Math.abs(leg.distanceNm - c.distanceNm) < 0.0015 &&
       Math.abs(((leg.bearingDeg - c.bearingDeg + 540) % 360) - 180) < 0.15 &&
       leg.windDirectionDeg === c.windDirectionDeg &&
+      leg.windSpeedKts === c.windSpeedKts &&
       leg.currentSpeedKts == null &&
       leg.currentDirectionDeg == null
     );
   });
+}
+
+/**
+ * How a start's legs read on the wind speed they were scored at: one figure
+ * where every leg shares it, a range where they don't, and the fact that one
+ * is missing where the course is short of what a recorded-wind option needs.
+ * Null when no leg carries a speed at all — the ordinary case, and the one
+ * performance-curve scoring is in.
+ */
+export function recordedWindSummary(legs: OrcCourseLeg[] | undefined): string | null {
+  if (!legs || legs.length === 0) return null;
+  const speeds = legs.map((leg) => leg.windSpeedKts).filter((kt): kt is number => kt != null && kt > 0);
+  if (speeds.length === 0) return null;
+  if (speeds.length < legs.length) return 'wind speed missing';
+  const lo = Math.min(...speeds);
+  const hi = Math.max(...speeds);
+  return lo === hi ? `${lo} kt` : `${lo}–${hi} kt`;
 }
 
 /** The snapshot a start keeps when it picks a course. */
@@ -174,6 +199,7 @@ export function snapshotOfCourse(
   course: Pick<SeriesCourse, 'id' | 'name' | 'marks'>,
   marksById: ReadonlyMap<string, SeriesMark>,
   windDirectionDeg?: number,
+  windSpeedKts?: number,
 ): RaceStartCourse {
   const { waypoints } = resolveCourse(course.marks, marksById);
   return {
@@ -181,6 +207,7 @@ export function snapshotOfCourse(
     name: course.name,
     waypoints,
     ...(windDirectionDeg != null ? { windDirectionDeg } : {}),
+    ...(windSpeedKts != null ? { windSpeedKts } : {}),
   };
 }
 

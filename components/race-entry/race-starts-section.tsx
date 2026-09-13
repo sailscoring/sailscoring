@@ -10,6 +10,7 @@ import {
   type RaceStartDraft,
 } from '@/components/race-start-dialog';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
+import { recordedWindSummary } from '@/lib/course-geometry';
 import type { Competitor, Fleet, RaceStart } from '@/lib/types';
 
 export interface RaceStartsSectionHandle {
@@ -146,6 +147,7 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
                       : s.distanceNm!
                     ).toFixed(2)} NM
                     {s.courseLegs?.length ? ` · ${s.courseLegs.length} legs` : ''}
+                    {recordedWindSummary(s.courseLegs) ? ` · ${recordedWindSummary(s.courseLegs)}` : ''}
                   </span>
                 )}
                 {s.course && (
