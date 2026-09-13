@@ -28,8 +28,9 @@ Two things already exist, at opposite ends:
   marks (id, name, shape, colour, position or "laid per race"), course cards
   (course id → ordered mark sequence with side and passing/rounding), and
   `courseLegs(card, marks, courseId, racePositions)` returning each leg's
-  great-circle distance and true bearing. Six data sets are encoded (HYC AL and
-  Brass Monkeys, DBSC Summer, DLCC regattas), released and served from
+  great-circle distance and true bearing. Eight data sets are encoded (HYC AL
+  and Brass Monkeys, DBSC Summer, DLCC regattas, Clontarf's season, Kinsale's
+  Sovereign's Cup, Royal Cork keelboat racing), released and served from
   `courses.sailscoring.ie` with a `catalogue.json`. The app takes it as an
   ordinary dependency, `@sailscoring/course-cards`.
 
