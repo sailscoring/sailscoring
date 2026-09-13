@@ -86,8 +86,10 @@ it, the message is not finished.
 
 ## MANDATORY: Run Tests Before Every Push
 
-**ALWAYS run `pnpm lint`, `pnpm test:unit`, and the e2e suite before `git push`.** Do not push unless all pass.
+**ALWAYS run `pnpm lint`, `pnpm test:unit:db`, and the e2e suite before `git push`.** Do not push unless all pass.
 `pnpm test:e2e` needs the local Postgres container up; run `pnpm db:up` first if it isn't already (see `docs/local-dev-scripts.md`). The `pretest:e2e` hook applies migrations but does not start the container.
+
+**`pnpm test:unit:db`, not `pnpm test:unit`.** The DB-backed tests — `tests/db/`, `tests/api/`, `tests/auth/`, `tests/postgres-repository.test.ts` — **skip silently** when `DATABASE_URL` is unset, so a green `pnpm test:unit` is no evidence at all about them: it reports them as skipped, in a count nobody reads. That has broken several pushes. `pnpm test:unit:db` starts the container and runs everything (roughly 80s against 60s), so there is no reason to run the narrower one. Treat it as the **priority check — run it even when the e2e suite is being skipped**: it is a fraction of e2e's time and it covers the persistence layer, which is exactly where a change to a stored shape goes wrong.
 
 The e2e suite runs with `retries: 2` (locally too — see `playwright.config.ts`), so a test that fails then passes on a retry is reported **flaky** and the run still exits 0. **A flaky-but-passed run is good enough to push.** For the pre-push run, use **`pnpm test:e2e:triage`** instead of `pnpm test:e2e`: it runs the suite, then files each flaky test as a `flake`-labelled GitHub issue (dedup'd; recurrences get a dated comment) so the flake is tracked rather than silently absorbed by the retry. A **hard failure** (fails all attempts) still exits non-zero and blocks the push.
 
