@@ -17,10 +17,11 @@ import type { Series } from '@/lib/types';
  */
 
 /**
- * Fields this endpoint never decides. The first five move on every save and
- * say nothing about intent; the last two are server-managed and not in the
- * series update columns at all, so a client that round-trips without them
- * must not read as having cleared them.
+ * Fields this endpoint never decides. The first six are identity and
+ * bookkeeping — they move with a save rather than because of one, and say
+ * nothing about intent. The last two are server-managed and not in the series
+ * update columns at all, so a client that round-trips without them must not
+ * read as having cleared them.
  */
 const IGNORED_FIELDS: readonly string[] = [
   'id',
