@@ -16,6 +16,7 @@ import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCar
 import {
   adoptCardMarks,
   courseFromCard,
+  courseIsLegTable,
   drawnCourse,
   drawnMarks,
   matchCardCourse,
@@ -26,9 +27,10 @@ import {
   type CardCourseEntry,
   type NamingContext,
 } from '@/lib/course-geometry';
-import type { SeriesCourse, SeriesCourseMark, SeriesMark } from '@/lib/types';
+import type { SeriesCourse, SeriesCourseLeg, SeriesCourseMark, SeriesMark } from '@/lib/types';
 
 import { CourseDrawing } from './course-drawing';
+import { LegTable, emptyLegRow, type LegTableRow } from './leg-table';
 import { MarkDialog, type MarkDialogMode } from './mark-dialog';
 import { SequenceEditor } from './sequence-editor';
 
@@ -126,7 +128,11 @@ function CourseDialogInner({
     sets[0]?.path ??
     '';
 
-  const [source, setSource] = useState<'card' | 'hand'>(seed ? (seed.card ? 'card' : 'hand') : sets.length > 0 ? 'card' : 'hand');
+  const [source, setSource] = useState<'card' | 'hand' | 'legs'>(
+    seed
+      ? seed.card ? 'card' : courseIsLegTable(seed) ? 'legs' : 'hand'
+      : sets.length > 0 ? 'card' : 'hand',
+  );
   const [setPath, setSetPath] = useState(seed?.card?.set ?? defaultSet);
   const set = findCourseCardSet(setPath);
   const [cardId, setCardId] = useState(seed?.card?.cardId ?? recentCard?.cardId ?? '');
@@ -141,6 +147,13 @@ function CourseDialogInner({
   const [openedAt] = useState(() => Date.now());
   // The sequence as edited by hand; null while it follows the card.
   const [edited, setEdited] = useState<SeriesCourseMark[] | null>(seed ? seed.marks : null);
+  // The committee's leg table, when that is what the course is.
+  const [legRows, setLegRows] = useState<LegTableRow[]>(
+    (seed?.legs ?? []).map((leg) => emptyLegRow({
+      distance: String(leg.distanceNm),
+      bearing: String(leg.bearingDeg),
+    })),
+  );
   const [editorOpen, setEditorOpen] = useState(Boolean(seed && !seed.card));
   const [markDialog, setMarkDialog] = useState<(MarkDialogMode & { forCardMark?: string }) | null>(null);
   const [error, setError] = useState('');
@@ -214,10 +227,52 @@ function CourseDialogInner({
 
   const scorerMarks = library.filter((m) => !m.card);
 
+  /** The leg table as a course's legs, or the first row that isn't one. */
+  function parseLegRows(): { legs: SeriesCourseLeg[] } | { error: string } {
+    const legs: SeriesCourseLeg[] = [];
+    for (const [i, row] of legRows.entries()) {
+      if (!row.distance.trim() && !row.bearing.trim()) continue;
+      const distanceNm = Number(row.distance.trim());
+      const bearingDeg = Number(row.bearing.trim());
+      if (
+        !Number.isFinite(distanceNm) || distanceNm <= 0 ||
+        !Number.isFinite(bearingDeg) || bearingDeg < 0 || bearingDeg > 360
+      ) {
+        return { error: `Leg ${i + 1} needs a distance in miles and a bearing in degrees (0–360).` };
+      }
+      legs.push({ distanceNm, bearingDeg });
+    }
+    if (legs.length === 0) return { error: 'A course needs at least one leg.' };
+    return { legs };
+  }
+
   async function handleSave() {
     const trimmed = name.trim();
     if (!trimmed) {
       setError('Give the course a name.');
+      return;
+    }
+    if (source === 'legs') {
+      const parsed = parseLegRows();
+      if ('error' in parsed) {
+        setError(parsed.error);
+        return;
+      }
+      setSaving(true);
+      try {
+        const base: SeriesCourse = {
+          id: crypto.randomUUID(),
+          seriesId,
+          name: trimmed,
+          marks: [],
+          legs: parsed.legs,
+          createdAt: Date.now(),
+        };
+        await onSave(editing ? { ...base, id: editing.id, createdAt: editing.createdAt, version: editing.version } : base);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not save the course.');
+        setSaving(false);
+      }
       return;
     }
     if (source === 'card' && !edited) {
@@ -263,7 +318,10 @@ function CourseDialogInner({
     }
   }
 
-  const summary = resolved.legs.length > 0 ? `${resolved.legs.length} leg${resolved.legs.length === 1 ? '' : 's'} · ${resolved.totalNm.toFixed(2)} NM` : '';
+  const legsTotalNm = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
+  const legCount = source === 'legs' ? legRows.length : resolved.legs.length;
+  const totalNm = source === 'legs' ? legsTotalNm : resolved.totalNm;
+  const summary = legCount > 0 ? `${legCount} leg${legCount === 1 ? '' : 's'} · ${totalNm.toFixed(2)} NM` : '';
 
   return (
     <>
@@ -275,7 +333,8 @@ function CourseDialogInner({
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit course' : mode.kind === 'duplicate' ? 'Duplicate course' : 'New course'}</DialogTitle>
             <DialogDescription>
-              A named sequence of marks a start can pick: a course on the club&apos;s card, or one built by hand.
+              A course a start can pick: one on the club&apos;s card, a sequence of
+              marks built by hand, or the leg table the race committee gave you.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
@@ -288,6 +347,10 @@ function CourseDialogInner({
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input type="radio" name="course-source" checked={source === 'hand'} onChange={() => { setSource('hand'); setEdited(edited ?? []); setEditorOpen(true); setError(''); }} />
                   Build by hand
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="course-source" data-testid="course-source-legs" checked={source === 'legs'} onChange={() => { setSource('legs'); setEditorOpen(false); setError(''); }} />
+                  The committee&apos;s leg table
                 </label>
               </div>
             )}
@@ -382,6 +445,19 @@ function CourseDialogInner({
                 )}
               </div>
             )}
+            {source === 'legs' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Legs</label>
+                <LegTable rows={legRows} onChange={(rows) => { setLegRows(rows); setError(''); }}>
+                  <p className="text-xs text-muted-foreground">
+                    One row per leg, in sailing order, as the committee recorded it.
+                    There are no marks behind a course entered this way, so it has no
+                    positions and no sides — and the wind belongs to each race, not to
+                    the course, so a start supplies it when it picks this.
+                  </p>
+                </LegTable>
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="course-name">Name</label>
               <input
@@ -411,10 +487,12 @@ function CourseDialogInner({
                 onNewMark={() => setMarkDialog({ kind: 'new' })}
               />
             )}
-            {resolved.missingMarkIds.length > 0 && (
+            {source !== 'legs' && resolved.missingMarkIds.length > 0 && (
               <p className="text-xs text-destructive">A mark this course used is no longer in the library; its rows are skipped.</p>
             )}
-            <CourseDrawing marks={drawing.marks} course={drawing.course} width={520} title="Course drawing" />
+            {source !== 'legs' && (
+              <CourseDrawing marks={drawing.marks} course={drawing.course} width={520} title="Course drawing" />
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <div className="flex justify-end gap-2 mt-2">

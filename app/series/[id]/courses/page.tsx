@@ -33,7 +33,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ValidationApiError } from '@/lib/api-client';
 import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCardSet, loadCourseCard } from '@/lib/course-cards';
-import { adoptCardMarks, drawnCourse, drawnMarks, resolveCourse, type NamingContext } from '@/lib/course-geometry';
+import { adoptCardMarks, courseIsLegTable, courseLegsOf, drawnCourse, drawnMarks, resolveCourse, type NamingContext } from '@/lib/course-geometry';
 import type { SeriesCourse, SeriesMark } from '@/lib/types';
 import {
   useDeleteSeriesCourse,
@@ -134,6 +134,10 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
   }
 
   function describeSequence(course: SeriesCourse): string {
+    // A leg table names no marks; the bearings are the sequence.
+    if (courseIsLegTable(course)) {
+      return course.legs!.map((leg) => `${leg.bearingDeg}°`).join(' › ');
+    }
     return course.marks
       .map((cm) => {
         const m = marksById.get(cm.markId);
@@ -216,14 +220,16 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
         {courses.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No courses yet. Make one from a number on the club&apos;s card, or build one by hand from the marks
-              above; a start then picks it from a list.
+              No courses yet. Make one from a number on the club&apos;s card, build one by hand from the marks
+              above, or paste in the leg table the race committee gave you; a start then picks it from a list.
             </CardContent>
           </Card>
         ) : (
           <div className="rounded-md border divide-y">
             {courses.map((course) => {
-              const resolved = resolveCourse(course.marks, marksById);
+              const legs = courseLegsOf(course, marksById);
+              const totalNm = legs.reduce((sum, leg) => sum + leg.distanceNm, 0);
+              const legTable = courseIsLegTable(course);
               return (
                 <div key={course.id} className="flex items-center gap-3 px-3 py-2 text-sm" data-testid="course-row">
                   <div className="min-w-0 flex-1">
@@ -234,11 +240,16 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
                           {course.card.courseId}{course.modified ? ' (modified)' : ''}
                         </span>
                       )}
+                      {legTable && (
+                        <span className="text-xs text-muted-foreground" title="Entered as the race committee's leg table — no marks, and so no positions">
+                          leg table
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">{describeSequence(course)}</div>
                   </div>
                   <span className="font-mono text-xs text-muted-foreground shrink-0">
-                    {resolved.legs.length} legs · {resolved.totalNm.toFixed(2)} NM
+                    {legs.length} legs · {totalNm.toFixed(2)} NM
                   </span>
                   {canEdit && (
                     <DropdownMenu>
@@ -250,7 +261,10 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onSelect={() => setCourseDialog({ kind: 'edit', course })}>Edit</DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setCourseDialog({ kind: 'duplicate', course })}>Duplicate</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setSwapping(course)}>Swap a mark…</DropdownMenuItem>
+                        {/* There are no marks on a leg table to swap. */}
+                        {!legTable && (
+                          <DropdownMenuItem onSelect={() => setSwapping(course)}>Swap a mark…</DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-destructive" onSelect={() => void handleDeleteCourse(course)}>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
