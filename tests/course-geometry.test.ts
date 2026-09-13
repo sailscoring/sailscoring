@@ -15,6 +15,10 @@ import {
   matchCardCourse,
   positionFrom,
   proposeCourseName,
+  courseIsLegTable,
+  courseLegsOf,
+  drawnLegTable,
+  parseLegTable,
   proposeMarkName,
   recordedWindSummary,
   resolveCourse,
@@ -253,5 +257,132 @@ describe('a start’s legs and snapshot', () => {
     const resolved = resolveCourse([...course.marks, { markId: 'gone' }], marksById);
     expect(resolved.waypoints).toHaveLength(3);
     expect(resolved.missingMarkIds).toEqual(['gone']);
+  });
+});
+
+describe('a course defined by the committee’s leg table', () => {
+  const marksById = new Map<string, SeriesMark>();
+  const legs = [
+    { distanceNm: 2.09, bearingDeg: 162 },
+    { distanceNm: 0.06, bearingDeg: 60 },
+    { distanceNm: 1.91, bearingDeg: 340 },
+  ];
+  const legCourse = { marks: [], legs };
+  const markCourse = { marks: [{ markId: 'a' }, { markId: 'b' }], legs: undefined };
+
+  it('is told apart from a mark sequence, and gives its legs verbatim', () => {
+    expect(courseIsLegTable(legCourse)).toBe(true);
+    expect(courseIsLegTable(markCourse)).toBe(false);
+    // Verbatim: the committee's own figures, not run through the geometry
+    // and back with a rounding on each end.
+    expect(courseLegsOf(legCourse, marksById)).toEqual(legs);
+  });
+
+  it('a mark course still derives its legs from the positions', () => {
+    const library = [
+      laid('line', 'Start — 6 Sep', start),
+      laid('z', 'Z — 6 Sep R2', destination(start, 190, 1000)),
+    ];
+    const byId = new Map(library.map((m) => [m.id, m]));
+    const derived = courseLegsOf({ marks: [{ markId: 'line' }, { markId: 'z' }] }, byId);
+    expect(derived).toHaveLength(1);
+    expect(derived[0].distanceNm).toBeCloseTo(0.54, 2);
+    expect(derived[0].bearingDeg).toBeCloseTo(190, 1);
+  });
+
+  it('the snapshot a start takes carries the table, not waypoints', () => {
+    const snapshot = snapshotOfCourse({ id: 'c1', name: 'From the RC', marks: [], legs }, marksById, 225, 9);
+    expect(snapshot.waypoints).toEqual([]);
+    expect(snapshot.legs).toEqual(legs);
+    expect(snapshot).toMatchObject({ windDirectionDeg: 225, windSpeedKts: 9 });
+  });
+
+  it('notices when the library’s table has been retyped under a start', () => {
+    const snapshot = snapshotOfCourse({ id: 'c1', name: 'From the RC', marks: [], legs }, marksById);
+    expect(courseOutOfDate(snapshot, { marks: [], legs }, marksById)).toBe(false);
+    // A leg nudged, a leg added, a leg dropped.
+    expect(courseOutOfDate(snapshot, { marks: [], legs: [{ ...legs[0], distanceNm: 2.1 }, legs[1], legs[2]] }, marksById)).toBe(true);
+    expect(courseOutOfDate(snapshot, { marks: [], legs: [...legs, { distanceNm: 1, bearingDeg: 90 }] }, marksById)).toBe(true);
+    expect(courseOutOfDate(snapshot, { marks: [], legs: legs.slice(0, 2) }, marksById)).toBe(true);
+    // A course that has left the library is not out of date; there is
+    // nothing to recompute from.
+    expect(courseOutOfDate(snapshot, undefined, marksById)).toBe(false);
+  });
+
+  it('fills a start’s leg table from either kind, stamping the race’s wind', () => {
+    const filled = legsForStart(courseLegsOf(legCourse, marksById), 225, 9);
+    expect(filled).toEqual([
+      { distanceNm: 2.09, bearingDeg: 162, windDirectionDeg: 225, windSpeedKts: 9 },
+      { distanceNm: 0.06, bearingDeg: 60, windDirectionDeg: 225, windSpeedKts: 9 },
+      { distanceNm: 1.91, bearingDeg: 340, windDirectionDeg: 225, windSpeedKts: 9 },
+    ]);
+  });
+});
+
+describe('pasting a leg table', () => {
+  const legsOf = (text: string) => parseLegTable(text).legs.map((l) => `${l.distanceNm}@${l.bearingDeg}`);
+
+  it('takes the first two numbers on each line, whatever separates them', () => {
+    for (const text of ['2.09 162\n0.06 60', '2.09\t162\n0.06\t60', '2.09, 162\n0.06, 60']) {
+      expect(legsOf(text)).toEqual(['2.09@162', '0.06@60']);
+    }
+    // ORC's own four columns — weight, bearing, wind direction, wind speed —
+    // paste as they stand, the wind ignored because it is the race's.
+    expect(legsOf('0.80 59.0° 225.0° 9.00\n0.80 239.0° 225.0° 9.00')).toEqual(['0.8@59', '0.8@239']);
+  });
+
+  it('drops a row-number column only when every line has one in sequence', () => {
+    expect(legsOf('1 2.09 162\n2 0.06 60\n3 1.91 340')).toEqual(['2.09@162', '0.06@60', '1.91@340']);
+    // Out of sequence is not a row number, so the figures stand as given —
+    // wrong, and visible in the preview rather than silently reinterpreted.
+    expect(legsOf('1 2.09 162\n3 0.06 60')).toEqual(['1@2.09', '3@0.06']);
+    // Two columns only: the first is the distance, never a row number.
+    expect(legsOf('1 90\n2 270')).toEqual(['1@90', '2@270']);
+  });
+
+  it('skips what is not a leg, and counts it', () => {
+    // A header has no numbers; a total has one; a bad bearing has two.
+    const r = parseLegTable('Distance\tBearing\n2.09\t162\n0.06\t400\n\n1.91\t340\nTotal\t4.06');
+    expect(r.legs.map((l) => l.bearingDeg)).toEqual([162, 340]);
+    expect(r.skipped).toBe(2);
+  });
+
+  it('finds nothing in a table with no legs at all, and says so quietly', () => {
+    const r = parseLegTable('Distance Bearing\nTotal');
+    expect(r.legs).toEqual([]);
+    // No point reporting skipped lines when nothing was found: the caller
+    // says "no legs found" instead.
+    expect(r.skipped).toBe(0);
+  });
+});
+
+describe('drawing a leg table', () => {
+  it('walks the legs and reports how far the course misses its own start', () => {
+    // A windward/leeward closes exactly.
+    expect(drawnLegTable([{ distanceNm: 1, bearingDeg: 0 }, { distanceNm: 1, bearingDeg: 180 }]).closureNm)
+      .toBeLessThan(1e-6);
+
+    // The Cork course behind #583, as the committee gave it: twelve legs
+    // rounded to a tenth of a mile, closing to a tenth.
+    const cork = [[0.80, 59], [0.80, 239], [1.10, 130], [0.60, 228], [0.60, 23], [0.90, 311],
+      [1.70, 32], [0.20, 218], [1.20, 196], [0.50, 249], [2.00, 26], [2.00, 206]]
+      .map(([distanceNm, bearingDeg]) => ({ distanceNm, bearingDeg }));
+    const drawn = drawnLegTable(cork);
+    expect(drawn.marks).toHaveLength(13);
+    expect(drawn.marks[0].label).toBe('Start');
+    expect(drawn.marks[12].label).toBe('Finish');
+    expect(drawn.course.map((c) => c.mark)).toEqual(drawn.marks.map((m) => m.id));
+    expect(drawn.closureNm).toBeCloseTo(0.07, 2);
+
+    // And with the one stray leg that actually got scored: nearly a mile
+    // out, which no amount of rounding twelve legs explains.
+    const withStray = [...cork.slice(0, 10), { distanceNm: 0.866, bearingDeg: 240.5 }, ...cork.slice(10)];
+    expect(drawnLegTable(withStray).closureNm).toBeGreaterThan(0.9);
+  });
+
+  it('draws nothing for no legs', () => {
+    const drawn = drawnLegTable([]);
+    expect(drawn.marks).toHaveLength(1);
+    expect(drawn.closureNm).toBe(0);
   });
 });

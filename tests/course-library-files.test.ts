@@ -252,6 +252,61 @@ describe('.sailscoring v45 course library round-trip', () => {
   });
 });
 
+describe('a course defined by the committee’s leg table', () => {
+  const legs = [
+    { distanceNm: 2.09, bearingDeg: 162 },
+    { distanceNm: 0.06, bearingDeg: 60 },
+    { distanceNm: 1.91, bearingDeg: 340 },
+  ];
+  const legCourse: SeriesCourse = {
+    id: 'c-legs', seriesId: 's1', name: 'RC table — 12 Sep R1', marks: [], legs, createdAt: 5,
+  };
+  /** A start that sailed it: no waypoints, and the table in its snapshot. */
+  const legStart: RaceStart = {
+    id: 'st-legs', raceId: 'r1', fleetIds: ['fl-1'], startTime: '14:00:00', orcOption: 'CC_TOT',
+    courseLegs: legs.map((l) => ({ ...l, windDirectionDeg: 190, windSpeedKts: 9 })),
+    course: { courseId: 'c-legs', name: 'RC table — 12 Sep R1', waypoints: [], legs, windDirectionDeg: 190, windSpeedKts: 9 },
+  };
+  const snap: SeriesSnapshot = { ...snapshot, marks: [], courses: [legCourse], raceStarts: [legStart] };
+
+  it('the series file carries the table, and it survives a re-open', async () => {
+    const built = await buildSeriesFile('s1', makeRecordingRepos(snap).repos);
+    expect(built.formatVersion).toBe(FORMAT_VERSION);
+    expect(built.courses).toEqual([{ id: 'c-legs', name: 'RC table — 12 Sep R1', marks: [], legs, createdAt: 5 }]);
+    expect(built.races[0].starts[0].course?.legs).toEqual(legs);
+
+    const { repos, savedCourses, savedStarts } = makeRecordingRepos();
+    await openSeriesFromFile(parseSeriesFile(JSON.stringify(built)), repos);
+    expect(savedCourses).toHaveLength(1);
+    // Fresh id, no marks to remap, the table verbatim.
+    expect(savedCourses[0].id).not.toBe('c-legs');
+    expect(savedCourses[0].marks).toEqual([]);
+    expect(savedCourses[0].legs).toEqual(legs);
+    // The start still points at it, and keeps the table it was scored over.
+    expect(savedStarts[0].course?.courseId).toBe(savedCourses[0].id);
+    expect(savedStarts[0].course?.legs).toEqual(legs);
+    expect(savedStarts[0].courseLegs).toEqual(legStart.courseLegs);
+  });
+
+  it('the public export carries it by name, with no marks to name', () => {
+    const data = buildPublicExportFromSnapshot(snap)!;
+    expect(data.marks).toBeUndefined();
+    expect(data.courses).toEqual([{ name: 'RC table — 12 Sep R1', marks: [], legs }]);
+    expect(data.races[0].starts[0].course?.legs).toEqual(legs);
+    expect(data.races[0].starts[0].course?.waypoints).toEqual([]);
+  });
+
+  it('importing the export rebuilds it and re-links the start', async () => {
+    const data = buildPublicExportFromSnapshot(snap)!;
+    const { repos, savedCourses, savedStarts } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    expect(savedCourses[0].legs).toEqual(legs);
+    expect(savedCourses[0].marks).toEqual([]);
+    expect(savedStarts[0].course?.courseId).toBe(savedCourses[0].id);
+    expect(savedStarts[0].course?.legs).toEqual(legs);
+  });
+});
+
 describe('public export course library round-trip', () => {
   it('exports the library by name and the start snapshot with positions', () => {
     const data = buildPublicExportFromSnapshot(snapshot)!;

@@ -236,6 +236,70 @@ describe.skipIf(skip)('course library handlers', () => {
     expect(await library.listSeriesMarks(ctxA, seriesId)).toHaveLength(1);
   });
 
+  test("a course defined by the committee's leg table needs no marks", async () => {
+    const seriesId = await makeSeries();
+    const id = uuid();
+    const legs = [
+      { distanceNm: 2.09, bearingDeg: 162 },
+      { distanceNm: 1.91, bearingDeg: 340 },
+    ];
+    const saved = await library.putSeriesCourse(ctxA, seriesId, id, {
+      id, seriesId, name: 'RC table — 12 Sep R1', marks: [], legs, createdAt: Date.now(),
+    });
+    expect(saved.legs).toEqual(legs);
+    expect(saved.marks).toEqual([]);
+    // Through the jsonb round-trip, which is the only way the engine ever
+    // sees it.
+    const [listed] = await library.listSeriesCourses(ctxA, seriesId);
+    expect(listed.legs).toEqual(legs);
+
+    // Retyped: the table replaces the old one rather than merging with it.
+    const again = await library.putSeriesCourse(ctxA, seriesId, id, {
+      id, seriesId, name: 'RC table — 12 Sep R1', marks: [], legs: [legs[0]], createdAt: Date.now(),
+    }, { expectedVersion: saved.version });
+    expect(again.legs).toEqual([legs[0]]);
+  });
+
+  test('a course is one definition or the other, never both and never neither', async () => {
+    const seriesId = await makeSeries();
+    const line = mark(seriesId, 'Start');
+    const z = mark(seriesId, 'Z', { lat: 53.3967, lng: -6.0702 });
+    await library.putSeriesMark(ctxA, seriesId, line.id, line);
+    await library.putSeriesMark(ctxA, seriesId, z.id, z);
+    const id = uuid();
+    const base = { id, seriesId, name: 'Both', createdAt: Date.now() };
+    // Both would score one way and draw the other.
+    await expect(library.putSeriesCourse(ctxA, seriesId, id, {
+      ...base,
+      marks: [{ markId: line.id }, { markId: z.id }],
+      legs: [{ distanceNm: 1, bearingDeg: 90 }],
+    })).rejects.toThrow();
+    // Neither has no geometry at all.
+    await expect(library.putSeriesCourse(ctxA, seriesId, id, { ...base, marks: [] })).rejects.toThrow();
+    expect(await library.listSeriesCourses(ctxA, seriesId)).toHaveLength(0);
+  });
+
+  test('a series copy carries a leg table verbatim', async () => {
+    const userId = `legcopy-user-${uuid().slice(0, 8)}`;
+    await db.insert(schema.user).values({ id: userId, name: 'Leg Copy User', email: `${userId}@sailscoring.test` });
+    await db.insert(schema.member).values({
+      id: `mem_${uuid().replace(/-/g, '')}`, organizationId: workspaceA, userId, role: 'owner', createdAt: new Date(),
+    });
+    const ctx = { ...ctxA, userId };
+    const seriesId = await makeSeries();
+    const legs = [{ distanceNm: 2.09, bearingDeg: 162 }, { distanceNm: 1.91, bearingDeg: 340 }];
+    const id = uuid();
+    await library.putSeriesCourse(ctx, seriesId, id, {
+      id, seriesId, name: 'RC table', marks: [], legs, createdAt: Date.now(),
+    });
+    const copy = await series.copySeries(ctx, seriesId, {});
+    const copied = await library.listSeriesCourses(ctx, copy.id);
+    expect(copied).toHaveLength(1);
+    // Nothing to remap, so the table is the same figures under a fresh id.
+    expect(copied[0].id).not.toBe(id);
+    expect(copied[0].legs).toEqual(legs);
+  });
+
   test('a series copy carries the library with every reference remapped', async () => {
     const userId = `copy-user-${uuid().slice(0, 8)}`;
     await db.insert(schema.user).values({ id: userId, name: 'Copy User', email: `${userId}@sailscoring.test` });
