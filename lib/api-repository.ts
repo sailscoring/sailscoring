@@ -4,6 +4,7 @@
  */
 import { apiFetch } from './api-client';
 import type { FeatureKey } from './features';
+import type { FtpUploadInput } from './validation/publish';
 import type { MergeSuggestion } from './api-handlers/competitor-identity';
 import type { SeriesLocation } from './api-handlers/series';
 import type { StaleLink } from './competitor-identity-reconcile';
@@ -968,17 +969,16 @@ export function getPublication(seriesId: string): Promise<PublicationStatus> {
  */
 export function recordFtpUpload(
   seriesId: string,
-  upload: {
-    serverId?: string;
-    host: string;
-    paths: Record<string, string>;
-    excluded: string[];
-    pageCount: number;
-  },
+  upload: FtpUploadInput,
 ): Promise<Series> {
+  // Named fields rather than the argument itself: the endpoint's schema is
+  // strict, and a caller passing something wider — its own mutation
+  // variables, say, carrying the series id for the URL — would otherwise
+  // send a key the server rejects the whole call over.
+  const { serverId, host, paths, excluded, pageCount } = upload;
   return apiFetch<Series>(`/api/v1/series/${seriesId}/ftp-upload`, {
     method: 'POST',
-    body: upload,
+    body: { ...(serverId ? { serverId } : {}), host, paths, excluded, pageCount },
   });
 }
 

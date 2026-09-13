@@ -25,6 +25,7 @@ import type { SeriesLocation } from '@/lib/api-handlers/series';
 import type { SeriesNotes, SeriesPublishPrefs } from '@/lib/repository';
 import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
+import type { FtpUploadInput } from '@/lib/validation/publish';
 
 import { queryKeys } from './query-keys';
 import { keepNewerVersionedRow, keepNewerVersionedRows } from './query-version-guard';
@@ -272,16 +273,11 @@ export function useUpdateSeriesNotes() {
 export function useRecordFtpUpload() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (
-      vars: {
-        id: string;
-        serverId?: string;
-        host: string;
-        paths: Record<string, string>;
-        excluded: string[];
-        pageCount: number;
-      },
-    ) => recordFtpUpload(vars.id, vars),
+    // The id addresses the series; everything else is the body. Handing the
+    // whole variables object over as the body posts the id too, which the
+    // endpoint's strict schema rejects.
+    mutationFn: ({ id, ...upload }: { id: string } & FtpUploadInput) =>
+      recordFtpUpload(id, upload),
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.series.detail(saved.id), saved);
       qc.invalidateQueries({ queryKey: queryKeys.series.list() });

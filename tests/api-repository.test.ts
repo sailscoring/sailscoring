@@ -12,6 +12,7 @@ import {
   pruneFleet,
   raceRepo,
   raceStartRepo,
+  recordFtpUpload,
   seriesRepo,
 } from '@/lib/api-repository';
 import type {
@@ -23,6 +24,7 @@ import type {
   RaceStart,
   Series,
 } from '@/lib/types';
+import { ftpUploadInputSchema } from '@/lib/validation/publish';
 
 const fetchMock = vi.fn();
 
@@ -408,6 +410,43 @@ describe('api-repository routing', () => {
     await pruneFleet(seriesId, fleetId);
     const deleteCalls = fetchMock.mock.calls.filter((c) => c[1]?.method === 'DELETE');
     expect(deleteCalls).toHaveLength(0);
+  });
+
+  test('recordFtpUpload posts a body the endpoint accepts', async () => {
+    // The endpoint's schema is strict, and the upload runs in the browser, so
+    // a body it rejects loses the only account of an upload that has already
+    // put pages on a club's server. Parsing what was posted with the schema
+    // itself keeps this honest as the shape changes.
+    const seriesId = 'c0c0c0c0-1111-4222-8333-cccccccccccc';
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, stubSeries));
+    await recordFtpUpload(seriesId, {
+      // Widened the way a caller's own mutation variables are: the series id
+      // addresses the request, and must not travel in the body.
+      ...({ id: seriesId } as Record<string, unknown>),
+      serverId: 'd0d0d0d0-1111-4222-8333-dddddddddddd',
+      host: 'ftp.hyc.ie',
+      paths: { 'fleet:e0e0e0e0-1111-4222-8333-eeeeeeeeeeee': '/public_html/results.html' },
+      excluded: ['entries'],
+      pageCount: 3,
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/v1/series/${seriesId}/ftp-upload`);
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(ftpUploadInputSchema.safeParse(body)).toMatchObject({ success: true });
+  });
+
+  test('recordFtpUpload leaves out a server deleted mid-upload', async () => {
+    // `serverId` is optional; the host is all that is left to record.
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, stubSeries));
+    await recordFtpUpload('c0c0c0c0-1111-4222-8333-cccccccccccc', {
+      host: 'ftp.hyc.ie',
+      paths: {},
+      excluded: [],
+      pageCount: 1,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect('serverId' in body).toBe(false);
+    expect(ftpUploadInputSchema.safeParse(body)).toMatchObject({ success: true });
   });
 
   test('ensureFleet POSTs name + options and returns the fleetId', async () => {
