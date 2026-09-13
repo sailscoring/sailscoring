@@ -357,6 +357,11 @@ test("a course that is the committee's leg table, pasted once and reused", async
     await expect(page.getByLabel('Leg 12 bearing')).toHaveValue('206');
     // Picking a course is not editing its legs.
     await expect(page.getByTestId('legs-edited')).toHaveCount(0);
+    // And it draws: a course with no positions is still a shape, so the
+    // start must not claim there is nothing to draw.
+    await expect(page.getByTestId('course-drawing')).toBeVisible();
+    await expect(page.getByTestId('course-drawing-empty')).toHaveCount(0);
+    await expect(page.getByText(/Drawn from the course.s legs/)).toBeVisible();
     await page.getByRole('checkbox', { name: 'Class 2' }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();

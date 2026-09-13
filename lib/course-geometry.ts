@@ -382,8 +382,30 @@ export function drawnCourse(marks: SeriesCourseMark[]): DrawnCourseMark[] {
   }));
 }
 
+/**
+ * A start's snapshot drawn, whichever kind of course it came from: the
+ * waypoints where it has any, and otherwise the leg table walked from an
+ * arbitrary origin. `fromLegs` says which, because a drawing with no
+ * position on the water has to be captioned as one — it is not the same
+ * artefact as a course drawn from surveyed marks, and on a published page
+ * the two would be indistinguishable.
+ */
+export function drawnStartCourse(snapshot: RaceStartCourse): {
+  marks: DrawnMark[];
+  course: DrawnCourseMark[];
+  fromLegs: boolean;
+} {
+  if (snapshot.waypoints.length === 0 && (snapshot.legs?.length ?? 0) > 0) {
+    const { marks, course } = drawnLegTable(snapshot.legs!);
+    return { marks, course, fromLegs: true };
+  }
+  return { ...drawnSnapshot(snapshot), fromLegs: false };
+}
+
 /** A start's snapshot as the renderer takes it: the waypoints stand on
- *  their own, so a repeated mark is one drawn mark visited twice. */
+ *  their own, so a repeated mark is one drawn mark visited twice. Positions
+ *  only — a course defined by legs has none, and draws through
+ *  `drawnStartCourse`. */
 export function drawnSnapshot(snapshot: RaceStartCourse): { marks: DrawnMark[]; course: DrawnCourseMark[] } {
   const marks = new Map<string, DrawnMark>();
   const course: DrawnCourseMark[] = [];

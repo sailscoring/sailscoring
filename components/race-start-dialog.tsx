@@ -31,7 +31,7 @@ import { loadCourseCard } from '@/lib/course-cards';
 import {
   courseLegsOf,
   courseOutOfDate,
-  drawnSnapshot,
+  drawnStartCourse,
   legsForStart,
   legsMatch,
   legsOfWaypoints,
@@ -300,7 +300,7 @@ function RaceStartDialogInner({
     if (ok) applyCourse(libraryCourse, windDeg, marksById, windKt);
   }
 
-  const drawing = useMemo(() => (snapshot ? drawnSnapshot(snapshot) : null), [snapshot]);
+  const drawing = useMemo(() => (snapshot ? drawnStartCourse(snapshot) : null), [snapshot]);
 
   // A gentle nudge when the chosen option needs course data the start lacks;
   // saving is still allowed — the race falls back to scratch until the
@@ -577,7 +577,17 @@ function RaceStartDialogInner({
                   )}
                 </div>
               )}
-              {drawing && <CourseDrawing marks={drawing.marks} course={drawing.course} width={440} title="Course drawing" />}
+              {drawing && (
+                <>
+                  <CourseDrawing marks={drawing.marks} course={drawing.course} width={440} title="Course drawing" />
+                  {drawing.fromLegs && (
+                    <p className="text-xs text-muted-foreground">
+                      Drawn from the course&apos;s legs — the shape and the direction
+                      are the committee&apos;s; there are no positions behind it.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           )}
           {offerLegs && (

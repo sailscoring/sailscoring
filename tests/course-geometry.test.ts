@@ -18,6 +18,7 @@ import {
   courseIsLegTable,
   courseLegsOf,
   drawnLegTable,
+  drawnStartCourse,
   parseLegTable,
   proposeMarkName,
   recordedWindSummary,
@@ -307,6 +308,30 @@ describe('a course defined by the committee’s leg table', () => {
     // A course that has left the library is not out of date; there is
     // nothing to recompute from.
     expect(courseOutOfDate(snapshot, undefined, marksById)).toBe(false);
+  });
+
+  it('a start’s snapshot draws either kind, and says which it drew', () => {
+    // A leg course has no waypoints, so the placeholder "nothing to draw"
+    // would be a lie: the course is complete, it simply has no positions.
+    const legSnapshot = snapshotOfCourse({ id: 'c1', name: 'From the RC', marks: [], legs }, marksById, 225, 9);
+    const fromLegs = drawnStartCourse(legSnapshot);
+    expect(fromLegs.fromLegs).toBe(true);
+    expect(fromLegs.marks).toHaveLength(legs.length + 1);
+    expect(fromLegs.course.map((c) => c.mark)).toEqual(fromLegs.marks.map((m) => m.id));
+
+    // A mark course draws its positions, and says so, which is what the
+    // published page still keys off.
+    const library = [
+      laid('line', 'Start — 6 Sep', start),
+      laid('z', 'Z — 6 Sep R2', destination(start, 190, 1000)),
+    ];
+    const byId = new Map(library.map((m) => [m.id, m]));
+    const markSnapshot = snapshotOfCourse(
+      { id: 'c2', name: 'W/L', marks: [{ markId: 'line' }, { markId: 'z' }] }, byId, 190,
+    );
+    const fromMarks = drawnStartCourse(markSnapshot);
+    expect(fromMarks.fromLegs).toBe(false);
+    expect(fromMarks.marks.map((m) => m.label)).toEqual(['Start', 'Z']);
   });
 
   it('fills a start’s leg table from either kind, stamping the race’s wind', () => {
