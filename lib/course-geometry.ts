@@ -163,6 +163,56 @@ export function courseLegsOf(
   return resolveCourse(course.marks, marksById).legs;
 }
 
+/** What {@link parseLegTable} made of a pasted table. */
+export interface ParsedLegTable {
+  legs: SeriesCourseLeg[];
+  /** Lines that held no usable pair of numbers — a header, a total, a blank.
+   *  Reported rather than hidden: a paste that drops half the course should
+   *  be visible before it is committed. */
+  skipped: number;
+}
+
+/** Every number on a line, with the units a committee writes stripped. */
+function numbersOn(line: string): number[] {
+  return [...line.replace(/[°º]/g, ' ').matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => Number(m[0]));
+}
+
+/**
+ * A leg table as the race committee hands it over, pasted: one leg per line,
+ * the first two numbers its distance in nautical miles and its bearing in
+ * degrees. Anything after them is ignored, so ORC's own four-column form
+ * (weight, bearing, wind direction, wind speed) pastes as it stands.
+ *
+ * A leading row-number column is dropped only when *every* line has one and
+ * they run 1, 2, 3 … — a signal, not a guess. Anything else is read as the
+ * distance, and the caller shows what was parsed before it is committed.
+ */
+export function parseLegTable(text: string): ParsedLegTable {
+  const lines = text.split(/\r?\n/).map(numbersOn).filter((nums) => nums.length > 0);
+  const numbered =
+    lines.length > 1 &&
+    lines.every((nums, i) => nums.length >= 3 && nums[0] === i + 1);
+  const rows = numbered ? lines.map((nums) => nums.slice(1)) : lines;
+
+  const legs: SeriesCourseLeg[] = [];
+  let skipped = 0;
+  for (const nums of rows) {
+    const [distanceNm, bearingDeg] = nums;
+    if (
+      nums.length < 2 ||
+      !Number.isFinite(distanceNm) || distanceNm <= 0 ||
+      !Number.isFinite(bearingDeg) || bearingDeg < 0 || bearingDeg > 360
+    ) {
+      skipped++;
+      continue;
+    }
+    legs.push({ distanceNm, bearingDeg });
+  }
+  // A line with numbers on it but no legs at all is a header or a total, not
+  // a course; saying "3 lines skipped" there is noise.
+  return { legs, skipped: legs.length === 0 ? 0 : skipped };
+}
+
 const round = (n: number, dp: number): number => Math.round(n * 10 ** dp) / 10 ** dp;
 
 /** Fill a start's leg table: each leg's distance to 0.001 NM and bearing to

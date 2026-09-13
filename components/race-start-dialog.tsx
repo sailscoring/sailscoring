@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { CourseDialog, type CourseDialogMode } from '@/components/course-library/course-dialog';
 import { CourseDrawing } from '@/components/course-library/course-drawing';
+import { LegTable, emptyLegRow, type LegTableRow } from '@/components/course-library/leg-table';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { useSaveSeriesCourse, useSaveSeriesMark, useSaveSeriesMarks, useSeriesCourses, useSeriesMarks } from '@/hooks/use-course-library';
@@ -28,6 +29,7 @@ import { seriesMarkRepo } from '@/lib/api-repository';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import { loadCourseCard } from '@/lib/course-cards';
 import {
+  courseLegsOf,
   courseOutOfDate,
   drawnSnapshot,
   legsForStart,
@@ -157,9 +159,8 @@ function RaceStartDialogInner({
     orcRecordedWindOption(orcOptionValue) ||
     (!orcOptionValue && orcFleetOptions.some(orcRecordedWindOption)) ||
     (seed?.courseLegs ?? []).some((leg) => leg.windSpeedKts != null);
-  interface LegRow { distance: string; bearing: string; wind: string; windSpeed: string }
-  const [legRows, setLegRows] = useState<LegRow[]>(
-    (seed?.courseLegs ?? []).map((leg) => ({
+  const [legRows, setLegRows] = useState<LegTableRow[]>(
+    (seed?.courseLegs ?? []).map((leg) => emptyLegRow({
       distance: String(leg.distanceNm),
       bearing: String(leg.bearingDeg),
       wind: String(leg.windDirectionDeg),
@@ -167,9 +168,6 @@ function RaceStartDialogInner({
     })),
   );
   const legsTotal = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
-  const legGridCols = offerWindSpeed
-    ? 'grid-cols-[1fr_1fr_1fr_1fr_auto]'
-    : 'grid-cols-[1fr_1fr_1fr_auto]';
 
   // The course library (ORC constructed courses): the start picks a course,
   // and its legs fill in from there — the wind is the start's own. Offered
@@ -225,10 +223,11 @@ function RaceStartDialogInner({
     marks: ReadonlyMap<string, SeriesMark> = marksById,
     speed: number | undefined = windKt,
   ) {
-    const resolved = resolveCourse(course.marks, marks);
-    const legs = legsForStart(resolved.legs, wind ?? 0, offerWindSpeed ? speed : undefined);
+    // Whichever way the course is defined — a mark sequence or the
+    // committee's own leg table — it reaches the start's table as legs.
+    const legs = legsForStart(courseLegsOf(course, marks), wind ?? 0, offerWindSpeed ? speed : undefined);
     setSnapshot(snapshotOfCourse(course, marks, wind, offerWindSpeed ? speed : undefined));
-    setLegRows(legs.map((leg) => ({
+    setLegRows(legs.map((leg) => emptyLegRow({
       distance: String(leg.distanceNm),
       bearing: String(leg.bearingDeg),
       wind: wind != null ? String(wind) : '',
@@ -316,23 +315,12 @@ function RaceStartDialogInner({
           && !distanceInput.trim()
           ? 'This option needs the course length below to score.'
           : null;
-  function setLegRow(i: number, field: keyof LegRow, value: string) {
-    setLegRows((rows) => rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
+  /** Any change to the table is the scorer's own — a course picked from the
+   *  library is flagged as edited so a recompute has to be asked for. */
+  function changeLegRows(rows: LegTableRow[]) {
+    setLegRows(rows);
     if (snapshot) setLegsEdited(true);
     setError('');
-  }
-  function removeLegRow(i: number) {
-    setLegRows((rows) => rows.filter((_, j) => j !== i));
-    if (snapshot) setLegsEdited(true);
-  }
-  function addLegRow() {
-    setLegRows((rows) => [...rows, {
-      distance: '',
-      bearing: '',
-      wind: snapshot && windDeg != null ? String(windDeg) : '',
-      windSpeed: offerWindSpeed && windKt != null ? String(windKt) : '',
-    }]);
-    if (snapshot) setLegsEdited(true);
   }
 
   function handleSave() {
@@ -408,7 +396,13 @@ function RaceStartDialogInner({
     // sets, confirmed against the arithmetic so a no-op edit is not an edit.
     let course: RaceStartCourse | undefined;
     if (snapshot) {
-      const fromCourse = legsForStart(legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt);
+      // A course defined by legs has no waypoints; its snapshot carries the
+      // table it gave, which is what an edit is measured against.
+      const fromCourse = legsForStart(
+        snapshot.legs ?? legsOfWaypoints(snapshot.waypoints),
+        windDeg ?? 0,
+        windKt,
+      );
       const edited = legsEdited && (courseLegs ? !legsMatch(courseLegs, fromCourse) : true);
       course = {
         ...snapshot,
@@ -603,95 +597,38 @@ function RaceStartDialogInner({
                 <label className="text-sm font-medium">Course legs</label>
               )}
               {(legsOpen || !offerCourse) && (
-              <div className="space-y-1">
-                {offerWindSpeed && (
-                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    Wind speed
-                    <input
-                      aria-label="Wind speed"
-                      className="flex h-7 w-16 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                      value={windSpeedInput}
-                      inputMode="decimal"
-                      onChange={(e) => changeWindSpeed(e.target.value)}
-                      placeholder="9"
-                    />
-                    kt — put on every leg below
-                  </label>
-                )}
-                <div className={`grid ${legGridCols} gap-1 text-xs text-muted-foreground`}>
-                  <span>Distance (NM)</span>
-                  <span>Bearing (°)</span>
-                  <span>Wind dir (°)</span>
-                  {offerWindSpeed && <span>Wind (kt)</span>}
-                  <span />
-                </div>
-                {legRows.map((row, i) => (
-                  <div key={i} className={`grid ${legGridCols} gap-1`}>
-                    <input
-                      aria-label={`Leg ${i + 1} distance`}
-                      className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                      value={row.distance}
-                      inputMode="decimal"
-                      onChange={(e) => setLegRow(i, 'distance', e.target.value)}
-                    />
-                    <input
-                      aria-label={`Leg ${i + 1} bearing`}
-                      className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                      value={row.bearing}
-                      inputMode="decimal"
-                      onChange={(e) => setLegRow(i, 'bearing', e.target.value)}
-                    />
-                    <input
-                      aria-label={`Leg ${i + 1} wind direction`}
-                      className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                      value={row.wind}
-                      inputMode="decimal"
-                      onChange={(e) => setLegRow(i, 'wind', e.target.value)}
-                    />
-                    {offerWindSpeed && (
+                <div className="space-y-1">
+                  {offerWindSpeed && (
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      Wind speed
                       <input
-                        aria-label={`Leg ${i + 1} wind speed`}
-                        className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                        value={row.windSpeed}
+                        aria-label="Wind speed"
+                        className="flex h-7 w-16 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                        value={windSpeedInput}
                         inputMode="decimal"
-                        onChange={(e) => setLegRow(i, 'windSpeed', e.target.value)}
+                        onChange={(e) => changeWindSpeed(e.target.value)}
+                        placeholder="9"
                       />
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2"
-                      aria-label={`Remove leg ${i + 1}`}
-                      onClick={() => removeLegRow(i)}
-                    >
-                      ×
-                    </Button>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addLegRow}
-                  >
-                    Add leg
-                  </Button>
-                  {legsTotal > 0 && (
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {legsTotal.toFixed(2)} NM total
-                    </span>
+                      kt — put on every leg below
+                    </label>
                   )}
+                  <LegTable
+                    rows={legRows}
+                    onChange={changeLegRows}
+                    showWind
+                    showWindSpeed={offerWindSpeed}
+                    newRow={{
+                      wind: snapshot && windDeg != null ? String(windDeg) : '',
+                      windSpeed: offerWindSpeed && windKt != null ? String(windKt) : '',
+                    }}
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      One row per leg, in sailing order; split a leg into two rows when
+                      the wind shifts along it. The course distance is the total.
+                      {offerWindSpeed && ' This option scores at the wind recorded here, so every leg needs a speed.'}
+                    </p>
+                  </LegTable>
                 </div>
-              </div>
-              )}
-              {(legsOpen || !offerCourse) && (
-                <p className="text-xs text-muted-foreground">
-                  One row per leg, in sailing order; split a leg into two rows when
-                  the wind shifts along it. The course distance is the total.
-                  {offerWindSpeed && ' This option scores at the wind recorded here, so every leg needs a speed.'}
-                </p>
               )}
             </div>
           )}
