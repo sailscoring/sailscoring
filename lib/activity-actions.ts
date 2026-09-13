@@ -15,6 +15,12 @@
 export const ACTIVITY_ACTIONS = [
   'series.created',
   'series.updated',
+  // A settings save that moved something the results depend on — the discard
+  // profile, DNF scoring, which races count for which fleets. Split out from
+  // the general edit because "did someone change how this is scored?" is the
+  // question a reader of the feed most needs answered.
+  'series.scoring-updated',
+  'series.renamed',
   'series.archived',
   'series.unarchived',
   'series.finalised',
