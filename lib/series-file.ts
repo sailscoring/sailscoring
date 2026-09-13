@@ -435,9 +435,18 @@ export interface SeriesFileRepos {
  *  `fixedTcf` as a per-race rating-override field, and optional
  *  `fleets[*].ratingLabel` (what the club calls the number). Additive, but an
  *  older build reading a v50 file has no rating to score such a fleet on,
- *  which is why the system is a bump. */
-export const FORMAT_VERSION = 50;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50];
+ *  which is why the system is a bump.
+ *
+ *  v51 adds optional `starts[*].courseLegs[*].windSpeedKts` — the true wind
+ *  speed the race committee recorded on a leg, which is what the ORC
+ *  recorded-wind constructed-course options (`CC_TOT`, `CC_TOD`) score at.
+ *  Sparse: a leg scored by performance curves carries no wind speed, because
+ *  PCS derives the wind from the finish times instead. An older build
+ *  reading a v51 file drops the speeds and cannot score those options at
+ *  all — it would leave the races waiting for a course that is already
+ *  there — which is why this is a bump rather than a ride-along. */
+export const FORMAT_VERSION = 51;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -641,7 +650,7 @@ interface SeriesFileRaceStart {
   firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
   distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
-  courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5)
+  courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5), carrying v51+ per-leg wind speeds
   course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot
   orcOption?: string;  // v40+; the ORC scoring option for this start's races
 }

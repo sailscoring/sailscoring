@@ -118,7 +118,37 @@ export const ORC_STANDARD_OPTIONS: ReadonlyArray<OrcProfile & { label: string }>
   { option: 'CR', kind: 'pcs', label: 'All-purpose · performance curve (PCS)' },
   { option: 'OC', kind: 'pcs', label: 'Coastal · performance curve (PCS)' },
   { option: 'CC', kind: 'pcs', label: 'Constructed course · performance curve (PCS)' },
+  { option: 'CC_TOT', kind: 'tot', label: 'Constructed course at the recorded wind · time-on-time' },
+  { option: 'CC_TOD', kind: 'tod', label: 'Constructed course at the recorded wind · time-on-distance' },
 ];
+
+/**
+ * The options scored over the start's constructed course at the wind the
+ * race committee recorded on each leg, rather than a wind derived from the
+ * finish times. The rating is computed from the certificate's allowance
+ * matrix exactly as Performance Curve Scoring computes it — the difference
+ * is only where the wind comes from — and is then applied by the option's
+ * kind, time-on-time or time-on-distance.
+ */
+const ORC_RECORDED_WIND_OPTIONS: ReadonlySet<string> = new Set(['CC_TOT', 'CC_TOD']);
+
+export function orcRecordedWindOption(option: string): boolean {
+  return ORC_RECORDED_WIND_OPTIONS.has(option);
+}
+
+/** Whether an option's rating is computed from the certificate's allowance
+ *  matrix over the race's own course, rather than read off the certificate
+ *  as a published number. True for every PCS course model and for the
+ *  recorded-wind constructed courses. */
+export function orcCurveOption(option: string): boolean {
+  return orcOptionKind(option) === 'pcs' || orcRecordedWindOption(option);
+}
+
+/** Whether an option builds its curve over the start's constructed course
+ *  (rule 402.5) rather than a pre-defined course model. */
+export function orcConstructedOption(option: string): boolean {
+  return option === 'CC' || orcRecordedWindOption(option);
+}
 
 /** Whether the certificate can drive Performance Curve Scoring: it must
  *  carry the time-allowance matrix. */
@@ -199,16 +229,17 @@ export function orcRaceProfile(
 /**
  * The single-number rating a competitor scores on under a resolved profile:
  * a time-on-time multiplier or a time-on-distance allowance, by the
- * profile's kind. Null for a PCS profile (allowances are computed per race,
- * not read off the certificate), when the boat holds no certificate, or
- * when the certificate lacks the field — a zero or negative value counts as
- * absent, matching how the option discovery reads the records.
+ * profile's kind. Null for any option whose rating is computed per race
+ * from the allowance matrix rather than read off the certificate, when the
+ * boat holds no certificate, or when the certificate lacks the field — a
+ * zero or negative value counts as absent, matching how the option
+ * discovery reads the records.
  */
 export function orcProfileRating(
   competitor: { orcCert?: OrcCertData },
   profile: OrcProfile,
 ): number | null {
-  if (profile.kind === 'pcs') return null;
+  if (orcCurveOption(profile.option)) return null;
   if (!competitor.orcCert) return null;
   const value = orcRecordNumber(competitor.orcCert.record, profile.option);
   return value != null && value > 0 ? value : null;

@@ -30,6 +30,10 @@ export const raceStartSchema = z.object({
         distanceNm: z.number().positive().max(999),
         bearingDeg: z.number().min(0).max(360),
         windDirectionDeg: z.number().min(0).max(360),
+        // Recorded true wind speed on the leg. The certificates tabulate
+        // 4–24 kt and the module clamps to that range; a wider bound is
+        // allowed here so a squall the RC actually logged round-trips.
+        windSpeedKts: z.number().positive().max(99).optional(),
         currentSpeedKts: z.number().min(0).max(20).optional(),
         currentDirectionDeg: z.number().min(0).max(360).optional(),
       }),

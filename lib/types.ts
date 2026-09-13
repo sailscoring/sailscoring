@@ -509,6 +509,12 @@ export interface OrcCertData {
  * the course model — 'WL', 'CR' (all-purpose), or 'OC' (coastal) — and the
  * per-race allowance is computed from the certificate's matrix at the
  * race's scoring wind rather than read from a field.
+ *
+ * The 'CC_TOT' and 'CC_TOD' options are also computed from the matrix, over
+ * the start's constructed course, but at the wind the race committee
+ * recorded on each leg rather than one derived from the finish times. Their
+ * kind is the correction they apply, so a certificate field and a computed
+ * allowance reach the engine the same way.
  */
 export interface OrcProfile {
   option: string;
@@ -531,12 +537,21 @@ export interface OrcRaceCalc {
   scratchTod?: number;
   /** ToD/PCS: the course length corrected over. */
   distanceNm?: number;
+  /** The time-on-time rating applied (600 / todApplied) — set only where a
+   *  computed course allowance was applied time-on-time, which is the one
+   *  case the applied rating and the allowance behind it differ. */
+  totApplied?: number;
   /** PCS only: this boat's implied wind (finishers). */
   impliedWind?: number;
   /** PCS only: the wind corrected times were computed at. */
   scoringWind?: number;
   /** PCS only: true when the race committee overrode the scoring wind. */
   scoringWindOverridden?: boolean;
+  /** The scoring wind is the wind the race committee recorded on the legs
+   *  (distance-weighted), not one derived from the finish times — so no
+   *  boat has an implied wind and nothing was inferred from how they
+   *  sailed. */
+  windRecorded?: boolean;
   /** PCS only: the course model the curves were built over. */
   courseModel?: string;
 }
@@ -588,11 +603,19 @@ export interface Fleet {
  * bearing, and the wind direction on the leg — a leg is split into sub-legs
  * by entering separate rows when the wind shifts mid-leg. Current is
  * optional per leg.
+ *
+ * The wind speed is what separates the two constructed-course methods.
+ * Performance Curve Scoring derives the wind from the finish times, so the
+ * legs carry no speed. The recorded-wind options score the course at the
+ * wind the race committee measured, which is per leg for the same reason
+ * the direction is: a leg is split where the wind changed along it.
  */
 export interface OrcCourseLeg {
   distanceNm: number;
   bearingDeg: number;
   windDirectionDeg: number;
+  /** True wind speed on the leg (kt), for the recorded-wind options. */
+  windSpeedKts?: number;
   currentSpeedKts?: number;
   currentDirectionDeg?: number;
 }
