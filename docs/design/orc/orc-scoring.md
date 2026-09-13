@@ -98,7 +98,33 @@ Every ORC method is the product of two choices:
 | simplest | single number (wind-averaged: 5/10/20/30/20/10/5% across 6–20 kt) | all-purpose (a hypothetical circular course) |
 | | 3-band (triple number: low/medium/high) | windward/leeward (50% beat VMG + 50% run VMG) |
 | | 5-band (e.g. the IRL national option) | predominant upwind / reaching / downwind |
+| | the wind *recorded on each leg* | constructed course — per-leg distance, bearing, wind direction |
 | most accurate | PCS — wind *derived from finish times* | constructed course — per-leg distance, bearing, wind direction |
+
+The last two rows share everything but the wind. Read the curve at the wind
+the race committee measured and you get **ORC Scorer's `ToT - Constructed` /
+`ToD - Constructed`**: a rating computed from the course geometry and the
+observed wind, on no certificate, belonging to that race. Read it at a wind
+inverted out of the finish times and you get PCS. The module handles both —
+its spec calls the first a "fixed wind speed" course, triggered by any leg
+carrying a wind speed — and the choice is the scorer's per race. Time-on-time
+is the form ORC Scorer publishes and the one ORC's own scoring guidance
+prefers where the racing area has current; the correction is a separate
+choice from the wind, so both appear as options.
+
+**How much of this the 402.12 override already covered.** Nearly all of the
+time-on-distance half: the override replaces the winner's implied wind with
+the committee's figure, so a PCS constructed course with the override set to
+the measured wind gives the same order as `CC_TOD` and corrected times within
+a second of it — the allowances differ by a few hundredths of a second per
+mile, because the override reads one course curve at that wind where the
+recorded-wind path reads each leg at its own and then distance-weights. What
+the options add beyond the override is **time-on-time**, which 402.9 does not
+offer and which on the race that prompted #583 decided the winner; a wind
+that can **vary by leg**, where the override is one figure for the course;
+and not publishing an implied wind per boat beside a scoring wind those
+figures took no part in. `CC_TOD` exists because the correction and the wind
+are separate choices, not because the wind was unreachable.
 
 The corrected-time arithmetic is one of two forms (401.2: compute in seconds,
 round to nearest whole second; 401.3: course length to 0.01 NM):
@@ -183,7 +209,12 @@ reading one. So:
   choice — the band. This covers APH, W/L, triple-number, 5-band, and
   predominant options uniformly, including national options we've never
   heard of, because the catalog is data.
-- **Tier 2 — PCS.** A native TypeScript port of the public-domain module:
+- **Tier 2 — computed over the race's own course.** A native TypeScript port
+  of the public-domain module, in two regimes that differ only in where the
+  wind comes from. **PCS** derives it from the finish times (rule 402); the
+  **recorded-wind** options (`CC_TOT`, `CC_TOD`) take the wind the race
+  committee measured on each leg, which flattens the curve to one allowance
+  and leaves no implied wind to publish. The port's fidelity covers both:
   course curve construction (pre-defined W/L, all-purpose, and coastal
   models first; constructed courses from leg data), implied wind, scoring
   wind, corrected times. Validated against the module's own test fixtures,
@@ -229,8 +260,12 @@ unscored in that race only; series-level ratability follows the default.
   the option dictates.
 - **`RaceStart` carries the course**: `distanceNm` for ToD and the
   pre-defined PCS models, and `courseLegs` (`{distanceNm, bearingDeg,
-  windDirectionDeg, current?}` per leg) for constructed courses — when legs
-  are present the distance is their sum. A start is already the app's only
+  windDirectionDeg, windSpeedKts?, current?}` per leg) for constructed
+  courses — when legs are present the distance is their sum. The per-leg
+  wind speed is what the recorded-wind options score at, and they need it on
+  every leg: the module reads a course as fixed-wind only if all of them
+  carry one, so a course short of that leaves the race unscored and reported
+  rather than scored on a guess. A start is already the app's only
   per-race, per-fleet-group entity and is edited on the finish page beside
   the gun time; fleets sharing a gun but sailing different courses split
   into two same-time starts.
@@ -310,6 +345,14 @@ Milestones 1–4 are the Autumn League critical path; shadow-scoring
 alongside ORC Scorer mid-series is the fallback if 3–4 land late, and
 windward/leeward races can be scored on the pre-defined model from
 milestone 3 alone if 4 slips.
+
+A follow-up out of milestone 4, from a scorer comparing our output against
+ORC Scorer's on the same race (#583): **constructed courses at the recorded
+wind**, applied time-on-time or time-on-distance. The module already
+computed it — the gap was the per-leg wind speed in the data model, the
+time-on-time application of a computed allowance, and the options to select
+it. Validated against ORC Scorer's own published results, which the engine
+reproduces to the second.
 
 ## Out of scope (deferred)
 

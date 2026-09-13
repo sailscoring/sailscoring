@@ -265,6 +265,67 @@ export default function RatingSystems() {
           legs sailed, entered on the race start as distance, bearing, and wind
           direction per leg (split a leg in two when the wind shifts along it).
         </p>
+        <HelpShot
+          src="/help/shots/orc-recorded-wind.webp"
+          alt="Two published race tables on the same course: performance curves above, with an implied-wind column, and the recorded wind below, with a time-on-time column."
+          caption="The same course scored both ways: performance curves above, the recorded wind below."
+        />
+        <p>
+          A constructed course can also be scored{' '}
+          <strong className="text-foreground">at the wind the race committee
+          recorded</strong>, rather than at one worked back out of the finish times —
+          the options ORC Scorer calls <em>ToT&nbsp;-&nbsp;Constructed</em> and{' '}
+          <em>ToD&nbsp;-&nbsp;Constructed</em>. The arithmetic is the same as PCS:
+          each boat’s performance curve is built from its certificate over your legs,
+          and read at one wind speed. The difference is only where that wind speed
+          comes from. Give each leg its wind speed as well as its direction — one
+          figure for the course, put on every leg, and changed on a leg where it
+          blew differently — and the rating falls out of the course geometry and the
+          observed wind. It is a number on nobody’s certificate: it belongs to that
+          race.
+        </p>
+        <p>
+          Because nothing is inferred from how the boats sailed, there is{' '}
+          <strong className="text-foreground">no implied wind</strong> under these
+          options, and the published page shows none. The rating is applied as the
+          option says: <em>time-on-time</em>, where each boat’s allowance becomes a
+          multiplier (600 divided by it) and the course length drops out of the
+          result, or <em>time-on-distance</em>, corrected against the fleet’s
+          fastest-rated boat as the single-number ToD options are. The choice
+          matters — the same finishes on the same course can come out in a different
+          order under each — so pick the one the sailing instructions name.
+        </p>
+        <p>
+          Why state the wind at all, when PCS will work it out for you? Because
+          implied wind is an inference, and it inherits every error in the course
+          data: mark-laying measured a little short makes the whole fleet look faster
+          than its predictions, and in a strong enough case the winner’s implied wind
+          pins against the top of the certificate’s range (24 knots), where the
+          scoring wind stops responding to the race at all. If you know what blew,
+          saying so is the direct answer.
+        </p>
+        <p>
+          <strong className="text-foreground">How is this different from the scoring
+          wind I can already set?</strong> On the time-on-distance side, hardly at
+          all — and that is worth knowing rather than discovering. Rule 402.12 lets
+          the race committee replace the winner’s implied wind with a figure of its
+          own, which is what the <em>Scoring wind</em> field on the race start has
+          always done. Set it to the wind you measured and you get the same order as
+          the recorded-wind time-on-distance option, with corrected times within a
+          second of it: both read the same curves at the same wind, and only a few
+          hundredths of a second per mile separate the allowances.
+        </p>
+        <p>
+          What the recorded-wind options add is the other two things. First,{' '}
+          <strong className="text-foreground">time-on-time</strong>, which rule 402.9
+          does not offer — performance curves always correct time-on-distance — and
+          which is the form ORC Scorer publishes; on a real race that alone has been
+          enough to change who won. Second, a wind that can{' '}
+          <strong className="text-foreground">differ from leg to leg</strong>, where
+          the scoring wind is one figure for the whole course. And they stop the
+          published page carrying an implied wind for every boat beside a scoring
+          wind those figures took no part in.
+        </p>
         <p>
           Everything needed to check a PCS result is published with it: the race table
           opens with the course, the scoring wind and where it came from, and the
@@ -312,7 +373,10 @@ export default function RatingSystems() {
         <p>
           <strong className="text-foreground">Before the course is in.</strong>{' '}
           Finish times often arrive before anyone has said how long the course was, and
-          an option that corrects over a course cannot score the race without it. The
+          an option that corrects over a course cannot score the race without it. On a
+          recorded-wind option that includes the wind: a course with every distance,
+          bearing and wind direction on it still can’t be scored until every leg has a
+          wind speed too, and the Standings tab says so rather than guessing one. The
           race is then left unscored rather than quietly ranked on crossing order: it
           shows as a dash in the standings, counts towards nobody’s total and towards no
           discard, and the Standings tab says which race is waiting for what. Publishing
