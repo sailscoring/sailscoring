@@ -9,6 +9,7 @@
 import type { Competitor, Finish, Fleet, Race, RaceStart } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
 import { applyAdditivePenalty, resolveEntrants } from './scoring';
+import { weightedRacePoints } from './race-scoring-options';
 
 /**
  * The three stages of a split-fleet championship, as **structural
@@ -1112,17 +1113,27 @@ export interface SplitStandingRow {
  *  race's sheet. Rows are scoped to the fleet's members, so a combined sheet
  *  interleaving a sequence's fleets yields correct per-fleet places.
  *  - Finishers score their place within the fleet + start.firstPlaceOffset
- *    (the companion "last race" primitive), multiplied by `multiplier`
- *    (medal doubling applies to finish points only — RRS A4.1 "points ...
- *    doubled", not the code base).
- *  - Coded finishes and absentees (implicit DNC) score `codeBase`,
- *    undoubled — except for members in `noImplicitDnc`, who are no longer
- *    sailing this fleet's races and so are simply absent from the race
- *    rather than scored for missing it. An explicit DNC row still scores.
+ *    (the companion "last race" primitive), multiplied by `multiplier`.
+ *  - Coded finishes and absentees (implicit DNC) score `codeBase`, multiplied
+ *    the same way — except for members in `noImplicitDnc`, who are no longer
+ *    sailing this fleet's races and so are simply absent from the race rather
+ *    than scored for missing it. An explicit DNC row still scores.
+ *
+ *    A medal-race instruction reads "double the number of points specified in
+ *    RRS Appendix A4" (2024 ILCA SI 18.6; Irish Sailing Junior Champions' Cup
+ *    NoR 15.2), and A4 is a table of *finishing place* to points. A5.2 scores
+ *    a boat who did not sail the course "points for the finishing place one
+ *    more than the number of boats entered" — that is a place, and A4 is what
+ *    turns it into points — so the code score doubles with the rest. The
+ *    junior event's published results are the worked example: six boats
+ *    outside a ten-boat medal fleet, scored 34.0 DNC on an entry list of 16.
  *  - SCP/ZFP add a percentage of the race's DNF score and DPI adds stated
  *    points, both through the engine-wide `applyAdditivePenalty` (RRS
  *    44.3(c) rounding and DNF cap). Penalties apply to finishers only (a
- *    coded boat is already at the base).
+ *    coded boat is already at the base). The cap is the *weighted* DNF score,
+ *    because that is this race's score for DNF; a stated DPI stays the points
+ *    the protest committee awarded, added after the doubling, which is what
+ *    SI 18.6's "with any [SP] then added" says.
  *  - RDG rows are emitted with `rdg` set and points 0; the standings pass
  *    resolves them per RRS A9 once all other cells exist.
  */
@@ -1142,13 +1153,17 @@ function scorePhysicalRace(
   const finishers = rows
     .filter((f) => f.sortOrder !== null && !f.resultCode)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  // This race's score for a boat that did not sail the course: the weighting
+  // reaches it, so it is also the DNF cap the penalties below are measured
+  // against.
+  const codePoints = weightedRacePoints(codeBase, multiplier);
   const out = new Map<string, { points: number; code: string | null; rdg: Finish | null }>();
   finishers.forEach((f, i) => {
-    const placePoints = (i + 1 + offset) * multiplier;
+    const placePoints = weightedRacePoints(i + 1 + offset, multiplier);
     // One implementation of RRS 44.3(c) for both engines: the percentage is of
     // the race's DNF score, rounded to the nearest tenth (0.05 up), and the
     // penalty never makes her worse than DNF.
-    const points = applyAdditivePenalty(placePoints, f, codeBase, ref.fleetId);
+    const points = applyAdditivePenalty(placePoints, f, codePoints, ref.fleetId);
     out.set(f.competitorId!, { points, code: f.penaltyCode ?? null, rdg: null });
   });
   for (const f of rows) {
@@ -1156,12 +1171,12 @@ function scorePhysicalRace(
     if (f.resultCode === 'RDG') {
       out.set(f.competitorId!, { points: 0, code: 'RDG', rdg: f });
     } else if (f.resultCode) {
-      out.set(f.competitorId!, { points: codeBase, code: f.resultCode, rdg: null });
+      out.set(f.competitorId!, { points: codePoints, code: f.resultCode, rdg: null });
     }
   }
   for (const m of members) {
     if (out.has(m.id) || noImplicitDnc?.has(m.id)) continue;
-    out.set(m.id, { points: codeBase, code: 'DNC', rdg: null });
+    out.set(m.id, { points: codePoints, code: 'DNC', rdg: null });
   }
   return out;
 }

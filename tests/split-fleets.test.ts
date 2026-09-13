@@ -1298,3 +1298,93 @@ describe('the medal tie-break waits for a medal-stage score', () => {
     expect(medal.map((r) => r.rank)).toEqual([1, 1]);
   });
 });
+
+/**
+ * The medal race's weighting and what it does to the scores that aren't
+ * places (#586). A medal-race instruction doubles "the number of points
+ * specified in RRS Appendix A4", and A4 is a table of finishing place to
+ * points — so a boat scored under A5.2, which assigns her a finishing place
+ * of entries + 1, is doubled with everyone else.
+ */
+describe('a weighted medal race', () => {
+  /** Two qualifying fleets of two, both boats of Blue selected for a medal
+   *  fleet of 2 — so the medal race's code base is 2 + 1 = 3, and 6 doubled.
+   *  `medalSheet` is the medal race's own sheet. */
+  function weightedMedalData(medalSheet: Finish[]): SplitFleetData {
+    const config: SplitFleetConfig = {
+      ...defaultSplitFleetConfig(2),
+      discardThresholds: [],
+      medal: { size: 2, raceCount: 1, multiplier: 2, companionRace: 'none' },
+    };
+    return {
+      config,
+      rounds: [
+        { id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+          fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0 },
+        { id: 'r2', seriesId: 's1', stage: 'medal', fromStageRace: 1,
+          fleetIds: ['fm'], method: 'medal-select', basis: null, createdAt: 1 },
+      ],
+      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue'), fleet('fm', 'Medal')],
+      competitors: [
+        competitor('y1', ['fy'], 1), competitor('y2', ['fy'], 2),
+        competitor('b1', ['fb', 'fm'], 3), competitor('b2', ['fb', 'fm'], 4),
+      ],
+      races: [race('q1'), race('m1')],
+      raceStarts: [
+        start('q1', ['fy', 'fb'], 'qualifying', 1),
+        start('m1', ['fm'], 'medal', 1),
+      ],
+      finishes: [
+        finish('q1', 'y1', 0), finish('q1', 'b1', 1),
+        finish('q1', 'y2', 2), finish('q1', 'b2', 3),
+        ...medalSheet,
+      ],
+    };
+  }
+
+  function medalCell(rows: ReturnType<typeof splitFleetStandings>, id: string) {
+    return rows
+      .find((r) => r.competitor.id === id)!
+      .cells.find((c) => c.stage === 'medal')!;
+  }
+
+  it('doubles a code score, not just the places', () => {
+    const rows = splitFleetStandings(
+      weightedMedalData([finish('m1', 'b1', 0), finish('m1', 'b2', null, 'BFD')]),
+    );
+    expect(medalCell(rows, 'b1').points).toBe(2);     // 1st, doubled
+    expect(medalCell(rows, 'b2').points).toBe(6);     // base 3, doubled
+  });
+
+  it('doubles an implicit DNC the same way', () => {
+    // b2 has no row on the medal sheet at all.
+    const rows = splitFleetStandings(weightedMedalData([finish('m1', 'b1', 0)]));
+    expect(medalCell(rows, 'b2')).toMatchObject({ code: 'DNC', points: 6 });
+  });
+
+  it('measures a percentage penalty against the doubled DNF score', () => {
+    // b2 finishes 2nd (4 points) with a 50% scoring penalty. RRS 44.3(c)
+    // takes the percentage of this race's score for DNF, which is the
+    // doubled 6, so 4 + 3 = 7 — worse than DNF, and the cap holds her at 6.
+    const penalised: Finish = {
+      ...finish('m1', 'b2', 1),
+      penaltyCode: 'SCP',
+      penaltyOverride: 50,
+    };
+    const rows = splitFleetStandings(
+      weightedMedalData([finish('m1', 'b1', 0), penalised]),
+    );
+    expect(medalCell(rows, 'b2').points).toBe(6);
+  });
+
+  it('leaves an unweighted stage alone', () => {
+    const rows = splitFleetStandings(
+      weightedMedalData([finish('m1', 'b1', 0), finish('m1', 'b2', null, 'BFD')]),
+    );
+    // Yellow sailed only the qualifying race: places 1 and 3 on the combined
+    // sheet rank 1 and 2 within the fleet, undoubled.
+    const q = (id: string) =>
+      rows.find((r) => r.competitor.id === id)!.cells.find((c) => c.stage === 'qualifying')!.points;
+    expect([q('y1'), q('y2')]).toEqual([1, 2]);
+  });
+});

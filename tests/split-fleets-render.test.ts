@@ -432,11 +432,11 @@ describe('renderSplitFleetRaceResultsPage', () => {
     expect(tableRows(section(html, 'f2'))).toEqual([
       { rank: '1', sail: 'b2', code: '', points: '3' },
     ]);
-    // M1: finish points doubled; the coded boat at the base, undoubled,
-    // unranked, after the finishers.
+    // M1: the doubling reaches the code score too — the medal-fleet base of
+    // 3 is scored 6. The coded boat is unranked, after the finishers.
     expect(tableRows(section(html, 'm1'))).toEqual([
       { rank: '1', sail: 'b1', code: '', points: '2' },
-      { rank: '', sail: 'y1', code: 'BFD', points: '3' },
+      { rank: '', sail: 'y1', code: 'BFD', points: '6' },
     ]);
   });
 

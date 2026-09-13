@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width">
-<title>Penalties on finishers (SCP/DPI): tenth-of-a-point rounding, the DNF cap, and a medal-race code scored at the base, not doubled — Sail Scoring</title>
+<title>Penalties on finishers (SCP/DPI): tenth-of-a-point rounding, the DNF cap, and a medal-race code doubled with the rest of the race — Sail Scoring</title>
 <style>
 body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
 h1 { font-size: 1.4em; margin-bottom: 0.2em; }
@@ -18,7 +18,7 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
 </head>
 <body>
 <p><a href="../">&larr; All split-fleet examples</a></p>
-<h1>Penalties on finishers (SCP/DPI): tenth-of-a-point rounding, the DNF cap, and a medal-race code scored at the base, not doubled</h1>
+<h1>Penalties on finishers (SCP/DPI): tenth-of-a-point rounding, the DNF cap, and a medal-race code doubled with the rest of the race</h1>
 <p style="color:#555;">ILCA 7 2024 — World Championship, Adelaide AUS (SI 15.1.1 SCP 10%; SI 18.6 medal doubling) &middot; <strong>F2</strong> &middot; SI (<code>reference-docs:events/ilca7-worlds-2024/SI-Amendment-1.md</code>) &middot; results (<code>reference-docs:events/ilca7-worlds-2024/results-sailwave.html</code>)</p>
 
 <div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: No discards. &middot; medal race ×2</div>
@@ -35,9 +35,16 @@ footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #
       DNF score, so she is scored 4.
   Q2 adds the unremarkable case: y1 1st with a 50% SCP -&gt; 1 + 2 = 3. DPI
   adds stated points: b1 finishes 1st in F1 with DPI 1 -&gt; 2.
-- Medal doubling applies to FINISH points only (RRS A4.1 &quot;points ...
-  doubled&quot;): b1 wins the medal race (1 x2 = 2), y1 is BFD — scored at the
-  medal-fleet base (2 boats + 1 = 3), NOT doubled.
+- Medal doubling reaches the code scores too. The SI says a boat's score
+  &quot;shall be double the number of points specified in RRS Appendix A4&quot;, and
+  A4 is a table of FINISHING PLACE to points; A5.2 scores a boat who did
+  not sail the course &quot;points for the finishing place one more than the
+  number of boats entered&quot;, which is a place that A4 turns into points. So
+  b1 wins the medal race (1 x2 = 2) and y1, BFD, is scored the medal-fleet
+  base doubled (2 boats + 1 = 3, x2 = 6).
+  A stated [SP] is still added after the doubling and is not itself doubled
+  (SI 18.6: &quot;with any [SP] then added&quot;); a percentage penalty is a
+  percentage of this race's DNF score, which is the doubled one.
 
 No discards (threshold empty) so every cell is visible. `expected` verified
 against the engine.</pre>
@@ -74,9 +81,9 @@ against the engine.</pre>
   <td style="background:#fff3bf;text-align:center">3 SCP</td>
   <td style="background:#ffec99;text-align:center">2</td>
   <td></td>
-  <td style="background:#ffe066;text-align:center;font-weight:bold">3 BFD</td>
-  <td style="text-align:right">9</td>
-  <td style="text-align:right;font-weight:bold">9</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">6 BFD</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">12</td>
 </tr>
 <tr>
   <td>3</td>
