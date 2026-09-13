@@ -142,26 +142,36 @@ describe.skipIf(skip)('seedFeatureSample', () => {
     }
 
     // The per-race scoring options land on the starts: the fleet-default
-    // race, the band, the constructed course (with its legs), and the W/L
-    // curves race with the RC scoring wind.
+    // race, the band, the constructed course (with its legs), the W/L curves
+    // race with the RC scoring wind, and the same constructed course scored
+    // at the wind the committee recorded.
     const raceRows = await db
       .select()
       .from(schema.races)
       .where(eq(schema.races.seriesId, series.id));
-    expect(raceRows).toHaveLength(4);
+    expect(raceRows).toHaveLength(5);
     const startRows = await db
       .select()
       .from(schema.raceStarts)
       .where(inArray(schema.raceStarts.raceId, raceRows.map((r) => r.id)));
-    expect(startRows).toHaveLength(4);
+    expect(startRows).toHaveLength(5);
     const options = startRows.map((s) => s.orcOption);
-    expect(options.filter((o) => o != null).sort()).toEqual(['CC', 'IRL_5B_WL_M_TOT', 'WL']);
+    expect(options.filter((o) => o != null).sort()).toEqual(['CC', 'CC_TOT', 'IRL_5B_WL_M_TOT', 'WL']);
     expect(options.filter((o) => o == null)).toHaveLength(1);
     const cc = startRows.find((s) => s.orcOption === 'CC')!;
     // J2 from the card, run home to the finish: nine legs.
     expect(cc.courseLegs).toHaveLength(9);
+    // Performance curves derive the wind, so those legs carry no speed.
+    expect(cc.courseLegs!.every((leg) => leg.windSpeedKts == null)).toBe(true);
     const wl = startRows.find((s) => s.orcOption === 'WL')!;
     expect(wl.orcScoringWind).toBe(12);
+    // The recorded-wind race is the same nine legs, each carrying the speed
+    // it is scored at — which has to survive the jsonb round-trip, or the
+    // race comes back waiting for a course it already has.
+    const recorded = startRows.find((s) => s.orcOption === 'CC_TOT')!;
+    expect(recorded.courseLegs).toHaveLength(9);
+    expect(recorded.courseLegs!.every((leg) => leg.windSpeedKts === 11)).toBe(true);
+    expect(recorded.course?.windSpeedKts).toBe(11);
   });
 
   test('returns false for a feature with no demo sample', async () => {
