@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>F2: one fleet, never split — an opening series and a medal race, with the medal race outside the discard ladder — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>F2: one fleet, never split — an opening series and a medal race, with the medal race outside the discard ladder</h1>
+<p style="color:#555;">TR 3.6 (mixed junior classes) 2026 — Irish Sailing Junior Champions' Cup, Fastnet Marine, Schull (NoR 8.1-8.2, 15.1-15.3) &middot; <strong>F2</strong> &middot; SI (<code>reference-docs:events/irish-champions-cup-junior-2026/NoR.md</code>) &middot; results (<code>reference-docs:events/irish-champions-cup-junior-2025/results-sailwave.html</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">1 qualifying fleets &middot; no split &middot; discards: 1 discard from race 5. &middot; medal race ×2</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">The whole of this championship's structure is four clauses:
+
+  8.1  an opening series of up to 8 races and a Medal Race
+  8.2  the ten top placed boats advance to the Medal Race, provided a
+       minimum of 3 opening series races have been completed
+  15.1 when five or more opening series races have been completed, a boat's
+       series score is the total of her race scores excluding her worst
+  15.2 the Medal Race is scored double the RRS Appendix A4 points, and is
+       not excluded from a boat's series score
+
+So the fleet is never banded: one fleet sails the opening series, and the
+only division ever made is into the medal fleet. Modelled here at reduced
+scale — 6 entries and a medal fleet of 3, against the real event's 16 and
+10 — with five opening races so the discard rule bites.
+
+What the structure buys, and the reason this is not a plain series with one
+weighted race: **NoR 15.1 counts opening series races**. Six races are
+scored here and only five of them reach the discard ladder, because a medal
+race neither counts toward the threshold nor may be excluded. Every boat
+drops exactly one opening score and keeps her medal score.
+
+s1 wins the championship on 8 without winning the medal race: her opening
+lead carries, which is what NoR 15.2's doubling is calibrated against.
+
+s4, s5 and s6 miss the cut and do not race again (`companionRace: dnc`), so
+they are scored DNC in the medal race at 6 entries + 1 = 7, x2 = 14. At the
+real event's scale that is the published 34.0 — 16 entries + 1, doubled.</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">Fleet: s1, s2, s3, s4, s5, s6</span></td></tr>
+<tr><td>Medal</td><td>explicit</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: s1, s2, s3</span></td></tr>
+</tbody>
+</table>
+<h2>Standings</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q5</th><th>M1</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">s1</td>
+  <td>Helm One <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">(2)</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">4</td>
+  <td style="text-align:right">10</td>
+  <td style="text-align:right;font-weight:bold">8</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">s2</td>
+  <td>Helm Two <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff;text-align:center">(2)</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">2</td>
+  <td style="text-align:right">11</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">s3</td>
+  <td>Helm Three <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff;text-align:center">(3)</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">6</td>
+  <td style="text-align:right">21</td>
+  <td style="text-align:right;font-weight:bold">18</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">s4</td>
+  <td>Helm Four</td>
+  <td style="background:#fff;text-align:center">(4)</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">14 DNC</td>
+  <td style="text-align:right">34</td>
+  <td style="text-align:right;font-weight:bold">30</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">s5</td>
+  <td>Helm Five</td>
+  <td style="background:#fff;text-align:center">(5)</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">14 DNC</td>
+  <td style="text-align:right">39</td>
+  <td style="text-align:right;font-weight:bold">34</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">s6</td>
+  <td>Helm Six</td>
+  <td style="background:#fff;text-align:center">(6)</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">14 DNC</td>
+  <td style="text-align:right">44</td>
+  <td style="text-align:right;font-weight:bold">38</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

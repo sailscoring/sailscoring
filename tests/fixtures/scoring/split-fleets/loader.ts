@@ -227,10 +227,12 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
   const config: SplitFleetConfig = {
     qualifyingFleets: dummy(fx.config.qualifyingFleets),
     finalFleets: dummy(fx.config.finalFleets ?? []),
+    // No final fleets means the championship never bands its fleet, which is
+    // the same thing a fixture says by declaring no final stage.
     plannedDays: [],
     finishSheets: 'combined',
     carry: fx.config.carry ?? 'points',
-    split: { kind: 'equal-blocks' },
+    split: (fx.config.finalFleets ?? []).length === 0 ? { kind: 'none' } : { kind: 'equal-blocks' },
     codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },
     equalization: 'abandon-extra-races',
     discardThresholds: fx.config.discardThresholds,

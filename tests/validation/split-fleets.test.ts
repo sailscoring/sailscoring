@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 
-import { ilca2026SplitFleetConfig } from '@/lib/split-fleets';
+import { ilca2026SplitFleetConfig, openingSeriesMedalConfig } from '@/lib/split-fleets';
 import { splitFleetConfigSchema } from '@/lib/validation/split-fleets';
 
 const BASE = ilca2026SplitFleetConfig(2);
@@ -48,5 +48,32 @@ describe('race labels', () => {
         }),
       ).toThrow();
     }
+  });
+});
+
+describe('the split rule and the fleets it needs', () => {
+  test('accepts a championship that never bands its fleet', () => {
+    const parsed = splitFleetConfigSchema.parse(openingSeriesMedalConfig());
+    expect(parsed.qualifyingFleets).toHaveLength(1);
+    expect(parsed.finalFleets).toHaveLength(0);
+    expect(parsed.split).toEqual({ kind: 'none' });
+  });
+
+  test('refuses final fleets on a championship that never splits', () => {
+    expect(() =>
+      splitFleetConfigSchema.parse({
+        ...openingSeriesMedalConfig(),
+        finalFleets: [
+          { label: 'Gold', color: '#000' },
+          { label: 'Silver', color: '#000' },
+        ],
+      }),
+    ).toThrow(/never splits needs none/);
+  });
+
+  test('refuses a split with nothing to split into', () => {
+    expect(() =>
+      splitFleetConfigSchema.parse({ ...BASE, finalFleets: [{ label: 'Gold', color: '#000' }] }),
+    ).toThrow(/at least two fleets/);
   });
 });

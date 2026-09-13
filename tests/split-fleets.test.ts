@@ -8,6 +8,8 @@ import {
   ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
   ilca2026SplitFleetConfig,
+  openingSeriesMedalConfig,
+  VOCABULARIES,
   normalizeSplitFleetConfig,
   resolveVocabulary,
   stageRaceLabel,
@@ -1488,5 +1490,41 @@ describe('the medal-race-then-A8 tie-break', () => {
   it('unlike last-race, which replaces A8 and leaves the tie standing', () => {
     const data = tiedMedalData('last-race', 'a8-decides-alone', sharedMedal);
     expect(medalOrder(data).ranks).toEqual([1, 1]);
+  });
+});
+
+/**
+ * The words a championship that never bands its fleet uses (#585). Both
+ * tabulated vocabularies describe an opening series divided in two, so the
+ * surviving stage has to be named for the whole thing — which is the name the
+ * table already holds.
+ */
+describe('the unbanded vocabulary', () => {
+  it('names the one stage after the series, in either vocabulary', () => {
+    const generic = resolveVocabulary(openingSeriesMedalConfig());
+    expect(generic.stages.qualifying).toEqual({
+      name: 'opening series',
+      raceNoun: 'opening series race',
+      fleetNoun: 'opening fleet',
+    });
+    const ilca = resolveVocabulary({
+      ...openingSeriesMedalConfig(),
+      vocabulary: 'qualification-final',
+    });
+    expect(ilca.stages.qualifying.name).toBe('Qualification series');
+  });
+
+  it('leaves the deciding stage’s words alone', () => {
+    // Only the stage that absorbed the other one moves; "medal races" names a
+    // stage rather than counting them, and `raceNoun` is where the singular
+    // already lives.
+    const vocab = resolveVocabulary(openingSeriesMedalConfig());
+    expect(vocab.stages.medal).toEqual(VOCABULARIES['opening-medal'].stages.medal);
+  });
+
+  it('leaves a banded championship untouched', () => {
+    expect(resolveVocabulary(defaultSplitFleetConfig(3))).toEqual(
+      VOCABULARIES['opening-medal'],
+    );
   });
 });

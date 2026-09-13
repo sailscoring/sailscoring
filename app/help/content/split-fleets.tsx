@@ -200,6 +200,20 @@ export function SplitFleetsSection() {
         round.
       </p>
       <p>
+        Some events never band the fleet at all: one fleet sails the whole {q.name} and the
+        only division ever made is into the {m.fleetNoun}. Set the{' '}
+        <strong className="text-foreground">{capitaliseStage(q.fleetNoun)}s</strong> count to
+        one and the settings that describe a second stage go away with it, since there is none
+        — no split rule, no equalisation, no cap on where a discard may fall. The standings
+        draw the {m.fleetNoun} cut where it would fall if racing ended now, and{' '}
+        <strong className="text-foreground">Select {m.fleetNoun}…</strong> is offered from the{' '}
+        {w.title('medal')} section rather than from a stage the event does not sail. Where the
+        notice of race schedules no further racing for the boats who miss the cut, set{' '}
+        <strong className="text-foreground">The boats who miss the cut</strong> to score them
+        DNC in the {m.raceNoun}: they are scored from the entry list rather than from the{' '}
+        {m.fleetNoun}’s size, because they were never in it.
+      </p>
+      <p>
         Choosing a split-fleet championship in the setup wizard writes an initial format and
         shortens setup to the entry list — the fleets are created by the assignment ceremonies
         and the scoring rules live in the tab’s{' '}

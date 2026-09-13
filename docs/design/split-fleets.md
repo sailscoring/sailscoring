@@ -581,8 +581,8 @@ export interface AssignmentRound {
 export interface SplitFleetConfig {
   carry: 'points' | 'net-plus-net' | 'rank-seed';
   /** Final-fleet sizing: LE-style near-equal blocks (Gold ≥ Silver ≥ …),
-   *  or a fixed top-fleet size (49er/29er). */
-  split: { kind: 'equal-blocks' } | { kind: 'fixed-top'; topSize: number };
+   *  a fixed top-fleet size (49er/29er), or no banding at all. */
+  split: { kind: 'equal-blocks' } | { kind: 'fixed-top'; topSize: number } | { kind: 'none' };
   codeBasis: {
     qualifying: 'largest-fleet' | 'fixed';   // fixed: Sailwave's safe option
     fixedPoints?: number;
@@ -1021,6 +1021,14 @@ Since shipped beyond that v1 scope:
   who missed the medal fleet is scored — a medal-block setting, since some
   classes score it from below the medal fleet and others from 1 like any
   other race (fixture 17). See the 2026 ILCA section in Part 1.
+- **The unbanded championship** (`split: { kind: 'none' }`, fixture 25): one
+  fleet, no second stage, and the only cut is into the deciding fleet. The
+  survey logs it as "single fleet + MR"; the Irish Sailing Junior Champions'
+  Cup sails it annually. It brought two scoring answers with it — the boats
+  outside the deciding fleet scored DNC where no further race is scheduled
+  (fixture 23), and a tie-break that runs ahead of RRS A8 rather than after
+  it (fixture 24). Not a new stage: the middle one is simply never used, so
+  the stage enum and the stored shape are untouched.
 
 Out (horizon): knockout medal-series brackets (iQFOiL / Formula Kite
 match points — not low-point arithmetic); Manage2Sail-style online

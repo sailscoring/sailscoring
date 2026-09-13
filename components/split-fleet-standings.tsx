@@ -25,6 +25,7 @@ import {
   fleetColorById,
   provisionalCutIndexes,
   qualifyingRaceCount,
+  roundsForStage,
   resolveVocabulary,
   stageRaceLabel,
   type CellScore,
@@ -180,9 +181,22 @@ export function SplitFleetStandings({
     );
   }
 
-  const cuts = splitRound
-    ? []
-    : provisionalCutIndexes(standings.length, data.config.finalFleets.length);
+  // Where the line falls if the series ended now. With a split coming it is
+  // the band boundaries; where the fleet is never banded the only cut ever
+  // made is into the deciding fleet, so it is drawn there instead — and
+  // unlike a band boundary it decides who races again, so it is worth more
+  // than a boundary marker. Both stop once the thing they predict has
+  // happened: a committed round is a fact, not a projection.
+  const medalCut = data.config.medal;
+  const unbanded = data.config.split.kind === 'none';
+  const medalRound = roundsForStage(data.rounds, 'medal')[0] ?? null;
+  const cuts = unbanded
+    ? medalCut && !medalRound && standings.length > medalCut.size
+      ? [medalCut.size - 1]
+      : []
+    : splitRound
+      ? []
+      : provisionalCutIndexes(standings.length, data.config.finalFleets.length);
 
 
   // Code-only in the live UI — flags are reserved for the published pages so
@@ -228,7 +242,11 @@ export function SplitFleetStandings({
           cutAfter={withCuts && cuts.includes(i)}
           cutLabel={
             withCuts && cuts.includes(i)
-              ? `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut if the ${splitFleetWords(data.config).qualifying.name} ended now${
+              ? `${
+                  unbanded
+                    ? `${capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)} cut`
+                    : `${data.config.finalFleets[cuts.indexOf(i)]?.label} / ${data.config.finalFleets[cuts.indexOf(i) + 1]?.label} cut`
+                } if the ${splitFleetWords(data.config).qualifying.name} ended now${
                   // A shared rank across the line: the ranking does not place
                   // this cut, and the line must not pretend it does.
                   rows[i + 1]?.rank === row.rank

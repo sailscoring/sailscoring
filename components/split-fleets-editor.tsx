@@ -30,6 +30,8 @@ import {
   ilca2026SplitFleetConfig,
   ilcaSplitFleetConfig,
   iodaSplitFleetConfig,
+  openingSeriesMedalConfig,
+  UNBANDED_FLEET,
   capitaliseStage,
   resolveRaceLabels,
   resolveVocabulary,
@@ -46,7 +48,13 @@ import {
   type VocabularyKey,
 } from '@/lib/split-fleets';
 
-type FormatKey = 'ilca-2026' | 'ilca-2025' | 'ioda' | 'net-plus-net' | 'rank-seed';
+type FormatKey =
+  | 'ilca-2026'
+  | 'ilca-2025'
+  | 'ioda'
+  | 'net-plus-net'
+  | 'rank-seed'
+  | 'opening-medal-unbanded';
 
 /** Known class formats. Each is a complete configuration; picking one fills
  *  every field below, which the scorer then adjusts to match their SIs. */
@@ -62,6 +70,10 @@ const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) =>
   ioda: {
     label: 'IODA (Optimist) Championship',
     build: iodaSplitFleetConfig,
+  },
+  'opening-medal-unbanded': {
+    label: 'One fleet, no split, with a deciding race (Champions’ Cup, Junior)',
+    build: openingSeriesMedalConfig,
   },
   'net-plus-net': {
     label: 'Two series added together (29er and similar)',
@@ -179,6 +191,11 @@ export function SplitFleetEditor({
   const [focused, setFocused] = useState<readonly SplitFleetSentenceId[] | null>(null);
 
   const value = config;
+  // A championship that never bands its fleet has no second stage, so the
+  // settings that describe one describe nothing. Hidden rather than disabled:
+  // a greyed-out "how boats are divided" invites the scorer to wonder which
+  // answer is in force, and none is.
+  const unbanded = config.split.kind === 'none';
   // Which format this *is*, derived rather than remembered. A scorer who
   // changes a setting and changes it back has the class format again, and
   // being told otherwise leaves them wondering what else they disturbed. It
@@ -214,9 +231,21 @@ export function SplitFleetEditor({
   }
 
   function setFleetCount(n: number) {
+    // One fleet is the unbanded championship: nothing to band into, and no
+    // second stage to band at. Going back up restores the split rule, since
+    // the sizing answer it needs was never meaningful while there was one.
+    if (n === 1) {
+      patch({
+        qualifyingFleets: [UNBANDED_FLEET],
+        finalFleets: [],
+        split: { kind: 'none' },
+      });
+      return;
+    }
     patch({
       qualifyingFleets: QUALIFYING_COLOR_SETS.slice(0, n),
       finalFleets: FINAL_FLEET_SET.slice(0, n),
+      ...(value.split.kind === 'none' ? { split: { kind: 'equal-blocks' as const } } : {}),
     });
   }
 
@@ -435,6 +464,7 @@ export function SplitFleetEditor({
               value={fleetCount}
               onChange={(e) => setFleetCount(Number(e.target.value))}
             >
+              <option value={1}>1 — one fleet, never split</option>
               {[2, 3, 4].map((n) => (
                 <option key={n} value={n}>
                   {n} — {QUALIFYING_COLOR_SETS.slice(0, n).map((f) => f.label).join(', ')}
@@ -518,6 +548,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
+      {!unbanded && (
       <div {...row('split')}>
         <label className="font-medium" htmlFor="sf-split">
           How boats are divided for the {vocab.stages.final.name}
@@ -567,6 +598,7 @@ export function SplitFleetEditor({
           </p>
         </div>
       </div>
+      )}
 
       <div {...row('discards', 'finalDiscardCap')}>
         <span className="font-medium">Discards</span>
@@ -619,7 +651,7 @@ export function SplitFleetEditor({
               Add a rule
             </Button>
           )}
-          {value.carry === 'points' && (
+          {value.carry === 'points' && !unbanded && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
               <label className="flex items-center gap-1.5">
                 At most
@@ -659,6 +691,7 @@ export function SplitFleetEditor({
         </div>
       </div>
 
+      {!unbanded && (
       <div {...row('equalization')}>
         <label className="font-medium" htmlFor="sf-equalization">
           Boats end the {vocab.stages.qualifying.name} on different race counts
@@ -694,6 +727,7 @@ export function SplitFleetEditor({
           </p>
         </div>
       </div>
+      )}
 
       <div {...row('codeBasis')}>
         <label className="font-medium" htmlFor="sf-code-q">
@@ -737,6 +771,7 @@ export function SplitFleetEditor({
               />
             )}
           </div>
+          {!unbanded && (
           <select
             className={selectClass}
             aria-label="Scoring a boat that doesn’t start or finish a final-series race"
@@ -760,6 +795,7 @@ export function SplitFleetEditor({
               {vocab.stages.qualifying.fleetNoun}, plus one — the same score all championship
             </option>
           </select>
+          )}
           {entries > 0 && (
             <p className={hint}>
               With {entries} entries that is{' '}

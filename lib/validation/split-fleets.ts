@@ -17,8 +17,10 @@ const racePrefixSchema = z
   .regex(/^[A-Za-z]{1,3}$/, 'a race prefix is one to three letters');
 
 export const splitFleetConfigSchema = z.object({
-  qualifyingFleets: z.array(fleetSpecSchema).min(2).max(4),
-  finalFleets: z.array(fleetSpecSchema).min(2).max(4),
+  // One qualifying fleet is the unbanded championship: it never splits, so
+  // there are no final fleets to size (see `split`).
+  qualifyingFleets: z.array(fleetSpecSchema).min(1).max(4),
+  finalFleets: z.array(fleetSpecSchema).max(4),
   plannedDays: z.array(
     z.object({ label: z.string(), races: z.number().int().min(0) }),
   ),
@@ -28,6 +30,7 @@ export const splitFleetConfigSchema = z.object({
   split: z.union([
     z.object({ kind: z.literal('equal-blocks') }),
     z.object({ kind: z.literal('fixed-top'), topSize: z.number().int().positive() }),
+    z.object({ kind: z.literal('none') }),
   ]),
   codeBasis: z.object({
     qualifying: z.enum(['largest-fleet', 'fixed']),
@@ -125,7 +128,19 @@ export const splitFleetConfigSchema = z.object({
       companionRace: z.enum(['scored-below', 'none', 'dnc']).default('scored-below'),
     })
     .optional(),
-});
+})
+  // The two halves of the split answer have to agree. A championship that
+  // bands its fleet needs at least two fleets to band into; one that never
+  // bands must not carry any, or the editor would offer sizes for a stage
+  // that is never sailed.
+  .refine(
+    (c) => (c.split.kind === 'none' ? c.finalFleets.length === 0 : c.finalFleets.length >= 2),
+    {
+      message:
+        'a championship that splits needs at least two fleets to split into, and one that never splits needs none',
+      path: ['finalFleets'],
+    },
+  );
 
 /** Body for PUT …/split-fleets/state — the whole split-fleet block of a
  *  `.sailscoring` file, replayed wholesale by an in-browser file open/update.

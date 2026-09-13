@@ -119,7 +119,7 @@ function computeNextAction(
       href: `/series/${pending.race.seriesId}/races/${pending.race.id}`,
     };
   }
-  if (!splitRound) {
+  if (!splitRound && config.split.kind !== 'none') {
     return {
       label: `end the ${w.qualifying.name} and split into ${w.final.fleetNoun}s (when the SIs are satisfied)`,
     };
@@ -265,6 +265,10 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const [showPublish, setShowPublish] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showFinalise, setShowFinalise] = useState(false);
+  // The medal cut, where the championship never bands its fleet and so has no
+  // second stage to offer it from. Held here rather than in a section
+  // component because there is no section that always exists to hold it.
+  const [medalOpen, setMedalOpen] = useState(false);
   const { has } = useFeatures();
 
   // The scorer bounces between this view and finish entry all day; the
@@ -327,6 +331,9 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const splitRound = roundsForStage(sfState.rounds, 'final')[0] ?? null;
   const medalRound = roundsForStage(sfState.rounds, 'medal')[0] ?? null;
   const standings = splitFleetStandings(sfData);
+  // One fleet, never banded: no middle stage, and the cut into the deciding
+  // fleet comes straight off the opening series.
+  const unbanded = sfState.config.split.kind === 'none';
 
   const nextAction = computeNextAction(sfData, sfState.config, qualifyingRounds, splitRound, medalRound, fleetMeta);
 
@@ -393,28 +400,33 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         />
       </StageSection>
 
-      <StageSection
-        title={words(sfState.config).title('final')}
-        status={splitRound ? (medalRound ? 'Complete' : 'In progress') : 'Not started'}
-        defaultOpen={!!splitRound && !medalRound}
-      >
-        {splitRound ? (
-          <FinalSection
-            seriesId={seriesId}
-            data={sfData}
-            fleetMeta={fleetMeta}
-            round={splitRound}
-            medalRound={medalRound}
-            standings={standings}
-            canManage={canManage}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            The {words(sfState.config).final.name} begins when the{' '}
-            {words(sfState.config).qualifying.name} ends and the fleet is split.
-          </p>
-        )}
-      </StageSection>
+      {/* No second stage where the fleet is never banded: there is nothing
+          for the section to hold, and an empty one would suggest a stage the
+          notice of race does not schedule. */}
+      {!unbanded && (
+        <StageSection
+          title={words(sfState.config).title('final')}
+          status={splitRound ? (medalRound ? 'Complete' : 'In progress') : 'Not started'}
+          defaultOpen={!!splitRound && !medalRound}
+        >
+          {splitRound ? (
+            <FinalSection
+              seriesId={seriesId}
+              data={sfData}
+              fleetMeta={fleetMeta}
+              round={splitRound}
+              medalRound={medalRound}
+              standings={standings}
+              canManage={canManage}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              The {words(sfState.config).final.name} begins when the{' '}
+              {words(sfState.config).qualifying.name} ends and the fleet is split.
+            </p>
+          )}
+        </StageSection>
+      )}
 
       {sfState.config.medal && (
         <StageSection
@@ -426,7 +438,12 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
                 : 'In progress'
               : 'Not started'
           }
-          defaultOpen={!!medalRound && !medalPhaseComplete(sfData, medalRound, sfState.config)}
+          // Open while it is the stage the scorer is working in — which,
+          // where the fleet is never banded, includes before the cut is made:
+          // there is no second stage holding their attention instead.
+          defaultOpen={
+            medalRound ? !medalPhaseComplete(sfData, medalRound, sfState.config) : unbanded
+          }
         >
           {medalRound ? (
             <MedalSection
@@ -437,12 +454,35 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               canManage={canManage}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">
-              The top {sfState.config.medal.size} after the {words(sfState.config).series}{' '}
-              sail the {words(sfState.config).medal.name}.
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                The top {sfState.config.medal.size} after the{' '}
+                {unbanded
+                  ? words(sfState.config).qualifying.name
+                  : words(sfState.config).series}{' '}
+                sail the {words(sfState.config).medal.name}.
+              </p>
+              {/* Where the fleet is never banded there is no second stage to
+                  offer the cut from, so it is offered here. */}
+              {unbanded && canManage && (
+                <Button variant="outline" onClick={() => setMedalOpen(true)}>
+                  Select {words(sfState.config).medal.fleetNoun}…
+                </Button>
+              )}
+            </div>
           )}
         </StageSection>
+      )}
+
+      {unbanded && medalOpen && sfState.config.medal && (
+        <MedalSelectDialog
+          seriesId={seriesId}
+          data={sfData}
+          fleetMeta={fleetMeta}
+          round={null}
+          standings={standings}
+          onClose={() => setMedalOpen(false)}
+        />
       )}
 
       <SplitFleetStandings
@@ -591,6 +631,7 @@ function QualifyingSection({
   split: boolean;
   canManage: boolean;
 }) {
+  const unbanded = data.config.split.kind === 'none';
   const [dialog, setDialog] = useState<'seed' | 'reassign' | 'split' | null>(null);
   const confirm = useConfirm();
   const deleteRound = useDeleteSplitRound(seriesId);
@@ -693,9 +734,14 @@ function QualifyingSection({
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => setDialog('reassign')}>
-                Assign Round {rounds.length + 1}
-              </Button>
+              {/* Both of these deal fleets. With one fleet there is nothing to
+                  re-deal and nothing to deal into, so the stage offers only
+                  its next race. */}
+              {!unbanded && (
+                <Button variant="outline" onClick={() => setDialog('reassign')}>
+                  Assign Round {rounds.length + 1}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 disabled={addRaces.isPending}
@@ -709,9 +755,11 @@ function QualifyingSection({
               >
                 Add race {raceLabel(data, 'qualifying', nextStageRace)}
               </Button>
-              <Button onClick={() => setDialog('split')} disabled={validCount === 0}>
-                End the {words(data.config).qualifying.name} → split fleets
-              </Button>
+              {!unbanded && (
+                <Button onClick={() => setDialog('split')} disabled={validCount === 0}>
+                  End the {words(data.config).qualifying.name} → split fleets
+                </Button>
+              )}
               <span className="text-xs text-muted-foreground">
                 {validCount} of {lrs.length} {words(data.config).qualifying.raceNoun}s count
                 {data.config.discardThresholds[0]
@@ -1832,7 +1880,9 @@ function MedalSelectDialog({
   seriesId: string;
   data: SplitFleetData;
   fleetMeta: Map<string, FleetMeta>;
-  round: SplitRound;
+  /** The split round the cut comes off, or null where the championship never
+   *  splits and the cut comes off the whole fleet. */
+  round: SplitRound | null;
   standings: SplitStandingRow[];
   onClose: () => void;
 }) {
@@ -1843,10 +1893,12 @@ function MedalSelectDialog({
   const [createRaces, setCreateRaces] = useState(false);
   const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
   const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
-  const goldId = round.fleetIds[0];
-  const goldRows = standings.filter((r) => r.finalFleetId === goldId);
+  const goldId = round?.fleetIds[0] ?? null;
+  // With a split, the cut comes off the top fleet; without one there is only
+  // the fleet, so it comes off the standings as they stand.
+  const goldRows = goldId ? standings.filter((r) => r.finalFleetId === goldId) : standings;
   const medalists = goldRows.slice(0, size);
-  const goldLabel = fleetMeta.get(goldId)?.label ?? 'Gold';
+  const goldLabel = (goldId && fleetMeta.get(goldId)?.label) || 'Gold';
 
   // The ceremony deals one fleet and one only. Selecting the medal boats
   // does not move anyone else: the boats who miss the cut stay in the fleet

@@ -153,40 +153,59 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
   // Qualification series "divided into Preliminary series and Elimination
   // series"). Without one, stages one and two are the whole event and the
   // umbrella term would be an empty distinction.
+  // A championship that never bands its fleet has one stage and one fleet, so
+  // every sentence about dividing, reassigning and equalising them is about
+  // nothing. What is left is the shape (`q` is the whole opening series
+  // here — see `adaptVocabulary`) and, where there is one, the deciding race.
+  const unbanded = config.split.kind === 'none';
   if (config.medal) {
-    push('format', `The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`);
     push(
-      'series-division',
-      `The ${vocab.seriesName} will be divided into ${article(q)} and ${article(f)}.`,
+      'format',
+      unbanded
+        ? `The championship will be sailed as ${article(q)} followed by the ${m}, in one fleet.`
+        : `The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`,
     );
+    if (!unbanded) {
+      push(
+        'series-division',
+        `The ${vocab.seriesName} will be divided into ${article(q)} and ${article(f)}.`,
+      );
+    }
   } else {
-    push('format', `The championship will be sailed as ${article(q)} followed by ${article(f)}.`);
+    push(
+      'format',
+      unbanded
+        ? `The championship will be sailed as ${article(q)}, in one fleet.`
+        : `The championship will be sailed as ${article(q)} followed by ${article(f)}.`,
+    );
   }
   push('race-labels', raceLabelClause(config));
-  push(
-    'fleet-assignment',
-    `Boats will be assigned to ${countWord(config.qualifyingFleets.length)} ${qAdj} fleets (${qualifying}) of, as nearly as possible, equal size and ability.`,
-  );
-  push(
-    'reassignment',
-    `After each day of racing, boats will be reassigned to the ${qAdj} fleets on the basis of their ranks in the ${q}.`,
-  );
-  push(
-    'fleet-equalisation',
-    `If at the end of the ${q} some ${qAdj} fleets have more race scores than others, the extra races will be abandoned and cancelled so that all fleets have the same number of race scores.`,
-  );
-  if (config.equalization === 'exclude-extra-scores') {
+  if (!unbanded) {
     push(
-      'boat-equalisation',
-      `If at the end of the ${q} some boats have more race scores than others, scores for the most recent races will be excluded so that all boats have the same number of race scores.`,
+      'fleet-assignment',
+      `Boats will be assigned to ${countWord(config.qualifyingFleets.length)} ${qAdj} fleets (${qualifying}) of, as nearly as possible, equal size and ability.`,
+    );
+    push(
+      'reassignment',
+      `After each day of racing, boats will be reassigned to the ${qAdj} fleets on the basis of their ranks in the ${q}.`,
+    );
+    push(
+      'fleet-equalisation',
+      `If at the end of the ${q} some ${qAdj} fleets have more race scores than others, the extra races will be abandoned and cancelled so that all fleets have the same number of race scores.`,
+    );
+    if (config.equalization === 'exclude-extra-scores') {
+      push(
+        'boat-equalisation',
+        `If at the end of the ${q} some boats have more race scores than others, scores for the most recent races will be excluded so that all boats have the same number of race scores.`,
+      );
+    }
+    push(
+      'split',
+      config.split.kind === 'fixed-top'
+        ? `At the end of the ${q} the first ${config.split.topSize} boats will be assigned to the ${topFleet} fleet on the basis of their ranks, and the remaining boats to the ${config.finalFleets.slice(1).map((f) => f.label).join(' and ') || 'other'} fleet.`
+        : `At the end of the ${q} boats will be assigned on the basis of their ranks to the ${finals} fleets, of, as nearly as possible, equal size.`,
     );
   }
-  push(
-    'split',
-    config.split.kind === 'fixed-top'
-      ? `At the end of the ${q} the first ${config.split.topSize} boats will be assigned to the ${topFleet} fleet on the basis of their ranks, and the remaining boats to the ${config.finalFleets.slice(1).map((f) => f.label).join(' and ') || 'other'} fleet.`
-      : `At the end of the ${q} boats will be assigned on the basis of their ranks to the ${finals} fleets, of, as nearly as possible, equal size.`,
-  );
 
   if (config.carry === 'points') {
     // Scoped to the series over stages one and two where a third stage
@@ -194,14 +213,18 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     // SI 18.6.1 says "in the Qualification series", not "in the event").
     push(
       'totals',
-      `The ${q} races and the ${f} races will count for total points in the ${config.medal ? vocab.seriesName : 'championship'}.`,
+      unbanded
+        ? `The ${q} races will count for total points in the championship.`
+        : `The ${q} races and the ${f} races will count for total points in the ${config.medal ? vocab.seriesName : 'championship'}.`,
     );
     push('discards', discardClause(config));
     const cap =
       config.maxFinalDiscards === 0
         ? `No excluded score may come from ${article(`${f} race`)}.`
         : `No more than ${countWord(config.maxFinalDiscards)} excluded score${config.maxFinalDiscards === 1 ? '' : 's'} may come from the ${f}`;
-    if (config.maxFinalDiscards === 0) {
+    if (unbanded) {
+      // No second stage, so nothing to cap.
+    } else if (config.maxFinalDiscards === 0) {
       push('final-discard-cap', cap);
     } else {
       push(
@@ -241,7 +264,9 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
       : `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   push(
     'non-finisher',
-    `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase} in the ${q}, and ${finalBase} in the ${f}.`,
+    unbanded
+      ? `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase}.`
+      : `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase} in the ${q}, and ${finalBase} in the ${f}.`,
   );
 
   if (config.medal) {
@@ -264,7 +289,9 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
             : '');
     push(
       'medal',
-      `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
+      unbanded
+        ? `The first ${config.medal.size} boats in the ${q} will sail the ${m}. ${score}${rest}.`
+        : `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
     );
     const transform = config.medal.carryTransform;
     if (transform) {

@@ -78,8 +78,17 @@ export interface SplitFleetConfig {
   carry: 'points' | 'net-plus-net' | 'rank-seed';
   /** Final-fleet sizing: near-equal blocks (Gold largest), or a fixed
    *  top-fleet size (49er/29er). The split ceremony seeds from this and the
-   *  scorer may adjust before committing. */
-  split: { kind: 'equal-blocks' } | { kind: 'fixed-top'; topSize: number };
+   *  scorer may adjust before committing.
+   *
+   *  `none` is the third answer: the fleet is never banded, so there is no
+   *  second stage at all — one fleet sails the whole opening series and the
+   *  only division ever made is into the deciding fleet. The survey records
+   *  it as "single fleet + MR" (49er/FX/Nacra Worlds 2021, 470 Worlds 2021),
+   *  and the Irish Sailing Junior Champions' Cup sails it every year: NoR 8.1
+   *  is "an opening series of up to 8 races and a Medal Race", and that is
+   *  the whole regatta. `finalFleets` is empty under it, and no round is ever
+   *  created for the middle stage. */
+  split: { kind: 'equal-blocks' } | { kind: 'fixed-top'; topSize: number } | { kind: 'none' };
   /** RRS A5.2 replacement bases per stage. `final: 'largest-qualifying'` is
    *  the pre-2026 IODA practice (largest qualifying fleet base in both
    *  stages). */
@@ -326,7 +335,42 @@ export function parseVocabularyKey(value: unknown): VocabularyKey | null {
  *  class whose wording isn't tabulated: nothing in the UI writes it, and it
  *  exists so a one-off doesn't need a code change. */
 export function resolveVocabulary(config: SplitFleetConfig): Vocabulary {
-  return config.vocabularyOverride ?? VOCABULARIES[config.vocabulary ?? DEFAULT_VOCABULARY];
+  const base = config.vocabularyOverride ?? VOCABULARIES[config.vocabulary ?? DEFAULT_VOCABULARY];
+  return adaptVocabulary(base, config);
+}
+
+/**
+ * Bend a tabulated vocabulary to the shape of the championship using it.
+ *
+ * Both tables describe an opening series divided into two stages, because
+ * that is what their sailing instructions describe. An event that never
+ * divides its fleet has one stage, and calling it the "qualifying series" or
+ * the "Preliminary series" would be a term its own notice of race does not
+ * use — the Junior Champions' Cup NoR says "opening series" throughout, which
+ * is the name the table already holds for stages 1 and 2 together. So the
+ * surviving stage takes it, and its race noun with it ("opening series
+ * races", as that NoR writes them).
+ *
+ * Number is deliberately left alone. A stage whose name is plural — "medal
+ * races" — is named as a stage, not counted, and the vocabulary already has
+ * the singular where one race is meant: `raceNoun`. Bending the name to the
+ * race noun for a one-race finale would read correctly in a heading and
+ * wrongly everywhere the name is a container of races ("races in the medal
+ * race, M1, M2 and so on").
+ */
+function adaptVocabulary(base: Vocabulary, config: SplitFleetConfig): Vocabulary {
+  if (config.split?.kind !== 'none') return base;
+  return {
+    ...base,
+    stages: {
+      ...base.stages,
+      qualifying: {
+        name: base.seriesName,
+        raceNoun: `${base.seriesName} race`,
+        fleetNoun: `${stageAdjective(base.seriesName)} fleet`,
+      },
+    },
+  };
 }
 
 /**
@@ -746,6 +790,52 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       // SI 7.7 schedules the boats who miss the Final series one more
       // Qualification series race, and SI 18.5.3 scores it from 11.
       companionRace: 'scored-below',
+    },
+  };
+}
+
+/** The label and colour a championship that never bands its fleet gives the
+ *  one fleet it has. Neutral on both counts: the colours elsewhere tell
+ *  fleets apart, and there is nothing here to tell apart. */
+export const UNBANDED_FLEET: { label: string; color: string } = {
+  label: 'Fleet',
+  color: '#64748b',
+};
+
+/**
+ * One fleet, never banded, and a deciding race on top of the opening series.
+ *
+ * The format the survey records as "single fleet + MR" (49er/FX/Nacra Worlds
+ * 2021, 470 Worlds 2021) and that the Irish Sailing Junior Champions' Cup
+ * sails every year. Its parameters are that event's: NoR 8.1's opening series
+ * and Medal Race, NoR 8.2's top ten, NoR 15.1's one discard from five opening
+ * races, NoR 15.2's doubled and non-excludable Medal Race, and NoR 15.3's
+ * tie-break. Nobody outside the ten races again, so they are scored DNC in
+ * it.
+ *
+ * The final-stage caps are off because there is no final stage for them to
+ * cap, and `equalization` says nothing with one fleet — a race is valid as
+ * soon as that fleet has sailed it.
+ */
+export function openingSeriesMedalConfig(): SplitFleetConfig {
+  return {
+    ...defaultSplitFleetConfig(1),
+    qualifyingFleets: [UNBANDED_FLEET],
+    finalFleets: [],
+    split: { kind: 'none' },
+    plannedDays: [
+      { label: 'Day 1', races: 5 },
+      { label: 'Day 2', races: 5 },
+    ],
+    discardThresholds: [{ minRaces: 5, discardCount: 1 }],
+    maxFinalDiscards: 0,
+    protectLoneFinalRace: false,
+    medal: {
+      size: 10,
+      raceCount: 1,
+      multiplier: 2,
+      companionRace: 'dnc',
+      tieBreak: 'medal-race-then-a8',
     },
   };
 }
