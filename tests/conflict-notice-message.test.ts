@@ -7,7 +7,7 @@
  */
 import { describe, expect, test } from 'vitest';
 
-import { conflictNoticeMessage } from '@/components/conflict-notice';
+import { conflictNoticeMessage } from '@/components/notice';
 
 describe('conflictNoticeMessage', () => {
   test('says the write was lost, whoever won', () => {

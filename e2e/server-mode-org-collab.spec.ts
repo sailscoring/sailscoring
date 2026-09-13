@@ -359,7 +359,7 @@ test.describe('actor attribution on a shared workspace', () => {
 
       // The displayName for a magic-link user is the email's local part —
       // the same reliable signal the row-conflict test above asserts on.
-      await expect(pageB.getByTestId('conflict-notice')).toContainText(
+      await expect(pageB.getByTestId('notice')).toContainText(
         emailA.split('@')[0],
       );
     } finally {

@@ -8,6 +8,8 @@
  *   per-mutation optimistic updates are added where the UX warrants.
  * - ConfirmDialogProvider — the single in-app confirmation dialog behind
  *   `useConfirm()`, replacing `window.confirm()`.
+ * - NoticeProvider — the one transient banner, for a lost save and for a
+ *   write that failed with no dialog to report it in.
  *
  * Read-only offline (persistQueryClient) is deferred. The default
  * persister throttles writes by 1s, which produced stale-cache races
@@ -26,7 +28,12 @@ import { ThemeProvider } from 'next-themes';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { ConfirmDialogProvider } from '@/components/confirm-dialog';
-import { ConflictNoticeProvider, useNotifyConflict } from '@/components/conflict-notice';
+import {
+  CONFLICT_NOTICE_MS,
+  NoticeProvider,
+  conflictNoticeMessage,
+  useNotice,
+} from '@/components/notice';
 import { AuthError, ConflictApiError } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
 import { stripAuthErrorParam } from '@/lib/safe-redirect';
@@ -190,10 +197,10 @@ export function Providers({ children }: { children: ReactNode }) {
       disableTransitionOnChange
     >
       <QueryClientProvider client={queryClient}>
-        <ConflictNoticeProvider>
+        <NoticeProvider>
           <ConflictMutationSubscriber />
           <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
-        </ConflictNoticeProvider>
+        </NoticeProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
@@ -212,7 +219,7 @@ export function Providers({ children }: { children: ReactNode }) {
  * here avoids double-surfacing the same 409.
  */
 function ConflictMutationSubscriber() {
-  const notify = useNotifyConflict();
+  const { show } = useNotice();
   const qc = useQueryClient();
   useEffect(() => {
     const unsub = qc.getMutationCache().subscribe((event) => {
@@ -220,11 +227,15 @@ function ConflictMutationSubscriber() {
       const error = event.mutation.state.error;
       if (error instanceof ConflictApiError) {
         if (event.mutation.options.scope?.id === 'finishes') return;
-        notify(error.detail);
+        show({
+          tone: 'warning',
+          message: conflictNoticeMessage(error.detail),
+          dismissAfterMs: CONFLICT_NOTICE_MS,
+        });
         qc.invalidateQueries();
       }
     });
     return () => unsub();
-  }, [qc, notify]);
+  }, [qc, show]);
   return null;
 }
