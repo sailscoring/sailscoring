@@ -121,7 +121,7 @@ export const splitFleetConfigSchema = z.object({
             .default('medal-fleet-selected'),
         })
         .optional(),
-      tieBreak: z.enum(['stage-rank', 'last-race']).optional(),
+      tieBreak: z.enum(['stage-rank', 'last-race', 'medal-race-then-a8']).optional(),
       companionRace: z.enum(['scored-below', 'none', 'dnc']).default('scored-below'),
     })
     .optional(),

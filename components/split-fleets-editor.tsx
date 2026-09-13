@@ -996,7 +996,9 @@ export function SplitFleetEditor({
                         tieBreak:
                           e.target.value === 'a8'
                             ? undefined
-                            : (e.target.value as 'stage-rank' | 'last-race'),
+                            : (e.target.value as NonNullable<
+                                NonNullable<SplitFleetConfig['medal']>['tieBreak']
+                              >),
                       },
                     })
                   }
@@ -1007,6 +1009,9 @@ export function SplitFleetEditor({
                     {vocab.stages.qualifying.name} rank
                   </option>
                   <option value="last-race">break on the last race, in place of rule A8</option>
+                  <option value="medal-race-then-a8">
+                    break on the {vocab.stages.medal.raceNoun} first, then under rule A8
+                  </option>
                 </select>
               </label>
               <p className={hint}>

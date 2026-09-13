@@ -1,0 +1,101 @@
+description: "F2: a tie broken on the medal race before rule A8, where A8 alone would have decided it the other way"
+provenance:
+  class: "TR 3.6 (mixed junior classes)"
+  year: 2026
+  event: "Irish Sailing Junior Champions' Cup, Fastnet Marine, Schull (NoR 15.3)"
+  si: "reference-docs:events/irish-champions-cup-junior-2026/NoR.md"
+  results: "reference-docs:events/irish-champions-cup-junior-2025/results-sailwave.html"
+  code: F2
+  scenarios: [D7]
+  alternatives: "The same clause appears in medal-race notices of race generally; the wording here is the junior event's."
+runnable: true
+notes: |
+  NoR 15.3: "Ties in the series score between boats with different Medal Race
+  point scores shall be broken in favour of the boat with the lower score in
+  the medal race. This changes RRS Appendix A8."
+
+  The clause has to come *before* A8 to mean anything, because A8.1 would
+  otherwise settle most ties first — and it can disagree. Here y1 and b1 both
+  finish on 7:
+
+    y1   Q1 1, Q2 2, F1 2, M1 1 x2 = 2     -> 7, scores sorted 1 2 2 2
+    b1   Q1 1, Q2 1, F1 1, M1 2 x2 = 4     -> 7, scores sorted 1 1 1 4
+
+  A8.1 compares those lists best to worst: level on the first, and b1's
+  second-best 1 beats y1's 2 — so rule A8 alone ranks **b1** ahead. NoR 15.3
+  looks at the medal race instead, where y1 scored 2 against b1's 4, and ranks
+  **y1** ahead. This fixture asserts the notice of race, not the rulebook.
+
+  What A8 keeps is everything the clause does not speak to: it addresses only
+  boats "with different Medal Race point scores", so two boats level there
+  fall through to A8 as written. That fall-through is unit-tested in
+  `tests/split-fleets.test.ts` rather than here, since it needs the same event
+  scored twice.
+
+  y2 and b2 never reach the medal fleet, so under `companionRace: dnc` they
+  are scored DNC in the medal race: 4 entries + 1 = 5, x2 = 10.
+
+  No discards (threshold empty) so every cell is visible.
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds: []
+  maxFinalDiscards: 0
+  medal:
+    size: 2
+    raceCount: 1
+    multiplier: 2
+    companionRace: dnc
+    tieBreak: medal-race-then-a8
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2]
+      Blue: [b1, b2]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2]
+          Blue: [b1, b2]
+      - n: 2
+        results:
+          Yellow: [y2, y1]
+          Blue: [b1, b2]
+
+  - stage: final
+    from: 1
+    fleets:
+      Gold: [y1, b1]
+      Silver: [y2, b2]
+    races:
+      - n: 1
+        results:
+          Gold: [b1, y1]
+          Silver: [y2, b2]
+
+  - stage: medal
+    from: 1
+    fleets:
+      Medal: [y1, b1]
+    medalAfter: 1
+    races:
+      - n: 1
+        results:
+          Medal: [y1, b1]       # y1 1x2=2; b1 2x2=4
+
+expected:
+  standings:
+    # 7 apiece. A8 alone would put b1 first; NoR 15.3 puts y1 there.
+    - { rank: 1, sail: y1, total: 7, net: 7, fleet: Gold, medal: true }
+    - { rank: 2, sail: b1, total: 7, net: 7, fleet: Gold, medal: true }
+    - { rank: 3, sail: y2, total: 14, net: 14, fleet: Silver }
+    - { rank: 4, sail: b2, total: 16, net: 16, fleet: Silver }

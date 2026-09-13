@@ -1388,3 +1388,105 @@ describe('a weighted medal race', () => {
     expect([q('y1'), q('y2')]).toEqual([1, 2]);
   });
 });
+
+/**
+ * The medal-race tie-break that runs *before* rule A8 and leaves A8 whatever
+ * it does not address (#588) — "Ties in the series score between boats with
+ * different Medal Race point scores shall be broken in favour of the boat
+ * with the lower score in the medal race. This changes RRS Appendix A8"
+ * (Irish Sailing Junior Champions' Cup NoR 15.3).
+ */
+describe('the medal-race-then-A8 tie-break', () => {
+  /** Two medal boats level on the series score. `medalSheet` decides whether
+   *  the medal race can separate them; the opening races are arranged so that
+   *  rule A8 has its own, different, opinion. */
+  function tiedMedalData(
+    tieBreak: NonNullable<SplitFleetConfig['medal']>['tieBreak'],
+    opening: 'a8-prefers-b1' | 'a8-decides-alone',
+    medalSheet: Finish[],
+  ): SplitFleetData {
+    const config: SplitFleetConfig = {
+      ...defaultSplitFleetConfig(2),
+      discardThresholds: [],
+      medal: {
+        size: 2,
+        raceCount: 1,
+        multiplier: 2,
+        companionRace: 'none',
+        ...(tieBreak ? { tieBreak } : {}),
+      },
+    };
+    // a8-prefers-b1: y1 1,2,2 = 5 and b1 1,1,1 = 3, so the medal race's 2
+    // and 4 level them at 7 — and A8.1 reads b1's 1,1,1,4 as the better list.
+    // a8-decides-alone: both open on 5, so a shared medal score leaves the
+    // whole tie to A8, which separates them by counting back to Q3.
+    const blue = opening === 'a8-prefers-b1'
+      ? [['b1', 'b2'], ['b1', 'b2'], ['b1', 'b2']]
+      : [['b2', 'b1'], ['b2', 'b1'], ['b1', 'b2']];
+    const yellow = [['y1', 'y2'], ['y2', 'y1'], ['y2', 'y1']];
+    return {
+      config,
+      rounds: [
+        { id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+          fleetIds: ['fy', 'fb'], method: 'seeded', basis: null, createdAt: 0 },
+        { id: 'r2', seriesId: 's1', stage: 'medal', fromStageRace: 1,
+          fleetIds: ['fm'], method: 'medal-select', basis: null, createdAt: 1 },
+      ],
+      fleets: [fleet('fy', 'Yellow'), fleet('fb', 'Blue'), fleet('fm', 'Medal')],
+      competitors: [
+        competitor('y1', ['fy', 'fm'], 1), competitor('y2', ['fy'], 2),
+        competitor('b1', ['fb', 'fm'], 3), competitor('b2', ['fb'], 4),
+      ],
+      races: [race('q1'), race('q2'), race('q3'), race('m1')],
+      raceStarts: [
+        start('q1', ['fy', 'fb'], 'qualifying', 1),
+        start('q2', ['fy', 'fb'], 'qualifying', 2),
+        start('q3', ['fy', 'fb'], 'qualifying', 3),
+        start('m1', ['fm'], 'medal', 1),
+      ],
+      finishes: [
+        ...['q1', 'q2', 'q3'].flatMap((r, i) => [
+          ...yellow[i].map((id, place) => finish(r, id, place)),
+          ...blue[i].map((id, place) => finish(r, id, place)),
+        ]),
+        ...medalSheet,
+      ],
+    };
+  }
+
+  /** y1 wins the medal race (2 points), b1 second (4). */
+  const decisiveMedal = [finish('m1', 'y1', 0), finish('m1', 'b1', 1)];
+  /** Both retire: 3 x 2 = 6 apiece, so the medal race decides nothing. */
+  const sharedMedal = [finish('m1', 'y1', null, 'DNF'), finish('m1', 'b1', null, 'DNF')];
+
+  function medalOrder(data: SplitFleetData) {
+    const medal = splitFleetStandings(data).filter((r) => r.medal);
+    return { ids: medal.map((r) => r.competitor.id), ranks: medal.map((r) => r.rank) };
+  }
+
+  it('rule A8 alone would rank the boat with the worse medal race first', () => {
+    // The discriminator: both on 7, and A8.1 prefers b1's 1,1,1,4 to y1's
+    // 1,2,2,2 — the opposite of what the notice of race asks for.
+    const data = tiedMedalData(undefined, 'a8-prefers-b1', decisiveMedal);
+    expect(splitFleetStandings(data).filter((r) => r.medal).map((r) => r.net)).toEqual([7, 7]);
+    expect(medalOrder(data).ids).toEqual(['b1', 'y1']);
+  });
+
+  it('breaks the tie on the medal race instead', () => {
+    const data = tiedMedalData('medal-race-then-a8', 'a8-prefers-b1', decisiveMedal);
+    expect(medalOrder(data)).toEqual({ ids: ['y1', 'b1'], ranks: [1, 2] });
+  });
+
+  it('falls back to A8 when the medal scores are level', () => {
+    // The clause speaks only to boats "with different Medal Race point
+    // scores", so a shared medal score leaves the tie where A8 found it —
+    // here A8.2 counts back past the medal race to Q3 and separates them.
+    const data = tiedMedalData('medal-race-then-a8', 'a8-decides-alone', sharedMedal);
+    expect(medalOrder(data)).toEqual({ ids: ['b1', 'y1'], ranks: [1, 2] });
+  });
+
+  it('unlike last-race, which replaces A8 and leaves the tie standing', () => {
+    const data = tiedMedalData('last-race', 'a8-decides-alone', sharedMedal);
+    expect(medalOrder(data).ranks).toEqual([1, 1]);
+  });
+});

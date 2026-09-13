@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>F2: a tie broken on the medal race before rule A8, where A8 alone would have decided it the other way — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>F2: a tie broken on the medal race before rule A8, where A8 alone would have decided it the other way</h1>
+<p style="color:#555;">TR 3.6 (mixed junior classes) 2026 — Irish Sailing Junior Champions' Cup, Fastnet Marine, Schull (NoR 15.3) &middot; <strong>F2</strong> &middot; D7 &middot; SI (<code>reference-docs:events/irish-champions-cup-junior-2026/NoR.md</code>) &middot; results (<code>reference-docs:events/irish-champions-cup-junior-2025/results-sailwave.html</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; → Gold/Silver &middot; discards: No discards. &middot; medal race ×2</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">NoR 15.3: &quot;Ties in the series score between boats with different Medal Race
+point scores shall be broken in favour of the boat with the lower score in
+the medal race. This changes RRS Appendix A8.&quot;
+
+The clause has to come *before* A8 to mean anything, because A8.1 would
+otherwise settle most ties first — and it can disagree. Here y1 and b1 both
+finish on 7:
+
+  y1   Q1 1, Q2 2, F1 2, M1 1 x2 = 2     -&gt; 7, scores sorted 1 2 2 2
+  b1   Q1 1, Q2 1, F1 1, M1 2 x2 = 4     -&gt; 7, scores sorted 1 1 1 4
+
+A8.1 compares those lists best to worst: level on the first, and b1's
+second-best 1 beats y1's 2 — so rule A8 alone ranks **b1** ahead. NoR 15.3
+looks at the medal race instead, where y1 scored 2 against b1's 4, and ranks
+**y1** ahead. This fixture asserts the notice of race, not the rulebook.
+
+What A8 keeps is everything the clause does not speak to: it addresses only
+boats &quot;with different Medal Race point scores&quot;, so two boats level there
+fall through to A8 as written. That fall-through is unit-tested in
+`tests/split-fleets.test.ts` rather than here, since it needs the same event
+scored twice.
+
+y2 and b2 never reach the medal fleet, so under `companionRace: dnc` they
+are scored DNC in the medal race: 4 entries + 1 = 5, x2 = 10.
+
+No discards (threshold empty) so every cell is visible.</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff3bf;padding:0 4px;border-radius:3px;">Yellow: y1, y2</span>&nbsp; <span style="background:#d0ebff;padding:0 4px;border-radius:3px;">Blue: b1, b2</span></td></tr>
+<tr><td>Final split</td><td>explicit</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: b1, y1</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: b2, y2</span></td></tr>
+<tr><td>Medal</td><td>explicit</td><td><span style="background:#ffe066;padding:0 4px;border-radius:3px;">Medal: b1, y1</span></td></tr>
+</tbody>
+</table>
+<h2>Gold fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>M1</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">y1</td>
+  <td>Helm Y1 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#ffec99;text-align:center">2</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">2</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right;font-weight:bold">7</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">b1</td>
+  <td>Helm B1 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#d0ebff;text-align:center">1</td>
+  <td style="background:#ffec99;text-align:center">1</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">4</td>
+  <td style="text-align:right">7</td>
+  <td style="text-align:right;font-weight:bold">7</td>
+</tr>
+</tbody>
+</table>
+<h2>Silver fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>F1</th><th>M1</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>3</td>
+  <td class="mono">y2</td>
+  <td>Helm Y2</td>
+  <td style="background:#fff3bf;text-align:center">2</td>
+  <td style="background:#fff3bf;text-align:center">1</td>
+  <td style="background:#e9ecef;text-align:center">1</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">10 DNC</td>
+  <td style="text-align:right">14</td>
+  <td style="text-align:right;font-weight:bold">14</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">b2</td>
+  <td>Helm B2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#d0ebff;text-align:center">2</td>
+  <td style="background:#e9ecef;text-align:center">2</td>
+  <td style="background:#ffe066;text-align:center;font-weight:bold">10 DNC</td>
+  <td style="text-align:right">16</td>
+  <td style="text-align:right;font-weight:bold">16</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

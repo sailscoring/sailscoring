@@ -297,6 +297,14 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
         'medal-tie-break',
         `For the boats in the ${m}, a tie will be broken in favour of the boat with the better score in the last race. This changes rule A8.`,
       );
+    } else if (config.medal.tieBreak === 'medal-race-then-a8') {
+      // Ahead of A8, not instead of it: the clause addresses only the boats
+      // whose scores in the deciding race differ, and rule A8 still has the
+      // rest.
+      push(
+        'medal-tie-break',
+        `A tie between boats with different scores in the ${vocab.stages.medal.raceNoun} will be broken in favour of the boat with the lower score in it. This changes rule A8. Any remaining tie will be broken by rule A8.`,
+      );
     }
   }
 

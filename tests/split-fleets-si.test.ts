@@ -111,6 +111,22 @@ describe('describeSplitFleetConfig', () => {
     );
   });
 
+  it('says a medal-race tie-break runs before rule A8, not instead of it', () => {
+    // The distinction the sentence has to carry: `last-race` replaces A8, so
+    // a tie it cannot break stands; this one runs ahead of A8 and hands back
+    // whatever it leaves.
+    expect(
+      joined({
+        ...defaultSplitFleetConfig(3),
+        medal: { ...defaultSplitFleetConfig(3).medal!, tieBreak: 'medal-race-then-a8' },
+      }),
+    ).toContain(
+      'A tie between boats with different scores in the medal race will be broken in favour of ' +
+        'the boat with the lower score in it. This changes rule A8. Any remaining tie will be ' +
+        'broken by rule A8.',
+    );
+  });
+
   it('says what an abandoned finale does to the divided score, where that is the rule', () => {
     // 2026 ILCA SI 18.7.5 as Amendment 5 rewrote it. The other reading needs
     // no sentence: a score divided before the series stands unless something

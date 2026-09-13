@@ -140,10 +140,19 @@ export interface SplitFleetConfig {
      *  - `last-race` replaces A8 outright with its own single comparison —
      *    the boats' scores in the last race, with no count-of-places step
      *    before it and nothing behind it.
-     *  Both are real sailing-instruction clauses, and a championship that
-     *  compresses the carry needs one of them: rounding scores to whole
+     *  - `medal-race-then-a8` puts the deciding race *ahead* of A8 rather
+     *    than after it, and leaves A8 to finish the job: "Ties in the series
+     *    score between boats with different Medal Race point scores shall be
+     *    broken in favour of the boat with the lower score in the medal race.
+     *    This changes RRS Appendix A8" (Irish Sailing Junior Champions' Cup
+     *    NoR 15.3). The clause speaks only to boats whose medal scores
+     *    differ, so boats level there are not addressed by it and A8 decides
+     *    them as written — which is what separates this from `last-race`,
+     *    where nothing stands behind the one comparison.
+     *  All three are real sailing-instruction clauses, and a championship
+     *  that compresses the carry needs one of them: rounding scores to whole
      *  numbers manufactures ties among the very boats deciding the title. */
-    tieBreak?: 'stage-rank' | 'last-race';
+    tieBreak?: 'stage-rank' | 'last-race' | 'medal-race-then-a8';
     /** How the one more race the boats who miss the cut sail is scored.
      *
      *  Whichever this says, that race is an ordinary race of the second
@@ -1247,6 +1256,25 @@ function compareLastRaceOnly(a: CellScore[], b: CellScore[]): number {
   return ca.points - cb.points;
 }
 
+/** The boats' scores in the deciding stage's races, compared — the tie-break
+ *  a notice of race puts ahead of RRS A8 ("broken in favour of the boat with
+ *  the lower score in the medal race").
+ *
+ *  The clause is written for the single medal race its event sails, so a
+ *  stage of several is read as what that sentence generalises to: the boat's
+ *  score for the stage, which for one race is her score in it. The carried
+ *  cell a compressed carry mints is not a race and is left out — it is the
+ *  opening series, and comparing it here would decide the tie on the very
+ *  scores the boats are tied on.
+ */
+function compareMedalRaceScore(a: CellScore[], b: CellScore[]): number {
+  const stageScore = (cells: CellScore[]) =>
+    cells
+      .filter((c) => c.stage === 'medal' && c.raceId && c.counts)
+      .reduce((sum, c) => sum + c.points, 0);
+  return stageScore(a) - stageScore(b);
+}
+
 function discardCount(config: SplitFleetConfig, countedRaces: number): number {
   let n = 0;
   for (const t of config.discardThresholds) {
@@ -1705,6 +1733,15 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     // count-of-places comparison first, and no next-to-last race behind.
     if (config.medal?.tieBreak === 'last-race' && medalScored) {
       return a.net - b.net || compareLastRaceOnly(a.cells, b.cells);
+    }
+    // `medal-race-then-a8` runs before A8 rather than after it, and hands
+    // back whatever it cannot separate: `byA8` leads with the nets, which are
+    // equal by the time it is reached, so what remains of it is A8.1 then
+    // A8.2 — the rule as written, for the boats the clause does not address.
+    if (config.medal?.tieBreak === 'medal-race-then-a8' && medalScored) {
+      return (
+        a.net - b.net || compareMedalRaceScore(a.cells, b.cells) || byA8(a, b)
+      );
     }
     const a8 = byA8(a, b);
     if (a8 !== 0 || !stageRank || !medalScored) return a8;
