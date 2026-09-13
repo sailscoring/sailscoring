@@ -17,6 +17,13 @@ import { parseRmsAllowances } from '@/lib/orc-pcs/rms';
  * IRL certificates from tests/fixtures/orc (JSON-embedded boats, nine wind
  * speeds); ar.xml is ORC's own example from the TestPCS package (RMS-format
  * boats, eight wind speeds, scored per rule 402.10).
+ *
+ * pcs-cc-fixedwind is pcs-cc's course with a wind speed on every leg — the
+ * module's "fixed wind speed" regime (spec: any leg carrying windSpeed makes
+ * the whole race one), where the curve is flat, the implied wind is the
+ * distance-weighted average of the leg winds, and the allowance is the
+ * course read at that wind rather than at one derived from the finishes.
+ * This is the arithmetic behind the recorded-wind scoring options.
  */
 
 const FIXTURE_DIR = join(process.cwd(), 'tests/fixtures/orc-pcs');
@@ -63,6 +70,11 @@ function loadFixture(name: string): FixtureRace {
     distanceNm: Number(attr(tag, 'distance')),
     courseDeg: Number(attr(tag, 'course')),
     windDirectionDeg: Number(attr(tag, 'windDirection')),
+    // The module treats windSpeed="0" as absent, so the fixture's zeros must
+    // not become a fixed-wind course here either.
+    ...(Number(attr(tag, 'windSpeed') ?? '0') > 0
+      ? { windSpeedKts: Number(attr(tag, 'windSpeed')) }
+      : {}),
     ...(attr(tag, 'currentSpeed') != null
       ? {
           currentSpeedKts: Number(attr(tag, 'currentSpeed')),
@@ -103,7 +115,7 @@ function expectRel(actual: number, reference: number, relTol: number, label: str
 // current attributes "currently ignored — not implemented", so the current
 // correction is validated against the reference code path behaviourally
 // below rather than against WPCS.dll.
-const PARITY_FIXTURES = ['pcs-wl', 'pcs-cc', 'pcs-cc-boatiw', 'ar'];
+const PARITY_FIXTURES = ['pcs-wl', 'pcs-cc', 'pcs-cc-fixedwind', 'pcs-cc-boatiw', 'ar'];
 
 describe('orc-pcs parity with the ORC PCS service', () => {
   for (const name of PARITY_FIXTURES) {
@@ -184,6 +196,54 @@ describe('orc-pcs behaviour', () => {
     for (let j = 0; j < plain.boats[0].curve.length; j++) {
       expect(withFoul.boats[0].curve[j]).toBeGreaterThan(plain.boats[0].curve[j]);
     }
+  });
+
+  it('a wind speed on every leg fixes the wind: a flat curve, and the implied wind is the legs\' own', () => {
+    const cc = loadFixture('pcs-cc');
+    if (!('legs' in cc.course)) throw new Error('expected a constructed course');
+    // Half the course at 8 kt and half at 12, by distance — so the weighted
+    // average is not either of them, and lands off every tabulated speed.
+    const total = cc.course.legs.reduce((sum, leg) => sum + leg.distanceNm, 0);
+    let covered = 0;
+    const legs = cc.course.legs.map((leg) => {
+      covered += leg.distanceNm;
+      return { ...leg, windSpeedKts: covered <= total / 2 ? 8 : 12 };
+    });
+    const expected =
+      legs.reduce((sum, leg) => sum + leg.windSpeedKts * leg.distanceNm, 0) / total;
+
+    const result = scorePcsRace({ course: { legs }, boats: cc.boats });
+    expect(result.scoringWind).toBeCloseTo(expected, 9);
+    for (const boat of result.boats) {
+      // One allowance, at every tabulated wind speed: nothing about the race
+      // is being read off the wind axis any more.
+      expect(new Set(boat.curve.map((v) => v.toFixed(9))).size).toBe(1);
+      expect(boat.todAtScoringWind).toBeCloseTo(boat.curve[0], 9);
+      // Every boat's "implied wind" is that same average — which is why the
+      // engine records it as the recorded wind and publishes no implied wind.
+      expect(boat.impliedWind).toBeCloseTo(expected, 9);
+    }
+    // A flat curve is not invertible, so how fast a boat sailed cannot move
+    // the wind the fleet is scored at.
+    const slower = scorePcsRace({
+      course: { legs },
+      boats: cc.boats.map((boat) => ({ ...boat, elapsedSeconds: boat.elapsedSeconds * 2 })),
+    });
+    expect(slower.scoringWind).toBeCloseTo(expected, 9);
+    expect(slower.scratchTod).toBeCloseTo(result.scratchTod, 9);
+  });
+
+  it('a leg wind speed outside the certificate\'s range clamps to its ends', () => {
+    const cc = loadFixture('pcs-cc');
+    if (!('legs' in cc.course)) throw new Error('expected a constructed course');
+    const legs = cc.course.legs;
+    const at = (kt: number) =>
+      scorePcsRace({
+        course: { legs: legs.map((leg) => ({ ...leg, windSpeedKts: kt })) },
+        boats: cc.boats,
+      });
+    expect(at(1).boats[0].todAtScoringWind).toBeCloseTo(at(4).boats[0].todAtScoringWind, 9);
+    expect(at(60).boats[0].todAtScoringWind).toBeCloseTo(at(24).boats[0].todAtScoringWind, 9);
   });
 
   it('a non-finisher still gets an allowance at the scoring wind but no implied wind', () => {

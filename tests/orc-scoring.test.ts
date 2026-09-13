@@ -311,6 +311,167 @@ describe('ORC Performance Curve Scoring in the standings engine', () => {
   });
 });
 
+describe("ORC constructed course at the recorded wind (ORC Scorer's ToT/ToD - Constructed)", () => {
+  /**
+   * Parity against ORC Scorer itself, not just against the PCS module: a
+   * real published race, scored by ORC on the constructed course below at
+   * the 9 kt its own course table records on every leg, with the resulting
+   * allowance applied time-on-time. The fixture carries that page's boats,
+   * legs, finish times, ratings and corrected times, and the boats' own
+   * certificates as the ORC database serves them.
+   */
+  interface CorkFixture {
+    startTime: string;
+    windSpeedKts: number;
+    windDirectionDeg: number;
+    distanceNm: number;
+    legs: Array<{ distanceNm: number; bearingDeg: number }>;
+    boats: Array<{
+      sailNumber: string;
+      boatName: string;
+      finishTime: string;
+      published: { place: number; tot: number; correctedTime: string };
+      allowances: Record<string, unknown>;
+    }>;
+  }
+  const cork: CorkFixture = JSON.parse(
+    readFileSync(join(process.cwd(), 'tests/fixtures/orc/orc-scorer-cork-tot-constructed.json'), 'utf-8'),
+  );
+  const corkLegs = cork.legs.map((leg) => ({
+    distanceNm: leg.distanceNm,
+    bearingDeg: leg.bearingDeg,
+    windDirectionDeg: cork.windDirectionDeg,
+    windSpeedKts: cork.windSpeedKts,
+  }));
+  const corkCompetitors: Competitor[] = cork.boats.map((boat) => ({
+    ...baseComp,
+    id: boat.sailNumber,
+    sailNumber: boat.sailNumber,
+    boatName: boat.boatName,
+    orcCert: { record: { YachtName: boat.boatName, Allowances: boat.allowances }, importedAt: 0 },
+  }));
+  const corkFinishes = cork.boats.map((boat, i) => finish(boat.sailNumber, i, boat.finishTime));
+  const corkStart: RaceStart = {
+    ...start, startTime: cork.startTime, courseLegs: corkLegs,
+  };
+  const corkFleet = (option: 'CC_TOT' | 'CC_TOD'): Fleet => ({
+    ...fleet,
+    orcProfile: { option, kind: option === 'CC_TOT' ? 'tot' : 'tod' },
+  });
+
+  it("reproduces ORC Scorer's published ratings, corrected times and order", () => {
+    const result = calculateFleetStandings(
+      [corkFleet('CC_TOT')], corkCompetitors, races, corkFinishes, [], 'seriesEntries', [corkStart],
+    );
+    const entry = result.fleetStandings[0];
+    expect(entry.raceGaps).toEqual([]);
+    const scores = entry.orcRaceScoresByRaceId!.get('r1')!;
+
+    for (const boat of cork.boats) {
+      const got = scores.get(boat.sailNumber)!;
+      // ORC publishes the rating to 4 dp; ours must round to the same.
+      expect(got.tcfApplied!.toFixed(4), boat.boatName).toBe(boat.published.tot.toFixed(4));
+      const [h, m, sec] = boat.published.correctedTime.split(':').map(Number);
+      expect(got.correctedTime, boat.boatName).toBe(h * 3600 + m * 60 + sec);
+      // The wind is the course record, so no implied wind is claimed.
+      expect(got.orc?.windRecorded).toBe(true);
+      expect(got.orc?.impliedWind).toBeUndefined();
+      expect(got.orc?.scoringWind).toBeCloseTo(cork.windSpeedKts, 9);
+      expect(got.orc?.totApplied).toBeCloseTo(got.tcfApplied!, 9);
+      // 600 / the course allowance is the rating, per rule 403.3.
+      expect(600 / got.orc!.todApplied!).toBeCloseTo(got.orc!.totApplied!, 9);
+      // Time-on-time anchors on nothing, so there is no scratch allowance.
+      expect(got.orc?.scratchTod).toBeUndefined();
+    }
+    // And the order, which is the point: it is not the order performance
+    // curves give these same finishes.
+    expect([...entry.standings].sort((a, b) => a.rank - b.rank).map((s) => s.competitor.boatName))
+      .toEqual(cork.boats.map((b) => b.boatName));
+    expect(scores.get(cork.boats[0].sailNumber)!.orc?.distanceNm).toBeCloseTo(cork.distanceNm, 9);
+  });
+
+  it('performance curves over the same course and finishes rank the fleet differently', () => {
+    const pcs = calculateFleetStandings(
+      [{ ...fleet, orcProfile: { option: 'CC', kind: 'pcs' } }],
+      corkCompetitors, races, corkFinishes, [], 'seriesEntries',
+      // PCS derives the wind, so the legs carry none.
+      [{ ...corkStart, courseLegs: corkLegs.map(({ windSpeedKts: _drop, ...leg }) => leg) }],
+    );
+    const order = [...pcs.fleetStandings[0].standings]
+      .sort((a, b) => a.rank - b.rank)
+      .map((s) => s.competitor.boatName);
+    expect(order).not.toEqual(cork.boats.map((b) => b.boatName));
+  });
+
+  it('the time-on-distance form corrects against the scratch allowance over the course', () => {
+    const result = calculateFleetStandings(
+      [corkFleet('CC_TOD')], corkCompetitors, races, corkFinishes, [], 'seriesEntries', [corkStart],
+    );
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    const calcs = [...scores.values()].map((s) => s.orc!);
+    const scratchTod = Math.min(...calcs.map((c) => c.todApplied!));
+    for (const calc of calcs) {
+      // The rating applied is the allowance itself, not 600 over it.
+      expect(calc.scratchTod).toBeCloseTo(scratchTod, 9);
+      expect(calc.totApplied).toBeUndefined();
+    }
+    // The scratch boat's corrected time is its elapsed time.
+    const scratch = [...scores.values()].find((s) => s.orc!.todApplied === scratchTod)!;
+    expect(scratch.correctedTime).toBe(scratch.elapsedTime);
+  });
+
+  it('a leg with no wind speed leaves the race unscored and reports the gap', () => {
+    const short = corkLegs.map((leg, i) => (i === 3 ? { ...leg, windSpeedKts: undefined } : leg));
+    const result = calculateFleetStandings(
+      [corkFleet('CC_TOT')], corkCompetitors, races, corkFinishes, [], 'seriesEntries',
+      [{ ...corkStart, courseLegs: short }],
+    );
+    const entry = result.fleetStandings[0];
+    expect(entry.raceGaps).toEqual([
+      { raceId: 'r1', fleetId: fleet.id, reason: 'orc_course_missing', option: 'CC_TOT' },
+    ]);
+    expect(entry.standings.every((s) => s.raceRanks[0] === null)).toBe(true);
+  });
+
+  it('the rule 402.12 override does not touch a wind that was recorded', () => {
+    const result = calculateFleetStandings(
+      [corkFleet('CC_TOT')], corkCompetitors, races, corkFinishes, [], 'seriesEntries',
+      [{ ...corkStart, orcScoringWind: 20 }],
+    );
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    for (const boat of cork.boats) {
+      const got = scores.get(boat.sailNumber)!;
+      expect(got.orc?.scoringWind).toBeCloseTo(cork.windSpeedKts, 9);
+      expect(got.orc?.scoringWindOverridden).toBeUndefined();
+      expect(got.tcfApplied!.toFixed(4)).toBe(boat.published.tot.toFixed(4));
+    }
+  });
+
+  it('a boat with no allowance matrix is unrated on a recorded-wind fleet', () => {
+    const bare: Competitor = {
+      ...baseComp, id: 'bare', sailNumber: 'X',
+      orcCert: { record: { APHT: 0.95 }, importedAt: 0 },
+    };
+    const result = calculateFleetStandings(
+      [corkFleet('CC_TOT')], [...corkCompetitors, bare], races, corkFinishes, [], 'seriesEntries', [corkStart],
+    );
+    expect(result.fleetStandings[0].rejections.some((r) => r.competitorId === 'bare')).toBe(true);
+  });
+
+  it('a start can name the option for one race, leaving the fleet on curves', () => {
+    const perRace: RaceStart = { ...corkStart, orcOption: 'CC_TOT' };
+    const result = calculateFleetStandings(
+      [{ ...fleet, orcProfile: { option: 'CC', kind: 'pcs' } }],
+      corkCompetitors, races, corkFinishes, [], 'seriesEntries', [perRace],
+    );
+    const scores = result.fleetStandings[0].orcRaceScoresByRaceId!.get('r1')!;
+    const got = scores.get(cork.boats[0].sailNumber)!;
+    expect(got.orc?.option).toBe('CC_TOT');
+    expect(got.orc?.windRecorded).toBe(true);
+    expect(got.tcfApplied!.toFixed(4)).toBe(cork.boats[0].published.tot.toFixed(4));
+  });
+});
+
 describe('ORC wind-band selection (per-start option)', () => {
   const { rms } = parseOrcRmsJson(
     readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),

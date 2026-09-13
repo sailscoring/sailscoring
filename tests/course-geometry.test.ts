@@ -16,6 +16,7 @@ import {
   positionFrom,
   proposeCourseName,
   proposeMarkName,
+  recordedWindSummary,
   resolveCourse,
   sequenceMatchesCard,
   shortDayLabel,
@@ -183,6 +184,34 @@ describe('a start’s legs and snapshot', () => {
     ]);
   });
 
+  it('spreads a recorded wind speed over every leg, and keeps it in the snapshot', () => {
+    const legs = legsForStart(resolveCourse(course.marks, marksById).legs, 190, 9);
+    expect(legs).toEqual([
+      { distanceNm: 0.54, bearingDeg: 190, windDirectionDeg: 190, windSpeedKts: 9 },
+      { distanceNm: 0.54, bearingDeg: 10, windDirectionDeg: 190, windSpeedKts: 9 },
+    ]);
+    // Held on the snapshot too, so a recompute puts it back rather than
+    // dropping it and leaving the race unscored.
+    expect(snapshotOfCourse(course, marksById, 190, 9)).toMatchObject({ windSpeedKts: 9 });
+    expect(snapshotOfCourse(course, marksById, 190)).not.toHaveProperty('windSpeedKts');
+  });
+
+  it('reads what the legs say the wind was, or that a leg is missing it', () => {
+    const at = (speeds: Array<number | undefined>) =>
+      recordedWindSummary(speeds.map((windSpeedKts) => ({
+        distanceNm: 1, bearingDeg: 0, windDirectionDeg: 190,
+        ...(windSpeedKts != null ? { windSpeedKts } : {}),
+      })));
+    expect(at([9, 9])).toBe('9 kt');
+    expect(at([8, 14])).toBe('8–14 kt');
+    expect(at([9, undefined])).toBe('wind speed missing');
+    // No leg carries one: the ordinary case, and the one performance curves
+    // are in — nothing to say rather than something missing.
+    expect(at([undefined, undefined])).toBeNull();
+    expect(recordedWindSummary(undefined)).toBeNull();
+    expect(recordedWindSummary([])).toBeNull();
+  });
+
   it('knows when the legs were edited: split, nudged, per-leg wind, or current', () => {
     const fromCourse = legsForStart(resolveCourse(course.marks, marksById).legs, 190);
     expect(legsMatch(fromCourse, fromCourse)).toBe(true);
@@ -190,6 +219,7 @@ describe('a start’s legs and snapshot', () => {
     expect(legsMatch([{ ...fromCourse[0], distanceNm: 0.55 }, fromCourse[1]], fromCourse)).toBe(false);
     expect(legsMatch([{ ...fromCourse[0], windDirectionDeg: 195 }, fromCourse[1]], fromCourse)).toBe(false);
     expect(legsMatch([{ ...fromCourse[0], currentSpeedKts: 1 }, fromCourse[1]], fromCourse)).toBe(false);
+    expect(legsMatch([{ ...fromCourse[0], windSpeedKts: 9 }, fromCourse[1]], fromCourse)).toBe(false);
     // 359.9 and 0.0 are the same bearing
     expect(legsMatch([{ distanceNm: 1, bearingDeg: 359.95, windDirectionDeg: 0 }], [{ distanceNm: 1, bearingDeg: 0, windDirectionDeg: 0 }])).toBe(true);
   });

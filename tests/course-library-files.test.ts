@@ -173,6 +173,28 @@ describe('.sailscoring v45 course library round-trip', () => {
     expect(reparsed.courses).toEqual(file.courses);
   });
 
+  it('carries a recorded-wind course: the speed on every leg and on the snapshot', async () => {
+    const recorded: RaceStart = {
+      ...start,
+      orcOption: 'CC_TOT',
+      courseLegs: start.courseLegs!.map((leg) => ({ ...leg, windSpeedKts: 9 })),
+      course: { ...start.course!, windSpeedKts: 9 },
+    };
+    const built = await buildSeriesFile('s1', makeRecordingRepos({
+      ...snapshot,
+      raceStarts: [recorded],
+    }).repos);
+    expect(built.races[0].starts[0].courseLegs).toEqual(recorded.courseLegs);
+    expect(built.races[0].starts[0].course).toEqual(recorded.course);
+
+    // Round-tripping must not drop the speeds: without them the option has
+    // no wind to score at and the race comes back unscored.
+    const { repos, savedStarts } = makeRecordingRepos();
+    await openSeriesFromFile(parseSeriesFile(JSON.stringify(built)), repos);
+    expect(savedStarts[0].courseLegs).toEqual(recorded.courseLegs);
+    expect(savedStarts[0].course?.windSpeedKts).toBe(9);
+  });
+
   it('a series with no library writes no marks or courses keys', async () => {
     const file = await buildSeriesFile('s1', makeRecordingRepos({ ...snapshot, marks: [], courses: [] }).repos);
     expect(file.marks).toBeUndefined();
@@ -279,6 +301,23 @@ describe('public export course library round-trip', () => {
     expect(saved.waypoints.map((w) => w.markId)).toEqual(savedCourses[0].marks.map((cm) => cm.markId));
     expect(saved.waypoints[1]).toMatchObject({ label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' });
     expect(saved.legsEdited).toBe(true);
+  });
+
+  it('carries a recorded-wind course through the public export', async () => {
+    const recorded: RaceStart = {
+      ...start,
+      orcOption: 'CC_TOT',
+      courseLegs: start.courseLegs!.map((leg) => ({ ...leg, windSpeedKts: 9 })),
+      course: { ...start.course!, windSpeedKts: 9 },
+    };
+    const data = buildPublicExportFromSnapshot({ ...snapshot, raceStarts: [recorded] })!;
+    expect(data.races[0].starts[0].courseLegs).toEqual(recorded.courseLegs);
+    expect(data.races[0].starts[0].course?.windSpeedKts).toBe(9);
+
+    const { repos, savedStarts } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    expect(savedStarts[0].courseLegs).toEqual(recorded.courseLegs);
+    expect(savedStarts[0].course?.windSpeedKts).toBe(9);
   });
 
   it('an export with no library imports a start snapshot without references', async () => {

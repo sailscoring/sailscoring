@@ -2637,11 +2637,15 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined, appliedAsTot = 
   // than allowances. Saying so is cheaper than a competitor finding it.
   const interpolated =
     'Between tabulated wind speeds the curve is interpolated through boat speeds rather than allowances,';
-  // Time-on-time never anchors on a scratch allowance, so what the weights
-  // add up to is the allowance this boat's own rating came out of.
+  // Time-on-time anchors on no scratch allowance, so the weights are not
+  // what the fleet was corrected on; and the rating is a step further on
+  // from the allowance, which is worth saying whichever branch runs.
   const whatItIs = appliedAsTot
-    ? `the allowance ${boat ? `${esc(boat)}&rsquo;s` : 'its'} time-on-time rating is 600 divided by`
+    ? 'the allowance this race was scored on'
     : 'the allowance the fleet was corrected on';
+  const totNote = appliedAsTot
+    ? ' A time-on-time rating is 600 divided by the applied allowance.'
+    : '';
   const reconcile = mix.exact
     ? `The scoring wind landed on a tabulated speed, so one column carries the whole rating: these weights come to <strong>${mix.weightedSum.toFixed(1)} s/NM</strong>, ${whatItIs}.`
     : Math.abs(mix.weightedSum - mix.appliedTod) < 0.05
@@ -2655,7 +2659,7 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined, appliedAsTot = 
     `<table class="orc-mix-grid"><thead><tr><th class="mcorner">Time allowances in secs/NM</th>${head}<th class="mtot">Course</th></tr></thead>\n` +
     `<tbody>\n${body}\n</tbody>\n` +
     `<tfoot><tr><th scope="row">Wind weight</th>${foot}<td class="mtot">&nbsp;</td></tr></tfoot></table>\n` +
-    `<p class="orc-mix-note">Read off ${whose}, at ${at}. ${reconcile}</p>`
+    `<p class="orc-mix-note">Read off ${whose}, at ${at}. ${reconcile}${totNote}</p>`
   );
 }
 

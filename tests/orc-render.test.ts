@@ -4,7 +4,7 @@ import {
   assembleSeriesResultsData,
   renderSeriesHtml,
 } from '@/lib/results-renderer';
-import type { OrcCertData, OrcRaceCalc, RaceStartCourse } from '@/lib/types';
+import type { OrcCertData, OrcCourseLeg, OrcRaceCalc, RaceStartCourse } from '@/lib/types';
 
 import sampleCerts from '@/scripts/data/orc-sample-certs.json';
 
@@ -34,14 +34,17 @@ function gridOf(html: string): string {
 
 function assemble(options: {
   orc: (id: string) => OrcRaceCalc;
-  raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: Array<{ distanceNm: number; bearingDeg: number; windDirectionDeg: number }>; course?: RaceStartCourse }>;
+  raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: OrcCourseLeg[]; course?: RaceStartCourse }>;
   /** Certificates on the competitors — without them there is no allowance
    *  matrix to mix, and the handicap-mix fold is correctly absent. */
   certs?: boolean;
 }) {
+  // The applied rating is the ToT where the option applies one, and the
+  // allowance otherwise — the same choice the engine makes.
+  const applied = (id: string) => options.orc(id).totApplied ?? options.orc(id).todApplied;
   const scores = new Map([
-    ['c1', { points: 1, place: 1, rank: 1, resultCode: null, finishTime: '15:00:00', tcfApplied: options.orc('c1').todApplied, elapsedTime: 3600, correctedTime: 3591, orc: options.orc('c1') }],
-    ['c2', { points: 2, place: 2, rank: 2, resultCode: null, finishTime: '15:01:00', tcfApplied: options.orc('c2').todApplied, elapsedTime: 3660, correctedTime: 3612, orc: options.orc('c2') }],
+    ['c1', { points: 1, place: 1, rank: 1, resultCode: null, finishTime: '15:00:00', tcfApplied: applied('c1'), elapsedTime: 3600, correctedTime: 3591, orc: options.orc('c1') }],
+    ['c2', { points: 2, place: 2, rank: 2, resultCode: null, finishTime: '15:01:00', tcfApplied: applied('c2'), elapsedTime: 3660, correctedTime: 3612, orc: options.orc('c2') }],
   ]);
   const boats = {
     c1: { id: 'c1', sailNumber: 'IRL 2507', names: ['Impetuous'] },
@@ -377,5 +380,77 @@ describe('published ORC handicap mix', () => {
     );
     expect(html).toContain('Scored on ORC time-on-distance');
     expect(html).not.toContain('Show handicap mix');
+  });
+});
+
+describe('published transparency for a recorded-wind race', () => {
+  const legs: OrcCourseLeg[] = [
+    { distanceNm: 2.09, bearingDeg: 162, windDirectionDeg: 225, windSpeedKts: 9 },
+    { distanceNm: 0.19, bearingDeg: 316, windDirectionDeg: 225, windSpeedKts: 9 },
+  ];
+  const totCalc = (id: string): OrcRaceCalc => ({
+    option: 'CC_TOT',
+    todApplied: id === 'c1' ? 650 : 671,
+    totApplied: id === 'c1' ? 0.9231 : 0.8942,
+    distanceNm: 2.28,
+    scoringWind: 9,
+    windRecorded: true,
+    courseModel: 'CC',
+  });
+  const starts = (courseLegs: OrcCourseLeg[]) => [
+    { raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00', courseLegs },
+  ];
+
+  it('names the wind as recorded, the correction applied, and no implied wind', () => {
+    const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs) }));
+    expect(html).toContain('Scored on ORC performance curves at the recorded wind');
+    expect(html).toContain('Wind 9.00 kt');
+    expect(html).toContain('Time-on-time');
+    // Nothing was derived from how the boats sailed, so nothing claims to be.
+    expect(html).not.toContain('implied wind');
+    expect(html).not.toContain('<th>Implied wind</th>');
+    expect(html).not.toContain('Scratch allowance');
+    // The rating is a multiplier, to the four decimals ORC publishes.
+    expect(html).toContain('<th>ToT</th>');
+    expect(html).toContain('>0.9231</td>');
+    expect(html).toContain('>0.8942</td>');
+  });
+
+  it("records each leg's wind speed beside its bearing", () => {
+    const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs) }));
+    expect(html).toContain('2.09 NM @ 162&deg; (wind 225&deg; at 9 kt)');
+    expect(html).toContain('0.19 NM @ 316&deg; (wind 225&deg; at 9 kt)');
+  });
+
+  it('the handicap mix says what the weights are the allowance for', () => {
+    const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs), certs: true }));
+    expect(html).toContain('Show handicap mix');
+    expect(html).toContain('at the wind recorded on the course, 9.00 kt');
+    expect(html).toContain('A time-on-time rating is 600 divided by the applied allowance.');
+    expect(html).not.toContain('the allowance the fleet was corrected on');
+  });
+
+  it('legs recorded at different wind speeds get no mix', () => {
+    const mixed = legs.map((leg, i) => ({ ...leg, windSpeedKts: i === 0 ? 8 : 14 }));
+    const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(mixed), certs: true }));
+    expect(html).toContain('Scored on ORC performance curves at the recorded wind');
+    expect(html).not.toContain('Show handicap mix');
+  });
+
+  it('the time-on-distance form keeps the scratch allowance and the ToD column', () => {
+    const todCalc = (id: string): OrcRaceCalc => ({
+      option: 'CC_TOD',
+      todApplied: id === 'c1' ? 650 : 671,
+      scratchTod: 650,
+      distanceNm: 2.28,
+      scoringWind: 9,
+      windRecorded: true,
+      courseModel: 'CC',
+    });
+    const html = renderSeriesHtml(assemble({ orc: todCalc, raceStarts: starts(legs) }));
+    expect(html).toContain('Time-on-distance');
+    expect(html).toContain('Scratch allowance 650.0 s/NM');
+    expect(html).toContain('<th>ToD</th>');
+    expect(html).not.toContain('<th>Implied wind</th>');
   });
 });

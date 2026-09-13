@@ -4,11 +4,17 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  ORC_STANDARD_OPTIONS,
   isOrcCertExpired,
   mergeOrcFeeds,
   orcActiveCertsUrl,
   orcCertificatePageUrl,
+  orcConstructedOption,
+  orcCurveOption,
+  orcOptionKind,
+  orcProfileRating,
   orcRecordNumber,
+  orcRecordedWindOption,
   orcRmsUrl,
   orcVppYears,
   parseOrcActiveCerts,
@@ -114,6 +120,44 @@ describe('certificate validity helpers', () => {
   it('collects distinct VPP years for the same-year warning', () => {
     expect(orcVppYears([{ vppYear: 2026 }, { vppYear: 2026 }, {}])).toEqual([2026]);
     expect(orcVppYears([{ vppYear: 2025 }, { vppYear: 2026 }])).toEqual([2025, 2026]);
+  });
+});
+
+describe('scoring options', () => {
+  it('the recorded-wind options are computed over the start\'s own course', () => {
+    for (const option of ['CC_TOT', 'CC_TOD']) {
+      expect(ORC_STANDARD_OPTIONS.some((o) => o.option === option)).toBe(true);
+      expect(orcRecordedWindOption(option)).toBe(true);
+      expect(orcCurveOption(option)).toBe(true);
+      expect(orcConstructedOption(option)).toBe(true);
+    }
+    // The kind is the correction, so the engine reaches them the same way it
+    // reaches a certificate field.
+    expect(orcOptionKind('CC_TOT')).toBe('tot');
+    expect(orcOptionKind('CC_TOD')).toBe('tod');
+  });
+
+  it('performance curves are computed too, but derive their own wind', () => {
+    for (const option of ['WL', 'CR', 'OC', 'CC']) {
+      expect(orcCurveOption(option)).toBe(true);
+      expect(orcRecordedWindOption(option)).toBe(false);
+    }
+    expect(orcConstructedOption('CC')).toBe(true);
+    expect(orcConstructedOption('WL')).toBe(false);
+  });
+
+  it('a certificate field is read, not computed', () => {
+    for (const option of ['APHT', 'APHD', 'IRL_5B_WL_M_TOT', 'TN_Inshore_Low']) {
+      expect(orcCurveOption(option)).toBe(false);
+      expect(orcRecordedWindOption(option)).toBe(false);
+      expect(orcConstructedOption(option)).toBe(false);
+    }
+    // No rating is read off the certificate for a computed option, even
+    // though the name ends the way a time-on-time field does.
+    expect(orcProfileRating(
+      { orcCert: { record: { APHT: 0.95, CC_TOT: 1.23 }, importedAt: 0 } },
+      { option: 'CC_TOT', kind: 'tot' },
+    )).toBeNull();
   });
 });
 
