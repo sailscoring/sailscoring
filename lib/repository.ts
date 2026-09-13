@@ -99,6 +99,13 @@ export type SeriesPublishPrefs = Partial<
   >
 >;
 
+/**
+ * The explanatory notes carried by published pages — the series-wide one and
+ * the per-page ones. Published output, not configuration: a note is written in
+ * the publish dialog, about results that are going out.
+ */
+export type SeriesNotes = Partial<Pick<Series, 'seriesNote' | 'pageNotes'>>;
+
 export interface SeriesRepository {
   list(): Promise<Series[]>;
   get(id: string): Promise<Series | undefined>;
@@ -122,6 +129,16 @@ export interface SeriesRepository {
    * race against a real edit either.
    */
   setPublishPrefs(id: string, prefs: SeriesPublishPrefs): Promise<Series | undefined>;
+  /**
+   * Write the published-page notes and nothing else.
+   *
+   * A note does change what goes out, so unlike publish bookkeeping this bumps
+   * `version` and `lastModifiedAt` in the same statement — it is an edit, and
+   * the publish indicators should count it as one. What it does not do is
+   * carry the whole row: a note typed in the publish dialog has no business
+   * colliding with, or clobbering, a real edit made meanwhile.
+   */
+  setNotes(id: string, notes: SeriesNotes, opts?: SaveOpts): Promise<Series | undefined>;
 }
 
 /**

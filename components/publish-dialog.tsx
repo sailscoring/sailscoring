@@ -43,7 +43,7 @@ import {
 import { PageNoteEditor } from '@/components/page-note-editor';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
-import { useUpdateSeries, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
+import { useUpdateSeriesNotes, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { FtpPublishPane } from '@/components/ftp-publish-pane';
@@ -134,7 +134,7 @@ interface SuppressedRow {
  * ("tuesday-puppeteers-hph") when several series share one slug.
  */
 export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored = [] }: PublishDialogProps) {
-  const updateSeries = useUpdateSeries();
+  const updateNotes = useUpdateSeriesNotes();
   const updatePublishPrefs = useUpdateSeriesPublishPrefs();
   const confirm = useConfirm();
   const { has } = useFeatures();
@@ -581,9 +581,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
   const SERIES_NOTE = '@every-page';
 
   function saveNote(page: NotePageRef | null, text: string) {
-    updateSeries.mutate({
+    updateNotes.mutate({
       id: series.id,
-      patch:
+      notes:
         page === null
           ? () => ({ seriesNote: text })
           : (s) => ({ pageNotes: withPageNote(s.pageNotes, page, text) }),
@@ -1464,9 +1464,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
                       variant="ghost"
                       className="h-7 shrink-0 px-2 text-xs"
                       onClick={() =>
-                        updateSeries.mutate({
+                        updateNotes.mutate({
                           id: series.id,
-                          patch: (s) => ({
+                          notes: (s) => ({
                             pageNotes: (s.pageNotes ?? []).filter((n) => n.page !== note.page),
                           }),
                         })

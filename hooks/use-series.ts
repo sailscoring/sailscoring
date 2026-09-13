@@ -17,11 +17,12 @@ import {
   locateSeries,
   recordFtpUpload,
   setSeriesCategory,
+  setSeriesNotes,
   setSeriesPublishPrefs,
   setSeriesResultsStatus,
 } from '@/lib/api-repository';
 import type { SeriesLocation } from '@/lib/api-handlers/series';
-import type { SeriesPublishPrefs } from '@/lib/repository';
+import type { SeriesNotes, SeriesPublishPrefs } from '@/lib/repository';
 import { ConflictApiError } from '@/lib/api-client';
 import type { Series } from '@/lib/types';
 
@@ -221,6 +222,44 @@ export function useUpdateSeriesPublishPrefs() {
     },
     // Same scope as the row saves, so a preference write can't interleave
     // with an in-flight save of the same row.
+    scope: { id: 'series' },
+  });
+}
+
+/**
+ * Write the explanatory note carried by published pages, and nothing else.
+ *
+ * Not `useUpdateSeries`: a sentence typed in the publish dialog should not
+ * carry the whole series row back and collide with a real edit made
+ * meanwhile — and the row save refuses a finalised series, whose results a
+ * scorer is still entitled to publish, and to annotate when they do. It is
+ * still an edit, so the version moves with it.
+ */
+export function useUpdateSeriesNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      notes,
+    }: {
+      id: string;
+      // Functional form for the same reason `SeriesPatch` has one: the page
+      // note list is merged into, so it must be computed inside the
+      // serialized mutation against the freshest row, not at click time.
+      notes: SeriesNotes | ((current: Series) => SeriesNotes);
+    }) => {
+      if (typeof notes !== 'function') return setSeriesNotes(id, notes);
+      const cached = qc.getQueryData<Series | null>(queryKeys.series.detail(id));
+      const current = cached ?? (await seriesRepo.get(id)) ?? null;
+      if (!current) throw new Error(`series ${id} not found`);
+      return setSeriesNotes(id, notes(current));
+    },
+    onSuccess: (saved) => {
+      qc.setQueryData(queryKeys.series.detail(saved.id), saved);
+      qc.invalidateQueries({ queryKey: queryKeys.series.list() });
+    },
+    // Same scope as the row saves, so a note can't interleave with an
+    // in-flight save of the same row.
     scope: { id: 'series' },
   });
 }

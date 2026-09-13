@@ -33,6 +33,7 @@ import type {
   SaveOpts,
   SeriesCourseRepository,
   SeriesMarkRepository,
+  SeriesNotes,
   SeriesPublishPrefs,
   SeriesRepository,
   SubSeriesRepository,
@@ -99,6 +100,14 @@ class ApiSeriesRepository implements SeriesRepository {
     return apiFetch<Series | undefined>(`/api/v1/series/${id}/publish-prefs`, {
       method: 'PATCH',
       body: prefs,
+      allow404: true,
+    });
+  }
+
+  setNotes(id: string, notes: SeriesNotes): Promise<Series | undefined> {
+    return apiFetch<Series | undefined>(`/api/v1/series/${id}/notes`, {
+      method: 'PATCH',
+      body: notes,
       allow404: true,
     });
   }
@@ -757,6 +766,20 @@ export function setSeriesPublishPrefs(
   return apiFetch<Series>(`/api/v1/series/${seriesId}/publish-prefs`, {
     method: 'PATCH',
     body: prefs,
+  });
+}
+
+/**
+ * Write the explanatory note carried by published pages, and nothing else.
+ * A real edit — the note appears on the page, so the version moves — but a
+ * narrow one: the publish dialog doesn't carry the whole series row back, and
+ * the note can be written on a finalised series, whose results may still be
+ * published.
+ */
+export function setSeriesNotes(seriesId: string, notes: SeriesNotes): Promise<Series> {
+  return apiFetch<Series>(`/api/v1/series/${seriesId}/notes`, {
+    method: 'PATCH',
+    body: notes,
   });
 }
 

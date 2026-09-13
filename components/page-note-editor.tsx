@@ -21,6 +21,7 @@ import {
   withPageNote,
   type NotePageRef,
 } from '@/lib/page-note';
+import type { SeriesNotes } from '@/lib/repository';
 import type { Series } from '@/lib/types';
 
 /** A note as its reader will meet it — the same parse the published HTML
@@ -148,7 +149,7 @@ export function PageNoteStrip({
   page: NotePageRef;
   /** How the page is named in the picker above — the note's label. */
   pageLabel: string;
-  onSave: (patch: (s: Series) => Partial<Series>) => void;
+  onSave: (notes: (s: Series) => SeriesNotes) => void;
 }) {
   const [editing, setEditing] = useState<'page' | 'series' | null>(null);
   const pageNote = pageNoteFor(series.pageNotes, page);

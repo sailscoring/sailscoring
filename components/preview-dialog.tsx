@@ -26,7 +26,8 @@ import * as repos from '@/lib/api-repository';
 import { buildFleetHtmlFiles, fleetHtmlFilename, fleetPdfTitle, triggerDownload } from '@/lib/results-export';
 import { useFeatures } from '@/components/features-provider';
 import { PageNoteStrip } from '@/components/page-note-editor';
-import { useUpdateSeries } from '@/hooks/use-series';
+import { useUpdateSeriesNotes } from '@/hooks/use-series';
+import type { SeriesNotes } from '@/lib/repository';
 import type { Fleet, Series } from '@/lib/types';
 
 type FleetHtmlFile = { fleetName: string; isDefault: boolean; subSeriesName?: string; html: string };
@@ -58,7 +59,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
   const includeEntryList = has('entry-list');
   const includeTrackData = has('racesense-import');
   const includePageNotes = has('page-notes');
-  const updateSeries = useUpdateSeries();
+  const updateNotes = useUpdateSeriesNotes();
   const [files, setFiles] = useState<FleetHtmlFile[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'idle' | 'error'>('loading');
@@ -106,9 +107,9 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
   // it land in the page, which is the reason to write it here rather than in
   // the publish dialog. The page list is unchanged by a note, so the current
   // selection stays valid and the preview does not jump.
-  function saveNote(patch: (s: Series) => Partial<Series>) {
-    updateSeries.mutate(
-      { id: series.id, patch },
+  function saveNote(notes: (s: Series) => SeriesNotes) {
+    updateNotes.mutate(
+      { id: series.id, notes },
       { onSuccess: () => buildFiles().then((built) => built && setFiles(built)) },
     );
   }

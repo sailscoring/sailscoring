@@ -21,6 +21,7 @@ import {
   type SaveOpts,
   type SeriesCourseRepository,
   type SeriesMarkRepository,
+  type SeriesNotes,
   type SeriesPublishPrefs,
   type SeriesRepository,
   type SubSeriesRepository,
@@ -781,6 +782,45 @@ export class PostgresSeriesRepository implements SeriesRepository {
     const [row] = await this.db
       .update(schema.series)
       .set({ ...patch, updatedAt: sql`now()` })
+      .where(
+        and(
+          eq(schema.series.id, id),
+          eq(schema.series.workspaceId, this.workspaceId),
+        ),
+      )
+      .returning();
+    return row ? seriesRowToType(row) : undefined;
+  }
+
+  /**
+   * The published-page notes, and nothing else.
+   *
+   * A note changes what goes out, so this is a real edit: `version` and
+   * `lastModifiedAt` move with it and `updatedBy` names whoever typed it. The
+   * narrowness is the point — the note is written from the publish dialog,
+   * which has no business carrying the whole series row back and colliding
+   * with a real edit made meanwhile.
+   */
+  async setNotes(
+    id: string,
+    notes: SeriesNotes,
+    opts?: SaveOpts,
+  ): Promise<Series | undefined> {
+    const patch: Partial<typeof schema.series.$inferInsert> = {};
+    if (notes.seriesNote !== undefined) patch.seriesNote = notes.seriesNote;
+    if (notes.pageNotes !== undefined) patch.pageNotes = notes.pageNotes;
+    // Nothing to write: return the row as it stands rather than issuing an
+    // update whose SET clause would be empty.
+    if (Object.keys(patch).length === 0) return this.get(id);
+    const [row] = await this.db
+      .update(schema.series)
+      .set({
+        ...patch,
+        lastModifiedAt: sql`now()`,
+        version: sql`${schema.series.version} + 1`,
+        updatedAt: sql`now()`,
+        updatedBy: opts?.updatedBy ?? null,
+      })
       .where(
         and(
           eq(schema.series.id, id),

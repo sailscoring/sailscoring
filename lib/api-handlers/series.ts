@@ -39,6 +39,7 @@ import { seriesFollowOnInputSchema } from '@/lib/validation/series-follow-on';
 import {
   seriesArchiveInputSchema,
   seriesCategoryInputSchema,
+  seriesNotesSchema,
   seriesInputSchema,
   seriesPublishPrefsSchema,
   seriesReorderSchema,
@@ -221,6 +222,52 @@ export async function setSeriesPublishPrefs(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const saved = await repos.series.setPublishPrefs(id, prefs);
   if (!saved) throw new NotFoundError('series');
+  return saved;
+}
+
+/**
+ * Write the explanatory note carried by published pages, and nothing else.
+ *
+ * Its own endpoint rather than a field on the general PUT. The note is typed
+ * in the publish dialog, which has no business carrying the whole series row
+ * back — a sentence about results going out should not be able to lose a race
+ * against, or clobber, a real edit made meanwhile.
+ *
+ * And the PUT refuses a finalised series, while publishing finalised results
+ * is allowed — much of the point of finalising them. A scorer publishing a
+ * final result could reach the note field and not save it.
+ *
+ * Unlike publish bookkeeping this is a real edit: the note appears on the
+ * page, so the write bumps `version` and files an entry saying what it was.
+ */
+export async function setSeriesNotes(
+  workspace: WorkspaceContext,
+  id: string,
+  body: unknown,
+): Promise<Series> {
+  const notes = seriesNotesSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const existing = await repos.series.get(id);
+  if (!existing) throw new NotFoundError('series');
+  // Archived and as-published series stay read-only; final ones do not, which
+  // is the whole reason this endpoint exists.
+  if (existing.asPublished) throw new ArchivedError('series-as-published');
+  if (existing.archived) throw new ArchivedError();
+  const change = describeSeriesChange(existing, { ...existing, ...notes });
+  if (!change) return existing;
+
+  const saved = await repos.series.setNotes(id, notes, { updatedBy: workspace.userId });
+  if (!saved) throw new NotFoundError('series');
+  // touch: false — the write above already bumped the version and stamped the
+  // actor, and a second bump would invalidate the row just returned.
+  await trackChange(workspace, {
+    action: change.action,
+    seriesId: id,
+    summary: change.summary,
+    sessionKey: 'settings',
+    dedupeKey: `series:${id}:${change.facet}`,
+    touch: false,
+  });
   return saved;
 }
 

@@ -79,6 +79,13 @@ function makeRepo(initial: Series): { repo: SeriesRepository; current: () => Ser
       current = { ...current, ...prefs };
       return { ...current };
     },
+    // A note does change what goes out, so its narrow write still bumps the
+    // version — it just doesn't carry the row.
+    setNotes: async (id, notes) => {
+      if (id !== current.id) return undefined;
+      current = { ...current, ...notes, version: (current.version ?? 0) + 1 };
+      return { ...current };
+    },
   };
   return { repo, current: () => current };
 }

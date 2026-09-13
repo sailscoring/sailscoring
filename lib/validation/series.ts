@@ -261,6 +261,26 @@ export const seriesPublishPrefsSchema = z
   })
   .strict();
 
+/**
+ * Body for PATCH /api/v1/series/:id/notes — the explanatory notes carried by
+ * published pages. Both fields optional: the dialog writes the one it just
+ * edited, never both.
+ */
+export const seriesNotesSchema = z
+  .object({
+    seriesNote: z.string().max(PAGE_NOTE_MAX_LENGTH).optional(),
+    pageNotes: z
+      .array(
+        z.object({
+          page: z.string().min(1).max(200),
+          text: z.string().max(PAGE_NOTE_MAX_LENGTH),
+          updatedAt: epochMsSchema,
+        }),
+      )
+      .optional(),
+  })
+  .strict();
+
 /** Body for POST /api/v1/series/:id/results-status — mark the series' results
  *  final, or reopen them as provisional. */
 export const seriesResultsStatusInputSchema = z.object({

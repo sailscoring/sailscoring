@@ -147,3 +147,40 @@ test('without the feature there is no note to write and none is published', asyn
   await expect(dialog).toBeVisible();
   await expect(dialog.getByTestId('page-note-button-every-page')).toHaveCount(0);
 });
+
+/**
+ * Publishing finalised results is allowed — much of the point of finalising
+ * them — so annotating what goes out has to be allowed too. The note used to
+ * be written through the general series save, which refuses a final series, so
+ * a scorer could reach the note field on the one publication most likely to
+ * need a correction notice and not be able to save it (#581).
+ */
+test('a note can still be written once the results are final', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['page-notes', 'results-status']);
+  await seedSeries(page, 'Final Note League 2026');
+
+  await page.getByRole('button', { name: 'Mark as final' }).click();
+  const checklist = page.getByRole('dialog', { name: 'Mark results as final' });
+  for (const checkbox of await checklist.getByRole('checkbox').all()) {
+    await checkbox.check();
+  }
+  await checklist.getByRole('button', { name: 'Mark as final' }).click();
+  await expect(checklist).not.toBeVisible();
+  await expect(page.getByTestId('final-badge')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  const preview = page.getByRole('dialog', { name: 'Preview results' });
+  await expect(preview).toBeVisible();
+  await page.frameLocator('iframe[title="Results preview"]').locator('body').waitFor();
+
+  await preview.getByRole('button', { name: 'Add a note' }).click();
+  await preview.getByTestId('page-note-text').fill('Corrected after protest 4.');
+  await preview.getByRole('button', { name: 'Save' }).click();
+
+  await expect(
+    page.frameLocator('iframe[title="Results preview"]').locator('.pagenotes'),
+  ).toContainText('Corrected after protest 4.');
+});
