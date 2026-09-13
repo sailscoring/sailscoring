@@ -244,3 +244,125 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   expect(html).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
   expect(html).toContain('aria-label="Course K1 — 12 Sep R1"');
 });
+
+test("a course that is the committee's leg table, pasted once and reused", async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Leg Table Course 2026' });
+  await createFleets(page, ['Class 2']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'ORC' }).click();
+  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
+  await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // The committee's own table, as it comes out of a spreadsheet: a header, a
+  // row-number column, and the wind alongside — none of which is a leg.
+  const committeeTable = [
+    'Leg\tDistance\tBearing\tTWD\tTWS',
+    '1\t0.80\t059°\t225°\t9',
+    '2\t0.80\t239°\t225°\t9',
+    '3\t1.10\t130°\t225°\t9',
+    '4\t0.60\t228°\t225°\t9',
+    '5\t0.60\t023°\t225°\t9',
+    '6\t0.90\t311°\t225°\t9',
+    '7\t1.70\t032°\t225°\t9',
+    '8\t0.20\t218°\t225°\t9',
+    '9\t1.20\t196°\t225°\t9',
+    '10\t0.50\t249°\t225°\t9',
+    '11\t2.00\t026°\t225°\t9',
+    '12\t2.00\t206°\t225°\t9',
+  ].join('\n');
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await expect(page.getByRole('heading', { name: 'Marks' })).toBeVisible();
+  await page.getByTestId('new-course').click();
+  await page.getByTestId('course-source-legs').click();
+
+  await page.getByTestId('paste-legs-disclosure').click();
+  await page.getByLabel('Leg table to paste').fill(committeeTable);
+  // What it made of the paste, before it is committed: the header skipped,
+  // the row numbers recognised, the wind columns ignored.
+  await expect(page.getByTestId('paste-legs-preview')).toHaveText('12 legs · 12.40 NM');
+  await page.getByTestId('paste-legs-add').click();
+  await expect(page.getByLabel('Leg 1 distance')).toHaveValue('0.8');
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('59');
+  await expect(page.getByLabel('Leg 12 bearing')).toHaveValue('206');
+  await expect(page.getByLabel('Leg 13 distance')).toHaveCount(0);
+  await expect(page.getByText('12.40 NM total')).toBeVisible();
+  // No wind on a course: the same course runs on a different night.
+  await expect(page.getByLabel('Leg 1 wind direction')).toHaveCount(0);
+
+  // Drawn from the legs, and it says how nearly the course closes — 0.07 NM
+  // over twelve legs rounded to a tenth of a mile.
+  await expect(page.getByTestId('course-drawing')).toBeVisible();
+  await expect(page.getByTestId('leg-course-closure')).toContainText('0.07 NM');
+  await expect(page.getByTestId('leg-course-closure')).toContainText('rounding each leg to a tenth');
+
+  await page.getByLabel('Name').fill('RC table — 13 Aug');
+  await expect(page.getByTestId('course-summary')).toContainText('12 legs · 12.40 NM');
+  await page.getByTestId('course-save').click();
+
+  const courseRow = page.getByTestId('course-row').filter({ hasText: 'RC table — 13 Aug' });
+  await expect(courseRow).toBeVisible();
+  await expect(courseRow).toContainText('leg table');
+  await expect(courseRow).toContainText('12 legs · 12.40 NM');
+  // The bearings stand in for a mark sequence, because there are no marks.
+  await expect(courseRow).toContainText('59° › 239°');
+
+  // A leg stray enough to matter shows in the closure figure — the failure
+  // that put a 13th leg into a scored race.
+  await courseRow.getByRole('button', { name: 'Actions for RC table — 13 Aug' }).click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'Add leg' }).click();
+  await page.getByLabel('Leg 13 distance').fill('0.87');
+  await page.getByLabel('Leg 13 bearing').fill('240.5');
+  await expect(page.getByTestId('leg-course-closure')).toContainText('more than rounding explains');
+  await page.getByRole('button', { name: 'Remove leg 13' }).click();
+  await expect(page.getByTestId('leg-course-closure')).toContainText('rounding each leg to a tenth');
+  await page.getByTestId('course-save').click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // There are no marks on it to swap.
+  await courseRow.getByRole('button', { name: 'Actions for RC table — 13 Aug' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Swap a mark…' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // Two races a fortnight apart, both sailing it: pick the course, give the
+  // night its own wind, and the legs are filled. That reuse is the whole
+  // reason to save a course rather than type the table on each start.
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 2')).toBeVisible();
+  for (const { race, windDir, windKt } of [
+    { race: 'Race 1', windDir: '225', windKt: '9' },
+    { race: 'Race 2', windDir: '190', windKt: '12' },
+  ]) {
+    await page.getByText(race).click();
+    // With more than one race the "Race N — results" heading gives way to the
+    // race switcher, which is the stable anchor either way.
+    await expect(page.getByRole('button', { name: 'Switch race' })).toHaveText(race);
+    await page.getByRole('button', { name: 'Edit ▸' }).click();
+    await page.getByRole('button', { name: 'Add start' }).click();
+    await page.getByPlaceholder('14:05', { exact: true }).fill('19:00:00');
+    await pick(page, 'start-course-picker', 'RC table — 13 Aug');
+    await page.getByLabel('Wind direction').fill(windDir);
+    await page.getByLabel('Wind speed', { exact: true }).fill(windKt);
+    await page.getByTestId('legs-disclosure').click();
+    await expect(page.getByLabel('Leg 1 distance')).toHaveValue('0.8');
+    await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue(windDir);
+    await expect(page.getByLabel('Leg 1 wind speed')).toHaveValue(windKt);
+    await expect(page.getByLabel('Leg 12 bearing')).toHaveValue('206');
+    // Picking a course is not editing its legs.
+    await expect(page.getByTestId('legs-edited')).toHaveCount(0);
+    await page.getByRole('checkbox', { name: 'Class 2' }).check();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page.getByText(`12.40 NM · 12 legs · ${windKt} kt`)).toBeVisible();
+    await expect(page.getByTitle('The course this start sailed')).toHaveText('RC table — 13 Aug');
+    await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+    await expect(page).toHaveURL(/\/races$/);
+  }
+});

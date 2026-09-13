@@ -582,6 +582,22 @@ function RaceStartDialogInner({
           )}
           {offerLegs && (
             <div className="space-y-1.5">
+              {/* Above the fold, because picking a course folds the legs away
+                  and this is a scoring input, not a detail of the table. */}
+              {offerWindSpeed && (
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  Wind speed
+                  <input
+                    aria-label="Wind speed"
+                    className="flex h-7 w-16 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                    value={windSpeedInput}
+                    inputMode="decimal"
+                    onChange={(e) => changeWindSpeed(e.target.value)}
+                    placeholder="9"
+                  />
+                  kt — put on every leg
+                </label>
+              )}
               {offerCourse ? (
                 <button
                   type="button"
@@ -598,20 +614,6 @@ function RaceStartDialogInner({
               )}
               {(legsOpen || !offerCourse) && (
                 <div className="space-y-1">
-                  {offerWindSpeed && (
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                      Wind speed
-                      <input
-                        aria-label="Wind speed"
-                        className="flex h-7 w-16 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-                        value={windSpeedInput}
-                        inputMode="decimal"
-                        onChange={(e) => changeWindSpeed(e.target.value)}
-                        placeholder="9"
-                      />
-                      kt — put on every leg below
-                    </label>
-                  )}
                   <LegTable
                     rows={legRows}
                     onChange={changeLegRows}
