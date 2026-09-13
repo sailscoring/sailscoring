@@ -225,7 +225,7 @@ describe('sample series files', () => {
   it('orc: every method scores through the per-race option, PCS numbers coherent', () => {
     const { file, fleets, competitors, races, raceStarts, finishes } = load('orc.sailscoring');
 
-    expect(file.formatVersion).toBe(51);
+    expect(file.formatVersion).toBe(52);
     const orcFleet = fleets.find((f) => f.scoringSystem === 'orc')!;
     const ircFleet = fleets.find((f) => f.scoringSystem === 'irc')!;
     expect(orcFleet).toBeDefined();
@@ -267,7 +267,19 @@ describe('sample series files', () => {
     expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['Start', 'Z', 'O', 'U', 'K', 'H', 'K', 'Q', 'HM', 'FH']);
     expect(cc.course?.windDirectionDeg).toBe(160);
     expect(file.marks).toHaveLength(25);
-    expect(file.courses?.map((c) => c.card?.courseId)).toEqual(['J2']);
+    // Two courses, defined the two different ways: J2 from the club's card,
+    // and the committee's own leg table with no marks behind it.
+    expect(file.courses?.map((c) => c.card?.courseId)).toEqual(['J2', undefined]);
+    const [fromCard, fromLegs] = file.courses!;
+    expect(fromCard.marks).toHaveLength(10);
+    expect(fromCard.legs).toBeUndefined();
+    expect(fromLegs.name).toBe('RC triangle — Thursdays');
+    expect(fromLegs.marks).toEqual([]);
+    expect(fromLegs.legs).toEqual([
+      { distanceNm: 1.6, bearingDeg: 160 },
+      { distanceNm: 1.9, bearingDeg: 275 },
+      { distanceNm: 1.8, bearingDeg: 45 },
+    ]);
     // Implied winds recover the generation's fresh-breeze targets.
     expect(r3?.scoringWind).toBeGreaterThan(16);
     expect(r3?.scoringWind).toBeLessThan(21);

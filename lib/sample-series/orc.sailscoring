@@ -1,5 +1,5 @@
 {
-  "formatVersion": 51,
+  "formatVersion": 52,
   "seriesId": "sample-orc",
   "exportedAt": "2026-01-01T00:00:00.000Z",
   "series": {
@@ -5448,6 +5448,26 @@
         }
       ],
       "createdAt": 1767225600003
+    },
+    {
+      "id": "oco-rc-triangle",
+      "name": "RC triangle — Thursdays",
+      "marks": [],
+      "legs": [
+        {
+          "distanceNm": 1.6,
+          "bearingDeg": 160
+        },
+        {
+          "distanceNm": 1.9,
+          "bearingDeg": 275
+        },
+        {
+          "distanceNm": 1.8,
+          "bearingDeg": 45
+        }
+      ],
+      "createdAt": 1767225600004
     }
   ]
 }

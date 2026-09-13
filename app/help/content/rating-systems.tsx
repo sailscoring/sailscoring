@@ -430,6 +430,38 @@ export default function RatingSystems() {
           matters — <em>inner</em>, <em>outer</em> — is yours to add. The second
           course of a day is <em>Swap a mark…</em> on the first.
         </p>
+        <HelpShot
+          src="/help/shots/course-from-leg-table.webp"
+          alt="A course made from the race committee's leg table: the distance and bearing of each leg, and the course drawn from them alone."
+          caption="A course that is the committee's leg table, drawn from its bearings and distances alone."
+        />
+        <p>
+          <strong className="text-foreground">When all you have is the leg
+          table.</strong> Often the committee boat hands over the course as legs —
+          so far, on this bearing, twelve times over — and no positions at all.
+          That is a course in its own right here, not something to reverse-engineer
+          into marks: pick{' '}
+          <em>The committee’s leg table</em> in <strong className="text-foreground">New
+          course</strong> and type the rows, or open <em>Paste a table</em> and paste
+          them. The paste takes the first two numbers on each line as the distance
+          and the bearing and ignores whatever follows, so a table with the wind in
+          the next columns goes in as it stands, headers and totals and all; it
+          tells you how many legs it found and how far they run before you commit
+          them. A leading 1, 2, 3 … column is recognised as row numbers and dropped.
+        </p>
+        <p>
+          A course entered this way is reused exactly like any other — every start,
+          every night, one click — which is the reason to save it rather than type
+          the table onto each start. What it hasn’t got is positions, so there are no
+          sides to leave marks on and nowhere on the water to put it; and the wind
+          is still the race’s, so each start gives its own. It is drawn all the
+          same, from the bearings and distances alone: the shape and the direction
+          are the committee’s, and under the drawing you are told how far the last
+          leg ends from where the first began. A table rounded to a tenth of a mile
+          never closes exactly, so that figure is there to read rather than to
+          worry about — but a course missing a leg, or carrying one it shouldn’t,
+          misses by much more than rounding, and this is where you see it.
+        </p>
       </Section>
       )}
       <Section id="fixed-tcf" title="A club handicap fixed for the series">

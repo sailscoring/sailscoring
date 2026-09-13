@@ -155,7 +155,8 @@ function CourseDialogInner({
       bearing: String(leg.bearingDeg),
     })),
   );
-  const [editorOpen, setEditorOpen] = useState(Boolean(seed && !seed.card));
+  // A hand-built course opens on its sequence; a leg table has no sequence.
+  const [editorOpen, setEditorOpen] = useState(Boolean(seed && !seed.card && !courseIsLegTable(seed)));
   const [markDialog, setMarkDialog] = useState<(MarkDialogMode & { forCardMark?: string }) | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -497,7 +498,7 @@ function CourseDialogInner({
                 </Button>
               )}
             </div>
-            {editorOpen && (
+            {editorOpen && source !== 'legs' && (
               <SequenceEditor
                 sequence={sequence}
                 marks={library}

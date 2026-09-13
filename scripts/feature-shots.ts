@@ -701,6 +701,29 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Course builder — the committee's leg table as a course,
+    // opened on the seeded ORC sample: the legs, the drawing walked from
+    // them, and how nearly the course closes.
+    slug: 'course-from-leg-table',
+    group: 'Rating and handicap systems',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'orc');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      const seriesId = new URL(page.url()).pathname.split('/')[2];
+      await page.goto(`${BASE}/series/${seriesId}/courses`);
+      await settle(page);
+      const row = page.getByTestId('course-row').filter({ hasText: 'RC triangle' });
+      await row.getByRole('button', { name: /^Actions for/ }).click();
+      await page.getByRole('menuitem', { name: 'Edit' }).click();
+      await page.getByRole('dialog').waitFor();
+      await settle(page);
+      await shot('course-from-leg-table.png', { helpOnly: true });
+    },
+  },
+  {
     // Inventory: Course builder — the Courses tab of the seeded ORC sample:
     // the marks adopted from HYC's card and the two the race committee laid,
     // the course built from card J2, and the drawing.

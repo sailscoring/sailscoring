@@ -72,6 +72,17 @@ their head, and it is the one the paperwork already has: the board said 004.
 
 Four rules follow.
 
+0. **A course is a leg list; marks are one way to author it.** Added
+   September 2026 (#584), and it comes first because it bounds every rule
+   below. What a start needs from a course is distance and bearing per leg.
+   A course defined by marks derives those from positions; a course defined
+   by **the race committee's own leg table** *is* them, and has no positions
+   at all — which is the commonest thing a committee boat hands over, and
+   the only thing a course is in ORC Scorer. Exactly one definition per
+   course, `courseLegsOf` is the single seam between them, and there is no
+   conversion: legs to marks would invent positions, marks to legs would
+   freeze away rule 1. Rules 1 and 4 are about positions and so apply to the
+   mark kind; rules 2 and 3 apply to both.
 1. **The libraries hold references; the start holds a snapshot.** A course
    names its marks, so fixing a mistyped mark position fixes every course built
    on it. But what a start was *scored* over must not change under it: the
@@ -106,6 +117,7 @@ Four rules follow.
 | Two windward marks, different starts using each | Two marks, two courses differing in one mark, starts picking between them |
 | The same course across several starts, or several races | Nothing: the course is in the library, and picking it is one click |
 | A course as an ad-hoc mark sequence | Marks from the library in order, each with a side; no card, no number |
+| **A course as the committee's leg table, no positions** | The legs — typed, or pasted from the committee's own table. No marks, no card, no sides |
 | Shorten a course | Duplicate, drop trailing marks; the finish is at the mark shortened at |
 | Extend a course | Duplicate, append marks or repeat a lap |
 
@@ -148,8 +160,11 @@ interface SeriesMark {
   from?: { markId: string; bearingDeg: number; distanceM: number };
 }
 
-/** A named course: marks in sailing order. Distances and bearings are derived
- *  from the marks, never stored here — a corrected mark corrects the course. */
+/** A named course, defined by its marks *or* by the committee's leg table.
+ *  For a mark course, distances and bearings are derived and never stored —
+ *  a corrected mark corrects the course. For a leg course the legs are the
+ *  course, and there is nothing to correct. Exactly one is non-empty;
+ *  `courseLegsOf` is the seam. */
 interface SeriesCourse {
   id: string;
   seriesId: string;
@@ -161,6 +176,7 @@ interface SeriesCourse {
     side?: 'port' | 'starboard';
     passing?: boolean;
   }>;
+  legs?: Array<{ distanceNm: number; bearingDeg: number }>;   // #584
 }
 
 /** On RaceStart, beside the legs it produced. */
@@ -171,7 +187,9 @@ interface RaceStartCourse {
     lat: number; lng: number;
     side?: 'port' | 'starboard'; passing?: boolean;
   }>;
+  legs?: Array<{ distanceNm: number; bearingDeg: number }>;   // a leg course
   windDirectionDeg?: number;
+  windSpeedKts?: number;              // the recorded-wind options (#583)
   legsEdited?: boolean;               // legs no longer match the waypoints
 }
 ```
@@ -184,6 +202,25 @@ version bump, public-export carriage, Drizzle tables, validation schemas.
 The first mark of a course's sequence is the start line like any other mark,
 which keeps the sequence uniform; since course-cards 0.2.0 the card's own
 sequences begin with its `startLine`, so adopting one carries it through.
+
+## Rendering a course with no positions
+
+A leg course draws too. Its bearings and distances fix the shape and the
+orientation exactly; only the position on the water is unknown, so the legs
+are walked from an arbitrary origin that is **never stored** — inventing
+coordinates to keep would be a fiction the published page would repeat — and
+the drawing says as much beneath itself.
+
+Beneath it also goes the closure: how far the last leg ends from where the
+first began. Stated rather than flagged, because a table rounded to a tenth
+of a mile cannot close exactly and plenty of courses are not meant to close
+at all. It discriminates well enough to be worth showing: the course behind
+#583 closes to 0.07 NM as its committee gave it, and to 0.93 NM with the one
+stray leg that actually reached the scoring.
+
+Not on the race start, and so not on the published page: there the leg record
+is the honest artefact, and a drawing off an arbitrary origin is a working
+tool rather than a course to publish.
 
 ## Rendering the course
 
@@ -223,7 +260,10 @@ property of a course rather than of the series.
 ## Open questions
 
 1. ~~**Series-scoped or workspace-scoped libraries?**~~ Decided (September
-   2026): **series-scoped.** It is the smaller first cut and matches how laid
+   2026): **series-scoped.** A leg course strengthens the case for revisiting
+   it: it has no positions to go stale and no date in its name, so a club's
+   numbered courses as leg tables are a season-long asset rather than a
+   race-day one. It is the smaller first cut and matches how laid
    marks are dated; the fixed marks a club keeps re-adopting arrive from the
    card in one click, so the cost of re-adoption is small. A workspace tier
    under the series one — the logo-library shape — stays a possible end state

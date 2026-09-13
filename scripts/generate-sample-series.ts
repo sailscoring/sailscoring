@@ -1418,6 +1418,9 @@ const ORC_SAMPLE_WIND = 160;
 function buildOrcCourseLibrary(seriesId: string): {
   marks: SeriesMark[];
   course: SeriesCourse;
+  /** A second course the club saved from the committee's own leg table — no
+   *  marks behind it, which is the other way a course can be defined. */
+  legCourse: SeriesCourse;
   legs: { distanceNm: number; bearingDeg: number; windDirectionDeg: number }[];
   snapshot: RaceStartCourse;
 } {
@@ -1460,7 +1463,21 @@ function buildOrcCourseLibrary(seriesId: string): {
   const marksById = new Map(marks.map((m) => [m.id, m]));
   const legs = legsForStart(resolveCourse(course.marks, marksById).legs, ORC_SAMPLE_WIND);
   const snapshot = snapshotOfCourse(course, marksById, ORC_SAMPLE_WIND);
-  return { marks, course, legs, snapshot };
+  // HYC's Thursday-evening triangle as the committee reads it out: a course
+  // with no positions behind it at all, saved for the nights it is sailed.
+  const legCourse: SeriesCourse = {
+    id: 'oco-rc-triangle',
+    seriesId,
+    name: 'RC triangle — Thursdays',
+    marks: [],
+    legs: [
+      { distanceNm: 1.6, bearingDeg: 160 },
+      { distanceNm: 1.9, bearingDeg: 275 },
+      { distanceNm: 1.8, bearingDeg: 45 },
+    ],
+    createdAt: createdAt + 4,
+  };
+  return { marks, course, legCourse, legs, snapshot };
 }
 
 const ORC_LIBRARY = buildOrcCourseLibrary('sample-orc');
@@ -1625,7 +1642,7 @@ function buildOrcSample(): SeriesFile {
   });
 
   return {
-    formatVersion: 51,
+    formatVersion: 52,
     seriesId: 'sample-orc',
     exportedAt: EXPORTED_AT,
     series: {
@@ -1652,7 +1669,7 @@ function buildOrcSample(): SeriesFile {
     competitors,
     races,
     marks: ORC_LIBRARY.marks.map(({ seriesId: _s, ...m }) => m),
-    courses: [(({ seriesId: _s, ...c }) => c)(ORC_LIBRARY.course)],
+    courses: [ORC_LIBRARY.course, ORC_LIBRARY.legCourse].map(({ seriesId: _s, ...c }) => c),
   };
 }
 
