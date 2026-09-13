@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { raceRepo } from '@/lib/api-repository';
 import { useSeries } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
+import { WRITE_FAILURE_NOTICE_MS, useNotice } from '@/components/notice';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useFeatures } from '@/components/features-provider';
@@ -56,6 +57,7 @@ import { useShortcutHelp, useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useRovingFocus } from '@/hooks/use-roving-focus';
 import { generateStarts } from '@/lib/start-sequence';
 import { normalizeTimeInput } from '@/lib/time-parse';
+import { describeWriteFailure } from '@/lib/write-failure';
 import { hasTrackData } from '@/lib/track-data';
 import { defaultRaceDate, generateRaceDates, MAX_GENERATED_RACES } from '@/lib/race-schedule';
 import { groupRacesBySubSeries } from '@/lib/scoring';
@@ -339,6 +341,7 @@ export default function RacesPage({
   const { id: seriesId } = use(params);
   const { can } = useWorkspacePermissions();
   const confirm = useConfirm();
+  const { show, dismissError } = useNotice();
   const { has } = useFeatures();
   // Race-day operations: archived series and roles without score view-only.
   const readOnly = useSeriesReadOnly() || !can('score');
@@ -522,6 +525,22 @@ export default function RacesPage({
     await insertPlainRaceAt(index);
   }
 
+  /**
+   * Report a failed add/insert on the notice banner. The writes inside these
+   * handlers put themselves there, but the read each one starts with doesn't,
+   * and a gesture that dies on that read is just as invisible: the scorer
+   * pressed Add race and no race appeared. Re-showing an error the banner is
+   * already carrying costs nothing — there is only ever one banner.
+   */
+  function reportAddFailure(err: unknown) {
+    show({
+      tone: 'error',
+      message: describeWriteFailure(err),
+      dismissAfterMs: WRITE_FAILURE_NOTICE_MS,
+      error: err,
+    });
+  }
+
   // Create the race appended, then reorder with its id spliced into place so
   // the tail renumbers.
   async function insertPlainRaceAt(index: number) {
@@ -551,6 +570,8 @@ export default function RacesPage({
       // opened from, which is now a row later.
       focusRaceAfterChange(index);
       await reorderRaces.mutateAsync(ids);
+    } catch (err) {
+      reportAddFailure(err);
     } finally {
       setAddingRace(false);
     }
@@ -633,6 +654,8 @@ export default function RacesPage({
       };
       log('races', 'adding', race);
       await generateRaces.mutateAsync({ races: [race], starts: [] });
+    } catch (err) {
+      reportAddFailure(err);
     } finally {
       setAddingRace(false);
     }
@@ -673,9 +696,12 @@ export default function RacesPage({
       log('races', 'adding with starts', race);
       try {
         await generateRaces.mutateAsync({ races: [race], starts });
-      } catch {
+      } catch (err) {
         // The create is one transaction, so a failure leaves nothing behind.
-        // Say so in the dialog rather than letting the button look inert.
+        // Say so in the dialog — which is where the scorer is looking, and
+        // which a screen reader can still reach — rather than on the banner
+        // behind it.
+        dismissError(err);
         setNewRaceError("The race couldn't be created. Nothing was saved — try again.");
         return;
       }
@@ -691,6 +717,11 @@ export default function RacesPage({
 
       setShowNewRaceDialog(false);
       setInsertAt(null);
+    } catch (err) {
+      // The read this starts with, or the reorder an insert ends with. The
+      // dialog is still open, so it says so rather than the banner behind it.
+      dismissError(err);
+      setNewRaceError(describeWriteFailure(err));
     } finally {
       setAddingRace(false);
     }
@@ -787,7 +818,15 @@ export default function RacesPage({
         : [];
 
     log('races', 'generating', { count: newRaces.length, starts: starts.length });
-    await generateRaces.mutateAsync({ races: newRaces, starts });
+    try {
+      await generateRaces.mutateAsync({ races: newRaces, starts });
+    } catch (err) {
+      // Same as the New race dialog: the generator stays open, so its own
+      // error line is the place to say why, not the banner behind it.
+      dismissError(err);
+      failGen(describeWriteFailure(err), 'date');
+      return;
+    }
     setShowGenerateDialog(false);
   }
 

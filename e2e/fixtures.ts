@@ -34,20 +34,31 @@ function isAbortedFetchNoise(text: string): boolean {
  * included, so an otherwise healthy `goto` or `reload` dies with
  * net::ERR_NETWORK_CHANGED and the test lands in the report as load-sensitive.
  */
-export const test = base.extend({
-  page: async ({ page }, use) => {
+export const test = base.extend<{ allowedConsoleErrors: RegExp[] }>({
+  /**
+   * Patterns a spec expects to see logged, via `test.use(...)`. For the one
+   * case where a console error is the subject rather than the symptom: a spec
+   * that fails a write on purpose to prove the scorer is told about it. The
+   * app logs every such failure by design, so without this the spec would
+   * fail on the thing it is asserting.
+   */
+  allowedConsoleErrors: [[], { option: true }],
+
+  page: async ({ page, allowedConsoleErrors }, use) => {
     hardenNavigation(page);
     const errors: string[] = [];
+    const expected = (text: string): boolean =>
+      allowedConsoleErrors.some((rx) => rx.test(text));
 
     page.on('pageerror', (err) => {
-      if (isAbortedFetchNoise(err.message)) return;
+      if (isAbortedFetchNoise(err.message) || expected(err.message)) return;
       errors.push(`[pageerror] ${err.message}`);
     });
 
     page.on('console', (msg) => {
       if (msg.type() !== 'error') return;
       const text = msg.text();
-      if (isAbortedFetchNoise(text)) return;
+      if (isAbortedFetchNoise(text) || expected(text)) return;
       errors.push(`[console.error] ${text}`);
     });
 
