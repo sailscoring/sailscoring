@@ -4,8 +4,9 @@ import {
   calculateHandicapRaceScores,
   calculateSubSeriesFleetStandings,
   buildRaceFleetExclusionMap,
-  computeOrcPcsRace,
+  computeOrcCourseRace,
   orcStartHasCourse,
+  type TodCorrectionContext,
 } from './scoring';
 import {
   renderSeriesHtml,
@@ -21,7 +22,7 @@ import {
 import { allocatePrizes } from './prizes';
 import { competitorRatingFor, ratingSystemLabel, ratingUnitLabel } from './competitor-ratings';
 import { groupFleets } from './fleet-groups';
-import { orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
+import { orcCurveOption, orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
 import {
   resolvePublishingGroups,
   fleetPagesSuppressed,
@@ -924,7 +925,7 @@ export async function buildFleetHtmlFiles(
           ? orcRaceProfile(fleet, raceStart)
           : null;
         const isOrcTod = orcProfile?.kind === 'tod';
-        const isOrcPcs = orcProfile?.kind === 'pcs';
+        const isOrcCurve = orcProfile != null && orcCurveOption(orcProfile.option);
         // Progressive fleets are excluded here on purpose. Their ratings come
         // from the engine's chain, so this path builds no rating for them and
         // would score nobody — a race that reached it (the map above had no
@@ -949,27 +950,27 @@ export async function buildFleetHtmlFiles(
               const py = overrideByComp.get(c.id) ?? c.pyNumber;
               if (py != null && py > 0) tcfMap.set(c.id, 1000 / py);
             } else if (orcProfile) {
-              const rating = isOrcPcs
+              const rating = isOrcCurve
                 ? (orcPcsRatable(c) ? 1 : null)
                 : orcProfileRating(c, orcProfile);
               if (rating != null) tcfMap.set(c.id, rating);
             }
           }
           let ratedFleetCompetitors = fleetCompetitors.filter((c) => tcfMap.has(c.id));
-          let todContext = isOrcTod && tcfMap.size > 0
+          let todContext: TodCorrectionContext | undefined = isOrcTod && !isOrcCurve && tcfMap.size > 0
             ? { distanceNm: raceStart.distanceNm!, scratchTod: Math.min(...tcfMap.values()) }
             : undefined;
-          if (isOrcPcs) {
-            const pcs = computeOrcPcsRace(
+          if (isOrcCurve) {
+            const computed = computeOrcCourseRace(
               ratedFleetCompetitors,
               raceStart,
               finishesForRace,
-              orcProfile!.option,
+              orcProfile!,
             );
-            if (pcs) {
-              tcfMap = pcs.todByCompetitorId;
-              todContext = pcs.todContext;
-              orcCalcByComp = pcs.calcByCompetitorId;
+            if (computed) {
+              tcfMap = computed.ratingByCompetitorId;
+              todContext = computed.todContext;
+              orcCalcByComp = computed.calcByCompetitorId;
               ratedFleetCompetitors = ratedFleetCompetitors.filter((c) => tcfMap.has(c.id));
             } else {
               tcfMap = new Map();

@@ -2,6 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 
 import type { Fleet, RaceScoringGap } from '@/lib/types';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
+import { orcConstructedOption, orcRecordedWindOption } from '@/lib/orc-certificate';
 
 export interface RaceScoringGapsWarningProps {
   gaps: RaceScoringGap[];
@@ -28,9 +29,16 @@ export function RaceScoringGapsWarning({ gaps, races, fleet }: RaceScoringGapsWa
   }
 
   function describe(gap: RaceScoringGap): string {
-    return gap.option === 'CC'
-      ? `${name(gap)} is scored on a constructed course, but its start has no course`
-      : `${name(gap)} is scored on ${gap.option ?? 'an option'}, which corrects over the course distance, but its start records none`;
+    const option = gap.option ?? '';
+    // A recorded-wind option needs the wind speed on every leg, so the
+    // course can be there and still be short of what it takes to score.
+    if (orcRecordedWindOption(option)) {
+      return `${name(gap)} is scored on a constructed course at the recorded wind, but its start has no course, or a leg of it with no wind speed`;
+    }
+    if (orcConstructedOption(option)) {
+      return `${name(gap)} is scored on a constructed course, but its start has no course`;
+    }
+    return `${name(gap)} is scored on ${gap.option ?? 'an option'}, which corrects over the course distance, but its start records none`;
   }
 
   const missing = gaps.filter((g) => g.reason === 'orc_course_missing');

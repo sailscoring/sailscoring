@@ -1,7 +1,7 @@
 import type { Competitor, Fleet, Race, Finish, RaceScore, HandicapRaceScore, RaceStart, RaceRatingOverride, Standing, ResultCode, PenaltyCode, DiscardThreshold, ProportionalDiscard, DnfScoring, ScoringRejection, RaceScoringGap, NhcRaceCalc, NhcRaceAggregates, EchoRaceCalc, EchoRaceAggregates, OrcProfile, OrcRaceCalc, TcfRecord, NhcProfile, ProgressiveHandicapConfig, ProgressiveRaceCalc, ProgressiveRaceAggregates, SubSeries, RaceFleetExclusion, CompetitorEntryOverride } from './types';
 import { elapsedSecondsOf, roundToPrecision, timingPrecisionOf, type TimingPrecision } from './elapsed-time';
 import { getCodeDefinition } from './scoring-codes';
-import { orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcTodRating, orcTotRating } from './orc-certificate';
+import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, orcProfileRating, orcRaceProfile, orcRecordedWindOption, orcTodRating, orcTotRating } from './orc-certificate';
 import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
@@ -297,9 +297,10 @@ export function hasFleetRating(competitor: Competitor, fleet: Fleet): boolean {
   if (fleet.scoringSystem === 'orc') {
     // Rated under the fleet's *default* option: the certificate either
     // carries what it needs — the named field, or the allowance matrix for
-    // PCS — or the boat is unrated here. A race resolved to a different
-    // option (per-start selection) checks its own field at scoring time.
-    if (orcFleetProfile(fleet).kind === 'pcs') return orcPcsRatable(competitor);
+    // an option computed over the course — or the boat is unrated here. A
+    // race resolved to a different option (per-start selection) checks its
+    // own field at scoring time.
+    if (orcCurveOption(orcFleetProfile(fleet).option)) return orcPcsRatable(competitor);
     return (orcTotRating(competitor, fleet) ?? orcTodRating(competitor, fleet)) !== null;
   }
   return getTCF(competitor, fleet) !== null;
@@ -543,41 +544,56 @@ export function calculateHandicapRaceScores(
   return { scores };
 }
 
-/** What {@link computeOrcPcsRace} hands the standings orchestration (and
- *  the render paths): the per-boat allowances at the scoring wind — phase
- *  A's applied-rating map for the race — plus the ToD context and the
- *  per-boat audit blocks. */
-export interface OrcPcsRaceComputation {
-  todByCompetitorId: Map<string, number>;
-  todContext: TodCorrectionContext;
+/** What {@link computeOrcCourseRace} hands the standings orchestration (and
+ *  the render paths): the rating applied per boat — phase A's applied-rating
+ *  map for the race — the ToD context where the option corrects over the
+ *  course, and the per-boat audit blocks. */
+export interface OrcCourseRaceComputation {
+  /** The rating each rated boat scores on: an allowance in s/NM, or a
+   *  time-on-time multiplier where the option applies one. */
+  ratingByCompetitorId: Map<string, number>;
+  /** Present iff the option corrects time-on-distance. */
+  todContext?: TodCorrectionContext;
   calcByCompetitorId: Map<string, OrcRaceCalc>;
 }
 
 /**
- * Run ORC Performance Curve Scoring for one race of an ORC fleet whose
- * option is a pre-defined course model: each rated boat's performance curve
- * over the model, the finishers' implied winds, the race's scoring wind
- * (the best implied wind, or the start's race-committee override — rule
- * 402.12), and every boat's allowance at that wind, which then flows
- * through the ordinary time-on-distance correction. Returns null when the
- * start lacks a gun time or course distance, or no boat carries a matrix.
+ * Score one race of an ORC fleet on an option whose rating is computed from
+ * the certificate's allowance matrix over the race's own course, rather
+ * than read off the certificate as a published number. Two regimes share
+ * the arithmetic and differ only in where the wind comes from:
+ *
+ *  - **Performance Curve Scoring** (rule 402) derives it from the race:
+ *    each boat's achieved speed lands on its own curve to give its implied
+ *    wind, the best of those becomes the race's scoring wind (or the
+ *    start's race-committee override — rule 402.12), and every boat's
+ *    allowance at that wind corrects time-on-distance.
+ *  - **The recorded-wind options** take the wind the race committee
+ *    measured on each leg. The curve is then flat, no boat has an implied
+ *    wind, and the one allowance it holds is applied by the option's kind —
+ *    time-on-time as `600 / allowance`, or time-on-distance as it stands.
+ *
+ * Returns null when the start lacks a gun time or the course the option
+ * needs, or no boat carries a matrix.
  */
-export function computeOrcPcsRace(
+export function computeOrcCourseRace(
   competitors: Competitor[],
   raceStart: RaceStart,
   raceFinishes: Finish[],
-  option: string,
-): OrcPcsRaceComputation | null {
+  profile: OrcProfile,
+): OrcCourseRaceComputation | null {
   const startSeconds = parseHmsToSeconds(raceStart.startTime);
   if (startSeconds === null) return null;
 
-  // 'CC' scores over the start's constructed course (ORC 402.5) — the
-  // distance is the legs' sum. The pre-defined models need the recorded
+  const option = profile.option;
+  const recordedWind = orcRecordedWindOption(option);
+  // A constructed course (ORC 402.5) is scored over the start's own legs and
+  // its distance is their sum. The pre-defined models need the recorded
   // course distance instead.
   let course: { model: PcsCourseModel; distanceNm: number } | { legs: NonNullable<ReturnType<typeof orcPcsLegs>> };
   let distanceNm: number;
-  if (option === 'CC') {
-    const legs = orcPcsLegs(raceStart);
+  if (orcConstructedOption(option)) {
+    const legs = orcPcsLegs(raceStart, recordedWind);
     if (!legs) return null;
     course = { legs };
     distanceNm = legs.reduce((sum, leg) => sum + leg.distanceNm, 0);
@@ -610,28 +626,45 @@ export function computeOrcPcsRace(
   const result = scorePcsRace({
     course,
     boats,
-    ...(raceStart.orcScoringWind != null ? { scoringWindOverride: raceStart.orcScoringWind } : {}),
+    // The 402.12 override replaces a *derived* scoring wind. On a
+    // recorded-wind option the legs already say what the wind was, and
+    // overriding that would be editing the course record from elsewhere.
+    ...(!recordedWind && raceStart.orcScoringWind != null
+      ? { scoringWindOverride: raceStart.orcScoringWind }
+      : {}),
   });
+  const overridden = !recordedWind && raceStart.orcScoringWind != null;
+  // Time-on-time is only reachable on a recorded-wind option: PCS corrects
+  // time-on-distance by rule 402.9.
+  const asTot = recordedWind && profile.kind === 'tot';
+  const courseModel = orcConstructedOption(option) ? 'CC' : orcPcsCourseModel(option);
 
-  const todByCompetitorId = new Map<string, number>();
+  const ratingByCompetitorId = new Map<string, number>();
   const calcByCompetitorId = new Map<string, OrcRaceCalc>();
   for (const boat of result.boats) {
-    if (boat.error || !Number.isFinite(boat.todAtScoringWind)) continue;
-    todByCompetitorId.set(boat.id, boat.todAtScoringWind);
+    if (boat.error || !Number.isFinite(boat.todAtScoringWind) || boat.todAtScoringWind <= 0) continue;
+    const tod = boat.todAtScoringWind;
+    const tot = 600 / tod;
+    ratingByCompetitorId.set(boat.id, asTot ? tot : tod);
     calcByCompetitorId.set(boat.id, {
       option,
-      todApplied: boat.todAtScoringWind,
-      scratchTod: result.scratchTod,
+      todApplied: tod,
+      ...(asTot ? { totApplied: tot } : { scratchTod: result.scratchTod }),
       distanceNm,
-      ...(boat.impliedWind != null ? { impliedWind: boat.impliedWind } : {}),
+      // A flat curve gives every boat the recorded wind back as its
+      // "implied" wind, which would read as a finding about how it sailed.
+      ...(!recordedWind && boat.impliedWind != null ? { impliedWind: boat.impliedWind } : {}),
       scoringWind: result.scoringWind,
-      ...(raceStart.orcScoringWind != null ? { scoringWindOverridden: true } : {}),
-      courseModel: option === 'CC' ? 'CC' : orcPcsCourseModel(option),
+      ...(overridden ? { scoringWindOverridden: true } : {}),
+      ...(recordedWind ? { windRecorded: true } : {}),
+      courseModel,
     });
   }
   return {
-    todByCompetitorId,
-    todContext: { distanceNm, scratchTod: result.scratchTod, roundEachProduct: true },
+    ratingByCompetitorId,
+    ...(asTot
+      ? {}
+      : { todContext: { distanceNm, scratchTod: result.scratchTod, roundEachProduct: true } }),
     calcByCompetitorId,
   };
 }
@@ -643,28 +676,35 @@ export function orcPcsCourseModel(option: string): PcsCourseModel {
 }
 
 /** The start's constructed course as PCS legs, or null when none is
- *  recorded. */
-function orcPcsLegs(raceStart: RaceStart) {
+ *  recorded — or when `withWindSpeed` is asked for and a leg has none, which
+ *  is the whole course for a recorded-wind option (the module reads the
+ *  legs as fixed-wind only if every one of them carries a speed). */
+function orcPcsLegs(raceStart: RaceStart, withWindSpeed = false) {
   const legs = raceStart.courseLegs;
   if (!legs || legs.length === 0) return null;
+  if (withWindSpeed && legs.some((leg) => leg.windSpeedKts == null || leg.windSpeedKts <= 0)) return null;
   return legs.map((leg) => ({
     distanceNm: leg.distanceNm,
     courseDeg: leg.bearingDeg,
     windDirectionDeg: leg.windDirectionDeg,
+    ...(withWindSpeed && leg.windSpeedKts != null ? { windSpeedKts: leg.windSpeedKts } : {}),
     ...(leg.currentSpeedKts != null ? { currentSpeedKts: leg.currentSpeedKts } : {}),
     ...(leg.currentDirectionDeg != null ? { currentDirectionDeg: leg.currentDirectionDeg } : {}),
   }));
 }
 
 /** Whether a start carries what a race resolved to `profile` needs to
- *  score: a course distance for time-on-distance and model-course PCS — or,
- *  for constructed-course PCS, the legs (whose sum is the distance).
- *  Non-ORC and time-on-time races need nothing extra. */
+ *  score: a course distance for time-on-distance and model-course PCS; the
+ *  legs for a constructed course; and, where the option scores at the wind
+ *  the race committee recorded, a wind speed on every leg. A race on a
+ *  certificate time-on-time number, and every non-ORC race, needs nothing
+ *  extra. */
 export function orcStartHasCourse(profile: OrcProfile | null, raceStart: RaceStart): boolean {
-  if (!profile || profile.kind === 'tot') return true;
-  if (profile.kind === 'pcs' && profile.option === 'CC') {
-    return (raceStart.courseLegs?.length ?? 0) > 0;
+  if (!profile) return true;
+  if (orcConstructedOption(profile.option)) {
+    return orcPcsLegs(raceStart, orcRecordedWindOption(profile.option)) !== null;
   }
+  if (profile.kind === 'tot') return true;
   return raceStart.distanceNm != null;
 }
 
@@ -1617,10 +1657,10 @@ function calculateHandicapStandings(
     const tcf = isProgressive
       ? getProgressiveStartingTcf(c, fleet)
       : orcDefaultProfile
-        // A PCS default needs the allowance matrix; the placeholder 1 never
-        // reaches a corrected time — every PCS race replaces the map with
-        // that race's computed allowances.
-        ? (orcDefaultProfile.kind === 'pcs'
+        // A default computed over the course needs the allowance matrix; the
+        // placeholder 1 never reaches a corrected time — every such race
+        // replaces the map with that race's computed ratings.
+        ? (orcCurveOption(orcDefaultProfile.option)
             ? (orcPcsRatable(c) ? 1 : null)
             : orcProfileRating(c, orcDefaultProfile))
         : getTCF(c, fleet);
@@ -1711,7 +1751,7 @@ function calculateHandicapStandings(
   // their options (most races share one). The default option's map is the
   // series map already built above.
   const orcRatingsByOption = new Map<string, Map<string, number>>();
-  if (orcDefaultProfile && orcDefaultProfile.kind !== 'pcs') {
+  if (orcDefaultProfile && !orcCurveOption(orcDefaultProfile.option)) {
     orcRatingsByOption.set(orcDefaultProfile.option, appliedTcfMap);
   }
   const orcRatingsFor = (profile: OrcProfile): Map<string, number> => {
@@ -1783,12 +1823,12 @@ function calculateHandicapStandings(
       orcCourseMissing = orcProfile != null && !orcStartHasCourse(orcProfile, raceStart);
       orcCourseOption = orcCourseMissing ? orcProfile!.option : null;
       const isOrcTod = orcProfile?.kind === 'tod';
-      const isOrcPcs = orcProfile?.kind === 'pcs';
+      const isOrcCurve = orcProfile != null && orcCurveOption(orcProfile.option);
       let todContext: TodCorrectionContext | undefined;
       let orcCalcById: Map<string, OrcRaceCalc> | undefined;
       if (orcCourseMissing) {
         effectiveTcfMap = new Map();
-      } else if (orcProfile && !isOrcPcs) {
+      } else if (orcProfile && !isOrcCurve) {
         effectiveTcfMap = orcRatingsFor(orcProfile);
         if (isOrcTod && effectiveTcfMap.size > 0) {
           // The scratch boat's allowance (ORC 403.2: the lowest ToD among
@@ -1799,19 +1839,19 @@ function calculateHandicapStandings(
           };
         }
       }
-      if (isOrcPcs && !orcCourseMissing) {
-        const pcs = computeOrcPcsRace(
+      if (isOrcCurve && !orcCourseMissing) {
+        const computed = computeOrcCourseRace(
           ratedCompetitors,
           raceStart,
           raceFinishes,
-          orcProfile!.option,
+          orcProfile!,
         );
-        if (pcs) {
-          effectiveTcfMap = pcs.todByCompetitorId;
-          todContext = pcs.todContext;
-          orcCalcById = pcs.calcByCompetitorId;
+        if (computed) {
+          effectiveTcfMap = computed.ratingByCompetitorId;
+          todContext = computed.todContext;
+          orcCalcById = computed.calcByCompetitorId;
         } else {
-          // No usable PCS inputs after all — score nobody rather than run
+          // No usable course inputs after all — score nobody rather than run
           // the placeholder ratings through a time-on-time correction.
           effectiveTcfMap = new Map();
         }
