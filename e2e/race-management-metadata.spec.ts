@@ -5,6 +5,10 @@ import { createSeriesQuick, downloadFleetHtml, enableFeatures, settleFinish } fr
  * The race record (#338/#339): the conditions a race was sailed in, and the
  * race management team that ran it, at both the per-race and series levels.
  *
+ * The team also covers the write-your-own role (#591): a job World Sailing's
+ * manual has no title for, typed by the scorer, which has to read as typed
+ * everywhere the team is shown — and stay behind the same opt-in.
+ *
  * The load-bearing assertion is the publish opt-in. Officials are named
  * non-competitors, so with the switch off no team may appear in the exported
  * HTML *or* in the JSON export embedded in it — the test reads the downloaded
@@ -98,6 +102,14 @@ test('a race records its conditions and team, published only on opt-in', async (
   await page.getByLabel('Role for team member 1').click();
   await page.getByRole('option', { name: 'Principal Race Officer', exact: true }).click();
   await page.getByLabel('Name for team member 1').fill('Ann Kelly');
+
+  // A job the manual has no title for: the scorer writes it out themselves.
+  await page.getByTestId('series-add-official').click();
+  await page.getByLabel('Role for team member 2').click();
+  await page.getByRole('option', { name: 'Other…', exact: true }).click();
+  await page.getByLabel('Written-out role for team member 2').fill('Beach Master');
+  await page.getByLabel('Name for team member 2').fill('Sam Doyle');
+
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
 
@@ -113,10 +125,15 @@ test('a race records its conditions and team, published only on opt-in', async (
   expect(unpublished).toContain('Wind 8–14 kt SW');
   expect(unpublished).not.toContain('Ann Kelly');
   expect(unpublished).not.toContain('Jane Smith');
+  expect(unpublished).not.toContain('Sam Doyle');
 
   // ── Turn it on ───────────────────────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/settings$/);
+  // Collapsed again on a fresh visit, so this is the stored team as it reads.
+  await expect(
+    page.getByRole('heading', { name: 'Race management team', exact: true }).locator('../..'),
+  ).toContainText('Principal Race Officer: Ann Kelly · Beach Master: Sam Doyle');
   await page
     .getByRole('heading', { name: 'Race management team', exact: true })
     .locator('..')
@@ -130,6 +147,8 @@ test('a race records its conditions and team, published only on opt-in', async (
   const published = await downloadedHtml(page);
   expect(published).toContain('Principal Race Officer: Ann Kelly');
   expect(published).toContain('Race Officer: Jane Smith');
+  // The written-out role reads exactly as typed, beside the manual's own.
+  expect(published).toContain('Beach Master: Sam Doyle');
 });
 
 test('the record is absent when the feature is off', async ({ page, signedInEmail }) => {

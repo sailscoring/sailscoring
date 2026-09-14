@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { OfficialsEditor } from '@/components/officials-editor';
 import { useUpdateSeries } from '@/hooks/use-series';
-import { formatOfficials, hasOfficials, namedOfficials } from '@/lib/race-officials';
+import { formatOfficials, hasOfficials, tidyOfficials } from '@/lib/race-officials';
 import type { RaceOfficial, Series } from '@/lib/types';
 
 /**
@@ -55,7 +55,7 @@ export function RaceManagementCard({
 
   async function save() {
     // Half-filled rows are editing artefacts, not members.
-    const named = namedOfficials(draft).map((o) => ({ ...o, name: o.name.trim() }));
+    const named = tidyOfficials(draft);
     await updateSeries.mutateAsync({
       id: seriesId,
       patch: { officials: named, lastModifiedAt: Date.now() },

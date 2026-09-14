@@ -26,7 +26,7 @@ import {
   WIND_SPEED_MAX,
   windRangeError,
 } from '@/lib/race-conditions';
-import { namedOfficials } from '@/lib/race-officials';
+import { tidyOfficials } from '@/lib/race-officials';
 import type { CompassPoint, Race, RaceConditions, RaceOfficial } from '@/lib/types';
 
 /** The value the dialog hands back: both blocks, already normalised to the
@@ -98,7 +98,7 @@ function RaceMetadataDialogInner({
     try {
       // Half-filled rows are dropped here rather than stored: a row with no
       // name is an editing artefact, and keeping it would publish a bare role.
-      const named = namedOfficials(officials).map((o) => ({ ...o, name: o.name.trim() }));
+      const named = tidyOfficials(officials);
       await onSave({
         conditions: hasAny(conditions) ? conditions : undefined,
         officials: named.length > 0 ? named : undefined,

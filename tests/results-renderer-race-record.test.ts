@@ -92,6 +92,29 @@ describe('rendering the race record', () => {
     expect(html).toContain('Jane Smith');
   });
 
+  it('names a written-out role as typed', () => {
+    const html = renderSeriesHtml(
+      makeData({
+        officials: [
+          { id: 'o1', role: 'other', name: 'Sam Doyle', customRole: 'Beach Master' },
+        ],
+      }),
+    );
+    expect(html).toContain('Beach Master: Sam Doyle');
+  });
+
+  it('escapes a written-out role too', () => {
+    const html = renderSeriesHtml(
+      makeData({
+        officials: [
+          { id: 'o1', role: 'other', name: 'Sam Doyle', customRole: 'Beach <b>Master</b>' },
+        ],
+      }),
+    );
+    expect(html).not.toContain('Beach <b>Master</b>');
+    expect(html).toContain('Beach &lt;b&gt;Master&lt;/b&gt;');
+  });
+
   it('escapes names and notes', () => {
     const html = renderSeriesHtml(
       makeData({

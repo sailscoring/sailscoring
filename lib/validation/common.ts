@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { OFFICIAL_NAME_MAX_LENGTH, OFFICIAL_ROLES } from '@/lib/race-officials';
+import {
+  OFFICIAL_CUSTOM_ROLE_MAX_LENGTH,
+  OFFICIAL_NAME_MAX_LENGTH,
+  OFFICIAL_ROLE_OPTIONS,
+} from '@/lib/race-officials';
 import type { OfficialRole } from '@/lib/types';
 
 /**
@@ -38,11 +42,17 @@ export const versionSchema = z.number().int().positive().optional();
  * wire, the picker and the renderer can't disagree about what a role is. An
  * empty name is accepted: the authoring UI lets a row exist before it is
  * filled in, and every read path treats an unnamed row as absent.
+ *
+ * `customRole` carries the written-out role behind the `other` option. It is
+ * accepted on any row rather than conditionally on that one — a scorer who
+ * types a role and then picks a real title back off the list leaves it
+ * behind, and rejecting the save over an ignored field would be a puzzle.
  */
 export const raceOfficialSchema = z.object({
   id: z.string(),
-  role: z.enum(OFFICIAL_ROLES as readonly [OfficialRole, ...OfficialRole[]]),
+  role: z.enum(OFFICIAL_ROLE_OPTIONS as readonly [OfficialRole, ...OfficialRole[]]),
   name: z.string().max(OFFICIAL_NAME_MAX_LENGTH),
+  customRole: z.string().max(OFFICIAL_CUSTOM_ROLE_MAX_LENGTH).optional(),
 });
 
 /** How many people one team can name. Generous — a big regatta's race

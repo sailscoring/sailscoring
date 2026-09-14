@@ -237,7 +237,11 @@ export type OfficialRole =
   | 'safetyOfficer'
   | 'equipmentInspector'
   | 'eventMeasurer'
-  | 'technicalDelegate';
+  | 'technicalDelegate'
+  /** The escape hatch: a role the scorer writes out in `customRole`. The
+   *  manual's titles above cover race management, but a club's record often
+   *  names someone outside it — a beach master, a rescue coordinator. */
+  | 'other';
 
 /** One named member of a race management team. Array position is the display
  *  order; `id` keeps a row stable while the list is edited. */
@@ -245,6 +249,9 @@ export interface RaceOfficial {
   id: string;
   role: OfficialRole;
   name: string;
+  /** The written-out role, read only when `role` is 'other'. Absent, or blank,
+   *  means the person is listed by name alone. */
+  customRole?: string;
 }
 
 /** A point of the compass, 16-point. Wind direction is recorded as a point

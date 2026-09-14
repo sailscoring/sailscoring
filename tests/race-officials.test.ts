@@ -3,21 +3,32 @@
  * Management Manual, race-management roles only — the assertions below pin
  * both halves of that, since the whole point of a fixed list is that nobody
  * can quietly add "OOD" beside "Race Officer".
+ *
+ * The write-your-own role sits outside that list on purpose, and the tests
+ * keep it there: it is an option the picker offers, not a term the manual
+ * has, and the two are different things.
  */
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_OFFICIAL_ROLE,
   OFFICIAL_ROLES,
   OFFICIAL_ROLE_LABEL,
+  OFFICIAL_ROLE_OPTIONS,
   formatOfficials,
   hasOfficials,
   isOfficialRole,
   namedOfficials,
+  officialRoleLabel,
+  tidyOfficials,
 } from '@/lib/race-officials';
 import type { OfficialRole, RaceOfficial } from '@/lib/types';
 
 function official(role: OfficialRole, name: string, id = `${role}-${name}`): RaceOfficial {
   return { id, role, name };
+}
+
+function custom(customRole: string, name: string): RaceOfficial {
+  return { id: `other-${name}`, role: 'other', name, customRole };
 }
 
 describe('the role vocabulary', () => {
@@ -55,10 +66,15 @@ describe('the role vocabulary', () => {
   });
 
   it('labels every role', () => {
-    for (const role of OFFICIAL_ROLES) {
+    for (const role of OFFICIAL_ROLE_OPTIONS) {
       expect(OFFICIAL_ROLE_LABEL[role]).toBeTruthy();
     }
-    expect(Object.keys(OFFICIAL_ROLE_LABEL)).toHaveLength(OFFICIAL_ROLES.length);
+    expect(Object.keys(OFFICIAL_ROLE_LABEL)).toHaveLength(OFFICIAL_ROLE_OPTIONS.length);
+  });
+
+  it('offers the manual’s roles, then the write-your-own, last', () => {
+    expect(OFFICIAL_ROLE_OPTIONS).toEqual([...OFFICIAL_ROLES, 'other']);
+    expect(OFFICIAL_ROLES).not.toContain('other');
   });
 
   it('starts a new row on the role every event has', () => {
@@ -68,6 +84,7 @@ describe('the role vocabulary', () => {
 
   it('recognises its own roles and nothing else', () => {
     expect(isOfficialRole('raceOfficer')).toBe(true);
+    expect(isOfficialRole('other')).toBe(true);
     expect(isOfficialRole('umpire')).toBe(false);
     expect(isOfficialRole('')).toBe(false);
     expect(isOfficialRole(undefined)).toBe(false);
@@ -87,6 +104,51 @@ describe('reading a team', () => {
     expect(hasOfficials([])).toBe(false);
     expect(hasOfficials([official('raceOfficer', '')])).toBe(false);
     expect(namedOfficials(undefined)).toEqual([]);
+  });
+});
+
+describe('officialRoleLabel', () => {
+  it('reads a written-out role exactly as typed', () => {
+    expect(officialRoleLabel(custom('Beach Master', 'Sam Doyle'))).toBe('Beach Master');
+  });
+
+  it('trims it, and is empty when it was never filled in', () => {
+    expect(officialRoleLabel(custom('  Rescue Coordinator  ', 'Sam'))).toBe(
+      'Rescue Coordinator',
+    );
+    expect(officialRoleLabel(custom('   ', 'Sam'))).toBe('');
+    expect(officialRoleLabel(official('other', 'Sam'))).toBe('');
+  });
+
+  it('ignores a stray written-out role on a manual title', () => {
+    // A scorer who typed a role and then picked a real one off the list.
+    expect(
+      officialRoleLabel({ ...official('recorder', 'Tom'), customRole: 'Beach Master' }),
+    ).toBe('Recorder');
+  });
+});
+
+describe('tidyOfficials', () => {
+  it('trims the written-out role and keeps it only on an `other` row', () => {
+    expect(
+      tidyOfficials([
+        custom('  Beach Master  ', '  Sam Doyle  '),
+        { ...official('recorder', 'Tom Byrne'), customRole: 'Beach Master' },
+      ]),
+    ).toEqual([
+      { id: 'other-  Sam Doyle  ', role: 'other', name: 'Sam Doyle', customRole: 'Beach Master' },
+      { id: 'recorder-Tom Byrne', role: 'recorder', name: 'Tom Byrne' },
+    ]);
+  });
+
+  it('writes no key at all for a blank written-out role', () => {
+    const [tidied] = tidyOfficials([custom('   ', 'Sam Doyle')]);
+    expect(tidied).not.toHaveProperty('customRole');
+  });
+
+  it('drops rows that name nobody', () => {
+    expect(tidyOfficials([custom('Beach Master', '  ')])).toEqual([]);
+    expect(tidyOfficials(undefined)).toEqual([]);
   });
 });
 
@@ -116,5 +178,17 @@ describe('formatOfficials', () => {
   it('is empty when there is nobody to name', () => {
     expect(formatOfficials(undefined)).toBe('');
     expect(formatOfficials([])).toBe('');
+  });
+
+  it('uses a written-out role beside the manual’s own', () => {
+    expect(
+      formatOfficials([official('raceOfficer', 'Jane Smith'), custom('Beach Master', 'Sam Doyle')]),
+    ).toBe('Race Officer: Jane Smith · Beach Master: Sam Doyle');
+  });
+
+  it('lists someone by name alone when their role was left blank', () => {
+    expect(
+      formatOfficials([official('raceOfficer', 'Jane Smith'), custom('', 'Sam Doyle')]),
+    ).toBe('Race Officer: Jane Smith · Sam Doyle');
   });
 });

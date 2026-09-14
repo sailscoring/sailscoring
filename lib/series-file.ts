@@ -456,9 +456,16 @@ export interface SeriesFileRepos {
  *  and exactly one of the two is non-empty. An older build reading a v52 file
  *  would see such a course as an empty mark sequence — a course that draws
  *  nothing and fills no leg table — which is why this is a bump rather than a
- *  ride-along. */
-export const FORMAT_VERSION = 52;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52];
+ *  ride-along.
+ *
+ *  v53 adds the `other` role and optional `customRole` on every official, at
+ *  both team levels: a job World Sailing's manual doesn't name, written out by
+ *  the scorer. Additive and sparse — written only on an `other` row. The bump
+ *  is for the role, not the text: an older build reading a v53 file finds a
+ *  role its vocabulary rejects, and the importer's rule for that is to drop
+ *  the person rather than guess at their job. */
+export const FORMAT_VERSION = 53;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----

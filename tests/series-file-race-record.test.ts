@@ -78,6 +78,12 @@ const SERIES_TEAM = [
   { id: 'o-pro', role: 'principalRaceOfficer' as const, name: 'Ann Kelly' },
 ];
 
+/** A standing team that also names a job the manual has no title for. */
+const SERIES_TEAM_WITH_CUSTOM = [
+  ...SERIES_TEAM,
+  { id: 'o-other', role: 'other' as const, name: 'Sam Doyle', customRole: 'Beach Master' },
+];
+
 // Race 1 bare, race 2 conditions only, race 3 both — the club-series shape
 // where the duty rotates and the standing team is also filled in.
 function makeSnapshot(seriesExtra: Partial<Series> = {}): SeriesSnapshot {
@@ -223,6 +229,27 @@ describe('.sailscoring v27 race record', () => {
     expect(savedSeries[0]?.publishOfficials).toBe(true);
   });
 
+  it('round-trips a written-out role', async () => {
+    const { repos: buildRepos } = makeRecordingRepos(
+      makeSnapshot({ officials: SERIES_TEAM_WITH_CUSTOM }),
+    );
+    const file = await buildSeriesFile('s1', buildRepos);
+    expect(FORMAT_VERSION).toBeGreaterThanOrEqual(53);
+    expect(file.series.officials?.[1]).toMatchObject({
+      role: 'other',
+      name: 'Sam Doyle',
+      customRole: 'Beach Master',
+    });
+
+    const { repos, savedSeries } = makeRecordingRepos();
+    await openSeriesFromFile(file, repos);
+    expect(savedSeries[0]?.officials?.[1]).toMatchObject({
+      role: 'other',
+      name: 'Sam Doyle',
+      customRole: 'Beach Master',
+    });
+  });
+
   it('loads a v26 file, which carries none of this', async () => {
     const { repos: buildRepos } = makeRecordingRepos(makeSnapshot());
     const file = await buildSeriesFile('s1', buildRepos);
@@ -300,6 +327,41 @@ describe('public JSON export: the officials opt-in', () => {
     expect(savedSeries[0]?.officials?.[0]?.id).not.toBe('o-pro');
     expect(savedRaces[2].officials?.map((o) => o.name)).toEqual(['Jane Smith', 'Tom Byrne']);
     expect(savedRaces[0].officials).toBeUndefined();
+  });
+
+  it('carries a written-out role out and back', async () => {
+    const data = buildPublicExportFromSnapshot(
+      makeSnapshot({ officials: SERIES_TEAM_WITH_CUSTOM, publishOfficials: true }),
+    );
+    expect(data!.series.officials).toEqual([
+      { role: 'principalRaceOfficer', name: 'Ann Kelly' },
+      { role: 'other', name: 'Sam Doyle', customRole: 'Beach Master' },
+    ]);
+
+    const { repos, savedSeries } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    expect(savedSeries[0]?.officials?.[1]).toMatchObject({
+      role: 'other',
+      name: 'Sam Doyle',
+      customRole: 'Beach Master',
+    });
+  });
+
+  it('keeps an `other` member whose role was never written, by name alone', async () => {
+    const data = buildPublicExportFromSnapshot(
+      makeSnapshot({
+        officials: [{ id: 'o-x', role: 'other' as const, name: 'Sam Doyle' }],
+        publishOfficials: true,
+      }),
+    );
+    expect(data!.series.officials).toEqual([{ role: 'other', name: 'Sam Doyle' }]);
+
+    const { repos, savedSeries } = makeRecordingRepos();
+    await importPublicExport(data!, repos);
+    expect(savedSeries[0]?.officials?.[0]).toEqual(
+      expect.objectContaining({ role: 'other', name: 'Sam Doyle' }),
+    );
+    expect(savedSeries[0]?.officials?.[0]).not.toHaveProperty('customRole');
   });
 
   it('drops a role this build does not recognise rather than guessing one', async () => {

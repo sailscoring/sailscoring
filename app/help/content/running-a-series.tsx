@@ -553,8 +553,18 @@ export default function RunningASeries() {
             Manual, rather than club usage — so what a club calls the{' '}
             <strong className="text-foreground">OOD</strong> or Officer of the Day is a{' '}
             <strong className="text-foreground">Race Officer</strong> here, and the person
-            recording finishes is a <strong className="text-foreground">Recorder</strong>. One
-            fixed list keeps two names for the same job from both appearing in your results.
+            recording finishes is a <strong className="text-foreground">Recorder</strong>. Offering
+            one fixed list keeps two names for the same job from both appearing in your results.
+          </p>
+          <p>
+            The manual covers race management and stops there, so the last option in the list is{' '}
+            <strong className="text-foreground">Other…</strong>, which opens a box for you to write
+            the role yourself — a beach master, a rescue coordinator, a jury secretary, anyone
+            whose part in the day belongs on the record. It then reads exactly as you typed it,
+            everywhere the team appears. Leave the box empty and that person is simply listed by
+            name. Reach for it for the jobs the list doesn’t have rather than for the ones it
+            does: typing “OOD” beside someone else’s “Race Officer” is the one thing the fixed
+            list is there to prevent.
           </p>
           <p>
             There are two places to record a team, and they are kept separate on purpose.{' '}

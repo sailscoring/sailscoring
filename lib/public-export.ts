@@ -38,7 +38,11 @@ import type {
 } from './repository';
 import { orcCertFromSummary, orcCertSummary } from './orc-certificate';
 import { hasConditions } from './race-conditions';
-import { isOfficialRole, namedOfficials } from './race-officials';
+import {
+  OFFICIAL_CUSTOM_ROLE_MAX_LENGTH,
+  isOfficialRole,
+  tidyOfficials,
+} from './race-officials';
 import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
@@ -75,10 +79,12 @@ export interface ExportStartGroup {
 
 /** A member of a race management team as it appears in the public export
  *  (#339). No id — official ids are series-local, and importers mint fresh
- *  ones, exactly as for prizes. */
+ *  ones, exactly as for prizes. `customRole` is present only on the `other`
+ *  role, which is where the scorer writes the job out themselves. */
 export interface ExportOfficial {
   role: OfficialRole;
   name: string;
+  customRole?: string;
 }
 
 /**
@@ -94,7 +100,11 @@ function exportOfficials(
   publish: boolean,
 ): { officials?: ExportOfficial[] } {
   if (!publish) return {};
-  const named = namedOfficials(officials).map((o) => ({ role: o.role, name: o.name.trim() }));
+  const named = tidyOfficials(officials).map((o) => ({
+    role: o.role,
+    name: o.name,
+    ...(o.customRole ? { customRole: o.customRole } : {}),
+  }));
   return named.length > 0 ? { officials: named } : {};
 }
 
@@ -104,6 +114,8 @@ function exportOfficials(
  * An unrecognised role is dropped rather than coerced: the vocabulary is
  * fixed, so a role this build doesn't know is either a newer build's or
  * corrupt, and inventing a substitute would misattribute a real person's job.
+ * A written-out role travels as the text it is, capped like any other
+ * imported string.
  */
 function importOfficials(
   officials: ExportOfficial[] | undefined,
@@ -111,7 +123,14 @@ function importOfficials(
 ): { officials?: RaceOfficial[] } {
   const rebuilt = (officials ?? [])
     .filter((o) => isOfficialRole(o.role) && o.name.trim() !== '')
-    .map((o) => ({ id: newId(), role: o.role, name: o.name }));
+    .map((o) => ({
+      id: newId(),
+      role: o.role,
+      name: o.name,
+      ...(o.role === 'other' && o.customRole?.trim()
+        ? { customRole: o.customRole.trim().slice(0, OFFICIAL_CUSTOM_ROLE_MAX_LENGTH) }
+        : {}),
+    }));
   return rebuilt.length > 0 ? { officials: rebuilt } : {};
 }
 
