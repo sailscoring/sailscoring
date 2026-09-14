@@ -18,6 +18,7 @@
  *
  * Usage (production: against the production DATABASE_URL):
  *   pnpm tsx scripts/provision-org.ts create-org "Howth Yacht Club" --slug hyc
+ *   pnpm tsx scripts/provision-org.ts rename-org hyc "Howth Yacht Club"
  *   pnpm tsx scripts/provision-org.ts pre-create-user alice@example.com --name "Alice Adams"
  *   pnpm tsx scripts/provision-org.ts add-member hyc alice@example.com --role owner
  *   pnpm tsx scripts/provision-org.ts add-member hyc bob@example.com
@@ -307,6 +308,24 @@ export async function createOrg(
     }
   }
   return { id, name, slug };
+}
+
+/**
+ * Correct a workspace's display name. The name is a label — the slug is
+ * what URLs, published pages and every lookup key off — so this touches
+ * one column and cascades nowhere. Published pages read the name live, so
+ * a rename shows up on them at their next request.
+ */
+export async function renameOrg(
+  db: SailScoringDb,
+  args: { orgSlugOrId: string; name: string },
+): Promise<{ id: string; slug: string; previousName: string; name: string }> {
+  const org = await findOrgBySlugOrId(db, args.orgSlugOrId);
+  if (!org) throw new Error(`org "${args.orgSlugOrId}" not found`);
+  const name = args.name.trim();
+  if (!name) throw new Error('rename-org: <new-name> is required');
+  await db.update(organization).set({ name }).where(eq(organization.id, org.id));
+  return { id: org.id, slug: org.slug, previousName: org.name, name };
 }
 
 /**
@@ -771,6 +790,7 @@ function usage(): string {
   return `provision-org — ADR-008 Phase 7 manual org administration
 
   create-org <name> [--slug <slug>] [--enable-feature <key[,key...]>] [--owner <email>]
+  rename-org <org-slug-or-id> <new-name>
   delete-org <org-slug-or-id> [--force]
   pre-create-user <email> --name <full-name>
   seed-samples <email>
@@ -790,6 +810,9 @@ function usage(): string {
   support join <org-slug-or-id> <email> [--hours ${DEFAULT_SUPPORT_HOURS}] [--reason <text>] [--role member|scorer|admin|owner]
   support list [--all]
   support leave <org-slug-or-id> <email>
+
+rename-org changes a workspace's display name only; the slug stays put, so
+published URLs are unaffected.
 
 delete-org without --force only prints what would be deleted. Cascades
 through members, invitations, and all series/race/competitor data.
@@ -960,6 +983,16 @@ export async function runCli(argv: string[]): Promise<number> {
           });
           console.log(`  owner: ${owner} (role: ${membership.role})`);
         }
+        return 0;
+      }
+      case 'rename-org': {
+        const [orgSlugOrId, name] = positional;
+        if (!orgSlugOrId) throw new Error('rename-org: <org-slug-or-id> is required');
+        if (!name) throw new Error('rename-org: <new-name> is required');
+        const result = await renameOrg(db, { orgSlugOrId, name });
+        console.log(
+          `renamed org "${result.previousName}" to "${result.name}" (slug: ${result.slug}, id: ${result.id})`,
+        );
         return 0;
       }
       case 'delete-org': {

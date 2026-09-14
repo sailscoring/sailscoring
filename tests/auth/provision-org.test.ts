@@ -19,6 +19,7 @@ import {
   listRequests,
   preCreateUser,
   removeMember,
+  renameOrg,
   seedSamplesForUser,
   setOrgFeature,
   setRole,
@@ -265,6 +266,38 @@ describe.skipIf(skip)('provision-org operations', () => {
     await expect(
       createOrg(db, { name: 'Beta', slug }),
     ).rejects.toThrow(/already exists/);
+  });
+
+  test('renameOrg changes the display name and leaves the slug alone', async () => {
+    const slug = `rename-${Date.now()}`;
+    const org = await createOrg(db, { name: 'IrishSailing', slug });
+    cleanupOrgIds.push(org.id);
+
+    const renamed = await renameOrg(db, { orgSlugOrId: slug, name: '  Irish Sailing  ' });
+    expect(renamed).toMatchObject({
+      id: org.id,
+      slug,
+      previousName: 'IrishSailing',
+      name: 'Irish Sailing',
+    });
+
+    const [row] = await db
+      .select({ name: schema.organization.name, slug: schema.organization.slug })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, org.id));
+    expect(row).toEqual({ name: 'Irish Sailing', slug });
+  });
+
+  test('renameOrg rejects an unknown org and an empty name', async () => {
+    await expect(
+      renameOrg(db, { orgSlugOrId: 'no-such-org', name: 'Whatever' }),
+    ).rejects.toThrow(/not found/);
+
+    const org = await createOrg(db, { name: `Blank ${Date.now()}` });
+    cleanupOrgIds.push(org.id);
+    await expect(renameOrg(db, { orgSlugOrId: org.id, name: '   ' })).rejects.toThrow(
+      /required/,
+    );
   });
 
   async function makeRequest(

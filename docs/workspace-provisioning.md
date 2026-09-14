@@ -54,6 +54,19 @@ The default sign-in flow already gives every user a personal workspace
    the `/p/hyc/...` segment every published URL carries. Slugs are
    URL-safe and unique across the platform.
 
+   Got the name wrong? `rename-org` fixes it:
+
+   ```bash
+   pnpm provision-org rename-org hyc "Howth Yacht Club"
+   ```
+
+   It changes the display name only — the slug, and so every published
+   URL, stays put. Public pages read the name live, so the corrected
+   name appears on them at their next request. A wrong *slug* is not a
+   rename: the published URLs already carry it, so move it with the
+   redirect table (ADR-011) or, before anything is published, delete and
+   re-create the workspace.
+
 3. **Add each panel member.**
 
    ```bash
