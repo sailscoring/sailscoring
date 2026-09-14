@@ -6,8 +6,18 @@
 // HTML strings, no React — mirrors lib/results-renderer.ts conventions.
 
 import type { NationalFlag } from './nationality/types';
-import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race, RaceStart } from './types';
+import type {
+  Competitor,
+  CompetitorFieldKey,
+  Finish,
+  Fleet,
+  Race,
+  RaceOfficial,
+  RaceStart,
+} from './types';
 import { renderFlagDefs, renderHtmlDocument, TRACK_DATA_COLUMNS, type DocumentChrome } from './results-renderer';
+import { formatConditions, hasConditions } from './race-conditions';
+import { formatOfficials, hasOfficials } from './race-officials';
 import { describeSplitFleetConfig } from './split-fleets-si';
 import { bySailNumber } from './sail-number-sort';
 import { worldSailingProfileUrl } from './world-sailing';
@@ -56,6 +66,10 @@ export interface SplitFleetRenderInput {
    *  feature AND the series' publishTrackData setting — and each column
    *  still renders only where a boat actually carries the value. */
   showTrackData?: boolean;
+  /** Whether a race's own management team may be named on the race-results
+   *  page. The caller resolves the series opt-in; conditions need no opt-in,
+   *  because they describe the racing rather than a person. */
+  publishOfficials?: boolean;
 }
 
 /** Rules these pages need on top of the shared published-page styles: the
@@ -138,6 +152,10 @@ export interface SplitFleetPageChrome {
   finalisedAt?: Date;
   /** The event index, rendered as the shell's breadcrumb. */
   seriesIndexUrl?: string;
+  /** The event's standing race management team, already filtered by the
+   *  caller's publish opt-in — these pages never make that decision, the
+   *  same division of labour the per-fleet path keeps. */
+  officials?: RaceOfficial[];
   /** The per-race results page's URL relative to this page, when the caller
    *  knows where both will be served (the publish path does; preview,
    *  download and FTP do not). On the championship standings it turns each
@@ -169,6 +187,7 @@ function chromeFor(input: SplitFleetRenderInput, opts: SplitFleetPageChrome): Do
     ...(opts.resultsFinal ? { resultsFinal: true } : {}),
     ...(opts.finalisedAt ? { finalisedAt: opts.finalisedAt } : {}),
     ...(opts.seriesIndexUrl ? { seriesIndexUrl: opts.seriesIndexUrl } : {}),
+    ...(hasOfficials(opts.officials) ? { officials: opts.officials } : {}),
     ...(opts.openInAppUrl ? { openInAppUrl: opts.openInAppUrl } : {}),
     ...(opts.dataFileUrl ? { dataFileUrl: opts.dataFileUrl } : {}),
     ...(opts.seriesNote ? { seriesNote: opts.seriesNote } : {}),
@@ -450,6 +469,26 @@ export function stageRaceAnchor(stage: SeriesStage, n: number): string {
  *  multiplier and any first-place offset are already applied.
  *
  *  Returns null while no stage race has sheet rows — nothing to page yet. */
+/**
+ * A race's own record as the two centred lines an ordinary race table carries
+ * (#338/#339): what it was sailed in, then who ran it. Same classes and same
+ * wording, so a championship's race page reads like every other results page.
+ *
+ * Conditions describe the racing, so they publish unconditionally; the team
+ * are named non-competitors and appear only where the caller says they may.
+ */
+function raceRecordLines(race: Race | undefined, publishOfficials: boolean): string {
+  if (!race) return '';
+  const line = (cls: string, text: string) =>
+    `<p class="${cls}" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(text)}</p>\n`;
+  return [
+    hasConditions(race.conditions) ? line('raceconditions', formatConditions(race.conditions)) : '',
+    publishOfficials && hasOfficials(race.officials)
+      ? line('raceofficials', formatOfficials(race.officials))
+      : '',
+  ].join('');
+}
+
 export function renderSplitFleetRaceResultsPage(
   input: SplitFleetRenderInput,
   opts: SplitFleetPageChrome = {},
@@ -554,6 +593,16 @@ ${body}
       // No covering round means the engine scored nothing for the race, so
       // there are no cells to page (same guard as the standings pass).
       if (!lr.round) continue;
+      // A stage race need not be one race on the water: Gold and Silver can
+      // sail their own, each with its own wind and its own team. One record
+      // under the heading when they shared a race, one per fleet when they
+      // did not — never the same line repeated under every fleet.
+      const raceForFleet = (fid: string) => lr.races.get(fid)?.race;
+      const sharedRace =
+        new Set(lr.round.fleetIds.map((fid) => raceForFleet(fid)?.id).filter(Boolean)).size === 1;
+      const sharedRecord = sharedRace
+        ? raceRecordLines(raceForFleet(lr.round.fleetIds[0]), !!input.publishOfficials)
+        : '';
       const tables = lr.round.fleetIds
         .map((fid) => {
           const entries =
@@ -561,7 +610,10 @@ ${body}
           const table = fleetTable(entries);
           if (!table) return '';
           const label = fleetName.get(fid) ?? '';
-          return `<h3>${fleetDot(colors, fid)}${esc(label)} fleet</h3>\n${table}`;
+          const record = sharedRace
+            ? ''
+            : raceRecordLines(raceForFleet(fid), !!input.publishOfficials);
+          return `<h3>${fleetDot(colors, fid)}${esc(label)} fleet</h3>\n${record}${table}`;
         })
         .filter(Boolean);
       if (tables.length === 0) continue;
@@ -574,7 +626,7 @@ ${body}
       sections.push(
         `<h2 id="${stageRaceAnchor(stage, lr.stageRaceNumber)}">${esc(
           stageRaceLabel(data.config, stage, lr.stageRaceNumber, qRaces),
-        )}</h2>\n${note}${tables.join('\n')}`,
+        )}</h2>\n${sharedRecord}${note}${tables.join('\n')}`,
       );
     }
   }

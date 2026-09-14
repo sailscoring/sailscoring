@@ -178,3 +178,86 @@ describe('buildFleetHtmlFiles — split-fleet per-race results', () => {
     expect(files).toBeNull();
   });
 });
+
+/**
+ * The race record through the same build (#338/#339). The championship pages
+ * assemble their own chrome, which is how they came to publish none of it:
+ * the data file beside the page carried the officials and the page did not.
+ */
+describe('buildFleetHtmlFiles — the race record on championship pages', () => {
+  const TEAM = [
+    { id: 'o1', role: 'raceOfficer' as const, name: 'Jane Smith' },
+    { id: 'o2', role: 'other' as const, name: 'Sam Doyle', customRole: 'Beach Master' },
+  ];
+  const RACE_TEAM = [{ id: 'o3', role: 'recorder' as const, name: 'Tom Byrne' }];
+
+  /** The standard repos with the series and its one race patched. */
+  function reposWith(series: Partial<Series>, race: Partial<Race> = {}): ExportRepos {
+    const base = makeRepos(RACE_STARTS, FINISHES);
+    return {
+      ...base,
+      seriesRepo: { get: async (id: string) => (id === 's1' ? { ...SERIES, ...series } : undefined) },
+      raceRepo: { listBySeries: async () => RACES.map((r) => ({ ...r, ...race })) },
+    } as unknown as ExportRepos;
+  }
+
+  it('names the standing team on every page once the series opts in', async () => {
+    const files = await buildFleetFiles(
+      reposWith({ officials: TEAM, publishOfficials: true }),
+      's1',
+    );
+    expect(files!.map((f) => f.fleetName)).toEqual([
+      'Championship',
+      'Race results',
+      'Fleet assignments',
+    ]);
+    for (const f of files!) {
+      expect(f.html).toContain('class="seriesofficials"');
+      expect(f.html).toContain('Race Officer: Jane Smith · Beach Master: Sam Doyle');
+    }
+  });
+
+  it('publishes no team while the series has not opted in', async () => {
+    const files = await buildFleetFiles(reposWith({ officials: TEAM }), 's1');
+    for (const f of files!) {
+      expect(f.html).not.toContain('seriesofficials');
+      expect(f.html).not.toContain('Jane Smith');
+    }
+  });
+
+  it('carries a race’s own conditions and team onto the race-results page', async () => {
+    const files = await buildFleetFiles(
+      reposWith(
+        { publishOfficials: true },
+        {
+          conditions: { windSpeedMin: 8, windSpeedMax: 14, windDirection: 'SW' },
+          officials: RACE_TEAM,
+        },
+      ),
+      's1',
+    );
+    const racePage = files!.find((f) => f.fleetName === 'Race results')!;
+    expect(racePage.html).toContain('Wind 8–14 kt SW');
+    expect(racePage.html).toContain('Recorder: Tom Byrne');
+    // Both fleets sailed the one race, so the record is stated once for it
+    // rather than repeated under each fleet's table.
+    expect(racePage.html.split('class="raceconditions"').length - 1).toBe(1);
+    expect(racePage.html.split('class="raceofficials"').length - 1).toBe(1);
+  });
+
+  it('carries the conditions but not the team when the series has not opted in', async () => {
+    const files = await buildFleetFiles(
+      reposWith(
+        {},
+        {
+          conditions: { windSpeedMin: 8, windSpeedMax: 14, windDirection: 'SW' },
+          officials: RACE_TEAM,
+        },
+      ),
+      's1',
+    );
+    const racePage = files!.find((f) => f.fleetName === 'Race results')!;
+    expect(racePage.html).toContain('Wind 8–14 kt SW');
+    expect(racePage.html).not.toContain('Tom Byrne');
+  });
+});

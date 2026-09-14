@@ -609,6 +609,12 @@ export async function buildFleetHtmlFiles(
           }
         : {}),
       ...(seriesIndexUrl ? { seriesIndexUrl } : {}),
+      // Officials are named non-competitors, so the standing team reaches
+      // these pages only on the series' opt-in — the same decision, made in
+      // the same place, as the per-fleet path below.
+      ...(snapshot.series.publishOfficials && snapshot.series.officials?.length
+        ? { officials: snapshot.series.officials }
+        : {}),
     };
     const input = {
       seriesName: snapshot.series.name,
@@ -623,6 +629,9 @@ export async function buildFleetHtmlFiles(
       ...(opts?.includeTrackData && snapshot.series.publishTrackData
         ? { showTrackData: true }
         : {}),
+      // Lets the race-results page name each race's own team. Conditions need
+      // no flag: they describe the racing, not a person.
+      ...(snapshot.series.publishOfficials ? { publishOfficials: true } : {}),
       ...(wantsFlags
         ? { flagSvgByCode: (await import('./nationality/flags')).NATIONAL_FLAGS }
         : {}),

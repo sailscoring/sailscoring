@@ -13,10 +13,11 @@ import {
   renderSplitFleetStandingsPage,
   renderSplitFleetAssignmentsPage,
   renderSplitFleetRaceResultsPage,
+  stageRaceAnchor,
   type SplitFleetRenderInput,
 } from '@/lib/split-fleets-render';
 import { describeSplitFleetConfig } from '@/lib/split-fleets-si';
-import type { RaceStart } from '@/lib/types';
+import type { RaceConditions, RaceOfficial, RaceStart } from '@/lib/types';
 import { buildSplitFleet, loadSplitFleetFixtures } from './fixtures/scoring/split-fleets/loader';
 
 const dir = join(__dirname, 'fixtures/scoring/split-fleets');
@@ -711,5 +712,128 @@ describe('track data columns on the per-race page', () => {
     expect(html).toContain('>Avg speed (kn)</th>');
     expect(html).not.toContain('>Max speed (kn)</th>');
     expect(html).not.toContain('>DTL (m)</th>');
+  });
+});
+
+/**
+ * The race record on a championship's pages (#338/#339). These three pages
+ * build their own chrome rather than going through the per-fleet assembler,
+ * and the record was simply missing from it: a series that had opted in
+ * published its officials in the data file beside the page and nowhere on it.
+ */
+describe('the race record on a championship’s pages', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+  const MEDAL = '03-f2-ilca-medal-race.yaml';
+  const TEAM: RaceOfficial[] = [
+    { id: 'o1', role: 'raceOfficer', name: 'Jane Smith' },
+    { id: 'o2', role: 'other', name: 'Sam Doyle', customRole: 'Beach Master' },
+  ];
+  const RACE_TEAM: RaceOfficial[] = [{ id: 'o3', role: 'recorder', name: 'Tom Byrne' }];
+  const CONDITIONS: RaceConditions = {
+    windSpeedMin: 8,
+    windSpeedMax: 14,
+    windDirection: 'SW',
+    notes: 'Windward-leeward',
+  };
+
+  /** The same slice helper the page tests use: one stage race's heading up to the next. */
+  function section(html: string, anchor: string): string {
+    const start = html.indexOf(`<h2 id="${anchor}">`);
+    expect(start).toBeGreaterThan(-1);
+    const next = html.indexOf('<h2 id=', start + 1);
+    return next === -1 ? html.slice(start) : html.slice(start, next);
+  }
+
+  function onRace(
+    input: SplitFleetRenderInput,
+    raceId: string,
+    patch: Partial<{ conditions: RaceConditions; officials: RaceOfficial[] }>,
+  ): SplitFleetRenderInput {
+    return {
+      ...input,
+      races: input.races.map((r) => (r.id === raceId ? { ...r, ...patch } : r)),
+    };
+  }
+
+  const count = (html: string, needle: string) => html.split(needle).length - 1;
+
+  it('names the standing team on all three pages', () => {
+    const input = renderInputFor(FIXTURE);
+    const pages = [
+      renderSplitFleetStandingsPage(input, { officials: TEAM }),
+      renderSplitFleetRaceResultsPage(input, { officials: TEAM })!,
+      renderSplitFleetAssignmentsPage(input, { officials: TEAM }),
+    ];
+    for (const html of pages) {
+      expect(html).toContain('class="seriesofficials"');
+      expect(html).toContain('Race Officer: Jane Smith · Beach Master: Sam Doyle');
+    }
+  });
+
+  it('names nobody when the caller withholds the team', () => {
+    // The opt-in is the caller's to apply — these pages never decide it.
+    const input = renderInputFor(FIXTURE);
+    const pages = [
+      renderSplitFleetStandingsPage(input, {}),
+      renderSplitFleetRaceResultsPage(input, {})!,
+      renderSplitFleetAssignmentsPage(input, {}),
+    ];
+    for (const html of pages) {
+      expect(html).not.toContain('seriesofficials');
+      expect(html).not.toContain('Jane Smith');
+    }
+  });
+
+  it('states a race’s conditions and team under that fleet’s own heading', () => {
+    // Each fleet sails its own race here, so the record belongs to the fleet
+    // that sailed it — Blue's table is under the same heading and says nothing.
+    const input = onRace(
+      { ...renderInputFor(FIXTURE), publishOfficials: true },
+      'qualifying1:Yellow',
+      { conditions: CONDITIONS, officials: RACE_TEAM },
+    );
+    const q1 = section(renderSplitFleetRaceResultsPage(input)!, stageRaceAnchor('qualifying', 1));
+    expect(count(q1, 'class="raceconditions"')).toBe(1);
+    expect(count(q1, 'class="raceofficials"')).toBe(1);
+    expect(q1).toContain('Wind 8–14 kt SW · Windward-leeward');
+    expect(q1).toContain('Recorder: Tom Byrne');
+    // The lines sit inside the Yellow block: after its heading, before Blue's.
+    const yellow = q1.indexOf('Yellow fleet</h3>');
+    const blue = q1.indexOf('Blue fleet</h3>');
+    const conditions = q1.indexOf('class="raceconditions"');
+    expect(yellow).toBeLessThan(conditions);
+    expect(conditions).toBeLessThan(blue);
+  });
+
+  it('states it once under the race heading when one fleet sailed it', () => {
+    const input = onRace(
+      { ...renderInputFor(MEDAL), publishOfficials: true },
+      'medal1:Medal',
+      { conditions: CONDITIONS, officials: RACE_TEAM },
+    );
+    const medal = section(renderSplitFleetRaceResultsPage(input)!, stageRaceAnchor('medal', 1));
+    expect(count(medal, 'class="raceconditions"')).toBe(1);
+    expect(medal.indexOf('class="raceconditions"')).toBeLessThan(medal.indexOf('<h3'));
+  });
+
+  it('publishes the conditions without the opt-in, but not the team', () => {
+    // Conditions describe the racing rather than a person, as everywhere else.
+    const input = onRace(renderInputFor(FIXTURE), 'qualifying1:Yellow', {
+      conditions: CONDITIONS,
+      officials: RACE_TEAM,
+    });
+    const html = renderSplitFleetRaceResultsPage(input)!;
+    expect(html).toContain('class="raceconditions"');
+    expect(html).not.toContain('raceofficials');
+    expect(html).not.toContain('Tom Byrne');
+  });
+
+  it('says nothing for a race with no record', () => {
+    const html = renderSplitFleetRaceResultsPage({
+      ...renderInputFor(FIXTURE),
+      publishOfficials: true,
+    })!;
+    expect(html).not.toContain('raceconditions');
+    expect(html).not.toContain('raceofficials');
   });
 });
