@@ -1033,6 +1033,10 @@ export async function keyboardReorder(
   steps = 1,
 ): Promise<void> {
   await handle.focus();
+  // Every keystroke below goes wherever focus actually is, so a handle that
+  // didn't take focus — something else on the page claiming it back, a Radix
+  // overlay still closing — has to fail here rather than as a silent no-move.
+  await expect(handle).toBeFocused();
   // dnd-kit's KeyboardSensor needs a tick between events to start the drag and
   // measure the list before the arrow moves it — pressing back-to-back drops
   // the move. Short pauses keep this reliable in headless runs.

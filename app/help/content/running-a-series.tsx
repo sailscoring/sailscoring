@@ -567,6 +567,15 @@ export default function RunningASeries() {
             list is there to prevent.
           </p>
           <p>
+            The order is yours: rows stay exactly as you arrange them rather than being sorted by
+            seniority, all the way through to the published page, so a club series can lead with
+            the week’s duty officer. Drag a row by the handle on its left to move it — or, from
+            the keyboard, focus the handle, press{' '}
+            <kbd className="px-1 border rounded text-xs">Space</kbd> to pick the row up, move it
+            with the arrow keys, and press{' '}
+            <kbd className="px-1 border rounded text-xs">Space</kbd> again to drop it.
+          </p>
+          <p>
             There are two places to record a team, and they are kept separate on purpose.{' '}
             <strong className="text-foreground">Series Settings</strong> holds the{' '}
             <em>standing</em> team for the event — what a regatta with the same people all week

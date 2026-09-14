@@ -1,5 +1,11 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, downloadFleetHtml, enableFeatures, settleFinish } from './helpers';
+import {
+  createSeriesQuick,
+  downloadFleetHtml,
+  enableFeatures,
+  keyboardReorder,
+  settleFinish,
+} from './helpers';
 
 /**
  * The race record (#338/#339): the conditions a race was sailed in, and the
@@ -107,8 +113,18 @@ test('a race records its conditions and team, published only on opt-in', async (
   await page.getByTestId('series-add-official').click();
   await page.getByLabel('Role for team member 2').click();
   await page.getByRole('option', { name: 'Other…', exact: true }).click();
+  // Radix hands focus back to the trigger a beat after the listbox goes, and
+  // it would take it off the drag handle mid-reorder below. Wait it out.
+  await expect(page.getByRole('listbox')).toHaveCount(0);
   await page.getByLabel('Written-out role for team member 2').fill('Beach Master');
   await page.getByLabel('Name for team member 2').fill('Sam Doyle');
+
+  // The order is the scorer's to state, so it is theirs to correct. Drag the
+  // beach master above the PRO by keyboard; the rest of the test then follows
+  // that order all the way to the published file.
+  await keyboardReorder(page, page.getByTestId('series-official-drag-1'), 'ArrowUp');
+  await expect(page.getByLabel('Name for team member 1')).toHaveValue('Sam Doyle');
+  await expect(page.getByLabel('Name for team member 2')).toHaveValue('Ann Kelly');
 
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
@@ -133,7 +149,7 @@ test('a race records its conditions and team, published only on opt-in', async (
   // Collapsed again on a fresh visit, so this is the stored team as it reads.
   await expect(
     page.getByRole('heading', { name: 'Race management team', exact: true }).locator('../..'),
-  ).toContainText('Principal Race Officer: Ann Kelly · Beach Master: Sam Doyle');
+  ).toContainText('Beach Master: Sam Doyle · Principal Race Officer: Ann Kelly');
   await page
     .getByRole('heading', { name: 'Race management team', exact: true })
     .locator('..')
@@ -145,10 +161,10 @@ test('a race records its conditions and team, published only on opt-in', async (
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);
   const published = await downloadedHtml(page);
-  expect(published).toContain('Principal Race Officer: Ann Kelly');
   expect(published).toContain('Race Officer: Jane Smith');
-  // The written-out role reads exactly as typed, beside the manual's own.
-  expect(published).toContain('Beach Master: Sam Doyle');
+  // The written-out role reads exactly as typed, beside the manual's own, and
+  // the standing team keeps the order the scorer dragged it into.
+  expect(published).toContain('Beach Master: Sam Doyle · Principal Race Officer: Ann Kelly');
 });
 
 test('the record is absent when the feature is off', async ({ page, signedInEmail }) => {
