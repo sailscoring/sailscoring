@@ -104,6 +104,18 @@ export async function getPublishedPathsBySeries(
   return map;
 }
 
+/** Whether the workspace has anything published at all. `/p/{slug}` 404s
+ *  until it does — the index refuses to reveal that a workspace exists — so
+ *  workspace settings asks this before offering the public URL as a link. */
+export async function workspaceHasPublished(workspaceId: string): Promise<boolean> {
+  const rows = await getDb()
+    .select({ id: schema.publishedSeries.id })
+    .from(schema.publishedSeries)
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /** The set of series ids that have a live publication in the workspace. One
  *  query, used to filter the public competitor index down to published series
  *  (an unpublished series is the club's explicit "not public"). */

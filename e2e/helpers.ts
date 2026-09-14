@@ -618,6 +618,29 @@ export async function seedRankedSeries(
   }
 }
 
+/**
+ * Give a workspace one live publication, with no series behind it. The
+ * publication tree only asks whether the workspace has published *anything*
+ * when it decides to answer `/p/{slug}` at all, so a bare row is enough for a
+ * test about that decision.
+ */
+export async function seedPublication(workspaceId: string, slug: string): Promise<void> {
+  const { db, close } = adminDb();
+  try {
+    await db.insert(schema.publishedSeries).values({
+      id: crypto.randomUUID(),
+      workspaceId,
+      seriesId: null,
+      slug,
+      pages: [],
+      contentHash: crypto.randomUUID(),
+      publishedVersion: 1,
+    });
+  } finally {
+    await close();
+  }
+}
+
 // 1×1 transparent PNG, base64 — the byte payload `logo_blobs` stores locally.
 const SEED_PNG_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';

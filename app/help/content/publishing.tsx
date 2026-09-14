@@ -65,6 +65,10 @@ export default function Publishing() {
           the listing to the table a visitor is after instead of scrolling. Manage seasons
           (and pick the current one) from the{' '}
           <strong className="text-foreground">Seasons</strong> card on Workspace settings.
+          The <code className="text-foreground text-sm">hyc</code> in all of these addresses is
+          your workspace’s own slug, which every page you publish sits under. Workspace settings
+          shows it beneath the heading, with the index itself linked once you have published
+          something.
         </p>
         <p>
           <strong className="text-foreground">Sorting a published table:</strong> visitors can

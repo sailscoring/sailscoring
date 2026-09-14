@@ -15,6 +15,8 @@ import { FeaturesCard } from '@/components/workspace-settings/features-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
 import { LogosCard } from '@/components/workspace-settings/logos-card';
 import { MembersCard } from '@/components/workspace-settings/members-card';
+import { WorkspaceSlug } from '@/components/workspace-settings/workspace-slug';
+import { workspaceHasPublished } from '@/lib/published-repository';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,10 +78,25 @@ export default async function WorkspacePage() {
   // asking for a club workspace, which is approved out-of-band.
   const isPersonal =
     workspace !== null && isPersonalWorkspaceSlug(workspace.workspaceSlug);
+  // The slug is shown for a personal workspace too. Its generated `u-…` form
+  // isn't one anybody chose, but it is still the workspace's public path, and
+  // leaving it out would make the one place that names a slug inconsistent
+  // about whether the workspace has one.
+  const hasPublished =
+    workspace !== null && (await workspaceHasPublished(workspace.workspaceId));
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-semibold">{title}</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">{title}</h1>
+        {workspace && (
+          <WorkspaceSlug
+            slug={workspace.workspaceSlug}
+            publicPath={`/p/${workspace.workspaceSlug}`}
+            published={hasPublished}
+          />
+        )}
+      </div>
       {!isPersonal && (
         <MembersCard
           currentUserEmail={session?.user.email ?? null}
