@@ -665,6 +665,55 @@ renders a PDF). Revisit only if scorers ask for an attach-from-publish artifact 
 than a print-it-yourself one. The print/PDF rendering path here is also where the
 print-only QR code above would live.
 
+### A fleet × race navigation grid — Sailwave's "matrix" effect
+
+Observed at ISORA, whose scoring system is the entry under [Esoteric scoring
+engine requirements](#fleet-size-adjusted-high-point-chips3-cox-sprague-rinderle-b).
+They publish stock Sailwave results HTML as static `.htm` files uploaded under
+`/images/{year}/Results/...` on their Joomla site — the upload-and-link model
+our own publishing replaced — and describe the output on their results page as
+*"presented in matrix tables"*.
+
+The file itself is the ordinary Sailwave artefact, and one we already match:
+every fleet's summary table, then every race table for every fleet, behind a
+contents list, in a single document. `renderCombinedSeriesHtml` at full detail
+produces the same shape, as its own doc comment says. ISORA's 2026 by-class
+file is five fleet summaries and sixty-four race tables in 212 KB.
+
+The "matrix" is not that table. It is a Sailwave **publishing effect** —
+`ScoredSeperatelyMatrix`, Colin Jenkins originally, V3 by Sailwave's own Jon
+Eskdale, dated 2026-04-26 and self-described as *"Shows the result tables as a
+matrix if they have been scored separately"*. Effects are JavaScript the
+scorer attaches in the last window of the publish wizard (Publish → Results,
+then the style / effects / destination window, `Effects` button, `>>` to add
+each one), and they ship in the box; this one needs two or more fleets scored
+separately. On load it hides every summary, every race table, and the contents
+list, then injects a grid above the results: one row per fleet, a cell naming
+the fleet, an `Overall` link to that fleet's summary, then one cell per race
+linking to that fleet's table for it. Clicking a cell reveals exactly that one
+table. The user guide points at it as the alternative to the built-in *Publish
+a contents list* option, which is the one-dimensional version of the same idea.
+
+What's worth taking is the **grid as a navigation object**: for a long series
+with several fleets, fleet × race puts the entire publication on one screen
+and answers "Class 1, race 12" in one click. Our navigation cascade is
+one-dimensional by construction — a row of levels stepping season → event →
+page — and we already generate every page such a grid would point at.
+
+What's not worth taking is the mechanism. Sailwave hides and reveals with
+JavaScript because everything is trapped in one file; the cost is that no cell
+has a URL, so nothing deep-links, shares, or prints, and a reader without
+JavaScript sees the whole undifferentiated document. ADR-011 gave us real URLs
+for exactly these pages, so the grid should be plain links to them.
+
+Shape of the change: a fleet × race index — rows fleets, columns races, cells
+linking to the per-race published pages — rendered as a block on a series or
+event index page in the publication tree. No engine work, no new pages, no
+script; it is an index over what publishing already emits. Worth building when
+a published series is big enough in both dimensions for the cascade to feel
+like the wrong shape, which is a keelboat league's problem, not a weekend
+regatta's.
+
 ### Class-branded, embeddable public results index
 
 Suggested by a class sailor as an adoption lever: a class association is far more likely
@@ -1188,7 +1237,65 @@ The engine scores low-point (RRS Appendix A). Other published systems — **high
 don't have them and won't build them speculatively. **Demand-driven: wait to hear from a
 user running a real series on one before designing.** Shape, when it comes: a per-series
 scoring-method selector that branches the points assignment and the A8 tie-break, with a
-fixture per method.
+fixture per method. The fleet-size-adjusted high-point family (below) is a
+separate, larger job.
+
+### Fleet-size-adjusted high point: CHIPS3, Cox-Sprague, Rinderle B
+
+A distinct family from the plain high-point systems above, and the one with a
+named user on our doorstep. **ISORA** — the Irish Sea Offshore Racing
+Association, sailing between Ireland and Wales and scoring in Sailwave — has
+used it since 2011 ([scoring system](https://www.isora.org/index.php/racing/scoring-system),
+[the 2011 explanation](https://www.isora.org/images/2014/FormsAndRules/ISORAScoringSystem2011AnExplanation.pdf)).
+It exists because a long, loose offshore season breaks the assumptions
+Appendix A is built on: fields vary from 3 boats to 23 across the same series,
+races vary from a day coastal to a cross-channel passage, and most boats miss
+most races, so the DNC column dominates the standings. Two adjustments answer
+that, both on a high-point base where a win is 100:
+
+- **Fleet-size normalisation.** A place is worth points according to how many
+  boats it beat, not its ordinal. ISORA uses **CHIPS3**, the Chipstead system,
+  which Sailwave implements as an expression and which succeeded the older
+  **Rinderle B** (still used by the Gulf of Maine Racing Association) and
+  **Cox-Sprague** (RORC's). Its published closed form is
+  `S(p,n) = 95·[((n+1−p)/n)·(1 − 0.986682·e^(−0.1622·n)) + 0.81475·e^(−0.1622·n)] + 5`,
+  for place `p` in a fleet of `n`. The design targets are that first place
+  approaches but never reaches 100 and only in a big fleet, that the gap
+  between places narrows as the fleet grows, and that a mid-fleet place sits
+  near 50 whatever the fleet size — 1st of 5 scores 92.7, 1st of 20 scores
+  99.4, 5th of 5 scores 50.1, 10th of 20 scores 58.3.
+- **Per-race weighting.** Each race carries a difficulty multiplier applied to
+  the whole scale, so a win in a hard race is worth more than a win in an easy
+  one. ISORA sets the factors at its AGM and has revised them repeatedly: 2011
+  ran 1.0 / 1.1 / 1.2 by passage length, 2018 ran 0.9 day / 1.0 night / 1.2 /
+  1.3, and 2025 runs 0.7 day coastal, 0.9 night coastal, 1.1 offshore under 70
+  miles, 1.2 over 70, 1.3 for the James Eadie Race.
+
+The code behaviour is inverted with it: DNC scores **zero** — which is the
+point, since it costs nothing to score a boat that stayed home — and DNF is
+the points for last-plus-one. Ties are rare enough that the A8 tie-break
+matters much less.
+
+Shape of the change, and why it is bigger than the entry above: the per-race
+multiplier is a new field on `Race` and a new column in the published results,
+and unlike a scoring-method selector it touches everything downstream —
+discards (a discarded 130-point race is not a discarded 90-point race),
+standings presentation, sub-series, and the file format. The points function
+itself is the easy half: one formula over (place, starters), parameterised so
+CHIPS3, Rinderle B, and a straight percentage-of-fleet are the same code path
+with different constants. Handicap correction is orthogonal and unaffected —
+ISORA corrects on IRC and then scores the corrected order.
+
+How ISORA publishes the results — and the "matrix table" presentation they
+name on that page — is a separate note under
+[Publishing](#a-fleet--race-navigation-grid--sailwaves-matrix-effect).
+
+Demand-driven like the rest of this section, but worth noting that the demand
+is a plausible phone call rather than a hypothetical: ISORA is an Irish Sea
+association publishing Sailwave output, which is exactly the profile of the
+users we already have. If that call comes, the first question to ask is
+whether they want the weighting *and* CHIPS3 or only one — they are separable,
+and the weighting alone is much the cheaper feature.
 
 ### Configurable minimum-competitors-per-race rule
 
