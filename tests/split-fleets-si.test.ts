@@ -13,6 +13,7 @@ import {
   defaultSplitFleetConfig,
   ilca2026SplitFleetConfig,
   iodaSplitFleetConfig,
+  openingSeriesMedalConfig,
   type SplitFleetConfig,
 } from '@/lib/split-fleets';
 
@@ -109,6 +110,17 @@ describe('describeSplitFleetConfig', () => {
     ).toContain(
       'the boats that do not qualify for it will be scored Did Not Come to the Starting Area in the medal race.',
     );
+  });
+
+  it('numbers only the stages an unbanded championship sails', () => {
+    // The middle stage is never sailed, so it has no races to number — and
+    // naming it here puts a stage the event does not sail into the document a
+    // scorer reads against their notice of race.
+    const text = joined(openingSeriesMedalConfig());
+    expect(text).toContain(
+      'races in the opening series will be numbered Q1, Q2 and so on; races in the medal races, M1, M2 and so on',
+    );
+    expect(text).not.toContain('final series');
   });
 
   it('says a medal-race tie-break runs before rule A8, not instead of it', () => {

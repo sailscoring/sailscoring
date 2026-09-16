@@ -56,9 +56,15 @@ function raceLabelClause(config: SplitFleetConfig): string {
   const q = vocab.stages.qualifying.name;
   const f = vocab.stages.final.name;
   const parts: string[] = [];
-  // Continuous numbering is one clause over both stages, since the second's
-  // labels are not a series of their own: they are the first's, running on.
-  if (resolveRaceLabels(config).continuousOpeningNumbers) {
+  // A championship that never bands its fleet sails no second stage, so it
+  // has no second stage's races to number — and numbering them anyway names
+  // a stage in the very document the scorer is checking against their notice
+  // of race.
+  if (config.split.kind === 'none') {
+    parts.push(`races in the ${q} will be numbered ${first('qualifying')}`);
+  } else if (resolveRaceLabels(config).continuousOpeningNumbers) {
+    // Continuous numbering is one clause over both stages, since the second's
+    // labels are not a series of their own: they are the first's, running on.
     parts.push(
       `races in the ${q} and the ${f} will be numbered ${first('qualifying')}, continuing through both`,
     );
