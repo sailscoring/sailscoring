@@ -1245,6 +1245,11 @@ export async function buildFleetHtmlFiles(
           // The race-detail limit (#372) is a full-detail concern; the
           // renderer ignores it at the other detail levels.
           ...(group.recentRaces != null ? { recentRaces: group.recentRaces } : {}),
+          // Likewise the race grid (#604): only a full-detail page has race
+          // tables to choose between, and an axis-sectioned one never does.
+          ...(group.raceGrid && !axisId && pageDetail !== 'races' && group.detail !== 'standings'
+            ? { raceGrid: true }
+            : {}),
           ...noteChrome(
             series,
             { fleetName: group.name, ...(subSeriesName ? { subSeriesName } : {}) },

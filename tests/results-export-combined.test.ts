@@ -110,6 +110,8 @@ const PUPPETEER: PublishingGroup = {
   detail: 'full',
 };
 
+const PUPPETEER_GRID: PublishingGroup = { ...PUPPETEER, raceGrid: true };
+
 describe('buildFleetHtmlFiles — combined pages', () => {
   it('emits no combined pages when the series has none configured', async () => {
     const files = await buildFleetFiles(makeRepos(makeSeries([])), 's1');
@@ -154,6 +156,30 @@ describe('buildFleetHtmlFiles — combined pages', () => {
     expect(pups.html.match(/class="racetable"/g)).toHaveLength(2);
     expect(pups.html).toContain('id="puppeteer-scratch-r1"');
     expect(pups.html).toContain('id="puppeteer-hph-r1"');
+  });
+
+  it('a race-grid group draws the grid and keeps every table on the page', async () => {
+    const files = await buildFleetFiles(makeRepos(makeSeries([PUPPETEER_GRID])), 's1');
+    const html = files![0].html;
+    expect(html).toContain('class="racegrid"');
+    // Both member fleets get a row, and the tables are all still published —
+    // the grid chooses what is on screen, it does not drop anything.
+    expect(html).toContain('>Puppeteer Scratch</td>');
+    expect(html).toContain('>Puppeteer HPH</td>');
+    expect(html.match(/class="racetable"/g)).toHaveLength(2);
+    expect(html.match(/class="summarytable"/g)).toHaveLength(2);
+    // Each cell's href resolves to an anchor the document actually carries.
+    for (const [, href] of html.matchAll(/<a href="#([^"]+)">/g)) {
+      expect(html).toContain(`id="${href}"`);
+    }
+  });
+
+  it('a standings-only group ignores the grid — no race tables to choose', async () => {
+    const files = await buildFleetFiles(
+      makeRepos(makeSeries([{ ...OVERALL, raceGrid: true }])),
+      's1',
+    );
+    expect(files![0].html).not.toContain('class="racegrid"');
   });
 
   it('a full-detail group reads standings-first, then a race block per fleet', async () => {
