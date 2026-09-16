@@ -339,7 +339,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
         r.group.name.trim(),
         r.group.sectionAxisId != null
           ? `${describeGroupSections(r.group, series.subdivisionAxes ?? [])} · standings only`
-          : `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}`,
+          : `${describeGroupMembers(r)} · ${r.group.detail === 'standings' ? 'standings only' : 'full detail'}${
+              r.group.detail !== 'standings' && r.group.raceGrid ? ' · race grid' : ''
+            }`,
       ]),
     );
     if (pages.some((p) => p.kind === 'prizes')) {

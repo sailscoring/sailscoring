@@ -219,7 +219,8 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
               r.group.detail === 'full' && r.group.recentRaces != null
                 ? `, last ${r.group.recentRaces} races`
                 : '';
-            return `${r.group.name.trim() || '(unnamed)'} (${describeGroupMembers(r)}${limit})`;
+            const grid = r.group.detail === 'full' && r.group.raceGrid ? ', race grid' : '';
+            return `${r.group.name.trim() || '(unnamed)'} (${describeGroupMembers(r)}${limit}${grid})`;
           })
           .join(' · ') +
         (series.publishIndividualFleetPages === false
@@ -272,6 +273,11 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
             const nameValue = nameDrafts[group.id] ?? group.name;
             const nameError = nameErrors[group.id];
             const chosen = group.fleetMode === 'chosen';
+            // A grid chooses between race tables, so it needs a page that has
+            // them: full detail, not sectioned by an axis, and not a series
+            // publishing race results alone.
+            const gridAvailable =
+              group.sectionAxisId == null && !detailOverridden && group.detail === 'full';
             return (
               <div
                 ref={ref}
@@ -468,6 +474,30 @@ export function CombinedPagesCard({ seriesId, series }: { seriesId: string; seri
                       carries its fleets&rsquo; race tables.
                     </p>
                   )}
+                  {/* Greyed rather than hidden when the page has no race
+                      tables: the option reads as unavailable here, not as
+                      something the editor is missing. */}
+                  <div className={`pt-1${gridAvailable ? '' : ' opacity-50'}`}>
+                    <label
+                      className={`flex items-center gap-1.5 text-sm ${gridAvailable ? 'cursor-pointer' : 'cursor-default'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={gridAvailable && group.raceGrid === true}
+                        disabled={!gridAvailable}
+                        onChange={(e) =>
+                          patchGroup(group.id, { raceGrid: e.target.checked ? true : undefined })
+                        }
+                        className="h-4 w-4"
+                      />
+                      Show a race grid
+                    </label>
+                    {!gridAvailable && (
+                      <p className="text-xs text-muted-foreground pl-6">
+                        Needs the race tables — this page has none.
+                      </p>
+                    )}
+                  </div>
                   {group.detail === 'full' && !detailOverridden && (
                     <div className="space-y-1 pt-1">
                       <div className="flex items-center gap-1.5 text-sm">
