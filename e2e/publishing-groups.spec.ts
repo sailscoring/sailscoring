@@ -219,6 +219,77 @@ test('full-detail page: only the last N races’ results are published', async (
   await expect(page.locator('p.racelimitnote')).toContainText('last race');
 });
 
+test('full-detail page: a race grid opens one fleet’s race at a time', async ({ page, signedInEmail }) => {
+  await enableFeatures(page, signedInEmail, ['combined-pages']);
+  await createTwoFleetSeries(page, 'Gridded League 2026');
+  const seriesUrl = page.url();
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  const card = page.getByTestId('combined-pages-card');
+  await card.getByRole('button', { name: 'Edit ▸' }).click();
+  await card.getByRole('button', { name: '+ Add page' }).click();
+  const row = card.getByTestId('combined-page-row');
+  await row.getByLabel('Combined page name').fill('Overall');
+  await row.getByLabel('Combined page name').press('Enter');
+
+  // Standings-only has no race tables to choose between, so the option is
+  // offered but inert until the page carries them.
+  const gridBox = row.getByRole('checkbox', { name: 'Show a race grid' });
+  await expect(gridBox).toBeDisabled();
+  await row.getByRole('radio', { name: 'Full per-race detail' }).click();
+  await expect(row.getByRole('radio', { name: 'Full per-race detail' })).toBeChecked();
+  await expect(gridBox).toBeEnabled();
+  // One click, then wait for the round-trip: `check()` re-clicks when the
+  // state hasn't caught up yet, and each click toggles the box back off.
+  await gridBox.click();
+  await expect(gridBox).toBeChecked();
+  await card.getByRole('button', { name: 'Done' }).click();
+  await expect(card.getByText('Overall (all fleets, race grid)')).toBeVisible();
+
+  await page.goto(seriesUrl);
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  // The dialog says what the page will be, the grid included.
+  await expect(dialog.getByText('all fleets · full detail · race grid')).toBeVisible();
+  await dialog.getByRole('checkbox', { name: 'Publish Overall' }).check();
+  await dialog.getByRole('button', { name: /^(Publish|Re-publish)$/ }).click();
+  const link = dialog.getByRole('link', { name: /\/overall$/ });
+  await expect(link).toBeVisible();
+  await page.goto(new URL((await link.getAttribute('href')) ?? '').pathname);
+
+  // A row per fleet, with a Standings cell and a cell for the one race.
+  const grid = page.locator('table.racegrid');
+  await expect(grid).toBeVisible();
+  await expect(grid.locator('tbody tr')).toHaveCount(2);
+  await expect(grid.getByRole('link', { name: 'Series' })).toHaveCount(2);
+  await expect(grid.getByRole('link', { name: 'R1' })).toHaveCount(2);
+
+  // Nothing is dropped: every table is on the page, whatever is on screen.
+  await expect(page.locator('table.summarytable')).toHaveCount(2);
+  await expect(page.locator('table.racetable')).toHaveCount(2);
+
+  // Every cell's href resolves to an anchor the page carries, and the anchors
+  // sit at the top rather than beside their tables.
+  for (const cell of await grid.getByRole('link').all()) {
+    const href = (await cell.getAttribute('href')) ?? '';
+    await expect(page.locator(href)).toHaveCount(1);
+  }
+  await expect(page.locator('h3.racetitle[id]')).toHaveCount(0);
+
+  // Untargeted, the standings show and the race tables are folded away.
+  await expect(page.locator('section.gsec-standings').first()).toBeVisible();
+  await expect(page.locator('section.gblock').first()).toBeHidden();
+
+  // Following a cell swaps that race in and the standings out.
+  await grid.getByRole('link', { name: 'R1' }).first().click();
+  await expect(page.locator('section.gblock').first()).toBeVisible();
+  await expect(page.locator('section.gsec-standings').first()).toBeHidden();
+
+  // …and All standings brings them back.
+  await page.getByRole('link', { name: 'All standings' }).click();
+  await expect(page.locator('section.gsec-standings').first()).toBeVisible();
+});
+
 test('block series: each sub-series gets its own combined page', async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['combined-pages', 'sub-series']);
   await createSeriesQuick(page, { name: 'Block League 2026' });
