@@ -250,6 +250,30 @@ export default function Publishing() {
             being links.
           </p>
           <HelpShot
+            src="/help/shots/race-grid.webp"
+            alt="A grid of fleets and races above a combined page's standings."
+            caption="A grid of fleets and races above a combined page's standings."
+          />
+          <p>
+            <strong className="text-foreground">Show a race grid.</strong> By the end of a
+            league a full-detail page carrying several fleets is a long scroll — every fleet’s
+            standings, then every fleet’s race tables. Tick{' '}
+            <strong className="text-foreground">Show a race grid</strong> and the page gains a
+            grid at the top: a row per fleet, a{' '}
+            <strong className="text-foreground">Standings</strong> cell, then a cell per race.
+            The page opens on the standings, as before; clicking a cell swaps in that one
+            fleet’s result for that one race, and <em>All standings</em> brings them back.
+          </p>
+          <p>
+            Nothing is left out — every table is still on the page, so printing gives you the
+            whole series and a browser that can’t do the swapping simply shows the long page.
+            A cell is an ordinary link, so you can copy one and send it to a class captain and
+            it opens on that race. A fleet that didn’t sail a race gets a dot rather than a
+            link. The grid needs more than one fleet to be worth drawing, and a page it can’t
+            help — standings only, or a series publishing race results alone — greys the option
+            out.
+          </p>
+          <HelpShot
             src="/help/shots/per-division-pages.webp"
             alt="A published page with a standings table per division."
             caption="A published page with a standings table per division."

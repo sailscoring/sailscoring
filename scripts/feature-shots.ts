@@ -1400,6 +1400,57 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Race grid — a full-detail combined page that opens its race
+    // tables from a grid of fleets and races. LOCAL-only: it adds a page to
+    // the sample series and publishes it.
+    slug: 'race-grid',
+    group: 'Publishing',
+    async capture({ page, anon, seriesId, shot }) {
+      if (!LOCAL) throw new Error('race-grid publishes a page and is local-mode only');
+      await ensureFeature(page, 'combined-pages');
+      const id = await seriesId();
+
+      await page.goto(`${BASE}/series/${id}/settings`);
+      await settle(page);
+      const card = page.getByTestId('combined-pages-card');
+      await card.getByRole('button', { name: 'Edit ▸' }).click();
+      await card.getByRole('button', { name: '+ Add page' }).click();
+      const row = card.getByTestId('combined-page-row').last();
+      await row.getByRole('textbox').first().fill('Overall');
+      await row.getByRole('textbox').first().press('Enter');
+      // The grid switches between race tables, so the page needs them.
+      await row.getByRole('radio', { name: 'Full per-race detail' }).click();
+      await settle(page);
+      const gridBox = row.getByRole('checkbox', { name: 'Show a race grid' });
+      await gridBox.click();
+      for (let i = 0; i < 20 && !(await gridBox.isChecked()); i++) {
+        await page.waitForTimeout(250);
+      }
+      await settle(page);
+      await card.getByRole('button', { name: 'Done' }).click();
+
+      await page.goto(`${BASE}/series/${id}/standings`);
+      await settle(page);
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      const overall = dialog.getByRole('checkbox', { name: /Publish Overall/ });
+      if (!(await overall.isChecked())) await overall.check();
+      await dialog.getByRole('button', { name: /^(Publish|Re-publish)$/ }).click();
+      const link = dialog.getByRole('link', { name: /\/overall$/ });
+      await link.waitFor({ timeout: 30_000 });
+      const href = await link.getAttribute('href');
+      await page.keyboard.press('Escape');
+      const pub = await anon.newPage();
+      await pub.goto(new URL(href!, BASE).toString());
+      await settle(pub);
+      // Not fullPage: the grid is the subject, and the standings beneath it
+      // run for pages.
+      await shot('race-grid.png', { page: pub });
+      await pub.close();
+    },
+  },
+  {
     // Inventory: Per-division pages — give the fleet a Division, publish a
     // page sectioned by it, and capture the public per-division tables.
     // LOCAL-only: stages competitor data on the sample series.
