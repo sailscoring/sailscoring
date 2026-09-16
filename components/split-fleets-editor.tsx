@@ -451,11 +451,21 @@ export function SplitFleetEditor({
 
       <div {...row('fleetCount')}>
         <label className="font-medium" htmlFor="sf-fleet-count">
-          {capitaliseStage(vocab.stages.qualifying.fleetNoun)}s
+          {capitaliseStage(vocab.stages.qualifying.fleetNoun)}
+          {unbanded ? '' : 's'}
         </label>
         <div className="space-y-1">
           {locked ? (
-            <p>{value.qualifyingFleets.map((f) => f.label).join(', ')}</p>
+            // Frozen once boats have raced — changing the count now would
+            // re-deal fleets that have already sailed. The count still has to
+            // be *readable*, and on an unbanded championship it is the one
+            // setting that decides the shape of the event: without it said
+            // here, nothing on the screen tells the scorer their fleet is
+            // never split.
+            <p>
+              {value.qualifyingFleets.map((f) => f.label).join(', ')}
+              {unbanded ? ' — one fleet, never split' : ''}
+            </p>
           ) : (
             <select
               id="sf-fleet-count"
@@ -472,12 +482,19 @@ export function SplitFleetEditor({
               ))}
             </select>
           )}
+          {/* With one fleet there is nothing to divide the entry into and
+              nothing to reassign between, so neither the band sizes nor the
+              daily reassignment has anything to say. */}
           <p className={hint}>
-            {entries > 0
-              ? `${entries} entries → ${value.qualifyingFleets
-                  .map((f, i) => `${f.label} ${qualifyingSizes[i]}`)
-                  .join(', ')}. Boats are reassigned by series rank after each day of racing.`
-              : 'Boats are reassigned by series rank after each day of racing.'}
+            {unbanded
+              ? `Every boat sails every race in one fleet${
+                  entries > 0 ? `, all ${entries} of them` : ''
+                }. There is no split and no reassignment.`
+              : entries > 0
+                ? `${entries} entries → ${value.qualifyingFleets
+                    .map((f, i) => `${f.label} ${qualifyingSizes[i]}`)
+                    .join(', ')}. Boats are reassigned by series rank after each day of racing.`
+                : 'Boats are reassigned by series rank after each day of racing.'}
           </p>
         </div>
       </div>

@@ -77,6 +77,21 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await enterFinishes(page, sails);
   await page.goBack();
 
+  // ── The format section still says what shape the event is, now that the
+  // fleet count is frozen ──────────────────────────────────────────────────
+  // Racing has started, so the count can no longer be changed — but it is the
+  // one setting that decides the shape of the championship, and a scorer
+  // checking their configuration against the notice of race has to be able to
+  // read it.
+  await page.getByRole('button', { name: /^Format/ }).click();
+  await expect(page.locator('#sf-fleet-count')).toHaveCount(0);
+  await expect(page.getByText('Fleet — one fleet, never split')).toBeVisible();
+  await expect(
+    page.getByText(/Every boat sails every race in one fleet, all 24 of them/),
+  ).toBeVisible();
+  await expect(page.getByText(/reassigned by series rank/)).toHaveCount(0);
+  await page.getByRole('button', { name: /^Format/ }).click();
+
   // ── The cut line: where the deciding fleet would be taken from if racing
   // ended now. Not a band boundary — this one decides who races again ──────
   await expect(page.getByText(/Medal fleet cut if the opening series ended now/)).toBeVisible();
