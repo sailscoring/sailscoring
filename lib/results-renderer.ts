@@ -626,13 +626,20 @@ function renderSectionRaceTables(
   view: SectionView,
   detail: SectionDetail,
   recentRaces?: number,
+  opts?: { suppressAnchor?: boolean; wrapEach?: (race: RaceData, html: string) => string },
 ): string {
   const shown = detailedRaces(data, recentRaces);
   // A race-results section with a single race drops the "Race 1" prefix: it is
   // the event's result, and the numbering distinguishes nothing.
   const suppressRaceLabel = detail === 'races' && shown.length === 1;
   return shown
-    .map((race) => renderRaceTable(race, view, data.flagSvgByCode, { suppressLabel: suppressRaceLabel }))
+    .map((race) => {
+      const html = renderRaceTable(race, view, data.flagSvgByCode, {
+        suppressLabel: suppressRaceLabel,
+        ...(opts?.suppressAnchor ? { suppressAnchor: true } : {}),
+      });
+      return opts?.wrapEach ? opts.wrapEach(race, html) : html;
+    })
     .join('\n');
 }
 
@@ -660,6 +667,147 @@ function renderSectionTables(
   // back to the summary even when asked for race results alone.
   if (opts.detail === 'races' && raceTables) return raceTables;
   return `${renderSectionSummary(data, view, linked)}\n${raceTables}`;
+}
+
+/** Anything not safe in an id or class name — anchor ids come from race
+ *  labels, which a scorer writes. */
+function gridToken(raw: string): string {
+  return raw.replace(/[^A-Za-z0-9_-]/g, '-');
+}
+
+/**
+ * The fleet × race grid a combined page can open its tables from (#604).
+ *
+ * The page still carries every table; the grid only decides which one is on
+ * screen, and it does so through the browser's own address — each cell is an
+ * ordinary fragment link and `:target` picks the section. Three details make
+ * that work as navigation rather than as a stunt:
+ *
+ *  - **The anchors sit at the top of the document**, not beside their tables,
+ *    with a `scroll-margin-top` big enough to clamp the scroll to zero. Follow
+ *    a cell and the page head comes into view with the grid still under it;
+ *    anchor at the table instead and the navigation scrolls off-screen, which
+ *    is the complaint against the Sailwave effect this borrows from.
+ *  - **The hiding lives inside `@supports selector(:has(*))`.** Without it
+ *    nothing is hidden and the reader gets the ordinary long page — the right
+ *    fallback, and the same thing the print rule does deliberately.
+ *  - **Race anchors keep `race.anchorId`**, so the summary's own race-column
+ *    links land on them; the race heading gives its id up to avoid the
+ *    duplicate (`suppressAnchor`).
+ */
+function buildRaceGrid(
+  sections: ReadonlyArray<{ data: SeriesResultsData; view: SectionView }>,
+  recentRaces: number | undefined,
+): {
+  html: string;
+  standingsClass: (data: SeriesResultsData) => string;
+  blockClass: (data: SeriesResultsData) => string;
+  raceClass: (race: RaceData) => string;
+} | null {
+  const rows = sections.map(({ data }) => ({
+    data,
+    name: data.fleetName ?? '',
+    slug: gridToken(seriesSlug(data.fleetName ?? 'fleet')),
+    races: detailedRaces(data, recentRaces),
+  }));
+  // Two fleets and one race is a grid with nothing to navigate. It earns its
+  // place in both dimensions at once.
+  if (rows.length < 2 || !rows.some((r) => r.races.length > 0)) return null;
+
+  const standingsId = (slug: string) => `standings-${slug}`;
+  const standingsClass = (data: SeriesResultsData) =>
+    `gsec-${standingsId(gridToken(seriesSlug(data.fleetName ?? 'fleet')))}`;
+  const blockClass = (data: SeriesResultsData) =>
+    `gblock-${gridToken(seriesSlug(data.fleetName ?? 'fleet'))}`;
+  const raceClass = (race: RaceData) => `gsec-${gridToken(race.anchorId)}`;
+
+  // Columns are race numbers, so fleets that skipped a race still line up
+  // under the ones that sailed it. Labels come from whichever fleet has the
+  // race — they agree, being the same race.
+  const columns: { raceNumber: number; label: string }[] = [];
+  for (const row of rows) {
+    for (const race of row.races) {
+      if (!columns.some((c) => c.raceNumber === race.raceNumber)) {
+        columns.push({ raceNumber: race.raceNumber, label: race.label });
+      }
+    }
+  }
+  columns.sort((a, b) => a.raceNumber - b.raceNumber);
+
+  const anchors = [
+    '<i class="racegrid-all" id="all-standings"></i>',
+    ...rows.map((r) => `<i class="racegrid-a" id="${esc(standingsId(r.slug))}"></i>`),
+    ...rows.flatMap((r) =>
+      r.races.map((race) => `<i class="racegrid-a" id="${esc(race.anchorId)}"></i>`),
+    ),
+  ].join('');
+
+  const rules = [
+    ...rows.map(
+      (r) => `body:has(#${standingsId(r.slug)}:target) .gsec-${standingsId(r.slug)}{display:block}`,
+    ),
+    ...rows.flatMap(({ races, slug }) =>
+      races.map(
+        (race) =>
+          `body:has(#${gridToken(race.anchorId)}:target) .gsec-${gridToken(race.anchorId)},` +
+          `body:has(#${gridToken(race.anchorId)}:target) .gblock-${slug}{display:block}`,
+      ),
+    ),
+  ].join('\n');
+
+  const css = `<style>
+table.racegrid { border-collapse: collapse; margin: 0 auto 6px auto; }
+table.racegrid td { text-align: center; padding: 0; }
+table.racegrid td.racegrid-fleet { text-align: left; padding: 4px 10px 4px 6px; white-space: nowrap; }
+table.racegrid td a { display: block; padding: 5px 8px; text-decoration: none; }
+table.racegrid td a:hover { text-decoration: underline; }
+table.racegrid td.racegrid-none { color: #888; padding: 5px 8px; }
+table.racegrid th.racegrid-corner { background: transparent; border-color: transparent; }
+p.racegridall { text-align: center; margin: 0 0 18px auto; font-size: 0.9em; }
+.racegrid-a, .racegrid-all { display: block; height: 0; scroll-margin-top: 9999px; }
+@supports selector(:has(*)) {
+  .gsec, .gblock { display: none; }
+  body:not(:has(.racegrid-a:target)) .gsec-standings,
+  body:has(#all-standings:target) .gsec-standings { display: block; }
+${rules}
+}
+@media print {
+  .gsec, .gblock { display: block !important; }
+  table.racegrid, p.racegridall { display: none; }
+}
+</style>`;
+
+  const head = [
+    '<th class="racegrid-corner"></th>',
+    '<th>Standings</th>',
+    ...columns.map((c) => `<th>${esc(c.label)}</th>`),
+  ].join('');
+
+  const body = rows
+    .map((row, i) => {
+      const cells = columns.map((col) => {
+        const race = row.races.find((r) => r.raceNumber === col.raceNumber);
+        return race
+          ? `<td><a href="#${esc(race.anchorId)}">${esc(race.label)}</a></td>`
+          : '<td class="racegrid-none" title="Not sailed by this fleet">&middot;</td>';
+      });
+      return (
+        `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">` +
+        `<td class="racegrid-fleet">${esc(row.name)}</td>` +
+        `<td><a href="#${esc(standingsId(row.slug))}">Series</a></td>` +
+        cells.join('') +
+        '</tr>'
+      );
+    })
+    .join('\n');
+
+  const html =
+    `${css}<div class="racegrid-anchors">${anchors}</div>\n` +
+    `<table class="racegrid" cellspacing="0" cellpadding="0" border="0">\n` +
+    `<thead><tr>${head}</tr></thead>\n<tbody>\n${body}\n</tbody></table>\n` +
+    `<p class="racegridall"><a href="#all-standings">All standings</a></p>`;
+
+  return { html, standingsClass, blockClass, raceClass };
 }
 
 /** Document-level fields shared by the single-fleet and combined renders:
@@ -745,6 +893,11 @@ export function renderCombinedSeriesHtml(
     /** Publish per-race detail for the last N races only (#372). Applies at
      *  full detail; the standings stay the whole series either way. */
     recentRaces?: number;
+    /** Open the race tables one at a time from a fleet x race grid (#604).
+     *  Full detail only, and only worth drawing for more than one fleet —
+     *  `buildRaceGrid` declines otherwise and the page renders as it always
+     *  did. */
+    raceGrid?: boolean;
     /** The scorer's notes (#511). Passed here rather than read off the first
      *  section: the sections are fleets, and this page is not any of them —
      *  taking the lead fleet's note would print it under the wrong heading. */
@@ -778,15 +931,29 @@ export function renderCombinedSeriesHtml(
 
   let sectionHtml: string;
   if (detail === 'full') {
+    const grid = options.raceGrid ? buildRaceGrid(viewed, recentRaces) : null;
+    // With a grid the standings become switchable sections of their own; the
+    // untargeted page shows all of them, which is what most readers came for.
     const standingsHtml = viewed
-      .map(
-        ({ data, view }) =>
-          fleetHeading(data) + renderSectionSummary(data, view, linkableAnchorIds(data, recentRaces)),
-      )
+      .map(({ data, view }) => {
+        const inner =
+          fleetHeading(data) + renderSectionSummary(data, view, linkableAnchorIds(data, recentRaces));
+        return grid
+          ? `<section class="gsec gsec-standings ${grid.standingsClass(data)}">\n${inner}\n</section>`
+          : inner;
+      })
       .join('\n');
     const racesHtml = viewed
       .map(({ data, view }) => {
-        const tables = renderSectionRaceTables(data, view, 'full', recentRaces);
+        const tables = renderSectionRaceTables(data, view, 'full', recentRaces, {
+          ...(grid
+            ? {
+                suppressAnchor: true,
+                wrapEach: (race: RaceData, html: string) =>
+                  `<section class="gsec ${grid.raceClass(race)}">\n${html}\n</section>`,
+              }
+            : {}),
+        });
         if (!tables) return '';
         const heading = data.fleetName
           ? `${esc(data.fleetName)} &mdash; race results`
@@ -795,11 +962,13 @@ export function renderCombinedSeriesHtml(
         // per-section anchor prefix the assembly path puts on the race
         // anchors themselves.
         const id = data.fleetName ? ` id="${esc(seriesSlug(data.fleetName))}-races"` : '';
-        return `<section class="fleetraces"${id}>\n<h2>${heading}</h2>\n${tables}\n</section>`;
+        const cls = grid ? `fleetraces gblock ${grid.blockClass(data)}` : 'fleetraces';
+        return `<section class="${cls}"${id}>\n<h2>${heading}</h2>\n${tables}\n</section>`;
       })
       .filter(Boolean)
       .join('\n');
-    sectionHtml = racesHtml ? `${standingsHtml}\n${racesHtml}` : standingsHtml;
+    const tables = racesHtml ? `${standingsHtml}\n${racesHtml}` : standingsHtml;
+    sectionHtml = grid ? `${grid.html}\n${tables}` : tables;
   } else {
     sectionHtml = viewed
       .map(({ data, view }) => fleetHeading(data) + renderSectionTables(data, view, { detail, linkRaceLabels: false }))
@@ -1968,7 +2137,10 @@ function renderRaceTable(
   flagSvgByCode: Readonly<Record<string, NationalFlag>> | undefined,
   // `suppressLabel` drops the "Race N" prefix from the heading — set for the
   // lone race of a race-results page, where the numbering says nothing.
-  opts?: { suppressLabel?: boolean },
+  // `suppressAnchor` drops the heading's id — set on a race-grid page, where
+  // the anchor moves to the top of the document so following a cell doesn't
+  // scroll the grid off-screen.
+  opts?: { suppressLabel?: boolean; suppressAnchor?: boolean },
 ): string {
   const { showBowNumber, showEntryNumber, showTallyNumber, showBoatName, showBoatClass, showHelm, showOwner, showCrewName, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader } = view;
   const dateStr = formatIsoDate(race.date);
@@ -2199,7 +2371,8 @@ function renderRaceTable(
     ? `<p class="raceofficials" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(formatOfficials(race.officials))}</p>\n`
     : '';
   const labelStr = opts?.suppressLabel ? '' : `${esc(race.label)}&nbsp;&mdash;&nbsp;`;
-  return `<h3 class="racetitle" id="${esc(race.anchorId)}">${labelStr}${nameStr}${dateStr}${startStr}</h3>
+  const anchorAttr = opts?.suppressAnchor ? '' : ` id="${esc(race.anchorId)}"`;
+  return `<h3 class="racetitle"${anchorAttr}>${labelStr}${nameStr}${dateStr}${startStr}</h3>
 ${optionsSubheading}${conditionsSubheading}${officialsSubheading}${orcSubheading}${nhcSubheading}${echoSubheading}<div class="tablewrap"><table class="racetable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
 <col class="rank" />

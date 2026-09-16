@@ -1786,6 +1786,81 @@ describe('renderCombinedSeriesHtml', () => {
   it('throws on an empty section list', () => {
     expect(() => renderCombinedSeriesHtml([], { pageName: 'Overall' })).toThrow();
   });
+
+  describe('race grid (#604)', () => {
+    // The combined path prefixes each section's race anchors with its fleet
+    // slug, so `#r1` stays unambiguous when several fleets share a document.
+    const prefixed = (data: SeriesResultsData, prefix: string): SeriesResultsData => ({
+      ...data,
+      races: data.races.map((r) => ({ ...r, anchorId: `${prefix}${r.anchorId}` })),
+    });
+    const gridA = prefixed(fleetA, 'irc-1-');
+    const gridB = prefixed(fleetB, 'irc-2-');
+    const grid = () =>
+      renderCombinedSeriesHtml([gridA, gridB], { pageName: 'Overall', raceGrid: true });
+
+    it('draws a row per fleet, a Standings cell, and a column per race number', () => {
+      const html = grid();
+      expect(html).toContain('class="racegrid"');
+      // IRC 1 sailed R1 and R2, IRC 2 only R1 — three columns all told:
+      // Standings, R1, R2.
+      expect(html).toContain('<th>Standings</th>');
+      expect(html).toContain('<th>R1</th>');
+      expect(html).toContain('<th>R2</th>');
+      // The fleet IRC 2 never sailed gets a marked empty cell, not a blank one.
+      expect(html).toContain('class="racegrid-none"');
+    });
+
+    it('publishes every table — the grid chooses, it does not drop', () => {
+      const html = grid();
+      expect(html.match(/class="summarytable"/g)).toHaveLength(2);
+      expect(html.match(/class="racetable"/g)).toHaveLength(3);
+    });
+
+    it('anchors every cell at the top of the document, not beside its table', () => {
+      const html = grid();
+      // The race heading gives up its id so the top anchor can hold it.
+      expect(html).not.toContain('<h3 class="racetitle" id=');
+      expect(html).toContain('class="racegrid-a" id="irc-1-r1"');
+      // Every cell's href resolves to an anchor the page actually carries.
+      for (const [, href] of html.matchAll(/<a href="#([^"]+)">/g)) {
+        expect(html).toContain(`id="${href}"`);
+      }
+      // A big enough scroll margin clamps the jump to the top of the page, so
+      // the grid stays in view when a cell is followed.
+      expect(html).toContain('scroll-margin-top: 9999px');
+    });
+
+    it('hides only inside an @supports guard, so no :has() means the long page', () => {
+      const html = grid();
+      const guard = html.indexOf('@supports selector(:has(*))');
+      expect(guard).toBeGreaterThan(-1);
+      // The rule that hides the sections must sit after the guard opens.
+      expect(html.indexOf('.gsec, .gblock { display: none; }')).toBeGreaterThan(guard);
+    });
+
+    it('prints in full and drops the grid from the printed page', () => {
+      const html = grid();
+      expect(html).toContain('.gsec, .gblock { display: block !important; }');
+      expect(html).toContain('table.racegrid, p.racegridall { display: none; }');
+    });
+
+    it('declines to draw for a single fleet — nothing to navigate', () => {
+      const html = renderCombinedSeriesHtml([fleetA], { pageName: 'Overall', raceGrid: true });
+      expect(html).not.toContain('class="racegrid"');
+      // And the page renders exactly as it would without the flag.
+      expect(html).toBe(renderCombinedSeriesHtml([fleetA], { pageName: 'Overall' }));
+    });
+
+    it('is ignored at standings detail — there are no race tables to choose', () => {
+      const html = renderCombinedSeriesHtml([gridA, gridB], {
+        pageName: 'Overall',
+        detail: 'standings',
+        raceGrid: true,
+      });
+      expect(html).not.toContain('class="racegrid"');
+    });
+  });
 });
 
 describe('assembleSeriesResultsData — anchorPrefix', () => {
