@@ -128,4 +128,31 @@ test('bulk add and remove fleet membership', async ({ page }) => {
   await expect(page.getByRole('status')).toHaveText(
     'Removed 2 competitors from White Sail. 1 kept — a competitor must belong to at least one fleet.',
   );
+
+  // ── 4. Remove offers only the fleets the selection is actually in: Red
+  //       Rover is White Sail only, so Spinnaker isn't a choice ────────────
+  await page.getByRole('checkbox', { name: 'Select all shown competitors' }).uncheck();
+  await page.getByRole('row', { name: /IRL201/ }).getByRole('checkbox', { name: 'Select row' }).check();
+  await expect(page.getByText('1 selected')).toBeVisible();
+  await page.getByRole('button', { name: /Set field/ }).click();
+  await expect(
+    dialog.getByRole('heading', { name: 'Set a field on 1 competitor' }),
+  ).toBeVisible();
+  // Adding still offers both fleets.
+  await dialog.getByLabel('Fleet', { exact: true }).click();
+  await expect(page.getByRole('option', { name: 'White Sail' })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Spinnaker' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await dialog.getByLabel('Action').click();
+  await page.getByRole('option', { name: 'Remove from fleet' }).click();
+  await dialog.getByLabel('Fleet', { exact: true }).click();
+  await expect(page.getByRole('option', { name: 'White Sail' })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Spinnaker' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  // The picker named a fleet Red Rover is in, so the button follows suit.
+  await expect(dialog.getByRole('button', { name: 'Remove from White Sail' })).toBeDisabled();
+  await expect(
+    dialog.getByText('1 of the selection will be kept — a competitor must belong to at least one fleet.'),
+  ).toBeVisible();
 });

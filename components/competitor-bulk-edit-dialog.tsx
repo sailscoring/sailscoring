@@ -172,15 +172,27 @@ export function CompetitorBulkEditDialog({
     return [...values].sort((a, b) => a.localeCompare(b));
   }, [allCompetitors, option]);
 
+  // Removing is only meaningful for a fleet somebody in the selection is
+  // actually in, so that action narrows the picker to those fleets; adding
+  // offers the whole list.
+  const fleetChoices = useMemo(() => {
+    if (option?.input !== 'fleet') return [];
+    if (fleetOp === 'add') return option.fleets;
+    const memberOf = new Set(selected.flatMap((c) => c.fleetIds));
+    return option.fleets.filter((f) => memberOf.has(f.id));
+  }, [option, fleetOp, selected]);
+
   // Fleet mode: work out, from the rows in front of the scorer, what the op
   // would actually change — boats already in (or not in) the fleet don't
   // count, a remove keeps boats whose only fleet is the target, and an add
   // that would duplicate a sail number within the fleet is blocked. The
   // server re-derives all of this; the client's copy powers the button
-  // label, the hint line, and the status message.
+  // label, the hint line, and the status message. A fleet that drops out of
+  // the offered list when the action changes falls back to the first one
+  // still offered, so the picker never names a dead choice.
   const fleetPlan = useMemo(() => {
     if (option?.input !== 'fleet') return null;
-    const fleet = option.fleets.find((f) => f.id === fleetId) ?? option.fleets[0];
+    const fleet = fleetChoices.find((f) => f.id === fleetId) ?? fleetChoices[0];
     if (!fleet) return null;
     if (fleetOp === 'add') {
       const eligible = selected.filter((c) => !c.fleetIds.includes(fleet.id));
@@ -205,7 +217,7 @@ export function CompetitorBulkEditDialog({
       kept: members.length - eligible.length,
       collisions: [] as string[],
     };
-  }, [option, fleetId, fleetOp, selected, allCompetitors]);
+  }, [option, fleetChoices, fleetId, fleetOp, selected, allCompetitors]);
 
   const n = selected.length;
   const noun = `${n} competitor${n === 1 ? '' : 's'}`;
@@ -295,7 +307,7 @@ export function CompetitorBulkEditDialog({
               </SelectContent>
             </Select>
           </div>
-          {option.input === 'fleet' && fleetPlan && (
+          {option.input === 'fleet' && (
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="bulk-edit-op">Action</Label>
@@ -312,50 +324,51 @@ export function CompetitorBulkEditDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="bulk-edit-value">Fleet</Label>
-                <Select value={fleetPlan.fleet.id} onValueChange={setFleetId}>
-                  <SelectTrigger id="bulk-edit-value">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {option.fleets.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {fleetPlan.collisions.length > 0 && (
-                <p className="text-sm text-destructive">
-                  Adding would duplicate sail number
-                  {fleetPlan.collisions.length === 1 ? '' : 's'} in{' '}
-                  {fleetPlan.fleet.name}: {fleetPlan.collisions.join(', ')}.
-                </p>
-              )}
-              {fleetOp === 'add' &&
-                fleetPlan.collisions.length === 0 &&
-                fleetPlan.count < n && (
-                  <p className="text-sm text-muted-foreground">
-                    {fleetPlan.count === 0
-                      ? `All selected competitors are already in ${fleetPlan.fleet.name}.`
-                      : `${n - fleetPlan.count} of the selection ${n - fleetPlan.count === 1 ? 'is' : 'are'} already in ${fleetPlan.fleet.name}.`}
-                  </p>
-                )}
-              {fleetOp === 'remove' && fleetPlan.kept > 0 && (
+              {fleetPlan ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="bulk-edit-value">Fleet</Label>
+                    <Select value={fleetPlan.fleet.id} onValueChange={setFleetId}>
+                      <SelectTrigger id="bulk-edit-value">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fleetChoices.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>
+                            {f.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {fleetPlan.collisions.length > 0 && (
+                    <p className="text-sm text-destructive">
+                      Adding would duplicate sail number
+                      {fleetPlan.collisions.length === 1 ? '' : 's'} in{' '}
+                      {fleetPlan.fleet.name}: {fleetPlan.collisions.join(', ')}.
+                    </p>
+                  )}
+                  {fleetOp === 'add' &&
+                    fleetPlan.collisions.length === 0 &&
+                    fleetPlan.count < n && (
+                      <p className="text-sm text-muted-foreground">
+                        {fleetPlan.count === 0
+                          ? `All selected competitors are already in ${fleetPlan.fleet.name}.`
+                          : `${n - fleetPlan.count} of the selection ${n - fleetPlan.count === 1 ? 'is' : 'are'} already in ${fleetPlan.fleet.name}.`}
+                      </p>
+                    )}
+                  {fleetOp === 'remove' && fleetPlan.kept > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {fleetPlan.kept} of the selection will be kept — a
+                      competitor must belong to at least one fleet.
+                    </p>
+                  )}
+                </>
+              ) : (
                 <p className="text-sm text-muted-foreground">
-                  {fleetPlan.kept} of the selection will be kept — a competitor
-                  must belong to at least one fleet.
+                  The selected competitors aren&apos;t in any fleet.
                 </p>
               )}
-              {fleetOp === 'remove' &&
-                fleetPlan.count === 0 &&
-                fleetPlan.kept === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    None of the selected competitors are in {fleetPlan.fleet.name}.
-                  </p>
-                )}
             </>
           )}
           {option.input !== 'fleet' && (
