@@ -466,6 +466,15 @@ export default function RunningASeries() {
           later if the race turns out to need one.
         </p>
         <p>
+          When a start carries most of the series — a club night where every
+          class goes off together —{' '}
+          <strong className="text-foreground">Select all</strong>, beside the
+          fleet list, ticks every fleet on offer at once, stepping over any a
+          different start group has already claimed.{' '}
+          <strong className="text-foreground">Clear all</strong> unticks them
+          again, so a start that includes all but one is two clicks.
+        </p>
+        <p>
           A fleet in <em>none</em> of a race’s starts is a different matter. It
           has no gun to measure elapsed time from, so a handicap fleet’s boats
           there are scored on the order they crossed the line — under the

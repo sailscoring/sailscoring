@@ -323,6 +323,29 @@ function RaceStartDialogInner({
     setError('');
   }
 
+  // Round-owned fleets are managed by the split-fleet ceremonies, so they are
+  // offered only when this start already includes one; fleets another start
+  // group has already claimed are offered but can't be saved, so select-all
+  // steps over them rather than walking the scorer into the error.
+  const editingId = mode.kind === 'edit' ? mode.start.id : null;
+  const offeredFleets = fleets.filter((f) => !f.splitRoundId || fleetIds.includes(f.id));
+  const claimedFleetIds = useMemo(
+    () => new Set(raceStarts.filter((s) => s.id !== editingId).flatMap((s) => s.fleetIds)),
+    [raceStarts, editingId],
+  );
+  const selectableFleets = offeredFleets.filter(
+    (f) => !claimedFleetIds.has(f.id) || fleetIds.includes(f.id),
+  );
+  const allFleetsSelected =
+    selectableFleets.length > 0 && selectableFleets.every((f) => fleetIds.includes(f.id));
+
+  function toggleAllFleets() {
+    setFleetIds((prev) =>
+      allFleetsSelected ? [] : [...new Set([...prev, ...selectableFleets.map((f) => f.id)])],
+    );
+    setError('');
+  }
+
   function handleSave() {
     // A blank time is allowed: a membership-only start declares which fleets
     // are in the race (scoping #226) without a gun time. A non-blank time must
@@ -420,10 +443,7 @@ function RaceStartDialogInner({
       }
       orcScoringWind = parsed;
     }
-    const editingId = mode.kind === 'edit' ? mode.start.id : null;
-    const otherStarts = raceStarts.filter((s) => s.id !== editingId);
-    const usedFleetIds = new Set(otherStarts.flatMap((s) => s.fleetIds));
-    const conflict = fleetIds.find((id) => usedFleetIds.has(id));
+    const conflict = fleetIds.find((id) => claimedFleetIds.has(id));
     if (conflict) {
       const name = fleets.find((f) => f.id === conflict)?.name ?? conflict;
       setError(`Fleet "${name}" is already in another start group.`);
@@ -665,11 +685,16 @@ function RaceStartDialogInner({
             </div>
           )}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Fleets in this start</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium">Fleets in this start</label>
+              {offeredFleets.length > 1 && (
+                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={toggleAllFleets}>
+                  {allFleetsSelected ? 'Clear all' : 'Select all'}
+                </Button>
+              )}
+            </div>
             <div className="space-y-1.5">
-              {/* Round-owned fleets are managed by the split-fleet ceremonies;
-                  offer them only when this start already includes one. */}
-              {fleets.filter((f) => !f.splitRoundId || fleetIds.includes(f.id)).map((f) => (
+              {offeredFleets.map((f) => (
                 <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="checkbox"
