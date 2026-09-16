@@ -131,6 +131,13 @@ export interface PublishingGroup {
    *  its sections share one race set, so full detail would print the same
    *  race tables once per division. */
   detail: 'standings' | 'full';
+  /** Show a grid of fleets and races above the results, each cell opening one
+   *  fleet's table for one race while the rest stay folded away. The whole
+   *  document is still published — the grid only chooses what is on screen —
+   *  so printing and a browser without `:has()` both get the long page.
+   *  Only meaningful at `detail: 'full'`: a standings-only page has no race
+   *  tables to choose between. */
+  raceGrid?: boolean;
   /** Publish per-race detail for the last N races only; absent means all of
    *  them. For pages embedded in a fixed-height frame, where a long series
    *  overruns the space — the race tables are where the height is. The

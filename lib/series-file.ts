@@ -463,9 +463,16 @@ export interface SeriesFileRepos {
  *  the scorer. Additive and sparse — written only on an `other` row. The bump
  *  is for the role, not the text: an older build reading a v53 file finds a
  *  role its vocabulary rejects, and the importer's rule for that is to drop
- *  the person rather than guess at their job. */
-export const FORMAT_VERSION = 53;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53];
+ *  the person rather than guess at their job.
+ *
+ *  v54 adds optional `series.publishingGroups[*].raceGrid`: a combined page
+ *  whose race tables open one at a time from a grid of fleets and races.
+ *  Additive and sparse, and purely presentational in the strongest sense —
+ *  the page carries every table either way, the grid only decides which is on
+ *  screen — so an older build reading a v54 file publishes the same results
+ *  as one long page, which is what the grid degrades to anyway. */
+export const FORMAT_VERSION = 54;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -557,7 +564,7 @@ interface SeriesFileSeries {
   defaultStartSequence?: StartGroup[];
   publishRatingCalculations?: boolean;
   showPerRaceRatingsInSummary?: boolean;
-  publishingGroups?: PublishingGroup[];  // v15+; extra published pages (v30+ carries recentRaces, v32+ sectionAxisId)
+  publishingGroups?: PublishingGroup[];  // v15+; extra published pages (v30+ carries recentRaces, v32+ sectionAxisId, v54+ raceGrid)
   publishIndividualFleetPages?: boolean;  // v15+; absent = true
   publishDetail?: 'races';  // v28+; written only when set; absent = full detail
   rrsOrgPush?: RrsOrgPushConfig;  // v16+; rrs.org competitor-push settings

@@ -160,6 +160,18 @@ describe('publishingGroups fleet remap on import (v15)', () => {
     expect(repos.savedSeries.at(-1)!.publishingGroups![0].recentRaces).toBeUndefined();
   });
 
+  it('a v54 file carries the race-grid flag through the remap', async () => {
+    const file = makeFile();
+    file.formatVersion = 54;
+    file.series.publishingGroups![1].raceGrid = true;
+    const repos = makeRepos();
+    await openSeriesFromFile(file, repos);
+    const pups = repos.savedSeries.at(-1)!.publishingGroups![1];
+    expect(pups.raceGrid).toBe(true);
+    // A group without the field keeps it absent — that's the plain long page.
+    expect(repos.savedSeries.at(-1)!.publishingGroups![0].raceGrid).toBeUndefined();
+  });
+
   it('a pre-v15 file loads with no publishing groups', async () => {
     const file = makeFile();
     file.formatVersion = 14;
