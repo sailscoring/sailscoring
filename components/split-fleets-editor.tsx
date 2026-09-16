@@ -48,7 +48,7 @@ import {
   type VocabularyKey,
 } from '@/lib/split-fleets';
 
-type FormatKey =
+export type FormatKey =
   | 'ilca-2026'
   | 'ilca-2025'
   | 'ioda'
@@ -110,13 +110,23 @@ export function initialSplitFleetConfig(): SplitFleetConfig {
  * Compared field by field against a freshly built one rather than tracked as
  * "has been edited", so undoing an edit restores the format's name instead of
  * leaving the series marked Custom forever. The fleet count is passed through
- * because it is a choice of its own, not a departure from the format, and so
- * are the race labels: a format is how a championship is scored, and what its
- * notice board writes on the race column is a matter for the event.
+ * because it is a choice of its own, not a departure from the format.
+ *
+ * What the comparison leaves out is everything a format does not decide. A
+ * format is how a championship is *scored*; what its notice board writes on
+ * the race column, and what the event calls its own fleets, are matters for
+ * the event. So the race labels drop out, and the fleets compare on their
+ * count alone — a scorer naming the fleets after their class or their sailing
+ * instructions has not departed from the format, and being told they have
+ * leaves them looking for the setting they are supposed to have changed.
  */
-function matchesFormat(config: SplitFleetConfig, format: FormatKey): boolean {
+export function matchesFormat(config: SplitFleetConfig, format: FormatKey): boolean {
   const built = FORMATS[format].build(config.qualifyingFleets.length);
-  const scoring = ({ raceLabels: _labels, ...rest }: SplitFleetConfig) => rest;
+  const scoring = ({ raceLabels: _labels, qualifyingFleets, finalFleets, ...rest }: SplitFleetConfig) => ({
+    ...rest,
+    qualifyingFleets: qualifyingFleets.length,
+    finalFleets: finalFleets.length,
+  });
   return (
     JSON.stringify(canonical(scoring(built))) === JSON.stringify(canonical(scoring(config)))
   );
