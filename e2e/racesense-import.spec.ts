@@ -183,12 +183,16 @@ test('publish the track data the import recorded, behind the series opt-in', asy
   await page.getByTestId('racesense-confirm').click();
   await expect(plan).toBeHidden();
 
-  // Imported but not opted in: the preview carries no track columns.
+  // Imported but not opted in: the preview carries no track columns — and
+  // none of the times either, which the device measured and which a class
+  // that declined to publish its record has not agreed to publish (#601).
   await page.getByRole('link', { name: 'Standings' }).click();
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
   let frame = page.frameLocator('iframe[title="Results preview"]');
   await expect(frame.getByRole('columnheader', { name: 'Points' }).first()).toBeVisible();
   await expect(frame.getByRole('columnheader', { name: 'DTL (m)' })).toHaveCount(0);
+  await expect(frame.getByRole('columnheader', { name: 'Finish time' })).toHaveCount(0);
+  await expect(frame.getByRole('columnheader', { name: 'Elapsed' })).toHaveCount(0);
   await page.keyboard.press('Escape');
 
   // The opt-in lives on the Publishing card, shown only under the feature.
@@ -210,6 +214,10 @@ test('publish the track data the import recorded, behind the series opt-in', asy
   frame = page.frameLocator('iframe[title="Results preview"]');
   await expect(frame.getByRole('columnheader', { name: 'DTL (m)' }).first()).toBeVisible();
   await expect(frame.getByRole('columnheader', { name: 'Avg speed (kn)' }).first()).toBeVisible();
+  // The device records the elapsed time and not a time of day (#459), and
+  // this series has no gun to derive one from, so Elapsed is the time column
+  // the opt-in brings back.
+  await expect(frame.getByRole('columnheader', { name: 'Elapsed' }).first()).toBeVisible();
   await expect(frame.getByText('1.188')).toBeVisible();
   await expect(frame.getByText('4.61')).toBeVisible();
 });
