@@ -52,7 +52,7 @@ describe('matchesFormat', () => {
     const c = openingSeriesMedalConfig();
     expect(matchesFormat({ ...c, discardThresholds: [{ minRaces: 4, discardCount: 1 }] }, 'opening-medal-unbanded')).toBe(false);
     expect(matchesFormat({ ...c, medal: { ...c.medal!, size: 6 } }, 'opening-medal-unbanded')).toBe(false);
-    expect(matchesFormat({ ...c, medal: { ...c.medal!, companionRace: 'none' } }, 'opening-medal-unbanded')).toBe(false);
+    expect(matchesFormat({ ...c, medal: { ...c.medal!, companionRace: 'dnc' } }, 'opening-medal-unbanded')).toBe(false);
   });
 
   it('counts the fleets even though it ignores their names', () => {

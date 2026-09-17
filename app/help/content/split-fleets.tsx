@@ -208,10 +208,14 @@ export function SplitFleetsSection() {
         draw the {m.fleetNoun} cut where it would fall if racing ended now, and{' '}
         <strong className="text-foreground">Select {m.fleetNoun}…</strong> is offered from the{' '}
         {w.title('medal')} section rather than from a stage the event does not sail. Where the
-        notice of race schedules no further racing for the boats who miss the cut, set{' '}
-        <strong className="text-foreground">The boats who miss the cut</strong> to score them
-        DNC in the {m.raceNoun}: they are scored from the entry list rather than from the{' '}
-        {m.fleetNoun}’s size, because they were never in it.
+        notice of race schedules no further racing for the boats who miss the cut, leave{' '}
+        <strong className="text-foreground">The boats who miss the cut</strong> on{' '}
+        <em>stop racing, with no score</em> and they have none for the {m.raceNoun} at all. Nothing is
+        needed to hold them below the qualified boats — those rank highest in the event
+        whatever the points say — so the two groups are scored over different numbers of
+        races, and the standings and the published page show them as two tables rather than
+        one ladder. Score them DNC instead only where your notice of race says they are
+        scored for that race: it is a score for a race they were not permitted to sail.
       </p>
       <p>
         Choosing a split-fleet championship in the setup wizard writes an initial format and

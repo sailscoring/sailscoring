@@ -34,9 +34,13 @@ notes: |
   s1 wins the championship on 8 without winning the medal race: her opening
   lead carries, which is what NoR 15.2's doubling is calibrated against.
 
-  s4, s5 and s6 miss the cut and do not race again (`companionRace: dnc`), so
-  they are scored DNC in the medal race at 6 entries + 1 = 7, x2 = 14. At the
-  real event's scale that is the published 34.0 — 16 entries + 1, doubled.
+  s4, s5 and s6 miss the cut and do not race again, so they have no score for
+  the medal race at all (`companionRace: none`). Nothing is needed to hold
+  them below the three who sailed it: the boats qualified for the deciding
+  stage rank highest in the event whatever the points say. Their totals
+  therefore run over five races where the qualified boats' run over six,
+  which is why the two groups publish as two tables rather than one ladder —
+  s4's 16 is a better number than s3's 18 and a worse result.
 
 config:
   qualifyingFleets: [Fleet]
@@ -46,7 +50,7 @@ config:
     size: 3
     raceCount: 1
     multiplier: 2
-    companionRace: dnc
+    companionRace: none
     tieBreak: medal-race-then-a8
 
 competitors:
@@ -94,6 +98,9 @@ expected:
     - { rank: 1, sail: s1, total: 10, net: 8, medal: true }    # 1 1 (2) 1 1 + 4
     - { rank: 2, sail: s2, total: 11, net: 9, medal: true }    # 2 (2) 1 2 2 + 2
     - { rank: 3, sail: s3, total: 21, net: 18, medal: true }   # 3 3 3 (3) 3 + 6
-    - { rank: 4, sail: s4, total: 34, net: 30, medal: false }  # 4 x5 (one dropped) + 14
-    - { rank: 5, sail: s5, total: 39, net: 34, medal: false }
-    - { rank: 6, sail: s6, total: 44, net: 38, medal: false }
+    #   — the cut. Six scores above it, five below.
+    # No medal-race score at all: five opening scores, one dropped. Lower
+    # numbers than the boats above them, and ranked below them regardless.
+    - { rank: 4, sail: s4, total: 20, net: 16, medal: false }  # 4 x5, one dropped
+    - { rank: 5, sail: s5, total: 25, net: 20, medal: false }
+    - { rank: 6, sail: s6, total: 30, net: 24, medal: false }

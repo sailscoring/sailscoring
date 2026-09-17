@@ -1904,7 +1904,11 @@ function MedalSelectDialog({
   // does not move anyone else: the boats who miss the cut stay in the fleet
   // they are in and sail its remaining race there.
   const scoredBelow = medalConfig.companionRace === 'scored-below';
-  const stops = medalConfig.companionRace === 'dnc';
+  // Whether anyone races again after the cut. With no second stage there is
+  // no race for them whatever `companionRace` says; with one, only the `dnc`
+  // answer ends their racing.
+  const stops = medalConfig.companionRace === 'dnc' || data.config.split.kind === 'none';
+  const scored = medalConfig.companionRace === 'dnc';
   const medalAssignments = useMemo(() => {
     const assignments: Record<string, number> = {};
     for (const r of medalists) assignments[r.competitor.id] = 0;
@@ -1917,7 +1921,7 @@ function MedalSelectDialog({
       title={`Select the ${w.medal.fleetNoun}`}
       description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); ${
         stops
-          ? 'everyone else has finished racing, and is scored DNC there'
+          ? `everyone else has finished racing${scored ? ', and is scored DNC there' : ' and is not scored for it'}`
           : `everyone else stays in their fleet and sails its remaining races${
               scoredBelow ? `, ${goldLabel}'s scored from ${size + 1}` : ''
             }`
@@ -2009,7 +2013,9 @@ function MedalSection({
         discarded.{' '}
         {medalConfig?.companionRace === 'dnc'
           ? `The boats who missed the cut do not race again: each is scored DNC here, at the entry list plus one, ×${medalConfig?.multiplier ?? 2} like every other score in the race.`
-          : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section.`}
+          : data.config.split.kind === 'none'
+            ? 'The boats who missed the cut do not race again, and are not scored for this race. They rank below these boats whatever the points say.'
+            : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section.`}
         {medalConfig?.companionRace === 'scored-below'
           ? ` In the fleet they left it scores from ${(medalConfig?.size ?? 10) + 1} — first finisher ${(medalConfig?.size ?? 10) + 1}, second ${(medalConfig?.size ?? 10) + 2}, and so on — since that many boats are elsewhere; the other fleets score it from 1.`
           : ''}

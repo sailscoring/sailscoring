@@ -1035,11 +1035,23 @@ export function SplitFleetEditor({
                     })
                   }
                 >
-                  <option value="scored-below">
-                    sail one more race, scored from {value.medal.size + 1} in the fleet they
-                    left
-                  </option>
-                  <option value="none">sail one more race, scored from 1</option>
+                  {/* The one more race lives in the second stage, so where
+                      there is no second stage there is no such race to offer
+                      and `none` means the other thing it can mean: no race,
+                      and no score for the one they are not in. */}
+                  {unbanded ? (
+                    <option value="none">
+                      stop racing, with no score for the {vocab.stages.medal.raceNoun}
+                    </option>
+                  ) : (
+                    <>
+                      <option value="scored-below">
+                        sail one more race, scored from {value.medal.size + 1} in the fleet
+                        they left
+                      </option>
+                      <option value="none">sail one more race, scored from 1</option>
+                    </>
+                  )}
                   <option value="dnc">
                     stop racing, and are scored DNC in the {vocab.stages.medal.raceNoun}
                   </option>
@@ -1080,12 +1092,14 @@ export function SplitFleetEditor({
               <p className={hint}>
                 Never discarded.{' '}
                 {value.medal.companionRace === 'dnc'
-                  ? `Everyone else has finished racing, and is scored DNC in the ${vocab.stages.medal.raceNoun} at the entry list plus one — weighted like every other score in it.`
-                  : `Everyone else stays in their fleet and sails its remaining races${
-                      value.medal.companionRace === 'scored-below'
-                        ? `, and in the fleet they left the last one scores from ${value.medal.size + 1}`
-                        : ''
-                    }.`}
+                  ? `Everyone else has finished racing, and is scored DNC in the ${vocab.stages.medal.raceNoun} at the entry list plus one — weighted like every other score in it. Only where the sailing instructions say they are scored for a race they could not sail.`
+                  : unbanded
+                    ? `Everyone else has finished racing and has no score for it. They rank below these boats whatever the points say, so the two groups are scored over different numbers of races and are shown as two tables.`
+                    : `Everyone else stays in their fleet and sails its remaining races${
+                        value.medal.companionRace === 'scored-below'
+                          ? `, and in the fleet they left the last one scores from ${value.medal.size + 1}`
+                          : ''
+                      }.`}
                 {value.medal.carryTransform
                   ? ` Dividing the score so far pulls the leaders together before the last races, so a qualified boat’s championship score is that one carried number plus her ${vocab.stages.medal.name}.`
                   : ''}

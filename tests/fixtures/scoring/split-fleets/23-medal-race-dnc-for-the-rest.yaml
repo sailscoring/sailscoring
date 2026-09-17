@@ -1,4 +1,4 @@
-description: "F2: no race for the boats who miss the cut — the medal race is scored DNC against them, at series entries + 1, doubled"
+description: "F2: the notice of race scores the boats who miss the cut for the medal race anyway — DNC at series entries + 1, doubled"
 provenance:
   class: "TR 3.6 (mixed junior classes)"
   year: 2025
@@ -12,25 +12,25 @@ runnable: true
 notes: |
   Most medal-race sailing instructions give the boats who miss the cut one
   more race of their own fleet while the medal fleet sails (2024 ILCA SI 7.4,
-  2026 ILCA SI 7.7) — fixture 17. Some schedule no such race at all: the
-  Junior Champions' Cup NoR 8.1 is "an opening series of up to 8 races and a
-  Medal Race", and that is the whole regatta. The boats outside the medal
-  fleet stop racing, and the medal race is scored DNC against them.
+  2026 ILCA SI 7.7) — fixture 17. Where no such race is scheduled they
+  normally have no score for the deciding race at all, and the qualified
+  boats' ranking is what keeps them above: fixture 25.
 
-  Their score for it is RRS A5.2's **series entries + 1**, not the medal
-  fleet's own base: they are not in that fleet, and A5.2 counts the boats
-  entered in the series. NoR 15.2 then doubles it with everything else in the
-  race. Here that is 6 entries + 1 = 7, x2 = 14 — the same arithmetic the
-  real event published at full scale, where 16 entries and a ten-boat medal
-  fleet put **34.0 DNC** against each of the six boats who missed it.
+  This is the third case — a notice of race that scores them for it anyway.
+  Their score is RRS A5.2's **series entries + 1**, not the medal fleet's own
+  base: they are not in that fleet, and A5.2 counts the boats entered in the
+  series. The medal-race weighting then doubles it with everything else in
+  the race. Here that is 6 entries + 1 = 7, x2 = 14.
 
-  The alternative — leaving them with no cell at all — would total their
-  series over one race fewer than the medal boats' and then compare the two
-  as though they were the same thing.
+  Worth knowing where it comes from: this is what Sailwave produces by
+  default for a race a competitor has no row in, so published results
+  carrying it do not on their own show that an organising authority chose it.
+  The 2025 Irish Sailing Junior Champions' Cup published **34.0 DNC** — 16
+  entries + 1, doubled — against the six boats who missed a ten-boat medal
+  fleet, under a notice of race that says nothing about it either way.
 
-  The real event sails this with a single fleet and no split at all; the
-  qualifying/final structure here is only the fixture harness's, and the
-  scoring rule under test is the same either way.
+  The qualifying/final structure here is only the fixture harness's; the
+  scoring rule under test is the same with or without a split.
 
   No discards (threshold empty) so every cell is visible.
 

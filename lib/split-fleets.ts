@@ -189,15 +189,20 @@ export interface SplitFleetConfig {
      *    up — the top fleet's 37 starters score 11 to 47 against a base of
      *    48, exactly as if the ten had taken the places above them.
      *  - `none` — scored from 1, like every other race of the stage.
-     *  - `dnc` — there is no such race. The boats who miss the cut stop
-     *    sailing, and the deciding race is scored DNC against them (Irish
-     *    Sailing Junior Champions' Cup, whose NoR schedules an opening series
-     *    and a medal race and nothing else). Their score for it is RRS A5.2's
-     *    series entries + 1 — not the medal fleet's own base, since they are
-     *    not in that fleet and never came to its starting area — weighted
-     *    like every other cell of the race. Without it their totals would
-     *    span one race fewer than the medal boats' and be compared as though
-     *    they did not. */
+     *  - `dnc` — there is no such race, and the deciding race is scored
+     *    against the boats who miss the cut anyway. Their score for it is
+     *    RRS A5.2's series entries + 1 — not the deciding fleet's own base,
+     *    since they are not in that fleet and never came to its starting
+     *    area — weighted like every other cell of the race.
+     *
+     *    Only for an event whose notice of race says so. It is not needed to
+     *    hold those boats below the qualified ones, which the deciding
+     *    fleet's ranking does on its own, and it scores a boat for a race she
+     *    was not permitted to sail. Where no further racing is scheduled and
+     *    the notice of race is silent, `none` is the model: no race, no
+     *    score. The two groups are then scored over different numbers of
+     *    races, which is why they are published as two tables rather than
+     *    one ladder. */
     companionRace: 'scored-below' | 'none' | 'dnc';
   };
 }
@@ -810,8 +815,12 @@ export const UNBANDED_FLEET: { label: string; color: string } = {
  * sails every year. Its parameters are that event's: NoR 8.1's opening series
  * and Medal Race, NoR 8.2's top ten, NoR 15.1's one discard from five opening
  * races, NoR 15.2's doubled and non-excludable Medal Race, and NoR 15.3's
- * tie-break. Nobody outside the ten races again, so they are scored DNC in
- * it.
+ * tie-break.
+ *
+ * Nobody outside the ten races again, and they are scored nothing for the
+ * deciding race rather than DNC. What holds them below the qualified boats is
+ * that those boats rank highest whatever the points say, so the deciding race
+ * needs to do no work against boats who were never permitted to sail it.
  *
  * The final-stage caps are off because there is no final stage for them to
  * cap, and `equalization` says nothing with one fleet — a race is valid as
@@ -834,7 +843,7 @@ export function openingSeriesMedalConfig(): SplitFleetConfig {
       size: 10,
       raceCount: 1,
       multiplier: 2,
-      companionRace: 'dnc',
+      companionRace: 'none',
       tieBreak: 'medal-race-then-a8',
     },
   };

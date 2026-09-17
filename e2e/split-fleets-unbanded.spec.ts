@@ -65,6 +65,9 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await expect(si).toContainText(
     'The boats qualified to compete in the medal races will be ranked highest in the event.',
   );
+  await expect(si).toContainText(
+    'the boats that do not qualify for it will not race again, and will have no score for the medal race',
+  );
 
   // ── Race it ───────────────────────────────────────────────────────────────
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
@@ -107,25 +110,23 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await page.getByRole('button', { name: 'Select medal fleet…' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Select the medal fleet');
-  await expect(dialog).toContainText('everyone else has finished racing, and is scored DNC there');
+  await expect(dialog).toContainText('everyone else has finished racing');
   await dialog.getByRole('checkbox', { name: /Also create/ }).check();
   await page.getByRole('button', { name: /Commit medal fleet \(top 10\)/ }).click();
 
   // ── The deciding race, and what it does to the boats outside it ──────────
   await expect(page.getByText('Medal races score ×2')).toBeVisible();
-  await expect(
-    page.getByText(/scored DNC here, at the entry list plus one, ×2/),
-  ).toBeVisible();
   // And the cut line is gone: a committed fleet is a fact, not a projection.
   await expect(page.getByText(/cut if the opening series ended now/)).toHaveCount(0);
 
-  // The ten sail it; the fourteen who missed the cut are scored DNC in it at
-  // 24 entries + 1, doubled — 50, and not a blank.
+  // The ten sail it. The fourteen who missed the cut are not scored for it at
+  // all — no DNC for a race they were not permitted to sail.
   await page.getByRole('link', { name: /M1 .*enter finishes/ }).click();
   await expect(page).toHaveURL(/\/races\//);
   await enterFinishes(page, sails.slice(0, 10));
   await page.goBack();
-  await expect(page.getByText('50 DNC').first()).toBeVisible();
+  // 24 entries + 1, doubled, is what a DNC in this race would score.
+  await expect(page.getByText('50 DNC')).toHaveCount(0);
 
   // ── The standings separate the two groups, as the published page does ────
   // The ten are a table of their own, above everyone else, and the reason is
