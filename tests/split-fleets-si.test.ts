@@ -112,6 +112,38 @@ describe('describeSplitFleetConfig', () => {
     );
   });
 
+  it('says the deciding fleet is ranked highest, whatever the points', () => {
+    // The engine has always done it and the published page has always
+    // asserted it; unsaid here, a scorer could not check it against a notice
+    // of race — and this event's notice of race does not contain it.
+    expect(joined(defaultSplitFleetConfig(3))).toContain(
+      'The boats qualified to compete in the medal races will be ranked highest in the event.',
+    );
+    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+      'The boats qualified to compete in the Final series will be ranked highest in the event.',
+    );
+    // No deciding stage, no sentence.
+    expect(joined(iodaSplitFleetConfig(4))).not.toContain('ranked highest');
+  });
+
+  it('says the boats who miss the cut do not race again, where there is no race for them', () => {
+    // `none` means "that race is scored from 1" where a second stage exists
+    // to hold it, and "there is no such race" where none does. Saying the
+    // first on an unbanded championship promises racing nobody will sail.
+    const unbanded = openingSeriesMedalConfig();
+    expect(
+      joined({ ...unbanded, medal: { ...unbanded.medal!, companionRace: 'none' } }),
+    ).toContain(
+      'the boats that do not qualify for it will not race again, and will have no score for the medal race',
+    );
+    expect(
+      joined({
+        ...ilca2026SplitFleetConfig(3),
+        medal: { ...ilca2026SplitFleetConfig(3).medal!, companionRace: 'none' },
+      }),
+    ).toContain('will sail one more Elimination series race in their own fleets');
+  });
+
   it('numbers only the stages an unbanded championship sails', () => {
     // The middle stage is never sailed, so it has no races to number — and
     // naming it here puts a stage the event does not sail into the document a

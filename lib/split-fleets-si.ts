@@ -101,6 +101,7 @@ export type SplitFleetSentenceId =
   | 'final-discard-cap'
   | 'non-finisher'
   | 'medal'
+  | 'medal-ranking'
   | 'medal-carry-transform'
   | 'medal-tie-break';
 
@@ -128,7 +129,7 @@ export const SENTENCES_BY_SETTING = {
   codeBasis: ['non-finisher'],
   // Turning the medal stage on is what divides the event into a series and
   // then that stage, so it writes the opening sentences too.
-  medal: ['format', 'series-division', 'medal'],
+  medal: ['format', 'series-division', 'medal', 'medal-ranking'],
   medalCarryTransform: ['medal-carry-transform'],
   medalTieBreak: ['medal-tie-break'],
 } satisfies Record<string, SplitFleetSentenceId[]>;
@@ -286,18 +287,35 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     // ILCA SI 7.7), scored below the medal fleet where the SIs say so (2024
     // SI 18.3.4, 2026 SI 18.5.3) — or nothing at all, where the event
     // schedules no such race and scores them DNC instead.
+    // What becomes of the boats who miss the cut. `none` means two different
+    // things depending on whether there is a second stage to sail one more
+    // race of: where there is, that race is scored from 1 like any other;
+    // where there is not, there is no further racing at all and the deciding
+    // race scores them nothing.
     const rest =
       config.medal.companionRace === 'dnc'
         ? `; the boats that do not qualify for it will be scored Did Not Come to the Starting Area in the ${vocab.stages.medal.raceNoun}`
-        : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets` +
-          (config.medal.companionRace === 'scored-below'
-            ? `, in which the first ${topFleet} boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
-            : '');
+        : unbanded
+          ? `; the boats that do not qualify for it will not race again, and will have no score for the ${vocab.stages.medal.raceNoun}`
+          : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets` +
+            (config.medal.companionRace === 'scored-below'
+              ? `, in which the first ${topFleet} boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
+              : '');
     push(
       'medal',
       unbanded
         ? `The first ${config.medal.size} boats in the ${q} will sail the ${m}. ${score}${rest}.`
         : `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
+    );
+    // The engine ranks the boats of the deciding stage above every other boat
+    // whatever the points say, which is a clause — 2024 ILCA SI 18.7 writes
+    // it — and not an arithmetic consequence. It decides the podium wherever
+    // a boat outside the deciding fleet finishes on fewer or better scores,
+    // so it belongs in the list a scorer checks against their own document:
+    // an event whose notice of race is silent on it needs to know that.
+    push(
+      'medal-ranking',
+      `The boats qualified to compete in the ${m} will be ranked highest in the event.`,
     );
     const transform = config.medal.carryTransform;
     if (transform) {
