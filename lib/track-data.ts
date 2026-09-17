@@ -1,3 +1,4 @@
+import { crossingTimeOf, elapsedSecondsOf } from './elapsed-time';
 import { formatElapsedInput } from './time-parse';
 import type { FinishTrackData } from './types';
 
@@ -33,6 +34,50 @@ export function hasTrackData(t: FinishTrackData | null | undefined): boolean {
     && (t.dtlAtStartM != null || t.distanceKm != null || t.maxSpeedKts != null);
 }
 
+/**
+ * What a published page may show for one finish.
+ *
+ * Times ride on the finish row and are ordinarily publishable: a scorer who
+ * wrote down when a boat crossed recorded a fact about the race, and
+ * competitors want to read it back. RaceSense's own metrics are not — they
+ * are captured for race management, and reach a page only where the series
+ * publishes them.
+ *
+ * A time the device measured is RaceSense data too, whatever column it lands
+ * in, so it follows the same decision: a class that declined to publish track
+ * data has not agreed to publish the times behind it. The test is the row's
+ * own track data, which is as near to provenance as a finish row gets —
+ * nothing records where a time came from, and the boats the device timed are
+ * the boats it recorded a distance, a speed or a line for. A boat it timed
+ * and measured nothing else about is not caught, and her time publishes.
+ *
+ * The decision is per boat, not per race. A race half hand-timed and half
+ * imported publishes the times it may and blanks the rest, which is the
+ * honest table.
+ *
+ * `startSeconds` is the gun for this boat's start, so a row recorded either
+ * way round shows both times: a sheet kept off the clock has its elapsed
+ * times worked out here, a stopwatch or device row its time of day.
+ */
+export function publishedCell(
+  c: TrackDataCell | undefined,
+  startSeconds: number | null,
+  opts: { publishTrackData: boolean },
+): TrackDataCell {
+  if (!c) return {};
+  if (!opts.publishTrackData && hasTrackData(c.trackData)) return {};
+  const finishTime = crossingTimeOf(c, startSeconds);
+  const elapsedSecs = elapsedSecondsOf(c, startSeconds);
+  return {
+    ...(finishTime !== null ? { finishTime } : {}),
+    // A gun recorded after the boat crossed gives a negative difference. That
+    // is a mistake in the sheet rather than a time, and a page is no place to
+    // render one, so it is left out and the finish time stands alone.
+    ...(elapsedSecs !== null && elapsedSecs > 0 ? { elapsedSecs } : {}),
+    ...(opts.publishTrackData && c.trackData ? { trackData: c.trackData } : {}),
+  };
+}
+
 /** Average speed in knots, from the distance sailed and the elapsed time; the
  *  one derived figure, never stored, so it cannot drift from its inputs. */
 export function avgSpeedKn(c: TrackDataCell): number | null {
@@ -51,7 +96,10 @@ export function finishTimeText(c: TrackDataCell | undefined): string {
 
 export function elapsedText(c: TrackDataCell | undefined): string {
   // As recorded, fraction and all. A device that measured to the millisecond
-  // is the only thing that puts a fraction here, and it is the reading.
+  // is the only thing that puts a fraction here, and it is the reading. On a
+  // published cell the figure may instead be the difference from the gun,
+  // which `publishedCell` works out for a sheet kept off the clock; whole
+  // seconds by construction, and the same elapsed time either way.
   return c?.elapsedSecs != null ? formatElapsedInput(c.elapsedSecs) : '';
 }
 

@@ -5,6 +5,7 @@ import {
   dtlAtStartWords,
   elapsedText,
   hasTrackData,
+  publishedCell,
   trackDataStrip,
   type TrackDataCell,
 } from '@/lib/track-data';
@@ -96,5 +97,69 @@ describe('trackDataStrip', () => {
 
   it('is empty for a boat with nothing at all', () => {
     expect(trackDataStrip({ finishTime: '13:52:31' })).toEqual([]);
+  });
+});
+
+describe('publishedCell', () => {
+  const GUN = 11 * 3600; // 11:00:00
+  const TRACK = { dtlAtStartM: -2.86, distanceKm: 12.3, maxSpeedKts: 6.9 };
+
+  it('publishes a hand-timed boat, track data published or not', () => {
+    const hand: TrackDataCell = { finishTime: '11:45:20' };
+    for (const publishTrackData of [true, false]) {
+      expect(publishedCell(hand, GUN, { publishTrackData })).toEqual({
+        finishTime: '11:45:20',
+        elapsedSecs: 45 * 60 + 20,
+      });
+    }
+  });
+
+  it('withholds a boat the device measured when the series does not publish track data', () => {
+    const imported: TrackDataCell = { finishTime: '11:45:20', elapsedSecs: 2720.5, trackData: TRACK };
+    expect(publishedCell(imported, GUN, { publishTrackData: false })).toEqual({});
+    expect(publishedCell(imported, GUN, { publishTrackData: true })).toEqual({
+      finishTime: '11:45:20',
+      elapsedSecs: 2720.5,
+      trackData: TRACK,
+    });
+  });
+
+  it('decides per boat, so a half-imported race keeps the times it may show', () => {
+    const imported: TrackDataCell = { finishTime: '11:45:20', trackData: TRACK };
+    const hand: TrackDataCell = { finishTime: '11:46:20' };
+    const opts = { publishTrackData: false };
+    expect(publishedCell(imported, GUN, opts)).toEqual({});
+    expect(publishedCell(hand, GUN, opts).finishTime).toBe('11:46:20');
+  });
+
+  it('is not fooled into withholding by an elapsed time alone, which a stopwatch also writes', () => {
+    const stopwatch: TrackDataCell = { elapsedSecs: 2720 };
+    expect(publishedCell(stopwatch, GUN, { publishTrackData: false })).toEqual({
+      finishTime: '11:45:20',
+      elapsedSecs: 2720,
+    });
+  });
+
+  it('works the elapsed time out from the gun, and the time of day from the stopwatch', () => {
+    expect(publishedCell({ finishTime: '11:45:20' }, GUN, { publishTrackData: false }).elapsedSecs)
+      .toBe(2720);
+    expect(publishedCell({ elapsedSecs: 2720 }, GUN, { publishTrackData: false }).finishTime)
+      .toBe('11:45:20');
+  });
+
+  it('leaves the elapsed time out when there is no gun to subtract', () => {
+    expect(publishedCell({ finishTime: '11:45:20' }, null, { publishTrackData: false })).toEqual({
+      finishTime: '11:45:20',
+    });
+  });
+
+  it('leaves out a negative difference, which is a mistake in the sheet and not a time', () => {
+    expect(publishedCell({ finishTime: '10:45:20' }, GUN, { publishTrackData: false })).toEqual({
+      finishTime: '10:45:20',
+    });
+  });
+
+  it('is empty for a boat with no row at all', () => {
+    expect(publishedCell(undefined, GUN, { publishTrackData: true })).toEqual({});
   });
 });
