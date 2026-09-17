@@ -2377,12 +2377,41 @@ describe('track-data columns', () => {
     expect(html).toContain('>8.45</td>');
   });
 
-  it('renders no columns without the opt-in, data or not', () => {
+  it('withholds the times of the boat the device measured, and publishes the other', () => {
     const data = assembleSeriesResultsData(series, races, standings, scores, competitorsById, ['club'], now);
     const html = renderSeriesHtml(data);
-    expect(html).not.toContain('>Finish time</th>');
+    // Nothing RaceSense recorded reaches the page.
     expect(html).not.toContain('>DTL (m)</th>');
+    expect(html).not.toContain('>Distance (km)</th>');
     expect(html).not.toContain('11:45:20');
+    // Bob was hand-timed, so his crossing is published — the column carries
+    // the boats it may and blanks the rest.
+    expect(html).toContain('>Finish time</th>');
+    expect(html).toContain('>11:46:20</td>');
+  });
+
+  it('renders no time column at all when no boat has a time to publish', () => {
+    const untimed = new Map([
+      ['r1', new Map([
+        ['c1', { points: 1, place: 1, rank: 1, resultCode: null as ResultCode | null, finishTime: '11:45:20', elapsedSecs: 3600, trackData }],
+      ])],
+    ]);
+    const data = assembleSeriesResultsData(series, races, standings, untimed, competitorsById, ['club'], now);
+    const html = renderSeriesHtml(data);
+    expect(html).not.toContain('>Finish time</th>');
+    expect(html).not.toContain('>Elapsed</th>');
+  });
+
+  it('works a scratch fleet\u2019s elapsed times out from its gun', () => {
+    const data = assembleSeriesResultsData(series, races, standings, scores, competitorsById, ['club'], now, undefined, {
+      raceStarts: [{ raceId: 'r1', fleetIds: ['f1'], startTime: '11:00:00' }],
+      fleetId: 'f1',
+    });
+    const html = renderSeriesHtml(data);
+    // Bob crossed at 11:46:20 off an 11:00:00 gun. Alice is withheld with the
+    // rest of her device's record.
+    expect(html).toContain('>46:20</td>');
+    expect(html).not.toContain('>45:20</td>');
   });
 
   it('drops a column no boat has, keeping the rest', () => {

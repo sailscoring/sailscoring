@@ -63,7 +63,7 @@ export function publishedCell(
   c: TrackDataCell | undefined,
   startSeconds: number | null,
   opts: { publishTrackData: boolean },
-): TrackDataCell {
+): { finishTime?: string; elapsedSecs?: number; trackData?: FinishTrackData } {
   if (!c) return {};
   if (!opts.publishTrackData && hasTrackData(c.trackData)) return {};
   const finishTime = crossingTimeOf(c, startSeconds);

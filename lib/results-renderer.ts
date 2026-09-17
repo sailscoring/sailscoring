@@ -14,6 +14,7 @@ import {
   elapsedText,
   finishTimeText,
   maxSpeedKtsText,
+  publishedCell,
   type TrackDataCell,
 } from './track-data';
 import {
@@ -333,10 +334,11 @@ export interface RaceResultData {
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY, the club's number for a fixed TCF)
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
   impliedWind?: number;      // ORC PCS: the boat's implied wind (kt)
-  finishTime?: string;       // "HH:MM:SS"; also set for scratch fleets when track data is published
-  /** The elapsed time as recorded, fractional part kept. Distinct from
-   *  `elapsedTimeSecs`: that is the ET the engine scored from, this is what
-   *  the finish sheet or the device actually wrote down. */
+  finishTime?: string;       // "HH:MM:SS"; set for any fleet whose times this page may publish
+  /** The elapsed time to display, fractional part kept: what the finish sheet
+   *  or the device wrote down, or the difference from the gun where the sheet
+   *  recorded times of day. Distinct from `elapsedTimeSecs`, which is the ET
+   *  the engine scored from. */
   elapsedSecs?: number;
   /** The elapsed time the race was scored from, in the unit it was timed in:
    *  whole seconds off a clock or a stopwatch, a fraction where a device
@@ -2920,10 +2922,12 @@ export function assembleSeriesResultsData(
     officials?: RaceOfficial[];
     /** Whether per-race teams reach the page, on the same opt-in. */
     publishOfficials?: boolean;
-    /** Attach RaceSense track data (and scratch finish times) to the race
-     *  results. Callers resolve the whole opt-in — the workspace feature and
-     *  the series' publishTrackData — before setting this, so the renderer's
-     *  columns can stay purely data-driven. */
+    /** Whether the series publishes RaceSense track data. Callers resolve the
+     *  whole opt-in — the workspace feature and the series' publishTrackData —
+     *  before setting this, so the renderer's columns can stay purely
+     *  data-driven. It governs the metric columns and the times of the boats
+     *  the device measured; a hand-recorded time publishes either way. See
+     *  `publishedCell`. */
     showTrackData?: boolean;
   },
 ): SeriesResultsData {
@@ -2932,9 +2936,11 @@ export function assembleSeriesResultsData(
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
 
-  // Build a map of raceId → startTime for this fleet
+  // Build a map of raceId → startTime for this fleet. Every fleet, not only
+  // the handicap ones: a scratch fleet is scored on the order alone, but the
+  // gun is still what turns its recorded times into elapsed times to publish.
   const startTimeByRaceId = new Map<string, string>();
-  if (isHandicap && raceStarts && fleetId) {
+  if (raceStarts && fleetId) {
     for (const rs of raceStarts) {
       if (rs.raceId && rs.fleetIds.includes(fleetId) && rs.startTime) {
         startTimeByRaceId.set(rs.raceId, rs.startTime);
@@ -3105,9 +3111,13 @@ export function assembleSeriesResultsData(
         ...(tcc != null ? { tcc } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
         ...(score.orc?.impliedWind != null ? { impliedWind: score.orc.impliedWind } : {}),
-        ...(score.finishTime && (isHandicap || showTrackData) ? { finishTime: score.finishTime } : {}),
-        ...(showTrackData && score.elapsedSecs != null ? { elapsedSecs: score.elapsedSecs } : {}),
-        ...(showTrackData && score.trackData ? { trackData: score.trackData } : {}),
+        // A handicap table carries its own Finish/ET as the working behind a
+        // corrected time, so those are unconditional: withholding an elapsed
+        // time there would leave a corrected one unexplained. Everything else
+        // a page may say about how the boat sailed goes through the reader
+        // that knows what the series agreed to publish.
+        ...(isHandicap && score.finishTime ? { finishTime: score.finishTime } : {}),
+        ...publishedCell(score, startSecs, { publishTrackData: showTrackData === true }),
         ...(elapsedTimeSecs != null ? { elapsedTimeSecs } : {}),
         ...(correctedTimeSecs != null ? { correctedTimeSecs } : {}),
         ...(nhcCell ? { nhc: nhcCell } : {}),
