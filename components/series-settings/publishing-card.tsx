@@ -148,11 +148,13 @@ export function PublishingCard({
                   Publish RaceSense track data on race results
                 </label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Adds finish time, elapsed time, distance sailed, average and max
-                  speed, and distance to line at the start as sortable columns on
-                  the per-race tables, for races imported from RaceSense. Off by
-                  default: the data is captured for race management, so publishing
-                  it is your call.
+                  Adds distance sailed, average and max speed, and distance to
+                  line at the start as sortable columns on the per-race tables,
+                  for races imported from RaceSense. Off by default: the data is
+                  captured for race management, so publishing it is your call.
+                  A boat’s finish and elapsed times are part of that record, so
+                  they wait on this too — times you recorded yourself publish
+                  either way.
                 </p>
                 {seriesFinishes && (
                   <p className="text-xs text-muted-foreground mt-1" data-testid="track-data-coverage">

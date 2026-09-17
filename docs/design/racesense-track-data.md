@@ -10,9 +10,11 @@ into a story, and the race committee's device already captured them —
 they are thrown away today. The implementation plan is
 [**#456**](https://github.com/sailscoring/sailscoring/issues/456).
 
-This is explicitly a RaceSense feature: the data comes from the
-RaceSense import and from nowhere else, and it shows only where that
-import is in use.
+The metrics are explicitly a RaceSense feature: they come from the
+RaceSense import and from nowhere else, and they show only where that
+import is in use. The two time columns are no longer — see
+**Times** below — but a time the device measured is still the device's
+record, and follows the same opt-in.
 
 ## Source
 
@@ -44,7 +46,7 @@ start. Published tables already sort on any column, so every metric is
 its own ranking — click Avg speed and the table *is* the
 speed-versus-result story, no separate presentation needed.
 
-The columns appear only when all three hold:
+The four metric columns appear only when all three hold:
 
 - the **`racesense-import`** feature is enabled for the workspace;
 - track data has actually been **imported** for the race;
@@ -53,6 +55,43 @@ The columns appear only when all three hold:
 
 The split-fleet per-race results page is the first target; the ordinary
 series race sections follow.
+
+### Times (#601)
+
+Finish and elapsed time turned out not to belong here. A handicap fleet
+has always published both as the working behind a corrected time, and a
+scorer who hand-times a scratch race has recorded a fact about it that
+competitors want to read back — so gating those columns on a RaceSense
+setting withheld them from clubs that have never seen the device.
+
+They now publish wherever they were recorded, with one exception: a boat
+**the device measured** is withheld with the rest of its record when the
+series does not publish track data. A class that declined to publish
+RaceSense data has not agreed to publish the times behind it.
+
+The test is `hasTrackData()` on the boat's own row, which is as near to
+provenance as a finish row gets — nothing records where a time came
+from, and the boats the device timed are the boats it recorded a
+distance, a speed or a line for. A boat it timed and measured nothing
+else about is not caught. Marking the row at import would be exact, and
+costs a model change and a file-format bump; the proxy costs neither.
+
+The decision is per boat, not per race: a race half hand-timed and half
+imported publishes the hand-timed boats and blanks the rest.
+
+`publishedCell` in `lib/track-data.ts` is the one place this is decided,
+because two renderers draw a race table — `assembleSeriesResultsData`
+for the ordinary series pages and `renderSplitFleetRaceResultsPage` for
+a championship's per-race page.
+
+**The data file is not covered.** `finishTime` and `elapsedSecs` go into
+the published `.sailscoring.json` unconditionally and deliberately: they
+are scoring inputs, and gating them would make a re-import score the
+race differently. The spectator viewer opens that file into the app's
+own UI, finish sheet and all. So the rule governs the results pages, not
+what a reader can dig out of the data; a series that wants the times
+withheld outright turns off **Include data export in published
+results**.
 
 ## In the app
 

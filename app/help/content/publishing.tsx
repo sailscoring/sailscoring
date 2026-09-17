@@ -79,6 +79,18 @@ export default function Publishing() {
           order.
         </p>
         <p>
+          <strong className="text-foreground">Times on a race table:</strong> where you
+          recorded when the boats crossed, the per-race table carries it. A handicap
+          fleet has always shown finish and elapsed time, because they are the working
+          behind a corrected time; a fleet scored on the order alone now shows them too,
+          which is what competitors want to read back off a scratch race. You need do
+          nothing to turn this on — times publish wherever they were recorded, and a
+          race entered as places with no times has no columns to show. If the fleet’s
+          start records a gun, elapsed time is worked out from it; if it does not, the
+          crossing time is published on its own. A race where only some boats were timed
+          publishes those boats and leaves the rest of the column blank.
+        </p>
+        <p>
           <strong className="text-foreground">Races that have not been sailed:</strong> a race
           no boat has a row in — no finisher, no code, not even a start-area check-in — is a
           slot in the schedule, not a result, and never becomes a column on a published page. It

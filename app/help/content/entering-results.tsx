@@ -472,11 +472,14 @@ export default function EnteringResults() {
           The import also keeps what the export says about{' '}
           <strong className="text-foreground">how each boat sailed the race</strong>:
           distance sailed, max speed, and distance to the line at the starting signal.
-          Together with the elapsed time it records anyway, that is everything the device
+          Together with the times it records anyway, that is everything the device
           measured. None of it touches scoring, and none of it is published
           until you switch on{' '}
           <strong className="text-foreground">Publish RaceSense track data</strong> in the
-          series’ Publishing settings — then the per-race tables carry the figures, with
+          series’ Publishing settings — the boat’s finish and elapsed times included,
+          because a time the device measured is its record too. (Times you recorded
+          yourself are not, and publish either way.) Switch it on and the per-race tables
+          carry the figures, with
           average speed derived from distance and elapsed time, as sortable columns:
           click any of them and the table ranks the fleet by that measure. A metric the
           export didn’t record (a race with no line has no distances to it) simply has no
