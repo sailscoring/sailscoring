@@ -686,13 +686,61 @@ describe('track data columns on the per-race page', () => {
     expect(html).toContain('>11:45:20</td>');
   });
 
-  it('renders no columns without the resolved opt-in, data or not', () => {
+  it('withholds the device\u2019s record, times included, without the resolved opt-in', () => {
     const html = renderSplitFleetRaceResultsPage(
       { ...withTrack(renderInputFor(FIXTURE)), showTrackData: false },
     )!;
     for (const header of TRACK_HEADERS) {
       expect(html).not.toContain(`>${header}</th>`);
     }
+    expect(html).not.toContain('11:45:20');
+  });
+
+  it('publishes a hand-recorded time without the opt-in, which is not the device\u2019s to withhold', () => {
+    const input = renderInputFor(FIXTURE);
+    const html = renderSplitFleetRaceResultsPage({
+      ...input,
+      showTrackData: false,
+      finishes: input.finishes.map((f) =>
+        f.sortOrder !== null ? { ...f, finishTime: '11:45:20' } : f,
+      ),
+    })!;
+    expect(html).toContain('>Finish time</th>');
+    expect(html).toContain('>11:45:20</td>');
+    expect(html).not.toContain('>Distance (km)</th>');
+  });
+
+  it('decides per boat, so a half-imported race publishes the times it may', () => {
+    const input = renderInputFor(FIXTURE);
+    const finishers = input.finishes.filter((f) => f.sortOrder !== null);
+    const [measured, handTimed] = finishers;
+    const html = renderSplitFleetRaceResultsPage({
+      ...input,
+      showTrackData: false,
+      finishes: input.finishes.map((f) => {
+        if (f.id === measured.id) {
+          return { ...f, finishTime: '11:45:20', trackData: { distanceKm: 2.73 } };
+        }
+        if (f.id === handTimed.id) return { ...f, finishTime: '11:46:20' };
+        return f;
+      }),
+    })!;
+    expect(html).not.toContain('11:45:20');
+    expect(html).toContain('>11:46:20</td>');
+  });
+
+  it('works the elapsed times out from each fleet\u2019s own gun', () => {
+    const input = renderInputFor(FIXTURE);
+    const gunByRace = new Map(input.raceStarts.map((s) => [s.raceId, '11:00:00']));
+    const html = renderSplitFleetRaceResultsPage({
+      ...input,
+      raceStarts: input.raceStarts.map((s) => ({ ...s, startTime: gunByRace.get(s.raceId) })),
+      finishes: input.finishes.map((f) =>
+        f.sortOrder !== null ? { ...f, finishTime: '11:45:20' } : f,
+      ),
+    })!;
+    expect(html).toContain('>Elapsed</th>');
+    expect(html).toContain('>45:20</td>');
   });
 
   it('renders no columns when no boat carries the data', () => {

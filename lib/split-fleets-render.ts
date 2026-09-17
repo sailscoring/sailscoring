@@ -20,6 +20,8 @@ import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
 import { describeSplitFleetConfig } from './split-fleets-si';
 import { bySailNumber } from './sail-number-sort';
+import { parseHmsToSeconds } from './time-parse';
+import { publishedCell } from './track-data';
 import { worldSailingProfileUrl } from './world-sailing';
 import {
   assembleSplitFleetData,
@@ -61,10 +63,11 @@ export interface SplitFleetRenderInput {
   /** Inline flags keyed by 3-letter code (see `SeriesResultsData.
    *  flagSvgByCode`). Callers load it on demand; absent = code-only cells. */
   flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
-  /** Add finish-time and track-data columns to the per-race tables. The
-   *  caller resolves the whole opt-in — the workspace's racesense-import
-   *  feature AND the series' publishTrackData setting — and each column
-   *  still renders only where a boat actually carries the value. */
+  /** Whether the series publishes RaceSense track data. The caller resolves
+   *  the whole opt-in — the workspace's racesense-import feature AND the
+   *  series' publishTrackData setting. It governs the track columns and the
+   *  times of the boats the device measured; a hand-recorded time reaches
+   *  the per-race tables either way. See `publishedCell`. */
   showTrackData?: boolean;
   /** Whether a race's own management team may be named on the race-results
    *  page. The caller resolves the series opt-in; conditions need no opt-in,
@@ -531,6 +534,19 @@ export function renderSplitFleetRaceResultsPage(
     }
   }
 
+  // Each fleet's gun, so a sheet kept off the clock can have its elapsed
+  // times worked out. Per fleet and not per race: Gold and Silver sailing the
+  // same race start at their own times. A membership-only start has no gun
+  // and leaves its fleet with crossing times alone.
+  const gunByRaceFleet = new Map<string, number>();
+  for (const start of data.raceStarts) {
+    const secs = parseHmsToSeconds(start.startTime);
+    if (secs === null) continue;
+    for (const fleetId of start.fleetIds) {
+      gunByRaceFleet.set(`${start.raceId} ${fleetId}`, secs);
+    }
+  }
+
   const fleetTable = (entries: { competitor: Competitor; cell: CellScore }[]): string => {
     // Scored order: finishers by points (crossing order between equals), then
     // the coded boats, worst score last, sail number between equals.
@@ -546,19 +562,31 @@ export function renderSplitFleetRaceResultsPage(
           : bySailNumber(a.competitor, b.competitor);
       });
     if (sorted.length === 0) return '';
-    // A track column appears only when some boat in this table has the
-    // value: a race with no line recorded gets no DTL column at all.
-    const trackColumns = input.showTrackData
-      ? TRACK_DATA_COLUMNS.filter((col) =>
-          sorted.some(({ competitor, cell }) =>
-            col.value(finishByKey.get(sheetKey(cell.raceId, competitor.id))) !== ''),
-        )
-      : [];
+    // What each boat's row may show. Times ride on the finish row and are
+    // ordinarily publishable; RaceSense's own record — and the times of the
+    // boats it measured — reach the page only where the series publishes
+    // them, which is decided per boat.
+    const shown = new Map<string, ReturnType<typeof publishedCell>>();
+    for (const { competitor, cell } of sorted) {
+      const key = sheetKey(cell.raceId, competitor.id);
+      shown.set(key, publishedCell(
+        finishByKey.get(key),
+        gunByRaceFleet.get(`${cell.raceId} ${cell.fleetId}`) ?? null,
+        { publishTrackData: input.showTrackData === true },
+      ));
+    }
+    // A column appears only when some boat in this table has the value: a
+    // race with no line recorded gets no DTL column at all, and one whose
+    // times are all withheld gets no time columns.
+    const trackColumns = TRACK_DATA_COLUMNS.filter((col) =>
+      sorted.some(({ competitor, cell }) =>
+        col.value(shown.get(sheetKey(cell.raceId, competitor.id))) !== ''),
+    );
     let place = 0;
     const body = sorted
       .map(({ competitor, cell }, i) => {
         const finisher = crossingOrder.has(sheetKey(cell.raceId, competitor.id));
-        const finish = finishByKey.get(sheetKey(cell.raceId, competitor.id));
+        const finish = shown.get(sheetKey(cell.raceId, competitor.id));
         const helm = esc(competitor.names.join(' & '));
         const helmHtml =
           !wsid && competitor.worldSailingId
