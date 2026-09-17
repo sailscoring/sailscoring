@@ -190,6 +190,8 @@ export function SplitFleetStandings({
   const medalCut = data.config.medal;
   const unbanded = data.config.split.kind === 'none';
   const medalRound = roundsForStage(data.rounds, 'medal')[0] ?? null;
+  const medalRows = standings.filter((r) => r.medal);
+  const restRows = standings.filter((r) => !r.medal);
   const cuts = unbanded
     ? medalCut && !medalRound && standings.length > medalCut.size
       ? [medalCut.size - 1]
@@ -197,6 +199,9 @@ export function SplitFleetStandings({
     : splitRound
       ? []
       : provisionalCutIndexes(standings.length, data.config.finalFleets.length);
+  // Every branch above yields a line only while no deciding fleet has been
+  // drawn yet, so the line and the table below never disagree about which
+  // rows they are counting.
 
 
   // Code-only in the live UI — flags are reserved for the published pages so
@@ -305,9 +310,28 @@ export function SplitFleetStandings({
         </p>
       )}
       <div className="overflow-x-auto">
+        {/* The deciding fleet is a table of its own, ahead of everything else
+            — the published championship page has always laid it out this way,
+            and the scorer's view has to agree with what it publishes. It is
+            not presentation either: those boats rank above every other boat
+            whatever the points say, so listed together with the rest their
+            totals read as out of order. They sail races no other boat holds a
+            column in, and where the boats who miss the cut race no more, the
+            two groups are not even scored over the same number of races. */}
+        {medalRows.length > 0 && (
+          <div className="mb-6">
+            <h3 className="mb-1 text-sm font-semibold">
+              {capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)}
+            </h3>
+            <StandingsTable data={data} columns={columns} showNationality={showNationality}>{renderRows(medalRows, false)}</StandingsTable>
+            <p className="mt-1 text-xs text-muted-foreground">
+              These boats are ranked ahead of every other boat in the event.
+            </p>
+          </div>
+        )}
         {splitRound ? (
           splitRound.fleetIds.map((fid) => {
-            const rows = standings.filter((r) => r.finalFleetId === fid);
+            const rows = restRows.filter((r) => r.finalFleetId === fid);
             const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
             if (rows.length === 0) return null;
             return (
@@ -319,9 +343,9 @@ export function SplitFleetStandings({
               </div>
             );
           })
-        ) : (
-          <StandingsTable data={data} columns={columns} showNationality={showNationality} showFleet={latestRound !== null}>{renderRows(standings, true)}</StandingsTable>
-        )}
+        ) : restRows.length > 0 ? (
+          <StandingsTable data={data} columns={columns} showNationality={showNationality} showFleet={latestRound !== null}>{renderRows(restRows, true)}</StandingsTable>
+        ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
         A {splitFleetWords(data.config).qualifying.raceNoun} counts only once every fleet has

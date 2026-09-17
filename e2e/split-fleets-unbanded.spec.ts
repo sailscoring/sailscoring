@@ -60,6 +60,11 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await expect(si).toContainText('in one fleet');
   await expect(si).not.toContainText('will be divided into');
   await expect(si).not.toContainText('boats will be assigned on the basis of their ranks');
+  // The clause the engine applies and the published page asserts, said where
+  // a scorer can check it against their notice of race.
+  await expect(si).toContainText(
+    'The boats qualified to compete in the medal races will be ranked highest in the event.',
+  );
 
   // ── Race it ───────────────────────────────────────────────────────────────
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
@@ -121,4 +126,12 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await enterFinishes(page, sails.slice(0, 10));
   await page.goBack();
   await expect(page.getByText('50 DNC').first()).toBeVisible();
+
+  // ── The standings separate the two groups, as the published page does ────
+  // The ten are a table of their own, above everyone else, and the reason is
+  // stated: they rank ahead whatever the points say.
+  await expect(page.getByRole('heading', { name: 'Medal fleet' })).toBeVisible();
+  await expect(
+    page.getByText('These boats are ranked ahead of every other boat in the event.'),
+  ).toBeVisible();
 });
