@@ -20,6 +20,7 @@ import {
   drawnCourse,
   drawnLegTable,
   drawnMarks,
+  legDistance,
   matchCardCourse,
   proposeCourseName,
   resolveCourse,
@@ -259,7 +260,7 @@ function CourseDialogInner({
       ) {
         return { error: `Leg ${i + 1} needs a distance in miles and a bearing in degrees (0–360).` };
       }
-      legs.push({ distanceNm, bearingDeg });
+      legs.push({ distanceNm: legDistance(distanceNm), bearingDeg });
     }
     if (legs.length === 0) return { error: 'A course needs at least one leg.' };
     return { legs };

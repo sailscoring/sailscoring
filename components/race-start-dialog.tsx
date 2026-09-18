@@ -32,6 +32,7 @@ import {
   courseLegsOf,
   courseOutOfDate,
   drawnStartCourse,
+  legDistance,
   legsForStart,
   legsMatch,
   legsOfWaypoints,
@@ -400,7 +401,9 @@ function RaceStartDialogInner({
           legWindSpeed = kt;
         }
         courseLegs.push({
-          distanceNm: distance,
+          // Recorded at ORC's own precision whoever typed it, so the figure
+          // the results page prints is the one the curve was read at.
+          distanceNm: legDistance(distance),
           bearingDeg: bearing,
           windDirectionDeg: wind,
           ...(legWindSpeed != null ? { windSpeedKts: legWindSpeed } : {}),

@@ -206,6 +206,11 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await page.getByTestId('legs-disclosure').click();
   await expect(page.getByLabel('Leg 1 distance')).not.toHaveValue('');
   await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue('180');
+  // Every generated leg is recorded to 0.01 NM, the precision ORC scores a
+  // course at — not to the thousandth the geometry could give.
+  for (const input of await page.getByLabel(/^Leg \d+ distance$/).all()) {
+    expect(await input.inputValue()).toMatch(/^\d+(\.\d{1,2})?$/);
+  }
   await expect(page.getByTestId('legs-edited')).toHaveCount(0);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -262,7 +267,7 @@ test("a course that is the committee's leg table, pasted once and reused", async
     'Leg\tDistance\tBearing\tTWD\tTWS',
     '1\t0.80\t059°\t225°\t9',
     '2\t0.80\t239°\t225°\t9',
-    '3\t1.10\t130°\t225°\t9',
+    '3\t1.104\t130°\t225°\t9',
     '4\t0.60\t228°\t225°\t9',
     '5\t0.60\t023°\t225°\t9',
     '6\t0.90\t311°\t225°\t9',
@@ -287,6 +292,8 @@ test("a course that is the committee's leg table, pasted once and reused", async
   await page.getByTestId('paste-legs-add').click();
   await expect(page.getByLabel('Leg 1 distance')).toHaveValue('0.8');
   await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('59');
+  // A leg written to a thousandth arrives at the hundredth it is scored at.
+  await expect(page.getByLabel('Leg 3 distance')).toHaveValue('1.1');
   await expect(page.getByLabel('Leg 12 bearing')).toHaveValue('206');
   await expect(page.getByLabel('Leg 13 distance')).toHaveCount(0);
   await expect(page.getByText('12.40 NM total')).toBeVisible();

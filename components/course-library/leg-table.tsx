@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { parseLegTable } from '@/lib/course-geometry';
+import { legDistance, parseLegTable } from '@/lib/course-geometry';
 
 /**
  * A constructed course's legs as a table (ORC rule 402.5) — the one control
@@ -72,7 +72,7 @@ export function LegTable({ rows, onChange, showWind, showWindSpeed, newRow, chil
       ...rows,
       ...parsed.legs.map((leg) => emptyLegRow({
         ...newRow,
-        distance: String(leg.distanceNm),
+        distance: String(legDistance(leg.distanceNm)),
         bearing: String(leg.bearingDeg),
       })),
     ]);
