@@ -181,12 +181,23 @@ describe('a start’s legs and snapshot', () => {
     createdAt: NOW,
   };
 
-  it('fills the leg table to a thousandth of a mile and a tenth of a degree, with the wind on every leg', () => {
+  it('fills the leg table to a hundredth of a mile and a tenth of a degree, with the wind on every leg', () => {
     const legs = legsForStart(resolveCourse(course.marks, marksById).legs, 190);
     expect(legs).toEqual([
       { distanceNm: 0.54, bearingDeg: 190, windDirectionDeg: 190 },
       { distanceNm: 0.54, bearingDeg: 10, windDirectionDeg: 190 },
     ]);
+  });
+
+  it('records a leg to 0.01 NM, the precision ORC scores a course at', () => {
+    // 958 m is 0.5173 NM: the case that separates the two roundings, and the
+    // one a course built from marks lands on nearly every time.
+    const odd = [laid('line', 'Start', start), laid('z', 'Z', destination(start, 190, 958))];
+    const byId = new Map(odd.map((m) => [m.id, m]));
+    const legs = legsForStart(
+      resolveCourse([{ markId: 'line' }, { markId: 'z' }], byId).legs, 190,
+    );
+    expect(legs.map((l) => l.distanceNm)).toEqual([0.52]);
   });
 
   it('spreads a recorded wind speed over every leg, and keeps it in the snapshot', () => {
@@ -227,6 +238,17 @@ describe('a start’s legs and snapshot', () => {
     expect(legsMatch([{ ...fromCourse[0], windSpeedKts: 9 }, fromCourse[1]], fromCourse)).toBe(false);
     // 359.9 and 0.0 are the same bearing
     expect(legsMatch([{ distanceNm: 1, bearingDeg: 359.95, windDirectionDeg: 0 }], [{ distanceNm: 1, bearingDeg: 0, windDirectionDeg: 0 }])).toBe(true);
+    // A table filled when the app wrote thousandths is the same course as the
+    // hundredths it writes now — not a scorer's edit.
+    expect(legsMatch(
+      [{ distanceNm: 0.517, bearingDeg: 89.1, windDirectionDeg: 0 }],
+      [{ distanceNm: 0.52, bearingDeg: 89.1, windDirectionDeg: 0 }],
+    )).toBe(true);
+    // A hundredth apart is a nudge the scorer made, and survives a recompute.
+    expect(legsMatch(
+      [{ distanceNm: 0.53, bearingDeg: 89.1, windDirectionDeg: 0 }],
+      [{ distanceNm: 0.52, bearingDeg: 89.1, windDirectionDeg: 0 }],
+    )).toBe(false);
   });
 
   it('snapshots the course as it is now, and notices when the library moves under it', () => {

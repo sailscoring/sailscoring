@@ -216,7 +216,19 @@ export function parseLegTable(text: string): ParsedLegTable {
 
 const round = (n: number, dp: number): number => Math.round(n * 10 ** dp) / 10 ** dp;
 
-/** Fill a start's leg table: each leg's distance to 0.001 NM and bearing to
+/**
+ * A leg's distance as ORC records it: to 0.01 NM (rule 401.3, "when the
+ * length of the course is needed for calculation of corrected time, it shall
+ * be recorded to a precision of 0.01 NM"), which is also what ORC Scorer
+ * holds and what the app has always displayed. Every leg reaching storage
+ * goes through here, so the figure a results page prints is the figure the
+ * performance curve was read at.
+ */
+export function legDistance(nm: number): number {
+  return round(nm, 2);
+}
+
+/** Fill a start's leg table: each leg's distance to 0.01 NM and bearing to
  *  0.1°, with the one wind the scorer gave for the whole course — its
  *  direction always, and its speed where the option scores at the wind the
  *  race committee recorded. Per-leg overrides and sub-legs are then edits to
@@ -227,7 +239,7 @@ export function legsForStart(
   windSpeedKts?: number,
 ): OrcCourseLeg[] {
   return legs.map((leg) => ({
-    distanceNm: round(leg.distanceNm, 3),
+    distanceNm: legDistance(leg.distanceNm),
     bearingDeg: round(leg.bearingDeg, 1),
     windDirectionDeg,
     ...(windSpeedKts != null ? { windSpeedKts } : {}),
@@ -236,13 +248,15 @@ export function legsForStart(
 
 /** Do a start's legs still match what its course gives, to the precision
  *  legsForStart writes? Sub-legs, a nudged distance, or a per-leg wind all
- *  say no: the scorer edited the table, and a recompute would discard it. */
+ *  say no: the scorer edited the table, and a recompute would discard it.
+ *  Distances compare at the precision they are recorded to, so a table
+ *  filled when the app wrote thousandths is still the course's own. */
 export function legsMatch(legs: OrcCourseLeg[], fromCourse: OrcCourseLeg[]): boolean {
   if (legs.length !== fromCourse.length) return false;
   return legs.every((leg, i) => {
     const c = fromCourse[i];
     return (
-      Math.abs(leg.distanceNm - c.distanceNm) < 0.0015 &&
+      legDistance(leg.distanceNm) === legDistance(c.distanceNm) &&
       Math.abs(((leg.bearingDeg - c.bearingDeg + 540) % 360) - 180) < 0.15 &&
       leg.windDirectionDeg === c.windDirectionDeg &&
       leg.windSpeedKts === c.windSpeedKts &&
