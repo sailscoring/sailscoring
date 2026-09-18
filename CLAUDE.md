@@ -66,6 +66,14 @@ A few supporting repos are not public; `CLAUDE.local.md` (not committed) maps th
 
 The `idea` GitHub label is deprecated — use `docs/design/horizon.md` instead.
 
+### Credit the person a report came from
+
+When a bug or feature request arrives with a name attached — "Neil spotted
+that…", "Pat asked for…" — that name goes in two places: the issue body says
+who reported it, and the person gets a row in `CONTRIBUTORS.md` (sorted by
+surname, with their club) if they aren't already listed. Feedback is the
+scarcest input this project has; crediting it is not optional bookkeeping.
+
 ### Every commit that works on an issue must name it
 
 If there is an issue for the work — including one filed moments earlier in the

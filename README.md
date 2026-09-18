@@ -61,6 +61,10 @@ development setup, testing expectations, and the DCO sign-off. Project spaces
 are covered by the [code of conduct](CODE_OF_CONDUCT.md). To report a
 security vulnerability, see [`SECURITY.md`](SECURITY.md).
 
+The scorers whose testing and feedback shaped the application, and the
+organisations supporting it, are credited in
+[`CONTRIBUTORS.md`](CONTRIBUTORS.md).
+
 ## License
 
 MIT — see `LICENSE`. Copyright Mark McLoughlin.
