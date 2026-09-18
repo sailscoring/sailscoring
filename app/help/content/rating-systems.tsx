@@ -420,7 +420,10 @@ export default function RatingSystems() {
           A race start then <strong className="text-foreground">picks a course</strong>{' '}
           from the list — most recently used first — and its legs fill in at the one
           wind direction you give the start, pre-filled where the card lays the
-          course out for a wind. The leg table stays editable: split a leg on a wind
+          course out for a wind. Every leg’s distance is recorded to 0.01 NM —
+          the precision ORC scores a course at, and what ORC Scorer holds — so
+          the figure a results page prints is the figure the rating was read at.
+          The leg table stays editable: split a leg on a wind
           shift or nudge a distance and the start is marked <em>legs edited</em>{' '}
           rather than silently recomputed; <em>Recompute from course</em> says what
           it will discard first. Each start keeps its own record of the course as it
