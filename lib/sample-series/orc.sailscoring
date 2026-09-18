@@ -4504,32 +4504,32 @@
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 1.565,
+              "distanceNm": 1.56,
               "bearingDeg": 349.8,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 1.185,
+              "distanceNm": 1.19,
               "bearingDeg": 313.2,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 1.964,
+              "distanceNm": 1.96,
               "bearingDeg": 145.6,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 1.361,
+              "distanceNm": 1.36,
               "bearingDeg": 324.7,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 1.361,
+              "distanceNm": 1.36,
               "bearingDeg": 144.7,
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 0.723,
+              "distanceNm": 0.72,
               "bearingDeg": 185.2,
               "windDirectionDeg": 160
             },
@@ -4539,7 +4539,7 @@
               "windDirectionDeg": 160
             },
             {
-              "distanceNm": 0.231,
+              "distanceNm": 0.23,
               "bearingDeg": 236.8,
               "windDirectionDeg": 160
             }
@@ -4637,7 +4637,7 @@
           "id": "ofin-3-oc-07",
           "competitorId": "oc-07",
           "sortOrder": 1,
-          "finishTime": "12:04:52",
+          "finishTime": "12:04:46",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4647,7 +4647,7 @@
           "id": "ofin-3-oc-08",
           "competitorId": "oc-08",
           "sortOrder": 2,
-          "finishTime": "12:11:06",
+          "finishTime": "12:11:00",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4657,7 +4657,7 @@
           "id": "ofin-3-oc-04",
           "competitorId": "oc-04",
           "sortOrder": 3,
-          "finishTime": "12:12:42",
+          "finishTime": "12:12:35",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4667,7 +4667,7 @@
           "id": "ofin-3-oc-02",
           "competitorId": "oc-02",
           "sortOrder": 4,
-          "finishTime": "12:13:05",
+          "finishTime": "12:12:58",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4677,7 +4677,7 @@
           "id": "ofin-3-oc-03",
           "competitorId": "oc-03",
           "sortOrder": 5,
-          "finishTime": "12:16:57",
+          "finishTime": "12:16:50",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4687,7 +4687,7 @@
           "id": "ofin-3-oc-01",
           "competitorId": "oc-01",
           "sortOrder": 6,
-          "finishTime": "12:17:26",
+          "finishTime": "12:17:19",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4697,7 +4697,7 @@
           "id": "ofin-3-oc-05",
           "competitorId": "oc-05",
           "sortOrder": 7,
-          "finishTime": "12:23:01",
+          "finishTime": "12:22:54",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4833,37 +4833,37 @@
               "windSpeedKts": 11
             },
             {
-              "distanceNm": 1.565,
+              "distanceNm": 1.56,
               "bearingDeg": 349.8,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
             },
             {
-              "distanceNm": 1.185,
+              "distanceNm": 1.19,
               "bearingDeg": 313.2,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
             },
             {
-              "distanceNm": 1.964,
+              "distanceNm": 1.96,
               "bearingDeg": 145.6,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
             },
             {
-              "distanceNm": 1.361,
+              "distanceNm": 1.36,
               "bearingDeg": 324.7,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
             },
             {
-              "distanceNm": 1.361,
+              "distanceNm": 1.36,
               "bearingDeg": 144.7,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
             },
             {
-              "distanceNm": 0.723,
+              "distanceNm": 0.72,
               "bearingDeg": 185.2,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
@@ -4875,7 +4875,7 @@
               "windSpeedKts": 11
             },
             {
-              "distanceNm": 0.231,
+              "distanceNm": 0.23,
               "bearingDeg": 236.8,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
@@ -4975,7 +4975,7 @@
           "id": "ofin-5-oc-07",
           "competitorId": "oc-07",
           "sortOrder": 1,
-          "finishTime": "12:15:00",
+          "finishTime": "12:14:54",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4985,7 +4985,7 @@
           "id": "ofin-5-oc-01",
           "competitorId": "oc-01",
           "sortOrder": 2,
-          "finishTime": "12:27:14",
+          "finishTime": "12:27:06",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4995,7 +4995,7 @@
           "id": "ofin-5-oc-06",
           "competitorId": "oc-06",
           "sortOrder": 3,
-          "finishTime": "12:27:49",
+          "finishTime": "12:27:42",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5005,7 +5005,7 @@
           "id": "ofin-5-oc-02",
           "competitorId": "oc-02",
           "sortOrder": 4,
-          "finishTime": "12:27:53",
+          "finishTime": "12:27:46",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5015,7 +5015,7 @@
           "id": "ofin-5-oc-08",
           "competitorId": "oc-08",
           "sortOrder": 5,
-          "finishTime": "12:28:37",
+          "finishTime": "12:28:29",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5025,7 +5025,7 @@
           "id": "ofin-5-oc-03",
           "competitorId": "oc-03",
           "sortOrder": 6,
-          "finishTime": "12:32:34",
+          "finishTime": "12:32:26",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5035,7 +5035,7 @@
           "id": "ofin-5-oc-04",
           "competitorId": "oc-04",
           "sortOrder": 7,
-          "finishTime": "12:32:47",
+          "finishTime": "12:32:39",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5045,7 +5045,7 @@
           "id": "ofin-5-oc-05",
           "competitorId": "oc-05",
           "sortOrder": 8,
-          "finishTime": "12:37:23",
+          "finishTime": "12:37:15",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,

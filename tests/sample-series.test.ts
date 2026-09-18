@@ -261,7 +261,9 @@ describe('sample series files', () => {
     // The constructed course is HYC's Autumn League 2026 offshore J2 over
     // the sample's library: the line, a laid Z, the card's charted marks,
     // and the run home past Rowan Rocks and the Howth Mark to the finish.
-    expect(r3?.distanceNm).toBeCloseTo(9.66, 2);
+    // Its length is the sum of nine legs each recorded to 0.01 NM, so it
+    // is a hundredth off the geometry's own figure.
+    expect(r3?.distanceNm).toBeCloseTo(9.65, 2);
     const cc = raceStarts.find((s) => s.orcOption === 'CC')!;
     expect(cc.course?.name).toBe('J2 — 26 Sep R3');
     expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['Start', 'Z', 'O', 'U', 'K', 'H', 'K', 'Q', 'HM', 'FH']);
