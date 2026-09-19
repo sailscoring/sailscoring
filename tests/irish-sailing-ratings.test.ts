@@ -98,4 +98,10 @@ describe('normalizeBoatName', () => {
     expect(normalizeBoatName('3 Cheers!')).toBe('3cheers');
     expect(normalizeBoatName(undefined)).toBe('');
   });
+
+  it('spells an ampersand as "and" so both spellings of a name agree', () => {
+    expect(normalizeBoatName('Out & About')).toBe('outandabout');
+    expect(normalizeBoatName('Out and About')).toBe('outandabout');
+    expect(normalizeBoatName('OUT & ABOUT')).toBe('outandabout');
+  });
 });

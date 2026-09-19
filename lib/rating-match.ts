@@ -86,14 +86,21 @@ export function sailNumbersMatch(a: SailNumberParts, b: SailNumberParts): boolea
 }
 
 /**
- * Canonicalise a boat name for liberal matching: lowercase, drop accents and
- * everything that isn't a letter or digit. So `"AfterHours Adó"` and
- * `"Afterhours-Ado"` compare equal. Returns `""` for an empty/undefined name
- * (which never matches).
+ * Canonicalise a boat name for liberal matching: lowercase, spell `&` as
+ * `and`, then drop accents and everything that isn't a letter or digit. So
+ * `"AfterHours Adó"` and `"Afterhours-Ado"` compare equal, as do
+ * `"Out & About"` and `"Out and About"` — rating offices and scorers disagree
+ * about the ampersand, and stripping it as punctuation would make those two
+ * spellings of one boat compare different. Returns `""` for an empty/undefined
+ * name (which never matches).
  */
 export function normalizeBoatName(name: string | undefined): string {
   if (!name) return '';
-  return name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]/g, '');
 }
 
 /**
