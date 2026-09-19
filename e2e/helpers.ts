@@ -947,13 +947,14 @@ export async function enableOrgFeatures(
  */
 export async function addCompetitor(
   page: Page,
-  data: { sailNumber: string; name: string; club?: string; fleet?: string; ircTcc?: string; pyNumber?: string; nhcStartingTcf?: string; echoStartingTcf?: string },
+  data: { sailNumber: string; name: string; crew?: string; club?: string; fleet?: string; ircTcc?: string; pyNumber?: string; nhcStartingTcf?: string; echoStartingTcf?: string },
 ): Promise<void> {
   await page.getByRole('button', { name: 'Add competitor' }).click();
   // Exact label: with the Alternative sail numbers field enabled, a substring
   // match on "Sail number" resolves to two inputs.
   await page.getByLabel('Sail number *').fill(data.sailNumber);
   await page.getByLabel('Competitor name').fill(data.name);
+  if (data.crew) await page.getByLabel('Crew 1').fill(data.crew);
   if (data.club) await page.getByLabel('Club').fill(data.club);
   if (data.fleet) {
     // Multi-fleet series: the fleet checkboxes render once the fleets query

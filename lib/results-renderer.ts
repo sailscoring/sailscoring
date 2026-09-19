@@ -2532,7 +2532,7 @@ function formatSigned(n: number, digits: number): string {
 /** One list column's cell — the role people (owner, helm) and the clubs: a
  *  single value as plain text, several stacked one per line. Returns escaped
  *  HTML — callers embed it as-is. */
-function renderListCell(values: string[] | undefined): string {
+export function renderListCell(values: string[] | undefined): string {
   const list = (values ?? []).filter((v) => v.trim());
   if (list.length <= 1) return esc(list[0] ?? '');
   return list.map(esc).join('<br>');
@@ -2543,7 +2543,7 @@ function renderListCell(values: string[] | undefined): string {
  *  syndicate primary or a keelboat crew — stack one name per line, primary
  *  first. With `bioUrl`, the primary name(s) link there (crew stay plain).
  *  Returns escaped HTML — callers embed it as-is. */
-function renderHelmCell(
+export function renderHelmCell(
   helm: string[],
   crewNames: string[] | undefined,
   showCrewName: boolean,

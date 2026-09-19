@@ -15,7 +15,14 @@ import type {
   RaceOfficial,
   RaceStart,
 } from './types';
-import { renderFlagDefs, renderHtmlDocument, TRACK_DATA_COLUMNS, type DocumentChrome } from './results-renderer';
+import {
+  renderFlagDefs,
+  renderHelmCell,
+  renderHtmlDocument,
+  renderListCell,
+  TRACK_DATA_COLUMNS,
+  type DocumentChrome,
+} from './results-renderer';
 import { formatConditions, hasConditions } from './race-conditions';
 import { formatOfficials, hasOfficials } from './race-officials';
 import { describeSplitFleetConfig } from './split-fleets-si';
@@ -115,6 +122,20 @@ function showNat(input: SplitFleetRenderInput): boolean {
   return (
     (input.enabledCompetitorFields ?? []).includes('nationality') &&
     input.competitors.some((c) => c.nationality)
+  );
+}
+
+function showCrew(input: SplitFleetRenderInput): boolean {
+  return (
+    (input.enabledCompetitorFields ?? []).includes('crewName') &&
+    input.competitors.some((c) => c.crewNames?.some((n) => n.trim()))
+  );
+}
+
+function showClub(input: SplitFleetRenderInput): boolean {
+  return (
+    (input.enabledCompetitorFields ?? []).includes('club') &&
+    input.competitors.some((c) => c.clubs?.some((n) => n.trim()))
   );
 }
 
@@ -254,6 +275,8 @@ export function renderSplitFleetStandingsPage(
   const colors = fleetColorById(data);
   const splitRound = roundsForStage(data.rounds, 'final')[0] ?? null;
   const nat = showNat(input);
+  const crew = showCrew(input);
+  const club = showClub(input);
   const wsid = showWsid(input);
   const qRaces = qualifyingRaceCount(data);
   const vocab = resolveVocabulary(data.config);
@@ -327,17 +350,21 @@ export function renderSplitFleetStandingsPage(
         const fleetId = withFleetCol ? fleetOf(row) : undefined;
         // No WS ID column on the table → the name carries the bio link
         // instead, so the profile is still one click away.
-        const helm = esc(row.competitor.names.join(' & '));
-        const helmHtml =
+        const helmHtml = renderHelmCell(
+          row.competitor.names,
+          row.competitor.crewNames,
+          crew,
           !wsid && row.competitor.worldSailingId
-            ? `<a href="${esc(worldSailingProfileUrl(row.competitor.worldSailingId))}" target="_blank" rel="noopener noreferrer">${helm}</a>`
-            : helm;
+            ? worldSailingProfileUrl(row.competitor.worldSailingId)
+            : undefined,
+        );
         const tr = `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">
   <td>${row.rank}</td>
   ${withFleetCol ? `<td style="white-space:nowrap">${fleetDot(colors, fleetId)}${esc((fleetId && fleetName.get(fleetId)) || '')}</td>` : ''}
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   <td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>
   <td>${helmHtml}</td>
+  ${club ? `<td>${renderListCell(row.competitor.clubs)}</td>` : ''}
   ${wsid ? wsidCell(row.competitor.worldSailingId) : ''}
   ${columns.map((c) => cellHtml(row, c)).join('\n  ')}
   <td style="text-align:right">${row.total}</td>
@@ -347,13 +374,13 @@ export function renderSplitFleetStandingsPage(
         // cut — say so rather than letting the line silently resolve the tie.
         const tiedAcrossCut = cuts.includes(i) && rowsIn[i + 1]?.rank === row.rank;
         const cut = cuts.includes(i)
-          ? `<tr><td colspan="${columns.length + 5 + (withFleetCol ? 1 : 0) + (nat ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">provisional split if qualifying ended now${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
+          ? `<tr><td colspan="${columns.length + 5 + (withFleetCol ? 1 : 0) + (nat ? 1 : 0) + (club ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">provisional split if qualifying ended now${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
           : '';
         return tr + cut;
       })
       .join('\n');
     return `<div class="tablewrap"><table class="summarytable">
-<thead><tr><th>Rank</th>${withFleetCol ? '<th>Fleet</th>' : ''}${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>Helm</th>${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
+<thead><tr><th>Rank</th>${withFleetCol ? '<th>Fleet</th>' : ''}${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>${crew ? 'Helm / Crew' : 'Helm'}</th>${club ? '<th>Club</th>' : ''}${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 ${body}
 </tbody>

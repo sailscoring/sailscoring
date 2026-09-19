@@ -199,6 +199,33 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(off).not.toContain('id="flag-IRL"');
   });
 
+  it('carries crew under the helm name and a Club column when those fields are on', () => {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    input.competitors[0].crewNames = ['Jo Crew'];
+    input.competitors[0].clubs = ['Howth Yacht Club'];
+    input.enabledCompetitorFields = ['crewName', 'club'];
+
+    const html = renderSplitFleetStandingsPage(input);
+    expect(html).toContain('<th>Helm / Crew</th>');
+    expect(html).toContain('<th>Club</th>');
+    expect(html).toContain('Jo Crew');
+    expect(html).toContain('Howth Yacht Club');
+
+    // Off: neither column, and the crew name is nowhere on the page.
+    const off = renderSplitFleetStandingsPage({ ...input, enabledCompetitorFields: [] });
+    expect(off).toContain('<th>Helm</th>');
+    expect(off).not.toContain('<th>Club</th>');
+    expect(off).not.toContain('Jo Crew');
+  });
+
+  it('suppresses the Crew and Club columns when no boat has a value', () => {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    input.enabledCompetitorFields = ['crewName', 'club'];
+    const html = renderSplitFleetStandingsPage(input);
+    expect(html).toContain('<th>Helm</th>');
+    expect(html).not.toContain('<th>Club</th>');
+  });
+
   it('escapes user-controlled fields', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
     input.seriesName = '<script>alert(1)</script>';
