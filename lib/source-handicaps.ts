@@ -44,6 +44,7 @@ import {
   type OrcFamily,
   type OrcRmsRecord,
 } from './orc-certificate';
+import { lookupAlias } from './nationality';
 import type { Competitor, Fleet, OrcCertData, Race, TcfRecord } from './types';
 
 /**
@@ -1225,12 +1226,40 @@ interface OrcMatchRecord {
   entry: OrcCertEntry;
 }
 
+/**
+ * The sail number a certificate is *indexed* under, which is not always the
+ * one it carries. `SailNo` is free text typed by the rating office, so its
+ * national prefix is not reliably a national code — the Irish listing has
+ * `IR 2070` and `K242` sitting beside 112 well-formed `IRL …` rows. A prefix
+ * that isn't a known national code says nothing about the boat's country, so
+ * it is dropped and the number indexed country-agnostically; the matcher
+ * already treats an absent prefix as compatible with any, which is how a
+ * competitor entered as `IRL 2070` — or as a bare `2070` — reaches `IR 2070`.
+ *
+ * A prefix that *is* a known code is always kept, foreign ones included:
+ * `DEN 22` on an Irish-issued certificate is a genuinely Danish sail number,
+ * not a misspelling of `IRL`, and coercing it would match the wrong boat.
+ *
+ * Only the index is affected. The scorer is still shown the certificate's own
+ * `SailNo`, and a match made this way is reported as `sail-no-country` rather
+ * than exact, so the boat is put in front of them to verify.
+ */
+function orcIndexSailNumber(sailNumber: string): string {
+  const parts = sailNumberParts(sailNumber);
+  if (!parts.prefix || !parts.core) return sailNumber;
+  return lookupAlias(parts.prefix) ? sailNumber : parts.core;
+}
+
 function orcMatchRecords(entries: readonly OrcCertEntry[]): OrcMatchRecord[] {
   const out: OrcMatchRecord[] = [];
   for (const entry of entries) {
     const sailNumber = entry.record.SailNo?.trim();
     if (!sailNumber) continue;
-    out.push({ sailNumber, boatName: entry.record.YachtName, entry });
+    out.push({
+      sailNumber: orcIndexSailNumber(sailNumber),
+      boatName: entry.record.YachtName,
+      entry,
+    });
   }
   return out;
 }

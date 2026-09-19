@@ -188,6 +188,42 @@ describe('planOrcUpdates', () => {
     expect(rows[0]).toMatchObject({ status: 'not-found', notFoundReason: 'ambiguous-match' });
   });
 
+  it('reaches a certificate whose sail prefix is not a national code', () => {
+    // The Irish listing really does carry "IR 2070" for IRL 2070, and "K242".
+    // A prefix that isn't a national code is dropped, so the number is indexed
+    // country-agnostically and the competitor's "IRL 2070" resolves to it.
+    const rows = planOrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL 2070', ['f-orc']), comp('c2', '242', ['f-orc'])],
+      targetFleets: [orcFleet],
+      entriesByFamily: {
+        ORC: [entry('IR 2070', { APHT: 0.9631 }), entry('K242', { APHT: 0.8812 })],
+      },
+      now: NOW,
+    });
+    const byId = new Map(rows.map((r) => [r.competitorId, r]));
+    expect(byId.get('c1')).toMatchObject({ newTcf: 0.9631, status: 'change' });
+    expect(byId.get('c2')).toMatchObject({ newTcf: 0.8812, status: 'change' });
+    // Annotated for the scorer to verify, showing the certificate's own
+    // spelling rather than the repaired index key.
+    expect(byId.get('c1')?.match).toEqual({
+      method: 'sail-no-country',
+      sail: 'IR 2070',
+      name: 'Boat IR 2070',
+    });
+  });
+
+  it('keeps a recognised foreign prefix on an Irish-issued certificate', () => {
+    // "DEN 22" with NatAuth IRL is a genuinely Danish sail number, not a typo
+    // for IRL — an Irish 22 must not be given its certificate.
+    const rows = planOrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL 22', ['f-orc'])],
+      targetFleets: [orcFleet],
+      entriesByFamily: { ORC: [entry('DEN 22', { APHT: 0.9631 })] },
+      now: NOW,
+    });
+    expect(rows[0]).toMatchObject({ status: 'not-found', notFoundReason: 'no-source-competitor' });
+  });
+
   it('produces no rows for a family whose listing is not loaded', () => {
     const rows = planOrcUpdates({
       targetCompetitors: [comp('c1', 'IRL1431', ['f-orc-ns'])],
