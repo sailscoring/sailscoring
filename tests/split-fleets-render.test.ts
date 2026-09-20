@@ -286,7 +286,7 @@ describe('fleet markers on the championship standings', () => {
     }
   });
 
-  it('tints the medal fleet and lists it in the legend', () => {
+  it('marks the medal fleet in its own shade and lists it in the legend', () => {
     // The medal fleet is named by the series' vocabulary, so it appears in
     // neither config fleet list: its colour has to reach the page from the
     // fleet itself, or from the medal stage's own palette.
@@ -296,8 +296,12 @@ describe('fleet markers on the championship standings', () => {
     const legend = html.match(/<p class="sfnote sflegend">[\s\S]*?<\/p>/)?.[0] ?? '';
     expect(legend).toContain('Medal');
     // Both the M1 cells and the legend entry carry the medal shade, not the
-    // untinted white a fleet with no colour falls back to.
-    expect(html).toMatch(/<td style="background:#f59e0b2e[^"]*" title="Medal fleet"/);
+    // untinted white a fleet with no colour falls back to. The dot is what
+    // is asserted on: the fleets here are three boats deep, so every cell is
+    // a podium place and the tint has given the background over to it.
+    expect(html).toMatch(
+      /<td[^>]*title="Medal fleet"[^>]*><span class="sfdot" style="background:#f59e0b">/,
+    );
     expect(legend).toContain('<span class="sfdot" style="background:#f59e0b"></span>Medal');
   });
 
@@ -309,8 +313,12 @@ describe('fleet markers on the championship standings', () => {
     const html = renderSplitFleetStandingsPage(input);
     // Gold's colour is #ca8a04 in the config and the medal fleet's is in no
     // config list at all; the fleet's own colour answers for both.
-    expect(html).toMatch(/<td style="background:#0102032e[^"]*" title="Gold fleet"/);
-    expect(html).toMatch(/<td style="background:#0102032e[^"]*" title="Medal fleet"/);
+    expect(html).toMatch(
+      /<td[^>]*title="Gold fleet"[^>]*><span class="sfdot" style="background:#010203">/,
+    );
+    expect(html).toMatch(
+      /<td[^>]*title="Medal fleet"[^>]*><span class="sfdot" style="background:#010203">/,
+    );
     expect(html).not.toContain('#ca8a04');
   });
 
@@ -327,6 +335,41 @@ describe('fleet markers on the championship standings', () => {
     const post = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
     expect(post).not.toContain('<th>Fleet</th>');
     expect(post).toContain('Gold fleet');
+  });
+});
+
+describe('race podiums on the championship standings', () => {
+  const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
+
+  it("marks the first three in each fleet's race, over the fleet tint", () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    // Gold and Silver sailing the same stage race are two races, each with
+    // its own first three \u2014 the same unit the per-race page ranks within.
+    expect(html).toMatch(/<td class="rank1" [^>]*title="Gold fleet"/);
+    expect(html).toMatch(/<td class="rank1" [^>]*title="Silver fleet"/);
+    expect(html).toMatch(/<td class="rank3" [^>]*title="Yellow fleet"/);
+    // The medal colour takes the background outright, so a marked cell
+    // carries no fleet tint \u2014 the dot inside it still names the fleet.
+    const marked = [...html.matchAll(/<td class="rank[123]"[^>]*>/g)].map((m) => m[0]);
+    expect(marked.length).toBeGreaterThan(0);
+    for (const cell of marked) expect(cell).not.toContain('background:');
+    expect(html).toMatch(/<td class="rank[123]"[^>]*><span class="sfdot"/);
+  });
+
+  it('leaves a discarded place on its fleet tint \u2014 a discard loses the medal', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    const discarded = [...html.matchAll(/<td([^>]*)>(?:<span[^>]*><\/span>)?\([^)]*\)<\/td>/g)];
+    expect(discarded.length).toBeGreaterThan(0);
+    for (const [, attrs] of discarded) {
+      expect(attrs).not.toContain('rank');
+      expect(attrs).toContain('background:');
+    }
+  });
+
+  it('keys the medal colours in the legend', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    const legend = html.match(/<p class="sfnote sflegend">[\s\S]*?<\/p>/)?.[0] ?? '';
+    expect(legend).toContain("The first three places in each fleet's race");
   });
 });
 

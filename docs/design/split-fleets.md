@@ -937,7 +937,10 @@ above.
 - **Qualifying:** one combined table, every boat, ranked together; each
   race cell tinted with its fleet colour (matching the Sailwave-published
   convention scorers and sailors already read: yellow/blue/red cell
-  backgrounds, discards in parentheses).
+  backgrounds, discards in parentheses). A first, second or third in a
+  fleet's own race takes the gold/silver/bronze an ordinary published page
+  marks a race place in, over the tint — the cell's fleet dot still says
+  which fleet it was sailed in, and a discarded place keeps the tint.
 - **Final:** one table per fleet — Gold ranked 1…n, Silver continuing
   n+1…, visibly tiered — with Q columns (fleet-tinted) followed by F
   columns, carried-score column for the rank-seed mode, and medal column

@@ -305,10 +305,55 @@ export function renderSplitFleetStandingsPage(
     );
   };
 
+  /** One fleet's sailing of one stage race — the unit a place is won in.
+   *  Gold and Silver sailing the same stage race are two races here, each
+   *  ranked within itself, exactly as the per-race page pulls them apart. */
+  const raceKey = (c: CellScore) => `${c.stage}\u0000${c.stageRaceNumber}\u0000${c.fleetId}`;
+
+  /** Who finished first, second and third in each of those, keyed by race and
+   *  competitor. Points decide it: the engine scores finishing places in
+   *  order within the fleet, so the lowest scores are the podium. A coded
+   *  score is not a finishing place, and a carried score is not a race at
+   *  all, so neither is eligible. Tied points share a place and consume the
+   *  one below, the way a ranking always does. */
+  const podiumRanks = new Map<string, 1 | 2 | 3>();
+  {
+    const sailed = new Map<string, { competitorId: string; points: number }[]>();
+    for (const row of rows) {
+      for (const c of row.cells) {
+        if (c.code !== null || c.carriedRank || c.carriedTransform) continue;
+        let list = sailed.get(raceKey(c));
+        if (!list) sailed.set(raceKey(c), (list = []));
+        list.push({ competitorId: row.competitor.id, points: c.points });
+      }
+    }
+    for (const [race, list] of sailed) {
+      list.sort((a, b) => a.points - b.points);
+      let place = 0;
+      let previous: number | null = null;
+      for (const [i, entry] of list.entries()) {
+        if (previous === null || entry.points !== previous) place = i + 1;
+        if (place > 3) break;
+        podiumRanks.set(`${race}\u0000${entry.competitorId}`, place as 1 | 2 | 3);
+        previous = entry.points;
+      }
+    }
+  }
+
   const cellHtml = (row: (typeof rows)[number], col: { stage: SeriesStage; n: number }): string => {
     const c = row.cells.find((x: CellScore) => x.stage === col.stage && x.stageRaceNumber === col.n);
     if (!c) return '<td></td>';
     const fleet = fleetName.get(c.fleetId);
+    // A podium cell takes the gold/silver/bronze every other published page
+    // marks a race win in, over its fleet tint — the dot and the tooltip still
+    // say which fleet the race was sailed in. A discarded score keeps the
+    // tint instead: a discard loses the medal here as it does on an ordinary
+    // standings table, and a score that does not yet count has not won
+    // anything yet either.
+    const podium =
+      c.counts && !c.discarded
+        ? podiumRanks.get(`${raceKey(c)}\u0000${row.competitor.id}`)
+        : undefined;
     const tint = c.counts ? fleetTint(colors, c.fleetId) : '#f8f9fa';
     const text = `${c.points}${c.code ? ` ${c.code}` : ''}`;
     const inner = c.discarded ? `(${esc(text)})` : esc(text);
@@ -329,7 +374,9 @@ export function renderSplitFleetStandingsPage(
             : 'does not yet count — race incomplete across fleets';
     const titleText = [fleet ? `${fleet} fleet` : '', note].filter(Boolean).join(' — ');
     const title = titleText ? ` title="${esc(titleText)}"` : '';
-    return `<td style="background:${tint};text-align:center${dim}${bold}"${title}>${fleetDot(colors, c.fleetId)}${inner}</td>`;
+    const podiumClass = podium ? ` class="rank${podium}"` : '';
+    const background = podium ? '' : `background:${tint};`;
+    return `<td${podiumClass} style="${background}text-align:center${dim}${bold}"${title}>${fleetDot(colors, c.fleetId)}${inner}</td>`;
   };
 
   // The combined qualifying table carries a Fleet column with the current
@@ -408,7 +455,7 @@ ${body}
       .filter((f) => present.has(f.id) && !seen.has(f.name) && seen.add(f.name))
       .map((f) => `<span style="white-space:nowrap">${fleetDot(colors, f.id)}${esc(f.name)}</span>`);
     return items.length
-      ? `<p class="sfnote sflegend">Race cells are marked with the fleet the race was sailed in: ${items.join(' &nbsp; ')}</p>`
+      ? `<p class="sfnote sflegend">Race cells are marked with the fleet the race was sailed in: ${items.join(' &nbsp; ')}<br>The first three places in each fleet's race are marked in the medal colours instead.</p>`
       : '';
   };
 
