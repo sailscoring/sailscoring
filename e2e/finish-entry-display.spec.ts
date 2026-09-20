@@ -41,8 +41,9 @@ test('finish entry shows the boat name and every fleet badge', async ({ page }) 
   await sailInput.fill('20');
   await sailInput.press('Enter');
 
-  // #156 — the row leads with the boat name, then the helm.
-  await expect(page.getByText('Eclipse — Hogan')).toBeVisible();
+  // #156 — the row leads with the boat name, then the helm. Scoped to the
+  // finishing order: the same label is echoed beside the input (#610).
+  await expect(page.getByRole('listitem').getByText('Eclipse — Hogan')).toBeVisible();
 
   // #151 — both fleets are badged, not just the first-registered one. With no
   // start recorded, every fleet is implied racing, so both memberships show.
@@ -89,10 +90,57 @@ test('finish entry scopes fleet badges to the race’s started fleets', async ({
   const sailInput = page.getByLabel('Sail number');
   await sailInput.fill('20');
   await sailInput.press('Enter');
-  await expect(page.getByText('Eclipse — Hogan')).toBeVisible();
+  await expect(page.getByRole('listitem').getByText('Eclipse — Hogan')).toBeVisible();
 
   // Only the started (HPH) fleet is badged; the Scr membership is dropped.
   const badge = page.getByTestId('fleet-badge-20');
   await expect(badge).toContainText('Puppeteer HPH');
   await expect(badge).not.toContainText('Puppeteer Scr');
+});
+
+/**
+ * #610 — the confirmation of the last entry sits beside the input, where the
+ * eye already is. Reported by Kieran Barker (Howth Yacht Club), transcribing a
+ * paper finish sheet: the row just added drops out of sight once enough boats
+ * are in, so there is nothing to check a typed number against.
+ */
+test('the last boat entered stays echoed beside the sail-number input', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Last In Echo 2026' });
+  await createFleets(page, ['Fleet A']);
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const [sail, name] of [
+    ['11', 'Alice'],
+    ['22', 'Bob'],
+    ['33', 'Carol'],
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByLabel('Competitor name').fill(name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+
+  const echo = page.getByTestId('last-recorded');
+  // Nothing entered yet, nothing to echo.
+  await expect(echo).toHaveCount(0);
+
+  const sailInput = page.getByLabel('Sail number');
+  for (const [i, sail] of ['11', '22', '33'].entries()) {
+    await sailInput.fill(sail);
+    await sailInput.press('Enter');
+    // It names what went in and where it went, and stays until the next one.
+    await expect(echo).toContainText(sail);
+    await expect(echo).toContainText(['1st', '2nd', '3rd'][i]);
+  }
+  await expect(echo).toContainText('Carol');
+
+  // Clicking it flashes the row it names.
+  await echo.click();
+  await expect(page.locator('[data-entry-key]').nth(2)).toHaveClass(/ring-primary/);
 });

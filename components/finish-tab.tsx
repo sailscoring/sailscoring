@@ -218,8 +218,32 @@ export function FinishTab(props: FinishTabProps) {
   // has always used — the markup is unchanged from the single-hook days.
   const {
     suggestions, alreadyEntered, revealFinishedRow, canRecordUnknown, needsFinishTime,
-    addFinisher, commitCompetitor, recordAsUnknown, recordCurrentAsUnknown,
+    addFinisher, commitCompetitor, recordAsUnknown, recordCurrentAsUnknown, lastEntryKey,
   } = finishInput;
+  // The last boat recorded, for the echo beside the input. Transcribing a
+  // paper sheet is a two-handed job — eyes on the sheet, fingers on the keys,
+  // an occasional glance up to check the last number went in where it was
+  // meant to — and once enough boats are entered the row that was just added
+  // is below the fold. Derived from the order rather than remembered at entry
+  // time, so a position that moved when a later timed row slotted in above it
+  // is still the truth.
+  const lastRecorded = (() => {
+    if (!lastEntryKey) return null;
+    const index = finishingOrder.findIndex((e) => entryKey(e) === lastEntryKey);
+    if (index < 0) return null;
+    const entry = finishingOrder[index];
+    if (entry.kind === 'unknown') {
+      return { position: index + 1, sailNumber: entry.sailNumber, label: 'Unknown boat' };
+    }
+    const competitor = competitorMap.get(entry.competitorId);
+    if (!competitor) return null;
+    return {
+      position: index + 1,
+      sailNumber: competitor.sailNumber,
+      label: displayCompetitorLabel(competitor, { enabledCompetitorFields, showCrew }),
+    };
+  })();
+
   // The dropdown opens for committable suggestions and for already-entered
   // matches alike — typing a number that's already in the order must answer
   // with the existing row, never with silence.
@@ -650,6 +674,26 @@ export function FinishTab(props: FinishTabProps) {
             </ul>
           )}
         </div>
+        {/* The confirmation of the last entry, where the eye already is. It
+            stays until the next one rather than fading, and clicking it
+            scrolls to and flashes the row it names — the same mechanism the
+            "already entered" dropdown row uses. */}
+        {!readOnly && lastRecorded && !pendingTimeEntry && (
+          <button
+            type="button"
+            data-testid="last-recorded"
+            onClick={() => revealFinishedRow(lastEntryKey!)}
+            className="flex w-full items-baseline gap-2 rounded-md px-1 py-0.5 text-left hover:bg-muted/60"
+            title="Show this row"
+          >
+            <span className="text-xs text-muted-foreground shrink-0">Last in:</span>
+            <span className="font-mono text-base font-medium">{lastRecorded.sailNumber}</span>
+            <span className="text-sm text-muted-foreground shrink-0">
+              {ordinal(lastRecorded.position)}
+            </span>
+            <span className="truncate text-sm text-muted-foreground">{lastRecorded.label}</span>
+          </button>
+        )}
         {inputError && !pendingUnknownSail && !pendingExcluded && (
           <p className="text-sm text-destructive">{inputError}</p>
         )}

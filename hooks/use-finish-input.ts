@@ -98,6 +98,12 @@ export function useFinishInput(args: UseFinishInputArgs) {
   // `matchedOn` is carried through so a bow-number match is still recorded on
   // the finish after the time step, not just on the immediate-commit path.
   const [pendingTimeEntry, setPendingTimeEntry] = useState<{ competitor: Competitor; matchedOn: MatchTier; entered: string } | null>(null);
+  // The last boat recorded, as an entry key rather than a rendered label:
+  // transcribing a sheet is a two-handed job and the confirmation has to sit
+  // where the eye already is, but a row's position moves when a later timed
+  // entry slots in above it, so the echo is derived from the order each
+  // render rather than frozen at the moment of entry.
+  const [lastEntryKey, setLastEntryKey] = useState<string | null>(null);
   const [pendingTimeValue, setPendingTimeValue] = useState('');
   const [pendingTimeError, setPendingTimeError] = useState('');
 
@@ -313,6 +319,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
       ? rows.map((r) => (r.id === existing.id ? newRow : r))
       : [...rows, newRow]);
     saveFinish.mutate(newRow);
+    setLastEntryKey(entryKey(newEntry));
     if (recorded) flashRow(competitor.id);
     commitOrderChange(targetOrder, tiedWithPrevious);
     setSailInput('');
@@ -418,6 +425,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     });
     patchCache((rows) => [...rows, newRow]);
     saveFinish.mutate(newRow);
+    setLastEntryKey(finishId);
     setPendingUnknownSail(null);
     setSailInput('');
     setInputError('');
@@ -532,6 +540,9 @@ export function useFinishInput(args: UseFinishInputArgs) {
     alreadyEntered,
     /** Flash a finishing-order row and scroll it into view. */
     revealFinishedRow,
+    /** Entry key of the last boat recorded on this sheet, for the echo beside
+     *  the input. Null before the first entry of the session. */
+    lastEntryKey,
     /** True when the typed text can be filed as an unknown boat (non-empty,
      *  no exact sail match) — gates the dropdown row and Shift+Enter path. */
     canRecordUnknown,

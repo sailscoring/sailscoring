@@ -26,6 +26,14 @@ export default function EnteringResults() {
           for a finish time before adding the row.
         </p>
         <p>
+          <strong className="text-foreground">Last in</strong> under the input names the boat
+          you last recorded, with the place it took. Transcribing a paper sheet is a
+          two-handed job — eyes on the sheet, fingers on the keys, the occasional glance up to
+          confirm the last number landed where it was meant to — and once enough boats are
+          entered the row just added is below the fold. The echo stays until the next entry
+          rather than fading, and clicking it scrolls to that row and flashes it.
+        </p>
+        <p>
           When a series has more than one race, a switcher at the top of the entry screen moves
           you straight to another race without going back to the Races tab — the arrows step to
           the previous or next race (or press <strong className="text-foreground">[</strong> and{' '}
