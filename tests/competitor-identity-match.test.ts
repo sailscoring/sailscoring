@@ -89,6 +89,44 @@ describe('clubs', () => {
     expect(normalizeClubs('RStGYC')).toEqual(['rstgyc']);
   });
 
+  it('splits on an ampersand, a comma and an “and”, keeping the whole field too', () => {
+    // A sailor listing two clubs with an ampersand is ordinary, and the whole
+    // field run together corroborates neither of them.
+    expect(normalizeClubs('RSGYC & HYC')).toEqual(['rsgychyc', 'rsgyc', 'hyc']);
+    expect(normalizeClubs('Howth, Malahide')).toEqual(['howthmalahide', 'howth', 'malahide']);
+    expect(normalizeClubs('Howth YC and Sutton DC')).toEqual([
+      'howthycandsuttondc',
+      'howthyc',
+      'suttondc',
+    ]);
+  });
+
+  it('keeps a club whose own name contains an ampersand matchable', () => {
+    // Splitting alone would lose "Wexford Harbour Boat & Tennis Club" as a
+    // name, and with it the acronym a second row writes it by.
+    const canon = buildClubCanonicalizer([
+      'Wexford Harbour Boat & Tennis Club',
+      'WHBTC',
+    ]);
+    expect(canon('WHBTC')).toEqual(['wexfordharbourboattennisclub']);
+    expect(canon('Wexford Harbour Boat & Tennis Club')).toContain(
+      'wexfordharbourboattennisclub',
+    );
+  });
+
+  it('corroborates a name match across an ampersand club field', () => {
+    // The Kate Spain case: `RSGYC & HYC` in one season, `Royal St. George YC`
+    // in another, with no other signal to go on.
+    const canon = buildClubCanonicalizer([
+      'RSGYC & HYC',
+      'Royal St. George YC',
+      'Howth Yacht Club',
+    ]);
+    const a = canon('RSGYC & HYC');
+    const b = canon('Royal St. George YC');
+    expect(a.some((c) => b.includes(c))).toBe(true);
+  });
+
   it('renders a competitor’s club list into the field the matcher splits', () => {
     // Round-trip: whatever the entry lists, the matcher sees every club.
     expect(joinClubsForMatching(['WHSC', 'RCYC'])).toBe('WHSC / RCYC');

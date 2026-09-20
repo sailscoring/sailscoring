@@ -105,14 +105,44 @@ export function joinClubsForMatching(clubs: readonly string[] | undefined): stri
 }
 
 /**
- * Split a club field into its normalised constituent clubs. Sailors commonly
- * list more than one (`"WHSC / RCYC"`, `"TBSC/CHSC"`) — splitting on `/` lets a
- * later season's `"RCYC"` corroborate an earlier `"WHSC / RCYC"`. Lowercased,
- * punctuation and whitespace stripped per token.
+ * The separators that can only ever be separating two clubs. No club has a
+ * slash in its own name, so a slash part is always a club on its own.
+ */
+const CLUB_SEPARATOR = /\s*\/\s*/;
+
+/**
+ * The separators that usually separate two clubs but sometimes belong to one:
+ * `"Wexford Harbour Boat & Tennis Club"` is a single club, and so is anything
+ * a sailor writes with an `and` in it. A field split on these keeps its
+ * unsplit form too, so the whole name stays matchable either way.
+ */
+const AMBIGUOUS_CLUB_SEPARATOR = /\s*&\s*|\s*,\s*|\s+and\s+/i;
+
+/**
+ * Split a club field into the club names it states. Sailors commonly list more
+ * than one — `"WHSC / RCYC"`, `"TBSC/CHSC"`, `"RSGYC & HYC"`, `"Howth, Malahide"`
+ * — and splitting lets a later season's `"RCYC"` corroborate an earlier
+ * `"WHSC / RCYC"`. An ampersand, comma or `and` yields the unsplit field as
+ * well as its parts, because a club whose own name contains one must keep
+ * matching by that name; a slash yields the parts alone.
+ */
+export function splitClubField(club: string | undefined): string[] {
+  const out: string[] = [];
+  for (const slashPart of (club ?? '').split(CLUB_SEPARATOR)) {
+    if (!slashPart.trim()) continue;
+    const parts = slashPart.split(AMBIGUOUS_CLUB_SEPARATOR).filter((p) => p.trim());
+    if (parts.length > 1) out.push(slashPart);
+    out.push(...parts);
+  }
+  return out;
+}
+
+/**
+ * Split a club field into its normalised constituent clubs, per
+ * `splitClubField`. Lowercased, punctuation and whitespace stripped per token.
  */
 export function normalizeClubs(club: string | undefined): string[] {
-  return (club ?? '')
-    .split('/')
+  return splitClubField(club)
     .map((c) => c.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, ''))
     .filter((c) => c.length > 0);
 }
@@ -209,7 +239,7 @@ export function buildClubCanonicalizer(
   let blank = 0;
   for (const club of clubs) {
     let statesAny = false;
-    for (const part of (club ?? '').split('/')) {
+    for (const part of splitClubField(club)) {
       const { full, acronym } = clubNameForms(part);
       if (!full) continue;
       statesAny = true;
@@ -227,8 +257,7 @@ export function buildClubCanonicalizer(
   }
   const blankIsAClub = blank > stated;
   return (club) => {
-    const tokens = (club ?? '')
-      .split('/')
+    const tokens = splitClubField(club)
       .map((part) => {
         const { full, acronym } = clubNameForms(part);
         // Only a name that *is* an acronym folds; a spelled-out name already
