@@ -20,6 +20,7 @@ import { SpectatorBanner } from '@/components/spectator-banner';
 import { SpectatorProvider } from '@/components/spectator-context';
 import { useSpectatorView } from '@/hooks/use-spectator';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
+import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { useFeatures } from '@/components/features-provider';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
@@ -85,6 +86,7 @@ export default function SeriesLayout({
   const setResultsStatus = useSetResultsStatus();
   const { can } = useWorkspacePermissions();
   const { has } = useFeatures();
+  const { memberships, activeOrganizationId } = useWorkspaceMemberships();
   const confirm = useConfirm();
   const [showHelp, setShowHelp] = useState(false);
 
@@ -167,6 +169,13 @@ export default function SeriesLayout({
   const readOnly =
     isSpectator || (series.archived ?? false) || (series.asPublished ?? false) || isFinal;
 
+  // The workspace this series belongs to, for the breadcrumb. A spectator
+  // view has no workspace behind it, and an operator switched into someone
+  // else's has no membership for it either — both fall back to "Series",
+  // which still says where the link goes.
+  const workspaceName =
+    memberships.find((m) => m.organizationId === activeOrganizationId)?.name ?? '';
+
   return (
     <SeriesPublishProvider
       series={series}
@@ -175,6 +184,21 @@ export default function SeriesLayout({
     >
     <div className="space-y-6 max-w-screen-2xl mx-auto">
       <div>
+        {/* A visible way back. The wordmark in the app header is a link home,
+            but nothing says so, and a scorer inside a series had no other
+            route to the list they came from. The breadcrumb also names the
+            workspace, which until now only the switcher showed. */}
+        {!isSpectator && (
+          <nav aria-label="Breadcrumb" className="mb-1 text-sm text-muted-foreground">
+            <Link href="/" className="hover:text-foreground hover:underline">
+              {workspaceName || 'Series'}
+            </Link>
+            <span className="mx-1.5" aria-hidden="true">
+              /
+            </span>
+            <span className="text-foreground">{series.name}</span>
+          </nav>
+        )}
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             {series.name}

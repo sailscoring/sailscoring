@@ -1067,6 +1067,18 @@ test('Publish is reachable from every tab, including a race finish sheet', async
   await expect(dialog).toBeVisible();
 });
 
+test('a series names its workspace and links back to the series list', async ({ page }) => {
+  // The only route back used to be the wordmark in the app header, which
+  // carries no visible sign that it is a link.
+  const seriesId = await createSeriesWithData(page, { name: 'Breadcrumb Series 2026' });
+  await page.goto(`/series/${seriesId}/races`);
+  const crumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+  await expect(crumb).toContainText('Breadcrumb Series 2026');
+  await crumb.getByRole('link').click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('link', { name: 'Breadcrumb Series 2026' })).toBeVisible();
+});
+
 test('publishing pins a "Published" milestone in the History tab (#166)', async ({ page }) => {
   await createSeriesWithData(page, { name: 'Publish Milestone Series' });
 
