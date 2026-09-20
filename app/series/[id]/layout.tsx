@@ -11,6 +11,10 @@ import { usePublicationStatus } from '@/hooks/use-published';
 import { useConfirm } from '@/components/confirm-dialog';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesActionsMenu } from '@/components/series-actions-menu';
+import {
+  SeriesPublishButton,
+  SeriesPublishProvider,
+} from '@/components/series-publish';
 import { SeriesReadOnlyProvider } from '@/components/series-read-only';
 import { SpectatorBanner } from '@/components/spectator-banner';
 import { SpectatorProvider } from '@/components/spectator-context';
@@ -127,6 +131,12 @@ export default function SeriesLayout({
     Object.fromEntries(tabs.map((t) => [t.chord, () => router.push(t.href(id))])),
   );
 
+  // Publishing is a race-day (score) operation on the series as a whole, so
+  // it lives here rather than on a tab. An as-published archive (ADR-010)
+  // publishes nothing — the archive repo is its source — and a spectator view
+  // has no workspace behind it to publish into.
+  const canPublish = !isSpectator && !asPublished && can('score');
+
   // No description: the dialog's static Global section documents `?` itself.
   // (Ctrl+S save-to-file is bound by SeriesActionsMenu below.)
   useShortcuts([{ key: '?', handler: () => setShowHelp(true) }]);
@@ -158,6 +168,11 @@ export default function SeriesLayout({
     isSpectator || (series.archived ?? false) || (series.asPublished ?? false) || isFinal;
 
   return (
+    <SeriesPublishProvider
+      series={series}
+      available={canPublish}
+      isSplitFleetSeries={isSplitFleetSeries}
+    >
     <div className="space-y-6 max-w-screen-2xl mx-auto">
       <div>
         <div className="flex items-center gap-3">
@@ -184,8 +199,12 @@ export default function SeriesLayout({
               </span>
             )}
           </h1>
-          {/* Save-to-file, publish, copy, delete: every one of them acts on a
-              series in a workspace, which a spectator view is not. */}
+          {/* Publish and the ⋯ menu both act on the series as a whole, so they
+              live in the header and are reachable from every tab — including a
+              race's finish sheet, which is where results become worth
+              publishing. Neither applies to a spectator view, which has no
+              workspace behind it. */}
+          <SeriesPublishButton />
           {!isSpectator && <SeriesActionsMenu series={series} />}
         </div>
         {(series.venue || series.startDate) && (
@@ -277,6 +296,7 @@ export default function SeriesLayout({
 
       <KeyboardHelp open={showHelp} onClose={() => setShowHelp(false)} tabChords={tabs} />
     </div>
+    </SeriesPublishProvider>
   );
 }
 

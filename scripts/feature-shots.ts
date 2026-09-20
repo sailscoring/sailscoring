@@ -279,7 +279,7 @@ const SHOTS: Shot[] = [
     async capture({ page, seriesId, shot }) {
       await page.goto(`${BASE}/series/${await seriesId()}/standings`);
       await settle(page);
-      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      await page.getByRole('button', { name: 'Publish…', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
       await settle(page);
@@ -819,7 +819,7 @@ const SHOTS: Shot[] = [
 
       await page.goto(`${BASE}/series/${await seriesId()}/standings`);
       await settle(page);
-      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      await page.getByRole('button', { name: 'Publish…', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
       await dialog.getByRole('button', { name: 'Your website (FTP)' }).click();
@@ -1380,7 +1380,7 @@ const SHOTS: Shot[] = [
       await card.getByRole('button', { name: 'Done' }).click();
       await page.goto(`${BASE}/series/${await seriesId()}/standings`);
       await settle(page);
-      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      await page.getByRole('button', { name: 'Publish…', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
       // The series is already live at this point in a run, so the dialog is
@@ -1431,7 +1431,7 @@ const SHOTS: Shot[] = [
 
       await page.goto(`${BASE}/series/${id}/standings`);
       await settle(page);
-      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      await page.getByRole('button', { name: 'Publish…', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
       const overall = dialog.getByRole('checkbox', { name: /Publish Overall/ });
@@ -1553,7 +1553,7 @@ const SHOTS: Shot[] = [
 
       await page.goto(`${BASE}/series/${id}/standings`);
       await settle(page);
-      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      await page.getByRole('button', { name: 'Publish…', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await dialog.waitFor();
       const byDivision = dialog.getByRole('checkbox', { name: /By division/ });
@@ -2138,7 +2138,7 @@ async function openRace(page: Page, seriesId: string, raceNumber: number) {
 async function publishEntriesPage(page: Page, seriesId: string): Promise<string> {
   await page.goto(`${BASE}/series/${seriesId}/standings`);
   await settle(page);
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.waitFor();
   await dialog.getByRole('button', { name: /^(Re-)?[Pp]ublish$/ }).click();
@@ -2163,7 +2163,7 @@ async function publishSeries(page: Page, name: string) {
   const seriesId = new URL(page.url()).pathname.split('/')[2];
   await page.goto(`${BASE}/series/${seriesId}/standings`);
   await settle(page);
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.waitFor();
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();

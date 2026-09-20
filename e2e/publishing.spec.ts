@@ -1042,6 +1042,31 @@ test('keyboard shortcut p opens the publish dialog', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Publish results' })).toBeVisible();
 });
 
+test('Publish is reachable from every tab, including a race finish sheet', async ({ page }) => {
+  // Publish used to be mounted on Standings, Competitors and Split Fleets
+  // only, so a scorer who had just entered a race had to navigate away to
+  // find it — which is exactly when the results become worth publishing.
+  const seriesId = await createSeriesWithData(page, { name: 'Ubiquitous Publish 2026' });
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+
+  for (const tab of ['Races', 'Settings', 'Competitors', 'Standings']) {
+    await page.goto(`/series/${seriesId}/${tab.toLowerCase()}`);
+    await page.getByRole('button', { name: 'Publish…' }).click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  }
+
+  // And from inside a race's finish sheet. The button is the route here: the
+  // sheet puts the caret in the sail-number input, and the shortcut's focus
+  // guard rightly leaves a `p` typed into a text field alone.
+  await page.goto(`/series/${seriesId}/races`);
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Publish…' }).click();
+  await expect(dialog).toBeVisible();
+});
+
 test('publishing pins a "Published" milestone in the History tab (#166)', async ({ page }) => {
   await createSeriesWithData(page, { name: 'Publish Milestone Series' });
 

@@ -18,14 +18,16 @@ export default function Publishing() {
         />
         <p>
           Publish results to a public URL from the{' '}
-          <strong className="text-foreground">Standings</strong> tab
+          <strong className="text-foreground">Publish…</strong> button in the series header. It
+          sits beside the ⋯ menu on every tab, so you can publish from the race you have just
+          finished entering without leaving it
           {has('ftp-upload')
             ? '. The Publish dialog can host them on Sail Scoring’s pages or, if your club runs its own website, upload them there via FTP — pick a destination and the series remembers it.'
             : '.'}
         </p>
         <p>
           <strong className="text-foreground">Publish:</strong> click{' '}
-          <strong className="text-foreground">Publish</strong> (or press{' '}
+          <strong className="text-foreground">Publish…</strong> (or press{' '}
           <strong className="text-foreground">p</strong>). Sail Scoring renders the current
           standings and hosts them under your workspace at a public URL like{' '}
           <code className="text-foreground text-sm">app.sailscoring.ie/p/hyc/autumn-league-2026/standings</code>.
@@ -161,7 +163,7 @@ export default function Publishing() {
           stops working and the slug frees up for reuse (or, if the URL is shared, only that
           series’ fleets are removed and the page stays live for the rest).
           You can also unpublish from the <strong className="text-foreground">Publish</strong>{' '}
-          dialog on the Standings tab. If you delete a series whose results were published,
+          dialog in the series header. If you delete a series whose results were published,
           the page stays live as an orphaned snapshot, listed on the Published tab under{' '}
           <strong className="text-foreground">Series deleted</strong> — that’s where you remove
           it.

@@ -25,7 +25,7 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useIsSpectator } from '@/components/spectator-context';
 import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
-import { PublishDialog } from '@/components/publish-dialog';
+import { PublishUnscoredNotes, useSeriesPublish } from '@/components/series-publish';
 import { AsPublishedStandings } from '@/components/as-published-standings';
 import { SplitFleetFormat } from '@/components/split-fleet-si';
 import {
@@ -73,8 +73,10 @@ export default function StandingsPage({
   const updateSeries = useUpdateSeries();
   const saveSubSeries = useSaveSubSeries();
   const updateCompetitorsField = useUpdateCompetitorsField();
-  const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  // Publish lives in the series header now, reachable from every tab (#620);
+  // this page contributes the unscored-race notes it alone has scored for.
+  const seriesPublish = useSeriesPublish();
   const [showFinaliseDialog, setShowFinaliseDialog] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
@@ -96,9 +98,6 @@ export default function StandingsPage({
   const isAsPublished =
     data.status === 'ready' && (data.series.asPublished ?? false);
   useShortcuts([
-    ...(canPublish && !isAsPublished
-      ? [{ key: 'p', description: 'Publish results', section: 'Standings', handler: () => setShowPublishDialog(true) }]
-      : []),
     ...(!isAsPublished && !spectator
       ? [{ key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) }]
       : []),
@@ -188,11 +187,6 @@ export default function StandingsPage({
         {canPublishEntryList && (
           <>
             <div className="flex gap-2">
-              {canPublish && (
-                <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
-                  Publish
-                </Button>
-              )}
               <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
                 Preview
               </Button>
@@ -206,18 +200,11 @@ export default function StandingsPage({
                 canPublish
                   ? () => {
                       setShowPreviewDialog(false);
-                      setShowPublishDialog(true);
+                      seriesPublish?.open();
                     }
                   : undefined
               }
               canEditNotes={canScore && !spectator}
-            />
-            <PublishDialog
-              series={series}
-              fleets={fleets}
-              open={showPublishDialog}
-              onClose={() => setShowPublishDialog(false)}
-              canFtp={canFtp}
             />
           </>
         )}
@@ -514,11 +501,6 @@ export default function StandingsPage({
               Mark as final
             </Button>
           )}
-          {canPublish && (
-            <Button size="sm" variant="outline" onClick={() => setShowPublishDialog(true)} title="Publish (p)">
-              Publish
-            </Button>
-          )}
           {!spectator && (
             <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
               Preview
@@ -619,20 +601,13 @@ export default function StandingsPage({
           canPublish
             ? () => {
                 setShowPreviewDialog(false);
-                setShowPublishDialog(true);
+                seriesPublish?.open();
               }
             : undefined
         }
         canEditNotes={canScore && !spectator}
       />
-      <PublishDialog
-        series={series}
-        fleets={fleets}
-        open={showPublishDialog}
-        onClose={() => setShowPublishDialog(false)}
-        canFtp={canFtp}
-        unscored={unscoredRaces}
-      />
+      <PublishUnscoredNotes notes={unscoredRaces} />
       <FinaliseResultsDialog
         series={series}
         races={races}

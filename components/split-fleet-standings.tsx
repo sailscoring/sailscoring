@@ -122,7 +122,6 @@ export function SplitFleetStandings({
   standings,
   splitRound,
   enabledFields,
-  onPublish,
   onPreview,
   entryListPublishable,
   resultsStatus,
@@ -132,7 +131,6 @@ export function SplitFleetStandings({
   standings: SplitStandingRow[];
   splitRound: SplitRound | null;
   enabledFields: CompetitorFieldKey[];
-  onPublish?: () => void;
   onPreview?: () => void;
   /** Whether the competitor list can be published. A split-fleet series has no
    *  Standings tab, so this section is the only place publishing is reachable
@@ -167,14 +165,9 @@ export function SplitFleetStandings({
           Standings appear once the first race is sailed.
           {entryListPublishable && ' The competitor list can be published now.'}
         </p>
-        {entryListPublishable && (
+        {entryListPublishable && onPreview && (
           <div className="flex gap-2">
-            {onPreview && (
-              <Button variant="outline" size="sm" onClick={onPreview}>Preview</Button>
-            )}
-            {onPublish && (
-              <Button size="sm" onClick={onPublish}>Publish…</Button>
-            )}
+            <Button variant="outline" size="sm" onClick={onPreview}>Preview</Button>
           </div>
         )}
       </section>
@@ -313,9 +306,6 @@ export function SplitFleetStandings({
           )}
           {onPreview && (
             <Button variant="outline" size="sm" onClick={onPreview}>Preview</Button>
-          )}
-          {onPublish && (
-            <Button size="sm" onClick={onPublish}>Publish…</Button>
           )}
         </div>
       </div>

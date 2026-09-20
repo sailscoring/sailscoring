@@ -16,7 +16,7 @@ import { Ban, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 
 import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
-import { PublishDialog } from '@/components/publish-dialog';
+import { useSeriesPublish } from '@/components/series-publish';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { SplitFleetEditor } from '@/components/split-fleets-editor';
 import { useSeriesReadOnly } from '@/components/series-read-only';
@@ -262,7 +262,8 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const readOnly = useSeriesReadOnly();
   const { can } = useWorkspacePermissions();
   const qc = useQueryClient();
-  const [showPublish, setShowPublish] = useState(false);
+  // Publish lives in the series header now, reachable from every tab (#620).
+  const seriesPublish = useSeriesPublish();
   const [showPreview, setShowPreview] = useState(false);
   const [showFinalise, setShowFinalise] = useState(false);
   // The medal cut, where the championship never bands its fleet and so has no
@@ -279,11 +280,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   }, [qc, seriesId]);
 
   // Same keys as the Standings tab this page replaces on split-fleet series.
-  const canPublish = can('score');
   useShortcuts([
-    ...(canPublish
-      ? [{ key: 'p', description: 'Publish results', section: 'Split Fleets', handler: () => setShowPublish(true) }]
-      : []),
     { key: 'x', description: 'Preview results', section: 'Split Fleets', handler: () => setShowPreview(true) },
   ]);
 
@@ -491,7 +488,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         standings={standings}
         splitRound={splitRound}
         enabledFields={data.series.enabledCompetitorFields ?? []}
-        onPublish={can('manage-workspace') || can('score') ? () => setShowPublish(true) : undefined}
         onPreview={() => setShowPreview(true)}
         entryListPublishable={has('entry-list')}
         resultsStatus={
@@ -516,15 +512,8 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         fleets={[]}
         open={showPreview}
         onClose={() => setShowPreview(false)}
-        onPublish={can('score') ? () => { setShowPreview(false); setShowPublish(true); } : undefined}
+        onPublish={can('score') ? () => { setShowPreview(false); seriesPublish?.open(); } : undefined}
         canEditNotes={can('score')}
-      />
-      <PublishDialog
-        series={data.series}
-        fleets={[]}
-        open={showPublish}
-        onClose={() => setShowPublish(false)}
-        canFtp={has('ftp-upload') && can('manage-workspace')}
       />
       <FinaliseResultsDialog
         series={data.series}
