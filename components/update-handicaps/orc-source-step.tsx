@@ -168,7 +168,7 @@ export function OrcSourceStep({
   const checkedAdditions = additionCandidates.filter(
     (c) => sel.addSelected.has(additionKey(c.competitorId, c.system)) && c.targetFleetId && c.proposedTcf !== null,
   );
-  const split = splitPreviewRows(previewRows, sel.excludedRowIds);
+  const split = splitPreviewRows(previewRows, sel.rowSelection);
 
   // Import-time sanity checks over what an apply would write.
   const checks = useMemo(
@@ -301,9 +301,7 @@ export function OrcSourceStep({
               changedRows={split.changedRows}
               unchangedRows={split.unchangedRows}
               notFoundRows={split.notFoundRows}
-              excludedRowIds={sel.excludedRowIds}
-              onToggleRow={sel.toggleRow}
-              onToggleAllRows={sel.toggleAllRows}
+              rowSelection={sel.rowSelection}
               targetCompetitorById={targetCompetitorById}
               targetFleetById={targetFleetById}
               sourceFleetById={new Map()}

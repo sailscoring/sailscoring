@@ -85,7 +85,7 @@ export function IrishSailingSourceStep({
     (c) => sel.addSelected.has(additionKey(c.competitorId, c.system)) && c.targetFleetId && c.proposedTcf !== null,
   );
 
-  const split = splitPreviewRows(previewRows, sel.excludedRowIds);
+  const split = splitPreviewRows(previewRows, sel.rowSelection);
 
   const targetFleetById = useMemo(() => new Map((fleets ?? []).map((f) => [f.id, f])), [fleets]);
   const targetCompetitorById = useMemo(
@@ -129,9 +129,7 @@ export function IrishSailingSourceStep({
               changedRows={split.changedRows}
               unchangedRows={split.unchangedRows}
               notFoundRows={split.notFoundRows}
-              excludedRowIds={sel.excludedRowIds}
-              onToggleRow={sel.toggleRow}
-              onToggleAllRows={sel.toggleAllRows}
+              rowSelection={sel.rowSelection}
               targetCompetitorById={targetCompetitorById}
               targetFleetById={targetFleetById}
               sourceFleetById={new Map()}

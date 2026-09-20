@@ -22,6 +22,7 @@
 
 import {
   normalizeBoatName,
+  sailCountriesConflict,
   sailNumberParts,
   sailNumbersMatch,
   withDefaultCountry,
@@ -191,7 +192,11 @@ export type RatingMatchMethod =
   /** Sail cores equal with the competitor (or record) missing the country
    *  prefix, e.g. `1431` ↔ `IRL1431`. */
   | 'sail-no-country'
-  /** Matched on boat name (the opt-in liberal fallback). */
+  /** Sail cores equal but shared by several boats, with the boat name
+   *  picking which — so the name is part of what the scorer must verify. */
+  | 'sail-and-name'
+  /** Matched on boat name alone, the sail number having matched nothing (the
+   *  opt-in liberal fallback). */
   | 'name';
 
 export interface RatingMatch {
@@ -597,15 +602,20 @@ class RatingMatcher<T extends RatingRecord> {
       // boat by name (opt-in); otherwise it's a genuine ambiguity.
       if (matchByName) {
         const narrowed = this.narrowByName(sailCandidates, competitor.boatName);
-        if (narrowed) return { kind: 'matched', records: narrowed, method: 'sail-no-country' };
+        if (narrowed) return { kind: 'matched', records: narrowed, method: 'sail-and-name' };
       }
       return { kind: 'ambiguous' };
     }
 
-    // No sail match — optional liberal name fallback.
+    // No sail match — optional liberal name fallback. A boat whose sail number
+    // names a different nation is a different boat, so those never reach it:
+    // `sailNumbersMatch` refuses `IRL3154` against `GBR9608`, and matching the
+    // two on the name they happen to share would walk straight around it.
     if (matchByName) {
       const name = normalizeBoatName(competitor.boatName);
-      const nameCandidates = name ? this.byName.get(name) ?? [] : [];
+      const nameCandidates = (name ? this.byName.get(name) ?? [] : []).filter(
+        (e) => !sailCountriesConflict(parts, e.parts),
+      );
       if (nameCandidates.length === 0) return { kind: 'none' };
       const narrowed = this.narrowByName(nameCandidates, competitor.boatName);
       if (narrowed) return { kind: 'matched', records: narrowed, method: 'name' };
@@ -941,6 +951,14 @@ function planFleetAdditions(
   for (const comp of input.targetCompetitors) {
     const match = matcher.match(comp, matchByName);
     if (match.kind !== 'matched') continue;
+    // A name-only match never enrols a boat in a fleet. Adding her to an IRC
+    // fleet asserts she holds an IRC certificate — a claim about the boat,
+    // not an update to a number she already carries — and a shared boat name
+    // is no evidence of it. 12% of the IRC list shares a name with another
+    // boat on it, and an uncertificated boat like the one that prompted this
+    // has no protection at all. Updating an existing rating by name still
+    // stands; it is reversible and the boat is already in the fleet.
+    if (match.method === 'name') continue;
     const records = match.records;
 
     const memberSystems = new Set<string>();

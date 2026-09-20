@@ -566,8 +566,13 @@ export default function RatingSystems() {
           code (so on an Irish setup <code className="font-mono text-xs">1431</code> matches{' '}
           <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
           a number are flagged rather than guessed. Turn on{' '}
-          <strong className="text-foreground">Also match by boat name</strong> to catch boats whose
-          sail number doesn’t line up. Boats not on the list are left unchanged.
+          <strong className="text-foreground">Also match by boat name</strong> to match a boat
+          whose sail number matches nothing, or matches several boats. A shared boat name proves
+          nothing on its own — roughly one boat in eight on the IRC list shares its name with
+          another — so a name-only row starts unticked, is never offered under{' '}
+          <strong className="text-foreground">Add to handicap fleet</strong>, and is refused
+          outright when the two sail numbers name different countries. Check the boat named
+          beside the match before ticking it in. Boats not on the list are left unchanged.
         </p>
         <p>
           A boat that holds two IRC certificates — a primary and a secondary for a different sail
@@ -653,8 +658,11 @@ export default function RatingSystems() {
           <code className="font-mono text-xs">current → new</code> before anything is written, and
           you can untick individual boats. Sail numbers match ignoring case, spacing, and a missing
           country code; turn on <strong className="text-foreground">Also match by boat name</strong>{' '}
-          to catch boats whose sail number doesn’t line up. Boats not on the club’s list
-          are left unchanged.
+          to match a boat whose sail number matches nothing, or matches several boats. A shared
+          boat name proves nothing on its own, so a name-only row starts unticked, is never
+          offered under <strong className="text-foreground">Add to handicap fleet</strong>, and
+          is refused when the two sail numbers name different countries. Boats not on the club’s
+          list are left unchanged.
         </p>
       </Section>
       )}
@@ -684,8 +692,13 @@ export default function RatingSystems() {
           code (so <code className="font-mono text-xs">1431</code> matches{' '}
           <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
           a number are flagged rather than guessed. Turn on{' '}
-          <strong className="text-foreground">Also match by boat name</strong> to catch boats whose
-          sail number doesn’t line up. Boats not on the list are left unchanged.
+          <strong className="text-foreground">Also match by boat name</strong> to match a boat
+          whose sail number matches nothing, or matches several boats. A shared boat name proves
+          nothing on its own — roughly one boat in eight on the IRC list shares its name with
+          another — so a name-only row starts unticked, is never offered under{' '}
+          <strong className="text-foreground">Add to handicap fleet</strong>, and is refused
+          outright when the two sail numbers name different countries. Check the boat named
+          beside the match before ticking it in. Boats not on the list are left unchanged.
         </p>
         <p>
           If a boat is in the series but not yet in an ECHO fleet, it appears under{' '}

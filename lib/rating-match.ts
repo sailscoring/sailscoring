@@ -86,6 +86,17 @@ export function sailNumbersMatch(a: SailNumberParts, b: SailNumberParts): boolea
 }
 
 /**
+ * Whether two sail numbers name boats of *different* nations — the case
+ * `sailNumbersMatch` refuses outright. A liberal boat-name match has to refuse
+ * it too: `IRL3154` and `GBR9608` are not the same boat however their names
+ * compare, and a name fallback that ignores the prefix walks around the very
+ * check that exists to keep them apart.
+ */
+export function sailCountriesConflict(a: SailNumberParts, b: SailNumberParts): boolean {
+  return Boolean(a.prefix && b.prefix && a.prefix !== b.prefix);
+}
+
+/**
  * Canonicalise a boat name for liberal matching: lowercase, spell `&` as
  * `and`, then drop accents and everything that isn't a letter or digit. So
  * `"AfterHours Adó"` and `"Afterhours-Ado"` compare equal, as do

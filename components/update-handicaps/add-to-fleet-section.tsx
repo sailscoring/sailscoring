@@ -57,7 +57,7 @@ export function AddToFleetSection({
     <div className="space-y-2">
       <div className="text-sm font-medium">Add to handicap fleet</div>
       <p className="text-xs text-muted-foreground">
-        These boats have an Irish Sailing certificate but aren&apos;t in a fleet that uses it — tick
+        These boats are rated by the source list but aren&apos;t in a fleet that uses it — tick
         to add them and seed the rating.
       </p>
       {seriesHasRaces && (

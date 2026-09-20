@@ -201,6 +201,75 @@ describe('planIrcUpdates — matching and the default country code', () => {
     expect(row).toMatchObject({ newTcf: 0.932, status: 'change' });
     expect(row.match).toMatchObject({ method: 'name', sail: 'IRL1431' });
   });
+
+  it('refuses a name match when the two sail numbers name different countries', () => {
+    // The Alchemy case: an uncertificated Elan 31 sailing as IRL3154 matched by
+    // name to GBR9608 and took that boat's non-spinnaker TCC. `sailNumbersMatch`
+    // refuses IRL3154 against GBR9608; the name fallback must not walk around it.
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', '3154', ['f-irc'], { boatName: 'Alchemy' })],
+      targetFleets: fleets,
+      records: [rec('GBR9608', { boatName: 'ALCHEMY', ircTcc: 0.88, ircNonSpinTcc: 0.867 })],
+      matchByName: true,
+      defaultCountry: 'IRL',
+    });
+    expect(byKey(rows).get('c1::irc')).toMatchObject({ status: 'not-found' });
+  });
+
+  it('still matches by name within one country', () => {
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL3154', ['f-irc'], { boatName: 'Alchemy' })],
+      targetFleets: fleets,
+      records: [rec('IRL9608', { boatName: 'ALCHEMY', ircTcc: 0.88 })],
+      matchByName: true,
+      defaultCountry: 'IRL',
+    });
+    expect(byKey(rows).get('c1::irc')).toMatchObject({ newTcf: 0.88, status: 'change' });
+  });
+
+  it('reports a name-narrowed sail match as resting on the name too', () => {
+    // Two boats share the core, and the name picked between them — so the name
+    // is part of what the scorer is being asked to verify.
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', '1431', ['f-irc'], { boatName: 'Halcyon' })],
+      targetFleets: fleets,
+      records: [
+        rec('1431', { boatName: 'Halcyon', ircTcc: 0.932 }),
+        rec('IRL1431', { boatName: 'Sundowner', ircTcc: 0.94 }),
+      ],
+      matchByName: true,
+      defaultCountry: '',
+    });
+    expect(byKey(rows).get('c1::irc')!.match).toMatchObject({ method: 'sail-and-name' });
+  });
+});
+
+describe('planIrcFleetAdditions — a name match never enrols a boat', () => {
+  it('does not offer to add a boat matched by name alone', () => {
+    // Enrolling a boat in an IRC fleet asserts she holds an IRC certificate.
+    // A shared boat name is no evidence of that, and 12% of the list shares a
+    // name with another boat on it.
+    const candidates = planIrcFleetAdditions({
+      targetCompetitors: [comp('c1', 'IRL3154', ['f-nhc'], { boatName: 'Alchemy' })],
+      targetFleets: fleets,
+      records: [rec('IRL9608', { boatName: 'ALCHEMY', ircTcc: 0.88 })],
+      matchByName: true,
+      defaultCountry: 'IRL',
+    });
+    expect(candidates).toHaveLength(0);
+  });
+
+  it('still offers a boat matched on her sail number', () => {
+    const candidates = planIrcFleetAdditions({
+      targetCompetitors: [comp('c1', '3154', ['f-nhc'], { boatName: 'Alchemy' })],
+      targetFleets: fleets,
+      records: [rec('IRL3154', { boatName: 'Alchemy', ircTcc: 0.88 })],
+      matchByName: true,
+      defaultCountry: 'IRL',
+    });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].match).toMatchObject({ method: 'sail-no-country' });
+  });
 });
 
 describe('planIrcUpdates — primary/secondary certificates (Secondary=SEC flag)', () => {

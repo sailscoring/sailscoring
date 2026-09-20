@@ -85,9 +85,9 @@ export function systemLabel(r: {
  *  verify the right boat was picked. */
 export function describeMatch(m: RatingMatch): string {
   const who = `${m.sail}${m.name ? ` · ${m.name}` : ''}`;
-  return m.method === 'name'
-    ? `matched by name → ${who}`
-    : `matched without country code → ${who}`;
+  if (m.method === 'name') return `matched by name alone → ${who}`;
+  if (m.method === 'sail-and-name') return `matched by sail number and name → ${who}`;
+  return `matched without country code → ${who}`;
 }
 
 export function formatDelta(currentTcf: number | null, newTcf: number, system: HandicapSystem): string {
@@ -142,15 +142,29 @@ export interface PreviewSplit {
 
 export function splitPreviewRows(
   previewRows: PreviewRow[],
-  excludedRowIds: Set<string>,
+  rowSelection: RowSelection,
 ): PreviewSplit {
   const changedRows = previewRows.filter((r) => r.status === 'change');
   return {
     changedRows,
     unchangedRows: previewRows.filter((r) => r.status === 'unchanged'),
     notFoundRows: previewRows.filter((r) => r.status === 'not-found'),
-    appliedChangeRows: changedRows.filter((r) => !excludedRowIds.has(rowKey(r))),
+    appliedChangeRows: changedRows.filter((r) => rowSelection.applies(r)),
   };
+}
+
+/**
+ * Whether a proposed change applies unless the scorer says otherwise.
+ *
+ * Every change does, bar one resting on the boat name alone. A name match is
+ * the single basis the app cannot corroborate — it has dropped the sail number
+ * to make the match, so nothing is left to check it against — and the boat it
+ * lands on may hold no certificate of this kind at all. Ticking it in has to
+ * be a decision, which means it cannot start ticked and cannot be swept in by
+ * select-all.
+ */
+export function rowAppliesByDefault(row: PreviewRow): boolean {
+  return row.match?.method !== 'name';
 }
 
 /** Done-step summary for a preview-based apply: per-system counts over the
@@ -241,27 +255,44 @@ function withKeys(prev: ReadonlySet<string>, keys: readonly string[], on: boolea
   return next;
 }
 
+/** Which preview rows an apply writes, and the toggles that maintain it. */
+export interface RowSelection {
+  applies: (row: PreviewRow) => boolean;
+  toggleRow: (row: PreviewRow, included: boolean) => void;
+  toggleAllRows: (rows: PreviewRow[], included: boolean) => void;
+}
+
 /**
- * The preview rows the scorer has unticked, and the toggles that maintain
- * them. Separate from {@link useRatingListSelections} because the two sources
- * that show nothing but a preview — another series, VPRS — need none of the
- * rest of it.
+ * The preview rows the scorer has moved off their default, and the toggles
+ * that maintain them. Separate from {@link useRatingListSelections} because
+ * the two sources that show nothing but a preview — another series, VPRS —
+ * need none of the rest of it.
  *
- * Held as the rows *excluded* rather than the rows included, because every
- * proposed change applies unless the scorer says otherwise: a row the planner
- * adds on a later render is in by default, with no state to seed.
+ * Held as the rows the scorer has *overridden* rather than the rows included,
+ * because a row the planner adds on a later render should take its default
+ * with no state to seed — which for almost every row is "applies".
  */
 export function useExcludedRowIds() {
-  const [excludedRowIds, setExcludedRowIds] = useState<Set<string>>(new Set());
+  const [overriddenRowIds, setOverriddenRowIds] = useState<Set<string>>(new Set());
+  const applies = (row: PreviewRow) =>
+    overriddenRowIds.has(rowKey(row)) !== rowAppliesByDefault(row);
+  const override = (rows: PreviewRow[], included: boolean) =>
+    setOverriddenRowIds((prev) => {
+      let next = prev;
+      for (const row of rows) {
+        next = withKeys(next, [rowKey(row)], included !== rowAppliesByDefault(row));
+      }
+      return next;
+    });
   return {
-    excludedRowIds,
-    /** Back to "every proposed change applies" — for a step whose whole plan
-     *  has been replaced under the scorer. */
-    clearExclusions: () => setExcludedRowIds(new Set()),
-    toggleRow: (key: string, included: boolean) =>
-      setExcludedRowIds((prev) => withKeys(prev, [key], !included)),
-    toggleAllRows: (keys: string[], included: boolean) =>
-      setExcludedRowIds((prev) => withKeys(prev, keys, !included)),
+    rowSelection: {
+      applies,
+      toggleRow: (row: PreviewRow, included: boolean) => override([row], included),
+      toggleAllRows: override,
+    } satisfies RowSelection,
+    /** Back to every row's default — for a step whose whole plan has been
+     *  replaced under the scorer. */
+    clearExclusions: () => setOverriddenRowIds(new Set()),
   };
 }
 
@@ -298,9 +329,7 @@ export function useRatingListSelections() {
       setRemoveSelected((prev) => withKeys(prev, [key], on)),
     toggleAllRemovals: (keys: string[], on: boolean) =>
       setRemoveSelected((prev) => withKeys(prev, keys, on)),
-    excludedRowIds: exclusions.excludedRowIds,
-    toggleRow: exclusions.toggleRow,
-    toggleAllRows: exclusions.toggleAllRows,
+    rowSelection: exclusions.rowSelection,
   };
 }
 
@@ -379,22 +408,27 @@ export function MatchByNameCheckbox({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  // The explanation sits outside the label deliberately: inside it, it becomes
+  // part of the checkbox's accessible name, which then collides with every
+  // other control the dialog labels.
   return (
-    <label className="flex items-start gap-2 text-sm cursor-pointer">
-      <input
-        type="checkbox"
-        className="mt-0.5 h-3.5 w-3.5"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span>
+    <div className="space-y-1">
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          className="h-3.5 w-3.5"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+        />
         Also match by boat name
-        <span className="block text-xs text-muted-foreground">
-          Helps when a sail number is entered without its country code or doesn&apos;t
-          match. Names collide more easily — check the proposed boat before applying.
-        </span>
-      </span>
-    </label>
+      </label>
+      <p className="pl-[1.375rem] text-xs text-muted-foreground">
+        Matches a boat whose sail number matches nothing on the list, or matches more
+        than one boat. A shared boat name is not evidence that it is the same boat, so
+        these rows start unticked, never propose adding a boat to a fleet, and need
+        checking against the certificate before you tick them in.
+      </p>
+    </div>
   );
 }
 

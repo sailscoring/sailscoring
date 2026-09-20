@@ -119,7 +119,7 @@ export function IrcRatingSourceStep({
     (c) => sel.addSelected.has(additionKey(c.competitorId, c.system)) && c.targetFleetId && c.proposedTcf !== null,
   );
 
-  const split = splitPreviewRows(previewRows, sel.excludedRowIds);
+  const split = splitPreviewRows(previewRows, sel.rowSelection);
 
   // IRC fleets in the target series — each gets its own spin/non-spin selector.
   const ircFleets = useMemo(
@@ -185,9 +185,7 @@ export function IrcRatingSourceStep({
               changedRows={split.changedRows}
               unchangedRows={split.unchangedRows}
               notFoundRows={split.notFoundRows}
-              excludedRowIds={sel.excludedRowIds}
-              onToggleRow={sel.toggleRow}
-              onToggleAllRows={sel.toggleAllRows}
+              rowSelection={sel.rowSelection}
               targetCompetitorById={targetCompetitorById}
               targetFleetById={targetFleetById}
               sourceFleetById={new Map()}

@@ -95,7 +95,7 @@ export function VprsSourceStep({
     });
   }, [competitors, fleets, vprsRatings.data, variantByFleet, matchByName, defaultCountry]);
 
-  const split = splitPreviewRows(previewRows, exclusions.excludedRowIds);
+  const split = splitPreviewRows(previewRows, exclusions.rowSelection);
 
   // VPRS fleets — each gets its own spin/no-spin selector.
   const vprsFleets = useMemo(
@@ -196,9 +196,7 @@ export function VprsSourceStep({
                   changedRows={split.changedRows}
                   unchangedRows={split.unchangedRows}
                   notFoundRows={split.notFoundRows}
-                  excludedRowIds={exclusions.excludedRowIds}
-                  onToggleRow={exclusions.toggleRow}
-                  onToggleAllRows={exclusions.toggleAllRows}
+                  rowSelection={exclusions.rowSelection}
                   targetCompetitorById={targetCompetitorById}
                   targetFleetById={targetFleetById}
                   sourceFleetById={new Map()}

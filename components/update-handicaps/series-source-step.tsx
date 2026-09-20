@@ -146,7 +146,7 @@ export function SeriesSourceStep({
     });
   }, [competitors, fleets, sourceCompetitors.data, sourceFleets.data, endTcfs, fleetMapping]);
 
-  const split = splitPreviewRows(previewRows, exclusions.excludedRowIds);
+  const split = splitPreviewRows(previewRows, exclusions.rowSelection);
 
   const targetFleetById = useMemo(() => new Map((fleets ?? []).map((f) => [f.id, f])), [fleets]);
   const sourceFleetById = useMemo(
@@ -227,9 +227,7 @@ export function SeriesSourceStep({
               changedRows={split.changedRows}
               unchangedRows={split.unchangedRows}
               notFoundRows={split.notFoundRows}
-              excludedRowIds={exclusions.excludedRowIds}
-              onToggleRow={exclusions.toggleRow}
-              onToggleAllRows={exclusions.toggleAllRows}
+              rowSelection={exclusions.rowSelection}
               targetCompetitorById={targetCompetitorById}
               targetFleetById={targetFleetById}
               sourceFleetById={sourceFleetById}

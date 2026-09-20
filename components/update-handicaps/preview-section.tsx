@@ -18,17 +18,17 @@ import {
   SelectAllCheckbox,
   describeMatch,
   formatDelta,
+  rowAppliesByDefault,
   rowKey,
   systemLabel,
+  type RowSelection,
 } from './shared';
 
 export function PreviewSection({
   changedRows,
   unchangedRows,
   notFoundRows,
-  excludedRowIds,
-  onToggleRow,
-  onToggleAllRows,
+  rowSelection,
   targetCompetitorById,
   targetFleetById,
   sourceFleetById,
@@ -37,9 +37,7 @@ export function PreviewSection({
   changedRows: PreviewRow[];
   unchangedRows: PreviewRow[];
   notFoundRows: PreviewRow[];
-  excludedRowIds: Set<string>;
-  onToggleRow: (key: string, included: boolean) => void;
-  onToggleAllRows: (keys: string[], included: boolean) => void;
+  rowSelection: RowSelection;
   targetCompetitorById: Map<string, Competitor>;
   targetFleetById: Map<string, Fleet>;
   sourceFleetById: Map<string, Fleet>;
@@ -51,9 +49,11 @@ export function PreviewSection({
 
   // Every change applies unless unticked, so the header box reads "all in" on
   // arrival and is there to clear them — the scorer re-running a source to
-  // pick up one boat's new certificate wants none of the rest.
-  const changedKeys = changedRows.map(rowKey);
-  const includedCount = changedKeys.filter((k) => !excludedRowIds.has(k)).length;
+  // pick up one boat's new certificate wants none of the rest. It governs only
+  // the rows that apply by default: a name-only match has to be ticked in one
+  // at a time, which a select-all that swept it up would defeat.
+  const selectableRows = changedRows.filter(rowAppliesByDefault);
+  const includedCount = selectableRows.filter((r) => rowSelection.applies(r)).length;
 
   const summary = `Preview: ${changedRows.length} change${changedRows.length === 1 ? '' : 's'}, ${unchangedRows.length} unchanged, ${notFoundRows.length} not found`;
 
@@ -66,11 +66,13 @@ export function PreviewSection({
           <TableHeader>
             <TableRow>
               <TableHead className="w-8">
-                <SelectAllCheckbox
-                  selectedCount={includedCount}
-                  total={changedKeys.length}
-                  onToggleAll={(on) => onToggleAllRows(changedKeys, on)}
-                />
+                {selectableRows.length > 0 && (
+                  <SelectAllCheckbox
+                    selectedCount={includedCount}
+                    total={selectableRows.length}
+                    onToggleAll={(on) => rowSelection.toggleAllRows(selectableRows, on)}
+                  />
+                )}
               </TableHead>
               <TableHead>Sail no.</TableHead>
               <TableHead>Boat</TableHead>
@@ -85,14 +87,14 @@ export function PreviewSection({
               const comp = targetCompetitorById.get(r.competitorId);
               const fleet = targetFleetById.get(r.targetFleetId);
               const key = rowKey(r);
-              const included = !excludedRowIds.has(key);
+              const included = rowSelection.applies(r);
               return (
                 <TableRow key={key}>
                   <TableCell>
                     <input
                       type="checkbox"
                       checked={included}
-                      onChange={(e) => onToggleRow(key, e.target.checked)}
+                      onChange={(e) => rowSelection.toggleRow(r, e.target.checked)}
                       className="h-3.5 w-3.5"
                       aria-label={`Apply the change to ${comp?.sailNumber ?? ''}`}
                     />

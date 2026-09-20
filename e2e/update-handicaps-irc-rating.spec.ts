@@ -15,6 +15,12 @@ const RATINGS_FIXTURE = {
     // A boat holding a primary plus a secondary (SEC) certificate.
     { sailNumber: 'IRL7404', boatName: 'Pretty Polly', ircCertNumber: '11479', ircTcc: 1.114, ircNonSpinTcc: 1.092, isSecondary: false },
     { sailNumber: 'IRL7404', boatName: 'Pretty Polly - SEC', ircCertNumber: '50718', ircTcc: 1.092, ircNonSpinTcc: 1.071, isSecondary: true },
+    // A British boat sharing her name with an Irish one that holds no
+    // certificate at all — the pair behind the wrong-rating incident.
+    { sailNumber: 'GBR9608', boatName: 'ALCHEMY', ircTcc: 0.88, ircNonSpinTcc: 0.867, isSecondary: false },
+    // An Irish boat whose entry has her sail number wrong, so only the name
+    // can find her: the case the toggle genuinely exists for.
+    { sailNumber: 'IRL4242', boatName: 'Halcyon', ircTcc: 1.005, ircNonSpinTcc: 0.99, isSecondary: false },
   ],
 };
 
@@ -282,4 +288,74 @@ test('a boat that has already raced is never offered for removal', async ({ page
   await page.getByRole('button', { name: 'Next' }).click();
 
   await expect(page.getByText('Not on the rating list')).toHaveCount(0);
+});
+
+test('a boat matched by name alone is never added to a fleet, and starts unticked', async ({ page }) => {
+  // The Alchemy incident: an uncertificated Elan 31 entered as 3154 took a
+  // British boat's non-spinnaker TCC because the name fallback dropped the
+  // sail number, and select-all swept the row in.
+  await createSeriesQuick(page, { name: 'IRC Name Match 2026' });
+  await createFleets(page, ['White Sail', 'IRC']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByTestId('fleet-row').filter({ hasText: 'IRC' }).getByRole('combobox').click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Alchemy sails in the White Sail fleet and holds no IRC certificate.
+  // Halcyon is in the IRC fleet already, with her sail number mistyped.
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const [sail, name, fleet] of [
+    ['3154', 'Alchemy', 'White Sail'],
+    ['IRL4243', 'Halcyon', 'IRC'],
+    ['IRL1431', '3 Cheers', 'IRC'],
+  ]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(sail);
+    await page.getByLabel('Boat name').fill(name);
+    await page.getByLabel('Competitor name').fill(name);
+    // A rated fleet labels itself "IRC (IRC)", so this is a prefix match.
+    await page.getByRole('checkbox', { name: fleet }).check();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: sail })).toBeVisible();
+  }
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('IRC TCC (international)').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('checkbox', { name: 'Also match by boat name' }).check();
+
+  // Alchemy's sail number says IRL and the only ALCHEMY on the list says GBR,
+  // so she matches nothing at all — not by name, and certainly not into a fleet.
+  await expect(page.getByText('Add to handicap fleet')).toHaveCount(0);
+  await expect(page.getByText('0.867')).toHaveCount(0);
+
+  // Halcyon does match by name, but the row is out until the scorer ticks it,
+  // and select-all leaves it out.
+  const halcyonRow = page.getByRole('row').filter({ hasText: 'Halcyon' });
+  await expect(halcyonRow).toContainText('matched by name alone → IRL4242');
+  const halcyonBox = halcyonRow.getByRole('checkbox');
+  await expect(halcyonBox).not.toBeChecked();
+
+  // Select-all governs the rows that apply by default — 3 Cheers, matched on
+  // her sail number — and leaves the name-only row where it is.
+  const cheersBox = page
+    .getByRole('row')
+    .filter({ hasText: '3 Cheers' })
+    .getByRole('checkbox');
+  await expect(cheersBox).toBeChecked();
+  await page.getByRole('checkbox', { name: /^(De)?[Ss]elect all/ }).first().uncheck();
+  await expect(cheersBox).not.toBeChecked();
+  await page.getByRole('checkbox', { name: /^(De)?[Ss]elect all/ }).first().check();
+  await expect(cheersBox).toBeChecked();
+  await expect(halcyonBox).not.toBeChecked();
+
+  // Ticked in deliberately, it applies.
+  await halcyonBox.check();
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+  const compRow = page.getByRole('row').filter({ hasText: 'IRL4243' });
+  await compRow.click();
+  await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.005');
 });
