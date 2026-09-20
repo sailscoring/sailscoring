@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Poppins } from 'next/font/google';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import './globals.css';
 
@@ -14,9 +14,12 @@ const poppins = Poppins({
 });
 import { Providers } from './providers';
 import { getOptionalSession } from '@/lib/auth/require-session';
-import { personalWorkspaceSlug } from '@/lib/auth/require-workspace';
+import {
+  isPersonalWorkspaceSlug,
+  personalWorkspaceSlug,
+} from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
-import { member, organization } from '@/lib/db/schema/auth';
+import { member, organization, user } from '@/lib/db/schema/auth';
 import {
   WorkspaceSwitcher,
   type WorkspaceMembership,
@@ -61,9 +64,49 @@ async function loadHeaderState(): Promise<HeaderState | null> {
     .innerJoin(organization, eq(member.organizationId, organization.id))
     .where(eq(member.userId, session.user.id))
     .orderBy(member.createdAt);
+  const personalSlug = personalWorkspaceSlug(session.user.id);
+  // Every personal workspace is stored as "My Workspace", which is right for
+  // its owner and useless for anyone else: an operator who joins someone's
+  // personal workspace to help with a support question ends up with two rows
+  // reading the same thing, and the role line under them doesn't tell them
+  // apart either. Someone else's personal workspace carries its owner
+  // instead, resolved here rather than stored, so the owner still sees theirs
+  // as "My Workspace" — which is what the help docs describe.
+  const foreignPersonal = rows
+    .filter((r) => isPersonalWorkspaceSlug(r.slug) && r.slug !== personalSlug)
+    .map((r) => r.organizationId);
+  const ownerByOrg = new Map<string, string>();
+  if (foreignPersonal.length > 0) {
+    const owners = await getDb()
+      .select({
+        organizationId: member.organizationId,
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+      })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .innerJoin(organization, eq(member.organizationId, organization.id))
+      .where(
+        and(
+          inArray(member.organizationId, foreignPersonal),
+          eq(member.role, 'owner'),
+        ),
+      );
+    for (const o of owners) {
+      // The slug shape is only a prefilter. Confirm against the owner's own
+      // id, so a club workspace that happens to be slugged like one is never
+      // renamed out from under its members.
+      const [row] = rows.filter((r) => r.organizationId === o.organizationId);
+      if (row?.slug !== personalWorkspaceSlug(o.userId)) continue;
+      ownerByOrg.set(o.organizationId, o.name.trim() || o.email);
+    }
+  }
   const memberships = rows.map((r) => ({
     organizationId: r.organizationId,
-    name: r.name,
+    name: ownerByOrg.has(r.organizationId)
+      ? `${ownerByOrg.get(r.organizationId)} — personal`
+      : r.name,
     slug: r.slug,
     role: r.role as WorkspaceMembership['role'],
     logo: r.logo ?? '',
@@ -74,7 +117,6 @@ async function loadHeaderState(): Promise<HeaderState | null> {
   // personal workspace exists and every server request will resolve
   // to it. Reflect that in the switcher so the dropdown doesn't read
   // "Select workspace…" for a workspace the user is in fact already in.
-  const personalSlug = personalWorkspaceSlug(session.user.id);
   const resolvedActive =
     (sessionActiveId &&
       memberships.find((m) => m.organizationId === sessionActiveId)

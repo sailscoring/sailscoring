@@ -433,3 +433,25 @@ describe('UnauthenticatedError shape', () => {
     expect(e.message).toBe('unauthenticated');
   });
 });
+
+describe('isPersonalWorkspaceSlug', () => {
+  test('recognises the slug personalWorkspaceSlug mints, and nothing else', async () => {
+    const { isPersonalWorkspaceSlug, personalWorkspaceSlug } = await import(
+      '@/lib/auth/require-workspace'
+    );
+    expect(isPersonalWorkspaceSlug(personalWorkspaceSlug(crypto.randomUUID()))).toBe(true);
+    // Club and class workspaces are slugged from their own names.
+    for (const slug of [
+      'hyc',
+      'iodai',
+      'dbsc',
+      'irish-sailing',
+      'u-boat-club',
+      'under-18s',
+      'u-tooshort',
+      'u-thisoneiswaytoolongtobeone',
+    ]) {
+      expect(isPersonalWorkspaceSlug(slug)).toBe(false);
+    }
+  });
+});

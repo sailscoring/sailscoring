@@ -15,6 +15,7 @@ import { setActiveWorkspace } from '@/lib/auth-client';
 import { useSeriesLocation } from '@/hooks/use-series';
 import type { SeriesLocation } from '@/lib/api-handlers/series';
 import { Button } from '@/components/ui/button';
+import { useWorkspaceMemberships } from '@/components/workspace-memberships-provider';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 
 export function SeriesNotFound({ seriesId }: { seriesId: string }) {
@@ -35,6 +36,14 @@ export function SeriesNotFound({ seriesId }: { seriesId: string }) {
  */
 export function SeriesElsewhereNotice({ location }: { location: SeriesLocation }) {
   const [busy, setBusy] = useState(false);
+  // Prefer the name the switcher shows. Every personal workspace is stored as
+  // "My Workspace", so the stored name is no help to an operator who is in
+  // two of them; the memberships list carries the owner's name for the ones
+  // that aren't theirs.
+  const { memberships } = useWorkspaceMemberships();
+  const workspaceName =
+    memberships.find((m) => m.organizationId === location.workspaceId)?.name ??
+    location.workspaceName;
 
   const switchAndReload = async () => {
     setBusy(true);
@@ -56,7 +65,7 @@ export function SeriesElsewhereNotice({ location }: { location: SeriesLocation }
     >
       <div className="space-y-0.5">
         <p>
-          This series is in the <strong>{location.workspaceName}</strong>{' '}
+          This series is in the <strong>{workspaceName}</strong>{' '}
           workspace, which isn’t your active workspace.
         </p>
         <p className="text-muted-foreground">
@@ -64,7 +73,7 @@ export function SeriesElsewhereNotice({ location }: { location: SeriesLocation }
         </p>
       </div>
       <Button size="sm" disabled={busy} onClick={switchAndReload}>
-        Switch to {location.workspaceName}
+        Switch to {workspaceName}
       </Button>
     </div>
   );

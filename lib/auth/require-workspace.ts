@@ -35,6 +35,17 @@ export function personalWorkspaceSlug(userId: string): string {
 }
 
 /**
+ * Whether a workspace slug could be a personal workspace's — the one-person
+ * sandbox every account gets, named from the owner's user id by
+ * {@link personalWorkspaceSlug}. A cheap prefilter, not proof: a club slug of
+ * the same shape would pass it, so a caller that acts on the answer confirms
+ * it against the owner's actual id.
+ */
+export function isPersonalWorkspaceSlug(slug: string): boolean {
+  return /^u-[A-Za-z0-9_-]{16}$/.test(slug);
+}
+
+/**
  * ADR-008 Phase 2: single seam for resolving the active workspace
  * (= Better Auth organization) on every server request.
  *

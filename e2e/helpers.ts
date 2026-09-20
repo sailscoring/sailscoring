@@ -705,6 +705,33 @@ export async function createOrgWorkspace(name: string): Promise<{ id: string; sl
 }
 
 /**
+ * The personal workspace a signed-in user was given at sign-up, looked up by
+ * their email. The one-person sandbox every account gets; an operator joining
+ * one is how support works.
+ */
+export async function personalWorkspaceOf(
+  email: string,
+): Promise<{ id: string; slug: string }> {
+  const { db, close } = adminDb();
+  try {
+    const [row] = await db
+      .select({ id: schema.organization.id, slug: schema.organization.slug })
+      .from(schema.member)
+      .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
+      .innerJoin(
+        schema.organization,
+        eq(schema.member.organizationId, schema.organization.id),
+      )
+      .where(eq(schema.user.email, email.toLowerCase()))
+      .limit(1);
+    if (!row) throw new Error(`personalWorkspaceOf: nothing for "${email}"`);
+    return row;
+  } finally {
+    await close();
+  }
+}
+
+/**
  * Add an existing user (looked up by email — they must have signed in
  * once already) to an organization with the given role. Used by the
  * Phase 7 cross-cutting tests to put two users in the same workspace
