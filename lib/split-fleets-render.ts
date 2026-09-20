@@ -125,6 +125,13 @@ function showNat(input: SplitFleetRenderInput): boolean {
   );
 }
 
+function showClass(input: SplitFleetRenderInput): boolean {
+  return (
+    (input.enabledCompetitorFields ?? []).includes('boatClass') &&
+    input.competitors.some((c) => c.boatClass?.trim())
+  );
+}
+
 function showCrew(input: SplitFleetRenderInput): boolean {
   return (
     (input.enabledCompetitorFields ?? []).includes('crewName') &&
@@ -275,6 +282,7 @@ export function renderSplitFleetStandingsPage(
   const colors = fleetColorById(data);
   const splitRound = roundsForStage(data.rounds, 'final')[0] ?? null;
   const nat = showNat(input);
+  const boatClass = showClass(input);
   const crew = showCrew(input);
   const club = showClub(input);
   const wsid = showWsid(input);
@@ -363,6 +371,7 @@ export function renderSplitFleetStandingsPage(
   ${withFleetCol ? `<td style="white-space:nowrap">${fleetDot(colors, fleetId)}${esc((fleetId && fleetName.get(fleetId)) || '')}</td>` : ''}
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   <td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>
+  ${boatClass ? `<td>${esc(row.competitor.boatClass ?? '')}</td>` : ''}
   <td>${helmHtml}</td>
   ${club ? `<td>${renderListCell(row.competitor.clubs)}</td>` : ''}
   ${wsid ? wsidCell(row.competitor.worldSailingId) : ''}
@@ -374,13 +383,13 @@ export function renderSplitFleetStandingsPage(
         // cut — say so rather than letting the line silently resolve the tie.
         const tiedAcrossCut = cuts.includes(i) && rowsIn[i + 1]?.rank === row.rank;
         const cut = cuts.includes(i)
-          ? `<tr><td colspan="${columns.length + 5 + (withFleetCol ? 1 : 0) + (nat ? 1 : 0) + (club ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">provisional split if qualifying ended now${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
+          ? `<tr><td colspan="${columns.length + 5 + (withFleetCol ? 1 : 0) + (nat ? 1 : 0) + (boatClass ? 1 : 0) + (club ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">provisional split if qualifying ended now${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
           : '';
         return tr + cut;
       })
       .join('\n');
     return `<div class="tablewrap"><table class="summarytable">
-<thead><tr><th>Rank</th>${withFleetCol ? '<th>Fleet</th>' : ''}${nat ? '<th>Nat</th>' : ''}<th>Sail</th><th>${crew ? 'Helm / Crew' : 'Helm'}</th>${club ? '<th>Club</th>' : ''}${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
+<thead><tr><th>Rank</th>${withFleetCol ? '<th>Fleet</th>' : ''}${nat ? '<th>Nat</th>' : ''}<th>Sail</th>${boatClass ? '<th>Class</th>' : ''}<th>${crew ? 'Helm / Crew' : 'Helm'}</th>${club ? '<th>Club</th>' : ''}${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 ${body}
 </tbody>

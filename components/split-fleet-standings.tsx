@@ -212,8 +212,12 @@ export function SplitFleetStandings({
 
   // Crew stack under the helm in the name cell rather than taking a column of
   // their own — the race cells are the width this table is fighting for. Club
-  // does take one. Both follow the Nat rule: enabling the field is not enough,
-  // some boat has to have a value, or the table grows a dead column.
+  // and class each take one. All three follow the Nat rule: enabling the field
+  // is not enough, some boat has to have a value, or the table grows a dead
+  // column.
+  const showClass =
+    enabledFields.includes('boatClass') &&
+    standings.some((r) => r.competitor.boatClass?.trim());
   const showCrew =
     enabledFields.includes('crewName') &&
     standings.some((r) => r.competitor.crewNames?.some((n) => n.trim()));
@@ -255,6 +259,7 @@ export function SplitFleetStandings({
           fleetMeta={fleetMeta}
           currentFleet={latestRound ? currentFleetOf(row) : undefined}
           showNationality={showNationality}
+          showClass={showClass}
           showCrew={showCrew}
           showClub={showClub}
           cutAfter={withCuts && cuts.includes(i)}
@@ -336,7 +341,7 @@ export function SplitFleetStandings({
             <h3 className="mb-1 text-sm font-semibold">
               {capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)}
             </h3>
-            <StandingsTable data={data} columns={columns} showNationality={showNationality} showCrew={showCrew} showClub={showClub}>{renderRows(medalRows, false)}</StandingsTable>
+            <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub}>{renderRows(medalRows, false)}</StandingsTable>
             <p className="mt-1 text-xs text-muted-foreground">
               These boats are ranked ahead of every other boat in the event.
             </p>
@@ -352,12 +357,12 @@ export function SplitFleetStandings({
                 <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
                   <FleetChip meta={meta} /> fleet
                 </h3>
-                <StandingsTable data={data} columns={columns} showNationality={showNationality} showCrew={showCrew} showClub={showClub}>{renderRows(rows, false)}</StandingsTable>
+                <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub}>{renderRows(rows, false)}</StandingsTable>
               </div>
             );
           })
         ) : restRows.length > 0 ? (
-          <StandingsTable data={data} columns={columns} showNationality={showNationality} showCrew={showCrew} showClub={showClub} showFleet={latestRound !== null}>{renderRows(restRows, true)}</StandingsTable>
+          <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub} showFleet={latestRound !== null}>{renderRows(restRows, true)}</StandingsTable>
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -373,6 +378,7 @@ function StandingsTable({
   data,
   columns,
   showNationality,
+  showClass,
   showCrew,
   showClub,
   showFleet,
@@ -381,6 +387,7 @@ function StandingsTable({
   data: SplitFleetData;
   columns: { stage: SeriesStage; n: number }[];
   showNationality: boolean;
+  showClass: boolean;
   showCrew: boolean;
   showClub: boolean;
   showFleet?: boolean;
@@ -394,6 +401,7 @@ function StandingsTable({
           {showFleet && <th className="py-1 pr-2 font-medium">Fleet</th>}
           {showNationality && <th className="py-1 pr-2 font-medium">Nat</th>}
           <th className="py-1 pr-2 font-medium">Sail</th>
+          {showClass && <th className="py-1 pr-2 font-medium">Class</th>}
           <th className="py-1 pr-2 font-medium">{showCrew ? 'Name / Crew' : 'Name'}</th>
           {showClub && <th className="py-1 pr-2 font-medium">Club</th>}
           {columns.map((c) => (
@@ -418,6 +426,7 @@ function FragmentRow({
   fleetMeta,
   currentFleet,
   showNationality,
+  showClass,
   showCrew,
   showClub,
   cutAfter,
@@ -433,6 +442,7 @@ function FragmentRow({
    *  names the fleet instead). */
   currentFleet?: FleetMeta | null;
   showNationality: boolean;
+  showClass: boolean;
   showCrew: boolean;
   showClub: boolean;
   cutAfter: boolean;
@@ -453,6 +463,9 @@ function FragmentRow({
           <td className="py-1 pr-2 font-mono text-xs">{row.competitor.nationality ?? ''}</td>
         )}
         <td className="py-1 pr-2 whitespace-nowrap">{row.competitor.sailNumber}</td>
+        {showClass && (
+          <td className="py-1 pr-2 whitespace-nowrap">{row.competitor.boatClass ?? ''}</td>
+        )}
         <td className="py-1 pr-2 whitespace-nowrap">
           {/* No WS ID column on this table — with an ID on file, the name
               links to the World Sailing bio instead. */}
@@ -543,6 +556,7 @@ function FragmentRow({
               columns.length +
               5 +
               (showNationality ? 1 : 0) +
+              (showClass ? 1 : 0) +
               (showClub ? 1 : 0) +
               (currentFleet !== undefined ? 1 : 0)
             }

@@ -199,31 +199,37 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(off).not.toContain('id="flag-IRL"');
   });
 
-  it('carries crew under the helm name and a Club column when those fields are on', () => {
+  it('carries crew under the helm name, plus Class and Club columns, when those fields are on', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
     input.competitors[0].crewNames = ['Jo Crew'];
     input.competitors[0].clubs = ['Howth Yacht Club'];
-    input.enabledCompetitorFields = ['crewName', 'club'];
+    input.competitors[0].boatClass = 'ILCA 7';
+    input.enabledCompetitorFields = ['crewName', 'club', 'boatClass'];
 
     const html = renderSplitFleetStandingsPage(input);
     expect(html).toContain('<th>Helm / Crew</th>');
     expect(html).toContain('<th>Club</th>');
+    expect(html).toContain('<th>Class</th>');
     expect(html).toContain('Jo Crew');
     expect(html).toContain('Howth Yacht Club');
+    expect(html).toContain('ILCA 7');
 
-    // Off: neither column, and the crew name is nowhere on the page.
+    // Off: no column, and the values are nowhere on the page.
     const off = renderSplitFleetStandingsPage({ ...input, enabledCompetitorFields: [] });
     expect(off).toContain('<th>Helm</th>');
     expect(off).not.toContain('<th>Club</th>');
+    expect(off).not.toContain('<th>Class</th>');
     expect(off).not.toContain('Jo Crew');
+    expect(off).not.toContain('ILCA 7');
   });
 
-  it('suppresses the Crew and Club columns when no boat has a value', () => {
+  it('suppresses the Crew, Club and Class columns when no boat has a value', () => {
     const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
-    input.enabledCompetitorFields = ['crewName', 'club'];
+    input.enabledCompetitorFields = ['crewName', 'club', 'boatClass'];
     const html = renderSplitFleetStandingsPage(input);
     expect(html).toContain('<th>Helm</th>');
     expect(html).not.toContain('<th>Club</th>');
+    expect(html).not.toContain('<th>Class</th>');
   });
 
   it('escapes user-controlled fields', () => {
