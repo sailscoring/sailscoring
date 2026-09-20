@@ -65,7 +65,7 @@ test('deleting a start leaves nothing of that fleet scored in the race', async (
     await page.getByRole('checkbox', { name: fleet }).check();
     await page.getByRole('button', { name: 'Save' }).click();
   }
-  await expect(page.getByRole('button', { name: 'Delete start' })).toHaveCount(2);
+  await expect(page.getByTestId('race-start-row')).toHaveCount(2);
 
   for (const sail of ['101', '102']) {
     await page.getByLabel('Sail number').fill(sail);
@@ -78,8 +78,12 @@ test('deleting a start leaves nothing of that fleet scored in the race', async (
   // Class 4 did not in fact race: its start is deleted. The DNF row stays in
   // the database, and the sheet — scoped to the fleets that have a start —
   // stops showing it, so there is no way to reach it from here.
-  await page.getByRole('button', { name: 'Delete start' }).last().click();
-  await expect(page.getByRole('button', { name: 'Delete start' })).toHaveCount(1);
+  // By the fleet it names, not by position: neither start has a gun time, so
+  // which of them sorts last is not something to lean on.
+  await page.getByTestId('race-start-row').filter({ hasText: 'Class 4' })
+    .getByRole('button', { name: 'Delete start' }).click();
+  await expect(page.getByTestId('race-start-row')).toHaveCount(1);
+  await expect(page.getByTestId('race-start-row')).toContainText('Class 1');
   await expect(page.getByTestId('non-finisher-401')).toHaveCount(0);
 
   // Standings: race 2 is struck for Class 4 — no points for the stale DNF,

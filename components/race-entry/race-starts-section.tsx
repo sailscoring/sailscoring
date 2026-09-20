@@ -136,7 +136,11 @@ export const RaceStartsSection = forwardRef<RaceStartsSectionHandle, {
               <p className="text-sm text-muted-foreground">No starts recorded — all fleets are in this race. Press <kbd className="px-1 py-0.5 text-xs border rounded">s</kbd> or click Add start to scope it to specific fleets.</p>
             )}
             {sortedStarts.map((s) => (
-              <div key={s.id} className="flex items-center gap-2 text-sm px-3 py-2 border rounded-md">
+              <div
+                key={s.id}
+                data-testid="race-start-row"
+                className="flex items-center gap-2 text-sm px-3 py-2 border rounded-md"
+              >
                 <span className={s.startTime ? 'font-mono font-medium' : 'italic text-muted-foreground'}>
                   {s.startTime ?? 'No gun time'}
                 </span>
