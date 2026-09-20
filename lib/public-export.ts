@@ -43,7 +43,7 @@ import {
   isOfficialRole,
   tidyOfficials,
 } from './race-officials';
-import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap } from './scoring';
+import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMap, startKeyResolver } from './scoring';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
 import {
@@ -1148,7 +1148,13 @@ export function buildPublicExportFromSnapshot(
 
   const exportedRaces = races.map((race) => {
     const finishesForRace = allFinishes.filter((f) => f.raceId === race.id);
-    const raceScores = calculateRaceScores(finishesForRace, competitors, series.dnfScoring);
+    const raceScores = calculateRaceScores(
+      finishesForRace,
+      competitors,
+      series.dnfScoring,
+      undefined,
+      startKeyResolver(competitors, allRaceStarts.filter((rs) => rs.raceId === race.id)),
+    );
     // The implicit DNC an absent boat scores is materialised here, so that a
     // reader sees the same rows the results page does. On a championship it
     // is not the export's to invent: a boat sails the stage races of her own

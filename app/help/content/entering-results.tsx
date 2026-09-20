@@ -113,9 +113,17 @@ export default function EnteringResults() {
           matches the crossing order, the row slides to its correct slot.
         </p>
         <p>
-          When two scratch-fleet boats cross together, tick{' '}
-          <strong className="text-foreground">tie</strong> on the second row to mark them as
-          tied with the previous row. Tied boats share averaged ranks per RRS A8.1.
+          When two boats cross together they share the points for the places they occupy —
+          two boats tied for 3rd take 3.5 each, and the next boat is 5th (RRS A7). On a sheet
+          that records times the app reads the tie off the times: write the same finish time
+          against both boats and the second row is marked{' '}
+          <strong className="text-foreground">tie</strong>, with nothing to tick. Correcting
+          either time unmarks it.
+        </p>
+        <p>
+          On an untimed sheet the row order is all there is, so tick{' '}
+          <strong className="text-foreground">tie</strong> on the second row yourself to mark
+          it as tied with the row above.
         </p>
         <p>
           For competitors who did not finish normally, use the result code dropdown next to their

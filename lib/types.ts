@@ -1084,9 +1084,14 @@ export interface Finish {
   sortOrder: number | null;       // crossing-order index in the unified finish sheet; null for coded finishes (except RDG: may be set alongside RDG)
   // Per ADR-008 Phase 6 (#111): explicit tie marker. The scoring engine
   // treats a finisher with `tiedWithPrevious === true` as sharing the
-  // immediately-prior row's place (RRS A8.1 averaged ranks). Stored
-  // separately from sortOrder so the visible row order stays stable —
-  // sortOrders remain monotonically increasing per race.
+  // immediately-prior row's place (RRS A7 averaged points; A8 is the
+  // separate matter of a series tie). Stored separately from sortOrder so
+  // the visible row order stays stable — sortOrders remain monotonically
+  // increasing per race.
+  //
+  // It is the answer on an untimed sheet, where row order is all there is.
+  // A race that recorded times is read off the times instead, so a tie there
+  // needs no flag: see `finishedTogether` in `lib/scoring.ts`.
   tiedWithPrevious: boolean;
   finishTime?: string;            // "HH:MM:SS" — time of day the boat crossed the line; ET = finishTime − startTime
   // The boat's elapsed time in seconds, when that is what was recorded: a

@@ -6,6 +6,7 @@ import {
   buildRaceFleetExclusionMap,
   computeOrcCourseRace,
   orcStartHasCourse,
+  startKeyResolver,
   type TodCorrectionContext,
 } from './scoring';
 import {
@@ -999,7 +1000,13 @@ export async function buildFleetHtmlFiles(
           }
           scores = calculateHandicapRaceScores(finishesForRace, ratedFleetCompetitors, raceStart, tcfMap, series.dnfScoring ?? 'seriesEntries', todContext).scores;
         } else {
-          scores = calculateRaceScores(finishesForRace, fleetCompetitors, series.dnfScoring ?? 'seriesEntries', fleet.id);
+          scores = calculateRaceScores(
+            finishesForRace,
+            fleetCompetitors,
+            series.dnfScoring ?? 'seriesEntries',
+            fleet.id,
+            startKeyResolver(fleetCompetitors, allRaceStarts.filter((rs) => rs.raceId === race.id)),
+          );
         }
         const scoreMap = new Map<string, RaceScoreCellForRender>(
           [...scores.entries()]

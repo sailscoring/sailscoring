@@ -244,6 +244,24 @@ export function FinishTab(props: FinishTabProps) {
     };
   })();
 
+  // Rows whose recorded time of day equals the row above's: the engine reads a
+  // tie off those and averages the points (RRS A7), so the sheet has to say so
+  // — the tie checkbox is suppressed on a timed row, and without this the
+  // scorer sees two separate rows carrying one shared place.
+  //
+  // Times of day only. An elapsed time is comparable only within a start
+  // (ADR-007 as amended) and the sheet does not hold the starts, so an
+  // elapsed tie is left to the standings, which do.
+  const derivedTies = new Set<string>();
+  if (!byElapsed) {
+    for (let i = 1; i < finishingOrder.length; i++) {
+      const here = entryKey(finishingOrder[i]);
+      const above = entryKey(finishingOrder[i - 1]);
+      const t = finishTimes.get(here);
+      if (t && t === finishTimes.get(above)) derivedTies.add(here);
+    }
+  }
+
   // The dropdown opens for committable suggestions and for already-entered
   // matches alike — typing a number that's already in the order must answer
   // with the existing row, never with silence.
@@ -950,13 +968,16 @@ export function FinishTab(props: FinishTabProps) {
                 ) : (
                   <span className="w-24 text-center text-sm font-mono text-muted-foreground shrink-0">—</span>
                 ))}
-                {readOnly ? (
+                {readOnly || derivedTies.has(eid) ? (
                   // Only say "tie" where there is one: an empty checkbox on
                   // every row is an offer, and there is nothing on offer here.
-                  tiedWithPrevious.has(eid) && (
+                  // A tie the times establish is stated the same way and is
+                  // equally not an offer — it follows from the time in the
+                  // box beside it, and is unset by changing that.
+                  (tiedWithPrevious.has(eid) || derivedTies.has(eid)) && (
                     <span
                       className="text-xs text-muted-foreground shrink-0"
-                      title="Tied with the previous row (simultaneous finish, RRS A8.1)"
+                      title="Tied with the previous row (simultaneous finish, RRS A7)"
                       data-testid={`tie-${competitor.sailNumber}`}
                     >
                       tie
@@ -965,7 +986,7 @@ export function FinishTab(props: FinishTabProps) {
                 ) : !isTimed && index > 0 && !((() => { const prev = finishingOrder[index - 1]; return prev.kind === 'known' && needsFinishTime(prev.competitorId); })()) && (
                   <label
                     className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer"
-                    title="Tied with previous row (simultaneous finish, RRS A8.1)"
+                    title="Tied with previous row (simultaneous finish, RRS A7)"
                   >
                     <input
                       type="checkbox"

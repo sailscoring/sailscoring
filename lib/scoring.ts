@@ -148,11 +148,78 @@ export function applyAdditivePenalty(
   return basePoints;
 }
 
+/**
+ * Which start a boat's elapsed time was measured from, for a race's finishes.
+ *
+ * A time of day is comparable across the whole sheet; an elapsed time is only
+ * comparable within a start, since two fleets on different guns can post the
+ * same duration and cross minutes apart (ADR-007 as amended). Boats with no
+ * start share the key `''` and are compared with each other, which is what a
+ * stopwatch sheet with no gun recorded means.
+ */
+export function startKeyResolver(
+  competitors: Competitor[],
+  raceStarts: readonly RaceStart[],
+): (competitorId: string) => string {
+  const byId = new Map(competitors.map((c) => [c.id, c]));
+  return (competitorId) => {
+    const c = byId.get(competitorId);
+    if (!c) return '';
+    for (const s of raceStarts) {
+      if (s.fleetIds.some((id) => c.fleetIds.includes(id))) return s.id;
+    }
+    return '';
+  };
+}
+
+/**
+ * Whether two consecutive finishers crossed the line together, so RRS A7 ties
+ * them and they share the points for the places they occupy.
+ *
+ * The scorer's explicit tie flag is one answer, and on an untimed sheet it is
+ * the only one available — row order is all there is. Where the race *was*
+ * timed, the times are the better evidence and the flag cannot even be set:
+ * the sheet suppresses the checkbox on a timed row, so a tie there could
+ * neither be derived nor marked, and the same simultaneous finish came out
+ * tied in a fleet's ECHO result and split in its scratch result.
+ *
+ * Times of day are whole seconds by construction and absolute, so equal
+ * strings are a tie. Elapsed times carry the fraction the device measured, so
+ * they are compared at the precision the race was timed at — scoring a
+ * stopwatch race to the millisecond would invent gaps it never had, and
+ * scoring a measured one to the second would invent ties — and only within a
+ * start, since two guns make two different clocks.
+ */
+function finishedTogether(
+  prev: Finish | undefined,
+  cur: Finish | undefined,
+  precision: TimingPrecision,
+  startKeyOf?: (competitorId: string) => string,
+): boolean {
+  if (!prev || !cur) return false;
+  if (cur.tiedWithPrevious === true) return true;
+  if (prev.finishTime != null && cur.finishTime != null) {
+    return prev.finishTime === cur.finishTime;
+  }
+  if (prev.elapsedSecs != null && cur.elapsedSecs != null) {
+    // Without a start grouping the two are not known to be on one gun, and a
+    // tie that isn't one costs a place.
+    if (!startKeyOf || prev.competitorId === null || cur.competitorId === null) return false;
+    if (startKeyOf(prev.competitorId) !== startKeyOf(cur.competitorId)) return false;
+    return (
+      roundToPrecision(prev.elapsedSecs, precision) ===
+      roundToPrecision(cur.elapsedSecs, precision)
+    );
+  }
+  return false;
+}
+
 export function calculateRaceScores(
   finishes: Finish[],
   competitors: Competitor[],
   dnfScoring: DnfScoring = 'seriesEntries',
   fleetId?: string,
+  startKeyOf?: (competitorId: string) => string,
 ): Map<string, RaceScore> {
   const n = competitors.length;
   const seriesEntryPenalty = n + 1;
@@ -227,24 +294,34 @@ export function calculateRaceScores(
     }
   }
 
-  // Assign within-fleet sequential ranks and average points for tied boats (RRS A8.1).
-  // Sort finishers by cross-fleet place (always distinct sortOrder per ADR-008
-  // Phase 6 #111). Tie groups are detected by walking consecutive finishers
-  // and reading their `tiedWithPrevious` flag from the underlying Finish row.
+  // Assign within-fleet sequential ranks and average points for tied boats
+  // (RRS A7). Sort finishers by cross-fleet place (always distinct sortOrder
+  // per ADR-008 Phase 6 #111). Tie groups are detected by walking consecutive
+  // finishers and asking whether each crossed with the one before it.
   const finishers = [...result.entries()]
     .filter(([, score]) => score.place !== null)
     .sort((a, b) => a[1].place! - b[1].place! || a[0].localeCompare(b[0]));
 
+  // The unit this race's times are read in, off every finish in it — not per
+  // fleet and not per boat, so boats ranked against each other are always
+  // compared the same way.
+  const precision = timingPrecisionOf(finishes);
+
   let fleetRank = 1;
   let fi = 0;
   while (fi < finishers.length) {
-    // Walk forward while the next finisher is marked tiedWithPrevious. A
-    // group is the run [fi, fj). The leader's tiedWithPrevious flag is
-    // ignored — a tie chains backwards from row N to row N-1.
+    // Walk forward while the next finisher crossed with the one before it. A
+    // group is the run [fi, fj). The leader is never asked — a tie chains
+    // backwards from row N to row N-1.
     let fj = fi + 1;
     while (
       fj < finishers.length &&
-      finishMap.get(finishers[fj][0])?.tiedWithPrevious === true
+      finishedTogether(
+        finishMap.get(finishers[fj - 1][0]),
+        finishMap.get(finishers[fj][0]),
+        precision,
+        startKeyOf,
+      )
     ) {
       fj++;
     }
@@ -1524,6 +1601,10 @@ export function calculateStandings(
   fleetId?: string,
   excludedRaceIds?: Set<string>,
   proportionalDiscard?: ProportionalDiscard,
+  /** The series' race starts. Only needed to tell which gun an elapsed time
+   *  was measured from, when deciding whether two boats crossed together —
+   *  omitted, an elapsed-time tie needs the scorer's own flag. */
+  raceStarts: readonly RaceStart[] = [],
 ): { standings: Standing[]; circularRedressRaces: number[] } {
   const competitorIds = new Set(competitors.map((c) => c.id));
 
@@ -1541,7 +1622,13 @@ export function calculateStandings(
     const allRaceFinishes = finishesByRace.get(race.id) ?? [];
     const raceFinishes = allRaceFinishes.filter((f) => f.competitorId !== null && competitorIds.has(f.competitorId));
     const raceFinishMap = new Map(raceFinishes.map((f) => [f.competitorId!, f]));
-    const scores = calculateRaceScores(raceFinishes, competitors, dnfScoring, fleetId);
+    const scores = calculateRaceScores(
+      raceFinishes,
+      competitors,
+      dnfScoring,
+      fleetId,
+      startKeyResolver(competitors, raceStarts.filter((rs) => rs.raceId === race.id)),
+    );
     raceExcluded[raceIdx] =
       computeRaceExclusion(allRaceFinishes, raceFinishes) || (excludedRaceIds?.has(race.id) ?? false);
     for (const competitor of competitors) {
@@ -1943,7 +2030,13 @@ function calculateHandicapStandings(
       // corrected, so the handicap fields are empty rather than absent: the
       // publishing path reads them per cell and a blank rating column is the
       // page saying this race wasn't corrected.
-      const scratchScores = calculateRaceScores(raceFinishes, competitors, dnfScoring, fleet.id);
+      const scratchScores = calculateRaceScores(
+        raceFinishes,
+        competitors,
+        dnfScoring,
+        fleet.id,
+        startKeyResolver(competitors, raceStarts.filter((rs) => rs.raceId === race.id)),
+      );
       scores = new Map(
         [...scratchScores.entries()].map(([id, s]) => [
           id,
@@ -2335,6 +2428,7 @@ export function calculateFleetStandings(
       fleet.id,
       notIn.size > 0 ? new Set([...(excluded ?? []), ...notIn]) : excluded,
       proportionalDiscard,
+      raceStarts,
     );
     allCircular.push(...circularRedressRaces);
     return { fleet, standings, rejections: detectPerFleetGaps(fleet, fleetCompetitors, allFinishes), raceGaps: [] };

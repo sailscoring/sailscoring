@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateHandicapRaceScores, calculateHandicapAdjustment, deriveProgressiveHandicapConfig, DEFAULT_NHC_PROFILE } from '@/lib/scoring';
+import { calculateRaceScores, calculateStandings, calculateFleetStandings, getDiscardCount, calculateHandicapRaceScores, calculateHandicapAdjustment, deriveProgressiveHandicapConfig, startKeyResolver, DEFAULT_NHC_PROFILE } from '@/lib/scoring';
 import type { Competitor, Fleet, Race, Finish, DiscardThreshold, PenaltyCode, RaceStart } from '@/lib/types';
 
 // Helpers to build test fixtures with minimal required fields
@@ -40,6 +40,97 @@ describe('calculateRaceScores', () => {
     expect(scores.get('A')?.points).toBe(1);
     expect(scores.get('B')?.points).toBe(2);
     expect(scores.get('E')?.points).toBe(5);
+  });
+
+  it('ties two boats recorded at the same time of day (RRS A7)', () => {
+    // A timed sheet suppresses the tie checkbox, so a tie there can only come
+    // from the times. The handicap path has always grouped on equal corrected
+    // time; the scratch path used to split the same simultaneous finish.
+    const finishes = [
+      { ...makeFinish('r1', 'A', 1), finishTime: '14:58:12' },
+      { ...makeFinish('r1', 'B', 2), finishTime: '15:00:41' },
+      { ...makeFinish('r1', 'C', 3), finishTime: '15:01:06' },
+      { ...makeFinish('r1', 'D', 4), finishTime: '15:01:06' },
+      { ...makeFinish('r1', 'E', 5), finishTime: '15:04:20' },
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('C')?.points).toBe(3.5);
+    expect(scores.get('D')?.points).toBe(3.5);
+    expect(scores.get('C')?.rank).toBe(3);
+    expect(scores.get('D')?.rank).toBe(3);
+    // The boat behind them takes 5th, not 4th.
+    expect(scores.get('E')?.points).toBe(5);
+  });
+
+  it('does not tie two boats a second apart', () => {
+    const finishes = [
+      { ...makeFinish('r1', 'A', 1), finishTime: '15:01:06' },
+      { ...makeFinish('r1', 'B', 2), finishTime: '15:01:07' },
+    ];
+    const scores = calculateRaceScores(finishes, competitors);
+    expect(scores.get('A')?.points).toBe(1);
+    expect(scores.get('B')?.points).toBe(2);
+  });
+
+  it('ties equal elapsed times only within one start (ADR-007)', () => {
+    // Two guns are two clocks: the same duration off different starts is two
+    // boats crossing minutes apart, not a dead heat.
+    const sameStart = [makeCompetitor('A'), makeCompetitor('B')];
+    const finishes = [
+      { ...makeFinish('r1', 'A', 1), elapsedSecs: 3600 },
+      { ...makeFinish('r1', 'B', 2), elapsedSecs: 3600 },
+    ];
+    const starts: RaceStart[] = [
+      { id: 's-1', raceId: 'r1', fleetIds: ['f1'], startTime: '13:00:00' },
+    ];
+    const tied = calculateRaceScores(
+      finishes,
+      sameStart,
+      'seriesEntries',
+      undefined,
+      startKeyResolver(sameStart, starts),
+    );
+    expect(tied.get('A')?.points).toBe(1.5);
+    expect(tied.get('B')?.points).toBe(1.5);
+
+    const split = [
+      { ...makeCompetitor('A'), fleetIds: ['f1'] },
+      { ...makeCompetitor('B'), fleetIds: ['f2'] },
+    ];
+    const twoStarts: RaceStart[] = [
+      { id: 's-1', raceId: 'r1', fleetIds: ['f1'], startTime: '13:00:00' },
+      { id: 's-2', raceId: 'r1', fleetIds: ['f2'], startTime: '13:05:00' },
+    ];
+    const untied = calculateRaceScores(
+      finishes,
+      split,
+      'seriesEntries',
+      undefined,
+      startKeyResolver(split, twoStarts),
+    );
+    expect(untied.get('A')?.points).toBe(1);
+    expect(untied.get('B')?.points).toBe(2);
+  });
+
+  it('compares elapsed times at the precision the race was timed at', () => {
+    // One fractional time anywhere in the race makes the millisecond the unit,
+    // so a measured gap inside a second is a gap and not a tie.
+    const pair = [makeCompetitor('A'), makeCompetitor('B')];
+    const starts: RaceStart[] = [
+      { id: 's-1', raceId: 'r1', fleetIds: ['f1'], startTime: '13:00:00' },
+    ];
+    const measured = calculateRaceScores(
+      [
+        { ...makeFinish('r1', 'A', 1), elapsedSecs: 3600.25 },
+        { ...makeFinish('r1', 'B', 2), elapsedSecs: 3600.75 },
+      ],
+      pair,
+      'seriesEntries',
+      undefined,
+      startKeyResolver(pair, starts),
+    );
+    expect(measured.get('A')?.points).toBe(1);
+    expect(measured.get('B')?.points).toBe(2);
   });
 
   it('scores DNF as N+1', () => {
