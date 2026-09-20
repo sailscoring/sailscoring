@@ -13,6 +13,12 @@
  *   - nhc                          → preamble + per-race progression tables + standings
  */
 
+// These previews are read in a browser off the filesystem, not served from a
+// deployment, so they state no absolute URL: clearing the app origin keeps the
+// share-card tags out of the head and the checked-in files identical whatever
+// the generating shell has set.
+process.env.NEXT_PUBLIC_APP_URL = '';
+
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';

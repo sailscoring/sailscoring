@@ -87,6 +87,50 @@ describe('renderSeriesHtml', () => {
     expect(html).toContain('</html>');
   });
 
+  it('carries share-card tags naming the event, not "sail scoring results"', () => {
+    // A results link is shared by being pasted into a WhatsApp group. Without
+    // these the card is bare, and the previewer goes looking for a favicon.
+    const html = renderSeriesHtml(MINIMAL);
+    expect(html).toContain(
+      '<meta property="og:title" content="Results for Test Series at Test Venue">',
+    );
+    expect(html).toContain(
+      '<meta property="og:description" content="Provisional results for Test Series at Test Venue.">',
+    );
+    expect(html).toContain('<meta property="og:site_name" content="Sail Scoring">');
+    expect(html).toContain('<meta property="og:type" content="website">');
+    expect(html).not.toContain('content="sail scoring results"');
+    // No og:url: the same file is uploaded to club servers over FTP, where the
+    // app's own origin would be the wrong answer.
+    expect(html).not.toContain('og:url');
+  });
+
+  it('points the share card at the app\u2019s own image when it knows the origin', () => {
+    const previous = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.sailscoring.ie/';
+    try {
+      const html = renderSeriesHtml(MINIMAL);
+      expect(html).toContain(
+        '<meta property="og:image" content="https://app.sailscoring.ie/opengraph-image.png">',
+      );
+      expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+    } finally {
+      process.env.NEXT_PUBLIC_APP_URL = previous;
+    }
+  });
+
+  it('falls back to a card with no image when no origin is configured', () => {
+    const previous = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = '';
+    try {
+      const html = renderSeriesHtml(MINIMAL);
+      expect(html).not.toContain('og:image');
+      expect(html).toContain('<meta name="twitter:card" content="summary">');
+    } finally {
+      process.env.NEXT_PUBLIC_APP_URL = previous;
+    }
+  });
+
   it('carries no sponsor recognition', () => {
     // The published artifact is the scorer's output and the club's record.
     // The same HTML goes to blob storage, to a club's own web host over FTP,

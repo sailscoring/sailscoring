@@ -129,6 +129,35 @@ test('publish into Season + Folder → public page renders → the folder lists 
   await expect(dialog.getByRole('link', { name: /\/autumn-26\/standings$/ })).toBeVisible();
 });
 
+test('a published page carries a share card, and /favicon.ico is a real icon', async ({ page }) => {
+  // A results link is shared by being pasted into a WhatsApp group. Without
+  // og: tags the card is bare, and the previewer, with no image to fetch,
+  // falls back to probing /favicon.ico — which used to 404 with a full page
+  // render.
+  await createSeriesWithData(page, { name: 'Share Card Series 2026' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('Folder').fill('share-card-26');
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const href = (await dialog.getByRole('link', { name: /\/p\// }).getAttribute('href')) ?? '';
+  const path = new URL(href).pathname;
+
+  const html = await (await page.request.get(path)).text();
+  expect(html).toContain('<meta property="og:title" content="Results for Share Card Series 2026"');
+  expect(html).toContain('<meta property="og:site_name" content="Sail Scoring">');
+  expect(html).toContain('/opengraph-image.png');
+  expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+  expect(html).not.toContain('content="sail scoring results"');
+
+  const icon = await page.request.get('/favicon.ico');
+  expect(icon.status()).toBe(200);
+  expect(icon.headers()['content-type']).toContain('image/x-icon');
+  // A real icon, not a 404 page rendered at page cost.
+  const body = await icon.body();
+  expect(body.length).toBeGreaterThan(0);
+  expect(body.subarray(0, 4)).toEqual(Buffer.from([0x00, 0x00, 0x01, 0x00]));
+});
+
 test('an unresolved unknown-sail crossing publishes cleanly and stays out of the data file (#198, ADR-012)', async ({ page }) => {
   await createSeriesWithData(page, {
     name: 'Unknown Crossing League',

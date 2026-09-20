@@ -1534,6 +1534,12 @@ export function renderHtmlDocument(
   const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote } = chrome;
   const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
+  const title = `Results for ${series.name}${series.venue ? ' at ' + series.venue : ''}${
+    fleetName ? ' \u2014 ' + fleetName : ''
+  }`;
+  const description = `${resultsFinal ? 'Final' : 'Provisional'} results for ${series.name}${
+    series.venue ? ` at ${series.venue}` : ''
+  }${fleetName ? ` \u2014 ${fleetName}` : ''}.`;
 
   return `<!doctype html>
 <html lang="en">
@@ -1541,9 +1547,10 @@ export function renderHtmlDocument(
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta name="description" content="sail scoring results">
+<meta name="description" content="${esc(description)}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Results for ${esc(series.name)}${series.venue ? ' at ' + esc(series.venue) : ''}${titleSuffix}</title>
+${renderOpenGraphTags(title, description)}
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 205 840 840"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>')}">${dataFileUrl ? `
 <link rel="alternate" type="application/json" href="${esc(dataFileUrl)}">` : ''}
 <style type="text/css">
@@ -2663,6 +2670,43 @@ function resultsTimeZone(): string {
   } catch {
     return 'Europe/Dublin';
   }
+}
+
+/**
+ * The absolute origin the app is served from, for the one URL a published page
+ * has to state in full: the share card's image. Everything else a page
+ * references is relative, because the same HTML is what a club uploads to its
+ * own server over FTP.
+ */
+function appOrigin(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/+$/, '');
+}
+
+/**
+ * The `og:`/`twitter:` block for a results page. A results link is shared by
+ * being pasted into a WhatsApp group, and without these the card renders with
+ * the title, "sail scoring results" and no image — and the previewer, having
+ * no `og:image` to fetch, goes hunting for `/favicon.ico` instead.
+ *
+ * No `og:url`: the renderer knows the app's origin but not where this page
+ * will be served, since the same file is uploaded to club servers over FTP.
+ * A previewer falls back to the URL it fetched, which is the right answer for
+ * both destinations; a stated-but-wrong one would not be.
+ */
+function renderOpenGraphTags(title: string, description: string): string {
+  const origin = appOrigin();
+  const image = origin ? `${origin}/opengraph-image.png` : '';
+  return [
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="Sail Scoring">`,
+    `<meta property="og:title" content="${esc(title)}">`,
+    `<meta property="og:description" content="${esc(description)}">`,
+    ...(image ? [`<meta property="og:image" content="${esc(image)}">`] : []),
+    `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">`,
+    `<meta name="twitter:title" content="${esc(title)}">`,
+    `<meta name="twitter:description" content="${esc(description)}">`,
+    ...(image ? [`<meta name="twitter:image" content="${esc(image)}">`] : []),
+  ].join('\n');
 }
 
 function formatTime(d: Date): string {
