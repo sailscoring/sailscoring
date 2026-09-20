@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -82,59 +82,64 @@ export function LegTable({ rows, onChange, showWind, showWindSpeed, newRow, chil
 
   return (
     <div className="space-y-1">
-      <div className={`grid ${grid} gap-1 text-xs text-muted-foreground`}>
-        <span>Distance (NM)</span>
-        <span>Bearing (°)</span>
-        {showWind && <span>Wind dir (°)</span>}
-        {showWindSpeed && <span>Wind (kt)</span>}
+      {/* Headers and rows share one grid, so the columns are sized once. As
+          separate grids they are not: the trailing column holds the remove
+          button in a row and nothing in the header, so it resolves to a
+          different width and the 1fr columns drift out from under their
+          headers. */}
+      <div className={`grid ${grid} gap-1`}>
+        <span className="text-xs text-muted-foreground">Distance (NM)</span>
+        <span className="text-xs text-muted-foreground">Bearing (°)</span>
+        {showWind && <span className="text-xs text-muted-foreground">Wind dir (°)</span>}
+        {showWindSpeed && <span className="text-xs text-muted-foreground">Wind (kt)</span>}
         <span />
+        {rows.map((row, i) => (
+          <Fragment key={i}>
+            <input
+              aria-label={`Leg ${i + 1} distance`}
+              className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+              value={row.distance}
+              inputMode="decimal"
+              onChange={(e) => setRow(i, 'distance', e.target.value)}
+            />
+            <input
+              aria-label={`Leg ${i + 1} bearing`}
+              className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+              value={row.bearing}
+              inputMode="decimal"
+              onChange={(e) => setRow(i, 'bearing', e.target.value)}
+            />
+            {showWind && (
+              <input
+                aria-label={`Leg ${i + 1} wind direction`}
+                className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                value={row.wind}
+                inputMode="decimal"
+                onChange={(e) => setRow(i, 'wind', e.target.value)}
+              />
+            )}
+            {showWindSpeed && (
+              <input
+                aria-label={`Leg ${i + 1} wind speed`}
+                className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
+                value={row.windSpeed}
+                inputMode="decimal"
+                onChange={(e) => setRow(i, 'windSpeed', e.target.value)}
+              />
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+              aria-label={`Remove leg ${i + 1}`}
+              onClick={() => onChange(rows.filter((_, j) => j !== i))}
+            >
+              ×
+            </Button>
+          </Fragment>
+        ))}
       </div>
-      {rows.map((row, i) => (
-        <div key={i} className={`grid ${grid} gap-1`}>
-          <input
-            aria-label={`Leg ${i + 1} distance`}
-            className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-            value={row.distance}
-            inputMode="decimal"
-            onChange={(e) => setRow(i, 'distance', e.target.value)}
-          />
-          <input
-            aria-label={`Leg ${i + 1} bearing`}
-            className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-            value={row.bearing}
-            inputMode="decimal"
-            onChange={(e) => setRow(i, 'bearing', e.target.value)}
-          />
-          {showWind && (
-            <input
-              aria-label={`Leg ${i + 1} wind direction`}
-              className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-              value={row.wind}
-              inputMode="decimal"
-              onChange={(e) => setRow(i, 'wind', e.target.value)}
-            />
-          )}
-          {showWindSpeed && (
-            <input
-              aria-label={`Leg ${i + 1} wind speed`}
-              className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
-              value={row.windSpeed}
-              inputMode="decimal"
-              onChange={(e) => setRow(i, 'windSpeed', e.target.value)}
-            />
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2"
-            aria-label={`Remove leg ${i + 1}`}
-            onClick={() => onChange(rows.filter((_, j) => j !== i))}
-          >
-            ×
-          </Button>
-        </div>
-      ))}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Button
