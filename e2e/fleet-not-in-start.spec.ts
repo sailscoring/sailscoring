@@ -4,10 +4,14 @@ import { addCompetitor, createFleets, createSeriesQuick, downloadFleetHtml, setS
 
 /**
  * A fleet added to a series whose races already have their starts is in none
- * of them (#562). For a handicap fleet that means the races score on crossing
- * order under the fleet's rating system's name — a standings table that looks
- * exactly like a corrected one. Two halves: the Standings tab says so, and
- * adding the fleet offers to put it in the starts a fleet already racing has.
+ * of them (#562).
+ *
+ * The starts are the statement of who sailed a race, so such a fleet is not in
+ * those races at all (#614): they score nothing for it and it takes no DNCs
+ * for them. The Standings tab says so — the fleet may genuinely have sat them
+ * out, or the scorer may have laid the starts before adding the fleet, and
+ * only they can tell the two apart — and adding the fleet offers to put it in
+ * the starts a fleet already racing has.
  *
  * Two boats whose crossing order and corrected order disagree, so which of
  * the two a fleet is showing is readable off the ranks alone:
@@ -114,30 +118,36 @@ async function scoreFleetOnIrc(page: Page, name: string) {
   }
 }
 
-test('a fleet left out of the race\'s start is flagged as scored on finishing order', async ({ page }) => {
+test('a fleet left out of the race\'s start is not in the race, and is told so', async ({ page }) => {
   await seriesWithOneStartedRace(page, 'Left Out of the Start 2026');
   await addFleet(page, 'Shadow Fleet', null);
   await scoreFleetOnIrc(page, 'Shadow Fleet');
 
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);
-  const warning = page.getByTestId('fleet-not-in-start-warning');
+  const warning = page.getByTestId('fleet-not-in-race-warning');
   await expect(warning).toBeVisible();
   await expect(warning).toContainText('Race 1');
-  await expect(warning).toContainText('not IRC');
+  await expect(warning).toContainText('add it to the race');
 
-  // Class 1 is in the start and corrects (SLOW first); the shadow fleet is not
-  // and ranks on crossing order (FAST first).
+  // Class 1 is in the start and corrects, so SLOW leads it. The shadow fleet
+  // is in no start, so the race is struck for it — not scored on crossing
+  // order under an IRC heading, which is a corrected table to look at.
   const tables = page.getByRole('table');
   await expect(tables).toHaveCount(2);
   await expect(tables.first().getByRole('row').nth(1)).toContainText('SLOW');
-  await expect(tables.last().getByRole('row').nth(1)).toContainText('FAST');
+  const shadow = tables.last();
+  for (const sail of ['FAST', 'SLOW']) {
+    // rank, sail, boat, name, club, rating, R1 — R1 is the struck column.
+    await expect(shadow.getByRole('row').filter({ hasText: sail }).getByRole('cell').last())
+      .toHaveText('0');
+  }
+  await expect(shadow).not.toContainText('DNC');
 
-  // The page still breaks the race down (#563): a fleet scored on crossing
-  // order publishes its race table, without the rating and corrected-time
-  // columns it had nothing to put in them.
+  // And the published page agrees: the fleet's race table carries no corrected
+  // times for a race it was not in, where a crossing-order ranking under an
+  // IRC heading would read as if it had been corrected. Class 1's does.
   const html = await fleetHtml(page, 'Shadow Fleet');
-  expect(html).toContain('class="racetable"');
   expect(html).not.toContain('<th>CT</th>');
   const corrected = await fleetHtml(page, 'Class 1');
   expect(corrected).toContain('<th>CT</th>');
@@ -158,3 +168,4 @@ test('adding a fleet offers to put it in the starts a racing fleet already has',
   await expect(tables.first().getByRole('row').nth(1)).toContainText('SLOW');
   await expect(tables.last().getByRole('row').nth(1)).toContainText('SLOW');
 });
+

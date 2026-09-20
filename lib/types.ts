@@ -1520,7 +1520,10 @@ export type RaceScoringGapReason =
   // no gun yet is a fleet waiting for its time; a fleet in no start at all was
   // never put in the race, so there is no elapsed time to correct and the race
   // falls back to finishing order under the handicap fleet's name.
-  | 'fleet_not_in_start';
+  | 'fleet_not_in_start'
+  /** The race has starts and none is this fleet's, so the fleet is not in the
+   *  race: it scores nothing there and takes no DNCs for it. */
+  | 'fleet_not_in_race';
 
 export interface RaceScoringGap {
   raceId: string;

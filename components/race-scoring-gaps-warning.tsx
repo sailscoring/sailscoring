@@ -43,6 +43,7 @@ export function RaceScoringGapsWarning({ gaps, races, fleet }: RaceScoringGapsWa
 
   const missing = gaps.filter((g) => g.reason === 'orc_course_missing');
   const unstarted = gaps.filter((g) => g.reason === 'fleet_not_in_start');
+  const notInRace = gaps.filter((g) => g.reason === 'fleet_not_in_race');
   const system = fleet ? ratingSystemLabel(fleet) : '';
 
   return (
@@ -54,6 +55,17 @@ export function RaceScoringGapsWarning({ gaps, races, fleet }: RaceScoringGapsWa
             {missing.map(describe).join('. ')}. Nothing in {missing.length === 1 ? 'it' : 'them'} is
             scored — enter the course on the race&apos;s start, or change the race&apos;s scoring
             option.
+          </span>
+        </div>
+      )}
+      {notInRace.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span data-testid="fleet-not-in-race-warning">
+            This fleet is in no start for {notInRace.map(name).join(', ')}, which other fleets
+            sailed, so {notInRace.length === 1 ? 'it does' : 'they do'} not count here and nobody
+            is scored DNC for {notInRace.length === 1 ? 'it' : 'them'}. If the fleet did sail,
+            add it to the race&apos;s start.
           </span>
         </div>
       )}

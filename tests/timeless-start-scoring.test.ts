@@ -89,3 +89,30 @@ describe('a handicap fleet in none of a race\'s starts', () => {
     expect(gaps([], [fleet], dnc)).toEqual([]);
   });
 });
+
+describe('a fleet in none of a race\'s starts, where other fleets have one', () => {
+  const other: Fleet = { id: 'f2', seriesId: 's1', name: 'HPH', displayOrder: 1, scoringSystem: 'tcf' };
+  /** A start for the other fleet alone — so `fleet` is not in this race. */
+  const othersStart: RaceStart = { id: 'rs1', raceId: 'r1', fleetIds: ['f2'], startTime: '14:00:00' };
+
+  it('says the fleet is not in the race, not that it is scored on finishing order', () => {
+    // The starts are the statement of who sailed the race, and this fleet is
+    // in none of them. Scoring the race on crossing order under the fleet's
+    // rating name would publish a table that looks corrected and is not.
+    expect(gaps([othersStart], [fleet, other])).toEqual([
+      { raceId: 'r1', fleetId: 'f1', reason: 'fleet_not_in_race' },
+    ]);
+  });
+
+  it('scores the race for nobody in the fleet — no points, and no DNCs', () => {
+    const result = calculateFleetStandings(
+      [fleet, other], competitors, races, finishes, [], 'seriesEntries', [othersStart],
+    );
+    const standings = result.fleetStandings.find((f) => f.fleet.id === 'f1')!.standings;
+    for (const s of standings) {
+      expect(s.racePoints).toEqual([0]);
+      expect(s.netPoints).toBe(0);
+      expect(s.raceCodes.filter((c) => c === 'DNC')).toEqual([]);
+    }
+  });
+});

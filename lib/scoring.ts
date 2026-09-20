@@ -2101,13 +2101,22 @@ function calculateHandicapStandings(
       raceExcluded[raceIdx] = true;
     }
 
-    // This fleet came to the start of a race it is in no start for, so the
-    // scores just built are finishing order carrying a rating system's name.
-    // Corrected times are what the fleet exists to publish and a standings
-    // table looks the same either way, so say so rather than let it pass for
-    // scored. A race that doesn't count for the fleet — not held, or all-DNC,
-    // or struck — says nothing about starts and is left alone.
-    if (!racesWithAStart.has(race.id) && !raceExcluded[raceIdx]) {
+    // The race has starts and none of them is this fleet's, so the race is not
+    // this fleet's and nothing recorded in it scored. Worth saying: the fleet
+    // may genuinely have sat the race out, or the scorer may have added it
+    // after the starts were laid and never put it in one, and only they can
+    // tell the two apart. Reported whether or not anything was recorded —
+    // that a race scores nothing here is exactly the news.
+    if (racesFleetIsOut.has(race.id)) {
+      raceGaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'fleet_not_in_race' });
+    } else if (!racesWithAStart.has(race.id) && !raceExcluded[raceIdx]) {
+      // The race has no starts at all, so every fleet is implied to be in it
+      // and it falls back to scratch: the scores just built are finishing
+      // order carrying a rating system's name. Corrected times are what the
+      // fleet exists to publish and a standings table looks the same either
+      // way, so say so rather than let it pass for scored. A race that
+      // doesn't count for the fleet — not held, or all-DNC, or struck — says
+      // nothing about starts and is left alone.
       raceGaps.push({ raceId: race.id, fleetId: fleet.id, reason: 'fleet_not_in_start' });
     }
 

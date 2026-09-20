@@ -90,7 +90,9 @@ test('VPRS fleet: standings ordered by corrected time', async ({ page }) => {
 
   // Standings: Gung-Ho (lowest CT) first, Boomerang (highest CT) last.
   await page.getByRole('link', { name: 'Standings' }).click();
-  await expect(page.getByText(/VPRS/)).toBeVisible();
+  // Scoped to the fleet's own section heading: the series name carries the
+  // word too, and now so does the breadcrumb above it.
+  await expect(page.getByRole('heading', { name: /VPRS/ })).toBeVisible();
   await expect(page.getByRole('row').nth(1)).toContainText('IRL216');
   await expect(page.getByRole('row').nth(3)).toContainText('IRL1367');
 });

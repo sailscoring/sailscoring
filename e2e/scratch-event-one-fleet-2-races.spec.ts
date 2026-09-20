@@ -274,9 +274,10 @@ test('unknown finish can be recorded and resolved', async ({ page }) => {
   await expect(page.getByText(/not registered in this series/)).toBeVisible();
   await page.getByRole('button', { name: 'Record as unknown' }).click();
 
-  // Unknown entry appears in finishing order
+  // Unknown entry appears in finishing order. Scoped to the list: the sail
+  // number is also echoed beside the input as the last boat in (#610).
   await expect(page.getByText('Unknown — not registered')).toBeVisible();
-  await expect(page.getByText('9999')).toBeVisible();
+  await expect(page.getByRole('list').getByText('9999')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Resolve' })).toBeVisible();
 
   // Resolve to Bob (1002)

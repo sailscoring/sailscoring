@@ -98,7 +98,9 @@ test('IRC fleet: standings ordered by corrected time', async ({ page }) => {
   await page.getByRole('link', { name: 'Standings' }).click();
 
   // IRC label should appear somewhere on the standings page
-  await expect(page.getByText(/IRC/)).toBeVisible();
+  // Scoped to the fleet's own section heading: the series name carries the
+  // word too, and now so does the breadcrumb above it.
+  await expect(page.getByRole('heading', { name: /IRC/ })).toBeVisible();
 
   // IRC3 has lowest CT (1650s) → rank 1 → first data row
   await expect(page.getByRole('row').nth(1)).toContainText('IRC3');
