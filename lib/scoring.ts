@@ -5,6 +5,7 @@ import { orcConstructedOption, orcCurveOption, orcFleetProfile, orcPcsRatable, o
 import { scorePcsRace, type PcsAllowances, type PcsCourseModel } from './orc-pcs';
 import { weightedRacePoints } from './race-scoring-options';
 import { parseHmsToSeconds } from './time-parse';
+import { racesFleetIsNotIn } from './race-membership';
 
 export const ECHO_DEFAULT_ALPHA = 0.25;  // Irish Sailing 2022 ECHO Guide: 75/25 club racing
 export const ECHO_REGATTA_ALPHA = 0.50;  // Irish Sailing 2022 ECHO Guide: 50/50 regattas/major events
@@ -1742,6 +1743,7 @@ function calculateHandicapStandings(
     racesWithAStart.add(rs.raceId);
     if (rs.startTime) startsByRaceId.set(rs.raceId, rs);
   }
+  const racesFleetIsOut = racesFleetIsNotIn(fleet.id, raceStarts);
 
   const finishesByRace = groupFinishesByRace(allFinishes);
 
@@ -1793,6 +1795,9 @@ function calculateHandicapStandings(
     // the progressive chain, so Phase B is skipped below (the handicap holds
     // across the struck race, as if it weren't sailed for this fleet).
     const forcedExcluded = excludedRaceIds?.has(race.id) ?? false;
+    // This fleet is not in the race — the race has starts and none is this
+    // fleet's — so nothing recorded in it is this fleet's result.
+    const fleetNotInRace = racesFleetIsOut.has(race.id);
 
     let scores: Map<string, HandicapRaceScore>;
     // Reported below, once this race's exclusion for the fleet is known.
@@ -1969,7 +1974,8 @@ function calculateHandicapStandings(
     // `raceFinishes` here is the whole sheet; `fleetRaceFinishes` is this
     // fleet (issue #129 — see computeRaceExclusion).
     const fleetRaceFinishes = raceFinishes.filter((f) => f.competitorId !== null && fleetCompetitorIds.has(f.competitorId));
-    raceExcluded[raceIdx] = computeRaceExclusion(raceFinishes, fleetRaceFinishes) || forcedExcluded;
+    raceExcluded[raceIdx] =
+      computeRaceExclusion(raceFinishes, fleetRaceFinishes) || forcedExcluded || fleetNotInRace;
 
     // Nobody in this race is scored: the option it resolved to corrects over a
     // course the start doesn't carry.
@@ -2316,6 +2322,10 @@ export function calculateFleetStandings(
       allCircular.push(...circularRedressRaces);
       return { fleet, standings, rejections: [...rejections, ...detectPerFleetGaps(fleet, fleetCompetitors, allFinishes)], raceGaps, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId, orcRaceScoresByRaceId, tcfHistory };
     }
+    // A scratch fleet is scored by `calculateStandings`, which takes no
+    // starts, so the races this fleet is not in join the ones a scorer struck
+    // by hand: both mean the same thing to it — this race is not ours.
+    const notIn = racesFleetIsNotIn(fleet.id, raceStarts);
     const { standings, circularRedressRaces } = calculateStandings(
       fleetCompetitors,
       races,
@@ -2323,7 +2333,7 @@ export function calculateFleetStandings(
       discardThresholds,
       dnfScoring,
       fleet.id,
-      excluded,
+      notIn.size > 0 ? new Set([...(excluded ?? []), ...notIn]) : excluded,
       proportionalDiscard,
     );
     allCircular.push(...circularRedressRaces);

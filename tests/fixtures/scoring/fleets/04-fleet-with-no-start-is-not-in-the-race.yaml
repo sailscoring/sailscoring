@@ -1,0 +1,107 @@
+description: "A fleet with no start in a race is not in it — a stale result there scores nothing"
+rrs_notes: >
+  Not a rule of the RRS so much as a statement about the sheet: the starts say
+  which fleets sailed a race, so a fleet with no start in it did not sail it.
+
+  The case this comes from is an ordinary race day. Classes 1-3 sailed both
+  races; classes 4 and 5 sailed only race 1. Race 2 was set up with all five
+  starts, a class 4 boat was marked DNF in it by mistake, and the class 4 and 5
+  starts were then deleted. Deleting a start is a start-row delete — the result
+  rows behind it are untouched — so the DNF survived, invisible on the finish
+  sheet (which scopes itself to the fleets that have a start) but still scored.
+
+  Left scored it does real damage. The race counts as held, because classes 1-3
+  finished it; the fleet counts as having come to the start, because of that one
+  stale non-DNC row. So race 2 counts for class 4, the stale boat takes its DNF,
+  and every other class 4 boat takes a DNC for a race their class never sailed.
+
+  Here: FleetB has a start in race 1 only, and a stale DNF for B1 in race 2.
+  Race 2 must score for FleetA alone. For FleetB it is struck — no points, no
+  DNCs, no discard credit — so both FleetB boats end on their race 1 scores.
+
+series:
+  discardThresholds: []
+  dnfScoring: seriesEntries
+
+competitors:
+  - sailNumber: "A1"
+    name: "Alice"
+    fleet: "FleetA"
+  - sailNumber: "A2"
+    name: "Bob"
+    fleet: "FleetA"
+  - sailNumber: "B1"
+    name: "Carol"
+    fleet: "FleetB"
+  - sailNumber: "B2"
+    name: "Dave"
+    fleet: "FleetB"
+
+races:
+  - number: 1
+    # Both fleets sailed race 1.
+    startFleets: ["FleetA", "FleetB"]
+    finishes:
+      - sailor: "A1"
+        position: 1
+      - sailor: "A2"
+        position: 2
+      - sailor: "B1"
+        position: 3
+      - sailor: "B2"
+        position: 4
+  - number: 2
+    # Only FleetA sailed race 2 — FleetB's start was deleted. B1's DNF is the
+    # stale row the deletion left behind.
+    startFleets: ["FleetA"]
+    finishes:
+      - sailor: "A1"
+        position: 2
+      - sailor: "A2"
+        position: 1
+      - sailor: "B1"
+        code: DNF
+
+# FleetA (N=2), both races scored:
+#   A1: 1 + 2 = 3  → rank 1 (A8.1: best scores 1,2 vs 1,2 → tied; A8.2 last race)
+#   A2: 2 + 1 = 3  → A2 wins race 2, so A2 takes rank 1 on the countback
+# FleetB (N=2), race 2 struck — 0 points and no code for both boats:
+#   B1: 1 (race 1 position 3 → 1st of FleetB)
+#   B2: 2
+expected:
+  standings:
+    - rank: 1
+      sailor: "A2"
+      fleet: "FleetA"
+      racePoints: [2, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 2
+      sailor: "A1"
+      fleet: "FleetA"
+      racePoints: [1, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 1
+      sailor: "B1"
+      fleet: "FleetB"
+      racePoints: [1, 0]
+      raceCodes: [null, "DNF"]
+      raceDiscards: [false, false]
+      totalPoints: 1
+      netPoints: 1
+
+    - rank: 2
+      sailor: "B2"
+      fleet: "FleetB"
+      racePoints: [2, 0]
+      raceCodes: [null, "DNC"]
+      raceDiscards: [false, false]
+      totalPoints: 2
+      netPoints: 2

@@ -127,6 +127,12 @@ export interface FixtureRejection {
 export interface FixtureRace {
   number?: number;
   startTime?: string;
+  /** The fleets that have a start in this race, by name. Absent means every
+   *  fleet does, which is what a single-start race means and what every
+   *  fixture predating per-fleet starts assumes. Naming a subset is how a
+   *  fixture says the other fleets did not sail this race — the starts are
+   *  the statement of who was in it. */
+  startFleets?: string[];
   /** Course length in NM — the time-on-distance scoring input, set on the
    *  race's start. */
   distanceNm?: number;
@@ -458,12 +464,21 @@ export function buildFixtureInputs(fixture: Fixture): FixtureInputs {
       }
       ratingOverrides.push({ id: `ro-${ri}-${o.sailor}-${o.field}`, raceId, competitorId, field: o.field, value: o.value });
     }
-    if (fr.startTime) {
+    if (fr.startTime || fr.startFleets) {
+      const startFleetIds = fr.startFleets
+        ? fr.startFleets.map((name) => {
+            const fleet = fleets.find((f) => f.name === name);
+            if (!fleet) {
+              throw new Error(`Fixture "${fixture.description}": unknown fleet "${name}" in startFleets`);
+            }
+            return fleet.id;
+          })
+        : fleets.map((f) => f.id);
       raceStarts.push({
         id: `rs-${ri}`,
         raceId,
-        fleetIds: fleets.map((f) => f.id),
-        startTime: fr.startTime,
+        fleetIds: startFleetIds,
+        ...(fr.startTime ? { startTime: fr.startTime } : {}),
         ...(fr.distanceNm != null ? { distanceNm: fr.distanceNm } : {}),
         ...(fr.orcOption ? { orcOption: fr.orcOption } : {}),
       });

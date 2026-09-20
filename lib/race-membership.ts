@@ -24,3 +24,29 @@ export function competitorsInRace(
   if (fleetIds.size === 0) return competitors;
   return competitors.filter((c) => c.fleetIds.some((id) => fleetIds.has(id)));
 }
+
+/**
+ * The races a fleet is *not* in: those that have a start for some fleet, but
+ * none for this one.
+ *
+ * The starts are the statement of who sailed a race, and a race with no starts
+ * at all has not been scoped yet — so there every fleet is implied, the same
+ * rule {@link competitorsInRace} applies to the finish sheet. Scoring uses
+ * this to leave such a race out of a fleet's standings entirely: deleting a
+ * start doesn't touch the result rows behind it, and results also arrive by
+ * import and by file round-trip, so a row can outlive the membership that
+ * made it scoreable. Left in, one stale row counts the whole race for the
+ * fleet and hands every other boat in it a DNC.
+ */
+export function racesFleetIsNotIn(
+  fleetId: string,
+  starts: readonly RaceStart[],
+): Set<string> {
+  const anyStart = new Set<string>();
+  const fleetStart = new Set<string>();
+  for (const s of starts) {
+    anyStart.add(s.raceId);
+    if (s.fleetIds.includes(fleetId)) fleetStart.add(s.raceId);
+  }
+  return new Set([...anyStart].filter((raceId) => !fleetStart.has(raceId)));
+}
