@@ -124,9 +124,10 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   // Alice leads with Nett=2 (drops her DNC of 6, keeps 1+1)
   await expect(aliceRow.getByRole('cell').nth(0)).toContainText('1');
 
-  // Alice's last race cell (Race 3) should be struck through
+  // Alice's last race cell (Race 3) reads in brackets, as the published page
+  // and Sailwave write a discard
   const aliceR3Cell = aliceRow.getByRole('cell').nth(7); // rank, sail, boat, name, club, R1, R2, R3
-  await expect(aliceR3Cell).toHaveClass(/line-through/);
+  await expect(aliceR3Cell).toHaveText('(6 DNC)');
 
   // Alice: Total=8, Nett=2
   const aliceCells = aliceRow.getByRole('cell');

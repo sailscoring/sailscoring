@@ -504,7 +504,7 @@ function StandingRow({
         // Medal-badge the top-three finishers of each race, mirroring the
         // overall Rank column (and the HTML export's td.rank1/2/3). Only clean,
         // non-discarded finishes qualify — coded/penalty/redress cells keep
-        // their existing treatment, and discards stay struck through.
+        // their existing treatment, and discards keep their brackets.
         const raceRank = raceRanks?.[i] ?? null;
         const showRaceMedal =
           raceRank !== null && raceRank <= 3 && !isDiscard;
@@ -540,42 +540,45 @@ function StandingRow({
             : raceRank !== null
               ? `${ordinal(raceRank)} × ${multiplier} = ${points}`
               : `Counts ×${multiplier}`;
+        const scoreText = isRedress ? (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            RDG({points})
+          </span>
+        ) : code !== null ? (
+          <span
+            className={cn(
+              'text-xs',
+              isNonDiscardable
+                ? 'text-destructive font-semibold'
+                : !isDiscard && 'text-muted-foreground',
+            )}
+            title={isNonDiscardable ? `${code} — cannot be discarded` : undefined}
+          >
+            {points} {code}
+          </span>
+        ) : penaltyLabel !== null ? (
+          <span className="text-xs text-amber-600 dark:text-amber-400" title={`${penaltyCode} penalty applied`}>
+            {points} {penaltyLabel}
+          </span>
+        ) : showRaceMedal ? (
+          <RankBadge rank={raceRank} label={points} />
+        ) : (
+          points
+        );
+        // A discarded score reads in brackets, as it does on the published
+        // page and in Sailwave — struck-through digits are hard to read, which
+        // is the whole point of a column of scores. The brackets go round the
+        // whole cell, so a discarded coded result reads "(5 DNF)".
         return (
           <TableCell
             key={i}
             title={weightNote}
             className={cn(
               'text-center tabular-nums',
-              isDiscard && 'line-through text-muted-foreground',
+              isDiscard && 'text-muted-foreground bg-muted/50',
             )}
           >
-            {isRedress ? (
-              <span className="text-xs text-amber-600 dark:text-amber-400">
-                RDG({points})
-              </span>
-            ) : code !== null ? (
-              <span
-                className={cn(
-                  'text-xs',
-                  isNonDiscardable
-                    ? 'text-destructive font-semibold'
-                    : !isDiscard && 'text-muted-foreground',
-                )}
-                title={isNonDiscardable ? `${code} — cannot be discarded` : undefined}
-              >
-                {points}
-                <span className="ml-0.5">({code})</span>
-              </span>
-            ) : penaltyLabel !== null ? (
-              <span className="text-xs text-amber-600 dark:text-amber-400" title={`${penaltyCode} penalty applied`}>
-                {points}
-                <span className="ml-0.5">({penaltyLabel})</span>
-              </span>
-            ) : showRaceMedal ? (
-              <RankBadge rank={raceRank} label={points} />
-            ) : (
-              points
-            )}
+            {isDiscard ? <>({scoreText})</> : scoreText}
           </TableCell>
         );
       })}

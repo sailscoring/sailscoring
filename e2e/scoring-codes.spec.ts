@@ -86,7 +86,7 @@ test('DNS, RET, and DSQ codes are assignable and appear in standings', async ({ 
 
 // ── Test 2: BFD is discardable (rule 30.4) ───────────────────────────────────
 
-test('BFD is struck through like any other code when it is the discarded worst score', async ({ page }) => {
+test('BFD is bracketed like any other code when it is the discarded worst score', async ({ page }) => {
   // A plain BFD is an ordinary disqualification and IS discardable (rule 30.4);
   // only the niche sail-the-restart case is non-excludable (scored DNE).
   // 4 competitors, N=4, penalty=5
@@ -169,17 +169,17 @@ test('BFD is struck through like any other code when it is the discarded worst s
   // Alice's Race 3 cell (col index: rank=0, sail=1, boat=2, name=3, club=4, R1=5, R2=6, R3=7)
   const aliceR3Cell = aliceRow.getByRole('cell').nth(7);
 
-  // BFD is the worst score and IS discardable, so the cell must be struck through
-  await expect(aliceR3Cell).toHaveClass(/line-through/);
+  // BFD is the worst score and IS discardable, so the cell reads in brackets
+  await expect(aliceR3Cell).toHaveText('(5 BFD)');
 
   // The BFD span must NOT carry the non-discardable (red) styling or tooltip
   const bfdSpan = aliceR3Cell.locator('span').first();
   await expect(bfdSpan).not.toHaveClass(/text-destructive/);
   await expect(bfdSpan).not.toHaveAttribute('title', 'BFD — cannot be discarded');
 
-  // Alice's Race 1 cell should NOT be struck through (the BFD was dropped instead)
+  // Alice's Race 1 cell should NOT be bracketed (the BFD was dropped instead)
   const aliceR1Cell = aliceRow.getByRole('cell').nth(5);
-  await expect(aliceR1Cell).not.toHaveClass(/line-through/);
+  await expect(aliceR1Cell).not.toContainText('(');
 
   // Alice leads with Nett=2 (BFD discarded); Bob is 2nd with Nett=3
   const aliceCells = aliceRow.getByRole('cell');
