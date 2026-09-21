@@ -25,8 +25,12 @@ describe('the vendored course-cards catalogue', () => {
     for (const set of sets) {
       expect(set.marks.count).toBeGreaterThan(0);
       expect(set.cards.length).toBeGreaterThan(0);
-      for (const card of set.cards) expect(card.courses).toBeGreaterThan(0);
+      // A card may print no courses at all — Schull Harbour's does not, and
+      // is the marks, the line and the instructions for a course called on
+      // the day — but a release where none of them did would be a bad sync.
+      for (const card of set.cards) expect(card.courses).toBeGreaterThanOrEqual(0);
     }
+    expect(sets.flatMap((s) => s.cards).some((c) => c.courses > 0)).toBe(true);
     const hyc = findCourseCardSet('hyc/al-2026')!;
     expect(courseCardSetLabel(hyc)).toBe('Howth Yacht Club — Autumn League 2026');
     expect(hyc.cards.map((c) => c.id)).toEqual(['offshore', 'inshore']);
@@ -34,5 +38,21 @@ describe('the vendored course-cards catalogue', () => {
 
   it('serves every file from the app’s own origin', () => {
     expect(courseCardFileUrl('hyc/al-2026/offshore.json')).toBe('/course-cards/hyc/al-2026/offshore.json');
+  });
+
+  it('carries what a chart needs to be placed, for every set that has one', () => {
+    // The app fetches the image and nothing else: where it sits, how big it
+    // is and who to credit all come from here.
+    const charted = courseCardSets().filter((s) => s.map);
+    expect(charted.length).toBeGreaterThan(0);
+    for (const set of charted) {
+      const map = set.map!;
+      expect(map.background.startsWith(`${set.path}/`)).toBe(true);
+      expect(map.width).toBeGreaterThan(0);
+      expect(map.height).toBeGreaterThan(0);
+      expect(map.bounds.north).toBeGreaterThan(map.bounds.south);
+      expect(map.bounds.east).toBeGreaterThan(map.bounds.west);
+      expect(map.attribution).toContain('OpenStreetMap');
+    }
   });
 });
