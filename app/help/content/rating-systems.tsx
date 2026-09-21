@@ -430,6 +430,20 @@ export default function RatingSystems() {
           shows before you save.
         </p>
         <p>
+          <strong className="text-foreground">The drawing is on the club’s
+          own chart.</strong> Each data set ships a chart of its water,
+          captured once from OpenStreetMap and OpenSeaMap — the shore, the
+          soundings and the navigation marks the crew sees — and a course over
+          that club’s marks is drawn on it: in the Courses tab, in every
+          dialog, and on the published page. A mark laid beyond what the
+          capture covers is drawn on plain ground beside it, and a series whose
+          marks were all entered by hand has no club chart to draw on, so it
+          keeps the plain grid. The chart travels inside the published page
+          rather than being fetched from a tile server, which is both what the
+          tile policy requires and what keeps a results page working with
+          nothing to load.
+        </p>
+        <p>
           A race start then <strong className="text-foreground">picks a course</strong>{' '}
           from the list — most recently used first — and its legs fill in at the one
           wind direction you give the start, pre-filled where the card lays the

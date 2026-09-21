@@ -237,12 +237,16 @@ it in the builder, the results renderer embeds the same string in the published
 page. No client-side map library, no runtime tile fetching, no dependency on an
 external origin from a published page.
 
-No chart background in the first cut — marks, legs, leg labels, a north arrow
-and a scale bar on a plain ground. Hot-linking OSM tiles from published pages
-is against their tile policy, and per-race tile capture is a project of its
-own. A later refinement is nearly free: each data set already ships a captured
-`map/background.png` with bounds, so a course inside its set's bounds can be
-drawn on the club's own chart with the set's attribution.
+The first cut had no chart background — marks, legs, leg labels, a north arrow
+and a scale bar on plain ground — because hot-linking OSM tiles from published
+pages is against their tile policy and per-race tile capture is a project of
+its own. The refinement it named has since landed (#598): every data set ships
+a `map/background.png` captured once, with the bounds it covers, and
+`renderCourseSvg` takes it as a background, embedding the image in the drawing
+and printing the set's attribution. One renderer still, so the builder's
+dialogs and the published page show the same water; a course that runs past
+what the club captured is drawn on plain ground beyond it. Nothing is fetched
+at runtime, from a published page or from the app.
 
 ## Getting cards into a workspace
 
