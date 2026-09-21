@@ -1679,6 +1679,20 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Searching help. The point is the narrowing, so it captures
+    // the index with a query typed and the results under the box.
+    slug: 'help-search',
+    group: 'Collaboration and accounts',
+    async capture({ page, shot }) {
+      await page.goto(`${BASE}/help`);
+      await settle(page);
+      await page.getByTestId('help-search').fill('discard');
+      await page.getByTestId('help-search-results').waitFor();
+      await settle(page);
+      await shot('help-search.png');
+    },
+  },
+  {
     // Inventory: Send feedback — the dialog with its attached context.
     slug: 'send-feedback',
     group: 'Collaboration and accounts',

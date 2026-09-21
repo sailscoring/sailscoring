@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { HELP_PANEL_MAX_WIDTH, HELP_PANEL_MIN_WIDTH, useHelpPanel } from './provider';
+import { PanelSearch } from './panel-search';
 
 /** The shareable form of what the panel is showing. The split-fleet section
  *  carries the vocabulary it is being read in, so the page opens in the same
@@ -301,6 +302,7 @@ export function HelpPanel() {
                 A guide to scoring a series with Sail Scoring, in short chapters. Pick a section
                 and it opens here, beside what you are working on.
               </p>
+              <PanelSearch groups={groups} onOpen={showChapter} />
               {here && (
                 <div className="rounded-md border bg-muted/50 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

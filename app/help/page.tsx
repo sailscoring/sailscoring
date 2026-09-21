@@ -5,7 +5,8 @@ import { getEffectiveFeatures } from '@/lib/auth/require-workspace';
 
 import Introduction from './content/introduction';
 import { HashRedirect } from './hash-redirect';
-import { visibleGroups } from './sections';
+import { HelpSearch } from './help-search';
+import { HELP_INTRODUCTION, visibleGroups } from './sections';
 
 export const metadata: Metadata = {
   title: 'Help — Sail Scoring',
@@ -29,6 +30,10 @@ export default async function HelpPage() {
           start at the top, or jump straight to a section.
         </p>
       </div>
+
+      {/* Filters the index below rather than replacing it: with the box empty
+          the page is exactly what it always was. */}
+      <HelpSearch groups={[HELP_INTRODUCTION, ...visibleGroups(features)]} />
 
       <nav className="text-sm space-y-6">
         {visibleGroups(features).map((group) => (

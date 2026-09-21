@@ -111,6 +111,35 @@ export default function Collaboration() {
           page to open it.
         </p>
       </Section>
+      <Section id="searching-help" title="Finding the right section">
+        <HelpShot
+          src="/help/shots/help-search.webp"
+          alt="The help index with “discard” typed, narrowed to the sections that cover it."
+          caption="The help index with “discard” typed, narrowed to the sections that cover it."
+        />
+        <p>
+          Help is 62 sections across 10 chapters, so there is a{' '}
+          <strong className="text-foreground">search box</strong> at the top of the
+          help index and at the top of the help panel. Type a word and the list
+          narrows to the sections that cover it. Press{' '}
+          <strong className="text-foreground">/</strong> to jump to the box.
+        </p>
+        <p>
+          It searches section titles and a list of keywords kept for each one, so the
+          words a scorer actually reaches for find their section even when no title
+          contains them — <em>DNC</em>, <em>OCS</em>, <em>RDG</em>, <em>TCF</em>,{' '}
+          <em>nett</em>, <em>burgee</em>, <em>stopwatch</em>. Sailwave and HalSail
+          names for the same thing are in there too, so <em>blw</em> finds the
+          Sailwave import and <em>flight</em> finds split-fleet championships. Two
+          words narrow rather than widen: <em>discard rule</em> finds the discards
+          section, not everything mentioning a rule.
+        </p>
+        <p>
+          It does not search the text inside a chapter — a word used only halfway
+          through a section won’t be found. Sections gated to features your workspace
+          doesn’t have aren’t listed and aren’t searched.
+        </p>
+      </Section>
       <Section id="reading-help" title="Reading help beside your work">
         <HelpShot
           src="/help/shots/help-panel.webp"
