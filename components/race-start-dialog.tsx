@@ -38,6 +38,7 @@ import {
   legsForStart,
   legsMatch,
   legsOfWaypoints,
+  markLibrarySet,
   resolveCourse,
   snapshotOfCourse,
   windForCardCourse,
@@ -311,6 +312,10 @@ function RaceStartDialogInner({
   }
 
   const drawing = useMemo(() => (snapshot ? drawnStartCourse(snapshot) : null), [snapshot]);
+  // The chart the course sits on. A snapshot taken before waypoints carried
+  // their data set names none, so the series' own library answers for it —
+  // the same fallback the published page makes.
+  const drawingSetPath = drawing?.set ?? markLibrarySet(libraryMarks ?? []);
 
   // A gentle nudge when the chosen option needs course data the start lacks;
   // saving is still allowed — the race falls back to scratch until the
@@ -607,7 +612,7 @@ function RaceStartDialogInner({
               )}
               {drawing && (
                 <>
-                  <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawing.set} width={440} title="Course drawing" />
+                  <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawingSetPath} width={440} title="Course drawing" />
                   {drawing.fromLegs && (
                     <p className="text-xs text-muted-foreground">
                       Drawn from the course&apos;s legs — the shape and the direction
