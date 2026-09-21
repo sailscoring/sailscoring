@@ -63,6 +63,20 @@ export class UpstreamError extends Error {
 }
 
 /**
+ * Thrown when the caller asks for something deliberately throttled in the
+ * app — today, forcing a handicap source to refetch (#594). Distinct from
+ * Better Auth's own limiter below, which guards the door rather than a
+ * particular action, and carries the wait in seconds so the UI can say how
+ * long rather than only that it refused.
+ */
+export class RateLimitedError extends Error {
+  constructor(public readonly retryAfterSeconds: number) {
+    super('rate-limited');
+    this.name = 'RateLimitedError';
+  }
+}
+
+/**
  * Thrown when a write targets a read-only series: archived (#154), an
  * as-published archive (ADR-010), or one whose results have been marked
  * final. Mapped to 423 Locked — deliberately *not* 409, so it doesn't collide
@@ -189,6 +203,12 @@ export function errorToResponse(err: unknown): Response {
   }
   if (err instanceof ZodError) {
     return Response.json({ error: 'invalid', issues: err.issues }, { status: 400 });
+  }
+  if (err instanceof RateLimitedError) {
+    return Response.json(
+      { error: 'rate-limited', retryAfter: err.retryAfterSeconds },
+      { status: 429, headers: { 'retry-after': String(err.retryAfterSeconds) } },
+    );
   }
   // Better Auth throws an APIError when a request trips a rate limit (notably
   // the api-key plugin's per-key cap, reached during a Bearer-token request).

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   DialogDescription,
@@ -41,6 +41,7 @@ import {
 import type { Fleet } from '@/lib/types';
 
 import { AddToFleetSection } from './add-to-fleet-section';
+import { RefreshSource } from './refresh-source';
 import { RemoveFromFleetSection } from './remove-from-fleet-section';
 import { PreviewSection } from './preview-section';
 import {
@@ -129,6 +130,7 @@ export function OrcSourceStep({
   const allLoaded = needed.every(({ q }) => q.data != null);
 
   const defaultCountry = defaultSailCountry();
+  const queryClient = useQueryClient();
   const { data: series } = useSeries(seriesId);
   const updateSeries = useUpdateSeries();
   const seriesHasRaces = useSeriesHasRaces(seriesId);
@@ -347,7 +349,23 @@ export function OrcSourceStep({
 
             {updatedAt && (
               <p className="text-xs text-muted-foreground">
-                ORC certificates as of {updatedAt}.
+                ORC certificates as of {updatedAt}.{' '}
+                <RefreshSource
+                  what={`ORC certificates for ${countryId}`}
+                  onRefresh={async () => {
+                    // Every family this series needs, since they are one
+                    // listing to the scorer even though the cache keys them
+                    // apart — and the throttle is per family, so refreshing
+                    // the set is one action rather than three refusals.
+                    for (const family of familiesNeeded) {
+                      const fresh = await loadOrcCertificates(countryId, family, { refresh: true });
+                      queryClient.setQueryData(
+                        queryKeys.orcCertificates.byCountryFamily(countryId, family),
+                        fresh,
+                      );
+                    }
+                  }}
+                />
               </p>
             )}
 

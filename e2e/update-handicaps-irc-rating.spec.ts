@@ -424,3 +424,51 @@ test('a boat matched by name alone is never added to a fleet, and starts unticke
   await compRow.click();
   await expect(page.getByLabel('IRC TCC', { exact: true })).toHaveValue('1.005');
 });
+
+test('Refresh from source refetches past the cache (#594)', async ({ page }) => {
+  // The listing the scorer would be handed from cache, and the one upstream
+  // has after a re-rate — distinguished by the as-of stamp.
+  const refreshed = {
+    updatedAt: '02/06/2026',
+    records: [{ sailNumber: 'IRL1431', boatName: '3 Cheers', ircTcc: 0.94, ircNonSpinTcc: 0.925, isSecondary: false }],
+  };
+  const asked: string[] = [];
+  await page.route('**/api/v1/handicap-sources/irc-rating*', (route) => {
+    const url = new URL(route.request().url());
+    asked.push(url.searchParams.get('refresh') ?? '');
+    return route.fulfill({ json: url.searchParams.get('refresh') ? refreshed : RATINGS_FIXTURE });
+  });
+
+  await createSeriesQuick(page, { name: 'IRC Refresh Test 2026' });
+  await createFleets(page, ['IRC']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL1431');
+  await page.getByLabel('Competitor name').fill('3 Cheers');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL1431' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('IRC TCC (international)').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  // The cached listing, proposing 0.932.
+  await expect(page.getByText('IRC ratings as of 30/05/2026')).toBeVisible();
+  await expect(page.getByRole('cell', { name: '— → 0.932' })).toBeVisible();
+
+  // Refreshing re-reads the source and re-plans against what came back.
+  await page.getByTestId('refresh-source').click();
+  await expect(page.getByTestId('refresh-source-message')).toHaveText('Refreshed.');
+  await expect(page.getByText('IRC ratings as of 02/06/2026')).toBeVisible();
+  await expect(page.getByRole('cell', { name: '— → 0.94' })).toBeVisible();
+
+  // The second read asked for a refetch; the first did not.
+  expect(asked.at(0)).toBe('');
+  expect(asked.at(-1)).toBe('1');
+});

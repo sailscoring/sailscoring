@@ -53,6 +53,19 @@ export interface ConflictDetail {
   byCurrentUser?: boolean;
 }
 
+/**
+ * A deliberately throttled action — forcing a handicap source to refetch
+ * (#594), or Better Auth's own limiter. `retryAfterSeconds` is what the
+ * server said to wait, so a caller can tell the person how long rather than
+ * only that it refused.
+ */
+export class RateLimitedApiError extends ApiError {
+  constructor(public readonly retryAfterSeconds?: number) {
+    super('rate-limited', 429);
+    this.name = 'RateLimitedApiError';
+  }
+}
+
 export class ConflictApiError extends ApiError {
   constructor(public readonly detail?: ConflictDetail) {
     super('conflict', 409);
@@ -156,7 +169,7 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
-    const errBody = parsed as { error?: string; reason?: string; resource?: string; issues?: unknown; detail?: unknown } | string | undefined;
+    const errBody = parsed as { error?: string; reason?: string; resource?: string; issues?: unknown; detail?: unknown; retryAfter?: number } | string | undefined;
     if (res.status === 404 && opts.allow404) return undefined as T;
     if (res.status === 401) throw new AuthError();
     if (res.status === 403) throw new ForbiddenApiError(typeof errBody === 'object' ? errBody?.reason : undefined);
@@ -169,6 +182,10 @@ export async function apiFetch<T = unknown>(
       );
     }
     if (res.status === 400) throw new ValidationApiError(typeof errBody === 'object' ? errBody?.issues : undefined);
+    if (res.status === 429) {
+      const retryAfter = typeof errBody === 'object' ? errBody?.retryAfter : undefined;
+      throw new RateLimitedApiError(typeof retryAfter === 'number' ? retryAfter : undefined);
+    }
     if (res.status === 502 && typeof errBody === 'object' && errBody?.error === 'upstream') {
       const upstream = errBody as { message?: string; source?: string };
       throw new UpstreamApiError(upstream.message ?? 'upstream', upstream.source);

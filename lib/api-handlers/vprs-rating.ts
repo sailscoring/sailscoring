@@ -4,6 +4,7 @@ import { unstable_cache } from 'next/cache';
 
 import { BadRequestError } from '@/app/api/v1/_lib/handler';
 import { requireFeature, type WorkspaceContext } from '@/lib/auth/require-workspace';
+import { forceSourceRefresh } from './handicap-source-refresh';
 import {
   fetchVprsClubIndex,
   fetchVprsRatings,
@@ -40,9 +41,21 @@ export async function getVprsClubs(
 export async function getVprsClubRatings(
   workspace: WorkspaceContext,
   clubId: string,
+  opts?: { refresh?: boolean },
 ): Promise<VprsRatings> {
   requireFeature(workspace, 'vprs');
   if (!clubId) throw new BadRequestError('a VPRS club id is required');
+
+  // Per club, like the cache entry: one club's list going stale is nothing
+  // to do with another's.
+  const scopedTag = `vprs-rating:${clubId}`;
+  if (opts?.refresh) {
+    await forceSourceRefresh(workspace, {
+      tag: scopedTag,
+      key: scopedTag,
+      label: `the VPRS list for ${clubId}`,
+    });
+  }
 
   // Resolve the id against the cached index rather than trusting a caller-
   // supplied URL — we only ever fetch listings the index actually advertises
@@ -54,6 +67,6 @@ export async function getVprsClubRatings(
   // and the rest reuse it within the window.
   return unstable_cache(() => fetchVprsRatings(club.url), ['vprs-rating', clubId], {
     revalidate: REVALIDATE_SECONDS,
-    tags: ['vprs-rating'],
+    tags: ['vprs-rating', scopedTag],
   })();
 }

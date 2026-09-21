@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   DialogDescription,
@@ -20,6 +20,7 @@ import {
 } from '@/lib/source-handicaps';
 
 import { AddToFleetSection } from './add-to-fleet-section';
+import { RefreshSource } from './refresh-source';
 import { PreviewSection } from './preview-section';
 import {
   MatchByNameCheckbox,
@@ -47,6 +48,7 @@ export function IrishSailingSourceStep({
   onCancel,
 }: SourceStepProps) {
   const sel = useRatingListSelections();
+  const queryClient = useQueryClient();
 
   const irishRatings = useQuery({
     queryKey: queryKeys.irishSailingRatings.all,
@@ -149,7 +151,14 @@ export function IrishSailingSourceStep({
 
             {irishRatings.data.updatedAt && (
               <p className="text-xs text-muted-foreground">
-                Irish Sailing ratings as of {irishRatings.data.updatedAt}.
+                Irish Sailing ratings as of {irishRatings.data.updatedAt}.{' '}
+                <RefreshSource
+                  what="the Irish Sailing ECHO list"
+                  onRefresh={async () => {
+                    const fresh = await loadIrishSailingRatings({ refresh: true });
+                    queryClient.setQueryData(queryKeys.irishSailingRatings.all, fresh);
+                  }}
+                />
               </p>
             )}
 

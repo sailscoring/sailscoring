@@ -834,8 +834,12 @@ export function listTcfHistoryBySeries(seriesId: string): Promise<TcfRecord[]> {
  * the Update Handicaps dialog (#168). Server-fetched from sailing.ie and
  * cached; gated behind the `echo` feature.
  */
-export function loadIrishSailingRatings(): Promise<IrishSailingRatings> {
-  return apiFetch<IrishSailingRatings>('/api/v1/handicap-sources/irish-sailing');
+/** `refresh` forces the server past its six-hour cache (#594). Workspace
+ *  admins only, and throttled — see `handicap-source-refresh.ts`. */
+export function loadIrishSailingRatings(opts?: { refresh?: boolean }): Promise<IrishSailingRatings> {
+  return apiFetch<IrishSailingRatings>(
+    `/api/v1/handicap-sources/irish-sailing${opts?.refresh ? '?refresh=1' : ''}`,
+  );
 }
 
 /**
@@ -843,8 +847,10 @@ export function loadIrishSailingRatings(): Promise<IrishSailingRatings> {
  * Handicaps dialog (#168 follow-up). Server-fetched from the RORC/IRC
  * ClubListing and cached; gated behind the `irc-rating` feature.
  */
-export function loadIrcRatings(): Promise<IrcRatings> {
-  return apiFetch<IrcRatings>('/api/v1/handicap-sources/irc-rating');
+export function loadIrcRatings(opts?: { refresh?: boolean }): Promise<IrcRatings> {
+  return apiFetch<IrcRatings>(
+    `/api/v1/handicap-sources/irc-rating${opts?.refresh ? '?refresh=1' : ''}`,
+  );
 }
 
 /**
@@ -867,8 +873,10 @@ export function loadRaceSenseRegatta(
 export function loadOrcCertificates(
   countryId: string,
   family: import('./orc-certificate').OrcFamily,
+  opts?: { refresh?: boolean },
 ): Promise<import('./orc-certificate').OrcCertListing> {
   const params = new URLSearchParams({ country: countryId, family });
+  if (opts?.refresh) params.set('refresh', '1');
   return apiFetch(`/api/v1/handicap-sources/orc?${params}`);
 }
 
@@ -886,10 +894,13 @@ export function loadVprsClubs(): Promise<{ clubs: VprsClub[] }> {
  * when the scorer picks that club. `clubId` is a {@link VprsClub.id} from
  * {@link loadVprsClubs}; the server validates it against the index.
  */
-export function loadVprsClubRatings(clubId: string): Promise<VprsRatings> {
-  return apiFetch<VprsRatings>(
-    `/api/v1/handicap-sources/vprs-rating?club=${encodeURIComponent(clubId)}`,
-  );
+export function loadVprsClubRatings(
+  clubId: string,
+  opts?: { refresh?: boolean },
+): Promise<VprsRatings> {
+  const params = new URLSearchParams({ club: clubId });
+  if (opts?.refresh) params.set('refresh', '1');
+  return apiFetch<VprsRatings>(`/api/v1/handicap-sources/vprs-rating?${params}`);
 }
 
 /**

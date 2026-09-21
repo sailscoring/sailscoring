@@ -7,6 +7,7 @@ import {
   fetchIrishSailingRatings,
   type IrishSailingRatings,
 } from '@/lib/irish-sailing-ratings';
+import { forceSourceRefresh } from './handicap-source-refresh';
 
 // Irish Sailing ratings import is an experimental, gated feature (#168, #155).
 // The fetch reaches an external site, so the gate is enforced server-side —
@@ -26,7 +27,15 @@ const getCachedRatings = unstable_cache(
 
 export async function getIrishSailingRatings(
   workspace: WorkspaceContext,
+  opts?: { refresh?: boolean },
 ): Promise<IrishSailingRatings> {
   requireFeature(workspace, 'echo');
+  if (opts?.refresh) {
+    await forceSourceRefresh(workspace, {
+      tag: 'irish-sailing-ratings',
+      key: 'irish-sailing-ratings',
+      label: 'the Irish Sailing ECHO list',
+    });
+  }
   return getCachedRatings();
 }

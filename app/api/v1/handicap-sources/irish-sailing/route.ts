@@ -1,8 +1,14 @@
 import { getIrishSailingRatings } from '@/lib/api-handlers/irish-sailing';
+import { wantsRefresh } from '@/lib/api-handlers/handicap-source-refresh';
 import { workspaceRoute } from '../../_lib/handler';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = workspaceRoute(async (_req, { workspace }) =>
-  getIrishSailingRatings(workspace),
+// `?refresh=1` forces a refetch, bypassing the six-hour cache (#594). It takes
+// `manage-workspace` and is throttled, because it reaches someone else's
+// server.
+export const GET = workspaceRoute(async (req, { workspace }) =>
+  getIrishSailingRatings(workspace, {
+    refresh: wantsRefresh(new URL(req.url).searchParams.get('refresh')),
+  }),
 );

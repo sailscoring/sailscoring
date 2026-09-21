@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   DialogDescription,
@@ -23,6 +23,7 @@ import {
 } from '@/lib/source-handicaps';
 
 import { AddToFleetSection } from './add-to-fleet-section';
+import { RefreshSource } from './refresh-source';
 import { RemoveFromFleetSection } from './remove-from-fleet-section';
 import { PreviewSection } from './preview-section';
 import {
@@ -64,6 +65,7 @@ export function IrcRatingSourceStep({
 
   // Country to assume for a competitor's prefix-less sail number (deployment
   // parameter — IRL by default). Matters most against the worldwide IRC list.
+  const queryClient = useQueryClient();
   const defaultCountry = defaultSailCountry();
   // Recorded on every rating this step applies, so a boat's number can be
   // traced back to the list and the day it was read off (#615).
@@ -222,7 +224,14 @@ export function IrcRatingSourceStep({
 
             {ircRatings.data.updatedAt && (
               <p className="text-xs text-muted-foreground">
-                IRC ratings as of {ircRatings.data.updatedAt}.
+                IRC ratings as of {ircRatings.data.updatedAt}.{' '}
+                <RefreshSource
+                  what="the IRC rating list"
+                  onRefresh={async () => {
+                    const fresh = await loadIrcRatings({ refresh: true });
+                    queryClient.setQueryData(queryKeys.ircRatings.all, fresh);
+                  }}
+                />
               </p>
             )}
 

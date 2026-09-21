@@ -9,6 +9,7 @@ import {
   type OrcCertListing,
   type OrcFamily,
 } from '@/lib/orc-certificate';
+import { forceSourceRefresh } from './handicap-source-refresh';
 
 // ORC scoring (and this certificate source) is gated behind the `orc`
 // feature. The fetches reach data.orc.org, so the gate is enforced
@@ -27,6 +28,7 @@ export async function getOrcCertificates(
   workspace: WorkspaceContext,
   countryParam: string,
   familyParam: string,
+  opts?: { refresh?: boolean },
 ): Promise<OrcCertListing> {
   requireFeature(workspace, 'orc');
 
@@ -39,9 +41,22 @@ export async function getOrcCertificates(
     throw new BadRequestError(`unknown ORC certificate family: ${familyParam}`);
   }
 
+  // Tagged per country and family as well as with the shared tag (#594):
+  // refreshing Irish certificates should not throw away every other
+  // country's, which a scorer may have waited on and will not think to
+  // re-fetch.
+  const scopedTag = `orc-certs:${countryId}:${family}`;
+  if (opts?.refresh) {
+    await forceSourceRefresh(workspace, {
+      tag: scopedTag,
+      key: scopedTag,
+      label: `ORC ${family} certificates for ${countryId}`,
+    });
+  }
+
   return unstable_cache(
     () => fetchOrcCertificates(countryId, family as OrcFamily),
     ['orc-certs', countryId, family],
-    { revalidate: REVALIDATE_SECONDS, tags: ['orc-certs'] },
+    { revalidate: REVALIDATE_SECONDS, tags: ['orc-certs', scopedTag] },
   )();
 }

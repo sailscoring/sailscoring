@@ -4,6 +4,7 @@ import { unstable_cache } from 'next/cache';
 
 import { requireFeature, type WorkspaceContext } from '@/lib/auth/require-workspace';
 import { fetchIrcRatings, type IrcRatings } from '@/lib/irc-rating';
+import { forceSourceRefresh } from './handicap-source-refresh';
 
 // International IRC TCC import is an experimental, gated feature (#168 follow-up,
 // #155). The fetch reaches an external site, so the gate is enforced
@@ -21,7 +22,19 @@ const getCachedRatings = unstable_cache(() => fetchIrcRatings(), ['irc-rating'],
   tags: ['irc-rating'],
 });
 
-export async function getIrcRatings(workspace: WorkspaceContext): Promise<IrcRatings> {
+export async function getIrcRatings(
+  workspace: WorkspaceContext,
+  opts?: { refresh?: boolean },
+): Promise<IrcRatings> {
   requireFeature(workspace, 'irc-rating');
+  // A scorer who knows the list was regenerated — a boat re-rated after a
+  // protest — can say so rather than wait out the window (#594).
+  if (opts?.refresh) {
+    await forceSourceRefresh(workspace, {
+      tag: 'irc-rating',
+      key: 'irc-rating',
+      label: 'the IRC rating list',
+    });
+  }
   return getCachedRatings();
 }

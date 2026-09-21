@@ -41,6 +41,10 @@ export const ACTIVITY_ACTIONS = [
   'competitors.imported',
   'competitors.rrs_pushed',
   'competitors.handicaps_updated',
+  // A scorer forced one of the external rating feeds to refetch (#594). A
+  // workspace action, not a series one: the listing is shared, and the
+  // handicap update that follows is logged against its own series.
+  'handicaps.source-refreshed',
   'competitors.cleared',
   'competitors.deleted',
   'competitors.updated',
@@ -113,8 +117,16 @@ export type ActivityKind =
  */
 export function activityKind(action: string): ActivityKind {
   if (action.startsWith('series.')) return 'series';
-  // The archive identity apply (ADR-010) groups with the competitor work.
-  if (action.startsWith('competitor') || action.startsWith('identities.')) return 'competitor';
+  // The archive identity apply (ADR-010) groups with the competitor work, and
+  // so does a rating-source refresh: a handicap is a competitor's, and the
+  // refresh reads in the feed the update that follows it applies.
+  if (
+    action.startsWith('competitor') ||
+    action.startsWith('identities.') ||
+    action.startsWith('handicaps.')
+  ) {
+    return 'competitor';
+  }
   if (action.startsWith('fleet') || action.startsWith('split-fleets.')) return 'fleet';
   if (action.startsWith('finish')) return 'finish';
   // The course library is race data: what the starts were scored over.

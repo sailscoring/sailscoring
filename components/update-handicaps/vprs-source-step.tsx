@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   DialogDescription,
@@ -24,6 +24,7 @@ import { defaultSailCountry, type IrcTccVariant } from '@/lib/rating-match';
 import { planVprsUpdates, type PreviewRow } from '@/lib/source-handicaps';
 
 import { PreviewSection } from './preview-section';
+import { RefreshSource } from './refresh-source';
 import {
   FleetVariantSelector,
   MatchByNameCheckbox,
@@ -54,6 +55,7 @@ export function VprsSourceStep({
   const [variantByFleet, setVariantByFleet] = useState<Record<string, IrcTccVariant>>({});
   const [matchByName, setMatchByName] = useState(false);
   const exclusions = useExcludedRowIds();
+  const queryClient = useQueryClient();
 
   // The club index loads when the step opens; the selected club's listing
   // loads only once a club is picked, matching the server's per-club caching.
@@ -204,7 +206,17 @@ export function VprsSourceStep({
 
                 {vprsRatings.data.updatedAt && (
                   <p className="text-xs text-muted-foreground">
-                    VPRS ratings as of {vprsRatings.data.updatedAt}.
+                    VPRS ratings as of {vprsRatings.data.updatedAt}.{' '}
+                    <RefreshSource
+                      what="this club's VPRS list"
+                      onRefresh={async () => {
+                        const fresh = await loadVprsClubRatings(vprsClubId!, { refresh: true });
+                        queryClient.setQueryData(
+                          queryKeys.vprsClubRatings.byClub(vprsClubId!),
+                          fresh,
+                        );
+                      }}
+                    />
                   </p>
                 )}
 

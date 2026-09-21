@@ -593,6 +593,15 @@ export default function RatingSystems() {
           other.
         </p>
         <p>
+          The preview names the date of the listing it planned against. The list is fetched once
+          and reused for six hours, so seeding a second series the same afternoon doesn’t go back
+          to the source. When that isn’t good enough — a boat re-rated after a protest this
+          morning — <strong className="text-foreground">Refresh from source</strong> beside the
+          date fetches the list again and re-plans against what comes back. It reaches the rating
+          list’s own server, so it is for workspace administrators and is limited to once a minute
+          per source; press it twice and it says how long to wait.
+        </p>
+        <p>
           Every rating applied from the list is stored with the certificate it came from: its
           number, the sail number and boat name <em>the certificate</em> carries, the hull
           length, beam and crew, and which listing it was read off with that listing’s
@@ -663,6 +672,15 @@ export default function RatingSystems() {
           issue; unmatched boats are left unchanged, and the add-to-fleet /
           not-on-the-list sections work as they do for IRC.
         </p>
+        <p>
+          Certificates are fetched once and reused for six hours, and the preview names the date
+          it planned against. ORC amends certificates through the season, so this is the source
+          the wait matters most for:{' '}
+          <strong className="text-foreground">Refresh from source</strong> beside the date fetches
+          the chosen country and family again — leaving any other country you have already pulled
+          alone — and re-plans against what comes back. It is for workspace administrators, and
+          limited to once a minute per country and family.
+        </p>
       </Section>
       )}
       {has('vprs') && (
@@ -687,6 +705,12 @@ export default function RatingSystems() {
           offered under <strong className="text-foreground">Add to handicap fleet</strong>, and
           is refused when the two sail numbers name different countries. Boats not on the club’s
           list are left unchanged.
+        </p>
+        <p>
+          The club’s list is fetched once and reused for six hours, and the preview names the date
+          it planned against. <strong className="text-foreground">Refresh from source</strong>{' '}
+          beside the date fetches that club’s list again — other clubs you have already pulled are
+          left alone. It is for workspace administrators, and limited to once a minute per club.
         </p>
       </Section>
       )}
@@ -733,6 +757,13 @@ export default function RatingSystems() {
           boat to a fleet mid-series means it is scored{' '}
           <strong className="text-foreground">DNC</strong> for races already sailed in that fleet,
           so this is opt-in per boat.
+        </p>
+        <p>
+          The national list is fetched once and reused for six hours, and the preview names the
+          date it planned against. When Irish Sailing has republished since —{' '}
+          <strong className="text-foreground">Refresh from source</strong> beside the date fetches
+          it again and re-plans against what comes back. It is for workspace administrators, and
+          limited to once a minute.
         </p>
       </Section>
       )}
