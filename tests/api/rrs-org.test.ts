@@ -34,7 +34,10 @@ function uuid() {
 }
 
 const EVENT_UUID = 'd17854ef-f55f-4ab6-8429-3f55527b6e9f';
-const PUSH_LOG = path.join(process.cwd(), 'tests', '.rrs-org.log');
+// Own log file, not the stub's default: `revision-capture.test.ts` pushes
+// through the same stub, and vitest runs the two files in parallel processes,
+// so a shared append-only log has each reading the other's pushes.
+const PUSH_LOG = path.join(process.cwd(), 'tests', '.rrs-org.unit.log');
 
 function makeRow(id: string, overrides?: Partial<RrsOrgCompetitor>): RrsOrgCompetitor {
   return {
@@ -109,6 +112,7 @@ describe.skipIf(skip)('pushCompetitorsToRrsOrg', () => {
 
     prevUrl = process.env.RRS_ORG_API_URL;
     process.env.RRS_ORG_API_URL = 'https://rrs-org.test/api/competitors';
+    process.env.RRS_ORG_LOG_FILE = PUSH_LOG;
   });
 
   afterAll(async () => {
@@ -118,6 +122,8 @@ describe.skipIf(skip)('pushCompetitorsToRrsOrg', () => {
     await sql?.end();
     if (prevUrl === undefined) delete process.env.RRS_ORG_API_URL;
     else process.env.RRS_ORG_API_URL = prevUrl;
+    delete process.env.RRS_ORG_LOG_FILE;
+    await fs.rm(PUSH_LOG, { force: true });
   });
 
   beforeEach(async () => {

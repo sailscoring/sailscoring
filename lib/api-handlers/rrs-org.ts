@@ -28,9 +28,12 @@ function rrsOrgUrl(): string {
 
 /** E2e stub, mirroring `sendFeedbackEmail`: a `.test` host writes the payload
  *  to `tests/.rrs-org.log` (one JSON line per push) instead of the network,
- *  so the suite can assert on what would have been sent. */
+ *  so the suite can assert on what would have been sent. `RRS_ORG_LOG_FILE`
+ *  moves it: unit test files run in parallel processes, and one shared
+ *  append-only log would have each of them reading the others' pushes. */
 async function logStubPush(payload: unknown): Promise<void> {
-  const file = path.join(process.cwd(), 'tests', '.rrs-org.log');
+  const file =
+    process.env.RRS_ORG_LOG_FILE || path.join(process.cwd(), 'tests', '.rrs-org.log');
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.appendFile(
     file,

@@ -11,6 +11,9 @@
  *
  * Skipped when DATABASE_URL is unset; CI and `pnpm test:unit:db` provide it.
  */
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
@@ -35,6 +38,10 @@ function uuid() {
 
 const ACTOR = 'usr_revision_capture_actor';
 const EVENT_UUID = 'd17854ef-f55f-4ab6-8429-3f55527b6e9f';
+// The push stub's log, moved off its default: `rrs-org.test.ts` asserts on
+// exactly what it finds there, and vitest runs the two files in parallel
+// processes, so a push logged here would show up as one of its own.
+const PUSH_LOG = path.join(process.cwd(), 'tests', '.rrs-org.revisions.log');
 
 function sampleSeries(id: string, name = 'Autumn League') {
   return {
@@ -122,6 +129,7 @@ describe.skipIf(skip)('series mutations capture revisions', () => {
     };
     prevUrl = process.env.RRS_ORG_API_URL;
     process.env.RRS_ORG_API_URL = 'https://rrs-org.test/api/competitors';
+    process.env.RRS_ORG_LOG_FILE = PUSH_LOG;
   });
 
   afterAll(async () => {
@@ -132,6 +140,8 @@ describe.skipIf(skip)('series mutations capture revisions', () => {
     await sql?.end();
     if (prevUrl === undefined) delete process.env.RRS_ORG_API_URL;
     else process.env.RRS_ORG_API_URL = prevUrl;
+    delete process.env.RRS_ORG_LOG_FILE;
+    await fs.rm(PUSH_LOG, { force: true });
   });
 
   test('an rrs.org push snapshots the settings it just stored', async () => {
