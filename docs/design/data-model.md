@@ -216,7 +216,9 @@ Course is a named sequence of Marks in sailing order with the side each is
 left on, made from a card's numbered course or by hand. A Start that sails
 a Course keeps a snapshot of it — the resolved waypoints and the wind —
 beside the legs it is scored on, so what was scored never moves when the
-library is edited.
+library is edited. A waypoint off a charted mark names the data set it was
+adopted from, which is the chart the course is drawn on wherever it is
+drawn.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
