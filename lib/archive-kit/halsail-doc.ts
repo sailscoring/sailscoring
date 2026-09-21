@@ -47,6 +47,9 @@ export interface HalsailDocInput {
   season?: string;
   /** Pinned display labels for interior folders under the slug (ADR-011). */
   folders?: Array<{ path: string; label: string }>;
+  /** A note on every page of the publication, and notes on one page each. */
+  seriesNote?: string;
+  pageNotes?: Array<{ page: string; text: string }>;
   fleets: HalsailFleetInput[];
 }
 
@@ -180,6 +183,8 @@ export function buildHalsailArchiveDoc(input: HalsailDocInput): ArchiveSeriesDoc
       publishedSlug: input.publishedSlug,
       ...(input.season ? { season: input.season } : {}),
       ...(input.folders?.length ? { folders: input.folders } : {}),
+      ...(input.seriesNote ? { seriesNote: input.seriesNote } : {}),
+      ...(input.pageNotes?.length ? { pageNotes: input.pageNotes } : {}),
     },
     fleets,
     competitors: [...pool.values()],

@@ -77,6 +77,11 @@ export interface SailwaveDocInput {
   season?: string;
   /** Pinned display labels for interior folders under the slug (ADR-011). */
   folders?: Array<{ path: string; label: string }>;
+  /** A note on every page of the publication, and notes on one page each —
+   *  where an archived result needs to say something its figures cannot, such
+   *  as that it was transcribed rather than captured. */
+  seriesNote?: string;
+  pageNotes?: Array<{ page: string; text: string }>;
   fleets: SailwaveFleetInput[];
   /** Combined pages; the named fleets publish only as their sections. */
   combinedPages?: SailwaveCombinedPageInput[];
@@ -436,6 +441,8 @@ export function buildSailwaveArchiveDoc(
       publishedSlug: input.publishedSlug,
       ...(input.season ? { season: input.season } : {}),
       ...(input.folders?.length ? { folders: input.folders } : {}),
+      ...(input.seriesNote ? { seriesNote: input.seriesNote } : {}),
+      ...(input.pageNotes?.length ? { pageNotes: input.pageNotes } : {}),
     },
     fleets,
     ...(input.combinedPages && input.combinedPages.length > 0

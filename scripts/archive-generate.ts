@@ -111,6 +111,17 @@ const seriesSchema = z.object({
   folders: z
     .array(z.object({ path: z.string().min(1), label: z.string().min(1) }))
     .optional(),
+  /** A note rendered on every page of this publication, and notes rendered on
+   *  one page each (#628). What an archived result needs when its figures
+   *  cannot say it for themselves: that it was transcribed from a photograph
+   *  rather than captured, that the source contradicts itself, where the
+   *  original is. Re-asserted on every ingest, like the slug. */
+  seriesNote: z.string().max(2000).optional(),
+  pageNotes: z
+    .array(
+      z.object({ page: z.string().min(1), text: z.string().min(1).max(2000) }),
+    )
+    .optional(),
   fleets: z.array(fleetSchema).min(1),
 });
 
@@ -158,6 +169,8 @@ function buildSeries(
     publishedSlug: entry.publishedSlug,
     season: entry.season,
     folders: entry.folders,
+    seriesNote: entry.seriesNote,
+    pageNotes: entry.pageNotes,
   };
   if (entry.source === 'halsail') {
     return buildHalsailArchiveDoc({
