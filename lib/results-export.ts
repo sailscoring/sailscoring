@@ -61,7 +61,30 @@ import { pageNoteFor, type NotePageRef } from './page-note';
 import { isSyntheticFleetName } from './publishing';
 import { buildStartersChecklist } from './starters-checklist';
 import { seriesSlug } from './series-name';
-import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, ResultCode, PenaltyCode, Series, Standing } from './types';
+import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, RaceStart, ResultCode, PenaltyCode, Series, Standing } from './types';
+import type { CourseBackground } from '@sailscoring/course-cards';
+
+/**
+ * The captured charts a series' published courses are drawn on: one per data
+ * set its starts' snapshotted marks were adopted from — almost always one,
+ * since a series takes its marks off one club's card. Undefined when nothing
+ * can be loaded, which leaves every course on plain ground.
+ */
+async function loadCourseCharts(
+  raceStarts: RaceStart[],
+  load: ((set: string) => Promise<CourseBackground | undefined>) | undefined,
+): Promise<ReadonlyMap<string, CourseBackground> | undefined> {
+  if (!load) return undefined;
+  const sets = new Set<string>();
+  for (const start of raceStarts) {
+    for (const w of start.course?.waypoints ?? []) if (w.set) sets.add(w.set);
+  }
+  if (sets.size === 0) return undefined;
+  const loaded = await Promise.all([...sets].map(async (set) => [set, await load(set)] as const));
+  const charts = new Map<string, CourseBackground>();
+  for (const [set, chart] of loaded) if (chart) charts.set(set, chart);
+  return charts.size > 0 ? charts : undefined;
+}
 
 /**
  * Builds one fleet's page data. `section` replaces the standings with a slice
@@ -577,11 +600,20 @@ export async function buildFleetHtmlFiles(
     raceResultsHref?: string;
     dataPath?: string;
     generatedAt?: Date;
+    /** How to read a course-cards data set's captured chart, so a published
+     *  constructed course can be drawn on the club's own water. Passed in
+     *  rather than imported: the dialogs fetch it from the app's origin and
+     *  the publish route reads it off disk. Omit it and courses draw on plain
+     *  ground, as they did before there were charts. */
+    loadCourseBackground?: (set: string) => Promise<CourseBackground | undefined>;
   },
 ): Promise<FleetHtmlBuild | null> {
   const snapshot = dropUnsailedRaces(await loadSeriesSnapshot(repos, seriesId));
   if (!snapshot || snapshot.competitors.length === 0) return null;
   const generatedAt = opts?.generatedAt ?? new Date();
+  // The charts this series' courses sit on: one per data set its snapshotted
+  // marks came from, which for all but a rare series is one.
+  const courseBackgrounds = await loadCourseCharts(snapshot.raceStarts, opts?.loadCourseBackground);
   // Split-fleet series (#328): the published output is the championship
   // standings page (tiered, fleet-tinted, cut line), the per-race results
   // page (every stage race, one table per fleet), and the rolling
@@ -1160,6 +1192,7 @@ export async function buildFleetHtmlFiles(
           // So a race subheading reads "5-Band All Purpose L/M · time-on-time"
           // rather than IRL_5B_AP_LM_TOT (#602).
           ...(series.orcScoringOptions ? { orcScoringOptions: series.orcScoringOptions } : {}),
+          ...(courseBackgrounds ? { courseBackgrounds } : {}),
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;

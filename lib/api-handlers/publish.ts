@@ -29,6 +29,7 @@ import {
 } from '@/lib/published-repository';
 import { seasonLikeSlug, sharedFolderSegment } from '@/lib/published-tree';
 import { groupApplies, producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
+import { readCourseBackground } from '@/lib/course-cards/backgrounds-server';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { UnscorableRace } from '@/lib/results-export';
 import type { ExportRepos } from '@/lib/public-export';
@@ -362,6 +363,9 @@ export async function publishSeries(
       // A rebuild says what the publish it re-renders said: the results are
       // provisional as of when the scorer published them, not as of now.
       ...(opts.rebuildOnly ? { generatedAt: new Date(existing!.publishedAt) } : {}),
+      // The charts published courses are drawn on, read off disk: this is
+      // the one place pages are built on the server.
+      loadCourseBackground: readCourseBackground,
     },
   );
   if (!build) throw new NotFoundError('series has no publishable results');

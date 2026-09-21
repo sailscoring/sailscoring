@@ -8,6 +8,19 @@ import type { OrcCertData, OrcCourseLeg, OrcRaceCalc, RaceStartCourse } from '@/
 
 import sampleCerts from '@/scripts/data/orc-sample-certs.json';
 
+import type { CourseBackground } from '@sailscoring/course-cards';
+
+/** Howth's captured chart as the publish path hands it over: the bounds and
+ *  pixel size of the set's map/background.png, with bytes standing in for
+ *  the image. */
+const hycChart: CourseBackground = {
+  png: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 1, 2, 3]),
+  bounds: { south: 53.378333, west: -6.117948, north: 53.465167, east: -6.004886 },
+  width: 1317,
+  height: 1698,
+  attribution: '© OpenStreetMap contributors · © OpenSeaMap contributors',
+};
+
 /**
  * The published ORC audit trail: every PCS/ToD race table carries the line a
  * competitor needs to reproduce their corrected time — scoring wind and its
@@ -35,6 +48,8 @@ function gridOf(html: string): string {
 function assemble(options: {
   orc: (id: string) => OrcRaceCalc;
   raceStarts?: Array<{ raceId: string; fleetIds: string[]; startTime?: string; courseLegs?: OrcCourseLeg[]; course?: RaceStartCourse }>;
+  /** The captured charts the publish path loads, by data set. */
+  courseBackgrounds?: ReadonlyMap<string, CourseBackground>;
   /** Certificates on the competitors — without them there is no allowance
    *  matrix to mix, and the handicap-mix fold is correctly absent. */
   certs?: boolean;
@@ -69,6 +84,7 @@ function assemble(options: {
       raceStarts: options.raceStarts ?? [{ raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00' }],
       fleetId: 'f1',
       scoringSystem: 'orc',
+      ...(options.courseBackgrounds ? { courseBackgrounds: options.courseBackgrounds } : {}),
     },
   );
 }
@@ -193,7 +209,81 @@ describe('published ORC transparency', () => {
     expect(block).toContain('aria-label="Course W/L — 12 Sep R1"');
     expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 190° 0\.54 NM/);
     expect(block).toContain('>Z</text>');
+    // Nothing to fetch and nothing to run: a course off marks with no data
+    // set behind them is drawn on plain ground.
     expect(block).not.toMatch(/<script|<style|<image|href=/);
+  });
+
+  it('draws a published course on its club’s chart, embedded in the page', () => {
+    const start = { lat: 53.4055, lng: -6.0675 };
+    const html = renderSeriesHtml(
+      assemble({
+        orc: (id) => ({
+          todApplied: id === 'c1' ? 600 : 620,
+          scratchTod: 600,
+          distanceNm: 1.08,
+          courseModel: 'CC',
+        }),
+        courseBackgrounds: new Map([['hyc/al-2026', hycChart]]),
+        raceStarts: [{
+          raceId: 'r1',
+          fleetIds: ['f1'],
+          startTime: '14:00:00',
+          courseLegs: [{ distanceNm: 0.54, bearingDeg: 190, windDirectionDeg: 190 }],
+          course: {
+            name: 'W/L — 12 Sep R1',
+            windDirectionDeg: 190,
+            waypoints: [
+              { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng },
+              { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', fixed: true, set: 'hyc/al-2026' },
+              { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng, side: 'port' },
+            ],
+          },
+        }],
+      }),
+    );
+    const from = html.indexOf('<div class="orc-course-drawing"');
+    const block = html.slice(from, html.indexOf('</div>', from));
+    // The chart itself, and the attribution its tile sources require.
+    expect((block.match(/<image href="data:image\/png;base64,[A-Za-z0-9+/=]+"/g) ?? []).length).toBe(1);
+    expect(block).toContain('© OpenStreetMap contributors · © OpenSeaMap contributors');
+    // Still inert, and still nothing fetched: the one href on the page is
+    // the image the renderer embedded itself.
+    expect(block).not.toMatch(/<script|<style/);
+    expect((block.match(/href=/g) ?? []).length).toBe(1);
+    expect(block).not.toMatch(/href="(?!data:image\/png;base64,)/);
+    // And the course is drawn over it as it always was.
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 190° 0\.54 NM/);
+    expect(block).toContain('>Z</text>');
+  });
+
+  it('draws on plain ground when the course’s data set has no chart loaded', () => {
+    const start = { lat: 53.4055, lng: -6.0675 };
+    const html = renderSeriesHtml(
+      assemble({
+        orc: (id) => ({ todApplied: id === 'c1' ? 600 : 620, scratchTod: 600, distanceNm: 1.08, courseModel: 'CC' }),
+        // A chart for a different club: this course's set is not in it.
+        courseBackgrounds: new Map([['rcyc/keelboat-2026', hycChart]]),
+        raceStarts: [{
+          raceId: 'r1',
+          fleetIds: ['f1'],
+          startTime: '14:00:00',
+          courseLegs: [{ distanceNm: 0.54, bearingDeg: 190, windDirectionDeg: 190 }],
+          course: {
+            name: 'W/L — 12 Sep R1',
+            windDirectionDeg: 190,
+            waypoints: [
+              { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng },
+              { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', fixed: true, set: 'hyc/al-2026' },
+            ],
+          },
+        }],
+      }),
+    );
+    const from = html.indexOf('<div class="orc-course-drawing"');
+    const block = html.slice(from, html.indexOf('</div>', from));
+    expect(block).toContain('>Z</text>');
+    expect(block).not.toMatch(/<image|href=/);
   });
 
   it('a plain time-on-distance race states the correction ingredients without a scoring wind', () => {

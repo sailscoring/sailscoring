@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import * as repos from '@/lib/api-repository';
+import { loadCourseBackground } from '@/lib/course-cards';
 import { useRecordFtpUpload, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
 import { useFtpServers } from '@/hooks/use-ftp-servers';
 import { useFeatures } from '@/components/features-provider';
@@ -201,6 +202,7 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
         includePageNotes: has('page-notes'),
         ...(raceResultsHref ? { raceResultsHref } : {}),
         ...(dataUrl ? { dataPath: new URL(dataUrl).pathname } : {}),
+        loadCourseBackground,
       },
     );
     if (!build) {

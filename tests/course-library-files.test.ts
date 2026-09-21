@@ -97,7 +97,7 @@ const start: RaceStart = {
     waypoints: [
       { markId: 'm-line', label: 'Start', lat: 53.4055, lng: -6.0675 },
       { markId: 'm-z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' },
-      { markId: 'm-i', label: 'I', lat: 53.411667, lng: -6.072667, side: 'starboard', passing: true, fixed: true },
+      { markId: 'm-i', label: 'I', lat: 53.411667, lng: -6.072667, side: 'starboard', passing: true, fixed: true, set: 'hyc/al-2026' },
       { markId: 'm-line', label: 'Start', lat: 53.4055, lng: -6.0675, side: 'port' },
     ],
     windDirectionDeg: 190,
@@ -227,7 +227,9 @@ describe('.sailscoring v45 course library round-trip', () => {
     expect(saved.waypoints.map((w) => w.markId)).toEqual([
       idByName.get('Start — 12 Sep'), idByName.get('Z — 12 Sep R1'), idByName.get('Island'), idByName.get('Start — 12 Sep'),
     ]);
-    expect(saved.waypoints[2]).toMatchObject({ lat: 53.411667, lng: -6.072667, fixed: true, passing: true });
+    // The set travels with the waypoint: it is what the published drawing
+    // finds the club's chart by, and the mark it names may be gone by then.
+    expect(saved.waypoints[2]).toMatchObject({ lat: 53.411667, lng: -6.072667, fixed: true, passing: true, set: 'hyc/al-2026' });
     expect(saved.windDirectionDeg).toBe(190);
     expect(saved.legsEdited).toBe(true);
     expect(savedStarts[0].courseLegs).toEqual(start.courseLegs);
@@ -322,7 +324,7 @@ describe('public export course library round-trip', () => {
     const exported = data.races[0].starts[0].course!;
     expect(exported.course).toBe('19 — 12 Sep R1');
     expect(exported.waypoints[1]).toEqual({ mark: 'Z — 12 Sep R1', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' });
-    expect(exported.waypoints[2]).toMatchObject({ mark: 'Island', fixed: true, passing: true });
+    expect(exported.waypoints[2]).toMatchObject({ mark: 'Island', fixed: true, passing: true, set: 'hyc/al-2026' });
     expect(exported.windDirectionDeg).toBe(190);
     expect(exported.legsEdited).toBe(true);
     // No internal ids leak.

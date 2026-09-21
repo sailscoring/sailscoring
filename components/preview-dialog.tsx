@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
+import { loadCourseBackground } from '@/lib/course-cards';
 import { buildFleetHtmlFiles, fleetHtmlFilename, fleetPdfTitle, triggerDownload } from '@/lib/results-export';
 import { useFeatures } from '@/components/features-provider';
 import { PageNoteStrip } from '@/components/page-note-editor';
@@ -74,6 +75,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
         includeEntryList,
         includeTrackData,
         includePageNotes,
+        loadCourseBackground,
       }).then((build) => build?.files ?? null),
     [series.id, includePrizes, includeEntryList, includeTrackData, includePageNotes],
   );

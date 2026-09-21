@@ -2,7 +2,7 @@ import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKe
 import { buildOrcMix, type OrcMix } from './orc-mix';
 import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
-import { renderCourseSvg } from '@sailscoring/course-cards';
+import { renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
 import { drawnStartCourse } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
@@ -3006,6 +3006,12 @@ export function assembleSeriesResultsData(
      *  label a race's subheading prints, so the renderer never has to know
      *  about certificates. */
     orcScoringOptions?: OrcScoringOptionCatalog;
+    /** The captured charts of the course-cards data sets this series' marks
+     *  came from, by set path. A drawn course whose set is here is drawn on
+     *  the club's own water, the image embedded in the page; one whose set is
+     *  not is drawn on plain ground. The caller loads them — the browser and
+     *  the publish route read them from different places. */
+    courseBackgrounds?: ReadonlyMap<string, CourseBackground>;
   },
 ): SeriesResultsData {
   const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
@@ -3072,7 +3078,15 @@ export function assembleSeriesResultsData(
                 // table has no marks, but its bearings and distances fix the
                 // shape and the direction exactly.
                 const drawn = drawnStartCourse(coveringStart.course);
-                const svg = renderCourseSvg(drawn.marks, drawn.course, { width: 480, title: `Course ${coveringStart.course.name}` });
+                // The club's chart under the course, where the marks came
+                // off a data set that captured one. Embedded by the renderer,
+                // never linked: a published page fetches nothing.
+                const chart = drawn.set ? options?.courseBackgrounds?.get(drawn.set) : undefined;
+                const svg = renderCourseSvg(drawn.marks, drawn.course, {
+                  width: 480,
+                  title: `Course ${coveringStart.course.name}`,
+                  ...(chart ? { background: chart } : {}),
+                });
                 return svg ? { courseSvg: svg, ...(drawn.fromLegs ? { courseSvgFromLegs: true } : {}) } : {};
               })()
             : {}),
