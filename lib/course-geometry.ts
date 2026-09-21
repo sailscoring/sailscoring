@@ -387,6 +387,12 @@ export function drawnMarks(marks: SeriesMark[]): DrawnMark[] {
   }));
 }
 
+/** The data set a series' charted marks came from — the chart a drawing of
+ *  them belongs on, by the same rule `drawingSet` applies to a snapshot. */
+export function markLibrarySet(marks: Pick<SeriesMark, 'card'>[]): string | undefined {
+  return drawingSet(marks.map((m) => (m.card ? { set: m.card.set } : {})));
+}
+
 /** A course's sequence as the renderer takes it, over the library's marks. */
 export function drawnCourse(marks: SeriesCourseMark[]): DrawnCourseMark[] {
   return marks.map((cm) => ({

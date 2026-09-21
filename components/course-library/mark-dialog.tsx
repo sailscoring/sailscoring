@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { drawnMarks, positionFrom, proposeMarkName, toMetres, type DistanceUnit, type NamingContext } from '@/lib/course-geometry';
+import { drawnMarks, markLibrarySet, positionFrom, proposeMarkName, toMetres, type DistanceUnit, type NamingContext } from '@/lib/course-geometry';
 import type { SeriesMark } from '@/lib/types';
 
 import { CourseDrawing } from './course-drawing';
@@ -253,7 +253,7 @@ function MarkDialogInner({
               {formatPosition({ lat: editing.lat, lng: editing.lng }, { minuteDecimals: 3 })}
             </p>
           )}
-          <CourseDrawing marks={drawn} highlight={position ? '__new__' : undefined} width={480} title="Marks drawing" />
+          <CourseDrawing marks={drawn} set={markLibrarySet(marks)} highlight={position ? '__new__' : undefined} width={480} title="Marks drawing" />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 mt-2">

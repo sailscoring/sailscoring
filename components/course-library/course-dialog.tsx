@@ -20,6 +20,7 @@ import {
   drawnCourse,
   drawnLegTable,
   drawnMarks,
+  markLibrarySet,
   legDistance,
   matchCardCourse,
   proposeCourseName,
@@ -225,7 +226,12 @@ function CourseDialogInner({
 
   const drawing = useMemo(() => {
     const used = new Set(sequence.map((cm) => cm.markId));
-    return { marks: drawnMarks(library.filter((m) => used.has(m.id))), course: drawnCourse(sequence.filter((cm) => libraryById.has(cm.markId))) };
+    const over = library.filter((m) => used.has(m.id));
+    return {
+      marks: drawnMarks(over),
+      course: drawnCourse(sequence.filter((cm) => libraryById.has(cm.markId))),
+      set: markLibrarySet(over),
+    };
   }, [sequence, library, libraryById]);
 
   // A leg table has no positions, but its bearings and distances fix the
@@ -511,7 +517,7 @@ function CourseDialogInner({
               <p className="text-xs text-destructive">A mark this course used is no longer in the library; its rows are skipped.</p>
             )}
             {source !== 'legs' ? (
-              <CourseDrawing marks={drawing.marks} course={drawing.course} width={520} title="Course drawing" />
+              <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawing.set} width={520} title="Course drawing" />
             ) : (
               <>
                 <CourseDrawing

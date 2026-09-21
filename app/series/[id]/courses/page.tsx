@@ -33,7 +33,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ValidationApiError } from '@/lib/api-client';
 import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCardSet, loadCourseCard } from '@/lib/course-cards';
-import { adoptCardMarks, courseIsLegTable, courseLegsOf, drawnCourse, drawnMarks, resolveCourse, type NamingContext } from '@/lib/course-geometry';
+import { adoptCardMarks, courseIsLegTable, courseLegsOf, drawnCourse, drawnMarks, markLibrarySet, resolveCourse, type NamingContext } from '@/lib/course-geometry';
 import type { SeriesCourse, SeriesMark } from '@/lib/types';
 import {
   useDeleteSeriesCourse,
@@ -280,7 +280,7 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
       {marks.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-lg font-semibold">Drawing</h2>
-          <CourseDrawing marks={drawnMarks(marks)} width={640} title="Marks drawing" className="max-w-2xl" />
+          <CourseDrawing marks={drawnMarks(marks)} set={markLibrarySet(marks)} width={640} title="Marks drawing" className="max-w-2xl" />
         </section>
       )}
 
@@ -413,9 +413,11 @@ function SwapMarkDialogInner({
   const [name, setName] = useState(course.name);
   const [error, setError] = useState('');
   const swapped = fromId && toId ? course.marks.map((cm) => (cm.markId === fromId ? { ...cm, markId: toId } : cm)) : course.marks;
+  const drawnOver = marks.filter((m) => swapped.some((cm) => cm.markId === m.id));
   const drawing = {
-    marks: drawnMarks(marks.filter((m) => swapped.some((cm) => cm.markId === m.id))),
+    marks: drawnMarks(drawnOver),
     course: drawnCourse(swapped),
+    set: markLibrarySet(drawnOver),
   };
 
   async function handleSave() {
@@ -475,7 +477,7 @@ function SwapMarkDialogInner({
               aria-label="New course name"
             />
           </div>
-          <CourseDrawing marks={drawing.marks} course={drawing.course} width={480} title="Course drawing" />
+          <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawing.set} width={480} title="Course drawing" />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 mt-2">
