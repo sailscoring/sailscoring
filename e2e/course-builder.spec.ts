@@ -101,6 +101,12 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await pick(page, 'adopt-dialog-card', /offshore/);
   await page.getByTestId('adopt-save').click();
   await expect(page.getByText('From the card')).toBeVisible();
+  // The club's own water under its marks: the set's captured chart, fetched
+  // from the app's origin and drawn inside the SVG, not linked from it.
+  const drawing = page.getByTestId('course-drawing');
+  await expect(drawing).toHaveAttribute('data-chart', 'set');
+  await expect(drawing.locator('image')).toHaveAttribute('href', /^data:image\/png;base64,/);
+  await expect(drawing).toContainText('© OpenStreetMap contributors');
   await page.getByTestId('adopt-card').click();
   await expect(page.getByTestId('adopt-dialog-set')).toContainText('Howth Yacht Club');
   await page.getByRole('button', { name: 'Cancel' }).click();
@@ -248,6 +254,10 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   expect(html).toContain('class="orc-course-drawing"');
   expect(html).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
   expect(html).toContain('aria-label="Course K1 — 12 Sep R1"');
+  // The chart travels inside the page: a results page fetches nothing, and
+  // the tile sources are credited where their pixels are shown.
+  expect(html).toContain('<image href="data:image/png;base64,');
+  expect(html).toContain('© OpenStreetMap contributors · © OpenSeaMap contributors');
 });
 
 test("a course that is the committee's leg table, pasted once and reused", async ({ page }) => {
