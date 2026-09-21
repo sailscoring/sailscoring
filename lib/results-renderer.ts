@@ -3012,6 +3012,11 @@ export function assembleSeriesResultsData(
      *  not is drawn on plain ground. The caller loads them — the browser and
      *  the publish route read them from different places. */
     courseBackgrounds?: ReadonlyMap<string, CourseBackground>;
+    /** The set to draw a course on when its own waypoints name none — the
+     *  series' own, from its mark library. Snapshots taken before waypoints
+     *  carried their set are the reason: the course was picked off the club's
+     *  card either way, and the club has one chart. */
+    courseBackgroundSet?: string;
   },
 ): SeriesResultsData {
   const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
@@ -3081,7 +3086,8 @@ export function assembleSeriesResultsData(
                 // The club's chart under the course, where the marks came
                 // off a data set that captured one. Embedded by the renderer,
                 // never linked: a published page fetches nothing.
-                const chart = drawn.set ? options?.courseBackgrounds?.get(drawn.set) : undefined;
+                const set = drawn.set ?? options?.courseBackgroundSet;
+                const chart = set ? options?.courseBackgrounds?.get(set) : undefined;
                 const svg = renderCourseSvg(drawn.marks, drawn.course, {
                   width: 480,
                   title: `Course ${coveringStart.course.name}`,

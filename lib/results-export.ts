@@ -22,6 +22,7 @@ import {
 } from './results-renderer';
 import { allocatePrizes } from './prizes';
 import { competitorRatingFor, ratingSystemLabel, ratingUnitLabel } from './competitor-ratings';
+import { markLibrarySet } from './course-geometry';
 import { groupFleets } from './fleet-groups';
 import { orcCurveOption, orcPcsRatable, orcProfileRating, orcRaceProfile } from './orc-certificate';
 import {
@@ -72,6 +73,7 @@ import type { CourseBackground } from '@sailscoring/course-cards';
  */
 async function loadCourseCharts(
   raceStarts: RaceStart[],
+  seriesSet: string | undefined,
   load: ((set: string) => Promise<CourseBackground | undefined>) | undefined,
 ): Promise<ReadonlyMap<string, CourseBackground> | undefined> {
   if (!load) return undefined;
@@ -79,6 +81,9 @@ async function loadCourseCharts(
   for (const start of raceStarts) {
     for (const w of start.course?.waypoints ?? []) if (w.set) sets.add(w.set);
   }
+  // Only where there is a course to draw: a series with a mark library but no
+  // start that sailed a course has nothing for a chart to go under.
+  if (seriesSet && raceStarts.some((s) => s.course)) sets.add(seriesSet);
   if (sets.size === 0) return undefined;
   const loaded = await Promise.all([...sets].map(async (set) => [set, await load(set)] as const));
   const charts = new Map<string, CourseBackground>();
@@ -612,8 +617,15 @@ export async function buildFleetHtmlFiles(
   if (!snapshot || snapshot.competitors.length === 0) return null;
   const generatedAt = opts?.generatedAt ?? new Date();
   // The charts this series' courses sit on: one per data set its snapshotted
-  // marks came from, which for all but a rare series is one.
-  const courseBackgrounds = await loadCourseCharts(snapshot.raceStarts, opts?.loadCourseBackground);
+  // marks came from, which for all but a rare series is one. The series' own
+  // set stands in for a start whose waypoints name none — every snapshot
+  // taken before they did.
+  const courseBackgroundSet = markLibrarySet(snapshot.marks ?? []);
+  const courseBackgrounds = await loadCourseCharts(
+    snapshot.raceStarts,
+    courseBackgroundSet,
+    opts?.loadCourseBackground,
+  );
   // Split-fleet series (#328): the published output is the championship
   // standings page (tiered, fleet-tinted, cut line), the per-race results
   // page (every stage race, one table per fleet), and the rolling
@@ -1193,6 +1205,7 @@ export async function buildFleetHtmlFiles(
           // rather than IRL_5B_AP_LM_TOT (#602).
           ...(series.orcScoringOptions ? { orcScoringOptions: series.orcScoringOptions } : {}),
           ...(courseBackgrounds ? { courseBackgrounds } : {}),
+          ...(courseBackgroundSet ? { courseBackgroundSet } : {}),
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;
