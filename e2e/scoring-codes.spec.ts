@@ -158,7 +158,7 @@ test('BFD is bracketed like any other code when it is the discarded worst score'
   await page.getByRole('button', { name: 'Add rule' }).click();
   await page.getByLabel('Rule 1: races sailed').fill('3');
   await page.getByLabel('Rule 1: discards').fill('1');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   await page.getByRole('link', { name: 'Standings' }).click();
   await expect(page).toHaveURL(/\/standings$/);

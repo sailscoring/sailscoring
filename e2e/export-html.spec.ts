@@ -477,7 +477,7 @@ test('venue/event website URLs survive the export → import URL round-trip', as
   await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Venue website URL').fill('https://venue.example.com');
   await page.getByLabel('Event website URL').fill('https://event.example.com');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // Minimal data so an export is possible.
   await page.getByRole('link', { name: 'Competitors' }).click();

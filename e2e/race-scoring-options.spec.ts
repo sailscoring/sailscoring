@@ -73,7 +73,7 @@ test('a race can be weighted and protected from discard', async ({ page }) => {
   await page.getByRole('button', { name: 'Add rule' }).click();
   await page.getByLabel('Rule 1: races sailed').fill('3');
   await page.getByLabel('Rule 1: discards').fill('1');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText('1 discard from 3 races ·')).toBeVisible();
 
   // Alice leads: 1 + 1 + (3 discarded) = 2.

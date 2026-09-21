@@ -46,7 +46,7 @@ test('start check-in marks boats present and affects A5.3 standings', async ({ p
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Scoring', exact: true }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Boats in the starting area (RRS A5.3 — alternative)').check();
-  await page.getByRole('button', { name: 'Save', exact: false }).last().click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // ── 4. Add 2 races ────────────────────────────────────────────────────────
   await page.getByRole('link', { name: 'Races' }).click();

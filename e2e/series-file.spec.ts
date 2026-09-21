@@ -118,7 +118,7 @@ test('series file: save exports correct JSON with all series fields, competitors
   await page.getByLabel('End date').fill('2025-11-01');
   await page.getByLabel('Venue website URL').fill('https://www.hyc.ie');
   await page.getByLabel('Event website URL').fill('https://example.com/autumn-league');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText('Howth Yacht Club').first()).toBeVisible();
   // That assertion is client-rendered, so the save may still be in flight. The
   // inject below reads the series' version and writes it back under If-Match,

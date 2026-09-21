@@ -42,7 +42,7 @@ test('a boat with no results is not an entrant while the series ranks only boats
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Scoring', exact: true }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('checkbox', { name: /Rank only boats that took part/ }).check();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText(/Rank only boats that took part/)).toBeVisible();
 
   // ── 3. Standings: both absentees are all-DNC, so both are out ─────────────

@@ -94,8 +94,10 @@ test('renaming a series via Settings persists', async ({ page }) => {
 
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  // The name is written on leaving the field — it is the one field that can
+  // be refused, so it is checked against the workspace before it is stored.
   await page.getByLabel('Name').fill('New Name');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByLabel('Venue', { exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'New Name' })).toBeVisible();
 
@@ -112,14 +114,16 @@ test('renaming a series to an existing name is rejected inline', async ({ page }
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByLabel('Name').fill('Series A');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByLabel('Venue', { exact: true }).click();
 
   await expect(page.getByText('A series with this name already exists.')).toBeVisible();
-  // Header still shows original name.
+  // The typed text stays on screen to be corrected, and the stored name is
+  // untouched — the header still shows it.
+  await expect(page.getByLabel('Name')).toHaveValue('Series A');
   await expect(page.getByRole('heading', { name: 'Series B' })).toBeVisible();
 
   // Renaming B → B (no-op: trims to same name) is allowed.
   await page.getByLabel('Name').fill('Series B');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByLabel('Venue', { exact: true }).click();
   await expect(page.getByText('A series with this name already exists.')).not.toBeVisible();
 });

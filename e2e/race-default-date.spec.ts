@@ -42,7 +42,7 @@ test('a series that has finished dates new races within its window', async ({ pa
     .click();
   await page.getByLabel('Start date').fill('2026-06-01');
   await page.getByLabel('End date').fill('2026-06-10');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText(/2026-06-01/).first()).toBeVisible();
 
   await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();

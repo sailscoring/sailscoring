@@ -164,7 +164,7 @@ test.describe('copy series to workspace', () => {
     await page.getByRole('heading', { name: 'Basic' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
     await page.getByLabel('Venue website URL').fill('https://venue.example.com');
     await page.getByLabel('Event website URL').fill('https://event.example.com');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
 
     // Drive the "Copy to workspace…" action from the series actions menu.
     await openSeriesActionsMenu(page);
