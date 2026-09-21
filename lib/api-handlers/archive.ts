@@ -45,7 +45,7 @@ import {
 } from '@/lib/published-repository';
 import { contentHash, publishedBlobKey } from '@/lib/publishing';
 import { sharedFolderSegment } from '@/lib/published-tree';
-import type { PublishedSeries, PublishedSeriesPage } from '@/lib/types';
+import type { PageNote, PublishedSeries, PublishedSeriesPage } from '@/lib/types';
 
 /**
  * The archive ingest surface (ADR-010, #283): the door through which
@@ -73,6 +73,23 @@ export interface ArchiveIngestResult {
 
 /** The series row as the ingest needs it, unscoped by workspace so an id
  *  squatting in another workspace is a hard error, never a silent insert. */
+/**
+ * The document's page notes as the series stores them (#628).
+ *
+ * `updatedAt` is stamped here rather than carried in the document: the
+ * archive repo is the source of truth and re-asserts its notes on every
+ * ingest, so a timestamp in the document would be one more thing to keep
+ * accurate for no reader's benefit.
+ */
+function archivePageNotes(doc: ArchiveSeriesDoc): PageNote[] {
+  const now = Date.now();
+  return (doc.series.pageNotes ?? []).map((n) => ({
+    page: n.page,
+    text: n.text,
+    updatedAt: now,
+  }));
+}
+
 async function getSeriesRowById(id: string) {
   const [row] = await getDb()
     .select({
@@ -176,6 +193,11 @@ export async function putArchiveSeries(
         venueLogoUrl: doc.series.venueLogoUrl ?? '',
         eventLogoUrl: doc.series.eventLogoUrl ?? '',
         source: (doc.series.source ?? null) as never,
+        // What the archive has to say about itself (#628): a transcription
+        // that is not a byte-faithful reproduction of a published page says
+        // so on the page, where a reader meets it.
+        seriesNote: doc.series.seriesNote ?? '',
+        pageNotes: archivePageNotes(doc),
         asPublished: true,
         asPublishedHash: hash,
         updatedBy: workspace.userId,
@@ -193,6 +215,11 @@ export async function putArchiveSeries(
           venueLogoUrl: doc.series.venueLogoUrl ?? '',
           eventLogoUrl: doc.series.eventLogoUrl ?? '',
           source: (doc.series.source ?? null) as never,
+          // Re-asserted every ingest, like the slug: the archive repo is
+          // where an as-published series is edited, so a note removed there
+          // is removed here.
+          seriesNote: doc.series.seriesNote ?? '',
+          pageNotes: archivePageNotes(doc),
           asPublished: true,
           asPublishedHash: hash,
           // Re-file to the document's category (or clear it when the document
@@ -405,7 +432,13 @@ async function publishArchiveSeries(
     rightUrl: doc.series.eventUrl,
     seriesIndexUrl,
     flagSvgByCode,
+    // What the archive has to say about the series as a whole (#628); each
+    // page's own note is added per file below.
+    ...(doc.series.seriesNote ? { seriesNote: doc.series.seriesNote } : {}),
   };
+  const noteBySubPath = new Map(
+    (doc.series.pageNotes ?? []).map((n) => [n.page, n.text] as const),
+  );
 
   const fleetById = new Map(doc.fleets.map((f) => [f.id, f]));
   const combinedPages = doc.combinedPages ?? [];
@@ -441,7 +474,13 @@ async function publishArchiveSeries(
           ? { isRaceResults: true }
           : {}),
         html: renderAsPublishedCombinedHtml(
-          { ...commonChrome, fleetName: group.name },
+          {
+            ...commonChrome,
+            fleetName: group.name,
+            ...(noteBySubPath.has(group.subPath)
+              ? { pageNote: noteBySubPath.get(group.subPath) }
+              : {}),
+          },
           sections,
         ),
       });
@@ -457,6 +496,9 @@ async function publishArchiveSeries(
           ...commonChrome,
           fleetName:
             multiPage || fleet.name !== 'Default' ? fleet.name : undefined,
+          ...(noteBySubPath.has(fleet.subPath as string)
+            ? { pageNote: noteBySubPath.get(fleet.subPath as string) }
+            : {}),
         },
         toStoredResults(fleet),
       ),

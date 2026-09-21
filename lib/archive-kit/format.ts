@@ -148,6 +148,11 @@ export function raceTableRowRank(
   return /^\d{1,4}$/.test(cell) ? Number(cell) : undefined;
 }
 
+/** `YYYY`, `YYYY-MM` or `YYYY-MM-DD` — see the date fields below. */
+const partialDate = z
+  .string()
+  .regex(/^\d{4}(-\d{2}(-\d{2})?)?$/, 'must be YYYY, YYYY-MM or YYYY-MM-DD');
+
 export const archiveSeriesDocSchema = z
   .object({
     formatVersion: z.literal(1),
@@ -155,8 +160,20 @@ export const archiveSeriesDocSchema = z
       id: uuid,
       name: z.string().trim().min(1).max(200),
       venue: z.string().max(200).optional(),
-      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      /** The event's dates, at whatever precision the archive actually knows:
+       *  a full day, a month, or a year alone.
+       *
+       *  Historical results routinely state a year and nothing finer — a
+       *  results page headed only "2023", a club's season index, a
+       *  transcription from a report — and requiring a full day left those
+       *  events undated, which is worse than coarse: an undated event drops
+       *  out of the public competitor index's year filter, shows a dash on
+       *  every career arc, and is skipped by the arc's range. Inventing a day
+       *  to make a sort work would be worse still, so the archive says what
+       *  it knows. Everything downstream files by the year, which is the
+       *  first four characters either way. */
+      startDate: partialDate.optional(),
+      endDate: partialDate.optional(),
       eventUrl: z.string().url().max(400).optional(),
       venueUrl: z.string().url().max(400).optional(),
       /** Header logo slots, as on a full-fidelity series (canonical-library
@@ -185,6 +202,27 @@ export const archiveSeriesDocSchema = z
        *  `label` the name it shows in navigation — the original event name
        *  where the humanised segment would mangle it ("1720's Easterns" vs
        *  "1720 S Easterns"). Pinned like the slug: re-asserted every ingest. */
+      /** A note carried by every published page of this series, and notes
+       *  carried by one page each (#511's plumbing, reached from an archive).
+       *
+       *  An archived page that is not a byte-faithful reproduction has to say
+       *  so and link the original: Irish Sailing's 2023 Junior Champions' Cup
+       *  exists only as a photograph of the scorer's table in a report, and
+       *  transcribed by hand it renders identically to the verbatim captures
+       *  beside it with nothing to say which it is. Reconstruction delta
+       *  notes want the same field. Plain text with links, as in the app. */
+      seriesNote: z.string().max(2000).optional(),
+      pageNotes: z
+        .array(
+          z.object({
+            /** The published sub-path the note belongs to, as the fleets and
+             *  combined pages name it. */
+            page: slugSegment,
+            text: z.string().max(2000),
+          }),
+        )
+        .max(50)
+        .optional(),
       folders: z
         .array(
           z.object({
@@ -240,6 +278,21 @@ export const archiveSeriesDocSchema = z
     if (new Set(publishedSubPaths).size !== publishedSubPaths.length) {
       ctx.addIssue({ code: 'custom', message: 'duplicate published subPath', path: ['fleets'] });
     }
+
+    // A page note must name a page the series actually publishes — a note on
+    // a sub-path nothing lives at would never be read, and the archive repo
+    // would have no way to find that out.
+    const publishedSet = new Set(publishedSubPaths);
+    const seenNotePages = new Set<string>();
+    (doc.series.pageNotes ?? []).forEach((n, ni) => {
+      if (!publishedSet.has(n.page)) {
+        ctx.addIssue({ code: 'custom', message: 'page note names a subPath no page publishes at', path: ['series', 'pageNotes', ni, 'page'] });
+      }
+      if (seenNotePages.has(n.page)) {
+        ctx.addIssue({ code: 'custom', message: 'duplicate page note', path: ['series', 'pageNotes', ni, 'page'] });
+      }
+      seenNotePages.add(n.page);
+    });
 
     // Folder labels must name folders the series actually publishes into —
     // a label for a segment no page lives under is a typo, not a pin.

@@ -42,6 +42,12 @@ export interface AsPublishedPageChrome {
    *  When set, nationality lead columns render flags like a full-fidelity
    *  page; codes without a flag fall back to text. */
   flagSvgByCode?: Readonly<Record<string, NationalFlag>>;
+  /** The archive's note on every page of this series, and this page's own
+   *  (#628). An archived page that is not a byte-faithful reproduction says
+   *  so here and links the original — a hand transcription otherwise renders
+   *  identically to the verbatim captures beside it. */
+  seriesNote?: string;
+  pageNote?: string;
 }
 
 /** Lead-column keys that carry a 3-letter national code — Sailwave's `nat`
@@ -224,6 +230,8 @@ function documentChromeOf(chrome: AsPublishedPageChrome): DocumentChrome {
     leftUrl: chrome.leftUrl,
     rightUrl: chrome.rightUrl,
     seriesIndexUrl: chrome.seriesIndexUrl,
+    ...(chrome.seriesNote ? { seriesNote: chrome.seriesNote } : {}),
+    ...(chrome.pageNote ? { pageNote: chrome.pageNote } : {}),
   };
 }
 

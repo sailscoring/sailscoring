@@ -237,4 +237,85 @@ test.describe('as-published archives', () => {
 
     expect(errors).toEqual([]);
   });
+
+  test('an archive states what it knows: a note, and a year-only date', async ({ page }) => {
+    // #628: Irish Sailing's 2023 Junior Champions' Cup exists only as a
+    // photograph of the scorer's table in a report. Transcribed by hand, it
+    // rendered identically to the verbatim Sailwave captures beside it with
+    // nothing to say which it was.
+    // #629: and it was sailed at Schull in November after a September
+    // postponement, with no published racing days anywhere — so the archive
+    // says the year, rather than being left undated or given an invented day.
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    const email = await signInFreshUser(page, 'aspnote');
+    const { id: orgId, slug } = await createOrgWorkspace('Transcription Club');
+    await addMemberByEmail(orgId, email, 'owner');
+    await setActiveWorkspace(page, orgId);
+
+    const seriesId = crypto.randomUUID();
+    const fleetId = crypto.randomUUID();
+    const sailor = crypto.randomUUID();
+    const doc = {
+      formatVersion: 1,
+      series: {
+        id: seriesId,
+        name: 'Junior Champions Cup 2023',
+        venue: 'Schull',
+        startDate: '2023',
+        publishedSlug: 'junior-champions-cup-2023',
+        seriesNote:
+          'Transcribed by hand from a photograph published by https://afloat.ie — no results page was published for this event.',
+        pageNotes: [
+          { page: 'overall', text: 'Every row was checked against its own published Total and Nett.' },
+        ],
+      },
+      fleets: [
+        {
+          id: fleetId,
+          name: 'Overall',
+          subPath: 'overall',
+          results: {
+            leadColumns: [{ key: 'helmname', label: 'Helm' }],
+            raceHeaders: [{ label: 'R1' }],
+            summaryColumns: [{ key: 'nett', label: 'Nett' }],
+            rows: [
+              {
+                competitorId: sailor,
+                rank: 1,
+                rankLabel: '1st',
+                leadCells: ['Kate Spain'],
+                raceCells: [{ text: '1', rank: 1 }],
+                summaryCells: ['1'],
+              },
+            ],
+          },
+        },
+      ],
+      competitors: [
+        { id: sailor, fleetIds: [fleetId], sailNumber: '1', name: 'Kate Spain', club: 'RSGYC' },
+      ],
+    };
+
+    const put = await page.request.put(`/api/v1/archive/series/${seriesId}`, { data: doc });
+    expect(put.status()).toBe(200);
+
+    // The published page says it is a transcription, and links the original.
+    await page.goto(`/p/${slug}/junior-champions-cup-2023/overall`);
+    const notes = page.locator('.pagenotes');
+    await expect(notes).toContainText('Transcribed by hand from a photograph');
+    await expect(notes).toContainText('checked against its own published Total and Nett');
+    await expect(notes.locator('a')).toHaveAttribute('href', 'https://afloat.ie');
+
+    // And the year-only date files the event rather than leaving it undated.
+    await page.goto('/');
+    await page.getByRole('button', { name: /Archived \(1\)/ }).click();
+    await expect(
+      page.getByTestId('series-row').filter({ hasText: 'Junior Champions Cup 2023' }),
+    ).toContainText('Schull · 2023');
+
+    expect(errors).toEqual([]);
+  });
 });

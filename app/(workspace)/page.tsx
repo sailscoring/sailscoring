@@ -30,7 +30,7 @@ import { formatRelativeTime } from '@/lib/relative-time';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
-import { formatSaveDate } from '@/lib/format-date';
+import { formatSaveDate, formatSeriesDate } from '@/lib/format-date';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { OpenSeriesFlow } from '@/components/open-series-flow';
 import { CreateFollowOnSeriesDialog } from '@/components/create-follow-on-series-dialog';
@@ -123,7 +123,9 @@ function SeriesCard({
         </div>
         <div className="text-sm text-muted-foreground mt-0.5 flex gap-2">
           {(series.venue || series.startDate) && (
-            <span>{[series.venue, series.startDate].filter(Boolean).join(' · ')}</span>
+            <span>
+              {[series.venue, formatSeriesDate(series.startDate)].filter(Boolean).join(' · ')}
+            </span>
           )}
           {series.lastSavedAt && (
             <span>{formatSaveDate(series.lastSavedAt)}</span>

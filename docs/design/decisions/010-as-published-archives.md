@@ -1,10 +1,12 @@
 # ADR-010: As-published archives
 
-**Status:** Accepted — executed (#283). The production migration ran:
-the IODAI corpus and DBSC 2022–2025 were replaced by as-published
-ingests with the URL set verified, and archive-repo CI is armed — a
-push to an archive repo's main applies its series and identity
-manifest.
+**Status:** Accepted — executed (#283), amended 2026-09-21. The production
+migration ran: the IODAI corpus and DBSC 2022–2025 were replaced by
+as-published ingests with the URL set verified, and archive-repo CI is armed
+— a push to an archive repo's main applies its series and identity manifest.
+The amendment lets an ingest document say what it knows about itself: a note
+on the series or one of its pages, and a date at year or month precision
+(#628, #629).
 
 **Date:** 2026-07-13
 
@@ -125,7 +127,14 @@ read-only forever, driven entirely by a git pipeline.
 
 **Pros:**
 - Fidelity by construction — nothing is recomputed, so nothing can disagree
-  with the record; delta notes cease to exist as a category.
+  with the record; delta notes cease to exist as a category. (Amended: they
+  do not quite. Fidelity by construction holds for a *capture* — where the
+  published page is the source — and that is the common case. It does not
+  hold where no results page was ever published and the figures were
+  transcribed by hand from a photograph in a report, which is how Irish
+  Sailing's 2023 Junior Champions' Cup reaches the archive. Such a page is
+  not a reproduction of anything and must say so, so `seriesNote` and
+  `pageNotes` are part of the ingest format — see the amendment below.)
 - Per-class cost collapses to a capture parser plus repo conventions.
 - The identity spine and career arcs work over all history.
 - Git becomes the single authority for archived rows and their identities,
@@ -150,6 +159,18 @@ untouched and orthogonal; the `*-archive` git repos keep their names — they
 are archives of source captures that feed a workspace's as-published series.
 
 The sub-decisions:
+
+0. **An archive states what it knows.** The ingest document carries an
+   optional `seriesNote` and per-page `pageNotes`, rendered by the published
+   page exactly as an in-app series' notes are (#511's plumbing, reached from
+   the archive repo). A page that is not a byte-faithful reproduction says so
+   and links the original; the reconstruction delta notes the DBSC work keeps
+   by hand want the same field. And the document's dates may be a year or a
+   month, not only a day: historical results routinely state a year and
+   nothing finer, and an undated event drops out of the public competitor
+   index's year filter and shows a dash on every career arc. Inventing a day
+   to make a sort work would be worse; everything downstream files by the
+   year, which is the first four characters at any precision.
 
 1. **Data shape.** As-published series reuse the existing `series`, `fleets`,
    and `competitors` tables (so categories, the public listing, publishing,

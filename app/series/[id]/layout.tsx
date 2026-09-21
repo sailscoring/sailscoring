@@ -26,6 +26,7 @@ import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { Button } from '@/components/ui/button';
 import { SeriesNotFound } from '@/components/series-not-found';
+import { formatSeriesDate } from '@/lib/format-date';
 
 // Each tab carries its `g`-chord key; the chord bindings and the help-dialog
 // rows are both derived from the visible tab set below, so a tab that isn't
@@ -233,7 +234,7 @@ export default function SeriesLayout({
         </div>
         {(series.venue || series.startDate) && (
           <p className="text-sm text-muted-foreground mt-0.5">
-            {[series.venue, series.startDate].filter(Boolean).join(' · ')}
+            {[series.venue, formatSeriesDate(series.startDate)].filter(Boolean).join(' · ')}
           </p>
         )}
       </div>

@@ -415,6 +415,97 @@ describe('document schema', () => {
     expect(archiveSeriesDocSchema.safeParse(bad).success).toBe(false);
   });
 
+  test('an archive may date an event to a year or a month, not only a day (#629)', async () => {
+    // Historical results routinely state a year and nothing finer. Requiring
+    // a full day left those events undated, which drops them out of the
+    // public competitor index's year filter and puts a dash on every career
+    // arc — worse than coarse, and inventing a day would be worse still.
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const base = {
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'Undated Event',
+        publishedSlug: '2023',
+      },
+      fleets: [
+        {
+          id: '11111111-2222-4333-8444-555555555555',
+          name: 'Overall',
+          subPath: 'overall',
+          results: {
+            leadColumns: [{ key: 'helmname', label: 'Helm' }],
+            raceHeaders: [{ label: 'R1' }],
+            summaryColumns: [{ key: 'nett', label: 'Nett' }],
+            rows: [],
+          },
+        },
+      ],
+      competitors: [],
+    };
+    for (const startDate of ['2023', '2023-11', '2023-11-05']) {
+      const doc = { ...base, series: { ...base.series, startDate } };
+      expect(archiveSeriesDocSchema.safeParse(doc).success, startDate).toBe(true);
+    }
+    for (const startDate of ['23', '2023-1', '2023-11-5', 'November 2023', '']) {
+      const doc = { ...base, series: { ...base.series, startDate } };
+      expect(archiveSeriesDocSchema.safeParse(doc).success, startDate).toBe(false);
+    }
+  });
+
+  test('a page note must name a page the series publishes (#628)', async () => {
+    // An archived page that is not a byte-faithful reproduction has to say so
+    // and link the original — but a note on a sub-path nothing lives at would
+    // never be read, and the archive repo would have no way to find that out.
+    const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
+    const base = {
+      formatVersion: 1,
+      series: {
+        id: '99999999-8888-4777-8666-555555555554',
+        name: 'Transcribed Event',
+        publishedSlug: '2023',
+        seriesNote:
+          'Transcribed from a photograph published by afloat.ie; no results page was published.',
+      },
+      fleets: [
+        {
+          id: '11111111-2222-4333-8444-555555555555',
+          name: 'Overall',
+          subPath: 'overall',
+          results: {
+            leadColumns: [{ key: 'helmname', label: 'Helm' }],
+            raceHeaders: [{ label: 'R1' }],
+            summaryColumns: [{ key: 'nett', label: 'Nett' }],
+            rows: [],
+          },
+        },
+      ],
+      competitors: [],
+    };
+    expect(archiveSeriesDocSchema.safeParse(base).success).toBe(true);
+    const named = {
+      ...base,
+      series: { ...base.series, pageNotes: [{ page: 'overall', text: 'Hand-transcribed.' }] },
+    };
+    expect(archiveSeriesDocSchema.safeParse(named).success).toBe(true);
+    const stray = {
+      ...base,
+      series: { ...base.series, pageNotes: [{ page: 'nowhere', text: 'Hand-transcribed.' }] },
+    };
+    expect(archiveSeriesDocSchema.safeParse(stray).success).toBe(false);
+    const twice = {
+      ...base,
+      series: {
+        ...base.series,
+        pageNotes: [
+          { page: 'overall', text: 'One.' },
+          { page: 'overall', text: 'Two.' },
+        ],
+      },
+    };
+    expect(archiveSeriesDocSchema.safeParse(twice).success).toBe(false);
+  });
+
   test('a display-only fleet needs a structural one to account for it (#363)', async () => {
     const { archiveSeriesDocSchema } = await import('@/lib/archive-kit/format');
     const competitorId = '33333333-2222-4333-8444-555555555555';

@@ -40,3 +40,22 @@ export function formatSaveDate(ts: number): string {
     return `last saved yesterday`;
   return `last saved ${d.toLocaleDateString()}`;
 }
+
+/**
+ * A series date at whatever precision it is known to, for display.
+ *
+ * An archived event often states a year and nothing finer, and sometimes a
+ * month — a results page headed "2023", a report saying the event was sailed
+ * at Schull in November. A full day is left exactly as stored, since that is
+ * what the app has always shown; the coarser forms are spelled out rather
+ * than left as "2023-11", which reads like a truncated date rather than a
+ * deliberate one.
+ */
+export function formatSeriesDate(date: string | undefined): string {
+  if (!date) return '';
+  const month = /^(\d{4})-(\d{2})$/.exec(date);
+  if (!month) return date;
+  const name = new Date(Number(month[1]), Number(month[2]) - 1, 1)
+    .toLocaleDateString('en-IE', { month: 'long' });
+  return `${name} ${month[1]}`;
+}
