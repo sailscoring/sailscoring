@@ -12,6 +12,7 @@ import {
   type Catalogue,
   type CatalogueCard,
   type CatalogueSet,
+  type CourseBackground,
   type CourseCardFile,
   type MarksFile,
 } from '@sailscoring/course-cards';
@@ -19,7 +20,7 @@ import {
 import { COURSE_CARDS_RELEASE, COURSE_CARD_CATALOGUE } from './generated/catalogue';
 
 export { COURSE_CARDS_RELEASE, COURSE_CARD_CATALOGUE };
-export type { Catalogue, CatalogueCard, CatalogueSet };
+export type { Catalogue, CatalogueCard, CatalogueSet, CourseBackground };
 
 /** The data sets on offer, as the catalogue lists them. */
 export function courseCardSets(): CatalogueSet[] {
@@ -48,6 +49,18 @@ export interface LoadedCourseCard {
   cardFile: CourseCardFile;
 }
 
+/** The chart a set captured, as the renderer takes it: the image with the
+ *  ground it covers. Everything but the image itself is in the catalogue. */
+export function courseBackgroundOf(set: CatalogueSet, png: Uint8Array): CourseBackground {
+  return {
+    png,
+    bounds: set.map!.bounds,
+    width: set.map!.width,
+    height: set.map!.height,
+    attribution: set.map!.attribution,
+  };
+}
+
 const marksCache = new Map<string, Promise<MarksFile>>();
 const cardCache = new Map<string, Promise<CourseCardFile>>();
 
@@ -71,6 +84,29 @@ export function loadCardFile(card: CatalogueCard): Promise<CourseCardFile> {
   if (!p) {
     p = fetchJson(card.json).then(parseCourseCardFile);
     cardCache.set(card.json, p);
+  }
+  return p;
+}
+
+const backgroundCache = new Map<string, Promise<CourseBackground | undefined>>();
+
+/**
+ * A set's captured chart, fetched from the app's own origin and kept for the
+ * session — a few hundred kilobytes that every drawing of that club's water
+ * reuses. Undefined for a set that captured none, and for a fetch that
+ * fails: a drawing without its chart is the plain one, which is worth more
+ * than an error.
+ */
+export function loadCourseBackground(setPath: string): Promise<CourseBackground | undefined> {
+  let p = backgroundCache.get(setPath);
+  if (!p) {
+    const set = findCourseCardSet(setPath);
+    p = !set?.map
+      ? Promise.resolve(undefined)
+      : fetch(courseCardFileUrl(set.map.background))
+          .then(async (res) => (res.ok ? courseBackgroundOf(set, new Uint8Array(await res.arrayBuffer())) : undefined))
+          .catch(() => undefined);
+    backgroundCache.set(setPath, p);
   }
   return p;
 }

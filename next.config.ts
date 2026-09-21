@@ -21,8 +21,16 @@ const nextConfig: NextConfig = {
   // them into the route's serverless bundle — the seed deliberately avoids a
   // statically-traced module URL so Turbopack's NFT doesn't over-trace — so it
   // must stay in sync with the files seed.ts reads.
+  //
+  // In-app publishing renders its pages on the server, and a constructed
+  // course is drawn on its data set's captured chart (see
+  // lib/course-cards/backgrounds-server.ts). Those images are vendored into
+  // public/ at build time by scripts/sync-course-cards.ts, and this glob is
+  // what puts them in the publish route's serverless bundle. Without it the
+  // pages still publish — the drawing falls back to plain ground.
   outputFileTracingIncludes: {
     '/api/auth/[...all]': ['./lib/sample-series/*.sailscoring'],
+    '/api/v1/series/[id]/publish': ['./public/course-cards/**/map/*.png'],
   },
   async rewrites() {
     return {
