@@ -566,8 +566,13 @@ test('ORC fleet: a recorded-wind race is unscored until every leg has a wind spe
   ).toBeVisible();
 
   // Fill the speeds in and the race scores in place, no finishes re-entered.
+  // By its row on the races page, not by its name: the standings page we are
+  // leaving says "Race 1 is scored on a constructed course at the recorded
+  // wind..." in its warning, so a plain-text locator will happily click that
+  // paragraph while the old page is still mounted, and then nothing opens.
   await page.getByRole('link', { name: 'Races' }).click();
-  await page.getByText('Race 1').click();
+  await page.getByTestId('race-row').filter({ hasText: 'Race 1' }).click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Edit start' }).click();
   await page.getByLabel('Wind speed', { exact: true }).fill('14');
