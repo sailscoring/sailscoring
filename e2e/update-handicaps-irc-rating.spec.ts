@@ -10,7 +10,7 @@ import { createFleets, createSeriesQuick, enableFeatures, setScoringMode } from 
 const RATINGS_FIXTURE = {
   updatedAt: '30/05/2026',
   records: [
-    { sailNumber: 'IRL1431', boatName: '3 Cheers', ircTcc: 0.932, ircNonSpinTcc: 0.918, isSecondary: false },
+    { sailNumber: 'IRL1431', boatName: '3 Cheers', ircCertNumber: '12345', ircTcc: 0.932, ircNonSpinTcc: 0.918, isSecondary: false },
     { sailNumber: 'IRL1601', boatName: 'Antix', ircTcc: 1.041, ircNonSpinTcc: 1.02, isSecondary: false },
     // A boat holding a primary plus a secondary (SEC) certificate.
     { sailNumber: 'IRL7404', boatName: 'Pretty Polly', ircCertNumber: '11479', ircTcc: 1.114, ircNonSpinTcc: 1.092, isSecondary: false },
@@ -343,6 +343,11 @@ test('an applied rating records the certificate it came from, and publishes wher
   // published — enough for a reader to go and check the figure themselves.
   expect(html).toContain('IRC ratings from the IRC ClubListing');
   expect(html).toContain('30/05/2026');
+
+  // And which certificate this boat's own rating is, on the cell carrying it
+  // — so the question the footnote invites can be answered on the page
+  // rather than by writing to the scorer.
+  expect(html).toContain('title="IRC certificate 12345"');
 });
 
 test('a boat matched by name alone is never added to a fleet, and starts unticked', async ({ page }) => {

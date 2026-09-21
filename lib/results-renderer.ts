@@ -342,6 +342,11 @@ export interface RaceResultData {
   // Handicap fields — only set for IRC/PY fleets
   tcc?: number;              // Time Correction Factor (TCC for IRC, 1000/PY for PY, the club's number for a fixed TCF)
   tccOverride?: boolean;     // true when tcc is a per-race override (mid-series rating change)
+  /** IRC only: the certificate the boat's TCC was read off (#615). Carried on
+   *  the rating cell so a reader asking where a rating came from can answer
+   *  it from the page — the question that, unanswerable, is how a boat spent
+   *  a season on another boat's rating. */
+  ircCertNumber?: string;
   impliedWind?: number;      // ORC PCS: the boat's implied wind (kt)
   finishTime?: string;       // "HH:MM:SS"; set for any fleet whose times this page may publish
   /** The elapsed time to display, fractional part kept: what the finish sheet
@@ -1715,7 +1720,7 @@ ${content}
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
 <div style="clear:both;"></div>
-${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is shown with its rating.</p>
+${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is on its rating cell.</p>
 ` : ''}<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''} &mdash; ${renderPrintButton()}${startersChecklist ? ` &mdash; ${renderStartersButton()}` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
@@ -2222,7 +2227,7 @@ function renderRaceTable(
         ? [
             `<td class="mono">${esc(r.finishTime ?? '')}</td>`,
             `<td class="mono">${r.elapsedTimeSecs != null ? formatElapsedInput(r.elapsedTimeSecs) : ''}</td>`,
-            `<td class="mono">${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
+            `<td class="mono"${r.ircCertNumber ? ` title="IRC certificate ${esc(r.ircCertNumber)}"` : ''}>${r.tcc != null ? r.tcc.toFixed(isOrcTod ? 1 : isOrcTot ? 4 : 3) : ''}${r.tccOverride ? '<span class="override-marker" title="Per-race rating override">*</span>' : ''}</td>`,
             `<td class="mono">${r.correctedTimeSecs != null ? formatElapsedInput(r.correctedTimeSecs) : ''}</td>`,
           ]
         : [];
@@ -2939,7 +2944,7 @@ export function assembleSeriesResultsData(
     raceNotScored?: boolean[];
   }>,
   raceScoresByRaceId: Map<string, Map<string, { points: number; place: number | null; rank: number | null; resultCode: ResultCode | null; penaltyCode?: PenaltyCode | null; penaltyOverride?: number | null; penaltyLabel?: string; finishTime?: string | null; elapsedSecs?: number | null; trackData?: FinishTrackData | null; tcfApplied?: number | null; tccOverride?: boolean; newTcf?: number | null; elapsedTime?: number | null; correctedTime?: number | null; orc?: OrcRaceCalc; nhc?: { fairTcf: number; compScore: number; isExtreme: boolean; extremeDirection?: 'fast' | 'slow'; alphaApplied: number; provisionalTcf: number; adjustment: number }; echo?: { ctRatio: number; fairTcf: number; adjustment: number; alphaApplied: number } }>>,
-  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData }>,
+  competitorsById: Map<string, { sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null; ircTcc?: number; vprsTcc?: number; fixedTcf?: number; pyNumber?: number; orcCert?: OrcCertData; ircCert?: { certNumber?: string } }>,
   enabledCompetitorFields: CompetitorFieldKey[],
   generatedAt: Date,
   fleetName?: string,
@@ -3187,6 +3192,12 @@ export function assembleSeriesResultsData(
         ...(score.penaltyLabel ? { penaltyLabel: score.penaltyLabel } : {}),
         ...(tcc != null ? { tcc } : {}),
         ...(score.tccOverride ? { tccOverride: true } : {}),
+        // Only where the number on the page is the one the certificate gave:
+        // a per-race override is the scorer's figure, not the certificate's,
+        // and naming a certificate beside it would misattribute it.
+        ...(scoringSystem === 'irc' && !score.tccOverride && competitor.ircCert?.certNumber
+          ? { ircCertNumber: competitor.ircCert.certNumber }
+          : {}),
         ...(score.orc?.impliedWind != null ? { impliedWind: score.orc.impliedWind } : {}),
         // A handicap table carries its own Finish/ET as the working behind a
         // corrected time, so those are unconditional: withholding an elapsed

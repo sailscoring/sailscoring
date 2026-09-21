@@ -599,8 +599,9 @@ export default function RatingSystems() {
           date. Where a match rested on something other than the sail number, the row shows the
           entry and the certificate side by side before you apply it — a boat that is 8.56 m
           long when yours is an Elan 31 is the wrong boat, and that is quicker to see than any
-          rating is. The published results carry the listing and its date too, so a competitor
-          asking where a rating came from can answer it without writing to you.
+          rating is. The published results carry the listing and its date too, and each
+          boat’s rating cell names the certificate behind it, so a competitor asking
+          where a rating came from can answer it without writing to you.
         </p>
         <p>
           If a boat is in the series but not yet in an IRC fleet — say it gained an IRC certificate
