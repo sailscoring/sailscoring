@@ -218,7 +218,8 @@ export function FinishTab(props: FinishTabProps) {
   // has always used — the markup is unchanged from the single-hook days.
   const {
     suggestions, alreadyEntered, revealFinishedRow, canRecordUnknown, needsFinishTime,
-    addFinisher, commitCompetitor, recordAsUnknown, recordCurrentAsUnknown, lastEntryKey,
+    addFinisher, commitCompetitor, recordAsUnknown, recordCurrentAsUnknown,
+    lastEntryKey, setLastEntryKey,
   } = finishInput;
   // The last boat recorded, for the echo beside the input. Transcribing a
   // paper sheet is a two-handed job — eyes on the sheet, fingers on the keys,
@@ -260,6 +261,30 @@ export function FinishTab(props: FinishTabProps) {
       const t = finishTimes.get(here);
       if (t && t === finishTimes.get(above)) derivedTies.add(here);
     }
+  }
+
+  /**
+   * Take the last boat recorded back out — "that wasn't 1234".
+   *
+   * Without it, correcting a mis-keyed entry means finding the row, which
+   * costs the scorer their place on the paper sheet: the thing the echo
+   * exists to prevent. The echo then names the row before the one removed,
+   * so two wrong boats in a row can be undone one after the other, and the
+   * caret goes back to the input so transcription carries on uninterrupted.
+   */
+  function undoLastEntry() {
+    if (!lastEntryKey) return;
+    const index = finishingOrder.findIndex((e) => entryKey(e) === lastEntryKey);
+    // Already gone — a second click, or a colleague's edit landing first.
+    if (index < 0) {
+      setLastEntryKey(null);
+      return;
+    }
+    removeFinisher(lastEntryKey);
+    const remaining = finishingOrder.filter((_, i) => i !== index);
+    const previous = remaining[Math.max(0, index - 1)];
+    setLastEntryKey(previous ? entryKey(previous) : null);
+    inputRef.current?.focus();
   }
 
   // The dropdown opens for committable suggestions and for already-entered
@@ -697,20 +722,30 @@ export function FinishTab(props: FinishTabProps) {
             scrolls to and flashes the row it names — the same mechanism the
             "already entered" dropdown row uses. */}
         {!readOnly && lastRecorded && !pendingTimeEntry && (
-          <button
-            type="button"
-            data-testid="last-recorded"
-            onClick={() => revealFinishedRow(lastEntryKey!)}
-            className="flex w-full items-baseline gap-2 rounded-md px-1 py-0.5 text-left hover:bg-muted/60"
-            title="Show this row"
-          >
-            <span className="text-xs text-muted-foreground shrink-0">Last in:</span>
-            <span className="font-mono text-base font-medium">{lastRecorded.sailNumber}</span>
-            <span className="text-sm text-muted-foreground shrink-0">
-              {ordinal(lastRecorded.position)}
-            </span>
-            <span className="truncate text-sm text-muted-foreground">{lastRecorded.label}</span>
-          </button>
+          <div className="flex items-baseline gap-2" data-testid="last-recorded">
+            <button
+              type="button"
+              onClick={() => revealFinishedRow(lastEntryKey!)}
+              className="flex min-w-0 flex-1 items-baseline gap-2 rounded-md px-1 py-0.5 text-left hover:bg-muted/60"
+              title="Show this row"
+            >
+              <span className="text-xs text-muted-foreground shrink-0">Last in:</span>
+              <span className="font-mono text-base font-medium">{lastRecorded.sailNumber}</span>
+              <span className="text-sm text-muted-foreground shrink-0">
+                {ordinal(lastRecorded.position)}
+              </span>
+              <span className="truncate text-sm text-muted-foreground">{lastRecorded.label}</span>
+            </button>
+            <button
+              type="button"
+              onClick={undoLastEntry}
+              data-testid="undo-last-recorded"
+              className="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              title={`Take ${lastRecorded.sailNumber} back out`}
+            >
+              Undo
+            </button>
+          </div>
         )}
         {inputError && !pendingUnknownSail && !pendingExcluded && (
           <p className="text-sm text-destructive">{inputError}</p>

@@ -543,6 +543,9 @@ export function useFinishInput(args: UseFinishInputArgs) {
     /** Entry key of the last boat recorded on this sheet, for the echo beside
      *  the input. Null before the first entry of the session. */
     lastEntryKey,
+    /** Move the echo — after an undo it names the row before the one taken
+     *  out, so a scorer correcting two mis-keyed boats can undo twice. */
+    setLastEntryKey,
     /** True when the typed text can be filed as an unknown boat (non-empty,
      *  no exact sail match) — gates the dropdown row and Shift+Enter path. */
     canRecordUnknown,

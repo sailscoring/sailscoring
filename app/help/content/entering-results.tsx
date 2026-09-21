@@ -31,7 +31,12 @@ export default function EnteringResults() {
           two-handed job — eyes on the sheet, fingers on the keys, the occasional glance up to
           confirm the last number landed where it was meant to — and once enough boats are
           entered the row just added is below the fold. The echo stays until the next entry
-          rather than fading, and clicking it scrolls to that row and flashes it.
+          rather than fading, and clicking it scrolls to that row and flashes it.{' '}
+          <strong className="text-foreground">Undo</strong> beside it takes that boat back
+          out — “that wasn’t 1234” — without making you find the row, which is what would
+          cost you your place on the sheet. The echo then names the boat before it, so a
+          second wrong entry can be undone straight after, and the caret goes back to the
+          input so you can carry on typing.
         </p>
         <p>
           When a series has more than one race, a switcher at the top of the entry screen moves

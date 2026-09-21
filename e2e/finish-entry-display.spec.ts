@@ -141,6 +141,28 @@ test('the last boat entered stays echoed beside the sail-number input', async ({
   await expect(echo).toContainText('Carol');
 
   // Clicking it flashes the row it names.
-  await echo.click();
+  await echo.getByRole('button', { name: /Last in/ }).click();
   await expect(page.locator('[data-entry-key]').nth(2)).toHaveClass(/ring-primary/);
+
+  // Undo takes the last boat back out — "that wasn't 1234" — without making
+  // the scorer find the row, which is what would cost them their place on
+  // the paper sheet.
+  await page.getByTestId('undo-last-recorded').click();
+  await expect(page.getByRole('listitem').filter({ hasText: '33' })).toHaveCount(0);
+  await expect(page.getByRole('listitem')).toHaveCount(2);
+
+  // The echo falls back to the row before it, so a second wrong boat can be
+  // undone straight after, and the caret is back in the input.
+  await expect(echo).toContainText('22');
+  await expect(echo).toContainText('2nd');
+  await expect(page.getByLabel('Sail number')).toBeFocused();
+
+  await page.getByTestId('undo-last-recorded').click();
+  await expect(page.getByRole('listitem')).toHaveCount(1);
+  await expect(echo).toContainText('11');
+
+  // Undoing the last one leaves nothing to echo.
+  await page.getByTestId('undo-last-recorded').click();
+  await expect(page.getByRole('listitem')).toHaveCount(0);
+  await expect(echo).toHaveCount(0);
 });
