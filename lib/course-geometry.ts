@@ -124,7 +124,7 @@ export function resolveCourse(
       lng: mark.lng,
       ...(entry.side ? { side: entry.side } : {}),
       ...(entry.passing ? { passing: true } : {}),
-      ...(mark.card ? { fixed: true } : {}),
+      ...(mark.card ? { fixed: true, set: mark.card.set } : {}),
     });
   }
   const legs = legsFromWaypoints(waypoints.map(toLibraryWaypoint));
@@ -402,18 +402,35 @@ export function drawnCourse(marks: SeriesCourseMark[]): DrawnCourseMark[] {
  * arbitrary origin. `fromLegs` says which, because a drawing with no
  * position on the water has to be captioned as one — it is not the same
  * artefact as a course drawn from surveyed marks, and on a published page
- * the two would be indistinguishable.
+ * the two would be indistinguishable. `set` is the data set whose chart the
+ * course sits on, where its marks came from one.
  */
 export function drawnStartCourse(snapshot: RaceStartCourse): {
   marks: DrawnMark[];
   course: DrawnCourseMark[];
   fromLegs: boolean;
+  set?: string;
 } {
   if (snapshot.waypoints.length === 0 && (snapshot.legs?.length ?? 0) > 0) {
     const { marks, course } = drawnLegTable(snapshot.legs!);
     return { marks, course, fromLegs: true };
   }
-  return { ...drawnSnapshot(snapshot), fromLegs: false };
+  const set = drawingSet(snapshot.waypoints);
+  return { ...drawnSnapshot(snapshot), fromLegs: false, ...(set ? { set } : {}) };
+}
+
+/**
+ * Which data set's chart a drawing belongs on: the set most of its charted
+ * marks came from. Usually there is only one — a series adopts one club's
+ * card — and a course over two clubs' marks is drawn on whichever it uses
+ * more of, because one chart is the most that can be under it.
+ */
+export function drawingSet(waypoints: Pick<RaceStartCourseWaypoint, 'set'>[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const w of waypoints) if (w.set) counts.set(w.set, (counts.get(w.set) ?? 0) + 1);
+  let best: string | undefined;
+  for (const [set, n] of counts) if (best === undefined || n > counts.get(best)!) best = set;
+  return best;
 }
 
 /** A start's snapshot as the renderer takes it: the waypoints stand on

@@ -749,6 +749,12 @@ export interface RaceStartCourseWaypoint {
   side?: 'port' | 'starboard';
   passing?: boolean;
   fixed?: boolean;     // a club's charted mark (drawn filled), not one laid on the day
+  // The course-cards data set the mark was adopted from ("hyc/al-2026"),
+  // which is the set whose captured chart the course is drawn on. Held per
+  // waypoint rather than looked up from the library, because the published
+  // page and the start dialog see this snapshot and not the marks it was
+  // taken from — and the mark may since have been deleted.
+  set?: string;
 }
 
 /**

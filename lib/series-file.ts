@@ -487,9 +487,15 @@ export interface SeriesFileRepos {
  *  rating fields, from the certificates' own catalog, keyed by field name.
  *  Naming only — the option a fleet or a race is scored on is the field name
  *  either way — so an older build reading a v56 file scores it identically
- *  and shows the raw field names, which is what it showed before. */
-export const FORMAT_VERSION = 56;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56];
+ *  and shows the raw field names, which is what it showed before.
+ *
+ *  v57 adds optional `starts[*].course.waypoints[*].set`: the course-cards
+ *  data set a snapshotted waypoint's mark was adopted from, which is the set
+ *  whose captured chart the course is drawn on. Provenance for a picture —
+ *  an older build reading a v57 file draws the same course on plain ground,
+ *  and scores it identically. */
+export const FORMAT_VERSION = 57;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -696,7 +702,7 @@ interface SeriesFileRaceStart {
   distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
   courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5), carrying v51+ per-leg wind speeds
-  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot
+  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot (v57+ waypoints name their data set)
   orcOption?: string;  // v40+; the ORC scoring option for this start's races
 }
 

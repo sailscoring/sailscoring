@@ -423,6 +423,9 @@ export interface PublicSeriesExport {
           side?: 'port' | 'starboard';
           passing?: boolean;
           fixed?: boolean;
+          /** The course-cards data set the mark was adopted from, which is
+           *  the set whose chart the course is drawn on. */
+          set?: string;
         }[];
         /** The leg table the course gave, on a course defined by legs —
          *  which has no waypoints to snapshot. */
@@ -836,6 +839,7 @@ function exportStartCourse(
         ...(w.side ? { side: w.side } : {}),
         ...(w.passing ? { passing: true } : {}),
         ...(w.fixed ? { fixed: true } : {}),
+        ...(w.set ? { set: w.set } : {}),
       };
     }),
     ...(course.legs?.length ? { legs: course.legs } : {}),
@@ -1856,6 +1860,7 @@ export async function importPublicExport(
           ...(w.side ? { side: w.side } : {}),
           ...(w.passing ? { passing: true } : {}),
           ...(w.fixed ? { fixed: true } : {}),
+          ...(w.set ? { set: w.set } : {}),
         };
       }),
       ...(c.legs?.length ? { legs: c.legs } : {}),

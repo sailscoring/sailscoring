@@ -18,6 +18,7 @@ import {
   courseIsLegTable,
   courseLegsOf,
   drawnLegTable,
+  drawingSet,
   drawnStartCourse,
   parseLegTable,
   proposeMarkName,
@@ -138,7 +139,10 @@ describe('adopting a card', () => {
     expect(resolved.totalNm).toBeCloseTo(reference.reduce((s, l) => s + l.distanceNm, 0), 9);
     expect(resolved.missingMarkIds).toEqual([]);
     expect(resolved.waypoints[0]).toMatchObject({ markId: 'line', label: 'Start', lat: start.lat });
-    expect(resolved.waypoints[1]).toMatchObject({ fixed: true });
+    expect(resolved.waypoints[1]).toMatchObject({ fixed: true, set: BM.set });
+    // A mark the committee laid belongs to no set: there is no chart it
+    // came off, and the course is drawn on the club's.
+    expect(resolved.waypoints[0].set).toBeUndefined();
     expect(sequenceMatchesCard(course.marks, marksById, entries.map((e) => e.resolved))).toBe(true);
   });
 
@@ -354,6 +358,34 @@ describe('a course defined by the committee’s leg table', () => {
     const fromMarks = drawnStartCourse(markSnapshot);
     expect(fromMarks.fromLegs).toBe(false);
     expect(fromMarks.marks.map((m) => m.label)).toEqual(['Start', 'Z']);
+    // Both marks were laid, so the drawing names no chart to sit on.
+    expect(fromMarks.set).toBeUndefined();
+  });
+
+  it('a snapshot names the chart its course belongs on, even once the mark is gone', () => {
+    const library = [
+      ...adoptCardMarks(bmMarks, bmCard, BM, 's1', [], NOW),
+      laid('line', 'Start — 13 Dec', start),
+    ];
+    const byId = new Map(library.map((m) => [m.id, m]));
+    const charted = library.find((m) => m.card)!;
+    const snapshot = snapshotOfCourse(
+      { id: 'c3', name: 'Out and back', marks: [{ markId: 'line' }, { markId: charted.id }, { markId: 'line' }] },
+      byId,
+      190,
+    );
+    expect(drawnStartCourse(snapshot).set).toBe(BM.set);
+    // The point of holding it on the snapshot: the published page has the
+    // snapshot and not the library, and the mark may since be deleted.
+    expect(drawnStartCourse({ ...snapshot, waypoints: snapshot.waypoints.map((w) => ({ ...w, markId: undefined })) }).set)
+      .toBe(BM.set);
+  });
+
+  it('draws a course over two clubs’ marks on the chart most of them came from', () => {
+    expect(
+      drawingSet([{ set: 'hyc/al-2026' }, {}, { set: 'dbsc/summer-2026' }, { set: 'hyc/al-2026' }]),
+    ).toBe('hyc/al-2026');
+    expect(drawingSet([{}, {}])).toBeUndefined();
   });
 
   it('fills a start’s leg table from either kind, stamping the race’s wind', () => {

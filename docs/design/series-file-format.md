@@ -145,7 +145,9 @@ is left on, and the card course they were made from. Both are omitted when
 empty. A race start that sailed a course carries its own snapshot of it in
 `starts[*].course` — waypoints with positions, the wind, whether the legs
 were then edited — beside the `courseLegs` it is scored on, so the record
-stands even if the library is later edited.
+stands even if the library is later edited. A waypoint off a charted mark
+also names the data set it was adopted from (`set`, v57+), which is the
+chart the course is drawn on wherever it is drawn.
 
 ---
 

@@ -52,8 +52,10 @@ results, and beyond that nothing that is not in the published HTML**:
 - The course library behind ORC constructed courses travels: `marks`
   and `courses` (keyed by name, as fleets are), and each start's own
   `course` snapshot — the waypoints, the wind, and whether the legs were
-  edited — which the published drawing is rendered from. Course facts
-  are what competitors check their tracks against.
+  edited — which the published drawing is rendered from. A waypoint taken
+  from a club's charted mark names the course-cards data set it came from
+  (`set`), which is the chart the drawing sits on. Course facts are what
+  competitors check their tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.
 - `standings` is what the published pages show, scored by the engine that
