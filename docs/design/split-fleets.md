@@ -577,68 +577,10 @@ export interface AssignmentRound {
 }
 
 /** Series-level format configuration. Present iff the series is a
- *  split-fleet series. */
-export interface SplitFleetConfig {
-  carry: 'points' | 'net-plus-net' | 'rank-seed';
-  /** Final-fleet sizing: LE-style near-equal blocks (Gold ≥ Silver ≥ …),
-   *  a fixed top-fleet size (49er/29er), or no banding at all. */
-  split: { kind: 'equal-blocks' } | { kind: 'fixed-top'; topSize: number } | { kind: 'none' };
-  codeBasis: {
-    qualifying: 'largest-fleet' | 'fixed';   // fixed: Sailwave's safe option
-    fixedPoints?: number;
-    final: 'own-fleet' | 'largest-fleet';
-  };
-  /** End-of-qualifying equalisation when fleets completed unequal counts:
-   *  exclude each boat's most-recent extra scores (LE/IODA) or abandon the
-   *  extra races outright (ILCA). */
-  equalization: 'exclude-extra-scores' | 'abandon-extra-races';
-  /** Stage caps layered on Series.discardThresholds: max discards that may
-   *  fall on final races (ILCA: 1), and a lone completed final race is
-   *  undiscardable. Medal races are never discardable and don't count
-   *  toward discard thresholds. */
-  maxFinalDiscards?: number;
-  protectLoneFinalRace?: boolean;
-  reassignmentTieOrder: 'fleet-order' | 'a8-then-entry-order';
-  /** Races needed to constitute the championship (2026 ILCA SI 18.2);
-   *  0 = the SIs set no minimum. */
-  /** Which set of words this championship's SIs use for its stages and
-   *  races. */
-  vocabulary: VocabularyKey;
-  /** Wording for a class the table doesn't cover. Engine-only; no UI writes
-   *  it. */
-  vocabularyOverride?: Vocabulary;
-  /** What this event's notice board calls the races: a prefix per stage, and
-   *  whether stage 2 numbers on from stage 1 rather than restarting. Absent =
-   *  the vocabulary's own scheme. Separate from the words because the two
-   *  2026 ILCA Worlds proved it is: same SIs, same words, three schemes. */
-  raceLabels?: RaceLabelScheme;
-  /** Medal race(s): fleet size, race count, points multiplier, and whether
-   *  the one more race the boats who miss the cut sail starts scoring below
-   *  the medal fleet (2024 ILCA SI 18.3.4, 2026 ILCA SI 18.5.3: first
-   *  finisher = 11 points). */
-  medal?: {
-    size: number;
-    raceCount: number;
-    multiplier: number;
-    /** Compress the opening-series net before the medal races add to it
-     *  (2026 ILCA SI 18.7.3 halves it, 0.5 up). `appliesFrom` says whether
-     *  the division takes effect when the medal fleet is picked or when a
-     *  medal race is first completed — visible only if the medal series is
-     *  abandoned, where the second leaves the undivided score as the event
-     *  result (2026 ILCA SI 18.7.5 from Amendment 5). */
-    carryTransform?: {
-      kind: 'divide';
-      by: number;
-      rounding: 'half-up' | 'truncate';
-      appliesFrom: 'medal-fleet-selected' | 'first-medal-race';
-    };
-    /** How a tie between two medal boats is settled: `stage-rank` adds two
-     *  steps after A8 (higher rank in the final series, then the qualifying
-     *  series); `last-race` replaces A8 outright with a single comparison of
-     *  the boats' scores in the last race. */
-    tieBreak?: 'stage-rank' | 'last-race';
-  };
-}
+ *  split-fleet series. Every field of it, what motivated it, and which
+ *  of them the class decides rather than the event, are the settings
+ *  reference: docs/design/split-fleets/configuration.md. */
+export interface SplitFleetConfig { /* … */ }
 ```
 
 Two of these are deliberately *not* hard-wired, so unusual events don't need
@@ -864,19 +806,27 @@ recomputable. Two consequences:
 
 ### Series setup
 
-Format is chosen at series creation (and immutable once any race has
-finishes, like `scoringMode`): a "Qualifying + final series" option, gated
-(see Part 4), asking only: number of qualifying fleets (offering the
-standard colour sets — with the race-officer folklore rule that colour
-names must not share an initial letter), final fleet names (defaulting
-Gold/Silver/Bronze to match the count), and the carry/discard preset.
-Presets matter more than knobs here: "ILCA World/European Championship",
-"IODA Championship", "Custom" — each filling `SplitFleetConfig` with
-the class-standard values, the way NHC profiles default to SWNHC2015. A
-class that changes its own format needs a preset per era rather than an
-edit in place: ILCA's 2026 rewrite (a race earlier for the first discard, a
-two-race finale at single points on a halved carry) ships alongside the
-2021–2025 regime, which past championships are still rebuilt from.
+Format is chosen at series creation, in a guided dialog rather than as a
+default the scorer meets later: which words the document uses, then which
+named class format, then the whole thing read back as sailing-instruction
+prose with the parts that remain the event's marked. What the format decides
+is then settled and collapses behind a per-setting unlock; what stays on the
+Format card is what this event decides — fleet count and colours (offered in
+SI-standard order, with the race-officer folklore rule that colour names must
+not share an initial letter warned on rather than blocked), final fleet names
+defaulting to Gold/Silver/Bronze, the schedule, the race labels, the discard
+ladder and the size of the deciding fleet.
+
+Presets matter more than knobs here, and a class that changes its own format
+needs a preset per era rather than an edit in place: ILCA's 2026 rewrite (a
+race earlier for the first discard, a two-race finale at single points on a
+halved carry) ships alongside the 2021–2025 regime, which past championships
+are still rebuilt from.
+
+The dialog and the card are
+[`docs/design/ux/flows/split-fleets-setup.md`](ux/flows/split-fleets-setup.md);
+the settings and the line between class and event are
+[`docs/design/split-fleets/configuration.md`](split-fleets/configuration.md).
 
 ### The Split Fleets view
 

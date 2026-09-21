@@ -130,27 +130,16 @@ race screens.
 ## Phase: Setup
 
 Setup runs once, when the series is created as a split-fleet series (see
-`series-setup.md`; the format choice is immutable once racing starts, like
-`scoringMode`). The section collapses to a summary strip afterwards.
-
-- **Preset first**: "ILCA World/European Championship", "IODA
-  Championship", "Custom". The preset fills the whole scoring regime
-  (carry mode, code bases, equalisation mode, discard caps, medal config) —
-  the scorer confirms rather than composes. Custom exposes the full
-  `SplitFleetConfig` surface.
-- **Fleet count and colours**: entry count is known, so the view shows the
-  arithmetic live: "141 entries → 3 fleets of 47". Colour sets offered in
-  SI-standard order (Yellow, Blue, Red, Green), with the race-office rule
-  enforced softly: picking two colours with the same initial letter gets a
-  warning, not a block.
-- **Final fleet names** default to Gold/Silver/Bronze to match the count.
-- **The planned schedule**: the scorer sketches the event's days and races
-  per day (pre-filled by the preset — six days, two a day), which gives
-  the day strip its future days before any race exists and each round its
-  default coverage. Scorers like their ducks in a row: the whole event is
-  laid out from day zero, as a plan the strip reconciles against reality
-  as racing happens. Editing the plan mid-event is an ordinary setup
-  edit, not a ceremony.
+`series-setup.md`). It has its own flow document —
+[`split-fleets-setup.md`](split-fleets-setup.md) — covering the guided format
+dialog, the Format card the event's own settings live on afterwards, and what
+the two can still do once racing has started. In outline: a format is chosen
+by name rather than composed from settings, what that format decides is
+settled and collapses behind a per-setting unlock, and what remains on the
+card is the handful of things this event decides — fleet count and colours,
+the schedule, the race labels, the discard ladder, the size of the deciding
+fleet. The section collapses to a summary strip once the first round is
+assigned.
 
 Setup creates *no* fleets or races — those belong to rounds, so that the
 entity trail always reads in event order.
