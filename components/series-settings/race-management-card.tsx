@@ -46,10 +46,15 @@ export function RaceManagementCard({
 
   // Re-sync when the persisted value changes identity (another tab saved).
   // Render-time compare, not an effect — as ProtestTimeLimitCard does.
+  // Only while the card is closed. Open, the draft is authoritative and its
+  // edits are being persisted as they are made, so an echo of our own write —
+  // which lands a beat after the edit that caused it — would reset the draft
+  // backward and eat whatever was typed since. The same reasoning the wizard
+  // path has always used.
   const [prevOfficials, setPrevOfficials] = useState(series.officials);
   if (prevOfficials !== series.officials) {
     setPrevOfficials(series.officials);
-    setDraft(series.officials ?? []);
+    if (!expanded) setDraft(series.officials ?? []);
   }
 
   // The switch is mirrored locally so it responds to the click rather than to

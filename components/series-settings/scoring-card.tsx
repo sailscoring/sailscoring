@@ -22,9 +22,9 @@ export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDisc
  *  instructions. */
 const DEFAULT_PROPORTIONAL: ProportionalDiscard = { firstAt: 3, everyRaces: 3 };
 
-/** Stored in order, but only on the way out — reordering rows under the cursor
- *  as a number is typed is worse than a momentarily out-of-order list, and the
- *  engine sorts for itself either way. */
+/** Tidied into order when the card closes, and never before: a row that moves
+ *  as its number is typed takes the next keystroke with it, and the engine
+ *  sorts for itself either way. */
 function orderThresholds(rows: DiscardThreshold[]): DiscardThreshold[] {
   return [...rows].sort((a, b) => a.minRaces - b.minRaces);
 }
@@ -50,13 +50,20 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   // opening a different series). Done via render-time compare rather than an
   // effect so it plays nicely with the React Compiler. See
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  // Only while the card is closed. Open, the draft is authoritative and its
+  // edits are being persisted as they are made, so an echo of our own write —
+  // which lands a beat after the edit that caused it — would reset the draft
+  // backward and eat whatever was typed since. The same reasoning the wizard
+  // path has always used.
   const [prevValue, setPrevValue] = useState(value);
   if (prevValue !== value) {
     setPrevValue(value);
-    setThresholds(value.discardThresholds ?? []);
-    setProportional(value.proportionalDiscard);
-    setDnfScoring(value.dnfScoring ?? 'seriesEntries');
-    setExcludeDncOnly(value.excludeDncOnlyCompetitors ?? false);
+    if (!expanded) {
+      setThresholds(value.discardThresholds ?? []);
+      setProportional(value.proportionalDiscard);
+      setDnfScoring(value.dnfScoring ?? 'seriesEntries');
+      setExcludeDncOnly(value.excludeDncOnlyCompetitors ?? false);
+    }
   }
 
   // Wizard-mode autosave fires onChange without awaiting (the input mustn't
@@ -72,7 +79,7 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   function updateThresholds(next: DiscardThreshold[], opts?: { defer?: boolean }) {
     setThresholds(next);
     if (isWizard) fireWizardSave({ discardThresholds: next });
-    else autosave.commit({ discardThresholds: orderThresholds(next) }, opts);
+    else autosave.commit({ discardThresholds: next }, opts);
   }
 
   function updateProportional(next: ProportionalDiscard | undefined, opts?: { defer?: boolean }) {
@@ -373,6 +380,9 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
               variant="ghost"
               size="sm"
               onClick={() => {
+                // The tidy happens here, where a row moving costs nobody a
+                // keystroke because the card is closing.
+                autosave.commit({ discardThresholds: orderThresholds(thresholds) });
                 autosave.flush();
                 setExpanded(false);
               }}

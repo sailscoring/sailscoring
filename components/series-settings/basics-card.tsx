@@ -56,7 +56,11 @@ export function BasicsCard({
   const [prevPersistedKey, setPrevPersistedKey] = useState(persistedKey);
   if (prevPersistedKey !== persistedKey) {
     setPrevPersistedKey(persistedKey);
-    if (!isWizard) setDraft(value);
+    // Settings mode now persists as you type too, so the draft is
+    // authoritative while the card is open for the same reason the wizard's
+    // is: an echo of our own write would reset it backward and eat
+    // characters.
+    if (!isWizard && !expanded) setDraft(value);
   }
 
   useEffect(() => {

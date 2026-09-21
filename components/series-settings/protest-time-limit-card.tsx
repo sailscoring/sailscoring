@@ -37,11 +37,18 @@ export function ProtestTimeLimitCard({
 
   // Re-sync the draft when the persisted value changes identity (e.g. another
   // tab saved). Render-time compare, not an effect — see ScoringCard.
+  // Only while the card is closed. Open, the draft is authoritative and its
+  // edits are being persisted as they are made, so an echo of our own write —
+  // which lands a beat after the edit that caused it — would reset the draft
+  // backward and eat whatever was typed since. The same reasoning the wizard
+  // path has always used.
   const [prevValue, setPrevValue] = useState(value);
   if (prevValue !== value) {
     setPrevValue(value);
-    setDraft(value.protestTimeLimit);
-    setMinutesText(value.protestTimeLimit ? String(value.protestTimeLimit.minutes) : '');
+    if (!expanded) {
+      setDraft(value.protestTimeLimit);
+      setMinutesText(value.protestTimeLimit ? String(value.protestTimeLimit.minutes) : '');
+    }
   }
 
   /** `defer` for the typed minutes, which passes through values like `1` on
