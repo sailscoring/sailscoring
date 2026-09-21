@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LogoField } from '@/components/series-settings/logo-field';
+import { AutosaveNote } from '@/components/series-settings/autosave-note';
+import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
 
 export type BasicsValues = Pick<Series, 'name' | 'venue' | 'startDate' | 'endDate' | 'venueLogoUrl' | 'eventLogoUrl' | 'venueUrl' | 'eventUrl'>;
 
@@ -35,9 +37,9 @@ export function BasicsCard({
   const isWizard = mode === 'wizard';
   const [expanded, setExpanded] = useState(isWizard);
   const [draft, setDraft] = useState<BasicsValues>(value);
-  const [changed, setChanged] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const autosave = useSettingsAutosave<BasicsValues>({ save: onChange });
 
   // Re-sync when the persisted basic fields change (e.g. opening a different
   // series, or an external update). Tracked via a derived key rather than
@@ -54,22 +56,50 @@ export function BasicsCard({
   const [prevPersistedKey, setPrevPersistedKey] = useState(persistedKey);
   if (prevPersistedKey !== persistedKey) {
     setPrevPersistedKey(persistedKey);
-    if (!isWizard) {
-      setDraft(value);
-      setChanged(false);
-    }
+    if (!isWizard) setDraft(value);
   }
 
   useEffect(() => {
     if (isWizard && includeName) nameRef.current?.select();
   }, [isWizard, includeName]);
 
+  // The name is the one field that can be refused: it must be unique in the
+  // workspace, and the check is a round trip. So it is committed on a pause or
+  // on leaving the field rather than per keystroke, and only once it passes —
+  // a rejected name leaves the stored one alone while the typed text stays on
+  // screen, which is what lets the scorer fix it rather than retype it.
+  const pendingName = useRef<string | null>(null);
+  const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const commitName = useCallback(async () => {
+    if (nameTimer.current) {
+      clearTimeout(nameTimer.current);
+      nameTimer.current = null;
+    }
+    const typed = pendingName.current;
+    pendingName.current = null;
+    if (typed === null) return;
+    const trimmed = typed.trim() || value.name;
+    if (validateName) {
+      const err = await validateName(trimmed);
+      if (err) {
+        setNameError(err);
+        return;
+      }
+    }
+    setNameError(null);
+    autosave.commit({ name: trimmed });
+  }, [validateName, value.name, autosave]);
+
+  // A name still waiting out its pause when the card goes away is an edit like
+  // any other, so it is written rather than dropped.
+  useEffect(() => () => void commitName(), [commitName]);
+
   async function update(patch: Partial<BasicsValues>) {
     // Functional update so two synchronous calls (e.g. picking a canonical logo
     // sets both the logo URL and defaults the companion website) compose instead
     // of clobbering each other through a stale `draft` closure.
     setDraft((prev) => ({ ...prev, ...patch }));
-    setChanged(true);
     if ('name' in patch) setNameError(null);
     // In wizard mode, propagate every change so the parent can persist live.
     // Swallow rejections so a failed save (e.g. ConflictApiError) doesn't
@@ -81,7 +111,21 @@ export function BasicsCard({
         const err = await validateName((patch.name ?? '').trim() || value.name);
         if (err) setNameError(err);
       }
+      return;
     }
+    if ('name' in patch) {
+      pendingName.current = patch.name ?? '';
+      if (nameTimer.current) clearTimeout(nameTimer.current);
+      nameTimer.current = setTimeout(() => void commitName(), 800);
+      return;
+    }
+    // Trimmed on the way out, never in the box — trimming as you type eats the
+    // space between two words.
+    const trimmed: Partial<BasicsValues> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      trimmed[k as keyof BasicsValues] = typeof v === 'string' ? v.trim() : v;
+    }
+    autosave.commit(trimmed, { defer: true });
   }
 
   // When a canonical logo with an official homepage is picked, default the
@@ -90,36 +134,6 @@ export function BasicsCard({
   function defaultCompanionUrl(field: 'venueUrl' | 'eventUrl', homepage: string) {
     if (draft[field].trim()) return;
     update({ [field]: homepage });
-  }
-
-  async function handleSettingsSave(e: React.FormEvent) {
-    e.preventDefault();
-    const patch: Partial<BasicsValues> = {
-      venue: draft.venue.trim(),
-      startDate: draft.startDate,
-      endDate: draft.endDate,
-    };
-    if (includeName) {
-      const trimmedName = draft.name.trim() || value.name;
-      if (validateName) {
-        const err = await validateName(trimmedName);
-        if (err) {
-          setNameError(err);
-          return;
-        }
-      }
-      patch.name = trimmedName;
-    }
-    if (showLogos) {
-      patch.venueLogoUrl = draft.venueLogoUrl.trim();
-      patch.eventLogoUrl = draft.eventLogoUrl.trim();
-      patch.venueUrl = draft.venueUrl.trim();
-      patch.eventUrl = draft.eventUrl.trim();
-    }
-    await onChange(patch);
-    setNameError(null);
-    setChanged(false);
-    setExpanded(false);
   }
 
   const fields = (
@@ -132,6 +146,7 @@ export function BasicsCard({
             id="name"
             value={draft.name}
             onChange={(e) => update({ name: e.target.value })}
+            onBlur={() => { if (!isWizard) void commitName(); }}
             placeholder="e.g. HYC Frostbite 2026"
             autoFocus
           />
@@ -228,15 +243,22 @@ export function BasicsCard({
       {!expanded ? (
         <p className="text-sm text-muted-foreground">{summary}</p>
       ) : (
-        <form onSubmit={handleSettingsSave} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {fields}
-          <div className="flex gap-2">
-            <Button type="submit" variant="outline" size="sm" disabled={!changed}>
-              {changed ? 'Save' : 'Saved'}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                void commitName();
+                autosave.flush();
+                setExpanded(false);
+              }}
+            >
               Done
             </Button>
+            <AutosaveNote status={autosave.status} />
           </div>
         </form>
       )}

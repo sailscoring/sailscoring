@@ -387,6 +387,12 @@ export default function RunningASeries() {
           fleet’s standings and individual race results.
         </p>
         <p>
+          The Settings cards save as you make changes, the way the rest of the app does —
+          there is no Save button to press and nothing is lost by navigating away mid-edit.{' '}
+          <strong className="text-foreground">Done</strong> just collapses the card back to its
+          summary.
+        </p>
+        <p>
           To rename fleets or change their display order, open the{' '}
           <strong className="text-foreground">Settings</strong> tab and click{' '}
           <strong className="text-foreground">Edit ▸</strong> on the{' '}

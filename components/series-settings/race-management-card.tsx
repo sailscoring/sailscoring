@@ -3,7 +3,9 @@
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { AutosaveNote } from '@/components/series-settings/autosave-note';
 import { OfficialsEditor } from '@/components/officials-editor';
+import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { formatOfficials, hasOfficials, tidyOfficials } from '@/lib/race-officials';
 import type { RaceOfficial, Series } from '@/lib/types';
@@ -31,7 +33,16 @@ export function RaceManagementCard({
   const updateSeries = useUpdateSeries();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState<RaceOfficial[]>(series.officials ?? []);
-  const [changed, setChanged] = useState(false);
+  // Half-filled rows are editing artefacts, not members, so they are tidied
+  // out of what is written — but not out of the draft, which is where the row
+  // the scorer is halfway through typing lives.
+  const autosave = useSettingsAutosave<{ officials: RaceOfficial[] }>({
+    save: (patch) =>
+      updateSeries.mutateAsync({
+        id: seriesId,
+        patch: { ...patch, lastModifiedAt: Date.now() },
+      }),
+  });
 
   // Re-sync when the persisted value changes identity (another tab saved).
   // Render-time compare, not an effect — as ProtestTimeLimitCard does.
@@ -39,7 +50,6 @@ export function RaceManagementCard({
   if (prevOfficials !== series.officials) {
     setPrevOfficials(series.officials);
     setDraft(series.officials ?? []);
-    setChanged(false);
   }
 
   // The switch is mirrored locally so it responds to the click rather than to
@@ -51,17 +61,6 @@ export function RaceManagementCard({
   if (prevPublished !== series.publishOfficials) {
     setPrevPublished(series.publishOfficials);
     setPublished(series.publishOfficials === true);
-  }
-
-  async function save() {
-    // Half-filled rows are editing artefacts, not members.
-    const named = tidyOfficials(draft);
-    await updateSeries.mutateAsync({
-      id: seriesId,
-      patch: { officials: named, lastModifiedAt: Date.now() },
-    });
-    setDraft(named);
-    setChanged(false);
   }
 
   const summary = hasOfficials(series.officials)
@@ -88,15 +87,30 @@ export function RaceManagementCard({
             race is set on that race instead; neither list replaces the other.
           </p>
 
-          <OfficialsEditor value={draft} onChange={(next) => { setDraft(next); setChanged(true); }} idPrefix="series" />
+          <OfficialsEditor
+            value={draft}
+            onChange={(next) => {
+              setDraft(next);
+              // Deferred: these are typed names, and a write per keystroke
+              // across a ten-person team is a lot of round trips.
+              autosave.commit({ officials: tidyOfficials(next) }, { defer: true });
+            }}
+            idPrefix="series"
+          />
 
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" disabled={!changed} onClick={() => void save()}>
-              {changed ? 'Save' : 'Saved'}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                autosave.flush();
+                setExpanded(false);
+              }}
+            >
               Done
             </Button>
+            <AutosaveNote status={autosave.status} />
           </div>
 
           <div className="flex items-start gap-2.5 border-t pt-4">

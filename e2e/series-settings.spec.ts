@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, downloadFleetHtml } from './helpers';
+import { createSeriesQuick, downloadFleetHtml, enableFeatures } from './helpers';
 
 /**
  * E2E tests for the series settings page (issue #39).
@@ -26,7 +26,8 @@ test('settings basics card saves venue, dates, and logo URLs', async ({ page }) 
   await page.getByRole('textbox', { name: 'Event logo' }).fill('https://example.com/event-logo.png');
   await page.getByLabel('Venue website URL').fill('https://venue.example.com');
   await page.getByLabel('Event website URL').fill('https://event.example.com');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  // The card saves as you go; Done flushes anything still in its pause.
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // ── 4. Verify the series header subtitle reflects the new venue and date ──
   await expect(page.getByText('Dún Laoghaire Harbour').first()).toBeVisible();
@@ -57,7 +58,8 @@ test('logo and website URLs produce clickable logos and footer links in exported
   await page.getByRole('textbox', { name: 'Event logo' }).fill('https://example.com/event.png');
   await page.getByLabel('Venue website URL').fill('https://venue.example.com');
   await page.getByLabel('Event website URL').fill('https://event.example.com');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  // The card saves as you go; Done flushes anything still in its pause.
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // ── 3. Add a competitor and race so export is possible ───────────────────
   await page.getByRole('link', { name: 'Competitors' }).click();
@@ -95,4 +97,45 @@ test('logo and website URLs produce clickable logos and footer links in exported
   // Footer carries the venue (by name) and event (by series name) website links.
   expect(html).toContain('<p class="hardleft"><a href="https://venue.example.com" target="_top" rel="noopener">Test Venue</a></p>');
   expect(html).toContain('<p class="hardright"><a href="https://event.example.com" target="_top" rel="noopener">Logo Test Series</a></p>');
+});
+
+/**
+ * #599 — the settings cards used to persist only on an explicit Save, with
+ * Done beside it collapsing the card and throwing the draft away. Done reads
+ * like "finish", not "abandon", and nothing warned about leaving, so a scorer
+ * could type a ten-person race management team, leave, and lose the lot. It
+ * caught real users on the Basics card and caught Mark on Race management.
+ *
+ * Every one of those cards now saves as you go, so the test does the thing
+ * that used to lose the work: type, then leave without pressing anything.
+ */
+test('a settings card keeps an edit when you leave without pressing anything', async ({ page, signedInEmail }) => {
+  // The race management card is gated; it is the one that bit, so it is the
+  // one worth testing alongside Basics.
+  await enableFeatures(page, signedInEmail, ['race-management-metadata']);
+  await createSeriesQuick(page, { name: 'Autosaved Settings 2026' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+
+  // Basics: type a venue, then navigate straight away — no Save, no Done.
+  await page.locator('h2', { hasText: 'Basic' }).locator('..')
+    .getByRole('button', { name: /Edit/ }).click();
+  await page.getByLabel('Venue', { exact: true }).fill('Howth Yacht Club');
+  await expect(page.getByTestId('autosave-note')).toHaveText('Saved');
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await expect(page).toHaveURL(/\/races$/);
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await expect(page.locator('h2', { hasText: 'Basic' }).locator('..').locator('..'))
+    .toContainText('Howth Yacht Club');
+
+  // Race management: the card that bit. Type a team and leave mid-card.
+  await page.locator('h2', { hasText: 'Race management team' }).locator('..')
+    .getByRole('button', { name: /Edit/ }).click();
+  await page.getByTestId('series-add-official').click();
+  await page.getByLabel('Name for team member 1').fill('Ann Kelly');
+  await expect(page.getByTestId('autosave-note')).toHaveText('Saved');
+  await page.reload();
+  await expect(page.locator('h2', { hasText: 'Race management team' }).locator('..').locator('..'))
+    .toContainText('Ann Kelly');
 });

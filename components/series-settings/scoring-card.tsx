@@ -12,6 +12,8 @@ import {
   summarizeProportionalDiscard,
 } from '@/lib/discard-rules';
 import { useFeatures } from '@/components/features-provider';
+import { AutosaveNote } from '@/components/series-settings/autosave-note';
+import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
 
 export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDiscard' | 'dnfScoring' | 'excludeDncOnlyCompetitors'>;
 
@@ -19,6 +21,13 @@ export type ScoringValues = Pick<Series, 'discardThresholds' | 'proportionalDisc
  *  three races sailed, the commonest wording found in club sailing
  *  instructions. */
 const DEFAULT_PROPORTIONAL: ProportionalDiscard = { firstAt: 3, everyRaces: 3 };
+
+/** Stored in order, but only on the way out — reordering rows under the cursor
+ *  as a number is typed is worse than a momentarily out-of-order list, and the
+ *  engine sorts for itself either way. */
+function orderThresholds(rows: DiscardThreshold[]): DiscardThreshold[] {
+  return [...rows].sort((a, b) => a.minRaces - b.minRaces);
+}
 
 export type ScoringCardProps = {
   value: ScoringValues;
@@ -35,7 +44,7 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
   const [proportional, setProportional] = useState<ProportionalDiscard | undefined>(value.proportionalDiscard);
   const [dnfScoring, setDnfScoring] = useState<Series['dnfScoring']>(value.dnfScoring ?? 'seriesEntries');
   const [excludeDncOnly, setExcludeDncOnly] = useState(value.excludeDncOnlyCompetitors ?? false);
-  const [changed, setChanged] = useState(false);
+  const autosave = useSettingsAutosave<ScoringValues>({ save: onChange });
 
   // Re-sync the local draft when the persisted value changes identity (e.g.
   // opening a different series). Done via render-time compare rather than an
@@ -48,7 +57,6 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     setProportional(value.proportionalDiscard);
     setDnfScoring(value.dnfScoring ?? 'seriesEntries');
     setExcludeDncOnly(value.excludeDncOnlyCompetitors ?? false);
-    setChanged(false);
   }
 
   // Wizard-mode autosave fires onChange without awaiting (the input mustn't
@@ -59,36 +67,44 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     Promise.resolve(onChange(patch)).catch(() => {});
   }
 
-  function updateThresholds(next: DiscardThreshold[]) {
+  /** Rows carry typed numbers, so they are coalesced over a pause; everything
+   *  else here is a radio or a checkbox and goes on the spot. */
+  function updateThresholds(next: DiscardThreshold[], opts?: { defer?: boolean }) {
     setThresholds(next);
-    setChanged(true);
     if (isWizard) fireWizardSave({ discardThresholds: next });
+    else autosave.commit({ discardThresholds: orderThresholds(next) }, opts);
   }
 
-  function updateProportional(next: ProportionalDiscard | undefined) {
+  function updateProportional(next: ProportionalDiscard | undefined, opts?: { defer?: boolean }) {
     setProportional(next);
-    setChanged(true);
     if (isWizard) fireWizardSave({ proportionalDiscard: next });
+    else autosave.commit({ proportionalDiscard: next }, opts);
   }
 
   function updateProportionalField(field: keyof ProportionalDiscard, fieldValue: number) {
-    updateProportional({ ...(proportional ?? DEFAULT_PROPORTIONAL), [field]: fieldValue });
+    updateProportional(
+      { ...(proportional ?? DEFAULT_PROPORTIONAL), [field]: fieldValue },
+      { defer: true },
+    );
   }
 
   function updateDnf(next: Series['dnfScoring']) {
     setDnfScoring(next);
-    setChanged(true);
     if (isWizard) fireWizardSave({ dnfScoring: next });
+    else autosave.commit({ dnfScoring: next });
   }
 
   function updateExcludeDncOnly(next: boolean) {
     setExcludeDncOnly(next);
-    setChanged(true);
     if (isWizard) fireWizardSave({ excludeDncOnlyCompetitors: next });
+    else autosave.commit({ excludeDncOnlyCompetitors: next });
   }
 
   function updateThreshold(index: number, field: keyof DiscardThreshold, value: number) {
-    updateThresholds(thresholds.map((t, i) => i === index ? { ...t, [field]: value } : t));
+    updateThresholds(
+      thresholds.map((t, i) => i === index ? { ...t, [field]: value } : t),
+      { defer: true },
+    );
   }
 
   function addThreshold() {
@@ -101,21 +117,7 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
     updateThresholds(thresholds.filter((_, i) => i !== index));
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    // Tidy the stored order on save rather than while typing — reordering rows
-    // under the cursor as a number is edited is worse than a momentarily
-    // out-of-order list, and the engine sorts for itself either way.
-    const ordered = [...thresholds].sort((a, b) => a.minRaces - b.minRaces);
-    await onChange({
-      discardThresholds: ordered,
-      proportionalDiscard: proportional,
-      dnfScoring,
-      excludeDncOnlyCompetitors: excludeDncOnly,
-    });
-    setChanged(false);
-    setExpanded(false);
-  }
+
 
   const described = describeDiscardRules(thresholds);
   const describedProportional = proportional ? describeProportionalDiscard(proportional) : null;
@@ -362,16 +364,22 @@ export function ScoringCard({ value, onChange, mode = 'settings' }: ScoringCardP
       {!expanded ? (
         <p className="text-sm text-muted-foreground">{summary}</p>
       ) : (
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {thresholdTable}
           {dnfRadios}
-          <div className="flex gap-2">
-            <Button type="submit" variant="outline" size="sm" disabled={!changed}>
-              {changed ? 'Save' : 'Saved'}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                autosave.flush();
+                setExpanded(false);
+              }}
+            >
               Done
             </Button>
+            <AutosaveNote status={autosave.status} />
           </div>
         </form>
       )}

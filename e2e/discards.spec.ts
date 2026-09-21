@@ -106,7 +106,7 @@ test('discard rule changes standings and shows Nett column', async ({ page }) =>
   await page.getByLabel('Rule 1: discards').fill('1');
 
   // Save the scoring card
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // Collapsed, the card restates the profile rather than counting rules
   await expect(page.getByText('1 discard from 3 races ·')).toBeVisible();
@@ -169,7 +169,7 @@ test('discard rules can be edited freely and flag the odd ones', async ({ page }
   await expect(page.getByText('Same number of discards as the rule before it (1).')).toBeVisible();
 
   await page.getByLabel('Rule 2: discards').fill('2');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   await expect(page.getByText('1 discard from 5 races, 2 from 9 ·')).toBeVisible();
 });
@@ -222,7 +222,7 @@ test('a proportional rule scores the series and survives the gate being off', as
   // The rule reads back where the allowance steps up — the check against the SI
   await expect(page.getByText('steps up at 3, 6, 9, 12, 15 … races sailed')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText('1 discard per 3 races sailed, from 3 races ·')).toBeVisible();
 
   // ── It scores: three races sailed earns one discard ──────────────────────

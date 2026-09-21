@@ -126,8 +126,9 @@ test('a race records its conditions and team, published only on opt-in', async (
   await expect(page.getByLabel('Name for team member 1')).toHaveValue('Sam Doyle');
   await expect(page.getByLabel('Name for team member 2')).toHaveValue('Ann Kelly');
 
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
+  // The team saves as you type it; the card says so rather than offering a
+  // button that could be left unpressed.
+  await expect(page.getByTestId('autosave-note')).toHaveText('Saved');
 
   const publishSwitch = page.getByLabel('Publish the race management team');
   await expect(publishSwitch).not.toBeChecked();

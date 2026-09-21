@@ -6,6 +6,8 @@ import type { ProtestTimeLimit, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AutosaveNote } from '@/components/series-settings/autosave-note';
+import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
 
 export type ProtestTimeLimitValues = Pick<Series, 'protestTimeLimit'>;
 
@@ -31,7 +33,7 @@ export function ProtestTimeLimitCard({
   const [minutesText, setMinutesText] = useState(
     value.protestTimeLimit ? String(value.protestTimeLimit.minutes) : '',
   );
-  const [changed, setChanged] = useState(false);
+  const autosave = useSettingsAutosave<ProtestTimeLimitValues>({ save: onChange });
 
   // Re-sync the draft when the persisted value changes identity (e.g. another
   // tab saved). Render-time compare, not an effect — see ScoringCard.
@@ -40,19 +42,13 @@ export function ProtestTimeLimitCard({
     setPrevValue(value);
     setDraft(value.protestTimeLimit);
     setMinutesText(value.protestTimeLimit ? String(value.protestTimeLimit.minutes) : '');
-    setChanged(false);
   }
 
-  function updateDraft(next: ProtestTimeLimit | undefined) {
+  /** `defer` for the typed minutes, which passes through values like `1` on
+   *  the way to `120`; a radio is a finished decision when it is clicked. */
+  function updateDraft(next: ProtestTimeLimit | undefined, opts?: { defer?: boolean }) {
     setDraft(next);
-    setChanged(true);
-  }
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    await onChange({ protestTimeLimit: draft });
-    setChanged(false);
-    setExpanded(false);
+    autosave.commit({ protestTimeLimit: next }, opts);
   }
 
   const summary = value.protestTimeLimit
@@ -74,7 +70,7 @@ export function ProtestTimeLimitCard({
       {!expanded ? (
         <p className="text-sm text-muted-foreground">{summary}</p>
       ) : (
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           <p className="text-xs text-muted-foreground">
             Set this to match the sailing instructions. It drives the protest
             time limit shown beside each race&apos;s last finisher and the
@@ -133,8 +129,11 @@ export function ProtestTimeLimitCard({
                   onChange={(e) => {
                     setMinutesText(e.target.value);
                     const minutes = parseInt(e.target.value);
+                    // Only a value that is actually a limit is written; an
+                    // emptied box is mid-edit, and the stored limit stands
+                    // until it says something else.
                     if (Number.isInteger(minutes) && minutes >= 1) {
-                      updateDraft({ minutes, basis: draft.basis });
+                      updateDraft({ minutes, basis: draft.basis }, { defer: true });
                     }
                   }}
                   className="h-8 w-28 text-sm"
@@ -174,13 +173,19 @@ export function ProtestTimeLimitCard({
               </div>
             </div>
           )}
-          <div className="flex gap-2">
-            <Button type="submit" variant="outline" size="sm" disabled={!changed}>
-              {changed ? 'Save' : 'Saved'}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                autosave.flush();
+                setExpanded(false);
+              }}
+            >
               Done
             </Button>
+            <AutosaveNote status={autosave.status} />
           </div>
         </form>
       )}

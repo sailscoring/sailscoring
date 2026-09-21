@@ -66,7 +66,7 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   await limitCard.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('radio', { name: 'Time limit after the last finisher' }).check();
   await expect(page.getByLabel('Minutes')).toHaveValue('120');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await limitCard.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(limitCard.getByText('120 minutes after the last finisher of each race')).toBeVisible();
 
   // ── 4. Mark as final through the checklist ───────────────────────────────

@@ -85,7 +85,7 @@ test('pick a library logo as a series venue burgee', async ({ page }) => {
   await expect(venueLogo).toHaveValue(/\/logos\/[0-9a-f-]{36}$/);
   const url = await venueLogo.inputValue();
 
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // The public indirection route serves the bytes, unauthenticated.
   const res = await page.request.get(url);
@@ -164,7 +164,7 @@ test('pick a built-in canonical logo for a series', async ({ page }) => {
   await expect(eventLogo).toHaveValue(/\/canonical-logos\/aib\.png$/);
   const url = await eventLogo.inputValue();
 
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // The synced canonical asset is served from the app's public path.
   const res = await page.request.get(url);
@@ -202,7 +202,7 @@ test('picking a canonical logo defaults the website slot and links it on the exp
     'https://iodai.com',
   );
 
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // The exported results page makes the event logo + name clickable to iodai.com.
   await page.getByRole('link', { name: 'Standings' }).click();
