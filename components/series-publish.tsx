@@ -34,6 +34,10 @@ interface SeriesPublishValue {
   /** Whether this series can be published at all — permission, and a regime
    *  that has something to publish. False leaves the header button off. */
   available: boolean;
+  /** Whether the fleets the dialog builds its page list from are in hand. The
+   *  dialog seeds that list once, when it opens, so opening it early would
+   *  seed it from no fleets and leave it with nothing to publish. */
+  ready: boolean;
   open: () => void;
   setUnscored: (notes: UnscoredRaceNote[]) => void;
 }
@@ -48,9 +52,7 @@ export function SeriesPublishProvider({
 }: {
   series: Series;
   available: boolean;
-  /** A split-fleet championship publishes its own pages — the championship
-   *  standings, the per-race results, the assignments — rather than one page
-   *  per fleet, so the dialog runs in single-default-page mode. */
+  /** Whether this is a split-fleet championship — see `dialogFleets`. */
   isSplitFleetSeries: boolean;
   children: React.ReactNode;
 }) {
@@ -59,6 +61,18 @@ export function SeriesPublishProvider({
   const [open, setOpen] = useState(false);
   const [unscored, setUnscored] = useState<UnscoredRaceNote[]>([]);
   const { data: fleets } = useFleetsBySeries(series.id, { enabled: available });
+  // The query starts with the series page, long before anyone reaches for
+  // Publish, so this is all but always true by the time it is read.
+  const ready = fleets !== undefined;
+  // A split-fleet championship publishes its own pages — the championship
+  // standings, the per-race results, the assignments — rather than one page
+  // per fleet, so the dialog runs in single-default-page mode. Memoised
+  // because a fresh array each render is a fresh identity, and the dialog
+  // warns that one re-seeds it.
+  const dialogFleets = useMemo(
+    () => (isSplitFleetSeries ? [] : (fleets ?? [])),
+    [isSplitFleetSeries, fleets],
+  );
 
   // `p` was the per-page binding on Standings and Competitors; it is now the
   // series' own, so it works from the finish sheet too. The tab chords are
@@ -68,23 +82,23 @@ export function SeriesPublishProvider({
       key: 'p',
       description: 'Publish',
       section: 'Series',
-      when: () => available,
+      when: () => available && ready,
       handler: () => setOpen(true),
     },
   ]);
 
   const value = useMemo<SeriesPublishValue>(
-    () => ({ available, open: () => setOpen(true), setUnscored }),
-    [available],
+    () => ({ available, ready, open: () => setOpen(true), setUnscored }),
+    [available, ready],
   );
 
   return (
     <SeriesPublishContext.Provider value={value}>
       {children}
-      {available && (
+      {available && ready && (
         <PublishDialog
           series={series}
-          fleets={isSplitFleetSeries ? [] : (fleets ?? [])}
+          fleets={dialogFleets}
           open={open}
           onClose={() => setOpen(false)}
           canFtp={has('ftp-upload') && can('manage-workspace')}
@@ -129,8 +143,17 @@ export function SeriesPublishButton() {
   const open = publish?.open;
   const onClick = useCallback(() => open?.(), [open]);
   if (!publish?.available) return null;
+  // Disabled rather than hidden until the fleets land: a button that appears a
+  // moment later is one the eye has to find twice, and the wait is a frame or
+  // two on anything but a cold, loaded page.
   return (
-    <Button size="sm" variant="outline" onClick={onClick} title="Publish (p)">
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={onClick}
+      disabled={!publish.ready}
+      title="Publish (p)"
+    >
       Publish…
     </Button>
   );
