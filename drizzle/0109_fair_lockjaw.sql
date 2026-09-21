@@ -1,0 +1,1 @@
+ALTER TABLE "competitors" ADD COLUMN "irc_cert" jsonb;

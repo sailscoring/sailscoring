@@ -55,6 +55,12 @@ export interface IrcRatingRecord {
   isSecondary: boolean;
   /** From the "Endorsed" column (`E`). Shown for sanity-checking, not written. */
   endorsed?: boolean;
+  /** Hull length, beam and crew number, as the listing states them. The shape
+   *  of the boat: two boats sharing a name are told apart by these faster
+   *  than by anything else on the row. */
+  hullLength?: number;
+  beam?: number;
+  crew?: number;
 }
 
 export interface IrcRatings {
@@ -118,6 +124,9 @@ function resolveColumns(headers: string[]): Record<string, number> {
     secondary: find('secondary'),
     nonSpiTcc: find('non spi tcc'),
     validCode: find('validcode'),
+    hullLength: find('lh'),
+    beam: find('beam'),
+    crew: find('crew'),
   };
 }
 
@@ -176,6 +185,9 @@ export function parseClubListing(csv: string): IrcRatingRecord[] {
       issueDate: str(at(cells, col.issueDate)),
       isSecondary: at(cells, col.secondary)?.trim().toUpperCase() === 'SEC',
       endorsed: at(cells, col.endorsed)?.trim().toUpperCase() === 'E' ? true : undefined,
+      hullLength: num(at(cells, col.hullLength)),
+      beam: num(at(cells, col.beam)),
+      crew: num(at(cells, col.crew)),
     });
   }
   return records;

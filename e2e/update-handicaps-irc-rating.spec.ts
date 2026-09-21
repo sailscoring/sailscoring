@@ -290,6 +290,61 @@ test('a boat that has already raced is never offered for removal', async ({ page
   await expect(page.getByText('Not on the rating list')).toHaveCount(0);
 });
 
+test('an applied rating records the certificate it came from, and publishes where (#615)', async ({ page }) => {
+  // A competitor reading a published rating had no way to answer "where did
+  // this come from" — and nor had the scorer, whose only record was a moment
+  // in a dialog. Now the certificate is kept beside the number, and the page
+  // says which list it was read off.
+  await createSeriesQuick(page, { name: 'Rating Provenance 2026' });
+  await createFleets(page, ['IRC']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL1431');
+  await page.getByLabel('Competitor name').fill('3 Cheers');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL1431' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('IRC TCC (international)').click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // A race, so there is a results page to publish.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05', { exact: true }).fill('14:00:00');
+  await page.getByRole('checkbox', { name: 'IRC' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('14:00:00')).toBeVisible();
+  await page.getByLabel('Sail number').fill('IRL1431');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill('14:50:00');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('button', { name: 'Publish…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const href = (await dialog.getByRole('link', { name: /\/p\// }).getAttribute('href')) ?? '';
+  const html = await (await page.request.get(new URL(href).pathname)).text();
+
+  // The page says where the ratings came from, and when that list was
+  // published — enough for a reader to go and check the figure themselves.
+  expect(html).toContain('IRC ratings from the IRC ClubListing');
+  expect(html).toContain('30/05/2026');
+});
+
 test('a boat matched by name alone is never added to a fleet, and starts unticked', async ({ page }) => {
   // The Alchemy incident: an uncertificated Elan 31 entered as 3154 took a
   // British boat's non-spinnaker TCC because the name fallback dropped the
@@ -332,17 +387,22 @@ test('a boat matched by name alone is never added to a fleet, and starts unticke
 
   // Halcyon does match by name, but the row is out until the scorer ticks it,
   // and select-all leaves it out.
-  const halcyonRow = page.getByRole('row').filter({ hasText: 'Halcyon' });
+  // Scoped by its apply checkbox: the row now nests the certificate
+  // comparison table, which has rows of its own.
+  const halcyonBox = page.getByRole('checkbox', { name: /Apply the change to IRL4243/ });
+  const halcyonRow = page.getByRole('row').filter({ has: halcyonBox });
   await expect(halcyonRow).toContainText('matched by name alone → IRL4242');
-  const halcyonBox = halcyonRow.getByRole('checkbox');
+
+  // The entry beside the certificate it was matched to — the comparison that
+  // would have shown the Alchemy mismatch at a glance (#615).
+  const comparison = page.getByTestId('cert-comparison-IRL4243');
+  await expect(comparison).toContainText('This entry');
+  await expect(comparison).toContainText('Hull length');
   await expect(halcyonBox).not.toBeChecked();
 
   // Select-all governs the rows that apply by default — 3 Cheers, matched on
   // her sail number — and leaves the name-only row where it is.
-  const cheersBox = page
-    .getByRole('row')
-    .filter({ hasText: '3 Cheers' })
-    .getByRole('checkbox');
+  const cheersBox = page.getByRole('checkbox', { name: /Apply the change to IRL1431/ });
   await expect(cheersBox).toBeChecked();
   await page.getByRole('checkbox', { name: /^(De)?[Ss]elect all/ }).first().uncheck();
   await expect(cheersBox).not.toBeChecked();

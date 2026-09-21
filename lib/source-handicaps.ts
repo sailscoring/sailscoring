@@ -46,7 +46,7 @@ import {
   type OrcRmsRecord,
 } from './orc-certificate';
 import { lookupAlias } from './nationality';
-import type { Competitor, Fleet, OrcCertData, Race, TcfRecord } from './types';
+import type { Competitor, Fleet, IrcCertRecord, OrcCertData, Race, TcfRecord } from './types';
 
 /**
  * The progressive-handicap systems whose end-of-series TCF we can read
@@ -234,6 +234,10 @@ export interface PreviewRow {
    *  whole document, so the payload rides with the row rather than through
    *  the numeric-field machinery. */
   orcCert?: OrcCertData;
+  /** IRC rows only: where the number came from, written beside it so the
+   *  question "why is this boat rated like that?" has an answer afterwards
+   *  (#615). Advisory — scoring reads the applied TCC, never this. */
+  ircCert?: IrcCertRecord;
   /** ORC rows only, and only when the certificate isn't from the fleet's own
    *  certificate family: which family it did come from. Set by the standard
    *  fallback, so the row can say what the boat would be scored on. */
@@ -507,6 +511,14 @@ export interface RatingRecord {
   /** Explicit secondary-certificate flag (IRC list `Secondary = SEC`). When
    *  absent, {@link isSecondaryCert} falls back to the `"(SC)"` name marker. */
   isSecondary?: boolean;
+  /** Certificate year and issue date, as the listing states them. */
+  certYear?: string;
+  issueDate?: string;
+  /** The shape of the boat, for telling two certificates of the same name
+   *  apart. Recorded with an applied IRC rating; never used to match. */
+  hullLength?: number;
+  beam?: number;
+  crew?: number;
 }
 
 export interface RatingPlanInput {
@@ -528,6 +540,9 @@ export interface RatingPlanInput {
    *  `certId` (see {@link CertChoiceOption}). For boats holding more than one
    *  certificate; when absent we default to the higher-TCC certificate. */
   certChoiceByCompetitor?: Readonly<Record<string, string>>;
+  /** Which list these records came from, and when it was published. Recorded
+   *  on each applied IRC rating so a reader can go back to the source. */
+  source?: { name: string; updatedAt?: string | null };
   /** Country code to assume for a prefix-less competitor sail number (e.g.
    *  `"IRL"`). Defaults to `''` (assume nothing); the dialog passes
    *  {@link defaultSailCountry}. See {@link withDefaultCountry}. */
@@ -645,6 +660,39 @@ function push<T>(map: Map<string, T[]>, key: string, value: T): void {
   const list = map.get(key);
   if (list) list.push(value);
   else map.set(key, [value]);
+}
+
+/**
+ * The certificate behind an applied IRC rating, recorded beside it (#615).
+ *
+ * Written from the list's own row, not the competitor's: the certificate's
+ * sail number and boat name next to the entry's are what show a match landed
+ * on the wrong boat, and the hull dimensions are what a reader recognises as
+ * the wrong boat without knowing anything about ratings.
+ */
+function buildIrcCert(
+  record: RatingRecord,
+  variantApplied: IrcTccVariant,
+  method: RatingMatchMethod,
+  source: { name: string; updatedAt?: string | null } | undefined,
+): IrcCertRecord {
+  return {
+    ...(record.ircCertNumber ? { certNumber: record.ircCertNumber } : {}),
+    ...(record.sailNumber ? { sailNumber: record.sailNumber } : {}),
+    ...(record.boatName ? { boatName: record.boatName } : {}),
+    ...(record.issueDate ? { issueDate: record.issueDate } : {}),
+    ...(record.certYear ? { certYear: record.certYear } : {}),
+    ...(record.ircTcc != null ? { tcc: record.ircTcc } : {}),
+    ...(record.ircNonSpinTcc != null ? { nonSpinTcc: record.ircNonSpinTcc } : {}),
+    variantApplied,
+    ...(record.hullLength != null ? { hullLength: record.hullLength } : {}),
+    ...(record.beam != null ? { beam: record.beam } : {}),
+    ...(record.crew != null ? { crew: record.crew } : {}),
+    ...(source?.name ? { source: source.name } : {}),
+    ...(source?.updatedAt ? { sourceUpdatedAt: source.updatedAt } : {}),
+    matchedBy: method,
+    appliedAt: Date.now(),
+  };
 }
 
 /** The two TCC systems that carry a spin/non-spin split. */
@@ -800,6 +848,9 @@ function planRatingUpdates(
         status: base.currentTcf === newTcf ? 'unchanged' : 'change',
         match,
         certChoice,
+        ...(system === 'irc'
+          ? { ircCert: buildIrcCert(record, ircVariant!, matchResult.method, input.source) }
+          : {}),
       });
     }
   }
@@ -883,6 +934,9 @@ export interface FleetAdditionInput {
   certChoiceByCompetitor?: Readonly<Record<string, string>>;
   /** Per-candidate chosen target fleet, keyed by {@link additionKey}. */
   targetFleetByKey?: Readonly<Record<string, string>>;
+  /** Which list these records came from — recorded with an applied IRC
+   *  rating, as on the update path. */
+  source?: { name: string; updatedAt?: string | null };
   /** Country to assume for a prefix-less competitor sail number. See
    *  {@link withDefaultCountry}. */
   defaultCountry?: string;
@@ -905,6 +959,8 @@ export interface FleetAdditionCandidate {
   certChoice?: CertChoice;
   /** ORC candidates only: the certificate the addition writes. */
   orcCert?: OrcCertData;
+  /** IRC candidates only: the certificate behind the seeded rating (#615). */
+  ircCert?: IrcCertRecord;
   /** ORC candidates only: set when that certificate isn't from the target
    *  fleet's own family — see {@link PreviewRow.orcCertFamily}. */
   orcCertFamily?: OrcFamily;
@@ -1008,6 +1064,16 @@ function planFleetAdditions(
         proposedTcf,
         match: matchAnno,
         certChoice,
+        ...(system === 'irc'
+          ? {
+              ircCert: buildIrcCert(
+                records[pickCertIndex(records, ircVariantByFleet[targetFleetId ?? ''] ?? 'spin', certChoiceByCompetitor[comp.id])],
+                ircVariantByFleet[targetFleetId ?? ''] ?? 'spin',
+                match.method,
+                input.source,
+              ),
+            }
+          : {}),
       });
     }
   }

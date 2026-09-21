@@ -860,6 +860,23 @@ export interface Competitor {
   pyNumber?: number;  // RYA Portsmouth Yardstick number, e.g. 1034
   nhcStartingTcf?: number;  // initial TCF for NHC fleets; required for NHC competitors
   echoStartingTcf?: number; // initial TCF for ECHO fleets; required for ECHO competitors
+  // Where this boat's IRC rating came from: the certificate the Update
+  // Handicaps dialog matched, recorded at the moment it was applied.
+  //
+  // `ircTcc` on its own is a bare number, so a competitor asking why their
+  // boat was rated as it was had nobody who could answer — not even the
+  // scorer, whose only record was a moment in a dialog. A boat once took a
+  // rating belonging to a different boat of the same name on the other side
+  // of the Irish Sea, and it took a competitor noticing the published figure
+  // was slower than a J/24 to find it. This is the answer, kept beside the
+  // number: which certificate, for which boat, off which list and when. A
+  // later run can re-verify it — "stored certificate 2951 is for GBR9608
+  // ALCHEMY; this boat is IRL3154" — instead of the mismatch being something
+  // that happened once and left no trace.
+  //
+  // Sparse and advisory: absent means the rating was typed in, imported, or
+  // applied before this was recorded, and scoring never reads it.
+  ircCert?: IrcCertRecord;
   // The boat's ORC certificate, stored verbatim as imported from the ORC
   // database; required for ORC competitors. Scoring reads rating fields off
   // the record per the fleet's OrcProfile. Kept out of the public JSON
@@ -873,6 +890,47 @@ export interface Competitor {
   // which never turn up. Sparse: absent means entered.
   excluded?: boolean;
   version?: number;         // server-side concurrency token (see Series.version)
+}
+
+/**
+ * The IRC certificate a boat's stored TCC came from, as the rating list
+ * stated it. Written when Update Handicaps applies an IRC rating; never read
+ * by scoring, which uses the applied `ircTcc` alone.
+ *
+ * The certificate's own sail number and boat name are kept deliberately, not
+ * the competitor's: side by side with the entry they are what shows a match
+ * landed on the wrong boat. So are the hull dimensions — a boat 8.56 m by
+ * 2.82 m is not an Elan 31, and that is the discrepancy a competitor spotted
+ * in seconds when nothing in the app had.
+ */
+export interface IrcCertRecord {
+  /** Certificate number, e.g. "2951". */
+  certNumber?: string;
+  /** The sail number *the certificate* carries, e.g. "GBR9608". */
+  sailNumber?: string;
+  /** The boat name *the certificate* carries, e.g. "ALCHEMY". */
+  boatName?: string;
+  /** The certificate's issue date and year, as the listing states them. */
+  issueDate?: string;
+  certYear?: string;
+  /** The TCC pair on the certificate, and which of them was applied. */
+  tcc?: number;
+  nonSpinTcc?: number;
+  variantApplied?: 'spin' | 'non-spin';
+  /** Hull length, beam and crew number — the shape of the boat, for telling
+   *  one ALCHEMY from another. */
+  hullLength?: number;
+  beam?: number;
+  crew?: number;
+  /** Which list it came from and when that list was published, so a reader of
+   *  the results can go and look. */
+  source?: string;
+  sourceUpdatedAt?: string;
+  /** How the competitor was matched to it — an exact sail number, a sail
+   *  number without its country code, or the boat name. */
+  matchedBy?: 'exact-sail' | 'sail-no-country' | 'sail-and-name' | 'name';
+  /** When this was recorded (epoch ms). */
+  appliedAt: number;
 }
 
 /**

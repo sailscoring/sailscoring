@@ -32,6 +32,7 @@ import type {
   DiscardThreshold,
   ProportionalDiscard,
   NhcProfile,
+  IrcCertRecord,
   OrcCertData,
   OrcCourseLeg,
   OrcProfile,
@@ -499,6 +500,9 @@ export const competitors = pgTable(
     echoStartingTcf: real('echo_starting_tcf'),
     // The boat's ORC certificate, verbatim as imported (see OrcCertData).
     orcCert: jsonb('orc_cert').$type<OrcCertData>(),
+    // Where an applied IRC rating came from (#615). Advisory: scoring reads
+    // `ircTcc`, never this.
+    ircCert: jsonb('irc_cert').$type<IrcCertRecord>(),
     // On the list but not an entrant: scored nowhere and counted toward no
     // entry total (Sailwave's per-competitor Exclude flag). See
     // Competitor.excluded.

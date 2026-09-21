@@ -347,6 +347,13 @@ export interface PublicSeriesExport {
      *  of the export (published pages embed this JSON); re-import rebuilds a
      *  partial certificate from the summary. */
     orc?: import('./orc-certificate').OrcCertSummary;
+    /** Where an IRC rating came from: the certificate number, and the listing
+     *  it was read off with that listing's date. Enough for a reader to go and
+     *  check the figure themselves, which is the whole point of publishing it
+     *  (#615). The rest of the stored record — the certificate's own sail
+     *  number and boat name, the hull dimensions — is the scorer's audit
+     *  trail and stays in the app. */
+    ircCert?: { certNumber?: string; source?: string; sourceUpdatedAt?: string };
   }[];
   races: {
     raceNumber: number;
@@ -1411,6 +1418,17 @@ export function buildPublicExportFromSnapshot(
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       ...(c.orcCert != null ? { orc: orcCertSummary(c.orcCert) } : {}),
+      ...(c.ircCert != null
+        ? {
+            ircCert: {
+              ...(c.ircCert.certNumber ? { certNumber: c.ircCert.certNumber } : {}),
+              ...(c.ircCert.source ? { source: c.ircCert.source } : {}),
+              ...(c.ircCert.sourceUpdatedAt
+                ? { sourceUpdatedAt: c.ircCert.sourceUpdatedAt }
+                : {}),
+            },
+          }
+        : {}),
     })),
     races: exportedRaces,
     standings: exportedStandings,
@@ -1893,6 +1911,7 @@ export async function importPublicExport(
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
         ...(c.orc != null ? { orcCert: orcCertFromSummary(c.orc, now) } : {}),
+        ...(c.ircCert != null ? { ircCert: { ...c.ircCert, appliedAt: now } } : {}),
       });
     }),
   );

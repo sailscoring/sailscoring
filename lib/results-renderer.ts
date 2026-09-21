@@ -135,6 +135,11 @@ export interface SeriesResultsData {
    *  page (#511) — see `DocumentChrome`. */
   seriesNote?: string;
   pageNote?: string;
+  /** Where the IRC ratings on this page came from — the listing and the date
+   *  it was published (#615). A reader asking why a boat is rated as it is
+   *  can then go and look, which until now meant writing to the scorer, who
+   *  had no record either. */
+  ircRatingSource?: { source: string; updatedAt?: string };
 }
 
 export interface RaceData {
@@ -841,6 +846,8 @@ export interface DocumentChrome {
    *  render as an editorial block above the results, the series note first. */
   seriesNote?: string;
   pageNote?: string;
+  /** Where the page's IRC ratings came from — see `SeriesResultsData`. */
+  ircRatingSource?: { source: string; updatedAt?: string };
 }
 
 export function renderSeriesHtml(
@@ -1008,6 +1015,12 @@ export function renderCombinedSeriesHtml(
     officials: first.officials,
     ...(options.seriesNote ? { seriesNote: options.seriesNote } : {}),
     ...(options.pageNote ? { pageNote: options.pageNote } : {}),
+    // Any page of the set whose ratings came off the list carries the same
+    // provenance; a combined page states it once.
+    ...(() => {
+      const src = sections.find((sec) => sec.ircRatingSource)?.ircRatingSource;
+      return src ? { ircRatingSource: src } : {};
+    })(),
   };
   return renderHtmlDocument(chrome, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
 }
@@ -1531,7 +1544,7 @@ export function renderHtmlDocument(
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean },
 ): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote } = chrome;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote, ircRatingSource } = chrome;
   const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
   const title = `Results for ${series.name}${series.venue ? ' at ' + series.venue : ''}${
@@ -1646,6 +1659,10 @@ td.ratingcell.notentered { color: #bbb; }
 .pagenotes p { text-align: left; margin: 0 0 6px 0; }
 .pagenotes p:last-child { margin-bottom: 0; }
 .pagenotes .seriesnote { color: #444; }
+/* Where the ratings came from (#615). Quiet, and beside the credit line
+   rather than above the tables: it is provenance a reader goes looking for,
+   not something the page needs to announce. */
+.ratingsource { font-size: 0.8em; color: #666; margin: 0 0 6px 0; }
 th[data-sortable] { cursor: pointer; }
 th[aria-sort="ascending"]::after { content: " ▲"; font-size: 0.75em; }
 th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
@@ -1694,7 +1711,8 @@ ${content}
 <p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
 <p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
 <div style="clear:both;"></div>
-<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''} &mdash; ${renderPrintButton()}${startersChecklist ? ` &mdash; ${renderStartersButton()}` : ''}</p>
+${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is shown with its rating.</p>
+` : ''}<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''} &mdash; ${renderPrintButton()}${startersChecklist ? ` &mdash; ${renderStartersButton()}` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 ${renderSortScript()}

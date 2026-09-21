@@ -16,6 +16,28 @@ export const orcCertDataSchema = z.object({
   importedAt: epochMsSchema,
 });
 
+// The IRC certificate an applied rating came from (#615). Every field is
+// optional but `appliedAt`: a listing can be missing any given column, and a
+// record that states less is still worth more than the bare number it
+// explains.
+export const ircCertRecordSchema = z.object({
+  certNumber: z.string().max(60).optional(),
+  sailNumber: z.string().max(60).optional(),
+  boatName: z.string().max(200).optional(),
+  issueDate: z.string().max(40).optional(),
+  certYear: z.string().max(10).optional(),
+  tcc: z.number().optional(),
+  nonSpinTcc: z.number().optional(),
+  variantApplied: z.enum(['spin', 'non-spin']).optional(),
+  hullLength: z.number().optional(),
+  beam: z.number().optional(),
+  crew: z.number().optional(),
+  source: z.string().max(120).optional(),
+  sourceUpdatedAt: z.string().max(40).optional(),
+  matchedBy: z.enum(['exact-sail', 'sail-no-country', 'sail-and-name', 'name']).optional(),
+  appliedAt: epochMsSchema,
+});
+
 export const competitorSchema = z.object({
   id: uuidSchema,
   seriesId: uuidSchema,
@@ -50,6 +72,7 @@ export const competitorSchema = z.object({
   nhcStartingTcf: z.number().optional(),
   echoStartingTcf: z.number().optional(),
   orcCert: orcCertDataSchema.optional(),
+  ircCert: ircCertRecordSchema.optional(),
   excluded: z.boolean().optional(),
   version: versionSchema,
 });
@@ -133,6 +156,8 @@ export const handicapUpdateSchema = z.object({
   // The whole certificate, written by the ORC source (the certificate is the
   // rating — there is no single number to update).
   orcCert: orcCertDataSchema.optional(),
+  // Where an applied IRC rating came from, written beside the number (#615).
+  ircCert: ircCertRecordSchema.optional(),
   // Canonical class name written by the RYA PY source alongside the PY number.
   boatClass: z.string().optional(),
   // Fleets to add this competitor to (union with current membership) — the

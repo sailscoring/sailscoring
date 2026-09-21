@@ -33,6 +33,17 @@ describe('parseClubListing', () => {
     });
   });
 
+  it('reads the hull dimensions, which tell two boats of a name apart', () => {
+    // Recorded with an applied rating (#615) and never used to match: 8.56 m
+    // by 2.82 m is not an Elan 31, and that is the discrepancy a competitor
+    // spotted in seconds when nothing in the app had.
+    expect(bySail('IRL1431')[0]).toMatchObject({
+      hullLength: 9.5,
+      beam: 3.2,
+      crew: 6,
+    });
+  });
+
   it('reads the Endorsed flag', () => {
     expect(bySail('IRL1601')[0].endorsed).toBe(true);
     expect(bySail('IRL1431')[0].endorsed).toBeUndefined();

@@ -580,6 +580,16 @@ export default function RatingSystems() {
           other.
         </p>
         <p>
+          Every rating applied from the list is stored with the certificate it came from: its
+          number, the sail number and boat name <em>the certificate</em> carries, the hull
+          length, beam and crew, and which listing it was read off with that listing’s
+          date. Where a match rested on something other than the sail number, the row shows the
+          entry and the certificate side by side before you apply it — a boat that is 8.56 m
+          long when yours is an Elan 31 is the wrong boat, and that is quicker to see than any
+          rating is. The published results carry the listing and its date too, so a competitor
+          asking where a rating came from can answer it without writing to you.
+        </p>
+        <p>
           If a boat is in the series but not yet in an IRC fleet — say it gained an IRC certificate
           after entry — it appears under{' '}
           <strong className="text-foreground">Add to handicap fleet</strong>. Tick it, choose the

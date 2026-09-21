@@ -1115,6 +1115,9 @@ export interface HandicapUpdateRow {
   /** The whole certificate, written by the ORC source — an ORC rating is a
    *  document, not a number. */
   orcCert?: import('./types').OrcCertData;
+  /** Where an applied IRC rating came from, written beside the number so the
+   *  question "why is this boat rated like that?" has an answer (#615). */
+  ircCert?: import('./types').IrcCertRecord;
   /** Canonical class name to write — the RYA PY source normalises a boat's
    *  class to the register spelling alongside its PY number. */
   boatClass?: string;

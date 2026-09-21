@@ -12,6 +12,7 @@ import type {
   PrimaryPersonLabel,
   StartGroup,
   NhcProfile,
+  IrcCertRecord,
   OrcCertData,
   OrcCourseLeg,
   OrcProfile,
@@ -470,9 +471,18 @@ export interface SeriesFileRepos {
  *  Additive and sparse, and purely presentational in the strongest sense —
  *  the page carries every table either way, the grid only decides which is on
  *  screen — so an older build reading a v54 file publishes the same results
- *  as one long page, which is what the grid degrades to anyway. */
-export const FORMAT_VERSION = 54;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54];
+ *  as one long page, which is what the grid degrades to anyway.
+ *
+ *  v55 adds optional `competitors[*].ircCert`: the IRC certificate an applied
+ *  rating came from — its number, the sail number and boat name *the
+ *  certificate* carries, the hull dimensions, and which list it was read off
+ *  and when. Written by Update Handicaps beside the `ircTcc` it explains, so
+ *  a boat's rating can be traced afterwards instead of being a moment in a
+ *  dialog. Additive, sparse and advisory: scoring reads `ircTcc` alone, so an
+ *  older build reading a v55 file scores it identically and loses only the
+ *  provenance. */
+export const FORMAT_VERSION = 55;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -615,6 +625,7 @@ interface SeriesFileCompetitor {
   nhcStartingTcf?: number;
   echoStartingTcf?: number;
   orcCert?: OrcCertData;  // v40+: the boat's ORC certificate, verbatim
+  ircCert?: IrcCertRecord;  // v55+: where an applied IRC rating came from
 }
 
 /** v19–v30 recorded only "this row was entered by bow number"; v31 records
@@ -1024,6 +1035,7 @@ export async function buildSeriesFile(
       ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
       ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
       ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
+      ...(c.ircCert != null ? { ircCert: c.ircCert } : {}),
     })),
     races: races.map((r) => ({
       id: r.id,
@@ -2041,6 +2053,7 @@ async function writeFleetsCompetitorsRaces(
         ...(c.nhcStartingTcf != null ? { nhcStartingTcf: c.nhcStartingTcf } : {}),
         ...(c.echoStartingTcf != null ? { echoStartingTcf: c.echoStartingTcf } : {}),
         ...(c.orcCert != null ? { orcCert: c.orcCert } : {}),
+      ...(c.ircCert != null ? { ircCert: c.ircCert } : {}),
       };
     }),
   );

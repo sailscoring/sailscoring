@@ -244,6 +244,92 @@ describe('planIrcUpdates — matching and the default country code', () => {
   });
 });
 
+describe('planIrcUpdates — the certificate behind the number (#615)', () => {
+  const alchemy = rec('IRL3154', {
+    boatName: 'Alchemy',
+    ircTcc: 0.94,
+    ircNonSpinTcc: 0.927,
+    ircCertNumber: '2951',
+    certYear: '2026',
+    issueDate: '01/03/2026',
+    hullLength: 9.45,
+    beam: 3.1,
+    crew: 6,
+  });
+
+  it('records which certificate a rating came from, and off which list', () => {
+    // `ircTcc` on its own is a bare number, so a competitor asking why their
+    // boat was rated as it was had nobody who could answer.
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL3154', ['f-irc'])],
+      targetFleets: fleets,
+      records: [alchemy],
+      source: { name: 'IRC ClubListing', updatedAt: '30/05/2026' },
+    });
+    expect(byKey(rows).get('c1::irc')!.ircCert).toMatchObject({
+      certNumber: '2951',
+      sailNumber: 'IRL3154',
+      boatName: 'Alchemy',
+      certYear: '2026',
+      issueDate: '01/03/2026',
+      tcc: 0.94,
+      nonSpinTcc: 0.927,
+      variantApplied: 'spin',
+      source: 'IRC ClubListing',
+      sourceUpdatedAt: '30/05/2026',
+      matchedBy: 'exact-sail',
+    });
+  });
+
+  it('records the shape of the boat, which is what tells two of a name apart', () => {
+    // 8.56 m x 2.82 m is not an Elan 31 — the discrepancy a competitor spotted
+    // in seconds when nothing in the app had.
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL3154', ['f-irc'])],
+      targetFleets: fleets,
+      records: [alchemy],
+    });
+    expect(byKey(rows).get('c1::irc')!.ircCert).toMatchObject({
+      hullLength: 9.45,
+      beam: 3.1,
+      crew: 6,
+    });
+  });
+
+  it('records which of the TCC pair was applied', () => {
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL3154', ['f-irc'])],
+      targetFleets: fleets,
+      records: [alchemy],
+      ircVariantByFleet: { 'f-irc': 'non-spin' },
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row.newTcf).toBe(0.927);
+    expect(row.ircCert).toMatchObject({ variantApplied: 'non-spin' });
+  });
+
+  it('records how the boat was matched, so a weak basis stays visible', () => {
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', '3154', ['f-irc'])],
+      targetFleets: fleets,
+      records: [alchemy],
+      defaultCountry: 'IRL',
+    });
+    expect(byKey(rows).get('c1::irc')!.ircCert).toMatchObject({
+      matchedBy: 'sail-no-country',
+    });
+  });
+
+  it('leaves no certificate on a non-IRC row', () => {
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL3154', ['f-echo'])],
+      targetFleets: fleets,
+      records: [rec('IRL3154', { echo: 1.02 })],
+    });
+    expect(byKey(rows).get('c1::echo')?.ircCert).toBeUndefined();
+  });
+});
+
 describe('planIrcFleetAdditions — a name match never enrols a boat', () => {
   it('does not offer to add a boat matched by name alone', () => {
     // Enrolling a boat in an IRC fleet asserts she holds an IRC certificate.

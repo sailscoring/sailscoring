@@ -65,6 +65,12 @@ export function IrcRatingSourceStep({
   // Country to assume for a competitor's prefix-less sail number (deployment
   // parameter — IRL by default). Matters most against the worldwide IRC list.
   const defaultCountry = defaultSailCountry();
+  // Recorded on every rating this step applies, so a boat's number can be
+  // traced back to the list and the day it was read off (#615).
+  const source = useMemo(
+    () => ({ name: 'IRC ClubListing', updatedAt: ircRatings.data?.updatedAt ?? null }),
+    [ircRatings.data?.updatedAt],
+  );
   const seriesHasRaces = useSeriesHasRaces(seriesId);
   const competitorIdsWithResults = useCompetitorIdsWithResults(seriesId);
 
@@ -78,8 +84,9 @@ export function IrcRatingSourceStep({
       matchByName: sel.matchByName,
       certChoiceByCompetitor: sel.certChoiceByCompetitor,
       defaultCountry,
+      source,
     });
-  }, [competitors, fleets, ircRatings.data, ircVariantByFleet, sel.matchByName, sel.certChoiceByCompetitor, defaultCountry]);
+  }, [competitors, fleets, ircRatings.data, ircVariantByFleet, sel.matchByName, sel.certChoiceByCompetitor, defaultCountry, source]);
 
   const additionCandidates = useMemo<FleetAdditionCandidate[]>(() => {
     if (!competitors || !fleets || !ircRatings.data) return [];
@@ -92,8 +99,9 @@ export function IrcRatingSourceStep({
       certChoiceByCompetitor: sel.certChoiceByCompetitor,
       targetFleetByKey: sel.addTargetFleetByKey,
       defaultCountry,
+      source,
     });
-  }, [competitors, fleets, ircRatings.data, ircVariantByFleet, sel.matchByName, sel.certChoiceByCompetitor, sel.addTargetFleetByKey, defaultCountry]);
+  }, [competitors, fleets, ircRatings.data, ircVariantByFleet, sel.matchByName, sel.certChoiceByCompetitor, sel.addTargetFleetByKey, defaultCountry, source]);
 
   // The counterpart: boats sitting in an IRC fleet the list doesn't rate.
   // An IRC fleet created at import time holds a whole group, because an entry

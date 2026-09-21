@@ -175,6 +175,33 @@ export interface UnscorableRace {
 }
 
 /**
+ * The IRC listing a fleet's ratings were read off, if they agree on one.
+ *
+ * Derived from the certificates recorded on the boats when Update Handicaps
+ * applied them, so it states only what actually happened. Boats rated by hand
+ * carry nothing, and a fleet whose boats disagree about the source — a
+ * re-rated boat picked up from a later listing, say — says nothing rather
+ * than picking one of them, since a single line cannot honestly cover both.
+ */
+function ircRatingSourceOf(
+  competitors: readonly Competitor[],
+): { source: string; updatedAt?: string } | undefined {
+  const seen = new Set<string>();
+  let found: { source: string; updatedAt?: string } | undefined;
+  for (const c of competitors) {
+    const cert = c.ircCert;
+    if (!cert?.source) continue;
+    const key = `${cert.source}|${cert.sourceUpdatedAt ?? ''}`;
+    seen.add(key);
+    found ??= {
+      source: cert.source,
+      ...(cert.sourceUpdatedAt ? { updatedAt: cert.sourceUpdatedAt } : {}),
+    };
+  }
+  return seen.size === 1 ? found : undefined;
+}
+
+/**
  * The two footer links a page carries over its own data: "Open in Sail
  * Scoring", and the data file itself.
  *
@@ -1136,6 +1163,12 @@ export async function buildFleetHtmlFiles(
       if (dataFileUrl) data.dataFileUrl = dataFileUrl;
       if (flagSvgByCode) data.flagSvgByCode = flagSvgByCode;
       if (seriesIndexUrl) data.seriesIndexUrl = seriesIndexUrl;
+      // Where this fleet's IRC ratings came from (#615). Read off the boats
+      // themselves rather than configured: the answer is only as good as what
+      // was actually applied, and a fleet whose ratings were typed in states
+      // nothing rather than claiming a list it never used.
+      const ircSource = ircRatingSourceOf(competitors.filter((c) => fleetCompetitorIds.has(c.id)));
+      if (ircSource) data.ircRatingSource = ircSource;
       return data;
     };
     assemblerByFleetId.set(fleet.id, assemble);

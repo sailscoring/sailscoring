@@ -213,6 +213,8 @@ export function buildPreviewUpdateRows(
       if (row.orcCert) update.orcCert = row.orcCert;
       continue;
     }
+    // The certificate rides alongside the number it explains.
+    if (row.ircCert) update.ircCert = row.ircCert;
     const field = SYSTEM_FIELD[row.system];
     // Mutate via an unknown-cast index access — TS can't see that the
     // field name is statically one of the four optional number fields
@@ -230,6 +232,7 @@ export function buildPreviewUpdateRows(
       if (c.orcCert) update.orcCert = c.orcCert;
       continue;
     }
+    if (c.ircCert) update.ircCert = c.ircCert;
     const field = SYSTEM_FIELD[c.system];
     (update as unknown as Record<string, number>)[field] = c.proposedTcf;
   }

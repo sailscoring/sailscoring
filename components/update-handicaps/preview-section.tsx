@@ -13,6 +13,7 @@ import type { Competitor, Fleet } from '@/lib/types';
 
 import { formatPrimaryNames } from '@/lib/competitor-fields';
 import { formatRatingValue } from '@/lib/competitor-ratings';
+import { CertComparison } from './cert-comparison';
 import {
   SYSTEM_LABEL,
   SelectAllCheckbox,
@@ -106,6 +107,11 @@ export function PreviewSection({
                       <span className="block text-xs text-amber-600 dark:text-amber-500">
                         {describeMatch(r.match)}
                       </span>
+                    )}
+                    {/* The sail number did not make this match by itself, so
+                        the boat it landed on is shown beside the entry. */}
+                    {r.match && r.ircCert && (
+                      <CertComparison competitor={comp} cert={r.ircCert} />
                     )}
                     {r.certChoice && onChooseCert && (
                       <select
