@@ -9,10 +9,10 @@
  *   - lib/course-cards/generated/catalogue.ts — the committed catalogue of
  *     sets and cards (club, event, card ids, counts), typed as the library
  *     reads it, so the picker renders without a network call.
- *   - public/course-cards/<set>/<file>.json — the marks and card files
- *     themselves, gitignored and re-fetched at build time; the app fetches a
- *     card on demand from its own origin, so there is no CORS and no runtime
- *     dependency on courses.sailscoring.ie.
+ *   - public/course-cards/<set>/<file> — the marks, the card files and each
+ *     set's captured chart, gitignored and re-fetched at build time; the app
+ *     fetches a card or a chart on demand from its own origin, so there is no
+ *     CORS and no runtime dependency on courses.sailscoring.ie.
  *
  * Idempotent: if public/course-cards/.version already matches the pin, the
  * download is skipped so repeat builds are fast and offline-friendly.
@@ -60,6 +60,33 @@ async function fetchText(url: string): Promise<string> {
       continue;
     }
     if (res.ok) return res.text();
+    const err = new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+    if (!isRetriableStatus(res.status)) throw err;
+    lastError = err;
+  }
+  throw new Error(`Failed to fetch ${url} after ${FETCH_ATTEMPTS} attempts: ${errorSummary(lastError)}`, {
+    cause: lastError,
+  });
+}
+
+/** Fetch one binary file of the release — a set's chart image — with the
+ *  same retries. */
+async function fetchBytes(url: string): Promise<Uint8Array> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      const delay = RETRY_BASE_MS * 2 ** (attempt - 2);
+      console.log(`Retrying ${url} in ${delay}ms (attempt ${attempt}/${FETCH_ATTEMPTS}): ${errorSummary(lastError)}`);
+      await setTimeout(delay);
+    }
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch (err) {
+      lastError = err;
+      continue;
+    }
+    if (res.ok) return new Uint8Array(await res.arrayBuffer());
     const err = new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
     if (!isRetriableStatus(res.status)) throw err;
     lastError = err;
@@ -133,6 +160,17 @@ async function main() {
       const cardPath = join(PUBLIC_DIR, card.json);
       mkdirSync(dirname(cardPath), { recursive: true });
       writeFileSync(cardPath, cardText);
+      files += 1;
+    }
+    // The set's captured chart: the ground a course is drawn on. Everything
+    // the renderer has to know about the image — what it covers, how big it
+    // is, who to attribute — travels in the catalogue, so only the image
+    // itself is fetched. Sets without one draw on plain ground.
+    if (set.map) {
+      const png = await fetchBytes(`${SITE}/v${version}/${set.map.background}`);
+      const pngPath = join(PUBLIC_DIR, set.map.background);
+      mkdirSync(dirname(pngPath), { recursive: true });
+      writeFileSync(pngPath, png);
       files += 1;
     }
   }
