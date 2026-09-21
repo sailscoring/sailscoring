@@ -218,6 +218,18 @@ export const seriesSchema = z.object({
   // Whether RaceSense track data appears on published per-race tables.
   // Opt-in like publishOfficials; absent means not published.
   publishTrackData: z.boolean().optional(),
+  // The ORC scoring-option catalog, keyed by certificate field name (#602).
+  // Shape only: the names are the certificates' own and are stored as given.
+  orcScoringOptions: z
+    .record(
+      z.string().max(120),
+      z.object({
+        name: z.string().max(200),
+        kind: z.enum(['tot', 'tod', 'pcs']),
+        countryId: z.string().max(10).optional(),
+      }),
+    )
+    .optional(),
   enabledCompetitorFields: z.array(competitorFieldKeySchema),
   multiPersonFields: z.array(z.enum(['primary', 'owner', 'helm', 'crewName'])).optional(),
   primaryPersonLabel: primaryPersonLabelSchema,

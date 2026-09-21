@@ -1,8 +1,8 @@
 import { AlertTriangle } from 'lucide-react';
 
-import type { Fleet, RaceScoringGap } from '@/lib/types';
+import type { Fleet, OrcScoringOptionCatalog, RaceScoringGap } from '@/lib/types';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
-import { orcConstructedOption, orcRecordedWindOption } from '@/lib/orc-certificate';
+import { orcConstructedOption, orcOptionLabel, orcRecordedWindOption } from '@/lib/orc-certificate';
 
 export interface RaceScoringGapsWarningProps {
   gaps: RaceScoringGap[];
@@ -11,6 +11,9 @@ export interface RaceScoringGapsWarningProps {
   /** The fleet these gaps belong to — its rating system names what the race
    *  should have been scored on. Absent on the fleetless bucket. */
   fleet?: Fleet;
+  /** What ORC calls each rating field, so a warning names the option the way
+   *  the certificate and the notice board do (#602). */
+  orcScoringOptions?: OrcScoringOptionCatalog;
 }
 
 /** Races a fleet doesn't score the way its rating system says it should. Two
@@ -19,7 +22,7 @@ export interface RaceScoringGapsWarningProps {
  *  column is blank and publishing refuses the page; a fleet left out of a
  *  race's start still fills the column, on finishing order, which reads
  *  exactly like a scored race. */
-export function RaceScoringGapsWarning({ gaps, races, fleet }: RaceScoringGapsWarningProps) {
+export function RaceScoringGapsWarning({ gaps, races, fleet, orcScoringOptions }: RaceScoringGapsWarningProps) {
   if (gaps.length === 0) return null;
   const byId = new Map(races.map((r) => [r.id, r]));
 
@@ -38,7 +41,9 @@ export function RaceScoringGapsWarning({ gaps, races, fleet }: RaceScoringGapsWa
     if (orcConstructedOption(option)) {
       return `${name(gap)} is scored on a constructed course, but its start has no course`;
     }
-    return `${name(gap)} is scored on ${gap.option ?? 'an option'}, which corrects over the course distance, but its start records none`;
+    // Named as the certificate names it, not by its JSON field (#602).
+    const label = gap.option ? orcOptionLabel(gap.option, orcScoringOptions) : 'an option';
+    return `${name(gap)} is scored on ${label}, which corrects over the course distance, but its start records none`;
   }
 
   const missing = gaps.filter((g) => g.reason === 'orc_course_missing');

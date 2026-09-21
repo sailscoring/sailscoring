@@ -16,7 +16,10 @@ import { createFleets, createSeriesQuick, downloadFleetHtml, enableFeatures, set
 
 const SAMPLE = JSON.parse(
   readFileSync(join(__dirname, '../tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8').replace(/^﻿/, ''),
-) as { rms: Array<Record<string, unknown>> };
+) as {
+  rms: Array<Record<string, unknown>>;
+  ScoringOptions: Array<Record<string, unknown>>;
+};
 
 function cert(yachtName: string) {
   const record = SAMPLE.rms.find((r) => r.YachtName === yachtName);
@@ -29,7 +32,11 @@ const LISTING_FIXTURE = {
   countryId: 'IRL',
   family: 'ORC',
   records: [cert('IMPETUOUS'), cert('MOJO')],
-  scoringOptions: [],
+  // The payload's own catalog: what ORC calls each rating field (#602). The
+  // real download carries it, so the stub does too — without it the pickers
+  // and the published pages fall back to raw field names and nothing about
+  // the naming is exercised.
+  scoringOptions: SAMPLE.ScoringOptions,
 };
 
 /** Mojo's non-spinnaker certificate: a separate issue, at its own rating.
@@ -630,7 +637,11 @@ test('ORC fleet: the wind band picked on the start re-scores the race', async ({
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Edit start' }).click();
   await page.getByTestId('start-orc-option').click();
-  await page.getByRole('option', { name: 'IRL_5B_WL_M_TOT' }).click();
+  // Named as the certificate names it, under its issuing office's heading.
+  await expect(
+    page.getByRole('group', { name: 'Custom scoring options for IRL' }),
+  ).toBeVisible();
+  await page.getByRole('option', { name: '5-Band 50-50 Windward/Leeward Med · time-on-time' }).click();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('14:00:00')).toBeVisible();
 

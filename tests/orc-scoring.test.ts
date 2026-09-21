@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { orcFieldKind, orcFleetProfile, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
+import { mergeOrcScoringOptions, orcFieldKind, orcFleetProfile, orcOptionLabel, orcSelectableOptions, orcTotRating, parseOrcRmsJson } from '@/lib/orc-certificate';
 import { scorePcsRace, type PcsAllowances } from '@/lib/orc-pcs';
 import { calculateFleetStandings, calculateHandicapRaceScores } from '@/lib/scoring';
 import type { Competitor, Finish, Fleet, OrcCertData, Race, RaceStart } from '@/lib/types';
@@ -548,6 +548,59 @@ describe('ORC wind-band selection (per-start option)', () => {
     expect(byOption.get('TND_Inshore_Low')).toBe('tod');
     expect(byOption.has('APHT')).toBe(false);
     expect(byOption.has('YachtName')).toBe(false);
+  });
+
+  it('offers only the options the catalog names, so one office\'s list stays that office\'s', () => {
+    // An Irish certificate carries every other country's national fields too,
+    // so discovery alone offers a scorer here several hundred options of
+    // which only a fraction are any of their business (#602).
+    const { scoringOptions } = parseOrcRmsJson(
+      readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+    );
+    const catalog = mergeOrcScoringOptions(undefined, scoringOptions);
+    const discovered = orcSelectableOptions([impFull, mojoFull]);
+    const offered = orcSelectableOptions([impFull, mojoFull], catalog);
+    expect(offered.length).toBeLessThan(discovered.length);
+    for (const o of offered) expect(catalog[o.option]).toBeDefined();
+  });
+
+  it('names an option the way the certificate does', () => {
+    const { scoringOptions } = parseOrcRmsJson(
+      readFileSync(join(process.cwd(), 'tests/fixtures/orc/downrms-irl-sample.json'), 'utf-8'),
+    );
+    const catalog = mergeOrcScoringOptions(undefined, scoringOptions);
+    // The name alone is ambiguous across kinds — the same name covers the
+    // ToD and the ToT field — so the label carries how it is applied.
+    expect(orcOptionLabel('APHD', catalog)).toContain('time-on-distance');
+    expect(orcOptionLabel('APHT', catalog)).toContain('time-on-time');
+    // An option the catalog doesn't cover keeps its field name, which is all
+    // there is to say about it.
+    expect(orcOptionLabel('XX_MADE_UP_TOT', catalog)).toBe('XX_MADE_UP_TOT');
+    // And with no catalog at all, everything reads as it did before.
+    expect(orcOptionLabel('IRL_5B_WL_M_TOT')).toBe('IRL_5B_WL_M_TOT');
+  });
+
+  it('merges a second office\'s catalog rather than replacing the first', () => {
+    // A series scoring boats from two national offices needs both; field
+    // names are globally unique, so there is nothing to collide.
+    const first = mergeOrcScoringOptions(undefined, [
+      { Fieldname: 'IRL_AP_LM_TOT', Name: 'All Purpose L/M', Kind: 'TOT', CountryId: 'IRL' },
+    ]);
+    const both = mergeOrcScoringOptions(first, [
+      { Fieldname: 'GBR_AP_LM_TOT', Name: 'All Purpose L/M', Kind: 'TOT', CountryId: 'GBR' },
+    ]);
+    expect(Object.keys(both).sort()).toEqual(['GBR_AP_LM_TOT', 'IRL_AP_LM_TOT']);
+    expect(both.IRL_AP_LM_TOT).toMatchObject({ name: 'All Purpose L/M', countryId: 'IRL' });
+  });
+
+  it('ignores catalog entries with nothing usable to say', () => {
+    const catalog = mergeOrcScoringOptions(undefined, [
+      { Fieldname: 'A_TOT', Name: 'Fine', Kind: 'TOT' },
+      { Fieldname: 'B_TOT', Kind: 'TOT' },
+      { Name: 'No field', Kind: 'TOT' },
+      { Fieldname: 'C_TOT', Name: 'No kind' },
+    ]);
+    expect(Object.keys(catalog)).toEqual(['A_TOT']);
   });
 
   it('orcFieldKind reads the naming conventions', () => {

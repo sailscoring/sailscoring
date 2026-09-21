@@ -212,6 +212,51 @@ describe('published ORC transparency', () => {
     expect(html).not.toContain('<th>Implied wind</th>');
   });
 
+  /** A banded certificate race, with or without the series knowing what ORC
+   *  calls the field it is scored on. */
+  function bandedRaceHtml(catalog?: Record<string, { name: string; kind: 'tot'; countryId: string }>): string {
+    const calc = (): OrcRaceCalc => ({ option: 'IRL_5B_AP_LM_TOT' });
+    const scores = new Map([
+      ['c1', { points: 1, place: 1, rank: 1, resultCode: null, finishTime: '15:00:00', tcfApplied: 0.9631, elapsedTime: 3600, correctedTime: 3467, orc: calc() }],
+    ]);
+    const data = assembleSeriesResultsData(
+      { name: 'ORC Render Test', venue: '' },
+      [{ id: 'r1', raceNumber: 1, date: '2026-09-12', name: null }],
+      [
+        { rank: 1, competitor: { id: 'c1', sailNumber: 'IRL 2507', names: ['Impetuous'] }, racePoints: [1], raceCodes: [null], totalPoints: 1, netPoints: 1, raceDiscards: [false] },
+      ],
+      new Map([['r1', scores]]),
+      new Map([['c1', { sailNumber: 'IRL 2507', names: ['Impetuous'] }]]),
+      [],
+      new Date('2026-09-12T18:00:00Z'),
+      'Class 2',
+      {
+        raceStarts: [{ raceId: 'r1', fleetIds: ['f1'], startTime: '14:00:00' }],
+        fleetId: 'f1',
+        scoringSystem: 'orc',
+        ...(catalog ? { orcScoringOptions: catalog } : {}),
+      },
+    );
+    return renderSeriesHtml(data);
+  }
+
+  it('names a certificate option the way the certificate does (#602)', () => {
+    // "IRL_5B_AP_LM_TOT" is a JSON key. The certificate calls it "5-Band All
+    // Purpose L/M", which is what the race committee announces and what a
+    // scorer looks for.
+    const html = bandedRaceHtml({
+      IRL_5B_AP_LM_TOT: { name: '5-Band All Purpose L/M', kind: 'tot', countryId: 'IRL' },
+    });
+    expect(html).toContain('Rating field 5-Band All Purpose L/M');
+    expect(html).not.toContain('IRL_5B_AP_LM_TOT');
+  });
+
+  it('falls back to the field name when the series has no catalog', () => {
+    // Certificates imported before the catalog was stored: the page reads as
+    // it always did rather than saying nothing.
+    expect(bandedRaceHtml()).toContain('Rating field IRL_5B_AP_LM_TOT');
+  });
+
   it('a certificate single-number race names its rating field with the TCC presentation', () => {
     // A time-on-time race carries only the option in its audit block — the
     // header names the field, and the rating column stays a 3-dp TCC.

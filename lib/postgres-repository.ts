@@ -136,6 +136,7 @@ function seriesRowToType(row: SeriesRow): Series {
     ...(row.officials?.length ? { officials: row.officials } : {}),
     ...(row.publishOfficials ? { publishOfficials: true } : {}),
     ...(row.publishTrackData ? { publishTrackData: true } : {}),
+    ...(row.orcScoringOptions ? { orcScoringOptions: row.orcScoringOptions } : {}),
     enabledCompetitorFields: row.enabledCompetitorFields,
     ...(row.multiPersonFields?.length ? { multiPersonFields: row.multiPersonFields } : {}),
     primaryPersonLabel: row.primaryPersonLabel,
@@ -638,6 +639,7 @@ function seriesToRow(s: Series, workspaceId: string) {
     officials: s.officials ?? [],
     publishOfficials: s.publishOfficials ?? false,
     publishTrackData: s.publishTrackData ?? false,
+    orcScoringOptions: s.orcScoringOptions ?? null,
     enabledCompetitorFields: s.enabledCompetitorFields,
     multiPersonFields: s.multiPersonFields?.length ? s.multiPersonFields : null,
     primaryPersonLabel: s.primaryPersonLabel,
@@ -664,6 +666,7 @@ const seriesUpdateColumns = [
   'publishingGroups', 'publishIndividualFleetPages', 'publishDetail', 'rrsOrgPush', 'prizes',
   'seriesNote', 'pageNotes',
   'resultsStatus', 'finalisedAt', 'protestTimeLimit', 'officials', 'publishOfficials', 'publishTrackData',
+  'orcScoringOptions',
   'enabledCompetitorFields', 'multiPersonFields', 'primaryPersonLabel', 'subdivisionAxes',
   'categoryId', 'archived', 'source',
 ] as const satisfies readonly (keyof ReturnType<typeof seriesToRow>)[];

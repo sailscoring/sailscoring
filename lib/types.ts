@@ -405,6 +405,24 @@ export interface Series {
   // management, so putting it on public pages is a deliberate choice. Governs
   // the public JSON export too, same as publishOfficials.
   publishTrackData?: boolean;
+  // What ORC calls each of its rating fields, as the certificates' own
+  // ScoringOptions catalog names them — "5-Band All Purpose L/M" for
+  // IRL_5B_AP_LM_TOT. Stored per series, saved once when certificates are
+  // imported, keyed by field name.
+  //
+  // Two problems it solves. The pickers used to show a scorer the raw JSON
+  // field name, which is not what the printed certificate calls it, not what
+  // the race committee announces, and not what anyone would look for. And
+  // they discovered the options by scanning the stored records, so an Irish
+  // certificate — which carries every other country's national fields too —
+  // offered 243 of them, of which 76 were Irish or international and the
+  // rest belonged to offices on other continents.
+  //
+  // Stored rather than fetched so the names reach the server-rendered
+  // published pages, and stored rather than vendored so a national office
+  // adding an option needs no release here. Sparse: a series whose
+  // certificates predate this shows field names, as it always did.
+  orcScoringOptions?: OrcScoringOptionCatalog;
   // An explanatory note carried by every published page of this series
   // (#511) — "corrected 16:40 — Q1 finish order revised". Plain text with
   // links; see lib/page-note.ts. Sparse; absent/empty means no note. Distinct
@@ -932,6 +950,24 @@ export interface IrcCertRecord {
   /** When this was recorded (epoch ms). */
   appliedAt: number;
 }
+
+/**
+ * What one ORC rating field is called and how it is applied, from the
+ * certificates' own catalog. `countryId` is the issuing scope — the
+ * international set says `ORC`, a national option says its country — and is
+ * what lets the pickers group the options the way the printed certificate
+ * does, under "Custom scoring options for Ireland".
+ */
+export interface OrcScoringOptionEntry {
+  name: string;
+  kind: 'tot' | 'tod' | 'pcs';
+  countryId?: string;
+}
+
+/** The scoring-option catalog for a series, keyed by certificate field name
+ *  (`IRL_5B_AP_LM_TOT`). Field names are globally unique, so a series mixing
+ *  certificates from two offices merges both catalogs without collision. */
+export type OrcScoringOptionCatalog = Record<string, OrcScoringOptionEntry>;
 
 /**
  * A scorer's per-boat answer to "is this competitor entered here?", pinned

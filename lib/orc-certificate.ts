@@ -26,7 +26,7 @@
  * any event (rule 303.2).
  */
 
-import type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord } from './types';
+import type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord, OrcScoringOptionCatalog } from './types';
 
 export type { OrcAllowances, OrcCertData, OrcProfile, OrcRmsRecord };
 
@@ -190,6 +190,7 @@ export function orcFieldKind(field: string): 'tot' | 'tod' | null {
  */
 export function orcSelectableOptions(
   competitors: ReadonlyArray<{ orcCert?: OrcCertData }>,
+  catalog?: OrcScoringOptionCatalog,
 ): Array<OrcProfile> {
   const byField = new Map<string, 'tot' | 'tod'>();
   for (const competitor of competitors) {
@@ -201,9 +202,99 @@ export function orcSelectableOptions(
       if (kind) byField.set(field, kind);
     }
   }
-  return [...byField.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
+  // With a catalog, only the options it names are offered. A certificate
+  // carries every office's national fields, not just its own issuer's, so an
+  // Irish certificate discovers some 243 of them and the catalog is what says
+  // which are this scorer's business. Without one — certificates imported
+  // before the catalog was stored — everything discovered stays selectable,
+  // which is what the picker always did.
+  const fields = catalog
+    ? [...byField.entries()].filter(([field]) => field in catalog)
+    : [...byField.entries()];
+  return fields
+    .sort(([a], [b]) => optionSortKey(a, catalog).localeCompare(optionSortKey(b, catalog)))
     .map(([option, kind]) => ({ option, kind }));
+}
+
+/** Grouped by issuing office then by name, so the list reads the way the
+ *  printed certificate's "Custom scoring options for Ireland" section does.
+ *  Falls back to the field name, which is the old ordering. */
+function optionSortKey(field: string, catalog?: OrcScoringOptionCatalog): string {
+  const entry = catalog?.[field];
+  if (!entry) return `\uffff${field}`;
+  return `${entry.countryId ?? ''}\u0000${entry.name}`;
+}
+
+/**
+ * What to call a scoring option on screen and on a published page.
+ *
+ * The certificates' own catalog names each field the way the printed
+ * certificate does — "5-Band All Purpose L/M" — which is what a race
+ * committee announces and what a scorer looks for. The raw field name is a
+ * JSON key and means nothing to either.
+ *
+ * The name alone is ambiguous across kinds: "5-Band All Purpose L/M" names
+ * both the ToD and the ToT field, and "All Purpose" names APHD, APHT and CR.
+ * So the label is the name plus how it is applied, matching the style of the
+ * standard list. An option the catalog does not cover keeps its field name,
+ * which is all there is to say about it.
+ */
+export function orcOptionLabel(option: string, catalog?: OrcScoringOptionCatalog): string {
+  const standard = ORC_STANDARD_OPTIONS.find((o) => o.option === option);
+  if (standard) return standard.label;
+  const entry = catalog?.[option];
+  if (!entry) return option;
+  return `${entry.name} · ${ORC_KIND_LABEL[entry.kind]}`;
+}
+
+/**
+ * The option's name alone, for a line that has already said how the race is
+ * scored — a published race subheading opens "Scored on ORC time-on-distance",
+ * so repeating the method there says nothing and the picker's fuller label
+ * only makes the line longer. Field name when the catalog doesn't name it.
+ */
+export function orcOptionName(option: string, catalog?: OrcScoringOptionCatalog): string {
+  return catalog?.[option]?.name ?? option;
+}
+
+const ORC_KIND_LABEL: Record<'tot' | 'tod' | 'pcs', string> = {
+  tot: 'time-on-time',
+  tod: 'time-on-distance',
+  pcs: 'performance curve',
+};
+
+/** The issuing office an option belongs to, for grouping the picker. */
+export function orcOptionCountry(
+  option: string,
+  catalog?: OrcScoringOptionCatalog,
+): string | undefined {
+  return catalog?.[option]?.countryId;
+}
+
+/**
+ * The catalog to store for a series, from a downloaded listing's own
+ * `ScoringOptions`. Union rather than replace: a series scoring boats from
+ * two national offices needs both, field names are globally unique, and a
+ * later import must not drop what an earlier one established.
+ */
+export function mergeOrcScoringOptions(
+  existing: OrcScoringOptionCatalog | undefined,
+  options: ReadonlyArray<OrcScoringOption>,
+): OrcScoringOptionCatalog {
+  const next: OrcScoringOptionCatalog = { ...(existing ?? {}) };
+  for (const o of options) {
+    const field = o.Fieldname?.trim();
+    const name = o.Name?.trim();
+    if (!field || !name) continue;
+    const kind = o.Kind === 'TOT' ? 'tot' : o.Kind === 'TOD' ? 'tod' : o.Kind === 'PCS' ? 'pcs' : null;
+    if (!kind) continue;
+    next[field] = {
+      name,
+      kind,
+      ...(o.CountryId?.trim() ? { countryId: o.CountryId.trim() } : {}),
+    };
+  }
+  return next;
 }
 
 export function orcFleetProfile(fleet: { orcProfile?: OrcProfile }): OrcProfile {

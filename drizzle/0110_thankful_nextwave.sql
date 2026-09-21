@@ -1,0 +1,1 @@
+ALTER TABLE "series" ADD COLUMN "orc_scoring_options" jsonb;

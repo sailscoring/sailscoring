@@ -34,6 +34,7 @@ import type {
   NhcProfile,
   IrcCertRecord,
   OrcCertData,
+  OrcScoringOptionCatalog,
   OrcCourseLeg,
   OrcProfile,
   RaceStartCourse,
@@ -270,6 +271,9 @@ export const series = pgTable(
     // Whether RaceSense track data appears on published per-race tables.
     // Opt-in like publishOfficials; false is the safe default everywhere.
     publishTrackData: boolean('publish_track_data').notNull().default(false),
+    // What ORC calls each of its rating fields, from the certificates' own
+    // catalog, keyed by field name (#602).
+    orcScoringOptions: jsonb('orc_scoring_options').$type<OrcScoringOptionCatalog>(),
     // Split-fleet (qualifying/final) series config (PROTOTYPE — see
     // lib/split-fleets.ts). Nullable JSONB, never queried by content; present
     // iff the series is a split-fleet series. Exposed through the

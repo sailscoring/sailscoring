@@ -237,6 +237,8 @@ export interface PublicSeriesExport {
      *  `publishOfficials`: the per-finish `trackData` appears only when this
      *  is set, and the flag itself is carried so a re-import keeps it. */
     publishTrackData?: boolean;
+    /** What ORC calls each of its rating fields, keyed by field name (#602). */
+    orcScoringOptions?: import('./types').OrcScoringOptionCatalog;
     /** The scorer's explanatory notes (#511): the one on every published page
      *  of the series, and the per-page ones keyed by page name. Published
      *  output by construction — they are printed on the pages this file sits
@@ -1366,6 +1368,13 @@ export function buildPublicExportFromSnapshot(
       ...(exportOfficials(series.officials, publishOfficials)),
       ...(publishOfficials ? { publishOfficials: true } : {}),
       ...(publishTrackData ? { publishTrackData: true } : {}),
+      // What each ORC rating field is called. Naming, so a reader of the
+      // export sees "5-Band All Purpose L/M" where the race says
+      // IRL_5B_AP_LM_TOT — and a re-import keeps the names rather than
+      // falling back to the field.
+      ...(series.orcScoringOptions && Object.keys(series.orcScoringOptions).length > 0
+        ? { orcScoringOptions: series.orcScoringOptions }
+        : {}),
       // Notes travel verbatim: the key is a page name, and the pages keep
       // their names across the export.
       ...(series.seriesNote?.trim() ? { seriesNote: series.seriesNote } : {}),
@@ -1734,6 +1743,7 @@ export async function importPublicExport(
     // Likewise for track data: the export only carries it when the source
     // series published it, so the flag comes back with the data.
     ...(data.series.publishTrackData ? { publishTrackData: true } : {}),
+    ...(data.series.orcScoringOptions ? { orcScoringOptions: data.series.orcScoringOptions } : {}),
     // The notes come back as they went out — the pages they key by keep
     // their names through the round trip.
     ...(data.series.seriesNote ? { seriesNote: data.series.seriesNote } : {}),

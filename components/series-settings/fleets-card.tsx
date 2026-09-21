@@ -13,6 +13,7 @@ import { useFleetsBySeries, useDeleteFleet, useSaveFleet, useSaveFleets } from '
 import { useCompetitorsBySeries, useSaveCompetitors } from '@/hooks/use-competitors';
 import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
+import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
 import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
 import type { Fleet, RaceStart, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,10 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
   // single numbers, whatever banded and national fields the stored
   // certificates actually carry.
   const { data: fleetCompetitors } = useCompetitorsBySeries(seriesId);
-  const orcCertificateOptions = orcSelectableOptions(fleetCompetitors ?? []);
+  // Named and grouped by the certificates' own catalog where the series has
+  // one; a series imported before it was stored falls back to field names.
+  const orcCatalog = series.orcScoringOptions;
+  const orcCertificateOptions = orcSelectableOptions(fleetCompetitors ?? [], orcCatalog);
   const fleets = fleetsData ?? [];
   const saveFleet = useSaveFleet();
   const saveFleets = useSaveFleets();
@@ -519,11 +523,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                             {o.label}
                           </SelectItem>
                         ))}
-                        {orcCertificateOptions.map((o) => (
-                          <SelectItem key={o.option} value={o.option}>
-                            <span className="font-mono text-xs">{o.option}</span>
-                          </SelectItem>
-                        ))}
+                        <OrcOptionItems options={orcCertificateOptions} catalog={orcCatalog} />
                         {(() => {
                           // A stored option no certificate carries any more
                           // still renders, so the control isn't broken.
@@ -533,7 +533,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                             orcCertificateOptions.some((o) => o.option === current.option);
                           return known ? null : (
                             <SelectItem value={current.option}>
-                              <span className="font-mono text-xs">{current.option}</span>
+                              <OrcOptionValue option={current.option} catalog={orcCatalog} />
                             </SelectItem>
                           );
                         })()}

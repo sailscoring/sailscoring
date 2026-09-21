@@ -1,5 +1,6 @@
-import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
+import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKey, MultiPersonFieldKey, OrcCertData, OrcCourseLeg, OrcRaceCalc, OrcScoringOptionCatalog, PrimaryPersonLabel, RaceConditions, RaceDiscardPolicy, RaceOfficial, RaceStartCourse, SubdivisionAxis } from './types';
 import { buildOrcMix, type OrcMix } from './orc-mix';
+import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseSvg } from '@sailscoring/course-cards';
 import { drawnStartCourse } from './course-geometry';
@@ -210,6 +211,9 @@ export interface OrcHeaderData {
   /** The scoring option the race resolved to — names the certificate
    *  rating field on a single-number or band-scored race. */
   option?: string;
+  /** What to call it: the name the certificate itself uses, where the
+   *  series' catalog has one. Falls back to the field name (#602). */
+  optionLabel?: string;
   /** ToD/PCS: the scratch boat's allowance (s/NM) the fleet corrected
    *  against. Absent on a ToT band race, which has no correction header
    *  beyond the field name. */
@@ -2322,7 +2326,9 @@ function renderRaceTable(
         // On a PCS race the course model already names the method, and the
         // stored option duplicates it — the field name is only meaningful
         // for certificate single numbers and bands.
-        if (h.option && h.scoringWind == null) parts.push(`Rating field ${esc(h.option)}`);
+        if (h.option && h.scoringWind == null) {
+          parts.push(`Rating field ${esc(h.optionLabel ?? h.option)}`);
+        }
         if (h.scoringWind != null) {
           // Where the wind was recorded rather than derived, the legs say what
           // it was and the figure here is their distance-weighted average —
@@ -2991,9 +2997,13 @@ export function assembleSeriesResultsData(
      *  the device measured; a hand-recorded time publishes either way. See
      *  `publishedCell`. */
     showTrackData?: boolean;
+    /** What ORC calls each of its rating fields (#602). Resolved here into the
+     *  label a race's subheading prints, so the renderer never has to know
+     *  about certificates. */
+    orcScoringOptions?: OrcScoringOptionCatalog;
   },
 ): SeriesResultsData {
-  const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData } = options ?? {};
+  const { raceStarts, fleetId, scoringSystem, ratingColumnLabel, nhcAggregatesByRaceId, echoAggregatesByRaceId, primaryPersonLabel, multiPersonFields, subdivisionAxes, showPerRaceRatings, seedRatingByCompetitorId, anchorPrefix, resultsFinal, finalisedAt, officials, publishOfficials, showTrackData, orcScoringOptions } = options ?? {};
   const isHandicap = scoringSystem === 'irc' || scoringSystem === 'vprs' || scoringSystem === 'tcf' || scoringSystem === 'py' || scoringSystem === 'nhc' || scoringSystem === 'echo' || scoringSystem === 'orc';
   const isNhcExplain = scoringSystem === 'nhc' && nhcAggregatesByRaceId != null;
   const isEchoExplain = scoringSystem === 'echo' && echoAggregatesByRaceId != null;
@@ -3035,7 +3045,12 @@ export function assembleSeriesResultsData(
         const scratch = orcMixBoat(scoresForRace, competitorsById, firstOrc.scratchTod);
         const mix = orcMixFor(firstOrc, coveringStart?.courseLegs, scratch?.allowances);
         orcHeaderData = {
-          ...(firstOrc.option ? { option: firstOrc.option } : {}),
+          ...(firstOrc.option
+            ? {
+                option: firstOrc.option,
+                optionLabel: orcOptionName(firstOrc.option, orcScoringOptions),
+              }
+            : {}),
           ...(firstOrc.scratchTod != null ? { scratchTod: firstOrc.scratchTod } : {}),
           ...(firstOrc.distanceNm != null ? { distanceNm: firstOrc.distanceNm } : {}),
           ...(firstOrc.scoringWind != null ? { scoringWind: firstOrc.scoringWind } : {}),

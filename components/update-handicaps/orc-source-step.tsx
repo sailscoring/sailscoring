@@ -17,9 +17,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { queryKeys } from '@/hooks/query-keys';
+import { useSeries, useUpdateSeries } from '@/hooks/use-series';
 import { loadOrcCertificates } from '@/lib/api-repository';
 import {
   ORC_FAMILY_LABEL,
+  mergeOrcScoringOptions,
   type OrcCertEntry,
   type OrcCertListing,
   type OrcFamily,
@@ -127,6 +129,8 @@ export function OrcSourceStep({
   const allLoaded = needed.every(({ q }) => q.data != null);
 
   const defaultCountry = defaultSailCountry();
+  const { data: series } = useSeries(seriesId);
+  const updateSeries = useUpdateSeries();
   const seriesHasRaces = useSeriesHasRaces(seriesId);
   const competitorIdsWithResults = useCompetitorIdsWithResults(seriesId);
 
@@ -198,6 +202,19 @@ export function OrcSourceStep({
   );
 
   function handleApply() {
+    // The listing carries ORC's own names for its rating fields, and this is
+    // the only moment the app has them: the pickers and the published pages
+    // that need them run nowhere near a download. Unioned with what the
+    // series already knows, so importing a second country's certificates adds
+    // its options rather than replacing the first's (#602).
+    const options = needed.flatMap(({ q }) => q.data?.scoringOptions ?? []);
+    if (options.length > 0) {
+      const next = mergeOrcScoringOptions(series?.orcScoringOptions, options);
+      updateSeries.mutate({
+        id: seriesId,
+        patch: { orcScoringOptions: next, lastModifiedAt: Date.now() },
+      });
+    }
     onApply(
       buildPreviewUpdateRows(
         split.appliedChangeRows,

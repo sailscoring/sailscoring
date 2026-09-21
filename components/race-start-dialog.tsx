@@ -24,6 +24,8 @@ import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { useSaveSeriesCourse, useSaveSeriesMark, useSaveSeriesMarks, useSeriesCourses, useSeriesMarks } from '@/hooks/use-course-library';
 import { useRaceStartsBySeries } from '@/hooks/use-race-starts';
+import { useSeries } from '@/hooks/use-series';
+import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
 import { useRacesBySeries } from '@/hooks/use-races';
 import { seriesMarkRepo } from '@/lib/api-repository';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
@@ -130,7 +132,14 @@ function RaceStartDialogInner({
   // scores ORC at all; the catalog is the international standard set plus
   // the single-number fields the stored certificates carry.
   const hasOrcFleet = fleets.some((f) => f.scoringSystem === 'orc');
-  const certificateOptions = hasOrcFleet ? orcSelectableOptions(competitors ?? []) : [];
+  // Named and grouped by the certificates' own catalog, as on the Fleets
+  // card — one list, one order, wherever an option is chosen (#602). The
+  // series is loaded for nothing else here.
+  const { data: series } = useSeries(seriesId, { enabled: hasOrcFleet });
+  const orcCatalog = series?.orcScoringOptions;
+  const certificateOptions = hasOrcFleet
+    ? orcSelectableOptions(competitors ?? [], orcCatalog)
+    : [];
   const [orcOptionValue, setOrcOptionValue] = useState(seed?.orcOption ?? '');
   const offerOption = hasOrcFleet || Boolean(seed?.orcOption);
   const selectedKind = orcOptionValue ? orcOptionKind(orcOptionValue) : null;
@@ -508,16 +517,12 @@ function RaceStartDialogInner({
                       {o.label}
                     </SelectItem>
                   ))}
-                  {certificateOptions.map((o) => (
-                    <SelectItem key={o.option} value={o.option}>
-                      <span className="font-mono text-xs">{o.option}</span>
-                    </SelectItem>
-                  ))}
+                  <OrcOptionItems options={certificateOptions} catalog={orcCatalog} />
                   {orcOptionValue
                     && !ORC_STANDARD_OPTIONS.some((o) => o.option === orcOptionValue)
                     && !certificateOptions.some((o) => o.option === orcOptionValue) && (
                     <SelectItem value={orcOptionValue}>
-                      <span className="font-mono text-xs">{orcOptionValue}</span>
+                      <OrcOptionValue option={orcOptionValue} catalog={orcCatalog} />
                     </SelectItem>
                   )}
                 </SelectContent>

@@ -1157,6 +1157,9 @@ export async function buildFleetHtmlFiles(
             ? { publishOfficials: true, ...(series.officials?.length ? { officials: series.officials } : {}) }
             : {}),
           ...(opts?.includeTrackData && series.publishTrackData ? { showTrackData: true } : {}),
+          // So a race subheading reads "5-Band All Purpose L/M · time-on-time"
+          // rather than IRL_5B_AP_LM_TOT (#602).
+          ...(series.orcScoringOptions ? { orcScoringOptions: series.orcScoringOptions } : {}),
         },
       );
       if (openInAppUrl) data.openInAppUrl = openInAppUrl;

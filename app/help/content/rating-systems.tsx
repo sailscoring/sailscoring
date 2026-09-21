@@ -240,6 +240,19 @@ export default function RatingSystems() {
           race table names the option applied.
         </p>
         <p>
+          The options are named the way the certificate names them —{' '}
+          <em>5-Band All Purpose L/M</em>, not{' '}
+          <code className="font-mono text-xs">IRL_5B_AP_LM_TOT</code> — and grouped by
+          the office that issues them, under a heading matching the certificate’s own{' '}
+          <em>Custom scoring options for Ireland</em> section. A certificate carries
+          every country’s national fields, not just its issuer’s, so only the options
+          the imported certificates’ own catalog names are offered: the several hundred
+          belonging to offices on other continents stay out of the list. The names come
+          from the certificates themselves when they are imported, so an office adding
+          an option needs nothing here. A series whose certificates were imported before
+          this shows the field names, as it did before.
+        </p>
+        <p>
           <strong className="text-foreground">Performance curve scoring (PCS)</strong>{' '}
           goes further: instead of one number, it uses the certificate’s whole
           prediction matrix, so each race’s handicap reflects the wind that actually
