@@ -51,14 +51,24 @@ export interface LoadedCourseCard {
 
 /** The chart a set captured, as the renderer takes it: the image with the
  *  ground it covers. Everything but the image itself is in the catalogue. */
-export function courseBackgroundOf(set: CatalogueSet, png: Uint8Array): CourseBackground {
+export function courseBackgroundOf(
+  placement: NonNullable<NonNullable<CatalogueSet['map']>['placement']>,
+  png: Uint8Array,
+): CourseBackground {
   return {
     png,
-    bounds: set.map!.bounds,
-    width: set.map!.width,
-    height: set.map!.height,
-    attribution: set.map!.attribution,
+    bounds: placement.bounds,
+    width: placement.width,
+    height: placement.height,
+    attribution: placement.attribution,
   };
+}
+
+/** A set's chart and how to place it, where the pinned release published
+ *  both. A release before 0.8.0 lists the image without the ground it
+ *  covers, and a course over that set's marks draws on plain ground. */
+export function courseChartOf(set: CatalogueSet | undefined): { file: string; placement: NonNullable<NonNullable<CatalogueSet['map']>['placement']> } | undefined {
+  return set?.map?.placement ? { file: set.map.background, placement: set.map.placement } : undefined;
 }
 
 const marksCache = new Map<string, Promise<MarksFile>>();
@@ -100,11 +110,11 @@ const backgroundCache = new Map<string, Promise<CourseBackground | undefined>>()
 export function loadCourseBackground(setPath: string): Promise<CourseBackground | undefined> {
   let p = backgroundCache.get(setPath);
   if (!p) {
-    const set = findCourseCardSet(setPath);
-    p = !set?.map
+    const chart = courseChartOf(findCourseCardSet(setPath));
+    p = !chart
       ? Promise.resolve(undefined)
-      : fetch(courseCardFileUrl(set.map.background))
-          .then(async (res) => (res.ok ? courseBackgroundOf(set, new Uint8Array(await res.arrayBuffer())) : undefined))
+      : fetch(courseCardFileUrl(chart.file))
+          .then(async (res) => (res.ok ? courseBackgroundOf(chart.placement, new Uint8Array(await res.arrayBuffer())) : undefined))
           .catch(() => undefined);
     backgroundCache.set(setPath, p);
   }

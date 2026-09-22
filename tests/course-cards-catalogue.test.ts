@@ -43,16 +43,16 @@ describe('the vendored course-cards catalogue', () => {
   it('carries what a chart needs to be placed, for every set that has one', () => {
     // The app fetches the image and nothing else: where it sits, how big it
     // is and who to credit all come from here.
-    const charted = courseCardSets().filter((s) => s.map);
+    const charted = courseCardSets().filter((s) => s.map?.placement);
     expect(charted.length).toBeGreaterThan(0);
     for (const set of charted) {
-      const map = set.map!;
-      expect(map.background.startsWith(`${set.path}/`)).toBe(true);
-      expect(map.width).toBeGreaterThan(0);
-      expect(map.height).toBeGreaterThan(0);
-      expect(map.bounds.north).toBeGreaterThan(map.bounds.south);
-      expect(map.bounds.east).toBeGreaterThan(map.bounds.west);
-      expect(map.attribution).toContain('OpenStreetMap');
+      const { background, placement } = set.map!;
+      expect(background.startsWith(`${set.path}/`)).toBe(true);
+      expect(placement!.width).toBeGreaterThan(0);
+      expect(placement!.height).toBeGreaterThan(0);
+      expect(placement!.bounds.north).toBeGreaterThan(placement!.bounds.south);
+      expect(placement!.bounds.east).toBeGreaterThan(placement!.bounds.west);
+      expect(placement!.attribution).toContain('OpenStreetMap');
     }
   });
 });

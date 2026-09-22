@@ -166,7 +166,7 @@ async function main() {
     // the renderer has to know about the image — what it covers, how big it
     // is, who to attribute — travels in the catalogue, so only the image
     // itself is fetched. Sets without one draw on plain ground.
-    if (set.map) {
+    if (set.map?.placement) {
       const png = await fetchBytes(`${SITE}/v${version}/${set.map.background}`);
       const pngPath = join(PUBLIC_DIR, set.map.background);
       mkdirSync(dirname(pngPath), { recursive: true });

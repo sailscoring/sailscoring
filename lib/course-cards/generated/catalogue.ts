@@ -7,7 +7,7 @@ export const COURSE_CARDS_RELEASE = "0.8.0";
 
 export const COURSE_CARD_CATALOGUE: Catalogue = {
   "version": "0.8.0",
-  "generated": "2026-09-21",
+  "generated": "2026-09-22",
   "formatVersion": 2,
   "site": "https://courses.sailscoring.ie",
   "repository": "https://github.com/sailscoring/course-cards",
@@ -52,16 +52,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 53.336667,
-          "west": -6.163421481865994,
-          "north": 53.373332999999995,
-          "east": -6.099912518134006
-        },
-        "width": 740,
-        "height": 716,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 53.336667,
+            "west": -6.163421481865994,
+            "north": 53.373332999999995,
+            "east": -6.099912518134006
+          },
+          "width": 740,
+          "height": 716,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -133,16 +135,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 53.278,
-          "west": -6.168737796374858,
-          "north": 53.347,
-          "east": -6.073262203625142
-        },
-        "width": 1112,
-        "height": 1346,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 53.278,
+            "west": -6.168737796374858,
+            "north": 53.347,
+            "east": -6.073262203625142
+          },
+          "width": 1112,
+          "height": 1346,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -174,16 +178,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 53.278,
-          "west": -6.168737796374858,
-          "north": 53.347,
-          "east": -6.073262203625142
-        },
-        "width": 1112,
-        "height": 1346,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 53.278,
+            "west": -6.168737796374858,
+            "north": 53.347,
+            "east": -6.073262203625142
+          },
+          "width": 1112,
+          "height": 1346,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -225,16 +231,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 53.378333000000005,
-          "west": -6.1179477738259145,
-          "north": 53.465167,
-          "east": -6.004886226174086
-        },
-        "width": 1317,
-        "height": 1698,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 53.378333000000005,
+            "west": -6.1179477738259145,
+            "north": 53.465167,
+            "east": -6.004886226174086
+          },
+          "width": 1317,
+          "height": 1698,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -276,16 +284,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 53.378333000000005,
-          "west": -6.1179477738259145,
-          "north": 53.465167,
-          "east": -6.004886226174086
-        },
-        "width": 1317,
-        "height": 1698,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 53.378333000000005,
+            "west": -6.1179477738259145,
+            "north": 53.465167,
+            "east": -6.004886226174086
+          },
+          "width": 1317,
+          "height": 1698,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -317,16 +327,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 53.397,
-          "west": -6.1179461953119505,
-          "north": 53.4385,
-          "east": -6.04738780468805
-        },
-        "width": 822,
-        "height": 811,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 53.397,
+            "west": -6.1179461953119505,
+            "north": 53.4385,
+            "east": -6.04738780468805
+          },
+          "width": 822,
+          "height": 811,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -368,16 +380,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 51.593683666666664,
-          "west": -8.65396176154489,
-          "north": 51.72932333333333,
-          "east": -8.23867523845511
-        },
-        "width": 2419,
-        "height": 1274,
-        "zoom": 13,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 51.593683666666664,
+            "west": -8.65396176154489,
+            "north": 51.72932333333333,
+            "east": -8.23867523845511
+          },
+          "width": 2419,
+          "height": 1274,
+          "zoom": 13,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -409,16 +423,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 51.75400033333334,
-          "west": -8.318956951233437,
-          "north": 51.866219666666666,
-          "east": -8.209376048766563
-        },
-        "width": 1277,
-        "height": 2115,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 51.75400033333334,
+            "west": -8.318956951233437,
+            "north": 51.866219666666666,
+            "east": -8.209376048766563
+          },
+          "width": 1277,
+          "height": 2115,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     },
     {
@@ -448,16 +464,18 @@ export const COURSE_CARD_CATALOGUE: Catalogue = {
           "osm",
           "openseamap"
         ],
-        "bounds": {
-          "south": 51.372615333333336,
-          "west": -9.717914009274228,
-          "north": 51.53833366666667,
-          "east": -9.449585990725772
-        },
-        "width": 3126,
-        "height": 3098,
-        "zoom": 14,
-        "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        "placement": {
+          "bounds": {
+            "south": 51.372615333333336,
+            "west": -9.717914009274228,
+            "north": 51.53833366666667,
+            "east": -9.449585990725772
+          },
+          "width": 3126,
+          "height": 3098,
+          "zoom": 14,
+          "attribution": "© OpenStreetMap contributors · © OpenSeaMap contributors"
+        }
       }
     }
   ]
