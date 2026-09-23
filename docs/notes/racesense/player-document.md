@@ -1,5 +1,15 @@
 # RaceSense player — the regatta document
 
+> **Superseded as the route, not as the record.** Vakaros's September
+> 2026 viewer reads the regatta from an open endpoint of its own, and
+> the import follows it there in
+> [#632](https://github.com/sailscoring/sailscoring/issues/632), which
+> removes the Firestore read described here.
+> [`regatta-api.md`](regatta-api.md) describes that endpoint. What this
+> note says about the regatta itself — divisions, general recalls, the
+> floored start, and the row-by-row mapping to the committee's workbook
+> — holds for both and is not repeated there.
+
 The **RaceSense player** (`player.vakaros.com/watch/{regattaId}/{division}`)
 is a replay viewer over one document per regatta, and that document holds
 the record the `RaceSense-Report` workbook
