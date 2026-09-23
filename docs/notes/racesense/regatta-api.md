@@ -16,23 +16,25 @@ Worlds (`i6WfokvPgVWlOVwyaaer`), the ILCA 6 Worlds Final
 (`sRFoNUwGjwnyCUiY3FsN`) and the ILCA 7 Worlds Elimination Series
 (`5JsqWPmBU6P7G5rk15ic`).
 
-[`player-document.md`](player-document.md) describes the Firestore
-document the import read until now, and stays the record of that route
-and of how the document maps to the committee's workbook. The two carry
-the same regatta — every finish and every start agreed exactly across
-the four races of the ILCA 6 Worlds Final — so that mapping holds here
-and is not repeated. This note is about the differences. Moving the
-import onto this endpoint, and dropping the Firestore route, is
-[**#632**](https://github.com/sailscoring/sailscoring/issues/632).
+This is what the import reads. It moved here in
+[**#632**](https://github.com/sailscoring/sailscoring/issues/632), which
+also deleted the Firestore route.
+[`player-document.md`](player-document.md) describes the document that
+route read, and stays the record of it and of how the document maps to
+the committee's workbook. The two carry the same regatta — every finish
+and every start agreed exactly across the four races of the ILCA 6
+Worlds Final, and the fixture recaptured here still walks race by race
+against the committee's own export — so that mapping holds and is not
+repeated. This note is about the differences.
 
 It is no more a published API than the Firestore read was. It is
 Vakaros's to change; the difference is that this one is what their own
 viewer depends on, so it breaks when their product breaks.
 
-## Why it replaces the Firestore route
+## Why it replaced the Firestore route
 
 - **No key.** `RACESENSE_PLAYER_WEB_KEY` and the anonymous sign-in that
-  used it both go away, along with a deployment that can't read because
+  used it are both gone, along with a deployment that can't read because
   a key wasn't configured.
 - **Two orders of magnitude smaller.** The Firestore document is about
   10 MB, most of it per-boat positions the import never reads. The same
@@ -151,12 +153,12 @@ and a distance of whatever the device last held.
 Four fields the Firestore document has are absent, three of them
 mattering:
 
-| Absent | What to do |
+| Absent | What the import does |
 |---|---|
-| `currentStage` | Substitute `endTime != null`. That is what the viewer does (`_inProgress: !endIsReal`), and it agrees with `currentStage` on every race checked, including one read mid-race: the race on the water had no `endTime` and its start no `stopReason`. |
-| `protestingBoats` | Lost. It feeds `protest:` on every starter row. |
-| `modifiedTs`, `sequenceNumber` | Lost. These are the freshness note — "the committee's device last wrote the regatta at 11:35:38 … (update 11)" — which is what tells a scorer mid-championship whether a re-read is worth doing. |
-| `fleetIndex` | Nothing. It is read into the model and never used downstream. |
+| `currentStage` | Reads `endTime != null` instead. That is what the viewer does (`_inProgress: !endIsReal`), and it agreed with `currentStage` on every race checked, including one read mid-race: the race on the water had no `endTime` and its start no `stopReason`. |
+| `protestingBoats` | Dropped. It fed a starter flag that nothing imported and nothing displayed on this path; the workbook export is where a protest shows up. |
+| `modifiedTs`, `sequenceNumber` | Replaced. They were the freshness note — "the committee's device last wrote the regatta at 11:35:38 … (update 11)" — which now names the last race the regatta finished, the regatta's own record of its progress. A capture read from disk then says what the regatta it came from said. |
+| `fleetIndex` | Nothing. It was read into the model and never used downstream. |
 
 Also absent and unread: `fleetId`, race `name` and `customRaceName`,
 `networkRaceNumber`, the race and division `id`s, and the division's

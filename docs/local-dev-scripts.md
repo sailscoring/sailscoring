@@ -54,7 +54,7 @@ from?", start here.
 | `pnpm provision-token:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm cli`               | The `sailscoring` CLI — a pure `/api/v1` client (import/publish/reads); see [cli.md](cli.md) | No (talks to a deployment) |
 | `pnpm generate:fixtures` | Regenerate scoring fixture HTML                      | No              |
-| `pnpm racesense:inspect` | Read a RaceSense regatta — the committee's `.xlsx` export, a player URL or regatta id (read live from the RaceSense player), or a captured document — and report what the import made of it, plus anything it didn't recognise; `--race N`, `--division NAME`, `--anomalies`, `--save FILE.json` keeps a pruned copy of the document | No |
+| `pnpm racesense:inspect` | Read a RaceSense regatta — the committee's `.xlsx` export, a player URL or regatta id (read live from the RaceSense player), or a captured regatta — and report what the import made of it, plus anything it didn't recognise; `--race N`, `--division NAME`, `--anomalies`, `--save FILE.json` keeps a pruned copy of the regatta | No |
 | `pnpm nationality:sync`  | Regenerate `lib/nationality/generated/` from upstream dataset | No     |
 | `pnpm deploy`            | `vercel deploy` (preview)                            | -               |
 | `pnpm deploy:prod`       | `vercel deploy --prod`                               | -               |
