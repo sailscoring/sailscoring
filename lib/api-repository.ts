@@ -855,8 +855,8 @@ export function loadIrcRatings(opts?: { refresh?: boolean }): Promise<IrcRatings
 
 /**
  * The regatta behind a RaceSense player URL (or a bare regatta id), read
- * server-side from Vakaros's Firestore and narrowed to what the import
- * needs. Gated behind `racesense-import`; a refused or missing read throws
+ * server-side from the player's own endpoint and narrowed to what the
+ * import needs. Gated behind `racesense-import`; a refused or missing read throws
  * `UpstreamApiError` with a message written for the scorer.
  */
 export function loadRaceSenseRegatta(

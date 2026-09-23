@@ -1,16 +1,16 @@
 /**
- * The regatta document behind a RaceSense player replay, read as a workbook.
+ * The regatta behind a RaceSense player replay, read as a workbook.
  *
  * `player.vakaros.com/watch/{regattaId}/{division}` is a viewer over one
- * Firestore document per regatta, and that document holds the same record
- * the `RaceSense-Report` workbook is exported from: the same starts, OCS
- * calls, finishes to the millisecond, and non-finishers. Reading it directly
- * means a race can be imported the moment it finishes, without waiting for
- * the committee to export. `docs/notes/racesense/player-document.md`
- * describes the document; this module turns it into the same
- * `RaceSenseWorkbook` the workbook parser produces, so everything downstream
- * — the plan, the preview, the commit — is shared and neither source can
- * drift from the other.
+ * regatta, and the regatta holds the same record the `RaceSense-Report`
+ * workbook is exported from: the same starts, OCS calls, finishes to the
+ * millisecond, and non-finishers. Reading it directly means a race can be
+ * imported the moment it finishes, without waiting for the committee to
+ * export. `docs/notes/racesense/regatta-api.md` describes what the player
+ * serves; this module turns it into the same `RaceSenseWorkbook` the
+ * workbook parser produces, so everything downstream — the plan, the
+ * preview, the commit — is shared and neither source can drift from the
+ * other.
  *
  * Three things are decided here rather than read, each verified against the
  * workbook exported from the same regatta:
@@ -29,9 +29,9 @@
  *   the committee's export must read back `unchanged`, and it only can if
  *   both sources store the same figures.
  *
- * Fetching the document is `lib/racesense-player.ts` (server-only); this
- * module is pure so the browser, the desk script and the tests can all read
- * a captured document the same way.
+ * Fetching it is `lib/racesense-player.ts`; this module is pure so the
+ * browser, the desk script and the tests can all read a capture the same
+ * way.
  */
 
 import {
@@ -55,8 +55,8 @@ export interface RaceSensePlayerRef {
   division: string | null;
 }
 
-/** Firestore document ids as Vakaros mints them: 20 URL-safe characters. A
- *  little slack either side, since nothing says they must stay that way. */
+/** Regatta ids as Vakaros mints them: 20 URL-safe characters. A little
+ *  slack either side, since nothing says they must stay that way. */
 const REGATTA_ID = /^[A-Za-z0-9_-]{12,40}$/;
 
 /**
@@ -91,65 +91,50 @@ export function parseRaceSensePlayerRef(input: string): RaceSensePlayerRef | nul
 }
 
 // ---------------------------------------------------------------------------
-// Firestore's JSON
+// The endpoint's JSON
 // ---------------------------------------------------------------------------
 
+type Plain = Record<string, unknown>;
+
+const isPlain = (v: unknown): v is Plain => typeof v === 'object' && v !== null && !Array.isArray(v);
+
 /**
- * A value as the Firestore REST API writes it: one key naming the type.
- * Integers arrive as strings, timestamps as RFC 3339, and maps and arrays
- * nest the same shape.
+ * What `/api/regatta` answers: a history of the event's metadata rather
+ * than its current state, because the course and the entry list are
+ * overwritten in place when the committee changes them, and reading the
+ * current state alone would draw race 1 against race 4's marks.
+ *
+ * Every regatta read so far carries one revision with no `validFrom`.
+ * Starts and finishes accrue, so the import scores from the current one.
  */
-export type FirestoreValue =
-  | { stringValue: string }
-  | { integerValue: string }
-  | { doubleValue: number }
-  | { booleanValue: boolean }
-  | { nullValue: null }
-  | { timestampValue: string }
-  | { bytesValue: string }
-  | { referenceValue: string }
-  | { geoPointValue: { latitude?: number; longitude?: number } }
-  | { arrayValue: { values?: FirestoreValue[] } }
-  | { mapValue: { fields?: Record<string, FirestoreValue> } };
-
-export interface FirestoreDocument {
-  name?: string;
-  fields?: Record<string, FirestoreValue>;
-  createTime?: string;
-  updateTime?: string;
+export interface RaceSenseRegattaRevision {
+  /** Epoch milliseconds, or null for "since the beginning". */
+  validFrom?: number | null;
+  doc?: unknown;
 }
 
-/** One Firestore value as a plain JavaScript value. Integers become numbers
- *  (nothing in this document approaches 2^53), timestamps stay strings. */
-export function decodeFirestoreValue(value: FirestoreValue): unknown {
-  if ('stringValue' in value) return value.stringValue;
-  if ('integerValue' in value) return Number(value.integerValue);
-  if ('doubleValue' in value) return value.doubleValue;
-  if ('booleanValue' in value) return value.booleanValue;
-  if ('nullValue' in value) return null;
-  if ('timestampValue' in value) return value.timestampValue;
-  if ('bytesValue' in value) return value.bytesValue;
-  if ('referenceValue' in value) return value.referenceValue;
-  if ('geoPointValue' in value) return value.geoPointValue;
-  if ('arrayValue' in value) return (value.arrayValue.values ?? []).map(decodeFirestoreValue);
-  if ('mapValue' in value) return decodeFirestoreFields(value.mapValue.fields ?? {});
-  return undefined;
+export interface RaceSenseRegattaHistory {
+  eventId?: string;
+  source?: string;
+  revisions?: RaceSenseRegattaRevision[];
 }
 
-export function decodeFirestoreFields(
-  fields: Record<string, FirestoreValue>,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(fields)) out[key] = decodeFirestoreValue(value);
-  return out;
+/** The regatta document in force now: the last revision, or `null` when the
+ *  answer carries no revision at all. */
+export function currentRevision(history: unknown): Plain | null {
+  if (!isPlain(history)) return null;
+  const revisions = history.revisions;
+  if (!Array.isArray(revisions) || revisions.length === 0) return null;
+  const last = revisions[revisions.length - 1];
+  if (!isPlain(last)) return null;
+  return isPlain(last.doc) ? last.doc : null;
 }
 
 /**
- * Fields of the document that the import never reads and that make up most
- * of its size: per-boat positions and headings, line geometry, device
- * serials, the course, the committee's own devices. Pruned before a document
- * is saved as a capture, so a fixture holds the record and not the telemetry
- * — and none of the device identifiers.
+ * Fields the import never reads, which are either telemetry — per-boat
+ * positions and headings, line geometry — or identify a device. Pruned
+ * before a regatta is saved as a capture, so a fixture holds the record
+ * and not the track, and no device identifier lands in the repo.
  */
 export const PRUNED_FIELDS: ReadonlySet<string> = new Set([
   'positionAtStart', 'positionAtFinish', 'headingAtStartDeg', 'heading',
@@ -158,26 +143,35 @@ export const PRUNED_FIELDS: ReadonlySet<string> = new Set([
   'gpsCorrectionAge', 'gpsCorrectionType',
   'rcDevices', 'deviceSubs', 'courses', 'achievements',
   'adminId', 'atlasSn', 'primarySn', 'secondarySns', 'platformId', 'color',
-  'raceSenseEvent', 'eventId',
+  'raceSenseEvent',
 ]);
 
-/** The document with `PRUNED_FIELDS` removed at every depth. */
-export function pruneFirestoreDocument(doc: FirestoreDocument): FirestoreDocument {
-  const pruneValue = (value: FirestoreValue): FirestoreValue => {
-    if ('mapValue' in value) return { mapValue: { fields: pruneFields(value.mapValue.fields ?? {}) } };
-    if ('arrayValue' in value) {
-      return { arrayValue: { values: (value.arrayValue.values ?? []).map(pruneValue) } };
+/** A value with `PRUNED_FIELDS` removed at every depth. Shape is otherwise
+ *  preserved, so a pruned document still reads back the same way. */
+export function pruneRegattaJson<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(pruneRegattaJson) as unknown as T;
+  if (isPlain(value)) {
+    const out: Plain = {};
+    for (const [key, v] of Object.entries(value)) {
+      if (!PRUNED_FIELDS.has(key)) out[key] = pruneRegattaJson(v);
     }
-    return value;
+    return out as unknown as T;
+  }
+  return value;
+}
+
+/**
+ * The history with each revision's document pruned, and the envelope left
+ * alone — `eventId` is the regatta's id and worth keeping in a capture,
+ * where inside a document the same word names a device's event.
+ */
+export function pruneRegattaHistory(history: RaceSenseRegattaHistory): RaceSenseRegattaHistory {
+  return {
+    ...history,
+    ...(history.revisions === undefined ? {} : {
+      revisions: history.revisions.map((r) => ({ ...r, doc: pruneRegattaJson(r.doc) })),
+    }),
   };
-  const pruneFields = (fields: Record<string, FirestoreValue>) => {
-    const out: Record<string, FirestoreValue> = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (!PRUNED_FIELDS.has(key)) out[key] = pruneValue(value);
-    }
-    return out;
-  };
-  return { ...doc, fields: pruneFields(doc.fields ?? {}) };
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +193,7 @@ export interface RaceSenseStartingStat {
 
 export interface RaceSenseRegattaStart {
   startNumber: number | null;
-  /** UTC, RFC 3339. */
+  /** UTC, RFC 3339, however the document spelled it. */
   startTime: string | null;
   /** `finished` for a start that ran to the finish; a general recall or an
    *  abandonment leaves something else, which the reading reports. */
@@ -225,17 +219,13 @@ export interface RaceSenseRegattaFinish {
 
 export interface RaceSenseRegattaRace {
   raceNumber: number;
-  /** `Race 1`, or whatever the committee renamed it to. */
-  name: string | null;
-  /** `finished` once the race is over; earlier stages are what a race in
-   *  progress carries and the reading leaves them out. */
-  stage: string | null;
   isPractice: boolean;
   /** The race's local offset from UTC, in milliseconds (the document stores
    *  microseconds). */
   timezoneOffsetMs: number | null;
+  /** When the committee ended the race, and so whether it is over at all:
+   *  a race still on the water has none. UTC, RFC 3339. */
   endTime: string | null;
-  protestingBoats: string[];
   /** Every start attempted, in order — a general recall adds one. */
   starts: RaceSenseRegattaStart[];
   /** In crossing order. */
@@ -244,7 +234,6 @@ export interface RaceSenseRegattaRace {
 
 export interface RaceSenseDivision {
   name: string;
-  fleetIndex: number | null;
   boatClass: string | null;
   participants: RaceSenseParticipant[];
   races: RaceSenseRegattaRace[];
@@ -255,15 +244,8 @@ export interface RaceSenseRegatta {
   name: string | null;
   startDate: string | null;
   endDate: string | null;
-  /** When the committee's device last wrote the document. */
-  modifiedTs: string | null;
-  sequenceNumber: number | null;
   divisions: RaceSenseDivision[];
 }
-
-type Plain = Record<string, unknown>;
-
-const isPlain = (v: unknown): v is Plain => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 const str = (o: Plain, key: string): string | null => {
   const v = o[key];
@@ -274,6 +256,34 @@ const num = (o: Plain, key: string): number | null => {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 };
 const bool = (o: Plain, key: string): boolean => o[key] === true;
+
+/**
+ * An instant, as RFC 3339 in UTC, from the several shapes the endpoint
+ * spells one in: epoch milliseconds (how a start's `startTime` and the
+ * regatta's dates arrive), an RFC 3339 string (how `finishingTime` and a
+ * race's `endTime` do), or Firestore's `{seconds, nanoseconds}`, which the
+ * player's own decoder still accepts.
+ *
+ * A string is passed through untouched rather than re-spelled, so that a
+ * string carrying no zone stays unparseable downstream instead of being
+ * read as some reader's local time. `startingStats[].startTime` is exactly
+ * that — the race's own local time with no offset on it — and reading one
+ * as UTC would be silently hours wrong. Nothing scored reads that field;
+ * this is what keeps it that way.
+ */
+const timestamp = (o: Plain, key: string): string | null => {
+  const v = o[key];
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return Number.isFinite(v) ? new Date(v).toISOString() : null;
+  if (isPlain(v)) {
+    const seconds = Number(v.seconds ?? v._seconds);
+    if (Number.isFinite(seconds)) {
+      const nanos = Number(v.nanoseconds ?? v._nanoseconds) || 0;
+      return new Date(seconds * 1000 + nanos / 1e6).toISOString();
+    }
+  }
+  return null;
+};
 const list = (o: Plain, key: string): Plain[] => {
   const v = o[key];
   return Array.isArray(v) ? v.filter(isPlain) : [];
@@ -294,13 +304,10 @@ export function readRaceSenseRegatta(document: Plain, id: string): RaceSenseRega
   return {
     id: str(document, 'id') ?? id,
     name: str(document, 'name'),
-    startDate: str(document, 'startDate'),
-    endDate: str(document, 'endDate'),
-    modifiedTs: str(document, 'modifiedTs'),
-    sequenceNumber: num(document, 'sequenceNumber'),
+    startDate: timestamp(document, 'startDate'),
+    endDate: timestamp(document, 'endDate'),
     divisions: list(document, 'divisions').map((d) => ({
       name: str(d, 'name') ?? '',
-      fleetIndex: num(d, 'fleetIndex'),
       boatClass: str(d, 'boatClass'),
       participants: list(d, 'participants')
         .map((p) => ({
@@ -311,18 +318,15 @@ export function readRaceSenseRegatta(document: Plain, id: string): RaceSenseRega
         .filter((p) => p.sailNumber !== ''),
       races: list(d, 'races').map((r) => ({
         raceNumber: num(r, 'raceNumber') ?? 0,
-        name: str(r, 'name'),
-        stage: str(r, 'currentStage'),
         isPractice: bool(r, 'isPractice'),
         timezoneOffsetMs: (() => {
           const micros = num(r, 'timezoneOffset');
           return micros === null ? null : micros / 1000;
         })(),
-        endTime: str(r, 'endTime'),
-        protestingBoats: strings(r, 'protestingBoats'),
+        endTime: timestamp(r, 'endTime'),
         starts: list(r, 'starts').map((s) => ({
           startNumber: num(s, 'startNumber'),
-          startTime: str(s, 'startTime'),
+          startTime: timestamp(s, 'startTime'),
           stopReason: str(s, 'stopReason'),
           prepFlag: str(s, 'prepFlag'),
           checkedIn: strings(s, 'checkedInParticipants'),
@@ -336,7 +340,7 @@ export function readRaceSenseRegatta(document: Plain, id: string): RaceSenseRega
         finishes: list(r, 'finishes')
           .map((f) => ({
             sailNumber: (str(f, 'sailNumber') ?? '').trim(),
-            finishingTime: str(f, 'finishingTime') ?? '',
+            finishingTime: timestamp(f, 'finishingTime') ?? '',
             maxSpeedKts: num(f, 'maxSpeed'),
             distanceM: num(f, 'distanceTraveled'),
           }))
@@ -346,18 +350,18 @@ export function readRaceSenseRegatta(document: Plain, id: string): RaceSenseRega
   };
 }
 
-/** The regatta straight from the REST response. `id` is the last segment of
- *  the document's resource name unless the document says otherwise. */
-export function readRaceSenseRegattaDocument(doc: FirestoreDocument, id: string): RaceSenseRegatta {
-  return readRaceSenseRegatta(decodeFirestoreFields(doc.fields ?? {}), id);
-}
-
 // ---------------------------------------------------------------------------
 // Times
 // ---------------------------------------------------------------------------
 
-/** RFC 3339 as Firestore writes it, with any number of fractional digits —
- *  `endTime` carries six, `Date.parse` is only promised three. */
+/**
+ * RFC 3339 with any number of fractional digits — `endTime` carries six,
+ * `Date.parse` is only promised three.
+ *
+ * A zone is required, so a local-time string with none is refused rather
+ * than read as the reader's own zone. That is deliberate: `startTime` on a
+ * `startingStats` row is exactly such a string, in the race's local time.
+ */
 const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 
 /** Milliseconds since the epoch, or `null` for anything that isn't a
@@ -420,9 +424,6 @@ const PREP_FLAGS: Readonly<Record<string, string>> = {
 /** A start that ran to the finish. */
 const STOP_FINISHED = 'finished';
 
-/** A race the committee has finished. */
-const STAGE_FINISHED = 'finished';
-
 /** How far past the minute a recorded start may be before it stops looking
  *  like the device's usual one-second lag and starts looking like a start
  *  that really wasn't on the minute. */
@@ -459,14 +460,18 @@ function statusFor(sailNumber: string, start: RaceSenseRegattaStart, checkedIn: 
 }
 
 /** Why a race is left out of the workbook, or `null` to include it. */
+/**
+ * Why a race is not offered for import, or `null` when it is.
+ *
+ * A race is over when the committee has ended it, which is what an
+ * `endTime` records — the same reading the player's own replay makes of a
+ * race in progress. A race the committee has not ended is on the water,
+ * and importing half its finishes is the one thing this must not do.
+ */
 function skipReason(race: RaceSenseRegattaRace): string | null {
   if (race.isPractice) return 'is a practice race';
   if (race.starts.length === 0) return 'has not been started';
-  if (race.stage !== STAGE_FINISHED) {
-    return race.stage
-      ? `is still in progress on the water (RaceSense has it at “${race.stage}”)`
-      : 'has not finished';
-  }
+  if (race.endTime === null) return 'is still in progress on the water';
   return null;
 }
 
@@ -477,10 +482,6 @@ function buildRace(
 ): RaceSenseRace {
   const sheetName = `Race ${race.raceNumber}`;
   const ctx: Ctx = { sheet: sheetName, anomalies };
-
-  if (race.name && race.name !== sheetName) {
-    flag(ctx, 'info', 'race-name', `RaceSense calls this race “${race.name}”.`, { value: race.name });
-  }
 
   // The last start is the one that counted: a general recall leaves the
   // recalled start in the list ahead of the one that ran.
@@ -533,7 +534,9 @@ function buildRace(
       bowNumber: p.bowNumber,
       status,
       meaning: START_STATUSES[status] ?? null,
-      protest: race.protestingBoats.includes(p.sailNumber),
+      // The endpoint doesn't carry the committee's protest flags; the
+      // workbook export does, and is where a protest shows up.
+      protest: false,
       dtlAtStartM: dtlMm === null ? null : round(dtlMm / 1000, 2),
     };
   });
@@ -620,22 +623,32 @@ function buildRace(
   };
 }
 
-/** When the document was read, and what it said about itself — the note the
- *  plan shows at the top, so a scorer knows how fresh the read is. */
+/**
+ * How far the regatta has got — the note the plan shows at the top, so a
+ * scorer can see whether the read is current before importing from it.
+ *
+ * The latest race the committee has ended is what says that. It is the
+ * regatta's own record of its progress rather than a clock on the read, so
+ * a capture read from disk says the same thing as the live regatta it came
+ * from, and a scorer who knows a race has finished since can tell at a
+ * glance that this read predates it.
+ */
 function readNote(regatta: RaceSenseRegatta): RaceSenseAnomaly {
-  const modified = parseTimestampMs(regatta.modifiedTs);
-  const offsetMs = regatta.divisions.flatMap((d) => d.races)
-    .find((r) => r.timezoneOffsetMs !== null)?.timezoneOffsetMs ?? 0;
-  const when = modified === null
-    ? 'at an unknown time'
-    : `at ${localTimeOfDay(modified, offsetMs)} on ${localDate(modified, offsetMs)}`;
+  const races = regatta.divisions.flatMap((d) => d.races);
+  const offsetMs = races.find((r) => r.timezoneOffsetMs !== null)?.timezoneOffsetMs ?? 0;
+  const ended = races
+    .map((r) => ({ race: r, endedMs: parseTimestampMs(r.endTime) }))
+    .filter((r): r is { race: RaceSenseRegattaRace; endedMs: number } => r.endedMs !== null)
+    .sort((a, b) => b.endedMs - a.endedMs)[0];
+  const how = ended === undefined
+    ? 'It has no finished race yet'
+    : `The last race it finished is Race ${ended.race.raceNumber}, ended at `
+      + `${localTimeOfDay(ended.endedMs, offsetMs)} on ${localDate(ended.endedMs, offsetMs)}`;
   return {
     severity: 'info',
     kind: 'player-read',
     sheet: '',
-    message: `Read from the RaceSense player. The committee’s device last wrote the regatta ${when}${
-      regatta.sequenceNumber === null ? '' : ` (update ${regatta.sequenceNumber})`
-    }; read it again after the next race finishes.`,
+    message: `Read from the RaceSense player. ${how}; read it again after the next race finishes.`,
   };
 }
 
@@ -661,7 +674,7 @@ export function regattaToWorkbook(
         kind: 'race-skipped',
         sheet: sheetName,
         value: sheetName,
-        message: `${race.name ?? sheetName} ${skipped}, so it is not offered here.`,
+        message: `${sheetName} ${skipped}, so it is not offered here.`,
       });
       continue;
     }

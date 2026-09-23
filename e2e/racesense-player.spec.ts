@@ -5,12 +5,12 @@ import { createSeriesQuick, enableFeatures } from './helpers';
 /**
  * E2E for reading finishes from the RaceSense player.
  *
- * The regatta document behind a player replay is read server-side and
- * narrowed before it reaches the browser; here the API route is stubbed
- * with a regatta shaped like the narrowed read, so the whole dialog — the
- * URL prompt, the division choice, the plan, the commit, the re-read — runs
+ * The regatta behind a player replay is read server-side and narrowed
+ * before it reaches the browser; here the API route is stubbed with a
+ * regatta shaped like the narrowed read, so the whole dialog — the URL
+ * prompt, the division choice, the plan, the commit, the re-read — runs
  * without touching Vakaros. The fetcher itself is covered by its unit
- * tests against a stand-in for Firebase.
+ * tests against a stand-in for the player's endpoint.
  *
  * The regatta mirrors the workbook fixture the export import is tested
  * with: three boats in Fleet A, an ordinary race, a race with an OCS whose
@@ -51,12 +51,9 @@ const REGATTA = {
   name: 'Spring Championship',
   startDate: '2026-04-10T23:00:00Z',
   endDate: '2026-04-11T23:00:00Z',
-  modifiedTs: '2026-04-11T12:30:00Z',
-  sequenceNumber: 12,
   divisions: [
     {
       name: 'Fleet A',
-      fleetIndex: 1,
       boatClass: 'ILCA',
       participants: [
         { sailNumber: '15', boatName: 'Alice Pearson', bowNumber: '' },
@@ -65,21 +62,21 @@ const REGATTA = {
       ],
       races: [
         {
-          raceNumber: 1, name: 'Race 1', stage: 'finished', isPractice: false,
-          timezoneOffsetMs: TZ_MS, endTime: '2026-04-11T10:20:00Z', protestingBoats: [],
+          raceNumber: 1, isPractice: false,
+          timezoneOffsetMs: TZ_MS, endTime: '2026-04-11T10:20:00Z',
           starts: [start('2026-04-11T10:00:01Z')],
           finishes: [finish('15', '2026-04-11T10:14:20.450Z'), finish('22', '2026-04-11T10:15:00.000Z')],
         },
         {
-          raceNumber: 2, name: 'Race 2', stage: 'finished', isPractice: false,
-          timezoneOffsetMs: TZ_MS, endTime: '2026-04-11T11:20:00Z', protestingBoats: [],
+          raceNumber: 2, isPractice: false,
+          timezoneOffsetMs: TZ_MS, endTime: '2026-04-11T11:20:00Z',
           // 22 was over the line and never cleared; 15 was over and cleared.
           starts: [start('2026-04-11T11:00:01Z', { ocs: ['15', '22'], exonerated: ['15'] })],
           finishes: [finish('254', '2026-04-11T11:14:00.000Z'), finish('15', '2026-04-11T11:15:00.000Z')],
         },
         {
-          raceNumber: 3, name: 'Race 3', stage: 'racing', isPractice: false,
-          timezoneOffsetMs: TZ_MS, endTime: null, protestingBoats: [],
+          raceNumber: 3, isPractice: false,
+          timezoneOffsetMs: TZ_MS, endTime: null,
           starts: [start('2026-04-11T12:00:01Z')],
           finishes: [],
         },
@@ -87,7 +84,6 @@ const REGATTA = {
     },
     {
       name: 'Fleet B',
-      fleetIndex: 2,
       boatClass: 'ILCA',
       participants: [
         { sailNumber: '7', boatName: 'Dan Otter', bowNumber: '' },
@@ -95,8 +91,8 @@ const REGATTA = {
       ],
       races: [
         {
-          raceNumber: 1, name: 'Race 1', stage: 'finished', isPractice: false,
-          timezoneOffsetMs: TZ_MS, endTime: '2026-04-11T10:25:00Z', protestingBoats: [],
+          raceNumber: 1, isPractice: false,
+          timezoneOffsetMs: TZ_MS, endTime: '2026-04-11T10:25:00Z',
           starts: [start('2026-04-11T10:05:01Z', { checkedIn: ['7', '9'], startingStats: [] })],
           finishes: [finish('9', '2026-04-11T10:19:00.000Z'), finish('7', '2026-04-11T10:19:30.000Z')],
         },

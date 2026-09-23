@@ -1,8 +1,8 @@
 # RaceSense player fixtures
 
-Regatta documents captured from the RaceSense player, as the Firestore REST
-API returns them, for `tests/racesense-regatta.test.ts`. The document
-format is described in `docs/notes/racesense/player-document.md`.
+Regattas captured from the RaceSense player, as its `/api/regatta`
+endpoint returns them, for `tests/racesense-regatta.test.ts`. The format is
+described in `docs/notes/racesense/regatta-api.md`.
 
 | File | What it is |
 |---|---|
@@ -16,6 +16,6 @@ pnpm racesense:inspect https://player.vakaros.com/watch/5JsqWPmBU6P7G5rk15ic --s
 
 which prunes the per-boat positions and headings, line geometry, device
 serial numbers, courses and committee devices (`PRUNED_FIELDS` in
-`lib/racesense-regatta.ts`) — the import reads none of them, they are most
-of the 10 MB, and the identifiers have no business in a repo. What remains
-is the published record: sail numbers, names, starts, OCS lists, finishes.
+`lib/racesense-regatta.ts`) — the import reads none of them, and the
+identifiers have no business in a repo. What remains is the published
+record: sail numbers, names, starts, OCS lists, finishes.

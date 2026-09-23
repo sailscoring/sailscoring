@@ -3,15 +3,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * The fetcher against a stand-in for Firebase: what it sends, what it keeps,
- * and the sentence it produces for each way the read can fail. The module
- * caches its anonymous token across calls, so the module is re-imported for
- * every test.
+ * The fetcher against a stand-in for the player's endpoint: what it asks
+ * for, and the sentence it produces for each way the read can fail. The
+ * module is re-imported per test so nothing carries over.
  */
 
 type Call = { url: string; init: RequestInit | undefined };
 
-const REGATTA = 'projects/vakaros-racesense/databases/(default)/documents/regattas/abc123abc123abc123ab';
+const REGATTA_ID = 'abc123abc123abc123ab';
+const URL_FOR = `https://player.vakaros.com/api/regatta?event=${REGATTA_ID}`;
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -20,18 +20,12 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
-const SIGN_UP = jsonResponse(200, { idToken: 'tok-1', expiresIn: '3600', localId: 'anon' });
-
-const DOCUMENT = {
-  name: REGATTA,
-  fields: {
-    name: { stringValue: 'Autumn League' },
-    divisions: { arrayValue: { values: [{ mapValue: { fields: {
-      name: { stringValue: 'Gold' },
-      participants: { arrayValue: {} },
-      races: { arrayValue: {} },
-    } } }] } },
-  },
+const HISTORY = {
+  eventId: REGATTA_ID,
+  source: 'firestore-snapshot',
+  revisions: [
+    { validFrom: null, doc: { name: 'Autumn League', divisions: [{ name: 'Gold', participants: [], races: [] }] } },
+  ],
 };
 
 let calls: Call[];
@@ -58,117 +52,110 @@ async function fresh() {
   return await import('@/lib/racesense-player');
 }
 
-describe('fetchRaceSenseRegattaDocument', () => {
-  it('signs in anonymously, then reads the document as that user', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    answers.push(SIGN_UP.clone(), jsonResponse(200, DOCUMENT));
+/** The error a read failed with, or a failure saying it didn't fail. */
+async function failureOf(read: Promise<unknown>): Promise<Error & { failure: string }> {
+  try {
+    await read;
+  } catch (e) {
+    return e as Error & { failure: string };
+  }
+  throw new Error('expected the read to fail, and it did not');
+}
 
-    const doc = await read('abc123abc123abc123ab');
-    expect(doc.fields?.name).toEqual({ stringValue: 'Autumn League' });
+describe('fetchRaceSenseRegattaHistory', () => {
+  it('reads the regatta in one request, with no credential', async () => {
+    const { fetchRaceSenseRegattaHistory: read } = await fresh();
+    answers.push(jsonResponse(200, HISTORY));
 
-    expect(calls).toHaveLength(2);
-    expect(calls[0].url).toMatch(/^https:\/\/identitytoolkit\.googleapis\.com\/v1\/accounts:signUp\?key=/);
-    expect(calls[0].init?.method).toBe('POST');
-    expect(calls[1].url).toBe(
-      'https://firestore.googleapis.com/v1/projects/vakaros-racesense/databases/(default)/documents/regattas/abc123abc123abc123ab',
-    );
-    expect((calls[1].init?.headers as Record<string, string>).authorization).toBe('Bearer tok-1');
-  });
+    const history = await read(REGATTA_ID);
+    expect(history.revisions).toHaveLength(1);
 
-  it('keeps the token for the next read rather than minting one per fetch', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    answers.push(SIGN_UP.clone(), jsonResponse(200, DOCUMENT), jsonResponse(200, DOCUMENT));
-
-    await read('abc123abc123abc123ab');
-    await read('abc123abc123abc123ab');
-    expect(calls.map((c) => new URL(c.url).hostname)).toEqual([
-      'identitytoolkit.googleapis.com',
-      'firestore.googleapis.com',
-      'firestore.googleapis.com',
-    ]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(URL_FOR);
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers.accept).toBe('application/json');
+    expect(Object.keys(headers)).toEqual(['accept']);
   });
 
   it('says so, in words, when there is no such regatta', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    answers.push(SIGN_UP.clone(), jsonResponse(404, { error: { code: 404 } }));
+    const { fetchRaceSenseRegattaHistory: read } = await fresh();
+    answers.push(jsonResponse(404, { error: `Regatta not found: ${REGATTA_ID}` }));
 
-    const err = await read('abc123abc123abc123ab').catch((e) => e);
+    const err = await failureOf(read(REGATTA_ID));
     expect(err.name).toBe('RaceSensePlayerError');
     expect(err.failure).toBe('not-found');
-    expect(err.message).toContain('no regatta with the id abc123abc123abc123ab');
+    expect(err.message).toContain(`no regatta with the id ${REGATTA_ID}`);
   });
 
-  it('says so when the read is refused, and signs in afresh next time', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    answers.push(SIGN_UP.clone(), jsonResponse(403, { error: { code: 403 } }));
+  it('says so when the read is refused, and points at the export', async () => {
+    const { fetchRaceSenseRegattaHistory: read } = await fresh();
+    answers.push(jsonResponse(403, { error: 'no' }));
 
-    const err = await read('abc123abc123abc123ab').catch((e) => e);
+    const err = await failureOf(read(REGATTA_ID));
     expect(err.failure).toBe('refused');
     expect(err.message).toContain('refused the read (HTTP 403)');
     expect(err.message).toContain('Import the committee’s RaceSense export instead.');
-
-    // The token was dropped: the next read signs in again.
-    answers.push(jsonResponse(200, { idToken: 'tok-2', expiresIn: '3600' }), jsonResponse(200, DOCUMENT));
-    await read('abc123abc123abc123ab');
-    expect(calls).toHaveLength(4);
-    expect((calls[3].init?.headers as Record<string, string>).authorization).toBe('Bearer tok-2');
   });
 
-  it('says so when this server has no web key, before touching the network', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    vi.stubEnv('RACESENSE_PLAYER_WEB_KEY', '');
+  it('says so when the player answers with anything else', async () => {
+    const { fetchRaceSenseRegattaHistory: read } = await fresh();
+    answers.push(jsonResponse(500, { error: 'boom' }));
 
-    const err = await read('abc123abc123abc123ab').catch((e) => e);
-    expect(err.failure).toBe('unconfigured');
-    expect(err.message).toContain('no RACESENSE_PLAYER_WEB_KEY');
-    expect(calls).toHaveLength(0);
-    vi.unstubAllEnvs();
-  });
-
-  it('sends the configured web key with the sign-in', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    answers.push(SIGN_UP.clone(), jsonResponse(200, DOCUMENT));
-
-    await read('abc123abc123abc123ab');
-    expect(calls[0].url).toBe('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=test-web-key');
-  });
-
-  it('says so when the sign-in itself is refused', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    answers.push(jsonResponse(400, { error: { message: 'ADMIN_ONLY_OPERATION' } }));
-
-    const err = await read('abc123abc123abc123ab').catch((e) => e);
-    expect(err.failure).toBe('refused');
-    expect(err.message).toContain('refused an anonymous sign-in (HTTP 400)');
+    const err = await failureOf(read(REGATTA_ID));
+    expect(err.failure).toBe('unreachable');
+    expect(err.message).toContain('answered HTTP 500');
   });
 
   it('says so when the player cannot be reached at all', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
+    const { fetchRaceSenseRegattaHistory: read } = await fresh();
     answers.push(new TypeError('fetch failed'));
 
-    const err = await read('abc123abc123abc123ab').catch((e) => e);
+    const err = await failureOf(read(REGATTA_ID));
     expect(err.failure).toBe('unreachable');
     expect(err.message).toContain('Couldn’t reach the RaceSense player’s data (fetch failed)');
   });
 
-  it('says so when the answer is not a document', async () => {
-    const { fetchRaceSenseRegattaDocument: read } = await fresh();
-    answers.push(SIGN_UP.clone(), jsonResponse(200, { unexpected: true }));
+  it('says so when the answer is not a regatta', async () => {
+    const { fetchRaceSenseRegattaHistory: read } = await fresh();
+    answers.push(jsonResponse(200, { unexpected: true }));
 
-    const err = await read('abc123abc123abc123ab').catch((e) => e);
+    const err = await failureOf(read(REGATTA_ID));
+    expect(err.failure).toBe('unreachable');
+    expect(err.message).toContain('something other than a regatta');
+  });
+
+  it('says so when the answer is not JSON at all', async () => {
+    const { fetchRaceSenseRegattaHistory: read } = await fresh();
+    answers.push(new Response('<html>maintenance</html>', { status: 200 }));
+
+    const err = await failureOf(read(REGATTA_ID));
     expect(err.failure).toBe('unreachable');
     expect(err.message).toContain('something other than a regatta');
   });
 });
 
 describe('fetchRaceSenseRegatta', () => {
-  it('narrows the document to the regatta the import reads', async () => {
+  it('narrows the current revision to the regatta the import reads', async () => {
     const { fetchRaceSenseRegatta: read } = await fresh();
-    answers.push(SIGN_UP.clone(), jsonResponse(200, DOCUMENT));
+    answers.push(jsonResponse(200, HISTORY));
 
-    const regatta = await read('abc123abc123abc123ab');
-    expect(regatta.id).toBe('abc123abc123abc123ab');
+    const regatta = await read(REGATTA_ID);
+    expect(regatta.id).toBe(REGATTA_ID);
     expect(regatta.name).toBe('Autumn League');
     expect(regatta.divisions.map((d) => d.name)).toEqual(['Gold']);
+  });
+
+  it('reads the current revision, not the first', async () => {
+    const { fetchRaceSenseRegatta: read } = await fresh();
+    answers.push(jsonResponse(200, {
+      ...HISTORY,
+      revisions: [
+        { validFrom: null, doc: { name: 'Autumn League', divisions: [] } },
+        { validFrom: 2, doc: { name: 'Autumn League', divisions: [{ name: 'Gold' }, { name: 'Silver' }] } },
+      ],
+    }));
+
+    const regatta = await read(REGATTA_ID);
+    expect(regatta.divisions.map((d) => d.name)).toEqual(['Gold', 'Silver']);
   });
 });

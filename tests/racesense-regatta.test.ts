@@ -8,28 +8,27 @@ import type { Candidate } from '@/lib/finish-sheet-csv';
 import { parseWorkbookBytes } from '@/lib/import-table';
 import { planRaceSenseImport, type SeriesRace } from '@/lib/racesense-plan';
 import {
-  decodeFirestoreValue,
+  currentRevision,
   parseRaceSensePlayerRef,
   parseTimestampMs,
   pickDivision,
   PRUNED_FIELDS,
-  pruneFirestoreDocument,
+  pruneRegattaHistory,
   readRaceSenseRegatta,
-  readRaceSenseRegattaDocument,
   regattaToWorkbook,
-  type FirestoreDocument,
   type RaceSenseRegatta,
+  type RaceSenseRegattaHistory,
   type RaceSenseRegattaRace,
 } from '@/lib/racesense-regatta';
 import { parseRaceSenseWorkbook, type RaceSenseWorkbook } from '@/lib/racesense-workbook';
 import type { Finish } from '@/lib/types';
 
 /**
- * The fixture pair: the regatta document behind the ILCA 7 Worlds 2026
- * Elimination Series replay on the RaceSense player, and the workbook the
- * race committee exported from the same regatta for the Gold division. Six
- * races, 47 boats. The document is captured as the Firestore REST API
- * returned it, pruned of positions and device identifiers.
+ * The fixture pair: the regatta behind the ILCA 7 Worlds 2026 Elimination
+ * Series replay on the RaceSense player, and the workbook the race
+ * committee exported from the same regatta for the Gold division. Six
+ * races, 47 boats. The regatta is captured as `/api/regatta` returned it,
+ * pruned of positions and device identifiers.
  *
  * The property under test is that the two sources say the same thing —
  * not approximately, but to the figure the app stores, so that a race
@@ -40,12 +39,14 @@ const WORKBOOK = resolve(__dirname, 'fixtures/xlsx/racesense-ilca7-gold.xlsx');
 
 const REGATTA_ID = '5JsqWPmBU6P7G5rk15ic';
 
-function loadDocument(): FirestoreDocument {
-  return JSON.parse(readFileSync(DOCUMENT, 'utf8')) as FirestoreDocument;
+function loadHistory(): RaceSenseRegattaHistory {
+  return JSON.parse(readFileSync(DOCUMENT, 'utf8')) as RaceSenseRegattaHistory;
 }
 
 function loadRegatta(): RaceSenseRegatta {
-  return readRaceSenseRegattaDocument(loadDocument(), REGATTA_ID);
+  const doc = currentRevision(loadHistory());
+  if (!doc) throw new Error('no revision in the fixture');
+  return readRaceSenseRegatta(doc, REGATTA_ID);
 }
 
 async function loadWorkbook(): Promise<RaceSenseWorkbook> {
@@ -96,24 +97,48 @@ describe('parseRaceSensePlayerRef', () => {
   });
 });
 
-describe('the Firestore JSON', () => {
-  it('decodes every value type the document uses', () => {
-    expect(decodeFirestoreValue({
-      mapValue: {
-        fields: {
-          s: { stringValue: 'Gold' },
-          i: { integerValue: '3600000000' },
-          d: { doubleValue: 10.166 },
-          b: { booleanValue: true },
-          n: { nullValue: null },
-          t: { timestampValue: '2026-08-27T11:05:01Z' },
-          a: { arrayValue: { values: [{ stringValue: 'x' }, { integerValue: '2' }] } },
-          e: { arrayValue: {} },
-        },
-      },
-    })).toEqual({
-      s: 'Gold', i: 3600000000, d: 10.166, b: true, n: null, t: '2026-08-27T11:05:01Z', a: ['x', 2], e: [],
+describe('the endpoint\u2019s JSON', () => {
+  it('takes the current revision, and nothing else for a regatta', () => {
+    expect(currentRevision({ revisions: [{ validFrom: null, doc: { name: 'One' } }] }))
+      .toEqual({ name: 'One' });
+    // Starts and finishes accrue, so the last revision is the one to score.
+    expect(currentRevision({
+      revisions: [{ validFrom: null, doc: { name: 'Early' } }, { validFrom: 2, doc: { name: 'Late' } }],
+    })).toEqual({ name: 'Late' });
+    expect(currentRevision({ revisions: [] })).toBeNull();
+    expect(currentRevision({ eventId: 'abc' })).toBeNull();
+    expect(currentRevision({ revisions: [{ validFrom: null }] })).toBeNull();
+    expect(currentRevision(null)).toBeNull();
+    expect(currentRevision('a regatta')).toBeNull();
+  });
+
+  it('reads an instant in each shape the endpoint spells one in', () => {
+    // Epoch milliseconds is how a start's own time and the regatta's dates
+    // arrive; RFC 3339 is how a finish and a race's end do.
+    const read = (doc: Record<string, unknown>) =>
+      readRaceSenseRegatta(doc, 'abc').divisions[0].races[0].starts[0].startTime;
+    const withStart = (startTime: unknown) => ({
+      divisions: [{ races: [{ starts: [{ startTime }] }] }],
     });
+    expect(read(withStart(1787828701000))).toBe('2026-08-27T11:05:01.000Z');
+    expect(read(withStart('2026-08-27T11:05:01Z'))).toBe('2026-08-27T11:05:01Z');
+    expect(read(withStart({ seconds: 1787828701, nanoseconds: 0 }))).toBe('2026-08-27T11:05:01.000Z');
+    expect(read(withStart({ _seconds: 1787828701, _nanoseconds: 0 }))).toBe('2026-08-27T11:05:01.000Z');
+    expect(read(withStart(null))).toBeNull();
+    expect(read(withStart(Number.NaN))).toBeNull();
+  });
+
+  it('leaves a zone-less instant alone rather than reading it as UTC', () => {
+    // `startingStats[].startTime` is the race's own local time with no
+    // offset on it. Nothing scored reads that field, and the reason it is
+    // safe is that a string is passed through untouched and the timestamp
+    // parser then refuses it — rather than it being quietly taken for UTC.
+    expect(parseTimestampMs('2026-09-12T11:05:01.000')).toBeNull();
+    const regatta = readRaceSenseRegatta(
+      { divisions: [{ races: [{ starts: [{ startTime: '2026-09-12T11:05:01.000' }] }] }] },
+      'abc',
+    );
+    expect(regatta.divisions[0].races[0].starts[0].startTime).toBe('2026-09-12T11:05:01.000');
   });
 
   it('parses timestamps with more fractional digits than Date.parse promises', () => {
@@ -124,32 +149,41 @@ describe('the Firestore JSON', () => {
     expect(parseTimestampMs(null)).toBeNull();
   });
 
-  it('prunes the telemetry and identifiers at every depth, and nothing else', () => {
-    const pruned = pruneFirestoreDocument({
-      name: 'projects/x/documents/regattas/abc',
-      fields: {
-        adminId: { stringValue: 'who' },
-        name: { stringValue: 'Regatta' },
-        divisions: { arrayValue: { values: [{ mapValue: { fields: {
-          name: { stringValue: 'Gold' },
-          participants: { arrayValue: { values: [{ mapValue: { fields: {
-            sailNumber: { stringValue: 'IRL 1' },
-            atlasSn: { stringValue: '0228007140' },
-          } } }] } },
-        } } }] } },
-      },
-    });
-    expect(pruned).toEqual({
-      name: 'projects/x/documents/regattas/abc',
-      fields: {
-        name: { stringValue: 'Regatta' },
-        divisions: { arrayValue: { values: [{ mapValue: { fields: {
-          name: { stringValue: 'Gold' },
-          participants: { arrayValue: { values: [{ mapValue: { fields: {
-            sailNumber: { stringValue: 'IRL 1' },
-          } } }] } },
-        } } }] } },
-      },
+  it('prunes the telemetry and identifiers inside a document, and keeps the envelope', () => {
+    expect(pruneRegattaHistory({
+      eventId: 'abc',
+      source: 'firestore-snapshot',
+      revisions: [{
+        validFrom: null,
+        doc: {
+          name: 'Regatta',
+          raceSenseEvent: { origin: { coordinates: [0, 0] } },
+          divisions: [{
+            name: 'Gold',
+            participants: [{ sailNumber: 'IRL 1', atlasSn: '0228007140' }],
+            races: [{
+              finishes: [{
+                sailNumber: 'IRL 1', finishingTime: '2026-08-27T12:00:00Z',
+                serialNumber: '4EE2', positionAtFinish: { coordinates: [0, 0] }, mask: { value: 15 },
+              }],
+            }],
+          }],
+        },
+      }],
+    })).toEqual({
+      eventId: 'abc',
+      source: 'firestore-snapshot',
+      revisions: [{
+        validFrom: null,
+        doc: {
+          name: 'Regatta',
+          divisions: [{
+            name: 'Gold',
+            participants: [{ sailNumber: 'IRL 1' }],
+            races: [{ finishes: [{ sailNumber: 'IRL 1', finishingTime: '2026-08-27T12:00:00Z' }] }],
+          }],
+        },
+      }],
     });
   });
 
@@ -158,6 +192,10 @@ describe('the Firestore JSON', () => {
     for (const key of PRUNED_FIELDS) {
       expect(text.includes(`"${key}"`), key).toBe(false);
     }
+  });
+
+  it('the fixture keeps the regatta id the capture was taken for', () => {
+    expect(loadHistory().eventId).toBe(REGATTA_ID);
   });
 });
 
@@ -173,7 +211,8 @@ describe('the regatta document', () => {
     expect(gold.boatClass).toBe('ILCA');
     expect(gold.participants).toHaveLength(47);
     expect(gold.races.map((r) => r.raceNumber)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(gold.races.every((r) => r.stage === 'finished')).toBe(true);
+    // Every race has an end time, which is what says the committee finished it.
+    expect(gold.races.every((r) => r.endTime !== null)).toBe(true);
     expect(gold.races[0].timezoneOffsetMs).toBe(3_600_000);
     expect(gold.races[0].starts[0].prepFlag).toBe('p');
   });
@@ -235,8 +274,7 @@ describe('the regatta document', () => {
 
   it('reads a document with nothing in it as a regatta with nothing in it', () => {
     expect(readRaceSenseRegatta({}, 'abc')).toEqual({
-      id: 'abc', name: null, startDate: null, endDate: null, modifiedTs: null,
-      sequenceNumber: null, divisions: [],
+      id: 'abc', name: null, startDate: null, endDate: null, divisions: [],
     });
   });
 });
@@ -376,22 +414,31 @@ describe('regattaToWorkbook', () => {
     const regatta = loadRegatta();
     const gold = regatta.divisions[0];
     const template = gold.races[0];
-    const extra: RaceSenseRegattaRace = { ...template, raceNumber, name: `Race ${raceNumber}`, ...patch };
+    const extra: RaceSenseRegattaRace = { ...template, raceNumber, ...patch };
     return { ...regatta, divisions: [{ ...gold, races: [...gold.races, extra] }] };
   }
 
   const notes = (w: RaceSenseWorkbook, kind: string) => w.anomalies.filter((a) => a.kind === kind);
 
-  it('says when and how it read the regatta', () => {
+  it('says how far the regatta had got when it was read', () => {
     const w = goldFromPlayer();
     const [note] = notes(w, 'player-read');
     expect(note.severity).toBe('info');
-    expect(note.message).toContain('10:56:50 on 2026-08-30');
-    expect(note.message).toContain('update 80');
+    expect(note.message).toContain('The last race it finished is Race 6');
+    expect(note.message).toContain('19:09:07 on 2026-08-29');
+  });
+
+  it('says so when the regatta has finished no race at all', () => {
+    const regatta = loadRegatta();
+    const gold = regatta.divisions[0];
+    const onTheWater = { ...gold.races[0], endTime: null };
+    const r: RaceSenseRegatta = { ...regatta, divisions: [{ ...gold, races: [onTheWater] }] };
+    const [note] = notes(regattaToWorkbook(r, r.divisions[0]), 'player-read');
+    expect(note.message).toContain('It has no finished race yet');
   });
 
   it('leaves a race still on the water out, and says so', () => {
-    const regatta = withRace({ stage: 'racing', finishes: [] });
+    const regatta = withRace({ endTime: null, finishes: [] });
     const w = regattaToWorkbook(regatta, regatta.divisions[0]);
     expect(w.races.map((r) => r.number)).toEqual([1, 2, 3, 4, 5, 6]);
     const [note] = notes(w, 'race-skipped');
@@ -405,7 +452,7 @@ describe('regattaToWorkbook', () => {
     expect(w.races).toHaveLength(6);
     expect(notes(w, 'race-skipped')[0].severity).toBe('info');
 
-    const unstarted = withRace({ stage: 'notStarted', starts: [] });
+    const unstarted = withRace({ starts: [] });
     w = regattaToWorkbook(unstarted, unstarted.divisions[0]);
     expect(w.races).toHaveLength(6);
     expect(notes(w, 'race-skipped')[0].message).toContain('has not been started');

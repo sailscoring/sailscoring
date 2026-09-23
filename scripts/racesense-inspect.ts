@@ -19,15 +19,16 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import { parseWorkbookBytes } from '@/lib/import-table';
-import { fetchRaceSenseRegattaDocument } from '@/lib/racesense-player';
+import { fetchRaceSenseRegattaHistory } from '@/lib/racesense-player';
 import {
+  currentRevision,
   divisionKey,
   findDivision,
   parseRaceSensePlayerRef,
-  pruneFirestoreDocument,
-  readRaceSenseRegattaDocument,
+  pruneRegattaHistory,
+  readRaceSenseRegatta,
   regattaToWorkbook,
-  type FirestoreDocument,
+  type RaceSenseRegattaHistory,
 } from '@/lib/racesense-regatta';
 import {
   groupAnomalies,
@@ -210,25 +211,27 @@ async function workbooksFrom(source: string, options: Options): Promise<RaceSens
     return [parseRaceSenseWorkbook(parsed.sheets)];
   }
 
-  let doc: FirestoreDocument;
+  let history: RaceSenseRegattaHistory;
   let id: string;
   if (source.toLowerCase().endsWith('.json')) {
-    doc = JSON.parse(readFileSync(source, 'utf8')) as FirestoreDocument;
-    id = doc.name?.split('/').pop() ?? source;
+    history = JSON.parse(readFileSync(source, 'utf8')) as RaceSenseRegattaHistory;
+    id = history.eventId ?? source;
   } else {
     const ref = parseRaceSensePlayerRef(source);
     if (!ref) throw new Error('not an export, a capture, or a RaceSense player URL');
-    doc = await fetchRaceSenseRegattaDocument(ref.regattaId);
+    history = await fetchRaceSenseRegattaHistory(ref.regattaId);
     id = ref.regattaId;
     if (options.division === null && ref.division !== null) options.division = ref.division;
   }
 
   if (options.save !== null) {
-    writeFileSync(options.save, JSON.stringify(pruneFirestoreDocument(doc), null, 1));
-    console.log(`Saved the regatta document (pruned of positions and devices) to ${options.save}`);
+    writeFileSync(options.save, JSON.stringify(pruneRegattaHistory(history), null, 1));
+    console.log(`Saved the regatta (pruned of positions and devices) to ${options.save}`);
   }
 
-  const regatta = readRaceSenseRegattaDocument(doc, id);
+  const doc = currentRevision(history);
+  if (doc === null) throw new Error('no regatta in that answer — it carries no revision');
+  const regatta = readRaceSenseRegatta(doc, id);
   const named = options.division === null ? null : findDivision(regatta, options.division);
   const divisions = options.division === null ? regatta.divisions : named ? [named] : [];
   if (divisions.length === 0) {
