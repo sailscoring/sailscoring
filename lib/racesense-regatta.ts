@@ -694,14 +694,53 @@ export function regattaToWorkbook(
   };
 }
 
+/**
+ * The player's own key for a division, which is what its watch URLs carry:
+ * the boat class, with the division's name appended when another division
+ * of the regatta shares that class. A regatta of Gold, Silver and Bronze
+ * ILCAs is three divisions of one class, and keyed by the class alone every
+ * link would answer for the first.
+ *
+ * `null` for a division with no boat class, which no link can name this way.
+ */
+export function divisionKey(
+  division: RaceSenseDivision,
+  divisions: readonly RaceSenseDivision[],
+): string | null {
+  const boatClass = division.boatClass?.trim();
+  if (!boatClass) return null;
+  const sharing = divisions.filter((d) => d.boatClass?.trim() === boatClass);
+  const name = division.name.trim();
+  return sharing.length > 1 && name !== '' ? `${boatClass} ${name}` : boatClass;
+}
+
+/**
+ * The division a link's division segment names, or none.
+ *
+ * Two spellings reach here and both must work. The player names a division
+ * by the key above — `ILCA Gold`, `Melges 24` — while the division inside
+ * the regatta is called `Gold` or `M24`, and links in the older form, which
+ * carried the name, have been shared and still resolve. The name is tried
+ * first so that the regatta's own naming wins a collision.
+ */
+export function findDivision(
+  regatta: RaceSenseRegatta,
+  name: string,
+): RaceSenseDivision | null {
+  const wanted = name.trim().toLowerCase();
+  if (wanted === '') return null;
+  return regatta.divisions.find((d) => d.name.trim().toLowerCase() === wanted)
+    ?? regatta.divisions.find((d) => divisionKey(d, regatta.divisions)?.toLowerCase() === wanted)
+    ?? null;
+}
+
 /** The division a player URL was watching, or the only one, or none. */
 export function pickDivision(
   regatta: RaceSenseRegatta,
   name: string | null,
 ): RaceSenseDivision | null {
   if (name !== null) {
-    const wanted = name.trim().toLowerCase();
-    const match = regatta.divisions.find((d) => d.name.trim().toLowerCase() === wanted);
+    const match = findDivision(regatta, name);
     if (match) return match;
   }
   return regatta.divisions.length === 1 ? regatta.divisions[0] : null;

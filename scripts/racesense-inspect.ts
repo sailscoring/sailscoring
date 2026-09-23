@@ -21,6 +21,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseWorkbookBytes } from '@/lib/import-table';
 import { fetchRaceSenseRegattaDocument } from '@/lib/racesense-player';
 import {
+  divisionKey,
+  findDivision,
   parseRaceSensePlayerRef,
   pruneFirestoreDocument,
   readRaceSenseRegattaDocument,
@@ -227,15 +229,21 @@ async function workbooksFrom(source: string, options: Options): Promise<RaceSens
   }
 
   const regatta = readRaceSenseRegattaDocument(doc, id);
-  const wanted = options.division?.trim().toLowerCase() ?? null;
-  const divisions = wanted === null
-    ? regatta.divisions
-    : regatta.divisions.filter((d) => d.name.trim().toLowerCase() === wanted);
+  const named = options.division === null ? null : findDivision(regatta, options.division);
+  const divisions = options.division === null ? regatta.divisions : named ? [named] : [];
   if (divisions.length === 0) {
+    // A division is named two ways — the regatta's own name for it and the
+    // key its player links carry — so an unmatched one lists both.
+    const spellings = regatta.divisions.map((d) => {
+      const key = divisionKey(d, regatta.divisions);
+      return key === null || key.toLowerCase() === d.name.trim().toLowerCase()
+        ? d.name
+        : `${d.name} (${key})`;
+    });
     throw new Error(
-      wanted === null
+      options.division === null
         ? 'the regatta has no divisions'
-        : `no division "${options.division}" — the regatta has: ${regatta.divisions.map((d) => d.name).join(', ')}`,
+        : `no division "${options.division}" — the regatta has: ${spellings.join(', ')}`,
     );
   }
   return divisions.map((d) => regattaToWorkbook(regatta, d));

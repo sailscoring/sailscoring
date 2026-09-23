@@ -188,6 +188,51 @@ describe('the regatta document', () => {
     expect(pickDivision(one, 'Gold')?.name).toBe('Bronze');
   });
 
+  it('picks the division a player link names by boat class and name', () => {
+    // Gold, Silver and Bronze are three divisions of one class, so the
+    // player keys each by the class with the name appended. Nothing in the
+    // regatta is called "ILCA Silver"; that is the link's spelling of it.
+    const regatta = loadRegatta();
+    expect(pickDivision(regatta, 'ILCA Silver')?.name).toBe('Silver');
+    expect(pickDivision(regatta, 'ilca gold')?.name).toBe('Gold');
+    expect(pickDivision(regatta, 'ILCA')).toBeNull();
+    expect(pickDivision(regatta, 'ILCA Platinum')).toBeNull();
+  });
+
+  it('picks a lone division of its class by the boat class alone', () => {
+    // With one division of the class, the player's key is the bare class —
+    // the Melges 24 Worlds link says "Melges 24" for a division named M24.
+    const regatta = loadRegatta();
+    const gold = { ...regatta.divisions[0], name: 'M24', boatClass: 'Melges 24' };
+    const two: RaceSenseRegatta = { ...regatta, divisions: [gold, regatta.divisions[1]] };
+    expect(pickDivision(two, 'Melges 24')?.name).toBe('M24');
+    expect(pickDivision(two, 'M24')?.name).toBe('M24');
+    // The other division keeps its own class, and the name still resolves.
+    expect(pickDivision(two, 'ILCA')?.name).toBe('Silver');
+    expect(pickDivision(two, 'Silver')?.name).toBe('Silver');
+  });
+
+  it('lets the regatta’s own name win when a class shares it', () => {
+    const regatta = loadRegatta();
+    const [gold, silver] = regatta.divisions;
+    const odd: RaceSenseRegatta = {
+      ...regatta,
+      divisions: [{ ...gold, name: 'ILCA' }, { ...silver, boatClass: 'ILCA' }],
+    };
+    expect(pickDivision(odd, 'ILCA')?.name).toBe('ILCA');
+  });
+
+  it('names no division for one that has no boat class', () => {
+    const regatta = loadRegatta();
+    const [gold, silver] = regatta.divisions;
+    const classless: RaceSenseRegatta = {
+      ...regatta,
+      divisions: [{ ...gold, boatClass: null }, silver],
+    };
+    expect(pickDivision(classless, 'ILCA Gold')).toBeNull();
+    expect(pickDivision(classless, 'Gold')?.name).toBe('Gold');
+  });
+
   it('reads a document with nothing in it as a regatta with nothing in it', () => {
     expect(readRaceSenseRegatta({}, 'abc')).toEqual({
       id: 'abc', name: null, startDate: null, endDate: null, modifiedTs: null,
