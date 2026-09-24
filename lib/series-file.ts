@@ -44,6 +44,7 @@ import { hasConditions } from './race-conditions';
 import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName, seriesSlug } from './series-name';
+import { isSeriesReadOnly } from './series-read-only';
 import type { LogoDefaultsReader } from './public-export';
 import type {
   CompetitorRepository,
@@ -1178,27 +1179,45 @@ export async function saveSeriesFile(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  // The download above is a pure read. An archived series is read-only
-  // (#154), so we stop here: recording the save would write file-tracking
-  // fields back through the API and hit the read-only guard (423). Archived
-  // series intentionally don't accrue file-lineage updates. Callers without
-  // write permission opt out the same way (recordSave: false).
-  if (series.archived || opts?.recordSave === false) return;
+  // The download above is a pure read. A read-only series (archived,
+  // as-published, or with final results) refuses writes, so we stop here:
+  // recording the save would write file-tracking fields back through the API
+  // and hit the read-only guard (423). Such series intentionally don't accrue
+  // file-lineage updates. Callers without write permission opt out the same
+  // way (recordSave: false).
+  if (isSeriesReadOnly(series) || opts?.recordSave === false) return;
 
-  // Record the save. CAS via `expectedVersion` so a concurrent edit in
-  // another tab surfaces as 409 → refresh-and-retry rather than silently
-  // overwriting the other tab's `lastSavedAt`.
-  const now = Date.now();
-  await repos.seriesRepo.save(
-    {
-      ...series,
-      lastSavedAt: now,
-    },
-    { expectedVersion: series.version },
-  );
+  try {
+    // Record the save. CAS via `expectedVersion` so a concurrent edit in
+    // another tab surfaces as 409 → refresh-and-retry rather than silently
+    // overwriting the other tab's `lastSavedAt`.
+    const now = Date.now();
+    await repos.seriesRepo.save(
+      {
+        ...series,
+        lastSavedAt: now,
+      },
+      { expectedVersion: series.version },
+    );
 
-  // Pin a "Saved to file" milestone revision (#166), if the backend supports it.
-  await repos.recordSaveMilestone?.(seriesId);
+    // Pin a "Saved to file" milestone revision (#166), if the backend supports it.
+    await repos.recordSaveMilestone?.(seriesId);
+  } catch (err) {
+    throw new SaveNotRecordedError(err);
+  }
+}
+
+/**
+ * The file downloaded, but recording the save afterwards (`lastSavedAt` and
+ * the "Saved to file" milestone) failed. The scorer has their file; what they
+ * need to hear is that the series doesn't know about it, not that the save
+ * failed.
+ */
+export class SaveNotRecordedError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : 'The save could not be recorded.', { cause });
+    this.name = 'SaveNotRecordedError';
+  }
 }
 
 // ---- Parse ----

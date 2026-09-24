@@ -27,6 +27,7 @@ import * as repos from '@/lib/api-repository';
 import {
   buildSeriesFile,
   saveSeriesFile,
+  SaveNotRecordedError,
   parseSeriesFile,
   openSeriesFromFile,
   updateSeriesFromFile,
@@ -40,7 +41,8 @@ import {
 } from '@/lib/sailwave-export';
 import { triggerBytesDownload } from '@/lib/results-export';
 import { seriesSlug } from '@/lib/series-name';
-import { describeOpenSeriesError } from '@/lib/open-series-error';
+import { describeOpenSeriesError, READ_ONLY_MESSAGES } from '@/lib/open-series-error';
+import { ArchivedApiError } from '@/lib/api-client';
 import { SAILWAVE_HANDOFF_KEY } from '@/app/series/import-sailwave/page';
 import { queryKeys } from '@/hooks/query-keys';
 import { useArchiveSeries, useDeleteSeriesCascade } from '@/hooks/use-series';
@@ -76,6 +78,7 @@ import type { Series } from '@/lib/types';
 
 const OPEN_ERROR_TITLE = 'Could not open file';
 const SAVE_ERROR_TITLE = 'Could not save the file';
+const SAVE_NOT_RECORDED_TITLE = 'File saved, but not recorded';
 const SAILWAVE_EXPORT_ERROR_TITLE = 'Could not export to Sailwave';
 
 /** The `error` step reports any of the menu's file actions, save included, so
@@ -133,6 +136,19 @@ export function SeriesActionsMenu({ series }: { series: Series }) {
       // "Last saved" label reflects the new state.
       await queryClient.invalidateQueries({ queryKey: queryKeys.series.detail(seriesId) });
     } catch (err) {
+      // The file downloaded; only the bookkeeping after it failed. Don't tell
+      // the scorer their save failed when the file is sitting in Downloads.
+      if (err instanceof SaveNotRecordedError) {
+        const cause = err.cause;
+        setUpdateFlow({
+          step: 'error',
+          title: SAVE_NOT_RECORDED_TITLE,
+          message: `The file was downloaded, but the series couldn’t record the save, so “Last saved” isn’t updated. ${
+            cause instanceof ArchivedApiError ? READ_ONLY_MESSAGES[cause.reason] : err.message
+          }`,
+        });
+        return;
+      }
       // Say so. The save reads the whole series back over the API before it
       // can offer a download, so a dropped connection leaves the scorer with
       // no file and — until this dialog — no sign that anything went wrong.

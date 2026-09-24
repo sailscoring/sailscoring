@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSeriesQuick, enableFeatures } from './helpers';
+import { createSeriesQuick, enableFeatures, openSeriesActionsMenu } from './helpers';
 
 /**
  * Results lifecycle (Provisional vs Final): record a manual last-finisher
@@ -109,6 +109,17 @@ test('results status: last finisher, finalise checklist, read-only, reopen', asy
   await expect(page.getByRole('button', { name: 'Row actions for 11' })).toHaveCount(0);
   await expect(page.getByTestId('drag-handle-11')).toHaveCount(0);
   await expect(page.getByLabel('Tie 22 with previous row')).toHaveCount(0);
+
+  // Saving to file still works, and says nothing: the download is a read, and
+  // recording the save is skipped rather than bounced off the read-only guard.
+  await openSeriesActionsMenu(page);
+  const download = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Save to File' }).click();
+  expect((await download).suggestedFilename()).toBe('autumn-league-2026.sailscoring');
+  // A refused write would land just after the download; let the page's
+  // requests settle so an error dialog would have had time to open.
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // ── 6. Reopen as provisional; editing comes back ─────────────────────────
   // Cancelling leaves the series final — the confirmation is a real gate,

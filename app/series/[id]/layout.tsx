@@ -27,6 +27,7 @@ import { useFleetsBySeries } from '@/hooks/use-fleets';
 import { Button } from '@/components/ui/button';
 import { SeriesNotFound } from '@/components/series-not-found';
 import { formatSeriesDate } from '@/lib/format-date';
+import { isSeriesReadOnly } from '@/lib/series-read-only';
 
 // Each tab carries its `g`-chord key; the chord bindings and the help-dialog
 // rows are both derived from the visible tab set below, so a tab that isn't
@@ -167,8 +168,7 @@ export default function SeriesLayout({
   const isFinal = series.resultsStatus === 'final';
   // A spectator view is read-only for good: there is no workspace behind it
   // to write to, and the transport refuses writes anyway.
-  const readOnly =
-    isSpectator || (series.archived ?? false) || (series.asPublished ?? false) || isFinal;
+  const readOnly = isSpectator || isSeriesReadOnly(series);
 
   // The workspace this series belongs to, for the breadcrumb. A spectator
   // view has no workspace behind it, and an operator switched into someone
