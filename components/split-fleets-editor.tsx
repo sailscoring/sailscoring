@@ -132,9 +132,9 @@ export function SplitFleetEditor({
    * it. Rows are the unit rather than individual controls: a row is one
    * heading's worth of settings, and its sentences are that heading's.
    *
-   * A row for settings the prose doesn't state — finish sheets, the
-   * reassignment tie order, and the two pickers that rewrite everything —
-   * takes plain `rowClass` instead, and marks nothing.
+   * A row for a setting the prose doesn't state — the vocabulary picker,
+   * which rewrites everything — takes plain `rowClass` instead, and marks
+   * nothing.
    */
   function row(...settings: (keyof typeof SENTENCES_BY_SETTING)[]) {
     const ids = settings.flatMap((k) => SENTENCES_BY_SETTING[k] as SplitFleetSentenceId[]);
@@ -225,43 +225,6 @@ export function SplitFleetEditor({
                     .map((f, i) => `${f.label} ${qualifyingSizes[i]}`)
                     .join(', ')}. Boats are reassigned by series rank after each day of racing.`
                 : 'Boats are reassigned by series rank after each day of racing.'}
-          </p>
-        </div>
-      </div>
-
-      <div className={rowClass}>
-        <label className="font-medium" htmlFor="sf-finish-sheets">
-          Finish sheets
-        </label>
-        <div className="space-y-1">
-          {locked ? (
-            <p>
-              {value.finishSheets === 'per-fleet'
-                ? `One per ${vocab.stages.qualifying.fleetNoun}`
-                : 'One per race, all fleets on it'}
-            </p>
-          ) : (
-            <select
-              id="sf-finish-sheets"
-              className={selectClass}
-              disabled={!canEdit}
-              value={value.finishSheets}
-              onChange={(e) =>
-                patch({
-                  finishSheets: e.target.value as SplitFleetConfig['finishSheets'],
-                })
-              }
-            >
-              <option value="combined">One per race, all fleets on it</option>
-              <option value="per-fleet">One per {vocab.stages.qualifying.fleetNoun}</option>
-            </select>
-          )}
-          <p className={hint}>
-            The fleets start in sequence and cross one line, so a race committee writing
-            by hand keeps one sheet with the fleets interleaved. Choose one sheet per{' '}
-            {vocab.stages.qualifying.fleetNoun} when each fleet&rsquo;s finishes come back
-            separately, as electronic timing records them. It changes how the races are
-            laid out, not how they score: a boat is ranked among her own fleet either way.
           </p>
         </div>
       </div>

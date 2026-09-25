@@ -15,11 +15,6 @@ export const splitFleetConfigSchema = z.object({
   // there are no final fleets to size (see `split`).
   qualifyingFleets: z.array(fleetSpecSchema).min(1).max(4),
   finalFleets: z.array(fleetSpecSchema).max(4),
-  plannedDays: z.array(
-    z.object({ label: z.string(), races: z.number().int().min(0) }),
-  ),
-  // Defaulted: configs written before per-fleet races existed mean 'combined'.
-  finishSheets: z.enum(['combined', 'per-fleet']).default('combined'),
   split: z.union([z.object({ kind: z.literal('equal-blocks') }), z.object({ kind: z.literal('none') })]),
   discardThresholds: z.array(
     z.object({
@@ -32,7 +27,6 @@ export const splitFleetConfigSchema = z.object({
     .default(DEFAULT_VOCABULARY),
   medal: z.object({
     size: z.number().int().positive(),
-    raceCount: z.number().int().positive(),
     multiplier: z.union([z.literal(1), z.literal(2)]),
     carryTransform: z
       .object({ kind: z.literal('divide'), by: z.literal(2), rounding: z.literal('half-up') })
@@ -100,6 +94,9 @@ export const splitRoundCommitSchema = z.object({
    *  set. Stored on the round as computed-vs-override provenance. */
   overrideCompetitorIds: z.array(uuidSchema).default([]),
   stageRaceNumbers: z.array(z.number().int().positive()).default([]),
+  /** How those races' fleets finish (see `FinishSheets`); absent, as the
+   *  championship's races so far have. */
+  finishSheets: z.enum(['combined', 'per-fleet']).optional(),
   date: z.string().default(''),
   /** Non-round fleets the scorer agreed to remove as part of this ceremony
    *  (the "also remove these fleets" checkbox). Each must belong to the
@@ -110,9 +107,9 @@ export const splitRoundCommitSchema = z.object({
 /** Body for POST …/rounds/:roundId/races — add stage races to a round.
  *  Each stage race number becomes a start per fleet; alternatively `starts`
  *  names each fleet's own stage race number, for fleets that are out of step
- *  (Gold F2 + Silver F2 + Bronze F1). Either way the round's own shape says
- *  whether those starts share one race or take a race each — the medal stage
- *  and `finishSheets: 'per-fleet'` race apart. */
+ *  (Gold F2 + Silver F2 + Bronze F1). The medal stage always races apart;
+ *  otherwise `finishSheets` says whether those starts share one race or take
+ *  a race each, and absent, the championship's races so far decide. */
 export const splitStageRacesSchema = z
   .object({
     stageRaceNumbers: z.array(z.number().int().positive()).default([]),
@@ -128,6 +125,7 @@ export const splitStageRacesSchema = z
       )
       .min(1)
       .optional(),
+    finishSheets: z.enum(['combined', 'per-fleet']).optional(),
     date: z.string().default(''),
   })
   .refine((v) => (v.starts?.length ?? 0) > 0 || v.stageRaceNumbers.length > 0, {

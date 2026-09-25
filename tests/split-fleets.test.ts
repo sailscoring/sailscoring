@@ -7,6 +7,7 @@ import {
   resolveVocabulary,
   stageRaceLabel,
   defaultSplitFleetConfig,
+  finishSheetsInUse,
   finalBlockSizes,
   logicalRaces,
   physicalRaceCompleted,
@@ -763,7 +764,7 @@ describe('vocabulary', () => {
 
 describe('one race per fleet scores the same as one combined sheet', () => {
   /**
-   * `SplitFleetConfig.finishSheets` decides whether a stage race's fleets
+   * The finish-sheet layout decides whether a stage race's fleets
    * share a `Race` or get one each. That is a difference in how the races are
    * laid out, and it must not be a difference in points: a boat is ranked
    * among her own fleet by the boats' relative order, so an interleaved sheet
@@ -858,7 +859,6 @@ describe('a halved carry waits for a medal race', () => {
       ...defaultSplitFleetConfig(2),
       medal: {
         size: 2,
-        raceCount: 1,
         multiplier: 1,
         carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
         tieBreak: 'last-race',
@@ -952,7 +952,6 @@ describe('the medal tie-break waits for a medal-stage score', () => {
       ...defaultSplitFleetConfig(2),
       medal: {
         size: 2,
-        raceCount: 1,
         multiplier: 1,
         carryTransform: {
           kind: 'divide',
@@ -1046,7 +1045,7 @@ describe('a weighted medal race', () => {
     const config: SplitFleetConfig = {
       ...defaultSplitFleetConfig(2),
       discardThresholds: [],
-      medal: { size: 2, raceCount: 1, multiplier: 2, tieBreak: 'medal-race-then-a8' },
+      medal: { size: 2, multiplier: 2, tieBreak: 'medal-race-then-a8' },
     };
     return {
       config,
@@ -1142,7 +1141,6 @@ describe('the medal-race-then-A8 tie-break', () => {
       discardThresholds: [],
       medal: {
         size: 2,
-        raceCount: 1,
         multiplier: 2,
         tieBreak,
       },
@@ -1249,5 +1247,45 @@ describe('the unbanded vocabulary', () => {
     expect(resolveVocabulary(defaultSplitFleetConfig(3))).toEqual(
       VOCABULARIES['opening-medal'],
     );
+  });
+});
+
+describe('finishSheetsInUse', () => {
+  const rounds = [
+    { stage: 'qualifying' as const, fleetIds: ['fy', 'fb'] },
+    { stage: 'medal' as const, fleetIds: ['fm'] },
+  ];
+
+  it('is combined before any race exists', () => {
+    expect(finishSheetsInUse({ rounds, races: [], raceStarts: [] })).toBe('combined');
+  });
+
+  it('reads the most recent race of a stage with more than one fleet', () => {
+    const races = [
+      { id: 'q1', raceNumber: 1 },
+      { id: 'q2y', raceNumber: 2 },
+      { id: 'q2b', raceNumber: 3 },
+      { id: 'm1', raceNumber: 4 },
+    ];
+    const raceStarts = [
+      { raceId: 'q1', fleetIds: ['fy'], stage: 'qualifying' as const },
+      { raceId: 'q1', fleetIds: ['fb'], stage: 'qualifying' as const },
+      { raceId: 'q2y', fleetIds: ['fy'], stage: 'qualifying' as const },
+      { raceId: 'q2b', fleetIds: ['fb'], stage: 'qualifying' as const },
+      // The medal race always stands alone, and says nothing about the rest.
+      { raceId: 'm1', fleetIds: ['fm'], stage: 'medal' as const },
+    ];
+    expect(finishSheetsInUse({ rounds, races, raceStarts })).toBe('per-fleet');
+    expect(finishSheetsInUse({ rounds, races: races.slice(0, 1), raceStarts })).toBe('combined');
+  });
+
+  it('learns nothing from a stage of one fleet', () => {
+    expect(
+      finishSheetsInUse({
+        rounds: [{ stage: 'qualifying', fleetIds: ['f'] }],
+        races: [{ id: 'q1', raceNumber: 1 }],
+        raceStarts: [{ raceId: 'q1', fleetIds: ['f'], stage: 'qualifying' }],
+      }),
+    ).toBe('combined');
   });
 });

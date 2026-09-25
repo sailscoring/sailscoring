@@ -116,7 +116,6 @@ export interface SplitFleetFixture {
     vocabulary?: VocabularyKey;
     medal?: {
       size: number;
-      raceCount: number;
       multiplier: 1 | 2;
       /** The halved carry. */
       carryTransform?: CarryTransform;
@@ -210,8 +209,6 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     finalFleets: dummy(fx.config.finalFleets ?? []),
     // No final fleets means the championship never bands its fleet, which is
     // the same thing a fixture says by declaring no final stage.
-    plannedDays: [],
-    finishSheets: 'combined',
     split: (fx.config.finalFleets ?? []).length === 0 ? { kind: 'none' } : { kind: 'equal-blocks' },
     discardThresholds: fx.config.discardThresholds,
     vocabulary: fx.config.vocabulary ?? DEFAULT_VOCABULARY,
@@ -219,7 +216,6 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     // declares none simply never sails it.
     medal: {
       size: 10,
-      raceCount: 1,
       multiplier: 2,
       tieBreak: 'medal-race-then-a8',
       ...fx.config.medal,

@@ -44,25 +44,6 @@ export interface SplitFleetConfig {
   qualifyingFleets: { label: string; color: string }[];
   /** Final fleet labels in tier order (Gold first). */
   finalFleets: { label: string; color: string }[];
-  /** Planned schedule: races per day for the day strip. */
-  plannedDays: { label: string; races: number }[];
-  /** Whether the fleets of one stage race finish onto a single sheet or onto
-   *  a sheet each.
-   *
-   *  - `combined` — the handwritten case, and the default. The fleets start in
-   *    sequence and cross one finish line, so the race committee keeps one
-   *    sheet with the fleets interleaved: one `Race` per stage race number,
-   *    one start per fleet.
-   *  - `per-fleet` — electronic capture, where each fleet's starts and
-   *    finishes come back as their own export, as RaceSense writes them. Each
-   *    fleet gets its own `Race`, which is what the medal stage has always
-   *    done.
-   *
-   *  Scoring cannot tell the difference: a fleet is ranked among its own
-   *  members by their relative order, so an interleaved sheet and a sheet per
-   *  fleet give the same points. What changes is what an abandonment acts
-   *  on — a race rather than one start within it. */
-  finishSheets: 'combined' | 'per-fleet';
   /** Whether the opening series is divided. `equal-blocks`: after the first
    *  stage the ranking is divided into the final fleets, near-equal and the
    *  top fleet largest, and the two stages score as one continuous series
@@ -83,12 +64,12 @@ export interface SplitFleetConfig {
   /** Which set of words this championship's sailing instructions use for its
    *  stages and races (see `Vocabulary`). */
   vocabulary: VocabularyKey;
-  /** The deciding stage. `raceCount` is a planning hint — the medal phase can
-   *  add races beyond it. `carryTransform` halves the medal boats'
-   *  opening-series score before the medal races add to it. */
+  /** The deciding stage. `size` is also what draws the provisional cut line
+   *  before the fleet is selected. `carryTransform` halves the medal boats'
+   *  opening-series score before the medal races add to it. The scorer adds
+   *  medal races as the sailing instructions say; nothing here counts them. */
   medal: {
     size: number;
-    raceCount: number;
     multiplier: 1 | 2;
     carryTransform?: CarryTransform;
     /** How a tie between two medal boats is settled.
@@ -112,6 +93,52 @@ export interface SplitFleetConfig {
 
 /** At most this many excluded scores may come from the second stage. */
 export const MAX_FINAL_DISCARDS = 1;
+
+/**
+ * How the fleets of one stage race finish: onto a single sheet or onto a
+ * sheet each.
+ *
+ * - `combined` — the handwritten case. The fleets start in sequence and cross
+ *   one finish line, so the race committee keeps one sheet with the fleets
+ *   interleaved: one `Race` per stage race number, one start per fleet.
+ * - `per-fleet` — electronic capture, where each fleet's starts and finishes
+ *   come back as their own export, as RaceSense writes them. Each fleet gets
+ *   its own `Race`, which is what the medal stage always does.
+ *
+ * Scoring cannot tell the difference: a fleet is ranked among its own members
+ * by their relative order, so an interleaved sheet and a sheet per fleet give
+ * the same points. What changes is what an abandonment acts on — a race
+ * rather than one start within it. It is chosen as each race is added, not
+ * for the championship, so one stage can hold both.
+ */
+export type FinishSheets = 'combined' | 'per-fleet';
+
+/**
+ * The layout the championship's races have used so far, which is what a race
+ * added without saying takes: the most recent race of a stage with more than
+ * one fleet, read off its starts. `combined` before there is any such race.
+ */
+export function finishSheetsInUse(input: {
+  rounds: readonly { stage: SeriesStage; fleetIds: readonly string[] }[];
+  races: readonly { id: string; raceNumber: number }[];
+  raceStarts: readonly { raceId: string; fleetIds: readonly string[]; stage?: SeriesStage | null }[];
+}): FinishSheets {
+  const roundSize = new Map<string, number>();
+  for (const round of input.rounds) {
+    if (round.stage === 'medal') continue;
+    for (const fleetId of round.fleetIds) roundSize.set(fleetId, round.fleetIds.length);
+  }
+  const newestFirst = [...input.races].sort((a, b) => b.raceNumber - a.raceNumber);
+  for (const race of newestFirst) {
+    const starts = input.raceStarts.filter(
+      (s) => s.raceId === race.id && s.stage && s.stage !== 'medal',
+    );
+    if (starts.length === 0) continue;
+    if ((roundSize.get(starts[0].fleetIds[0] ?? '') ?? 0) < 2) continue;
+    return starts.length > 1 || starts[0].fleetIds.length > 1 ? 'combined' : 'per-fleet';
+  }
+  return 'combined';
+}
 
 /**
  * A complete, coherent set of words for a split-fleet championship.
@@ -409,18 +436,13 @@ export function defaultSplitFleetConfig(fleetCount: number): SplitFleetConfig {
   return {
     qualifyingFleets: QUALIFYING_COLOR_SETS.slice(0, fleetCount),
     finalFleets: FINAL_FLEET_SET.slice(0, fleetCount),
-    plannedDays: Array.from({ length: 6 }, (_, i) => ({
-      label: `Day ${i + 1}`,
-      races: 2,
-    })),
-    finishSheets: 'combined',
     split: { kind: 'equal-blocks' },
     discardThresholds: [
       { minRaces: 4, discardCount: 1 },
       { minRaces: 10, discardCount: 2 },
     ],
     vocabulary: DEFAULT_VOCABULARY,
-    medal: { size: 10, raceCount: 1, multiplier: 2, tieBreak: 'medal-race-then-a8' },
+    medal: { size: 10, multiplier: 2, tieBreak: 'medal-race-then-a8' },
   };
 }
 
@@ -431,6 +453,8 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
   const d = defaultSplitFleetConfig(raw.qualifyingFleets?.length ?? 3);
   const {
     raceLabels: _raceLabels,
+    plannedDays: _plannedDays,
+    finishSheets: _finishSheets,
     vocabularyOverride: _vocabularyOverride,
     stageNaming,
     carry: _carry,
@@ -445,11 +469,15 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
     companionRace?: unknown;
     carryTransform?: CarryTransform & { appliesFrom?: unknown };
   };
-  const { companionRace: _companionRace, carryTransform, ...medalRest } = medal;
+  const {
+    companionRace: _companionRace,
+    raceCount: _raceCount,
+    carryTransform,
+    ...medalRest
+  } = medal as typeof medal & { raceCount?: unknown };
   return {
     ...d,
     ...rest,
-    finishSheets: raw.finishSheets ?? 'combined',
     split: raw.split?.kind === 'none' ? { kind: 'none' } : { kind: 'equal-blocks' },
     // Series-file v33 carried the words as an authored `stageNaming` block;
     // continuous numbering was the 2026 ILCA wording's mark.
@@ -480,7 +508,6 @@ export function newSplitFleetConfig(): SplitFleetConfig {
     vocabulary: 'qualification-final',
     medal: {
       size: 10,
-      raceCount: 2,
       multiplier: 1,
       carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
       tieBreak: 'last-race',

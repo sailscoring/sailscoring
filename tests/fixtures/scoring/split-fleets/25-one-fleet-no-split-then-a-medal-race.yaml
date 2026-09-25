@@ -47,7 +47,6 @@ config:
   discardThresholds: [{ minRaces: 5, discardCount: 1 }]
   medal:
     size: 3
-    raceCount: 1
     multiplier: 2
     tieBreak: medal-race-then-a8
 

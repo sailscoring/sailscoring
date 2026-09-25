@@ -60,6 +60,7 @@ import {
   dropNonEntrants,
   finalBlockSizes,
   fleetColorById,
+  finishSheetsInUse,
   fleetMembers,
   logicalRaces,
   MEDAL_FLEET_COLORS,
@@ -126,9 +127,8 @@ function computeNextAction(
   return null;
 }
 
-function DayStrip({ data, config }: { data: SplitFleetData; config: SplitFleetConfig }) {
-  // Planned schedule chips reconciled against reality: each planned day
-  // shows its races; completed ones tick.
+function DayStrip({ data }: { data: SplitFleetData }) {
+  // The races that exist, in event order; completed ones tick.
   const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
   const sorted = stageRaceRefs(data).sort(
     (a, b) =>
@@ -152,7 +152,6 @@ function DayStrip({ data, config }: { data: SplitFleetData; config: SplitFleetCo
       state: done === group.length ? 'done' : done > 0 ? 'part' : 'todo',
     });
   }
-  const plannedTotal = config.plannedDays.reduce((n, d) => n + d.races, 0);
   return (
     <div className="flex flex-wrap items-center gap-1.5" data-testid="sf-day-strip">
       {chips.map((c) => (
@@ -170,38 +169,27 @@ function DayStrip({ data, config }: { data: SplitFleetData; config: SplitFleetCo
           {c.state === 'done' ? ' ✓' : c.state === 'part' ? ' ◐' : ''}
         </span>
       ))}
-      {plannedTotal > chips.length && (
-        <span className="text-xs text-muted-foreground">
-          · {plannedTotal - chips.length} more planned
-        </span>
-      )}
     </div>
   );
 }
 
-/** The medal phase is complete when the medal fleet has sailed at least the
- *  planned race count and every medal-stage race (incl. the companion last
- *  race) is complete. */
-function medalPhaseComplete(
-  data: SplitFleetData,
-  medalRound: SplitRound,
-  config: SplitFleetConfig,
-): boolean {
-  const medalRefs = stageRaceRefs(data, 'medal');
-  if (medalRefs.length === 0) return false;
-  if (!medalRefs.every((ref) => physicalRaceCompleted(ref, data.competitors, data.finishes))) {
-    return false;
-  }
-  const medalFleetRefs = medalRefs.filter((ref) => ref.fleetId === medalRound.fleetIds[0]);
-  return medalFleetRefs.length >= (config.medal?.raceCount ?? 1);
+/** Whether every medal race added so far is complete. How many there should
+ *  be is the sailing instructions' business: the scorer adds another, or
+ *  marks the results final. */
+function medalPhaseComplete(data: SplitFleetData, medalRound: SplitRound): boolean {
+  const medalFleetRefs = stageRaceRefs(data, 'medal').filter(
+    (ref) => ref.fleetId === medalRound.fleetIds[0],
+  );
+  return (
+    medalFleetRefs.length > 0 &&
+    stageRaceRefs(data, 'medal').every((ref) =>
+      physicalRaceCompleted(ref, data.competitors, data.finishes),
+    )
+  );
 }
 
-/** How many logical races the first round covers: the planned first day's
- *  count (default 2). */
-function plannedFirstRaces(config: SplitFleetConfig): number[] {
-  const n = Math.max(1, config.plannedDays[0]?.races ?? 2);
-  return Array.from({ length: n }, (_, i) => i + 1);
-}
+/** The races the first assignment offers to create along with it. */
+const FIRST_ROUND_RACES = [1, 2];
 import type { Competitor, CompetitorFieldKey, Finish, Fleet, Race } from '@/lib/types';
 
 // ─── Demo data ──────────────────────────────────────────────────────────────
@@ -330,7 +318,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
       {competitors.length === 0 && canManage && (
         <DemoCompetitorsCard seriesId={seriesId} defaultFleetId={fleets[0]?.id ?? null} />
       )}
-      <DayStrip data={sfData} config={sfState.config} />
+      <DayStrip data={sfData} />
       {nextAction && (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-sm" data-testid="sf-next-action">
           <span>
@@ -421,7 +409,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           title={words(sfState.config).title('medal')}
           status={
             medalRound
-              ? medalPhaseComplete(sfData, medalRound, sfState.config)
+              ? medalPhaseComplete(sfData, medalRound)
                 ? 'Complete'
                 : 'In progress'
               : 'Not started'
@@ -430,7 +418,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           // where the fleet is never banded, includes before the cut is made:
           // there is no second stage holding their attention instead.
           defaultOpen={
-            medalRound ? !medalPhaseComplete(sfData, medalRound, sfState.config) : unbanded
+            medalRound ? !medalPhaseComplete(sfData, medalRound) : unbanded
           }
         >
           {medalRound ? (
@@ -1228,7 +1216,7 @@ function SeedRoundDialog({
           fleets: qFleets,
           assignments: preview.assignments,
           overrideCompetitorIds: Object.keys(moves).filter((cid) => moves[cid] != null),
-          stageRaceNumbers: createRaces ? plannedFirstRaces(data.config) : [],
+          stageRaceNumbers: createRaces ? FIRST_ROUND_RACES : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
         })
       }
@@ -1284,7 +1272,7 @@ function SeedRoundDialog({
         onChange={setDropLeftovers}
       />
       <CreateRacesChoice
-        labels={plannedFirstRaces(data.config).map((n) => raceLabel(data, 'qualifying', n))}
+        labels={FIRST_ROUND_RACES.map((n) => raceLabel(data, 'qualifying', n))}
         checked={createRaces}
         onChange={setCreateRaces}
       />
@@ -1583,7 +1571,7 @@ function FinalSection({
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
   const medalConfig = data.config.medal;
-  const perFleet = data.config.finishSheets === 'per-fleet';
+  const perFleet = finishSheetsInUse(data) === 'per-fleet';
   const w = words(data.config);
 
   return (
@@ -1986,8 +1974,7 @@ function MedalSection({
           ? Math.max(...refs.map((ref) => ref.start.stageRaceNumber ?? 0)) + 1
           : 1;
         const isMedal = i === 0;
-        // raceCount is a planning hint, not a limit: a two-race medal series
-        // is just two adds.
+        // The medal fleet adds races as the sailing instructions say.
         const canAddMore = isMedal || refs.length < 1;
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">

@@ -59,7 +59,6 @@ config:
       discardCount: 1
   medal:
     size: 2
-    raceCount: 2
     multiplier: 1
     carryTransform:
       kind: divide

@@ -43,7 +43,6 @@ config:
   discardThresholds: []
   medal:
     size: 2
-    raceCount: 1
     multiplier: 2
 
 competitors:

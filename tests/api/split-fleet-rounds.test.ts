@@ -6,10 +6,11 @@
  * fleets, memberships and first races — and `addStageRaces`, which adds a
  * race to a round that already exists.
  *
- * The shape those races take is `SplitFleetConfig.finishSheets`: the fleets
- * of one stage race either share a race (they cross one line onto one
- * handwritten sheet) or get a race each (their finishes come back
- * separately, as electronic timing records them). Scoring can't tell the
+ * The shape those races take is their finish-sheet layout: the fleets of one
+ * stage race either share a race (they cross one line onto one handwritten
+ * sheet) or get a race each (their finishes come back separately, as
+ * electronic timing records them). A request can say which; otherwise a race
+ * takes the layout the championship's races have used so far. Scoring can't tell the
  * difference — `tests/split-fleets.test.ts` proves that — so these tests are
  * about the rows the ceremony writes.
  *
@@ -122,8 +123,8 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   }
 
   /** A nine-boat series configured for three fleets, ready to be split. */
-  async function seedSeries(finishSheets: 'combined' | 'per-fleet') {
-    const seriesId = await seedPlainSeries(`Worlds ${finishSheets}`);
+  async function seedSeries(name = 'Worlds') {
+    const seriesId = await seedPlainSeries(name);
 
     const competitorIds: string[] = [];
     for (let i = 1; i <= 9; i++) {
@@ -137,7 +138,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     }
 
     await putSplitFleetState(ctx, seriesId, {
-      config: { ...defaultSplitFleetConfig(3), finishSheets },
+      config: defaultSplitFleetConfig(3),
       rounds: [],
     });
     return { seriesId, competitorIds };
@@ -149,6 +150,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     competitorIds: string[],
     stageRaceNumbers: number[],
     deleteFleetIds: string[] = [],
+    finishSheets?: 'combined' | 'per-fleet',
   ) {
     return commitSplitRound(ctx, seriesId, {
       stage: 'qualifying',
@@ -159,6 +161,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
       assignments: Object.fromEntries(competitorIds.map((id, i) => [id, i % 3])),
       overrideCompetitorIds: [],
       stageRaceNumbers,
+      ...(finishSheets ? { finishSheets } : {}),
       date: '2026-08-24',
       deleteFleetIds,
     });
@@ -210,7 +213,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   }
 
   test('combined: one race per stage race number, a start per fleet', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     await commit(seriesId, competitorIds, [1, 2]);
 
     const races = await racesWithStarts(seriesId);
@@ -228,7 +231,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   test('records each fleet in the colour the ceremony gave it', async () => {
     // The colour is the fleet's own from here on: a medal fleet's is named in
     // no config list, so dropping it here leaves the published page untinted.
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     await commit(seriesId, competitorIds, [1]);
 
     const rows = await db
@@ -240,8 +243,8 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   });
 
   test('per-fleet: a race each, named for its fleet, sharing the stage race number', async () => {
-    const { seriesId, competitorIds } = await seedSeries('per-fleet');
-    await commit(seriesId, competitorIds, [1, 2]);
+    const { seriesId, competitorIds } = await seedSeries();
+    await commit(seriesId, competitorIds, [1, 2], [], 'per-fleet');
 
     const races = await racesWithStarts(seriesId);
     expect(races).toHaveLength(6);
@@ -263,29 +266,20 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     }
   });
 
-  test('a config written before per-fleet races existed still means combined', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
-    // Overwrite the stored config with what an older build would have
-    // written: the same settings, with no finishSheets field at all.
-    const older = { ...defaultSplitFleetConfig(3) } as Record<string, unknown>;
-    delete older.finishSheets;
-    await db
-      .update(schema.series)
-      .set({ qfConfig: older as never })
-      .where(eq(schema.series.id, seriesId));
-
+  test('with nothing said, a championship\'s first races share a sheet', async () => {
+    const { seriesId, competitorIds } = await seedSeries();
     await commit(seriesId, competitorIds, [1]);
     const races = await racesWithStarts(seriesId);
     expect(races).toHaveLength(1);
     expect(races[0].starts).toHaveLength(3);
   });
 
-  // A race added to a round that already exists has to take the same shape the
-  // ceremony gave that round — the scorer chose the shape once, in the config.
+  // A race added with nothing said takes the layout the championship's races
+  // have used so far.
 
   test('per-fleet: a race added later is a race per fleet too', async () => {
-    const { seriesId, competitorIds } = await seedSeries('per-fleet');
-    const round = await commit(seriesId, competitorIds, [1]);
+    const { seriesId, competitorIds } = await seedSeries();
+    const round = await commit(seriesId, competitorIds, [1], [], 'per-fleet');
 
     await addStageRaces(ctx, seriesId, round.id, {
       stageRaceNumbers: [2],
@@ -299,7 +293,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   });
 
   test('combined: a race added later still carries every fleet', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     const round = await commit(seriesId, competitorIds, [1]);
 
     await addStageRaces(ctx, seriesId, round.id, {
@@ -313,8 +307,8 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   });
 
   test('per-fleet: a whole sequence added at once becomes a race per start', async () => {
-    const { seriesId, competitorIds } = await seedSeries('per-fleet');
-    const round = await commit(seriesId, competitorIds, [1]);
+    const { seriesId, competitorIds } = await seedSeries();
+    const round = await commit(seriesId, competitorIds, [1], [], 'per-fleet');
 
     // The final stage's "next race for every fleet" button: explicit starts,
     // each fleet at its own next number.
@@ -334,7 +328,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   // whole rather than skipped.
 
   test('ceremony deletes the agreed non-round fleets, memberships and all', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     const leftoverId = await addLeftoverFleet(seriesId, competitorIds);
 
     const round = await commit(seriesId, competitorIds, [1], [leftoverId]);
@@ -359,7 +353,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   });
 
   test('refuses to delete a round-owned fleet, and the whole commit rolls back', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     const round1 = await commit(seriesId, competitorIds, [1]);
 
     await expect(
@@ -386,7 +380,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   });
 
   test('refuses to delete a fleet a race start references', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     const leftoverId = await addLeftoverFleet(seriesId, competitorIds);
     // A race sailed before the series became a championship.
     const raceId = uuid();
@@ -410,29 +404,24 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   });
 
   test('refuses a fleet the series does not have', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     await expect(commit(seriesId, competitorIds, [1], [uuid()])).rejects.toThrow();
   });
 
-  test('switching to per-fleet before racing changes the shape of the next race', async () => {
-    // The reported path: fleets assigned while the sheets were combined, the
-    // races that produced deleted, the setting changed, the races re-added.
-    const { seriesId, competitorIds } = await seedSeries('combined');
-    const round = await commit(seriesId, competitorIds, [1, 2]);
-    await db.delete(schema.races).where(eq(schema.races.seriesId, seriesId));
-
-    await putSplitFleetConfig(ctx, seriesId, {
-      ...defaultSplitFleetConfig(3),
-      finishSheets: 'per-fleet',
-    });
+  test('a race can take the other layout from the races before it', async () => {
+    // One stage can hold both: the first races sailed onto a handwritten
+    // sheet, and the rest came back from electronic timing a fleet at a time.
+    const { seriesId, competitorIds } = await seedSeries();
+    const round = await commit(seriesId, competitorIds, [1]);
     await addStageRaces(ctx, seriesId, round.id, {
-      stageRaceNumbers: [1, 2],
-      date: '2026-08-24',
+      stageRaceNumbers: [2],
+      finishSheets: 'per-fleet',
+      date: '2026-08-25',
     });
 
     const races = await racesWithStarts(seriesId);
-    expect(races).toHaveLength(6);
-    expect(races.every((r) => r.starts.length === 1)).toBe(true);
+    expect(races.filter((r) => r.starts[0].stageRaceNumber === 1)).toHaveLength(1);
+    expect(races.filter((r) => r.starts[0].stageRaceNumber === 2)).toHaveLength(3);
   });
 
   // A series is a split-fleet championship from creation or not at all: the
@@ -454,7 +443,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
   });
 
   test('the format comes off again until a round is committed', async () => {
-    const { seriesId, competitorIds } = await seedSeries('combined');
+    const { seriesId, competitorIds } = await seedSeries();
     const removed = await deleteSplitFleetConfig(ctx, seriesId);
     expect(removed.config).toBeNull();
     // Removing what isn't there is not an error: the wizard's radio can be

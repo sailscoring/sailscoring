@@ -977,17 +977,10 @@ function buildChampionship(): SeriesFile {
   const config: SplitFleetConfig = {
     qualifyingFleets: QUALIFYING_COLOR_SETS.slice(0, 2),
     finalFleets: FINAL_FLEET_SET.slice(0, 2),
-    finishSheets: 'combined',
-    plannedDays: [
-      { label: 'Day 1', races: 2 },
-      { label: 'Day 2', races: 2 },
-      { label: 'Day 3', races: 2 },
-      { label: 'Day 4', races: 1 },
-    ],
     split: { kind: 'equal-blocks' },
     discardThresholds: [{ minRaces: 4, discardCount: 1 }],
     vocabulary: DEFAULT_VOCABULARY,
-    medal: { size: 6, raceCount: 1, multiplier: 2, tieBreak: 'medal-race-then-a8' },
+    medal: { size: 6, multiplier: 2, tieBreak: 'medal-race-then-a8' },
   };
 
   // 24 sailors. `seed` is the OA's pre-event ranking; racing ability tracks

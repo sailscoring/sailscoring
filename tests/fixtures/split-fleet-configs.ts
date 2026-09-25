@@ -27,14 +27,9 @@ export function openingSeriesMedalConfig(): SplitFleetConfig {
     qualifyingFleets: [UNBANDED_FLEET],
     finalFleets: [],
     split: { kind: 'none' },
-    plannedDays: [
-      { label: 'Day 1', races: 5 },
-      { label: 'Day 2', races: 5 },
-    ],
     discardThresholds: [{ minRaces: 5, discardCount: 1 }],
     medal: {
       size: 10,
-      raceCount: 1,
       multiplier: 2,
       tieBreak: 'medal-race-then-a8',
     },

@@ -15,7 +15,13 @@ import { createRepos, replaceSplitFleetState } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { defaultRaceDate } from '@/lib/race-schedule';
-import { normalizeSplitFleetConfig, resolveVocabulary, stageRaceLabel } from '@/lib/split-fleets';
+import {
+  finishSheetsInUse,
+  normalizeSplitFleetConfig,
+  resolveVocabulary,
+  stageRaceLabel,
+  type FinishSheets,
+} from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitAbandonStartSchema,
@@ -297,11 +303,13 @@ export async function commitSplitRound(
 
     // The stage races. Medal-stage fleets always race apart (the umpired
     // medal race runs on its own course): one race per fleet. Qualifying and
-    // final fleets start in sequence and finish onto one combined sheet, so
-    // they share a race — unless the series says its finish sheets come one
-    // per fleet, in which case they take the same shape the medal stage does.
+    // final fleets share a race when they finish onto one combined sheet, and
+    // take a race each when their sheets come one per fleet — as the request
+    // says, or else as the championship's races so far have done.
     const config = normalizeSplitFleetConfig(row.qfConfig as Partial<SplitFleetConfig>);
-    const apart = input.stage === 'medal' || config.finishSheets === 'per-fleet';
+    const apart =
+      input.stage === 'medal' ||
+      (input.finishSheets ?? (await inheritedFinishSheets(tx, seriesId))) === 'per-fleet';
     const specs: StageRaceSpec[] = input.stageRaceNumbers.flatMap((n) => {
       const starts = fleetRows.map((f) => ({
         fleetId: f.id,
@@ -537,6 +545,34 @@ async function assertDisjointFleets(tx: Tx, seriesId: string, fleetIds: string[]
 /** The date to stamp on stage races when the caller supplies none: the last
  *  race in the series, else today clamped into the series window — the same
  *  rule the Races tab's Add race uses. */
+/** The sheet layout the championship's races have used so far (see
+ *  `finishSheetsInUse`). */
+async function inheritedFinishSheets(
+  tx: Tx | ReturnType<typeof getDb>,
+  seriesId: string,
+): Promise<FinishSheets> {
+  const [rounds, races, raceStarts] = await Promise.all([
+    tx
+      .select({ stage: schema.splitRounds.stage, fleetIds: schema.splitRounds.fleetIds })
+      .from(schema.splitRounds)
+      .where(eq(schema.splitRounds.seriesId, seriesId)),
+    tx
+      .select({ id: schema.races.id, raceNumber: schema.races.raceNumber })
+      .from(schema.races)
+      .where(eq(schema.races.seriesId, seriesId)),
+    tx
+      .select({
+        raceId: schema.raceStarts.raceId,
+        fleetIds: schema.raceStarts.fleetIds,
+        stage: schema.raceStarts.stage,
+      })
+      .from(schema.raceStarts)
+      .innerJoin(schema.races, eq(schema.raceStarts.raceId, schema.races.id))
+      .where(eq(schema.races.seriesId, seriesId)),
+  ]);
+  return finishSheetsInUse({ rounds, races, raceStarts });
+}
+
 async function fallbackRaceDate(tx: Tx, seriesId: string): Promise<string> {
   const [last] = await tx
     .select({ date: schema.races.date })
@@ -682,10 +718,12 @@ export async function addStageRaces(
         ...offsetFor(fid),
       }));
 
-  // The shape a race added now takes is the shape the ceremony gave the round:
-  // medal-stage fleets always race apart (own courses), and so does every
-  // stage when the series says its finish sheets come one per fleet.
-  const apart = roundRow.stage === 'medal' || config.finishSheets === 'per-fleet';
+  // Medal-stage fleets always race apart (own courses). Otherwise a race
+  // added now takes the sheet layout the request names, or the one the
+  // championship's races have used so far.
+  const apart =
+    roundRow.stage === 'medal' ||
+    (input.finishSheets ?? (await inheritedFinishSheets(db, seriesId))) === 'per-fleet';
   const asSpecs = (starts: StageRaceSpec['starts']): StageRaceSpec[] =>
     apart
       ? starts.map((s) => ({ stage: roundRow.stage, starts: [s] }))
