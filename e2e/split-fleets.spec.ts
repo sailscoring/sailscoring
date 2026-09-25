@@ -192,33 +192,30 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await expect(page.getByRole('main').locator('h2', { hasText: /Split-fleet/ })).toHaveCount(0);
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
-  await page.getByRole('button', { name: /^Format/ }).click();
-  const formatSection = page.getByTestId('split-fleets-editor');
-  await expect(formatSection).toBeVisible();
+  // Each stage's settings sit on its own card; the sailing-instruction
+  // translation of the whole championship sits below the cards.
   const si = page.getByTestId('sf-si-translation');
   await expect(si).toContainText('will count for total points in the Qualification series');
+  await page.getByRole('button', { name: 'Qualification series settings' }).click();
+  await page.getByRole('button', { name: /^Final series\s*(Not started|In progress)$/ }).click();
+  await page.getByRole('button', { name: 'Final series settings' }).click();
 
   // Reaching a setting marks the sentences it writes, so which clause a field
   // governs doesn't have to be found by flipping it.
-  await formatSection.getByText('Sailed by the top').hover();
+  await page.getByText('Also where the provisional cut line is drawn').hover();
   await expect(si.locator('[data-sentence="medal"]')).toHaveAttribute('data-marked', 'true');
   await expect(si.locator('[data-sentence="discards"]')).not.toHaveAttribute('data-marked', 'true');
   // Focus wins over the pointer: the mouse is still resting on the setting
   // above, but the scorer is typing in this one.
-  await formatSection.getByLabel('Scores excluded').first().focus();
+  await page.getByLabel('Scores excluded').first().focus();
   await expect(si.locator('[data-sentence="discards"]')).toHaveAttribute('data-marked', 'true');
   await expect(si.locator('[data-sentence="final-discard-cap"]')).toHaveAttribute(
     'data-marked',
     'true',
   );
   await expect(si.locator('[data-sentence="medal"]')).not.toHaveAttribute('data-marked', 'true');
-  // The panel is capped at the window's height with the sentences scrolling
-  // inside it, so the last setting's sentence is brought into view rather
-  // than left below the fold where the mark can't be read.
-  await formatSection.getByLabel('How ties between the top boats are broken').focus();
-  const tieBreak = si.locator('[data-sentence="medal-tie-break"]');
-  await expect(tieBreak).toHaveAttribute('data-marked', 'true');
-  await expect(tieBreak).toBeInViewport();
+  await page.getByRole('radio', { name: 'The last race alone' }).focus();
+  await expect(si.locator('[data-sentence="medal-tie-break"]')).toHaveAttribute('data-marked', 'true');
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Select Final series fleet…' }).click();
@@ -235,12 +232,17 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // And the section says where that race comes from, and what it scores.
   await expect(page.getByText('add that race from the Elimination series section')).toBeVisible();
   await expect(page.getByText('In the fleet they left it scores from 11')).toBeVisible();
+  // …and the Elimination series card now offers that race by its name.
+  await expect(page.getByRole('button', { name: 'Add companion race' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add next race' })).toHaveCount(0);
 
   // ── Promote into the Final series fleet as redress ────────────────────────
   // The protest committee directs an eleventh boat into the deciding fleet;
   // she keeps her Gold membership, and the dialog says what the extra boat
-  // does to a QE race added afterwards.
-  await page.getByRole('button', { name: 'Promote (redress)…' }).click();
+  // does to a QE race added afterwards. The Elimination series card, still
+  // open for its companion race, has a promotion of its own; the Final series
+  // card is the last on the page.
+  await page.getByRole('button', { name: 'Promote (redress)…' }).last().click();
   const promoteDialog = page.getByRole('dialog');
   await expect(promoteDialog).toContainText('With 11 boats');
   await expect(promoteDialog).toContainText('score from 12');
@@ -455,7 +457,7 @@ test('split fleets: publish lands the championship + race + assignments pages in
 /**
  * The setup wizard asks what kind of series this is before anything else, and
  * a split-fleet championship's setup is two steps that land on the tab, with
- * the Format section open to be checked against the sailing instructions.
+ * its stage cards, which start from the simplest championship.
  */
 test('split fleets: the kind of series is chosen first, and setup lands on the tab', async ({
   page,
@@ -478,6 +480,12 @@ test('split fleets: the kind of series is chosen first, and setup lands on the t
   await expect(page.getByRole('button', { name: /4\. Scoring/ })).toBeVisible();
   await kind.getByRole('radio', { name: /Split-fleet championship/ }).click();
   await expect(page.getByRole('button', { name: /3\. Fleets/ })).toHaveCount(0);
+  // The one thing asked up front: the words the sailing instructions use.
+  await expect(kind.getByRole('radio', { name: /Opening series, then medal races/ })).toBeChecked();
+  await kind.getByRole('radio', { name: /Qualification series, then Final series/ }).click();
+  await expect(
+    kind.getByRole('radio', { name: /Qualification series, then Final series/ }),
+  ).toBeChecked();
 
   // The entry list is imported knowing what it is for, and setup ends here.
   await page.getByRole('button', { name: /Next: Competitors/ }).click();
@@ -486,13 +494,12 @@ test('split fleets: the kind of series is chosen first, and setup lands on the t
   await page.getByRole('button', { name: /Finish setup/ }).click();
 
   await expect(page).toHaveURL(/\/split-fleets$/);
-  // Format is open until Round 1, settings beside their sailing-instruction
-  // translation, with the initial format filled in.
-  await expect(page.locator('#sf-fleet-count')).toHaveValue('3');
+  // The championship starts as the simplest one there is: one fleet, an
+  // undivided opening series, and a deciding stage — in the chosen words.
   await expect(page.getByTestId('sf-si-translation')).toContainText(
-    'will count for total points in the Qualification series',
+    'The championship will be sailed as a Qualification series followed by the Final series, in one fleet.',
   );
-  await expect(page.getByRole('button', { name: 'Assign Preliminary fleets' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add race Q1' })).toBeVisible();
 
   // A series that isn't a championship has no such tab, and Settings offers
   // no way to become one.
@@ -613,6 +620,18 @@ test('split fleets: a round commits without creating its races', async ({
   await expect(q1Row).toBeVisible();
   await expect(q1Row.getByRole('link', { name: /Yellow · enter finishes/ })).toBeVisible();
   await expect(page.getByText('0 of 1 Preliminary series races count')).toBeVisible();
+
+  // QP1 went onto one sheet, both fleets on it. QP2's finishes come back a
+  // fleet at a time, so it is added as a race per fleet — one stage can hold
+  // both layouts.
+  const href = async (row: import('@playwright/test').Locator, fleet: string) =>
+    row.getByRole('link', { name: new RegExp(`${fleet} · enter finishes`) }).getAttribute('href');
+  expect(await href(q1Row, 'Yellow')).toBe(await href(q1Row, 'Blue'));
+  await page.getByRole('combobox', { name: 'Finish sheets' }).selectOption('per-fleet');
+  await page.getByRole('button', { name: 'Add race QP2' }).click();
+  const q2Row = page.getByTestId('logical-race-qualifying-2');
+  await expect(q2Row.getByRole('link', { name: /Blue · enter finishes/ })).toBeVisible();
+  expect(await href(q2Row, 'Yellow')).not.toBe(await href(q2Row, 'Blue'));
 });
 
 /** The races list, waiting for its own rows: a series nav click leaves the
@@ -623,49 +642,46 @@ async function gotoRaces(page: import('@playwright/test').Page) {
 }
 
 /**
- * The race labels follow the wording the championship uses, and changing the
- * wording has to reach the races already created — a relabelled standings
- * column above a races list still saying QP1 is worse than either label on
- * its own.
+ * The race labels follow the wording and the shape of the championship, and
+ * reach the races already created. Under the 2026 ILCA wording an undivided
+ * series numbers its races Q1, Q2 …; divided, the same races are QP1, QP2 …
+ * That is the Melges 15 Sprint's shape: one fleet sails on Saturday, and the
+ * split is decided that night.
  */
-test('split fleets: the race labels reach every surface', async ({ page, signedInEmail }) => {
+test('split fleets: dividing after racing relabels the races on every surface', async ({
+  page,
+  signedInEmail,
+}) => {
   await enableFeatures(page, signedInEmail, ['split-fleets']);
   await createSplitFleetSeries(page, {
-    name: 'Notice Board Worlds',
+    name: 'Sprint Worlds',
     venue: 'Dun Laoghaire',
-    fleetCount: 2,
+    fleetCount: 1,
+    words: 'qualification-final',
   });
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
   await expect(
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
 
-  // The 2026 ILCA wording's labels, stated in the sailing-instruction
-  // translation.
+  await page.getByRole('button', { name: 'Add race Q1' }).click();
+  await expect(page.getByTestId('logical-race-qualifying-1')).toContainText('Q1');
+  await gotoRaces(page);
+  await expect(page.getByTestId('race-row').first()).toContainText('Q1');
+
+  // Saturday night: divide.
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+  await page.getByRole('button', { name: 'Qualification series settings' }).click();
+  await page
+    .getByRole('button', { name: 'Divide into a Preliminary series and an Elimination series' })
+    .click();
+
+  // The round card, the sailing instructions and the races list all follow.
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
   await expect(page.getByTestId('sf-si-translation')).toContainText(
     'races in the Preliminary series will be numbered QP1, QP2 and so on; races in the ' +
       'Elimination series, QE1, QE2 and so on',
   );
-
-  // ── The ceremony, the round card and the race rows follow ─────────────────
-  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
-  await expect(
-    page.getByRole('dialog').getByRole('checkbox', { name: /Also create QP1 and QP2 now/ }),
-  ).toBeVisible();
-  await alsoCreateRaces(page);
-  await page.getByRole('button', { name: /Commit Round 1/ }).click();
-  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
-  await expect(page.getByTestId('logical-race-qualifying-1')).toContainText('QP1');
-
-  // The races were named when they were created, so changing the wording
-  // afterwards has to rename them.
   await gotoRaces(page);
   await expect(page.getByTestId('race-row').first()).toContainText('QP1');
-  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
-  await page.getByRole('button', { name: /^Format/ }).click();
-  await page.locator('#sf-vocabulary').selectOption('opening-medal');
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
-  await gotoRaces(page);
-  await expect(page.getByTestId('race-row').first()).toContainText('Q1');
-  await expect(page.getByTestId('race-row').first()).not.toContainText('QP1');
 });

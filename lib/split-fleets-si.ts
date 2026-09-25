@@ -190,7 +190,10 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     );
   }
 
-  const qualifyingBase = `the number of boats in the largest ${qAdj} fleet, plus one`;
+  const qualifyingBase =
+    unbanded && config.qualifyingFleets.length === 1
+      ? 'the number of boats entered, plus one'
+      : `the number of boats in the largest ${qAdj} fleet, plus one`;
   const finalBase = `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   push(
     'non-finisher',

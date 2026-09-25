@@ -36,27 +36,17 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
     fleetCount: 1,
   });
 
-  // ── The format: one fleet, and the settings that describe a second stage
-  // are gone with it ────────────────────────────────────────────────────────
+  // ── The championship as created: one fleet, an opening series and a
+  // medal race at double points. The opening series card says so, and offers
+  // the division rather than showing settings for a stage it doesn't have ──
+  await page.getByRole('button', { name: 'Opening series settings' }).click();
   await expect(page.locator('#sf-fleet-count')).toHaveValue('1');
-  await expect(page.getByText(/How boats are divided/)).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Divide into a qualifying series and a final series' }),
+  ).toBeVisible();
+  await expect(page.getByText('Elimination series')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Opening series settings' }).click();
 
-  // Set it up the way the notice of race reads: an opening series and a
-  // medal race, the medal race at double points on the undivided score.
-  const saved = () =>
-    page.waitForResponse(
-      (r) =>
-        /\/api\/v1\/series\/[^/]+\/split-fleets$/.test(r.url()) &&
-        r.request().method() === 'PUT' &&
-        r.ok(),
-    );
-  await Promise.all([saved(), page.locator('#sf-vocabulary').selectOption('opening-medal')]);
-  await Promise.all([saved(), page.getByLabel('Medal races points').selectOption('2')]);
-  // The box follows the saved configuration, so it reads unticked once the
-  // save lands rather than on the click itself.
-  const halve = page.getByLabel('First halve the score so far, rounding 0.5 up');
-  await Promise.all([saved(), halve.click()]);
-  await expect(halve).not.toBeChecked();
   // The generated sailing instructions say what the format is, and say
   // nothing about dividing a fleet that is never divided.
   const si = page.getByTestId('sf-si-translation');
@@ -79,9 +69,8 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
 
-  await page.getByRole('button', { name: 'Assign opening fleets' }).click();
-  await page.getByRole('dialog').getByRole('checkbox', { name: /Also create/ }).check();
-  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  // One fleet is everyone: the first race creates the round with it.
+  await page.getByRole('button', { name: 'Add race Q1' }).click();
 
   const q1Row = page.getByTestId('logical-race-qualifying-1');
   await q1Row.getByRole('link', { name: /enter finishes/ }).click();
@@ -89,20 +78,13 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await enterFinishes(page, sails);
   await page.goBack();
 
-  // ── The format section still says what shape the event is, now that the
-  // fleet count is frozen ──────────────────────────────────────────────────
-  // Racing has started, so the count can no longer be changed — but it is the
-  // one setting that decides the shape of the championship, and a scorer
-  // checking their configuration against the notice of race has to be able to
-  // read it.
-  await page.getByRole('button', { name: /^Format/ }).click();
-  await expect(page.locator('#sf-fleet-count')).toHaveCount(0);
-  await expect(page.getByText('Fleet — one fleet, never split')).toBeVisible();
-  await expect(
-    page.getByText(/Every boat sails every race in one fleet, all 24 of them/),
-  ).toBeVisible();
-  await expect(page.getByText(/reassigned by series rank/)).toHaveCount(0);
-  await page.getByRole('button', { name: /^Format/ }).click();
+  // ── The card still says what shape the event is, now that the fleet
+  // count is settled ────────────────────────────────────────────────────
+  await page.getByRole('button', { name: 'Opening series settings' }).click();
+  await expect(page.locator('#sf-fleet-count')).toBeDisabled();
+  await expect(page.getByText('A boat that doesn’t finish scores the number of entries, plus one.')).toBeVisible();
+  await expect(page.locator('#sf-vocabulary')).toBeDisabled();
+  await page.getByRole('button', { name: 'Opening series settings' }).click();
 
   // ── The cut line: where the deciding fleet would be taken from if racing
   // ended now. Not a band boundary — this one decides who races again ──────

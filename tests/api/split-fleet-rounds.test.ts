@@ -442,6 +442,42 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     expect((await getSplitFleetState(ctx, seriesId)).config).toBeNull();
   });
 
+  // Locks follow what has been sailed, not a global switch.
+  test('the words settle once a race exists', async () => {
+    const { seriesId, competitorIds } = await seedSeries();
+    const config = defaultSplitFleetConfig(3);
+    await putSplitFleetConfig(ctx, seriesId, { ...config, vocabulary: 'qualification-final' });
+    await commit(seriesId, competitorIds, [1]);
+    await expect(
+      putSplitFleetConfig(ctx, seriesId, { ...config, vocabulary: 'opening-medal' }),
+    ).rejects.toThrow(/words are settled/);
+  });
+
+  test('the fleet count settles with the first round, the rest stays live', async () => {
+    const { seriesId, competitorIds } = await seedSeries();
+    const config = defaultSplitFleetConfig(3);
+    await commit(seriesId, competitorIds, []);
+    await expect(
+      putSplitFleetConfig(ctx, seriesId, { ...config, qualifyingFleets: config.qualifyingFleets.slice(0, 2) }),
+    ).rejects.toThrow(/fleet count is settled/);
+    // The discards and the medal stage are what an amended sailing
+    // instruction changes mid-week.
+    await putSplitFleetConfig(ctx, seriesId, {
+      ...config,
+      discardThresholds: [{ minRaces: 2, discardCount: 1 }],
+      medal: { ...config.medal, multiplier: 1 },
+    });
+    expect((await getSplitFleetState(ctx, seriesId)).config?.medal.multiplier).toBe(1);
+  });
+
+  test('dividing and undividing stay open until the split is committed', async () => {
+    const { seriesId, competitorIds } = await seedSeries();
+    const config = defaultSplitFleetConfig(3);
+    await commit(seriesId, competitorIds, [1]);
+    await putSplitFleetConfig(ctx, seriesId, { ...config, split: { kind: 'none' }, finalFleets: [] });
+    await putSplitFleetConfig(ctx, seriesId, config);
+  });
+
   test('the format comes off again until a round is committed', async () => {
     const { seriesId, competitorIds } = await seedSeries();
     const removed = await deleteSplitFleetConfig(ctx, seriesId);

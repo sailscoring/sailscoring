@@ -18,7 +18,16 @@ import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { useSeriesPublish } from '@/components/series-publish';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
-import { SplitFleetEditor } from '@/components/split-fleets-editor';
+import { SiTranslation } from '@/components/split-fleet-si';
+import {
+  MedalSettings,
+  OpeningSettings,
+  SettingMarkProvider,
+  Stage1Settings,
+  Stage2Settings,
+  useMarkedSentences,
+  type StageLocks,
+} from '@/components/split-fleet-stage-settings';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import {
   buildFleetMeta,
@@ -74,6 +83,7 @@ import {
   splitFleetStandings,
   stageRaceLabel,
   stageRaceRefs,
+  type FinishSheets,
   type SeedOrder,
   type SeedTailOrder,
   type SeriesStage,
@@ -101,7 +111,9 @@ function computeNextAction(
 ): NextAction | null {
   const w = words(config);
   if (qualifyingRounds.length === 0) {
-    return { label: `seed Round 1 (create the ${w.qualifying.fleetNoun}s)` };
+    return config.qualifyingFleets.length === 1
+      ? { label: `add ${raceLabel(data, 'qualifying', 1)}` }
+      : { label: `seed Round 1 (create the ${w.qualifying.fleetNoun}s)` };
   }
   const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
   const pending = stageRaceRefs(data)
@@ -223,13 +235,11 @@ function buildDemoCompetitors(seriesId: string, defaultFleetId: string | null): 
 
 // ─── Shared bits ────────────────────────────────────────────────────────────
 
-/** The Format section's collapsed one-liner. */
-function formatSummary(config: SplitFleetConfig): string {
-  const w = words(config);
-  return [
-    `${config.qualifyingFleets.map((f) => f.label).join('/')} → ${config.finalFleets.map((f) => f.label).join('/')}`,
-    `${w.medal.name} ×${config.medal.multiplier}`,
-  ].join(' · ');
+/** The sailing-instructions panel below the cards, marking the sentences the
+ *  setting under the pointer or the keyboard writes. */
+function SiPanel({ config }: { config: SplitFleetConfig }) {
+  const marked = useMarkedSentences();
+  return <SiTranslation config={config} marked={marked} alwaysOpen />;
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -312,6 +322,16 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const unbanded = sfState.config.split.kind === 'none';
 
   const nextAction = computeNextAction(sfData, sfState.config, qualifyingRounds, splitRound, medalRound, fleetMeta);
+  const w = words(sfState.config);
+  // The second stage runs on past the medal cut: the companion race is sailed
+  // alongside the medal races, so it is done only when they are.
+  const secondStageDone = !!medalRound && medalPhaseComplete(sfData, medalRound);
+  // What the settings may still change, given what has been sailed.
+  const locks: StageLocks = {
+    words: raceStarts.some((s) => s.stage),
+    qualifyingFleets: qualifyingRounds.length > 0,
+    division: splitRound !== null,
+  };
 
   return (
     <div className="space-y-6">
@@ -331,82 +351,87 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
       )}
-      {/* Open until the first assignment: a new championship arrives here
-          from the wizard with the initial format, which the scorer checks
-          against the sailing instructions before dealing any fleets. Once
-          Round 1 is committed the one-line summary is enough. */}
-      <StageSection
-        title="Format"
-        status={formatSummary(sfState.config)}
-        defaultOpen={qualifyingRounds.length === 0}
-      >
-        <SplitFleetEditor
-          seriesId={seriesId}
-          config={sfState.config}
-          competitorCount={sfData.competitors.length}
-          canEdit={canManage}
-          locked={allFinishes.length > 0}
-        />
-        {allFinishes.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            The fleet count and the way scores carry are settled now that racing
-            has started — changing them would re-deal fleets that have already
-            sailed. Everything else re-scores as you change it.
-          </p>
-        )}
-      </StageSection>
-      <StageSection
-        title={words(sfState.config).title('qualifying')}
-        status={
-          qualifyingRounds.length === 0
-            ? 'Not started'
-            : splitRound
-              ? 'Complete'
-              : 'In progress'
-        }
-        defaultOpen={!splitRound}
-      >
-        <QualifyingSection
-          seriesId={seriesId}
-          data={sfData}
-          fleetMeta={fleetMeta}
-          rounds={qualifyingRounds}
-          split={splitRound !== null}
-          canManage={canManage}
-        />
-      </StageSection>
-
-      {/* No second stage where the fleet is never banded: there is nothing
-          for the section to hold, and an empty one would suggest a stage the
-          notice of race does not schedule. */}
-      {!unbanded && (
-        <StageSection
-          title={words(sfState.config).title('final')}
-          status={splitRound ? (medalRound ? 'Complete' : 'In progress') : 'Not started'}
-          defaultOpen={!!splitRound && !medalRound}
-        >
-          {splitRound ? (
-            <FinalSection
+      <SettingMarkProvider>
+        {unbanded ? (
+          <StageSection
+            title={w.title('qualifying')}
+            status={qualifyingRounds.length === 0 ? 'Not started' : medalRound ? 'Complete' : 'In progress'}
+            defaultOpen={!medalRound}
+          >
+            <QualifyingSection
               seriesId={seriesId}
               data={sfData}
               fleetMeta={fleetMeta}
-              round={splitRound}
-              medalRound={medalRound}
-              standings={standings}
+              rounds={qualifyingRounds}
+              split={false}
               canManage={canManage}
             />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              The {words(sfState.config).final.name} begins when the{' '}
-              {words(sfState.config).qualifying.name} ends and the fleet is split.
-            </p>
-          )}
-        </StageSection>
-      )}
+            <OpeningSettings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
+          </StageSection>
+        ) : (
+          <StageSection
+            title={capitaliseStage(w.series)}
+            status={secondStageDone ? 'Complete' : qualifyingRounds.length ? 'In progress' : 'Not started'}
+            defaultOpen={!secondStageDone}
+          >
+            <OpeningSettings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
+            <StageSection
+              title={w.title('qualifying')}
+              status={
+                qualifyingRounds.length === 0
+                  ? 'Not started'
+                  : splitRound
+                    ? 'Complete'
+                    : 'In progress'
+              }
+              defaultOpen={!splitRound}
+            >
+              <QualifyingSection
+                seriesId={seriesId}
+                data={sfData}
+                fleetMeta={fleetMeta}
+                rounds={qualifyingRounds}
+                split={splitRound !== null}
+                canManage={canManage}
+              />
+              <Stage1Settings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
+            </StageSection>
+            <StageSection
+              title={w.title('final')}
+              status={splitRound ? (secondStageDone ? 'Complete' : 'In progress') : 'Not started'}
+              // Open while it is being raced, and while the championship is
+              // still being set up and every card's settings are in play.
+              defaultOpen={(!!splitRound && !secondStageDone) || qualifyingRounds.length === 0}
+            >
+              {splitRound ? (
+                <FinalSection
+                  seriesId={seriesId}
+                  data={sfData}
+                  fleetMeta={fleetMeta}
+                  round={splitRound}
+                  medalRound={medalRound}
+                  standings={standings}
+                  canManage={canManage}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  The {w.final.name} begins when the {w.qualifying.name} ends and the fleet is
+                  split.
+                </p>
+              )}
+              <Stage2Settings
+                seriesId={seriesId}
+                config={sfState.config}
+                locks={locks}
+                canEdit={canManage}
+                medalSelected={medalRound !== null}
+              />
+            </StageSection>
+          </StageSection>
+        )}
 
-      {sfState.config.medal && (
         <StageSection
-          title={words(sfState.config).title('medal')}
+          title={w.title('medal')}
           status={
             medalRound
               ? medalPhaseComplete(sfData, medalRound)
@@ -415,10 +440,12 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               : 'Not started'
           }
           // Open while it is the stage the scorer is working in — which,
-          // where the fleet is never banded, includes before the cut is made:
+          // where the fleet is never divided, includes before the cut is made:
           // there is no second stage holding their attention instead.
           defaultOpen={
-            medalRound ? !medalPhaseComplete(sfData, medalRound) : unbanded
+            medalRound
+              ? !medalPhaseComplete(sfData, medalRound)
+              : unbanded || qualifyingRounds.length === 0
           }
         >
           {medalRound ? (
@@ -433,24 +460,24 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 The top {sfState.config.medal.size} after the{' '}
-                {unbanded
-                  ? words(sfState.config).qualifying.name
-                  : words(sfState.config).series}{' '}
-                sail the {words(sfState.config).medal.name}.
+                {unbanded ? w.qualifying.name : w.series} sail the {w.medal.name}.
               </p>
-              {/* Where the fleet is never banded there is no second stage to
+              {/* Where the fleet is never divided there is no second stage to
                   offer the cut from, so it is offered here. */}
               {unbanded && canManage && (
                 <Button variant="outline" onClick={() => setMedalOpen(true)}>
-                  Select {words(sfState.config).medal.fleetNoun}…
+                  Select {w.medal.fleetNoun}…
                 </Button>
               )}
             </div>
           )}
+          <MedalSettings seriesId={seriesId} config={sfState.config} canEdit={canManage} />
         </StageSection>
-      )}
 
-      {unbanded && medalOpen && sfState.config.medal && (
+        <SiPanel config={sfState.config} />
+      </SettingMarkProvider>
+
+      {unbanded && medalOpen && (
         <MedalSelectDialog
           seriesId={seriesId}
           data={sfData}
@@ -604,8 +631,11 @@ function QualifyingSection({
   const confirm = useConfirm();
   const deleteRound = useDeleteSplitRound(seriesId);
   const addRaces = useAddSplitStageRaces(seriesId);
+  const firstRace = useCommitSplitRound(seriesId);
+  const [sheets, setSheets] = useState<FinishSheets>(() => finishSheetsInUse(data));
   const lrs = logicalRaces(data, 'qualifying');
   const currentRound = rounds[rounds.length - 1] ?? null;
+  const qFleets = data.config.qualifyingFleets;
   const nextStageRace = lrs.length ? Math.max(...lrs.map((l) => l.stageRaceNumber)) + 1 : 1;
   const validCount = lrs.filter((l) => l.valid).length;
 
@@ -696,7 +726,26 @@ function QualifyingSection({
 
       {canManage && !split && (
         <div className="flex flex-wrap items-center gap-2">
-          {rounds.length === 0 ? (
+          {rounds.length === 0 && qFleets.length === 1 ? (
+            // One fleet is everyone: there is nothing to deal, so the first
+            // race creates the round as it creates the race.
+            <Button
+              disabled={firstRace.isPending || data.competitors.length === 0}
+              onClick={() =>
+                firstRace.mutate({
+                  stage: 'qualifying',
+                  fromStageRace: 1,
+                  method: 'seeded',
+                  basis: null,
+                  fleets: qFleets,
+                  assignments: Object.fromEntries(data.competitors.map((c) => [c.id, 0])),
+                  stageRaceNumbers: [1],
+                })
+              }
+            >
+              Add race {raceLabel(data, 'qualifying', 1)}
+            </Button>
+          ) : rounds.length === 0 ? (
             <Button onClick={() => setDialog('seed')}>
               Assign {words(data.config).qualifying.fleetNoun}s
             </Button>
@@ -718,11 +767,15 @@ function QualifyingSection({
                   addRaces.mutate({
                     roundId: currentRound.id,
                     stageRaceNumbers: [nextStageRace],
+                    ...(currentRound.fleetIds.length > 1 ? { finishSheets: sheets } : {}),
                   })
                 }
               >
                 Add race {raceLabel(data, 'qualifying', nextStageRace)}
               </Button>
+              {currentRound && currentRound.fleetIds.length > 1 && (
+                <SheetLayoutChoice value={sheets} onChange={setSheets} />
+              )}
               {!unbanded && (
                 <Button onClick={() => setDialog('split')} disabled={validCount === 0}>
                   End the {words(data.config).qualifying.name} → split fleets
@@ -739,6 +792,7 @@ function QualifyingSection({
         </div>
       )}
 
+      {firstRace.isError && <p className="text-sm text-destructive">{String(firstRace.error)}</p>}
       {dialog === 'seed' && (
         <SeedRoundDialog seriesId={seriesId} data={data} onClose={() => setDialog(null)} />
       )}
@@ -875,6 +929,29 @@ function LogicalRaceRow({
         </span>
       )}
     </div>
+  );
+}
+
+/** Whether the race about to be added puts its fleets on one finish sheet or
+ *  gives each its own. Starts as the championship's races so far have, so a
+ *  RaceSense event sets it once. */
+function SheetLayoutChoice({
+  value,
+  onChange,
+}: {
+  value: FinishSheets;
+  onChange: (v: FinishSheets) => void;
+}) {
+  return (
+    <select
+      aria-label="Finish sheets"
+      className="rounded-md border bg-background px-2 py-1 text-xs"
+      value={value}
+      onChange={(e) => onChange(e.target.value as FinishSheets)}
+    >
+      <option value="combined">One finish sheet, all fleets on it</option>
+      <option value="per-fleet">A sheet per fleet</option>
+    </select>
   );
 }
 
@@ -1571,7 +1648,8 @@ function FinalSection({
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
   const medalConfig = data.config.medal;
-  const perFleet = finishSheetsInUse(data) === 'per-fleet';
+  const [sheets, setSheets] = useState<FinishSheets>(() => finishSheetsInUse(data));
+  const perFleet = sheets === 'per-fleet';
   const w = words(data.config);
 
   return (
@@ -1592,29 +1670,33 @@ function FinalSection({
           : ''}
       </p>
       {canManage && (
-        <Button
-          variant="outline"
-          size="xs"
-          disabled={addRaces.isPending}
-          onClick={() =>
-            addRaces.mutate({
-              roundId: round.id,
-              // Every fleet's next race at once — each start at its own next
-              // stage race number, so out-of-step fleets stay out of step. One
-              // race carrying them all, or a race each where the sheets are
-              // per-fleet; the handler gives the round the shape it was
-              // committed with.
-              starts: round.fleetIds.map((fid) => {
-                const ns = stageRaceRefs(data, 'final')
-                  .filter((ref) => ref.fleetId === fid)
-                  .map((ref) => ref.start.stageRaceNumber ?? 0);
-                return { fleetId: fid, stageRaceNumber: (ns.length ? Math.max(...ns) : 0) + 1 };
-              }),
-            })
-          }
-        >
-          {perFleet ? 'Add next race · one for each fleet' : 'Add next race · all fleets in one sequence'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="xs"
+            disabled={addRaces.isPending}
+            onClick={() =>
+              addRaces.mutate({
+                roundId: round.id,
+                // Every fleet's next race at once — each start at its own next
+                // stage race number, so out-of-step fleets stay out of step.
+                // One race carrying them all, or a race each, as chosen beside.
+                starts: round.fleetIds.map((fid) => {
+                  const ns = stageRaceRefs(data, 'final')
+                    .filter((ref) => ref.fleetId === fid)
+                    .map((ref) => ref.start.stageRaceNumber ?? 0);
+                  return { fleetId: fid, stageRaceNumber: (ns.length ? Math.max(...ns) : 0) + 1 };
+                }),
+                finishSheets: sheets,
+              })
+            }
+          >
+            {/* Once the medal fleet is selected, the next race for everyone
+                else is the one more race the sailing instructions give them. */}
+            {medalRound ? 'Add companion race' : 'Add next race'}
+          </Button>
+          <SheetLayoutChoice value={sheets} onChange={setSheets} />
+        </div>
       )}
       {round.fleetIds.map((fid) => {
         const refs = stageRaceRefs(data, 'final')

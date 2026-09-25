@@ -40,12 +40,11 @@ test('the championship standings carry crew, club and class', async ({ page, sig
   ];
   for (const boat of boats) await addCompetitor(page, boat);
 
-  // One round, one race, sailed — the standings table only exists once a race
+  // One race, sailed — the standings table only exists once a race
   // has been scored.
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
-  await page.getByRole('button', { name: /^Assign .* fleets$/ }).click();
-  await page.getByRole('dialog').getByRole('checkbox', { name: /Also create/ }).check();
-  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  // One fleet is everyone, so the first race needs no assignment.
+  await page.getByRole('button', { name: 'Add race Q1' }).click();
 
   await page
     .getByTestId('logical-race-qualifying-1')

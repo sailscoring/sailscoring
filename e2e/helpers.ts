@@ -197,36 +197,76 @@ export async function createSeriesQuick(
 
 /**
  * Create a split-fleet championship the way a scorer does: through the setup
- * wizard, which asks the kind of series first, and on to the Split Fleets tab,
- * where the Format section is open until the first round and the qualifying
- * fleet count is set. Assumes the `split-fleets` feature is on.
+ * wizard, which asks the kind of series and the words its sailing
+ * instructions use, and on to the Split Fleets tab's stage cards.
+ *
+ * One fleet is the championship as created — an undivided opening series and
+ * a medal race — in the opening-series wording unless told otherwise. More
+ * than one is shaped the way the 2026 ILCA Worlds were: the 2026 wording, the
+ * opening series divided with `fleetCount` fleets in each part, and a
+ * two-race Final series at single points on a halved score, ties on the last
+ * race. Assumes the `split-fleets` feature is on.
  */
 export async function createSplitFleetSeries(
   page: Page,
-  data: { name: string; venue?: string; fleetCount: number },
+  data: {
+    name: string;
+    venue?: string;
+    fleetCount: number;
+    words?: 'opening-medal' | 'qualification-final';
+  },
 ): Promise<void> {
-  await page.goto('/series/new');
-  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/setup$/);
-  await page.getByLabel('Name').fill(data.name);
-  if (data.venue) await page.getByLabel('Venue').fill(data.venue);
-  // The radio is controlled by the saved state, so click rather than check:
-  // it reads as chosen only once the format has been written.
-  await page.getByRole('radio', { name: /Split-fleet championship/ }).click();
-  await expect(page.getByRole('button', { name: /3\. Fleets/ })).toHaveCount(0);
-  await page.getByRole('button', { name: /Next: Competitors/ }).click();
-  await page.getByRole('button', { name: /Finish setup/ }).click();
-  await expect(page).toHaveURL(/\/split-fleets$/);
-  // Every change in the Format section saves as it is made; wait for this one
-  // to land before the caller reloads the page under it.
-  await Promise.all([
+  const words = data.words ?? (data.fleetCount > 1 ? 'qualification-final' : 'opening-medal');
+  const saved = () =>
     page.waitForResponse(
       (r) =>
         /\/api\/v1\/series\/[^/]+\/split-fleets$/.test(r.url()) &&
         r.request().method() === 'PUT' &&
         r.ok(),
-    ),
-    page.locator('#sf-fleet-count').selectOption(String(data.fleetCount)),
+    );
+  await page.goto('/series/new');
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/setup$/);
+  await page.getByLabel('Name').fill(data.name);
+  if (data.venue) await page.getByLabel('Venue').fill(data.venue);
+  // The radios are controlled by the saved state, so click rather than check:
+  // each reads as chosen only once the configuration has been written.
+  await Promise.all([saved(), page.getByRole('radio', { name: /Split-fleet championship/ }).click()]);
+  if (words === 'qualification-final') {
+    await Promise.all([
+      saved(),
+      page.getByRole('radio', { name: /Qualification series, then Final series/ }).click(),
+    ]);
+  }
+  await expect(page.getByRole('button', { name: /3\. Fleets/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /Next: Competitors/ }).click();
+  await page.getByRole('button', { name: /Finish setup/ }).click();
+  await expect(page).toHaveURL(/\/split-fleets$/);
+  if (data.fleetCount === 1) return;
+
+  const opening = words === 'qualification-final' ? 'Qualification series' : 'Opening series';
+  await page.getByRole('button', { name: `${opening} settings` }).click();
+  await Promise.all([saved(), page.getByRole('button', { name: /^Divide into/ }).click()]);
+  const prelim = words === 'qualification-final' ? 'Preliminary series' : 'Qualifying series';
+  const elim = words === 'qualification-final' ? 'Elimination series' : 'Final series';
+  const medal = words === 'qualification-final' ? 'Final series' : 'Medal races';
+  await page.getByRole('button', { name: `${prelim} settings` }).click();
+  await Promise.all([saved(), page.locator('#sf-fleet-count').selectOption(String(data.fleetCount))]);
+  if (data.fleetCount !== 2) {
+    await page.getByRole('button', { name: `${elim} settings` }).click();
+    await Promise.all([
+      saved(),
+      page.locator('#sf-final-fleet-count').selectOption(String(data.fleetCount)),
+    ]);
+  }
+  await page.getByRole('button', { name: `${medal} settings` }).click();
+  await Promise.all([saved(), page.getByRole('radio', { name: 'Single' }).click()]);
+  await Promise.all([
+    saved(),
+    page.getByRole('radio', { name: 'Net score halved, 0.5 rounded up' }).click(),
   ]);
+  await Promise.all([saved(), page.getByRole('radio', { name: 'The last race alone' }).click()]);
+  // Settings back where they were: closed.
+  await page.getByRole('button', { name: `${medal} settings` }).click();
 }
 
 /**

@@ -27,7 +27,7 @@ const SURFACES = [
   'app/series/[id]/split-fleets/page.tsx',
   'components/split-fleet-si.tsx',
   'components/split-fleet-standings.tsx',
-  'components/split-fleets-editor.tsx',
+  'components/split-fleet-stage-settings.tsx',
   'lib/split-fleets-si.ts',
   'lib/split-fleets-render.ts',
   'app/help/content/split-fleets.tsx',

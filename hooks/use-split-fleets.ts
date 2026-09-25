@@ -16,7 +16,7 @@ import {
   type SplitFleetStateDto,
   type SplitRoundCommit,
 } from '@/lib/api-repository';
-import type { SplitFleetConfig } from '@/lib/split-fleets';
+import type { FinishSheets, SplitFleetConfig } from '@/lib/split-fleets';
 
 import { queryKeys } from './query-keys';
 
@@ -92,11 +92,13 @@ export function useAddSplitStageRaces(seriesId: string) {
       stageRaceNumbers?: number[];
       fleetIds?: string[];
       starts?: { fleetId: string; stageRaceNumber: number }[];
+      finishSheets?: FinishSheets;
     }) =>
       addSplitStageRaces(seriesId, input.roundId, {
         stageRaceNumbers: input.stageRaceNumbers,
         fleetIds: input.fleetIds,
         starts: input.starts,
+        finishSheets: input.finishSheets,
       }),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
   });

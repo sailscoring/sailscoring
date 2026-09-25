@@ -245,13 +245,14 @@ export const VOCABULARIES: Record<VocabularyKey, Vocabulary> = {
 export const VOCABULARY_OPTIONS: { key: VocabularyKey; label: string; terms: string }[] = [
   {
     key: 'opening-medal',
-    label: 'Opening series and medal race',
-    terms: 'qualifying series, final series, medal races — races Q, F, M',
+    label: 'Opening series, then medal races',
+    terms: 'Races Q1, Q2 …, then M1. Divided: a qualifying series and a final series, races Q and F.',
   },
   {
     key: 'qualification-final',
-    label: 'Qualification series and final series',
-    terms: 'Preliminary series, Elimination series, Final series — races QP, QE, F',
+    label: 'Qualification series, then Final series',
+    terms:
+      'Races Q1, Q2 …, then F1. Divided: a Preliminary series and an Elimination series, races QP and QE. ILCA from 2026.',
   },
 ];
 
@@ -494,24 +495,19 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
   } as SplitFleetConfig;
 }
 
-/** What a new split-fleet series starts from: three qualifying fleets, the
- *  2026 ILCA wording, one discard from three races and a second from ten, and
- *  a two-race deciding stage at single points on a halved score, with ties
- *  among the qualified boats settled on the last race alone. */
-export function newSplitFleetConfig(): SplitFleetConfig {
+/** What a new split-fleet series starts from: the simplest championship
+ *  scored with split fleets, the Irish Sailing Junior Champions' Cup. One
+ *  fleet sails an undivided opening series with one discard from three races,
+ *  and the top ten sail a medal race at double points, ties broken on the
+ *  medal race and then by rule A8. Everything else is shaped from the cards. */
+export function newSplitFleetConfig(vocabulary: VocabularyKey = DEFAULT_VOCABULARY): SplitFleetConfig {
   return {
-    ...defaultSplitFleetConfig(3),
-    discardThresholds: [
-      { minRaces: 3, discardCount: 1 },
-      { minRaces: 10, discardCount: 2 },
-    ],
-    vocabulary: 'qualification-final',
-    medal: {
-      size: 10,
-      multiplier: 1,
-      carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
-      tieBreak: 'last-race',
-    },
+    qualifyingFleets: [UNBANDED_FLEET],
+    finalFleets: [],
+    split: { kind: 'none' },
+    discardThresholds: [{ minRaces: 3, discardCount: 1 }],
+    vocabulary,
+    medal: { size: 10, multiplier: 2, tieBreak: 'medal-race-then-a8' },
   };
 }
 

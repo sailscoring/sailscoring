@@ -3,7 +3,6 @@
 
 import {
   defaultSplitFleetConfig,
-  newSplitFleetConfig,
   UNBANDED_FLEET,
   type SplitFleetConfig,
 } from '@/lib/split-fleets';
@@ -11,11 +10,19 @@ import {
 /** The 2026 ILCA Worlds: the 2026 wording, a halved carry into a two-race
  *  Final series at single points, ties on the last race. */
 export function ilca2026Config(fleetCount: number): SplitFleetConfig {
-  const base = newSplitFleetConfig();
   return {
-    ...base,
-    qualifyingFleets: defaultSplitFleetConfig(fleetCount).qualifyingFleets,
-    finalFleets: defaultSplitFleetConfig(fleetCount).finalFleets,
+    ...defaultSplitFleetConfig(fleetCount),
+    discardThresholds: [
+      { minRaces: 3, discardCount: 1 },
+      { minRaces: 10, discardCount: 2 },
+    ],
+    vocabulary: 'qualification-final',
+    medal: {
+      size: 10,
+      multiplier: 1,
+      carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+      tieBreak: 'last-race',
+    },
   };
 }
 

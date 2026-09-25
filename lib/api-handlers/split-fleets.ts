@@ -105,19 +105,32 @@ export async function putSplitFleetConfig(
       throw new BadRequestError('a series that has raced cannot become a split-fleet championship');
     }
   } else {
-    // The config-editability contract: once any race has finishes, the
-    // qualifying fleet count is frozen; everything else merely re-scores and
-    // stays live.
-    const [anyFinish] = await db
-      .select({ id: schema.finishes.id })
-      .from(schema.finishes)
-      .innerJoin(schema.races, eq(schema.races.id, schema.finishes.raceId))
-      .where(eq(schema.races.seriesId, seriesId))
-      .limit(1);
-    if (anyFinish) {
-      if (config.qualifyingFleets.length !== existing.qualifyingFleets.length) {
-        throw new BadRequestError('qualifying fleet count is frozen once racing has started');
-      }
+    // Locks follow what has been sailed. The words are the race labels, which
+    // are on the notice board once a race exists; a stage's fleet count is
+    // settled once a round has dealt its fleets; and the division once the
+    // split has given boats second-stage scores. Everything else re-scores
+    // and stays live.
+    const [[anyRace], rounds] = await Promise.all([
+      db
+        .select({ id: schema.races.id })
+        .from(schema.races)
+        .where(eq(schema.races.seriesId, seriesId))
+        .limit(1),
+      repos.splitRounds.listBySeries(seriesId),
+    ]);
+    const hasRound = (stage: SplitRound['stage']) => rounds.some((r) => r.stage === stage);
+    if (anyRace && config.vocabulary !== existing.vocabulary) {
+      throw new BadRequestError('the words are settled once a race exists');
+    }
+    if (hasRound('qualifying') && config.qualifyingFleets.length !== existing.qualifyingFleets.length) {
+      throw new BadRequestError('the fleet count is settled once the first round has dealt its fleets');
+    }
+    if (
+      hasRound('final') &&
+      (config.split.kind !== existing.split.kind ||
+        config.finalFleets.length !== existing.finalFleets.length)
+    ) {
+      throw new BadRequestError('the division is settled once the split is committed');
     }
   }
 

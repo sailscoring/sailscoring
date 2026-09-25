@@ -1288,6 +1288,9 @@ export interface SplitRoundCommit {
   assignments: Record<string, number>;
   overrideCompetitorIds?: string[];
   stageRaceNumbers: number[];
+  /** How those races' fleets finish; absent, as the championship's races so
+   *  far have. */
+  finishSheets?: import('./split-fleets').FinishSheets;
   date?: string;
   /** Non-round fleets the scorer agreed to remove with this ceremony
    *  (memberships stripped, rows deleted — see the commit handler). */
@@ -1310,10 +1313,11 @@ export async function addSplitStageRaces(
   payload: {
     stageRaceNumbers?: number[];
     fleetIds?: string[];
-    /** Each fleet's own stage race number, for fleets that are out of step.
-     *  Whether they share one race or take a race each is the round's shape,
-     *  not the caller's. */
+    /** Each fleet's own stage race number, for fleets that are out of step. */
     starts?: { fleetId: string; stageRaceNumber: number }[];
+    /** One sheet for the fleets, or a sheet each; absent, as the
+     *  championship's races so far have. */
+    finishSheets?: import('./split-fleets').FinishSheets;
     date?: string;
   },
 ): Promise<void> {

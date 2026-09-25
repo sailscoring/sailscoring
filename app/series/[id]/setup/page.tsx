@@ -26,7 +26,7 @@ import {
   useSaveSplitFleetConfig,
   useSplitFleetState,
 } from '@/hooks/use-split-fleets';
-import { newSplitFleetConfig } from '@/lib/split-fleets';
+import { newSplitFleetConfig, VOCABULARY_OPTIONS } from '@/lib/split-fleets';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -124,9 +124,10 @@ function Step1({
  * on it: a split-fleet championship's entry list is imported with a fleet
  * column read as the seeding committee's assignment, its fleets are dealt by
  * the assignment ceremonies rather than set up here, and its tab bar leads
- * with Split Fleets. Choosing it writes the initial format at once; the
- * Format section of the Split Fleets tab is where that format is then made to
- * match the sailing instructions. Only offered where the workspace has the
+ * with Split Fleets. Choosing it writes the simplest championship at once
+ * and asks the one thing a scorer knows before anything else: which words
+ * their sailing instructions use. Everything else is shaped on the Split
+ * Fleets tab's stage cards. Only offered where the workspace has the
  * feature.
  */
 function SeriesKindBlock({ seriesId }: { seriesId: string }) {
@@ -177,12 +178,33 @@ function SeriesKindBlock({ seriesId }: { seriesId: string }) {
           <div>
             <span className="text-sm font-medium">Split-fleet championship</span>
             <p className="text-xs text-muted-foreground">
-              Boats race in qualifying fleets reassigned by series rank after each day, then
-              split by rank for the final series. The Split Fleets tab runs it, and its Format
-              section holds the scoring rules.
+              An opening series, then the top boats race for the championship — divided into
+              fleets by rank along the way where the event needs it. The Split Fleets tab runs
+              it, one card per stage.
             </p>
           </div>
         </label>
+        {isSplitFleet && sfState.config && (
+          <div className="ml-7 space-y-2" role="radiogroup" aria-label="Which words do your sailing instructions use?">
+            <p className="text-sm">Which words do your sailing instructions use?</p>
+            {VOCABULARY_OPTIONS.map((o) => (
+              <label key={o.key} className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="seriesWords"
+                  checked={sfState.config!.vocabulary === o.key}
+                  disabled={pending}
+                  onChange={() => saveConfig.mutate({ ...sfState.config!, vocabulary: o.key })}
+                  className="mt-0.5"
+                />
+                <div>
+                  <span className="text-sm font-medium">{o.label}</span>
+                  <p className="text-xs text-muted-foreground">{o.terms}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
       {error && <p className="text-sm text-destructive">{String(error)}</p>}
     </div>
