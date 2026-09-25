@@ -1,5 +1,6 @@
 import { signedInTest as test, expect } from './fixtures';
 import {
+  addCompetitor,
   createSeriesQuick,
   createSplitFleetSeries,
   enableFeatures,
@@ -690,4 +691,44 @@ test('split fleets: dividing after racing relabels the races on every surface', 
   );
   await gotoRaces(page);
   await expect(page.getByTestId('race-row').first()).toContainText('QP1');
+});
+
+/**
+ * A boat entered after Round 1 was dealt is in none of its fleets, so she has
+ * no score for the races it sailed — the rest of the fleet has one each. The
+ * tab names her, and the race, rather than scoring her on fewer races.
+ */
+test('split fleets: a late entry in no fleet of a sailed round is named', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+  await createSplitFleetSeries(page, { name: 'Late Entry Worlds', venue: 'Dun Laoghaire', fleetCount: 2 });
+  await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
+  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
+
+  // QP1, both fleets on one sheet: it counts.
+  await page.getByRole('button', { name: 'Add race QP1' }).click();
+  const q1Row = page.getByTestId('logical-race-qualifying-1');
+  await q1Row.getByRole('link', { name: /Yellow · enter finishes/ }).click();
+  await expect(page).toHaveURL(/\/races\//);
+  await enterFinishes(page, sails);
+  await page.goBack();
+  await expect(page.getByText('1 of 1 Preliminary series races count')).toBeVisible();
+  await expect(page.getByTestId('sf-score-mismatch')).toHaveCount(0);
+
+  // The late entry.
+  await page.getByRole('navigation').getByRole('link', { name: 'Competitors' }).click();
+  await expect(page.getByRole('button', { name: 'Add competitor' })).toBeVisible();
+  await addCompetitor(page, { sailNumber: '299999', name: 'Late Entrant' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+
+  const notice = page.getByTestId('sf-score-mismatch');
+  await expect(notice).toContainText('299999 Late Entrant');
+  await expect(notice).toContainText('in no fleet for QP1');
 });

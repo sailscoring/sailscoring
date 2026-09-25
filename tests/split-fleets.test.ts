@@ -18,6 +18,7 @@ import {
   rankPatternFleetIndex,
   seedOrder,
   splitFleetStandings,
+  unequalQualifyingScores,
   type SplitFleetConfig,
   type SplitFleetData,
   type SplitRound,
@@ -296,6 +297,27 @@ describe('splitFleetStandings', () => {
     const c3cells = rows.find((r) => r.competitor.id === 'c3')!.cells;
     expect(c3cells.find((c) => c.stageRaceNumber === 1)!.code).toBe('DNC');
     expect(c3cells.find((c) => c.stageRaceNumber === 2)!.counts).toBe(false);
+  });
+
+  describe('unequalQualifyingScores', () => {
+    it('finds no one where every boat is in one fleet of each round', () => {
+      expect(unequalQualifyingScores(qualifyingData())).toEqual([]);
+    });
+
+    it('names a boat in no fleet, and a boat in two, for the races that count', () => {
+      const data = qualifyingData();
+      data.competitors.push(competitor('late', [], 6), competitor('twice', ['fy', 'fb'], 7));
+      const found = unequalQualifyingScores(data).map((m) => ({
+        id: m.competitor.id,
+        missing: m.missing,
+        doubled: m.doubled,
+      }));
+      // Q2 is not yet valid, so only Q1 is reported.
+      expect(found).toEqual([
+        { id: 'late', missing: [1], doubled: [] },
+        { id: 'twice', missing: [], doubled: [1] },
+      ]);
+    });
   });
 
   it('scores no excluded competitor, and does not count her in the base', () => {

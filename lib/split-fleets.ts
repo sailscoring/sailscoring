@@ -1368,6 +1368,46 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
   return rows;
 }
 
+/** A boat whose qualifying scores are not one per counting qualifying race. */
+export interface QualifyingScoreMismatch {
+  competitor: Competitor;
+  /** Counting qualifying races in which she is in none of the round's fleets,
+   *  so she has no score for them. */
+  missing: number[];
+  /** Counting qualifying races in which she is in more than one of the
+   *  round's fleets, so she has a score from each. */
+  doubled: number[];
+}
+
+/**
+ * The boats that do not hold exactly one score for every qualifying race that
+ * counts.
+ *
+ * A race counts once every fleet of its round has sailed it, and every member
+ * of those fleets then holds a score for it — her place, or DNC. So the only
+ * way a boat ends up with more or fewer scores than the rest is her fleet
+ * membership: a late entry dealt into a later round but into no fleet of an
+ * earlier one, or a boat left in two fleets of one round. Sailing
+ * instructions that tell a scorer to drop surplus scores are describing the
+ * races the rule above already strikes, not these, which are assignment
+ * mistakes for the scorer to correct.
+ */
+export function unequalQualifyingScores(input: SplitFleetData): QualifyingScoreMismatch[] {
+  const data = dropNonEntrants(input);
+  const byCompetitor = new Map<string, QualifyingScoreMismatch>();
+  for (const lr of logicalRaces(data, 'qualifying')) {
+    if (!lr.valid || !lr.round) continue;
+    for (const c of data.competitors) {
+      const fleets = lr.round.fleetIds.filter((fid) => c.fleetIds.includes(fid)).length;
+      if (fleets === 1) continue;
+      let entry = byCompetitor.get(c.id);
+      if (!entry) byCompetitor.set(c.id, (entry = { competitor: c, missing: [], doubled: [] }));
+      (fleets === 0 ? entry.missing : entry.doubled).push(lr.stageRaceNumber);
+    }
+  }
+  return [...byCompetitor.values()];
+}
+
 /**
  * The boats a race is not for: in a companion race — the one more race the
  * boats who missed the medal fleet sail, recognised by the offset on its

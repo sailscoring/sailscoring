@@ -79,12 +79,14 @@ import {
   assignFromInitialFleet,
   seedOrder,
   splitFleetStandings,
+  unequalQualifyingScores,
   stageRaceLabel,
   stageRaceRefs,
   type FinishSheets,
   type SeedOrder,
   type SeedTailOrder,
   type SeriesStage,
+  type QualifyingScoreMismatch,
   type SplitFleetConfig,
   type SplitFleetData,
   type SplitRound,
@@ -318,6 +320,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const splitRound = roundsForStage(sfState.rounds, 'final')[0] ?? null;
   const medalRound = roundsForStage(sfState.rounds, 'medal')[0] ?? null;
   const standings = splitFleetStandings(sfData);
+  const scoreMismatches = unequalQualifyingScores(sfData);
   // One fleet, never banded: no middle stage, and the cut into the deciding
   // fleet comes straight off the opening series.
   const unbanded = sfState.config.split.kind === 'none';
@@ -356,6 +359,9 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             </Link>
           )}
         </div>
+      )}
+      {scoreMismatches.length > 0 && (
+        <QualifyingScoreWarning config={sfState.config} mismatches={scoreMismatches} />
       )}
       {unbanded ? (
         <StageSection
@@ -2205,3 +2211,41 @@ function MedalSection({
   );
 }
 
+/**
+ * Boats holding more or fewer qualifying scores than the races that count.
+ * Only a fleet assignment can do that, so the notice says which boats and
+ * which races, and leaves the correction to the scorer.
+ */
+function QualifyingScoreWarning({
+  config,
+  mismatches,
+}: {
+  config: SplitFleetConfig;
+  mismatches: QualifyingScoreMismatch[];
+}) {
+  const w = words(config);
+  const labels = (ns: number[]) => ns.map((n) => stageRaceLabel(config, 'qualifying', n)).join(', ');
+  return (
+    <div
+      role="alert"
+      data-testid="sf-score-mismatch"
+      className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+    >
+      <p>
+        These boats don’t have exactly one score for every {w.qualifying.raceNoun} that counts.
+        Every boat belongs to exactly one fleet of each round — one who missed a round’s races
+        still belongs to a fleet, and is scored DNC in them — so correct the round’s
+        assignment.
+      </p>
+      <ul className="mt-1 list-disc pl-5">
+        {mismatches.map((m) => (
+          <li key={m.competitor.id}>
+            {m.competitor.sailNumber} {m.competitor.names.join(' & ')}
+            {m.missing.length > 0 && <> — in no fleet for {labels(m.missing)}</>}
+            {m.doubled.length > 0 && <> — in more than one fleet for {labels(m.doubled)}</>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
