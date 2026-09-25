@@ -203,10 +203,16 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">End the {q.name} → split fleets</strong> deals the{' '}
         {f.fleetNoun}s from the {qAdj} ranking — adjust the top-fleet size if the SIs fix one,
         and the dialog flags rank ties sitting on a boundary. {capitaliseStage(f.fleetNoun)}s
-        race independently (they need not sail the same number of races). If the event carries{' '}
+        race independently (they need not sail the same number of races). Where the sailing
+        instructions score the {f.name} races double, or say they may not be excluded, set that
+        on each race through its <strong className="text-foreground">Scoring</strong> options, as
+        in any series: a race that must count is also left out of the count the discard ladder
+        is read from, since the ladder can never reach it. If the event carries{' '}
         {article(m.raceNoun)}, select the {m.fleetNoun} when racing closes (
         <strong className="text-foreground">Select {m.fleetNoun}…</strong>): the top boats sail
-        it, never discardable, at whatever points multiplier the sailing instructions set.
+        it, never discardable, at whatever points multiplier the sailing instructions set —
+        that is the {w.title('medal')} card’s setting, and a {m.raceNoun}’s own scoring options
+        do not multiply it again.
         Selecting them moves nobody else: everyone outside the {m.fleetNoun} stays where they
         are and sails one more race with their own fleet, which you add from{' '}
         <strong className="text-foreground">Add companion race</strong> on the {f.name} card. The boats who

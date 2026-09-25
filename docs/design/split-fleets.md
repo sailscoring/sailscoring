@@ -705,6 +705,12 @@ standings:
   discard *selection* allows at most one final-series discard, protects a
   lone final-series race, and never discards a medal race. Medal races are
   excluded from the race count that drives thresholds (2024 ILCA wording).
+- **Per-race scoring options** apply as in the fleet engine: a race's
+  multiplier weights its scores, and a must-count race is never discarded
+  and, like a medal race, is left out of the threshold count. That is how
+  the 2026 Melges 15 Sprint Championships' doubled, protected Gold and
+  Silver final series is scored (fixture 29). A medal race takes its
+  weighting from the medal settings alone.
 - **Carried scores.** Points carry as one continuous line. Where the medal
   settings halve the carry, each medal boat's opening-series net, after
   its discards, is halved (0.5 rounded up) into one non-discardable carried
