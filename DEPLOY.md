@@ -560,6 +560,13 @@ The rules:
 If a change can't be done as one of the above, do it as a sequence of
 deploys, not as one clever migration.
 
+The same rules cover a migration that rewrites the **contents** of a jsonb
+column rather than its DDL. When that rewrite removes meaning, such as a
+setting leaving the model or a value becoming fixed behaviour, it has more to
+do: guard against rows it can't upgrade honestly, and upgrade the copies the
+database doesn't hold (files, revision snapshots, published exports). See
+[ADR-013](docs/design/decisions/013-removing-meaning-from-stored-formats.md).
+
 ---
 
 ## Custom domain
