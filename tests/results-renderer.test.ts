@@ -684,6 +684,28 @@ describe('renderSeriesHtml', () => {
       expect(html).toContain('Alice / Mark');
     });
 
+    it('gives crew their own column when a separate Helm column is shown', () => {
+      const team: SeriesResultsData = {
+        ...withBoatAndCrew,
+        enabledCompetitorFields: ['helm', 'crewName'],
+        primaryPersonLabel: 'competitor',
+        standings: [{ ...withBoatAndCrew.standings[0], helm: ['Jack & Mike'], helmRole: ['Jack'], crewNames: ['Mike'] }],
+        races: [
+          {
+            ...withBoatAndCrew.races[0],
+            results: [{ ...withBoatAndCrew.races[0].results[0], helm: ['Jack & Mike'], helmRole: ['Jack'], crewNames: ['Mike'] }],
+          },
+        ],
+      };
+      const html = renderSeriesHtml(team);
+      expect(html).not.toContain('Competitor / Crew');
+      // Summary and race table alike: Competitor, then Helm, then Crew.
+      const headerRuns = html.match(/<th>Competitor<\/th>\s*<th>Helm<\/th>\s*<th>Crew<\/th>/g) ?? [];
+      expect(headerRuns).toHaveLength(2);
+      const cellRuns = html.match(/<td>Jack &amp; Mike<\/td>\s*<td>Jack<\/td>\s*<td>Mike<\/td>/g) ?? [];
+      expect(cellRuns).toHaveLength(2);
+    });
+
     it('falls back to primary-only when crewName is enabled but no crew is set', () => {
       const noCrew: SeriesResultsData = {
         ...withBoatAndCrew,
