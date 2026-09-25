@@ -885,6 +885,9 @@ export interface CellScore {
   superseded?: boolean;
   /** The RDG finish awaiting A9 resolution (engine-internal). */
   rdg?: Finish | null;
+  /** The race's own points multiplier (`Race.pointsMultiplier`), where it
+   *  is not 1. Already applied to `points`. */
+  raceWeight?: number;
 }
 
 export interface SplitStandingRow {
@@ -1167,6 +1170,14 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
             discardable: stage !== 'medal',
             discarded: false,
             rdg: sc.rdg,
+            // A medal race is weighted by the medal settings, which say so
+            // for every medal race at once; a race's own multiplier would
+            // weight it a second time.
+            ...(stage !== 'medal' &&
+            ref.race.pointsMultiplier != null &&
+            ref.race.pointsMultiplier !== 1
+              ? { raceWeight: ref.race.pointsMultiplier }
+              : {}),
           });
         }
       }
@@ -1209,6 +1220,17 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
       }
       const mean = pool.reduce((sum, c) => sum + c.points, 0) / pool.length;
       cell.points = Math.round(mean * 10 + 1e-9) / 10;
+    }
+  }
+
+  // A race the notice of race weights ("the Final series races will score
+  // double points") scales its score as sailed — penalties and redress
+  // included, as the fleet engine does. Applied after the A9 averages, so a
+  // boat's redress does not inherit the weighting of the other races it is
+  // averaged over, and before the discards, which compare the weighted score.
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      if (cell.raceWeight != null) cell.points = weightedRacePoints(cell.points, cell.raceWeight);
     }
   }
 

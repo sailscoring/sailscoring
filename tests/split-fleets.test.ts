@@ -439,6 +439,102 @@ describe('splitFleetStandings', () => {
     expect(c1.net).toBe(1 + 2); // one qualifying 1 + one final 2
   });
 
+  describe('per-race scoring options', () => {
+    // One qualifying fleet of three, split into Gold (c1, c2) and Silver (c3).
+    function splitData(opts: {
+      qualifying: number;
+      finalRace?: Partial<Race>;
+      finals?: number;
+      thresholds?: SplitFleetConfig['discardThresholds'];
+    }): SplitFleetData {
+      const competitors = [
+        competitor('c1', ['fq', 'fg'], 1),
+        competitor('c2', ['fq', 'fg'], 2),
+        competitor('c3', ['fq', 'fs'], 3),
+      ];
+      const rounds: SplitRound[] = [
+        {
+          id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+          fleetIds: ['fq'], method: 'seeded', basis: null, createdAt: 0,
+        },
+        {
+          id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+          fleetIds: ['fg', 'fs'], method: 'split', basis: null, createdAt: 1,
+        },
+      ];
+      const races: Race[] = [];
+      const raceStarts: RaceStart[] = [];
+      const finishes: Finish[] = [];
+      for (let n = 1; n <= opts.qualifying; n++) {
+        races.push(race(`q${n}`));
+        raceStarts.push(start(`q${n}`, ['fq'], 'qualifying', n));
+        // c1 1st, c2 2nd, c3 3rd — except c2 last in Q1.
+        const order = n === 1 ? ['c1', 'c3', 'c2'] : ['c1', 'c2', 'c3'];
+        order.forEach((id, i) => finishes.push(finish(`q${n}`, id, i)));
+      }
+      for (let n = 1; n <= (opts.finals ?? 1); n++) {
+        races.push({ ...race(`f${n}g`), ...opts.finalRace });
+        races.push({ ...race(`f${n}s`), ...opts.finalRace });
+        raceStarts.push(start(`f${n}g`, ['fg'], 'final', n));
+        raceStarts.push(start(`f${n}s`, ['fs'], 'final', n));
+        finishes.push(finish(`f${n}g`, 'c2', 0), finish(`f${n}g`, 'c1', 1));
+        finishes.push(finish(`f${n}s`, 'c3', 0));
+      }
+      return {
+        config: {
+          ...defaultSplitFleetConfig(1),
+          finalFleets: [
+            { label: 'Gold', color: '#d4a017' },
+            { label: 'Silver', color: '#c0c0c0' },
+          ],
+          split: { kind: 'equal-blocks' },
+          discardThresholds: opts.thresholds ?? [],
+        },
+        rounds,
+        fleets: [fleet('fq', 'Fleet'), fleet('fg', 'Gold'), fleet('fs', 'Silver')],
+        competitors,
+        races,
+        raceStarts,
+        finishes,
+      };
+    }
+    const row = (rows: ReturnType<typeof splitFleetStandings>, id: string) =>
+      rows.find((r) => r.competitor.id === id)!;
+
+    it('weights a race by its points multiplier', () => {
+      const rows = splitFleetStandings(splitData({ qualifying: 1, finalRace: { pointsMultiplier: 2 } }));
+      const f1 = (id: string) => row(rows, id).cells.find((c) => c.stage === 'final')!;
+      expect(f1('c2').points).toBe(2);
+      expect(f1('c1').points).toBe(4);
+      expect(f1('c1').raceWeight).toBe(2);
+      expect(row(rows, 'c1').net).toBe(1 + 4);
+      expect(row(rows, 'c1').cells.find((c) => c.stage === 'qualifying')!.raceWeight).toBeUndefined();
+    });
+
+    it('weights a code score and a penalty with the race', () => {
+      const data = splitData({ qualifying: 1, finalRace: { pointsMultiplier: 2 } });
+      // c1 DNF in Gold's F1: own fleet (2) + 1 = 3, doubled. c2 takes 1st
+      // with a 2-point DPI: 1 + 2, doubled.
+      data.finishes = data.finishes.filter((f) => f.raceId !== 'f1g');
+      const dpi = { ...finish('f1g', 'c2', 0), penaltyCode: 'DPI' as const, penaltyOverride: 2 };
+      data.finishes.push(dpi, finish('f1g', 'c1', null, 'DNF'));
+      const rows = splitFleetStandings(data);
+      const f1 = (id: string) => row(rows, id).cells.find((c) => c.stage === 'final')!;
+      expect(f1('c1').points).toBe(6);
+      expect(f1('c2').points).toBe(6);
+    });
+
+    it('averages redress over the other races unweighted, then weights it', () => {
+      const data = splitData({ qualifying: 2, finalRace: { pointsMultiplier: 2 } });
+      // c1 scored 1 and 1 in qualifying; redress in F1 averages those to 1,
+      // and the doubled race makes it 2.
+      data.finishes = data.finishes.filter((f) => !(f.raceId === 'f1g' && f.competitorId === 'c1'));
+      data.finishes.push({ ...finish('f1g', 'c1', null, 'RDG'), redressMethod: 'all_races' });
+      const rows = splitFleetStandings(data);
+      expect(row(rows, 'c1').cells.find((c) => c.stage === 'final')!.points).toBe(2);
+    });
+  });
+
   it('scores per-fleet places from one combined sheet (sequenced starts)', () => {
     // Yellow and Blue start in sequence and finish onto one interleaved
     // sheet: crossing order c1(Y), c4(B), c2(Y), c5(B). Places are per
