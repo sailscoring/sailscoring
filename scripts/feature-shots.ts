@@ -1591,24 +1591,32 @@ const SHOTS: Shot[] = [
       await page.waitForURL(/\/series\/[^/]+/);
       await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
       await settle(page);
+      // The sample is a finished championship, so its cards start collapsed.
+      // Open the opening series and its settings: the card is the feature.
+      const openCards = async (key: VocabularyKey) => {
+        const series = capitaliseStage(VOCABULARIES[key].seriesName);
+        await page.getByRole('button', { name: new RegExp(`^${series}\\s*Complete`) }).click();
+        await page.getByRole('button', { name: `${series} settings` }).click();
+        await settle(page);
+      };
+      await openCards('opening-medal');
       await shot('split-fleets.png');
 
       // The help section switches its picture with the vocabulary it is
       // read in, so the tab is captured once more in the other wording. The
-      // Format editor saves on change; the tab's stage headings confirm the
-      // words have landed before the shot, and the sample is put back as
-      // seeded so nothing downstream sees it changed. The marketing site
-      // shows one view, so this capture is for the help docs alone.
-      const format = page.getByRole('button', { name: /^Format/ });
+      // sample has raced, which settles its words in the app, so the capture
+      // sets them at the database (local mode only) and puts the sample back
+      // as seeded, so nothing downstream sees it changed. The tab's stage
+      // headings confirm the words have landed before the shot. The marketing
+      // site shows one view, so this capture is for the help docs alone.
+      const seriesId = new URL(page.url()).pathname.split('/')[2];
       const setVocabulary = async (key: VocabularyKey) => {
-        await format.click();
-        await page.locator('#sf-vocabulary').selectOption(key);
-        const stageName = capitaliseStage(VOCABULARIES[key].stages.qualifying.name);
-        await page.getByRole('button', { name: new RegExp(`^${stageName}`) }).waitFor();
-        await format.click();
+        await dbSetSplitFleetVocabulary(seriesId, key);
+        await page.reload();
         await settle(page);
       };
       await setVocabulary('qualification-final');
+      await openCards('qualification-final');
       await shot('split-fleets-qualification-final.png', { helpOnly: true });
       await setVocabulary('opening-medal');
     },
@@ -2031,6 +2039,21 @@ async function dbEnableOperatorFeature(key: FeatureKey): Promise<void> {
     await sql.end();
   }
   enabledGates.add(key);
+}
+
+/** Set a championship's words at the database. The app settles them once a
+ *  race exists, and a capture of the same raced sample in the other wording
+ *  has to get past that. Local mode only. */
+async function dbSetSplitFleetVocabulary(seriesId: string, key: VocabularyKey): Promise<void> {
+  if (!LOCAL) throw new Error('dbSetSplitFleetVocabulary is local-mode prep only');
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL not set — run via pnpm feature-shots:local');
+  const sql = postgres(url, { max: 1 });
+  try {
+    await sql`update series set qf_config = jsonb_set(qf_config, '{vocabulary}', to_jsonb(${key}::text)) where id = ${seriesId}`;
+  } finally {
+    await sql.end();
+  }
 }
 
 /** Switch a self-service feature on via the Workspace-settings Features card.

@@ -43,11 +43,12 @@ place, under the radio:
      Which words do your sailing instructions use?
 
      ●  Opening series, then medal races
-        Races Q1, Q2 …, then M1. Divided: qualifying series, final series.
+        Races Q1, Q2 …, then M1. Divided: a qualifying series and a final
+        series, races Q and F.
 
      ○  Qualification series, then Final series
-        Races Q1, Q2 …, then F1. Divided: Preliminary series, Elimination
-        series. ILCA from 2026.
+        Races Q1, Q2 …, then F1. Divided: a Preliminary series and an
+        Elimination series, races QP and QE. ILCA from 2026.
 ```
 
 That writes the default championship: one fleet, one discard from three

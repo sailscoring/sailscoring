@@ -98,8 +98,8 @@ function VocabulariesCompared() {
       the 2026 ILCA wording — has a <em>{qf.seriesName}</em> made of{' '}
       {article(qf.stages.qualifying.name)} and {article(qf.stages.final.name)}, then{' '}
       {article(qf.stages.medal.name)}. So “the {om.stages.final.name}” means the second stage
-      in one and the last stage in the other. A championship picks one in its{' '}
-      <strong className="text-foreground">Format</strong> settings, and the tab, its dialogs,
+      in one and the last stage in the other. A championship picks one when it is created,
+      and the tab, its dialogs,
       the standings columns and the published pages all follow it — as does this section,
       through the control above.
     </p>
@@ -113,7 +113,7 @@ export function SplitFleetsSection() {
   const f = w.final;
   const m = w.medal;
   const qAdj = stageAdjective(q.name);
-  const shotCaption = `The Split Fleets tab of a championship: format, the ${qAdj} and ${stageAdjective(f.name)} rounds, and the tiered standings.`;
+  const shotCaption = `The Split Fleets tab of a championship: a card for each stage, the ${qAdj} and ${stageAdjective(f.name)} rounds, and the tiered standings.`;
   return (
     <Section id="split-fleets" title="Split-fleet championships">
       <VocabularyControl />
@@ -124,12 +124,29 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">{q.fleetNoun}s</strong> (Yellow, Blue, …) that are
         reassigned by series rank after each day of racing, then into{' '}
         <strong className="text-foreground">{f.fleetNoun}s</strong> (Gold, Silver, …) for the
-        closing races — the format behind ILCA and Optimist worlds and nationals. A series is a
+        closing races — the format behind ILCA and Optimist worlds and nationals. Smaller
+        events keep one fleet throughout and send the top boats to a deciding race. A series is a
         split-fleet championship from the start: the setup wizard asks what kind of series you
-        are creating before anything else, and the{' '}
+        are creating before anything else, and which words your sailing instructions use. The{' '}
         <strong className="text-foreground">Split Fleets</strong> tab then leads the series and
         everything about the event runs from it. A series that has already raced cannot become
         one; create a new series and import the entry list again.
+      </p>
+      <p>
+        The tab has a card for each stage, and a new championship starts as the simplest one
+        there is: one fleet sails the {w.series} and the top ten sail the {m.name} at double
+        points. Each card’s <strong className="text-foreground">Settings</strong> hold only that
+        stage’s choices, with the rules it follows written out beneath them — the {w.series}
+        card holds the discards, the {w.title('medal')} card the size of the {m.fleetNoun}, its
+        points, the score carried in and how ties are broken. Where the entry is big enough to
+        divide, <strong className="text-foreground">Divide into …</strong> on the {w.series}{' '}
+        card gives it its two parts, the {q.name} and the {f.name}, each with a card and fleets
+        of its own; it can be undone until the split is committed. Each change is settled by
+        what has been sailed: the words once a race exists, a stage’s fleet count once its fleets
+        are dealt, and the division once the split is committed. Read{' '}
+        <strong className="text-foreground">How this configuration translates to sailing
+        instructions</strong> below the cards against the scoring section of your own sailing
+        instructions; where a sentence disagrees, change the setting.
       </p>
       <p>
         <strong className="text-foreground">Round 1</strong> makes the initial assignment —
@@ -169,8 +186,11 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">one combined sheet</strong>: enter it exactly as it
         comes off the water, interleaved, and each boat scores her place within her own fleet.
         Where each fleet’s finishes come back separately instead — as electronic timing records
-        them — a stage race is laid out as a race per fleet, and a race added later follows the
-        layout of the races before it. It changes the layout, not the scoring. If one fleet’s race is abandoned, abandon just that fleet’s start from the race
+        them — choose <strong className="text-foreground">A sheet per fleet</strong> beside{' '}
+        <strong className="text-foreground">Add race</strong>, and the race is laid out as one
+        race per fleet. The choice starts from whatever the races before used, and one stage can
+        hold both. It changes the layout, not the scoring. If one fleet’s race is abandoned,
+        abandon just that fleet’s start from the race
         row — the rest of the sheet stands — and add its{' '}
         <strong className="text-foreground">catch-up race</strong> (its own sheet, usually
         sailed first the next day) from the same row.
@@ -185,7 +205,7 @@ export function SplitFleetsSection() {
         it, never discardable, at whatever points multiplier the sailing instructions set.
         Selecting them moves nobody else: everyone outside the {m.fleetNoun} stays where they
         are and sails one more race with their own fleet, which you add from{' '}
-        <strong className="text-foreground">Add next race</strong> as usual. The boats who
+        <strong className="text-foreground">Add companion race</strong> on the {f.name} card. The boats who
         qualified have left that fleet’s racing, so they are simply absent from that race rather
         than scored for missing it. It scores from just below the boats who went up, in the
         fleet they left — the ILCA wording in both eras — so that where ten boats went to the{' '}
@@ -196,11 +216,11 @@ export function SplitFleetsSection() {
         round.
       </p>
       <p>
-        Some events never band the fleet at all: one fleet sails the whole {q.name} and the
-        only division ever made is into the {m.fleetNoun}. Set the{' '}
-        <strong className="text-foreground">{capitaliseStage(q.fleetNoun)}s</strong> count to
-        one and the settings that describe a second stage go away with it, since there is none.
-        The standings
+        Some events never divide the fleet at all: one fleet sails the whole {q.name} and the
+        only division ever made is into the {m.fleetNoun}. That is how a championship starts,
+        and with one fleet there is nothing to deal: the first{' '}
+        <strong className="text-foreground">Add race</strong> creates the round along with the
+        race. The standings
         draw the {m.fleetNoun} cut where it would fall if racing ended now, and{' '}
         <strong className="text-foreground">Select {m.fleetNoun}…</strong> is offered from the{' '}
         {w.title('medal')} section rather than from a stage the event does not sail. The boats
@@ -210,18 +230,6 @@ export function SplitFleetsSection() {
         whatever the points say — so the two groups are scored over different numbers of
         races, and the standings and the published page show them as two tables rather than
         one ladder.
-      </p>
-      <p>
-        Choosing a split-fleet championship in the setup wizard writes an initial configuration
-        and shortens setup to the entry list — the fleets are created by the assignment
-        ceremonies and the scoring rules live in the tab’s{' '}
-        <strong className="text-foreground">Format</strong> section, which is open until the
-        first round is assigned and holds the whole configuration from then on. Set it up from
-        the scoring section of your sailing instructions, then read{' '}
-        <strong className="text-foreground">How this configuration translates to sailing
-        instructions</strong>, which restates your settings as SI prose, against that section.
-        Where a sentence disagrees, change
-        the setting.
       </p>
       <p>
         Race labels follow the words the championship uses: Q, F and M under the first set,
@@ -235,7 +243,7 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">Compressing the score</strong> before the {m.name}{' '}
         is also supported: ILCA from 2026 halves each qualified boat’s series score before the{' '}
         {m.name}, rounding 0.5 up, which pulls the leaders together so the last races can still
-        decide the title. Switch it on under the {w.title('medal')} settings; the halved number
+        decide the title. Choose it in the {w.title('medal')} card’s settings; the halved number
         appears in a <strong className="text-foreground">Carried</strong> column and replaces
         the boat’s earlier race scores in her total once a {m.raceNoun} is completed. Rounding
         to whole numbers makes ties, so choose how ties between the qualified boats are broken:
