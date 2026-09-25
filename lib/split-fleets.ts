@@ -1305,6 +1305,25 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
   return rows;
 }
 
+/**
+ * The boats a race is not for: in a companion race — the one more race the
+ * boats who missed the medal fleet sail, recognised by the offset on its
+ * start — the medal boats, who are still assigned to the fleet they came from
+ * but have left its racing. Empty for any other race.
+ */
+export function boatsOutsideCompanionRace(input: {
+  raceStarts: readonly Pick<RaceStart, 'stage' | 'firstPlaceOffset'>[];
+  rounds: readonly Pick<SplitRound, 'stage' | 'fleetIds'>[];
+  competitors: readonly Pick<Competitor, 'id' | 'fleetIds'>[];
+}): Set<string> {
+  const companion = input.raceStarts.some(
+    (s) => s.stage && s.stage !== 'medal' && (s.firstPlaceOffset ?? 0) > 0,
+  );
+  const medalFleetId = input.rounds.find((r) => r.stage === 'medal')?.fleetIds[0];
+  if (!companion || !medalFleetId) return new Set();
+  return new Set(input.competitors.filter((c) => c.fleetIds.includes(medalFleetId)).map((c) => c.id));
+}
+
 /** Provisional final-series cut boundaries over a pre-split qualifying
  *  ranking: returns the 0-based row indexes after which a cut line renders. */
 export function provisionalCutIndexes(total: number, fleetCount: number): number[] {

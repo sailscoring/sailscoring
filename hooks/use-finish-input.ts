@@ -60,6 +60,10 @@ export interface UseFinishInputArgs {
    *  Called when the scorer confirms the "include and record finish" prompt
    *  that a typed excluded sail number raises. Absent on a read-only sheet. */
   onIncludeCompetitor?: (competitor: Competitor) => Promise<unknown>;
+  /** Boats this race is not for, though a fleet on its start holds them —
+   *  the medal boats on a split-fleet companion race — and why, as the rest
+   *  of a sentence after the sail number. Typing one is refused. */
+  notInRace?: { ids: ReadonlySet<string>; reason: string };
 }
 
 /**
@@ -75,7 +79,7 @@ export function useFinishInput(args: UseFinishInputArgs) {
     derived, nonFinishers, finishedIds,
     saveFinish, patchCache,
     commitOrderChange, flashRow,
-    ready, onIncludeCompetitor,
+    ready, onIncludeCompetitor, notInRace,
   } = args;
   const { finishingOrder, finishTimes, elapsedSecs, tiedWithPrevious, finishByCompetitorId } = derived;
   const byElapsed = finishRecording === 'elapsed';
@@ -339,6 +343,14 @@ export function useFinishInput(args: UseFinishInputArgs) {
     entered?: string,
     opts?: { includeExcluded?: boolean },
   ) {
+    if (notInRace?.ids.has(competitor.id)) {
+      setSailInput('');
+      setHighlightedIndex(-1);
+      setPendingUnknownSail(null);
+      setInputNotice('');
+      setInputError(`${competitor.sailNumber} ${notInRace.reason}.`);
+      return;
+    }
     if (competitor.excluded && !opts?.includeExcluded) {
       setSailInput('');
       setHighlightedIndex(-1);

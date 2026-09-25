@@ -127,6 +127,13 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
     .getByRole('link', { name: /enter finishes/ })
     .click();
   await expect(page).toHaveURL(/\/races\//);
+  // A medal boat is still assigned to the fleet, but this race is not hers:
+  // her sail number is refused, with the reason.
+  await page.getByLabel('Sail number').fill(sails[0]);
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(
+    page.getByText(`${sails[0]} is in the medal fleet — this race is for the boats outside it.`),
+  ).toBeVisible();
   await enterFinishes(page, sails.slice(10));
   await page.goBack();
   // The ten are absent from it, not DNC in it (24 entries + 1).

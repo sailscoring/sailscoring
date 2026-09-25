@@ -7,6 +7,7 @@ import {
   resolveVocabulary,
   stageRaceLabel,
   defaultSplitFleetConfig,
+  boatsOutsideCompanionRace,
   finishSheetsInUse,
   finalBlockSizes,
   logicalRaces,
@@ -1287,5 +1288,36 @@ describe('finishSheetsInUse', () => {
         raceStarts: [{ raceId: 'q1', fleetIds: ['f'], stage: 'qualifying' }],
       }),
     ).toBe('combined');
+  });
+});
+
+describe('boatsOutsideCompanionRace', () => {
+  const rounds = [
+    { stage: 'qualifying' as const, fleetIds: ['f'] },
+    { stage: 'medal' as const, fleetIds: ['m'] },
+  ];
+  const competitors = [
+    { id: 'medal-boat', fleetIds: ['f', 'm'] },
+    { id: 'rest', fleetIds: ['f'] },
+  ];
+
+  it('names the medal boats for a companion race', () => {
+    const raceStarts = [{ stage: 'qualifying' as const, firstPlaceOffset: 10 }];
+    expect([...boatsOutsideCompanionRace({ raceStarts, rounds, competitors })]).toEqual([
+      'medal-boat',
+    ]);
+  });
+
+  it('names nobody for an ordinary race, or before the medal fleet exists', () => {
+    expect(
+      boatsOutsideCompanionRace({ raceStarts: [{ stage: 'qualifying' }], rounds, competitors }).size,
+    ).toBe(0);
+    expect(
+      boatsOutsideCompanionRace({
+        raceStarts: [{ stage: 'qualifying', firstPlaceOffset: 10 }],
+        rounds: rounds.slice(0, 1),
+        competitors,
+      }).size,
+    ).toBe(0);
   });
 });

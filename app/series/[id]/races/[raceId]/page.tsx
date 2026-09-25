@@ -23,7 +23,7 @@ import {
 } from '@/hooks/use-finishes';
 import { useRaceStartsByRace, useRaceStartsBySeries } from '@/hooks/use-race-starts';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
-import { stageRaceLabel } from '@/lib/split-fleets';
+import { boatsOutsideCompanionRace, resolveVocabulary, stageRaceLabel } from '@/lib/split-fleets';
 import { competitorsInRace, raceFleetIds } from '@/lib/race-membership';
 import type { Competitor, RaceStart } from '@/lib/types';
 import {
@@ -91,6 +91,21 @@ export default function ResultEntryPage({
   const { data: allSeriesRaces } = useRacesBySeries(seriesId);
   const { data: raceStartsData } = useRaceStartsByRace(raceId);
   const raceStarts = useMemo(() => raceStartsData ?? [], [raceStartsData]);
+  const { has } = useFeatures();
+  const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
+  // A split-fleet companion race is not for the medal boats: they are still
+  // assigned to the fleet it is sailed in, but have left its racing. They are
+  // kept off this sheet's browsable surfaces, and typing one's sail number is
+  // refused with the reason.
+  const outsideRace = useMemo(
+    () =>
+      boatsOutsideCompanionRace({
+        raceStarts,
+        rounds: sfState?.rounds ?? [],
+        competitors: competitors ?? [],
+      }),
+    [raceStarts, sfState, competitors],
+  );
 
   // Scope the browsable surfaces to the boats actually in this race: those in
   // a fleet with a start (timed or membership-only). With no starts recorded
@@ -104,8 +119,12 @@ export default function ResultEntryPage({
   // the finish tab's own Excluded group instead. Exact-sail entry still finds
   // them and offers to include the boat (see useFinishInput below).
   const inRaceCompetitors = useMemo(
-    () => competitorsInRace((competitors ?? []).filter((c) => !c.excluded), raceStarts),
-    [competitors, raceStarts],
+    () =>
+      competitorsInRace(
+        (competitors ?? []).filter((c) => !c.excluded && !outsideRace.has(c.id)),
+        raceStarts,
+      ),
+    [competitors, raceStarts, outsideRace],
   );
   const excludedInRace = useMemo(
     () => competitorsInRace((competitors ?? []).filter((c) => c.excluded), raceStarts),
@@ -148,14 +167,11 @@ export default function ResultEntryPage({
   );
   const { finishingOrder, finishByCompetitorId } = derived;
 
-  const { has } = useFeatures();
-
   // What the redress dialog's pool pickers offer: every series race, named
   // the way the scorer knows it — the stage race and fleet on a split-fleet
   // series ("Q6 Gold"), the race name or number otherwise — with the fleets
   // its starts declared, so the dialog can put the boat's own races first.
   const { data: seriesStarts } = useRaceStartsBySeries(seriesId);
-  const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
   const redressPoolRaces = useMemo<RedressPoolRace[]>(() => {
     const startsByRace = new Map<string, RaceStart[]>();
     for (const s of seriesStarts ?? []) {
@@ -240,6 +256,13 @@ export default function ResultEntryPage({
     competitors: competitors ?? [],
     fleetById,
     raceStarts,
+    notInRace:
+      outsideRace.size > 0 && sfState?.config
+        ? {
+            ids: outsideRace,
+            reason: `is in the ${resolveVocabulary(sfState.config).stages.medal.fleetNoun} — this race is for the boats outside it`,
+          }
+        : undefined,
     derived,
     nonFinishers,
     finishedIds,
