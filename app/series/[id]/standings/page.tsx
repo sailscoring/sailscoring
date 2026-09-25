@@ -19,13 +19,11 @@ import { displayCompetitorLabel, subdivisionAxes } from '@/lib/competitor-fields
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useFeatures } from '@/components/features-provider';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { useIsSpectator } from '@/components/spectator-context';
 import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
-import { PreviewDialog } from '@/components/preview-dialog';
-import { PublishUnscoredNotes, useSeriesPublish } from '@/components/series-publish';
+import { PublishUnscoredNotes } from '@/components/series-publish';
 import { AsPublishedStandings } from '@/components/as-published-standings';
 import { SplitFleetFormat } from '@/components/split-fleet-si';
 import {
@@ -60,23 +58,13 @@ export default function StandingsPage({
   const { can } = useWorkspacePermissions();
   // Publishing is a race-day (score) operation. FTP is a destination within the
   // Publish dialog; its server list is credential-bearing, so it demands
-  // manage-workspace (a subset of scorers). The dialog opens under `p`.
-  const canPublish = can('score');
+  // manage-workspace (a subset of scorers).
   const canScore = can('score');
   const canFtp = has('ftp-upload') && can('manage-workspace');
-  // Preview asks for no permission — anyone looking at a series may see what
-  // its pages would look like. A spectator view is the exception: the reader
-  // arrived from those very pages, and rendering them again from a copy with
-  // no workspace behind it offers a download and a route to Publish that
-  // mean nothing here.
   const spectator = useIsSpectator();
   const updateSeries = useUpdateSeries();
   const saveSubSeries = useSaveSubSeries();
   const updateCompetitorsField = useUpdateCompetitorsField();
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-  // Publish lives in the series header now, reachable from every tab (#620);
-  // this page contributes the unscored-race notes it alone has scored for.
-  const seriesPublish = useSeriesPublish();
   const [showFinaliseDialog, setShowFinaliseDialog] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
@@ -92,16 +80,6 @@ export default function StandingsPage({
   const { data: splitState } = useSplitFleetState(seriesId, {
     enabled: splitFleetsPossible,
   });
-
-  // Publish/preview don't exist for an as-published series (ADR-010): its
-  // pages are published by the archive ingest, and there's nothing to render.
-  const isAsPublished =
-    data.status === 'ready' && (data.series.asPublished ?? false);
-  useShortcuts([
-    ...(!isAsPublished && !spectator
-      ? [{ key: 'x', description: 'Preview results', section: 'Standings', handler: () => setShowPreviewDialog(true) }]
-      : []),
-  ]);
 
   if (
     data.status !== 'ready' ||
@@ -184,28 +162,6 @@ export default function StandingsPage({
           No races yet. Add races and record results to see standings.
           {!spectator && ' Until then, publishing puts up each fleet\u2019s entrants as placeholder standings.'}
         </p>
-        {!spectator && (
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
-              Preview
-            </Button>
-          </div>
-        )}
-        <PreviewDialog
-          series={series}
-          fleets={fleets}
-          open={showPreviewDialog}
-          onClose={() => setShowPreviewDialog(false)}
-          onPublish={
-            canPublish
-              ? () => {
-                  setShowPreviewDialog(false);
-                  seriesPublish?.open();
-                }
-              : undefined
-          }
-          canEditNotes={canScore && !spectator}
-        />
       </div>
     );
   }
@@ -499,11 +455,6 @@ export default function StandingsPage({
               Mark as final
             </Button>
           )}
-          {!spectator && (
-            <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
-              Preview
-            </Button>
-          )}
         </div>
       </div>
 
@@ -595,21 +546,6 @@ export default function StandingsPage({
         </details>
       )}
 
-      <PreviewDialog
-        series={series}
-        fleets={fleets}
-        open={showPreviewDialog}
-        onClose={() => setShowPreviewDialog(false)}
-        onPublish={
-          canPublish
-            ? () => {
-                setShowPreviewDialog(false);
-                seriesPublish?.open();
-              }
-            : undefined
-        }
-        canEditNotes={canScore && !spectator}
-      />
       <PublishUnscoredNotes notes={unscoredRaces} />
       <FinaliseResultsDialog
         series={series}

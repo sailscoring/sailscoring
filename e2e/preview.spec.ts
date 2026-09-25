@@ -95,6 +95,42 @@ test('Preview → Publish opens the Publish dialog', async ({ page }) => {
   await expect(page.locator('iframe')).toHaveCount(0);
 });
 
+test('Preview sits beside Publish on every tab, including the finish sheet', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Header Preview Cup', venue: 'HYC' });
+
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByLabel('Competitor name').fill('Alice Murphy');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: '42' })).toBeVisible();
+
+  // Competitors tab: the header button is there alongside Publish.
+  await expect(page.getByRole('button', { name: 'Publish…' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Preview', exact: true })).toBeVisible();
+
+  // A race's finish sheet: the scorer checks the page without leaving it.
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Preview results' })).toBeVisible();
+  const frame = page.frameLocator('iframe[title="Results preview"]');
+  await expect(frame.getByText('Alice Murphy').first()).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  // The `x` shortcut is the series' own now, so it works here too — once
+  // focus is off the sail-number input, where a keypress is typing.
+  await page.getByRole('heading', { name: 'Header Preview Cup' }).click();
+  await page.keyboard.press('x');
+  await expect(page.getByRole('heading', { name: 'Preview results' })).toBeVisible();
+});
+
 test('Preview fleet selector switches the rendered fleet', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Multi Preview', venue: 'HYC' });
   await createFleets(page, ['Junior', 'Senior']);

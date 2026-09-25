@@ -69,7 +69,8 @@ export default function ReadingAndChecking() {
         </p>
         <p>
           To share results, click{' '}
-          <strong className="text-foreground">Preview</strong> (or press{' '}
+          <strong className="text-foreground">Preview</strong> in the series header, from any tab
+          (or press{' '}
           <strong className="text-foreground">x</strong>) to see the rendered results page in-app —
           exactly what publishing produces. From there you can{' '}
           <strong className="text-foreground">Download</strong> a self-contained file to email or

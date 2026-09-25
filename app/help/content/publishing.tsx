@@ -537,10 +537,10 @@ export default function Publishing() {
           </p>
           <p>
             To print one without publishing, open{' '}
-            <strong className="text-foreground">Preview</strong> on the Standings or Competitors
-            tab, pick Entries, and follow the same link there. On a split-fleet championship the
-            sheet lists the latest round’s fleets, so republish after the morning’s assignment
-            before printing.
+            <strong className="text-foreground">Preview</strong> in the series header, pick
+            Entries, and follow the same link there. On a split-fleet championship the sheet
+            lists the latest round’s fleets, so republish after the morning’s assignment before
+            printing.
           </p>
         </Section>
       )}

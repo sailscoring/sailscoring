@@ -15,8 +15,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ban, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 
 import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
-import { PreviewDialog } from '@/components/preview-dialog';
-import { useSeriesPublish } from '@/components/series-publish';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import {
   MedalSettings,
@@ -60,7 +58,6 @@ import {
   useSaveSplitFleetConfig,
   useSplitFleetState,
 } from '@/hooks/use-split-fleets';
-import { useShortcuts } from '@/hooks/use-keyboard-shortcut';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
 import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
@@ -263,9 +260,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const readOnly = useSeriesReadOnly();
   const { can } = useWorkspacePermissions();
   const qc = useQueryClient();
-  // Publish lives in the series header now, reachable from every tab (#620).
-  const seriesPublish = useSeriesPublish();
-  const [showPreview, setShowPreview] = useState(false);
   const [showFinalise, setShowFinalise] = useState(false);
   // The medal cut, where the championship never bands its fleet and so has no
   // second stage to offer it from. Held here rather than in a section
@@ -279,11 +273,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     qc.invalidateQueries({ queryKey: queryKeys.finishes.bySeries(seriesId) });
   }, [qc, seriesId]);
-
-  // Same keys as the Standings tab this page replaces on split-fleet series.
-  useShortcuts([
-    { key: 'x', description: 'Preview results', section: 'Split Fleets', handler: () => setShowPreview(true) },
-  ]);
 
   if (data.status !== 'ready' || sfState === undefined) {
     return <SeriesTabFallback status={data.status === 'missing' ? 'missing' : 'loading'} />;
@@ -545,7 +534,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         standings={standings}
         splitRound={splitRound}
         enabledFields={data.series.enabledCompetitorFields ?? []}
-        onPreview={() => setShowPreview(true)}
         entryListPublishable={has('entry-list')}
         resultsStatus={
           showResultsStatus
@@ -559,18 +547,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               }
             : undefined
         }
-      />
-      {/* The round fleets are internal — the published output is the
-          championship page + the per-race results page + the assignments
-          page, so both dialogs run in single-default-page mode (empty fleet
-          list) and the build emits the split-fleet pages itself. */}
-      <PreviewDialog
-        series={data.series}
-        fleets={[]}
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-        onPublish={can('score') ? () => { setShowPreview(false); seriesPublish?.open(); } : undefined}
-        canEditNotes={can('score')}
       />
       <FinaliseResultsDialog
         series={data.series}

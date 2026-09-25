@@ -271,8 +271,9 @@ export function SplitFleetsSection() {
         every race as its own tables, one per fleet, ranked the way the racing actually happened
         (the standings page’s race column headings link straight into it), and a rolling{' '}
         <strong className="text-foreground">fleet assignments</strong> page, newest round first,
-        so competitors always know which start they’re in. Preview, publish, and{' '}
-        <strong className="text-foreground">Mark as final</strong> all live on the Split Fleets
+        so competitors always know which start they’re in. Preview and publish sit in the series
+        header as for any series, and{' '}
+        <strong className="text-foreground">Mark as final</strong> lives on the Split Fleets
         tab (the regular Standings tab is hidden for these series).
       </p>
       <p>

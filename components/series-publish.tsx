@@ -18,10 +18,16 @@
  * {@link PublishUnscoredNotes} so the dialog can mark the pages holding them.
  * A tab that contributes nothing leaves the list empty, which is what the
  * Competitors and Split Fleets mounts always passed.
+ *
+ * Preview follows Publish into the header for the same reason: checking what
+ * is about to go out belongs wherever sending it does. It asks for no
+ * permission — anyone looking at a series may see what its pages would look
+ * like — so it has its own availability, wider than Publish's.
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { PreviewDialog } from '@/components/preview-dialog';
 import { PublishDialog, type UnscoredRaceNote } from '@/components/publish-dialog';
 import { Button } from '@/components/ui/button';
 import { useFeatures } from '@/components/features-provider';
@@ -39,6 +45,10 @@ interface SeriesPublishValue {
    *  seed it from no fleets and leave it with nothing to publish. */
   ready: boolean;
   open: () => void;
+  /** Whether this series has pages to preview — false for a spectator view
+   *  and an as-published archive, which leaves the header button off. */
+  previewAvailable: boolean;
+  openPreview: () => void;
   setUnscored: (notes: UnscoredRaceNote[]) => void;
 }
 
@@ -47,11 +57,13 @@ const SeriesPublishContext = createContext<SeriesPublishValue | null>(null);
 export function SeriesPublishProvider({
   series,
   available,
+  previewAvailable,
   isSplitFleetSeries,
   children,
 }: {
   series: Series;
   available: boolean;
+  previewAvailable: boolean;
   /** Whether this is a split-fleet championship — see `dialogFleets`. */
   isSplitFleetSeries: boolean;
   children: React.ReactNode;
@@ -59,6 +71,7 @@ export function SeriesPublishProvider({
   const { has } = useFeatures();
   const { can } = useWorkspacePermissions();
   const [open, setOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [unscored, setUnscored] = useState<UnscoredRaceNote[]>([]);
   const { data: fleets } = useFleetsBySeries(series.id, { enabled: available });
   // The query starts with the series page, long before anyone reaches for
@@ -85,11 +98,25 @@ export function SeriesPublishProvider({
       when: () => available && ready,
       handler: () => setOpen(true),
     },
+    {
+      key: 'x',
+      description: 'Preview results',
+      section: 'Series',
+      when: () => previewAvailable,
+      handler: () => setPreviewOpen(true),
+    },
   ]);
 
   const value = useMemo<SeriesPublishValue>(
-    () => ({ available, ready, open: () => setOpen(true), setUnscored }),
-    [available, ready],
+    () => ({
+      available,
+      ready,
+      open: () => setOpen(true),
+      previewAvailable,
+      openPreview: () => setPreviewOpen(true),
+      setUnscored,
+    }),
+    [available, ready, previewAvailable],
   );
 
   return (
@@ -105,12 +132,28 @@ export function SeriesPublishProvider({
           unscored={unscored}
         />
       )}
+      {previewAvailable && (
+        <PreviewDialog
+          series={series}
+          fleets={dialogFleets}
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          onPublish={
+            available && ready
+              ? () => {
+                  setPreviewOpen(false);
+                  setOpen(true);
+                }
+              : undefined
+          }
+          canEditNotes={can('score')}
+        />
+      )}
     </SeriesPublishContext.Provider>
   );
 }
 
-/** The series-level Publish action, for a page that offers its own route to
- *  it (a Preview dialog's "Publish" button). Null outside a series. */
+/** The series-level Publish and Preview actions. Null outside a series. */
 export function useSeriesPublish(): SeriesPublishValue | null {
   return useContext(SeriesPublishContext);
 }
@@ -155,6 +198,19 @@ export function SeriesPublishButton() {
       title="Publish (p)"
     >
       Publish…
+    </Button>
+  );
+}
+
+/** The Preview button as the series header renders it. */
+export function SeriesPreviewButton() {
+  const publish = useSeriesPublish();
+  const openPreview = publish?.openPreview;
+  const onClick = useCallback(() => openPreview?.(), [openPreview]);
+  if (!publish?.previewAvailable) return null;
+  return (
+    <Button size="sm" variant="outline" onClick={onClick} title="Preview results (x)">
+      Preview
     </Button>
   );
 }

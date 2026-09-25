@@ -12,6 +12,7 @@ import { useConfirm } from '@/components/confirm-dialog';
 import { KeyboardHelp } from '@/components/keyboard-help';
 import { SeriesActionsMenu } from '@/components/series-actions-menu';
 import {
+  SeriesPreviewButton,
   SeriesPublishButton,
   SeriesPublishProvider,
 } from '@/components/series-publish';
@@ -140,6 +141,9 @@ export default function SeriesLayout({
   // publishes nothing — the archive repo is its source — and a spectator view
   // has no workspace behind it to publish into.
   const canPublish = !isSpectator && !asPublished && can('score');
+  // Preview asks for no permission, so it is offered wherever there are pages
+  // to render — which excludes the same two regimes.
+  const canPreview = !isSpectator && !asPublished;
 
   // No description: the dialog's static Global section documents `?` itself.
   // (Ctrl+S save-to-file is bound by SeriesActionsMenu below.)
@@ -181,6 +185,7 @@ export default function SeriesLayout({
     <SeriesPublishProvider
       series={series}
       available={canPublish}
+      previewAvailable={canPreview}
       isSplitFleetSeries={isSplitFleetSeries}
     >
     <div className="space-y-6 max-w-screen-2xl mx-auto">
@@ -224,11 +229,12 @@ export default function SeriesLayout({
               </span>
             )}
           </h1>
-          {/* Publish and the ⋯ menu both act on the series as a whole, so they
+          {/* Preview, Publish and the ⋯ menu all act on the series as a whole, so they
               live in the header and are reachable from every tab — including a
               race's finish sheet, which is where results become worth
-              publishing. Neither applies to a spectator view, which has no
-              workspace behind it. */}
+              publishing. Only Preview applies to a viewer who cannot publish,
+              and none to a spectator view, which has no workspace behind it. */}
+          <SeriesPreviewButton />
           <SeriesPublishButton />
           {!isSpectator && <SeriesActionsMenu series={series} />}
         </div>
