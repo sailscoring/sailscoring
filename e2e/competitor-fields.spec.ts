@@ -77,6 +77,36 @@ test('crew name toggle shows Crew column and exports "Helm / Crew"', async ({ pa
   expect(html).toContain('<th>Boat</th>');
 });
 
+test('adding a competitor keeps the helm when the primary is not the helm', async ({ page }) => {
+  // ── 1. Competitor-primary series with the separate Helm and Crew fields on ─
+  await createSeriesQuick(page, { name: 'Competitor Primary Helm' });
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'Competitor fields' }).locator('..').getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('radio', { name: /^Competitor/ }).click();
+  await page.getByRole('checkbox', { name: 'Helm name' }).check();
+  await page.getByRole('checkbox', { name: 'Crew', exact: true }).check();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // ── 2. Add a competitor with competitor name, helm, and crew ──────────────
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL2020');
+  await page.getByLabel('Competitor name 1').fill('Team Blue');
+  await page.getByLabel('Helm name 1').fill('Jane Doe');
+  await page.getByLabel('Crew 1').fill('Mark Smith');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // ── 3. The row carries all three names ───────────────────────────────────
+  const row = page.getByRole('row').filter({ hasText: 'IRL2020' });
+  await expect(row).toContainText('Team Blue');
+  await expect(row).toContainText('Jane Doe');
+  await expect(row).toContainText('Mark Smith');
+
+  // ── 4. …and so does the edit dialog, so the helm really was stored ───────
+  await row.click();
+  await expect(page.getByLabel('Helm name 1')).toHaveValue('Jane Doe');
+});
+
 test('without the multi-person feature there is no Allow multiple and no add-a-name button', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Single Names Only' });
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();

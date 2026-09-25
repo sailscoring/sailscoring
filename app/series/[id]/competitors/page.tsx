@@ -497,6 +497,10 @@ export default function CompetitorsPage({
         const owners = cleanPersonNames(data.owners);
         return owners ? { owners } : {};
       })(),
+      ...((): { helms?: string[] } => {
+        const helms = cleanPersonNames(data.helms);
+        return helms ? { helms } : {};
+      })(),
       ...((): { crewNames?: string[] } => {
         const crew = cleanPersonNames(data.crewNames);
         return crew ? { crewNames: crew } : {};
