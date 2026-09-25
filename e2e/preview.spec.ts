@@ -279,6 +279,35 @@ test('Preview sub-series: separate sub-series and fleet dropdowns (#231)', async
   await expect(fleetSelect).toHaveText('Entries');
 });
 
+test('Preview labels a fleetless series\' results page "Standings", never "Unknown"', async ({ page, signedInEmail }) => {
+  // A quick series has no fleets, so its boats score in the engine's
+  // synthetic "Unknown" fleet. The entry list gives the picker a second page.
+  await enableFeatures(page, signedInEmail, ['entry-list']);
+  await createSeriesQuick(page, { name: 'Fleetless Preview', venue: 'HYC' });
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByLabel('Competitor name').fill('Alice Murphy');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: '42' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await page.getByLabel('Sail number').fill('42');
+  await page.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  await page.getByRole('link', { name: 'Standings' }).click();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const picker = dialog.getByRole('combobox');
+  await expect(picker).toHaveText('Standings');
+  await picker.click();
+  await expect(page.getByRole('option', { name: 'Standings', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Entries', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Unknown' })).toHaveCount(0);
+});
+
 test('a single-race event previews the race result alone (#347)', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Lambay Race 2026', venue: 'Howth Yacht Club' });
 

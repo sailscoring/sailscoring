@@ -25,6 +25,7 @@ import { ChevronDown } from 'lucide-react';
 import * as repos from '@/lib/api-repository';
 import { loadCourseBackground } from '@/lib/course-cards';
 import { buildFleetHtmlFiles, fleetHtmlFilename, fleetPdfTitle, triggerDownload } from '@/lib/results-export';
+import { isSyntheticFleetName } from '@/lib/publishing';
 import { useFeatures } from '@/components/features-provider';
 import { PageNoteStrip } from '@/components/page-note-editor';
 import { useUpdateSeriesNotes } from '@/hooks/use-series';
@@ -156,6 +157,16 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
     if (target) setSelected(files.indexOf(target));
   };
 
+  // A page named after a synthetic fleet ("Default", "Unknown") is the
+  // series' lone results page; it reads as the publish dialog and the public
+  // pages call it, never by the placeholder name.
+  const pageLabel = (f: FleetHtmlFile) =>
+    isSyntheticFleetName(f.fleetName)
+      ? series.publishDetail === 'races'
+        ? 'Results'
+        : 'Standings'
+      : f.fleetName;
+
   const selectFleet = (fleetName: string) => {
     if (!files) return;
     const target = files.find((f) => inSubSeries(f, currentSubSeries) && f.fleetName === fleetName);
@@ -247,7 +258,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
               <SelectContent>
                 {fleetsInCurrentSubSeries.map((f) => (
                   <SelectItem key={f.fleetName} value={f.fleetName}>
-                    {f.fleetName}
+                    {pageLabel(f)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -288,7 +299,7 @@ export function PreviewDialog({ series, fleets, open, onClose, onPublish, canEdi
               ...(current.isDefault ? { isDefault: true } : {}),
               ...(current.subSeriesName ? { subSeriesName: current.subSeriesName } : {}),
             }}
-            pageLabel={current.fleetName}
+            pageLabel={pageLabel(current)}
             onSave={saveNote}
           />
         )}
