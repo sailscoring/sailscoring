@@ -42,17 +42,18 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await expect(page.locator('#sf-split')).toHaveCount(0);
   await expect(page.locator('#sf-equalization')).toHaveCount(0);
 
-  // Take the preset for this format so the series speaks the wording its
-  // notice of race uses — an opening series and a medal race.
-  await Promise.all([
+  // Set it up the way the notice of race reads: an opening series and a
+  // medal race, the medal race at double points on the undivided score.
+  const saved = () =>
     page.waitForResponse(
       (r) =>
         /\/api\/v1\/series\/[^/]+\/split-fleets$/.test(r.url()) &&
         r.request().method() === 'PUT' &&
         r.ok(),
-    ),
-    page.locator('#sf-format').selectOption('opening-medal-unbanded'),
-  ]);
+    );
+  await Promise.all([saved(), page.locator('#sf-vocabulary').selectOption('opening-medal')]);
+  await Promise.all([saved(), page.getByLabel('Medal races points multiplier').fill('2')]);
+  await Promise.all([saved(), page.getByLabel('First divide the score so far by').uncheck()]);
   // The generated sailing instructions say what the format is, and say
   // nothing about dividing a fleet that is never divided.
   const si = page.getByTestId('sf-si-translation');

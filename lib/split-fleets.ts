@@ -758,20 +758,13 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
   } as SplitFleetConfig;
 }
 
-/** The ILCA regime through 2025: one discard from 4 races, a second from 10,
- *  and a single medal race at double points. Distinct from the 2026 regime
- *  below, and still what rebuilding those years' championships needs. */
-export function ilcaSplitFleetConfig(fleetCount: number): SplitFleetConfig {
-  return defaultSplitFleetConfig(fleetCount);
-}
-
-/** The ILCA regime from 2026 (2026 ILCA 7 Worlds SIs, Dun Laoghaire): the
- *  first discard comes a race earlier, and the finale is two races at single
- *  points added to a halved series score, with ties among the qualified boats
- *  settled on the last race alone (SI 18.4, 18.7.2–18.7.4). */
-export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
+/** What a new split-fleet series starts from: three qualifying fleets, the
+ *  2026 ILCA wording, one discard from three races and a second from ten, and
+ *  a two-race deciding stage at single points on a halved score, with ties
+ *  among the qualified boats settled on the last race alone. */
+export function newSplitFleetConfig(): SplitFleetConfig {
   return {
-    ...defaultSplitFleetConfig(fleetCount),
+    ...defaultSplitFleetConfig(3),
     discardThresholds: [
       { minRaces: 3, discardCount: 1 },
       { minRaces: 10, discardCount: 2 },
@@ -781,19 +774,13 @@ export function ilca2026SplitFleetConfig(fleetCount: number): SplitFleetConfig {
       size: 10,
       raceCount: 2,
       multiplier: 1,
-      // SI 18.7.3 halves the Qualification series score, and SI 18.7.5 (as
-      // Amendment 5 rewrote it) leaves that score undivided if the Final
-      // series never sails.
       carryTransform: {
         kind: 'divide',
         by: 2,
         rounding: 'half-up',
         appliesFrom: 'first-medal-race',
       },
-      // SI 18.7.4: rule A8 replaced outright by the last race.
       tieBreak: 'last-race',
-      // SI 7.7 schedules the boats who miss the Final series one more
-      // Qualification series race, and SI 18.5.3 scores it from 11.
       companionRace: 'scored-below',
     },
   };
@@ -806,58 +793,6 @@ export const UNBANDED_FLEET: { label: string; color: string } = {
   label: 'Fleet',
   color: '#64748b',
 };
-
-/**
- * One fleet, never banded, and a deciding race on top of the opening series.
- *
- * The format the survey records as "single fleet + MR" (49er/FX/Nacra Worlds
- * 2021, 470 Worlds 2021) and that the Irish Sailing Junior Champions' Cup
- * sails every year. Its parameters are that event's: NoR 8.1's opening series
- * and Medal Race, NoR 8.2's top ten, NoR 15.1's one discard from five opening
- * races, NoR 15.2's doubled and non-excludable Medal Race, and NoR 15.3's
- * tie-break.
- *
- * Nobody outside the ten races again, and they are scored nothing for the
- * deciding race rather than DNC. What holds them below the qualified boats is
- * that those boats rank highest whatever the points say, so the deciding race
- * needs to do no work against boats who were never permitted to sail it.
- *
- * The final-stage caps are off because there is no final stage for them to
- * cap, and `equalization` says nothing with one fleet — a race is valid as
- * soon as that fleet has sailed it.
- */
-export function openingSeriesMedalConfig(): SplitFleetConfig {
-  return {
-    ...defaultSplitFleetConfig(1),
-    qualifyingFleets: [UNBANDED_FLEET],
-    finalFleets: [],
-    split: { kind: 'none' },
-    plannedDays: [
-      { label: 'Day 1', races: 5 },
-      { label: 'Day 2', races: 5 },
-    ],
-    discardThresholds: [{ minRaces: 5, discardCount: 1 }],
-    maxFinalDiscards: 0,
-    protectLoneFinalRace: false,
-    medal: {
-      size: 10,
-      raceCount: 1,
-      multiplier: 2,
-      companionRace: 'none',
-      tieBreak: 'medal-race-then-a8',
-    },
-  };
-}
-
-/** The IODA preset: 4 fleets, one discard unlocked at 5 races (never a
- *  second), no medal race. */
-export function iodaSplitFleetConfig(fleetCount: number): SplitFleetConfig {
-  return {
-    ...defaultSplitFleetConfig(fleetCount),
-    discardThresholds: [{ minRaces: 5, discardCount: 1 }],
-    medal: undefined,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Assignment

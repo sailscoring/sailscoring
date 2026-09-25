@@ -1,9 +1,9 @@
 import { describe, test, expect } from 'vitest';
 
-import { ilca2026SplitFleetConfig, openingSeriesMedalConfig } from '@/lib/split-fleets';
+import { ilca2026Config, openingSeriesMedalConfig } from '../fixtures/split-fleet-configs';
 import { splitFleetConfigSchema } from '@/lib/validation/split-fleets';
 
-const BASE = ilca2026SplitFleetConfig(2);
+const BASE = ilca2026Config(2);
 
 describe('race labels', () => {
   test('accepts a config with no labels of its own', () => {

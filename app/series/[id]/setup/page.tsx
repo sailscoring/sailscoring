@@ -26,7 +26,7 @@ import {
   useSaveSplitFleetConfig,
   useSplitFleetState,
 } from '@/hooks/use-split-fleets';
-import { initialSplitFleetConfig } from '@/components/split-fleets-editor';
+import { newSplitFleetConfig } from '@/lib/split-fleets';
 import { BasicsCard } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -170,7 +170,7 @@ function SeriesKindBlock({ seriesId }: { seriesId: string }) {
             checked={isSplitFleet}
             disabled={pending}
             onChange={() => {
-              if (!isSplitFleet) saveConfig.mutate(initialSplitFleetConfig());
+              if (!isSplitFleet) saveConfig.mutate(newSplitFleetConfig());
             }}
             className="mt-0.5"
           />

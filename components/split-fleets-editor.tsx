@@ -11,9 +11,7 @@
 // whole configuration is restated as sailing-instruction prose to check
 // against that document — and reaching a setting, by pointer or by keyboard,
 // marks the sentences that setting writes, so which clause a checkbox governs
-// doesn't have to be discovered by flipping it. Second, a class format is a
-// *filler*: picking one writes the fields below, which stay visible and
-// editable.
+// doesn't have to be discovered by flipping it.
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -25,12 +23,7 @@ import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import {
   QUALIFYING_COLOR_SETS,
   FINAL_FLEET_SET,
-  defaultSplitFleetConfig,
   finalBlockSizes,
-  ilca2026SplitFleetConfig,
-  ilcaSplitFleetConfig,
-  iodaSplitFleetConfig,
-  openingSeriesMedalConfig,
   UNBANDED_FLEET,
   capitaliseStage,
   resolveRaceLabels,
@@ -47,104 +40,6 @@ import {
   type Vocabulary,
   type VocabularyKey,
 } from '@/lib/split-fleets';
-
-export type FormatKey =
-  | 'ilca-2026'
-  | 'ilca-2025'
-  | 'ioda'
-  | 'net-plus-net'
-  | 'rank-seed'
-  | 'opening-medal-unbanded';
-
-/** Known class formats. Each is a complete configuration; picking one fills
- *  every field below, which the scorer then adjusts to match their SIs. */
-const FORMATS: Record<FormatKey, { label: string; build: (fleetCount: number) => SplitFleetConfig }> = {
-  'ilca-2026': {
-    label: 'ILCA World/European Championship (2026 onward)',
-    build: ilca2026SplitFleetConfig,
-  },
-  'ilca-2025': {
-    label: 'ILCA World/European Championship (through 2025)',
-    build: ilcaSplitFleetConfig,
-  },
-  ioda: {
-    label: 'IODA (Optimist) Championship',
-    build: iodaSplitFleetConfig,
-  },
-  'opening-medal-unbanded': {
-    label: 'One fleet, no split, with a deciding race (Champions’ Cup, Junior)',
-    build: openingSeriesMedalConfig,
-  },
-  'net-plus-net': {
-    label: 'Two series added together (29er and similar)',
-    build: (n) => ({
-      ...defaultSplitFleetConfig(n),
-      carry: 'net-plus-net',
-      discardThresholds: [{ minRaces: 3, discardCount: 1 }],
-      medal: undefined,
-    }),
-  },
-  'rank-seed': {
-    label: 'First-stage position carried forward (470, Topper)',
-    build: (n) => ({
-      ...defaultSplitFleetConfig(n),
-      carry: 'rank-seed',
-      discardThresholds: [{ minRaces: 4, discardCount: 1 }],
-      medal: undefined,
-    }),
-  },
-};
-
-/** What a new series starts from, and so what the settings below show first. */
-const INITIAL_FORMAT: FormatKey = 'ilca-2026';
-
-/** The format a series gets when the setup wizard makes it a split-fleet
- *  championship: the current ILCA one, three qualifying fleets. */
-export function initialSplitFleetConfig(): SplitFleetConfig {
-  return FORMATS[INITIAL_FORMAT].build(3);
-}
-
-/**
- * Whether a config is still exactly the class format it was built from.
- *
- * Compared field by field against a freshly built one rather than tracked as
- * "has been edited", so undoing an edit restores the format's name instead of
- * leaving the series marked Custom forever. The fleet count is passed through
- * because it is a choice of its own, not a departure from the format.
- *
- * What the comparison leaves out is everything a format does not decide. A
- * format is how a championship is *scored*; what its notice board writes on
- * the race column, and what the event calls its own fleets, are matters for
- * the event. So the race labels drop out, and the fleets compare on their
- * count alone — a scorer naming the fleets after their class or their sailing
- * instructions has not departed from the format, and being told they have
- * leaves them looking for the setting they are supposed to have changed.
- */
-export function matchesFormat(config: SplitFleetConfig, format: FormatKey): boolean {
-  const built = FORMATS[format].build(config.qualifyingFleets.length);
-  const scoring = ({ raceLabels: _labels, qualifyingFleets, finalFleets, ...rest }: SplitFleetConfig) => ({
-    ...rest,
-    qualifyingFleets: qualifyingFleets.length,
-    finalFleets: finalFleets.length,
-  });
-  return (
-    JSON.stringify(canonical(scoring(built))) === JSON.stringify(canonical(scoring(config)))
-  );
-}
-
-/** Key order varies with how a config was assembled; sort it away. */
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .filter(([, v]) => v !== undefined)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => [k, canonical(v)]),
-    );
-  }
-  return value;
-}
 
 /** Built from the series' vocabulary rather than fixed, like every other
  *  stage word here: "the qualifying series" and "the final series" name
@@ -189,7 +84,6 @@ export function SplitFleetEditor({
   locked?: boolean;
 }) {
   const save = useSaveSplitFleetConfig(seriesId);
-  const [picked, setPicked] = useState<FormatKey>(INITIAL_FORMAT);
   // Which sentences the setting the scorer has reached writes. Hover and
   // focus are held apart so that focus can win: someone tabbing through the
   // fields should see the field they are on, not wherever the pointer came to
@@ -206,14 +100,6 @@ export function SplitFleetEditor({
   // a greyed-out "how boats are divided" invites the scorer to wonder which
   // answer is in force, and none is.
   const unbanded = config.split.kind === 'none';
-  // Which format this *is*, derived rather than remembered. A scorer who
-  // changes a setting and changes it back has the class format again, and
-  // being told otherwise leaves them wondering what else they disturbed. It
-  // also means a series opened later shows the format it matches instead of
-  // whatever the picker happened to default to.
-  const matched = (Object.keys(FORMATS) as FormatKey[]).find((k) => matchesFormat(value, k));
-  const format = matched ?? picked;
-  const customised = matched === undefined;
   const vocab = resolveVocabulary(value);
   // A worked example rather than a description: five races, then the first
   // race of each stage after them. That is where the difference shows — a
@@ -233,11 +119,6 @@ export function SplitFleetEditor({
 
   function patch(p: Partial<SplitFleetConfig>) {
     save.mutate({ ...value, ...p });
-  }
-
-  function pickFormat(next: FormatKey) {
-    setPicked(next);
-    save.mutate(FORMATS[next].build(value.qualifyingFleets.length));
   }
 
   function setFleetCount(n: number) {
@@ -323,28 +204,6 @@ export function SplitFleetEditor({
 
   const fields = (
     <div className="space-y-4">
-      <div className={rowClass}>
-        <label className="font-medium" htmlFor="sf-format">Format</label>
-        <div className="space-y-1">
-          <select
-            id="sf-format"
-            className={selectClass}
-            disabled={!canEdit}
-            value={format}
-            onChange={(e) => pickFormat(e.target.value as FormatKey)}
-          >
-            {(Object.keys(FORMATS) as FormatKey[]).map((k) => (
-              <option key={k} value={k}>{FORMATS[k].label}</option>
-            ))}
-          </select>
-          <p className={hint}>
-            {customised
-              ? `Custom — started from ${FORMATS[format].label}. Every setting below is yours to change.`
-              : 'Fills the settings below. Change any of them to match your sailing instructions.'}
-          </p>
-        </div>
-      </div>
-
       <div className={rowClass}>
         <label className="font-medium" htmlFor="sf-vocabulary">
           What the sailing instructions call the stages

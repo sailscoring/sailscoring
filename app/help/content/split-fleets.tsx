@@ -218,17 +218,15 @@ export function SplitFleetsSection() {
         scored for that race: it is a score for a race they were not permitted to sail.
       </p>
       <p>
-        Choosing a split-fleet championship in the setup wizard writes an initial format and
-        shortens setup to the entry list — the fleets are created by the assignment ceremonies
-        and the scoring rules live in the tab’s{' '}
+        Choosing a split-fleet championship in the setup wizard writes an initial configuration
+        and shortens setup to the entry list — the fleets are created by the assignment
+        ceremonies and the scoring rules live in the tab’s{' '}
         <strong className="text-foreground">Format</strong> section, which is open until the
-        first round is assigned and holds the whole configuration from then on. Start from a
-        class format —
-        ILCA, IODA, and the two-series and carried-position models, with ILCA offered per era
-        since the class rewrote its format for 2026 — which fills every setting; then read{' '}
+        first round is assigned and holds the whole configuration from then on. Set it up from
+        the scoring section of your sailing instructions, then read{' '}
         <strong className="text-foreground">How this configuration translates to sailing
-        instructions</strong>, which restates your settings as SI prose, against the scoring
-        section of the sailing instructions you were given. Where a sentence disagrees, change
+        instructions</strong>, which restates your settings as SI prose, against that section.
+        Where a sentence disagrees, change
         the setting.
       </p>
       <p>

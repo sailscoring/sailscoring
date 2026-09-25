@@ -9,13 +9,8 @@ import { describe, it, expect } from 'vitest';
 
 import { describeSplitFleetConfig, SENTENCES_BY_SETTING } from '@/lib/split-fleets-si';
 import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
-import {
-  defaultSplitFleetConfig,
-  ilca2026SplitFleetConfig,
-  iodaSplitFleetConfig,
-  openingSeriesMedalConfig,
-  type SplitFleetConfig,
-} from '@/lib/split-fleets';
+import { defaultSplitFleetConfig, type SplitFleetConfig } from '@/lib/split-fleets';
+import { ilca2026Config, iodaConfig, openingSeriesMedalConfig } from './fixtures/split-fleet-configs';
 
 const joined = (config: SplitFleetConfig) =>
   describeSplitFleetConfig(config)
@@ -61,13 +56,13 @@ describe('describeSplitFleetConfig', () => {
       'races in the qualifying series will be numbered Q1, Q2 and so on; races in the ' +
         'final series, F1, F2 and so on; races in the medal races, M1, M2 and so on',
     );
-    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+    expect(joined(ilca2026Config(3))).toContain(
       'races in the Preliminary series and the Elimination series will be numbered Q1, ' +
         'Q2 and so on, continuing through both; races in the Final series, F1, F2 and so on',
     );
     expect(
       joined({
-        ...ilca2026SplitFleetConfig(2),
+        ...ilca2026Config(2),
         raceLabels: {
           prefixes: { qualifying: 'QP', final: 'QE', medal: 'F' },
           continuousOpeningNumbers: false,
@@ -88,14 +83,14 @@ describe('describeSplitFleetConfig', () => {
       'the boats that do not qualify for it will sail one more final series race in their own fleets, ' +
         'in which the first Gold boat will be scored 11 points, the second 12, and so on',
     );
-    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+    expect(joined(ilca2026Config(3))).toContain(
       'the boats that do not qualify for it will sail one more Elimination series race in their own fleets, ' +
         'in which the first Gold boat will be scored 11 points, the second 12, and so on',
     );
     expect(
       joined({
-        ...ilca2026SplitFleetConfig(3),
-        medal: { ...ilca2026SplitFleetConfig(3).medal!, companionRace: 'none' },
+        ...ilca2026Config(3),
+        medal: { ...ilca2026Config(3).medal!, companionRace: 'none' },
       }),
     ).toContain(
       'the boats that do not qualify for it will sail one more Elimination series race in their own fleets.',
@@ -119,11 +114,11 @@ describe('describeSplitFleetConfig', () => {
     expect(joined(defaultSplitFleetConfig(3))).toContain(
       'The boats qualified to compete in the medal races will be ranked highest in the event.',
     );
-    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+    expect(joined(ilca2026Config(3))).toContain(
       'The boats qualified to compete in the Final series will be ranked highest in the event.',
     );
     // No deciding stage, no sentence.
-    expect(joined(iodaSplitFleetConfig(4))).not.toContain('ranked highest');
+    expect(joined(iodaConfig(4))).not.toContain('ranked highest');
   });
 
   it('says the boats who miss the cut do not race again, where there is no race for them', () => {
@@ -138,8 +133,8 @@ describe('describeSplitFleetConfig', () => {
     );
     expect(
       joined({
-        ...ilca2026SplitFleetConfig(3),
-        medal: { ...ilca2026SplitFleetConfig(3).medal!, companionRace: 'none' },
+        ...ilca2026Config(3),
+        medal: { ...ilca2026Config(3).medal!, companionRace: 'none' },
       }),
     ).toContain('will sail one more Elimination series race in their own fleets');
   });
@@ -175,11 +170,11 @@ describe('describeSplitFleetConfig', () => {
     // 2026 ILCA SI 18.7.5 as Amendment 5 rewrote it. The other reading needs
     // no sentence: a score divided before the series stands unless something
     // says otherwise.
-    expect(joined(ilca2026SplitFleetConfig(3))).toContain(
+    expect(joined(ilca2026Config(3))).toContain(
       'If no Final series race is completed, her Qualification series score will decide the ' +
         'championship without being divided.',
     );
-    const standing = ilca2026SplitFleetConfig(3);
+    const standing = ilca2026Config(3);
     expect(
       joined({
         ...standing,
@@ -192,7 +187,7 @@ describe('describeSplitFleetConfig', () => {
   });
 
   it('drops the medal sentence when there is no medal race', () => {
-    const text = joined(iodaSplitFleetConfig(4));
+    const text = joined(iodaConfig(4));
     expect(text).not.toContain('medal race');
     // No third stage, so no umbrella term to distinguish it from either.
     expect(text).toContain('sailed as a qualifying series followed by a final series');
@@ -246,8 +241,8 @@ describe('sentence ids', () => {
   // Enough configurations between them to reach every branch of the prose.
   const configs: SplitFleetConfig[] = [
     defaultSplitFleetConfig(3),
-    ilca2026SplitFleetConfig(3),
-    iodaSplitFleetConfig(4),
+    ilca2026Config(3),
+    iodaConfig(4),
     { ...defaultSplitFleetConfig(2), carry: 'net-plus-net' },
     { ...defaultSplitFleetConfig(2), carry: 'rank-seed' },
     { ...defaultSplitFleetConfig(2), maxFinalDiscards: 0 },
