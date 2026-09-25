@@ -155,14 +155,14 @@ describe('buildFleetHtmlFiles — races nobody has sailed', () => {
     expect(html).toContain('>R2<');
   });
 
-  it('publishes nothing when every race is unsailed', async () => {
-    // The same window as a series before race one: there is no result to
-    // show, and without the entry list opted in there is no page either.
-    expect(await buildFleetHtmlFiles(makeRepos([]), 's1')).toBeNull();
-    const withEntries = await buildFleetHtmlFiles(makeRepos([]), 's1', undefined, {
-      includeEntryList: true,
-    });
-    expect(withEntries!.files.map((f) => f.fleetName)).toEqual(['Entries']);
+  it('publishes placeholder standings when every race is unsailed', async () => {
+    // The same window as a series before race one: no race column, no rank,
+    // just the entrants and a line saying nothing has been sailed.
+    const html = await standingsHtml(makeRepos([]));
+    expect(html).not.toContain('>R1<');
+    expect(html).not.toContain('<th>Rank</th>');
+    expect(html).not.toContain('<th>Total</th>');
+    expect(html).toContain('No races have been sailed yet.');
   });
 
   it('leaves it out of the data file published beside the pages', async () => {

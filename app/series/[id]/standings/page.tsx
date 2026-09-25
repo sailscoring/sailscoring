@@ -174,40 +174,38 @@ export default function StandingsPage({
   }
 
   if (races.length === 0) {
-    // No standings to show, but the entry list (#423) is publishable in exactly
-    // this window — before race one, when an event most wants its roster up.
-    // Publish and Preview stay reachable for that page alone.
-    const canPublishEntryList = has('entry-list');
+    // No standings to show yet, but the pages are publishable in exactly this
+    // window — before race one, when an event most wants its results link up:
+    // each fleet page as a placeholder listing its entrants, and the entry
+    // list where the workspace has it.
     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
           No races yet. Add races and record results to see standings.
-          {canPublishEntryList && ' The competitor list can be published now.'}
+          {!spectator && ' Until then, publishing puts up each fleet\u2019s entrants as placeholder standings.'}
         </p>
-        {canPublishEntryList && (
-          <>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
-                Preview
-              </Button>
-            </div>
-            <PreviewDialog
-              series={series}
-              fleets={fleets}
-              open={showPreviewDialog}
-              onClose={() => setShowPreviewDialog(false)}
-              onPublish={
-                canPublish
-                  ? () => {
-                      setShowPreviewDialog(false);
-                      seriesPublish?.open();
-                    }
-                  : undefined
-              }
-              canEditNotes={canScore && !spectator}
-            />
-          </>
+        {!spectator && (
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => setShowPreviewDialog(true)} title="Preview results (x)">
+              Preview
+            </Button>
+          </div>
         )}
+        <PreviewDialog
+          series={series}
+          fleets={fleets}
+          open={showPreviewDialog}
+          onClose={() => setShowPreviewDialog(false)}
+          onPublish={
+            canPublish
+              ? () => {
+                  setShowPreviewDialog(false);
+                  seriesPublish?.open();
+                }
+              : undefined
+          }
+          canEditNotes={canScore && !spectator}
+        />
       </div>
     );
   }

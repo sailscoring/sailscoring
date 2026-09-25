@@ -645,9 +645,12 @@ export async function buildFleetHtmlFiles(
     features: { prizes: !!opts?.includePrizes, entryList: !!opts?.includeEntryList },
   });
   const publishes = (kind: PublishPageKind): boolean => pages.some((p) => p.kind === kind);
-  if (snapshot.races.length === 0) {
-    // Before race one there are no results to render, but the entry list is
-    // exactly what an event wants published in that window.
+  // Before race one a fleet page publishes as a placeholder — its entrants,
+  // unranked — so the results link can go live with the event rather than
+  // after the first race. A championship has no such page: its standings are
+  // tiered by a split that has not happened, so it keeps to the entry list.
+  const noRacesSailed = snapshot.races.length === 0;
+  if (noRacesSailed && isChampionship) {
     return publishes('entries')
       ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)] }
       : null;
@@ -1364,6 +1367,9 @@ export async function buildFleetHtmlFiles(
       series.excludeDncOnlyCompetitors ?? false,
       series.proportionalDiscard,
     );
+    // With nothing sailed, no block has a race to its name and each would be
+    // skipped; the placeholder is the whole series' entrants instead.
+    if (noRacesSailed) renderViewWithGroups(fleetResults, races);
     for (const block of blockResults) {
       if (block.races.length === 0) continue;
       const renumbered = block.races.map((r, i) => ({ ...r, raceNumber: i + 1 }));
@@ -1375,7 +1381,9 @@ export async function buildFleetHtmlFiles(
 
   // The prize sheet (#240) closes the page list: one series-wide page,
   // allocated from the whole-series standings (also on a block series).
-  if (publishes('prizes')) {
+  // Nobody has won anything before a race is sailed; allocating off an
+  // all-zero table would name arbitrary boats as prizewinners.
+  if (publishes('prizes') && !noRacesSailed) {
     const axes = series.subdivisionAxes ?? [];
     const allocations = allocatePrizes(series.prizes!, fleetResults, axes);
     results.push({

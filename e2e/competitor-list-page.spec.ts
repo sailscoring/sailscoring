@@ -49,7 +49,7 @@ test('the competitor list publishes before any race is sailed', async ({ page, s
 
   // ── 4. Standings has nothing to show, but says the list can go up ────────
   await page.getByRole('link', { name: 'Standings' }).click();
-  await expect(page.getByText('The competitor list can be published now.')).toBeVisible();
+  await expect(page.getByText(/publishing puts up each fleet’s entrants as placeholder standings/)).toBeVisible();
 
   // ── 5. Publish it ────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Publish' }).click();
@@ -58,8 +58,7 @@ test('the competitor list publishes before any race is sailed', async ({ page, s
   await expect(dialog.getByLabel('URL for Entries')).toHaveValue('entries');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  // The only live page is the entry list, so it gets exactly one row: the
-  // dialog's lone-results-page line is left out when there are no results.
+  // The entry list gets exactly one row, beside the placeholder standings.
   const link = dialog.getByRole('link', { name: /\/entries$/ });
   await expect(link).toHaveCount(1);
   await expect(link).toBeVisible();
@@ -296,7 +295,7 @@ test('the competitor list tables a two-system class with its ratings', async ({ 
 
   // ── 3. Publish the entry list ────────────────────────────────────────────
   await page.getByRole('link', { name: 'Standings' }).click();
-  await expect(page.getByText('The competitor list can be published now.')).toBeVisible();
+  await expect(page.getByText(/publishing puts up each fleet’s entrants as placeholder standings/)).toBeVisible();
   await page.getByRole('button', { name: 'Publish' }).click();
   const dialog = page.getByRole('dialog', { name: 'Publish results' });
   await expect(dialog).toBeVisible();

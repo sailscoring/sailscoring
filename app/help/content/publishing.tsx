@@ -41,6 +41,14 @@ export default function Publishing() {
           pages are read-only and need no sign-in to view.
         </p>
         <p>
+          <strong className="text-foreground">Before the first race:</strong> you can publish as
+          soon as the entrants are in, so the results link can go in the sailing instructions or
+          on the noticeboard before racing starts. Until a race is sailed each fleet page is a
+          placeholder: its entrants in sail-number order, with no ranks or totals and a line
+          saying no races have been sailed yet. Re-publish after the first race and the same URL
+          carries the standings.
+        </p>
+        <p>
           <strong className="text-foreground">Choosing fleets and URLs:</strong> the dialog lists
           every fleet with a checkbox — only the ticked fleets are published or updated when you
           click Publish. Untick a fleet you’re still working on to leave it out this round; if

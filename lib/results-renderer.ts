@@ -1991,12 +1991,22 @@ function renderSummaryTable(
   const { hasDiscards, showBowNumber, showEntryNumber, showTallyNumber, showBoatName, showBoatClass, showHelm, showOwner, pairCrew, showCrewColumn, showClub, showNationality, showWorldSailingId, visibleSubdivisionAxes: subdivisionAxes, showAge, showGender, primaryHeader, helmHeader, ownerHeader, crewHeader, summaryRatingSystem: ratingSystem } = view;
   const hasSeedCol = ratingSystem !== null;
   const seedHeader = ratingSystem === 'nhc' ? 'NHC1' : (ratingSystem === 'echo' ? 'ECHO' : '');
+  // Before the first race is sailed the table is a placeholder: the fleet's
+  // entrants, with nothing to rank them by. Every boat is on 0 points, so a
+  // Rank or Total column would read as a tie for first; both go, and the rows
+  // run in sail-number order, the order a reader scans an entry list in.
+  const placeholder = races.length === 0;
+  if (placeholder) {
+    standings = [...standings].sort((a, b) => compareSailNumbers(a.sailNumber, b.sailNumber));
+  }
+  const showRank = !placeholder;
+  const showTotal = !placeholder;
   const extraCols = (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showCrewColumn ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
-  // rank + sail [+ bow] [+ entry] [+ tally] [+ boat] [+ class] + primary [+ helm] [+ owner] [+ club] [+ nat] [+ wsid] [+ subdivision] [+ age] [+ gender] [+ seed] + races + total [+ nett]
-  const colCount = 3 + extraCols + (hasSeedCol ? 1 : 0) + races.length + (hasDiscards ? 2 : 1);
+  // [rank +] sail [+ bow] [+ entry] [+ tally] [+ boat] [+ class] + primary [+ helm] [+ owner] [+ crew] [+ club] [+ nat] [+ wsid] [+ subdivision] [+ age] [+ gender] [+ seed] + races [+ total [+ nett]]
+  const colCount = (showRank ? 1 : 0) + 2 + extraCols + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? (hasDiscards ? 2 : 1) : 0);
 
   const cols = [
-    '<col class="rank" />',
+    ...(showRank ? ['<col class="rank" />'] : []),
     '<col class="sailno" />',
     ...(showBowNumber ? ['<col class="bowno" />'] : []),
     ...(showEntryNumber ? ['<col class="entryno" />'] : []),
@@ -2015,12 +2025,12 @@ function renderSummaryTable(
     ...(showGender ? ['<col class="gender" />'] : []),
     ...(hasSeedCol ? ['<col class="seedrating" />'] : []),
     ...races.map(() => '<col class="race" />'),
-    '<col class="total" />',
-    ...(hasDiscards ? ['<col class="nett" />'] : []),
+    ...(showTotal ? ['<col class="total" />'] : []),
+    ...(showTotal && hasDiscards ? ['<col class="nett" />'] : []),
   ].join('\n');
 
   const headerCells = [
-    '<th>Rank</th>',
+    ...(showRank ? ['<th>Rank</th>'] : []),
     '<th>Sail Number</th>',
     ...(showBowNumber ? ['<th>Bow</th>'] : []),
     ...(showEntryNumber ? ['<th>Entry</th>'] : []),
@@ -2052,8 +2062,8 @@ function renderSummaryTable(
         ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a>${esc(marks)}</th>`
         : `<th${titleAttr}>${esc(r.label)}${esc(marks)}</th>`;
     }),
-    '<th>Total</th>',
-    ...(hasDiscards ? ['<th>Nett</th>'] : []),
+    ...(showTotal ? ['<th>Total</th>'] : []),
+    ...(showTotal && hasDiscards ? ['<th>Nett</th>'] : []),
   ].join('\n');
 
   const rows = standings
@@ -2087,7 +2097,7 @@ function renderSummaryTable(
 
       return [
         `<tr class="${rowClass} summaryrow">`,
-        `<td>${ordinal(s.rank)}</td>`,
+        ...(showRank ? [`<td>${ordinal(s.rank)}</td>`] : []),
         `<td>${esc(s.sailNumber)}</td>`,
         ...(showBowNumber ? [`<td>${esc(s.bowNumber ?? '')}</td>`] : []),
         ...(showEntryNumber ? [`<td>${esc(s.entryNumber ?? '')}</td>`] : []),
@@ -2106,8 +2116,8 @@ function renderSummaryTable(
         ...(showGender ? [`<td>${esc(s.gender ?? '')}</td>`] : []),
         ...(hasSeedCol ? [seedCell] : []),
         scoreCells,
-        `<td>${formatPoints(s.totalPoints)}</td>`,
-        ...(hasDiscards ? [`<td>${formatPoints(s.netPoints)}</td>`] : []),
+        ...(showTotal ? [`<td>${formatPoints(s.totalPoints)}</td>`] : []),
+        ...(showTotal && hasDiscards ? [`<td>${formatPoints(s.netPoints)}</td>`] : []),
         `</tr>`,
       ].join('\n');
     })
@@ -2132,6 +2142,9 @@ function renderSummaryTable(
   // race deserves better than a column that looks abandoned, and the sentence
   // is also what tells them the standings are not yet the whole story.
   const notScoredLegend = notYetScoredLegend(standings, races);
+  const placeholderNote = placeholder
+    ? '\n<p class="raceoptions">No races have been sailed yet. Standings will appear here once the first race is scored.</p>'
+    : '';
 
   return `<div class="tablewrap"><table class="summarytable" cellspacing="0" cellpadding="0" border="0">
 <colgroup span="${colCount}">
@@ -2145,7 +2158,7 @@ ${headerCells}
 <tbody>
 ${rows}
 </tbody>
-</table></div>${optionsLegend}${labelsLegend ? `\n${labelsLegend}` : ''}${notScoredLegend ? `\n${notScoredLegend}` : ''}`;
+</table></div>${optionsLegend}${labelsLegend ? `\n${labelsLegend}` : ''}${notScoredLegend ? `\n${notScoredLegend}` : ''}${placeholderNote}`;
 }
 
 // ---- Race detail table ----

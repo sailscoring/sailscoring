@@ -259,7 +259,7 @@ describe('where the manifest is knowingly approximate', () => {
     expect(await builtPageNames(shape)).not.toContain('Race results');
   });
 
-  it('lists results pages the build drops before the first race', async () => {
+  it('agrees with the manifest before the first race, the fleet pages publishing as placeholders', async () => {
     const shape = SHAPES['several fleets'];
     const repos = {
       ...makeRepos(shape),
@@ -270,8 +270,7 @@ describe('where the manifest is knowingly approximate', () => {
       includePrizes: true,
       includeEntryList: true,
     });
-    expect(build!.files.map((f) => f.fleetName)).toEqual(['Entries']);
-    expect(declaredPageNames(shape)).toContain('Scratch');
+    expect(build!.files.map((f) => f.fleetName)).toEqual(declaredPageNames(shape));
   });
 
   it('grows an Unknown page for competitors in no fleet, which the manifest cannot see', async () => {

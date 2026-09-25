@@ -100,16 +100,19 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
       includeEntryList: true,
     });
     expect(files).not.toBeNull();
-    expect(files!.map((f) => f.fleetName)).toEqual(['Entries']);
-    expect(files![0].isEntryList).toBe(true);
-    expect(files![0].html).toContain('Competitor List');
-    expect(files![0].html).toContain('T0001');
+    // After the fleets' placeholder pages, as once racing starts.
+    expect(files!.map((f) => f.fleetName)).toEqual(['Red', 'Blue', 'Entries']);
+    const entries = files![2];
+    expect(entries.isEntryList).toBe(true);
+    expect(entries.html).toContain('Competitor List');
+    expect(entries.html).toContain('T0001');
   });
 
-  it('still publishes nothing for a raceless series when not asked for it', async () => {
+  it('leaves the entry list off a raceless series when not asked for it', async () => {
     // The FTP path relies on this: its per-fleet path mapping has no slot for
     // a page that isn't a fleet's.
-    expect(await buildFleetFiles(makeRepos([], []), 's1')).toBeNull();
+    const files = await buildFleetFiles(makeRepos([], []), 's1');
+    expect(files!.map((f) => f.fleetName)).toEqual(['Red', 'Blue']);
   });
 
   it('appends the entry list after the results pages once racing starts', async () => {
@@ -130,7 +133,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
       includeEntryList: true,
     });
-    const html = files![0].html;
+    const html = files!.find((f) => f.isEntryList)!.html;
     // Red is displayOrder 0, so 201 (Red) precedes 101 (Blue) despite the
     // sail-number order and the order the competitors were listed in.
     expect(html.indexOf('201')).toBeLessThan(html.indexOf('101'));
@@ -141,7 +144,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
       includeEntryList: true,
     });
-    const html = files![0].html;
+    const html = files!.find((f) => f.isEntryList)!.html;
     // Red and Blue share no boat, so each is its own start and its own table.
     expect(html).toContain('>Red</th>');
     expect(html).toContain('>Blue</th>');
@@ -153,7 +156,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
       includeEntryList: true,
     });
-    const html = files![0].html;
+    const html = files!.find((f) => f.isEntryList)!.html;
     // Blank space at the end of every listed boat's row: where the number a
     // boat actually turned up under gets written.
     expect(html).toContain('<td class="sail">201</td><td class="write"></td>');
@@ -170,7 +173,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
       includeEntryList: true,
     });
-    const html = files![0].html;
+    const html = files!.find((f) => f.isEntryList)!.html;
     // The sheet says which series it is for, and leaves the rest to the
     // recorder: the entry list cannot know which race day it is printed for.
     expect(html).toContain('<span class="startersfor">Worlds — Dun Laoghaire</span>');
@@ -268,7 +271,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         ],
       },
     } as unknown as ExportRepos;
-    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))!.find((f) => f.isEntryList)!.html;
     // Cell-scoped: the page's own script legitimately says "preventDefault".
     expect(html).not.toContain('<td>Default');
     expect(html).toContain('<td>Blue</td>');
@@ -298,7 +301,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         ],
       },
     } as unknown as ExportRepos;
-    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))!.find((f) => f.isEntryList)!.html;
     expect(html).toContain('<td>Blue</td>');
     expect(html).toContain('<td>Yellow</td>');
     expect(html).not.toContain('Yellow, Blue');
@@ -318,7 +321,7 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
         listBySeries: async () => [competitor('c1', '101', ['f-default'])],
       },
     } as unknown as ExportRepos;
-    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+    const html = (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))!.find((f) => f.isEntryList)!.html;
     expect(html).not.toContain('<th>Fleet</th>');
   });
 
@@ -370,7 +373,7 @@ function hycRepos(fleets = HYC_FLEETS, competitors = HYC_BOATS): ExportRepos {
 }
 
 const entryList = async (repos: ExportRepos): Promise<string> =>
-  (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))![0].html;
+  (await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true }))!.find((f) => f.isEntryList)!.html;
 
 describe('the competitor list of a class scored under two systems', () => {
   it('gives each class its own table, headed and counted', async () => {
