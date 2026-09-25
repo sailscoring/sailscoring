@@ -15,6 +15,7 @@
 import { escapeHtml as esc } from './html';
 import { kebab } from './publishing';
 import {
+  folderSoleContributor,
   interiorFolderLabels,
   leafLabel,
   pagesInFolder,
@@ -373,7 +374,7 @@ export function workspaceIndexEvents(
         publishedAt: it.publishedAt,
         season,
         pages: fp.map((p) => ({
-          label: leafLabel(p, fp, sole),
+          label: leafLabel(p, fp, folderSoleContributor(fp, sole)),
           href: `${base}/${p.subPath}`,
         })),
       });

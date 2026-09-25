@@ -399,6 +399,44 @@ describe('buildTreeNav', () => {
     ]);
   });
 
+  it('event folder of a shared season slug: a lone contributor reads as its standings', () => {
+    // Several series publish into the season slug, one per event folder; the
+    // folder already names the event, so the synthetic fleet reads as
+    // "Standings" rather than as the series' name.
+    const pages: TreePage[] = [
+      { fleetName: 'Unknown', subPath: 'northerns/standings', ownerName: '2026 Northerns', ownerSingle: true },
+      { fleetName: 'Unknown', subPath: 'september-sprint/standings', ownerName: 'M15 September Sprint 2026', ownerSingle: true },
+      { fleetName: 'Entries', subPath: 'september-sprint/entries', ownerName: 'M15 September Sprint 2026', ownerSingle: true, isEntryList: true },
+    ];
+    const { leaf } = buildTreeNav({
+      workspaceSlug: 'm15',
+      seasonTree: liveSeasonTree,
+      currentSlug: '2026',
+      pages,
+      soleContributor: false,
+      currentFolder: 'september-sprint',
+      currentSubPath: 'september-sprint/standings',
+    });
+    expect(leaf?.options.map((o) => o.label)).toEqual(['Standings', 'Entries']);
+  });
+
+  it('event folder shared by several series keeps telling their pages apart', () => {
+    const pages: TreePage[] = [
+      { fleetName: 'Unknown', subPath: 'regatta/cruisers', ownerName: 'Cruisers', ownerSingle: true },
+      { fleetName: 'Unknown', subPath: 'regatta/one-designs', ownerName: 'One Designs', ownerSingle: true },
+    ];
+    const { leaf } = buildTreeNav({
+      workspaceSlug: 'm15',
+      seasonTree: liveSeasonTree,
+      currentSlug: '2026',
+      pages,
+      soleContributor: false,
+      currentFolder: 'regatta',
+      currentSubPath: 'regatta/cruisers',
+    });
+    expect(leaf?.options.map((o) => o.label)).toEqual(['Cruisers', 'One Designs']);
+  });
+
   it('root-level page: the slug children are the sibling set', () => {
     const pages: TreePage[] = [
       { fleetName: 'Unknown', subPath: 'standings', ownerName: 'Cruisers', ownerSingle: true },
@@ -555,6 +593,22 @@ describe('renderFolderIndexHtml', () => {
     expect(html).toContain('href="/p/hyc/2025/autumn-league/class-2-irc"');
     expect(html).toContain('<a href="/p/hyc/2025">&larr; 2025</a>');
     expect(html).toContain('<title>Autumn League — 2025</title>');
+  });
+
+  it('labels a lone contributor\'s synthetic page "Standings" on a shared slug', () => {
+    const html = renderFolderIndexHtml({
+      workspaceSlug: 'm15',
+      slug: '2026',
+      folder: { segment: 'september-sprint', label: 'September Sprint' },
+      pages: [
+        { fleetName: 'Unknown', subPath: 'september-sprint/standings', ownerName: 'M15 September Sprint 2026', ownerSingle: true },
+        { fleetName: 'Entries', subPath: 'september-sprint/entries', ownerName: 'M15 September Sprint 2026', ownerSingle: true, isEntryList: true },
+      ],
+      soleContributor: false,
+      slugTitle: '2026',
+    });
+    expect(html).toContain('>Standings<');
+    expect(html).not.toContain('>M15 September Sprint 2026<');
   });
 
   it('escapes folder labels and page labels', () => {

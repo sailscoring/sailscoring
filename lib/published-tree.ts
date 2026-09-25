@@ -164,6 +164,20 @@ export function pagesInFolder(pages: TreePage[], segment: string): TreePage[] {
   return pages.filter((p) => folderSegmentOf(p.subPath) === segment);
 }
 
+/** Whether one series contributes every page of an interior folder. A folder
+ *  names its event, so a lone contributor's standings there read as
+ *  "Standings" even when other series share the slug — the season slug
+ *  every event of a year publishes under. Orphaned pages have no owner to
+ *  compare, so they never make a folder single-owner. */
+export function folderSoleContributor(
+  folderPages: TreePage[],
+  slugSoleContributor: boolean,
+): boolean {
+  if (slugSoleContributor) return true;
+  const owners = new Set(folderPages.map((p) => p.ownerName ?? null));
+  return owners.size === 1 && !owners.has(null);
+}
+
 function baseLeafLabel(page: TreePage, soleContributor: boolean): string {
   if (keepsItsName(page)) return page.fleetName;
   // A synthetic name is never shown: such a page is its publication's (or
@@ -423,10 +437,11 @@ export function buildTreeNav(position: TreeNavPosition): {
   if (children.options.length >= 2) selects.push(children);
   const folderPages = pagesInFolder(pages, currentFolder);
   if (currentSubPath === undefined) return { selects, leaf: null };
+  const folderSole = folderSoleContributor(folderPages, soleContributor);
   const leaf: NavLevel = {
     aria: 'Results page',
     options: folderPages.map((p) => ({
-      label: leafLabel(p, folderPages, soleContributor),
+      label: leafLabel(p, folderPages, folderSole),
       href: `${slugBase}/${p.subPath}`,
       current: p.subPath === currentSubPath,
     })),
@@ -502,7 +517,8 @@ export function renderFolderIndexHtml(opts: {
   logoUrl?: string;
   nav?: string;
 }): string {
-  const { workspaceSlug, slug, folder, pages, soleContributor } = opts;
+  const { workspaceSlug, slug, folder, pages } = opts;
+  const soleContributor = folderSoleContributor(pages, opts.soleContributor);
   const rows = pages
     .map((p) => {
       const label = leafLabel(p, pages, soleContributor);
