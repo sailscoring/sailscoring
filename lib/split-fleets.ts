@@ -888,6 +888,10 @@ export interface CellScore {
   /** The race's own points multiplier (`Race.pointsMultiplier`), where it
    *  is not 1. Already applied to `points`. */
   raceWeight?: number;
+  /** The race's own discard policy (`Race.discardPolicy`), where it is not
+   *  normal. A must-count race is never discarded and does not advance the
+   *  discard ladder; a discard-first race is taken before any other. */
+  discardPolicy?: 'mustCount' | 'discardFirst';
 }
 
 export interface SplitStandingRow {
@@ -1058,23 +1062,35 @@ function discardCount(config: SplitFleetConfig, countedRaces: number): number {
 }
 
 /** Apply the discard ladder over a row's cells. Medal cells are never
- *  discardable and do not count toward the thresholds (2024 ILCA SI 18.6). At
- *  most `MAX_FINAL_DISCARDS` may fall on final-series cells, and a lone
- *  completed final race is protected (ILCA: "if only one Final series race is
- *  completed it will not be excluded"). Ties in badness discard the earliest
- *  race (RRS A2.1). Mutates cell.discarded. */
+ *  discardable and do not count toward the thresholds (2024 ILCA SI 18.6),
+ *  and nor does a race the scorer marked must-count: a race the ladder can
+ *  never reach is not one of the races it counts, which is how sailing
+ *  instructions that protect a stage's races put it ("in the Qualifying
+ *  series, … when five or more races have been completed"). At most `MAX_FINAL_DISCARDS` may fall on final-series
+ *  cells, and a lone completed final race is protected (ILCA: "if only one
+ *  Final series race is completed it will not be excluded"). Races marked
+ *  discard-first go before any other, in race order; the rest go worst
+ *  first, and ties in badness discard the earliest race (RRS A2.1). Mutates
+ *  cell.discarded. */
 function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
   const counting = cells.filter((c) => c.counts);
-  const thresholdRaces = counting.filter((c) => c.stage !== 'medal').length;
+  const thresholdRaces = counting.filter(
+    (c) => c.stage !== 'medal' && c.discardPolicy !== 'mustCount',
+  ).length;
   const n = discardCount(config, thresholdRaces);
   const finalCells = counting.filter((c) => c.stage === 'final');
   const loneFinalProtected = finalCells.length === 1;
   const order: SeriesStage[] = ['qualifying', 'final', 'medal'];
   const raceKey = (c: CellScore) => order.indexOf(c.stage) * 1000 + c.stageRaceNumber;
   let finalDiscards = 0;
+  const first = (c: CellScore) => c.discardPolicy === 'discardFirst';
   const candidates = counting
     .filter((c) => c.discardable && c.stage !== 'medal')
-    .sort((a, b) => b.points - a.points || raceKey(a) - raceKey(b));
+    .sort(
+      (a, b) =>
+        Number(first(b)) - Number(first(a)) ||
+        (first(a) ? raceKey(a) - raceKey(b) : b.points - a.points || raceKey(a) - raceKey(b)),
+    );
   let applied = 0;
   for (const c of candidates) {
     if (applied >= n) break;
@@ -1167,9 +1183,12 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
             // qualifying: only valid logical races count; final/medal races
             // count as soon as they're completed
             counts: qualifying ? lr.valid : physicalRaceCompleted(ref, competitors, data.finishes),
-            discardable: stage !== 'medal',
+            discardable: stage !== 'medal' && ref.race.discardPolicy !== 'mustCount',
             discarded: false,
             rdg: sc.rdg,
+            ...(ref.race.discardPolicy && ref.race.discardPolicy !== 'normal'
+              ? { discardPolicy: ref.race.discardPolicy }
+              : {}),
             // A medal race is weighted by the medal settings, which say so
             // for every medal race at once; a race's own multiplier would
             // weight it a second time.

@@ -533,6 +533,40 @@ describe('splitFleetStandings', () => {
       const rows = splitFleetStandings(data);
       expect(row(rows, 'c1').cells.find((c) => c.stage === 'final')!.points).toBe(2);
     });
+
+    const LADDER = [
+      { minRaces: 5, discardCount: 1 },
+      { minRaces: 10, discardCount: 2 },
+    ];
+
+    it('never discards a must-count race, nor counts it toward the ladder', () => {
+      // Eight qualifying races and two final races make ten, which would
+      // unlock a second discard; must-count final races are not among the
+      // races the ladder counts, so one discard it stays.
+      const rows = splitFleetStandings(
+        splitData({ qualifying: 8, finals: 2, finalRace: { discardPolicy: 'mustCount' }, thresholds: LADDER }),
+      );
+      const c1 = row(rows, 'c1');
+      expect(c1.cells.filter((c) => c.discarded)).toHaveLength(1);
+      expect(c1.cells.filter((c) => c.stage === 'final').every((c) => !c.discarded && !c.discardable)).toBe(true);
+      // c1: eight 1s, two 2s in Gold. Nothing to discard but a 1 or a 2 —
+      // and the 2s are protected.
+      expect(c1.net).toBe(7 + 4);
+    });
+
+    it('counts ordinary final races toward the ladder, as before', () => {
+      const rows = splitFleetStandings(splitData({ qualifying: 8, finals: 2, thresholds: LADDER }));
+      expect(row(rows, 'c1').cells.filter((c) => c.discarded)).toHaveLength(2);
+    });
+
+    it('discards a discard-first race before any other', () => {
+      const data = splitData({ qualifying: 5, thresholds: LADDER });
+      // c2 was last in Q1 (3 points) and 2nd elsewhere; Q2 marked discard-first.
+      data.races = data.races.map((r) => (r.id === 'q2' ? { ...r, discardPolicy: 'discardFirst' } : r));
+      const rows = splitFleetStandings(data);
+      const discarded = row(rows, 'c2').cells.filter((c) => c.discarded);
+      expect(discarded.map((c) => c.stageRaceNumber)).toEqual([2]);
+    });
   });
 
   it('scores per-fleet places from one combined sheet (sequenced starts)', () => {
