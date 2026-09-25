@@ -50,6 +50,10 @@ export interface FixtureStageRace {
   n: number;
   /** fleet name → ordered finish list; tokens are "sail" or "sail CODE". */
   results: Record<string, string[]>;
+  /** The race's own scoring options, set on every fleet's race of this
+   *  stage race — what the scorer sets in the race's scoring options. */
+  pointsMultiplier?: number;
+  discardPolicy?: 'mustCount' | 'discardFirst';
 }
 
 /**
@@ -383,6 +387,8 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
           id: raceId, seriesId: 's', raceNumber: races.length + 1,
           name: `${stageRaceLabel(config, st, r.n)} ${name}`,
           date: '2020-01-01', createdAt: createdAt++,
+          ...(r.pointsMultiplier != null ? { pointsMultiplier: r.pointsMultiplier } : {}),
+          ...(r.discardPolicy ? { discardPolicy: r.discardPolicy } : {}),
         });
         raceStarts.push({
           id: `start:${raceId}`, raceId, fleetIds: [fid(name)],

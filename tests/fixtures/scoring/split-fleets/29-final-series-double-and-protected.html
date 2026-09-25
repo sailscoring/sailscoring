@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>F1: one qualifying fleet split into Gold and Silver, whose final series races score double and may not be excluded — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>F1: one qualifying fleet split into Gold and Silver, whose final series races score double and may not be excluded</h1>
+<p style="color:#555;">Melges 15 2026 — Melges 15 Sprint Championships, Royal St George YC, Dublin Bay (SI 15.2-15.3) &middot; <strong>F1</strong> &middot; D6 &middot; SI (<code>reference-docs:events/melges15-sprint-2026/SI-v1.0.md</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">1 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 5, 2 discards from race 10.</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">A sprint event: one fleet sails a Qualifying series of up to 12 races, then
+splits by qualifying rank into Gold (the top half, rounded up) and Silver,
+and each sails two final series races with its own starts. SI 15.2 excludes
+one score from five Qualifying series races and two from ten.
+
+SI 15.3 (v1.0) halves every boat's qualifying net into a carried score and
+adds the final series races to it. Scored here as the reading put to the
+organiser: the final series races score double and may not be excluded,
+which ranks every boat exactly as the exact halving does, at twice the
+points (m1: 10 / 2 + 3 + 2 = 10, here 20; m3: 19 / 2 + 1 + 1 = 11.5, here
+23). Gold ranks above Silver. Each final series race carries the scorer's
+race scoring options: ×2 and must count.
+
+The Qualifying series is cut short at 8 races (SI 15.2: &quot;may be cut short to
+ensure there is enough time&quot;), so every boat has one discard. Eight
+qualifying races and two final races make ten, the count at which SI 15.2(c)
+would give a second discard; the must-count final races are not among the
+races the ladder counts, so the second never arrives. Were it counted, m1
+would lose a further 2.
+
+Five boats split 3 / 2: Gold takes the odd boat. m5 misses Silver's F2 and
+is scored DNC on her own fleet's base, 2 + 1 = 3, doubled to 6.</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">Fleet: m1, m2, m3, m4, m5</span></td></tr>
+<tr><td>Final split</td><td>split (qualifying ranking)</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: m1, m2, m3</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: m4, m5</span></td></tr>
+</tbody>
+</table>
+<h2>Gold fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q5</th><th>Q6</th><th>Q7</th><th>Q8</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">m1</td>
+  <td>Helm M1</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">(2)</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">6</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">4</td>
+  <td style="text-align:right">22</td>
+  <td style="text-align:right;font-weight:bold">20</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">m3</td>
+  <td>Helm M3</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">(4)</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">2</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">2</td>
+  <td style="text-align:right">27</td>
+  <td style="text-align:right;font-weight:bold">23</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">m2</td>
+  <td>Helm M2</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">(3)</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">4</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">6</td>
+  <td style="text-align:right">27</td>
+  <td style="text-align:right;font-weight:bold">24</td>
+</tr>
+</tbody>
+</table>
+<h2>Silver fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q5</th><th>Q6</th><th>Q7</th><th>Q8</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>4</td>
+  <td class="mono">m4</td>
+  <td>Helm M4</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">(5)</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">4</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">2</td>
+  <td style="text-align:right">36</td>
+  <td style="text-align:right;font-weight:bold">31</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">m5</td>
+  <td>Helm M5</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">(6 DNC)</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">2</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">6 DNC</td>
+  <td style="text-align:right">47</td>
+  <td style="text-align:right;font-weight:bold">41</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

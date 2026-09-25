@@ -1,0 +1,97 @@
+description: "F1: one qualifying fleet split into Gold and Silver, whose final series races score double and may not be excluded"
+provenance:
+  class: "Melges 15"
+  year: 2026
+  event: "Melges 15 Sprint Championships, Royal St George YC, Dublin Bay (SI 15.2-15.3)"
+  si: "reference-docs:events/melges15-sprint-2026/SI-v1.0.md"
+  code: F1
+  scenarios: [D6]
+runnable: true
+notes: |
+  A sprint event: one fleet sails a Qualifying series of up to 12 races, then
+  splits by qualifying rank into Gold (the top half, rounded up) and Silver,
+  and each sails two final series races with its own starts. SI 15.2 excludes
+  one score from five Qualifying series races and two from ten.
+
+  SI 15.3 (v1.0) halves every boat's qualifying net into a carried score and
+  adds the final series races to it. Scored here as the reading put to the
+  organiser: the final series races score double and may not be excluded,
+  which ranks every boat exactly as the exact halving does, at twice the
+  points (m1: 10 / 2 + 3 + 2 = 10, here 20; m3: 19 / 2 + 1 + 1 = 11.5, here
+  23). Gold ranks above Silver. Each final series race carries the scorer's
+  race scoring options: ×2 and must count.
+
+  The Qualifying series is cut short at 8 races (SI 15.2: "may be cut short to
+  ensure there is enough time"), so every boat has one discard. Eight
+  qualifying races and two final races make ten, the count at which SI 15.2(c)
+  would give a second discard; the must-count final races are not among the
+  races the ladder counts, so the second never arrives. Were it counted, m1
+  would lose a further 2.
+
+  Five boats split 3 / 2: Gold takes the odd boat. m5 misses Silver's F2 and
+  is scored DNC on her own fleet's base, 2 + 1 = 3, doubled to 6.
+
+config:
+  qualifyingFleets: [Fleet]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 1
+    - minRaces: 10
+      discardCount: 2
+
+competitors:
+  - "m1 Helm M1"
+  - "m2 Helm M2"
+  - "m3 Helm M3"
+  - "m4 Helm M4"
+  - "m5 Helm M5"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Fleet: [m1, m2, m3, m4, m5]
+    races:
+      - { n: 1, results: { Fleet: [m1, m2, m3, m4, m5] } }
+      - { n: 2, results: { Fleet: [m2, m1, m3, m5, m4] } }
+      - { n: 3, results: { Fleet: [m1, m3, m2, m4, m5] } }
+      - { n: 4, results: { Fleet: [m3, m1, m2, m5, m4] } }
+      - { n: 5, results: { Fleet: [m1, m2, m4, m3, m5] } }
+      - { n: 6, results: { Fleet: [m2, m1, m3, m4, m5] } }
+      - { n: 7, results: { Fleet: [m1, m2, m3, m4, m5] } }
+      - { n: 8, results: { Fleet: [m4, m1, m2, m3] } }      # m5 absent: DNC = 5 + 1
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [m1, m2, m3]
+      Silver: [m4, m5]
+    races:
+      - n: 1
+        pointsMultiplier: 2
+        discardPolicy: mustCount
+        results:
+          Gold: [m3, m2, m1]
+          Silver: [m5, m4]
+      - n: 2
+        pointsMultiplier: 2
+        discardPolicy: mustCount
+        results:
+          Gold: [m3, m1, m2]
+          Silver: [m4]                  # m5 absent: DNC = 2 + 1, doubled
+
+expected:
+  standings:
+    # Qualifying (8 races, one discard) + F1 + F2, each doubled.
+    # m1: 1 2 1 2 1 2 1 2 = 12, discard a 2 -> 10;  F 6 + 4
+    # m2: 2 1 3 3 2 1 2 3 = 17, discard a 3 -> 14;  F 4 + 6
+    # m3: 3 3 2 1 4 3 3 4 = 23, discard a 4 -> 19;  F 2 + 2
+    # m4: 4 5 4 5 3 4 4 1 = 30, discard a 5 -> 25;  F 4 + 2
+    # m5: 5 4 5 4 5 5 5 6 = 39, discard the 6 -> 33; F 2 + 6
+    - { rank: 1, sail: m1, total: 22, net: 20, fleet: Gold }
+    - { rank: 2, sail: m3, total: 27, net: 23, fleet: Gold }
+    - { rank: 3, sail: m2, total: 27, net: 24, fleet: Gold }
+    - { rank: 4, sail: m4, total: 36, net: 31, fleet: Silver }
+    - { rank: 5, sail: m5, total: 47, net: 41, fleet: Silver }
