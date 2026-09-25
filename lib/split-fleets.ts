@@ -519,6 +519,28 @@ export const UNBANDED_FLEET: { label: string; color: string } = {
   color: '#64748b',
 };
 
+/**
+ * A fleet list resized to `n`: the fleets the scorer already has keep their
+ * names and colours, and new ones take the palette's next. The one exception
+ * is the lone neutral fleet a championship starts with, which is a single
+ * fleet's placeholder rather than the first of several: going to two or more
+ * replaces it with the palette's first entries, and going back to one gives
+ * it back.
+ */
+export function resizeFleets(
+  fleets: readonly { label: string; color: string }[],
+  n: number,
+  palette: readonly { label: string; color: string }[],
+): { label: string; color: string }[] {
+  if (n === 1 && fleets.length !== 1) return [UNBANDED_FLEET];
+  const placeholder =
+    fleets.length === 1 &&
+    fleets[0].label === UNBANDED_FLEET.label &&
+    fleets[0].color === UNBANDED_FLEET.color;
+  const kept = placeholder && n > 1 ? [] : fleets.slice(0, n);
+  return [...kept, ...palette.slice(kept.length, n)];
+}
+
 // ---------------------------------------------------------------------------
 // Assignment
 

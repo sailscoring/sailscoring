@@ -8,6 +8,8 @@ import {
   stageRaceLabel,
   defaultSplitFleetConfig,
   boatsOutsideCompanionRace,
+  resizeFleets,
+  UNBANDED_FLEET,
   finishSheetsInUse,
   finalBlockSizes,
   logicalRaces,
@@ -1319,5 +1321,33 @@ describe('boatsOutsideCompanionRace', () => {
         competitors,
       }).size,
     ).toBe(0);
+  });
+});
+
+describe('resizeFleets', () => {
+  const palette = [
+    { label: 'Yellow', color: '#y' },
+    { label: 'Blue', color: '#b' },
+    { label: 'Red', color: '#r' },
+  ];
+
+  it('replaces the lone neutral fleet rather than keeping it as the first of two', () => {
+    expect(resizeFleets([UNBANDED_FLEET], 2, palette).map((f) => f.label)).toEqual([
+      'Yellow',
+      'Blue',
+    ]);
+  });
+
+  it('keeps fleets the scorer named, and adds from the palette', () => {
+    const named = [
+      { label: 'Alpha', color: '#a' },
+      { label: 'Bravo', color: '#b2' },
+    ];
+    expect(resizeFleets(named, 3, palette).map((f) => f.label)).toEqual(['Alpha', 'Bravo', 'Red']);
+    expect(resizeFleets(named, 2, palette)).toEqual(named);
+  });
+
+  it('gives back the neutral fleet when going down to one', () => {
+    expect(resizeFleets(palette.slice(0, 2), 1, palette)).toEqual([UNBANDED_FLEET]);
   });
 });

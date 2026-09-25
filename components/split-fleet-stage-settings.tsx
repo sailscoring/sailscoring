@@ -21,10 +21,10 @@ import {
   capitaliseStage,
   FINAL_FLEET_SET,
   QUALIFYING_COLOR_SETS,
+  resizeFleets,
   resolveVocabulary,
   stageAdjective,
   stageRaceLabel,
-  UNBANDED_FLEET,
   VOCABULARY_OPTIONS,
   type SplitFleetConfig,
   type VocabularyKey,
@@ -304,14 +304,7 @@ function FleetsControl({
         className={selectClass}
         disabled={!canEdit || locked}
         value={fleets.length}
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          onChange(
-            n === 1 && min === 1 && fleets.length > 1
-              ? [UNBANDED_FLEET]
-              : Array.from({ length: n }, (_, i) => fleets[i] ?? palette[i] ?? palette[0]),
-          );
-        }}
+        onChange={(e) => onChange(resizeFleets(fleets, Number(e.target.value), palette))}
       >
         {counts.map((n) => (
           <option key={n} value={n}>
@@ -621,18 +614,11 @@ export function Stage1Settings({
             <FleetsControl
               id="sf-fleet-count"
               fleets={fleets}
-              palette={fleets.length === 1 ? [UNBANDED_FLEET, ...QUALIFYING_COLOR_SETS] : QUALIFYING_COLOR_SETS}
+              palette={QUALIFYING_COLOR_SETS}
               min={1}
               locked={locks.qualifyingFleets}
               canEdit={canEdit}
-              onChange={(qualifyingFleets) =>
-                patch({
-                  qualifyingFleets:
-                    qualifyingFleets.length > 1 && fleets.length === 1
-                      ? QUALIFYING_COLOR_SETS.slice(0, qualifyingFleets.length)
-                      : qualifyingFleets,
-                })
-              }
+              onChange={(qualifyingFleets) => patch({ qualifyingFleets })}
             />
           </Row>
           {error && <p className="text-destructive">{error}</p>}

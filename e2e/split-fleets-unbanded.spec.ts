@@ -50,6 +50,14 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
     page.getByRole('button', { name: 'Divide into a qualifying series and a final series' }),
   ).toBeVisible();
   await expect(page.getByText('Elimination series')).toHaveCount(0);
+  // A second fleet deals the one fleet into two coloured ones, rather than
+  // keeping the lone fleet's neutral placeholder as the first of them — and
+  // going back to one gives the placeholder back.
+  await page.locator('#sf-fleet-count').selectOption('2');
+  await expect(page.getByLabel('Name of fleet 1')).toHaveValue('Yellow');
+  await expect(page.getByLabel('Name of fleet 2')).toHaveValue('Blue');
+  await page.locator('#sf-fleet-count').selectOption('1');
+  await expect(page.getByLabel('Name of fleet 1')).toHaveCount(0);
   await showStageSettings(page, 'Opening series', false);
 
   // The generated sailing instructions say what the format is, and say
