@@ -56,6 +56,8 @@
     "user-stats": "tsx --env-file-if-exists=.env.local scripts/user-stats.ts",
     "user-stats:test": "./scripts/local-env.sh --local-db tsx scripts/user-stats.ts",
     "user-stats:prod": "./scripts/prod-env.sh tsx scripts/user-stats.ts",
+    "split-fleet-survey:test": "./scripts/local-env.sh --local-db tsx scripts/split-fleet-survey.ts",
+    "split-fleet-survey:prod": "./scripts/prod-env.sh tsx scripts/split-fleet-survey.ts",
     "republish": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/republish.ts",
     "republish:test": "./scripts/local-env.sh --local-db tsx --conditions=react-server --env-file-if-exists=.env.test scripts/republish.ts",
     "republish:prod": "./scripts/prod-env.sh tsx --conditions=react-server scripts/republish.ts",
