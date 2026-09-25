@@ -323,9 +323,11 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
 
   const nextAction = computeNextAction(sfData, sfState.config, qualifyingRounds, splitRound, medalRound, fleetMeta);
   const w = words(sfState.config);
-  // The second stage runs on past the medal cut: the companion race is sailed
-  // alongside the medal races, so it is done only when they are.
-  const secondStageDone = !!medalRound && medalPhaseComplete(sfData, medalRound);
+  // Whether the racing is over is the scorer's call, made by declaring the
+  // results final: the medal races can be entered before the companion race
+  // the rest sail alongside them. The cards stay open until then.
+  const medalDone = !!medalRound && medalPhaseComplete(sfData, medalRound);
+  const secondStageDone = medalDone;
   // What the settings may still change, given what has been sailed.
   const locks: StageLocks = {
     words: raceStarts.some((s) => s.stage),
@@ -355,8 +357,8 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         {unbanded ? (
           <StageSection
             title={w.title('qualifying')}
-            status={qualifyingRounds.length === 0 ? 'Not started' : medalRound ? 'Complete' : 'In progress'}
-            defaultOpen={!medalRound}
+            status={qualifyingRounds.length === 0 ? 'Not started' : medalDone ? 'Complete' : 'In progress'}
+            defaultOpen={!isFinal}
           >
             <QualifyingSection
               seriesId={seriesId}
@@ -364,15 +366,22 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               fleetMeta={fleetMeta}
               rounds={qualifyingRounds}
               split={false}
+              medalSelected={medalRound !== null}
               canManage={canManage}
             />
-            <OpeningSettings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
+            <OpeningSettings
+              seriesId={seriesId}
+              config={sfState.config}
+              locks={locks}
+              canEdit={canManage}
+              medalSelected={medalRound !== null}
+            />
           </StageSection>
         ) : (
           <StageSection
             title={capitaliseStage(w.series)}
             status={secondStageDone ? 'Complete' : qualifyingRounds.length ? 'In progress' : 'Not started'}
-            defaultOpen={!secondStageDone}
+            defaultOpen={!isFinal}
           >
             <OpeningSettings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
             <StageSection
@@ -392,6 +401,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
                 fleetMeta={fleetMeta}
                 rounds={qualifyingRounds}
                 split={splitRound !== null}
+                medalSelected={false}
                 canManage={canManage}
               />
               <Stage1Settings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
@@ -401,7 +411,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               status={splitRound ? (secondStageDone ? 'Complete' : 'In progress') : 'Not started'}
               // Open while it is being raced, and while the championship is
               // still being set up and every card's settings are in play.
-              defaultOpen={(!!splitRound && !secondStageDone) || qualifyingRounds.length === 0}
+              defaultOpen={(!!splitRound && !isFinal) || qualifyingRounds.length === 0}
             >
               {splitRound ? (
                 <FinalSection
@@ -442,11 +452,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           // Open while it is the stage the scorer is working in — which,
           // where the fleet is never divided, includes before the cut is made:
           // there is no second stage holding their attention instead.
-          defaultOpen={
-            medalRound
-              ? !medalPhaseComplete(sfData, medalRound)
-              : unbanded || qualifyingRounds.length === 0
-          }
+          defaultOpen={medalRound ? !isFinal : unbanded || qualifyingRounds.length === 0}
         >
           {medalRound ? (
             <MedalSection
@@ -617,6 +623,7 @@ function QualifyingSection({
   fleetMeta,
   rounds,
   split,
+  medalSelected,
   canManage,
 }: {
   seriesId: string;
@@ -624,6 +631,10 @@ function QualifyingSection({
   fleetMeta: Map<string, FleetMeta>;
   rounds: SplitRound[];
   split: boolean;
+  /** The medal fleet is selected: in a championship that never divides, the
+   *  next race of the opening series is the one more race the boats who
+   *  missed the cut sail. */
+  medalSelected: boolean;
   canManage: boolean;
 }) {
   const unbanded = data.config.split.kind === 'none';
@@ -771,12 +782,14 @@ function QualifyingSection({
                   })
                 }
               >
-                Add race {raceLabel(data, 'qualifying', nextStageRace)}
+                {medalSelected
+                  ? `Add companion race ${raceLabel(data, 'qualifying', nextStageRace)}`
+                  : `Add race ${raceLabel(data, 'qualifying', nextStageRace)}`}
               </Button>
               {currentRound && currentRound.fleetIds.length > 1 && (
                 <SheetLayoutChoice value={sheets} onChange={setSheets} />
               )}
-              {!unbanded && (
+              {!unbanded && !medalSelected && (
                 <Button onClick={() => setDialog('split')} disabled={validCount === 0}>
                   End the {words(data.config).qualifying.name} → split fleets
                 </Button>
@@ -1955,7 +1968,7 @@ function MedalSelectDialog({
       title={`Select the ${w.medal.fleetNoun}`}
       description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); ${
         stops
-          ? 'everyone else has finished racing and is not scored for it'
+          ? `everyone else has no score for it, and any one more race of the ${w.qualifying.name} they sail scores from ${size + 1}`
           : `everyone else stays in their fleet and sails its remaining races, ${goldLabel}'s scored from ${size + 1}`
       }. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
@@ -2044,7 +2057,7 @@ function MedalSection({
         {words(data.config).title('medal')} score ×{medalConfig.multiplier} and cannot be
         discarded.{' '}
         {data.config.split.kind === 'none'
-          ? 'The boats who missed the cut do not race again, and are not scored for this race. They rank below these boats whatever the points say.'
+          ? `The boats who missed the cut are not scored for this race, and rank below these boats whatever the points say. If the sailing instructions give them one more race, add it from the ${words(data.config).qualifying.name} card as the companion race: it scores from ${medalConfig.size + 1}.`
           : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section. In the fleet they left it scores from ${medalConfig.size + 1} — first finisher ${medalConfig.size + 1}, second ${medalConfig.size + 2}, and so on — since that many boats are elsewhere; the other fleets score it from 1.`}
       </p>
       {round.fleetIds.map((fid, i) => {

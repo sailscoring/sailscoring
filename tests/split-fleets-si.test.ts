@@ -87,11 +87,13 @@ describe('describeSplitFleetConfig', () => {
     );
   });
 
-  it('says the boats who miss the cut do not race again, where there is no race for them', () => {
-    // With no second stage there is no race to hold them, and saying there
-    // is promises racing nobody will sail.
+  it('says how the boats who miss the cut are scored where the fleet is never divided', () => {
+    // No medal-race score, and any one more race of the opening series they
+    // sail is scored below the medal fleet.
     expect(joined(openingSeriesMedalConfig())).toContain(
-      'the boats that do not qualify for it will not race again, and will have no score for the medal race',
+      'the boats that do not qualify for it will have no score for the medal race, and in any one ' +
+        'more opening series race they sail the first of them will be scored 11 points, the ' +
+        'second 12, and so on',
     );
   });
 

@@ -333,11 +333,15 @@ export function OpeningSettings({
   config,
   locks,
   canEdit,
+  medalSelected = false,
 }: {
   seriesId: string;
   config: SplitFleetConfig;
   locks: StageLocks;
   canEdit: boolean;
+  /** The medal fleet is selected, so an undivided series' next race is the
+   *  companion race. */
+  medalSelected?: boolean;
 }) {
   const { patch, error } = useSave(seriesId, config);
   const vocab = resolveVocabulary(config);
@@ -366,6 +370,11 @@ export function OpeningSettings({
               `A race counts only once every fleet has sailed it.`,
               `Boats keep the fleet they are first assigned to.`,
             ]),
+        ...(medalSelected
+          ? [
+              `A race added now is the companion race for the boats outside the ${vocab.stages.medal.fleetNoun}, scored from ${config.medal.size + 1}.`,
+            ]
+          : []),
       ];
 
   return (

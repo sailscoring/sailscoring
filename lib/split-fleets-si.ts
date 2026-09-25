@@ -213,7 +213,7 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
   // scored below the medal fleet (2026 ILCA SI 7.7 and 18.5.3); where it is
   // not, no further racing at all.
   const rest = unbanded
-    ? `; the boats that do not qualify for it will not race again, and will have no score for the ${vocab.stages.medal.raceNoun}`
+    ? `; the boats that do not qualify for it will have no score for the ${vocab.stages.medal.raceNoun}, and in any one more ${vocab.stages.qualifying.raceNoun} they sail the first of them will be scored ${medal.size + 1} points, the second ${medal.size + 2}, and so on`
     : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets, in which the first ${topFleet} boat will be scored ${medal.size + 1} points, the second ${medal.size + 2}, and so on`;
   push(
     'medal',

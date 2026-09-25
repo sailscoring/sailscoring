@@ -686,11 +686,13 @@ export async function addStageRaces(
   const config = normalizeSplitFleetConfig(seriesRow.qfConfig as Partial<SplitFleetConfig>);
 
   // The boats who missed the medal fleet sail one more race of their own
-  // final fleet, scored below the medal fleet: its finishers are offset by
-  // the boats who left *that* fleet — a fleet nobody left is scored from 1
-  // like any other race of the stage.
+  // fleet — of the final series, or of the opening series where it is never
+  // divided — scored below the medal fleet: its finishers are offset by the
+  // boats who left *that* fleet, and a fleet nobody left is scored from 1
+  // like any other race of the stage. A race of the stage added before the
+  // medal fleet exists is an ordinary one.
   const [medalRound] =
-    roundRow.stage === 'final'
+    roundRow.stage !== 'medal'
       ? await db
           .select({ fleetIds: schema.splitRounds.fleetIds })
           .from(schema.splitRounds)

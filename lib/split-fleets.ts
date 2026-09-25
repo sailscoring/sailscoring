@@ -1128,8 +1128,13 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
           // size still sets the score base. It does mean she stops sailing
           // that fleet's races: where the SIs give the boats who missed the
           // medal fleet one more race of their own (2026 ILCA SI 7.7), the
-          // medal boats are absent from it, not DNC in it.
-          stage === 'final' ? medalMembers : null,
+          // medal boats are absent from it, not DNC in it. A championship
+          // that never divides its fleet sails that race in its opening
+          // series, and it is the opening-series race whose start carries
+          // the companion offset: every earlier one was sailed by everyone.
+          stage === 'final' || (stage === 'qualifying' && (ref.start.firstPlaceOffset ?? 0) > 0)
+            ? medalMembers
+            : null,
         );
         for (const [competitorId, sc] of scores) {
           const row = rowByCompetitor.get(competitorId);

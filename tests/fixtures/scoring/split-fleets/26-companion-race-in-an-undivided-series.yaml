@@ -1,0 +1,88 @@
+description: "One fleet, never divided, and one more opening race for the boats who miss the medal cut, scored below the medal fleet"
+provenance:
+  class: "Melges 15"
+  year: 2026
+  event: "Sprint championship format under discussion: one fleet, a medal race, and a race for the rest"
+  si: ""
+  results: ""
+  code: F2
+  scenarios: []
+  alternatives: "The ILCA companion race (fixture 17) is the same race sailed in a divided championship's final series."
+runnable: true
+notes: |
+  Fixture 25's championship, with one change: the boats who miss the medal
+  cut sail one more race of the opening series while the medal fleet sails
+  the medal race. It is the ILCA companion race in a championship that never
+  divides its fleet.
+
+  The medal boats have left the fleet's racing, so they are absent from Q6
+  rather than scored DNC in it. The race is scored below them: three boats
+  went to the medal race, so its first finisher scores 4, the second 5, and
+  so on. Otherwise it is an ordinary opening race, so it reaches the discard
+  ladder.
+
+    s4   4 4 4 4 4 + Q6 4   -> 24, one dropped: 20
+    s5   5 5 5 5 5 + Q6 5   -> 30, one dropped: 25
+    s6   6 6 6 6 6 + Q6 6   -> 36, one dropped: 30
+
+  The medal boats score exactly as in fixture 25.
+
+config:
+  qualifyingFleets: [Fleet]
+  discardThresholds: [{ minRaces: 5, discardCount: 1 }]
+  medal:
+    size: 3
+    multiplier: 2
+    tieBreak: medal-race-then-a8
+
+competitors:
+  - "s1 Helm One"
+  - "s2 Helm Two"
+  - "s3 Helm Three"
+  - "s4 Helm Four"
+  - "s5 Helm Five"
+  - "s6 Helm Six"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Fleet: [s1, s2, s3, s4, s5, s6]
+    races:
+      - n: 1
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 2
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 3
+        results:
+          Fleet: [s2, s1, s3, s4, s5, s6]
+      - n: 4
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 5
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 6
+        results:
+          Fleet: [s4, s5, s6]   # the companion race: 4, 5, 6
+
+  - stage: medal
+    from: 1
+    medalAfter: 5
+    fleets:
+      Medal: [s1, s2, s3]
+    races:
+      - n: 1
+        results:
+          Medal: [s2, s1, s3]
+
+expected:
+  standings:
+    - { rank: 1, sail: s1, total: 10, net: 8, medal: true }
+    - { rank: 2, sail: s2, total: 11, net: 9, medal: true }
+    - { rank: 3, sail: s3, total: 21, net: 18, medal: true }
+    - { rank: 4, sail: s4, total: 24, net: 20, medal: false }
+    - { rank: 5, sail: s5, total: 30, net: 25, medal: false }
+    - { rank: 6, sail: s6, total: 36, net: 30, medal: false }

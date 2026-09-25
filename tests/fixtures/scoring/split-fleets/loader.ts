@@ -226,7 +226,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
   // ordinary race of their own final fleet, scored below the medal fleet: a
   // fleet's finishers are offset by however many of its own boats left for
   // the medal fleet — so the top fleet's, and nobody else's. `medalAfter` is what says which
-  // final races come after the cut: everything later than it is that race.
+  // races come after the cut: everything later than it is that race.
   const medalCutAfter = fx.stages.find((s) => s.stage === 'medal')?.medalAfter ?? null;
   const medalMembership = (() => {
     const medal = fx.stages.find((s) => s.stage === 'medal');
@@ -238,8 +238,13 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     n: number,
     fleetName: string,
   ): { firstPlaceOffset?: number } => {
-    if (st !== 'final' || medalCutAfter == null || n <= medalCutAfter) return {};
-    const stage = fx.stages.find((s2) => s2.stage === 'final');
+    // A championship that never divides its fleet sails that race in its
+    // opening series.
+    const companionStage: SeriesStage = fx.stages.some((s2) => s2.stage === 'final')
+      ? 'final'
+      : 'qualifying';
+    if (st !== companionStage || medalCutAfter == null || n <= medalCutAfter) return {};
+    const stage = fx.stages.find((s2) => s2.stage === companionStage);
     const members = (stage?.fleets ?? stage?.expectedFleets)?.[fleetName] ?? [];
     const gone = members.map(String).filter((sail) => medalMembership.has(sail)).length;
     return gone > 0 ? { firstPlaceOffset: gone } : {};

@@ -60,7 +60,7 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
     'The boats qualified to compete in the medal races will be ranked highest in the event.',
   );
   await expect(si).toContainText(
-    'the boats that do not qualify for it will not race again, and will have no score for the medal race',
+    'the boats that do not qualify for it will have no score for the medal race',
   );
 
   // ── Race it ───────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await page.getByRole('button', { name: 'Select medal fleet…' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Select the medal fleet');
-  await expect(dialog).toContainText('everyone else has finished racing');
+  await expect(dialog).toContainText('everyone else has no score for it');
   await dialog.getByRole('checkbox', { name: /Also create/ }).check();
   await page.getByRole('button', { name: /Commit medal fleet \(top 10\)/ }).click();
 
@@ -113,6 +113,19 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   await page.goBack();
   // 24 entries + 1, doubled, is what a DNC in this race would score.
   await expect(page.getByText('50 DNC')).toHaveCount(0);
+
+  // ── And one more race for the rest, where the sailing instructions give
+  // them one: the opening series card's next race is the companion race ─────
+  await page.getByRole('button', { name: 'Add companion race Q2' }).click();
+  await page
+    .getByTestId('logical-race-qualifying-2')
+    .getByRole('link', { name: /enter finishes/ })
+    .click();
+  await expect(page).toHaveURL(/\/races\//);
+  await enterFinishes(page, sails.slice(10));
+  await page.goBack();
+  // The ten are absent from it, not DNC in it (24 entries + 1).
+  await expect(page.getByText('25 DNC')).toHaveCount(0);
 
   // ── The standings separate the two groups, as the published page does ────
   // The ten are a table of their own, above everyone else, and the reason is
