@@ -32,7 +32,6 @@ config:
   discardThresholds:
     - minRaces: 4
       discardCount: 1
-  maxFinalDiscards: 1
 
 competitors:
   - "s1 Seed 1"

@@ -41,33 +41,6 @@ import {
   type VocabularyKey,
 } from '@/lib/split-fleets';
 
-/** Built from the series' vocabulary rather than fixed, like every other
- *  stage word here: "the qualifying series" and "the final series" name
- *  different stages depending on which wording the championship uses. */
-function carryOptions(
-  vocab: Vocabulary,
-): { value: SplitFleetConfig['carry']; label: string; hint: string }[] {
-  const q = vocab.stages.qualifying.name;
-  const f = vocab.stages.final.name;
-  return [
-    {
-      value: 'points',
-      label: 'One continuous series',
-      hint: `${capitaliseStage(q)} and ${f} race scores are totalled together for the championship, and discards apply across the whole line.`,
-    },
-    {
-      value: 'net-plus-net',
-      label: 'Two series, added together',
-      hint: `The ${q} and the ${f} are each scored as their own series, with their own discards; the championship score is the sum of the two.`,
-    },
-    {
-      value: 'rank-seed',
-      label: `${capitaliseStage(q)} position carried forward`,
-      hint: `A boat carries her ${q} finishing position into the ${f} as one score that can never be discarded; her ${q} race scores drop out.`,
-    },
-  ];
-}
-
 export function SplitFleetEditor({
   seriesId,
   config,
@@ -166,14 +139,7 @@ export function SplitFleetEditor({
   const entries = competitorCount;
   // What the settings mean for the boats actually entered.
   const qualifyingSizes = entries > 0 ? finalBlockSizes(entries, fleetCount) : [];
-  const finalSizes =
-    entries > 0
-      ? value.split.kind === 'fixed-top'
-        ? [Math.min(value.split.topSize, entries), Math.max(entries - value.split.topSize, 0)]
-        : finalBlockSizes(entries, value.finalFleets.length)
-      : [];
-  const largestQualifying = qualifyingSizes[0] ?? 0;
-  const goldSize = finalSizes[0] ?? 0;
+  const finalSizes = entries > 0 ? finalBlockSizes(entries, value.finalFleets.length) : [];
 
   const rowClass = 'grid gap-1.5 sm:grid-cols-[13rem_1fr] sm:items-baseline sm:gap-3';
   const marked = focused ?? hovered;
@@ -405,88 +371,22 @@ export function SplitFleetEditor({
         </div>
       </div>
 
-      {/* Not a fieldset/legend: a legend is rendered as the fieldset's caption,
-          outside the grid flow, which would drop the options into the narrow
-          label column. The shared radio `name` still groups them natively. */}
-      <div {...row('carry')} role="radiogroup" aria-labelledby="sf-carry-label">
-        <span className="font-medium" id="sf-carry-label">
-          How scores carry into the {vocab.stages.final.name}
-        </span>
-        <div className="space-y-2">
-          {carryOptions(vocab).map((opt) => (
-            <label key={opt.value} className="flex items-start gap-2">
-              <input
-                type="radio"
-                name="sf-carry"
-                className="mt-1"
-                disabled={!canEdit || locked}
-                checked={value.carry === opt.value}
-                onChange={() => patch({ carry: opt.value })}
-              />
-              <span>
-                <span className={value.carry === opt.value ? 'font-medium' : undefined}>
-                  {opt.label}
-                </span>
-                <span className={`block ${hint}`}>{opt.hint}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
       {!unbanded && (
-      <div {...row('split')}>
-        <label className="font-medium" htmlFor="sf-split">
+      <div {...row('fleetCount')}>
+        <span className="font-medium">
           How boats are divided for the {vocab.stages.final.name}
-        </label>
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              id="sf-split"
-              className={`${selectClass} sm:w-auto`}
-              disabled={!canEdit}
-              value={value.split.kind}
-              onChange={(e) =>
-                patch({
-                  split:
-                    e.target.value === 'fixed-top'
-                      ? {
-                          kind: 'fixed-top',
-                          topSize: value.split.kind === 'fixed-top' ? value.split.topSize : 25,
-                        }
-                      : { kind: 'equal-blocks' },
-                })
-              }
-            >
-              <option value="equal-blocks">Near-equal fleets by rank</option>
-              <option value="fixed-top">A fixed number in the top fleet</option>
-            </select>
-            {value.split.kind === 'fixed-top' && (
-              <input
-                type="number"
-                aria-label="Boats in the top fleet"
-                min={1}
-                className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
-                disabled={!canEdit}
-                value={value.split.topSize}
-                onChange={(e) =>
-                  patch({ split: { kind: 'fixed-top', topSize: Math.max(1, Number(e.target.value)) } })
-                }
-              />
-            )}
-          </div>
-          <p className={hint}>
-            {entries > 0
-              ? `${entries} entries → ${value.finalFleets
-                  .map((f, i) => `${f.label} ${finalSizes[i] ?? 0}`)
-                  .join(', ')}.`
-              : `The qualifying ranking is divided into ${value.finalFleets.map((f) => f.label).join(', ')}.`}
-          </p>
-        </div>
+        </span>
+        <p className={hint}>
+          {entries > 0
+            ? `${entries} entries → ${value.finalFleets
+                .map((f, i) => `${f.label} ${finalSizes[i] ?? 0}`)
+                .join(', ')}, by rank.`
+            : `The ${vocab.stages.qualifying.name} ranking is divided into ${value.finalFleets.map((f) => f.label).join(', ')}, as nearly as possible equal, the top fleet largest.`}
+        </p>
       </div>
       )}
 
-      <div {...row('discards', 'finalDiscardCap')}>
+      <div {...row('discards')}>
         <span className="font-medium">Discards</span>
         <div className="space-y-2">
           {value.discardThresholds.length === 0 ? (
@@ -537,188 +437,13 @@ export function SplitFleetEditor({
               Add a rule
             </Button>
           )}
-          {value.carry === 'points' && !unbanded && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
-              <label className="flex items-center gap-1.5">
-                At most
-                <input
-                  type="number"
-                  aria-label={`Discards allowed from the ${vocab.stages.final.name}`}
-                  min={0}
-                  className="w-14 rounded-md border bg-background px-2 py-1 text-sm"
-                  disabled={!canEdit}
-                  value={value.maxFinalDiscards}
-                  onChange={(e) =>
-                    patch({ maxFinalDiscards: Math.max(0, Number(e.target.value)) })
-                  }
-                />
-                from the {vocab.stages.final.name}
-              </label>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  disabled={!canEdit}
-                  checked={value.protectLoneFinalRace}
-                  onChange={(e) => patch({ protectLoneFinalRace: e.target.checked })}
-                />
-                never exclude a lone {vocab.stages.final.raceNoun}
-              </label>
-            </div>
-          )}
           <p className={hint}>
-            {value.carry === 'net-plus-net'
-              ? `Applied separately to the ${vocab.stages.qualifying.name} and the ${vocab.stages.final.name}.`
-              : value.carry === 'rank-seed'
-                ? `Applied to the ${vocab.stages.final.name}; the carried ${vocab.stages.qualifying.name} position is never excluded.`
-                : 'Applied across the whole line.'}{' '}
+            Applied across the whole line
+            {unbanded
+              ? '.'
+              : `, with at most one from the ${vocab.stages.final.name}, and never a lone ${vocab.stages.final.raceNoun}.`}{' '}
             {capitaliseStage(vocab.stages.medal.name)} never count toward these rules and are
             never excluded.
-          </p>
-        </div>
-      </div>
-
-      {!unbanded && (
-      <div {...row('equalization')}>
-        <label className="font-medium" htmlFor="sf-equalization">
-          Boats end the {vocab.stages.qualifying.name} on different race counts
-        </label>
-        <div className="space-y-1">
-          <select
-            id="sf-equalization"
-            className={selectClass}
-            disabled={!canEdit}
-            value={value.equalization}
-            onChange={(e) =>
-              patch({
-                equalization: e.target.value as SplitFleetConfig['equalization'],
-              })
-            }
-          >
-            <option value="abandon-extra-races">
-              Abandon and cancel the extra races
-            </option>
-            <option value="exclude-extra-scores">
-              Abandon them, and also drop any boat’s leftover extra scores
-            </option>
-          </select>
-          <p className={hint}>
-            Either way, a {vocab.stages.qualifying.raceNoun} counts for nobody until every
-            fleet has sailed it — so a race one fleet sailed and another didn’t is struck for
-            everyone, and the fleets come out level. That is the whole of the first option, and
-            what most sailing instructions say. The second adds the clause a few carry for what
-            might still be left over: a boat holding more scores than the rest drops her most
-            recent until the counts match. It only comes into play if boats within a fleet end
-            up with different counts, so choose the first unless your sailing instructions
-            clearly say otherwise.
-          </p>
-        </div>
-      </div>
-      )}
-
-      <div {...row('codeBasis')}>
-        <label className="font-medium" htmlFor="sf-code-q">
-          Scoring a boat that doesn’t start or finish
-        </label>
-        <div className="space-y-2">
-          <div className="space-y-1">
-            <select
-              id="sf-code-q"
-              className={selectClass}
-              disabled={!canEdit}
-              value={value.codeBasis.qualifying}
-              onChange={(e) =>
-                patch({
-                  codeBasis: {
-                    ...value.codeBasis,
-                    qualifying: e.target.value as 'largest-fleet' | 'fixed',
-                  },
-                })
-              }
-            >
-              <option value="largest-fleet">
-                {capitaliseStage(vocab.stages.qualifying.name)}: boats in the largest{' '}
-                {vocab.stages.qualifying.fleetNoun}, plus one
-              </option>
-              <option value="fixed">
-                {capitaliseStage(vocab.stages.qualifying.name)}: a fixed number of points
-              </option>
-            </select>
-            {value.codeBasis.qualifying === 'fixed' && (
-              <input
-                type="number"
-                aria-label="Fixed non-finisher score"
-                min={1}
-                className="w-24 rounded-md border bg-background px-2 py-1 text-sm"
-                disabled={!canEdit}
-                value={value.codeBasis.fixedPoints ?? largestQualifying + 1}
-                onChange={(e) =>
-                  patch({ codeBasis: { ...value.codeBasis, fixedPoints: Number(e.target.value) } })
-                }
-              />
-            )}
-          </div>
-          {!unbanded && (
-          <select
-            className={selectClass}
-            aria-label="Scoring a boat that doesn’t start or finish a final-series race"
-            disabled={!canEdit}
-            value={value.codeBasis.final}
-            onChange={(e) =>
-              patch({
-                codeBasis: {
-                  ...value.codeBasis,
-                  final: e.target.value as 'own-fleet' | 'largest-qualifying',
-                },
-              })
-            }
-          >
-            <option value="own-fleet">
-              {capitaliseStage(vocab.stages.final.name)}: boats in her own{' '}
-              {vocab.stages.final.fleetNoun}, plus one
-            </option>
-            <option value="largest-qualifying">
-              {capitaliseStage(vocab.stages.final.name)}: boats in the largest{' '}
-              {vocab.stages.qualifying.fleetNoun}, plus one — the same score all championship
-            </option>
-          </select>
-          )}
-          {entries > 0 && (
-            <p className={hint}>
-              With {entries} entries that is{' '}
-              {value.codeBasis.qualifying === 'fixed'
-                ? (value.codeBasis.fixedPoints ?? largestQualifying + 1)
-                : largestQualifying + 1}{' '}
-              in the {vocab.stages.qualifying.name} and{' '}
-              {value.codeBasis.final === 'largest-qualifying'
-                ? largestQualifying + 1
-                : goldSize + 1}{' '}
-              in {value.finalFleets[0]?.label ?? 'the top fleet'}.
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className={rowClass}>
-        <label className="font-medium" htmlFor="sf-tie">
-          If two boats are exactly tied when fleets are assigned
-        </label>
-        <div className="space-y-1">
-          <select
-            id="sf-tie"
-            className={selectClass}
-            disabled={!canEdit}
-            value={value.reassignmentTieOrder}
-            onChange={(e) =>
-              patch({
-                reassignmentTieOrder: e.target.value as 'a8-then-entry-order' | 'fleet-order',
-              })
-            }
-          >
-            <option value="a8-then-entry-order">The better seeding rank goes to the higher fleet</option>
-            <option value="fleet-order">Alternate tied boats down the fleet list</option>
-          </select>
-          <p className={hint}>
-            Only matters when a tie the racing rules can’t break falls exactly on a fleet boundary.
           </p>
         </div>
       </div>
@@ -727,244 +452,81 @@ export function SplitFleetEditor({
         <span className="font-medium">{capitaliseStage(vocab.stages.medal.name)}</span>
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                disabled={!canEdit}
-                checked={!!value.medal}
-                onChange={(e) =>
-                  patch({
-                    medal: e.target.checked
-                      ? { size: 10, raceCount: 1, multiplier: 2, companionRace: 'scored-below' as const }
-                      : undefined,
-                  })
-                }
-              />
-              Sailed by the top
-            </label>
-            {value.medal && (
-              <>
-                <input
-                  type="number"
-                  aria-label={`${capitaliseStage(vocab.stages.medal.fleetNoun)} size`}
-                  min={2}
-                  className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
-                  disabled={!canEdit}
-                  value={value.medal.size}
-                  onChange={(e) =>
-                    patch({ medal: { ...value.medal!, size: Math.max(2, Number(e.target.value)) } })
-                  }
-                />
-                <span>boats, scoring ×</span>
-                <input
-                  type="number"
-                  aria-label={`${capitaliseStage(vocab.stages.medal.name)} points multiplier`}
-                  min={1}
-                  className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
-                  disabled={!canEdit}
-                  value={value.medal.multiplier}
-                  onChange={(e) =>
-                    patch({
-                      medal: { ...value.medal!, multiplier: Math.max(1, Number(e.target.value)) },
-                    })
-                  }
-                />
-              </>
-            )}
+            <span>Sailed by the top</span>
+            <input
+              type="number"
+              aria-label={`${capitaliseStage(vocab.stages.medal.fleetNoun)} size`}
+              min={2}
+              className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
+              disabled={!canEdit}
+              value={value.medal.size}
+              onChange={(e) =>
+                patch({ medal: { ...value.medal, size: Math.max(2, Number(e.target.value)) } })
+              }
+            />
+            <span>boats, at</span>
+            <select
+              aria-label={`${capitaliseStage(vocab.stages.medal.name)} points`}
+              className="rounded-md border bg-background px-2 py-1 text-sm"
+              disabled={!canEdit}
+              value={value.medal.multiplier}
+              onChange={(e) =>
+                patch({ medal: { ...value.medal, multiplier: Number(e.target.value) as 1 | 2 } })
+              }
+            >
+              <option value={1}>single points</option>
+              <option value={2}>double points</option>
+            </select>
           </div>
-          {value.medal && (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    disabled={!canEdit}
-                    checked={!!value.medal.carryTransform}
-                    onChange={(e) =>
-                      patch({
-                        medal: {
-                          ...value.medal!,
-                          // A newly ticked box takes the reading of the
-                          // sailing instructions that speak to it — 2026 ILCA
-                          // SI 18.7.5 and the 470 Europeans NoR both leave an
-                          // abandoned finale on the undivided score. Configs
-                          // stored before the choice existed keep the other
-                          // one; that migration lives in the engine.
-                          carryTransform: e.target.checked
-                            ? {
-                                kind: 'divide',
-                                by: 2,
-                                rounding: 'half-up',
-                                appliesFrom: 'first-medal-race',
-                              }
-                            : undefined,
-                        },
-                      })
-                    }
-                  />
-                  First divide the score so far by
-                </label>
-                {value.medal.carryTransform && (
-                  <>
-                    <input
-                      type="number"
-                      aria-label="Carried score divisor"
-                      min={1}
-                      step="0.25"
-                      className="w-20 rounded-md border bg-background px-2 py-1 text-sm"
-                      disabled={!canEdit}
-                      value={value.medal.carryTransform.by}
-                      onChange={(e) =>
-                        patch({
-                          medal: {
-                            ...value.medal!,
-                            carryTransform: {
-                              ...value.medal!.carryTransform!,
-                              by: Math.max(1, Number(e.target.value)),
-                            },
-                          },
-                        })
-                      }
-                    />
-                    <select
-                      aria-label="Carried score rounding"
-                      className="rounded-md border bg-background px-2 py-1 text-sm"
-                      disabled={!canEdit}
-                      value={value.medal.carryTransform.rounding}
-                      onChange={(e) =>
-                        patch({
-                          medal: {
-                            ...value.medal!,
-                            carryTransform: {
-                              ...value.medal!.carryTransform!,
-                              rounding: e.target.value as 'half-up' | 'truncate',
-                            },
-                          },
-                        })
-                      }
-                    >
-                      <option value="half-up">rounding 0.5 up</option>
-                      <option value="truncate">dropping the fraction</option>
-                    </select>
-                  </>
-                )}
-              </div>
-              {value.medal.carryTransform && (
-                <label className="flex flex-wrap items-center gap-1.5">
-                  If no {vocab.stages.medal.raceNoun} is sailed
-                  <select
-                    className="rounded-md border bg-background px-2 py-1 text-sm"
-                    aria-label={`Whether the divided score stands if no ${vocab.stages.medal.raceNoun} is sailed`}
-                    disabled={!canEdit}
-                    value={value.medal.carryTransform.appliesFrom}
-                    onChange={(e) =>
-                      patch({
-                        medal: {
-                          ...value.medal!,
-                          carryTransform: {
-                            ...value.medal!.carryTransform!,
-                            appliesFrom: e.target.value as CarryTransform['appliesFrom'],
-                          },
-                        },
-                      })
-                    }
-                  >
-                    <option value="first-medal-race">
-                      score the event on the undivided total
-                    </option>
-                    <option value="medal-fleet-selected">the divided score stands</option>
-                  </select>
-                </label>
-              )}
-              <label className="flex flex-wrap items-center gap-1.5">
-                The boats who miss the cut
-                <select
-                  className="rounded-md border bg-background px-2 py-1 text-sm"
-                  aria-label="What the boats who miss the cut do"
-                  disabled={!canEdit}
-                  value={value.medal.companionRace}
-                  onChange={(e) =>
-                    patch({
-                      medal: {
-                        ...value.medal!,
-                        companionRace: e.target.value as NonNullable<
-                          SplitFleetConfig['medal']
-                        >['companionRace'],
-                      },
-                    })
-                  }
-                >
-                  {/* The one more race lives in the second stage, so where
-                      there is no second stage there is no such race to offer
-                      and `none` means the other thing it can mean: no race,
-                      and no score for the one they are not in. */}
-                  {unbanded ? (
-                    <option value="none">
-                      stop racing, with no score for the {vocab.stages.medal.raceNoun}
-                    </option>
-                  ) : (
-                    <>
-                      <option value="scored-below">
-                        sail one more race, scored from {value.medal.size + 1} in the fleet
-                        they left
-                      </option>
-                      <option value="none">sail one more race, scored from 1</option>
-                    </>
-                  )}
-                  <option value="dnc">
-                    stop racing, and are scored DNC in the {vocab.stages.medal.raceNoun}
-                  </option>
-                </select>
-              </label>
-              <label className="flex flex-wrap items-center gap-1.5">
-                Ties between these boats
-                <select
-                  className="rounded-md border bg-background px-2 py-1 text-sm"
-                  aria-label="How ties between the top boats are broken"
-                  disabled={!canEdit}
-                  value={value.medal.tieBreak ?? 'a8'}
-                  onChange={(e) =>
-                    patch({
-                      medal: {
-                        ...value.medal!,
-                        tieBreak:
-                          e.target.value === 'a8'
-                            ? undefined
-                            : (e.target.value as NonNullable<
-                                NonNullable<SplitFleetConfig['medal']>['tieBreak']
-                              >),
-                      },
-                    })
-                  }
-                >
-                  <option value="a8">break under rule A8 alone</option>
-                  <option value="stage-rank">
-                    fall to {vocab.stages.final.name} rank, then{' '}
-                    {vocab.stages.qualifying.name} rank
-                  </option>
-                  <option value="last-race">break on the last race, in place of rule A8</option>
-                  <option value="medal-race-then-a8">
-                    break on the {vocab.stages.medal.raceNoun} first, then under rule A8
-                  </option>
-                </select>
-              </label>
-              <p className={hint}>
-                Never discarded.{' '}
-                {value.medal.companionRace === 'dnc'
-                  ? `Everyone else has finished racing, and is scored DNC in the ${vocab.stages.medal.raceNoun} at the entry list plus one — weighted like every other score in it. Only where the sailing instructions say they are scored for a race they could not sail.`
-                  : unbanded
-                    ? `Everyone else has finished racing and has no score for it. They rank below these boats whatever the points say, so the two groups are scored over different numbers of races and are shown as two tables.`
-                    : `Everyone else stays in their fleet and sails its remaining races${
-                        value.medal.companionRace === 'scored-below'
-                          ? `, and in the fleet they left the last one scores from ${value.medal.size + 1}`
-                          : ''
-                      }.`}
-                {value.medal.carryTransform
-                  ? ` Dividing the score so far pulls the leaders together before the last races, so a qualified boat’s championship score is that one carried number plus her ${vocab.stages.medal.name}.`
-                  : ''}
-              </p>
-            </>
-          )}
+          <label className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              disabled={!canEdit}
+              checked={!!value.medal.carryTransform}
+              onChange={(e) =>
+                patch({
+                  medal: {
+                    ...value.medal,
+                    carryTransform: e.target.checked
+                      ? { kind: 'divide', by: 2, rounding: 'half-up' }
+                      : undefined,
+                  },
+                })
+              }
+            />
+            First halve the score so far, rounding 0.5 up
+          </label>
+          <label className="flex flex-wrap items-center gap-1.5">
+            Ties between these boats
+            <select
+              className="rounded-md border bg-background px-2 py-1 text-sm"
+              aria-label="How ties between the top boats are broken"
+              disabled={!canEdit}
+              value={value.medal.tieBreak}
+              onChange={(e) =>
+                patch({
+                  medal: {
+                    ...value.medal,
+                    tieBreak: e.target.value as SplitFleetConfig['medal']['tieBreak'],
+                  },
+                })
+              }
+            >
+              <option value="medal-race-then-a8">
+                break on the {vocab.stages.medal.raceNoun} first, then under rule A8
+              </option>
+              <option value="last-race">break on the last race, in place of rule A8</option>
+            </select>
+          </label>
+          <p className={hint}>
+            Never discarded.{' '}
+            {unbanded
+              ? `Everyone else has finished racing and has no score for it. They rank below these boats whatever the points say, so the two groups are scored over different numbers of races and are shown as two tables.`
+              : `Everyone else stays in their fleet and sails its remaining races, and in the fleet they left the last one scores from ${value.medal.size + 1}.`}
+            {value.medal.carryTransform
+              ? ` Halving the score so far pulls the leaders together before the last races, so a qualified boat’s championship score is that one carried number plus her ${vocab.stages.medal.name}. If no ${vocab.stages.medal.raceNoun} is completed, the undivided score stands.`
+              : ''}
+          </p>
         </div>
       </div>
 

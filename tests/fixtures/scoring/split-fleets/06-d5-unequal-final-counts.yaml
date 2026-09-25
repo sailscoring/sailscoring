@@ -24,7 +24,6 @@ config:
   qualifyingFleets: [Yellow, Blue]
   finalFleets: [Gold, Silver]
   discardThresholds: []
-  maxFinalDiscards: 0
 
 competitors:
   - "y1 Helm Y1"

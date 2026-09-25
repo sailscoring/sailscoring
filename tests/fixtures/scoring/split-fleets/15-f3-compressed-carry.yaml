@@ -57,8 +57,6 @@ config:
   discardThresholds:
     - minRaces: 3
       discardCount: 1
-  maxFinalDiscards: 1
-  protectLoneFinalRace: true
   medal:
     size: 2
     raceCount: 2

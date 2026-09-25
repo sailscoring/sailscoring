@@ -26,27 +26,13 @@ export const splitFleetConfigSchema = z.object({
   ),
   // Defaulted: configs written before per-fleet races existed mean 'combined'.
   finishSheets: z.enum(['combined', 'per-fleet']).default('combined'),
-  carry: z.enum(['points', 'net-plus-net', 'rank-seed']),
-  split: z.union([
-    z.object({ kind: z.literal('equal-blocks') }),
-    z.object({ kind: z.literal('fixed-top'), topSize: z.number().int().positive() }),
-    z.object({ kind: z.literal('none') }),
-  ]),
-  codeBasis: z.object({
-    qualifying: z.enum(['largest-fleet', 'fixed']),
-    fixedPoints: z.number().int().positive().optional(),
-    final: z.enum(['own-fleet', 'largest-qualifying']),
-  }),
-  equalization: z.enum(['abandon-extra-races', 'exclude-extra-scores']),
+  split: z.union([z.object({ kind: z.literal('equal-blocks') }), z.object({ kind: z.literal('none') })]),
   discardThresholds: z.array(
     z.object({
       minRaces: z.number().int().positive(),
       discardCount: z.number().int().positive(),
     }),
   ),
-  maxFinalDiscards: z.number().int().min(0),
-  protectLoneFinalRace: z.boolean(),
-  reassignmentTieOrder: z.enum(['a8-then-entry-order', 'fleet-order']),
   vocabulary: z
     .enum(['opening-medal', 'qualification-final'])
     .default(DEFAULT_VOCABULARY),
@@ -109,25 +95,15 @@ export const splitFleetConfigSchema = z.object({
       continuousOpeningNumbers: z.boolean(),
     })
     .optional(),
-  medal: z
-    .object({
-      size: z.number().int().positive(),
-      raceCount: z.number().int().positive(),
-      multiplier: z.number().positive(),
-      carryTransform: z
-        .object({
-          kind: z.literal('divide'),
-          by: z.number().positive(),
-          rounding: z.enum(['half-up', 'truncate']),
-          appliesFrom: z
-            .enum(['medal-fleet-selected', 'first-medal-race'])
-            .default('medal-fleet-selected'),
-        })
-        .optional(),
-      tieBreak: z.enum(['stage-rank', 'last-race', 'medal-race-then-a8']).optional(),
-      companionRace: z.enum(['scored-below', 'none', 'dnc']).default('scored-below'),
-    })
-    .optional(),
+  medal: z.object({
+    size: z.number().int().positive(),
+    raceCount: z.number().int().positive(),
+    multiplier: z.union([z.literal(1), z.literal(2)]),
+    carryTransform: z
+      .object({ kind: z.literal('divide'), by: z.literal(2), rounding: z.literal('half-up') })
+      .optional(),
+    tieBreak: z.enum(['last-race', 'medal-race-then-a8']),
+  }),
 })
   // The two halves of the split answer have to agree. A championship that
   // bands its fleet needs at least two fleets to band into; one that never

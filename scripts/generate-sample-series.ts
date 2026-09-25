@@ -984,16 +984,10 @@ function buildChampionship(): SeriesFile {
       { label: 'Day 3', races: 2 },
       { label: 'Day 4', races: 1 },
     ],
-    carry: 'points',
     split: { kind: 'equal-blocks' },
-    codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },
-    equalization: 'abandon-extra-races',
     discardThresholds: [{ minRaces: 4, discardCount: 1 }],
-    maxFinalDiscards: 1,
-    protectLoneFinalRace: true,
-    reassignmentTieOrder: 'a8-then-entry-order',
     vocabulary: DEFAULT_VOCABULARY,
-    medal: { size: 6, raceCount: 1, multiplier: 2, companionRace: 'scored-below' },
+    medal: { size: 6, raceCount: 1, multiplier: 2, tieBreak: 'medal-race-then-a8' },
   };
 
   // 24 sailors. `seed` is the OA's pre-event ranking; racing ability tracks

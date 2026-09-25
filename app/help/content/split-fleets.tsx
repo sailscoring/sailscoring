@@ -14,7 +14,6 @@ import {
   capitaliseStage,
   parseVocabularyKey,
   stageAdjective,
-  stageInitials,
   type SeriesStage,
   type Vocabulary,
   type VocabularyKey,
@@ -190,10 +189,9 @@ export function SplitFleetsSection() {
         are and sails one more race with their own fleet, which you add from{' '}
         <strong className="text-foreground">Add next race</strong> as usual. The boats who
         qualified have left that fleet’s racing, so they are simply absent from that race rather
-        than scored for missing it. What differs by class is how it scores, and the{' '}
-        {w.title('medal')} settings ask which: from 1 like any other race, or — the ILCA wording
-        in both eras — from just below the boats who went up, in the fleet they left, so that
-        where ten boats went to the {m.raceNoun} its first finisher scores eleven. Only that
+        than scored for missing it. It scores from just below the boats who went up, in the
+        fleet they left — the ILCA wording in both eras — so that where ten boats went to the{' '}
+        {m.raceNoun} its first finisher scores eleven. Only that
         fleet is offset. The others are a boat short of nobody and score from 1. A redress
         decision that promotes a boat across the split is the{' '}
         <strong className="text-foreground">Promote (redress)</strong> action on the split
@@ -203,19 +201,17 @@ export function SplitFleetsSection() {
         Some events never band the fleet at all: one fleet sails the whole {q.name} and the
         only division ever made is into the {m.fleetNoun}. Set the{' '}
         <strong className="text-foreground">{capitaliseStage(q.fleetNoun)}s</strong> count to
-        one and the settings that describe a second stage go away with it, since there is none
-        — no split rule, no equalisation, no cap on where a discard may fall. The standings
+        one and the settings that describe a second stage go away with it, since there is none.
+        The standings
         draw the {m.fleetNoun} cut where it would fall if racing ended now, and{' '}
         <strong className="text-foreground">Select {m.fleetNoun}…</strong> is offered from the{' '}
-        {w.title('medal')} section rather than from a stage the event does not sail. Where the
-        notice of race schedules no further racing for the boats who miss the cut, leave{' '}
-        <strong className="text-foreground">The boats who miss the cut</strong> on{' '}
-        <em>stop racing, with no score</em> and they have none for the {m.raceNoun} at all. Nothing is
+        {w.title('medal')} section rather than from a stage the event does not sail. The boats
+        who miss the cut do not race again, and have no score for the {m.raceNoun} at all.
+        Nothing is
         needed to hold them below the qualified boats — those rank highest in the event
         whatever the points say — so the two groups are scored over different numbers of
         races, and the standings and the published page show them as two tables rather than
-        one ladder. Score them DNC instead only where your notice of race says they are
-        scored for that race: it is a score for a race they were not permitted to sail.
+        one ladder.
       </p>
       <p>
         Choosing a split-fleet championship in the setup wizard writes an initial configuration
@@ -242,36 +238,16 @@ export function SplitFleetsSection() {
         getting right: the race label is what a competitor writes on a scoring enquiry.
       </p>
       <p>
-        Three ways of carrying {qAdj} results into the {f.name} are supported:{' '}
-        <strong className="text-foreground">one continuous series</strong> (ILCA, Optimist —
-        every race totals together), <strong className="text-foreground">two series added
-        together</strong> (each with its own discards), and{' '}
-        <strong className="text-foreground">the {q.name} position carried forward</strong> as
-        one score that can never be discarded, replacing the {q.raceNoun} scores (470, Topper).
-        The standings show a carried position in a{' '}
-        <strong className="text-foreground">{stageInitials(q.name)}</strong> column.
-      </p>
-      <p>
         <strong className="text-foreground">Compressing the score</strong> before the {m.name}{' '}
-        is also supported: some classes divide each qualified boat’s series score before the{' '}
-        {m.name}, which pulls the leaders together so the last races can still decide the
-        title. Switch it on under the {w.title('medal')} settings, with the divisor and how it
-        rounds; the compressed number appears in a{' '}
-        <strong className="text-foreground">Carried</strong> column and replaces the boat’s
-        earlier race scores in her total. Rounding to whole numbers makes ties, so the same
-        settings offer the tie-breaks those classes pair it with. One keeps rule A8 and adds
-        steps behind it: a tie the racing rules can’t break goes to the boat who ranked higher
-        in the {f.name}, then the {q.name}. The other replaces A8 outright — the boats are
-        ranked on their scores in the last race, and nothing else. Which one your event uses is
-        a sentence in its sailing instructions, and the wrong one decides the title differently.
-      </p>
-      <p>
-        One more setting is worth a look if the fleets can come out of the first stage having
-        sailed different numbers of races. A race counts for nobody until every fleet has
-        sailed it, which on its own levels the fleets and is what most sailing instructions
-        say; leave the setting alone unless yours also carries the clause for what might be
-        left over after that, where a boat still holding more scores than the rest drops her
-        most recent.
+        is also supported: ILCA from 2026 halves each qualified boat’s series score before the{' '}
+        {m.name}, rounding 0.5 up, which pulls the leaders together so the last races can still
+        decide the title. Switch it on under the {w.title('medal')} settings; the halved number
+        appears in a <strong className="text-foreground">Carried</strong> column and replaces
+        the boat’s earlier race scores in her total once a {m.raceNoun} is completed. Rounding
+        to whole numbers makes ties, so choose how ties between the qualified boats are broken:
+        on the {m.raceNoun} first and then by rule A8, or on the last race alone in place of
+        rule A8. Which one your event uses is a sentence in its sailing instructions, and the
+        wrong one decides the title differently.
       </p>
       <p>
         The published output is a{' '}

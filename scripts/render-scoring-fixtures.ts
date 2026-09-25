@@ -833,18 +833,14 @@ ${resolvedRounds.map((r) => {
     if (!c.counts) styles.push('color:#adb5bd');
     if (!c.discardable) styles.push('font-weight:bold'); // medal cell (doubled)
     const title = c.counts
-      ? c.carriedRank
-        ? ' title="qualifying-series position, carried into the final series"'
-        : c.carriedTransform
-          ? ' title="opening-series score, compressed and carried into the medal races"'
-          : ''
+      ? c.carriedTransform
+        ? ' title="opening-series score, compressed and carried into the medal races"'
+        : ''
       : c.carriedTransform
         ? ' title="opening-series score, compressed — counts once a medal race is completed"'
         : c.superseded
           ? ' title="replaced by the carried score"'
-          : c.excludedAsExtra
-            ? ' title="excluded so every boat has the same number of qualifying scores"'
-            : ' title="does not yet count — race incomplete across fleets"';
+          : ' title="does not yet count — race incomplete across fleets"';
     return `<td style="${styles.join(';')}"${title}>${inner}</td>`;
   };
 

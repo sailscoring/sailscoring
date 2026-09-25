@@ -37,7 +37,6 @@ notes: |
 config:
   qualifyingFleets: [Yellow, Blue]
   discardThresholds: []
-  maxFinalDiscards: 0
 
 competitors:
   - "101 Helm A"

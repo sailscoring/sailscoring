@@ -35,7 +35,7 @@ notes: |
   lead carries, which is what NoR 15.2's doubling is calibrated against.
 
   s4, s5 and s6 miss the cut and do not race again, so they have no score for
-  the medal race at all (`companionRace: none`). Nothing is needed to hold
+  the medal race at all. Nothing is needed to hold
   them below the three who sailed it: the boats qualified for the deciding
   stage rank highest in the event whatever the points say. Their totals
   therefore run over five races where the qualified boats' run over six,
@@ -45,12 +45,10 @@ notes: |
 config:
   qualifyingFleets: [Fleet]
   discardThresholds: [{ minRaces: 5, discardCount: 1 }]
-  maxFinalDiscards: 0
   medal:
     size: 3
     raceCount: 1
     multiplier: 2
-    companionRace: none
     tieBreak: medal-race-then-a8
 
 competitors:

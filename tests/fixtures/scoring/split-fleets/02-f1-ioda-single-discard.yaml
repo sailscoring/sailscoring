@@ -39,7 +39,6 @@ config:
   discardThresholds:
     - minRaces: 5
       discardCount: 1
-  maxFinalDiscards: 1
 
 competitors:
   - "y1 Helm Y1"

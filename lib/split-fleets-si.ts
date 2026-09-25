@@ -80,9 +80,8 @@ function raceLabelClause(config: SplitFleetConfig): string {
 
 /**
  * Which sentence is which, independent of where it lands in the list — the
- * list is not positionally stable, since a medal stage opens with two
- * sentences instead of one, the second equalization clause appears only when
- * chosen, and each carry model writes a different middle.
+ * list is not positionally stable, since an undivided championship leaves out
+ * every sentence about dividing its fleet.
  *
  * These are the anchors the editor points its settings at. Renaming one is
  * free; the ids are not stored or shared anywhere.
@@ -94,7 +93,6 @@ export type SplitFleetSentenceId =
   | 'fleet-assignment'
   | 'reassignment'
   | 'fleet-equalisation'
-  | 'boat-equalisation'
   | 'split'
   | 'totals'
   | 'discards'
@@ -113,23 +111,15 @@ export type SplitFleetSentence = { id: SplitFleetSentenceId; text: string };
  * themselves: apart, the two drift.
  *
  * A setting that writes no sentence has no entry and marks nothing. Finish
- * sheets is a layout choice and says so; the reassignment tie order settles a
- * case the prose doesn't state; and the format and vocabulary pickers rewrite
+ * sheets is a layout choice and says so, and the vocabulary picker rewrites
  * every sentence, where marking all of them would be noise pretending to be
  * information.
  */
 export const SENTENCES_BY_SETTING = {
   raceLabels: ['race-labels'],
   fleetCount: ['fleet-assignment', 'split'],
-  carry: ['totals', 'discards', 'final-discard-cap'],
-  split: ['split'],
-  discards: ['discards'],
-  finalDiscardCap: ['final-discard-cap'],
-  equalization: ['fleet-equalisation', 'boat-equalisation'],
-  codeBasis: ['non-finisher'],
-  // Turning the medal stage on is what divides the event into a series and
-  // then that stage, so it writes the opening sentences too.
-  medal: ['format', 'series-division', 'medal', 'medal-ranking'],
+  discards: ['discards', 'final-discard-cap'],
+  medal: ['medal', 'medal-ranking'],
   medalCarryTransform: ['medal-carry-transform'],
   medalTieBreak: ['medal-tie-break'],
 } satisfies Record<string, SplitFleetSentenceId[]>;
@@ -165,25 +155,16 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
   // nothing. What is left is the shape (`q` is the whole opening series
   // here — see `adaptVocabulary`) and, where there is one, the deciding race.
   const unbanded = config.split.kind === 'none';
-  if (config.medal) {
+  push(
+    'format',
+    unbanded
+      ? `The championship will be sailed as ${article(q)} followed by the ${m}, in one fleet.`
+      : `The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`,
+  );
+  if (!unbanded) {
     push(
-      'format',
-      unbanded
-        ? `The championship will be sailed as ${article(q)} followed by the ${m}, in one fleet.`
-        : `The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`,
-    );
-    if (!unbanded) {
-      push(
-        'series-division',
-        `The ${vocab.seriesName} will be divided into ${article(q)} and ${article(f)}.`,
-      );
-    }
-  } else {
-    push(
-      'format',
-      unbanded
-        ? `The championship will be sailed as ${article(q)}, in one fleet.`
-        : `The championship will be sailed as ${article(q)} followed by ${article(f)}.`,
+      'series-division',
+      `The ${vocab.seriesName} will be divided into ${article(q)} and ${article(f)}.`,
     );
   }
   push('race-labels', raceLabelClause(config));
@@ -200,75 +181,31 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
       'fleet-equalisation',
       `If at the end of the ${q} some ${qAdj} fleets have more race scores than others, the extra races will be abandoned and cancelled so that all fleets have the same number of race scores.`,
     );
-    if (config.equalization === 'exclude-extra-scores') {
-      push(
-        'boat-equalisation',
-        `If at the end of the ${q} some boats have more race scores than others, scores for the most recent races will be excluded so that all boats have the same number of race scores.`,
-      );
-    }
     push(
       'split',
-      config.split.kind === 'fixed-top'
-        ? `At the end of the ${q} the first ${config.split.topSize} boats will be assigned to the ${topFleet} fleet on the basis of their ranks, and the remaining boats to the ${config.finalFleets.slice(1).map((f) => f.label).join(' and ') || 'other'} fleet.`
-        : `At the end of the ${q} boats will be assigned on the basis of their ranks to the ${finals} fleets, of, as nearly as possible, equal size.`,
+      `At the end of the ${q} boats will be assigned on the basis of their ranks to the ${finals} fleets, of, as nearly as possible, equal size.`,
     );
   }
 
-  if (config.carry === 'points') {
-    // Scoped to the series over stages one and two where a third stage
-    // exists: its own total is the medal block's business (2026 ILCA
-    // SI 18.6.1 says "in the Qualification series", not "in the event").
+  // Scoped to the series over stages one and two: the deciding stage's own
+  // total is the medal block's business (2026 ILCA SI 18.6.1 says "in the
+  // Qualification series", not "in the event").
+  push(
+    'totals',
+    unbanded
+      ? `The ${q} races will count for total points in the championship.`
+      : `The ${q} races and the ${f} races will count for total points in the ${vocab.seriesName}.`,
+  );
+  push('discards', discardClause(config));
+  if (!unbanded) {
     push(
-      'totals',
-      unbanded
-        ? `The ${q} races will count for total points in the championship.`
-        : `The ${q} races and the ${f} races will count for total points in the ${config.medal ? vocab.seriesName : 'championship'}.`,
-    );
-    push('discards', discardClause(config));
-    const cap =
-      config.maxFinalDiscards === 0
-        ? `No excluded score may come from ${article(`${f} race`)}.`
-        : `No more than ${countWord(config.maxFinalDiscards)} excluded score${config.maxFinalDiscards === 1 ? '' : 's'} may come from the ${f}`;
-    if (unbanded) {
-      // No second stage, so nothing to cap.
-    } else if (config.maxFinalDiscards === 0) {
-      push('final-discard-cap', cap);
-    } else {
-      push(
-        'final-discard-cap',
-        config.protectLoneFinalRace
-          ? `${cap}, and if only one ${f} race has been completed that score will not be excluded.`
-          : `${cap}.`,
-      );
-    }
-  } else if (config.carry === 'net-plus-net') {
-    push(
-      'totals',
-      `A boat’s championship score will be the total of her ${q} score plus her ${f} score.`,
-    );
-    push(
-      'discards',
-      `${discardClause(config)} This applies separately to the ${q} and the ${f}.`,
-    );
-  } else {
-    push(
-      'totals',
-      `The position of each boat in the ${q} will be carried forward to the ${f} as non-excludable points, and her ${q} race scores will not otherwise count.`,
-    );
-    push(
-      'discards',
-      `${discardClause(config)} The carried ${qAdj} position may not be excluded.`,
+      'final-discard-cap',
+      `No more than one excluded score may come from the ${f}, and if only one ${f} race has been completed that score will not be excluded.`,
     );
   }
 
-  const qualifyingBase =
-    config.codeBasis.qualifying === 'fixed' && config.codeBasis.fixedPoints != null
-      ? `${config.codeBasis.fixedPoints} points`
-      : `the number of boats in the largest ${qAdj} fleet, plus one`;
-  const finalBase =
-    config.codeBasis.final === 'largest-qualifying'
-      ? `the number of boats in the largest ${qAdj} fleet, plus one`
-      : `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
+  const qualifyingBase = `the number of boats in the largest ${qAdj} fleet, plus one`;
+  const finalBase = `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   push(
     'non-finisher',
     unbanded
@@ -276,87 +213,56 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
       : `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase} in the ${q}, and ${finalBase} in the ${f}.`,
   );
 
-  if (config.medal) {
-    const score =
-      config.medal.multiplier === 1
-        ? 'A boat’s score there may not be excluded'
-        : `A boat’s score there will be multiplied by ${config.medal.multiplier} and may not be excluded`;
-    // What the boats who miss the cut do is part of the same clause in the
-    // SIs, and a scorer checking ours against theirs looks for it: one more
-    // race of the second stage in their own fleets (2024 ILCA SI 7.4, 2026
-    // ILCA SI 7.7), scored below the medal fleet where the SIs say so (2024
-    // SI 18.3.4, 2026 SI 18.5.3) — or nothing at all, where the event
-    // schedules no such race and scores them DNC instead.
-    // What becomes of the boats who miss the cut. `none` means two different
-    // things depending on whether there is a second stage to sail one more
-    // race of: where there is, that race is scored from 1 like any other;
-    // where there is not, there is no further racing at all and the deciding
-    // race scores them nothing.
-    const rest =
-      config.medal.companionRace === 'dnc'
-        ? `; the boats that do not qualify for it will be scored Did Not Come to the Starting Area in the ${vocab.stages.medal.raceNoun}`
-        : unbanded
-          ? `; the boats that do not qualify for it will not race again, and will have no score for the ${vocab.stages.medal.raceNoun}`
-          : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets` +
-            (config.medal.companionRace === 'scored-below'
-              ? `, in which the first ${topFleet} boat will be scored ${config.medal.size + 1} points, the second ${config.medal.size + 2}, and so on`
-              : '');
+  const medal = config.medal;
+  const score =
+    medal.multiplier === 1
+      ? 'A boat’s score there may not be excluded'
+      : `A boat’s score there will be multiplied by ${medal.multiplier} and may not be excluded`;
+  // What the boats who miss the cut do is part of the same clause in the SIs,
+  // and a scorer checking ours against theirs looks for it: where the opening
+  // series is divided, one more race of the second stage in their own fleets,
+  // scored below the medal fleet (2026 ILCA SI 7.7 and 18.5.3); where it is
+  // not, no further racing at all.
+  const rest = unbanded
+    ? `; the boats that do not qualify for it will not race again, and will have no score for the ${vocab.stages.medal.raceNoun}`
+    : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets, in which the first ${topFleet} boat will be scored ${medal.size + 1} points, the second ${medal.size + 2}, and so on`;
+  push(
+    'medal',
+    unbanded
+      ? `The first ${medal.size} boats in the ${q} will sail the ${m}. ${score}${rest}.`
+      : `The first ${medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
+  );
+  // The engine ranks the boats of the deciding stage above every other boat
+  // whatever the points say, which is a clause — 2024 ILCA SI 18.7 writes
+  // it — and not an arithmetic consequence. It decides the podium wherever
+  // a boat outside the deciding fleet finishes on fewer or better scores,
+  // so it belongs in the list a scorer checks against their own document:
+  // an event whose notice of race is silent on it needs to know that.
+  push(
+    'medal-ranking',
+    `The boats qualified to compete in the ${m} will be ranked highest in the event.`,
+  );
+  if (medal.carryTransform) {
     push(
-      'medal',
-      unbanded
-        ? `The first ${config.medal.size} boats in the ${q} will sail the ${m}. ${score}${rest}.`
-        : `The first ${config.medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
+      'medal-carry-transform',
+      `Before the ${m}, each qualified boat's series score will be divided by 2, rounded to the nearest whole number (0.5 rounded upward), and her scores from the ${m} added to that. If no ${vocab.stages.medal.raceNoun} is completed, her ${vocab.seriesName} score will decide the championship without being divided.`,
     );
-    // The engine ranks the boats of the deciding stage above every other boat
-    // whatever the points say, which is a clause — 2024 ILCA SI 18.7 writes
-    // it — and not an arithmetic consequence. It decides the podium wherever
-    // a boat outside the deciding fleet finishes on fewer or better scores,
-    // so it belongs in the list a scorer checks against their own document:
-    // an event whose notice of race is silent on it needs to know that.
+  }
+  if (medal.tieBreak === 'last-race') {
+    // Not a step after A8 but a replacement for it, so the sentence says so
+    // rather than reading as an addition.
     push(
-      'medal-ranking',
-      `The boats qualified to compete in the ${m} will be ranked highest in the event.`,
+      'medal-tie-break',
+      `For the boats in the ${m}, a tie will be broken in favour of the boat with the better score in the last race. This changes rule A8.`,
     );
-    const transform = config.medal.carryTransform;
-    if (transform) {
-      const rounding =
-        transform.rounding === 'half-up'
-          ? 'rounded to the nearest whole number (0.5 rounded upward)'
-          : 'with any fraction discarded';
-      // The abandonment clause is part of the same rule and a scorer checking
-      // ours against their own SIs looks for it, but only one reading needs
-      // saying: leaving the divided score standing is what "divided before
-      // the series" already implies.
-      const undone =
-        transform.appliesFrom === 'first-medal-race'
-          ? ` If no ${vocab.stages.medal.raceNoun} is completed, her ${vocab.seriesName} score will decide the championship without being divided.`
-          : '';
-      push(
-        'medal-carry-transform',
-        `Before the ${m}, each qualified boat's series score will be divided by ${transform.by}, ${rounding}, and her scores from the ${m} added to that.${undone}`,
-      );
-    }
-    if (config.medal.tieBreak === 'stage-rank') {
-      push(
-        'medal-tie-break',
-        `For the boats in the ${m}, ties will be broken applying rule A8. If a tie remains, it will be broken in favour of the boat ranked higher in the ${f}, then in the ${q}.`,
-      );
-    } else if (config.medal.tieBreak === 'last-race') {
-      // Not a step after A8 but a replacement for it, so the sentence says so
-      // rather than reading as an addition.
-      push(
-        'medal-tie-break',
-        `For the boats in the ${m}, a tie will be broken in favour of the boat with the better score in the last race. This changes rule A8.`,
-      );
-    } else if (config.medal.tieBreak === 'medal-race-then-a8') {
-      // Ahead of A8, not instead of it: the clause addresses only the boats
-      // whose scores in the deciding race differ, and rule A8 still has the
-      // rest.
-      push(
-        'medal-tie-break',
-        `A tie between boats with different scores in the ${vocab.stages.medal.raceNoun} will be broken in favour of the boat with the lower score in it. This changes rule A8. Any remaining tie will be broken by rule A8.`,
-      );
-    }
+  } else {
+    // Ahead of A8, not instead of it: the clause addresses only the boats
+    // whose scores in the deciding race differ, and rule A8 still has the
+    // rest.
+    push(
+      'medal-tie-break',
+      `A tie between boats with different scores in the ${vocab.stages.medal.raceNoun} will be broken in favour of the boat with the lower score in it. This changes rule A8. Any remaining tie will be broken by rule A8.`,
+    );
   }
 
   return lines;

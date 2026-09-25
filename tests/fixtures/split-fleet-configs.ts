@@ -32,23 +32,11 @@ export function openingSeriesMedalConfig(): SplitFleetConfig {
       { label: 'Day 2', races: 5 },
     ],
     discardThresholds: [{ minRaces: 5, discardCount: 1 }],
-    maxFinalDiscards: 0,
-    protectLoneFinalRace: false,
     medal: {
       size: 10,
       raceCount: 1,
       multiplier: 2,
-      companionRace: 'none',
       tieBreak: 'medal-race-then-a8',
     },
-  };
-}
-
-/** No deciding stage, one discard from five. */
-export function iodaConfig(fleetCount: number): SplitFleetConfig {
-  return {
-    ...defaultSplitFleetConfig(fleetCount),
-    discardThresholds: [{ minRaces: 5, discardCount: 1 }],
-    medal: undefined,
   };
 }

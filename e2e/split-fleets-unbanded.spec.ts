@@ -39,8 +39,7 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   // ── The format: one fleet, and the settings that describe a second stage
   // are gone with it ────────────────────────────────────────────────────────
   await expect(page.locator('#sf-fleet-count')).toHaveValue('1');
-  await expect(page.locator('#sf-split')).toHaveCount(0);
-  await expect(page.locator('#sf-equalization')).toHaveCount(0);
+  await expect(page.getByText(/How boats are divided/)).toHaveCount(0);
 
   // Set it up the way the notice of race reads: an opening series and a
   // medal race, the medal race at double points on the undivided score.
@@ -52,8 +51,11 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
         r.ok(),
     );
   await Promise.all([saved(), page.locator('#sf-vocabulary').selectOption('opening-medal')]);
-  await Promise.all([saved(), page.getByLabel('Medal races points multiplier').fill('2')]);
-  await Promise.all([saved(), page.getByLabel('First divide the score so far by').uncheck()]);
+  await Promise.all([saved(), page.getByLabel('Medal races points').selectOption('2')]);
+  await Promise.all([
+    saved(),
+    page.getByLabel('First halve the score so far, rounding 0.5 up').uncheck(),
+  ]);
   // The generated sailing instructions say what the format is, and say
   // nothing about dividing a fleet that is never divided.
   const si = page.getByTestId('sf-si-translation');

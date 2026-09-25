@@ -2283,30 +2283,21 @@
           "races": 1
         }
       ],
-      "carry": "points",
       "split": {
         "kind": "equal-blocks"
       },
-      "codeBasis": {
-        "qualifying": "largest-fleet",
-        "final": "own-fleet"
-      },
-      "equalization": "abandon-extra-races",
       "discardThresholds": [
         {
           "minRaces": 4,
           "discardCount": 1
         }
       ],
-      "maxFinalDiscards": 1,
-      "protectLoneFinalRace": true,
-      "reassignmentTieOrder": "a8-then-entry-order",
       "vocabulary": "opening-medal",
       "medal": {
         "size": 6,
         "raceCount": 1,
         "multiplier": 2,
-        "companionRace": "scored-below"
+        "tieBreak": "medal-race-then-a8"
       }
     },
     "rounds": [

@@ -35,7 +35,6 @@ config:
   discardThresholds:
     - minRaces: 4
       discardCount: 1
-  maxFinalDiscards: 1
 
 # Listed in seed order (s1 = top seed). Round 1 assigns by this order.
 competitors:

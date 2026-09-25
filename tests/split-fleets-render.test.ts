@@ -150,7 +150,7 @@ describe('renderSplitFleetStandingsPage', () => {
     const mid = midQualifying(renderInputFor('01-f1-ilca-continuous-carry.yaml'));
     const html = renderSplitFleetStandingsPage(mid);
     expect(html).toContain('provisional split');
-    expect(html).not.toContain('Gold fleet');
+    expect(html).not.toMatch(/<h[23][^>]*>Gold fleet</);
     // The line spans the table, so its colspan has to follow the table's own
     // column set rather than the page's.
     expect(Number(html.match(/<td colspan="(\d+)"/)?.[1])).toBe(headerRow(html).length);
@@ -269,12 +269,12 @@ describe('fleet markers on the championship standings', () => {
     // row's qualifying cells can carry different fleets race by race.
     expect(html).toMatch(/<td[^>]*title="Yellow fleet"[^>]*>|title="Yellow fleet"/);
     expect(html).toContain('class="sfdot"');
-    // The tooltip keeps the scoring note when the cell has one — rank-seed
-    // carry supersedes the qualifying scores, so those cells carry both.
-    const rankSeed = renderSplitFleetStandingsPage(
-      renderInputFor('14-f6-rank-seed-carry.yaml'),
+    // The tooltip keeps the scoring note when the cell has one — a halved
+    // carry supersedes the opening scores, so those cells carry both.
+    const carried = renderSplitFleetStandingsPage(
+      renderInputFor('15-f3-compressed-carry.yaml'),
     );
-    expect(rankSeed).toMatch(/title="[^"]+ fleet — replaced by the carried score"/);
+    expect(carried).toMatch(/title="[^"]+ fleet — replaced by the carried score"/);
   });
 
   it('keys the dots with a legend naming every fleet that appears', () => {
@@ -387,9 +387,9 @@ describe('the championship links to the per-race results page', () => {
   });
 
   it('leaves a carried-score column unlinked — it is a score, not a race', () => {
-    // Rank-seed carry mints a stage-race-0 column; no race section exists
-    // for it, so a link would 404 into the page.
-    const html = renderSplitFleetStandingsPage(renderInputFor('14-f6-rank-seed-carry.yaml'), {
+    // A halved carry mints a stage-race-0 column; no race section exists for
+    // it, so a link would 404 into the page.
+    const html = renderSplitFleetStandingsPage(renderInputFor('15-f3-compressed-carry.yaml'), {
       raceResultsHref: 'race-results',
     });
     // Matched against the href rather than the bare fragment: a stylesheet
@@ -537,9 +537,9 @@ describe('renderSplitFleetRaceResultsPage', () => {
   });
 
   it('treats a carried score as a score, not a race', () => {
-    // Rank-seed carry mints stage race 0 cells; they are positions, not races,
-    // and get no section — while the superseded qualifying races keep theirs.
-    const html = renderSplitFleetRaceResultsPage(renderInputFor('14-f6-rank-seed-carry.yaml'))!;
+    // A halved carry mints stage race 0 cells; they are scores, not races,
+    // and get no section — while the superseded opening races keep theirs.
+    const html = renderSplitFleetRaceResultsPage(renderInputFor('15-f3-compressed-carry.yaml'))!;
     expect(html).not.toContain('id="f0"');
     expect(html).not.toContain('id="m0"');
     expect(html).toContain('id="q1"');

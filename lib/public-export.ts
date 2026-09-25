@@ -914,7 +914,7 @@ function championshipStandingRows(
       raceRedressFlags.push(code === 'RDG');
       raceExcluded.push(!counts);
     }
-    const carried = row.cells.filter((c) => c.counts && (c.carriedRank || c.carriedTransform));
+    const carried = row.cells.filter((c) => c.counts && c.carriedTransform);
     return {
       rank: row.rank,
       sailNumber: row.competitor.sailNumber,

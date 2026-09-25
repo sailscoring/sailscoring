@@ -44,8 +44,7 @@ fall through to A8 as written. That fall-through is unit-tested in
 `tests/split-fleets.test.ts` rather than here, since it needs the same event
 scored twice.
 
-y2 and b2 never reach the medal fleet, so under `companionRace: dnc` they
-are scored DNC in the medal race: 4 entries + 1 = 5, x2 = 10.
+y2 and b2 never reach the medal fleet and have no score for the medal race.
 
 No discards (threshold empty) so every cell is visible.</pre>
 <h2>Fleet assignments</h2>
@@ -96,9 +95,9 @@ No discards (threshold empty) so every cell is visible.</pre>
   <td style="background:#fff3bf;text-align:center">2</td>
   <td style="background:#fff3bf;text-align:center">1</td>
   <td style="background:#e9ecef;text-align:center">1</td>
-  <td style="background:#ffe066;text-align:center;font-weight:bold">10 DNC</td>
-  <td style="text-align:right">14</td>
-  <td style="text-align:right;font-weight:bold">14</td>
+  <td></td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right;font-weight:bold">4</td>
 </tr>
 <tr>
   <td>4</td>
@@ -107,9 +106,9 @@ No discards (threshold empty) so every cell is visible.</pre>
   <td style="background:#d0ebff;text-align:center">2</td>
   <td style="background:#d0ebff;text-align:center">2</td>
   <td style="background:#e9ecef;text-align:center">2</td>
-  <td style="background:#ffe066;text-align:center;font-weight:bold">10 DNC</td>
-  <td style="text-align:right">16</td>
-  <td style="text-align:right;font-weight:bold">16</td>
+  <td></td>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right;font-weight:bold">6</td>
 </tr>
 </tbody>
 </table>

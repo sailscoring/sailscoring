@@ -61,8 +61,6 @@ config:
   discardThresholds:
     - minRaces: 3
       discardCount: 1
-  maxFinalDiscards: 1
-  protectLoneFinalRace: true
   medal:
     size: 2
     raceCount: 1
@@ -74,7 +72,6 @@ config:
     tieBreak: last-race
     # SI 7.7 + 18.5.3: they stay in their fleet and sail one more Elimination
     # race with it, its finishers offset by the boats who left.
-    companionRace: scored-below
 
 competitors:
   - "y1 Helm Y1"

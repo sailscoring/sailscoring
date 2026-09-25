@@ -507,18 +507,14 @@ function FragmentRow({
           const color = meta?.color ?? '#888';
           const text = `${cell.points}${cell.code ? ` ${cell.code}` : ''}`;
           const note = cell.counts
-            ? cell.carriedRank
-              ? `${capitaliseStage(w.qualifying.name)} position, carried into the ${w.final.name}`
-              : cell.carriedTransform
-                ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
-                : undefined
+            ? cell.carriedTransform
+              ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
+              : undefined
             : cell.carriedTransform
               ? `${capitaliseStage(w.series)} score, compressed — counts once a ${w.medal.raceNoun} is completed`
               : cell.superseded
                 ? 'Replaced by the carried score'
-                : cell.excludedAsExtra
-                  ? `Excluded so every boat has the same number of ${w.qualifying.name} scores`
-                  : 'Does not yet count — race incomplete across fleets';
+                : 'Does not yet count — race incomplete across fleets';
           return (
             <td
               key={`${c.stage}:${c.n}`}

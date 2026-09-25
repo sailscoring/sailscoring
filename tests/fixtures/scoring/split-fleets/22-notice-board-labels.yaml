@@ -46,8 +46,6 @@ config:
       discardCount: 1
     - minRaces: 10
       discardCount: 2
-  maxFinalDiscards: 1
-  protectLoneFinalRace: true
 
 competitors:
   - "y1 Helm Y1"

@@ -20,7 +20,7 @@ notes: |
          determine the event final result.
 
   That brings the SIs into line with NoR 15.4, which had always said the
-  undivided thing. It is `carryTransform.appliesFrom: first-medal-race`: the
+  undivided thing, and it is how the engine applies a halved carry: the
   division waits for a Final series race to be completed rather than taking
   effect the moment the ten are picked.
 
@@ -55,8 +55,6 @@ config:
   discardThresholds:
     - minRaces: 3
       discardCount: 1
-  maxFinalDiscards: 1
-  protectLoneFinalRace: true
   medal:
     size: 2
     raceCount: 2
@@ -66,7 +64,6 @@ config:
       by: 2
       rounding: half-up
       # SI 18.7.5 as Amendment 5 rewrote it.
-      appliesFrom: first-medal-race
     tieBreak: last-race
 
 competitors:

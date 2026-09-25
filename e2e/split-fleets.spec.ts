@@ -201,11 +201,8 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
 
   // Reaching a setting marks the sentences it writes, so which clause a field
   // governs doesn't have to be found by flipping it.
-  await formatSection.locator('#sf-equalization').hover();
-  await expect(si.locator('[data-sentence="fleet-equalisation"]')).toHaveAttribute(
-    'data-marked',
-    'true',
-  );
+  await formatSection.getByText('Sailed by the top').hover();
+  await expect(si.locator('[data-sentence="medal"]')).toHaveAttribute('data-marked', 'true');
   await expect(si.locator('[data-sentence="discards"]')).not.toHaveAttribute('data-marked', 'true');
   // Focus wins over the pointer: the mouse is still resting on the setting
   // above, but the scorer is typing in this one.
@@ -215,10 +212,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
     'data-marked',
     'true',
   );
-  await expect(si.locator('[data-sentence="fleet-equalisation"]')).not.toHaveAttribute(
-    'data-marked',
-    'true',
-  );
+  await expect(si.locator('[data-sentence="medal"]')).not.toHaveAttribute('data-marked', 'true');
   // The panel is capped at the window's height with the sentences scrolling
   // inside it, so the last setting's sentence is brought into view rather
   // than left below the fold where the mark can't be read.

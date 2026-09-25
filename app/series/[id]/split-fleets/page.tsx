@@ -63,7 +63,6 @@ import {
   fleetMembers,
   logicalRaces,
   MEDAL_FLEET_COLORS,
-  orderForAssignment,
   physicalRaceCompleted,
   pickableFleets,
   provisionalCutIndexes,
@@ -240,16 +239,9 @@ function buildDemoCompetitors(seriesId: string, defaultFleetId: string | null): 
 /** The Format section's collapsed one-liner. */
 function formatSummary(config: SplitFleetConfig): string {
   const w = words(config);
-  const carry =
-    config.carry === 'points'
-      ? 'one continuous series'
-      : config.carry === 'net-plus-net'
-        ? 'two series added together'
-        : `${w.qualifying.name} position carried forward`;
   return [
     `${config.qualifyingFleets.map((f) => f.label).join('/')} → ${config.finalFleets.map((f) => f.label).join('/')}`,
-    carry,
-    config.medal ? `${w.medal.name} ×${config.medal.multiplier}` : `no ${w.medal.raceNoun}`,
+    `${w.medal.name} ×${config.medal.multiplier}`,
   ].join(' · ');
 }
 
@@ -1336,7 +1328,7 @@ function ReassignDialog({
   const leftovers = useMemo(() => deletableLeftoverFleets(data), [data]);
   const [dropLeftovers, setDropLeftovers] = useState(() => allSyntheticNames(leftovers));
   const preview = useMemo(() => {
-    const rows = orderForAssignment(splitFleetStandings(data), data);
+    const rows = splitFleetStandings(data);
     const ordered = rows.map((r) => r.competitor.id);
     const byFleet = assignByRankPattern(ordered, qFleets.length);
     const dealt: Record<string, number> = {};
@@ -1352,11 +1344,7 @@ function ReassignDialog({
       const fleets = [...new Set(group.map((r) => qFleets[dealt[r.competitor.id]].label))];
       if (group.length > 1 && fleets.length > 1) {
         tieWarnings.push(
-          `${group.map((r) => r.competitor.sailNumber).join(', ')} share rank ${rows[i].rank} and RRS A8 cannot separate them — ${
-            data.config.reassignmentTieOrder === 'fleet-order'
-              ? 'current fleet order'
-              : 'entry order'
-          } decides who is dealt ${fleets.join('/')}, not the ranking. Move a boat by hand if the committee assigns otherwise.`,
+          `${group.map((r) => r.competitor.sailNumber).join(', ')} share rank ${rows[i].rank} and RRS A8 cannot separate them — entry order decides who is dealt ${fleets.join('/')}, not the ranking. Move a boat by hand if the committee assigns otherwise.`,
         );
       }
       i = j;
@@ -1447,10 +1435,7 @@ function SplitDialog({
   const { commit, run } = useCommit(seriesId, onClose);
   const fFleets = data.config.finalFleets;
   const rows = useMemo(() => splitFleetStandings(data), [data]);
-  const defaultTop =
-    data.config.split.kind === 'fixed-top'
-      ? Math.min(data.config.split.topSize, rows.length)
-      : finalBlockSizes(rows.length, fFleets.length)[0];
+  const defaultTop = finalBlockSizes(rows.length, fFleets.length)[0];
   const [topSize, setTopSize] = useState(defaultTop);
   const [moves, setMoves] = useState<Record<string, number>>({});
   const [createRaces, setCreateRaces] = useState(false);
@@ -1459,9 +1444,8 @@ function SplitDialog({
 
   const preview = useMemo(() => {
     // Top fleet takes `topSize`; the remainder splits near-equally. The deal
-    // runs over the assignment order: the ranking, with each shared rank
-    // ordered per the configured tie order.
-    const dealt = orderForAssignment(rows, data);
+    // runs down the ranking, a shared rank in entry order.
+    const dealt = rows;
     const rest = finalBlockSizes(Math.max(0, rows.length - topSize), Math.max(1, fFleets.length - 1));
     const sizes = [topSize, ...rest];
     let assignments: Record<string, number> = {};
@@ -1494,11 +1478,7 @@ function SplitDialog({
       const boundary = `${fFleets[i].label}/${fFleets[i + 1].label}`;
       boundaryTies.push(
         a.rank === b.rank
-          ? `${a.competitor.sailNumber} and ${b.competitor.sailNumber} tie on ${a.net} and RRS A8 cannot separate them — the last ${boundary} place is dealt by ${
-              data.config.reassignmentTieOrder === 'fleet-order'
-                ? 'current fleet order'
-                : 'entry order'
-            }, not by the ranking. Move a boat by hand if the SIs direct otherwise.`
+          ? `${a.competitor.sailNumber} and ${b.competitor.sailNumber} tie on ${a.net} and RRS A8 cannot separate them — the last ${boundary} place is dealt by entry order, not by the ranking. Move a boat by hand if the SIs direct otherwise.`
           : `Ranks ${cum}/${cum + 1} (${a.competitor.sailNumber}, ${b.competitor.sailNumber}) tie on ${a.net} — separated by RRS A8; the ${boundary} boundary depends on it.`,
       );
     }
@@ -1509,7 +1489,7 @@ function SplitDialog({
       sizes: fFleets.map((_, i) => counted.filter((v) => v === i).length),
       boundaryTies,
     };
-  }, [rows, data, topSize, moves, fFleets]);
+  }, [rows, topSize, moves, fFleets]);
 
   return (
     <CeremonyDialog
@@ -1557,7 +1537,7 @@ function SplitDialog({
           onChange={(e) => { setTopSize(Number(e.target.value)); setMoves({}); }}
         />
         <span className="text-xs text-muted-foreground">
-          {data.config.split.kind === 'fixed-top' ? 'fixed-size preset' : 'near-equal blocks; adjust if the SIs direct'}
+          near-equal blocks; adjust if the SIs direct
         </span>
       </div>
       {preview.boundaryTies.map((t) => (
@@ -1890,14 +1870,10 @@ function MedalSelectDialog({
   const goldLabel = (goldId && fleetMeta.get(goldId)?.label) || 'Gold';
 
   // The ceremony deals one fleet and one only. Selecting the medal boats
-  // does not move anyone else: the boats who miss the cut stay in the fleet
-  // they are in and sail its remaining race there.
-  const scoredBelow = medalConfig.companionRace === 'scored-below';
-  // Whether anyone races again after the cut. With no second stage there is
-  // no race for them whatever `companionRace` says; with one, only the `dnc`
-  // answer ends their racing.
-  const stops = medalConfig.companionRace === 'dnc' || data.config.split.kind === 'none';
-  const scored = medalConfig.companionRace === 'dnc';
+  // does not move anyone else: where the opening series is divided, the
+  // boats who miss the cut stay in the fleet they are in and sail its
+  // remaining race there; where it is not, they have finished racing.
+  const stops = data.config.split.kind === 'none';
   const medalAssignments = useMemo(() => {
     const assignments: Record<string, number> = {};
     for (const r of medalists) assignments[r.competitor.id] = 0;
@@ -1910,10 +1886,8 @@ function MedalSelectDialog({
       title={`Select the ${w.medal.fleetNoun}`}
       description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); ${
         stops
-          ? `everyone else has finished racing${scored ? ', and is scored DNC there' : ' and is not scored for it'}`
-          : `everyone else stays in their fleet and sails its remaining races${
-              scoredBelow ? `, ${goldLabel}'s scored from ${size + 1}` : ''
-            }`
+          ? 'everyone else has finished racing and is not scored for it'
+          : `everyone else stays in their fleet and sails its remaining races, ${goldLabel}'s scored from ${size + 1}`
       }. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
@@ -1998,16 +1972,11 @@ function MedalSection({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        {words(data.config).title('medal')} score ×{medalConfig?.multiplier ?? 2} and cannot be
+        {words(data.config).title('medal')} score ×{medalConfig.multiplier} and cannot be
         discarded.{' '}
-        {medalConfig?.companionRace === 'dnc'
-          ? `The boats who missed the cut do not race again: each is scored DNC here, at the entry list plus one, ×${medalConfig?.multiplier ?? 2} like every other score in the race.`
-          : data.config.split.kind === 'none'
-            ? 'The boats who missed the cut do not race again, and are not scored for this race. They rank below these boats whatever the points say.'
-            : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section.`}
-        {medalConfig?.companionRace === 'scored-below'
-          ? ` In the fleet they left it scores from ${(medalConfig?.size ?? 10) + 1} — first finisher ${(medalConfig?.size ?? 10) + 1}, second ${(medalConfig?.size ?? 10) + 2}, and so on — since that many boats are elsewhere; the other fleets score it from 1.`
-          : ''}
+        {data.config.split.kind === 'none'
+          ? 'The boats who missed the cut do not race again, and are not scored for this race. They rank below these boats whatever the points say.'
+          : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section. In the fleet they left it scores from ${medalConfig.size + 1} — first finisher ${medalConfig.size + 1}, second ${medalConfig.size + 2}, and so on — since that many boats are elsewhere; the other fleets score it from 1.`}
       </p>
       {round.fleetIds.map((fid, i) => {
         const refs = stageRaceRefs(data, 'medal')
@@ -2039,7 +2008,7 @@ function MedalSection({
                   }}
                 >
                   {raceLabel(data, 'medal', ref.start.stageRaceNumber ?? 0)}{' '}
-                  {isMedal ? `·×${medalConfig?.multiplier ?? 2}` : ''}{' '}
+                  {isMedal ? `·×${medalConfig.multiplier}` : ''}{' '}
                   {done ? '✓' : '· enter finishes'}
                 </Link>
               );

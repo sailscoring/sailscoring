@@ -321,7 +321,7 @@ export function renderSplitFleetStandingsPage(
     const sailed = new Map<string, { competitorId: string; points: number }[]>();
     for (const row of rows) {
       for (const c of row.cells) {
-        if (c.code !== null || c.carriedRank || c.carriedTransform) continue;
+        if (c.code !== null || c.carriedTransform) continue;
         let list = sailed.get(raceKey(c));
         if (!list) sailed.set(raceKey(c), (list = []));
         list.push({ competitorId: row.competitor.id, points: c.points });
@@ -360,18 +360,14 @@ export function renderSplitFleetStandingsPage(
     const dim = c.counts ? '' : ';color:#adb5bd';
     const bold = c.discardable ? '' : ';font-weight:bold';
     const note = c.counts
-      ? c.carriedRank
-        ? `${vocab.stages.qualifying.name} position, carried into the ${vocab.stages.final.name}`
-        : c.carriedTransform
-          ? `${vocab.seriesName} score, compressed and carried into the ${vocab.stages.medal.name}`
-          : ''
+      ? c.carriedTransform
+        ? `${vocab.seriesName} score, compressed and carried into the ${vocab.stages.medal.name}`
+        : ''
       : c.carriedTransform
         ? `${vocab.seriesName} score, compressed — counts once a ${vocab.stages.medal.raceNoun} is completed`
         : c.superseded
           ? 'replaced by the carried score'
-          : c.excludedAsExtra
-            ? `excluded so every boat has the same number of ${vocab.stages.qualifying.name} scores`
-            : 'does not yet count — race incomplete across fleets';
+          : 'does not yet count — race incomplete across fleets';
     const titleText = [fleet ? `${fleet} fleet` : '', note].filter(Boolean).join(' — ');
     const title = titleText ? ` title="${esc(titleText)}"` : '';
     const podiumClass = podium ? ` class="rank${podium}"` : '';

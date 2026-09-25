@@ -32,8 +32,7 @@ notes: |
   `tests/split-fleets.test.ts` rather than here, since it needs the same event
   scored twice.
 
-  y2 and b2 never reach the medal fleet, so under `companionRace: dnc` they
-  are scored DNC in the medal race: 4 entries + 1 = 5, x2 = 10.
+  y2 and b2 never reach the medal fleet and have no score for the medal race.
 
   No discards (threshold empty) so every cell is visible.
 
@@ -41,12 +40,10 @@ config:
   qualifyingFleets: [Yellow, Blue]
   finalFleets: [Gold, Silver]
   discardThresholds: []
-  maxFinalDiscards: 0
   medal:
     size: 2
     raceCount: 1
     multiplier: 2
-    companionRace: dnc
     tieBreak: medal-race-then-a8
 
 competitors:
@@ -97,5 +94,5 @@ expected:
     # 7 apiece. A8 alone would put b1 first; NoR 15.3 puts y1 there.
     - { rank: 1, sail: y1, total: 7, net: 7, fleet: Gold, medal: true }
     - { rank: 2, sail: b1, total: 7, net: 7, fleet: Gold, medal: true }
-    - { rank: 3, sail: y2, total: 14, net: 14, fleet: Silver }
-    - { rank: 4, sail: b2, total: 16, net: 16, fleet: Silver }
+    - { rank: 3, sail: y2, total: 4, net: 4, fleet: Silver }
+    - { rank: 4, sail: b2, total: 6, net: 6, fleet: Silver }

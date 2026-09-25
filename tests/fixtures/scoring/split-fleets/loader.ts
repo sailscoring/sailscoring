@@ -112,11 +112,7 @@ export interface SplitFleetFixture {
   config: {
     qualifyingFleets: string[];
     finalFleets?: string[];
-    /** Carry mode; default 'points' (continuous). */
-    carry?: 'points' | 'net-plus-net' | 'rank-seed';
     discardThresholds: { minRaces: number; discardCount: number }[];
-    maxFinalDiscards: number;
-    protectLoneFinalRace?: boolean;
     /** The words the event's SIs use; default the generic ones. */
     vocabulary?: VocabularyKey;
     /** What its notice board called the races, where that differed from the
@@ -125,14 +121,11 @@ export interface SplitFleetFixture {
     medal?: {
       size: number;
       raceCount: number;
-      multiplier: number;
-      /** The compressed carry. `appliesFrom` is declared only by the
-       *  fixtures it can bite — a medal fleet selected with no medal race
-       *  sailed — and defaults to `first-medal-race` everywhere else. */
-      carryTransform?: Omit<CarryTransform, 'appliesFrom'> &
-        Partial<Pick<CarryTransform, 'appliesFrom'>>;
-      tieBreak?: 'stage-rank' | 'last-race';
-      companionRace?: 'scored-below' | 'none' | 'dnc';
+      multiplier: 1 | 2;
+      /** The halved carry. */
+      carryTransform?: CarryTransform;
+      /** Default `medal-race-then-a8`. */
+      tieBreak?: 'last-race' | 'medal-race-then-a8';
     };
   };
   competitors: string[]; // "sail name..." — first token is the sail number
@@ -231,32 +224,25 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     // the same thing a fixture says by declaring no final stage.
     plannedDays: [],
     finishSheets: 'combined',
-    carry: fx.config.carry ?? 'points',
     split: (fx.config.finalFleets ?? []).length === 0 ? { kind: 'none' } : { kind: 'equal-blocks' },
-    codeBasis: { qualifying: 'largest-fleet', final: 'own-fleet' },
-    equalization: 'abandon-extra-races',
     discardThresholds: fx.config.discardThresholds,
-    maxFinalDiscards: fx.config.maxFinalDiscards,
-    protectLoneFinalRace: fx.config.protectLoneFinalRace ?? false,
-    reassignmentTieOrder: 'a8-then-entry-order',
     vocabulary: fx.config.vocabulary ?? DEFAULT_VOCABULARY,
     ...(fx.config.raceLabels ? { raceLabels: fx.config.raceLabels } : {}),
-    medal: fx.config.medal
-      ? {
-          companionRace: 'scored-below' as const,
-          ...fx.config.medal,
-          carryTransform: fx.config.medal.carryTransform
-            ? { appliesFrom: 'first-medal-race' as const, ...fx.config.medal.carryTransform }
-            : undefined,
-        }
-      : undefined,
+    // A championship always has a deciding stage configured; a fixture that
+    // declares none simply never sails it.
+    medal: {
+      size: 10,
+      raceCount: 1,
+      multiplier: 2,
+      tieBreak: 'medal-race-then-a8',
+      ...fx.config.medal,
+    },
   };
 
   // The one more race the boats who missed the medal fleet sail is an
-  // ordinary race of their own final fleet, and where the sailing
-  // instructions score it below the medal fleet a fleet's finishers are
-  // offset by however many of its own boats left for the medal fleet — so
-  // the top fleet's, and nobody else's. `medalAfter` is what says which
+  // ordinary race of their own final fleet, scored below the medal fleet: a
+  // fleet's finishers are offset by however many of its own boats left for
+  // the medal fleet — so the top fleet's, and nobody else's. `medalAfter` is what says which
   // final races come after the cut: everything later than it is that race.
   const medalCutAfter = fx.stages.find((s) => s.stage === 'medal')?.medalAfter ?? null;
   const medalMembership = (() => {
@@ -269,7 +255,6 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     n: number,
     fleetName: string,
   ): { firstPlaceOffset?: number } => {
-    if (config.medal?.companionRace !== 'scored-below') return {};
     if (st !== 'final' || medalCutAfter == null || n <= medalCutAfter) return {};
     const stage = fx.stages.find((s2) => s2.stage === 'final');
     const members = (stage?.fleets ?? stage?.expectedFleets)?.[fleetName] ?? [];

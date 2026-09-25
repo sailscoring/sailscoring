@@ -61,12 +61,10 @@ config:
   qualifyingFleets: [Yellow, Blue]
   finalFleets: [Gold, Silver]
   discardThresholds: []
-  maxFinalDiscards: 0
   medal:
     size: 2
     raceCount: 1
     multiplier: 2
-    companionRace: scored-below
 
 competitors:
   - "y1 Helm Y1"

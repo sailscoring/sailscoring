@@ -111,9 +111,9 @@ export async function putSplitFleetConfig(
       throw new BadRequestError('a series that has raced cannot become a split-fleet championship');
     }
   } else {
-    // The config-editability contract (design open question 6): once any race
-    // has finishes, the structural fields — carry mode and qualifying fleet
-    // count — are frozen; everything else merely re-scores and stays live.
+    // The config-editability contract: once any race has finishes, the
+    // qualifying fleet count is frozen; everything else merely re-scores and
+    // stays live.
     const [anyFinish] = await db
       .select({ id: schema.finishes.id })
       .from(schema.finishes)
@@ -121,9 +121,6 @@ export async function putSplitFleetConfig(
       .where(eq(schema.races.seriesId, seriesId))
       .limit(1);
     if (anyFinish) {
-      if (config.carry !== existing.carry) {
-        throw new BadRequestError('carry mode is frozen once racing has started');
-      }
       if (config.qualifyingFleets.length !== existing.qualifyingFleets.length) {
         throw new BadRequestError('qualifying fleet count is frozen once racing has started');
       }
@@ -680,11 +677,11 @@ export async function addStageRaces(
   const config = normalizeSplitFleetConfig(seriesRow.qfConfig as Partial<SplitFleetConfig>);
 
   // The boats who missed the medal fleet sail one more race of their own
-  // final fleet, and where the sailing instructions score it below the medal
-  // fleet its finishers are offset by the boats who left *that* fleet — a
-  // fleet nobody left is scored from 1 like any other race of the stage.
+  // final fleet, scored below the medal fleet: its finishers are offset by
+  // the boats who left *that* fleet — a fleet nobody left is scored from 1
+  // like any other race of the stage.
   const [medalRound] =
-    roundRow.stage === 'final' && config.medal?.companionRace === 'scored-below'
+    roundRow.stage === 'final'
       ? await db
           .select({ fleetIds: schema.splitRounds.fleetIds })
           .from(schema.splitRounds)
