@@ -154,7 +154,14 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     );
   }
   push('race-labels', raceLabelClause(config));
-  if (!unbanded) {
+  // A divided championship can still sail its first stage in one fleet (the
+  // Melges 15 Sprint Championships split a single qualifying fleet into Gold
+  // and Silver), and then there is nothing to assign, reassign or equalise.
+  const oneQualifyingFleet = config.qualifyingFleets.length === 1;
+  if (!unbanded && oneQualifyingFleet) {
+    push('fleet-assignment', `The ${q} will be sailed in one fleet.`);
+  }
+  if (!unbanded && !oneQualifyingFleet) {
     push(
       'fleet-assignment',
       `Boats will be assigned to ${countWord(config.qualifyingFleets.length)} ${qAdj} fleets (${qualifying}) of, as nearly as possible, equal size and ability.`,
@@ -167,6 +174,8 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
       'fleet-equalisation',
       `If at the end of the ${q} some ${qAdj} fleets have more race scores than others, the extra races will be abandoned and cancelled so that all fleets have the same number of race scores.`,
     );
+  }
+  if (!unbanded) {
     push(
       'split',
       `At the end of the ${q} boats will be assigned on the basis of their ranks to the ${finals} fleets, of, as nearly as possible, equal size.`,
@@ -190,10 +199,9 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     );
   }
 
-  const qualifyingBase =
-    unbanded && config.qualifyingFleets.length === 1
-      ? 'the number of boats entered, plus one'
-      : `the number of boats in the largest ${qAdj} fleet, plus one`;
+  const qualifyingBase = oneQualifyingFleet
+    ? 'the number of boats entered, plus one'
+    : `the number of boats in the largest ${qAdj} fleet, plus one`;
   const finalBase = `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   push(
     'non-finisher',

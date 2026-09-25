@@ -97,6 +97,22 @@ describe('describeSplitFleetConfig', () => {
     );
   });
 
+  it('sails a divided championship\u2019s first stage in one fleet without reassigning it', () => {
+    // One fleet split into Gold and Silver, as the Melges 15 Sprint
+    // Championships sail it: nothing to assign, reassign or equalise.
+    const config: SplitFleetConfig = {
+      ...defaultSplitFleetConfig(2),
+      qualifyingFleets: defaultSplitFleetConfig(1).qualifyingFleets,
+    };
+    const text = joined(config);
+    expect(text).toContain('The qualifying series will be sailed in one fleet.');
+    expect(text).not.toContain('one qualifying fleets');
+    expect(text).not.toContain('reassigned');
+    expect(text).not.toContain('extra races will be abandoned');
+    expect(text).toContain('assigned on the basis of their ranks to the Gold and Silver fleets');
+    expect(text).toContain('the number of boats entered, plus one in the qualifying series');
+  });
+
   it('numbers only the stages an unbanded championship sails', () => {
     // The middle stage is never sailed, so it has no races to number — and
     // naming it here puts a stage the event does not sail into the document a
