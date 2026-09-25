@@ -4,6 +4,7 @@ import {
   createSplitFleetSeries,
   enableFeatures,
   openSeriesActionsMenu,
+  showStageSettings,
 } from './helpers';
 
 /**
@@ -196,9 +197,8 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // translation of the whole championship sits below the cards.
   const si = page.getByTestId('sf-si-translation');
   await expect(si).toContainText('will count for total points in the Qualification series');
-  await page.getByRole('button', { name: 'Qualification series settings' }).click();
-  await page.getByRole('button', { name: /^Final series\s*(Not started|In progress)$/ }).click();
-  await page.getByRole('button', { name: 'Final series settings' }).click();
+  await showStageSettings(page, 'Qualification series');
+  await showStageSettings(page, 'Final series');
 
   // Reaching a setting marks the sentences it writes, so which clause a field
   // governs doesn't have to be found by flipping it.
@@ -671,7 +671,7 @@ test('split fleets: dividing after racing relabels the races on every surface', 
 
   // Saturday night: divide.
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
-  await page.getByRole('button', { name: 'Qualification series settings' }).click();
+  await showStageSettings(page, 'Qualification series');
   await page
     .getByRole('button', { name: 'Divide into a Preliminary series and an Elimination series' })
     .click();

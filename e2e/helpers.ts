@@ -196,6 +196,17 @@ export async function createSeriesQuick(
 }
 
 /**
+ * Open (or close) a split-fleet stage card's settings, whichever state they
+ * are in now. A stage's settings open by themselves while it is the stage
+ * being set up, so a blind click could close them instead.
+ */
+export async function showStageSettings(page: Page, title: string, open = true): Promise<void> {
+  const toggle = page.getByRole('button', { name: `${title} settings` });
+  if ((await toggle.getAttribute('aria-expanded')) !== String(open)) await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', String(open));
+}
+
+/**
  * Create a split-fleet championship the way a scorer does: through the setup
  * wizard, which asks the kind of series and the words its sailing
  * instructions use, and on to the Split Fleets tab's stage cards.
@@ -244,29 +255,28 @@ export async function createSplitFleetSeries(
   if (data.fleetCount === 1) return;
 
   const opening = words === 'qualification-final' ? 'Qualification series' : 'Opening series';
-  await page.getByRole('button', { name: `${opening} settings` }).click();
+  await showStageSettings(page, opening);
   await Promise.all([saved(), page.getByRole('button', { name: /^Divide into/ }).click()]);
   const prelim = words === 'qualification-final' ? 'Preliminary series' : 'Qualifying series';
   const elim = words === 'qualification-final' ? 'Elimination series' : 'Final series';
   const medal = words === 'qualification-final' ? 'Final series' : 'Medal races';
-  await page.getByRole('button', { name: `${prelim} settings` }).click();
+  await showStageSettings(page, prelim);
   await Promise.all([saved(), page.locator('#sf-fleet-count').selectOption(String(data.fleetCount))]);
   if (data.fleetCount !== 2) {
-    await page.getByRole('button', { name: `${elim} settings` }).click();
+    await showStageSettings(page, elim);
     await Promise.all([
       saved(),
       page.locator('#sf-final-fleet-count').selectOption(String(data.fleetCount)),
     ]);
   }
-  await page.getByRole('button', { name: `${medal} settings` }).click();
+  await showStageSettings(page, medal);
   await Promise.all([saved(), page.getByRole('radio', { name: 'Single' }).click()]);
   await Promise.all([
     saved(),
     page.getByRole('radio', { name: 'Net score halved, 0.5 rounded up' }).click(),
   ]);
   await Promise.all([saved(), page.getByRole('radio', { name: 'The last race alone' }).click()]);
-  // Settings back where they were: closed.
-  await page.getByRole('button', { name: `${medal} settings` }).click();
+  await showStageSettings(page, medal, false);
 }
 
 /**

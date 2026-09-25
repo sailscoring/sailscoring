@@ -360,6 +360,14 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             status={qualifyingRounds.length === 0 ? 'Not started' : medalDone ? 'Complete' : 'In progress'}
             defaultOpen={!isFinal}
           >
+            <OpeningSettings
+              seriesId={seriesId}
+              config={sfState.config}
+              locks={locks}
+              canEdit={canManage}
+              medalSelected={medalRound !== null}
+              current={qualifyingRounds.length === 0}
+            />
             <QualifyingSection
               seriesId={seriesId}
               data={sfData}
@@ -369,13 +377,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               medalSelected={medalRound !== null}
               canManage={canManage}
             />
-            <OpeningSettings
-              seriesId={seriesId}
-              config={sfState.config}
-              locks={locks}
-              canEdit={canManage}
-              medalSelected={medalRound !== null}
-            />
           </StageSection>
         ) : (
           <StageSection
@@ -383,7 +384,13 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             status={secondStageDone ? 'Complete' : qualifyingRounds.length ? 'In progress' : 'Not started'}
             defaultOpen={!isFinal}
           >
-            <OpeningSettings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
+            <OpeningSettings
+              seriesId={seriesId}
+              config={sfState.config}
+              locks={locks}
+              canEdit={canManage}
+              current={qualifyingRounds.length === 0}
+            />
             <StageSection
               title={w.title('qualifying')}
               status={
@@ -395,6 +402,13 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               }
               defaultOpen={!splitRound}
             >
+              <Stage1Settings
+                seriesId={seriesId}
+                config={sfState.config}
+                locks={locks}
+                canEdit={canManage}
+                current={qualifyingRounds.length === 0}
+              />
               <QualifyingSection
                 seriesId={seriesId}
                 data={sfData}
@@ -404,7 +418,6 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
                 medalSelected={false}
                 canManage={canManage}
               />
-              <Stage1Settings seriesId={seriesId} config={sfState.config} locks={locks} canEdit={canManage} />
             </StageSection>
             <StageSection
               title={w.title('final')}
@@ -413,6 +426,16 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               // still being set up and every card's settings are in play.
               defaultOpen={(!!splitRound && !isFinal) || qualifyingRounds.length === 0}
             >
+              <Stage2Settings
+                seriesId={seriesId}
+                config={sfState.config}
+                locks={locks}
+                canEdit={canManage}
+                medalSelected={medalRound !== null}
+                // Its fleets are settled when the split is dealt, so they are
+                // the next thing to set once the first part is under way.
+                current={qualifyingRounds.length > 0 && !splitRound}
+              />
               {splitRound ? (
                 <FinalSection
                   seriesId={seriesId}
@@ -429,13 +452,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
                   split.
                 </p>
               )}
-              <Stage2Settings
-                seriesId={seriesId}
-                config={sfState.config}
-                locks={locks}
-                canEdit={canManage}
-                medalSelected={medalRound !== null}
-              />
+
             </StageSection>
           </StageSection>
         )}
@@ -452,8 +469,24 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           // Open while it is the stage the scorer is working in — which,
           // where the fleet is never divided, includes before the cut is made:
           // there is no second stage holding their attention instead.
-          defaultOpen={medalRound ? !isFinal : unbanded || qualifyingRounds.length === 0}
+          // Open while being raced, and from when it is next: the medal fleet is
+          // selected off the opening series where it is never divided, and
+          // off the split otherwise.
+          defaultOpen={
+            medalRound
+              ? !isFinal
+              : unbanded || splitRound !== null || qualifyingRounds.length === 0
+          }
         >
+          <MedalSettings
+            seriesId={seriesId}
+            config={sfState.config}
+            canEdit={canManage}
+            // The size draws the cut and sets the selection, so it is settled
+            // before the fleet is selected: open once the stage before it has
+            // begun.
+            current={!medalRound && (unbanded ? qualifyingRounds.length > 0 : splitRound !== null)}
+          />
           {medalRound ? (
             <MedalSection
               seriesId={seriesId}
@@ -477,7 +510,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               )}
             </div>
           )}
-          <MedalSettings seriesId={seriesId} config={sfState.config} canEdit={canManage} />
+
         </StageSection>
 
         <SiPanel config={sfState.config} />

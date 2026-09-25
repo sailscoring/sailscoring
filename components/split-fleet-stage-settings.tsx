@@ -99,23 +99,33 @@ function Row({
 
 // ─── The expander ───────────────────────────────────────────────────────────
 
-/** A stage card's settings: closed by default, with the values that differ
- *  between real events summarised on the closed line. Controls above the
- *  rule, the rules the stage follows below it. */
+/** A stage card's settings, at the top of the card: open while the stage is
+ *  the one being set up, so they are settled before its fleets are dealt,
+ *  and closed otherwise, with the values that differ between real events
+ *  summarised on the closed line. Controls above the rule, the rules the
+ *  stage follows below it. */
 export function StageSettings({
   title,
   summary,
   controls,
   rules,
   actions,
+  current = false,
 }: {
   title: string;
   summary: string;
   controls?: React.ReactNode;
   rules: string[];
   actions?: React.ReactNode;
+  /** The stage is the one the scorer is about to start: open until they
+   *  close it. */
+  current?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  // Follows `current` — so a stage's settings open as the event reaches it —
+  // until the scorer toggles them, which takes over from then on.
+  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  const open = userOpen ?? current;
+  const setOpen = (v: boolean) => setUserOpen(v);
   return (
     <div className="rounded-md border bg-background/60">
       <button
@@ -334,6 +344,7 @@ export function OpeningSettings({
   locks,
   canEdit,
   medalSelected = false,
+  current,
 }: {
   seriesId: string;
   config: SplitFleetConfig;
@@ -342,6 +353,7 @@ export function OpeningSettings({
   /** The medal fleet is selected, so an undivided series' next race is the
    *  companion race. */
   medalSelected?: boolean;
+  current?: boolean;
 }) {
   const { patch, error } = useSave(seriesId, config);
   const vocab = resolveVocabulary(config);
@@ -380,6 +392,7 @@ export function OpeningSettings({
   return (
     <StageSettings
       title={title}
+      current={current}
       summary={[
         divided ? null : `${config.qualifyingFleets.length} fleet${oneFleet ? '' : 's'}`,
         discardSummary(config),
@@ -471,11 +484,13 @@ export function Stage1Settings({
   config,
   locks,
   canEdit,
+  current,
 }: {
   seriesId: string;
   config: SplitFleetConfig;
   locks: StageLocks;
   canEdit: boolean;
+  current?: boolean;
 }) {
   const { patch, error } = useSave(seriesId, config);
   const vocab = resolveVocabulary(config);
@@ -484,6 +499,7 @@ export function Stage1Settings({
   return (
     <StageSettings
       title={capitaliseStage(q.name)}
+      current={current}
       summary={`${fleets.length} fleet${fleets.length === 1 ? '' : 's'} · ${fleets.map((f) => f.label).join(', ')}`}
       rules={[
         `Races are numbered ${labels(config, 'qualifying')}.`,
@@ -528,12 +544,14 @@ export function Stage2Settings({
   locks,
   canEdit,
   medalSelected,
+  current,
 }: {
   seriesId: string;
   config: SplitFleetConfig;
   locks: StageLocks;
   canEdit: boolean;
   medalSelected: boolean;
+  current?: boolean;
 }) {
   const { patch, error } = useSave(seriesId, config);
   const vocab = resolveVocabulary(config);
@@ -544,6 +562,7 @@ export function Stage2Settings({
   return (
     <StageSettings
       title={capitaliseStage(f.name)}
+      current={current}
       summary={`${fleets.length} fleets · ${fleets.map((x) => x.label).join(', ')}`}
       rules={[
         `Races are numbered ${labels(config, 'final')}.`,
@@ -583,10 +602,12 @@ export function MedalSettings({
   seriesId,
   config,
   canEdit,
+  current,
 }: {
   seriesId: string;
   config: SplitFleetConfig;
   canEdit: boolean;
+  current?: boolean;
 }) {
   const { patch, error } = useSave(seriesId, config);
   const vocab = resolveVocabulary(config);
@@ -606,6 +627,7 @@ export function MedalSettings({
   return (
     <StageSettings
       title={capitaliseStage(m.name)}
+      current={current}
       summary={[
         `${medal.size} boats`,
         medal.multiplier === 2 ? 'double points' : 'single points',

@@ -1,5 +1,5 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSplitFleetSeries, enableFeatures } from './helpers';
+import { createSplitFleetSeries, enableFeatures, showStageSettings } from './helpers';
 
 /**
  * The championship that never bands its fleet (#585): one fleet sails the
@@ -39,13 +39,13 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
   // ── The championship as created: one fleet, an opening series and a
   // medal race at double points. The opening series card says so, and offers
   // the division rather than showing settings for a stage it doesn't have ──
-  await page.getByRole('button', { name: 'Opening series settings' }).click();
+  await showStageSettings(page, 'Opening series');
   await expect(page.locator('#sf-fleet-count')).toHaveValue('1');
   await expect(
     page.getByRole('button', { name: 'Divide into a qualifying series and a final series' }),
   ).toBeVisible();
   await expect(page.getByText('Elimination series')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Opening series settings' }).click();
+  await showStageSettings(page, 'Opening series', false);
 
   // The generated sailing instructions say what the format is, and say
   // nothing about dividing a fleet that is never divided.
@@ -80,11 +80,11 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
 
   // ── The card still says what shape the event is, now that the fleet
   // count is settled ────────────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Opening series settings' }).click();
+  await showStageSettings(page, 'Opening series');
   await expect(page.locator('#sf-fleet-count')).toBeDisabled();
   await expect(page.getByText('A boat that doesn’t finish scores the number of entries, plus one.')).toBeVisible();
   await expect(page.locator('#sf-vocabulary')).toBeDisabled();
-  await page.getByRole('button', { name: 'Opening series settings' }).click();
+  await showStageSettings(page, 'Opening series', false);
 
   // ── The cut line: where the deciding fleet would be taken from if racing
   // ended now. Not a band boundary — this one decides who races again ──────
