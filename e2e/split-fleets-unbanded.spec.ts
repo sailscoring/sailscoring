@@ -52,10 +52,11 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
     );
   await Promise.all([saved(), page.locator('#sf-vocabulary').selectOption('opening-medal')]);
   await Promise.all([saved(), page.getByLabel('Medal races points').selectOption('2')]);
-  await Promise.all([
-    saved(),
-    page.getByLabel('First halve the score so far, rounding 0.5 up').uncheck(),
-  ]);
+  // The box follows the saved configuration, so it reads unticked once the
+  // save lands rather than on the click itself.
+  const halve = page.getByLabel('First halve the score so far, rounding 0.5 up');
+  await Promise.all([saved(), halve.click()]);
+  await expect(halve).not.toBeChecked();
   // The generated sailing instructions say what the format is, and say
   // nothing about dividing a fleet that is never divided.
   const si = page.getByTestId('sf-si-translation');
