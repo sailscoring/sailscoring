@@ -1,6 +1,6 @@
 # ADR-013: Removing meaning from stored formats
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-09-25
 
@@ -150,7 +150,8 @@ Option 4, as seven rules.
   review of the classification, which is why it is stated in the upgrader
   rather than left implicit.
 - **A copy nobody knew about exists and gets refused.** The message names the
-  setting and the release that can still open it.
+  setting, points to an earlier release, and says where to ask for the
+  setting back.
 
 ## Related Decisions
 
