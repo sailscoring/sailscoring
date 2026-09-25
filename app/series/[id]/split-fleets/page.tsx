@@ -18,14 +18,15 @@ import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { PreviewDialog } from '@/components/preview-dialog';
 import { useSeriesPublish } from '@/components/series-publish';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
-import { SiTranslation } from '@/components/split-fleet-si';
 import {
   MedalSettings,
   OpeningSettings,
+  SailingInstructionsDrawer,
+  SailingInstructionsToggle,
   SettingMarkProvider,
   Stage1Settings,
   Stage2Settings,
-  useMarkedSentences,
+  useSailingInstructionsOpen,
   type StageLocks,
 } from '@/components/split-fleet-stage-settings';
 import { useSeriesReadOnly } from '@/components/series-read-only';
@@ -235,11 +236,22 @@ function buildDemoCompetitors(seriesId: string, defaultFleetId: string | null): 
 
 // ─── Shared bits ────────────────────────────────────────────────────────────
 
-/** The sailing-instructions panel below the cards, marking the sentences the
- *  setting under the pointer or the keyboard writes. */
-function SiPanel({ config }: { config: SplitFleetConfig }) {
-  const marked = useMarkedSentences();
-  return <SiTranslation config={config} marked={marked} alwaysOpen />;
+/** The page's content, making room for the sailing-instructions drawer on a
+ *  screen wide enough to show both, so the drawer never covers the standings
+ *  it is read beside. */
+function DrawerAware({ children }: { children: React.ReactNode }) {
+  const open = useSailingInstructionsOpen();
+  return <div className={`space-y-6${open ? ' xl:pr-[27rem]' : ''}`}>{children}</div>;
+}
+
+/** The tab's frame: which sentences the settings mark, the drawer they are
+ *  marked in, and the room it takes. */
+function SplitFleetsFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <SettingMarkProvider>
+      <DrawerAware>{children}</DrawerAware>
+    </SettingMarkProvider>
+  );
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -336,11 +348,14 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   };
 
   return (
-    <div className="space-y-6">
+    <SplitFleetsFrame>
       {competitors.length === 0 && canManage && (
         <DemoCompetitorsCard seriesId={seriesId} defaultFleetId={fleets[0]?.id ?? null} />
       )}
-      <DayStrip data={sfData} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <DayStrip data={sfData} />
+        <SailingInstructionsToggle />
+      </div>
       {nextAction && (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 text-sm" data-testid="sf-next-action">
           <span>
@@ -353,19 +368,59 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
       )}
-      <SettingMarkProvider>
-        {unbanded ? (
+      {unbanded ? (
+        <StageSection
+          title={w.title('qualifying')}
+          status={qualifyingRounds.length === 0 ? 'Not started' : medalDone ? 'Complete' : 'In progress'}
+          defaultOpen={!isFinal}
+        >
+          <OpeningSettings
+            seriesId={seriesId}
+            config={sfState.config}
+            locks={locks}
+            canEdit={canManage}
+            medalSelected={medalRound !== null}
+            current={qualifyingRounds.length === 0}
+          />
+          <QualifyingSection
+            seriesId={seriesId}
+            data={sfData}
+            fleetMeta={fleetMeta}
+            rounds={qualifyingRounds}
+            split={false}
+            medalSelected={medalRound !== null}
+            canManage={canManage}
+          />
+        </StageSection>
+      ) : (
+        <StageSection
+          title={capitaliseStage(w.series)}
+          status={secondStageDone ? 'Complete' : qualifyingRounds.length ? 'In progress' : 'Not started'}
+          defaultOpen={!isFinal}
+        >
+          <OpeningSettings
+            seriesId={seriesId}
+            config={sfState.config}
+            locks={locks}
+            canEdit={canManage}
+            current={qualifyingRounds.length === 0}
+          />
           <StageSection
             title={w.title('qualifying')}
-            status={qualifyingRounds.length === 0 ? 'Not started' : medalDone ? 'Complete' : 'In progress'}
-            defaultOpen={!isFinal}
+            status={
+              qualifyingRounds.length === 0
+                ? 'Not started'
+                : splitRound
+                  ? 'Complete'
+                  : 'In progress'
+            }
+            defaultOpen={!splitRound}
           >
-            <OpeningSettings
+            <Stage1Settings
               seriesId={seriesId}
               config={sfState.config}
               locks={locks}
               canEdit={canManage}
-              medalSelected={medalRound !== null}
               current={qualifyingRounds.length === 0}
             />
             <QualifyingSection
@@ -373,148 +428,105 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
               data={sfData}
               fleetMeta={fleetMeta}
               rounds={qualifyingRounds}
-              split={false}
-              medalSelected={medalRound !== null}
+              split={splitRound !== null}
+              medalSelected={false}
               canManage={canManage}
             />
           </StageSection>
-        ) : (
           <StageSection
-            title={capitaliseStage(w.series)}
-            status={secondStageDone ? 'Complete' : qualifyingRounds.length ? 'In progress' : 'Not started'}
-            defaultOpen={!isFinal}
+            title={w.title('final')}
+            status={splitRound ? (secondStageDone ? 'Complete' : 'In progress') : 'Not started'}
+            // Open while it is being raced, and while the championship is
+            // still being set up and every card's settings are in play.
+            defaultOpen={(!!splitRound && !isFinal) || qualifyingRounds.length === 0}
           >
-            <OpeningSettings
+            <Stage2Settings
               seriesId={seriesId}
               config={sfState.config}
               locks={locks}
               canEdit={canManage}
-              current={qualifyingRounds.length === 0}
+              medalSelected={medalRound !== null}
+              // Its fleets are settled when the split is dealt, so they are
+              // the next thing to set once the first part is under way.
+              current={qualifyingRounds.length > 0 && !splitRound}
             />
-            <StageSection
-              title={w.title('qualifying')}
-              status={
-                qualifyingRounds.length === 0
-                  ? 'Not started'
-                  : splitRound
-                    ? 'Complete'
-                    : 'In progress'
-              }
-              defaultOpen={!splitRound}
-            >
-              <Stage1Settings
-                seriesId={seriesId}
-                config={sfState.config}
-                locks={locks}
-                canEdit={canManage}
-                current={qualifyingRounds.length === 0}
-              />
-              <QualifyingSection
+            {splitRound ? (
+              <FinalSection
                 seriesId={seriesId}
                 data={sfData}
                 fleetMeta={fleetMeta}
-                rounds={qualifyingRounds}
-                split={splitRound !== null}
-                medalSelected={false}
+                round={splitRound}
+                medalRound={medalRound}
+                standings={standings}
                 canManage={canManage}
               />
-            </StageSection>
-            <StageSection
-              title={w.title('final')}
-              status={splitRound ? (secondStageDone ? 'Complete' : 'In progress') : 'Not started'}
-              // Open while it is being raced, and while the championship is
-              // still being set up and every card's settings are in play.
-              defaultOpen={(!!splitRound && !isFinal) || qualifyingRounds.length === 0}
-            >
-              <Stage2Settings
-                seriesId={seriesId}
-                config={sfState.config}
-                locks={locks}
-                canEdit={canManage}
-                medalSelected={medalRound !== null}
-                // Its fleets are settled when the split is dealt, so they are
-                // the next thing to set once the first part is under way.
-                current={qualifyingRounds.length > 0 && !splitRound}
-              />
-              {splitRound ? (
-                <FinalSection
-                  seriesId={seriesId}
-                  data={sfData}
-                  fleetMeta={fleetMeta}
-                  round={splitRound}
-                  medalRound={medalRound}
-                  standings={standings}
-                  canManage={canManage}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  The {w.final.name} begins when the {w.qualifying.name} ends and the fleet is
-                  split.
-                </p>
-              )}
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                The {w.final.name} begins when the {w.qualifying.name} ends and the fleet is
+                split.
+              </p>
+            )}
 
-            </StageSection>
           </StageSection>
+        </StageSection>
+      )}
+
+      <StageSection
+        title={w.title('medal')}
+        status={
+          medalRound
+            ? medalPhaseComplete(sfData, medalRound)
+              ? 'Complete'
+              : 'In progress'
+            : 'Not started'
+        }
+        // Open while it is the stage the scorer is working in — which,
+        // where the fleet is never divided, includes before the cut is made:
+        // there is no second stage holding their attention instead.
+        // Open while being raced, and from when it is next: the medal fleet is
+        // selected off the opening series where it is never divided, and
+        // off the split otherwise.
+        defaultOpen={
+          medalRound
+            ? !isFinal
+            : unbanded || splitRound !== null || qualifyingRounds.length === 0
+        }
+      >
+        <MedalSettings
+          seriesId={seriesId}
+          config={sfState.config}
+          canEdit={canManage}
+          // The size draws the cut and sets the selection, so it is settled
+          // before the fleet is selected: open once the stage before it has
+          // begun.
+          current={!medalRound && (unbanded ? qualifyingRounds.length > 0 : splitRound !== null)}
+        />
+        {medalRound ? (
+          <MedalSection
+            seriesId={seriesId}
+            data={sfData}
+            fleetMeta={fleetMeta}
+            round={medalRound}
+            canManage={canManage}
+          />
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              The top {sfState.config.medal.size} after the{' '}
+              {unbanded ? w.qualifying.name : w.series} sail the {w.medal.name}.
+            </p>
+            {/* Where the fleet is never divided there is no second stage to
+                offer the cut from, so it is offered here. */}
+            {unbanded && canManage && (
+              <Button variant="outline" onClick={() => setMedalOpen(true)}>
+                Select {w.medal.fleetNoun}…
+              </Button>
+            )}
+          </div>
         )}
 
-        <StageSection
-          title={w.title('medal')}
-          status={
-            medalRound
-              ? medalPhaseComplete(sfData, medalRound)
-                ? 'Complete'
-                : 'In progress'
-              : 'Not started'
-          }
-          // Open while it is the stage the scorer is working in — which,
-          // where the fleet is never divided, includes before the cut is made:
-          // there is no second stage holding their attention instead.
-          // Open while being raced, and from when it is next: the medal fleet is
-          // selected off the opening series where it is never divided, and
-          // off the split otherwise.
-          defaultOpen={
-            medalRound
-              ? !isFinal
-              : unbanded || splitRound !== null || qualifyingRounds.length === 0
-          }
-        >
-          <MedalSettings
-            seriesId={seriesId}
-            config={sfState.config}
-            canEdit={canManage}
-            // The size draws the cut and sets the selection, so it is settled
-            // before the fleet is selected: open once the stage before it has
-            // begun.
-            current={!medalRound && (unbanded ? qualifyingRounds.length > 0 : splitRound !== null)}
-          />
-          {medalRound ? (
-            <MedalSection
-              seriesId={seriesId}
-              data={sfData}
-              fleetMeta={fleetMeta}
-              round={medalRound}
-              canManage={canManage}
-            />
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                The top {sfState.config.medal.size} after the{' '}
-                {unbanded ? w.qualifying.name : w.series} sail the {w.medal.name}.
-              </p>
-              {/* Where the fleet is never divided there is no second stage to
-                  offer the cut from, so it is offered here. */}
-              {unbanded && canManage && (
-                <Button variant="outline" onClick={() => setMedalOpen(true)}>
-                  Select {w.medal.fleetNoun}…
-                </Button>
-              )}
-            </div>
-          )}
+      </StageSection>
 
-        </StageSection>
-
-        <SiPanel config={sfState.config} />
-      </SettingMarkProvider>
 
       {unbanded && medalOpen && (
         <MedalSelectDialog
@@ -569,7 +581,8 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         onClose={() => setShowFinalise(false)}
       />
 
-    </div>
+      <SailingInstructionsDrawer config={sfState.config} />
+    </SplitFleetsFrame>
   );
 }
 
@@ -635,6 +648,7 @@ function StageSection({
       <button
         type="button"
         className="flex w-full items-center justify-between px-5 py-3 text-left"
+        aria-expanded={open}
         onClick={() => setUserOpen(!open)}
       >
         <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide">
@@ -1712,7 +1726,7 @@ function FinalSection({
         , but need not complete the same number of races — a fleet a race behind simply
         sails its own next number in the sequence.
         {medalRound
-          ? ` The ${w.medal.name} boats have left these fleets’ racing, so a race added now is for the rest — which is what sailing instructions mean by one more race for the boats who did not qualify.`
+          ? ` The boats of the ${w.medal.fleetNoun} have left these fleets’ racing, so a race added now is for the rest — which is what sailing instructions mean by one more race for the boats who did not qualify.`
           : ''}
       </p>
       {canManage && (

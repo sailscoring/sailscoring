@@ -10,9 +10,10 @@
 // in the sailing-instructions panel below the cards, so which clause a control
 // governs doesn't have to be discovered by changing it.
 
-import { createContext, useContext, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { ChevronRight, ScrollText, X } from 'lucide-react';
 
+import { SiTranslation } from '@/components/split-fleet-si';
 import { Button } from '@/components/ui/button';
 import { useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
 import { SENTENCES_BY_SETTING, type SplitFleetSentenceId } from '@/lib/split-fleets-si';
@@ -37,24 +38,111 @@ const MarkContext = createContext<{
   marked: readonly SplitFleetSentenceId[] | null;
   setHovered: (ids: readonly SplitFleetSentenceId[] | null) => void;
   setFocused: (ids: readonly SplitFleetSentenceId[] | null) => void;
-}>({ marked: null, setHovered: () => {}, setFocused: () => {} });
+  /** The sailing-instructions drawer beside the cards. */
+  siOpen: boolean;
+  setSiOpen: (open: boolean) => void;
+}>({
+  marked: null,
+  setHovered: () => {},
+  setFocused: () => {},
+  siOpen: false,
+  setSiOpen: () => {},
+});
 
-/** Holds which sentences the setting the scorer has reached writes. Hover and
+/** Where the drawer's open state is remembered between visits: a per-viewer
+ *  convenience, so a scorer who reads with it open finds it open again. */
+const SI_OPEN_KEY = 'sailscoring.split-fleets.si-drawer';
+
+/** Holds which sentences the setting the scorer has reached writes, and
+ *  whether the sailing instructions are open beside the cards. Hover and
  *  focus are held apart so that focus wins: someone tabbing through the
  *  settings should see the one they are on, not wherever the pointer came to
  *  rest. */
 export function SettingMarkProvider({ children }: { children: React.ReactNode }) {
   const [hovered, setHovered] = useState<readonly SplitFleetSentenceId[] | null>(null);
   const [focused, setFocused] = useState<readonly SplitFleetSentenceId[] | null>(null);
+  const [siOpen, setSiOpenState] = useState(false);
+  // Storage is unreadable during server rendering, so the remembered state
+  // can only be restored after hydration.
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (localStorage.getItem(SI_OPEN_KEY) === 'open') setSiOpenState(true);
+    } catch {
+      // Storage blocked: the drawer starts closed.
+    }
+  }, []);
+  const setSiOpen = (open: boolean) => {
+    setSiOpenState(open);
+    try {
+      localStorage.setItem(SI_OPEN_KEY, open ? 'open' : 'closed');
+    } catch {
+      // Storage blocked: the choice lasts for this visit.
+    }
+  };
   return (
-    <MarkContext.Provider value={{ marked: focused ?? hovered, setHovered, setFocused }}>
+    <MarkContext.Provider
+      value={{ marked: focused ?? hovered, setHovered, setFocused, siOpen, setSiOpen }}
+    >
       {children}
     </MarkContext.Provider>
   );
 }
 
-export function useMarkedSentences(): readonly SplitFleetSentenceId[] | null {
-  return useContext(MarkContext).marked;
+export function useSailingInstructionsOpen(): boolean {
+  return useContext(MarkContext).siOpen;
+}
+
+/** Opens the sailing instructions beside the cards. */
+export function SailingInstructionsToggle() {
+  const { siOpen, setSiOpen } = useContext(MarkContext);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-expanded={siOpen}
+      onClick={() => setSiOpen(!siOpen)}
+    >
+      <ScrollText className="h-4 w-4" />
+      Sailing instructions
+    </Button>
+  );
+}
+
+/**
+ * The configuration restated as sailing instructions, in a drawer on the
+ * right. Not modal: it is read beside the settings, and reaching a setting
+ * marks the sentences it writes, so the cards stay usable while it is open.
+ */
+export function SailingInstructionsDrawer({ config }: { config: SplitFleetConfig }) {
+  const { marked, siOpen, setSiOpen } = useContext(MarkContext);
+  if (!siOpen) return null;
+  return (
+    <aside
+      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l bg-card shadow-xl sm:w-[26rem]"
+      aria-label="Sailing instructions"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setSiOpen(false);
+      }}
+    >
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <h2 className="text-sm font-semibold">
+          How this configuration translates to sailing instructions
+        </h2>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Close sailing instructions"
+          onClick={() => setSiOpen(false)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 px-4 py-3 text-sm">
+        <SiTranslation config={config} marked={marked} alwaysOpen fill />
+      </div>
+    </aside>
+  );
 }
 
 const rowClass = 'grid gap-1.5 sm:grid-cols-[11rem_1fr] sm:items-baseline sm:gap-3';
@@ -147,10 +235,26 @@ export function StageSettings({
               <li key={r}>{r}</li>
             ))}
           </ul>
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          <div className="flex flex-wrap items-center gap-2">
+            {actions}
+            <ReadAlongside />
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+/** From inside a card's settings: open the sailing instructions beside them,
+ *  which is where they are read. */
+function ReadAlongside() {
+  const { siOpen, setSiOpen } = useContext(MarkContext);
+  if (siOpen) return null;
+  return (
+    <Button variant="ghost" size="sm" onClick={() => setSiOpen(true)}>
+      <ScrollText className="h-4 w-4" />
+      Read alongside the sailing instructions
+    </Button>
   );
 }
 

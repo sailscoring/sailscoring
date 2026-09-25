@@ -143,10 +143,14 @@ export function SplitFleetsSection() {
         card gives it its two parts, the {q.name} and the {f.name}, each with a card and fleets
         of its own; it can be undone until the split is committed. Each change is settled by
         what has been sailed: the words once a race exists, a stage’s fleet count once its fleets
-        are dealt, and the division once the split is committed. Read{' '}
-        <strong className="text-foreground">How this configuration translates to sailing
-        instructions</strong> below the cards against the scoring section of your own sailing
-        instructions; where a sentence disagrees, change the setting.
+        are dealt, and the division once the split is committed. A stage’s settings sit at the
+        top of its card and open by themselves when the event reaches that stage — the{' '}
+        {w.title('medal')} card’s once the fleet it is selected from is racing, since its size
+        sets both the provisional cut line and the selection.{' '}
+        <strong className="text-foreground">Sailing instructions</strong> opens the whole
+        configuration, restated as sailing instructions, in a drawer beside the cards: read it
+        against the scoring section of your own, and as you reach a setting the sentences it
+        writes are marked. Where a sentence disagrees, change the setting.
       </p>
       <p>
         <strong className="text-foreground">Round 1</strong> makes the initial assignment —
@@ -224,8 +228,10 @@ export function SplitFleetsSection() {
         draw the {m.fleetNoun} cut where it would fall if racing ended now, and{' '}
         <strong className="text-foreground">Select {m.fleetNoun}…</strong> is offered from the{' '}
         {w.title('medal')} section rather than from a stage the event does not sail. The boats
-        who miss the cut do not race again, and have no score for the {m.raceNoun} at all.
-        Nothing is
+        who miss the cut have no score for the {m.raceNoun} at all; where the sailing
+        instructions give them one more race, the {w.series} card’s next race is{' '}
+        <strong className="text-foreground">Add companion race</strong>, scored from just below
+        the boats who went up. Nothing is
         needed to hold them below the qualified boats — those rank highest in the event
         whatever the points say — so the two groups are scored over different numbers of
         races, and the standings and the published page show them as two tables rather than

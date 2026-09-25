@@ -4,6 +4,7 @@ import {
   createSplitFleetSeries,
   enableFeatures,
   openSeriesActionsMenu,
+  showSailingInstructions,
   showStageSettings,
 } from './helpers';
 
@@ -194,8 +195,8 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
   // Each stage's settings sit on its own card; the sailing-instruction
-  // translation of the whole championship sits below the cards.
-  const si = page.getByTestId('sf-si-translation');
+  // translation of the whole championship opens in a drawer beside them.
+  const si = await showSailingInstructions(page);
   await expect(si).toContainText('will count for total points in the Qualification series');
   await showStageSettings(page, 'Qualification series');
   await showStageSettings(page, 'Final series');
@@ -496,7 +497,7 @@ test('split fleets: the kind of series is chosen first, and setup lands on the t
   await expect(page).toHaveURL(/\/split-fleets$/);
   // The championship starts as the simplest one there is: one fleet, an
   // undivided opening series, and a deciding stage — in the chosen words.
-  await expect(page.getByTestId('sf-si-translation')).toContainText(
+  await expect(await showSailingInstructions(page)).toContainText(
     'The championship will be sailed as a Qualification series followed by the Final series, in one fleet.',
   );
   await expect(page.getByRole('button', { name: 'Add race Q1' })).toBeVisible();
@@ -678,7 +679,7 @@ test('split fleets: dividing after racing relabels the races on every surface', 
 
   // The round card, the sailing instructions and the races list all follow.
   await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
-  await expect(page.getByTestId('sf-si-translation')).toContainText(
+  await expect(await showSailingInstructions(page)).toContainText(
     'races in the Preliminary series will be numbered QP1, QP2 and so on; races in the ' +
       'Elimination series, QE1, QE2 and so on',
   );

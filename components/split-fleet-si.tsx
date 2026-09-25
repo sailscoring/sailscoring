@@ -57,6 +57,7 @@ export function SiTranslation({
   marked,
   alwaysOpen = false,
   sticky = false,
+  fill = false,
 }: {
   config: SplitFleetConfig;
   /** Sentences written by the setting the scorer is on, if any. Marking is
@@ -70,6 +71,9 @@ export function SiTranslation({
    *  than a laptop viewport on its own — so sticking it without a cap would
    *  only move the invisible half of the panel rather than remove it. */
   sticky?: boolean;
+  /** Fill a container of fixed height — the drawer beside the stage cards —
+   *  with the sentences scrolling inside it. */
+  fill?: boolean;
 }) {
   const [userOpen, setUserOpen] = useState(false);
   const open = alwaysOpen || userOpen;
@@ -98,12 +102,16 @@ export function SiTranslation({
   }, [markedKey, open]);
   return (
     <div
-      className={`rounded-md border bg-muted/30 p-3${
-        sticky ? ' lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:flex-col lg:self-start' : ''
-      }`}
+      className={
+        fill
+          ? 'flex h-full min-h-0 flex-col'
+          : `rounded-md border bg-muted/30 p-3${
+              sticky ? ' lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-2rem)] lg:flex-col lg:self-start' : ''
+            }`
+      }
       data-testid="sf-si-translation"
     >
-      {alwaysOpen ? (
+      {fill ? null : alwaysOpen ? (
         <p className="font-medium">How this configuration translates to sailing instructions</p>
       ) : (
         <button
@@ -129,7 +137,11 @@ export function SiTranslation({
               // itself a further hair left — without which the leading digit
               // of 11, 12 and 13 is clipped away, on the very sentences the
               // medal settings mark.
-              sticky ? ' lg:min-h-0 lg:overflow-y-auto lg:pl-7 lg:pr-1' : ''
+              fill
+                ? ' min-h-0 overflow-y-auto pl-7 pr-1'
+                : sticky
+                  ? ' lg:min-h-0 lg:overflow-y-auto lg:pl-7 lg:pr-1'
+                  : ''
             }`}
           >
             {lines.map((line) => {
@@ -155,7 +167,7 @@ export function SiTranslation({
           </ol>
           <p className="mt-2 text-xs text-muted-foreground">
             Read this against the scoring section of your sailing instructions. Where it
-            disagrees, change the setting above — not the boats.
+            disagrees, change the setting {fill ? 'on its card' : 'above'} — not the boats.
           </p>
         </>
       )}

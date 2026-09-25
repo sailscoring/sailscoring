@@ -61,7 +61,14 @@ Sprint decided Sunday's format at Saturday's briefing.
 ## The cards
 
 The Split Fleets tab stacks one card per stage, in event order. Each card has
-a status line, its actions, and a **Settings** expander, closed by default.
+a status line, a **Settings** expander at the top, and its actions below.
+A stage's settings open by themselves when the event reaches that stage, so
+they are settled before the step they decide: the opening series (and
+stage 1) before the first round, stage 2 once stage 1 is under way, and the
+medal card once the fleet it is selected from is racing — its size draws the
+cut line and sets the selection. Once the scorer opens or closes them, that
+choice holds. The cards themselves stay open until the results are declared
+final: whether racing is over is the scorer's call, not the app's.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -206,6 +213,11 @@ not in the medal fleet, sailed in her own fleet. In each fleet that lost boats
 to the medal fleet, the first finisher scores the medal-fleet size plus one.
 It is otherwise an ordinary race of the series and can be excluded.
 
+A championship that never divides can give the rest the same race: once the
+medal fleet is selected, the opening series card's next race is the
+companion race, scored from the medal-fleet size plus one, with the medal
+boats absent from it rather than scored DNC.
+
 It is an action rather than a setting because it is a race the committee
 decides to sail. The rule for scoring it only appears on the card once it can
 be sailed.
@@ -214,10 +226,13 @@ be sailed.
 
 ## Read as sailing instructions
 
-The tab keeps one panel, below the cards, restating the whole configuration as
-numbered instructions. Hovering a setting on any card marks the sentences it
-writes. The standings page keeps its folded-away copy, and published pages
-keep theirs.
+**Sailing instructions** opens the whole configuration, restated as numbered
+instructions, in a drawer on the right. It is not modal: it is read beside the
+settings, and reaching a setting on any card marks the sentences it writes.
+On a wide screen the page makes room for it, so it never covers the
+standings. Each card's settings offer to open it, and whether it was left
+open is remembered for the viewer. The standings page keeps its folded-away
+copy, and published pages keep theirs.
 
 ---
 

@@ -196,6 +196,18 @@ export async function createSeriesQuick(
 }
 
 /**
+ * Open the sailing-instructions drawer beside a split-fleet championship's
+ * stage cards, if it isn't open already, and return the translation in it.
+ */
+export async function showSailingInstructions(page: Page) {
+  const toggle = page.getByRole('button', { name: 'Sailing instructions', exact: true });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  const si = page.getByTestId('sf-si-translation');
+  await expect(si).toBeVisible();
+  return si;
+}
+
+/**
  * Open (or close) a split-fleet stage card's settings, whichever state they
  * are in now. A stage's settings open by themselves while it is the stage
  * being set up, so a blind click could close them instead.

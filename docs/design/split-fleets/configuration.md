@@ -55,6 +55,7 @@ fixed.
 | Discard ladder | Editable ladder | JCC 1 from 5; ILCA 1 from 3, 2 from 10 |
 | Race labels (undivided) | Rule: Q (both sets) | |
 | Non-finisher score (undivided) | Rule: boats in the largest fleet + 1, which is entries + 1 with one fleet | JCC |
+| Companion race (undivided) | Rule: once the medal fleet is selected, the next race is for the rest, scored from medal-fleet size + 1 | none yet (found in testing, Sept 2026) |
 
 When the opening series is divided, the ladder stays on this card and runs
 over both of its parts. The discard count is reached over the opening series'

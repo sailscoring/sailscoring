@@ -1,5 +1,10 @@
 import { signedInTest as test, expect } from './fixtures';
-import { createSplitFleetSeries, enableFeatures, showStageSettings } from './helpers';
+import {
+  createSplitFleetSeries,
+  enableFeatures,
+  showSailingInstructions,
+  showStageSettings,
+} from './helpers';
 
 /**
  * The championship that never bands its fleet (#585): one fleet sails the
@@ -49,7 +54,7 @@ test('one fleet, no split, then a deciding race', async ({ page, signedInEmail }
 
   // The generated sailing instructions say what the format is, and say
   // nothing about dividing a fleet that is never divided.
-  const si = page.getByTestId('sf-si-translation');
+  const si = await showSailingInstructions(page);
   await expect(si).toContainText('sailed as an opening series followed by the medal race');
   await expect(si).toContainText('in one fleet');
   await expect(si).not.toContainText('will be divided into');

@@ -1591,12 +1591,18 @@ const SHOTS: Shot[] = [
       await page.waitForURL(/\/series\/[^/]+/);
       await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
       await settle(page);
-      // The sample is a finished championship, so its cards start collapsed.
-      // Open the opening series and its settings: the card is the feature.
+      // Open the opening series card and its settings: the card is the
+      // feature, and the sample's may start collapsed.
       const openCards = async (key: VocabularyKey) => {
         const series = capitaliseStage(VOCABULARIES[key].seriesName);
-        await page.getByRole('button', { name: new RegExp(`^${series}\\s*Complete`) }).click();
-        await page.getByRole('button', { name: `${series} settings` }).click();
+        // Open whichever of the card and its settings are closed: the cards
+        // stay open until the results are declared final.
+        for (const toggle of [
+          page.getByRole('button', { name: new RegExp(`^${series}\\s*(Complete|In progress)`) }),
+          page.getByRole('button', { name: `${series} settings` }),
+        ]) {
+          if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+        }
         await settle(page);
       };
       await openCards('opening-medal');
