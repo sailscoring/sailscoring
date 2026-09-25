@@ -56,20 +56,8 @@ describe('describeSplitFleetConfig', () => {
         'final series, F1, F2 and so on; races in the medal races, M1, M2 and so on',
     );
     expect(joined(ilca2026Config(3))).toContain(
-      'races in the Preliminary series and the Elimination series will be numbered Q1, ' +
-        'Q2 and so on, continuing through both; races in the Final series, F1, F2 and so on',
-    );
-    expect(
-      joined({
-        ...ilca2026Config(2),
-        raceLabels: {
-          prefixes: { qualifying: 'QP', final: 'QE', medal: 'F' },
-          continuousOpeningNumbers: false,
-        },
-      }),
-    ).toContain(
       'races in the Preliminary series will be numbered QP1, QP2 and so on; races in the ' +
-        'Elimination series, QE1, QE2 and so on',
+        'Elimination series, QE1, QE2 and so on; races in the Final series, F1, F2 and so on',
     );
   });
 

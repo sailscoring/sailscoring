@@ -36,7 +36,7 @@ test('split fleets: restoring a version drops the assignment it undid', async ({
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await expect(page.getByRole('dialog')).toContainText('Make the initial assignment');
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
 
   // Pin the assigned state too. The newest version is the current state, so
   // the one to restore to has to have a version after it.
@@ -58,5 +58,5 @@ test('split fleets: restoring a version drops the assignment it undid', async ({
   // The round is gone, and the tab asks for the assignment again.
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await expect(page.getByRole('button', { name: 'Assign Preliminary fleets' })).toBeVisible();
-  await expect(page.getByText('Round 1 · Q1 onward')).toHaveCount(0);
+  await expect(page.getByText('Round 1 · QP1 onward')).toHaveCount(0);
 });

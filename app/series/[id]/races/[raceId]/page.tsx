@@ -165,12 +165,6 @@ export default function ResultEntryPage({
     }
     const fleetNameById = new Map((fleets ?? []).map((f) => [f.id, f.name]));
     const config = sfState?.config ?? null;
-    const qRaces = Math.max(
-      0,
-      ...(seriesStarts ?? [])
-        .filter((s) => s.stage === 'qualifying' && s.stageRaceNumber != null)
-        .map((s) => s.stageRaceNumber!),
-    );
     return (allSeriesRaces ?? []).map((r) => {
       const starts = startsByRace.get(r.id) ?? [];
       // A race is one start sequence, so it can hold several stage races
@@ -185,7 +179,7 @@ export default function ResultEntryPage({
                   .map((fid) => fleetNameById.get(fid))
                   .filter(Boolean)
                   .join(' + ');
-                return `${stageRaceLabel(config, s.stage!, s.stageRaceNumber!, qRaces)}${names ? ` ${names}` : ''}`;
+                return `${stageRaceLabel(config, s.stage!, s.stageRaceNumber!)}${names ? ` ${names}` : ''}`;
               }),
           )]
         : [];

@@ -24,7 +24,6 @@ import {
   capitaliseStage,
   fleetColorById,
   provisionalCutIndexes,
-  qualifyingRaceCount,
   roundsForStage,
   resolveVocabulary,
   stageRaceLabel,
@@ -58,7 +57,7 @@ export function splitFleetRaceLabel(
   stage: SeriesStage,
   n: number,
 ): string {
-  return stageRaceLabel(data.config, stage, n, qualifyingRaceCount(data));
+  return stageRaceLabel(data.config, stage, n);
 }
 
 export interface FleetMeta {

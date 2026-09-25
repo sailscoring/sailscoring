@@ -36,7 +36,6 @@ import {
   fleetColorById,
   logicalRaces,
   provisionalCutIndexes,
-  qualifyingRaceCount,
   resolveVocabulary,
   roundsForStage,
   splitFleetStandings,
@@ -286,10 +285,9 @@ export function renderSplitFleetStandingsPage(
   const crew = showCrew(input);
   const club = showClub(input);
   const wsid = showWsid(input);
-  const qRaces = qualifyingRaceCount(data);
   const vocab = resolveVocabulary(data.config);
   const columnLabel = (stage: SeriesStage, n: number) =>
-    stageRaceLabel(data.config, stage, n, qRaces);
+    stageRaceLabel(data.config, stage, n);
 
   /** The race columns one table needs: those some boat in it has a cell for.
    *  Per table rather than per page — once a medal stage exists the page's
@@ -581,7 +579,6 @@ export function renderSplitFleetRaceResultsPage(
   const colors = fleetColorById(data);
   const nat = showNat(input);
   const wsid = showWsid(input);
-  const qRaces = qualifyingRaceCount(data);
 
   // Each row's cell for one (stage race, fleet), joined back to its
   // competitor. Carried cells have no race id: they are scores, not races.
@@ -732,7 +729,7 @@ ${body}
           : '';
       sections.push(
         `<h2 id="${stageRaceAnchor(stage, lr.stageRaceNumber)}">${esc(
-          stageRaceLabel(data.config, stage, lr.stageRaceNumber, qRaces),
+          stageRaceLabel(data.config, stage, lr.stageRaceNumber),
         )}</h2>\n${sharedRecord}${note}${tables.join('\n')}`,
       );
     }
@@ -760,7 +757,6 @@ export function renderSplitFleetAssignmentsPage(
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
   const colors = fleetColorById(data);
   const nat = showNat(input);
-  const qRaces = qualifyingRaceCount(data);
   const vocab = resolveVocabulary(data.config);
 
   const roundLabel = (r: SplitRound): string => {
@@ -824,7 +820,7 @@ export function renderSplitFleetAssignmentsPage(
         })
         .join('\n');
       const basis = round.basis
-        ? `From the ranking after ${stageRaceLabel(data.config, round.stage === 'final' ? 'qualifying' : round.stage, round.basis.throughStageRace, qRaces)}, captured ${new Date(round.basis.capturedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC.`
+        ? `From the ranking after ${stageRaceLabel(data.config, round.stage === 'final' ? 'qualifying' : round.stage, round.basis.throughStageRace)}, captured ${new Date(round.basis.capturedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC.`
         : round.method === 'seeded'
           ? 'Initial seeding.'
           : round.method === 'manual'

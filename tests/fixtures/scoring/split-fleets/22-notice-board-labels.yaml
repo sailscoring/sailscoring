@@ -10,13 +10,11 @@ provenance:
   alternatives: "The 2026 ILCA 7 Men's Worlds, two weeks earlier under the same sailing instructions, posted Q1–Q5 then E1–E7."
 runnable: true
 notes: |
-  What a championship calls its races is the event's decision, not the class's.
   These sailing instructions number the Preliminary and Elimination series in
   one sequence — SI 18.4's discard table is keyed to it, "Q1-Q2 … Q3-Q9 …
-  Q10-Q12" — and the event posted QP1–QP5 then QE1 onward instead. The men's
-  Worlds, two weeks earlier under the same instructions, posted Q1–Q5 then
-  E1–E7. So this fixture carries `raceLabels`, and its preview column headings
-  are the ones on the real published page.
+  Q10-Q12" — and the event posted QP1–QP5 then QE1 onward instead. QP, QE and
+  F are the labels the 2026 wording carries, so this fixture's preview column
+  headings are the ones on the real published page.
 
   The labels change no arithmetic: the discard ladder counts races, and at 9
   races the real event allowed one discard exactly as SI 18.4's Q3-Q9 row
@@ -38,9 +36,6 @@ config:
   qualifyingFleets: [Yellow, Blue]
   finalFleets: [Gold, Silver]
   vocabulary: qualification-final
-  raceLabels:
-    prefixes: { qualifying: QP, final: QE, medal: F }
-    continuousOpeningNumbers: false
   discardThresholds:
     - minRaces: 3
       discardCount: 1

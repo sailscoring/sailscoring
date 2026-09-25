@@ -9,15 +9,15 @@ import {
 /**
  * Split Fleets smoke (also the demo script): enable the feature, create a
  * series, seed demo competitors, enable split fleets (2 qualifying fleets),
- * commit Round 1 (Q1–Q2 created), enter Q1 finishes for both fleets, watch
- * Q1 flip to "counts" while Q2 awaits, see the provisional cut line,
+ * commit Round 1 (QP1–QP2 created), enter QP1 finishes for both fleets, watch
+ * QP1 flip to "counts" while QP2 awaits, see the provisional cut line,
  * reassign Round 2, split into Gold/Silver, check the rehomed standings
  * surfaces (hidden Standings tab, Preview with the championship +
  * assignments pages, the settings card), and select the medal fleet.
  *
- * The series takes the default format preset, which is ILCA's 2026 wording:
+ * The series takes the default configuration, which is ILCA's 2026 wording:
  * its stages are the Preliminary, Elimination and Final series, and its races
- * run Q1…Qn across the first two before restarting at F. So the assertions
+ * are QP, QE and F. So the assertions
  * below are also the end-to-end check that the vocabulary reaches every
  * surface — a stage word here reading "qualifying" or "medal" would mean it
  * had not.
@@ -87,15 +87,15 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   );
   await help.getByRole('button', { name: 'Minimise help' }).click();
 
-  // ── Round 1: seeded, Q1–Q2 created ────────────────────────────────────────
+  // ── Round 1: seeded, QP1–QP2 created ────────────────────────────────────────
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await expect(page.getByRole('dialog')).toContainText('Make the initial assignment');
   await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
   await expect(page.getByText('does not count yet')).toHaveCount(2);
 
-  // ── Q1: one start sequence, one combined sheet ────────────────────────────
+  // ── QP1: one start sequence, one combined sheet ────────────────────────────
   // Both fleet chips open the same race — Yellow and Blue start in sequence
   // and finish onto one combined crossing-order sheet.
   const q1Row = page.getByTestId('logical-race-qualifying-1');
@@ -110,7 +110,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await page.goBack();
 
   await expect(page.getByText('counts', { exact: true })).toBeVisible();
-  await expect(page.getByText('does not count yet')).toHaveCount(1); // Q2 only
+  await expect(page.getByText('does not count yet')).toHaveCount(1); // QP2 only
   await expect(page.getByText('1 of 2 Preliminary series races count')).toBeVisible();
 
   // Standings: combined table with the provisional cut line.
@@ -126,9 +126,9 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   ).toBeVisible();
   await expect(standingsSection.getByRole('columnheader', { name: 'Fleet' })).toBeVisible();
 
-  // ── Round 2: rank-pattern reassignment from the Q1 ranking ────────────────
+  // ── Round 2: rank-pattern reassignment from the QP1 ranking ────────────────
   await page.getByRole('button', { name: 'Assign Round 2' }).click();
-  await expect(page.getByRole('dialog')).toContainText('From the ranking after Q1');
+  await expect(page.getByRole('dialog')).toContainText('From the ranking after QP1');
   // With one counted race, each fleet's Nth boats hold identical score lines
   // RRS A8 cannot separate: the preview numbers such a pair by its shared
   // rank and warns that the deal — not the ranking — split them across fleets.
@@ -137,7 +137,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   );
   await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 2/ }).click();
-  await expect(page.getByText('Round 2 · Q3 onward')).toBeVisible();
+  await expect(page.getByText('Round 2 · QP3 onward')).toBeVisible();
 
   // ── Split into Gold / Silver ──────────────────────────────────────────────
   await page.getByRole('button', { name: 'End the Preliminary series → split fleets' }).click();
@@ -145,9 +145,8 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit split \(12 \/ 12\)/ }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
-  // Labelled Q5, not F1: the default ILCA format numbers its final-series
-  // races on from the qualifying series (Q1–Q4 exist), as its SIs do.
-  await expect(page.getByRole('link', { name: /Q5 · enter finishes/ })).toHaveCount(2);
+  // The Elimination series numbers its own races from QE1.
+  await expect(page.getByRole('link', { name: /QE1 · enter finishes/ })).toHaveCount(2);
 
   // Tiered standings: one table per final fleet. The Fleet column is gone —
   // the per-fleet headings name it instead.
@@ -240,7 +239,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   // ── Promote into the Final series fleet as redress ────────────────────────
   // The protest committee directs an eleventh boat into the deciding fleet;
   // she keeps her Gold membership, and the dialog says what the extra boat
-  // does to a Q12 added afterwards.
+  // does to a QE race added afterwards.
   await page.getByRole('button', { name: 'Promote (redress)…' }).click();
   const promoteDialog = page.getByRole('dialog');
   await expect(promoteDialog).toContainText('With 11 boats');
@@ -268,7 +267,7 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
 });
 
 /**
- * The abandoned-fleet flow: Q1 starts Yellow and Blue in one sequence, but
+ * The abandoned-fleet flow: QP1 starts Yellow and Blue in one sequence, but
  * Blue's race is abandoned (no wind) before any Blue boat finishes. The
  * scorer abandons Blue's start — the sequence keeps Yellow's completed
  * sheet — and later adds a catch-up race for Blue alone, with its own sheet.
@@ -287,7 +286,7 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
 
   // Yellow finishes on the combined sheet; Blue never got a race in.
   const q1Row = page.getByTestId('logical-race-qualifying-1');
@@ -300,12 +299,12 @@ test('split fleets: abandon one fleet of a sequence, then re-race it', async ({
   // Abandon Blue's race: the start leaves the sequence, Yellow stands.
   await q1Row.getByRole('button', { name: "Abandon Blue's race" }).click();
   await expect(page.getByTestId('confirm-dialog')).toContainText(
-    "Abandon Blue's Q1?",
+    "Abandon Blue's QP1?",
   );
   await page.getByTestId('confirm-dialog-confirm').click();
   await expect(q1Row.getByText('Blue — no race')).toBeVisible();
   await expect(q1Row.getByText(/Yellow ✓/)).toBeVisible();
-  await expect(page.getByText('does not count yet')).toHaveCount(2); // Q1 and Q2
+  await expect(page.getByText('does not count yet')).toHaveCount(2); // QP1 and QP2
 
   // The catch-up race: Blue alone, its own sheet on its own race.
   await q1Row.getByRole('button', { name: 'Add catch-up race' }).click();
@@ -389,17 +388,17 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await expect(page.getByRole('button', { name: 'Save as PDF' })).toBeVisible();
   await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
 
-  // Q2 was created with Q1 but has not been sailed, and an unsailed race is
+  // QP2 was created with QP1 but has not been sailed, and an unsailed race is
   // not published: a column of DNCs against all 24 boats, adding up to
   // nothing, reads as a scoring error for a race that has not happened.
-  await expect(page.getByRole('columnheader', { name: 'Q1', exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: 'Q2', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'QP1', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'QP2', exact: true })).toHaveCount(0);
   await expect(page.getByRole('cell', { name: /DNC/ })).toHaveCount(0);
 
-  // The Q1 column header deep-links into the per-race results page, which
+  // The QP1 column header deep-links into the per-race results page, which
   // pulls the start sequence's combined sheet apart into one ranked table per
   // fleet.
-  await page.getByRole('link', { name: 'Q1', exact: true }).click();
+  await page.getByRole('link', { name: 'QP1', exact: true }).click();
   await expect(page).toHaveURL(/\/worlds-26\/race-results#q1$/);
   await expect(page.getByRole('heading', { name: 'Yellow fleet' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blue fleet' })).toBeVisible();
@@ -443,7 +442,7 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await anonPage.goto(champPath);
   await anonPage.getByRole('link', { name: 'Open in Sail Scoring' }).click();
   await expect(anonPage).toHaveURL(/\/series\/spectator-/);
-  await expect(anonPage.getByRole('columnheader', { name: 'Q1', exact: true })).toBeVisible();
+  await expect(anonPage.getByRole('columnheader', { name: 'QP1', exact: true })).toBeVisible();
   await expect(anonPage.getByRole('columnheader', { name: 'Nett' })).toBeVisible();
   await expect(anonPage.getByText(yellowSails[0]).first()).toBeVisible();
   // …with the same statement of the format under it (#498).
@@ -526,7 +525,7 @@ test('split fleets: the format and rounds survive a file round-trip', async ({
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
 
   // ── Save to file ──────────────────────────────────────────────────────────
   await openSeriesActionsMenu(page);
@@ -567,7 +566,7 @@ test('split fleets: the format and rounds survive a file round-trip', async ({
 
   // ── The championship came with it ─────────────────────────────────────────
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
   const q1Row = page.getByTestId('logical-race-qualifying-1');
   await expect(q1Row.getByRole('link', { name: /Yellow · enter finishes/ })).toBeVisible();
   await expect(q1Row.getByRole('link', { name: /Blue · enter finishes/ })).toBeVisible();
@@ -598,18 +597,18 @@ test('split fleets: a round commits without creating its races', async ({
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
   // The offer names the races it would create, and is off until asked for.
   await expect(
-    page.getByRole('dialog').getByRole('checkbox', { name: /Also create Q1 and Q2 now/ }),
+    page.getByRole('dialog').getByRole('checkbox', { name: /Also create QP1 and QP2 now/ }),
   ).not.toBeChecked();
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
 
   // The round is there with its fleets. No race is — nothing to delete, and
   // nothing to score anyone DNC in.
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
   await expect(page.getByTestId('logical-race-qualifying-1')).toHaveCount(0);
   await expect(page.getByText('0 of 0 Preliminary series races count')).toBeVisible();
 
-  // Q1 arrives when Q1 is sailed.
-  await page.getByRole('button', { name: 'Add race Q1' }).click();
+  // QP1 arrives when QP1 is sailed.
+  await page.getByRole('button', { name: 'Add race QP1' }).click();
   const q1Row = page.getByTestId('logical-race-qualifying-1');
   await expect(q1Row).toBeVisible();
   await expect(q1Row.getByRole('link', { name: /Yellow · enter finishes/ })).toBeVisible();
@@ -624,18 +623,12 @@ async function gotoRaces(page: import('@playwright/test').Page) {
 }
 
 /**
- * The race labels a series shows are its notice board's, not its class's.
- * The 2026 ILCA 6 Women's Worlds numbered its races QP1–QP5 then QE1 onward
- * under sailing instructions whose own discard table numbers them Q1–Q12, and
- * the men's event two weeks earlier used Q1–Q5 then E1 onward. So the scheme
- * is set here, and changing it has to reach the races already created — a
- * relabelled standings column above a races list still saying Q6 is worse
- * than either label on its own.
+ * The race labels follow the wording the championship uses, and changing the
+ * wording has to reach the races already created — a relabelled standings
+ * column above a races list still saying QP1 is worse than either label on
+ * its own.
  */
-test('split fleets: the notice board’s race labels reach every surface', async ({
-  page,
-  signedInEmail,
-}) => {
+test('split fleets: the race labels reach every surface', async ({ page, signedInEmail }) => {
   await enableFeatures(page, signedInEmail, ['split-fleets']);
   await createSplitFleetSeries(page, {
     name: 'Notice Board Worlds',
@@ -647,29 +640,12 @@ test('split fleets: the notice board’s race labels reach every surface', async
     page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
   ).toBeHidden();
 
-  // The default is the scheme this format's sailing instructions write, and
-  // the sailing-instruction translation states it.
-  const labels = page.locator('#sf-race-labels');
-  await expect(labels).toHaveValue('continuous');
-  await expect(page.getByTestId('sf-si-translation')).toContainText(
-    'races in the Preliminary series and the Elimination series will be numbered Q1, Q2',
-  );
-
-  // What the women's Worlds actually posted.
-  await labels.selectOption('qp-qe');
+  // The 2026 ILCA wording's labels, stated in the sailing-instruction
+  // translation.
   await expect(page.getByTestId('sf-si-translation')).toContainText(
     'races in the Preliminary series will be numbered QP1, QP2 and so on; races in the ' +
       'Elimination series, QE1, QE2 and so on',
   );
-
-  // A scheme of the event's own: the prefixes are there to be typed, and the
-  // sentence follows those too.
-  await labels.selectOption('custom');
-  await page.getByLabel('Preliminary series race prefix').fill('P');
-  await expect(page.getByTestId('sf-si-translation')).toContainText(
-    'races in the Preliminary series will be numbered P1, P2 and so on',
-  );
-  await labels.selectOption('qp-qe');
 
   // ── The ceremony, the round card and the race rows follow ─────────────────
   await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
@@ -681,14 +657,13 @@ test('split fleets: the notice board’s race labels reach every surface', async
   await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
   await expect(page.getByTestId('logical-race-qualifying-1')).toContainText('QP1');
 
-  // The races were named when they were created, so correcting the scheme
-  // afterwards has to rename them: the men's event's labels, over the races
-  // the women's labels created.
+  // The races were named when they were created, so changing the wording
+  // afterwards has to rename them.
   await gotoRaces(page);
   await expect(page.getByTestId('race-row').first()).toContainText('QP1');
   await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
   await page.getByRole('button', { name: /^Format/ }).click();
-  await page.locator('#sf-race-labels').selectOption('q-e');
+  await page.locator('#sf-vocabulary').selectOption('opening-medal');
   await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
   await gotoRaces(page);
   await expect(page.getByTestId('race-row').first()).toContainText('Q1');

@@ -29,7 +29,7 @@ test('round 1 offers to remove a leftover Default fleet', async ({ page, signedI
   await expect(offer).toBeChecked();
   await expect(dialog).toContainText('“Default”');
   await page.getByRole('button', { name: /Commit Round 1/ }).click();
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
 
   // The leftover is gone: the Fleets card lists only the round's two fleets.
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();

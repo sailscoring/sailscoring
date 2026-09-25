@@ -111,14 +111,41 @@ function standingsTables(html: string): Table[] {
   });
 }
 
+/**
+ * What has changed on purpose since an event was published, applied to the
+ * expectation rather than written into the captured page.
+ *
+ * The 2026 ILCA 7 Men's Worlds numbered its Preliminary and Elimination series
+ * races Q1–Q12 straight through. Race labels are now fixed by the wording a
+ * championship uses, and under the 2026 ILCA wording they are QP, QE and F:
+ * its five Preliminary races are QP1–QP5, and Q6–Q12 are QE1–QE7.
+ */
+const CHANGED_SINCE_PUBLISHED: Record<string, (tables: Table[]) => Table[]> = {
+  'ilca7-men-worlds-2026': (tables) => {
+    const PRELIMINARY_RACES = 5;
+    const relabel = (h: string) => {
+      const n = /^Q(\d+)$/.exec(h)?.[1];
+      if (!n) return h;
+      return Number(n) <= PRELIMINARY_RACES ? `QP${n}` : `QE${Number(n) - PRELIMINARY_RACES}`;
+    };
+    return tables.map(({ header, rows }) => ({
+      header: header.map(relabel),
+      rows: rows.map((row) =>
+        Object.fromEntries(Object.entries(row).map(([h, cell]) => [relabel(h), cell])),
+      ),
+    }));
+  },
+};
+
 describe.each(EVENTS)('%s, as published', (event) => {
   it('renders the published standings, cell for cell', async () => {
     const published = parsePublicExport(
       readFileSync(join(DIR, `${event}.sailscoring.json`), 'utf-8'),
     );
-    const expected: Table[] = JSON.parse(
+    const captured: Table[] = JSON.parse(
       readFileSync(join(DIR, `${event}.standings.json`), 'utf-8'),
     );
+    const expected = (CHANGED_SINCE_PUBLISHED[event] ?? ((t) => t))(captured);
 
     const store = makeStore();
     const seriesId = await importPublicExport(published, store.importRepos);

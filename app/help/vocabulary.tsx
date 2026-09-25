@@ -81,12 +81,9 @@ export function HelpVocabularyProvider({
     enabled: seriesId !== null && has('split-fleets'),
   });
   const seriesConfig = seriesId !== null ? seriesState.data?.config : null;
-  // A tabulated vocabulary only: an override is words the toggle cannot
-  // name, so the section falls back to what the reader would otherwise see.
-  const seriesKey =
-    seriesConfig && !seriesConfig.vocabularyOverride
-      ? parseVocabularyKey(seriesConfig.vocabulary ?? DEFAULT_VOCABULARY)
-      : null;
+  const seriesKey = seriesConfig
+    ? parseVocabularyKey(seriesConfig.vocabulary ?? DEFAULT_VOCABULARY)
+    : null;
 
   const [choice, setChoice] = useState<VocabularyKey | null>(null);
   const [stored, setStored] = useState<VocabularyKey | null>(null);

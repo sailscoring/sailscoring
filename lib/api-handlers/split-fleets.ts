@@ -15,7 +15,7 @@ import { createRepos, replaceSplitFleetState } from '@/lib/postgres-repository';
 import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { defaultRaceDate } from '@/lib/race-schedule';
-import { normalizeSplitFleetConfig, resolveRaceLabels, stageRaceLabel } from '@/lib/split-fleets';
+import { normalizeSplitFleetConfig, resolveVocabulary, stageRaceLabel } from '@/lib/split-fleets';
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitAbandonStartSchema,
@@ -39,18 +39,6 @@ function roundRowToType(row: SplitRoundRow): SplitRound {
     basis: row.basis ?? null,
     createdAt: row.createdAt.getTime(),
   };
-}
-
-/** Race labels follow the series' own numbering: the SIs may run one sequence
- *  across the qualifying and final stages ("Q1…Q12") rather than restarting.
- *  `qualifyingRaces` is what a continuous final stage counts on from. */
-function raceLabel(
-  config: SplitFleetConfig,
-  stage: SplitRound['stage'],
-  n: number,
-  qualifyingRaces: number,
-): string {
-  return stageRaceLabel(config, stage, n, qualifyingRaces);
 }
 
 async function getSeriesRow(workspace: WorkspaceContext, seriesId: string) {
@@ -394,9 +382,8 @@ interface StageRaceSpec {
 function sequenceName(
   spec: StageRaceSpec,
   config: SplitFleetConfig,
-  qualifyingRaces: number,
 ): string {
-  const label = (n: number) => raceLabel(config, spec.stage, n, qualifyingRaces);
+  const label = (n: number) => stageRaceLabel(config, spec.stage, n);
   const nums = [...new Set(spec.starts.map((s) => s.stageRaceNumber))];
   if (nums.length === 1) {
     return spec.starts.length === 1
@@ -423,8 +410,8 @@ async function relabelStageRaces(
   before: SplitFleetConfig,
   after: SplitFleetConfig,
 ): Promise<void> {
-  const wasLabelled = JSON.stringify(resolveRaceLabels(before));
-  if (wasLabelled === JSON.stringify(resolveRaceLabels(after))) return;
+  const wasLabelled = JSON.stringify(resolveVocabulary(before).prefixes);
+  if (wasLabelled === JSON.stringify(resolveVocabulary(after).prefixes)) return;
   const db = getDb();
   const rows = await db
     .select({
@@ -442,12 +429,6 @@ async function relabelStageRaces(
     .from(schema.fleets)
     .where(and(eq(schema.fleets.seriesId, seriesId), eq(schema.fleets.workspaceId, workspaceId)));
   const fleetName = new Map(fleetRows.map((f) => [f.id, f.name]));
-  const qRaces = Math.max(
-    0,
-    ...rows
-      .filter((r) => r.stage === 'qualifying' && r.stageRaceNumber != null)
-      .map((r) => r.stageRaceNumber as number),
-  );
   const byRace = new Map<string, { name: string | null; specs: typeof rows }>();
   for (const row of rows) {
     if (!row.stage || row.stageRaceNumber == null) continue;
@@ -464,8 +445,8 @@ async function relabelStageRaces(
       }))
       .sort((a, b) => a.stageRaceNumber - b.stageRaceNumber || a.label.localeCompare(b.label));
     const spec: StageRaceSpec = { stage: entry.specs[0].stage as SplitRound['stage'], starts };
-    const was = sequenceName(spec, before, qRaces);
-    const now = sequenceName(spec, after, qRaces);
+    const was = sequenceName(spec, before);
+    const now = sequenceName(spec, after);
     if (entry.name !== was || now === was) continue;
     await db
       .update(schema.races)
@@ -586,27 +567,6 @@ async function createStageRaces(
 ): Promise<void> {
   const specs = input.specs.filter((s) => s.starts.length > 0);
   if (specs.length === 0) return;
-  // What a continuous final stage numbers on from, counted over the starts
-  // already stored plus any qualifying starts about to be written.
-  const [{ qualifyingRaces }] = await tx
-    .select({
-      qualifyingRaces: sql<number>`coalesce(max(${schema.raceStarts.stageRaceNumber}), 0)`,
-    })
-    .from(schema.raceStarts)
-    .innerJoin(schema.races, eq(schema.raceStarts.raceId, schema.races.id))
-    .where(
-      and(
-        eq(schema.races.seriesId, input.seriesId),
-        eq(schema.raceStarts.stage, 'qualifying'),
-      ),
-    );
-  const qRaces = Math.max(
-    qualifyingRaces,
-    ...specs
-      .filter((spec) => spec.stage === 'qualifying')
-      .flatMap((spec) => spec.starts.map((st) => st.stageRaceNumber)),
-    0,
-  );
   for (const spec of specs) {
     await assertDisjointFleets(tx, input.seriesId, spec.starts.map((s) => s.fleetId));
   }
@@ -625,7 +585,7 @@ async function createStageRaces(
       seriesId: input.seriesId,
       workspaceId: input.workspaceId,
       raceNumber: ++next,
-      name: sequenceName(spec, input.config, qRaces),
+      name: sequenceName(spec, input.config),
       date,
     });
     for (const s of spec.starts) {

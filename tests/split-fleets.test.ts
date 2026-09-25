@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyRaceLabelScheme,
   assignByRankPattern,
   assignFromInitialFleet,
-  RACE_LABEL_SCHEMES,
-  raceLabelSchemeKey,
   VOCABULARIES,
   normalizeSplitFleetConfig,
   resolveVocabulary,
@@ -25,10 +22,6 @@ import { ilca2026Config, openingSeriesMedalConfig } from './fixtures/split-fleet
 import type { Competitor, Finish, Fleet, Race, RaceStart } from '@/lib/types';
 
 /** What the 2026 ILCA 6 Women's Worlds notice board wrote. */
-const qpQeLabels = {
-  prefixes: { qualifying: 'QP', final: 'QE', medal: 'F' },
-  continuousOpeningNumbers: false,
-};
 
 function competitor(id: string, fleetIds: string[], sail: number): Competitor {
   return {
@@ -689,80 +682,32 @@ describe('scoring penalties (RRS 44.3(c))', () => {
 describe('stageRaceLabel', () => {
   it('restarts each stage under its own prefix by default', () => {
     const config = defaultSplitFleetConfig(3);
-    expect(stageRaceLabel(config, 'qualifying', 3, 5)).toBe('Q3');
-    expect(stageRaceLabel(config, 'final', 1, 5)).toBe('F1');
-    expect(stageRaceLabel(config, 'medal', 1, 5)).toBe('M1');
+    expect(stageRaceLabel(config, 'qualifying', 3)).toBe('Q3');
+    expect(stageRaceLabel(config, 'final', 1)).toBe('F1');
+    expect(stageRaceLabel(config, 'medal', 1)).toBe('M1');
   });
 
-  it('numbers the 2026 ILCA final stage on from the qualifying stage', () => {
-    // Their Preliminary and Elimination series run Q1…Q12 straight through,
-    // and only the Final series restarts — so the first Gold race is Q6, not
-    // F1, and the first Final series race is F1, not M1.
+  it('labels the 2026 ILCA stages QP, QE and F, as their notice boards did', () => {
     const config = ilca2026Config(3);
-    expect(stageRaceLabel(config, 'qualifying', 5, 5)).toBe('Q5');
-    expect(stageRaceLabel(config, 'final', 1, 5)).toBe('Q6');
-    expect(stageRaceLabel(config, 'final', 6, 5)).toBe('Q11');
-    expect(stageRaceLabel(config, 'medal', 1, 5)).toBe('F1');
+    expect(stageRaceLabel(config, 'qualifying', 5)).toBe('QP5');
+    expect(stageRaceLabel(config, 'final', 1)).toBe('QE1');
+    expect(stageRaceLabel(config, 'medal', 1)).toBe('F1');
+  });
+
+  it('labels an undivided opening series Q under either wording', () => {
+    const undivided = openingSeriesMedalConfig();
+    expect(stageRaceLabel(undivided, 'qualifying', 3)).toBe('Q3');
+    expect(stageRaceLabel({ ...undivided, vocabulary: 'qualification-final' }, 'qualifying', 3)).toBe(
+      'Q3',
+    );
+    expect(stageRaceLabel({ ...undivided, vocabulary: 'qualification-final' }, 'medal', 1)).toBe('F1');
   });
 
   it('labels the carried score rather than numbering it', () => {
     expect(stageRaceLabel(defaultSplitFleetConfig(2), 'medal', 0)).toBe('Carried');
   });
 
-  it('writes the labels the notice board used, not the ones its SIs did', () => {
-    // The 2026 ILCA 6 Women's Worlds: the same sailing instructions whose
-    // discard table numbers the Qualification series Q1–Q12, sailed as
-    // QP1–QP5 then QE1 onward. Two weeks earlier the men's event, under the
-    // same instructions, used Q1–Q5 then E1 onward.
-    const women = { ...ilca2026Config(2), raceLabels: qpQeLabels };
-    expect(stageRaceLabel(women, 'qualifying', 5, 5)).toBe('QP5');
-    expect(stageRaceLabel(women, 'final', 1, 5)).toBe('QE1');
-    expect(stageRaceLabel(women, 'final', 4, 5)).toBe('QE4');
-    expect(stageRaceLabel(women, 'medal', 1, 5)).toBe('F1');
-    const men = { ...ilca2026Config(3), raceLabels: applyRaceLabelScheme(ilca2026Config(3), 'q-e') };
-    expect(stageRaceLabel(men, 'qualifying', 5, 5)).toBe('Q5');
-    expect(stageRaceLabel(men, 'final', 1, 5)).toBe('E1');
-    expect(stageRaceLabel(men, 'medal', 1, 5)).toBe('F1');
-  });
 });
-
-describe('race label schemes', () => {
-  const ilca = ilca2026Config(2);
-
-  it('keeps the last stage’s prefix when a scheme is adopted', () => {
-    // No scheme in circulation disagrees with the vocabulary about the last
-    // stage, so picking one is a choice about the first two.
-    for (const scheme of RACE_LABEL_SCHEMES) {
-      expect(applyRaceLabelScheme(ilca, scheme.key).prefixes.medal).toBe('F');
-      expect(applyRaceLabelScheme(defaultSplitFleetConfig(2), scheme.key).prefixes.medal).toBe('M');
-    }
-  });
-
-  it('names the scheme a series is using, and admits when it is its own', () => {
-    expect(raceLabelSchemeKey(ilca)).toBe('continuous');
-    expect(raceLabelSchemeKey(defaultSplitFleetConfig(2))).toBe('q-f');
-    expect(raceLabelSchemeKey({ ...ilca, raceLabels: qpQeLabels })).toBe('qp-qe');
-    expect(
-      raceLabelSchemeKey({
-        ...ilca,
-        raceLabels: { prefixes: { qualifying: 'P', final: 'E', medal: 'F' }, continuousOpeningNumbers: false },
-      }),
-    ).toBeNull();
-  });
-
-  it('gives every tabulated scheme labels that cannot collide', () => {
-    // A scheme restarting the second stage at 1 under the first stage's
-    // prefix would call two different races the same thing.
-    for (const scheme of RACE_LABEL_SCHEMES) {
-      if (!scheme.continuousOpeningNumbers) {
-        expect(scheme.final, scheme.key).not.toBe(scheme.qualifying);
-      }
-      expect(scheme.qualifying, scheme.key).toMatch(/^[A-Z]{1,3}$/);
-      expect(scheme.final, scheme.key).toMatch(/^[A-Z]{1,3}$/);
-    }
-  });
-});
-
 
 describe('vocabulary', () => {
   it('gives the generic wording by default and ILCA’s under its preset', () => {
@@ -805,18 +750,6 @@ describe('vocabulary', () => {
         true,
       );
       expect(config.vocabulary).toBe('qualification-final');
-      expect(config.vocabularyOverride).toBeUndefined();
-    });
-
-    it('keeps hand-edited wording as an override rather than losing it', () => {
-      const config = legacy(
-        { qualifying: 'Series A', final: 'Series B', medal: 'Series C' },
-        { qualifying: 'A', final: 'B', medal: 'C' },
-        false,
-      );
-      expect(config.vocabulary).toBe('opening-medal');
-      expect(resolveVocabulary(config).stages.qualifying.name).toBe('Series A');
-      expect(stageRaceLabel(config, 'final', 2)).toBe('B2');
     });
 
     it('falls back to the generic wording when there is nothing to read', () => {

@@ -32,7 +32,7 @@ import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
-import { qualifyingRaceCount, splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
+import { splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
 import type { SeriesStage } from '../lib/split-fleets';
 import {
   buildSplitFleet,
@@ -792,7 +792,6 @@ function generateSplitFleetFixtureHtml(fixture: SplitFleetFixture, yamlSource: s
   const { data, rounds: resolvedRounds } = buildSplitFleet(fixture);
   const rows = splitFleetStandings(data);
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
-  const qRaces = qualifyingRaceCount(data);
 
   // How each round's fleets were formed (seeding, reassignment, split, …).
   const assignmentsHtml = resolvedRounds.length
@@ -845,7 +844,7 @@ ${resolvedRounds.map((r) => {
   };
 
   const table = (title: string, tableRows: typeof rows): string => {
-    const head = columns.map((c) => `<th>${esc(stageRaceLabel(data.config, c.stage, c.n, qRaces))}</th>`).join('');
+    const head = columns.map((c) => `<th>${esc(stageRaceLabel(data.config, c.stage, c.n))}</th>`).join('');
     const body = tableRows.map((row) => {
       const name = row.competitor.names.join(' & ');
       const medalBadge = row.medal ? ' <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span>' : '';

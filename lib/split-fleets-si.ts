@@ -9,7 +9,7 @@
 // Deliberately our own wording rather than extracts from real events' SIs:
 // those are third-party documents, and this has to stay distributable.
 
-import { resolveRaceLabels, resolveVocabulary, stageAdjective, stageRaceLabel } from './split-fleets';
+import { resolveVocabulary, stageAdjective, stageRaceLabel } from './split-fleets';
 import type { SplitFleetConfig } from './split-fleets';
 
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -51,30 +51,17 @@ function discardClause(config: SplitFleetConfig): string {
  *  what the standings and the published pages go on to show. */
 function raceLabelClause(config: SplitFleetConfig): string {
   const vocab = resolveVocabulary(config);
-  const first = (stage: 'qualifying' | 'final' | 'medal', qualifyingRaces = 0) =>
-    `${stageRaceLabel(config, stage, 1, qualifyingRaces)}, ${stageRaceLabel(config, stage, 2, qualifyingRaces)} and so on`;
-  const q = vocab.stages.qualifying.name;
-  const f = vocab.stages.final.name;
-  const parts: string[] = [];
-  // A championship that never bands its fleet sails no second stage, so it
+  const first = (stage: 'qualifying' | 'final' | 'medal') =>
+    `${stageRaceLabel(config, stage, 1)}, ${stageRaceLabel(config, stage, 2)} and so on`;
+  const parts = [`races in the ${vocab.stages.qualifying.name} will be numbered ${first('qualifying')}`];
+  // A championship that never divides its fleet sails no second stage, so it
   // has no second stage's races to number — and numbering them anyway names
   // a stage in the very document the scorer is checking against their notice
   // of race.
-  if (config.split.kind === 'none') {
-    parts.push(`races in the ${q} will be numbered ${first('qualifying')}`);
-  } else if (resolveRaceLabels(config).continuousOpeningNumbers) {
-    // Continuous numbering is one clause over both stages, since the second's
-    // labels are not a series of their own: they are the first's, running on.
-    parts.push(
-      `races in the ${q} and the ${f} will be numbered ${first('qualifying')}, continuing through both`,
-    );
-  } else {
-    parts.push(`races in the ${q} will be numbered ${first('qualifying')}`);
-    parts.push(`races in the ${f}, ${first('final')}`);
+  if (config.split.kind !== 'none') {
+    parts.push(`races in the ${vocab.stages.final.name}, ${first('final')}`);
   }
-  if (config.medal) {
-    parts.push(`races in the ${vocab.stages.medal.name}, ${first('medal')}`);
-  }
+  parts.push(`races in the ${vocab.stages.medal.name}, ${first('medal')}`);
   return `For the purposes of these instructions, ${parts.join('; ')}.`;
 }
 
@@ -116,7 +103,6 @@ export type SplitFleetSentence = { id: SplitFleetSentenceId; text: string };
  * information.
  */
 export const SENTENCES_BY_SETTING = {
-  raceLabels: ['race-labels'],
   fleetCount: ['fleet-assignment', 'split'],
   discards: ['discards', 'final-discard-cap'],
   medal: ['medal', 'medal-ranking'],

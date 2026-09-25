@@ -25,7 +25,6 @@ import {
 } from '@/lib/split-fleets';
 import type {
   CarryTransform,
-  RaceLabelScheme,
   SplitFleetConfig,
   SplitFleetData,
   SplitRound,
@@ -115,9 +114,6 @@ export interface SplitFleetFixture {
     discardThresholds: { minRaces: number; discardCount: number }[];
     /** The words the event's SIs use; default the generic ones. */
     vocabulary?: VocabularyKey;
-    /** What its notice board called the races, where that differed from the
-     *  scheme its SIs wrote (see `RaceLabelScheme`). */
-    raceLabels?: RaceLabelScheme;
     medal?: {
       size: number;
       raceCount: number;
@@ -209,14 +205,6 @@ const sortedMembers = (m: Record<string, string[]>): Record<string, string[]> =>
  */
 export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
   const dummy = (names: string[]) => names.map((label) => ({ label, color: '#000' }));
-  // What a continuous scheme's second stage numbers on from: the fixture's
-  // own count of first-stage races.
-  const qualifyingRaces = Math.max(
-    0,
-    ...fx.stages
-      .filter((st) => st.stage === 'qualifying')
-      .flatMap((st) => (st.races ?? []).map((r) => r.n)),
-  );
   const config: SplitFleetConfig = {
     qualifyingFleets: dummy(fx.config.qualifyingFleets),
     finalFleets: dummy(fx.config.finalFleets ?? []),
@@ -227,7 +215,6 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     split: (fx.config.finalFleets ?? []).length === 0 ? { kind: 'none' } : { kind: 'equal-blocks' },
     discardThresholds: fx.config.discardThresholds,
     vocabulary: fx.config.vocabulary ?? DEFAULT_VOCABULARY,
-    ...(fx.config.raceLabels ? { raceLabels: fx.config.raceLabels } : {}),
     // A championship always has a deciding stage configured; a fixture that
     // declares none simply never sails it.
     medal: {
@@ -393,7 +380,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         const raceId = `${st}${r.n}:${name}`;
         races.push({
           id: raceId, seriesId: 's', raceNumber: races.length + 1,
-          name: `${stageRaceLabel(config, st, r.n, qualifyingRaces)} ${name}`,
+          name: `${stageRaceLabel(config, st, r.n)} ${name}`,
           date: '2020-01-01', createdAt: createdAt++,
         });
         raceStarts.push({

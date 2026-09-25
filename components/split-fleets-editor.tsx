@@ -26,16 +26,10 @@ import {
   finalBlockSizes,
   UNBANDED_FLEET,
   capitaliseStage,
-  resolveRaceLabels,
   resolveVocabulary,
   VOCABULARY_OPTIONS,
-  applyRaceLabelScheme,
-  RACE_LABEL_SCHEMES,
-  raceLabelSchemeKey,
   stageRaceLabel,
-  STAGES,
   type CarryTransform,
-  type RaceLabelSchemeKey,
   type SplitFleetConfig,
   type Vocabulary,
   type VocabularyKey,
@@ -62,9 +56,6 @@ export function SplitFleetEditor({
   // fields should see the field they are on, not wherever the pointer came to
   // rest.
   const [hovered, setHovered] = useState<readonly SplitFleetSentenceId[] | null>(null);
-  // Asked for a scheme of their own: the prefixes are shown to be typed. A
-  // series already carrying one shows them without asking.
-  const [labelsByHand, setLabelsByHand] = useState(false);
   const [focused, setFocused] = useState<readonly SplitFleetSentenceId[] | null>(null);
 
   const value = config;
@@ -74,21 +65,13 @@ export function SplitFleetEditor({
   // answer is in force, and none is.
   const unbanded = config.split.kind === 'none';
   const vocab = resolveVocabulary(value);
-  // A worked example rather than a description: five races, then the first
-  // race of each stage after them. That is where the difference shows — a
-  // scheme numbering on writes Q6 where one restarting writes F1 or QE1.
-  const labelsFor = (config: SplitFleetConfig) => {
-    const rest = [
-      stageRaceLabel(config, 'final', 1, 5),
-      ...(config.medal ? [stageRaceLabel(config, 'medal', 1)] : []),
-    ];
-    return `${stageRaceLabel(config, 'qualifying', 1)} … ${stageRaceLabel(config, 'qualifying', 5)}, then ${rest.join(', then ')}`;
-  };
-  const exampleLabels = labelsFor(value);
-  // Which tabulated scheme this is, derived like the format above it, so a
-  // scorer who types a prefix back to a tabulated one has that scheme again.
-  const labelScheme = raceLabelSchemeKey(value);
-  const raceLabels = resolveRaceLabels(value);
+  // A worked example rather than a description: the first races of each
+  // stage, as the standings and the notice board will label them.
+  const exampleLabels = [
+    `${stageRaceLabel(value, 'qualifying', 1)} … ${stageRaceLabel(value, 'qualifying', 5)}`,
+    ...(unbanded ? [] : [stageRaceLabel(value, 'final', 1)]),
+    stageRaceLabel(value, 'medal', 1),
+  ].join(', then ');
 
   function patch(p: Partial<SplitFleetConfig>) {
     save.mutate({ ...value, ...p });
@@ -190,96 +173,8 @@ export function SplitFleetEditor({
             {VOCABULARY_OPTIONS.find((o) => o.key === value.vocabulary)?.terms}. Both sets of
             words are in use and each borrows the other&rsquo;s for a different stage, so this
             is one choice rather than a name per stage. Set it first: every setting below is
-            worded in it, as are the standings and the published pages.
-          </p>
-        </div>
-      </div>
-
-      <div {...row('raceLabels')}>
-        <label className="font-medium" htmlFor="sf-race-labels">
-          What the notice board calls the races
-        </label>
-        <div className="space-y-1">
-          <select
-            id="sf-race-labels"
-            className={selectClass}
-            disabled={!canEdit}
-            value={labelsByHand ? 'custom' : (labelScheme ?? 'custom')}
-            onChange={(e) => {
-              if (e.target.value === 'custom') return setLabelsByHand(true);
-              setLabelsByHand(false);
-              patch({
-                raceLabels: applyRaceLabelScheme(value, e.target.value as RaceLabelSchemeKey),
-              });
-            }}
-          >
-            {RACE_LABEL_SCHEMES.map((scheme) => (
-              <option key={scheme.key} value={scheme.key}>
-                {labelsFor({ ...value, raceLabels: applyRaceLabelScheme(value, scheme.key) })}
-              </option>
-            ))}
-            <option value="custom">{labelScheme ? 'Something else…' : exampleLabels}</option>
-          </select>
-          {(labelScheme === null || labelsByHand) && (
-            <div className="flex flex-wrap items-center gap-2">
-              {STAGES.filter((stage) => stage !== 'medal' || value.medal).map((stage) => (
-                <label key={stage} className="flex items-center gap-1 text-xs">
-                  {capitaliseStage(vocab.stages[stage].name)}
-                  <input
-                    className="w-14 rounded-md border bg-background px-2 py-1 text-sm"
-                    disabled={!canEdit}
-                    value={raceLabels.prefixes[stage]}
-                    maxLength={3}
-                    aria-label={`${capitaliseStage(vocab.stages[stage].name)} race prefix`}
-                    onChange={(e) => {
-                      const next = {
-                        ...raceLabels,
-                        prefixes: {
-                          ...raceLabels.prefixes,
-                          [stage]: e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase(),
-                        },
-                      };
-                      // A prefix shared by the first two stages labels two
-                      // races the same unless the numbering runs on, and is
-                      // refused on the way in. Hold the last good value
-                      // rather than save a rejected one; the hint below says
-                      // why the field is not taking the letter.
-                      if (
-                        next.prefixes.qualifying &&
-                        next.prefixes.final &&
-                        (next.continuousOpeningNumbers ||
-                          next.prefixes.qualifying !== next.prefixes.final)
-                      ) {
-                        patch({ raceLabels: next });
-                      }
-                    }}
-                  />
-                </label>
-              ))}
-              <label className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
-                  disabled={!canEdit}
-                  checked={raceLabels.continuousOpeningNumbers}
-                  onChange={(e) =>
-                    patch({
-                      raceLabels: { ...raceLabels, continuousOpeningNumbers: e.target.checked },
-                    })
-                  }
-                />
-                numbered on from the {vocab.stages.qualifying.name}
-              </label>
-              <span className="text-xs text-muted-foreground">
-                One to three letters each, and the first two differ unless the numbering runs
-                on.
-              </span>
-            </div>
-          )}
-          <p className={hint}>
-            Races here read {exampleLabels}. Sailing instructions and notice boards disagree
-            about this even within one class, and the label is what a competitor writes on a
-            scoring enquiry &mdash; so it is set here rather than following the words above.
-            The standings columns, the races list and the published pages all use it.
+            worded in it, as are the standings and the published pages. Races read{' '}
+            {exampleLabels}.
           </p>
         </div>
       </div>

@@ -78,7 +78,7 @@ test('split fleets: import the committee assignment and seed Round 1 from it', a
   await commit.click();
 
   // ── The round records where its fleets came from ─────────────────────────
-  await expect(page.getByText('Round 1 · Q1 onward')).toBeVisible();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
   await expect(page.getByText('Initial assignment · from the entry list')).toBeVisible();
   await expect(page.getByText('Yellow', { exact: false }).first()).toBeVisible();
 

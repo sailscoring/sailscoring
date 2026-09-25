@@ -226,16 +226,12 @@ export function SplitFleetsSection() {
         the setting.
       </p>
       <p>
-        <strong className="text-foreground">What the notice board calls the races</strong> is
-        set there too, separately from the words above, because it turns out to be a decision
-        of the event rather than of the class. The two 2026 ILCA Worlds in Dun Laoghaire were
-        sailed under one set of sailing instructions, which number the {q.name} and {f.name}{' '}
-        races in a single sequence — the discard table is written that way — and posted
-        QP1–QP5 then QE1 onward at one of them and Q1–Q5 then E1 onward at the other. So pick
-        the scheme your own notice board used, or type a prefix per stage where it is none of
-        them. The standings columns, the race rows, the races list and the published pages all
-        follow it, and races you have already created are renamed to match. It is worth
-        getting right: the race label is what a competitor writes on a scoring enquiry.
+        Race labels follow the words the championship uses: Q, F and M under the first set,
+        and QP, QE and F under the ILCA wording, with each stage numbering its races from 1.
+        A championship that is never divided numbers its first races Q1, Q2 and so on under
+        either. The standings columns, the race rows, the races list and the published pages
+        all use them. It is worth checking against your notice board: the race label is what a
+        competitor writes on a scoring enquiry.
       </p>
       <p>
         <strong className="text-foreground">Compressing the score</strong> before the {m.name}{' '}
