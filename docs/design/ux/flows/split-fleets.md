@@ -63,8 +63,8 @@ a form the rest of the app fully understands.
 3. **Advisory, never authoritative.** Decisions that belong to the SIs and
    the race committee — is qualifying over? should a race be abandoned? —
    are the scorer's. The view surfaces the facts (races completed per
-   fleet, what the preset's SIs typically require) but never blocks on its
-   own interpretation of the rules.
+   fleet, how many races count) but never blocks on its own interpretation
+   of the rules.
 4. **Hand edits are legitimate.** The scorer can always drop to the
    standard tabs and edit anything. The view re-derives its picture from
    the entities and flags contradictions instead of fighting them.
@@ -73,9 +73,12 @@ a form the rest of the app fully understands.
 
 ## Anatomy of the view
 
-The three phases — **Qualifying Series → Final Series → Medal Races** — are
-stacked vertically as expandable sections, in chronological order, plus a
-Setup section at the top. Not tabs: the scorer works *down* the page over
+The stages are stacked vertically as expandable cards, in chronological
+order. A new championship has two, the opening series and the medal races;
+dividing the opening series nests its two parts, **Qualifying Series → Final
+Series**, inside it (see [`split-fleets-setup.md`](split-fleets-setup.md)).
+Each card carries its own settings behind an expander, so there is no
+separate Setup section. Not tabs: the scorer works *down* the page over
 the event's week, earlier phases stay visible as collapsed summary strips
 (their data still matters — qualifying columns live in the final standings),
 and the transition moments ("End qualifying → split fleets") sit naturally
@@ -95,8 +98,6 @@ computed next action.
 │ Fleets │                                                                 │
 │  Stnd. │  Next: enter finishes for Q4 · Red          [ Open Q4 · Red ]  │
 │  Sett. ├─────────────────────────────────────────────────────────────────┤
-│        │  ▸ Setup     ILCA Worlds preset · 3 fleets · 141 entries    ✓  │
-│        ├─────────────────────────────────────────────────────────────────┤
 │        │  ▾ QUALIFYING SERIES                       2 rounds · Q1–Q4    │
 │        │                                                                 │
 │        │   Round 1 · Q1–Q2                                 ✓ Complete   │
@@ -112,6 +113,7 @@ computed next action.
 │        │   │ Q4   [Y ✓] [B ✓] [R ◐]        awaiting Red                 │
 │        │                                                                 │
 │        │   [ Assign Round 3 ]        [ End qualifying → split fleets ]  │
+│        │   ▸ Settings   3 fleets · Yellow, Blue, Red                    │
 │        ├─────────────────────────────────────────────────────────────────┤
 │        │  ▸ FINAL SERIES                                 Not started    │
 │        ├─────────────────────────────────────────────────────────────────┤
@@ -127,21 +129,15 @@ race screens.
 
 ---
 
-## Phase: Setup
+## Setup
 
-Setup runs once, when the series is created as a split-fleet series (see
-`series-setup.md`). It has its own flow document —
-[`split-fleets-setup.md`](split-fleets-setup.md) — covering the guided format
-dialog, the Format card the event's own settings live on afterwards, and what
-the two can still do once racing has started. In outline: a format is chosen
-by name rather than composed from settings, what that format decides is
-settled and collapses behind a per-setting unlock, and what remains on the
-card is the handful of things this event decides — fleet count and colours,
-the schedule, the race labels, the discard ladder, the size of the deciding
-fleet. The section collapses to a summary strip once the first round is
-assigned.
+Creating a split-fleet series asks only which words its sailing instructions
+use. Everything else is a setting on the card of the stage it governs, with
+the Junior Champions' Cup shape as the default. The cards, their settings and
+dividing the opening series are in
+[`split-fleets-setup.md`](split-fleets-setup.md).
 
-Setup creates *no* fleets or races — those belong to rounds, so that the
+Setup creates *no* fleets or races. Those belong to rounds, so that the
 entity trail always reads in event order.
 
 ---
@@ -167,6 +163,8 @@ this boat in Blue?" is always one glance away:
 
 ### Step: seed Round 1
 
+With one fleet there is nothing to seed: the fleet is everyone, and the first
+`[ Add Q1 ]` creates Round 1 as it creates the race. With two or more,
 `[ Create Round 1 ]` opens the seeding dialog:
 
 1. Choose where the assignment comes from. Three of the four are *orders*,
@@ -192,16 +190,15 @@ this boat in Blue?" is always one glance away:
    no fleet — the unmatched labels are named above it and the commit is held
    until every boat has one.
 3. Commit. The automation then: creates the round's fleets ("Yellow",
-   "Blue", "Red"), assigns every competitor, creates the physical races the
-   round covers (Q1·Y, Q1·B, Q1·R, Q2·Y, …) each with its fleet-scoped
-   start, captures a revision checkpoint, and writes the activity-log
-   entry.
+   "Blue", "Red"), assigns every competitor, captures a revision
+   checkpoint, and writes the activity-log entry. It creates no races.
 4. Offer: publish the assignment lists (see Publishing below).
 
-How many races a round covers comes from the planned schedule sketched at
-setup; the scorer can add another logical race to the current round in
-one action ("Add Q5 to Round 2") when the committee races ahead of
-schedule — the day strip updates to match.
+A round covers the races added while it is current. The scorer adds each
+one as the committee sails it (`[ Add Q5 ]`), and the day strip shows the
+races that exist. There is no planned schedule to reconcile against: the
+committee's plan changes daily, and a plan the app holds is one more thing
+to keep correct.
 
 ### Filling in the races
 
@@ -281,10 +278,7 @@ RC-sanctioned fleet correction). No heuristic detective work at 21:00.
 - **Cancelling a whole logical race** (committee abandons for all fleets,
   or the ILCA end-of-qualifying equalisation abandons the trailing
   extras): one action on the logical race row, cancelling its physical
-  races together. In the LE/IODA equalisation mode the same moment is
-  expressed differently — the logical race stays, and the affected boats'
-  extra scores are marked excluded — the view presents whichever the
-  config prescribes when qualifying ends with fleets out of step.
+  races together.
 
 ### Publishing during qualifying
 
@@ -322,8 +316,8 @@ what the split will look like before the ceremony.
 
 Qualifying ends when the scorer says so — `[ End qualifying → split
 fleets ]`. The view decorates the button with facts, not judgement: races
-counted so far, the preset's typical minimum ("ILCA SIs require ≥4"), and
-any pending equalisation. It never disables itself on rule grounds.
+counted so far and any pending equalisation. It never disables itself on
+rule grounds.
 
 ---
 
@@ -352,20 +346,15 @@ The one-time ceremony, same preview-commit shape as a reassignment:
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-- **The block sizes are adjustable, not just computed.** The split rule
-  from setup (near-equal blocks, or a fixed top-fleet size) seeds the
-  proposal, but the boundary is a judgment the SIs hand to the scorer: the
-  ILCA/IODA rule is "as nearly as possible equal, but Gold the largest,"
-  and the fixed-top classes (49er Gold = 25, 29er Gold = 45/50) set a size
-  outright. So the dialog exposes the **Gold (top-fleet) size** as an input
-  and lets the scorer nudge the boundary, the tally updating live — a
-  fixed-top preset arrives pre-filled, an equal-blocks preset arrives at the
-  near-equal split and can be tuned.
+- **The block sizes are adjustable, not just computed.** The proposal is
+  near-equal blocks, Gold the largest ("as nearly as possible equal"), but
+  the boundary is a judgment the SIs hand to the scorer. So the dialog
+  exposes the **Gold (top-fleet) size** as an input and lets the scorer
+  nudge the boundary, the tally updating live.
 - Boundary ties get first-class diagnostics: any tie broken *across a cut
-  line* is surfaced with its A8 resolution spelled out (and which tie-order
-  rule — registration/seeding order, or the fleet-order scatter — settled
-  it, per `reassignmentTieOrder`), because that's the decision a jury will
-  ask the scorer to defend.
+  line* is surfaced with its A8 resolution spelled out, and entry order
+  where A8 cannot settle it, because that's the decision a jury will ask
+  the scorer to defend.
 - Commit creates the final fleets (Gold/Silver/Bronze), assigns
   memberships, and switches the standings presentation to tiered tables
   (Gold ranked 1…47, Silver continuing 48…, qualifying columns still
@@ -382,8 +371,9 @@ validity gate. The phase section shows a races grid per fleet:
    BRONZE   F1 ✓   F2 ✓   [ Add F3 ]
 ```
 
-`[ Add ]` creates the physical race with its fleet-scoped start; chips open
-finish entry as in qualifying. Fleets drifting out of step is normal and
+`[ Add ]` creates the race with a start per fleet. Its toggle chooses one
+finish sheet for all fleets or a sheet per fleet, defaulting to whatever the
+previous race of the series used. Chips open finish entry as in qualifying. Fleets drifting out of step is normal and
 carries no warnings ("different final series fleets need not complete the
 same number of final races").
 
@@ -413,16 +403,18 @@ scored in the wrong fleet.
 
 The medal section is the same round machinery at the top of the ranking:
 
-- **Select the medal fleet**: preview shows the top-N (config; 10) of the
-  opening-series ranking at the cutoff, with the same snapshot provenance
-  ("captured Sat 20:00; jury may extend"). Commit creates the **Medal**
-  fleet — and, when the preset says so, the **companion fleet** (the rest
-  of Gold) for the additional opening-series race, with its points offset
-  displayed as a fact on the race chip: *"+1 race · 1st scores 11"*.
-- **Medal races** are created like final races, badged **×2** for the
-  points multiplier and marked non-discardable. The standings preview
-  shows the medal column with doubled points and the medal boats pinned to
-  the top ten places.
+- **Select the medal fleet**: preview shows the top N (the card's size,
+  10 by default) of the opening-series ranking at the cutoff, or of the
+  Gold fleet once the opening series is divided, with the same snapshot
+  provenance ("captured Sat 20:00; jury may extend"). Commit creates the
+  **Medal** fleet.
+- **The companion race** is not the medal card's. Once the medal fleet
+  exists, the final series card offers `Add companion race`: one more race
+  of that series for everyone else, in their own fleets, with its points
+  offset displayed as a fact on the race chip: *"+1 race · 1st scores 11"*.
+- **Medal races** are created like final races, badged **×2** when the
+  points are doubled and marked non-discardable. The standings preview
+  shows the medal column and the medal boats pinned to the top places.
 - The last publish of the event is the same publish action as every other
   day — by now the scorer has done it a dozen times.
 
@@ -436,7 +428,7 @@ system" guarantee, and each row lands in the activity log:
 | Action | Creates / edits |
 |---|---|
 | Seed / reassign / split / medal select | `Fleet` rows; competitor↔fleet memberships; the round record (basis, method, overrides); revision checkpoint |
-| Round covers races | `Race` rows (one per fleet) + fleet-scoped `RaceStart`s |
+| Add a race | One `Race` with a `RaceStart` per fleet (one finish sheet), or a `Race` per fleet (a sheet each), chosen as the race is added |
 | Enter finishes | Standard `Finish` rows via S-06 |
 | Publish standings / assignment lists | Standard publications under the series' `/p/` slug |
 | Promote / wrong-fleet resolution | Override on the round record + membership edit |

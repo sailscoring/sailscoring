@@ -806,26 +806,20 @@ recomputable. Two consequences:
 
 ### Series setup
 
-Format is chosen at series creation, in a guided dialog rather than as a
-default the scorer meets later: which words the document uses, then which
-named class format, then the whole thing read back as sailing-instruction
-prose with the parts that remain the event's marked. What the format decides
-is then settled and collapses behind a per-setting unlock; what stays on the
-Format card is what this event decides — fleet count and colours (offered in
-SI-standard order, with the race-officer folklore rule that colour names must
-not share an initial letter warned on rather than blocked), final fleet names
-defaulting to Gold/Silver/Bronze, the schedule, the race labels, the discard
-ladder and the size of the deciding fleet.
+Creating a split-fleet series asks one question, which words its sailing
+instructions use, and starts from the simplest championship we have scored:
+one fleet, a few races, the top ten into a medal race. Each stage then has a
+card holding only its own settings, and dividing the opening series adds a
+card for each of its two parts. A setting is a control only where two scored
+events needed different answers; everything else is shown as the rule the
+championship follows. Fleet colours are offered in SI-standard order, with the
+race-officer folklore rule that colour names must not share an initial letter
+warned on rather than blocked, and final fleet names default to
+Gold/Silver/Bronze.
 
-Presets matter more than knobs here, and a class that changes its own format
-needs a preset per era rather than an edit in place: ILCA's 2026 rewrite (a
-race earlier for the first discard, a two-race finale at single points on a
-halved carry) ships alongside the 2021–2025 regime, which past championships
-are still rebuilt from.
-
-The dialog and the card are
+The cards are
 [`docs/design/ux/flows/split-fleets-setup.md`](ux/flows/split-fleets-setup.md);
-the settings and the line between class and event are
+every setting, and which event it comes from, is
 [`docs/design/split-fleets/configuration.md`](split-fleets/configuration.md).
 
 ### The Split Fleets view

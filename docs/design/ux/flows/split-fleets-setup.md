@@ -1,372 +1,238 @@
 # Split Fleets Setup Flow
 
-UX for settling a split-fleet championship's **format** — the guided dialog
-that replaces today's silent default, and the Format card that afterwards
-offers only what this particular event decides.
+How a split-fleet championship is configured. There is one question when the
+series is created. After that, each stage has a card holding only that stage's
+settings, and cards appear as the scorer shapes the championship.
 
-Context: #606. The settings themselves, and which of them the format decides,
-are
+Context: #636, which replaces the format dialog of #606. Every setting, and
+whether it is a control or a rule, is in
 [`docs/design/split-fleets/configuration.md`](../../split-fleets/configuration.md).
-The rest of the Split Fleets view — rounds, the split ceremony, the medal
-stage — is [`split-fleets.md`](split-fleets.md), whose "Phase: Setup" section
-this document replaces.
+The rest of the Split Fleets view (rounds, the split, the medal stage) is
+[`split-fleets.md`](split-fleets.md).
 
 ---
 
 ## Design priorities, in order
 
-1. **Recognise, don't compose.** The scorer is holding a notice of race
-   someone else wrote and is trying to find their event in our words. Every
-   question is one they can answer by looking at that document, and the
-   answers name real championships rather than describing mechanisms.
-2. **Never write a format nobody chose.** Today, picking "Split-fleet
-   championship" in the setup wizard silently writes ILCA 2026 with three
-   fleets, and the scorer meets the format later, on a tab, as a value in a
-   dropdown. Nothing is written until a format is chosen.
-3. **What the format decides, it decides.** Choosing a format settles the
-   things the class settles, and they stop being offered. A card where the
-   halved carry sits at the same weight as the fleet colours is a card that
-   says every value is equally the scorer's — which is how a championship ends
-   up scored to a configuration nobody intended.
-4. **Baked is hidden, never unreachable.** A format's settled values will be
-   wrong for a real event, and the scorer will find out mid-week. Topper's
-   sailing instructions overrode the notice of race's carry model for two
-   years; an Optimist scorer applied a per-fleet finals base a year before the
-   SI said so; two Moth hosts shipped instructions with no split clause at
-   all (D9). Every settled value opens, one at a time, and doing so is
-   recorded rather than prevented.
-5. **The prose is the check.** A scorer cannot verify a configuration against
-   a document by reading dropdowns. They can by reading sentences — so the
-   dialog ends on the sailing-instruction translation, with the parts that
-   remain theirs marked, before anything is committed.
+1. **Start from the simplest real championship.** The default is the Junior
+   Champions' Cup: one fleet sails a few races, and the top ten sail a medal
+   race. A scorer with that event is done after one question.
+2. **Complexity arrives with an action.** Dividing the opening series adds two
+   cards, and adding a fleet adds its colour. Nothing about a three-stage,
+   three-fleet championship is shown to someone who hasn't asked for one.
+3. **A setting lives on the card of the stage it governs,** next to that
+   stage's actions. The discard cap for the Elimination series is on the
+   Elimination series card, not in a championship-wide list.
+4. **A control only where real events disagree.** Everything else is shown on
+   the card as the rule the championship follows, in words, so the scorer can
+   check it against their sailing instructions.
+5. **The prose is the check.** The sailing-instructions view restates the
+   whole configuration as numbered instructions, and it is what a scorer reads
+   against their own document.
 
 ---
 
-## Where it opens from
+## Creating the series
 
-**The setup wizard.** Picking "Split-fleet championship" opens the dialog
-immediately, in place of the current silent write. Cancelling leaves the radio
-where it was and writes nothing, so the wizard's two kinds of series stay
-genuinely reversible.
+Choosing "Split-fleet championship" in the setup wizard asks one question in
+place, under the radio:
 
-**The Format card**, as `Change format…` beside the format's name.
+```
+  ●  Split-fleet championship
 
-Nothing else reaches it. This is an action a scorer takes once an event, so it
-gets no keyboard shortcut of its own; inside the dialog, Enter continues, Esc
-cancels, and the arrow keys move within each list.
+     Which words do your sailing instructions use?
+
+     ●  Opening series, then medal races
+        Races Q1, Q2 …, then M1. Divided: qualifying series, final series.
+
+     ○  Qualification series, then Final series
+        Races Q1, Q2 …, then F1. Divided: Preliminary series, Elimination
+        series. ILCA from 2026.
+```
+
+That writes the default championship: one fleet, one discard from three
+races, a medal fleet of ten at double points. Nothing about fleets or
+divisions is asked here, because the scorer may not know yet. The Melges 15
+Sprint decided Sunday's format at Saturday's briefing.
 
 ---
 
-## Page 1 — Which words does your document use?
+## The cards
+
+The Split Fleets tab stacks one card per stage, in event order. Each card has
+a status line, its actions, and a **Settings** expander, closed by default.
 
 ```
-┌─ How is this championship scored?                          1 of 3 ─┐
-│                                                                    │
-│  Which words does your document use?                               │
-│                                                                    │
-│  Both sets are in circulation, and each borrows the other's        │
-│  words for a different stage — so this is one choice, not a name   │
-│  per stage. Everything after it is worded in the set you pick.     │
-│                                                                    │
-│  ○  qualifying series → final series → medal races                 │
-│     Races Q, F and M. Appendix LE's wording, and most classes'.    │
-│                                                                    │
-│  ○  Preliminary series → Elimination series → Final series         │
-│     Races Q1 onward, then F. The first two stages together are     │
-│     the Qualification series. ILCA from 2026.                      │
-│                                                                    │
-│  My document doesn't say — show me every format                    │
-│                                                                    │
-│                                           [ Cancel ]  [ Next → ]   │
-└────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ▾ OPENING SERIES                                          Q1–Q7 · 16 boats│
+│                                                                          │
+│   Q1 ✓  Q2 ✓  Q3 ✓  Q4 ✓  Q5 ✓  Q6 ✓  Q7 ✓            [ Add Q8 ]       │
+│                                                                          │
+│   ▸ Settings   1 fleet · 1 discard from 5 races                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ▾ MEDAL RACES                                                Not started │
+│                                                                          │
+│   [ Select the medal fleet ]                                             │
+│                                                                          │
+│   ▸ Settings   10 boats · double points · net score carried              │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The options are the terms themselves, because the terms are what the scorer
-is matching. A scorer holding an SI knows within a second whether it says
-"Preliminary series" or "qualifying series", and that is the one thing about
-their event they can answer without understanding anything about ours.
+The collapsed Settings line summarises the values that differ between real
+events, so the scorer can see how the card is configured without opening it.
 
-**This answer is a filter, not a setting.** It narrows page 2 and nothing
-else; the format chosen there carries its own words and wins. That is
-deliberate: the vocabulary is decided by the format in every surveyed case, so
-offering it as a setting alongside the format lets a scorer contradict the
-format they are about to choose. Asking it *first*, as recognition, gets the
-value of the question without the contradiction.
+### Opening series card
 
-Two honest limits, both worth stating rather than discovering:
+```
+   ▾ Settings
+     Words used          Opening series, then medal races        [ Change ]
+     Fleets              [ 1 ]
+     Discards            Exclude [1] score from [5] races   [ + another ]
+     ─────────────────────────────────────────────────────────────────────
+     Races are numbered Q1, Q2 and so on.
+     A boat that doesn't finish scores the number of entries, plus one.
 
-- **It does not halve the list today.** One tabulated format uses the second
-  dialect and five use the first. The question earns its place as recognition
-  and as the right wording to lead with, not as list reduction — and the
-  second dialect grows as the 2026 rewrites land.
-- **The escape is a link, not a third option.** Two Moth hosts published
-  sailing instructions with no split clause at all, and those scorers have no
-  dialect to recognise. The link unfilters page 2 rather than adding a third
-  radio nobody with a document would pick.
+     [ Divide into a qualifying and a final series ]
+```
+
+Above the line are controls; below it are rules, in the words the
+sailing-instructions view uses. With one fleet there are no colours to pick
+and no assignment to make. The first `Add Q1` creates the round quietly, as
+the fleet is simply everyone.
+
+With two or more fleets the card gains names and colours, the non-finisher
+rule reads "boats in the largest fleet, plus one", and `Assign fleets` becomes
+its first action. That is the undivided multi-fleet shape: fleets are drawn
+once, with no split to follow.
+
+`Change` on the words is offered until the first race exists.
+
+### Dividing
+
+`Divide into …` turns the opening series into a parent card holding its two
+parts. Under the ILCA wording:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ▾ QUALIFICATION SERIES                                                   │
+│   ▸ Settings   1 from 3 races, 2 from 10                    [ Undivide ] │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │ ▾ PRELIMINARY SERIES                              Round 2 · QP3–QP5│  │
+│  │   … rounds and races, as today …                                   │  │
+│  │   ▸ Settings   3 fleets · Yellow, Blue, Red                        │  │
+│  ├────────────────────────────────────────────────────────────────────┤  │
+│  │ ▸ ELIMINATION SERIES                                  Not started  │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ▸ FINAL SERIES                                                Not started│
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+The discard ladder stays on the parent, because it runs over both parts.
+
+**Dividing relabels the races already sailed**, when the wording's labels
+differ between the two shapes. Under the ILCA wording an undivided series
+numbers its races Q1, Q2 …; divided, the same races are QP1, QP2 …, which is
+what the divided championship's instructions call them. So a Melges 15 scorer
+who sails eight undivided races on Saturday and divides that night publishes
+QP1–QP8 from then on. Under the opening-medal wording nothing moves: Q stays Q.
+
+**Preliminary / qualifying series settings.** Fleet count, names and colours.
+The count keeps whatever the opening series had, including one: the Melges 15
+shape is one fleet on Saturday, split on Sunday. Rules: races are numbered QP1
+(or Q1); a non-finisher scores the largest fleet plus one; a race counts only
+once every fleet of its round has sailed it.
+
+**Elimination / final series settings.** Fleet count (two or more, defaulting
+to two), names and colours, Gold / Silver / Bronze first. Rules: races are
+numbered QE1 (or F1); boats are divided by rank into near-equal fleets, top
+fleet largest; a non-finisher scores her own fleet plus one; points carry on
+from the Preliminary series as one series; at most one excluded score may come
+from this series, and never a lone race of it.
+
+`Undivide` is offered until the split is committed. After that, boats have
+Gold and Silver scores and there is nothing to undo into.
+
+### Medal card
+
+```
+   ▾ Settings
+     Boats               [ 10 ]
+     Points              ( ) Single   (●) Double
+     Score carried in    (●) Net score   ( ) Net score halved, 0.5 rounded up
+     Ties                (●) The medal race first, then rule A8
+                         ( ) The last race alone
+     ─────────────────────────────────────────────────────────────────────
+     Races are numbered M1, M2 and so on.
+     No medal race is excluded, and none counts towards the discards.
+     The fleet is the top 10 of the opening series, ties settled by rule
+     A8 and then entry order.
+```
+
+Once the opening series is divided, the selection rule reads "the top 10 of
+the Gold fleet". Where the carry is halved, the rule gains its timing: "The
+halved score applies from the first completed medal race. If no medal race is
+completed, the undivided score stands."
+
+The fleet size is a setting because it is needed before anyone is selected:
+it draws the provisional cut line in the standings throughout the opening
+series. `Select the medal fleet` opens the existing selection dialog with that
+size pre-filled. It can be changed there for the selection itself, for
+example when the jury extends the fleet after a redress decision.
+
+### Adding a race
+
+Wherever a stage has more than one fleet, its add-race button carries the
+finish-sheet choice:
+
+```
+   [ Add QE4  ▾ ]
+     ● One finish sheet, all fleets on it
+     ○ A sheet per fleet
+```
+
+The default is whatever the stage's previous race used, so a RaceSense event
+sets it once. A stage can mix the two: #600 sails its first three Elimination
+races as separate starts and the sail-off onto one sheet. A one-fleet stage
+shows a plain button.
+
+### The companion race
+
+Once the medal fleet is selected, the Elimination / final series card gains
+`Add companion race`. It creates one more race of that series for every boat
+not in the medal fleet, sailed in her own fleet. In each fleet that lost boats
+to the medal fleet, the first finisher scores the medal-fleet size plus one.
+It is otherwise an ordinary race of the series and can be excluded.
+
+It is an action rather than a setting because it is a race the committee
+decides to sail. The rule for scoring it only appears on the card once it can
+be sailed.
 
 ---
 
-## Page 2 — Which format?
+## Read as sailing instructions
 
-```
-┌─ How is this championship scored?                          2 of 3 ─┐
-│                                                                    │
-│  Which format?                                                     │
-│                                                                    │
-│  Named for the championships that sail them. Pick the one your     │
-│  notice of race describes — you will read it back as sailing       │
-│  instructions on the next page before anything is saved.           │
-│                                                                    │
-│  ●  ILCA World/European Championship                               │
-│     One continuous series, then a short final series for the top   │
-│     ten on a halved score.                                         │
-│       ● 2026 onward   ○ Through 2025                               │
-│                                                                    │
-│  ○  IODA (Optimist) Championship                                   │
-│     One continuous series throughout, no deciding race.            │
-│                                                                    │
-│  ○  Two series added together (29er and similar)                   │
-│     Each stage scored as its own series with its own discards.     │
-│                                                                    │
-│  ○  First-stage position carried forward (470, Topper)             │
-│     A boat carries her position, not her scores.                   │
-│                                                                    │
-│  ○  One fleet, no split, with a deciding race                      │
-│     Champions' Cup, Junior. The fleet is never divided.            │
-│  ─────────────────────────────────────────────────────────────     │
-│  ○  Start fully custom                                             │
-│     Nothing is decided for you. For an event that matches none     │
-│     of the above.                                                  │
-│                                                                    │
-│                                    [ ← Back ]  [ Next → ]          │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-**Class names, not families.** A scorer knows they are scoring an ILCA
-championship; they do not know their event is a continuous-points format with
-a compressed carry. Grouping by mechanism is a taxonomy we have and they
-don't. The one-line description under each name does the sorting work a
-grouping would, and reads as a confirmation rather than a category.
-
-**Eras nest under their class.** ILCA's 2026 rewrite ships alongside the
-2021–25 regime, which past championships are still rebuilt from; the 470 and
-the skiffs are heading the same way. Nesting the era as a secondary choice
-keeps the list at one row per class as the era count grows, which is what
-stops this page needing groups at eight or ten formats. If it ever does grow
-past that, the answer is a type-to-filter field, not headings.
-
-**Order is by how often Sail Scoring will meet them** — the survey's priority
-argument, not alphabetical.
-
-**Fully custom is a format named Custom**, set below a rule: `origin.format`
-is `custom`, every setting is visible on the card from the start, nothing is
-hidden and there is no drift chip because there is nothing to drift from. It
-is not the same thing as unlocking a real format, and the two do not
-collapse into one another — unlocking keeps the origin, which is what makes
-the diff and the per-setting restore possible.
-
-**The fleet count is not asked here.** It is the event's, and the Format card
-can show the arithmetic that makes it a real decision — *141 entries → 3
-fleets of 47* — which this dialog, opening before a single competitor is
-imported, cannot. A format whose split is `none` is the exception: it has one
-fleet by construction, and the card states that rather than offering it.
-
----
-
-## Page 3 — Read it back
-
-```
-┌─ How is this championship scored?                          3 of 3 ─┐
-│                                                                    │
-│  ILCA World/European Championship (2026 onward)                    │
-│  This is how it reads as sailing instructions.                     │
-│                                                                    │
-│  Underlined  is yours to set — everything else is what this        │
-│  format decides.                                                   │
-│                                                                    │
-│  1. The championship will be sailed as a Qualification series      │
-│     followed by the Final series.                                  │
-│  2. The Qualification series will be divided into a Preliminary    │
-│     series and an Elimination series.                              │
-│  3. For the purposes of these instructions, races in the           │
-│     Preliminary series and the Elimination series will be          │
-│     numbered  Q1, Q2 and so on , continuing through both; races    │
-│     in the Final series,  F1, F2 and so on .                       │
-│  4. Boats will be assigned to  three  Preliminary fleets           │
-│     ( Yellow, Blue and Red ) of, as nearly as possible, equal      │
-│     size and ability.                                              │
-│     …                                                              │
-│  9. A boat's series score will be the total of her race scores,    │
-│      excluding her worst score when 3 or more races have been      │
-│      completed, and her two worst when 10 or more .                │
-│     …                                                              │
-│                                                                    │
-│  Read this against the scoring section of your sailing             │
-│  instructions. Where it disagrees, you can change any settled      │
-│  value afterwards, one at a time.                                  │
-│                                                                    │
-│                              [ ← Back ]  [ Use this format ]       │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-**The smaller set is marked.** Eleven of sixteen sentences are settled by the
-format outright, so marking those would wash out the list this page exists to
-have read. What is marked is what remains the scorer's — a dotted underline and
-a token background, so the mark is not hue alone.
-
-**The marking is slot-level from the start.** Not one sentence in the
-translation is written by event settings alone: every sentence a scorer has
-any hand in mixes the format's prose with an event-chosen number inside it.
-Sentence-level marking would mark the whole list fixed and say nothing. See
-the configuration reference for how the attribution works — each span carries
-the setting that wrote it, and the sentence-to-setting map is derived from
-that rather than kept beside it.
-
-**Where the dialect contradicts the format**, this page says so and offers the
-one unlock it already knows might be wanted:
-
-> You said your document writes *qualifying series* and *final series*. This
-> format's own instructions write *Preliminary* and *Elimination*. — **Use my
-> document's words instead**
-
-That is an ordinary per-setting unlock on `vocabulary`, taken early because
-the dialog is the one moment we know the scorer has both documents in front of
-them.
-
-**The Format card's own translation panel is unchanged.** It already marks the
-sentences the setting under the pointer writes, and a second marking over the
-same list — fixed against yours — would be two meanings in one channel. The
-fixed/yours marking is this page's; the card answers *which sentence does this
-checkbox govern*, which is a different question and the only one worth asking
-once the settings are in front of you.
-
----
-
-## The Format card afterwards
-
-```
-Format            ILCA World/European Championship (2026 onward) · 2 changes
-                                                       [ Change format… ]
-
-  ▸ What this format decides   7 settings, 2 changed
-
-  Preliminary fleets        [ 3 — Yellow, Blue, Red            ▾ ]
-                            141 entries → Yellow 47, Blue 47, Red 47.
-                            Boats are reassigned by series rank after
-                            each day of racing.
-
-  What the notice board     [ Q1 … Q5, then Q6, then F1        ▾ ]
-  calls the races
-
-  Days and races per day    [ 6 days · 2 a day                   ]
-
-  Finish sheets             [ One per race, all fleets on it    ▾ ]
-
-  Discards                  Exclude [1] score from [3] races
-                            Exclude [2] scores from [10] races
-
-  Boats in the Final series [ 10 ]
-```
-
-Beside it, the sailing-instruction translation, exactly as today.
-
-The chip — *2 changes* — is a button, and it opens the panel with the changed
-settings listed first. Where `origin.formatVersion` is behind the current
-build it reads *corrected since you chose it* instead, because a difference is
-then not attributable to the scorer and saying it is would be a lie the
-scorer cannot check.
-
-### What this format decides
-
-```
-  ▾ What this format decides                          7 settings, 2 changed
-
-    Words the stages go by    Preliminary / Elimination / Final series
-                                                                  Change
-
-    How scores carry          One continuous series               Change
-
-    How boats are divided     Near-equal fleets by rank           Change
-
-    Discard caps              At most one from the Elimination series,
-                              and never a lone Elimination series race
-                                                                  Change
-
-  ! Non-finisher scores       Boats in her own Elimination fleet, plus one
-                              The format scores these from the largest
-                              Preliminary fleet.        Restore · Re-lock
-
-    …
-```
-
-Read-only rows of the settled values in words, not controls. `Change` turns
-one row into its live control in place and records it on `origin.unlocked`;
-the row stays open from then on, because a scorer who deliberately took a
-setting back should not have to find it twice.
-
-**Per-setting, never a global unlock.** D9's scenario is always one clause:
-the sailing instructions say something different about the carry, or the
-finals base, or the split. A single "unlock everything" button both
-overshoots and reads as a warning, which is the wrong tone for the thing a
-scorer will legitimately need in the middle of a championship.
-
-**Unlocking and changing are separate facts.** An unlocked row whose value
-still agrees with the format is not a change and does not appear in the chip's
-count; `Re-lock` is offered on exactly those rows. A row whose value differs
-carries `Restore`, which puts the format's value back — this is the "undo the
-diff, one setting at a time" that the whole arrangement is for — and re-locking
-is not offered while it differs, because re-locking would hide a value that
-disagrees with the name on the card, which is the one thing this design must
-never do.
+The tab keeps one panel, below the cards, restating the whole configuration as
+numbered instructions. Hovering a setting on any card marks the sentences it
+writes. The standings page keeps its folded-away copy, and published pages
+keep theirs.
 
 ---
 
 ## Once racing has started
 
-`Change format…` goes as soon as any race has a finish, replaced by a line
-saying why:
+Locks follow what has been sailed, not a global switch:
 
-> Racing has started, so the format is settled. Individual settings can still
-> be changed below — a sailing instruction that turns out to differ is what
-> that is for.
+| Setting | Locks when |
+|---|---|
+| Words used | The first race exists |
+| A stage's fleet count | Its first round is committed |
+| Divide / undivide | The split is committed |
+| Discards, medal points, carry, ties | Never. A sailing instruction amended mid-week is what they are for. |
+| Fleet names and colours | Never |
 
-Per-setting unlock stays, and is the point: the Topper and Optimist cases are
-both discoveries made with the event underway. Two exceptions keep the
-existing `locked` behaviour, which is genuine immutability rather than a
-default worth defending — the fleet count and the carry model would re-deal or
-re-score fleets that have already sailed, so those rows read as statements
-whether or not they are unlocked.
-
-Every unlock, change and restore after the first finish is an activity-log
-entry. A championship whose scoring changed mid-week needs that to be
-answerable afterwards, and it is the same trail every round mutation already
-leaves.
+Every change after the first finish is an activity-log entry, as every round
+action already is.
 
 ---
-
-## On published pages
-
-Nothing changes. The published results already carry the translation folded
-away — the sentences and nothing else — and that is the complete, self-describing
-truth about how the event was scored.
-
-No format name and no drift chip. Naming the format on a published page would
-assert that a real event is or is not a faithful ILCA championship, which is
-an editorial claim about someone else's sailing instructions that we are in no
-position to make. The chip answers *did I change something I did not mean
-to*, and that is a question only the scorer has.
-
----
-
-## Open UX questions
-
-1. Does the era sub-choice belong under the class name, or should an era
-   appear as its own row once a class has three of them? Nesting is right at
-   two; it may read as a hidden option at three.
-2. The discard ladder is an event parameter, so a format change takes the new
-   format's ladder. Should page 3 name that explicitly — *this format's usual
-   ladder is one from three races* — when the ladder it replaces was edited by
-   hand, or is the prose on that page enough?
-3. Where should the assignment preview put `reassignmentTieOrder`? It is
-   offered here as a control that appears with the tie it settles; that has
-   not been drawn.
