@@ -1,0 +1,96 @@
+description: "A medal boat who missed a final-series race before the cut is scored DNC in it: only the companion race is not hers"
+provenance:
+  class: "ILCA 7"
+  year: 2026
+  event: "Found while fixing a medal boat recorded on a companion race's sheet"
+  si: ""
+  results: ""
+  code: F3
+  scenarios: []
+  alternatives: "Fixture 17 is the same championship with every Gold boat sailing F1."
+runnable: true
+notes: |
+  Fixture 17, except that b2 did not sail F1, and the medal fleet is named
+  explicitly as y1 and b2, as a jury might direct. F1 was sailed before the
+  cut, when b2 was an ordinary Gold boat, so missing it is a DNC at Gold's base
+  of 4. Only F2, the companion race sailed after the cut, is not hers.
+
+    y1  Q 1,1  F1 1           -> discard Q1, net 2 -> halved 1, + M1 1 = 2
+    b2  Q 2,1  F1 DNC 4       -> lone final race protected, discard Q 2,
+                                 net 5 -> halved 3 (0.5 up), + M1 2 = 5
+    b1  Q 1,2  F1 2  F2 1+2=3 -> discard F2's 3, net 5 of 8
+
+config:
+  qualifyingFleets: [Yellow, Blue]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 3
+      discardCount: 1
+  medal:
+    size: 2
+    multiplier: 1
+    carryTransform:
+      kind: divide
+      by: 2
+      rounding: half-up
+    tieBreak: last-race
+    # SI 7.7 + 18.5.3: they stay in their fleet and sail one more Elimination
+    # race with it, its finishers offset by the boats who left.
+
+competitors:
+  - "y1 Helm Y1"
+  - "y2 Helm Y2"
+  - "y3 Helm Y3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Yellow: [y1, y2, y3]
+      Blue: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b1, b2, b3]
+      - n: 2
+        results:
+          Yellow: [y1, y2, y3]
+          Blue: [b2, b1, b3]
+
+  - stage: final
+    from: 1
+    fleets:
+      Gold: [b1, b2, y1]
+      Silver: [b3, y2, y3]
+    races:
+      - n: 1
+        results:
+          Gold: [y1, b1]          # b2 did not sail it
+          Silver: [y2, y3, b3]
+      - n: 2
+        results:
+          Gold: [b1]              # the companion race: y1 and b2 are elsewhere
+          Silver: [y2, y3, b3]
+
+  - stage: medal
+    from: 1
+    medalAfter: 1
+    fleets:
+      Medal: [b2, y1]
+    races:
+      - n: 1
+        results:
+          Medal: [y1, b2]
+
+expected:
+  standings:
+    - { rank: 1, sail: y1, total: 2, net: 2, fleet: Gold, medal: true }
+    - { rank: 2, sail: b2, total: 5, net: 5, fleet: Gold, medal: true }
+    - { rank: 3, sail: b1, total: 8, net: 5, fleet: Gold, medal: false }
+    - { rank: 4, sail: y2, total: 6, net: 4, fleet: Silver }
+    - { rank: 5, sail: y3, total: 10, net: 7, fleet: Silver }
+    - { rank: 6, sail: b3, total: 12, net: 9, fleet: Silver }

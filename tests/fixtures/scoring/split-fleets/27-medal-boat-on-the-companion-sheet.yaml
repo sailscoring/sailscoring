@@ -1,0 +1,77 @@
+description: "A medal boat recorded on the companion race's sheet is not in that race: her row scores nothing and moves nobody"
+provenance:
+  class: "Melges 15"
+  year: 2026
+  event: "Found in testing: a medal boat entered on the finish sheet of an undivided championship's companion race"
+  si: ""
+  results: ""
+  code: F2
+  scenarios: []
+  alternatives: "The same holds for the ILCA companion race in a divided championship's final series."
+runnable: true
+notes: |
+  Fixture 26, with s1 — a medal boat — recorded at the head of the Q6 sheet.
+  She has left the fleet's racing, so the companion race is not hers: the row
+  gives her no opening score, and it takes no place from the boats who did
+  sail it. s4 still finishes first among them and still scores 4. Every
+  standing is fixture 26's.
+
+config:
+  qualifyingFleets: [Fleet]
+  discardThresholds: [{ minRaces: 5, discardCount: 1 }]
+  medal:
+    size: 3
+    multiplier: 2
+    tieBreak: medal-race-then-a8
+
+competitors:
+  - "s1 Helm One"
+  - "s2 Helm Two"
+  - "s3 Helm Three"
+  - "s4 Helm Four"
+  - "s5 Helm Five"
+  - "s6 Helm Six"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Fleet: [s1, s2, s3, s4, s5, s6]
+    races:
+      - n: 1
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 2
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 3
+        results:
+          Fleet: [s2, s1, s3, s4, s5, s6]
+      - n: 4
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 5
+        results:
+          Fleet: [s1, s2, s3, s4, s5, s6]
+      - n: 6
+        results:
+          Fleet: [s1, s4, s5, s6]   # s1 is in the medal fleet: not in this race
+
+  - stage: medal
+    from: 1
+    medalAfter: 5
+    fleets:
+      Medal: [s1, s2, s3]
+    races:
+      - n: 1
+        results:
+          Medal: [s2, s1, s3]
+
+expected:
+  standings:
+    - { rank: 1, sail: s1, total: 10, net: 8, medal: true }
+    - { rank: 2, sail: s2, total: 11, net: 9, medal: true }
+    - { rank: 3, sail: s3, total: 21, net: 18, medal: true }
+    - { rank: 4, sail: s4, total: 24, net: 20, medal: false }
+    - { rank: 5, sail: s5, total: 30, net: 25, medal: false }
+    - { rank: 6, sail: s6, total: 36, net: 30, medal: false }

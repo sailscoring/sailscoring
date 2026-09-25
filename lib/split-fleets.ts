@@ -879,14 +879,13 @@ export interface SplitStandingRow {
 }
 
 /** Score one physical race — one fleet's sailing of a stage race — over the
- *  race's sheet. Rows are scoped to the fleet's members, so a combined sheet
- *  interleaving a sequence's fleets yields correct per-fleet places.
+ *  race's sheet. Rows are scoped to `members` — the boats sailing it — so a
+ *  combined sheet interleaving a sequence's fleets yields correct per-fleet
+ *  places, and a row for anyone else scores nothing and takes no place.
  *  - Finishers score their place within the fleet + start.firstPlaceOffset
  *    (the companion "last race" primitive), multiplied by `multiplier`.
  *  - Coded finishes and absentees (implicit DNC) score `codeBase`, multiplied
- *    the same way — except for members in `noImplicitDnc`, who are no longer
- *    sailing this fleet's races and so are simply absent from the race rather
- *    than scored for missing it. An explicit DNC row still scores.
+ *    the same way.
  *
  *    A medal-race instruction reads "double the number of points specified in
  *    RRS Appendix A4" (2024 ILCA SI 18.6; Irish Sailing Junior Champions' Cup
@@ -912,7 +911,6 @@ function scorePhysicalRace(
   finishes: Finish[],
   codeBase: number,
   multiplier: number,
-  noImplicitDnc?: ReadonlySet<string> | null,
 ): Map<string, { points: number; code: string | null; rdg: Finish | null }> {
   const offset = ref.start.firstPlaceOffset ?? 0;
   const memberIds = new Set(members.map((m) => m.id));
@@ -944,7 +942,7 @@ function scorePhysicalRace(
     }
   }
   for (const m of members) {
-    if (out.has(m.id) || noImplicitDnc?.has(m.id)) continue;
+    if (out.has(m.id)) continue;
     out.set(m.id, { points: codePoints, code: 'DNC', rdg: null });
   }
   return out;
@@ -1117,25 +1115,20 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
         const codeBase = qualifying ? codeBaseQ : members.length + 1;
         const isMedalFleet = stage === 'medal' && fleetId === lr.round.fleetIds[0];
         const multiplier = isMedalFleet ? config.medal.multiplier : 1;
-        const scores = scorePhysicalRace(
-          ref,
-          members,
-          data.finishes,
-          codeBase,
-          multiplier,
-          // Selecting the medal fleet does not remove a boat from her final
-          // fleet — she is still ranked inside it, and the fleet's assigned
-          // size still sets the score base. It does mean she stops sailing
-          // that fleet's races: where the SIs give the boats who missed the
-          // medal fleet one more race of their own (2026 ILCA SI 7.7), the
-          // medal boats are absent from it, not DNC in it. A championship
-          // that never divides its fleet sails that race in its opening
-          // series, and it is the opening-series race whose start carries
-          // the companion offset: every earlier one was sailed by everyone.
-          stage === 'final' || (stage === 'qualifying' && (ref.start.firstPlaceOffset ?? 0) > 0)
-            ? medalMembers
-            : null,
-        );
+        // Selecting the medal fleet does not remove a boat from the fleet she
+        // came from — she is still ranked inside it, and its assigned size
+        // still sets the score base. It does mean she stops sailing its
+        // races: where the SIs give the boats who missed the medal fleet one
+        // more race of their own (2026 ILCA SI 7.7), that race is not hers.
+        // She is absent from it rather than DNC, and a row for her on its
+        // sheet scores nothing and takes no place from the boats who sailed
+        // it. That race is the one whose start carries the companion offset,
+        // in the final series or — where the fleet is never divided — the
+        // opening series; every race before the cut was sailed by everyone.
+        const companion =
+          stage !== 'medal' && (ref.start.firstPlaceOffset ?? 0) > 0 && medalMembers !== null;
+        const sailing = companion ? members.filter((m) => !medalMembers!.has(m.id)) : members;
+        const scores = scorePhysicalRace(ref, sailing, data.finishes, codeBase, multiplier);
         for (const [competitorId, sc] of scores) {
           const row = rowByCompetitor.get(competitorId);
           if (!row) continue;
