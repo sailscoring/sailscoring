@@ -217,10 +217,12 @@ the physical race's fleet.)
 **One continuous points line — usually.** In the dominant model (ILCA,
 IODA, 420, 49er, Kieler Woche, Santander) qualifying scores **carry
 forward as points** into one series total; Q1…Qn and F1…Fn are columns of
-a single line. But three other carry models exist, all implemented, and the
-scorer picks between them in the split-fleet settings. A fourth shape —
+a single line. Other classes use other carry models, and a fourth shape —
 compressing the carried score — is not a carry model at all but a transform
-laid over any of them, and is listed here beside its cousins:
+laid over the points line. Sail Scoring implements continuous points and the
+ILCA compressed carry, the two the championships it has scored used; the
+rest were built once and removed (see
+[`configuration.md`](split-fleets/configuration.md)):
 
 | Carry model | Events | Mechanics |
 |---|---|---|
@@ -309,10 +311,11 @@ disjointness is the validation rule (Part 2).
 
 **Unless the finishes are captured electronically**, in which case each
 fleet's starts and finishes come back as their own export and there is no
-interleaved sheet to represent. `SplitFleetConfig.finishSheets` picks
-between the two: `combined` (the default, one race per stage race number
-with a start per fleet) and `per-fleet` (a race each, which is the shape
-the medal stage has always had). Scoring is indifferent — a boat is ranked
+interleaved sheet to represent. The scorer picks between the two when
+adding a stage's races, not as a setting: **combined** (one race per stage
+race number with a start per fleet) or **per-fleet** (a race each, which is
+the shape the medal stage has always had), defaulting to whichever the stage
+already uses. Scoring is indifferent — a boat is ranked
 among her own fleet by the boats' relative order — so the choice is about
 what an abandonment acts on: a race, rather than one start inside it.
 
@@ -335,9 +338,9 @@ qualifying / final / medal stages in that order; the mapping is exact,
 the words are not.
 
 What the SIs settle, and where each answer differed from what this design
-had assumed. All of it is implemented and fixture-covered — the ILCA 2026
-preset sets the lot — so this list now reads as the event's parameters
-rather than as a gap list:
+had assumed. All of it is implemented and fixture-covered — as fixed
+behaviour or a setting on a stage card — so this list now reads as the
+event's parameters rather than as a gap list:
 
 - **The finale is not a doubled medal race.** Final series races score ×1
   and are simply added (SI 18.7.2), and *the Qualification score is halved
@@ -353,8 +356,8 @@ rather than as a gap list:
   never reorders two boats, but it lands boats a point apart on the same
   whole number and SI 18.7.4 then settles them on the last race, so the
   boat behind can take the title purely because the Final series was blown
-  off (`medal.carryTransform.appliesFrom: 'first-medal-race'`, fixture 21;
-  fixture 16 is the superseded reading, which other classes keep).
+  off. The halved score now always takes effect from the first medal race
+  (fixture 21); the earlier reading went with the removed settings.
 - **The last day's extra race is scored from 11.** The boats who miss the
   Final series sail "one additional Qualification series race" (SI 7.7) —
   an ordinary Elimination race in their own fleet, discardable, counting
@@ -363,23 +366,22 @@ rather than as a gap list:
   11. All three fleets sail it, but only Gold is offset — the ten came
   from Gold and nobody left Silver or Bronze. Gold sails it ten boats
   short, and the boats who left it for the Final series are absent from
-  that race rather than scored DNC in it
-  (`medal.companionRace: 'scored-below'`, fixture 17). Amendment 2 scored
-  the same race from 1, which is what `'none'` still means.
+  that race rather than scored DNC in it — the **companion race**, added
+  from the final series card and recognised by its start's first-place
+  offset (fixture 17). Amendment 2 scored the same race from 1.
 - **A tie-break of the SIs' own becomes load-bearing.** Halving to whole
   numbers manufactures ties among the ten, so SI 18.7.4 carries the weight
   of deciding the title. Amendment 3 rewrote it: where the clause used to
   keep RRS A8 and add the boat's rank in the Elimination series, then the
   Preliminary series, behind it, it now replaces A8 altogether with "ranked
   in order of their scores in the last race" (`medal.tieBreak: 'last-race'`,
-  fixture 18). Both shapes are supported — `'stage-rank'` is the superseded
-  wording, which other championships still use, and fixture 16 keeps it
-  honest.
+  fixture 18). The superseded wording is no longer supported.
 - **Both equalisation clauses appear**, and read together they compose
   rather than contradict, in the Appendix LE shape: Addendum A 2.2.7
   abandons the fleet-level surplus (LE 20.5's "races completed by all
   fleets"), then SI 18.3 excludes any boat's remaining surplus scores
-  (LE 20.4(a)). `equalization` selects whether the second clause applies.
+  (LE 20.4(a)). Both Worlds were scored with the fleet-level abandonment
+  alone, and that is the only rule Sail Scoring now applies.
 - Codes are as expected: largest fleet + 1 in the Preliminary series, own
   fleet + 1 in the Elimination and Final series (SI 18.5) — so the Final
   series' base is 11. Discards 1 from 3 races, 2 from 10, at most one
@@ -399,9 +401,10 @@ rather than as a gap list:
   own continuous Q1–Q12 appeared nowhere, though the discard table keyed to
   it (Q1–Q2 / Q3–Q9 / Q10–Q12) governed the discards at both: the ladder
   counts races, and only the headings differ. The stage *words* were
-  identical at both events. So the labels are the event's, not the class's,
-  and they are configured on their own (`raceLabels`, see open question 9);
-  the label is what a competitor names on a scoring enquiry under SI 17.6.
+  identical at both events. Sail Scoring writes the women's labels, QP, QE
+  and F, for the ILCA words, and the men's championship was relabelled to
+  match; the label is what a competitor names on a scoring enquiry under
+  SI 17.6.
 
 Starts and OCS/BFD calls are via Vakaros RaceSense (electronic
 identification replaces visual for 30.3/30.4). The 2025 Qingdao edition
@@ -563,7 +566,7 @@ export interface AssignmentRound {
    *  the reassignment pattern and its tie rule use; final: tier order
    *  (Gold first), which is ranking dominance. */
   fleetIds: string[];
-  method: 'seeded' | 'rank-pattern' | 'split' | 'manual';
+  method: 'seeded' | 'rank-pattern' | 'split' | 'medal-select' | 'manual';
   basis?: {
     throughStageRace: number;         // ranking over races 1..N
     capturedAt: number;               // the 2000/2100 snapshot time
@@ -590,15 +593,15 @@ a config change:
   not a medal flag.** A `RaceStart.firstPlaceOffset?: number` (first
   finisher scores `offset + 1`) lives on the start, so *any* started fleet
   can be scored that way — the common case (the top fleet's last race,
-  first = medal size + 1) is what the app fills in when the race is added
-  after the medal fleet is committed, offsetting each fleet by however
-  many of its own boats left; a one-off follows the same primitive with no
-  new pattern to encode. It sits on the start rather
+  first = medal size + 1) is what **Add companion race** writes, offsetting
+  each fleet by however many of its own boats left and scoring it over the
+  boats still sailing; a one-off follows the same primitive with no new
+  pattern to encode. It sits on the start rather
   than the race because the final fleets sailing it are one start sequence
   — one race, several starts, one sheet.
-- **`medal.raceCount` is a planning hint, not a limit.** It seeds the day
-  strip; the medal phase lets the scorer add M1, M2, … like final races (the
-  2026 two-race medal series is two adds, not a special mode).
+- **The medal stage has no race count.** The scorer adds M1, M2, … as the
+  sailing instructions schedule them (the 2026 two-race Final series is two
+  adds, not a special mode).
 
 `RaceStart` gains optional fields (absent on standard series). Stage
 identity is per start, not per race, because one sequence can span stage
@@ -690,58 +693,47 @@ standings:
   yields an independent 1, 2, 3… per fleet, so "multiple 1sts" needs no
   new mechanism and the interleaved crossing order needs no disentangling
   at entry time.
-- **Code points** from `codeBasis`: largest-fleet-assigned-size + 1 during
+- **Code points** are fixed: the largest fleet's assigned size + 1 during
   qualifying — a *stage-wide* constant derived from the covering round's
   fleets (assigned size, DNC boats included), not each fleet's own size —
-  own-fleet size + 1 in finals, or the fixed value.
+  and the boat's own fleet size + 1 in the final series.
 - **Logical-race validity.** Qualifying standings aggregate one column per
   logical race, and only valid (complete-across-all-fleets) logical races
-  contribute; end-of-stage leftovers are handled per `equalization` — note
-  the LE/IODA mode is *per-boat* score exclusion (a new exclusion reason,
-  distinct from discards and from `RaceFleetExclusion`), while the ILCA
-  mode marks the physical races abandoned.
+  contribute; a surplus race some fleets sailed at the end of the stage
+  simply never becomes valid.
 - **Stage-aware discards.** `getDiscardCount` unchanged for the threshold;
-  discard *selection* honours `maxFinalDiscards`, `protectLoneFinalRace`,
-  and medal exclusions. Medal races are excluded from the race count that
-  drives thresholds (2024 ILCA wording).
-- **Carried scores.** `carry: 'points'` is a no-op (one continuous line);
-  `net-plus-net` computes per-stage nets and sums; `rank-seed` synthesises
-  a non-discardable carried score equal to qualifying rank (Sailwave's
-  CarriedFwd field, but computed, not hand-merged). `medal.carryTransform`
-  layers over any of them: after the discards, each medal boat's
-  opening-series net is divided and rounded into one non-discardable
-  carried score that supersedes her race cells. `appliesFrom` says when
-  that happens — when the medal round is committed, or when the first medal
-  race is completed. The two agree from that race onward and differ only on
-  an abandoned medal series, where the second leaves the boats on their
-  undivided opening scores, which is what every sailing instruction that
-  speaks to the case now says.
-- **Ties.** A8.1 then A8.2, and where `medal.tieBreak` is set, the medal
-  boats get the tie-break their sailing instructions give them instead.
-  `stage-rank` adds two steps behind A8 — rank in the final series alone,
-  then the qualifying series alone; ranking a stage on its own re-applies
-  the discard ladder to that stage, which is also how `rank-seed` gets its
-  carried position. `last-race` is not a step behind A8 but a replacement
-  for it: no count-of-places comparison first and no next-to-last race
+  discard *selection* allows at most one final-series discard, protects a
+  lone final-series race, and never discards a medal race. Medal races are
+  excluded from the race count that drives thresholds (2024 ILCA wording).
+- **Carried scores.** Points carry as one continuous line. Where the medal
+  settings halve the carry, each medal boat's opening-series net, after
+  its discards, is halved (0.5 rounded up) into one non-discardable carried
+  score that supersedes her race cells — from the first medal race
+  completed, so an abandoned medal series leaves the boats on their
+  undivided opening scores.
+- **Ties.** A8.1 then A8.2 for everyone outside the medal fleet. The medal
+  fleet takes one of two tie-breaks: the medal race then A8, or `last-race`.
+  `last-race` is not a step behind A8 but a replacement for it: no count-of-places comparison first and no next-to-last race
   behind, so a tie the last race cannot break stays a tie. It reads the
   boats' real race scores rather than their counting cells, because where
   no race of the last stage has been sailed the last race is one a carry
   transform has already superseded.
-- **Medal scoring:** points × multiplier, never discarded; a start whose
+- **Medal scoring:** points × 1 or × 2, never discarded; a start whose
   `RaceStart.firstPlaceOffset` is set scores its fleet's first finisher
-  `offset + 1` and so on (like ZW's "First As") — pre-filled with
-  `offset = medal.size` on a final race added after the medal fleet is
-  committed, but usable on any start.
+  `offset + 1` and so on (like ZW's "First As"). On a start outside the
+  medal stage that marks the companion race, which is scored over its fleet
+  minus the medal boats.
 - **Event ranking.** Overall order: medal fleet first (where the stage
   exists), then Gold block, Silver block, … — each block internally by net
   points + A8 — with the RRS 6/69 carve-out surfaced as a per-boat flag
   rather than automated (it needs a jury decision anyway).
 - **The reassignment pattern** is a pure function (`lib/split-fleets.ts`):
-  `(rankedCompetitorIds, fleetCount, tieOrder) → assignments`, walking the
+  `(rankedCompetitorIds, fleetCount) → assignments`, walking the
   ranking down the fleet list and back (1 Yellow, 2 Blue, 3 Red, 4 Red, 5
   Blue, 6 Yellow, …), plus the seeded initial orders (seed rank /
-  nationality-spread / sail number). Pure, fixture-tested, and reused by
-  the reassignment preview UI.
+  nationality-spread / sail number). A tie in the ranking goes by A8, then
+  entry order. Pure, fixture-tested, and reused by the reassignment
+  preview UI.
 - **Wrong-fleet finishes.** The start-sequence model mostly dissolves
   this. In the common case the wrong fleet is in the *same* sequence, so
   the boat's row goes on the combined sheet like any other and her place
@@ -847,11 +839,9 @@ these actions:
   assignments failure mode. Manual overrides layer on top for late entries,
   RC/jury moves, and wrong-fleet corrections.
 - **Split into final fleets** — end-of-qualifying wizard: shows the
-  equalised qualifying ranking (with any per-boat excluded scores), the
-  proposed Gold/Silver/Bronze blocks with an adjustable **top-fleet size**
-  and boundary, tie diagnostics (and which tie-order rule settled a
-  boundary tie), and creates the final-stage round plus the F-race
-  skeletons.
+  qualifying ranking, the proposed Gold/Silver/Bronze blocks in equal
+  sizes, tie diagnostics, and creates the final-stage round plus the
+  F-race skeletons.
 - **Promote (redress)** — a targeted override on the final round moving
   one boat up a fleet, attributed and logged, without touching anyone
   else; clean before the first final race, warned and jury-routed after.
@@ -887,8 +877,9 @@ above.
   which fleet it was sailed in, and a discarded place keeps the tint.
 - **Final:** one table per fleet — Gold ranked 1…n, Silver continuing
   n+1…, visibly tiered — with Q columns (fleet-tinted) followed by F
-  columns, carried-score column for the rank-seed mode, and medal column
-  where present.
+  columns, a carried-score column where the medal carry is halved, and
+  medal columns where present. Before the split, and in the top fleet
+  after it, a line marks the medal cut if the stage ended now.
 - **Per-race results** publish as their own page (Sailwave's layout, the
   one competitors look for after each day's racing): every stage race in
   sailed order, one table per fleet, ranked within the fleet, with the
@@ -939,50 +930,39 @@ Validation plan, in order:
    scoring fixtures from the published Sailwave HTML, exact to the point —
    using the new ordered-steps fixture form so the day-by-day rounds are
    part of what's asserted. Add synthetic fixtures for the edge cases: the
-   unequal-race equalisation in both modes, reassignment ties in both
-   orders, redress promotion, lone-final-race discard protection.
+   unequal-race equalisation, reassignment ties, redress promotion, lone-final-race discard protection.
 2. **Dry-run a full event replay** (enter day by day, reassign daily,
    split, medal series) against the 2026 SIs once published.
 
-### Scope recommendation for v1
+### Scope
 
-In: continuous-points carry, 2–4 qualifying fleets, equal-blocks and
-fixed-top splits, both code bases + fixed, both equalisation modes,
-stage-aware discard caps, rank-pattern + seeded assignment + manual
-overrides, the Split Fleets view, combined/tiered standings, fleet-coloured
-published pages, assignment-list publishing, medal race as config
-(`size` / `raceCount` / `multiplier` / last-race points offset).
+Split-fleet configuration was rebuilt in September 2026 from the three
+championships scored with it — the Irish Sailing Junior Champions' Cup and
+the 2026 ILCA 7 and ILCA 6 Worlds — after a first version that modelled
+every format in the survey grew more settings than any scorer needed.
 
-Since shipped beyond that v1 scope:
+In: one to four qualifying fleets, or none (the undivided championship
+the Junior Champions' Cup sails, `split: { kind: 'none' }`, fixture 25);
+equal-block final fleets; continuous points with the fixed code bases,
+discard caps and validity rule above; rank-pattern and seeded assignment
+with manual overrides; a medal stage of any size, × 1 or × 2, with an
+optional halved carry and one of two tie-breaks; the companion race; two
+wordings (opening/medal and the ILCA qualification/final); the Split
+Fleets view; combined and tiered standings; fleet-coloured published
+pages; assignment-list publishing.
 
-- `net-plus-net` (29er) and `rank-seed` (Topper), which this design had
-  modelled but left without authoring UX. Both are now scored and set from
-  the same plain-language carry editor, with fixtures 13 and 14 pinning
-  each against its SI wording.
-- **F3 compressed carry** and its sub-series tie-break (fixtures 15–16),
-  which the survey had put post-v1 until the 2026 ILCA SIs made it the
-  format of the target event.
-- The **per-boat equalisation** clause (LE 20.4(a)), which had been
-  documented and deferred while its enum value was already accepted.
-- A **chosen vocabulary**, and how the extra last-day race for the boats
-  who missed the medal fleet is scored — a medal-block setting, since some
-  classes score it from below the medal fleet and others from 1 like any
-  other race (fixture 17). See the 2026 ILCA section in Part 1.
-- **The unbanded championship** (`split: { kind: 'none' }`, fixture 25): one
-  fleet, no second stage, and the only cut is into the deciding fleet. The
-  survey logs it as "single fleet + MR"; the Irish Sailing Junior Champions'
-  Cup sails it annually. It brought two scoring answers with it — the boats
-  outside the deciding fleet scored DNC where no further race is scheduled
-  (fixture 23), and a tie-break that runs ahead of RRS A8 rather than after
-  it (fixture 24). Not a new stage: the middle one is simply never used, so
-  the stage enum and the stored shape are untouched.
+Removed, with the reasons, the class of each removal and how old files are
+treated: [`configuration.md`](split-fleets/configuration.md) and
+[ADR-013](decisions/013-removing-meaning-from-stored-formats.md). Among them
+net-plus-net and rank-seed carries, fixed-size top fleets, the configurable
+code bases, per-boat equalisation, the stage-rank tie-break, configurable
+race labels and the format templates.
 
 Out (horizon): knockout medal-series brackets (iQFOiL / Formula Kite
 match points — not low-point arithmetic); Manage2Sail-style online
 notice-board integration. Electronic finish ingestion from RaceSense has
 since been built (`lib/racesense-workbook.ts`, `lib/racesense-plan.ts`,
-gated `racesense-import`) and is what `finishSheets: 'per-fleet'` exists
-for.
+gated `racesense-import`) and is what per-fleet finish sheets exist for.
 
 ### Open questions
 
@@ -1016,25 +996,18 @@ for.
    for adopting an in-progress event or cross-checking against another
    scorer's file — or are the entry list's own seeding and initial-fleet
    columns enough for v1?
-6. **The config-editability contract.** SIs get amended mid-event (the 2026
-   NoR added a medal series 2025 didn't have; the 2025 IODA scorer applied a
-   per-fleet finals code base a year before the SI codified it), so the
-   config can't freeze wholesale at setup. The working split: **frozen once
-   any race has finishes** — `carry` and the qualifying fleet *count*
-   (structural: they shape rounds and the entity graph already built).
-   **Editable throughout** — everything that only re-scores or affects a
-   not-yet-run stage: `discardThresholds`, `maxFinalDiscards`,
-   `protectLoneFinalRace`, `codeBasis`, `equalization`, `split` (the rule and
-   its top-fleet size, until the split is committed), `reassignmentTieOrder`,
-   `vocabulary` (purely presentational), and the `medal`
-   block — which now carries the compressed carry and its tie-break, both of
-   which only re-score. These live in the Format section of the Split
-   Fleets tab (open until Round 1 is committed, a one-line summary after):
-   frozen fields read-only after lock, the rest editable — a change just
-   triggers a recompute. The format itself is chosen when the series is
-   created — the setup wizard asks the kind of series first, so the entry
-   list is imported knowing what it is for — and can be added only while
-   the series has no races, or removed only while it has no rounds.
+6. **The config-editability contract.** *Decided.* SIs get amended
+   mid-event (the 2026 NoR added a medal series 2025 didn't have), so the
+   configuration can't freeze wholesale at setup. Each setting lives on the
+   card of the stage it governs and locks only when changing it would
+   rebuild something already built: the words once any race exists, the
+   qualifying fleet count once the first qualifying round is committed,
+   and the division and final fleet count once the split is. Everything
+   else only re-scores and stays editable. The format itself is chosen
+   when the series is created — the setup wizard asks the kind of series
+   first, so the entry list is imported knowing what it is for — and can be
+   added only while the series has no races, or removed only while it has
+   no rounds.
 7. **Scratch only?** All target events are one-design scratch. Proposal:
    v1 requires `scoringMode: 'scratch'`; split fleets × handicap systems
    is uncharted (no known real event) and stays unsupported until one
@@ -1066,16 +1039,15 @@ for.
    vocabularies share terms for different stages, so nothing less than a
    complete swap would have been safe.
 
-   The **labels** are settled separately, which is the part this question got
-   wrong first time round: they came with the vocabulary until the 2026 ILCA
-   Worlds published three schemes under one set of sailing instructions (see
-   Part 1). `raceLabels` carries a prefix per stage and whether stage 2
-   numbers on from stage 1, defaulting to the vocabulary's own scheme, and
-   `stageRaceLabel` derives every label in the app from it. Two consequences
-   worth remembering: a scheme restarting stage 2 under stage 1's prefix
-   would label two races the same and is refused, and changing the scheme
-   renames the races already created, since a race's name is written when it
-   is created (the exception is a name the scorer typed, which is theirs).
+   The **labels** follow from the words and the shape, and are not a
+   setting: Q/F/M under the opening/medal words, QP/QE/F under the ILCA
+   words, and plain Q for an undivided opening series under either.
+   `stageRaceLabel` derives every label in the app. The 2026 Worlds
+   published three schemes under one set of sailing instructions (see
+   Part 1), and a configurable scheme was built for them and then removed:
+   one fixed scheme per wording was enough. Dividing the opening series
+   renames its races (Q to QP), since a race's name is written when it is
+   created; a name the scorer typed is left alone.
    What `raceNumber` should *mean* on a split-fleet series is still open, and
    still belongs with open questions 1–2.
 
@@ -1089,10 +1061,10 @@ the series-file format bump; public JSON export; a Seeding column on entry
 import; the feature-table row in `docs/workspace-provisioning.md`.
 
 Config changes since carry the same obligations: a new field needs the Zod
-schema, the config editor, its sentence in the sailing-instruction
-translation, and — because `splitFleets.config` travels verbatim through
-files — a format-version bump, so an older build dropping it is visible
-rather than silent.
+schema, a control on its stage card, its sentence in the
+sailing-instruction translation, and — because `splitFleets.config` travels
+verbatim through files — a format-version bump, so an older build dropping
+it is visible rather than silent. Removing one follows ADR-013.
 
 ---
 
@@ -1111,8 +1083,8 @@ identity lives on `RaceStart`, the engine keys physical races to
 start per fleet (medal-stage races excepted — they run on their own
 courses), and the add-races API takes per-start numbers for out-of-step
 sequences. Open question 8 (per-start abandonment machinery) remains open;
-question 9 is half-answered — race *labels* now come from the config, but
-what `raceNumber` means on these series does not.
+question 9 is half-answered — race *labels* follow from the words and the
+shape, but what `raceNumber` means on these series is still open.
 
 The 2026 ILCA 7 Worlds SIs, published in August 2026, then took the format
 somewhere this design had put post-v1: their finale compresses the carried
