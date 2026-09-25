@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fleetRepo, listSeriesNames } from '@/lib/api-repository';
 import { useSeries, useUpdateSeries } from '@/hooks/use-series';
@@ -27,7 +27,7 @@ import {
   useSplitFleetState,
 } from '@/hooks/use-split-fleets';
 import { newSplitFleetConfig, VOCABULARY_OPTIONS } from '@/lib/split-fleets';
-import { BasicsCard } from '@/components/series-settings/basics-card';
+import { BasicsCard, type BasicsCardHandle } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
@@ -52,6 +52,11 @@ function Step1({
   const updateSeries = useUpdateSeries();
   const { data: categories } = useCategories();
   const [nextError, setNextError] = useState<string | null>(null);
+  const basicsRef = useRef<BasicsCardHandle>(null);
+  // The other series' names, fetched once for the check made while typing:
+  // the whole workspace's rows are a lot to fetch per pause. Moving on
+  // re-checks against a fresh list, in case one was taken meanwhile.
+  const otherNames = useRef<Promise<string[]> | null>(null);
 
   async function persist(patch: Partial<Series>) {
     await updateSeries.mutateAsync({
@@ -60,17 +65,28 @@ function Step1({
     });
   }
 
-  async function validateName(name: string): Promise<string | null> {
+  function checkName(name: string, existing: string[]): string | null {
     const trimmed = name.trim();
     if (!trimmed) return 'Series name is required.';
-    const existing = await listSeriesNames({ excludeId: seriesId });
     return isDuplicateSeriesName(trimmed, existing)
       ? 'A series with this name already exists.'
       : null;
   }
 
+  async function validateName(name: string): Promise<string | null> {
+    otherNames.current ??= listSeriesNames({ excludeId: seriesId }).catch((err) => {
+      otherNames.current = null;
+      throw err;
+    });
+    return checkName(name, await otherNames.current);
+  }
+
   async function handleNext() {
-    const err = await validateName(series.name);
+    // A name still waiting out its pause is committed first; a refused one
+    // is already explained beside the field.
+    const name = basicsRef.current ? await basicsRef.current.commitName() : series.name;
+    if (name === null) return;
+    const err = checkName(name, await listSeriesNames({ excludeId: seriesId }));
     if (err) {
       setNextError(err);
       return;
@@ -82,6 +98,7 @@ function Step1({
   return (
     <div className="space-y-4">
       <BasicsCard
+        ref={basicsRef}
         mode="wizard"
         includeName
         value={series}

@@ -127,3 +127,40 @@ test('renaming a series to an existing name is rejected inline', async ({ page }
   await page.getByLabel('Venue', { exact: true }).click();
   await expect(page.getByText('A series with this name already exists.')).not.toBeVisible();
 });
+
+test('the setup wizard writes a typed name once, not a keystroke at a time', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Taken Name' });
+
+  await page.goto('/series/new');
+  await expect(page).toHaveURL(/\/series\/[0-9a-f-]{36}\/setup$/);
+  const seriesPath = new URL(page.url()).pathname.replace(/\/setup$/, '');
+  const rowPuts: string[] = [];
+  const listGets: string[] = [];
+  page.on('request', (r) => {
+    const path = new URL(r.url()).pathname;
+    if (r.method() === 'PUT' && path === `/api/v1${seriesPath}`) rowPuts.push(path);
+    if (r.method() === 'GET' && path === '/api/v1/series') listGets.push(path);
+  });
+
+  const name = page.getByLabel('Name');
+  await name.fill('');
+  await name.pressSequentially('Howth Autumn League', { delay: 30 });
+  await expect(page.getByRole('heading', { name: 'Howth Autumn League' })).toBeVisible();
+  expect(rowPuts).toHaveLength(1);
+  expect(listGets.length).toBeLessThanOrEqual(1);
+
+  // A taken name is refused beside the field, the stored name stays, and the
+  // wizard won't move on.
+  await name.fill('taken name');
+  await expect(page.getByText('A series with this name already exists.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Howth Autumn League' })).toBeVisible();
+  await page.getByRole('button', { name: /Next: Competitors/ }).click();
+  await expect(page.getByRole('button', { name: /Next: Competitors/ })).toBeVisible();
+  expect(rowPuts).toHaveLength(1);
+
+  // A name typed and straight away moved on from is written, not dropped.
+  await name.fill('Howth Winter League');
+  await page.getByRole('button', { name: /Next: Competitors/ }).click();
+  await expect(page.getByRole('button', { name: /Next: Fleets/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Howth Winter League' })).toBeVisible();
+});

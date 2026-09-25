@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,14 @@ import { useSettingsAutosave } from '@/hooks/use-settings-autosave';
 
 export type BasicsValues = Pick<Series, 'name' | 'venue' | 'startDate' | 'endDate' | 'venueLogoUrl' | 'eventLogoUrl' | 'venueUrl' | 'eventUrl'>;
 
+export type BasicsCardHandle = {
+  /** Commit a name still waiting out its pause. Resolves to the name now in
+   *  effect, or null when the typed name was refused (the card shows why). */
+  commitName: () => Promise<string | null>;
+};
+
 export type BasicsCardProps = {
+  ref?: Ref<BasicsCardHandle>;
   value: BasicsValues;
   /** Called when user commits (settings: Save button; wizard: on each edit). */
   onChange: (patch: Partial<BasicsValues>) => void | Promise<void>;
@@ -26,6 +33,7 @@ export type BasicsCardProps = {
 };
 
 export function BasicsCard({
+  ref,
   value,
   onChange,
   mode = 'settings',
@@ -74,53 +82,83 @@ export function BasicsCard({
   // screen, which is what lets the scorer fix it rather than retype it.
   const pendingName = useRef<string | null>(null);
   const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The name last accepted here, which the stored one lags behind until its
+  // save lands, and the commit still checking one — leaving the field starts
+  // a commit that a click on the wizard's Next must wait for, not overtake.
+  const acceptedName = useRef(value.name);
+  // The name on screen was refused and not retyped since — still no name to
+  // move on with.
+  const nameRefused = useRef(false);
+  const nameInFlight = useRef<Promise<string | null> | null>(null);
 
-  const commitName = useCallback(async () => {
+  const commitName = useCallback((): Promise<string | null> => {
     if (nameTimer.current) {
       clearTimeout(nameTimer.current);
       nameTimer.current = null;
     }
     const typed = pendingName.current;
     pendingName.current = null;
-    if (typed === null) return;
-    const trimmed = typed.trim() || value.name;
-    if (validateName) {
-      const err = await validateName(trimmed);
-      if (err) {
-        setNameError(err);
-        return;
-      }
+    if (typed === null) {
+      return nameInFlight.current
+        ?? Promise.resolve(nameRefused.current ? null : acceptedName.current);
     }
-    setNameError(null);
-    autosave.commit({ name: trimmed });
+    const trimmed = typed.trim() || value.name;
+    const commit = (async () => {
+      if (validateName) {
+        const err = await validateName(trimmed);
+        if (err) {
+          setNameError(err);
+          nameRefused.current = true;
+          return null;
+        }
+      }
+      setNameError(null);
+      nameRefused.current = false;
+      acceptedName.current = trimmed;
+      autosave.commit({ name: trimmed });
+      return trimmed;
+    })();
+    nameInFlight.current = commit;
+    const settle = () => {
+      if (nameInFlight.current === commit) nameInFlight.current = null;
+    };
+    commit.then(settle, settle);
+    return commit;
   }, [validateName, value.name, autosave]);
 
-  // A name still waiting out its pause when the card goes away is an edit like
-  // any other, so it is written rather than dropped.
-  useEffect(() => () => void commitName(), [commitName]);
+  useImperativeHandle(ref, () => ({ commitName }), [commitName]);
 
-  async function update(patch: Partial<BasicsValues>) {
+  // A name still waiting out its pause when the card goes away is an edit like
+  // any other, so it is written rather than dropped. Only on unmount: the
+  // callback changes on every render, and committing each time it did would
+  // write the name a keystroke at a time.
+  const commitNameOnUnmount = useRef(commitName);
+  useEffect(() => {
+    commitNameOnUnmount.current = commitName;
+  });
+  useEffect(() => () => void commitNameOnUnmount.current(), []);
+
+  function update(patch: Partial<BasicsValues>) {
     // Functional update so two synchronous calls (e.g. picking a canonical logo
     // sets both the logo URL and defaults the companion website) compose instead
     // of clobbering each other through a stale `draft` closure.
     setDraft((prev) => ({ ...prev, ...patch }));
-    if ('name' in patch) setNameError(null);
+    // The name waits for a pause in both modes: a write per keystroke queues
+    // behind the one before it, and the series title creeps along behind the
+    // typing.
+    if ('name' in patch) {
+      setNameError(null);
+      pendingName.current = patch.name ?? '';
+      if (nameTimer.current) clearTimeout(nameTimer.current);
+      nameTimer.current = setTimeout(() => void commitName(), 800);
+      return;
+    }
     // In wizard mode, propagate every change so the parent can persist live.
     // Swallow rejections so a failed save (e.g. ConflictApiError) doesn't
     // escape as an unhandled rejection — the global ConflictNoticeProvider
     // surfaces 409s and triggers the refetch.
     if (isWizard) {
       Promise.resolve(onChange(patch)).catch(() => {});
-      if ('name' in patch && validateName) {
-        const err = await validateName((patch.name ?? '').trim() || value.name);
-        if (err) setNameError(err);
-      }
-      return;
-    }
-    if ('name' in patch) {
-      pendingName.current = patch.name ?? '';
-      if (nameTimer.current) clearTimeout(nameTimer.current);
-      nameTimer.current = setTimeout(() => void commitName(), 800);
       return;
     }
     // Trimmed on the way out, never in the box — trimming as you type eats the
@@ -150,7 +188,7 @@ export function BasicsCard({
             id="name"
             value={draft.name}
             onChange={(e) => update({ name: e.target.value })}
-            onBlur={() => { if (!isWizard) void commitName(); }}
+            onBlur={() => void commitName()}
             placeholder="e.g. HYC Frostbite 2026"
             autoFocus
           />
