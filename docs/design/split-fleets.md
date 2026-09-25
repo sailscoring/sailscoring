@@ -173,11 +173,13 @@ numbered in order of completion, **completed by all fleets**". The lagging
 fleets race first the next day until counts equalise, and "all boats will
 thereafter race in the new fleets" — so a catch-up race is sailed in the
 *old* round's fleets while later races that day use the *new* round's. At
-the end of qualifying, leftovers are equalised: LE/IODA **exclude each
-boat's most-recent extra scores** so everyone has the same number of race
-scores; ILCA's variant instead **abandons and cancels the extra races
-outright**. Either way, a qualifying race only ever counts "when all
-fleets have completed that race".
+the end of qualifying, leftovers are equalised. LE/IODA say it per boat
+(**exclude each boat's most-recent extra scores**), ILCA per fleet
+(**abandon and cancel the extra races**), and the two are one rule: a boat
+has a surplus score only because her fleet sailed a race another did not,
+and a lagging fleet sails its catch-up first, so her most recent score *is*
+that race. Either way, a qualifying race only ever counts "when all fleets
+have completed that race".
 
 **The split.** Final fleets mirror the qualifying fleet count (3 → Gold,
 Silver, Bronze), sized "as nearly as possible equal, but so that the
@@ -376,12 +378,14 @@ event's parameters rather than as a gap list:
   Preliminary series, behind it, it now replaces A8 altogether with "ranked
   in order of their scores in the last race" (`medal.tieBreak: 'last-race'`,
   fixture 18). The superseded wording is no longer supported.
-- **Both equalisation clauses appear**, and read together they compose
-  rather than contradict, in the Appendix LE shape: Addendum A 2.2.7
-  abandons the fleet-level surplus (LE 20.5's "races completed by all
-  fleets"), then SI 18.3 excludes any boat's remaining surplus scores
-  (LE 20.4(a)). Both Worlds were scored with the fleet-level abandonment
-  alone, and that is the only rule Sail Scoring now applies.
+- **Both equalisation clauses appear** — Addendum A 2.2.7 abandons the
+  fleet-level surplus (LE 20.5's "races completed by all fleets") and SI
+  18.3 excludes a boat's surplus scores (LE 20.4(a)) — and they are the
+  same rule twice, a format addendum and scoring boilerplate each saying it
+  their own way. Once the fleet-level rule has run, every boat holds one
+  score per counting race; only a fleet-assignment mistake leaves her with
+  more or fewer, and that is for the scorer to correct, not for a rule to
+  trim.
 - Codes are as expected: largest fleet + 1 in the Preliminary series, own
   fleet + 1 in the Elimination and Final series (SI 18.5) — so the Final
   series' base is 11. Discards 1 from 3 races, 2 from 10, at most one
@@ -700,7 +704,10 @@ standings:
 - **Logical-race validity.** Qualifying standings aggregate one column per
   logical race, and only valid (complete-across-all-fleets) logical races
   contribute; a surplus race some fleets sailed at the end of the stage
-  simply never becomes valid.
+  simply never becomes valid. A boat left in no fleet of a round, or in two,
+  would hold fewer or more scores than the rest: the Split Fleets tab names
+  her and the races (`unequalQualifyingScores`) rather than scoring her on
+  a different count.
 - **Stage-aware discards.** `getDiscardCount` unchanged for the threshold;
   discard *selection* allows at most one final-series discard, protects a
   lone final-series race, and never discards a medal race. Medal races are

@@ -513,8 +513,7 @@ export interface PublicSeriesExport {
    * every boat in championship order. Its rows use the same fields, read
    * the same way: a race a boat's fleet did not sail is `raceExcluded`, as
    * is a score the format puts out of her total (a qualifying score
-   * superseded by a carry, a surplus score dropped under
-   * `equalization: 'exclude-extra-scores'`, a logical race not yet valid).
+   * superseded by a carry, a logical race not yet valid).
    */
   standings: {
     fleetName: string;

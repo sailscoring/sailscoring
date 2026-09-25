@@ -18,11 +18,12 @@ notes: |
   incomplete and counts for nobody — Yellow's Q2 scores are recorded but
   struck from the total. The standings rest on Q1 alone.
 
-  This is the equalisation rule the engine applies: the validity gate alone.
-  The per-boat refinement some sailing instructions add (Appendix LE 20.4(a),
-  where a boat still left holding more scores than the rest drops her most
-  recent) is not supported. `expected` verified against the engine: y1/y2/y3 net counts Q1 only
-  (net 1/2/3), not Q1+Q2.
+  This is the equalisation rule the engine applies, and the only one: the
+  per-boat wording other sailing instructions use (Appendix LE 20.4(a), a
+  boat left holding more scores than the rest drops her most recent) says
+  the same thing. Yellow's surplus score is Q2, her most recent, and it is
+  the race struck here. `expected` verified against the engine: y1/y2/y3
+  net counts Q1 only (net 1/2/3), not Q1+Q2.
 
 config:
   qualifyingFleets: [Yellow, Blue]
