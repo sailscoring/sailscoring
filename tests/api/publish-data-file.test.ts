@@ -112,7 +112,7 @@ describe.skipIf(skip)('publish handler — the data file (ADR-012)', () => {
     const json = await readPublishedHtml(stored.dataBlobUrl!);
     expect(json).not.toBeNull();
     const parsed = JSON.parse(json!) as PublicSeriesExport;
-    expect(parsed.version).toBe(3);
+    expect(parsed.version).toBe(4);
     expect(parsed.series.name).toBe('Summer Series');
     const boat = parsed.competitors.find((c) => c.sailNumber === '1')!;
     expect(boat.names).toEqual(['Aurelia']);

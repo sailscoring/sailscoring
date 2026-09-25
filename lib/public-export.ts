@@ -47,6 +47,12 @@ import { calculateFleetStandings, calculateRaceScores, buildRaceFleetExclusionMa
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import type { SeriesFileSplitRound } from './series-file';
 import {
+  refusedSplitFleetConfigMessage,
+  splitFleetUpgradeContext,
+  upgradeSplitFleetConfig,
+  upgradeSplitFleetRaceNames,
+} from './split-fleet-config-upgrade';
+import {
   assembleSplitFleetData,
   splitFleetStandings,
   type RenderSplitRound,
@@ -161,9 +167,10 @@ export interface PublicSeriesExport {
    *  clause reads it, and drops unresolved rows (they are the scorer's
    *  unfinished business — unpublished, and score-neutral: scoring filters
    *  to resolved rows before assigning places); v3 replaces a competitor's
-   *  single `club` with the ordered `clubs` list. Readers accept all
-   *  three. */
-  version: 1 | 2 | 3;
+   *  single `club` with the ordered `clubs` list; v4 narrows
+   *  `splitFleets.config` (ADR-013), and a reader brings an older one
+   *  forward. Readers accept all four. */
+  version: 1 | 2 | 3 | 4;
   exportedAt: string;
   series: {
     name: string;
@@ -1307,7 +1314,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 3 as const,
+    version: 4 as const,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
@@ -1548,7 +1555,7 @@ export function buildPublicExportFromSnapshot(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -1623,11 +1630,30 @@ export interface ImportIdOptions {
   newId?: () => string;
 }
 
+/**
+ * v1–v3 exports carry the split-fleet configuration as it was before v4
+ * narrowed it (ADR-013). Bring it forward before anything is written, so a
+ * championship scored with a setting that is gone is refused whole rather
+ * than half-imported. Returns a copy; the caller's export is not touched.
+ */
+function upgradeExportSplitFleets(data: PublicSeriesExport): PublicSeriesExport {
+  if (data.version >= 4 || !data.splitFleets) return data;
+  const races = structuredClone(data.races);
+  const result = upgradeSplitFleetConfig(
+    data.splitFleets.config,
+    splitFleetUpgradeContext({ races, rounds: data.splitFleets.rounds }),
+  );
+  if (!result.ok) throw new Error(refusedSplitFleetConfigMessage(result.reasons));
+  upgradeSplitFleetRaceNames(races, data.splitFleets.config, result.config);
+  return { ...data, races, splitFleets: { ...data.splitFleets, config: result.config } };
+}
+
 export async function importPublicExport(
-  data: PublicSeriesExport,
+  exported: PublicSeriesExport,
   repos: ImportRepos,
   ids?: ImportIdOptions,
 ): Promise<string> {
+  const data = upgradeExportSplitFleets(exported);
   const newId = ids?.newId ?? (() => crypto.randomUUID());
   const newSeriesId = ids?.seriesId ?? newId();
   const now = Date.now();

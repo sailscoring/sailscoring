@@ -41,6 +41,12 @@ import {
 } from './competitor-fields';
 import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
 import { hasConditions } from './race-conditions';
+import {
+  refusedSplitFleetConfigMessage,
+  splitFleetUpgradeContext,
+  upgradeSplitFleetConfig,
+  upgradeSplitFleetRaceNames,
+} from './split-fleet-config-upgrade';
 import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
 import { disambiguateSeriesName, seriesSlug } from './series-name';
@@ -494,9 +500,21 @@ export interface SeriesFileRepos {
  *  data set a snapshotted waypoint's mark was adopted from, which is the set
  *  whose captured chart the course is drawn on. Provenance for a picture —
  *  an older build reading a v57 file draws the same course on plain ground,
- *  and scores it identically. */
-export const FORMAT_VERSION = 57;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57];
+ *  and scores it identically.
+ *
+ *  v58 narrows `splitFleets.config` to the settings the championships scored
+ *  with it used, under ADR-013. Removed: `carry`, `codeBasis`,
+ *  `equalization`, `maxFinalDiscards`, `protectLoneFinalRace`,
+ *  `reassignmentTieOrder`, `raceLabels`, `vocabularyOverride`, `plannedDays`,
+ *  `finishSheets`, `medal.raceCount`, `medal.companionRace`,
+ *  `medal.carryTransform.appliesFrom`, and the `fixed-top` split. `medal` and
+ *  `medal.tieBreak` become required, and race labels are fixed by
+ *  `vocabulary`. Reading an older file runs `upgradeSplitFleetConfig`: a
+ *  value that is now fixed behaviour is dropped, a label or layout is
+ *  upgraded, and a value that would score the championship differently
+ *  refuses the file with the setting named. */
+export const FORMAT_VERSION = 58;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -1269,6 +1287,21 @@ export function migrateSeriesFileObject(obj: Record<string, unknown>): void {
   if (obj.formatVersion < 21) migrateCrewNameToList(obj.competitors);
   if (obj.formatVersion < 22) migratePersonFieldsToLists(obj.competitors);
   if (obj.formatVersion < 47) migrateClubToList(obj.competitors);
+  if (obj.formatVersion < 58) upgradeSplitFleetsBlock(obj);
+}
+
+/** ≤v57 → v58: the split-fleet configuration narrowed (ADR-013). Throws,
+ *  naming the settings, where the file scores with one that is gone. */
+function upgradeSplitFleetsBlock(obj: Record<string, unknown>): void {
+  const block = obj.splitFleets as { config?: unknown; rounds?: unknown } | undefined;
+  if (!block || typeof block !== 'object' || block.config == null) return;
+  const result = upgradeSplitFleetConfig(
+    block.config,
+    splitFleetUpgradeContext({ races: obj.races, rounds: block.rounds }),
+  );
+  if (!result.ok) throw new Error(refusedSplitFleetConfigMessage(result.reasons));
+  upgradeSplitFleetRaceNames(obj.races, block.config, result.config);
+  block.config = result.config;
 }
 
 /** ≤v20 → v21: a single `crewName` becomes a one-element `crewNames` list.

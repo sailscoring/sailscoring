@@ -117,7 +117,7 @@ function makeRecordingRepos() {
 describe('public export v2 — hidden competitor columns', () => {
   it('drops every hidden non-scoring field and keeps identity + rating inputs', () => {
     const data = buildPublicExportFromSnapshot(makeSnapshot(makeSeries('s1')))!;
-    expect(data.version).toBe(3);
+    expect(data.version).toBe(4);
     const c = data.competitors.find((x) => x.sailNumber === '101')!;
     // Identity and scoring inputs stay.
     expect(c.names).toEqual(['Helm 101']);
