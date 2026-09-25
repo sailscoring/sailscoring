@@ -177,8 +177,10 @@ export function SplitFleetStandings({
   // the band boundaries; where the fleet is never banded the only cut ever
   // made is into the deciding fleet, so it is drawn there instead — and
   // unlike a band boundary it decides who races again, so it is worth more
-  // than a boundary marker. Both stop once the thing they predict has
-  // happened: a committed round is a fact, not a projection.
+  // than a boundary marker. Once the split is committed the deciding fleet is
+  // the next cut, and it comes off the top fleet, so it is drawn in that
+  // fleet's table (`medalCutInTopFleet` below). Each stops once the thing it
+  // predicts has happened: a committed round is a fact, not a projection.
   const medalCut = data.config.medal;
   const unbanded = data.config.split.kind === 'none';
   const medalRound = roundsForStage(data.rounds, 'medal')[0] ?? null;
@@ -194,6 +196,15 @@ export function SplitFleetStandings({
   // Every branch above yields a line only while no deciding fleet has been
   // drawn yet, so the line and the table below never disagree about which
   // rows they are counting.
+  const medalCutInTopFleet = !unbanded && !!splitRound && !medalRound;
+  const medalCutLabel = (rows: SplitStandingRow[], i: number) =>
+    `${capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)} cut if the ${
+      splitFleetWords(data.config).final.name
+    } ended now${
+      rows[i + 1]?.rank === rows[i].rank
+        ? ' — the boats either side are tied; the ranking does not decide this cut'
+        : ''
+    }`;
 
 
   // Code-only in the live UI — flags are reserved for the published pages so
@@ -236,7 +247,13 @@ export function SplitFleetStandings({
       cellFleetIds.has(fid) && !legendLabels.has(meta.label) && !!legendLabels.add(meta.label),
   );
 
-  const renderRows = (rows: SplitStandingRow[], withCuts: boolean) =>
+  const renderRows = (
+    rows: SplitStandingRow[],
+    withCuts: boolean,
+    /** A single line after this row index, with its label — the medal cut
+     *  in the top fleet's table. */
+    ownCut?: { after: number; label: string },
+  ) =>
     rows.map((row, i) => {
       const cellByKey = new Map(
         row.cells.map((c) => [`${c.stage}:${c.stageRaceNumber}`, c]),
@@ -254,9 +271,11 @@ export function SplitFleetStandings({
           showClass={showClass}
           showCrew={showCrew}
           showClub={showClub}
-          cutAfter={withCuts && cuts.includes(i)}
+          cutAfter={(withCuts && cuts.includes(i)) || ownCut?.after === i}
           cutLabel={
-            withCuts && cuts.includes(i)
+            ownCut?.after === i
+              ? ownCut.label
+              : withCuts && cuts.includes(i)
               ? `${
                   unbanded
                     ? `${capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)} cut`
@@ -337,16 +356,21 @@ export function SplitFleetStandings({
           </div>
         )}
         {splitRound ? (
-          splitRound.fleetIds.map((fid) => {
+          splitRound.fleetIds.map((fid, fleetIndex) => {
             const rows = restRows.filter((r) => r.finalFleetId === fid);
             const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
             if (rows.length === 0) return null;
+            const size = data.config.medal.size;
+            const ownCut =
+              medalCutInTopFleet && fleetIndex === 0 && rows.length > size
+                ? { after: size - 1, label: medalCutLabel(rows, size - 1) }
+                : undefined;
             return (
               <div key={fid} className="mb-6">
                 <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
                   <FleetChip meta={meta} /> fleet
                 </h3>
-                <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub}>{renderRows(rows, false)}</StandingsTable>
+                <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub}>{renderRows(rows, false, ownCut)}</StandingsTable>
               </div>
             );
           })

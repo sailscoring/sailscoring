@@ -147,6 +147,11 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
   await alsoCreateRaces(page);
   await page.getByRole('button', { name: /Commit split \(12 \/ 12\)/ }).click();
   await expect(page.getByText('Split committed')).toBeVisible();
+  // The next cut is the Final series fleet's, off Gold: the standings draw
+  // it where it would fall if racing ended now.
+  await expect(
+    page.getByText('Final series fleet cut if the Elimination series ended now'),
+  ).toBeVisible();
   // The Elimination series numbers its own races from QE1.
   await expect(page.getByRole('link', { name: /QE1 · enter finishes/ })).toHaveCount(2);
 

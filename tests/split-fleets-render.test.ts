@@ -156,6 +156,32 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(Number(html.match(/<td colspan="(\d+)"/)?.[1])).toBe(headerRow(html).length);
   });
 
+  it('marks the medal cut in the top fleet once the split is committed', () => {
+    // Fixture 17 before its medal fleet is selected: the split stands, and
+    // the next cut is the medal fleet's, off Gold.
+    const input = renderInputFor('17-extra-race-for-the-non-qualified.yaml');
+    const beforeMedal = {
+      ...input,
+      rounds: input.rounds.filter((r) => r.stage !== 'medal'),
+      raceStarts: input.raceStarts.filter((s) => s.stage !== 'medal' && !(s.firstPlaceOffset ?? 0)),
+    };
+    const html = renderSplitFleetStandingsPage(beforeMedal);
+    expect(html).toContain('medal fleet cut if the final series ended now');
+    expect(html).not.toContain('provisional split');
+  });
+
+  it('marks the medal cut where the fleet is never divided', () => {
+    const input = renderInputFor('25-one-fleet-no-split-then-a-medal-race.yaml');
+    const beforeMedal = {
+      ...input,
+      rounds: input.rounds.filter((r) => r.stage !== 'medal'),
+      raceStarts: input.raceStarts.filter((s) => s.stage !== 'medal'),
+    };
+    expect(renderSplitFleetStandingsPage(beforeMedal)).toContain(
+      'medal fleet cut if the opening series ended now',
+    );
+  });
+
   it('says so when the boats either side of the cut line are tied', () => {
     // Fixture 08's Yellow/Blue pairs share ranks, and the Gold/Silver cut
     // falls inside one of them: the line must not silently resolve the tie.
@@ -163,7 +189,7 @@ describe('renderSplitFleetStandingsPage', () => {
       renderInputFor('08-d8-incomplete-qualifying-race.yaml'),
     );
     expect(tied).toContain(
-      'provisional split if qualifying ended now — the boats either side are tied; the ranking does not decide this cut',
+      'provisional split if the qualifying series ended now — the boats either side are tied; the ranking does not decide this cut',
     );
 
     // Fixture 19's cut lines fall between settled ranks: no tie note.

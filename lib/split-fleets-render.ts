@@ -391,7 +391,12 @@ export function renderSplitFleetStandingsPage(
       : `<th>${label}</th>`;
   };
 
-  const table = (rowsIn: typeof rows, cuts: number[] = [], withFleetCol = false): string => {
+  const table = (
+    rowsIn: typeof rows,
+    cuts: number[] = [],
+    withFleetCol = false,
+    cutLabel = `provisional split if the ${vocab.stages.qualifying.name} ended now`,
+  ): string => {
     const columns = columnsFor(rowsIn);
     const head = columns.map(headerCell).join('');
     const body = rowsIn
@@ -424,7 +429,7 @@ export function renderSplitFleetStandingsPage(
         // cut — say so rather than letting the line silently resolve the tie.
         const tiedAcrossCut = cuts.includes(i) && rowsIn[i + 1]?.rank === row.rank;
         const cut = cuts.includes(i)
-          ? `<tr><td colspan="${columns.length + 5 + (withFleetCol ? 1 : 0) + (nat ? 1 : 0) + (boatClass ? 1 : 0) + (club ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">provisional split if qualifying ended now${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
+          ? `<tr><td colspan="${columns.length + 5 + (withFleetCol ? 1 : 0) + (nat ? 1 : 0) + (boatClass ? 1 : 0) + (club ? 1 : 0) + (wsid ? 1 : 0)}" style="border:none;padding:0"><div style="border-top:2px dashed #f59e0b;text-align:center;font-size:0.75em;color:#b45309;text-transform:uppercase">${esc(cutLabel)}${tiedAcrossCut ? ' — the boats either side are tied; the ranking does not decide this cut' : ''}</div></td></tr>`
           : '';
         return tr + cut;
       })
@@ -492,14 +497,25 @@ ${body}
     return `\n<p class="sfnote">The ${count} boats sailing the ${esc(vocab.stages.medal.name)} remain assigned to this fleet${offsetText ? `; ${esc(offsetText)}` : ''}.</p>`;
   };
 
+  // Where the medal fleet will be cut if racing ended now, while it has yet to
+  // be selected: off the top fleet once the split is committed, and off the
+  // whole ranking where the fleet is never divided.
+  const medalSize = data.config.medal.size;
+  const medalCut = (stageName: string) => `${vocab.stages.medal.fleetNoun} cut if the ${stageName} ended now`;
+
   let sections: string;
   if (splitRound) {
     sections = [
       medalSection,
-      ...splitRound.fleetIds.map((fid) => {
+      ...splitRound.fleetIds.map((fid, fleetIndex) => {
         const fleetRows = rows.filter((r) => r.finalFleetId === fid && !r.medal);
+        const cut = !medalRows.length && fleetIndex === 0 && fleetRows.length > medalSize;
         return fleetRows.length
-          ? `<h2>${esc(fleetName.get(fid) ?? '')} fleet</h2>\n${table(fleetRows)}${leftForMedalNote(fid)}`
+          ? `<h2>${esc(fleetName.get(fid) ?? '')} fleet</h2>\n${
+              cut
+                ? table(fleetRows, [medalSize - 1], false, medalCut(vocab.stages.final.name))
+                : table(fleetRows)
+            }${leftForMedalNote(fid)}`
           : '';
       }),
     ]
@@ -507,12 +523,22 @@ ${body}
       .join('\n');
   } else {
     const rest = rows.filter((r) => !r.medal);
-    const cuts = provisionalCutIndexes(rest.length, data.config.finalFleets.length);
+    const undivided = data.config.split.kind === 'none';
     sections = [
       medalSection,
-      rest.length
-        ? table(rest, !medalRows.length && data.config.finalFleets.length > 1 ? cuts : [], true)
-        : '',
+      !rest.length
+        ? ''
+        : undivided
+          ? !medalRows.length && rest.length > medalSize
+            ? table(rest, [medalSize - 1], true, medalCut(vocab.stages.qualifying.name))
+            : table(rest, [], true)
+          : table(
+              rest,
+              !medalRows.length && data.config.finalFleets.length > 1
+                ? provisionalCutIndexes(rest.length, data.config.finalFleets.length)
+                : [],
+              true,
+            ),
     ]
       .filter(Boolean)
       .join('\n');
