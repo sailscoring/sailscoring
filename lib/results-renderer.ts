@@ -2,7 +2,7 @@ import type { FinishTrackData, Fleet, ResultCode, PenaltyCode, CompetitorFieldKe
 import { buildOrcMix, type OrcMix } from './orc-mix';
 import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
-import { renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
+import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
 import { drawnStartCourse } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
@@ -236,6 +236,10 @@ export interface OrcHeaderData {
    *  the start recorded it — one inert SVG element, nothing fetched. A
    *  competitor checking their track sees the picture the scorer checked. */
   courseSvg?: string;
+  /** The club's chart `courseSvg` is drawn on, which the drawing refers to
+   *  by symbol id rather than embedding: the page carries each chart once
+   *  however many races are drawn on it (see `renderCourseChartDefs`). */
+  courseChart?: { id: string; background: CourseBackground };
   /** The drawing came from the course's leg table, so it carries no
    *  position: shape and direction are the committee's, and where it sits on
    *  the water is not recorded. Captioned, because a located drawing and an
@@ -872,13 +876,13 @@ export function renderSeriesHtml(
   const view = computeSectionView(data);
   const hasNhcDetail = data.races.some((r) => r.nhcHeader != null);
   const hasEchoDetail = data.races.some((r) => r.echoHeader != null);
-  const flagDefs = renderFlagDefs(collectReferencedCodes([data]), data.flagSvgByCode);
-
   const content = [
     hasNhcDetail ? renderNhcToggle() + '\n' + renderNhcExplainer() : '',
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     renderSectionTables(data, view, { detail, linkRaceLabels: detail === 'full' }),
   ].join('\n');
+  const flagDefs =
+    renderFlagDefs(collectReferencedCodes([data]), data.flagSvgByCode) + renderCourseChartDefs([data], content);
 
   return renderHtmlDocument(data, content, { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs });
 }
@@ -939,7 +943,6 @@ export function renderCombinedSeriesHtml(
   // One deduped flag-symbol block for the whole document; the assembly path
   // sets the same payload on every section.
   const flagSvgByCode = sections.find((s) => s.flagSvgByCode)?.flagSvgByCode;
-  const flagDefs = renderFlagDefs(collectReferencedCodes(sections), flagSvgByCode);
 
   const viewed = sections.map((data) => ({ data, view: computeSectionView(data) }));
   const fleetHeading = (data: SeriesResultsData) =>
@@ -1011,6 +1014,8 @@ export function renderCombinedSeriesHtml(
     hasEchoDetail ? renderEchoToggle() + '\n' + renderEchoExplainer() : '',
     sectionHtml,
   ].join('\n');
+  const flagDefs =
+    renderFlagDefs(collectReferencedCodes(sections), flagSvgByCode) + renderCourseChartDefs(sections, content);
 
   const chrome: DocumentChrome = {
     series: first.series,
@@ -2482,6 +2487,24 @@ export function renderFlagDefs(
   return `<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>${symbols.join('')}</defs></svg>`;
 }
 
+/** One symbol per club chart the page's course drawings refer to. Charts
+ *  are collected from every race, then kept only where a drawing in the
+ *  rendered `content` uses them — a standings-only page, or races trimmed
+ *  off a long one, would otherwise carry a few hundred kilobytes of chart
+ *  that nothing shows. */
+function renderCourseChartDefs(sections: readonly SeriesResultsData[], content: string): string {
+  const charts = new Map<string, CourseBackground>();
+  for (const data of sections) {
+    for (const race of data.races) {
+      const chart = race.orcHeader?.courseChart;
+      if (chart && !charts.has(chart.id) && content.includes(`href="#${chart.id}"`)) {
+        charts.set(chart.id, chart.background);
+      }
+    }
+  }
+  return [...charts].map(([id, background]) => renderCourseBackgroundSymbol(background, id)).join('');
+}
+
 /** Render a single Nat cell: flag stacked above the canonical code (matching
  *  the Sailwave layout). Unknown codes (not in `flagSvgByCode`) render
  *  code-only. Empty values render an empty cell so the column stays aligned. */
@@ -3121,12 +3144,24 @@ export function assembleSeriesResultsData(
                 // never linked: a published page fetches nothing.
                 const set = drawn.set ?? options?.courseBackgroundSet;
                 const chart = set ? options?.courseBackgrounds?.get(set) : undefined;
+                // Referred to by id rather than embedded in the drawing:
+                // every race on the page is drawn on the same chart.
+                const chartId = set && chart ? `course-chart-${gridToken(set)}` : undefined;
                 const svg = renderCourseSvg(drawn.marks, drawn.course, {
                   width: 480,
                   title: `Course ${coveringStart.course.name}`,
-                  ...(chart ? { background: chart } : {}),
+                  ...(chart && chartId ? { background: chart, backgroundSymbol: chartId } : {}),
                 });
-                return svg ? { courseSvg: svg, ...(drawn.fromLegs ? { courseSvgFromLegs: true } : {}) } : {};
+                // A course that never reaches the chart's water is drawn
+                // without it, and needs no symbol on the page.
+                const usesChart = chart && chartId && svg.includes(`href="#${chartId}"`);
+                return svg
+                  ? {
+                      courseSvg: svg,
+                      ...(usesChart ? { courseChart: { id: chartId, background: chart } } : {}),
+                      ...(drawn.fromLegs ? { courseSvgFromLegs: true } : {}),
+                    }
+                  : {};
               })()
             : {}),
           ...(mix ? { mix, ...(scratch?.name ? { mixBoat: scratch.name } : {}) } : {}),

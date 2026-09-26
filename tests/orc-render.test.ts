@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assembleSeriesResultsData,
+  renderCombinedSeriesHtml,
   renderSeriesHtml,
 } from '@/lib/results-renderer';
 import type { OrcCertData, OrcCourseLeg, OrcRaceCalc, RaceStartCourse } from '@/lib/types';
@@ -214,47 +215,65 @@ describe('published ORC transparency', () => {
     expect(block).not.toMatch(/<script|<style|<image|href=/);
   });
 
-  it('draws a published course on its club’s chart, embedded in the page', () => {
-    const start = { lat: 53.4055, lng: -6.0675 };
-    const html = renderSeriesHtml(
-      assemble({
-        orc: (id) => ({
-          todApplied: id === 'c1' ? 600 : 620,
-          scratchTod: 600,
-          distanceNm: 1.08,
-          courseModel: 'CC',
-        }),
-        courseBackgrounds: new Map([['hyc/al-2026', hycChart]]),
-        raceStarts: [{
-          raceId: 'r1',
-          fleetIds: ['f1'],
-          startTime: '14:00:00',
-          courseLegs: [{ distanceNm: 0.54, bearingDeg: 190, windDirectionDeg: 190 }],
-          course: {
-            name: 'W/L — 12 Sep R1',
-            windDirectionDeg: 190,
-            waypoints: [
-              { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng },
-              { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', fixed: true, set: 'hyc/al-2026' },
-              { markId: 'line', label: 'Start', lat: start.lat, lng: start.lng, side: 'port' },
-            ],
-          },
-        }],
+  /** A constructed course off Howth's marks, which its chart covers. */
+  const chartedCourse = () =>
+    assemble({
+      orc: (id) => ({
+        todApplied: id === 'c1' ? 600 : 620,
+        scratchTod: 600,
+        distanceNm: 1.08,
+        courseModel: 'CC',
       }),
-    );
+      courseBackgrounds: new Map([['hyc/al-2026', hycChart]]),
+      raceStarts: [{
+        raceId: 'r1',
+        fleetIds: ['f1'],
+        startTime: '14:00:00',
+        courseLegs: [{ distanceNm: 0.54, bearingDeg: 190, windDirectionDeg: 190 }],
+        course: {
+          name: 'W/L — 12 Sep R1',
+          windDirectionDeg: 190,
+          waypoints: [
+            { markId: 'line', label: 'Start', lat: 53.4055, lng: -6.0675 },
+            { markId: 'z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', fixed: true, set: 'hyc/al-2026' },
+            { markId: 'line', label: 'Start', lat: 53.4055, lng: -6.0675, side: 'port' },
+          ],
+        },
+      }],
+    });
+  const chartImages = (html: string) => html.match(/<image href="data:image\/png;base64,[A-Za-z0-9+/=]+"/g) ?? [];
+
+  it('draws a published course on its club’s chart, carried in the page', () => {
+    const html = renderSeriesHtml(chartedCourse());
     const from = html.indexOf('<div class="orc-course-drawing"');
     const block = html.slice(from, html.indexOf('</div>', from));
-    // The chart itself, and the attribution its tile sources require.
-    expect((block.match(/<image href="data:image\/png;base64,[A-Za-z0-9+/=]+"/g) ?? []).length).toBe(1);
+    // The drawing refers to the chart; the page carries it, once.
+    expect(block).toContain('<use href="#course-chart-hyc-al-2026"');
+    expect(block).not.toContain('data:');
+    expect(chartImages(html)).toHaveLength(1);
+    expect(html).toContain('<symbol id="course-chart-hyc-al-2026"');
+    // And the attribution its tile sources require.
     expect(block).toContain('© OpenStreetMap contributors · © OpenSeaMap contributors');
-    // Still inert, and still nothing fetched: the one href on the page is
-    // the image the renderer embedded itself.
+    // Still inert, and still nothing fetched: the drawing's one href is the
+    // symbol on this page.
     expect(block).not.toMatch(/<script|<style/);
     expect((block.match(/href=/g) ?? []).length).toBe(1);
-    expect(block).not.toMatch(/href="(?!data:image\/png;base64,)/);
     // And the course is drawn over it as it always was.
     expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 190° 0\.54 NM/);
     expect(block).toContain('>Z</text>');
+  });
+
+  it('carries a chart once however many drawings on the page use it', () => {
+    const html = renderCombinedSeriesHtml([chartedCourse(), chartedCourse()], { pageName: 'ORC' });
+    expect((html.match(/<use href="#course-chart-hyc-al-2026"/g) ?? []).length).toBe(2);
+    expect(chartImages(html)).toHaveLength(1);
+  });
+
+  it('carries no chart on a page that shows no drawing', () => {
+    const html = renderCombinedSeriesHtml([chartedCourse()], { pageName: 'ORC', detail: 'standings' });
+    expect(html).not.toContain('orc-course-drawing');
+    expect(html).not.toContain('course-chart-');
+    expect(chartImages(html)).toHaveLength(0);
   });
 
   it('draws on plain ground when the course’s data set has no chart loaded', () => {
