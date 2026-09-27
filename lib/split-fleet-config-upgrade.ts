@@ -156,10 +156,11 @@ export function upgradeSplitFleetConfig(
         ? (c.discardThresholds as SplitFleetConfig['discardThresholds'])
         : [],
       vocabulary,
+      final: { carry: 'net', tieBreak: 'a8' },
       medal: {
         size: typeof medal?.size === 'number' ? medal.size : 10,
         multiplier: multiplier === 1 ? 1 : 2,
-        ...(transform ? { carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' } } : {}),
+        carry: transform ? 'halved' : 'net',
         tieBreak: tieBreak === 'last-race' ? 'last-race' : 'medal-race-then-a8',
       },
     },
@@ -240,4 +241,23 @@ export function upgradeSplitFleetRaceNames(
     if (before === after) continue;
     race.name = race.name.replace(new RegExp(`(^|[^A-Za-z0-9])${before}(?![0-9])`), `$1${after}`);
   }
+}
+
+/**
+ * Series-file v59 and public export v5: the score a boat takes into a stage
+ * became a `carry` setting on the final and medal stages, and the medal
+ * stage's `carryTransform` block — which only ever meant "halved" — became
+ * `medal.carry: 'halved'`. A lossless rename, applied in place to a
+ * configuration already at the v58 shape; a configuration already renamed is
+ * left as it is.
+ */
+export function upgradeSplitFleetCarry(config: unknown): void {
+  const c = obj(config);
+  if (!c) return;
+  const medal = obj(c.medal);
+  if (medal && medal.carry === undefined) {
+    medal.carry = medal.carryTransform ? 'halved' : 'net';
+  }
+  if (medal) delete medal.carryTransform;
+  if (c.final === undefined) c.final = { carry: 'net', tieBreak: 'a8' };
 }

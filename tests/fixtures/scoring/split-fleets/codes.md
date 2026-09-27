@@ -13,7 +13,7 @@ block names its real anchor event and links its captured SIs/results in
 |---|---|---|
 | **F1** | Addendum-C classic: one continuous low-point line across qualifying + final; per-fleet finals score-code base; class discard ladder | `01` (ILCA ladder), `02` (IODA single discard), `29` (Melges 15 Sprint: one qualifying fleet, a final series scored double and protected) |
 | **F2** | F1 + a medal race: doubled, non-discardable medal points; medal boats ranked above the fleets; non-medal companion "last race" scored from below the medal fleet | `03` (ILCA Adelaide) |
-| **F3** | Compressed carry: the medal boats' opening-series score is divided and rounded before an additive, non-discardable medal series | `15` (ILCA Dun Laoghaire, ÷2 rounding 0.5 up), `16` (its sub-series tie-break), `17` (the extra race for the boats who did not qualify) |
+| **F3** | Compressed carry: the medal boats' opening-series score is divided and rounded before an additive, non-discardable medal series | `15` (ILCA Dun Laoghaire, ÷2 rounding 0.5 up), `16` (its sub-series tie-break), `17` (the extra race for the boats who did not qualify), `30` (Melges 15 Sprint: the halving applied at the split, into Gold and Silver) |
 | **F5** | Net + net: qualifying and final are separately-discarded series and the championship score is their sum | `13` (29er) |
 | **F6** | Rank-seed carry: the qualifying *position* carries into the final series as one non-excludable score and the qualifying race scores drop out | `14` (Topper / 470), `20` (a qualifying tie A8 cannot break, carried shared) |
 

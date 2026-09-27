@@ -51,6 +51,7 @@ import {
   splitFleetUpgradeContext,
   upgradeSplitFleetConfig,
   upgradeSplitFleetRaceNames,
+  upgradeSplitFleetCarry,
 } from './split-fleet-config-upgrade';
 import {
   assembleSplitFleetData,
@@ -170,7 +171,7 @@ export interface PublicSeriesExport {
    *  single `club` with the ordered `clubs` list; v4 narrows
    *  `splitFleets.config` (ADR-013), and a reader brings an older one
    *  forward. Readers accept all four. */
-  version: 1 | 2 | 3 | 4;
+  version: 1 | 2 | 3 | 4 | 5;
   exportedAt: string;
   series: {
     name: string;
@@ -1313,7 +1314,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 4 as const,
+    version: 5 as const,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
@@ -1554,7 +1555,7 @@ export function buildPublicExportFromSnapshot(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -1636,7 +1637,13 @@ export interface ImportIdOptions {
  * than half-imported. Returns a copy; the caller's export is not touched.
  */
 function upgradeExportSplitFleets(data: PublicSeriesExport): PublicSeriesExport {
-  if (data.version >= 4 || !data.splitFleets) return data;
+  if (data.version >= 5 || !data.splitFleets) return data;
+  if (data.version === 4) {
+    // v5 renamed the medal stage's halved carry and added the final stage's.
+    const config = structuredClone(data.splitFleets.config);
+    upgradeSplitFleetCarry(config);
+    return { ...data, splitFleets: { ...data.splitFleets, config } };
+  }
   const races = structuredClone(data.races);
   const result = upgradeSplitFleetConfig(
     data.splitFleets.config,

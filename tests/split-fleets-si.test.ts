@@ -9,7 +9,11 @@ import { describe, it, expect } from 'vitest';
 import { describeSplitFleetConfig, SENTENCES_BY_SETTING } from '@/lib/split-fleets-si';
 import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import { defaultSplitFleetConfig, type SplitFleetConfig } from '@/lib/split-fleets';
-import { ilca2026Config, openingSeriesMedalConfig } from './fixtures/split-fleet-configs';
+import {
+  ilca2026Config,
+  melges15SprintConfig,
+  openingSeriesMedalConfig,
+} from './fixtures/split-fleet-configs';
 
 const joined = (config: SplitFleetConfig) =>
   describeSplitFleetConfig(config)
@@ -165,6 +169,7 @@ describe('sentence ids', () => {
     defaultSplitFleetConfig(3),
     ilca2026Config(3),
     openingSeriesMedalConfig(),
+    melges15SprintConfig(),
   ];
 
   it('gives each sentence of a configuration its own id', () => {

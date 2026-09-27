@@ -517,12 +517,13 @@ function FragmentRow({
           const meta = fleetMeta.get(cell.fleetId);
           const color = meta?.color ?? '#888';
           const text = `${cell.points}${cell.code ? ` ${cell.code}` : ''}`;
+          const into = cell.stage === 'final' ? w.final : w.medal;
           const note = cell.counts
             ? cell.carriedTransform
-              ? `${capitaliseStage(w.series)} score, compressed and carried into the ${w.medal.name}`
+              ? `Score carried into the ${into.name}`
               : undefined
             : cell.carriedTransform
-              ? `${capitaliseStage(w.series)} score, compressed — counts once a ${w.medal.raceNoun} is completed`
+              ? `Score carried into the ${into.name} — counts once a ${into.raceNoun} is completed`
               : cell.superseded
                 ? 'Replaced by the carried score'
                 : 'Does not yet count — race incomplete across fleets';

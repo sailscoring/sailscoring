@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   splitFleetUpgradeContext,
   upgradeSplitFleetConfig,
+  upgradeSplitFleetCarry,
   upgradeSplitFleetRaceNames,
   type SplitFleetUpgradeContext,
 } from '@/lib/split-fleet-config-upgrade';
@@ -66,10 +67,11 @@ describe('the three championships scored with split fleets', () => {
           { minRaces: 10, discardCount: 2 },
         ],
         vocabulary: 'qualification-final',
+        final: { carry: 'net', tieBreak: 'a8' },
         medal: {
           size: 10,
           multiplier: 1,
-          carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+          carry: 'halved',
           tieBreak: 'last-race',
         },
       },
@@ -212,5 +214,42 @@ describe('a v57 series file', () => {
     const obj = file();
     obj.splitFleets.config = { ...obj.splitFleets.config, carry: 'net-plus-net' };
     expect(() => migrateSeriesFileObject(obj)).toThrow(/how scores carry \("net-plus-net"\)/);
+  });
+});
+
+describe('the score carried into a stage (v59)', () => {
+  it('renames the halved medal carry, and gives the final series a net carry', () => {
+    const config: Record<string, unknown> = {
+      medal: { size: 10, multiplier: 1, carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' } },
+    };
+    upgradeSplitFleetCarry(config);
+    expect(config).toEqual({
+      medal: { size: 10, multiplier: 1, carry: 'halved' },
+      final: { carry: 'net', tieBreak: 'a8' },
+    });
+  });
+
+  it('carries the net score where there was no halving', () => {
+    const config: Record<string, unknown> = { medal: { size: 10, multiplier: 2 } };
+    upgradeSplitFleetCarry(config);
+    expect((config.medal as { carry: string }).carry).toBe('net');
+  });
+
+  it('brings a v58 file forward on read', () => {
+    const obj = {
+      formatVersion: 58,
+      races: [],
+      splitFleets: {
+        config: {
+          ...ILCA7.splitFleets.config,
+          medal: { ...ILCA7.splitFleets.config.medal, carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' } },
+        },
+        rounds: [],
+      },
+    };
+    migrateSeriesFileObject(obj);
+    expect(obj.splitFleets.config.medal).toMatchObject({ carry: 'halved' });
+    expect(obj.splitFleets.config.medal).not.toHaveProperty('carryTransform');
+    expect(obj.splitFleets.config).toMatchObject({ final: { carry: 'net', tieBreak: 'a8' } });
   });
 });

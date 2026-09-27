@@ -718,14 +718,22 @@ standings:
   the 2026 Melges 15 Sprint Championships' doubled, protected Gold and
   Silver final series is scored (fixture 29). A medal race takes its
   weighting from the medal settings alone.
-- **Carried scores.** Points carry as one continuous line. Where the medal
-  settings halve the carry, each medal boat's opening-series net, after
-  its discards, is halved (0.5 rounded up) into one non-discardable carried
-  score that supersedes her race cells — from the first medal race
-  completed, so an abandoned medal series leaves the boats on their
-  undivided opening scores.
-- **Ties.** A8.1 then A8.2 for everyone outside the medal fleet. The medal
-  fleet takes one of two tie-breaks: the medal race then A8, or `last-race`.
+- **Carried scores.** The final and medal stages each say what a boat takes
+  into them (`CarryIn`): her net score, one continuous line; the net
+  halved, 0.5 rounded up; nothing; or her rank at the cut. Anything but the
+  net score is one non-discardable carried cell, computed after the
+  discards, that supersedes her earlier race cells from the moment her
+  fleet completes a race of the stage — so a stage that is never sailed
+  leaves the undivided score as the result — and the stage's races are then
+  never excluded and do not count towards the discards. The 2026 ILCA
+  Worlds halve into their Final series (our medal stage); the 2026 Melges
+  15 Sprint Championships halve into Gold and Silver (the final stage,
+  fixture 30). Nothing is the Champions' Cups' final series; rank is the
+  Topper's and the 470 Europeans'.
+- **Ties.** A8.1 then A8.2, except where a stage names its own. The medal
+  fleet takes one of two: the medal race then A8, or `last-race`. A final
+  fleet takes A8 or `last-race`, compared within the fleet once both boats
+  have sailed a race of it.
   `last-race` is not a step behind A8 but a replacement for it: no count-of-places comparison first and no next-to-last race
   behind, so a tie the last race cannot break stays a tie. It reads the
   boats' real race scores rather than their counting cells, because where

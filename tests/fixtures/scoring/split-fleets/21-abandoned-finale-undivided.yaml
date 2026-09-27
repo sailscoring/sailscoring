@@ -58,10 +58,7 @@ config:
   medal:
     size: 2
     multiplier: 1
-    carryTransform:
-      kind: divide
-      by: 2
-      rounding: half-up
+    carry: halved
       # SI 18.7.5 as Amendment 5 rewrote it.
     tieBreak: last-race
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { DEFAULT_VOCABULARY } from '@/lib/split-fleets';
-import type { SplitFleetConfig } from '@/lib/split-fleets';
+import { CARRY_IN_VALUES, DEFAULT_VOCABULARY } from '@/lib/split-fleets';
+import type { CarryIn, SplitFleetConfig } from '@/lib/split-fleets';
 
 import { uuidSchema } from './common';
 
@@ -25,14 +25,27 @@ export const splitFleetConfigSchema = z.object({
   vocabulary: z
     .enum(['opening-medal', 'qualification-final'])
     .default(DEFAULT_VOCABULARY),
-  medal: z.object({
-    size: z.number().int().positive(),
-    multiplier: z.union([z.literal(1), z.literal(2)]),
-    carryTransform: z
-      .object({ kind: z.literal('divide'), by: z.literal(2), rounding: z.literal('half-up') })
-      .optional(),
-    tieBreak: z.enum(['last-race', 'medal-race-then-a8']),
-  }),
+  final: z
+    .object({
+      carry: z.enum(CARRY_IN_VALUES as [CarryIn, ...CarryIn[]]),
+      tieBreak: z.enum(['a8', 'last-race']),
+    })
+    .default({ carry: 'net', tieBreak: 'a8' }),
+  medal: z.preprocess(
+    // A page loaded before series-file v59 still sends the halved carry as
+    // the `carryTransform` block it replaced.
+    (medal) => {
+      if (!medal || typeof medal !== 'object') return medal;
+      const { carryTransform, ...rest } = medal as Record<string, unknown>;
+      return { carry: carryTransform ? 'halved' : 'net', ...rest };
+    },
+    z.object({
+      size: z.number().int().positive(),
+      multiplier: z.union([z.literal(1), z.literal(2)]),
+      carry: z.enum(CARRY_IN_VALUES as [CarryIn, ...CarryIn[]]),
+      tieBreak: z.enum(['last-race', 'medal-race-then-a8']),
+    }),
+  ),
 })
   // The two halves of the split answer have to agree. A championship that
   // bands its fleet needs at least two fleets to band into; one that never

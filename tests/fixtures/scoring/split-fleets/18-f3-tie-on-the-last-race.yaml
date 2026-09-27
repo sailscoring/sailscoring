@@ -50,10 +50,7 @@ config:
   medal:
     size: 3
     multiplier: 1
-    carryTransform:
-      kind: divide
-      by: 2
-      rounding: half-up
+    carry: halved
     tieBreak: last-race
 
 competitors:

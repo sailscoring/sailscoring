@@ -357,12 +357,13 @@ export function renderSplitFleetStandingsPage(
     const inner = c.discarded ? `(${esc(text)})` : esc(text);
     const dim = c.counts ? '' : ';color:#adb5bd';
     const bold = c.discardable ? '' : ';font-weight:bold';
+    const into = c.stage === 'final' ? vocab.stages.final : vocab.stages.medal;
     const note = c.counts
       ? c.carriedTransform
-        ? `${vocab.seriesName} score, compressed and carried into the ${vocab.stages.medal.name}`
+        ? `score carried into the ${into.name}`
         : ''
       : c.carriedTransform
-        ? `${vocab.seriesName} score, compressed — counts once a ${vocab.stages.medal.raceNoun} is completed`
+        ? `score carried into the ${into.name} — counts once a ${into.raceNoun} is completed`
         : c.superseded
           ? 'replaced by the carried score'
           : 'does not yet count — race incomplete across fleets';

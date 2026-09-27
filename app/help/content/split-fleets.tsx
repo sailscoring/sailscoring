@@ -203,11 +203,22 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">End the {q.name} → split fleets</strong> deals the{' '}
         {f.fleetNoun}s from the {qAdj} ranking — adjust the top-fleet size if the SIs fix one,
         and the dialog flags rank ties sitting on a boundary. {capitaliseStage(f.fleetNoun)}s
-        race independently (they need not sail the same number of races). Where the sailing
-        instructions score the {f.name} races double, or say they may not be excluded, set that
-        on each race through its <strong className="text-foreground">Scoring</strong> options, as
-        in any series: a race that must count is also left out of the count the discard ladder
-        is read from, since the ladder can never reach it. If the event carries{' '}
+        race independently (they need not sail the same number of races). The {f.name} card’s{' '}
+        <strong className="text-foreground">Score carried in</strong> says what each boat takes
+        into it, and the {w.title('medal')} card has the same choice: her{' '}
+        <strong className="text-foreground">net score</strong>, the stages scoring as one
+        continuous series; her net score <strong className="text-foreground">halved</strong>,
+        0.5 rounded up, as the 2026 ILCA Worlds did before their last two races;{' '}
+        <strong className="text-foreground">nothing</strong>, the stage scored on its own races
+        alone; or her <strong className="text-foreground">rank</strong> at the cut. Anything but
+        the net score replaces her earlier races with the one carried score, once her fleet has
+        sailed a race of the stage, and from then on none of the stage’s races is excluded. The{' '}
+        {f.name} card also says how a tie within a fleet is broken: by rule A8, or on the last
+        race alone. Where the sailing instructions instead score particular races double, or say
+        they may not be excluded, set that on each race through its{' '}
+        <strong className="text-foreground">Scoring</strong> options, as in any series: a race that
+        must count is also left out of the count the discard ladder is read from, since the
+        ladder can never reach it. If the event carries{' '}
         {article(m.raceNoun)}, select the {m.fleetNoun} when racing closes (
         <strong className="text-foreground">Select {m.fleetNoun}…</strong>): the top boats sail
         it, never discardable, at whatever points multiplier the sailing instructions set —

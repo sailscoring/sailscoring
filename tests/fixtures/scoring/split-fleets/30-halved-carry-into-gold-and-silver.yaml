@@ -1,0 +1,89 @@
+description: "One qualifying fleet split into Gold and Silver, each boat's qualifying score halved into the final series, ties on the last race"
+provenance:
+  class: "Melges 15"
+  year: 2026
+  event: "Melges 15 Sprint Championships, Royal St George YC, Dublin Bay (SI 15.2-15.3)"
+  si: "reference-docs:events/melges15-sprint-2026/SI-v1.0.md"
+  code: F3
+  scenarios: [D6, D7]
+  alternatives: "The 2026 ILCA Worlds halve the same way (SI 18.7.3), into their Final series only."
+runnable: true
+notes: |
+  The event says it adopts the ILCA Worlds medal-series format, and applies
+  it to both of its final fleets: after a one-fleet Qualifying series the
+  fleet splits by rank into Gold (the top half, rounded up) and Silver, and
+  "the net points score after the qualifying series will be halved (a score
+  to carry forward), and both races sailed in the medal races must be
+  counted" (SI 15.3). Where SI 15.3 is silent it follows the ILCA SIs: the
+  halving rounds to the nearest whole number, 0.5 upward (ILCA SI 18.7.3);
+  a tie is broken on the last race, replacing A8 (ILCA SI 18.7.4); and Gold
+  ranks above Silver.
+
+  Configured as `final: { carry: halved, tieBreak: last-race }`. The final
+  series races are settled by the carry: never excluded, and not counted
+  towards the discards. Qualifying is cut short at 8 races, one discard
+  each; with the two final races counted it would have reached ten.
+
+  Same racing as fixture 29, which scores the doubled reading first put to
+  the organiser. Nets after qualifying: m1 10, m2 14, m3 19, m4 25, m5 33,
+  halved to 5, 7, 10 (9.5 up), 13 (12.5 up), 17 (16.5 up). m2 and m3 tie on
+  12; m3 won F2, the last race, and m2 was third in it.
+
+config:
+  qualifyingFleets: [Fleet]
+  finalFleets: [Gold, Silver]
+  discardThresholds:
+    - minRaces: 5
+      discardCount: 1
+    - minRaces: 10
+      discardCount: 2
+  final:
+    carry: halved
+    tieBreak: last-race
+
+competitors:
+  - "m1 Helm M1"
+  - "m2 Helm M2"
+  - "m3 Helm M3"
+  - "m4 Helm M4"
+  - "m5 Helm M5"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Fleet: [m1, m2, m3, m4, m5]
+    races:
+      - { n: 1, results: { Fleet: [m1, m2, m3, m4, m5] } }
+      - { n: 2, results: { Fleet: [m2, m1, m3, m5, m4] } }
+      - { n: 3, results: { Fleet: [m1, m3, m2, m4, m5] } }
+      - { n: 4, results: { Fleet: [m3, m1, m2, m5, m4] } }
+      - { n: 5, results: { Fleet: [m1, m2, m4, m3, m5] } }
+      - { n: 6, results: { Fleet: [m2, m1, m3, m4, m5] } }
+      - { n: 7, results: { Fleet: [m1, m2, m3, m4, m5] } }
+      - { n: 8, results: { Fleet: [m4, m1, m2, m3] } }      # m5 absent: DNC = 5 + 1
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [m1, m2, m3]
+      Silver: [m4, m5]
+    races:
+      - n: 1
+        results:
+          Gold: [m3, m2, m1]
+          Silver: [m5, m4]
+      - n: 2
+        results:
+          Gold: [m3, m1, m2]
+          Silver: [m4]                  # m5 absent: DNC = 2 + 1
+
+expected:
+  standings:
+    # Carried (qualifying net halved) + F1 + F2.
+    - { rank: 1, sail: m1, total: 10, net: 10, fleet: Gold }    # 5 + 3 + 2
+    - { rank: 2, sail: m3, total: 12, net: 12, fleet: Gold }    # 10 + 1 + 1, won F2
+    - { rank: 3, sail: m2, total: 12, net: 12, fleet: Gold }    # 7 + 2 + 3
+    - { rank: 4, sail: m4, total: 16, net: 16, fleet: Silver }  # 13 + 2 + 1
+    - { rank: 5, sail: m5, total: 21, net: 21, fleet: Silver }  # 17 + 1 + 3

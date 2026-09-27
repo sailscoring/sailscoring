@@ -46,6 +46,7 @@ import {
   splitFleetUpgradeContext,
   upgradeSplitFleetConfig,
   upgradeSplitFleetRaceNames,
+  upgradeSplitFleetCarry,
 } from './split-fleet-config-upgrade';
 import { calculateFleetStandings, buildRaceFleetExclusionMap } from './scoring';
 import { loadSeriesSnapshot } from './series-snapshot';
@@ -512,9 +513,16 @@ export interface SeriesFileRepos {
  *  `vocabulary`. Reading an older file runs `upgradeSplitFleetConfig`: a
  *  value that is now fixed behaviour is dropped, a label or layout is
  *  upgraded, and a value that would score the championship differently
- *  refuses the file with the setting named. */
-export const FORMAT_VERSION = 58;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58];
+ *  refuses the file with the setting named.
+ *
+ *  v59 adds the score a boat takes into each stage: `final.carry` and
+ *  `final.tieBreak`, and `medal.carry` in place of the `medal.carryTransform`
+ *  block, which only ever meant `carry: 'halved'` (renamed on read,
+ *  `upgradeSplitFleetCarry`). The carry can now also be `nothing` or `rank`.
+ *  A build reading v58 would drop the final stage's carry and score the
+ *  championship as one continuous series, so the version moves. */
+export const FORMAT_VERSION = 59;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -1288,6 +1296,7 @@ export function migrateSeriesFileObject(obj: Record<string, unknown>): void {
   if (obj.formatVersion < 22) migratePersonFieldsToLists(obj.competitors);
   if (obj.formatVersion < 47) migrateClubToList(obj.competitors);
   if (obj.formatVersion < 58) upgradeSplitFleetsBlock(obj);
+  if (obj.formatVersion < 59) upgradeSplitFleetCarry((obj.splitFleets as { config?: unknown } | undefined)?.config);
 }
 
 /** ≤v57 → v58: the split-fleet configuration narrowed (ADR-013). Throws,

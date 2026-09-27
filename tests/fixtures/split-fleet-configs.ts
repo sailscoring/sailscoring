@@ -20,7 +20,7 @@ export function ilca2026Config(fleetCount: number): SplitFleetConfig {
     medal: {
       size: 10,
       multiplier: 1,
-      carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+      carry: 'halved',
       tieBreak: 'last-race',
     },
   };
@@ -38,7 +38,24 @@ export function openingSeriesMedalConfig(): SplitFleetConfig {
     medal: {
       size: 10,
       multiplier: 2,
+      carry: 'net',
       tieBreak: 'medal-race-then-a8',
     },
+  };
+}
+
+/** The 2026 Melges 15 Sprint Championships: one fleet, split into Gold and
+ *  Silver, each boat's qualifying score halved into the final series, ties
+ *  settled on the last race (the ILCA medal-series rules, applied to both
+ *  final fleets). */
+export function melges15SprintConfig(): SplitFleetConfig {
+  return {
+    ...defaultSplitFleetConfig(2),
+    qualifyingFleets: [UNBANDED_FLEET],
+    discardThresholds: [
+      { minRaces: 5, discardCount: 1 },
+      { minRaces: 10, discardCount: 2 },
+    ],
+    final: { carry: 'halved', tieBreak: 'last-race' },
   };
 }

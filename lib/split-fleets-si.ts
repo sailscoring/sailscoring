@@ -87,7 +87,9 @@ export type SplitFleetSentenceId =
   | 'non-finisher'
   | 'medal'
   | 'medal-ranking'
-  | 'medal-carry-transform'
+  | 'final-carry'
+  | 'final-tie-break'
+  | 'medal-carry'
   | 'medal-tie-break';
 
 export type SplitFleetSentence = { id: SplitFleetSentenceId; text: string };
@@ -106,7 +108,9 @@ export const SENTENCES_BY_SETTING = {
   fleetCount: ['fleet-assignment', 'split'],
   discards: ['discards', 'final-discard-cap'],
   medal: ['medal', 'medal-ranking'],
-  medalCarryTransform: ['medal-carry-transform'],
+  finalCarry: ['final-carry'],
+  finalTieBreak: ['final-tie-break'],
+  medalCarry: ['medal-carry'],
   medalTieBreak: ['medal-tie-break'],
 } satisfies Record<string, SplitFleetSentenceId[]>;
 
@@ -185,17 +189,39 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
   // Scoped to the series over stages one and two: the deciding stage's own
   // total is the medal block's business (2026 ILCA SI 18.6.1 says "in the
   // Qualification series", not "in the event").
-  push(
-    'totals',
-    unbanded
-      ? `The ${q} races will count for total points in the championship.`
-      : `The ${q} races and the ${f} races will count for total points in the ${vocab.seriesName}.`,
-  );
+  // Where the final series is entered on a carried score, the two stages are
+  // no longer one series: the carry sentence says how they combine instead.
+  const finalCarry = unbanded ? 'net' : config.final.carry;
+  if (finalCarry === 'net') {
+    push(
+      'totals',
+      unbanded
+        ? `The ${q} races will count for total points in the championship.`
+        : `The ${q} races and the ${f} races will count for total points in the ${vocab.seriesName}.`,
+    );
+  }
   push('discards', discardClause(config));
-  if (!unbanded) {
+  if (!unbanded && finalCarry === 'net') {
     push(
       'final-discard-cap',
       `No more than one excluded score may come from the ${f}, and if only one ${f} race has been completed that score will not be excluded.`,
+    );
+  }
+  if (!unbanded && finalCarry !== 'net') {
+    const untilRaced = `If a boat's fleet completes no ${f} race, her ${q} score will stand${finalCarry === 'halved' ? ' without being divided' : ''}.`;
+    push(
+      'final-carry',
+      finalCarry === 'halved'
+        ? `At the end of the ${q}, each boat's ${q} score will be divided by 2, rounded to the nearest whole number (0.5 rounded upward), and her ${f} race scores added to that. No ${f} race score may be excluded. ${untilRaced}`
+        : finalCarry === 'rank'
+          ? `At the end of the ${q}, each boat will carry into the ${f} a score equal to her rank in the ${q}, and her ${f} race scores will be added to that; her ${q} race scores will then not count. No ${f} race score may be excluded. ${untilRaced}`
+          : `No score will be carried forward from the ${q}: a boat's score will be the total of her ${f} race scores alone, none of which may be excluded. ${untilRaced}`,
+    );
+  }
+  if (!unbanded && config.final.tieBreak === 'last-race') {
+    push(
+      'final-tie-break',
+      `Within each ${vocab.stages.final.fleetNoun}, a tie will be broken in favour of the boat with the better score in the last race. This changes rule A8.`,
     );
   }
 
@@ -239,10 +265,21 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     'medal-ranking',
     `The boats qualified to compete in the ${m} will be ranked highest in the event.`,
   );
-  if (medal.carryTransform) {
+  const noMedalRace = `If no ${vocab.stages.medal.raceNoun} is completed, her ${vocab.seriesName} score will decide the championship`;
+  if (medal.carry === 'halved') {
     push(
-      'medal-carry-transform',
-      `Before the ${m}, each qualified boat's series score will be divided by 2, rounded to the nearest whole number (0.5 rounded upward), and her scores from the ${m} added to that. If no ${vocab.stages.medal.raceNoun} is completed, her ${vocab.seriesName} score will decide the championship without being divided.`,
+      'medal-carry',
+      `Before the ${m}, each qualified boat's series score will be divided by 2, rounded to the nearest whole number (0.5 rounded upward), and her scores from the ${m} added to that. ${noMedalRace} without being divided.`,
+    );
+  } else if (medal.carry === 'rank') {
+    push(
+      'medal-carry',
+      `Before the ${m}, each qualified boat will carry a score equal to her rank in the ${vocab.seriesName}, and her scores from the ${m} will be added to that. ${noMedalRace}.`,
+    );
+  } else if (medal.carry === 'nothing') {
+    push(
+      'medal-carry',
+      `No score will be carried into the ${m}: a qualified boat's score will be the total of her scores in it alone. ${noMedalRace}.`,
     );
   }
   if (medal.tieBreak === 'last-race') {

@@ -283,11 +283,22 @@ export async function createSplitFleetSeries(
   }
   await showStageSettings(page, medal);
   await Promise.all([saved(), page.getByRole('radio', { name: 'Single' }).click()]);
+  // The final series card offers the same carry and tie choices, so these
+  // are found within the medal card's own groups.
   await Promise.all([
     saved(),
-    page.getByRole('radio', { name: 'Net score halved, 0.5 rounded up' }).click(),
+    page
+      .getByRole('radiogroup', { name: new RegExp(`^Score carried into the ${medal}$`, 'i') })
+      .getByRole('radio', { name: 'Net score halved, 0.5 rounded up' })
+      .click(),
   ]);
-  await Promise.all([saved(), page.getByRole('radio', { name: 'The last race alone' }).click()]);
+  await Promise.all([
+    saved(),
+    page
+      .getByRole('radiogroup', { name: 'How ties between the top boats are broken' })
+      .getByRole('radio', { name: 'The last race alone' })
+      .click(),
+  ]);
   await showStageSettings(page, medal, false);
 }
 

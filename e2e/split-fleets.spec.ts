@@ -221,7 +221,10 @@ test('split fleets: seed → race → reassign → split → medal', async ({ pa
     'true',
   );
   await expect(si.locator('[data-sentence="medal"]')).not.toHaveAttribute('data-marked', 'true');
-  await page.getByRole('radio', { name: 'The last race alone' }).focus();
+  await page
+    .getByRole('radiogroup', { name: 'How ties between the top boats are broken' })
+    .getByRole('radio', { name: 'The last race alone' })
+    .focus();
   await expect(si.locator('[data-sentence="medal-tie-break"]')).toHaveAttribute('data-marked', 'true');
 
   // ── Medal fleet ───────────────────────────────────────────────────────────
@@ -731,4 +734,55 @@ test('split fleets: a late entry in no fleet of a sailed round is named', async 
   const notice = page.getByTestId('sf-score-mismatch');
   await expect(notice).toContainText('299999 Late Entrant');
   await expect(notice).toContainText('in no fleet for QP1');
+});
+
+/**
+ * The score each boat carries into the Elimination series, as the 2026
+ * Melges 15 Sprint Championships halve theirs at the split: set on the
+ * Elimination series card, and stated in the sailing instructions.
+ */
+test('split fleets: the Elimination series can be entered on a halved score', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+  await createSplitFleetSeries(page, { name: 'Sprint Championships', venue: 'Dun Laoghaire', fleetCount: 2 });
+  const saved = () =>
+    page.waitForResponse(
+      (r) =>
+        /\/api\/v1\/series\/[^/]+\/split-fleets$/.test(r.url()) &&
+        r.request().method() === 'PUT' &&
+        r.ok(),
+    );
+  await showStageSettings(page, 'Elimination series');
+  const carry = page.getByRole('radiogroup', { name: 'Score carried into the Elimination series' });
+  await expect(carry.getByRole('radio', { name: 'Net score', exact: true })).toBeChecked();
+  await Promise.all([
+    saved(),
+    carry.getByRole('radio', { name: 'Net score halved, 0.5 rounded up' }).click(),
+  ]);
+  await Promise.all([
+    saved(),
+    page
+      .getByRole('radiogroup', { name: 'How ties within an Elimination fleet are broken' })
+      .getByRole('radio', { name: 'The last race alone' })
+      .click(),
+  ]);
+
+  const si = await showSailingInstructions(page);
+  await expect(si.locator('[data-sentence="final-carry"]')).toContainText(
+    "each boat's Preliminary series score will be divided by 2",
+  );
+  await expect(si.locator('[data-sentence="final-tie-break"]')).toContainText('the last race');
+  // No longer one continuous series, so no sentence says it is.
+  await expect(si.locator('[data-sentence="totals"]')).toHaveCount(0);
+
+  // It is stored, not just shown.
+  await page.reload();
+  await showStageSettings(page, 'Elimination series');
+  await expect(
+    page
+      .getByRole('radiogroup', { name: 'Score carried into the Elimination series' })
+      .getByRole('radio', { name: 'Net score halved, 0.5 rounded up' }),
+  ).toBeChecked();
 });

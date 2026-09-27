@@ -591,6 +591,154 @@ describe('splitFleetStandings', () => {
     });
   });
 
+  describe('the score carried into a stage', () => {
+    // One qualifying fleet of five, one discard from three races, split into
+    // Gold (c1 c2 c3) and Silver (c4 c5), each sailing F1.
+    //   Q1 c1 c2 c3 c4 c5 · Q2 c2 c1 c3 c5 c4 · Q3 c1 c3 c2 c4 c5
+    //   nets: c1 1+2+1-2 = 2, c2 3, c3 5, c4 8, c5 9
+    //   Gold F1: c3 c2 c1 · Silver F1: c5 c4
+    function carryData(
+      final: SplitFleetConfig['final'],
+      opts: { silverSailed?: boolean; medal?: { carry: SplitFleetConfig['medal']['carry'] } } = {},
+    ): SplitFleetData {
+      const competitors = [
+        competitor('c1', ['fq', 'fg'], 1),
+        competitor('c2', ['fq', 'fg'], 2),
+        competitor('c3', ['fq', 'fg'], 3),
+        competitor('c4', ['fq', 'fs'], 4),
+        competitor('c5', ['fq', 'fs'], 5),
+      ];
+      const rounds: SplitRound[] = [
+        {
+          id: 'r1', seriesId: 's1', stage: 'qualifying', fromStageRace: 1,
+          fleetIds: ['fq'], method: 'seeded', basis: null, createdAt: 0,
+        },
+        {
+          id: 'r2', seriesId: 's1', stage: 'final', fromStageRace: 1,
+          fleetIds: ['fg', 'fs'], method: 'split', basis: null, createdAt: 1,
+        },
+      ];
+      const races = [race('q1'), race('q2'), race('q3'), race('f1g')];
+      const raceStarts = [
+        start('q1', ['fq'], 'qualifying', 1),
+        start('q2', ['fq'], 'qualifying', 2),
+        start('q3', ['fq'], 'qualifying', 3),
+        start('f1g', ['fg'], 'final', 1),
+      ];
+      const order = (raceId: string, ids: string[]) => ids.map((id, i) => finish(raceId, id, i));
+      const finishes = [
+        ...order('q1', ['c1', 'c2', 'c3', 'c4', 'c5']),
+        ...order('q2', ['c2', 'c1', 'c3', 'c5', 'c4']),
+        ...order('q3', ['c1', 'c3', 'c2', 'c4', 'c5']),
+        ...order('f1g', ['c3', 'c2', 'c1']),
+      ];
+      if (opts.silverSailed !== false) {
+        races.push(race('f1s'));
+        raceStarts.push(start('f1s', ['fs'], 'final', 1));
+        finishes.push(...order('f1s', ['c5', 'c4']));
+      }
+      const fleets = [fleet('fq', 'Fleet'), fleet('fg', 'Gold'), fleet('fs', 'Silver')];
+      if (opts.medal) {
+        competitors[0].fleetIds.push('fm');
+        competitors[1].fleetIds.push('fm');
+        rounds.push({
+          id: 'r3', seriesId: 's1', stage: 'medal', fromStageRace: 1,
+          fleetIds: ['fm'], method: 'medal-select', basis: null, createdAt: 2,
+        });
+        fleets.push(fleet('fm', 'Medal'));
+        races.push(race('m1'));
+        raceStarts.push(start('m1', ['fm'], 'medal', 1));
+        finishes.push(...order('m1', ['c2', 'c1']));
+      }
+      return {
+        config: {
+          ...defaultSplitFleetConfig(2),
+          qualifyingFleets: [UNBANDED_FLEET],
+          discardThresholds: [{ minRaces: 3, discardCount: 1 }],
+          final,
+          medal: { size: 2, multiplier: 2, carry: opts.medal?.carry ?? 'net', tieBreak: 'medal-race-then-a8' },
+        },
+        rounds,
+        fleets,
+        competitors,
+        races,
+        raceStarts,
+        finishes,
+      };
+    }
+    const byId = (rows: ReturnType<typeof splitFleetStandings>) =>
+      new Map(rows.map((r) => [r.competitor.id, r]));
+    const carriedCell = (row: ReturnType<typeof splitFleetStandings>[number], stage: string) =>
+      row.cells.find((c) => c.carriedTransform && c.stage === stage);
+
+    it('halves the qualifying net into the final series, 0.5 rounded up', () => {
+      const rows = byId(splitFleetStandings(carryData({ carry: 'halved', tieBreak: 'a8' })));
+      // nets 2, 3, 5, 8, 9 halve to 1, 2, 3, 4, 5.
+      expect(['c1', 'c2', 'c3', 'c4', 'c5'].map((id) => carriedCell(rows.get(id)!, 'final')!.points)).toEqual([
+        1, 2, 3, 4, 5,
+      ]);
+      const c1 = rows.get('c1')!;
+      expect(c1.cells.filter((c) => c.stage === 'qualifying').every((c) => c.superseded && !c.counts)).toBe(
+        true,
+      );
+      expect(c1.net).toBe(1 + 3);
+      // The final series is settled: never excluded.
+      expect(c1.cells.find((c) => c.stage === 'final' && c.raceId)!.discardable).toBe(false);
+    });
+
+    it('breaks a tie within a final fleet on the last race alone, where asked', () => {
+      // Gold all score 4: c1 1+3, c2 2+2, c3 3+1.
+      const a8 = splitFleetStandings(carryData({ carry: 'halved', tieBreak: 'a8' }));
+      const lastRace = splitFleetStandings(carryData({ carry: 'halved', tieBreak: 'last-race' }));
+      const gold = (rows: typeof a8) =>
+        rows.filter((r) => r.finalFleetId === 'fg').map((r) => r.competitor.id);
+      // A8.1: c1 and c3 both hold {1, 3} and beat c2's {2, 2}; A8.2 puts c3 first.
+      expect(gold(a8)).toEqual(['c3', 'c1', 'c2']);
+      expect(gold(lastRace)).toEqual(['c3', 'c2', 'c1']);
+      // Silver tie at 6 (c4 4+2, c5 5+1): the last race again.
+      expect(lastRace.slice(3).map((r) => r.competitor.id)).toEqual(['c5', 'c4']);
+    });
+
+    it('carries nothing into a fleet until that fleet has sailed a final race', () => {
+      const rows = byId(
+        splitFleetStandings(carryData({ carry: 'halved', tieBreak: 'a8' }, { silverSailed: false })),
+      );
+      // Gold has sailed F1, so its boats are on the halved carry…
+      expect(rows.get('c1')!.net).toBe(4);
+      // …while Silver's still stand on their qualifying nets, the carry on show.
+      const c4 = rows.get('c4')!;
+      expect(c4.net).toBe(8);
+      expect(carriedCell(c4, 'final')!.counts).toBe(false);
+    });
+
+    it('scores the final series alone when nothing is carried', () => {
+      const rows = byId(splitFleetStandings(carryData({ carry: 'nothing', tieBreak: 'a8' })));
+      expect(rows.get('c1')!.net).toBe(3);
+      expect(carriedCell(rows.get('c1')!, 'final')).toBeUndefined();
+    });
+
+    it('carries the qualifying rank', () => {
+      const rows = byId(splitFleetStandings(carryData({ carry: 'rank', tieBreak: 'a8' })));
+      expect(['c1', 'c2', 'c3', 'c4', 'c5'].map((id) => carriedCell(rows.get(id)!, 'final')!.points)).toEqual([
+        1, 2, 3, 4, 5,
+      ]);
+    });
+
+    it('carries nothing, or the rank at the cut, into the medal stage', () => {
+      const net = { carry: 'net', tieBreak: 'a8' } as const;
+      const nothing = byId(splitFleetStandings(carryData(net, { medal: { carry: 'nothing' } })));
+      // M1 at double points: c2 1st (2), c1 2nd (4).
+      expect(nothing.get('c2')!.net).toBe(2);
+      expect(nothing.get('c1')!.net).toBe(4);
+
+      const rank = byId(splitFleetStandings(carryData(net, { medal: { carry: 'rank' } })));
+      const atCut = byId(splitFleetStandings({ ...carryData(net), rounds: carryData(net).rounds }));
+      for (const id of ['c1', 'c2']) {
+        expect(carriedCell(rank.get(id)!, 'medal')!.points).toBe(atCut.get(id)!.rank);
+      }
+    });
+  });
+
   it('scores per-fleet places from one combined sheet (sequenced starts)', () => {
     // Yellow and Blue start in sequence and finish onto one interleaved
     // sheet: crossing order c1(Y), c4(B), c2(Y), c5(B). Places are per
@@ -1015,7 +1163,7 @@ describe('a halved carry waits for a medal race', () => {
       medal: {
         size: 2,
         multiplier: 1,
-        carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' },
+        carry: 'halved',
         tieBreak: 'last-race',
       },
     };
@@ -1108,11 +1256,7 @@ describe('the medal tie-break waits for a medal-stage score', () => {
       medal: {
         size: 2,
         multiplier: 1,
-        carryTransform: {
-          kind: 'divide',
-          by: 2,
-          rounding: 'half-up',
-        },
+        carry: 'halved',
         tieBreak: 'last-race',
       },
     };
@@ -1200,7 +1344,7 @@ describe('a weighted medal race', () => {
     const config: SplitFleetConfig = {
       ...defaultSplitFleetConfig(2),
       discardThresholds: [],
-      medal: { size: 2, multiplier: 2, tieBreak: 'medal-race-then-a8' },
+      medal: { size: 2, multiplier: 2, carry: 'net', tieBreak: 'medal-race-then-a8' },
     };
     return {
       config,
@@ -1297,6 +1441,7 @@ describe('the medal-race-then-A8 tie-break', () => {
       medal: {
         size: 2,
         multiplier: 2,
+        carry: 'net',
         tieBreak,
       },
     };

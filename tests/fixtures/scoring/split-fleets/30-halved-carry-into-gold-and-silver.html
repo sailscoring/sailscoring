@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>One qualifying fleet split into Gold and Silver, each boat's qualifying score halved into the final series, ties on the last race — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>One qualifying fleet split into Gold and Silver, each boat's qualifying score halved into the final series, ties on the last race</h1>
+<p style="color:#555;">Melges 15 2026 — Melges 15 Sprint Championships, Royal St George YC, Dublin Bay (SI 15.2-15.3) &middot; <strong>F3</strong> &middot; D6, D7 &middot; SI (<code>reference-docs:events/melges15-sprint-2026/SI-v1.0.md</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">1 qualifying fleets &middot; → Gold/Silver &middot; discards: 1 discard from race 5, 2 discards from race 10.</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">The event says it adopts the ILCA Worlds medal-series format, and applies
+it to both of its final fleets: after a one-fleet Qualifying series the
+fleet splits by rank into Gold (the top half, rounded up) and Silver, and
+&quot;the net points score after the qualifying series will be halved (a score
+to carry forward), and both races sailed in the medal races must be
+counted&quot; (SI 15.3). Where SI 15.3 is silent it follows the ILCA SIs: the
+halving rounds to the nearest whole number, 0.5 upward (ILCA SI 18.7.3);
+a tie is broken on the last race, replacing A8 (ILCA SI 18.7.4); and Gold
+ranks above Silver.
+
+Configured as `final: { carry: halved, tieBreak: last-race }`. The final
+series races are settled by the carry: never excluded, and not counted
+towards the discards. Qualifying is cut short at 8 races, one discard
+each; with the two final races counted it would have reached ten.
+
+Same racing as fixture 29, which scores the doubled reading first put to
+the organiser. Nets after qualifying: m1 10, m2 14, m3 19, m4 25, m5 33,
+halved to 5, 7, 10 (9.5 up), 13 (12.5 up), 17 (16.5 up). m2 and m3 tie on
+12; m3 won F2, the last race, and m2 was third in it.</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">Fleet: m1, m2, m3, m4, m5</span></td></tr>
+<tr><td>Final split</td><td>split (qualifying ranking)</td><td><span style="background:#ffec99;padding:0 4px;border-radius:3px;">Gold: m1, m2, m3</span>&nbsp; <span style="background:#e9ecef;padding:0 4px;border-radius:3px;">Silver: m4, m5</span></td></tr>
+</tbody>
+</table>
+<h2>Gold fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q5</th><th>Q6</th><th>Q7</th><th>Q8</th><th>Carried</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">m1</td>
+  <td>Helm M1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">(2)</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold" title="score carried into the final series">5</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">3</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">2</td>
+  <td style="text-align:right">10</td>
+  <td style="text-align:right;font-weight:bold">10</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">m3</td>
+  <td>Helm M3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">(4)</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">4</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold" title="score carried into the final series">10</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">1</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">1</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">12</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">m2</td>
+  <td>Helm M2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">(3)</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold" title="score carried into the final series">7</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">2</td>
+  <td style="background:#ffec99;text-align:center;font-weight:bold">3</td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">12</td>
+</tr>
+</tbody>
+</table>
+<h2>Silver fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q5</th><th>Q6</th><th>Q7</th><th>Q8</th><th>Carried</th><th>F1</th><th>F2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>4</td>
+  <td class="mono">m4</td>
+  <td>Helm M4</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">4</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">(5)</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">4</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">4</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">4</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold" title="score carried into the final series">13</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">2</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">1</td>
+  <td style="text-align:right">16</td>
+  <td style="text-align:right;font-weight:bold">16</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">m5</td>
+  <td>Helm M5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">4</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">4</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">(6 DNC)</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold" title="score carried into the final series">17</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">1</td>
+  <td style="background:#e9ecef;text-align:center;font-weight:bold">3 DNC</td>
+  <td style="text-align:right">21</td>
+  <td style="text-align:right;font-weight:bold">21</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

@@ -980,7 +980,8 @@ function buildChampionship(): SeriesFile {
     split: { kind: 'equal-blocks' },
     discardThresholds: [{ minRaces: 4, discardCount: 1 }],
     vocabulary: DEFAULT_VOCABULARY,
-    medal: { size: 6, multiplier: 2, tieBreak: 'medal-race-then-a8' },
+    final: { carry: 'net', tieBreak: 'a8' },
+    medal: { size: 6, multiplier: 2, carry: 'net', tieBreak: 'medal-race-then-a8' },
   };
 
   // 24 sailors. `seed` is the OA's pre-event ranking; racing ability tracks

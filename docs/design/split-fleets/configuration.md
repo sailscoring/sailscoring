@@ -85,8 +85,9 @@ then the fleet splits.
 | How boats are divided | Rule: near-equal fleets by rank, top fleet largest; block sizes adjustable in the split dialog | both ILCA |
 | Race labels | Rule: F, or QE | ILCA QE |
 | Non-finisher score | Rule: boats in her own fleet + 1 | both ILCA |
-| Carried from stage 1 | Rule: points, as one continuous series | both ILCA |
-| Discard cap | Rule: at most one excluded score from this stage, and never from a lone completed race of it | both ILCA |
+| Score carried in | Net, net halved with 0.5 rounded up, nothing, or rank | both ILCA net; Melges 15 Sprint halved |
+| Ties within a fleet | A8, or the last race alone | both ILCA A8; Melges 15 Sprint last race |
+| Discard cap | Rule: with a net carry, at most one excluded score from this stage, and never from a lone completed race of it; with any other, none | both ILCA |
 | Companion race | Rule: scored from medal-fleet size + 1 in each fleet that lost boats to the medal fleet | both ILCA |
 
 The companion race is an action on this card, not a setting. See the flow doc.
@@ -99,12 +100,18 @@ The companion race is an action on this card, not a setting. See the flow doc.
 |---|---|---|
 | Fleet size | Number. It draws the provisional cut line before selection, and the selection dialog starts from it | all 10 |
 | Points | ×2 or ×1 | JCC ×2; ILCA ×1 |
-| Score carried in | Net, or net halved with 0.5 rounded up | JCC net; ILCA halved |
+| Score carried in | Net, net halved with 0.5 rounded up, nothing, or rank | JCC net; ILCA halved |
 | Ties among medal boats | The medal race first, then A8; or the last race alone | JCC NoR 15.3; ILCA SI 18.7.4 |
 | Discards | Rule: no medal race is excluded, and none counts towards the ladder | all |
 | Race labels | Rule: M, or F | JCC M; ILCA F |
 | Who is selected | Rule: top N of the opening series, or top N of stage 2's top fleet once divided; ties by A8, then entry order | all |
-| When a halved carry applies | Rule: from the first completed medal race, so an abandoned medal stage leaves the undivided score (2026 ILCA SI 18.7.5, Amendment 5) | ILCA |
+| When a carry other than net applies | Rule: once the boat's fleet completes a race of the stage, so a stage never sailed leaves the undivided score (2026 ILCA SI 18.7.5, Amendment 5) | ILCA |
+
+The score carried in is the same choice on both cards. The 2026 Melges 15
+Sprint Championships adopted the ILCA medal-series format for their Gold and
+Silver fleets, which is the halved carry at the split rather than at the
+medal cut; nothing and rank are the Champions' Cups' and the Topper's final
+series, offered so the choice reads the same wherever it appears.
 
 ---
 
@@ -163,10 +170,14 @@ interface SplitFleetConfig {
   finalFleets: { label: string; color: string }[];
   split: { kind: 'equal-blocks' } | { kind: 'none' };
   discardThresholds: { minRaces: number; discardCount: number }[];
+  final: {
+    carry: 'net' | 'halved' | 'nothing' | 'rank';
+    tieBreak: 'a8' | 'last-race';
+  };
   medal: {
     size: number;
     multiplier: 1 | 2;
-    carryTransform?: { kind: 'divide'; by: 2; rounding: 'half-up' };
+    carry: 'net' | 'halved' | 'nothing' | 'rank';
     tieBreak: 'medal-race-then-a8' | 'last-race';
   };
 }

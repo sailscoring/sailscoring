@@ -60,10 +60,7 @@ config:
   medal:
     size: 2
     multiplier: 1
-    carryTransform:
-      kind: divide
-      by: 2
-      rounding: half-up
+    carry: halved
 
 competitors:
   - "y1 Helm Y1"

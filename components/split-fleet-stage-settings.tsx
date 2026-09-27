@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
 import { SENTENCES_BY_SETTING, type SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import {
+  CARRY_IN_VALUES,
   capitaliseStage,
   FINAL_FLEET_SET,
   QUALIFYING_COLOR_SETS,
@@ -26,6 +27,7 @@ import {
   stageAdjective,
   stageRaceLabel,
   VOCABULARY_OPTIONS,
+  type CarryIn,
   type SplitFleetConfig,
   type VocabularyKey,
 } from '@/lib/split-fleets';
@@ -653,13 +655,20 @@ export function Stage2Settings({
     <StageSettings
       title={capitaliseStage(f.name)}
       current={current}
-      summary={`${fleets.length} fleets · ${fleets.map((x) => x.label).join(', ')}`}
+      summary={`${fleets.length} fleets · ${fleets.map((x) => x.label).join(', ')} · ${CARRY_SUMMARY[config.final.carry]}`}
       rules={[
         `Races are numbered ${labels(config, 'final')}.`,
         `Boats are divided by their ${q.name} rank into near-equal fleets, the top fleet largest.`,
         `A boat that doesn’t finish scores the number of boats in her own fleet, plus one.`,
-        `Points carry on from the ${q.name} as one series.`,
-        `At most one excluded score may come from the ${f.name}, and never from a lone ${f.raceNoun}.`,
+        ...(config.final.carry === 'net'
+          ? [
+              `Points carry on from the ${q.name} as one series.`,
+              `At most one excluded score may come from the ${f.name}, and never from a lone ${f.raceNoun}.`,
+            ]
+          : [
+              `No ${f.raceNoun} is excluded, and none counts towards the discards.`,
+              `The score carried in applies once a boat’s fleet completes a ${f.raceNoun}. Until then the ${q.name} score stands.`,
+            ]),
         ...(medalSelected
           ? [
               `The boats outside the ${m.fleetNoun} sail one more race in their own fleets, scored from ${config.medal.size + 1} in the fleet the ${m.fleetNoun} left.`,
@@ -679,10 +688,83 @@ export function Stage2Settings({
               onChange={(finalFleets) => patch({ finalFleets })}
             />
           </Row>
+          <Row settings={['finalCarry']} label="Score carried in">
+            <CarryControl
+              name="sf-final-carry"
+              label={`Score carried into the ${f.name}`}
+              value={config.final.carry}
+              canEdit={canEdit}
+              onChange={(carry) => patch({ final: { ...config.final, carry } })}
+            />
+          </Row>
+          <Row settings={['finalTieBreak']} label="Ties">
+            <div className="space-y-1" role="radiogroup" aria-label={`How ties within ${articled(f.fleetNoun)} are broken`}>
+              {(['a8', 'last-race'] as const).map((tieBreak) => (
+                <label key={tieBreak} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="sf-final-ties"
+                    disabled={!canEdit}
+                    checked={config.final.tieBreak === tieBreak}
+                    onChange={() => patch({ final: { ...config.final, tieBreak } })}
+                  />
+                  {tieBreak === 'a8' ? 'Rule A8' : 'The last race alone'}
+                </label>
+              ))}
+            </div>
+          </Row>
           {error && <p className="text-destructive">{error}</p>}
         </>
       }
     />
+  );
+}
+
+// ─── The score carried into a stage ─────────────────────────────────────────
+
+const CARRY_SUMMARY: Record<CarryIn, string> = {
+  net: 'net score carried',
+  halved: 'net score halved',
+  nothing: 'nothing carried',
+  rank: 'rank carried',
+};
+
+const CARRY_LABEL: Record<CarryIn, string> = {
+  net: 'Net score',
+  halved: 'Net score halved, 0.5 rounded up',
+  nothing: 'Nothing',
+  rank: 'Rank',
+};
+
+/** The four answers to what a boat takes into a stage (see `CarryIn`). */
+function CarryControl({
+  name,
+  label,
+  value,
+  canEdit,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  value: CarryIn;
+  canEdit: boolean;
+  onChange: (carry: CarryIn) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1" role="radiogroup" aria-label={label}>
+      {CARRY_IN_VALUES.map((carry) => (
+        <label key={carry} className="flex items-center gap-2">
+          <input
+            type="radio"
+            name={name}
+            disabled={!canEdit}
+            checked={value === carry}
+            onChange={() => onChange(carry)}
+          />
+          {CARRY_LABEL[carry]}
+        </label>
+      ))}
+    </div>
   );
 }
 
@@ -721,16 +803,16 @@ export function MedalSettings({
       summary={[
         `${medal.size} boats`,
         medal.multiplier === 2 ? 'double points' : 'single points',
-        medal.carryTransform ? 'net score halved' : 'net score carried',
+        CARRY_SUMMARY[medal.carry],
       ].join(' · ')}
       rules={[
         `Races are numbered ${labels(config, 'medal')}.`,
         `No ${m.raceNoun} is excluded, and none counts towards the discards.`,
         `The ${m.fleetNoun} is the top ${medal.size} of ${from}, ties settled by rule A8 and then entry order.`,
         `The ${m.fleetNoun} ranks ahead of every other boat, whatever the points say.`,
-        ...(medal.carryTransform
+        ...(medal.carry !== 'net'
           ? [
-              `The halved score applies from the first completed ${m.raceNoun}. If none is completed, the undivided score stands.`,
+              `The score carried in applies from the first completed ${m.raceNoun}. If none is completed, the ${vocab.seriesName} score stands.`,
             ]
           : []),
       ]}
@@ -755,16 +837,14 @@ export function MedalSettings({
               {radio('sf-medal-points', medal.multiplier === 2, () => setMedal({ multiplier: 2 }), 'Double')}
             </div>
           </Row>
-          <Row settings={['medalCarryTransform']} label="Score carried in">
-            <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Score carried in">
-              {radio('sf-medal-carry', !medal.carryTransform, () => setMedal({ carryTransform: undefined }), 'Net score')}
-              {radio(
-                'sf-medal-carry',
-                !!medal.carryTransform,
-                () => setMedal({ carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' } }),
-                'Net score halved, 0.5 rounded up',
-              )}
-            </div>
+          <Row settings={['medalCarry']} label="Score carried in">
+            <CarryControl
+              name="sf-medal-carry"
+              label={`Score carried into the ${m.name}`}
+              value={medal.carry}
+              canEdit={canEdit}
+              onChange={(carry) => setMedal({ carry })}
+            />
           </Row>
           <Row settings={['medalTieBreak']} label="Ties">
             <div className="space-y-1" role="radiogroup" aria-label="How ties between the top boats are broken">

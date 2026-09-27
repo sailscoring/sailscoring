@@ -64,14 +64,26 @@ export interface SplitFleetConfig {
   /** Which set of words this championship's sailing instructions use for its
    *  stages and races (see `Vocabulary`). */
   vocabulary: VocabularyKey;
+  /** The second stage, where the opening series is divided (ignored where it
+   *  is not). `carry` is the score each boat takes into it (see `CarryIn`);
+   *  `tieBreak` settles a tie between two boats of one final fleet. */
+  final: {
+    carry: CarryIn;
+    /** - `a8`: RRS A8 as written.
+     *  - `last-race`: the boats' scores in the last race, replacing A8 — the
+     *    same clause as the medal stage's `last-race`, for a championship
+     *    whose sailing instructions apply the ILCA medal-series rules to
+     *    its final fleets (the 2026 Melges 15 Sprint Championships). */
+    tieBreak: 'a8' | 'last-race';
+  };
   /** The deciding stage. `size` is also what draws the provisional cut line
-   *  before the fleet is selected. `carryTransform` halves the medal boats'
-   *  opening-series score before the medal races add to it. The scorer adds
-   *  medal races as the sailing instructions say; nothing here counts them. */
+   *  before the fleet is selected. `carry` is the score each medal boat takes
+   *  into it (see `CarryIn`). The scorer adds medal races as the sailing
+   *  instructions say; nothing here counts them. */
   medal: {
     size: number;
     multiplier: 1 | 2;
-    carryTransform?: CarryTransform;
+    carry: CarryIn;
     /** How a tie between two medal boats is settled.
      *  - `last-race` replaces RRS A8 outright with its own single comparison —
      *    the boats' scores in the last race, with no count-of-places step
@@ -340,6 +352,34 @@ export interface CarryTransform {
   rounding: 'half-up';
 }
 
+/**
+ * The score a boat takes into a stage.
+ *
+ * - `net` — her score as it stands, the stage's races adding to it one by
+ *   one: one continuous series (Appendix LE, ILCA to 2025).
+ * - `halved` — her net score so far, divided by 2 and rounded to the nearest
+ *   whole number, 0.5 upward (2026 ILCA SI 18.7.3).
+ * - `nothing` — the stage is scored on its own races alone, and what came
+ *   before only decided who sails it (the Irish Sailing Champions' Cups'
+ *   final series).
+ * - `rank` — her rank at the cut, as one score (the Topper and 470
+ *   Europeans' final series).
+ *
+ * Anything but `net` replaces her earlier race scores with the one carried
+ * score — they stay on show, out of the total — and from then on the stage's
+ * races are never excluded and do not count towards the discards, since the
+ * discards were settled in reaching the carried score. It takes effect once
+ * her fleet has completed a race of the stage: until then the earlier score
+ * is the result, as each of those sailing instructions says it is if the
+ * stage is never sailed.
+ */
+export type CarryIn = 'net' | 'halved' | 'nothing' | 'rank';
+
+export const CARRY_IN_VALUES: readonly CarryIn[] = ['net', 'halved', 'nothing', 'rank'];
+
+/** The halving a `halved` carry applies. */
+const HALVED: CarryTransform = { kind: 'divide', by: 2, rounding: 'half-up' };
+
 /*
  * The halved score takes effect from the first completed medal race, so an
  * abandoned medal stage decides the event on the undivided opening score
@@ -443,7 +483,8 @@ export function defaultSplitFleetConfig(fleetCount: number): SplitFleetConfig {
       { minRaces: 10, discardCount: 2 },
     ],
     vocabulary: DEFAULT_VOCABULARY,
-    medal: { size: 10, multiplier: 2, tieBreak: 'medal-race-then-a8' },
+    final: { carry: 'net', tieBreak: 'a8' },
+    medal: { size: 10, multiplier: 2, carry: 'net', tieBreak: 'medal-race-then-a8' },
   };
 }
 
@@ -487,10 +528,16 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
       ((stageNaming as { continuousOpeningNumbers?: boolean } | undefined)?.continuousOpeningNumbers
         ? 'qualification-final'
         : DEFAULT_VOCABULARY),
+    final: {
+      carry: raw.final?.carry ?? 'net',
+      tieBreak: raw.final?.tieBreak ?? 'a8',
+    },
     medal: {
       ...medalRest,
       tieBreak: medalRest.tieBreak ?? 'medal-race-then-a8',
-      ...(carryTransform ? { carryTransform: { kind: 'divide', by: 2, rounding: 'half-up' } } : {}),
+      // Series-file v58 and public export v4 wrote the halved carry as a
+      // `carryTransform` block.
+      carry: medalRest.carry ?? (carryTransform ? 'halved' : 'net'),
     },
   } as SplitFleetConfig;
 }
@@ -507,7 +554,8 @@ export function newSplitFleetConfig(vocabulary: VocabularyKey = DEFAULT_VOCABULA
     split: { kind: 'none' },
     discardThresholds: [{ minRaces: 3, discardCount: 1 }],
     vocabulary,
-    medal: { size: 10, multiplier: 2, tieBreak: 'medal-race-then-a8' },
+    final: { carry: 'net', tieBreak: 'a8' },
+    medal: { size: 10, multiplier: 2, carry: 'net', tieBreak: 'medal-race-then-a8' },
   };
 }
 
@@ -1061,8 +1109,11 @@ function discardCount(config: SplitFleetConfig, countedRaces: number): number {
   return n;
 }
 
-/** Apply the discard ladder over a row's cells. Medal cells are never
- *  discardable and do not count toward the thresholds (2024 ILCA SI 18.6),
+/** Apply the discard ladder over a row's cells. The cells of a `settled`
+ *  stage are never discardable and do not count toward the thresholds: the
+ *  medal stage always (2024 ILCA SI 18.6), and the final stage where it is
+ *  entered on a carried score rather than continuing the series (see
+ *  `CarryIn`),
  *  and nor does a race the scorer marked must-count: a race the ladder can
  *  never reach is not one of the races it counts, which is how sailing
  *  instructions that protect a stage's races put it ("in the Qualifying
@@ -1072,10 +1123,14 @@ function discardCount(config: SplitFleetConfig, countedRaces: number): number {
  *  discard-first go before any other, in race order; the rest go worst
  *  first, and ties in badness discard the earliest race (RRS A2.1). Mutates
  *  cell.discarded. */
-function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
+function applyDiscards(
+  config: SplitFleetConfig,
+  cells: CellScore[],
+  settled: ReadonlySet<SeriesStage>,
+): void {
   const counting = cells.filter((c) => c.counts);
   const thresholdRaces = counting.filter(
-    (c) => c.stage !== 'medal' && c.discardPolicy !== 'mustCount',
+    (c) => !settled.has(c.stage) && c.discardPolicy !== 'mustCount',
   ).length;
   const n = discardCount(config, thresholdRaces);
   const finalCells = counting.filter((c) => c.stage === 'final');
@@ -1085,7 +1140,7 @@ function applyDiscards(config: SplitFleetConfig, cells: CellScore[]): void {
   let finalDiscards = 0;
   const first = (c: CellScore) => c.discardPolicy === 'discardFirst';
   const candidates = counting
-    .filter((c) => c.discardable && c.stage !== 'medal')
+    .filter((c) => c.discardable && !settled.has(c.stage))
     .sort(
       (a, b) =>
         Number(first(b)) - Number(first(a)) ||
@@ -1259,55 +1314,93 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     row.net = counting.filter((c) => !c.discarded).reduce((s, c) => s + c.points, 0);
   };
 
+  // A stage entered on anything but a continuous carry is settled on the
+  // way in: its races are never excluded, and do not count towards the
+  // discards, which were applied in reaching the carried score.
+  const finalCarry: CarryIn = splitRound ? config.final.carry : 'net';
+  const settled = new Set<SeriesStage>(['medal']);
+  if (finalCarry !== 'net') settled.add('final');
   for (const row of rows) {
-    applyDiscards(config, row.cells);
+    for (const cell of row.cells) if (settled.has(cell.stage)) cell.discardable = false;
+    applyDiscards(config, row.cells, settled);
     totalRow(row);
   }
 
-  // Compressed carry: each medal boat's opening-series net is divided and
-  // rounded, and that one number — not her race scores — is what the medal
-  // races add to (2026 ILCA SI 18.7.2/18.7.3). Applied after the discards
-  // because the transform's input is her net.
-  //
-  // The carried cell exists from the moment the medal fleet is committed —
-  // the qualified boats and everyone watching them need to see the scores
-  // the deciding races will add to. It counts only once a medal race has
-  // been completed, so a medal stage that never sails leaves the undivided
-  // opening score as the event result (2026 ILCA SI 18.7.5 from
+  // The rank a boat carries is her rank in the championship as it stood at
+  // the cut: the standings over the stages before the one she carries it
+  // into. The medal fleet is cut before the companion race is sailed, so
+  // that race is left out of its ranking as well.
+  const rankAtCut = (into: SeriesStage): Map<string, number> => {
+    const later = (stage: SeriesStage | undefined) =>
+      !!stage && STAGES.indexOf(stage) >= STAGES.indexOf(into);
+    const cut = splitFleetStandings({
+      ...data,
+      rounds: rounds.filter((r) => !later(r.stage)),
+      raceStarts: data.raceStarts.filter(
+        (s) =>
+          !later(s.stage) &&
+          !(into === 'medal' && s.stage !== 'medal' && (s.firstPlaceOffset ?? 0) > 0),
+      ),
+    });
+    return new Map(cut.map((r) => [r.competitor.id, r.rank]));
+  };
+
+  // A carry other than `net` turns everything a boat scored before the stage
+  // into one carried score — or into nothing — applied after the discards,
+  // since its input is her net (2026 ILCA SI 18.7.2/18.7.3). The carried
+  // cell is on show from the cut, so the boats and everyone watching them
+  // see what the stage's races will add to; it counts only once her fleet
+  // has completed a race of the stage, so a stage that is never sailed
+  // leaves the undivided score as the result (2026 ILCA SI 18.7.5 from
   // Amendment 5).
-  const transform = config.medal.carryTransform;
-  const medalRaceCompleted = mRaces.some((lr) => lr.valid);
-  if (transform && medalRound) {
-    const applies = medalRaceCompleted;
+  const carryInto = (
+    stage: SeriesStage,
+    carry: CarryIn,
+    fleetOf: (row: SplitStandingRow) => string | null,
+  ) => {
+    if (carry === 'net') return;
+    const ranks = carry === 'rank' ? rankAtCut(stage) : null;
+    const before = STAGES.slice(0, STAGES.indexOf(stage));
     for (const row of rows) {
-      if (!row.medal) continue;
-      const opening = row.cells.filter((c) => c.counts && c.stage !== 'medal');
-      if (opening.length === 0) continue;
-      const carried = applyCarryTransform(
-        opening.filter((c) => !c.discarded).reduce((s, c) => s + c.points, 0),
-        transform,
-      );
+      const fleetId = fleetOf(row);
+      if (!fleetId) continue;
+      const earlier = row.cells.filter((c) => c.counts && before.includes(c.stage));
+      if (earlier.length === 0) continue;
+      const applies = row.cells.some((c) => c.stage === stage && c.raceId && c.counts);
+      const net = earlier.filter((c) => !c.discarded).reduce((sum, c) => sum + c.points, 0);
+      const carried =
+        carry === 'halved'
+          ? applyCarryTransform(net, HALVED)
+          : carry === 'rank'
+            ? (ranks!.get(row.competitor.id) ?? null)
+            : null;
       if (applies) {
-        for (const cell of opening) {
+        for (const cell of earlier) {
           cell.counts = false;
           cell.superseded = true;
         }
       }
-      row.cells.push({
-        stage: 'medal',
-        stageRaceNumber: 0,
-        fleetId: medalFleetId ?? '',
-        raceId: '',
-        points: carried,
-        code: null,
-        counts: applies,
-        discardable: false,
-        discarded: false,
-        carriedTransform: true,
-      });
+      if (carried !== null) {
+        row.cells.push({
+          stage,
+          stageRaceNumber: 0,
+          fleetId,
+          raceId: '',
+          points: carried,
+          code: null,
+          counts: applies,
+          discardable: false,
+          discarded: false,
+          carriedTransform: true,
+        });
+      }
       if (applies) totalRow(row);
     }
-  }
+  };
+  carryInto('final', finalCarry, (row) => (row.medal ? null : row.finalFleetId));
+  carryInto('medal', medalRound ? config.medal.carry : 'net', (row) =>
+    row.medal ? medalFleetId : null,
+  );
 
   // RRS A8: A8.1 (best score lists, excluded scores out) then A8.2 (last
   // race backwards, including excluded scores).
@@ -1331,7 +1424,22 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
   // the unadjusted score decides), and A8 must break its ties.
   const onMedalScore = (r: SplitStandingRow) =>
     r.cells.some((c) => c.stage === 'medal' && c.counts);
+  // The same last-race clause, for two boats of one final fleet once both
+  // have sailed a race of it (the 2026 Melges 15 Sprint Championships apply
+  // the ILCA medal-series rules to their Gold and Silver fleets).
+  const onFinalScore = (r: SplitStandingRow) =>
+    r.cells.some((c) => c.stage === 'final' && c.raceId && c.counts);
   const byNet = (a: SplitStandingRow, b: SplitStandingRow) => {
+    const finalScored =
+      !a.medal &&
+      !b.medal &&
+      !!a.finalFleetId &&
+      a.finalFleetId === b.finalFleetId &&
+      onFinalScore(a) &&
+      onFinalScore(b);
+    if (config.final.tieBreak === 'last-race' && finalScored) {
+      return a.net - b.net || compareLastRaceOnly(a.cells, b.cells);
+    }
     const medalScored = a.medal && b.medal && onMedalScore(a) && onMedalScore(b);
     // `last-race` is not a step after A8 but a replacement for it: no
     // count-of-places comparison first, and no next-to-last race behind.

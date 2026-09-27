@@ -24,7 +24,7 @@ import {
   stageRaceLabel,
 } from '@/lib/split-fleets';
 import type {
-  CarryTransform,
+  CarryIn,
   SplitFleetConfig,
   SplitFleetData,
   SplitRound,
@@ -118,11 +118,14 @@ export interface SplitFleetFixture {
     discardThresholds: { minRaces: number; discardCount: number }[];
     /** The words the event's SIs use; default the generic ones. */
     vocabulary?: VocabularyKey;
+    /** The score carried into the final series, and its tie-break; `net`
+     *  and `a8` when omitted. */
+    final?: { carry?: CarryIn; tieBreak?: 'a8' | 'last-race' };
     medal?: {
       size: number;
       multiplier: 1 | 2;
-      /** The halved carry. */
-      carryTransform?: CarryTransform;
+      /** The score carried into the medal stage; `net` when omitted. */
+      carry?: CarryIn;
       /** Default `medal-race-then-a8`. */
       tieBreak?: 'last-race' | 'medal-race-then-a8';
     };
@@ -218,9 +221,11 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     vocabulary: fx.config.vocabulary ?? DEFAULT_VOCABULARY,
     // A championship always has a deciding stage configured; a fixture that
     // declares none simply never sails it.
+    final: { carry: 'net', tieBreak: 'a8', ...fx.config.final },
     medal: {
       size: 10,
       multiplier: 2,
+      carry: 'net',
       tieBreak: 'medal-race-then-a8',
       ...fx.config.medal,
     },

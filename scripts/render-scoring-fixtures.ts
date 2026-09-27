@@ -830,13 +830,14 @@ ${resolvedRounds.map((r) => {
     const inner = c.discarded ? `(${esc(text)})` : esc(text);
     const styles = [`background:${c.counts ? tint : '#f8f9fa'}`, 'text-align:center'];
     if (!c.counts) styles.push('color:#adb5bd');
-    if (!c.discardable) styles.push('font-weight:bold'); // medal cell (doubled)
+    if (!c.discardable) styles.push('font-weight:bold'); // never excluded
+    const into = c.stage === 'final' ? 'final series' : 'medal races';
     const title = c.counts
       ? c.carriedTransform
-        ? ' title="opening-series score, compressed and carried into the medal races"'
+        ? ` title="score carried into the ${into}"`
         : ''
       : c.carriedTransform
-        ? ' title="opening-series score, compressed — counts once a medal race is completed"'
+        ? ` title="score carried into the ${into} — counts once one of its races is completed"`
         : c.superseded
           ? ' title="replaced by the carried score"'
           : ' title="does not yet count — race incomplete across fleets"';

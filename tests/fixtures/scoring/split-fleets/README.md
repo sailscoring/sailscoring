@@ -44,7 +44,8 @@ config:
   qualifyingFleets: [Yellow, Blue]
   finalFleets: [Gold, Silver]    # omit when the split never happens (D1)
   discardThresholds: [{minRaces, discardCount}]
-  medal: {size, multiplier, tieBreak, carryTransform}   # omit when never sailed
+  final: {carry, tieBreak}                        # net / a8 when omitted
+  medal: {size, multiplier, tieBreak, carry}      # omit when never sailed
 
 competitors:
   - "y1 Helm Y1"                 # first token = sail number, rest = name
