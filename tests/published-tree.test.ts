@@ -316,6 +316,24 @@ describe('buildTreeNav', () => {
     ]);
   });
 
+  it('names a root-page event in the season\'s event menu by its series', () => {
+    const { selects } = buildTreeNav({
+      workspaceSlug: 'hyc',
+      seasonTree: archiveSeasonTree,
+      currentSlug: '2025',
+      pages: [
+        ...archivePages,
+        { fleetName: 'Overall', subPath: 'nationals', ownerName: 'Nationals 2025', ownerSingle: true },
+      ],
+      soleContributor: false,
+    });
+    expect(selects[1].options.map((o) => o.label)).toEqual([
+      'Autumn League',
+      'Dinghy Regatta',
+      'Nationals 2025',
+    ]);
+  });
+
   it('legacy event slug: the season level leads, the slug sits at the event level', () => {
     const { selects, leaf } = buildTreeNav({
       workspaceSlug: 'm15',

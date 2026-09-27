@@ -219,6 +219,22 @@ export function leafLabel(
   return ownersPages === 1 ? page.ownerName : `${page.ownerName} — ${base}`;
 }
 
+/** The label for a page published at the root of a season's folder — the
+ *  single-fleet archive shape, `/p/{ws}/2025/{event}` — wherever it stands for
+ *  an event (the workspace index's rows, the season's event menu). It reads as
+ *  its series' name: a page label ("Standings", or a lone section's "Overall")
+ *  says nothing about which event it is. A series with several root pages
+ *  keeps each distinguishable by its page label. */
+export function rootEventLabel(
+  page: TreePage,
+  roots: TreePage[],
+  soleContributor: boolean,
+): string {
+  if (!page.ownerName) return leafLabel(page, roots, soleContributor);
+  const own = roots.filter((p) => p.ownerName === page.ownerName);
+  return own.length === 1 ? page.ownerName : `${page.ownerName} — ${leafLabel(page, own, true)}`;
+}
+
 /** A slug that reads as a season: a year, or a year-spanning "2025-26". The
  *  converged archive shape publishes one such folder per season. */
 export function seasonLikeSlug(slug: string): boolean {
@@ -414,7 +430,7 @@ export function buildTreeNav(position: TreeNavPosition): {
         current: f.segment === currentFolder,
       })),
       ...rootPages(pages).map((p) => ({
-        label: leafLabel(p, rootPages(pages), soleContributor),
+        label: (slugIsSeason ? rootEventLabel : leafLabel)(p, rootPages(pages), soleContributor),
         href: `${slugBase}/${p.subPath}`,
         current: currentFolder === undefined && p.subPath === currentSubPath,
       })),

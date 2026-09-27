@@ -19,6 +19,7 @@ import {
   interiorFolderLabels,
   leafLabel,
   pagesInFolder,
+  rootEventLabel,
   rootPages,
   slugFolders,
   type TreePage,
@@ -383,7 +384,7 @@ export function workspaceIndexEvents(
     for (const p of roots) {
       events.push({
         key: `${it.slug}/${p.subPath}`,
-        label: leafLabel(p, roots, sole),
+        label: rootEventLabel(p, roots, sole),
         href: `${base}/${p.subPath}`,
         categoryName: p.ownerCategory,
         categoryOrder: p.ownerCategory !== null ? p.ownerCategoryOrder : null,

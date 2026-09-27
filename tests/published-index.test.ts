@@ -244,6 +244,45 @@ describe('renderWorkspaceIndexHtml quick-jump picker (#320)', () => {
     expect(html).toContain('"label":"Tuesday Series 1"');
   });
 
+  it('names a root-page event row by its series, not its page', () => {
+    const html = renderWorkspaceIndexHtml('m15', 'M15', [
+      {
+        slug: '2026',
+        title: '2026',
+        publishedAt: Date.UTC(2026, 8, 1),
+        fleetCount: 3,
+        season: '2026',
+        contributors: [
+          {
+            title: 'Melges 15 Irish National Championships 2026',
+            pages: [{ fleetName: 'Overall', subPath: 'nationals' }],
+          },
+          {
+            title: 'Junior Champions Cup 2026',
+            pages: [{ fleetName: 'Standings', subPath: 'junior-champions-cup' }],
+          },
+          {
+            title: 'Westerns 2026',
+            pages: [
+              { fleetName: 'Gold', subPath: 'westerns-gold' },
+              { fleetName: 'Silver', subPath: 'westerns-silver' },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(html).toContain(
+      '<a class="evt" href="/p/m15/2026/nationals">Melges 15 Irish National Championships 2026</a>',
+    );
+    expect(html).toContain(
+      '<a class="evt" href="/p/m15/2026/junior-champions-cup">Junior Champions Cup 2026</a>',
+    );
+    expect(html).toContain(
+      '<a class="evt" href="/p/m15/2026/westerns-gold">Westerns 2026 — Gold</a>',
+    );
+    expect(html).not.toContain('>Overall</a>');
+  });
+
   it('collapses prior seasons and excludes season-echo categories from the picker', () => {
     const html = renderWorkspaceIndexHtml('hyc', 'HYC', [
       twoSeries[0],
