@@ -329,6 +329,7 @@ export function isPlaceholderName(name: string | undefined): boolean {
 const CREW_PLACEHOLDERS = new Set([
   'tbd',
   'tba',
+  'tbc',
   'na',
   'n/a',
   'none',

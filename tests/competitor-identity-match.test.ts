@@ -251,6 +251,7 @@ describe('low-signal person names', () => {
 
   it('rejects placeholders regardless of case', () => {
     expect(isLowSignalPersonName('TBD')).toBe(true);
+    expect(isLowSignalPersonName('TBC')).toBe(true);
     expect(isLowSignalPersonName('n/a')).toBe(true);
     expect(isLowSignalPersonName('Crew')).toBe(true);
   });
