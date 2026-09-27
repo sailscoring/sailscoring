@@ -578,12 +578,15 @@ export async function gcOrphanIdentities(
   db: SailScoringDb,
   workspaceId: string,
   keepIds: readonly string[] = [],
+  /** Sweep only identities of this jurisdiction. */
+  managedBy?: 'app' | 'archive',
 ): Promise<number> {
   const removed = await db
     .delete(competitorIdentities)
     .where(
       and(
         eq(competitorIdentities.workspaceId, workspaceId),
+        managedBy ? eq(competitorIdentities.managedBy, managedBy) : undefined,
         keepIds.length
           ? notInArray(competitorIdentities.id, [...keepIds])
           : undefined,
@@ -598,6 +601,26 @@ export async function gcOrphanIdentities(
     )
     .returning({ id: competitorIdentities.id });
   return removed.length;
+}
+
+/**
+ * Sweep the identities a delete left without a single competitor row — a
+ * deleted series' sailors who sailed nothing else, which would otherwise stay
+ * in the reconcile queue and keep a public timeline with nothing on it. Only
+ * the app's own identities: an archive identity may be wanted with no rows
+ * (a ranking-only sailor), and the next archive ingest sweeps those with the
+ * manifest in hand. Like the relink, it must never fail the delete it
+ * follows, so errors are logged and swallowed.
+ */
+export async function sweepOrphanIdentitiesBestEffort(
+  workspaceId: string,
+  db: SailScoringDb = getDb(),
+): Promise<void> {
+  try {
+    await gcOrphanIdentities(db, workspaceId, [], 'app');
+  } catch (err) {
+    console.error('competitor-identity orphan sweep failed:', err);
+  }
 }
 
 // ─── lazy on-demand population (#222) ────────────────────────────────────────

@@ -12,7 +12,10 @@ import {
 } from '@/lib/auth/require-workspace';
 import { hasPermission } from '@/lib/auth/permissions';
 import { recordActivity } from '@/lib/activity-log';
-import { relinkIdentitiesBestEffort } from '@/lib/competitor-identity-reconcile';
+import {
+  relinkIdentitiesBestEffort,
+  sweepOrphanIdentitiesBestEffort,
+} from '@/lib/competitor-identity-reconcile';
 import { captureTombstone } from '@/lib/deleted-series';
 import { trackChange } from '@/lib/revision-log';
 import { getDb } from '@/lib/db/client';
@@ -283,6 +286,8 @@ export async function deleteSeries(workspace: WorkspaceContext, id: string): Pro
   const actor = { workspaceId: workspace.workspaceId, userId: workspace.userId };
   await captureTombstone(actor, id);
   await repos.series.delete(id);
+  // Its competitors went with it; so do the sailors they alone accounted for.
+  await sweepOrphanIdentitiesBestEffort(workspace.workspaceId);
   // Workspace-level entry: the series page is gone, so it carries the name and
   // no seriesId.
   await recordActivity(workspace, {

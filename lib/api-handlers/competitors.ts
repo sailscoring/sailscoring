@@ -3,7 +3,10 @@ import 'server-only';
 import { and, eq } from 'drizzle-orm';
 
 import { BadRequestError, NotFoundError } from '@/app/api/v1/_lib/handler';
-import { relinkIdentitiesBestEffort } from '@/lib/competitor-identity-reconcile';
+import {
+  relinkIdentitiesBestEffort,
+  sweepOrphanIdentitiesBestEffort,
+} from '@/lib/competitor-identity-reconcile';
 import { trackChange } from '@/lib/revision-log';
 import type { WorkspaceContext } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
@@ -101,6 +104,7 @@ export async function deleteCompetitor(
   const existing = await repos.competitors.get(competitorId);
   if (!existing || existing.seriesId !== seriesId) return;
   await repos.competitors.delete(competitorId);
+  await sweepOrphanIdentitiesBestEffort(workspace.workspaceId);
   await trackChange(workspace, {
     action: 'competitor.deleted',
     seriesId,
@@ -488,6 +492,7 @@ export async function deleteCompetitors(
   const targets = existing.filter((c) => wanted.has(c.id));
   if (targets.length === 0) return { count: 0 };
   await repos.competitors.deleteMany(seriesId, targets.map((c) => c.id));
+  await sweepOrphanIdentitiesBestEffort(workspace.workspaceId);
   await trackChange(workspace, {
     action: 'competitors.deleted',
     seriesId,
