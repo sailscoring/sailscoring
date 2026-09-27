@@ -599,7 +599,7 @@ describe('splitFleetStandings', () => {
     //   Gold F1: c3 c2 c1 · Silver F1: c5 c4
     function carryData(
       final: SplitFleetConfig['final'],
-      opts: { silverSailed?: boolean; medal?: { carry: SplitFleetConfig['medal']['carry'] } } = {},
+      opts: { silverSailed?: boolean; medal?: { carry: NonNullable<SplitFleetConfig['medal']>['carry'] } } = {},
     ): SplitFleetData {
       const competitors = [
         competitor('c1', ['fq', 'fg'], 1),
@@ -737,6 +737,12 @@ describe('splitFleetStandings', () => {
         expect(carriedCell(rank.get(id)!, 'medal')!.points).toBe(atCut.get(id)!.rank);
       }
     });
+  });
+
+  it('reads a configuration with no medal block as a championship with no medal stage', () => {
+    const { medal: _medal, ...config } = defaultSplitFleetConfig(2);
+    expect(normalizeSplitFleetConfig(config)).not.toHaveProperty('medal');
+    expect(normalizeSplitFleetConfig(defaultSplitFleetConfig(2)).medal).toMatchObject({ size: 10 });
   });
 
   it('scores per-fleet places from one combined sheet (sequenced starts)', () => {
@@ -1431,7 +1437,7 @@ describe('the medal-race-then-A8 tie-break', () => {
    *  the medal race can separate them; the opening races are arranged so that
    *  rule A8 has its own, different, opinion. */
   function tiedMedalData(
-    tieBreak: SplitFleetConfig['medal']['tieBreak'],
+    tieBreak: NonNullable<SplitFleetConfig['medal']>['tieBreak'],
     opening: 'a8-prefers-b1' | 'a8-decides-alone',
     medalSheet: Finish[],
   ): SplitFleetData {

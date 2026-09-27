@@ -117,6 +117,25 @@ describe('describeSplitFleetConfig', () => {
     expect(text).toContain('the number of boats entered, plus one in the qualifying series');
   });
 
+  it('writes no medal stage where the championship has none', () => {
+    const text = joined(melges15SprintConfig());
+    expect(text).toContain(
+      'The championship will be sailed as a qualifying series followed by a final series.',
+    );
+    expect(text).not.toContain('opening series');
+    expect(text).not.toMatch(/medal/i);
+    expect(text).toContain('races in the final series, F1, F2 and so on.');
+    expect(text).toContain(
+      'Boats in the Gold and Silver fleets will be ranked in that order, whatever their scores.',
+    );
+    expect(text).toContain("each boat's qualifying series score will be divided by 2");
+  });
+
+  it('describes an undivided championship with no medal stage as one series', () => {
+    const { medal: _medal, ...config } = openingSeriesMedalConfig();
+    expect(joined(config)).toContain('The championship will be sailed as an opening series.');
+  });
+
   it('numbers only the stages an unbanded championship sails', () => {
     // The middle stage is never sailed, so it has no races to number — and
     // naming it here puts a stage the event does not sail into the document a

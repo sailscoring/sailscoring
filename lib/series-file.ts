@@ -519,8 +519,10 @@ export interface SeriesFileRepos {
  *  `final.tieBreak`, and `medal.carry` in place of the `medal.carryTransform`
  *  block, which only ever meant `carry: 'halved'` (renamed on read,
  *  `upgradeSplitFleetCarry`). The carry can now also be `nothing` or `rank`.
- *  A build reading v58 would drop the final stage's carry and score the
- *  championship as one continuous series, so the version moves. */
+ *  And `medal` may be absent: a championship nobody is cut from, which ends
+ *  with the stage before. A build reading v58 would drop the final stage's
+ *  carry and score the championship as one continuous series, and supply a
+ *  medal stage the championship does not have, so the version moves. */
 export const FORMAT_VERSION = 59;
 export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
 export const FILE_EXTENSION = '.sailscoring';

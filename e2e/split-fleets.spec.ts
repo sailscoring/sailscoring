@@ -741,7 +741,7 @@ test('split fleets: a late entry in no fleet of a sailed round is named', async 
  * Melges 15 Sprint Championships halve theirs at the split: set on the
  * Elimination series card, and stated in the sailing instructions.
  */
-test('split fleets: the Elimination series can be entered on a halved score', async ({
+test('split fleets: a halved score into the Elimination series, and no Final series', async ({
   page,
   signedInEmail,
 }) => {
@@ -777,8 +777,19 @@ test('split fleets: the Elimination series can be entered on a halved score', as
   // No longer one continuous series, so no sentence says it is.
   await expect(si.locator('[data-sentence="totals"]')).toHaveCount(0);
 
+  // Nobody is cut to a Final series: the Melges 15 Sprint Championships end
+  // with their Gold and Silver fleets.
+  await showStageSettings(page, 'Final series');
+  await Promise.all([saved(), page.getByRole('button', { name: 'No Final series' }).click()]);
+  await expect(page.getByRole('button', { name: 'Add Final series' })).toBeVisible();
+  await expect(si.locator('[data-sentence="medal"]')).toHaveCount(0);
+  await expect(si.locator('[data-sentence="fleet-ranking"]')).toContainText(
+    'will be ranked in that order',
+  );
+
   // It is stored, not just shown.
   await page.reload();
+  await expect(page.getByRole('button', { name: 'Add Final series' })).toBeVisible();
   await showStageSettings(page, 'Elimination series');
   await expect(
     page

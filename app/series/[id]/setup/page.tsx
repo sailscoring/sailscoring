@@ -26,7 +26,12 @@ import {
   useSaveSplitFleetConfig,
   useSplitFleetState,
 } from '@/hooks/use-split-fleets';
-import { newSplitFleetConfig, VOCABULARY_OPTIONS } from '@/lib/split-fleets';
+import {
+  DEFAULT_MEDAL,
+  newSplitFleetConfig,
+  resolveVocabulary,
+  VOCABULARY_OPTIONS,
+} from '@/lib/split-fleets';
 import { BasicsCard, type BasicsCardHandle } from '@/components/series-settings/basics-card';
 import { FleetsCard } from '@/components/series-settings/fleets-card';
 import { ScoringCard } from '@/components/series-settings/scoring-card';
@@ -218,6 +223,39 @@ function SeriesKindBlock({ seriesId }: { seriesId: string }) {
                   <span className="text-sm font-medium">{o.label}</span>
                   <p className="text-xs text-muted-foreground">{o.terms}</p>
                 </div>
+              </label>
+            ))}
+          </div>
+        )}
+        {isSplitFleet && sfState.config && (
+          <div
+            className="ml-7 space-y-2"
+            role="radiogroup"
+            aria-label={`Do the top boats go on to the ${resolveVocabulary(sfState.config).stages.medal.name}?`}
+          >
+            <p className="text-sm">
+              Do the top boats go on to the {resolveVocabulary(sfState.config).stages.medal.name}?
+            </p>
+            {([true, false] as const).map((sailed) => (
+              <label key={String(sailed)} className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="seriesMedal"
+                  checked={!!sfState.config!.medal === sailed}
+                  disabled={pending}
+                  onChange={() =>
+                    saveConfig.mutate({
+                      ...sfState.config!,
+                      medal: sailed ? DEFAULT_MEDAL : undefined,
+                    })
+                  }
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  {sailed
+                    ? 'Yes — the championship ends with the top boats alone'
+                    : 'No — nobody is cut; it ends with the fleets’ own races'}
+                </span>
               </label>
             ))}
           </div>

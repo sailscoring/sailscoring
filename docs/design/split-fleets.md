@@ -966,8 +966,10 @@ In: one to four qualifying fleets, or none (the undivided championship
 the Junior Champions' Cup sails, `split: { kind: 'none' }`, fixture 25);
 equal-block final fleets; continuous points with the fixed code bases,
 discard caps and validity rule above; rank-pattern and seeded assignment
-with manual overrides; a medal stage of any size, × 1 or × 2, with an
-optional halved carry and one of two tie-breaks; the companion race; two
+with manual overrides; a score carried into each later stage; a medal
+stage of any size, × 1 or × 2, with one of two tie-breaks, or none at all
+(the Melges 15 Sprint Championships end with Gold and Silver); the
+companion race; two
 wordings (opening/medal and the ILCA qualification/final); the Split
 Fleets view; combined and tiered standings; fleet-coloured published
 pages; assignment-list publishing.

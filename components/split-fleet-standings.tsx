@@ -187,7 +187,7 @@ export function SplitFleetStandings({
   // Every branch above yields a line only while no deciding fleet has been
   // drawn yet, so the line and the table below never disagree about which
   // rows they are counting.
-  const medalCutInTopFleet = !unbanded && !!splitRound && !medalRound;
+  const medalCutInTopFleet = !!medalCut && !unbanded && !!splitRound && !medalRound;
   const medalCutLabel = (rows: SplitStandingRow[], i: number) =>
     `${capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)} cut if the ${
       splitFleetWords(data.config).final.name
@@ -348,7 +348,7 @@ export function SplitFleetStandings({
             const rows = restRows.filter((r) => r.finalFleetId === fid);
             const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
             if (rows.length === 0) return null;
-            const size = data.config.medal.size;
+            const size = medalCut?.size ?? 0;
             const ownCut =
               medalCutInTopFleet && fleetIndex === 0 && rows.length > size
                 ? { after: size - 1, label: medalCutLabel(rows, size - 1) }

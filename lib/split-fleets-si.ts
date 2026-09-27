@@ -61,7 +61,7 @@ function raceLabelClause(config: SplitFleetConfig): string {
   if (config.split.kind !== 'none') {
     parts.push(`races in the ${vocab.stages.final.name}, ${first('final')}`);
   }
-  parts.push(`races in the ${vocab.stages.medal.name}, ${first('medal')}`);
+  if (config.medal) parts.push(`races in the ${vocab.stages.medal.name}, ${first('medal')}`);
   return `For the purposes of these instructions, ${parts.join('; ')}.`;
 }
 
@@ -81,6 +81,7 @@ export type SplitFleetSentenceId =
   | 'reassignment'
   | 'fleet-equalisation'
   | 'split'
+  | 'fleet-ranking'
   | 'totals'
   | 'discards'
   | 'final-discard-cap'
@@ -145,13 +146,20 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
   // nothing. What is left is the shape (`q` is the whole opening series
   // here — see `adaptVocabulary`) and, where there is one, the deciding race.
   const unbanded = config.split.kind === 'none';
+  // Without a deciding stage the two stages are the whole championship, and
+  // the umbrella series over them names nothing.
+  const medal = config.medal;
   push(
     'format',
-    unbanded
-      ? `The championship will be sailed as ${article(q)} followed by the ${m}, in one fleet.`
-      : `The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`,
+    !medal
+      ? unbanded
+        ? `The championship will be sailed as ${article(q)}.`
+        : `The championship will be sailed as ${article(q)} followed by ${article(f)}.`
+      : unbanded
+        ? `The championship will be sailed as ${article(q)} followed by the ${m}, in one fleet.`
+        : `The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`,
   );
-  if (!unbanded) {
+  if (!unbanded && medal) {
     push(
       'series-division',
       `The ${vocab.seriesName} will be divided into ${article(q)} and ${article(f)}.`,
@@ -197,7 +205,7 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
       'totals',
       unbanded
         ? `The ${q} races will count for total points in the championship.`
-        : `The ${q} races and the ${f} races will count for total points in the ${vocab.seriesName}.`,
+        : `The ${q} races and the ${f} races will count for total points in the ${medal ? vocab.seriesName : 'championship'}.`,
     );
   }
   push('discards', discardClause(config));
@@ -236,7 +244,16 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
       : `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase} in the ${q}, and ${finalBase} in the ${f}.`,
   );
 
-  const medal = config.medal;
+  // The final fleets are tiers: a boat's fleet decides her place before her
+  // points do (2024 ILCA SI 18.7), and the Melges 15 Sprint Championships
+  // rank Gold above Silver the same way.
+  if (!unbanded) {
+    push(
+      'fleet-ranking',
+      `Boats in the ${finals} fleets will be ranked in that order, whatever their scores.`,
+    );
+  }
+  if (!medal) return lines;
   const score =
     medal.multiplier === 1
       ? 'A boat’s score there may not be excluded'

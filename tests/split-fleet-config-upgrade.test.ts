@@ -120,7 +120,7 @@ describe('a setting that would score differently', () => {
     const { tieBreak: _, ...noTieBreak } = base.medal;
     const beforeTheCut = { ...RACING, medalFleetSelected: false, medalRaceSailed: false };
     const result = upgradeSplitFleetConfig({ ...base, medal: noTieBreak }, beforeTheCut);
-    expect(result.ok && result.config.medal.tieBreak).toBe('medal-race-then-a8');
+    expect(result.ok && result.config.medal?.tieBreak).toBe('medal-race-then-a8');
     expect(upgradeSplitFleetConfig({ ...base, medal: noTieBreak }, RACING).ok).toBe(false);
     expect(
       upgradeSplitFleetConfig({ ...base, medal: { ...base.medal, companionRace: 'dnc' } }, RACING).ok,
@@ -251,5 +251,13 @@ describe('the score carried into a stage (v59)', () => {
     expect(obj.splitFleets.config.medal).toMatchObject({ carry: 'halved' });
     expect(obj.splitFleets.config.medal).not.toHaveProperty('carryTransform');
     expect(obj.splitFleets.config).toMatchObject({ final: { carry: 'net', tieBreak: 'a8' } });
+  });
+});
+
+describe('a championship with no medal stage', () => {
+  it('keeps having none through the v58 upgrade', () => {
+    const { medal: _medal, ...config } = ILCA7.splitFleets.config;
+    const result = upgradeSplitFleetConfig(config, NOT_STARTED);
+    expect(result.ok && result.config).not.toHaveProperty('medal');
   });
 });

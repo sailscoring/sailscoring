@@ -20,6 +20,7 @@ import { SENTENCES_BY_SETTING, type SplitFleetSentenceId } from '@/lib/split-fle
 import {
   CARRY_IN_VALUES,
   capitaliseStage,
+  DEFAULT_MEDAL,
   FINAL_FLEET_SET,
   QUALIFYING_COLOR_SETS,
   resizeFleets,
@@ -468,7 +469,9 @@ export function OpeningSettings({
   const rules = divided
     ? [
         `The discards run over the ${q.name} and the ${f.name} together.`,
-        `No ${vocab.stages.medal.raceNoun} counts towards the discards, and none is excluded.`,
+        ...(config.medal
+          ? [`No ${vocab.stages.medal.raceNoun} counts towards the discards, and none is excluded.`]
+          : []),
       ]
     : [
         `Races are numbered ${labels(config, 'qualifying')}.`,
@@ -483,7 +486,7 @@ export function OpeningSettings({
             ]),
         ...(medalSelected
           ? [
-              `A race added now is the companion race for the boats outside the ${vocab.stages.medal.fleetNoun}, scored from ${config.medal.size + 1}.`,
+              `A race added now is the companion race for the boats outside the ${vocab.stages.medal.fleetNoun}, scored from ${(config.medal?.size ?? 0) + 1}.`,
             ]
           : []),
       ];
@@ -671,7 +674,7 @@ export function Stage2Settings({
             ]),
         ...(medalSelected
           ? [
-              `The boats outside the ${m.fleetNoun} sail one more race in their own fleets, scored from ${config.medal.size + 1} in the fleet the ${m.fleetNoun} left.`,
+              `The boats outside the ${m.fleetNoun} sail one more race in their own fleets, scored from ${(config.medal?.size ?? 0) + 1} in the fleet the ${m.fleetNoun} left.`,
             ]
           : []),
       ]}
@@ -775,21 +778,26 @@ export function MedalSettings({
   config,
   canEdit,
   current,
+  medalSelected,
 }: {
   seriesId: string;
   config: SplitFleetConfig;
   canEdit: boolean;
   current?: boolean;
+  /** The medal fleet has been selected, so the stage can no longer go. */
+  medalSelected: boolean;
 }) {
   const { patch, error } = useSave(seriesId, config);
   const vocab = resolveVocabulary(config);
   const m = vocab.stages.medal;
   const medal = config.medal;
+  if (!medal) return null;
   const divided = config.split.kind !== 'none';
   const from = divided
     ? `the ${config.finalFleets[0]?.label ?? 'top'} fleet`
     : `the ${vocab.stages.qualifying.name}`;
-  const setMedal = (p: Partial<SplitFleetConfig['medal']>) => patch({ medal: { ...medal, ...p } });
+  const setMedal = (p: Partial<NonNullable<SplitFleetConfig['medal']>>) =>
+    patch({ medal: { ...medal, ...p } });
   const radio = (name: string, checked: boolean, onChange: () => void, label: string) => (
     <label className="flex items-center gap-2">
       <input type="radio" name={name} disabled={!canEdit} checked={checked} onChange={onChange} />
@@ -862,9 +870,57 @@ export function MedalSettings({
               )}
             </div>
           </Row>
+          {canEdit && (
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={medalSelected}
+                onClick={() => patch({ medal: undefined })}
+              >
+                No {m.name}
+              </Button>
+              <p className={hint}>
+                {medalSelected
+                  ? `The ${m.fleetNoun} has been selected, so the ${m.name} stay.`
+                  : `For a championship that nobody is cut from: it ends with the stage before.`}
+              </p>
+            </div>
+          )}
           {error && <p className="text-destructive">{error}</p>}
         </>
       }
     />
+  );
+}
+
+/** Where a championship has no medal stage, the offer to add one. */
+export function AddMedalStage({
+  seriesId,
+  config,
+  canEdit,
+}: {
+  seriesId: string;
+  config: SplitFleetConfig;
+  canEdit: boolean;
+}) {
+  const { patch, error } = useSave(seriesId, config);
+  const m = resolveVocabulary(config).stages.medal;
+  const unbanded = config.split.kind === 'none';
+  return (
+    <div className="space-y-2 rounded-lg border border-dashed px-4 py-3 text-sm">
+      <p className="text-muted-foreground">
+        No {m.name}: the championship ends with the stage above
+        {unbanded && config.qualifyingFleets.length === 1
+          ? ', which with one fleet is an ordinary series.'
+          : '.'}
+      </p>
+      {canEdit && (
+        <Button variant="outline" size="sm" onClick={() => patch({ medal: DEFAULT_MEDAL })}>
+          Add {m.name}
+        </Button>
+      )}
+      {error && <p className="text-destructive">{error}</p>}
+    </div>
   );
 }

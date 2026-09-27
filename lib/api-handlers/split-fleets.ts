@@ -132,6 +132,9 @@ export async function putSplitFleetConfig(
     ) {
       throw new BadRequestError('the division is settled once the split is committed');
     }
+    if (hasRound('medal') && !config.medal) {
+      throw new BadRequestError('the medal stage is settled once its fleet is selected');
+    }
   }
 
   await repos.splitRounds.setConfig(seriesId, config);
@@ -320,6 +323,9 @@ export async function commitSplitRound(
     // take a race each when their sheets come one per fleet — as the request
     // says, or else as the championship's races so far have done.
     const config = normalizeSplitFleetConfig(row.qfConfig as Partial<SplitFleetConfig>);
+    if (input.stage === 'medal' && !config.medal) {
+      throw new BadRequestError('this championship has no medal stage');
+    }
     const apart =
       input.stage === 'medal' ||
       (input.finishSheets ?? (await inheritedFinishSheets(tx, seriesId))) === 'per-fleet';

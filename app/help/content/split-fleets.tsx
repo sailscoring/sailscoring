@@ -150,7 +150,13 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">Sailing instructions</strong> opens the whole
         configuration, restated as sailing instructions, in a drawer beside the cards: read it
         against the scoring section of your own, and as you reach a setting the sentences it
-        writes are marked. Where a sentence disagrees, change the setting.
+        writes are marked. Where a sentence disagrees, change the setting. A championship that
+        nobody is cut from ends with the stage before the {m.name}: answer{' '}
+        <strong className="text-foreground">No</strong> when the setup wizard asks whether the
+        top boats go on to it, or choose{' '}
+        <strong className="text-foreground">No {m.name}</strong> on its card.{' '}
+        <strong className="text-foreground">Add {m.name}</strong> puts it back, and it can be
+        removed until its fleet is selected.
       </p>
       <p>
         <strong className="text-foreground">Round 1</strong> makes the initial assignment —

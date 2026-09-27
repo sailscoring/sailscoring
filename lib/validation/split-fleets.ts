@@ -34,7 +34,9 @@ export const splitFleetConfigSchema = z.object({
   medal: z.preprocess(
     // A page loaded before series-file v59 still sends the halved carry as
     // the `carryTransform` block it replaced.
+    // No medal block is a championship with no medal stage.
     (medal) => {
+      if (medal === null) return undefined;
       if (!medal || typeof medal !== 'object') return medal;
       const { carryTransform, ...rest } = medal as Record<string, unknown>;
       return { carry: carryTransform ? 'halved' : 'net', ...rest };
@@ -44,7 +46,7 @@ export const splitFleetConfigSchema = z.object({
       multiplier: z.union([z.literal(1), z.literal(2)]),
       carry: z.enum(CARRY_IN_VALUES as [CarryIn, ...CarryIn[]]),
       tieBreak: z.enum(['last-race', 'medal-race-then-a8']),
-    }),
+    }).optional(),
   ),
 })
   // The two halves of the split answer have to agree. A championship that

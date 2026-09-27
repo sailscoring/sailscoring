@@ -76,11 +76,13 @@ export interface SplitFleetConfig {
      *    its final fleets (the 2026 Melges 15 Sprint Championships). */
     tieBreak: 'a8' | 'last-race';
   };
-  /** The deciding stage. `size` is also what draws the provisional cut line
-   *  before the fleet is selected. `carry` is the score each medal boat takes
-   *  into it (see `CarryIn`). The scorer adds medal races as the sailing
-   *  instructions say; nothing here counts them. */
-  medal: {
+  /** The deciding stage, or absent where the championship has none: the
+   *  Melges 15 Sprint Championships end with their Gold and Silver fleets,
+   *  and nobody is cut to a medal race. `size` is also what draws the
+   *  provisional cut line before the fleet is selected. `carry` is the score
+   *  each medal boat takes into it (see `CarryIn`). The scorer adds medal
+   *  races as the sailing instructions say; nothing here counts them. */
+  medal?: {
     size: number;
     multiplier: 1 | 2;
     carry: CarryIn;
@@ -488,6 +490,15 @@ export function defaultSplitFleetConfig(fleetCount: number): SplitFleetConfig {
   };
 }
 
+/** A medal stage as a championship adds one: the top ten, at double points,
+ *  on their net score, ties on the medal race and then rule A8. */
+export const DEFAULT_MEDAL: NonNullable<SplitFleetConfig['medal']> = {
+  size: 10,
+  multiplier: 2,
+  carry: 'net',
+  tieBreak: 'medal-race-then-a8',
+};
+
 /** Fill defaults for configs stored before the full surface existed (the
  *  prototype's sparse shape), and drop the settings that are now fixed
  *  behaviour. */
@@ -507,19 +518,37 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
     reassignmentTieOrder: _reassignmentTieOrder,
     ...rest
   } = raw as Partial<SplitFleetConfig> & Record<string, unknown>;
-  const medal = (raw.medal ?? d.medal) as SplitFleetConfig['medal'] & {
-    companionRace?: unknown;
-    carryTransform?: CarryTransform & { appliesFrom?: unknown };
-  };
-  const {
-    companionRace: _companionRace,
-    raceCount: _raceCount,
-    carryTransform,
-    ...medalRest
-  } = medal as typeof medal & { raceCount?: unknown };
+  const { medal: _defaultMedal, ...defaults } = d;
+  const medal = raw.medal as
+    | (NonNullable<SplitFleetConfig['medal']> & {
+        companionRace?: unknown;
+        raceCount?: unknown;
+        carryTransform?: CarryTransform & { appliesFrom?: unknown };
+      })
+    | null
+    | undefined;
+  // No medal block is no medal stage.
+  const normalizedMedal = medal
+    ? (() => {
+        const {
+          companionRace: _companionRace,
+          raceCount: _raceCount,
+          carryTransform,
+          ...medalRest
+        } = medal;
+        return {
+          ...medalRest,
+          tieBreak: medalRest.tieBreak ?? 'medal-race-then-a8',
+          // Series-file v58 and public export v4 wrote the halved carry as a
+          // `carryTransform` block.
+          carry: medalRest.carry ?? (carryTransform ? 'halved' : 'net'),
+        };
+      })()
+    : undefined;
+  const { medal: _rawMedal, ...restWithoutMedal } = rest as typeof rest & { medal?: unknown };
   return {
-    ...d,
-    ...rest,
+    ...defaults,
+    ...restWithoutMedal,
     split: raw.split?.kind === 'none' ? { kind: 'none' } : { kind: 'equal-blocks' },
     // Series-file v33 carried the words as an authored `stageNaming` block;
     // continuous numbering was the 2026 ILCA wording's mark.
@@ -532,13 +561,7 @@ export function normalizeSplitFleetConfig(raw: Partial<SplitFleetConfig>): Split
       carry: raw.final?.carry ?? 'net',
       tieBreak: raw.final?.tieBreak ?? 'a8',
     },
-    medal: {
-      ...medalRest,
-      tieBreak: medalRest.tieBreak ?? 'medal-race-then-a8',
-      // Series-file v58 and public export v4 wrote the halved carry as a
-      // `carryTransform` block.
-      carry: medalRest.carry ?? (carryTransform ? 'halved' : 'net'),
-    },
+    ...(normalizedMedal ? { medal: normalizedMedal } : {}),
   } as SplitFleetConfig;
 }
 
@@ -1210,7 +1233,7 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
         const members = fleetMembers(competitors, fleetId);
         const codeBase = qualifying ? codeBaseQ : members.length + 1;
         const isMedalFleet = stage === 'medal' && fleetId === lr.round.fleetIds[0];
-        const multiplier = isMedalFleet ? config.medal.multiplier : 1;
+        const multiplier = isMedalFleet ? (config.medal?.multiplier ?? 1) : 1;
         // Selecting the medal fleet does not remove a boat from the fleet she
         // came from — she is still ranked inside it, and its assigned size
         // still sets the score base. It does mean she stops sailing its
@@ -1398,7 +1421,7 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     }
   };
   carryInto('final', finalCarry, (row) => (row.medal ? null : row.finalFleetId));
-  carryInto('medal', medalRound ? config.medal.carry : 'net', (row) =>
+  carryInto('medal', medalRound ? (config.medal?.carry ?? 'net') : 'net', (row) =>
     row.medal ? medalFleetId : null,
   );
 
@@ -1443,14 +1466,14 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     const medalScored = a.medal && b.medal && onMedalScore(a) && onMedalScore(b);
     // `last-race` is not a step after A8 but a replacement for it: no
     // count-of-places comparison first, and no next-to-last race behind.
-    if (config.medal.tieBreak === 'last-race' && medalScored) {
+    if (config.medal?.tieBreak === 'last-race' && medalScored) {
       return a.net - b.net || compareLastRaceOnly(a.cells, b.cells);
     }
     // `medal-race-then-a8` runs before A8 rather than after it, and hands
     // back whatever it cannot separate: `byA8` leads with the nets, which are
     // equal by the time it is reached, so what remains of it is A8.1 then
     // A8.2 — the rule as written, for the boats the clause does not address.
-    if (config.medal.tieBreak === 'medal-race-then-a8' && medalScored) {
+    if (config.medal?.tieBreak === 'medal-race-then-a8' && medalScored) {
       return (
         a.net - b.net || compareMedalRaceScore(a.cells, b.cells) || byA8(a, b)
       );

@@ -17,6 +17,7 @@ import { Ban, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 import { FinaliseResultsDialog } from '@/components/finalise-results-dialog';
 import { SeriesTabFallback } from '@/components/series-tab-fallback';
 import {
+  AddMedalStage,
   MedalSettings,
   OpeningSettings,
   SailingInstructionsDrawer,
@@ -320,6 +321,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
   const splitRound = roundsForStage(sfState.rounds, 'final')[0] ?? null;
   const medalRound = roundsForStage(sfState.rounds, 'medal')[0] ?? null;
   const standings = splitFleetStandings(sfData);
+  const medalConfig = sfState.config.medal;
   const scoreMismatches = unequalQualifyingScores(sfData);
   // One fleet, never banded: no middle stage, and the cut into the deciding
   // fleet comes straight off the opening series.
@@ -466,61 +468,66 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         </StageSection>
       )}
 
-      <StageSection
-        title={w.title('medal')}
-        status={
-          medalRound
-            ? medalPhaseComplete(sfData, medalRound)
-              ? 'Complete'
-              : 'In progress'
-            : 'Not started'
-        }
-        // Open while it is the stage the scorer is working in — which,
-        // where the fleet is never divided, includes before the cut is made:
-        // there is no second stage holding their attention instead.
-        // Open while being raced, and from when it is next: the medal fleet is
-        // selected off the opening series where it is never divided, and
-        // off the split otherwise.
-        defaultOpen={
-          medalRound
-            ? !isFinal
-            : unbanded || splitRound !== null || qualifyingRounds.length === 0
-        }
-      >
-        <MedalSettings
-          seriesId={seriesId}
-          config={sfState.config}
-          canEdit={canManage}
-          // The size draws the cut and sets the selection, so it is settled
-          // before the fleet is selected: open once the stage before it has
-          // begun.
-          current={!medalRound && (unbanded ? qualifyingRounds.length > 0 : splitRound !== null)}
-        />
-        {medalRound ? (
-          <MedalSection
+      {medalConfig ? (
+        <StageSection
+          title={w.title('medal')}
+          status={
+            medalRound
+              ? medalPhaseComplete(sfData, medalRound)
+                ? 'Complete'
+                : 'In progress'
+              : 'Not started'
+          }
+          // Open while it is the stage the scorer is working in — which,
+          // where the fleet is never divided, includes before the cut is made:
+          // there is no second stage holding their attention instead.
+          // Open while being raced, and from when it is next: the medal fleet is
+          // selected off the opening series where it is never divided, and
+          // off the split otherwise.
+          defaultOpen={
+            medalRound
+              ? !isFinal
+              : unbanded || splitRound !== null || qualifyingRounds.length === 0
+          }
+        >
+          <MedalSettings
             seriesId={seriesId}
-            data={sfData}
-            fleetMeta={fleetMeta}
-            round={medalRound}
-            canManage={canManage}
+            config={sfState.config}
+            canEdit={canManage}
+            // The size draws the cut and sets the selection, so it is settled
+            // before the fleet is selected: open once the stage before it has
+            // begun.
+            current={!medalRound && (unbanded ? qualifyingRounds.length > 0 : splitRound !== null)}
+            medalSelected={medalRound !== null}
           />
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              The top {sfState.config.medal.size} after the{' '}
-              {unbanded ? w.qualifying.name : w.series} sail the {w.medal.name}.
-            </p>
-            {/* Where the fleet is never divided there is no second stage to
-                offer the cut from, so it is offered here. */}
-            {unbanded && canManage && (
-              <Button variant="outline" onClick={() => setMedalOpen(true)}>
-                Select {w.medal.fleetNoun}…
-              </Button>
-            )}
-          </div>
-        )}
+          {medalRound ? (
+            <MedalSection
+              seriesId={seriesId}
+              data={sfData}
+              fleetMeta={fleetMeta}
+              round={medalRound}
+              canManage={canManage}
+            />
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                The top {medalConfig.size} after the{' '}
+                {unbanded ? w.qualifying.name : w.series} sail the {w.medal.name}.
+              </p>
+              {/* Where the fleet is never divided there is no second stage to
+                  offer the cut from, so it is offered here. */}
+              {unbanded && canManage && (
+                <Button variant="outline" onClick={() => setMedalOpen(true)}>
+                  Select {w.medal.fleetNoun}…
+                </Button>
+              )}
+            </div>
+          )}
 
-      </StageSection>
+        </StageSection>
+      ) : (
+        <AddMedalStage seriesId={seriesId} config={sfState.config} canEdit={canManage} />
+      )}
 
 
       {unbanded && medalOpen && (
@@ -2075,7 +2082,8 @@ function MedalSection({
   const override = useApplySplitOverride(seriesId);
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [overrideWarning, setOverrideWarning] = useState<string | null>(null);
-  const medalConfig = data.config.medal;
+  // A selected medal fleet keeps its stage: the server refuses to remove it.
+  const medalConfig = data.config.medal!;
   const w = words(data.config);
   const medalFleetSize = round.fleetIds[0]
     ? fleetMembers(data.competitors, round.fleetIds[0]).length

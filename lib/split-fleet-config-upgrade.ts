@@ -157,12 +157,17 @@ export function upgradeSplitFleetConfig(
         : [],
       vocabulary,
       final: { carry: 'net', tieBreak: 'a8' },
-      medal: {
-        size: typeof medal?.size === 'number' ? medal.size : 10,
-        multiplier: multiplier === 1 ? 1 : 2,
-        carry: transform ? 'halved' : 'net',
-        tieBreak: tieBreak === 'last-race' ? 'last-race' : 'medal-race-then-a8',
-      },
+      // A configuration with no deciding stage keeps having none.
+      ...(medal
+        ? {
+            medal: {
+              size: typeof medal.size === 'number' ? medal.size : 10,
+              multiplier: multiplier === 1 ? 1 : 2,
+              carry: transform ? 'halved' : 'net',
+              tieBreak: tieBreak === 'last-race' ? 'last-race' : 'medal-race-then-a8',
+            },
+          }
+        : {}),
     },
   };
 }

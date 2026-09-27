@@ -500,8 +500,9 @@ ${body}
 
   // Where the medal fleet will be cut if racing ended now, while it has yet to
   // be selected: off the top fleet once the split is committed, and off the
-  // whole ranking where the fleet is never divided.
-  const medalSize = data.config.medal.size;
+  // whole ranking where the fleet is never divided. A championship with no
+  // medal stage has no cut to draw.
+  const medalSize = data.config.medal?.size ?? Infinity;
   const medalCut = (stageName: string) => `${vocab.stages.medal.fleetNoun} cut if the ${stageName} ended now`;
 
   let sections: string;

@@ -57,5 +57,7 @@ export function melges15SprintConfig(): SplitFleetConfig {
       { minRaces: 10, discardCount: 2 },
     ],
     final: { carry: 'halved', tieBreak: 'last-race' },
+    // Nobody is cut to a medal race: Gold and Silver sail to the end.
+    medal: undefined,
   };
 }

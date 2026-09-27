@@ -219,16 +219,20 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     split: (fx.config.finalFleets ?? []).length === 0 ? { kind: 'none' } : { kind: 'equal-blocks' },
     discardThresholds: fx.config.discardThresholds,
     vocabulary: fx.config.vocabulary ?? DEFAULT_VOCABULARY,
-    // A championship always has a deciding stage configured; a fixture that
-    // declares none simply never sails it.
     final: { carry: 'net', tieBreak: 'a8', ...fx.config.final },
-    medal: {
-      size: 10,
-      multiplier: 2,
-      carry: 'net',
-      tieBreak: 'medal-race-then-a8',
-      ...fx.config.medal,
-    },
+    // A fixture that configures or sails a deciding stage has one; one that
+    // does neither is a championship without it.
+    ...(fx.config.medal || fx.stages.some((st) => st.stage === 'medal')
+      ? {
+          medal: {
+            size: 10,
+            multiplier: 2 as const,
+            carry: 'net' as const,
+            tieBreak: 'medal-race-then-a8' as const,
+            ...fx.config.medal,
+          },
+        }
+      : {}),
   };
 
   // The one more race the boats who missed the medal fleet sail is an

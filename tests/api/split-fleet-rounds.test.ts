@@ -442,6 +442,29 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     expect((await getSplitFleetState(ctx, seriesId)).config).toBeNull();
   });
 
+  // A championship nobody is cut from: no medal block, and so no medal
+  // fleet to select.
+  test('a championship with no medal stage selects no medal fleet', async () => {
+    const { seriesId, competitorIds } = await seedSeries();
+    const { medal: _medal, ...config } = defaultSplitFleetConfig(3);
+    await putSplitFleetConfig(ctx, seriesId, config);
+    expect((await getSplitFleetState(ctx, seriesId)).config).not.toHaveProperty('medal');
+    await expect(
+      commitSplitRound(ctx, seriesId, {
+        stage: 'medal',
+        fromStageRace: 1,
+        method: 'medal-select',
+        basis: null,
+        fleets: [{ label: 'Medal', color: '#000' }],
+        assignments: { [competitorIds[0]]: 0 },
+        overrideCompetitorIds: [],
+        stageRaceNumbers: [],
+        date: '2026-08-24',
+        deleteFleetIds: [],
+      }),
+    ).rejects.toThrow(/no medal stage/);
+  });
+
   // Locks follow what has been sailed, not a global switch.
   test('the words settle once a race exists', async () => {
     const { seriesId, competitorIds } = await seedSeries();
@@ -467,7 +490,7 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
       discardThresholds: [{ minRaces: 2, discardCount: 1 }],
       medal: { ...config.medal, multiplier: 1 },
     });
-    expect((await getSplitFleetState(ctx, seriesId)).config?.medal.multiplier).toBe(1);
+    expect((await getSplitFleetState(ctx, seriesId)).config?.medal?.multiplier).toBe(1);
   });
 
   test('dividing and undividing stay open until the split is committed', async () => {
