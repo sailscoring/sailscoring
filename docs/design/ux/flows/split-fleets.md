@@ -592,8 +592,12 @@ Each table carries only its own columns.
 
 Repêchage races are never columns in the championship table: setting races
 that count beside races that don't invites the misreading the instructions
-forbid. The publish dialog offers the repêchage as a page of its own, and the
-per-race results page lists R1, R2 … with the rest.
+forbid. The published championship page carries the same tables in the same
+order, and the per-race results page lists R1, R2 … between the stage the
+repêchage followed and the medal races.
+
+The medal table drops its earlier columns only once a medal race counts: until
+then the earlier score is still the result, and it stays where it is.
 
 ### Next action, and the sailing instructions
 

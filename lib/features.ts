@@ -307,7 +307,7 @@ export const FEATURES = {
     // Off by default. Enabling it drops a complete worked championship into
     // the series list.
     label: 'Split-fleet series (qualifying/final)',
-    helpSectionIds: ['split-fleets', 'split-fleet-boats'],
+    helpSectionIds: ['split-fleets', 'split-fleet-boats', 'split-fleet-repechage'],
     selfService: false,
     demoSample: 'championship.sailscoring',
   },

@@ -51,6 +51,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'creating-a-follow-on-series', title: 'Creating a follow-on series', feature: 'follow-on-series', keywords: ['next series', 'carry over', 'copy entries', 'new season'] },
       { id: 'split-fleets', title: 'Split-fleet championships', feature: 'split-fleets', keywords: ['gold', 'silver', 'bronze', 'qualifying', 'final series', 'medal race', 'championship', 'flight', 'seeding'] },
       { id: 'split-fleet-boats', title: 'Boats drawn for each fleet', feature: 'split-fleets', keywords: ['supplied boats', 'boat draw', 'boat rotation', 'shared boats', 'champions cup', 'charter', 'entry number'] },
+      { id: 'split-fleet-repechage', title: 'A repêchage for the last seats', feature: 'split-fleets', keywords: ['repechage', 'repêchage', 'second chance', 'promote', 'last chance qualifier', 'sail-off', 'champions cup', 'final series'] },
       { id: 'world-sailing-id', title: 'World Sailing Sailor IDs and seeding', feature: 'world-sailing-id', keywords: ['sailor id', 'world sailing', 'wsid', 'ranking seed'] },
     ],
   },

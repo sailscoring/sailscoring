@@ -806,6 +806,12 @@ recomputable. Two consequences:
   nullable columns on `race_starts` (stage, stage race number, first-place
   offset), `qf_config` JSONB on `series` — mirrored in `lib/db/schema/`,
   validation in `lib/validation/`, and the repositories.
+- **The repêchage** is stored as a fourth value of the stage on rounds and
+  starts (`repechage`), but it is not a stage: every championship pass
+  iterates the three stages and never scores it. It hangs off the medal
+  cut, holds boats picked by hand, and fills the medal fleet's last seats
+  only by promotion, recorded on the medal round with its reason
+  (`override_reasons`). See the flow doc's "The repêchage".
 - **Series-file format bump**: rounds, the start stage fields, and
   `qfConfig` must round-trip through `lib/series-file.ts` (fleets and
   starts already do); omitting any of it is silent data loss.

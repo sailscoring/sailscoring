@@ -272,6 +272,13 @@ place scores, which is what produced the published 34.0.
 
 ### Mapping onto the existing three stages
 
+> **Superseded for the repêchage.** It is no longer mapped onto the `final`
+> slot: it hangs off the medal cut as a side series, picked by hand and
+> promoted from by hand, so the Champions' Cups are an undivided two-flight
+> opening series and a medal stage that carries nothing. See the flow doc's
+> "The repêchage" (`docs/design/ux/flows/split-fleets.md`). The rest of this
+> section stands as the reasoning it replaced.
+
 The stored stage enum does not change, so there is no migration and no new
 stage on race starts or split rounds. The four policies widen `qf_config`,
 which the series file and the public export carry, so those need the usual

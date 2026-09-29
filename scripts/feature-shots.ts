@@ -1674,6 +1674,40 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: A repêchage for the last seats — the Add a repêchage dialog
+    // on the worked championship, whose medal fleet is already selected. A
+    // few boats are ticked and the dialog is dismissed: nothing is written,
+    // so the sample is left as seeded.
+    slug: 'split-fleet-repechage',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      await dbEnableOperatorFeature('split-fleets');
+      await page.evaluate(() => localStorage.clear());
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample Championship 2026' }).first().click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+      await settle(page);
+      const series = capitaliseStage(VOCABULARIES['opening-medal'].seriesName);
+      const toggle = page.getByRole('button', { name: new RegExp(`^${series}\\s*(Complete|In progress)`) });
+      if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+      await settle(page);
+
+      await page.getByTestId('sf-repechage').getByRole('button', { name: 'Add a repêchage…' }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      const boxes = dialog.getByRole('checkbox', { name: /sails the repêchage$/ });
+      const n = Math.min(await boxes.count(), 4);
+      for (let i = 0; i < n; i++) await boxes.nth(i).check();
+      await settle(page);
+      await shot('split-fleet-repechage.png');
+
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+    },
+  },
+  {
     // Inventory: RaceSense import — the plan dialog over the sample league.
     // Operator-gated, so local mode flips the gate at the database.
     //

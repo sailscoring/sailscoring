@@ -3,7 +3,7 @@
 import { useFeatures } from '@/components/features-provider';
 
 import { HelpShot, Section } from '../ui';
-import { SplitFleetBoatsSection, SplitFleetsSection } from './split-fleets';
+import { SplitFleetBoatsSection, SplitFleetRepechageSection, SplitFleetsSection } from './split-fleets';
 
 /** The “Running a series” chapter — rendered by the /help/running-a-series route and,
  *  loaded on demand, by the help panel. */
@@ -709,6 +709,7 @@ export default function RunningASeries() {
       )}
       {has('split-fleets') && <SplitFleetsSection />}
       {has('split-fleets') && <SplitFleetBoatsSection />}
+      {has('split-fleets') && <SplitFleetRepechageSection />}
       {has('world-sailing-id') && (
       <Section id="world-sailing-id" title="World Sailing Sailor IDs and seeding">
         <HelpShot

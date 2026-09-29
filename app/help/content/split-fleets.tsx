@@ -349,3 +349,61 @@ export function SplitFleetBoatsSection() {
     </Section>
   );
 }
+
+/** The repêchage: a second chance for the boats who missed the medal cut. */
+export function SplitFleetRepechageSection() {
+  const { vocab } = useHelpVocabulary();
+  const w = words(vocab);
+  const caption =
+    'Adding a repêchage: the boats who missed the cut, in the order of the ranking they were cut from, picked by hand.';
+  return (
+    <Section id="split-fleet-repechage" title="A repêchage for the last seats">
+      <p>
+        Some championships give the boats who missed the cut a second chance: a short series of
+        their own, whose leaders take the last seats in the {w.medal.fleetNoun}. The Irish
+        Sailing Champions’ Cups sail one after their two flights, for the last seats in the
+        deciding races; another event might sail one after Gold and Silver. The sailing instructions that call for
+        one rarely agree on who may sail it, in how many flights, or how many seats it fills, so
+        all of that is yours to decide as the committee directs.
+      </p>
+      <p>
+        Select the {w.medal.fleetNoun} first, with the boats that go through directly. The card
+        they were cut from then has a <strong className="text-foreground">Repêchage</strong>{' '}
+        section, saying how many seats are still open. <strong className="text-foreground">Add a
+        repêchage</strong> lists the boats outside the {w.medal.fleetNoun} in the order of the
+        ranking they were cut from; tick the ones the sailing instructions name, and choose one
+        fleet or several — two flights of four is one repêchage in two fleets, each ranked on its
+        own.
+      </p>
+      <HelpShot src="/help/shots/split-fleet-repechage.webp" alt={caption} caption={caption} />
+      <p>
+        Its races are numbered R1, R2 and so on, and entered like any other. It is ranked on those
+        races alone: every boat starts on zero, nothing is excluded, and a boat that does not
+        finish scores the boats in her repêchage fleet plus one. Nothing it scores counts in the
+        championship.
+      </p>
+      <p>
+        <strong className="text-foreground">Promote from the repêchage</strong> ticks its leaders
+        up to the seats open; promote whom the sailing instructions say. A promoted boat takes
+        into the {w.medal.name} exactly what the boats selected directly take — nothing, where
+        nothing is carried, or her own score where one is — and nothing from the repêchage goes
+        with her. Where there is no time to sail it, promote from the ranking the boats were cut
+        from instead: that is the usual fallback (“invite the 3rd-placed sailors from each
+        flight”), and it needs no repêchage at all. A promotion can be withdrawn.
+      </p>
+      <p>
+        Where the {w.medal.name} carry a score in, only boats of the fleet the{' '}
+        {w.medal.fleetNoun} is selected from can sail the repêchage or be promoted: a Silver score
+        carried into races against Gold’s would set two fleets’ points against each other. Where
+        nothing is carried, any boat outside the {w.medal.fleetNoun} can.
+      </p>
+      <p>
+        The standings list every score once: the {w.medal.fleetNoun}, then the repêchage — every
+        boat that sailed it, promoted or not — then the ranking the boats were cut from. Where
+        nothing is carried into the {w.medal.name}, that last table lists every boat, the{' '}
+        {w.medal.fleetNoun} included, on its own. The published pages follow the same order, and
+        the race results page lists the repêchage races with the rest.
+      </p>
+    </Section>
+  );
+}
