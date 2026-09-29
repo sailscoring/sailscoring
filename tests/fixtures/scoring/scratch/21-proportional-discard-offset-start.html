@@ -108,6 +108,10 @@ td.ratingcell.notentered { color: #bbb; }
 .pagenotes p { text-align: left; margin: 0 0 6px 0; }
 .pagenotes p:last-child { margin-bottom: 0; }
 .pagenotes .seriesnote { color: #444; }
+/* Where the ratings came from (#615). Quiet, and beside the credit line
+   rather than above the tables: it is provenance a reader goes looking for,
+   not something the page needs to announce. */
+.ratingsource { font-size: 0.8em; color: #666; margin: 0 0 6px 0; }
 th[data-sortable] { cursor: pointer; }
 th[aria-sort="ascending"]::after { content: " ▲"; font-size: 0.75em; }
 th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
