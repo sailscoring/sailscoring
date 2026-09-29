@@ -1,0 +1,1 @@
+ALTER TABLE "split_rounds" ADD COLUMN "override_reasons" jsonb;

@@ -28,7 +28,7 @@ import {
 } from './repository';
 import type { SeriesFileRepos, SeriesFileSplitFleetsWrite } from './series-file';
 import { normalizeSplitFleetConfig } from './split-fleets';
-import type { SplitFleetConfig, SplitRound } from './split-fleets';
+import type { OverrideReason, SplitFleetConfig, SplitRound } from './split-fleets';
 import type {
   Category,
   Competitor,
@@ -2805,6 +2805,7 @@ function splitRoundRowToType(row: typeof schema.splitRounds.$inferSelect): Split
     method: row.method as SplitRound['method'],
     basis: row.basis ?? null,
     ...(row.overrides ? { overrides: row.overrides } : {}),
+    ...(row.overrideReasons ? { overrideReasons: row.overrideReasons } : {}),
     ...(row.publishedAt ? { publishedAt: row.publishedAt.getTime() } : {}),
     createdAt: row.createdAt.getTime(),
   };
@@ -2849,17 +2850,27 @@ export class PostgresSplitRoundRepository {
       method: round.method,
       basis: round.basis,
       overrides: round.overrides ?? null,
+      overrideReasons: round.overrideReasons ?? null,
       publishedAt: round.publishedAt ? new Date(round.publishedAt) : null,
       createdAt: new Date(round.createdAt),
       updatedBy: opts?.updatedBy ?? null,
     });
   }
 
-  async setOverrides(roundId: string, overrides: Record<string, string>, opts?: { updatedBy?: string }): Promise<void> {
+  /** Replace a round's hand placements. `reasons`, where given, replaces
+   *  the reasons with them; absent, the stored reasons stand. */
+  async setOverrides(
+    roundId: string,
+    overrides: Record<string, string>,
+    opts?: { updatedBy?: string; reasons?: Record<string, OverrideReason> },
+  ): Promise<void> {
     await this.db
       .update(schema.splitRounds)
       .set({
         overrides: Object.keys(overrides).length ? overrides : null,
+        ...(opts?.reasons
+          ? { overrideReasons: Object.keys(opts.reasons).length ? opts.reasons : null }
+          : {}),
         version: sql`${schema.splitRounds.version} + 1`,
         updatedAt: sql`now()`,
         updatedBy: opts?.updatedBy ?? null,
@@ -2957,6 +2968,7 @@ export async function replaceSplitFleetState(
       method: r.method,
       basis: r.basis ?? null,
       overrides: r.overrides ?? null,
+      overrideReasons: r.overrideReasons ?? null,
       createdAt: new Date(r.createdAt),
     })),
   );
@@ -3023,6 +3035,7 @@ export function seriesFileReposFor(ctx: RepoCtx): SeriesFileRepos {
             method: r.method,
             basis: r.basis ?? null,
             ...(r.overrides ? { overrides: r.overrides } : {}),
+            ...(r.overrideReasons ? { overrideReasons: r.overrideReasons } : {}),
             createdAt: r.createdAt.getTime(),
           })),
         };

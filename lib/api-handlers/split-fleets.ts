@@ -221,10 +221,15 @@ export async function putSplitFleetState(
             competitorIds.has(competitorId) && fleetIds.has(fleetId),
         ),
       );
+      const overrideReasons = Object.fromEntries(
+        Object.entries(r.overrideReasons ?? {}).filter(([competitorId]) => competitorIds.has(competitorId)),
+      );
+      const { overrides: _overrides, overrideReasons: _overrideReasons, ...rest } = r;
       return {
-        ...r,
+        ...rest,
         fleetIds: r.fleetIds.filter((id) => fleetIds.has(id)),
         ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
+        ...(Object.keys(overrideReasons).length > 0 ? { overrideReasons } : {}),
       };
     })
     .filter((r) => r.fleetIds.length > 0);

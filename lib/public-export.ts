@@ -173,8 +173,10 @@ export interface PublicSeriesExport {
    *  forward; v5 adds the score carried into each stage; v6 gives each
    *  competitor a `ref` that finishes, round overrides and sub-series pins
    *  point at in place of the sail number, and adds her boats drawn per
-   *  fleet. Readers accept them all. */
-  version: 1 | 2 | 3 | 4 | 5 | 6;
+   *  fleet; v7 adds the repêchage (a `repechage` round and race-start stage)
+   *  and why a boat was placed in a round by hand. Readers accept them
+   *  all. */
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   exportedAt: string;
   series: {
     name: string;
@@ -634,6 +636,10 @@ export interface ExportSplitFleets {
  *  so it travels; `publishedAt` does not — it is workspace-local publishing
  *  state, on the same grounds the series file omits it. */
 export interface ExportSplitRound {
+  /** `repechage` (v7+): the repêchage, a short series for boats who missed
+   *  the medal cut, ranked on its own races alone. Nothing it scores
+   *  reaches the championship; boats promoted from it are the medal round's
+   *  `overrides` with the reason `repechage`. */
   stage: 'qualifying' | 'final' | 'medal' | 'repechage';
   fromStageRace: number;
   /** The round's fleets in SI/tier order, by name. */
@@ -644,6 +650,11 @@ export interface ExportSplitRound {
    *  fleet name (v6+; sail number → fleet name before). The memberships already reflect these; the map is what lets a
    *  round card tell a hand placement from a computed one. */
   overrides?: Record<string, string>;
+  /** Why a hand-placed boat was placed (v7+): competitor `ref` → `redress`,
+   *  `repechage` (promoted into the medal fleet from the repêchage) or
+   *  `cut-ranking` (promoted from the ranking she was cut from, the fallback
+   *  where the repêchage is not sailed). Absent means redress. */
+  overrideReasons?: Record<string, 'redress' | 'repechage' | 'cut-ranking'>;
   createdAt: number;
 }
 
@@ -1343,7 +1354,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 6 as const,
+    version: 7 as const,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
@@ -1550,6 +1561,16 @@ export function buildPublicExportFromSnapshot(
               ),
             }
           : {}),
+        ...(r.overrideReasons && Object.keys(r.overrideReasons).length > 0
+          ? {
+              overrideReasons: Object.fromEntries(
+                Object.entries(r.overrideReasons).flatMap(([cid, reason]) => {
+                  const ref = refById.get(cid);
+                  return ref ? [[ref, reason] as const] : [];
+                }),
+              ),
+            }
+          : {}),
         createdAt: r.createdAt,
       }));
       return { splitFleets: { config: sf.config, rounds } };
@@ -1594,7 +1615,7 @@ export function buildPublicExportFromSnapshot(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -2216,6 +2237,16 @@ export async function importPublicExport(
                   return competitorId && fleetId
                     ? [[competitorId, fleetId] as [string, string]]
                     : [];
+                }),
+              ),
+            }
+          : {}),
+        ...(r.overrideReasons
+          ? {
+              overrideReasons: Object.fromEntries(
+                Object.entries(r.overrideReasons).flatMap(([ref, reason]) => {
+                  const competitorId = competitorIdByRef.get(ref);
+                  return competitorId ? [[competitorId, reason] as const] : [];
                 }),
               ),
             }

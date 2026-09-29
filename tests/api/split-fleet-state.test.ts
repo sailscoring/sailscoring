@@ -167,6 +167,24 @@ describe.skipIf(skip)('split-fleet state replay (#365)', () => {
     expect(stamped.every((f) => f.splitRoundId === r.id)).toBe(true);
   });
 
+  test('stores a repêchage round and the reasons boats were placed, dropping reasons for strangers', async () => {
+    const { seriesId, fleetIds, competitorIds } = await seedSeries('Champions Cup');
+    const medal = {
+      ...round([fleetIds[0]], { [competitorIds[0]]: fleetIds[0] }),
+      stage: 'medal' as const,
+      method: 'medal-select',
+      overrideReasons: { [competitorIds[0]]: 'repechage' as const, [uuid()]: 'cut-ranking' as const },
+    };
+    const repechage = { ...round([fleetIds[1]]), stage: 'repechage' as const, method: 'manual' };
+
+    await putSplitFleetState(ctx, seriesId, { config: CONFIG, rounds: [medal, repechage] });
+
+    const state = await getSplitFleetState(ctx, seriesId);
+    const byId = new Map(state.rounds.map((r) => [r.id, r]));
+    expect(byId.get(medal.id)!.overrideReasons).toEqual({ [competitorIds[0]]: 'repechage' });
+    expect(byId.get(repechage.id)!.stage).toBe('repechage');
+  });
+
   test('replaces the previous rounds wholesale, and clears on an empty replay', async () => {
     const { seriesId, fleetIds } = await seedSeries('Nationals');
     const first = round(fleetIds);

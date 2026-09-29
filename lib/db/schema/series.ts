@@ -63,7 +63,7 @@ import type {
 } from '@/lib/archive-kit/types';
 import type { RankingConfig } from '@/lib/ranking';
 import type { SeriesFile } from '@/lib/series-file';
-import type { SplitFleetConfig } from '@/lib/split-fleets';
+import type { OverrideReason, SplitFleetConfig } from '@/lib/split-fleets';
 
 /**
  * ADR-008 Phase 2 schema. Mirrors `lib/types.ts` 1:1.
@@ -936,6 +936,9 @@ export const splitRounds = pgTable(
     // Manual placements layered over the computed assignment
     // (competitorId → fleetId); never queried by content.
     overrides: jsonb('overrides').$type<Record<string, string>>(),
+    // Why a hand-placed boat was placed, where it was not plain redress
+    // (competitorId → 'repechage' | 'cut-ranking' | 'redress'). Sparse.
+    overrideReasons: jsonb('override_reasons').$type<Record<string, OverrideReason>>(),
     // When the round's assignment lists were last published.
     publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })

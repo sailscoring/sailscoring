@@ -212,6 +212,31 @@ describe('public export — importing the split-fleet block', () => {
     expect(written.overrides).toEqual({ [newBoat.id]: newFleet.id });
   });
 
+  it('carries why a boat was placed by hand, keyed by her ref, and back', async () => {
+    const data = championship();
+    const round = data.rounds.find((r) => r.stage === 'medal')!;
+    const boat = data.competitors[0];
+    const out = exportOf(data, {
+      config: data.config,
+      rounds: data.rounds.map((r) =>
+        r === round
+          ? { ...r, overrides: { [boat.id]: round.fleetIds[0] }, overrideReasons: { [boat.id]: 'repechage' as const } }
+          : r,
+      ),
+    });
+    const ref = out.competitors.find((c) => c.sailNumber === boat.sailNumber)!.ref!;
+    expect(out.splitFleets!.rounds.find((r) => r.overrideReasons)!.overrideReasons).toEqual({
+      [ref]: 'repechage',
+    });
+
+    const { repos, competitors, read } = makeRecordingRepos();
+    await importPublicExport(out, repos);
+    const newBoat = competitors.find((c) => c.sailNumber === boat.sailNumber)!;
+    expect(read()!.rounds.find((r) => r.overrideReasons)!.overrideReasons).toEqual({
+      [newBoat.id]: 'repechage',
+    });
+  });
+
   it('reads a v5 export, whose hand placements are keyed by sail number', async () => {
     const data = championship();
     const round = data.rounds.find((r) => r.stage === 'final')!;

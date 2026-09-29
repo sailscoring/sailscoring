@@ -195,6 +195,27 @@ describe('split-fleet block on file import', () => {
     expect(round.createdAt).toBe(1_754_000_000_000);
   });
 
+  it('carries a repêchage round and the reasons boats were placed by hand', async () => {
+    const file = makeFile();
+    file.splitFleets!.rounds[0].overrideReasons = { 'file-comp-2': 'repechage' };
+    file.splitFleets!.rounds.push({
+      id: 'file-round-2',
+      stage: 'repechage',
+      fromStageRace: 1,
+      fleetIds: ['file-fleet-blue'],
+      method: 'manual',
+      basis: null,
+      createdAt: 1_754_000_000_001,
+    });
+    const repos = makeRepos();
+    await openSeriesFromFile(file, repos);
+
+    const competitorIdBySail = new Map(repos.savedCompetitors.map((c) => [c.sailNumber, c.id]));
+    const [first, second] = repos.replaceCalls[0].rounds;
+    expect(first.overrideReasons).toEqual({ [competitorIdBySail.get('IRL2')!]: 'repechage' });
+    expect(second.stage).toBe('repechage');
+  });
+
   it('drops references the import didn’t carry over', async () => {
     const file = makeFile();
     file.splitFleets!.rounds[0].fleetIds = ['file-fleet-yellow', 'no-such-fleet'];

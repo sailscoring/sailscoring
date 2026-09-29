@@ -1402,6 +1402,7 @@ export const splitFleets = {
         method: r.method,
         basis: r.basis,
         ...(r.overrides ? { overrides: r.overrides } : {}),
+        ...(r.overrideReasons ? { overrideReasons: r.overrideReasons } : {}),
         createdAt: r.createdAt,
       })),
     };

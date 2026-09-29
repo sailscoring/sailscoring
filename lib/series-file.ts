@@ -530,9 +530,18 @@ export interface SeriesFileRepos {
  *  read) — and `splitFleets.config.boatAssignments`, which offers them in the
  *  split-fleet UI. A build reading v59 would match that championship's
  *  finishes by the entry's own number rather than the boat the race
- *  committee hailed, so the version moves. */
-export const FORMAT_VERSION = 60;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
+ *  committee hailed, so the version moves.
+ *
+ *  v61 adds the repêchage: `repechage` as a split round's `stage` and a
+ *  race start's `stage` — a short series for boats who missed the medal cut,
+ *  ranked on its own races and scoring nothing in the championship — and
+ *  optional `splitFleets.rounds[*].overrideReasons`, why a boat was placed in
+ *  a round by hand (competitor id → `redress` | `repechage` |
+ *  `cut-ranking`, remapped with the competitors on read). A build reading
+ *  v60 would score the repêchage's races as nobody's and lose how the medal
+ *  fleet's last seats were filled, so the version moves. */
+export const FORMAT_VERSION = 61;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -548,6 +557,8 @@ export interface SeriesFileSplitRound {
   method: string;
   basis?: { throughStageRace: number; capturedAt: number } | null;
   overrides?: Record<string, string>;
+  /** v61+: why a hand-placed boat was placed (competitor id → reason). */
+  overrideReasons?: Record<string, import('./split-fleets').OverrideReason>;
   createdAt: number;
 }
 export interface SeriesFileSplitFleets {
@@ -2430,6 +2441,15 @@ async function writeFleetsCompetitorsRaces(
                     fleetIdMap.get(fid),
                   ])
                   .filter(([a, b]) => a && b) as [string, string][],
+              ),
+            }
+          : {}),
+        ...(r.overrideReasons
+          ? {
+              overrideReasons: Object.fromEntries(
+                Object.entries(r.overrideReasons)
+                  .map(([cid, reason]) => [competitorIdMap.get(cid), reason])
+                  .filter(([a]) => a) as [string, import('./split-fleets').OverrideReason][],
               ),
             }
           : {}),
