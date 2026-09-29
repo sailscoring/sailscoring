@@ -543,7 +543,7 @@ marked *via repêchage* — the same override record the split card's
 │   Rep. B   ☑ 1  IRL 3145  Kenny         3.0                          │
 │            ☐ 2  IRL 1409  Walsh         3.0   tie broken by A8       │
 │                                                                      │
-│  [ Cancel ]                                  [ Promote 2 boats ]     │
+│  [ Cancel ]                                  [ Promote 2 competitors ]│
 └──────────────────────────────────────────────────────────────────────┘
 ```
 

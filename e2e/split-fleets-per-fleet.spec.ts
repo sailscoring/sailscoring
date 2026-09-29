@@ -108,7 +108,7 @@ test('each fleet ranked on its own, the top two of each through', async ({ page,
   const thirds = candidates.getByRole('row').filter({ has: page.getByRole('cell', { name: '3', exact: true }) });
   await expect(thirds).toHaveCount(2);
   for (const row of await thirds.all()) await row.getByRole('checkbox').check();
-  await promote.getByRole('button', { name: 'Promote 2 boats' }).click();
+  await promote.getByRole('button', { name: 'Promote 2 competitors' }).click();
   await expect(promote).toBeHidden();
   await expect(repechage.getByTestId('sf-promoted')).toContainText('from the opening series ranking');
 });

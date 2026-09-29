@@ -65,7 +65,7 @@ test('a repêchage, sailed and promoted from', async ({ page, signedInEmail }) =
   // A medal boat is not on offer.
   await expect(addDialog.getByRole('checkbox', { name: `${sails[0]} sails the repêchage` })).toHaveCount(0);
   await addDialog.getByRole('checkbox', { name: /Also create R1/ }).check();
-  await addDialog.getByRole('button', { name: 'Add the repêchage (4 boats)' }).click();
+  await addDialog.getByRole('button', { name: 'Add the repêchage (4 competitors)' }).click();
   await expect(addDialog).toBeHidden();
 
   // Sailed in reverse of the qualifying order: it is ranked on its own race.
@@ -81,7 +81,7 @@ test('a repêchage, sailed and promoted from', async ({ page, signedInEmail }) =
   await expect(promoteDialog.getByRole('checkbox', { name: `Promote ${sails[11]}` })).toBeChecked();
   await expect(promoteDialog.getByRole('checkbox', { name: `Promote ${sails[10]}` })).toBeChecked();
   await expect(promoteDialog.getByRole('checkbox', { name: `Promote ${sails[9]}` })).not.toBeChecked();
-  await promoteDialog.getByRole('button', { name: 'Promote 2 boats' }).click();
+  await promoteDialog.getByRole('button', { name: 'Promote 2 competitors' }).click();
   await expect(promoteDialog).toBeHidden();
   await expect(repechage.getByTestId('sf-seats-open')).toHaveText('0 seats open in the medal fleet');
   await expect(repechage.getByTestId('sf-promoted')).toContainText(sails[11]);

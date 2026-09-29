@@ -2304,7 +2304,7 @@ function EligibilityNote({ data, fleetMeta }: { data: SplitFleetData; fleetMeta:
   const top = fleetMeta.get(splitRound.fleetIds[0])?.label ?? '';
   return (
     <p className="text-xs text-muted-foreground" data-testid="sf-repechage-eligibility">
-      Only {top} boats are listed: the {w.medal.name} carry a score in, and a score from
+      Only {top} competitors are listed: the {w.medal.name} carry a score in, and a score from
       another fleet cannot be set against {top}&rsquo;s.
     </p>
   );
@@ -2376,7 +2376,7 @@ function RepechageSection({
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            Ranked on its own races alone, every boat starting on zero, nothing excluded.
+            Ranked on its own races alone, every competitor starting on zero, nothing excluded.
             Nothing it scores counts in the championship.
           </p>
           <div className="space-y-1.5">
@@ -2419,12 +2419,12 @@ function RepechageSection({
             {membershipOpen && addable.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  aria-label={`Add a boat to the ${REPECHAGE_WORDS.name}`}
+                  aria-label={`Add a competitor to the ${REPECHAGE_WORDS.name}`}
                   className="rounded-md border bg-background px-2 py-1 text-xs"
                   value={addBoat}
                   onChange={(e) => setAddBoat(e.target.value)}
                 >
-                  <option value="">Add a boat…</option>
+                  <option value="">Add a competitor…</option>
                   {addable.map((r) => (
                     <option key={r.competitor.id} value={r.competitor.id}>
                       {r.rank}. {r.competitor.sailNumber} {r.competitor.names.join(' & ')}
@@ -2619,15 +2619,15 @@ function AddRepechageDialog({
   return (
     <CeremonyDialog
       title={`Add a ${REPECHAGE_WORDS.name}`}
-      description={`Pick the boats the sailing instructions name. The ${REPECHAGE_WORDS.name} is ranked on its own races alone — every boat starts on zero — and nothing it scores counts in the championship; its leaders are promoted into the ${words(data.config).medal.fleetNoun} afterwards.`}
+      description={`Pick the competitors the sailing instructions name. The ${REPECHAGE_WORDS.name} is ranked on its own races alone — everyone starts on zero — and nothing it scores counts in the championship; its leaders are promoted into the ${words(data.config).medal.fleetNoun} afterwards.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
-      commitLabel={`Add the ${REPECHAGE_WORDS.name} (${count} ${count === 1 ? 'boat' : 'boats'})`}
+      commitLabel={`Add the ${REPECHAGE_WORDS.name} (${count} ${count === 1 ? 'competitor' : 'competitors'})`}
       blockedReason={
         count === 0
-          ? 'Pick the boats who sail it'
+          ? 'Pick the competitors who sail it'
           : emptyFleet >= 0
-            ? `${labels[emptyFleet]} has no boats`
+            ? `${labels[emptyFleet]} has no competitors`
             : null
       }
       onClose={onClose}
@@ -2807,13 +2807,13 @@ function PromoteDialog({
           : `${seatsOpen === 1 ? '1 seat' : `${seatsOpen} seats`} open.`
       } ${
         data.config.medal?.carry === 'nothing'
-          ? `Nothing is carried into the ${w.medal.name}: a promoted boat starts them level with the boats selected directly.`
-          : `A promoted boat carries her own ${cutFromName(data)} score into the ${w.medal.name}, as the boats selected directly do.`
+          ? `Nothing is carried into the ${w.medal.name}: a promoted competitor starts them level with those selected directly.`
+          : `A promoted competitor carries her own ${cutFromName(data)} score into the ${w.medal.name}, as those selected directly do.`
       } Nothing from the ${REPECHAGE_WORDS.name} goes with her.`}
       error={promote.isError ? String(promote.error) : null}
       pending={promote.isPending}
-      commitLabel={`Promote ${chosen.size} ${chosen.size === 1 ? 'boat' : 'boats'}`}
-      blockedReason={chosen.size === 0 ? 'Pick the boats to promote' : null}
+      commitLabel={`Promote ${chosen.size} ${chosen.size === 1 ? 'competitor' : 'competitors'}`}
+      blockedReason={chosen.size === 0 ? 'Pick the competitors to promote' : null}
       onClose={() => onClose()}
       onCommit={async () => {
         try {
@@ -2857,8 +2857,8 @@ function PromoteDialog({
       {(medalSailed || companion) && (
         <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           {medalSailed
-            ? `A ${w.medal.raceNoun} has already been sailed: a boat promoted now has no score in it.`
-            : `A companion race has already been added. It is scored from the ${w.medal.fleetNoun}’s size plus one, and a promoted boat leaves it — check its scores after promoting.`}
+            ? `A ${w.medal.raceNoun} has already been sailed: a competitor promoted now has no score in it.`
+            : `A companion race has already been added. It is scored from the ${w.medal.fleetNoun}’s size plus one, and a promoted competitor leaves it — check its scores after promoting.`}
         </p>
       )}
       <table className="w-full text-sm" data-testid="sf-promote-candidates">
