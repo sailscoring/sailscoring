@@ -174,9 +174,11 @@ export interface PublicSeriesExport {
    *  competitor a `ref` that finishes, round overrides and sub-series pins
    *  point at in place of the sail number, and adds her boats drawn per
    *  fleet; v7 adds the repêchage (a `repechage` round and race-start stage)
-   *  and why a boat was placed in a round by hand. Readers accept them
-   *  all. */
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+   *  and why a boat was placed in a round by hand; v8 adds the choice to
+   *  rank an undivided championship's fleets each on its own
+   *  (`splitFleets.config.fleetRanking`, `medal.fromEachFleet`). Readers
+   *  accept them all. */
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   exportedAt: string;
   series: {
     name: string;
@@ -1354,7 +1356,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 7 as const,
+    version: 8 as const,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
@@ -1615,7 +1617,7 @@ export function buildPublicExportFromSnapshot(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.

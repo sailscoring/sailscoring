@@ -212,6 +212,24 @@ describe('public export — importing the split-fleet block', () => {
     expect(written.overrides).toEqual({ [newBoat.id]: newFleet.id });
   });
 
+  it('carries flights ranked each on their own, and their direct seats, and back', async () => {
+    const data = championship();
+    const config: SplitFleetConfig = {
+      ...data.config,
+      split: { kind: 'none' },
+      finalFleets: [],
+      fleetRanking: 'per-fleet',
+      medal: { ...data.config.medal!, fromEachFleet: 2 },
+    };
+    const out = exportOf(data, { config, rounds: data.rounds });
+    expect(out.version).toBe(8);
+    expect(out.splitFleets!.config.fleetRanking).toBe('per-fleet');
+    const { repos, read } = makeRecordingRepos();
+    await importPublicExport(out, repos);
+    expect(read()!.config!.fleetRanking).toBe('per-fleet');
+    expect(read()!.config!.medal!.fromEachFleet).toBe(2);
+  });
+
   it('carries why a boat was placed by hand, keyed by her ref, and back', async () => {
     const data = championship();
     const round = data.rounds.find((r) => r.stage === 'medal')!;

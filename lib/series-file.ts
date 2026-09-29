@@ -539,9 +539,16 @@ export interface SeriesFileRepos {
  *  a round by hand (competitor id → `redress` | `repechage` |
  *  `cut-ranking`, remapped with the competitors on read). A build reading
  *  v60 would score the repêchage's races as nobody's and lose how the medal
- *  fleet's last seats were filled, so the version moves. */
-export const FORMAT_VERSION = 61;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61];
+ *  fleet's last seats were filled, so the version moves.
+ *
+ *  v62 adds optional `splitFleets.config.fleetRanking` — whether an
+ *  undivided championship's fleets are ranked together or each on its own —
+ *  and `splitFleets.config.medal.fromEachFleet`, the leaders of each fleet
+ *  who go through directly. A build reading v61 would rank the flights as
+ *  one list and hold one flight's races hostage to the other's, so the
+ *  version moves. */
+export const FORMAT_VERSION = 62;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----

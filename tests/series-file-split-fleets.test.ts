@@ -216,6 +216,21 @@ describe('split-fleet block on file import', () => {
     expect(second.stage).toBe('repechage');
   });
 
+  it('carries flights ranked each on their own, and their direct seats', async () => {
+    const file = makeFile();
+    file.splitFleets!.config = {
+      ...CONFIG,
+      split: { kind: 'none' },
+      finalFleets: [],
+      fleetRanking: 'per-fleet',
+      medal: { ...CONFIG.medal!, fromEachFleet: 2 },
+    };
+    const repos = makeRepos();
+    await openSeriesFromFile(file, repos);
+    expect(repos.replaceCalls[0].config!.fleetRanking).toBe('per-fleet');
+    expect(repos.replaceCalls[0].config!.medal!.fromEachFleet).toBe(2);
+  });
+
   it('drops references the import didn’t carry over', async () => {
     const file = makeFile();
     file.splitFleets!.rounds[0].fleetIds = ['file-fleet-yellow', 'no-such-fleet'];
