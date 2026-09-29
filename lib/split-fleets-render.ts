@@ -117,6 +117,19 @@ function formatDetails(config: SplitFleetConfig): string {
   return `<details class="sfformat"><summary>How this championship is scored</summary>\n<ol>${lines}</ol></details>`;
 }
 
+/** What a competitor's own number is called: her sail number, or — where
+ *  boats are drawn for each fleet — her entry number, the boats being in
+ *  their own column. */
+function ownNumberHeader(config: SplitFleetConfig): string {
+  return config.boatAssignments ? 'Entry' : 'Sail';
+}
+
+/** The sail number a boat carries in a fleet: the boat drawn for her there,
+ *  or her own. */
+function boatIn(competitor: Competitor, fleetId: string | undefined): string {
+  return (fleetId && competitor.fleetSailNumbers?.[fleetId]?.trim()) || competitor.sailNumber;
+}
+
 function showNat(input: SplitFleetRenderInput): boolean {
   return (
     (input.enabledCompetitorFields ?? []).includes('nationality') &&
@@ -436,7 +449,7 @@ export function renderSplitFleetStandingsPage(
       })
       .join('\n');
     return `<div class="tablewrap"><table class="summarytable">
-<thead><tr><th>Rank</th>${withFleetCol ? '<th>Fleet</th>' : ''}${nat ? '<th>Nat</th>' : ''}<th>Sail</th>${boatClass ? '<th>Class</th>' : ''}<th>${crew ? 'Helm / Crew' : 'Helm'}</th>${club ? '<th>Club</th>' : ''}${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
+<thead><tr><th>Rank</th>${withFleetCol ? '<th>Fleet</th>' : ''}${nat ? '<th>Nat</th>' : ''}<th>${ownNumberHeader(data.config)}</th>${boatClass ? '<th>Class</th>' : ''}<th>${crew ? 'Helm / Crew' : 'Helm'}</th>${club ? '<th>Club</th>' : ''}${wsid ? '<th>WS ID</th>' : ''}${head}<th>Total</th><th>Nett</th></tr></thead>
 <tbody>
 ${body}
 </tbody>
@@ -699,7 +712,7 @@ export function renderSplitFleetRaceResultsPage(
         return `<tr class="${i % 2 === 0 ? 'odd' : 'even'}">
   <td style="text-align:center">${finisher ? ++place : ''}</td>
   ${nat ? natCell(competitor.nationality, input.flagSvgByCode) : ''}
-  <td style="font-family:monospace">${esc(competitor.sailNumber)}</td>
+  <td style="font-family:monospace">${esc(boatIn(competitor, cell.fleetId))}</td>
   <td>${helmHtml}</td>
   ${wsid ? wsidCell(competitor.worldSailingId) : ''}
   <td style="text-align:center">${esc(cell.code ?? '')}</td>
@@ -811,7 +824,8 @@ export function renderSplitFleetAssignmentsPage(
       // own country. Each block is tinted in its fleet's colour, with the
       // fleet named in the header band as well, so the page survives mono
       // printing and readers who cannot separate the tints.
-      const cols = nat ? 3 : 2;
+      const boats = data.config.boatAssignments === true;
+      const cols = (nat ? 3 : 2) + (boats ? 1 : 0);
       const fleets = round.fleetIds
         .map((fid) => {
           const label = fleetName.get(fid) ?? '';
@@ -835,7 +849,11 @@ export function renderSplitFleetAssignmentsPage(
                   round.overrides?.[c.id] === fid
                     ? '<span class="override-marker" title="Placed by the committee">*</span>'
                     : ''
-                }</td></tr>`,
+                }</td>${
+                  boats
+                    ? `<td style="font-family:monospace">${esc(c.fleetSailNumbers?.[fid] ?? '')}</td>`
+                    : ''
+                }</tr>`,
             )
             .join('\n');
           return `<div class="tablewrap"><table class="summarytable"><thead><tr><th colspan="${cols}" class="sffleethead" style="background:${fleetTint(
@@ -844,7 +862,9 @@ export function renderSplitFleetAssignmentsPage(
             '55',
           )}">${esc(label)} (${members.length})</th></tr><tr>${
             nat ? '<th>Nat</th>' : ''
-          }<th>Sail</th><th>Helm</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+          }<th>${ownNumberHeader(data.config)}</th><th>Helm</th>${
+            boats ? '<th>Boat</th>' : ''
+          }</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
         })
         .join('\n');
       const basis = round.basis

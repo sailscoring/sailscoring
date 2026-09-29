@@ -987,3 +987,47 @@ describe('the race record on a championship’s pages', () => {
     expect(html).not.toContain('raceofficials');
   });
 });
+
+describe('boats drawn per fleet', () => {
+  /** The fixture with a boat drawn for every entry in each fleet she is in:
+   *  "B" plus her position in the fleet, so the two fleets of a round share
+   *  boats B1, B2 … the way supplied boats are shared. */
+  function withBoats(): SplitFleetRenderInput {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    const position = new Map<string, number>();
+    const competitors = input.competitors.map((c) => ({
+      ...c,
+      sailNumber: `E${input.competitors.indexOf(c) + 1}`,
+      fleetSailNumbers: Object.fromEntries(
+        c.fleetIds.map((fid) => {
+          const n = (position.get(fid) ?? 0) + 1;
+          position.set(fid, n);
+          return [fid, `B${n}`];
+        }),
+      ),
+    }));
+    return { ...input, config: { ...input.config, boatAssignments: true }, competitors };
+  }
+
+  it("shows each race's boats, and the entry numbers on the standings", () => {
+    const input = withBoats();
+    const race = renderSplitFleetRaceResultsPage(input)!;
+    expect(race).toMatch(/<td style="font-family:monospace">B1<\/td>/);
+    expect(race).not.toMatch(/<td style="font-family:monospace">E\d+<\/td>/);
+
+    const standings = renderSplitFleetStandingsPage(input);
+    expect(headerRow(standings, 'Gold')).toContain('Entry');
+    expect(standings).toMatch(/<td style="font-family:monospace">E1<\/td>/);
+  });
+
+  it("lists each fleet's boats beside its entries on the assignments page", () => {
+    const assignments = renderSplitFleetAssignmentsPage(withBoats());
+    expect(assignments).toContain('<th>Entry</th><th>Helm</th><th>Boat</th>');
+    expect(assignments).toMatch(/<td style="font-family:monospace">B1<\/td><\/tr>/);
+  });
+
+  it('keeps the Sail heading where boats are not drawn', () => {
+    const input = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    expect(renderSplitFleetAssignmentsPage(input)).toContain('<th>Sail</th><th>Helm</th></tr>');
+  });
+});

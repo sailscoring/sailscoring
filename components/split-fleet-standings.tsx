@@ -401,7 +401,7 @@ function StandingsTable({
           <th className="py-1 pr-2 font-medium">Rank</th>
           {showFleet && <th className="py-1 pr-2 font-medium">Fleet</th>}
           {showNationality && <th className="py-1 pr-2 font-medium">Nat</th>}
-          <th className="py-1 pr-2 font-medium">Sail</th>
+          <th className="py-1 pr-2 font-medium">{data.config.boatAssignments ? 'Entry' : 'Sail'}</th>
           {showClass && <th className="py-1 pr-2 font-medium">Class</th>}
           <th className="py-1 pr-2 font-medium">{showCrew ? 'Name / Crew' : 'Name'}</th>
           {showClub && <th className="py-1 pr-2 font-medium">Club</th>}
