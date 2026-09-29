@@ -479,10 +479,30 @@ visually on the cut:
 "2 seats open" is the medal card's size less the boats in its round, a fact
 and not a limit.
 
+### Who may sail it
+
+A boat may sail the repêchage, or be promoted from any source, only where her
+score can be set against the medal fleet's:
+
+- **Where the medal stage carries nothing**, any boat outside the medal fleet
+  is eligible, from any fleet. Nobody's earlier score reaches the medal races,
+  so nothing is compared.
+- **Where it carries a score** (net, halved or rank), only the boats of the
+  fleet the medal fleet was selected from: Gold once the opening series is
+  divided, anyone while it is not (its qualifying fleets are already ranked as
+  one list). A Silver score carried into races against Gold's would set
+  points from two fleets against each other.
+
+The dialogs list only eligible boats, with a line saying why the others are
+absent, and the server refuses anyone else. Because the medal card's carry
+otherwise never locks, a change from *nothing* to a carry is refused while an
+ineligible boat is in the repêchage or has been promoted from it, naming the
+boats. The redress `Promote…` is unaffected: it is the jury's direction.
+
 ### Adding it
 
-The dialog lists every boat outside the next stage's fleet, in the order of
-the ranking she was cut from, with her fleet and her rank in it. The scorer
+The dialog lists every eligible boat outside the next stage's fleet, in the
+order of the ranking she was cut from, with her fleet and her rank in it. The scorer
 ticks the boats the committee names; nothing is ticked for them, because the
 app does not know the band (the 2026 Dinghy NoR opens the repêchage to 3rd–6th
 in each flight, its draft SIs to 3rd–5th).
@@ -535,7 +555,7 @@ marked *via repêchage* — the same override record the split card's
   repêchage, the instructions usually name the boats to promote instead,
   such as the third boat of each flight — which is what both 2025 Champions'
   Cups did. Promoting from the ranking the boats were cut from covers that
-  with no repêchage at all.
+  with no repêchage at all. The same eligibility applies to both sources.
 - **Before the next stage's first race**, promotion is clean. After it, the
   late-promotion warning of the split card's `Promote…` applies.
 - **A companion race changes when the medal fleet does.** Its first place
@@ -546,22 +566,29 @@ marked *via repêchage* — the same override record the split card's
 
 ### Standings
 
-The standings page shows each ranking separately, in this order:
+Every score is listed once, somewhere. The standings page shows, in order:
 
-1. **The championship ranking** — the final (or medal) stage. Promoted boats
-   rank in it like any other, their row marked *via repêchage*.
-2. **The repêchage ranking** — one table per repêchage fleet, over R1, R2 …
-   alone.
-3. **The ranking the boats were cut from** — the qualification series, in
-   its own tables.
+1. **The medal fleet** — the championship ranking. Promoted boats rank in it
+   like any other, their row marked *via repêchage*.
+2. **The repêchage** — one table per repêchage fleet, over R1, R2 … alone,
+   listing **every** boat that sailed it, promoted or not: the promoted boats'
+   repêchage scores are in no other table.
+3. **The ranking the boats were cut from** — the qualification series, or
+   the final series' fleets once the series is divided.
 
-Where nothing is carried, as at the Champions' Cups, the championship table
-holds the final stage's races only: no qualifying columns and no carried
-column, because none of it counts. A boat who was never promoted appears in
-the rankings she sailed in, and in no championship table — the two-tables,
-not-one-ranking result those events publish. Where a score is carried, the
-championship table keeps its carried column as it does today, and the other
-rankings still stand alone below it.
+What the first and third hold depends on the carry:
+
+| | Medal fleet | Ranking they were cut from |
+|---|---|---|
+| **A score carried** | The medal boats, with every column, as today | The boats who were cut, as today, ranked on below the medal boats |
+| **Nothing carried** | The medal boats, over the medal races only | **Every** boat, the medal boats included, ranked on that stage alone |
+
+With a carry, this is today's layout with the repêchage set between the two.
+With nothing carried, the medal boats' earlier scores count for nothing, so
+they leave the championship table and join everyone else's in the ranking
+they were cut from, which is ranked 1 … n on its own: a boat who was cut has
+no championship place, the two-tables result the Champions' Cups publish.
+Each table carries only its own columns.
 
 Repêchage races are never columns in the championship table: setting races
 that count beside races that don't invites the misreading the instructions
@@ -615,7 +642,9 @@ never modal.
 - The next-action computation never crosses into rules judgement: it
   points at incomplete work, not at SI decisions.
 - A repêchage's membership and its promotions are the scorer's; the app
-  suggests the leaders up to the seats open and enforces no quota.
+  suggests the leaders up to the seats open and enforces no quota. It does
+  enforce eligibility: where the medal stage carries a score, only boats of
+  the fleet it was selected from.
 - Finish entry fleet-scoping plus the explicit wrong-fleet exception flow
   replaces wrong-fleet forensics.
 
