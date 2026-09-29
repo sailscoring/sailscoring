@@ -54,8 +54,19 @@ test('each fleet ranked on its own, the top two of each through', async ({ page,
 
   await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
   await expect(page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` })).toBeHidden();
+  // Placed by hand, as drawn at the briefing: nothing dealt, nothing to
+  // override.
   await page.getByRole('button', { name: 'Assign opening fleets' }).click();
-  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  const assign = page.getByRole('dialog');
+  await assign.locator('#sf-seed-order').selectOption('by-hand');
+  await expect(assign.getByRole('button', { name: /Commit Round 1/ })).toBeDisabled();
+  await expect(assign).toContainText('24 boats are in no fleet');
+  for (const [i, sail] of sails.entries()) {
+    await assign.getByLabel(`Fleet for ${sail}`).selectOption(i % 2 === 0 ? 'Yellow' : 'Blue');
+  }
+  await expect(assign.getByText('moved by hand')).toHaveCount(0);
+  await assign.getByRole('button', { name: 'Commit Round 1 (12 / 12)' }).click();
+  await expect(assign).toBeHidden();
 
   // One race on one sheet: each fleet is ranked among its own boats by
   // their order on it.

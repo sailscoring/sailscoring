@@ -1348,12 +1348,18 @@ function SeedRoundDialog({
   const { commit, run } = useCommit(seriesId, onClose);
   /** Where the assignment comes from. `imported` is not an order at all — it
    *  is the assignment the seeding committee already made, carried on the
-   *  entry list; the rest are orders dealt through the reassignment
-   *  pattern. */
-  const [source, setSource] = useState<'imported' | SeedOrder>(() =>
+   *  entry list; `by-hand` is the scorer placing every boat themselves (a
+   *  draw at the briefing, read off a sheet); the rest are orders dealt
+   *  through the reassignment pattern. */
+  type Source = 'imported' | 'by-hand' | SeedOrder;
+  const [source, setSource] = useState<Source>(() =>
     data.competitors.some((c) => c.initialFleet) ? 'imported' : 'seed-rank',
   );
-  const order: SeedOrder = source === 'imported' ? 'seed-rank' : source;
+  const byHand = source === 'by-hand';
+  // Neither the committee's assignment nor the scorer's own is dealt, so
+  // neither is a set of moves against a computed assignment.
+  const asGiven = source === 'imported' || byHand;
+  const order: SeedOrder = source === 'imported' || byHand ? 'seed-rank' : source;
   // Sailors the ranking didn't reach sort below it either way; this decides
   // the order within that tail. Defaulted to sail number to agree with
   // `seedOrder` — when *no one* carries a seeding rank, "seeding rank" order
@@ -1373,7 +1379,13 @@ function SeedRoundDialog({
     const computed: Record<string, number> = {};
     let ordered: string[];
     let unknownLabels: string[] = [];
-    if (source === 'imported') {
+    if (byHand) {
+      // Nothing placed until the scorer places it, in sail number order —
+      // how a draw sheet is read out.
+      ordered = [...data.competitors]
+        .sort((a, b) => compareSailNumbersIgnoringPrefix(a.sailNumber, b.sailNumber))
+        .map((c) => c.id);
+    } else if (source === 'imported') {
       const read = assignFromInitialFleet(data.competitors, qFleets);
       Object.assign(computed, read.assignments);
       unknownLabels = read.unknownLabels;
@@ -1412,12 +1424,12 @@ function SeedRoundDialog({
           sail: c.sailNumber,
           name: c.names.join(' & '),
           to: idx == null ? '' : qFleets[idx].label,
-          overridden: moves[cid] !== undefined,
+          overridden: !byHand && moves[cid] !== undefined,
         };
       }),
       sizes: qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length),
     };
-  }, [data.competitors, source, order, tailOrder, moves, qFleets]);
+  }, [data.competitors, source, byHand, order, tailOrder, moves, qFleets]);
   const drawBoats = data.config.boatAssignments === true;
   const draw = useBoatDraw(preview.rows.map((r) => r.id));
   const clashes = boatClashes(preview.rows, draw.values);
@@ -1443,11 +1455,11 @@ function SeedRoundDialog({
           fromStageRace: 1,
           // The committee's own assignment is not a seeding this app
           // performed, and the round says so.
-          method: source === 'imported' ? 'manual' : 'seeded',
+          method: asGiven ? 'manual' : 'seeded',
           basis: null,
           fleets: qFleets,
           assignments: preview.assignments,
-          overrideCompetitorIds: Object.keys(moves).filter((cid) => moves[cid] != null),
+          overrideCompetitorIds: byHand ? [] : Object.keys(moves).filter((cid) => moves[cid] != null),
           stageRaceNumbers: createRaces ? FIRST_ROUND_RACES : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
           ...(drawBoats ? { boats: draw.payload(preview.assignments) } : {}),
@@ -1462,9 +1474,10 @@ function SeedRoundDialog({
           id="sf-seed-order"
           className="rounded-md border bg-background px-2 py-1 text-sm"
           value={source}
-          onChange={(e) => { setSource(e.target.value as 'imported' | SeedOrder); setMoves({}); }}
+          onChange={(e) => { setSource(e.target.value as Source); setMoves({}); }}
         >
           {anyImported && <option value="imported">The entry list&rsquo;s initial fleet</option>}
+          <option value="by-hand">By hand — place every boat yourself</option>
           <option value="seed-rank">Seeding rank</option>
           <option value="nationality-spread">Nationality, then sail number</option>
           <option value="sail-number">Sail number</option>
@@ -1472,6 +1485,11 @@ function SeedRoundDialog({
         {source === 'imported' && (
           <span className="text-xs text-muted-foreground">
             Taken as given — the pattern deals the other three.
+          </span>
+        )}
+        {byHand && (
+          <span className="text-xs text-muted-foreground">
+            Nothing is placed for you: pick each boat&rsquo;s fleet, as drawn.
           </span>
         )}
         {source === 'seed-rank' && data.competitors.some((c) => c.seed == null) && (
@@ -1513,7 +1531,7 @@ function SeedRoundDialog({
         rows={preview.rows}
         boats={drawBoats ? draw.column(clashes.duplicateIds) : undefined}
         fleetLabels={qFleets.map((f) => f.label)}
-        allowUnassigned={source === 'imported'}
+        allowUnassigned={asGiven}
         onMove={(cid, label) =>
           setMoves((m) => ({
             ...m,

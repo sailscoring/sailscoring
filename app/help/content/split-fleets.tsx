@@ -183,7 +183,9 @@ export function SplitFleetsSection() {
         column it is, the import tells them apart by what is in the cells. Anyone the list
         places nowhere, or places in a fleet the championship doesn’t have, is listed with no
         fleet and named in the dialog — the round won’t commit until you have put them
-        somewhere. And where the series carries fleets from before it became a championship —
+        somewhere. Where the fleets were drawn and nothing came with the entry list, choose{' '}
+        <strong className="text-foreground">By hand</strong>: every boat starts in no fleet
+        and you pick each one’s, with nothing dealt for you and nothing marked as moved. And where the series carries fleets from before it became a championship —
         the “Default” an earlier import left behind, say — each assignment offers to remove
         them, memberships and all, since the rounds own a championship’s fleets and those would
         only sit unused. A fleet any race has actually used is never offered.
