@@ -34,10 +34,12 @@ import {
   assembleSplitFleetData,
   capitaliseStage,
   cutFromStandings,
+  directSeatsPerFleet,
   fleetColorById,
   logicalRaces,
   medalStageStandsAlone,
   provisionalCutIndexes,
+  ranksEachFleet,
   REPECHAGE_WORDS,
   repechageTableRows,
   resolveVocabulary,
@@ -582,8 +584,38 @@ ${body}
   const medalSize = data.config.medal?.size ?? Infinity;
   const medalCut = (stageName: string) => `${vocab.stages.medal.fleetNoun} cut if the ${stageName} ended now`;
 
+  // Where each fleet is ranked on its own: one table per fleet, each ranked
+  // from 1, and before the medal fleet is selected, each fleet's own cut.
+  const perFleet = ranksEachFleet(data.config);
+  const seatsEach = directSeatsPerFleet(data.config);
+  const perFleetSections = (rowsIn: typeof rows, withCut: boolean): string[] =>
+    (lastQualifying?.fleetIds ?? []).map((fid) => {
+      const fleetRows = rowsIn.filter((r) => r.rankedInFleetId === fid);
+      if (!fleetRows.length) return '';
+      const cut = withCut && data.config.medal && fleetRows.length > seatsEach;
+      return `<h2>${esc(fleetName.get(fid) ?? '')} fleet</h2>\n${
+        cut ? table(fleetRows, [seatsEach - 1], false, medalCut(vocab.stages.qualifying.name)) : table(fleetRows)
+      }`;
+    });
+
   let sections: string;
-  if (standsAlone) {
+  if (perFleet) {
+    sections = [
+      medalSection,
+      repechageSection,
+      ...(standsAlone
+        ? [
+            `<p class="sfnote">Every boat on her ${esc(vocab.stages.qualifying.name)} scores, each fleet ranked on its own, the ${esc(vocab.stages.medal.fleetNoun)} included; they decided who sailed the ${esc(vocab.stages.medal.name)} and count for nothing after.</p>`,
+            ...perFleetSections(cutRows, false),
+          ]
+        : perFleetSections(
+            rows.filter((r) => !r.medal),
+            !medalRows.length,
+          )),
+    ]
+      .filter(Boolean)
+      .join('\n');
+  } else if (standsAlone) {
     // Nothing carried: the ranking the medal fleet was cut from stands on
     // its own, every boat in it, below the medal fleet and the repêchage.
     const cutName = splitRound ? vocab.stages.final.name : vocab.stages.qualifying.name;

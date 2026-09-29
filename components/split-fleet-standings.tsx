@@ -23,9 +23,11 @@ import { Button } from '@/components/ui/button';
 import {
   capitaliseStage,
   cutFromStandings,
+  directSeatsPerFleet,
   fleetColorById,
   medalStageStandsAlone,
   provisionalCutIndexes,
+  ranksEachFleet,
   REPECHAGE_WORDS,
   repechageTableRows,
   STORED_STAGES,
@@ -254,6 +256,41 @@ export function SplitFleetStandings({
 
   const fieldProps = { showNationality, showClass, showCrew, showClub };
 
+  // Where each fleet is ranked on its own, one table per fleet, each ranked
+  // from 1 — and before the medal fleet is selected, each fleet's own cut.
+  const perFleet = ranksEachFleet(data.config);
+  const seatsEach = directSeatsPerFleet(data.config);
+  const perFleetTables = (rows: SplitStandingRow[], withCut: boolean) =>
+    (lastQualifying?.fleetIds ?? []).map((fid) => {
+      const fleetRows = rows.filter((r) => r.rankedInFleetId === fid);
+      if (fleetRows.length === 0) return null;
+      const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
+      const cols = columnsOf(fleetRows);
+      const ownCut =
+        withCut && medalCut && fleetRows.length > seatsEach
+          ? {
+              after: seatsEach - 1,
+              label: `${capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)} cut if the ${
+                splitFleetWords(data.config).qualifying.name
+              } ended now${
+                fleetRows[seatsEach]?.rank === fleetRows[seatsEach - 1]?.rank
+                  ? ' — the boats either side are tied; the ranking does not decide this cut'
+                  : ''
+              }`,
+            }
+          : undefined;
+      return (
+        <div key={fid} className="mb-6" data-testid="sf-fleet-standings">
+          <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+            <FleetChip meta={meta} /> fleet
+          </h3>
+          <StandingsTable data={data} columns={cols} {...fieldProps}>
+            {renderRows(fleetRows, false, ownCut, cols)}
+          </StandingsTable>
+        </div>
+      );
+    });
+
   const renderRows = (
     rows: SplitStandingRow[],
     withCuts: boolean,
@@ -416,7 +453,9 @@ export function SplitFleetStandings({
               scores, the {splitFleetWords(data.config).medal.fleetNoun} included; they decided
               who sailed the {splitFleetWords(data.config).medal.name} and count for nothing after.
             </p>
-            {splitRound ? (
+            {perFleet ? (
+              perFleetTables(cutRows, false)
+            ) : splitRound ? (
               splitRound.fleetIds.map((fid) => {
                 const rows = cutRows.filter((r) => r.finalFleetId === fid);
                 if (rows.length === 0) return null;
@@ -450,6 +489,8 @@ export function SplitFleetStandings({
               </StandingsTable>
             )}
           </div>
+        ) : perFleet ? (
+          perFleetTables(restRows, !medalRound)
         ) : splitRound ? (
           splitRound.fleetIds.map((fid, fleetIndex) => {
             const rows = restRows.filter((r) => r.finalFleetId === fid);

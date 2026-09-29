@@ -1087,3 +1087,31 @@ describe('the repêchage on the published pages', () => {
     expect(html).toContain('<h2>Repêchage</h2>');
   });
 });
+
+describe('fleets ranked each on their own, on the published pages', () => {
+  it('gives each flight a table of its own, ranked from 1, after the medal fleet and the repêchage', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor('35-each-flight-ranked-on-its-own.yaml'));
+    const medal = html.indexOf('<h2>Final series fleet</h2>');
+    const rep = html.indexOf('<h2>Repêchage</h2>');
+    const f1 = html.indexOf('<h2>Flight 1 fleet</h2>');
+    const f2 = html.indexOf('<h2>Flight 2 fleet</h2>');
+    expect(medal).toBeGreaterThanOrEqual(0);
+    expect(rep).toBeGreaterThan(medal);
+    expect(f1).toBeGreaterThan(rep);
+    expect(f2).toBeGreaterThan(f1);
+    // Nothing carried, a medal race sailed: every boat of each flight, the
+    // medal boats too, each flight ranked from 1.
+    const flight2 = html.slice(f2);
+    for (const sail of ['deasy', 'coulter', 'donnelly', 'odriscoll', 'croxon', 'car']) {
+      expect(flight2).toContain(`>${sail}<`);
+    }
+    expect(html).not.toContain('>Fleet</th>');
+  });
+
+  it('draws the cut in each flight before the medal fleet is selected', () => {
+    const input = midQualifying(renderInputFor('35-each-flight-ranked-on-its-own.yaml'));
+    const html = renderSplitFleetStandingsPage(input);
+    const cuts = html.match(/Final series fleet cut if the Qualification series ended now/g) ?? [];
+    expect(cuts).toHaveLength(2);
+  });
+});
