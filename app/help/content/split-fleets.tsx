@@ -261,6 +261,21 @@ export function SplitFleetsSection() {
         one ladder.
       </p>
       <p>
+        An event that is never divided can still draw its boats into two or more fleets, once,
+        for the whole {q.name} — the Irish Sailing Champions’ Cups sail two flights of six. Set{' '}
+        <strong className="text-foreground">Fleets ranked</strong> on the {w.series} card to
+        say how they are ranked. <strong className="text-foreground">All together</strong> is
+        one list across the fleets, a race counting once every fleet has sailed it.{' '}
+        <strong className="text-foreground">Each on its own</strong> is for fleets that are
+        separate selection pools (“helms ranked 1st and 2nd from each flight”): each
+        boat is ranked within her fleet, a race counts for a fleet as soon as that fleet has
+        sailed it, and a boat that does not finish scores her own fleet plus one. The{' '}
+        {w.title('medal')} card then asks for the direct seats — the top so many of each
+        fleet — and the standings show one table per fleet with its own cut line. Selecting the{' '}
+        {m.fleetNoun} takes the top of each fleet; any seats beyond them are filled by promotion
+        (see the repêchage, below).
+      </p>
+      <p>
         Race labels follow the words the championship uses: Q, F and M under the first set,
         and QP, QE and F under the ILCA wording, with each stage numbering its races from 1.
         A championship that is never divided numbers its first races Q1, Q2 and so on under
@@ -389,7 +404,9 @@ export function SplitFleetRepechageSection() {
         nothing is carried, or her own score where one is — and nothing from the repêchage goes
         with her. Where there is no time to sail it, promote from the ranking the boats were cut
         from instead: that is the usual fallback (“invite the 3rd-placed sailors from each
-        flight”), and it needs no repêchage at all. A promotion can be withdrawn.
+        flight”), and it needs no repêchage at all. Where each fleet is ranked on its own, the
+        suggestion is the next boat of each fleet, and the repêchage’s boats are listed fleet by
+        fleet with their rank in it. A promotion can be withdrawn.
       </p>
       <p>
         Where the {w.medal.name} carry a score in, only boats of the fleet the{' '}

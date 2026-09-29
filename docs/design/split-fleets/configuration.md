@@ -52,10 +52,11 @@ fixed.
 |---|---|---|
 | Divided or not | Divide / undivide action | JCC no; ILCA yes |
 | Boats | Each boat keeps its own sail number, or boats are drawn for each fleet. Championship-wide; it sits here with the other settings that span the whole event | JCC, ILCA own; Dinghy Champions' Cup 2026 drawn |
-| Fleets (undivided) | Count, names, colours | JCC 1 |
+| Fleets (undivided) | Count, names, colours | JCC 1; Dinghy Champions' Cup 2026 2 |
+| Fleets ranked (undivided, two or more fleets) | All together, or each on its own: each boat ranked within her fleet, a race counting for a fleet once that fleet has sailed it, a non-finisher scored from her own fleet | Dinghy Champions' Cup 2026 each on its own |
 | Discard ladder | Editable ladder | JCC 1 from 5; ILCA 1 from 3, 2 from 10 |
 | Race labels (undivided) | Rule: Q (both sets) | |
-| Non-finisher score (undivided) | Rule: boats in the largest fleet + 1, which is entries + 1 with one fleet | JCC |
+| Non-finisher score (undivided) | Rule: boats in the largest fleet + 1, which is entries + 1 with one fleet; her own fleet + 1 where each fleet is ranked on its own | JCC |
 | Companion race (undivided) | Rule: once the medal fleet is selected, the next race is for the rest, scored from medal-fleet size + 1 | none yet (found in testing, Sept 2026) |
 
 When the opening series is divided, the ladder stays on this card and runs
@@ -100,13 +101,14 @@ The companion race is an action on this card, not a setting. See the flow doc.
 | Setting | Control or rule | In use |
 |---|---|---|
 | Whether there is one | Yes, or none: the championship ends with the stage before, and nobody is cut. Set in the setup wizard, or removed from the card until the medal fleet is selected | JCC, ILCA yes; Melges 15 Sprint none |
-| Fleet size | Number. It draws the provisional cut line before selection, and the selection dialog starts from it | all 10 |
+| Fleet size | Number. It draws the provisional cut line before selection, and the selection dialog starts from it | all 10; Dinghy Champions' Cup 2026 6 |
+| Direct seats (fleets ranked each on their own) | The top *k* of each fleet; defaults to the size shared equally. The rest of the size is filled by promotion (a repêchage, or the cut ranking) | Dinghy Champions' Cup 2026 2 |
 | Points | ×2 or ×1 | JCC ×2; ILCA ×1 |
 | Score carried in | Net, net halved with 0.5 rounded up, nothing, or rank | JCC net; ILCA halved |
 | Ties among medal boats | The medal race first, then A8; or the last race alone | JCC NoR 15.3; ILCA SI 18.7.4 |
 | Discards | Rule: no medal race is excluded, and none counts towards the ladder | all |
 | Race labels | Rule: M, or F | JCC M; ILCA F |
-| Who is selected | Rule: top N of the opening series, or top N of stage 2's top fleet once divided; ties by A8, then entry order | all |
+| Who is selected | Rule: top N of the opening series, or top N of stage 2's top fleet once divided, or the top *k* of each fleet where each is ranked on its own; ties by A8, then entry order | all |
 | When a carry other than net applies | Rule: once the boat's fleet completes a race of the stage, so a stage never sailed leaves the undivided score (2026 ILCA SI 18.7.5, Amendment 5) | ILCA |
 
 The score carried in is the same choice on both cards. The 2026 Melges 15

@@ -113,6 +113,14 @@ rule reads "boats in the largest fleet, plus one", and `Assign fleets` becomes
 its first action. That is the undivided multi-fleet shape: fleets are drawn
 once, with no split to follow.
 
+It also gains **Fleets ranked**: all together, as one list (the rules above),
+or each on its own, for fleets that are separate selection pools — each boat
+ranked within her fleet, a race counting for a fleet once that fleet has sailed
+it, a non-finisher scored from her own fleet. Each on its own adds **Direct
+seats: the top [k] of each fleet** to the medal card; the standings give each
+fleet its own table and its own cut line, and the selection dialog takes the
+top *k* of each.
+
 `Change` on the words is offered until the first race exists.
 
 ### Boats drawn for each fleet
