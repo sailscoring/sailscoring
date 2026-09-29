@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>Two qualifying flights each ranked on their own: the top two of each go through, 3rd–5th of each sail a repêchage for the last two seats — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>Two qualifying flights each ranked on their own: the top two of each go through, 3rd–5th of each sail a repêchage for the last two seats</h1>
+<p style="color:#555;">Melges 15 (supplied boats) 2026 — Irish Sailing Dinghy Champions' Cup, Royal St George YC (SI 6.2-6.6, 17.1-17.4) &middot; <strong>F9</strong> &middot; E5 &middot; SI (<code>reference-docs:events/irish-champions-cup-dinghy-2026/SI-draft.md</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; no split &middot; discards: No discards. &middot; medal race ×1</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">&quot;Helms ranked 1st and 2nd from each Qualifying Fleet will compete in the
+Final Series&quot; (SI 6.3): each flight is its own ranking, and nothing
+compares a helm in one flight with a helm in the other. Configured as
+`fleetRanking: per-fleet`, with two seats from each flight direct.
+
+The entries are the 2026 event's twelve helms; the draw and every result
+are invented (this is the scenario of the scorer's walkthrough for the
+weekend). Flight 1: Owens 5, Murphy 6, Chaix 9, Norwood 12, Helme 15,
+Lowes 16. Flight 2: Deasy 4, Coulter 6, Donnelly 11, O'Driscoll 12 (an
+OCS scored 7, his own flight of six plus one), Croxon 14, Car 17.
+
+Owens, Murphy, Deasy and Coulter go through. 3rd–5th of each flight sail
+a repêchage of two races: Chaix and O'Driscoll tie on 3 and Chaix wins
+R2; both are promoted. The Final Series carries nothing and decides the
+championship: Deasy 10, then Chaix and Murphy on 11 (A8.1: 1,2,3,5 beats
+1,2,4,4), Owens 14, then Coulter and O'Driscoll on 19 (A8.1: 2 beats 3).
+
+The boats left in their flights keep their rank in it: Donnelly is third
+in Flight 2 though O'Driscoll, fourth, was promoted past her.</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">Flight 1: chaix, helme, lowes, murphy, norwood, owens</span>&nbsp; <span style="background:#fff;padding:0 4px;border-radius:3px;">Flight 2: car, coulter, croxon, deasy, donnelly, odriscoll</span></td></tr>
+<tr><td>Medal</td><td>medal top 2 of each fleet</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">Final: coulter, deasy, murphy, owens</span></td></tr>
+<tr><td>Repêchage</td><td>explicit</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">Repêchage: chaix, croxon, donnelly, helme, norwood, odriscoll</span></td></tr>
+</tbody>
+</table>
+<h2>Medal fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>F1</th><th>F2</th><th>F3</th><th>F4</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">deasy</td>
+  <td>Rachel Deasy <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">2</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">4</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">1</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">3</td>
+  <td style="text-align:right">10</td>
+  <td style="text-align:right;font-weight:bold">10</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">chaix</td>
+  <td>Thomas Chaix <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal · via repêchage</span></td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">5</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">3</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">2</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">5</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">1</td>
+  <td style="text-align:right">11</td>
+  <td style="text-align:right;font-weight:bold">11</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">murphy</td>
+  <td>Annalise Murphy <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">4</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">1</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">2</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">4</td>
+  <td style="text-align:right">11</td>
+  <td style="text-align:right;font-weight:bold">11</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">owens</td>
+  <td>Ger Owens <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">1</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">3</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">4</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">6</td>
+  <td style="text-align:right">14</td>
+  <td style="text-align:right;font-weight:bold">14</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">coulter</td>
+  <td>Tom Coulter <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">1</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">5</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">6</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">6</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">2</td>
+  <td style="text-align:right">19</td>
+  <td style="text-align:right;font-weight:bold">19</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">odriscoll</td>
+  <td>John O'Driscoll <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal · via repêchage</span></td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">3</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">7 OCS</td>
+  <td style="background:#f8f9fa;text-align:center;color:#adb5bd" title="replaced by the carried score">2</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">6</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">5</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">3</td>
+  <td style="background:#fff;text-align:center;font-weight:bold">5</td>
+  <td style="text-align:right">19</td>
+  <td style="text-align:right;font-weight:bold">19</td>
+</tr>
+</tbody>
+</table>
+<h2>Flight 1</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>F1</th><th>F2</th><th>F3</th><th>F4</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>4</td>
+  <td class="mono">norwood</td>
+  <td>Tim Norwood</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">12</td>
+  <td style="text-align:right;font-weight:bold">12</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">helme</td>
+  <td>Chris Helme</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">15</td>
+  <td style="text-align:right;font-weight:bold">15</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">lowes</td>
+  <td>Anna Lowes</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">16</td>
+  <td style="text-align:right;font-weight:bold">16</td>
+</tr>
+</tbody>
+</table>
+<h2>Flight 2</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Q3</th><th>F1</th><th>F2</th><th>F3</th><th>F4</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>3</td>
+  <td class="mono">donnelly</td>
+  <td>Sean Donnelly</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">11</td>
+  <td style="text-align:right;font-weight:bold">11</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">croxon</td>
+  <td>Ian Croxon</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">14</td>
+  <td style="text-align:right;font-weight:bold">14</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">car</td>
+  <td>Alan Car</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">17</td>
+  <td style="text-align:right;font-weight:bold">17</td>
+</tr>
+</tbody>
+</table>
+<h2>Repêchage</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>R1</th><th>R2</th><th>Nett</th></tr></thead>
+<tbody>
+<tr><td>1</td><td class="mono">chaix</td><td>Thomas Chaix <span style="font-size:0.8em;color:#b8860b;">promoted</span></td><td style="text-align:center">2</td><td style="text-align:center">1</td><td style="text-align:right;font-weight:bold">3</td></tr>
+<tr><td>2</td><td class="mono">odriscoll</td><td>John O'Driscoll <span style="font-size:0.8em;color:#b8860b;">promoted</span></td><td style="text-align:center">1</td><td style="text-align:center">2</td><td style="text-align:right;font-weight:bold">3</td></tr>
+<tr><td>3</td><td class="mono">donnelly</td><td>Sean Donnelly</td><td style="text-align:center">4</td><td style="text-align:center">3</td><td style="text-align:right;font-weight:bold">7</td></tr>
+<tr><td>4</td><td class="mono">norwood</td><td>Tim Norwood</td><td style="text-align:center">3</td><td style="text-align:center">5</td><td style="text-align:right;font-weight:bold">8</td></tr>
+<tr><td>5</td><td class="mono">helme</td><td>Chris Helme</td><td style="text-align:center">6</td><td style="text-align:center">4</td><td style="text-align:right;font-weight:bold">10</td></tr>
+<tr><td>6</td><td class="mono">croxon</td><td>Ian Croxon</td><td style="text-align:center">5</td><td style="text-align:center">6</td><td style="text-align:right;font-weight:bold">11</td></tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

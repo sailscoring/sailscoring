@@ -1,0 +1,122 @@
+description: "Two qualifying flights each ranked on their own: the top two of each go through, 3rd–5th of each sail a repêchage for the last two seats"
+provenance:
+  class: "Melges 15 (supplied boats)"
+  year: 2026
+  event: "Irish Sailing Dinghy Champions' Cup, Royal St George YC (SI 6.2-6.6, 17.1-17.4)"
+  si: "reference-docs:events/irish-champions-cup-dinghy-2026/SI-draft.md"
+  code: F9
+  scenarios: [E5]
+  alternatives: "The Keelboat Champions' Cup shares the format text."
+runnable: true
+notes: |
+  "Helms ranked 1st and 2nd from each Qualifying Fleet will compete in the
+  Final Series" (SI 6.3): each flight is its own ranking, and nothing
+  compares a helm in one flight with a helm in the other. Configured as
+  `fleetRanking: per-fleet`, with two seats from each flight direct.
+
+  The entries are the 2026 event's twelve helms; the draw and every result
+  are invented (this is the scenario of the scorer's walkthrough for the
+  weekend). Flight 1: Owens 5, Murphy 6, Chaix 9, Norwood 12, Helme 15,
+  Lowes 16. Flight 2: Deasy 4, Coulter 6, Donnelly 11, O'Driscoll 12 (an
+  OCS scored 7, his own flight of six plus one), Croxon 14, Car 17.
+
+  Owens, Murphy, Deasy and Coulter go through. 3rd–5th of each flight sail
+  a repêchage of two races: Chaix and O'Driscoll tie on 3 and Chaix wins
+  R2; both are promoted. The Final Series carries nothing and decides the
+  championship: Deasy 10, then Chaix and Murphy on 11 (A8.1: 1,2,3,5 beats
+  1,2,4,4), Owens 14, then Coulter and O'Driscoll on 19 (A8.1: 2 beats 3).
+
+  The boats left in their flights keep their rank in it: Donnelly is third
+  in Flight 2 though O'Driscoll, fourth, was promoted past her.
+
+config:
+  qualifyingFleets: [Flight 1, Flight 2]
+  discardThresholds: []
+  vocabulary: qualification-final
+  fleetRanking: per-fleet
+  medal:
+    size: 6
+    multiplier: 1
+    carry: nothing
+    tieBreak: medal-race-then-a8
+    fromEachFleet: 2
+
+competitors:
+  - "owens Ger Owens"
+  - "lowes Anna Lowes"
+  - "norwood Tim Norwood"
+  - "chaix Thomas Chaix"
+  - "murphy Annalise Murphy"
+  - "helme Chris Helme"
+  - "donnelly Sean Donnelly"
+  - "coulter Tom Coulter"
+  - "odriscoll John O'Driscoll"
+  - "croxon Ian Croxon"
+  - "deasy Rachel Deasy"
+  - "car Alan Car"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Flight 1: [owens, lowes, norwood, chaix, murphy, helme]
+      Flight 2: [donnelly, coulter, odriscoll, croxon, deasy, car]
+    races:
+      - n: 1
+        results:
+          Flight 1: [owens, murphy, chaix, norwood, helme, lowes]
+          Flight 2: [coulter, deasy, odriscoll, donnelly, croxon, car]
+      - n: 2
+        results:
+          Flight 1: [murphy, owens, norwood, helme, chaix, lowes]
+          Flight 2: [deasy, coulter, donnelly, croxon, car, "odriscoll OCS"]
+      - n: 3
+        results:
+          Flight 1: [chaix, owens, murphy, lowes, norwood, helme]
+          Flight 2: [deasy, odriscoll, coulter, donnelly, croxon, car]
+
+  - stage: medal
+    from: 1
+    assign: { medalTopEach: 2 }
+    expectedFleets:
+      Final: [owens, murphy, deasy, coulter]
+    races:
+      - { n: 1, results: { Final: [owens, deasy, chaix, murphy, coulter, odriscoll] } }
+      - { n: 2, results: { Final: [murphy, chaix, owens, deasy, odriscoll, coulter] } }
+      - { n: 3, results: { Final: [deasy, murphy, odriscoll, owens, chaix, coulter] } }
+      - { n: 4, results: { Final: [chaix, coulter, deasy, murphy, odriscoll, owens] } }
+
+  - stage: repechage
+    from: 1
+    fleets:
+      Repêchage: [chaix, norwood, helme, donnelly, odriscoll, croxon]
+    races:
+      - { n: 1, results: { Repêchage: [odriscoll, chaix, norwood, donnelly, croxon, helme] } }
+      - { n: 2, results: { Repêchage: [chaix, odriscoll, donnelly, helme, norwood, croxon] } }
+
+promotions:
+  - { sail: chaix, reason: repechage }
+  - { sail: odriscoll, reason: repechage }
+
+expected:
+  standings:
+    - { rank: 1, sail: deasy, total: 10, net: 10, medal: true, inFleet: Flight 2 }
+    - { rank: 2, sail: chaix, total: 11, net: 11, medal: true, via: repechage, inFleet: Flight 1 }
+    - { rank: 3, sail: murphy, total: 11, net: 11, medal: true, inFleet: Flight 1 }
+    - { rank: 4, sail: owens, total: 14, net: 14, medal: true, inFleet: Flight 1 }
+    - { rank: 5, sail: coulter, total: 19, net: 19, medal: true, inFleet: Flight 2 }
+    - { rank: 6, sail: odriscoll, total: 19, net: 19, medal: true, via: repechage, inFleet: Flight 2 }
+    - { rank: 4, sail: norwood, total: 12, net: 12, medal: false, inFleet: Flight 1 }
+    - { rank: 5, sail: helme, total: 15, net: 15, medal: false, inFleet: Flight 1 }
+    - { rank: 6, sail: lowes, total: 16, net: 16, medal: false, inFleet: Flight 1 }
+    - { rank: 3, sail: donnelly, total: 11, net: 11, medal: false, inFleet: Flight 2 }
+    - { rank: 5, sail: croxon, total: 14, net: 14, medal: false, inFleet: Flight 2 }
+    - { rank: 6, sail: car, total: 17, net: 17, medal: false, inFleet: Flight 2 }
+  repechage:
+    Repêchage:
+      - { rank: 1, sail: chaix, net: 3, promoted: true }
+      - { rank: 2, sail: odriscoll, net: 3, promoted: true }
+      - { rank: 3, sail: donnelly, net: 7 }
+      - { rank: 4, sail: norwood, net: 8 }
+      - { rank: 5, sail: helme, net: 10 }
+      - { rank: 6, sail: croxon, net: 11 }

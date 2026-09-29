@@ -75,6 +75,9 @@ export interface FixtureAssign {
   split?: boolean;
   splitAfter?: number;
   medalTop?: number;
+  /** medal-fleet selection — top N of each qualifying fleet, where each
+   *  fleet is ranked on its own */
+  medalTopEach?: number;
 }
 
 export interface FixtureStage {
@@ -106,6 +109,8 @@ export interface FixtureExpectedRow {
   net: number;
   fleet?: string; // final/medal fleet name
   medal?: boolean;
+  /** Where each fleet is ranked on its own: the fleet she is ranked in. */
+  inFleet?: string;
   /** How a promoted medal boat got her seat (see `promotions`). */
   via?: 'repechage' | 'cut-ranking';
 }
@@ -132,6 +137,8 @@ export interface SplitFleetFixture {
     discardThresholds: { minRaces: number; discardCount: number }[];
     /** The words the event's SIs use; default the generic ones. */
     vocabulary?: VocabularyKey;
+    /** Undivided with several fleets: ranked together or each on its own. */
+    fleetRanking?: 'combined' | 'per-fleet';
     /** The score carried into the final series, and its tie-break; `net`
      *  and `a8` when omitted. */
     final?: { carry?: CarryIn; tieBreak?: 'a8' | 'last-race' };
@@ -142,6 +149,8 @@ export interface SplitFleetFixture {
       carry?: CarryIn;
       /** Default `medal-race-then-a8`. */
       tieBreak?: 'last-race' | 'medal-race-then-a8';
+      /** Each fleet ranked on its own: its leaders who go through directly. */
+      fromEachFleet?: number;
     };
   };
   competitors: string[]; // "sail name..." — first token is the sail number
@@ -240,6 +249,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     // the same thing a fixture says by declaring no final stage.
     split: (fx.config.finalFleets ?? []).length === 0 ? { kind: 'none' } : { kind: 'equal-blocks' },
     discardThresholds: fx.config.discardThresholds,
+    ...(fx.config.fleetRanking ? { fleetRanking: fx.config.fleetRanking } : {}),
     vocabulary: fx.config.vocabulary ?? DEFAULT_VOCABULARY,
     final: { carry: 'net', tieBreak: 'a8', ...fx.config.final },
     // A fixture that configures or sails a deciding stage has one; one that
@@ -381,6 +391,19 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         // final fleet they are in and sail its remaining races there.
         membership = { [mName]: top };
         method = `medal top ${a.medalTop}`;
+      } else if (st === 'medal' && a.medalTopEach != null) {
+        const mName = Object.keys(stage.expectedFleets ?? {})[0] ?? 'Medal';
+        // The top N of each fleet, each ranked on its own.
+        const opening = splitFleetStandings(snapshot());
+        const byFleet = new Map<string, string[]>();
+        for (const row of opening) {
+          if (!row.rankedInFleetId) throw new Error('medalTopEach needs each fleet ranked on its own');
+          const list = byFleet.get(row.rankedInFleetId) ?? [];
+          list.push(row.competitor.sailNumber);
+          byFleet.set(row.rankedInFleetId, list);
+        }
+        membership = { [mName]: [...byFleet.values()].flatMap((l) => l.slice(0, a.medalTopEach)) };
+        method = `medal top ${a.medalTopEach} of each fleet`;
       } else {
         throw new Error(`stage ${st}: unsupported assign ${JSON.stringify(a)}`);
       }

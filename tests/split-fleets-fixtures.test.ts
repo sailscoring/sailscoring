@@ -59,6 +59,12 @@ function assertStandings(fx: SplitFleetFixture, file: string) {
       expect(row.medal, `${file}: ${exp.sail} medal flag`).toBe(exp.medal);
     }
     expect(row.promotedVia, `${file}: ${exp.sail} promoted via`).toBe(exp.via);
+    if (exp.inFleet !== undefined) {
+      expect(
+        row.rankedInFleetId ? fleetName.get(row.rankedInFleetId) : undefined,
+        `${file}: ${exp.sail} ranked in fleet`,
+      ).toBe(exp.inFleet);
+    }
   }
 
   // The repêchage: each fleet's ranking, in order, over its own races.
@@ -85,7 +91,11 @@ function assertStandings(fx: SplitFleetFixture, file: string) {
   }
 
   // Expected order is the actual order (over the covered sailors).
-  const expectedOrder = [...fx.expected.standings].sort((a, b) => a.rank - b.rank).map((e) => e.sail);
+  // Where each fleet is ranked on its own, ranks restart in every fleet, so
+  // the order is the one the fixture lists them in.
+  const listed = fx.expected.standings.some((e) => e.inFleet !== undefined);
+  const expectedOrder = (listed ? fx.expected.standings : [...fx.expected.standings].sort((a, b) => a.rank - b.rank))
+    .map((e) => String(e.sail));
   const actualOrder = rows.map((r) => r.competitor.sailNumber).filter((s) => expectedOrder.includes(s));
   expect(actualOrder, `${file}: standings order`).toEqual(expectedOrder);
 }

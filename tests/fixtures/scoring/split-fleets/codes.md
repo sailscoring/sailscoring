@@ -16,7 +16,7 @@ block names its real anchor event and links its captured SIs/results in
 | **F3** | Compressed carry: the medal boats' opening-series score is divided and rounded before an additive, non-discardable medal series | `15` (ILCA Dun Laoghaire, ÷2 rounding 0.5 up), `16` (its sub-series tie-break), `17` (the extra race for the boats who did not qualify), `30` (Melges 15 Sprint: the halving applied at the split, into Gold and Silver) |
 | **F5** | Net + net: qualifying and final are separately-discarded series and the championship score is their sum | `13` (29er) |
 | **F6** | Rank-seed carry: the qualifying *position* carries into the final series as one non-excludable score and the qualifying race scores drop out | `14` (Topper / 470), `20` (a qualifying tie A8 cannot break, carried shared) |
-| **F9** | Elimination to a final series, with a repêchage: boats who miss the cut may sail a short series ranked on its own races, and the scorer promotes from it; a deciding stage that carries nothing is the whole championship score | `31` (one repêchage fleet), `32` (two), `33` (not sailed: promoted from the qualifying ranking), `34` (after Gold and Silver) |
+| **F9** | Elimination to a final series, with a repêchage: boats who miss the cut may sail a short series ranked on its own races, and the scorer promotes from it; a deciding stage that carries nothing is the whole championship score | `31` (one repêchage fleet), `32` (two), `33` (not sailed: promoted from the qualifying ranking), `34` (after Gold and Silver), `35` (each flight ranked on its own, the top two of each direct), `36` (flights sailing unequal numbers of races) |
 
 Not covered here (later priorities, per the survey): **F4** knockout overlay
 (record-only), **F7** no-carry, **F8** frozen fleets / merged starts.
@@ -36,9 +36,11 @@ Not covered here (later priorities, per the survey): **F4** knockout overlay
 
 The Champions' Cup scenarios (E-codes) come from
 `docs/design/split-fleets/champions-cup-survey.md`: **E1** repêchage not
-sailed, the seats filled from the qualifying ranking (`33`); **E4** one final
+sailed, the seats filled from the qualifying ranking (`33`); **E2** flights
+sail unequal numbers of races, and each flight's own races still count
+(`36`); **E4** one final
 race constitutes a series (`32`); **E5** eliminated boats have no
-championship score (`31`).
+championship score (`31`, `35`).
 
 The remaining survey scenarios (D2 void championship, D4 finals near-void,
 D9 SI/practice divergence) are not in this batch.

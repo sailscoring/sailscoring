@@ -1,0 +1,84 @@
+description: "Each flight ranked on its own after the flights sail unequal numbers of races: every race counts for the flight that sailed it"
+provenance:
+  class: "J/80 (supplied boats)"
+  year: 2025
+  event: "Irish Sailing Keelboat Champions' Cup, Royal Irish YC (SI 6.2-6.3)"
+  si: "reference-docs:events/irish-champions-cup-keelboat-2025/SI.md"
+  code: F9
+  scenarios: [E2]
+  alternatives: "Any championship whose flights are separate selection pools."
+runnable: true
+notes: |
+  Light easterlies cut the Saturday of the 2025 event to two races for
+  flight A and none for flight B. Each flight is its own selection pool, so
+  flight A's two races decide flight A's seats whatever flight B sails.
+  Ranked as one list, a qualifying race counts only once every fleet has
+  sailed it, and flight A's second race would count for nobody.
+
+  At reduced scale flight B sails one race, so its selection has something
+  to go on; the point is that flight A's second race counts. Flight A:
+  a1 1+2, a3 3+1, a2 2+3, then a4 and a5 on 9 (a5 won the last race of
+  the two), a6 6 + DNS 7 — her own flight of six plus one. Flight B on its
+  one race. The top two of each go through; the medal boats rank as one
+  list above both flights, and the rest keep their rank in their flight.
+
+config:
+  qualifyingFleets: [A, B]
+  discardThresholds: []
+  fleetRanking: per-fleet
+  medal:
+    size: 6
+    multiplier: 1
+    carry: nothing
+    tieBreak: medal-race-then-a8
+    fromEachFleet: 2
+
+competitors:
+  - "a1 Helm A1"
+  - "a2 Helm A2"
+  - "a3 Helm A3"
+  - "a4 Helm A4"
+  - "a5 Helm A5"
+  - "a6 Helm A6"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+  - "b4 Helm B4"
+  - "b5 Helm B5"
+  - "b6 Helm B6"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      A: [a1, a2, a3, a4, a5, a6]
+      B: [b1, b2, b3, b4, b5, b6]
+    races:
+      - n: 1
+        results:
+          A: [a1, a2, a3, a4, a5, a6]
+          B: [b2, b1, b4, b3, b6, b5]
+      - n: 2
+        results:
+          A: [a3, a1, a2, a5, a4, "a6 DNS"]
+
+  - stage: medal
+    from: 1
+    assign: { medalTopEach: 2 }
+    expectedFleets:
+      Final: [a1, a3, b1, b2]
+
+expected:
+  standings:
+    - { rank: 1, sail: b2, total: 1, net: 1, medal: true, inFleet: B }
+    - { rank: 2, sail: b1, total: 2, net: 2, medal: true, inFleet: B }
+    - { rank: 3, sail: a1, total: 3, net: 3, medal: true, inFleet: A }
+    - { rank: 4, sail: a3, total: 4, net: 4, medal: true, inFleet: A }
+    - { rank: 3, sail: a2, total: 5, net: 5, medal: false, inFleet: A }
+    - { rank: 4, sail: a5, total: 9, net: 9, medal: false, inFleet: A }
+    - { rank: 5, sail: a4, total: 9, net: 9, medal: false, inFleet: A }
+    - { rank: 6, sail: a6, total: 13, net: 13, medal: false, inFleet: A }
+    - { rank: 3, sail: b4, total: 3, net: 3, medal: false, inFleet: B }
+    - { rank: 4, sail: b3, total: 4, net: 4, medal: false, inFleet: B }
+    - { rank: 5, sail: b6, total: 5, net: 5, medal: false, inFleet: B }
+    - { rank: 6, sail: b5, total: 6, net: 6, medal: false, inFleet: B }

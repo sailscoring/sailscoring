@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width">
+<title>Each flight ranked on its own after the flights sail unequal numbers of races: every race counts for the flight that sailed it — Sail Scoring</title>
+<style>
+body { font: 100% arial, helvetica, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; color: #222; }
+h1 { font-size: 1.4em; margin-bottom: 0.2em; }
+h2 { font-size: 1.05em; margin: 1.6em 0 0.3em; }
+p { line-height: 1.6; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.4em; font-size: 0.92em; }
+td, th { padding: 5px 7px; border: 1px solid #ddd; }
+th { background: #f5f5f0; }
+.mono { font-family: monospace; }
+code { background: #f1f3f5; padding: 0 3px; }
+footer { margin-top: 3em; font-size: 0.9em; color: #999; border-top: 1px solid #eee; padding-top: 1em; }
+</style>
+</head>
+<body>
+<p><a href="../">&larr; All split-fleet examples</a></p>
+<h1>Each flight ranked on its own after the flights sail unequal numbers of races: every race counts for the flight that sailed it</h1>
+<p style="color:#555;">J/80 (supplied boats) 2025 — Irish Sailing Keelboat Champions' Cup, Royal Irish YC (SI 6.2-6.3) &middot; <strong>F9</strong> &middot; E2 &middot; SI (<code>reference-docs:events/irish-champions-cup-keelboat-2025/SI.md</code>)</p>
+
+<div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">2 qualifying fleets &middot; no split &middot; discards: No discards. &middot; medal race ×1</div>
+<pre style="margin:0.8em 0;padding:0.6em;background:#f8f9fa;border:1px solid #e0e0e0;white-space:pre-wrap;line-height:1.5;font-size:0.9em;">Light easterlies cut the Saturday of the 2025 event to two races for
+flight A and none for flight B. Each flight is its own selection pool, so
+flight A's two races decide flight A's seats whatever flight B sails.
+Ranked as one list, a qualifying race counts only once every fleet has
+sailed it, and flight A's second race would count for nobody.
+
+At reduced scale flight B sails one race, so its selection has something
+to go on; the point is that flight A's second race counts. Flight A:
+a1 1+2, a3 3+1, a2 2+3, then a4 and a5 on 9 (a5 won the last race of
+the two), a6 6 + DNS 7 — her own flight of six plus one. Flight B on its
+one race. The top two of each go through; the medal boats rank as one
+list above both flights, and the rest keep their rank in their flight.</pre>
+<h2>Fleet assignments</h2>
+<table>
+<thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
+<tbody>
+<tr><td>Qualifying (from Q1)</td><td>explicit</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">A: a1, a2, a3, a4, a5, a6</span>&nbsp; <span style="background:#fff;padding:0 4px;border-radius:3px;">B: b1, b2, b3, b4, b5, b6</span></td></tr>
+<tr><td>Medal</td><td>medal top 2 of each fleet</td><td><span style="background:#fff;padding:0 4px;border-radius:3px;">Final: a1, a3, b1, b2</span></td></tr>
+</tbody>
+</table>
+<h2>Medal fleet</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td class="mono">b2</td>
+  <td>Helm B2 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td></td>
+  <td style="text-align:right">1</td>
+  <td style="text-align:right;font-weight:bold">1</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td class="mono">b1</td>
+  <td>Helm B1 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td></td>
+  <td style="text-align:right">2</td>
+  <td style="text-align:right;font-weight:bold">2</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td class="mono">a1</td>
+  <td>Helm A1 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right;font-weight:bold">3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">a3</td>
+  <td>Helm A3 <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span></td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="background:#fff;text-align:center">1</td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right;font-weight:bold">4</td>
+</tr>
+</tbody>
+</table>
+<h2>A</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>3</td>
+  <td class="mono">a2</td>
+  <td>Helm A2</td>
+  <td style="background:#fff;text-align:center">2</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right;font-weight:bold">5</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">a5</td>
+  <td>Helm A5</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">a4</td>
+  <td>Helm A4</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td style="text-align:right">9</td>
+  <td style="text-align:right;font-weight:bold">9</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">a6</td>
+  <td>Helm A6</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td style="background:#fff;text-align:center">7 DNS</td>
+  <td style="text-align:right">13</td>
+  <td style="text-align:right;font-weight:bold">13</td>
+</tr>
+</tbody>
+</table>
+<h2>B</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th><th>Q1</th><th>Q2</th><th>Total</th><th>Nett</th></tr></thead>
+<tbody>
+<tr>
+  <td>3</td>
+  <td class="mono">b4</td>
+  <td>Helm B4</td>
+  <td style="background:#fff;text-align:center">3</td>
+  <td></td>
+  <td style="text-align:right">3</td>
+  <td style="text-align:right;font-weight:bold">3</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td class="mono">b3</td>
+  <td>Helm B3</td>
+  <td style="background:#fff;text-align:center">4</td>
+  <td></td>
+  <td style="text-align:right">4</td>
+  <td style="text-align:right;font-weight:bold">4</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td class="mono">b6</td>
+  <td>Helm B6</td>
+  <td style="background:#fff;text-align:center">5</td>
+  <td></td>
+  <td style="text-align:right">5</td>
+  <td style="text-align:right;font-weight:bold">5</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td class="mono">b5</td>
+  <td>Helm B5</td>
+  <td style="background:#fff;text-align:center">6</td>
+  <td></td>
+  <td style="text-align:right">6</td>
+  <td style="text-align:right;font-weight:bold">6</td>
+</tr>
+</tbody>
+</table>
+<footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
+</body>
+</html>

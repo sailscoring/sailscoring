@@ -882,8 +882,24 @@ ${body}
   // otherwise one combined qualifying table (the no-split case).
   const finalFleets = fixture.config.finalFleets ?? [];
   const splat = rows.some((r) => r.finalFleetId);
+  const perFleet = rows.some((r) => r.rankedInFleetId);
   let tables: string;
-  if (splat && finalFleets.length) {
+  if (perFleet) {
+    // Each fleet ranked on its own: the medal boats as a list of their own,
+    // then one table per fleet.
+    const medalRows = rows.filter((r) => r.medal);
+    tables = [
+      medalRows.length ? table('Medal fleet', medalRows) : '',
+      ...fixture.config.qualifyingFleets.map((name) => {
+        const fleetRows = rows.filter(
+          (r) => !r.medal && r.rankedInFleetId && fleetName.get(r.rankedInFleetId) === name,
+        );
+        return fleetRows.length ? table(name, fleetRows) : '';
+      }),
+    ]
+      .filter(Boolean)
+      .join('\n');
+  } else if (splat && finalFleets.length) {
     tables = finalFleets
       .map((name) => {
         const fleetRows = rows.filter((r) => r.finalFleetId && fleetName.get(r.finalFleetId) === name);
