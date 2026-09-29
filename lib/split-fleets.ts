@@ -93,6 +93,13 @@ export interface SplitFleetConfig {
    *  fleet of its round has sailed it; and at most one excluded score may come
    *  from the second stage, never from a lone completed race of it. */
   split: { kind: 'equal-blocks' } | { kind: 'none' };
+  /** Where the opening series is never divided and has more than one fleet:
+   *  whether its fleets are ranked as one list (`combined`, the ILCA shape)
+   *  or each on its own (`per-fleet`, the Irish Sailing Champions' Cups,
+   *  whose flights are separate selection pools — "Helms ranked 1st and 2nd
+   *  from each Qualifying Fleet", 2026 Dinghy SI 6.3). Absent is `combined`.
+   *  See `ranksEachFleet`. */
+  fleetRanking?: 'combined' | 'per-fleet';
   /** Discard thresholds over the opening series' races combined:
    *  [{minRaces, discardCount}]. Medal races neither count toward these
    *  thresholds nor may be discarded. */
@@ -144,7 +151,41 @@ export interface SplitFleetConfig {
      *  scores to whole numbers manufactures ties among the very boats
      *  deciding the title. */
     tieBreak: 'last-race' | 'medal-race-then-a8';
+    /** Where each fleet is ranked on its own: how many of each fleet's
+     *  leaders go through directly. The rest of `size` is filled by
+     *  promotion. Absent: `size` shared equally, rounded down. See
+     *  `directSeatsPerFleet`. */
+    fromEachFleet?: number;
   };
+}
+
+/**
+ * Whether the opening series ranks each of its fleets on its own. Only an
+ * undivided championship with more than one fleet can: its fleets are drawn
+ * once, so each is a selection pool of its own, whereas a divided
+ * championship re-deals its fleets by a ranking that has to be one list.
+ *
+ * Each fleet on its own means: a boat is ranked within her fleet; a race
+ * counts for a fleet as soon as that fleet has sailed it; and a boat that
+ * does not finish scores her own fleet's size plus one.
+ */
+export function ranksEachFleet(config: Pick<SplitFleetConfig, 'split' | 'qualifyingFleets' | 'fleetRanking'>): boolean {
+  return (
+    config.split.kind === 'none' &&
+    config.qualifyingFleets.length > 1 &&
+    config.fleetRanking === 'per-fleet'
+  );
+}
+
+/** Where each fleet is ranked on its own, the medal seats each fleet's
+ *  leaders take directly: the card's setting, or the medal size shared
+ *  equally between the fleets. Zero where there is no medal stage. */
+export function directSeatsPerFleet(config: SplitFleetConfig): number {
+  if (!config.medal) return 0;
+  return (
+    config.medal.fromEachFleet ??
+    Math.floor(config.medal.size / Math.max(1, config.qualifyingFleets.length))
+  );
 }
 
 /** At most this many excluded scores may come from the second stage. */
@@ -1035,6 +1076,9 @@ export interface SplitStandingRow {
   /** Final fleet id once split (display grouping), else null. */
   finalFleetId: string | null;
   medal: boolean;
+  /** Where each fleet is ranked on its own: the qualifying fleet she is
+   *  ranked in (and `rank` is her rank within it). Absent otherwise. */
+  rankedInFleetId?: string;
   /** How a medal boat the scorer placed by hand got her seat, where it was
    *  not redress: from the repêchage, or from the ranking she was cut from. */
   promotedVia?: 'repechage' | 'cut-ranking';
@@ -1302,6 +1346,10 @@ export function splitFleetStandings(
   const mRaces = opts?.withoutMedalStage ? [] : logicalRaces(data, 'medal');
 
   const splitRound = roundsForStage(rounds, 'final')[0] ?? null;
+  // Each fleet ranked on its own: the fleets are those the (one) qualifying
+  // round drew; a later round, if any, is the one a boat sails in now.
+  const perFleet = ranksEachFleet(config);
+  const rankingRound = perFleet ? (roundsForStage(rounds, 'qualifying').at(-1) ?? null) : null;
   // Without the medal stage the medal fleet still exists — its boats have
   // left the companion race — but nobody ranks in it or carries into it.
   const selectedRound = roundsForStage(rounds, 'medal')[0] ?? null;
@@ -1320,6 +1368,10 @@ export function splitFleetStandings(
       finalFleetId: splitRound?.fleetIds.find((fid) => c.fleetIds.includes(fid)) ?? null,
       medal: !!medalFleetId && c.fleetIds.includes(medalFleetId),
       ...promotedVia(medalRound, c),
+      ...(() => {
+        const fid = rankingRound?.fleetIds.find((f) => c.fleetIds.includes(f));
+        return fid ? { rankedInFleetId: fid } : {};
+      })(),
     });
   }
 
@@ -1338,7 +1390,9 @@ export function splitFleetStandings(
         const ref = lr.races.get(fleetId);
         if (!ref) continue;
         const members = fleetMembers(competitors, fleetId);
-        const codeBase = qualifying ? codeBaseQ : members.length + 1;
+        // Each fleet ranked on its own scores a non-finisher from her own
+        // fleet, as every later stage does.
+        const codeBase = qualifying && !perFleet ? codeBaseQ : members.length + 1;
         const isMedalFleet = stage === 'medal' && fleetId === lr.round.fleetIds[0];
         const multiplier = isMedalFleet ? (config.medal?.multiplier ?? 1) : 1;
         // Selecting the medal fleet does not remove a boat from the fleet she
@@ -1366,8 +1420,12 @@ export function splitFleetStandings(
             points: sc.points,
             code: sc.code,
             // qualifying: only valid logical races count; final/medal races
-            // count as soon as they're completed
-            counts: qualifying ? lr.valid : physicalRaceCompleted(ref, competitors, data.finishes),
+            // count as soon as they're completed, and so does a qualifying
+            // race where each fleet is ranked on its own — the fleets are
+            // separate pools, and one fleet's racing is not held hostage to
+            // another's.
+            counts:
+              qualifying && !perFleet ? lr.valid : physicalRaceCompleted(ref, competitors, data.finishes),
             discardable: stage !== 'medal' && ref.race.discardPolicy !== 'mustCount',
             discarded: false,
             rdg: sc.rdg,
@@ -1561,9 +1619,14 @@ export function splitFleetStandings(
     return byA8(a, b);
   };
 
-  // Tier ordering: medal first, then final fleets in order, then the rest.
+  // Tier ordering: medal first, then final fleets in order, then the rest —
+  // or, where each fleet is ranked on its own, the qualifying fleets in
+  // order.
   const tierIndex = (row: SplitStandingRow): number => {
     if (row.medal) return -1;
+    if (rankingRound) {
+      return row.rankedInFleetId ? rankingRound.fleetIds.indexOf(row.rankedInFleetId) : 999;
+    }
     if (!splitRound || !row.finalFleetId) return splitRound ? 999 : 0;
     return splitRound.fleetIds.indexOf(row.finalFleetId);
   };
@@ -1573,9 +1636,26 @@ export function splitFleetStandings(
   // A tie the tie-break steps cannot separate stays a tie: the boats share
   // the rank and the next boat skips past it. The comparator leads with the
   // tier, so boats in different tiers never share even when their scores do.
+  // Where each fleet is ranked on its own, each fleet's ranking starts again
+  // at 1: they are separate lists, and the medal boats, ranked above them
+  // all, are a list of their own too.
+  let groupStart = 0;
   rows.forEach((row, i) => {
-    row.rank = i > 0 && byOverall(rows[i - 1], row) === 0 ? rows[i - 1].rank : i + 1;
+    if (rankingRound && i > 0 && tierIndex(rows[i - 1]) !== tierIndex(row)) groupStart = i;
+    row.rank =
+      i > groupStart && byOverall(rows[i - 1], row) === 0 ? rows[i - 1].rank : i - groupStart + 1;
   });
+  // Once the medal fleet is selected, a boat left in her fleet keeps her
+  // rank in it: third in her flight stays third, whoever of the two above
+  // her went through directly or was promoted past her.
+  if (rankingRound && medalRound && !opts?.withoutMedalStage) {
+    const inFleet = new Map(
+      splitFleetStandings(input, { withoutMedalStage: true }).map((r) => [r.competitor.id, r.rank]),
+    );
+    for (const row of rows) {
+      if (!row.medal) row.rank = inFleet.get(row.competitor.id) ?? row.rank;
+    }
+  }
   return rows;
 }
 

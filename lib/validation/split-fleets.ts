@@ -19,6 +19,7 @@ export const splitFleetConfigSchema = z.object({
   qualifyingFleets: z.array(fleetSpecSchema).min(1).max(4),
   finalFleets: z.array(fleetSpecSchema).max(4),
   split: z.union([z.object({ kind: z.literal('equal-blocks') }), z.object({ kind: z.literal('none') })]),
+  fleetRanking: z.enum(['combined', 'per-fleet']).optional(),
   discardThresholds: z.array(
     z.object({
       minRaces: z.number().int().positive(),
@@ -50,6 +51,7 @@ export const splitFleetConfigSchema = z.object({
       multiplier: z.union([z.literal(1), z.literal(2)]),
       carry: z.enum(CARRY_IN_VALUES as [CarryIn, ...CarryIn[]]),
       tieBreak: z.enum(['last-race', 'medal-race-then-a8']),
+      fromEachFleet: z.number().int().positive().optional(),
     }).optional(),
   ),
 })
