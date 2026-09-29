@@ -34,7 +34,9 @@ function listLabels(items: { label: string }[]): string {
  *  more races have been completed, and her two worst when 10 or more". */
 function discardClause(config: SplitFleetConfig): string {
   const ladder = [...config.discardThresholds].sort((a, b) => a.minRaces - b.minRaces);
-  if (ladder.length === 0) return 'A boat’s series score will be the total of her race scores.';
+  // "No scores shall be excluded" is how sailing instructions with no
+  // discards say it (Irish Sailing Champions' Cups, SI 17.3).
+  if (ladder.length === 0) return 'No score will be excluded.';
   const parts = ladder.map((t, i) => {
     const scores =
       t.discardCount === 1 ? 'her worst score' : `her ${countWord(t.discardCount)} worst scores`;
@@ -229,7 +231,17 @@ export function describeSplitFleetConfig(
   // Where the final series is entered on a carried score, the two stages are
   // no longer one series: the carry sentence says how they combine instead.
   const finalCarry = unbanded ? 'net' : config.final.carry;
-  if (finalCarry === 'net') {
+  if (unbanded && medal?.carry === 'nothing') {
+    // Nothing carried into the deciding stage: the opening series only
+    // decides who sails it (the Champions' Cups' SI 17.2–17.3), and ranks
+    // the boats who do not.
+    push(
+      'totals',
+      `The ${q} races decide which boats sail the ${m}. A boat that does not sail it will be ranked ${
+        perFleet ? `within her own ${qAdj} fleet on` : 'on'
+      } her ${q} races alone.`,
+    );
+  } else if (finalCarry === 'net') {
     push(
       'totals',
       unbanded

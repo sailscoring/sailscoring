@@ -205,6 +205,16 @@ describe('fleets ranked each on their own', () => {
     expect(text).not.toContain('in one fleet');
   });
 
+  it('says the opening series only decides who sails the Final series, where nothing is carried', () => {
+    const text = joined(perFleet);
+    expect(text).toContain(
+      'The Qualification series races decide which boats sail the Final series. A boat that does not sail it will be ranked within her own Qualification fleet on her Qualification series races alone.',
+    );
+    expect(text).not.toContain('will count for total points');
+    expect(text).toContain('No score will be excluded.');
+    expect(text).not.toContain('the total of her race scores.');
+  });
+
   it('keeps the combined wording where the fleets are ranked together', () => {
     const text = joined({ ...perFleet, fleetRanking: 'combined' });
     expect(text).not.toContain('ranked on its own');
