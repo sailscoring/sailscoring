@@ -56,7 +56,8 @@ a form the rest of the app fully understands.
    computes it and offers it as the primary button. A relief scorer walking
    up to the desk mid-event should orient in ten seconds.
 2. **Ceremony steps are previews, then commits.** Every assignment action
-   (seeding, reassignment, split, medal selection) shows exactly what it
+   (seeding, reassignment, split, medal selection, promotion from a
+   repêchage) shows exactly what it
    will do — who moves where, from what ranking, captured when — before a
    commit that records its provenance and auto-captures a revision
    checkpoint. Nothing assignment-shaped ever happens as a side effect.
@@ -420,6 +421,166 @@ The medal section is the same round machinery at the top of the ranking:
 
 ---
 
+## The repêchage
+
+Some events give the boats who missed a cut a second chance: a short series
+of their own, whose leaders take the last seats in the next stage. The Irish
+Sailing Champions' Cups sail one between the qualifying flights and the Final
+Series; another event could sail one after Gold and Silver, for the last seat
+or two in the medal fleet.
+
+A repêchage is **not a stage**. It hangs off a cut, between the stage the
+boats were cut from and the stage they hope to join. Everything about it is
+the scorer's to decide, because the sailing instructions that call for one
+disagree on almost everything (who may sail it, in how many flights, how many
+seats it fills, what happens when there is no time to sail it):
+
+- **Who sails it** is picked by hand.
+- **Its ranking** is low point over its own races and nothing else. Every
+  boat starts it on zero, with no discards.
+- **It fills seats only by promotion.** The scorer promotes as many boats as
+  they choose, in the order they choose. The app suggests, never decides.
+- **It scores nothing in the championship.** A promoted boat sailed the same
+  races of her own stage as the boats selected directly, so she carries into
+  the next stage whatever that stage's carry rule gives from her own score,
+  exactly as they do. Her repêchage races carry nothing.
+
+### Order of events
+
+1. **Select directly.** The next stage's fleet is selected as usual, top *n*
+   by the card's rule, and committed. Only then does the repêchage exist to
+   be added, because the direct seats decide who is eligible for it.
+2. **Add the repêchage.** The card the boats were cut from gains
+   `Add a repêchage`, beside `Add companion race`.
+3. **Sail it**, as ordinary races.
+4. **Promote from it**, into the committed round.
+
+### The card
+
+The repêchage is a sub-card at the foot of the card it hangs off, so it sits
+visually on the cut:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ▾ QUALIFICATION SERIES                        Q1–Q3 · 2 fleets · 12 boats │
+│   Flight 1   Q1 ✓  Q2 ✓  Q3 ✓        Flight 2   Q1 ✓  Q2 ✓  Q3 ✓        │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │ ▾ REPÊCHAGE                          8 boats · 2 fleets · R1 ✓ R2 ◐│  │
+│  │   Picked by hand from the boats outside the Final series fleet     │  │
+│  │   Rep. A   R1 ✓  R2 ✓                                              │  │
+│  │   Rep. B   R1 ✓  R2 ◐                                              │  │
+│  │   [ Add R3 ]              [ Promote from the repêchage… ]          │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ▾ FINAL SERIES                             4 boats selected · 2 seats open│
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+"2 seats open" is the medal card's size less the boats in its round, a fact
+and not a limit.
+
+### Adding it
+
+The dialog lists every boat outside the next stage's fleet, in the order of
+the ranking she was cut from, with her fleet and her rank in it. The scorer
+ticks the boats the committee names; nothing is ticked for them, because the
+app does not know the band (the 2026 Dinghy NoR opens the repêchage to 3rd–6th
+in each flight, its draft SIs to 3rd–5th).
+
+A repêchage has **one or more fleets**, named and coloured like any other, so
+that "two flights of four" is one repêchage rather than two. With more than
+one fleet the dialog assigns the ticked boats to them, by hand, with the
+same move-a-boat preview as seeding. Each fleet is ranked on its own: the
+fleets are separate selection pools, so there is no cross-fleet ranking and
+no rule that a race counts only once every fleet has sailed it.
+
+The membership can be edited, and the repêchage deleted, until a boat is
+promoted from it.
+
+### Racing it
+
+Repêchage races are numbered R1, R2 …, whatever words the sailing
+instructions use elsewhere. They are ordinary races on the Races tab, grouped
+under the repêchage, with the same one-sheet-or-a-sheet-per-fleet choice as
+any other stage race. Finish entry offers only the repêchage's boats. A boat
+that does not finish scores the boats in her repêchage fleet, plus one.
+
+### Promoting
+
+`Promote from the repêchage…` is the same preview-then-commit as every other
+ceremony step. It adds boats to the committed round as attributed additions,
+marked *via repêchage* — the same override record the split card's
+`Promote…` writes for redress, with a different reason.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  Promote into the Final series fleet            2 seats open (of 6)  │
+│                                                                      │
+│  From  (●) Repêchage ranking   ( ) Qualification series ranking      │
+│                                                                      │
+│   Rep. A   ☑ 1  IRL 2211  Hall          2.0                          │
+│            ☐ 2  IRL 1807  Byrne         4.0                          │
+│   Rep. B   ☑ 1  IRL 3145  Kenny         3.0                          │
+│            ☐ 2  IRL 1409  Walsh         3.0   tie broken by A8       │
+│                                                                      │
+│  [ Cancel ]                                  [ Promote 2 boats ]     │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- **The suggestion is the leaders**, up to the seats open, and it is only a
+  suggestion. The scorer can promote fewer, more, or different boats; the
+  split of seats between repêchage fleets is theirs to read from the
+  instructions.
+- **The second source is the fallback.** When there is no time to sail the
+  repêchage, the instructions usually name the boats to promote instead,
+  such as the third boat of each flight — which is what both 2025 Champions'
+  Cups did. Promoting from the ranking the boats were cut from covers that
+  with no repêchage at all.
+- **Before the next stage's first race**, promotion is clean. After it, the
+  late-promotion warning of the split card's `Promote…` applies.
+- **A companion race changes when the medal fleet does.** Its first place
+  scores the medal fleet's size plus one, and its boats are the ones outside
+  that fleet, so promoting afterwards would re-place it. The dialog warns
+  when a companion race exists, and `Add companion race` points to any
+  repêchage not yet promoted from.
+
+### Standings
+
+The standings page shows each ranking separately, in this order:
+
+1. **The championship ranking** — the final (or medal) stage. Promoted boats
+   rank in it like any other, their row marked *via repêchage*.
+2. **The repêchage ranking** — one table per repêchage fleet, over R1, R2 …
+   alone.
+3. **The ranking the boats were cut from** — the qualification series, in
+   its own tables.
+
+Where nothing is carried, as at the Champions' Cups, the championship table
+holds the final stage's races only: no qualifying columns and no carried
+column, because none of it counts. A boat who was never promoted appears in
+the rankings she sailed in, and in no championship table — the two-tables,
+not-one-ranking result those events publish. Where a score is carried, the
+championship table keeps its carried column as it does today, and the other
+rankings still stand alone below it.
+
+Repêchage races are never columns in the championship table: setting races
+that count beside races that don't invites the misreading the instructions
+forbid. The publish dialog offers the repêchage as a page of its own, and the
+per-race results page lists R1, R2 … with the rest.
+
+### Next action, and the sailing instructions
+
+The event strip steps through it like any other stage: *Enter R2 · Rep. B*,
+then *Promote from the repêchage*. Once every seat is filled it moves on to
+the next stage's first race.
+
+The sailing-instructions view says nothing about a repêchage until one
+exists. Then it states the rule: the repêchage is scored on its own races
+only, and a boat promoted from it carries her score as the other boats of the
+fleet she joins do.
+
+---
+
 ## What the automation touches
 
 Every action maps onto ordinary entities — this table is the "no parallel
@@ -432,6 +593,8 @@ system" guarantee, and each row lands in the activity log:
 | Enter finishes | Standard `Finish` rows via S-06 |
 | Publish standings / assignment lists | Standard publications under the series' `/p/` slug |
 | Promote / wrong-fleet resolution | Override on the round record + membership edit |
+| Add a repêchage / edit its membership | The repêchage's `Fleet` rows and memberships, outside the stage sequence; revision checkpoint |
+| Promote from a repêchage | Override on the next stage's round record (reason *via repêchage*) + membership edit; revision checkpoint |
 
 **Drift handling:** because the view re-derives from entities, hand edits
 in the standard tabs are absorbed silently when consistent (renaming a
@@ -451,6 +614,8 @@ never modal.
   instead of blocking edits (Sailwave's freeze-checkbox, inverted).
 - The next-action computation never crosses into rules judgement: it
   points at incomplete work, not at SI decisions.
+- A repêchage's membership and its promotions are the scorer's; the app
+  suggests the leaders up to the seats open and enforces no quota.
 - Finish entry fleet-scoping plus the explicit wrong-fleet exception flow
   replaces wrong-fleet forensics.
 
