@@ -168,6 +168,37 @@ describe.skipIf(skip)('activity log', () => {
     expect(second.items.every((i) => !firstIds.has(i.id))).toBe(true);
   });
 
+  test('pages through rows written within one millisecond without skipping any', async () => {
+    const seriesId = uuid();
+    for (let i = 0; i < 3; i++) {
+      await recordActivity(
+        { workspaceId, userId: actorA },
+        { action: 'race.added', seriesId, summary: `Added Race ${i + 1}` },
+      );
+    }
+    // Postgres keeps microseconds; pin all three into the same millisecond,
+    // a microsecond apart, as a fast run of inserts leaves them.
+    await sql`
+      update activity_log
+      set created_at = timestamptz '2026-09-29 12:00:00.123400+00'
+        + (substring(summary from '[0-9]+$')::int * interval '1 microsecond')
+      where series_id = ${seriesId}`;
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 4; i++) {
+      const page = await listActivity({
+        workspaceId,
+        seriesId,
+        page: { cursor: cursor ? decodeCursorForTest(cursor) : null, limit: 1 },
+      });
+      seen.push(...page.items.map((item) => item.summary));
+      cursor = page.nextCursor;
+      if (!cursor) break;
+    }
+    expect(seen).toEqual(['Added Race 3', 'Added Race 2', 'Added Race 1']);
+  });
+
   test('latestActivityPerSeries returns one row per series, excluding workspace-level rows', async () => {
     const s1 = uuid();
     const s2 = uuid();
@@ -187,8 +218,8 @@ describe.skipIf(skip)('activity log', () => {
 });
 
 /** Mirror the opaque cursor format so the test can page without exporting internals. */
-function decodeCursorForTest(encoded: string): { createdAtMs: number; id: string } {
+function decodeCursorForTest(encoded: string): { createdAtUs: number; id: string } {
   const raw = Buffer.from(encoded, 'base64url').toString('utf8');
   const sep = raw.indexOf(':');
-  return { createdAtMs: Number.parseInt(raw.slice(0, sep), 10), id: raw.slice(sep + 1) };
+  return { createdAtUs: Number.parseInt(raw.slice(0, sep), 10), id: raw.slice(sep + 1) };
 }

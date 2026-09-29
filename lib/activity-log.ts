@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, gt, isNotNull, lt, or } from 'drizzle-orm';
+import { and, desc, eq, gt, isNotNull, lt, or, sql } from 'drizzle-orm';
 
 import { getDb } from '@/lib/db/client';
 import { user } from '@/lib/db/schema/auth';
@@ -188,7 +188,9 @@ export async function listActivity(opts: {
   if (seriesId) filters.push(eq(activityLog.seriesId, seriesId));
   if (page.cursor) {
     const c = page.cursor;
-    const cursorTs = new Date(c.createdAtMs);
+    // Built in Postgres from whole microseconds, so it is the row's own
+    // instant exactly: a JavaScript Date would round it to the millisecond.
+    const cursorTs = sql`(timestamptz 'epoch' + ${c.createdAtUs}::bigint * interval '1 microsecond')`;
     // Keyset: strictly older, or same instant with a smaller id.
     filters.push(
       or(
@@ -199,7 +201,10 @@ export async function listActivity(opts: {
   }
 
   const rows = await getDb()
-    .select(ACTIVITY_SELECTION)
+    .select({
+      ...ACTIVITY_SELECTION,
+      createdAtUs: sql<string>`(extract(epoch from ${activityLog.createdAt}) * 1000000)::bigint`,
+    })
     .from(activityLog)
     .leftJoin(user, eq(activityLog.actorUserId, user.id))
     .where(and(...filters))
@@ -213,7 +218,7 @@ export async function listActivity(opts: {
     items: pageRows.map(toEntry),
     nextCursor:
       hasMore && last
-        ? encodeCursor({ createdAt: last.createdAt.getTime(), id: last.id })
+        ? encodeCursor({ createdAtUs: Number(last.createdAtUs), id: last.id })
         : null,
   };
 }
