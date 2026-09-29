@@ -51,7 +51,7 @@ fixed.
 | Setting | Control or rule | In use |
 |---|---|---|
 | Divided or not | Divide / undivide action | JCC no; ILCA yes |
-| Boats | Each boat keeps its own sail number, or boats are drawn for each fleet. Championship-wide; it sits here with the other settings that span the whole event | JCC, ILCA own; Dinghy Champions' Cup 2026 drawn |
+| Boats | Competitors sail their own boats, or boats are supplied and drawn for each fleet. Championship-wide; it sits here with the other settings that span the whole event | JCC, ILCA own; Dinghy Champions' Cup 2026 drawn |
 | Fleets (undivided) | Count, names, colours | JCC 1; Dinghy Champions' Cup 2026 2 |
 | Fleets ranked (undivided, two or more fleets) | All together, or each on its own: each boat ranked within her fleet, a race counting for a fleet once that fleet has sailed it, a non-finisher scored from her own fleet | Dinghy Champions' Cup 2026 each on its own |
 | Discard ladder | Editable ladder | JCC 1 from 5; ILCA 1 from 3, 2 from 10 |

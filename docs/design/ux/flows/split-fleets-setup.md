@@ -126,7 +126,7 @@ top *k* of each.
 ### Boats drawn for each fleet
 
 At a championship that supplies its boats (the Champions' Cups), the
-**Boats** setting on this card switches to *Boats are drawn for each fleet*.
+**Boats** setting on this card switches to *Boats are supplied and drawn for each fleet*.
 There is no separate draw screen: every assignment dialog gains a Boat column
 beside the fleet each entry is dealt, and a round's fleet chips open the
 fleet's list for boats drawn after the commit, typos and spares. A boat may

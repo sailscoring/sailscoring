@@ -334,7 +334,7 @@ export function SplitFleetBoatsSection() {
         draw the boats again every time the entries are reassigned. A helm’s sail number then
         changes with her fleet, and two helms carry the same number in different fleets. For
         these, set <strong className="text-foreground">Boats</strong> in the {w.series} card’s
-        settings to <strong className="text-foreground">Boats are drawn for each fleet</strong>.
+        settings to <strong className="text-foreground">Boats are supplied and drawn for each fleet</strong>.
       </p>
       <p>
         Every assignment then has a <strong className="text-foreground">Boat</strong> column

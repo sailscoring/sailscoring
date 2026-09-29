@@ -552,8 +552,8 @@ export function OpeningSettings({
               value={config.boatAssignments ? 'drawn' : 'own'}
               onChange={(e) => patch({ boatAssignments: e.target.value === 'drawn' })}
             >
-              <option value="own">Each boat keeps its own sail number</option>
-              <option value="drawn">Boats are drawn for each fleet</option>
+              <option value="own">Competitors sail their own boats</option>
+              <option value="drawn">Boats are supplied and drawn for each fleet</option>
             </select>
             <p className={hint}>
               {config.boatAssignments
