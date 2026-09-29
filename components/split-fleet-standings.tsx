@@ -518,9 +518,18 @@ export function SplitFleetStandings({
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
-        A {splitFleetWords(data.config).qualifying.raceNoun} counts only once every fleet has
-        completed it (greyed cells don&rsquo;t count); discarded scores are in
-        parentheses.
+        {perFleet ? (
+          <>
+            Each fleet is ranked on its own, and a race counts for a fleet once that fleet has
+            completed it; discarded scores are in parentheses.
+          </>
+        ) : (
+          <>
+            A {splitFleetWords(data.config).qualifying.raceNoun} counts only once every fleet
+            has completed it (greyed cells don&rsquo;t count); discarded scores are in
+            parentheses.
+          </>
+        )}
       </p>
     </section>
   );

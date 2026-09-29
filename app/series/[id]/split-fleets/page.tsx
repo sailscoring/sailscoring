@@ -2159,7 +2159,9 @@ function MedalSelectDialog({
       title={`Select the ${w.medal.fleetNoun}`}
       description={`The top boats of the ${w.series} sail the ${w.medal.name} (points ×${medalConfig.multiplier}, never discardable); ${
         stops
-          ? `everyone else has no score for it, and any one more race of the ${w.qualifying.name} they sail scores from ${size + 1}`
+          ? perFleet
+            ? `everyone else has no score for it, and in any one more race of the ${w.qualifying.name} they sail, each fleet scores from just below the boats who left it`
+            : `everyone else has no score for it, and any one more race of the ${w.qualifying.name} they sail scores from ${size + 1}`
           : `everyone else stays in their fleet and sails its remaining races, ${goldLabel}'s scored from ${size + 1}`
       }. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
