@@ -51,6 +51,7 @@ fixed.
 | Setting | Control or rule | In use |
 |---|---|---|
 | Divided or not | Divide / undivide action | JCC no; ILCA yes |
+| Boats | Each boat keeps its own sail number, or boats are drawn for each fleet. Championship-wide; it sits here with the other settings that span the whole event | JCC, ILCA own; Dinghy Champions' Cup 2026 drawn |
 | Fleets (undivided) | Count, names, colours | JCC 1 |
 | Discard ladder | Editable ladder | JCC 1 from 5; ILCA 1 from 3, 2 from 10 |
 | Race labels (undivided) | Rule: Q (both sets) | |
@@ -171,6 +172,8 @@ interface SplitFleetConfig {
   finalFleets: { label: string; color: string }[];
   split: { kind: 'equal-blocks' } | { kind: 'none' };
   discardThresholds: { minRaces: number; discardCount: number }[];
+  /** Supplied boats drawn per fleet; the boats are Competitor.fleetSailNumbers. */
+  boatAssignments?: boolean;
   final: {
     carry: 'net' | 'halved' | 'nothing' | 'rank';
     tieBreak: 'a8' | 'last-race';

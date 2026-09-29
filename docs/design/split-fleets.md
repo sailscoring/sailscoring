@@ -672,6 +672,12 @@ number fields, each with a distinct job:
   they coincide, `entryNumber` is simply left unset. Gated into
   `enabledCompetitorFields` like `bowNumber` — a club Tuesday series never
   needs it.
+- `fleetSailNumbers` — fleet id → the boat drawn for her in that fleet, at a
+  championship that supplies its boats and redraws them each stage
+  (`SplitFleetConfig.boatAssignments`). In a race that fleet sails it is her
+  sail number: `withRaceSailNumbers` gives finish entry, the finish-sheet CSV
+  and the RaceSense import a competitor list carrying it, and the race
+  results show it. `sailNumber` is then her entry number.
 
 Its main value is identity/admin (entry lists, bow-number assignment,
 import round-trips), but it also gives a **stable** basis for a

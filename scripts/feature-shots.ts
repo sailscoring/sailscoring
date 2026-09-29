@@ -1628,6 +1628,52 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Boats drawn for each fleet — a fleet's list of boats, opened
+    // from its chip on the round. Switches the worked championship to drawn
+    // boats, types part of a draw into the list without saving it, and puts
+    // the setting back: the sample is left as seeded.
+    slug: 'split-fleet-boats',
+    group: 'Running a series',
+    async capture({ page, shot }) {
+      await dbEnableOperatorFeature('split-fleets');
+      await page.evaluate(() => localStorage.clear());
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample Championship 2026' }).first().click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      await page.getByRole('navigation').getByRole('link', { name: 'Split Fleets' }).click();
+      await settle(page);
+      const series = capitaliseStage(VOCABULARIES['opening-medal'].seriesName);
+      for (const toggle of [
+        page.getByRole('button', { name: new RegExp(`^${series}\\s*(Complete|In progress)`) }),
+        page.getByRole('button', { name: `${series} settings` }),
+      ]) {
+        if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+      }
+      await settle(page);
+      const setting = page.locator('#sf-boats');
+      await setting.selectOption('drawn');
+      await page.getByText('boats drawn per fleet').first().waitFor();
+      await settle(page);
+
+      await page.getByRole('button', { name: /^\S+ boats$/ }).first().click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      const cells = dialog.locator('[data-boat-cell]');
+      const n = Math.min(await cells.count(), 12);
+      for (let i = 0; i < n; i++) await cells.nth(i).fill(String(401 + i));
+      await cells.nth(n - 1).blur();
+      await settle(page);
+      await shot('split-fleet-boats.png');
+
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' }).catch(() => {});
+      await setting.selectOption('own');
+      await page.getByText('boats drawn per fleet').first().waitFor({ state: 'hidden' });
+      await settle(page);
+    },
+  },
+  {
     // Inventory: RaceSense import — the plan dialog over the sample league.
     // Operator-gated, so local mode flips the gate at the database.
     //

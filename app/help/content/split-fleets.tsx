@@ -304,3 +304,48 @@ export function SplitFleetsSection() {
     </Section>
   );
 }
+
+/** Boats drawn for each fleet: the supplied-boat championship. */
+export function SplitFleetBoatsSection() {
+  const { vocab } = useHelpVocabulary();
+  const w = words(vocab);
+  const caption =
+    'A fleet’s boats, opened from its chip on the round: the boat each entry sails in that fleet.';
+  return (
+    <Section id="split-fleet-boats" title="Boats drawn for each fleet">
+      <p>
+        Some championships supply the boats. The Irish Sailing Champions’ Cups share a handful of
+        boats between two fleets — one fleet races, then the other takes the same boats out — and
+        draw the boats again every time the entries are reassigned. A helm’s sail number then
+        changes with her fleet, and two helms carry the same number in different fleets. For
+        these, set <strong className="text-foreground">Boats</strong> in the {w.series} card’s
+        settings to <strong className="text-foreground">Boats are drawn for each fleet</strong>.
+      </p>
+      <p>
+        Every assignment then has a <strong className="text-foreground">Boat</strong> column
+        beside the fleet each entry is dealt. Type the draw straight down it (Enter moves to the
+        next row), or paste a column of numbers into the first box and it fills the rows below.
+        A boat can appear once in each fleet; the same boat in two fleets of a round is the shared
+        boat, and that is expected. The draw often comes after the fleets are decided — the
+        Champions’ Cup redraws its boats at dinner, after the finalists are known — so the boats
+        can be left blank and the round says how many are not yet drawn.
+      </p>
+      <HelpShot src="/help/shots/split-fleet-boats.webp" alt={caption} caption={caption} />
+      <p>
+        To enter or change boats later, click a fleet’s chip on its round. That is also how a
+        spare goes in for a broken boat: change the number for the helm who holds the boat in
+        each fleet. Each entry keeps her own number too — shown as{' '}
+        <strong className="text-foreground">Entry</strong> — and it is what the standings list
+        her under.
+      </p>
+      <p>
+        On a race, the numbers are the boats: type the number the race committee hails and it
+        finds the helm sailing that boat in that race, and a RaceSense sheet matches the same
+        way, since each unit is fixed to a boat. Fleets that share boats always get a race each,
+        never one sheet between them. The published race results show the boat each helm
+        sailed, and the fleet assignments page lists each fleet’s boats, which is where
+        competitors look up the boat to go to.
+      </p>
+    </Section>
+  );
+}

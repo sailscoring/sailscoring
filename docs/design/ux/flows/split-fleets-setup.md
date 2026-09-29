@@ -115,6 +115,18 @@ once, with no split to follow.
 
 `Change` on the words is offered until the first race exists.
 
+### Boats drawn for each fleet
+
+At a championship that supplies its boats (the Champions' Cups), the
+**Boats** setting on this card switches to *Boats are drawn for each fleet*.
+There is no separate draw screen: every assignment dialog gains a Boat column
+beside the fleet each entry is dealt, and a round's fleet chips open the
+fleet's list for boats drawn after the commit, typos and spares. A boat may
+appear once per fleet — the fleets of a round share boats — and blanks are
+allowed, with the round counting the boats not yet drawn. Fleets sharing
+boats always race apart, so the sheet-layout choice goes. The entry's own
+number is headed Entry wherever the boats are shown beside it.
+
 ### Dividing
 
 `Divide into …` turns the opening series into a parent card holding its two
