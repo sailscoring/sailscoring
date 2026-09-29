@@ -405,7 +405,7 @@ export function SplitFleetRepechageSection() {
         with her. Where there is no time to sail it, promote from the ranking the boats were cut
         from instead: that is the usual fallback (“invite the 3rd-placed sailors from each
         flight”), and it needs no repêchage at all. Where each fleet is ranked on its own, the{' '}
-        {m.fleetNoun} has no fixed size, so nothing is ticked for you: promote as many as the
+        {w.medal.fleetNoun} has no fixed size, so nothing is ticked for you: promote as many as the
         sailing instructions say. The boats are listed fleet by fleet with their rank in it. A
         promotion can be withdrawn.
       </p>
