@@ -76,6 +76,7 @@ import {
   assignByRankPattern,
   capitaliseStage,
   cutFromStandings,
+  directSeatsPerFleet,
   dropNonEntrants,
   finalBlockSizes,
   fleetColorById,
@@ -87,6 +88,7 @@ import {
   physicalRaceCompleted,
   pickableFleets,
   provisionalCutIndexes,
+  ranksEachFleet,
   REPECHAGE_FLEET_COLORS,
   REPECHAGE_WORDS,
   repechageEligibleIds,
@@ -2111,7 +2113,21 @@ function MedalSelectDialog({
   // With a split, the cut comes off the top fleet; without one there is only
   // the fleet, so it comes off the standings as they stand.
   const goldRows = goldId ? standings.filter((r) => r.finalFleetId === goldId) : standings;
-  const medalists = goldRows.slice(0, size);
+  // Where each fleet is ranked on its own, the cut comes off every fleet:
+  // the top so many of each.
+  const perFleet = ranksEachFleet(data.config);
+  const [each, setEach] = useState(() => directSeatsPerFleet(data.config));
+  const fleetOrder = roundsForStage(data.rounds, 'qualifying').at(-1)?.fleetIds ?? [];
+  const byFleet = fleetOrder.map((fid) => standings.filter((r) => r.rankedInFleetId === fid));
+  const medalists = perFleet ? byFleet.flatMap((rows) => rows.slice(0, each)) : goldRows.slice(0, size);
+  // A tie A8 cannot break across a fleet's cut: the ranking does not decide
+  // who goes through, and the scorer has to.
+  const tiedAtCut = perFleet
+    ? fleetOrder.filter((_, i) => {
+        const rows = byFleet[i];
+        return rows.length > each && rows[each - 1]?.rank === rows[each]?.rank;
+      })
+    : [];
   const goldLabel = (goldId && fleetMeta.get(goldId)?.label) || 'Gold';
 
   // The ceremony deals one fleet and one only. Selecting the medal boats
@@ -2124,11 +2140,14 @@ function MedalSelectDialog({
     for (const r of medalists) assignments[r.competitor.id] = 0;
     return assignments;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [standings, size, goldId]);
+  }, [standings, size, goldId, each, perFleet]);
   const medalRows = medalists.map((r) => ({
     id: r.competitor.id,
     sail: r.competitor.sailNumber,
     name: r.competitor.names.join(' & '),
+    ...(perFleet
+      ? { rank: r.rank, from: fleetMeta.get(r.rankedInFleetId ?? '')?.label ?? '' }
+      : {}),
     to: capitaliseStage(w.medal.name),
   }));
   const drawBoats = data.config.boatAssignments === true;
@@ -2145,7 +2164,11 @@ function MedalSelectDialog({
       }. Based on the ranking as it stands — the SIs fix a cutoff time the jury may extend.`}
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
-      commitLabel={`Commit ${w.medal.fleetNoun} (top ${size})`}
+      commitLabel={
+        perFleet
+          ? `Commit ${w.medal.fleetNoun} (top ${each} of each fleet)`
+          : `Commit ${w.medal.fleetNoun} (top ${size})`
+      }
       blockedReason={drawBoats ? clashes.message : null}
       onClose={onClose}
       onCommit={() =>
@@ -2172,6 +2195,34 @@ function MedalSelectDialog({
         checked={createRaces}
         onChange={setCreateRaces}
       />
+      {perFleet ? (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-sm">
+            <label htmlFor="sf-medal-each">Take the top</label>
+            <input
+              id="sf-medal-each"
+              type="number"
+              min={1}
+              className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
+              value={each}
+              onChange={(e) => setEach(Math.max(1, Number(e.target.value)))}
+            />
+            <span>of each fleet</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {medalConfig.size > each * fleetOrder.length
+              ? `The other ${medalConfig.size - each * fleetOrder.length} of the ${medalConfig.size} seats are filled afterwards, from a repêchage or the ranking the boats were cut from.`
+              : `Each fleet is ranked on its own, so each fleet's leaders go through.`}
+          </p>
+          {tiedAtCut.length > 0 && (
+            <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200" data-testid="sf-medal-cut-tie">
+              {tiedAtCut.map((fid) => fleetMeta.get(fid)?.label).join(' and ')}: the boats either side
+              of the cut are tied, and rule A8 cannot separate them. The ranking does not decide this
+              seat.
+            </p>
+          )}
+        </div>
+      ) : (
       <div className="flex items-center gap-2">
         <label className="text-sm" htmlFor="sf-medal-size">
           {capitaliseStage(w.medal.fleetNoun)} size
@@ -2187,6 +2238,7 @@ function MedalSelectDialog({
         />
         <span className="text-xs text-muted-foreground">SIs usually say ten; juries vary it</span>
       </div>
+      )}
       <AssignmentPreviewTable
         rows={medalRows}
         boats={drawBoats ? draw.column(clashes.duplicateIds) : undefined}
