@@ -218,7 +218,7 @@ test('the publication serves a .sailscoring.json data file and pages reference i
   expect(res.headers()['content-type']).toContain('application/json');
   expect(res.headers()['access-control-allow-origin']).toBe('*');
   const exported = await res.json();
-  expect(exported.version).toBe(5);
+  expect(exported.version).toBe(6);
   expect(exported.series.name).toBe('Data File League');
 
   // Signed in, /import?from= fetches the file and opens a copy.
