@@ -6,7 +6,7 @@ import { createSplitFleetSeries, enableFeatures, showStageSettings } from './hel
  * Cups' qualifying flights, where "helms ranked 1st and 2nd from each
  * Qualifying Fleet" go through. End to end: the setting on the opening
  * series card, a table and a cut line per fleet, the top two of each fleet
- * selected, and the next boat of each suggested for the seats left open.
+ * selected, and as many more promoted as the scorer chooses.
  */
 
 const DEMO_COUNT = 24;
@@ -40,9 +40,11 @@ test('each fleet ranked on its own, the top two of each through', async ({ page,
   await expect(page.getByText('A race counts for a fleet once that fleet has sailed it.')).toBeVisible();
   await showStageSettings(page, 'Opening series', false);
 
-  // ── Six seats, two from each flight, nothing carried in ──────────────────
+  // ── The top two from each flight, nothing carried in ─────────────────────
+  // With each fleet ranked on its own the medal fleet has no size of its
+  // own: the card asks only how many of each fleet go through.
   await showStageSettings(page, 'Medal races');
-  await Promise.all([saved(), page.locator('#sf-medal-size-setting').fill('6')]);
+  await expect(page.locator('#sf-medal-size-setting')).toHaveCount(0);
   await Promise.all([
     saved(),
     page.getByRole('radiogroup', { name: 'Score carried into the medal races' }).getByLabel('Nothing').click(),
@@ -78,21 +80,24 @@ test('each fleet ranked on its own, the top two of each through', async ({ page,
   await page.getByRole('button', { name: 'Select medal fleet…' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.locator('#sf-medal-each')).toHaveValue('2');
-  await expect(dialog).toContainText('The other 2 of the 6 seats are filled afterwards');
+  await expect(dialog).toContainText('Any more are promoted afterwards');
   await dialog.getByRole('button', { name: /Commit medal fleet \(top 2 of each fleet\)/ }).click();
   await expect(dialog).toBeHidden();
   const repechage = page.getByTestId('sf-repechage');
-  await expect(repechage.getByTestId('sf-seats-open')).toHaveText('2 seats open in the medal fleet');
+  await expect(repechage.getByTestId('sf-seats-open')).toHaveText(
+    'Promote as many competitors as the sailing instructions say',
+  );
 
-  // ── The fallback: the next boat of each flight is suggested ──────────────
+  // ── The fallback: the third of each flight, promoted by hand ─────────────
   await repechage.getByRole('button', { name: /Promote from the opening series ranking/ }).click();
   const promote = page.getByRole('dialog');
   const candidates = promote.getByTestId('sf-promote-candidates');
-  await expect(candidates.getByRole('checkbox', { checked: true })).toHaveCount(2);
-  // Each suggested boat is third in her own flight.
-  for (const row of await candidates.getByRole('row').filter({ has: page.getByRole('checkbox', { checked: true }) }).all()) {
-    await expect(row.getByRole('cell').nth(1)).toHaveText('3');
-  }
+  // No fixed size, so nothing to suggest up to.
+  await expect(candidates.getByRole('checkbox', { checked: true })).toHaveCount(0);
+  const thirds = candidates.getByRole('row').filter({ has: page.getByRole('cell', { name: '3', exact: true }) });
+  await expect(thirds).toHaveCount(2);
+  for (const row of await thirds.all()) await row.getByRole('checkbox').check();
   await promote.getByRole('button', { name: 'Promote 2 boats' }).click();
-  await expect(repechage.getByTestId('sf-seats-open')).toHaveText('0 seats open in the medal fleet');
+  await expect(promote).toBeHidden();
+  await expect(repechage.getByTestId('sf-promoted')).toContainText('from the opening series ranking');
 });

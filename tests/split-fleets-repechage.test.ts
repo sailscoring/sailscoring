@@ -331,4 +331,8 @@ describe('medalSeatsOpen', () => {
     expect(medalSeatsOpen(championsCup({ promoted: {} }))).toBe(4);
     expect(medalSeatsOpen(championsCup())).toBe(3);
   });
+
+  it('is no number where each fleet is ranked on its own: the fleet has no fixed size', () => {
+    expect(medalSeatsOpen(championsCup({ config: { ...championsCupConfig(), fleetRanking: 'per-fleet' } }))).toBeNull();
+  });
 });

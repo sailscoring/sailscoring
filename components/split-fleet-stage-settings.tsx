@@ -859,7 +859,6 @@ export function MedalSettings({
     patch({ medal: { ...medal, ...p } });
   const perFleet = ranksEachFleet(config);
   const seatsEach = directSeatsPerFleet(config);
-  const fleetCount = config.qualifyingFleets.length;
   const radio = (name: string, checked: boolean, onChange: () => void, label: string) => (
     <label className="flex items-center gap-2">
       <input type="radio" name={name} disabled={!canEdit} checked={checked} onChange={onChange} />
@@ -871,7 +870,7 @@ export function MedalSettings({
       title={capitaliseStage(m.name)}
       current={current}
       summary={[
-        `${medal.size} boats`,
+        perFleet ? `top ${seatsEach} from each fleet` : `${medal.size} competitors`,
         medal.multiplier === 2 ? 'double points' : 'single points',
         CARRY_SUMMARY[medal.carry],
       ].join(' · ')}
@@ -879,11 +878,7 @@ export function MedalSettings({
         `Races are numbered ${labels(config, 'medal')}.`,
         `No ${m.raceNoun} is excluded, and none counts towards the discards.`,
         perFleet
-          ? `The ${m.fleetNoun} is the top ${seatsEach} of each fleet, ties settled by rule A8 and then entry order${
-              medal.size > seatsEach * fleetCount
-                ? `; the other ${medal.size - seatsEach * fleetCount} seats are filled by promotion`
-                : ''
-            }.`
+          ? `The ${m.fleetNoun} is the top ${seatsEach} of each fleet, ties settled by rule A8 and then entry order. More competitors may be promoted to it, from a repêchage or the ranking they were cut from.`
           : `The ${m.fleetNoun} is the top ${medal.size} of ${from}, ties settled by rule A8 and then entry order.`,
         `The ${m.fleetNoun} ranks ahead of every other boat, whatever the points say.`,
         ...(medal.carry !== 'net'
@@ -894,7 +889,28 @@ export function MedalSettings({
       ]}
       controls={
         <>
-          <Row settings={['medal']} label="Boats" htmlFor="sf-medal-size-setting">
+          {perFleet ? (
+            <Row settings={['medalFromEachFleet']} label="Competitors" htmlFor="sf-medal-from-each">
+              <div className="flex items-center gap-2">
+                <span>The top</span>
+                <input
+                  id="sf-medal-from-each"
+                  type="number"
+                  min={1}
+                  className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
+                  disabled={!canEdit}
+                  value={seatsEach}
+                  onChange={(e) => setMedal({ fromEachFleet: Math.max(1, Number(e.target.value)) })}
+                />
+                <span>from each fleet</span>
+              </div>
+              <p className={hint}>
+                Also where the cut line is drawn in each fleet. Any more are promoted afterwards, as
+                the sailing instructions say.
+              </p>
+            </Row>
+          ) : (
+          <Row settings={['medal']} label="Competitors" htmlFor="sf-medal-size-setting">
             <input
               id="sf-medal-size-setting"
               type="number"
@@ -907,26 +923,6 @@ export function MedalSettings({
             />
             <p className={hint}>Also where the provisional cut line is drawn before selection.</p>
           </Row>
-          {perFleet && (
-            <Row settings={['medalFromEachFleet']} label="Direct seats" htmlFor="sf-medal-from-each">
-              <div className="flex items-center gap-2">
-                <span>The top</span>
-                <input
-                  id="sf-medal-from-each"
-                  type="number"
-                  min={1}
-                  className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
-                  disabled={!canEdit}
-                  value={seatsEach}
-                  onChange={(e) => setMedal({ fromEachFleet: Math.max(1, Number(e.target.value)) })}
-                />
-                <span>of each fleet</span>
-              </div>
-              <p className={hint}>
-                Where the cut line is drawn in each fleet. Seats beyond these are filled from a
-                repêchage or the ranking the boats were cut from.
-              </p>
-            </Row>
           )}
           <Row settings={['medal']} label="Points">
             <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={`${capitaliseStage(m.name)} points`}>

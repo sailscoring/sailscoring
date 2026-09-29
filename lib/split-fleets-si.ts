@@ -319,13 +319,14 @@ export function describeSplitFleetConfig(
     ? `; the boats that do not qualify for it will have no score for the ${vocab.stages.medal.raceNoun}, and in any one more ${vocab.stages.qualifying.raceNoun} they sail the first of them will be scored ${medal.size + 1} points, the second ${medal.size + 2}, and so on`
     : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets, in which the first ${topFleet} boat will be scored ${medal.size + 1} points, the second ${medal.size + 2}, and so on`;
   const seatsEach = directSeatsPerFleet(config);
-  const promoted = medal.size - seatsEach * config.qualifyingFleets.length;
+  // Each fleet ranked on its own: the boats who leave a fleet for the
+  // deciding stage are counted per fleet, so its one more race is scored
+  // from just below them.
+  const perFleetRest = `; the boats that do not qualify for it will have no score for the ${vocab.stages.medal.raceNoun}, and in any one more ${vocab.stages.qualifying.raceNoun} they sail, the first of each fleet will be scored one more than the number of that fleet's boats sailing the ${m}`;
   push(
     'medal',
     perFleet
-      ? `The first ${seatsEach} boats in each ${qAdj} fleet will sail the ${m}${
-          promoted > 0 ? `, and ${promoted} more boats as these sailing instructions direct` : ''
-        }. ${score}${rest}.`
+      ? `The first ${seatsEach} boats in each ${qAdj} fleet will sail the ${m}. ${score}${perFleetRest}.`
       : unbanded
       ? `The first ${medal.size} boats in the ${q} will sail the ${m}. ${score}${rest}.`
       : `The first ${medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,

@@ -2212,9 +2212,8 @@ function MedalSelectDialog({
             <span>of each fleet</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {medalConfig.size > each * fleetOrder.length
-              ? `The other ${medalConfig.size - each * fleetOrder.length} of the ${medalConfig.size} seats are filled afterwards, from a repêchage or the ranking the boats were cut from.`
-              : `Each fleet is ranked on its own, so each fleet's leaders go through.`}
+            Each fleet is ranked on its own, so each fleet&rsquo;s leaders go through. Any
+            more are promoted afterwards, from a repêchage or the ranking they were cut from.
           </p>
           {tiedAtCut.length > 0 && (
             <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200" data-testid="sf-medal-cut-tie">
@@ -2345,7 +2344,9 @@ function RepechageSection({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">{capitaliseStage(REPECHAGE_WORDS.name)}</h3>
         <span className="text-xs text-muted-foreground" data-testid="sf-seats-open">
-          {seatsOpen === 1 ? '1 seat' : `${seatsOpen} seats`} open in the {w.medal.fleetNoun}
+          {seatsOpen === null
+            ? `Promote as many competitors as the sailing instructions say`
+            : `${seatsOpen === 1 ? '1 seat' : `${seatsOpen} seats`} open in the ${w.medal.fleetNoun}`}
         </span>
       </div>
       {!round ? (
@@ -2762,8 +2763,10 @@ function PromoteDialog({
   }, [source, data, eligible]);
 
   // The suggestion: the leaders, taken rank by rank across the repêchage's
-  // fleets, up to the seats open.
+  // fleets, up to the seats open. A medal fleet with no fixed size (each
+  // fleet ranked on its own) has no number to suggest up to.
   const suggested = useMemo(() => {
+    if (seatsOpen === null) return new Set<string>();
     const order = [...candidates].sort((a, b) => a.rank - b.rank);
     return new Set(order.slice(0, seatsOpen).map((c) => c.competitor.id));
   }, [candidates, seatsOpen]);
@@ -2780,7 +2783,11 @@ function PromoteDialog({
   return (
     <CeremonyDialog
       title={`Promote into the ${w.medal.fleetNoun}`}
-      description={`${seatsOpen === 1 ? '1 seat' : `${seatsOpen} seats`} open. ${
+      description={`${
+        seatsOpen === null
+          ? 'Promote as many as the sailing instructions say.'
+          : `${seatsOpen === 1 ? '1 seat' : `${seatsOpen} seats`} open.`
+      } ${
         data.config.medal?.carry === 'nothing'
           ? `Nothing is carried into the ${w.medal.name}: a promoted boat starts them level with the boats selected directly.`
           : `A promoted boat carries her own ${cutFromName(data)} score into the ${w.medal.name}, as the boats selected directly do.`

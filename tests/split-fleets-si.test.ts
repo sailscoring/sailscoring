@@ -199,9 +199,8 @@ describe('fleets ranked each on their own', () => {
       'Each Qualification fleet will be ranked on its own. A race will count for a fleet once that fleet has completed it.',
     );
     expect(text).toContain('scored the number of boats in her own Qualification fleet, plus one');
-    expect(text).toContain(
-      'The first 2 boats in each Qualification fleet will sail the Final series, and 2 more boats as these sailing instructions direct.',
-    );
+    expect(text).toContain('The first 2 boats in each Qualification fleet will sail the Final series.');
+    expect(text).toContain('the first of each fleet will be scored one more than the number of that fleet');
     expect(text).not.toContain('in one fleet');
   });
 

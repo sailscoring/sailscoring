@@ -152,9 +152,10 @@ export interface SplitFleetConfig {
      *  deciding the title. */
     tieBreak: 'last-race' | 'medal-race-then-a8';
     /** Where each fleet is ranked on its own: how many of each fleet's
-     *  leaders go through directly. The rest of `size` is filled by
-     *  promotion. Absent: `size` shared equally, rounded down. See
-     *  `directSeatsPerFleet`. */
+     *  leaders go through. `size` then plays no part — the fleet has no fixed
+     *  size, and the scorer promotes as many more (from a repêchage, or the
+     *  ranking they were cut from) as the sailing instructions say. Absent:
+     *  `size` shared equally, rounded down. See `directSeatsPerFleet`. */
     fromEachFleet?: number;
   };
 }
@@ -1761,10 +1762,15 @@ export function repechageBoatsOutsidePool(
 
 /** The medal seats not yet filled: the medal card's size, less the boats in
  *  the medal fleet. A fact for the scorer, never a limit — a jury can extend
- *  the fleet. Zero before the fleet is selected. */
-export function medalSeatsOpen(data: Pick<SplitFleetData, 'config' | 'rounds' | 'competitors'>): number {
+ *  the fleet. Zero before the fleet is selected; null where each fleet is
+ *  ranked on its own, whose medal fleet has no fixed size — the top of each
+ *  fleet, then as many promoted as the sailing instructions say. */
+export function medalSeatsOpen(
+  data: Pick<SplitFleetData, 'config' | 'rounds' | 'competitors'>,
+): number | null {
   const medalFleetId = roundsForStage(data.rounds, 'medal')[0]?.fleetIds[0];
   if (!medalFleetId || !data.config.medal) return 0;
+  if (ranksEachFleet(data.config)) return null;
   return Math.max(0, data.config.medal.size - fleetMembers(data.competitors, medalFleetId).length);
 }
 

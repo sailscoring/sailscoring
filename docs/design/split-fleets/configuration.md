@@ -101,8 +101,8 @@ The companion race is an action on this card, not a setting. See the flow doc.
 | Setting | Control or rule | In use |
 |---|---|---|
 | Whether there is one | Yes, or none: the championship ends with the stage before, and nobody is cut. Set in the setup wizard, or removed from the card until the medal fleet is selected | JCC, ILCA yes; Melges 15 Sprint none |
-| Fleet size | Number. It draws the provisional cut line before selection, and the selection dialog starts from it | all 10; Dinghy Champions' Cup 2026 6 |
-| Direct seats (fleets ranked each on their own) | The top *k* of each fleet; defaults to the size shared equally. The rest of the size is filled by promotion (a repêchage, or the cut ranking) | Dinghy Champions' Cup 2026 2 |
+| Competitors | A number: the fleet size. It draws the provisional cut line before selection, and the selection dialog starts from it | all 10 |
+| Competitors (fleets ranked each on their own) | The top *k* from each fleet, in place of a size: the fleet has no fixed size, and the scorer promotes as many more as the SIs say (a repêchage, or the cut ranking). Draws each fleet's cut line | Dinghy Champions' Cup 2026 2 |
 | Points | ×2 or ×1 | JCC ×2; ILCA ×1 |
 | Score carried in | Net, net halved with 0.5 rounded up, nothing, or rank | JCC net; ILCA halved |
 | Ties among medal boats | The medal race first, then A8; or the last race alone | JCC NoR 15.3; ILCA SI 18.7.4 |

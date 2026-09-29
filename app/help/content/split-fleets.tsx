@@ -270,10 +270,10 @@ export function SplitFleetsSection() {
         separate selection pools (“helms ranked 1st and 2nd from each flight”): each
         boat is ranked within her fleet, a race counts for a fleet as soon as that fleet has
         sailed it, and a boat that does not finish scores her own fleet plus one. The{' '}
-        {w.title('medal')} card then asks for the direct seats — the top so many of each
-        fleet — and the standings show one table per fleet with its own cut line. Selecting the{' '}
-        {m.fleetNoun} takes the top of each fleet; any seats beyond them are filled by promotion
-        (see the repêchage, below).
+        {w.title('medal')} card then asks how many competitors go through from each fleet in
+        place of a fleet size, and the standings show one table per fleet with its own cut line.
+        Selecting the {m.fleetNoun} takes the top of each fleet; the scorer then promotes as many
+        more as the sailing instructions say (see the repêchage, below).
       </p>
       <p>
         Race labels follow the words the championship uses: Q, F and M under the first set,
@@ -404,9 +404,10 @@ export function SplitFleetRepechageSection() {
         nothing is carried, or her own score where one is — and nothing from the repêchage goes
         with her. Where there is no time to sail it, promote from the ranking the boats were cut
         from instead: that is the usual fallback (“invite the 3rd-placed sailors from each
-        flight”), and it needs no repêchage at all. Where each fleet is ranked on its own, the
-        suggestion is the next boat of each fleet, and the repêchage’s boats are listed fleet by
-        fleet with their rank in it. A promotion can be withdrawn.
+        flight”), and it needs no repêchage at all. Where each fleet is ranked on its own, the{' '}
+        {m.fleetNoun} has no fixed size, so nothing is ticked for you: promote as many as the
+        sailing instructions say. The boats are listed fleet by fleet with their rank in it. A
+        promotion can be withdrawn.
       </p>
       <p>
         Where the {w.medal.name} carry a score in, only boats of the fleet the{' '}
