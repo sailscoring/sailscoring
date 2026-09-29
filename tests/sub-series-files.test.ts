@@ -339,8 +339,8 @@ describe('sub-series fleet-scoping + per-fleet exclusion round-trip', () => {
         raceExclusions: [{ raceNumber: 2, fleetName: 'Default' }],
         excludeDncOnlyCompetitors: true,
         competitorOverrides: [
-          { sailNumber: '101', fleetNames: ['Default'], status: 'included' },
-          { sailNumber: '102', fleetNames: ['Default'], status: 'excluded' },
+          { competitorRef: '1', sailNumber: '101', fleetNames: ['Default'], status: 'included' },
+          { competitorRef: '2', sailNumber: '102', fleetNames: ['Default'], status: 'excluded' },
         ],
       },
     ]);
