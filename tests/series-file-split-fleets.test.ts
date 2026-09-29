@@ -269,3 +269,30 @@ describe('the seeding committee\u2019s fields on file import', () => {
     }
   });
 });
+
+describe('boats drawn per fleet on file import', () => {
+  it('carries each boat onto the fleet’s new id, and the setting with the config', async () => {
+    const file = makeFile();
+    file.formatVersion = 60;
+    file.splitFleets!.config = { ...CONFIG, boatAssignments: true };
+    // Both entries sail boat 401: one in each fleet.
+    file.competitors[0].fleetSailNumbers = { 'file-fleet-yellow': '401' };
+    file.competitors[1].fleetSailNumbers = { 'file-fleet-blue': '401', 'no-such-fleet': '402' };
+
+    const repos = makeRepos();
+    await openSeriesFromFile(file, repos);
+
+    const fleetIdByName = new Map(repos.savedFleets.map((f) => [f.name, f.id]));
+    const bySail = new Map(repos.savedCompetitors.map((c) => [c.sailNumber, c]));
+    expect(bySail.get('IRL1')?.fleetSailNumbers).toEqual({ [fleetIdByName.get('Yellow')!]: '401' });
+    // A boat for a fleet the file doesn't carry goes with the fleet.
+    expect(bySail.get('IRL2')?.fleetSailNumbers).toEqual({ [fleetIdByName.get('Blue')!]: '401' });
+    expect(repos.replaceCalls[0].config?.boatAssignments).toBe(true);
+  });
+
+  it('leaves them absent when the file carries none', async () => {
+    const repos = makeRepos();
+    await openSeriesFromFile(makeFile(), repos);
+    for (const c of repos.savedCompetitors) expect(c.fleetSailNumbers).toBeUndefined();
+  });
+});

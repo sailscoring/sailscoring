@@ -114,6 +114,11 @@ export const splitRoundCommitSchema = z.object({
    *  championship's races so far have. */
   finishSheets: z.enum(['combined', 'per-fleet']).optional(),
   date: z.string().default(''),
+  /** Boats drawn with the assignment, where the championship draws them
+   *  (`boatAssignments`): competitorId → sail number, for the fleet
+   *  `assignments` places her in. A boat left out is drawn later, from the
+   *  fleet's list. */
+  boats: z.record(uuidSchema, z.string().trim().min(1).max(40)).default({}),
   /** Non-round fleets the scorer agreed to remove as part of this ceremony
    *  (the "also remove these fleets" checkbox). Each must belong to the
    *  series, be owned by no round, and be referenced by no race start. */
@@ -158,6 +163,14 @@ void _configFromZod;
 export const splitOverrideSchema = z.object({
   competitorId: uuidSchema,
   toFleetId: uuidSchema,
+});
+
+/** Body for PUT …/rounds/:roundId/boats — the boats drawn for one fleet of
+ *  the round: competitorId → sail number, or null to clear her boat. Boats
+ *  not named are left as they are. */
+export const splitFleetBoatsSchema = z.object({
+  fleetId: uuidSchema,
+  boats: z.record(uuidSchema, z.string().trim().max(40).nullable()),
 });
 
 /** Body for POST …/split-fleets/abandon-start — abandon one fleet's physical

@@ -522,9 +522,17 @@ export interface SeriesFileRepos {
  *  And `medal` may be absent: a championship nobody is cut from, which ends
  *  with the stage before. A build reading v58 would drop the final stage's
  *  carry and score the championship as one continuous series, and supply a
- *  medal stage the championship does not have, so the version moves. */
-export const FORMAT_VERSION = 59;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
+ *  medal stage the championship does not have, so the version moves.
+ *
+ *  v60 adds optional `competitors[*].fleetSailNumbers` — the boat drawn for
+ *  an entry in each fleet she is placed in, at a championship that supplies
+ *  and redraws its boats (fleet id → sail number, remapped with the fleets on
+ *  read) — and `splitFleets.config.boatAssignments`, which offers them in the
+ *  split-fleet UI. A build reading v59 would match that championship's
+ *  finishes by the entry's own number rather than the boat the race
+ *  committee hailed, so the version moves. */
+export const FORMAT_VERSION = 60;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -638,6 +646,7 @@ interface SeriesFileCompetitor {
   sailNumber: string;
   bowNumber?: string;  // v19+
   alternativeSailNumbers?: string[];  // v31+
+  fleetSailNumbers?: Record<string, string>;  // v60+; fleet id → boat drawn in it
   entryNumber?: string;  // v23+; OA registration number (split-fleet events)
   tallyNumber?: string;  // v36+; safety tally token issued at registration
   excluded?: boolean;  // v44+; on the list but not an entrant (absent = entered)
@@ -1053,6 +1062,9 @@ export async function buildSeriesFile(
       ...(c.alternativeSailNumbers?.length
         ? { alternativeSailNumbers: c.alternativeSailNumbers }
         : {}),
+      ...(c.fleetSailNumbers && Object.keys(c.fleetSailNumbers).length
+        ? { fleetSailNumbers: c.fleetSailNumbers }
+        : {}),
       ...(c.entryNumber ? { entryNumber: c.entryNumber } : {}),
       ...(c.tallyNumber ? { tallyNumber: c.tallyNumber } : {}),
       ...(c.excluded ? { excluded: true } : {}),
@@ -1313,6 +1325,21 @@ function upgradeSplitFleetsBlock(obj: Record<string, unknown>): void {
   if (!result.ok) throw new Error(refusedSplitFleetConfigMessage(result.reasons));
   upgradeSplitFleetRaceNames(obj.races, block.config, result.config);
   block.config = result.config;
+}
+
+/** A competitor's boats drawn per fleet, keyed by the fleets' new ids. A
+ *  boat whose fleet the file doesn't carry is dropped with it. */
+function remapFleetSailNumbers(
+  boats: Record<string, string> | undefined,
+  fleetIdMap: Map<string, string>,
+): Record<string, string> | undefined {
+  if (!boats) return undefined;
+  const out: Record<string, string> = {};
+  for (const [oldId, boat] of Object.entries(boats)) {
+    const newId = fleetIdMap.get(oldId);
+    if (newId && boat.trim()) out[newId] = boat;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /** ≤v20 → v21: a single `crewName` becomes a one-element `crewNames` list.
@@ -2098,6 +2125,7 @@ async function writeFleetsCompetitorsRaces(
   await repos.competitorRepo.saveMany(
     file.competitors.map((c) => {
       const fleetIds = c.fleetIds.map((id) => fleetIdMap.get(id)!).filter(Boolean);
+      const fleetSailNumbers = remapFleetSailNumbers(c.fleetSailNumbers, fleetIdMap);
       return {
         id: competitorIdMap.get(c.id)!,
         seriesId,
@@ -2107,6 +2135,7 @@ async function writeFleetsCompetitorsRaces(
       ...(c.alternativeSailNumbers?.length
         ? { alternativeSailNumbers: c.alternativeSailNumbers }
         : {}),
+        ...(fleetSailNumbers ? { fleetSailNumbers } : {}),
         ...(c.boatName ? { boatName: c.boatName } : {}),
         ...(c.boatClass ? { boatClass: c.boatClass } : {}),
         names: c.names,

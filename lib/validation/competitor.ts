@@ -45,6 +45,8 @@ export const competitorSchema = z.object({
   sailNumber: z.string(),
   bowNumber: z.string().optional(),
   alternativeSailNumbers: z.array(z.string().min(1)).optional(),
+  // Boats drawn per fleet (split-fleet boat assignments): fleetId → sail number.
+  fleetSailNumbers: z.record(uuidSchema, z.string().min(1).max(40)).optional(),
   entryNumber: z.string().optional(),
   tallyNumber: z.string().optional(),
   seed: z.number().int().positive().optional(),

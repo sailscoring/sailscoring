@@ -39,6 +39,7 @@ import {
   getSplitFleetState,
   putSplitFleetConfig,
   putSplitFleetState,
+  setSplitFleetBoats,
 } from '@/lib/api-handlers/split-fleets';
 import { defaultSplitFleetConfig } from '@/lib/split-fleets';
 import { requireWorkspace } from '@/lib/auth/require-workspace';
@@ -513,5 +514,96 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
     await commit(seriesId, competitorIds, [1]);
     await expect(deleteSplitFleetConfig(ctx, seriesId)).rejects.toThrow(/fleets have been assigned/);
     expect((await getSplitFleetState(ctx, seriesId)).config).not.toBeNull();
+  });
+
+  /** Each entry's boats drawn per fleet, in the order given. */
+  async function boatsOf(ids: string[]) {
+    const rows = await db
+      .select({ id: schema.competitors.id, boats: schema.competitors.fleetSailNumbers })
+      .from(schema.competitors)
+      .where(inArray(schema.competitors.id, ids));
+    const byId = new Map(rows.map((r) => [r.id, r.boats]));
+    return ids.map((id) => byId.get(id) ?? null);
+  }
+
+  describe('boats drawn per fleet', () => {
+    test('a commit draws boats for the fleet each entry is placed in, shared across fleets', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      await putSplitFleetConfig(ctx, seriesId, { ...defaultSplitFleetConfig(3), boatAssignments: true });
+      const round = await commitSplitRound(ctx, seriesId, {
+        stage: 'qualifying',
+        fromStageRace: 1,
+        method: 'rank-pattern',
+        fleets: FLEETS,
+        assignments: Object.fromEntries(competitorIds.map((id, i) => [id, i % 3])),
+        // Entries 0, 1, 2 are in Yellow, Blue and Red: all three sail boat 401.
+        boats: { [competitorIds[0]]: '401', [competitorIds[1]]: '401', [competitorIds[2]]: ' 401 ' },
+      });
+      const [yellow, blue, red] = round.fleetIds;
+      expect(await boatsOf(competitorIds.slice(0, 4))).toEqual([
+        { [yellow]: '401' },
+        { [blue]: '401' },
+        { [red]: '401' },
+        null,
+      ]);
+      expect((await getSplitFleetState(ctx, seriesId)).config?.boatAssignments).toBe(true);
+    });
+
+    test('a commit refuses one boat drawn twice within a fleet', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      await expect(
+        commitSplitRound(ctx, seriesId, {
+          stage: 'qualifying',
+          fromStageRace: 1,
+          method: 'rank-pattern',
+          fleets: FLEETS,
+          assignments: Object.fromEntries(competitorIds.map((id, i) => [id, i % 3])),
+          boats: { [competitorIds[0]]: '401', [competitorIds[3]]: '401' },
+        }),
+      ).rejects.toThrow(/Yellow: boat 401 is drawn for more than one entry/);
+    });
+
+    test("a fleet's boats are drawn, changed and cleared after the commit", async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, []);
+      const [yellow] = round.fleetIds;
+      // Yellow holds entries 0, 3 and 6.
+      await setSplitFleetBoats(ctx, seriesId, round.id, {
+        fleetId: yellow,
+        boats: { [competitorIds[0]]: '401', [competitorIds[3]]: '402', [competitorIds[6]]: '403' },
+      });
+      // A spare replaces 403, and entry 0's boat is cleared.
+      await setSplitFleetBoats(ctx, seriesId, round.id, {
+        fleetId: yellow,
+        boats: { [competitorIds[6]]: '409', [competitorIds[0]]: null },
+      });
+      expect(await boatsOf([competitorIds[0], competitorIds[3], competitorIds[6]])).toEqual([
+        null,
+        { [yellow]: '402' },
+        { [yellow]: '409' },
+      ]);
+    });
+
+    test("a fleet's boats refuse a duplicate and an entry from another fleet", async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      const round = await commit(seriesId, competitorIds, []);
+      const [yellow] = round.fleetIds;
+      await setSplitFleetBoats(ctx, seriesId, round.id, {
+        fleetId: yellow,
+        boats: { [competitorIds[0]]: '401' },
+      });
+      await expect(
+        setSplitFleetBoats(ctx, seriesId, round.id, {
+          fleetId: yellow,
+          boats: { [competitorIds[3]]: '401' },
+        }),
+      ).rejects.toThrow(/boat 401 is drawn for more than one entry/);
+      await expect(
+        setSplitFleetBoats(ctx, seriesId, round.id, {
+          fleetId: yellow,
+          boats: { [competitorIds[1]]: '405' },
+        }),
+      ).rejects.toThrow(/not in this fleet/);
+    });
   });
 });

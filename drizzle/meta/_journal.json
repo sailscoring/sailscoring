@@ -792,6 +792,13 @@
       "when": 1790494303404,
       "tag": "0112_split_fleet_carry",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1790665609335,
+      "tag": "0113_competitor_fleet_sail_numbers",
+      "breakpoints": true
     }
   ]
 }

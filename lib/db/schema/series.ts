@@ -465,6 +465,10 @@ export const competitors = pgTable(
     // Other sail numbers this boat may show. Lookup keys for finish entry
     // only — the boat is identified and published under `sail_number`.
     alternativeSailNumbers: jsonb('alternative_sail_numbers').$type<string[]>(),
+    // Split-fleet boat assignments at supplied-boat events: fleet id → the
+    // boat drawn for this entry in that fleet. Wins over `sail_number` in the
+    // races that fleet sails.
+    fleetSailNumbers: jsonb('fleet_sail_numbers').$type<Record<string, string>>(),
     // Split-fleet championships: the OA's registration number and seeding
     // rank (docs/design/split-fleets.md). Sparse; both nullable.
     entryNumber: text('entry_number'),

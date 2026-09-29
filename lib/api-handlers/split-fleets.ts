@@ -16,6 +16,7 @@ import { trackChange } from '@/lib/revision-log';
 import { assertSeriesWritable } from '@/lib/api-handlers/series-access';
 import { defaultRaceDate } from '@/lib/race-schedule';
 import {
+  duplicateBoats,
   finishSheetsInUse,
   normalizeSplitFleetConfig,
   resolveVocabulary,
@@ -25,6 +26,7 @@ import {
 import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
 import {
   splitAbandonStartSchema,
+  splitFleetBoatsSchema,
   splitFleetConfigSchema,
   splitFleetStateSchema,
   splitOverrideSchema,
@@ -265,6 +267,19 @@ export async function commitSplitRound(
   const roundId = crypto.randomUUID();
   let deletedFleetNames: string[] = [];
 
+  for (let i = 0; i < input.fleets.length; i++) {
+    const dup = duplicateBoats(
+      Object.entries(input.boats)
+        .filter(([cid]) => input.assignments[cid] === i)
+        .map(([, boat]) => boat),
+    );
+    if (dup.length > 0) {
+      throw new BadRequestError(
+        `${input.fleets[i].label}: boat ${dup.join(', ')} is drawn for more than one entry`,
+      );
+    }
+  }
+
   await db.transaction(async (tx) => {
     // Fleets the scorer agreed to shed with this ceremony (a leftover
     // "Default" from an entry-list import, pre-conversion fleets) go first,
@@ -315,6 +330,10 @@ export async function commitSplitRound(
             eq(schema.competitors.workspaceId, workspaceId),
           ),
         );
+      const drawn = new Map(
+        ids.filter((cid) => input.boats[cid]).map((cid) => [cid, input.boats[cid]]),
+      );
+      await writeFleetBoats(tx, seriesId, workspaceId, fleetRows[i].id, drawn);
     }
 
     // The stage races. Medal-stage fleets always race apart (the umpired
@@ -958,6 +977,115 @@ export async function applySplitOverride(
     sessionKey: 'split-fleets',
   });
   return { warning };
+}
+
+/**
+ * Write the boats drawn for one fleet onto its entries' `fleet_sail_numbers`:
+ * a sail number sets her boat for the fleet, null clears it. Entries not in
+ * `boats` are untouched.
+ */
+async function writeFleetBoats(
+  tx: Tx,
+  seriesId: string,
+  workspaceId: string,
+  fleetId: string,
+  boats: Map<string, string | null>,
+): Promise<void> {
+  if (boats.size === 0) return;
+  const rows = await tx
+    .select({ id: schema.competitors.id, fleetSailNumbers: schema.competitors.fleetSailNumbers })
+    .from(schema.competitors)
+    .where(
+      and(
+        inArray(schema.competitors.id, [...boats.keys()]),
+        eq(schema.competitors.seriesId, seriesId),
+        eq(schema.competitors.workspaceId, workspaceId),
+      ),
+    );
+  for (const row of rows) {
+    const next = { ...(row.fleetSailNumbers ?? {}) };
+    const boat = boats.get(row.id)?.trim();
+    if (boat) next[fleetId] = boat;
+    else delete next[fleetId];
+    await tx
+      .update(schema.competitors)
+      .set({
+        fleetSailNumbers: Object.keys(next).length ? next : null,
+        version: sql`${schema.competitors.version} + 1`,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(schema.competitors.id, row.id));
+  }
+}
+
+/**
+ * Set the boats drawn for one fleet of a round — the draw arriving after the
+ * assignment was committed, a typo, or a spare replacing a broken boat. Only
+ * the fleet's own entries can be given a boat in it, and no boat may end up
+ * held by two of them.
+ */
+export async function setSplitFleetBoats(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  roundId: string,
+  body: unknown,
+): Promise<{ ok: true }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = splitFleetBoatsSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const round = await repos.splitRounds.get(roundId);
+  if (!round || round.seriesId !== seriesId) throw new NotFoundError('round');
+  if (!round.fleetIds.includes(input.fleetId)) {
+    throw new BadRequestError('fleet is not part of this round');
+  }
+  const [fleet] = await getDb()
+    .select({ name: schema.fleets.name })
+    .from(schema.fleets)
+    .where(eq(schema.fleets.id, input.fleetId));
+
+  await getDb().transaction(async (tx) => {
+    const members = await tx
+      .select({ id: schema.competitors.id, fleetSailNumbers: schema.competitors.fleetSailNumbers })
+      .from(schema.competitors)
+      .where(
+        and(
+          eq(schema.competitors.seriesId, seriesId),
+          eq(schema.competitors.workspaceId, workspace.workspaceId),
+          sql`${input.fleetId}::uuid = any(${schema.competitors.fleetIds})`,
+        ),
+      );
+    const memberIds = new Set(members.map((m) => m.id));
+    const outsiders = Object.keys(input.boats).filter((cid) => !memberIds.has(cid));
+    if (outsiders.length > 0) {
+      throw new BadRequestError(`${outsiders.length} of those entries are not in this fleet`);
+    }
+    const after = members.map((m) =>
+      m.id in input.boats ? input.boats[m.id] : (m.fleetSailNumbers?.[input.fleetId] ?? null),
+    );
+    const dup = duplicateBoats(after);
+    if (dup.length > 0) {
+      throw new BadRequestError(`boat ${dup.join(', ')} is drawn for more than one entry`);
+    }
+    await writeFleetBoats(
+      tx,
+      seriesId,
+      workspace.workspaceId,
+      input.fleetId,
+      new Map(Object.entries(input.boats)),
+    );
+    await createRepos({ db: tx, workspaceId: workspace.workspaceId }).series.touch(
+      seriesId,
+      workspace.userId,
+    );
+  });
+
+  await trackChange(workspace, {
+    action: 'split-fleets.round-committed',
+    seriesId,
+    summary: `Boats drawn for ${fleet?.name ?? 'a fleet'}`,
+    sessionKey: 'split-fleets',
+  });
+  return { ok: true };
 }
 
 /**

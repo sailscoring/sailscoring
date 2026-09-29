@@ -179,6 +179,9 @@ function competitorRowToType(row: CompetitorRow): Competitor {
     ...(row.alternativeSailNumbers?.length
       ? { alternativeSailNumbers: row.alternativeSailNumbers }
       : {}),
+    ...(row.fleetSailNumbers && Object.keys(row.fleetSailNumbers).length
+      ? { fleetSailNumbers: row.fleetSailNumbers }
+      : {}),
     ...(row.entryNumber ? { entryNumber: row.entryNumber } : {}),
     ...(row.tallyNumber ? { tallyNumber: row.tallyNumber } : {}),
     ...(row.seed != null ? { seed: row.seed } : {}),
@@ -1099,6 +1102,8 @@ function competitorToRow(c: Competitor, workspaceId: string) {
     sailNumber: c.sailNumber,
     bowNumber: c.bowNumber ?? null,
     alternativeSailNumbers: c.alternativeSailNumbers?.length ? c.alternativeSailNumbers : null,
+    fleetSailNumbers:
+      c.fleetSailNumbers && Object.keys(c.fleetSailNumbers).length ? c.fleetSailNumbers : null,
     entryNumber: c.entryNumber ?? null,
     tallyNumber: c.tallyNumber ?? null,
     seed: c.seed ?? null,
@@ -1129,7 +1134,7 @@ function competitorToRow(c: Competitor, workspaceId: string) {
 }
 
 const competitorUpdateColumns = [
-  'fleetIds', 'sailNumber', 'bowNumber', 'alternativeSailNumbers', 'entryNumber', 'tallyNumber', 'seed', 'initialFleet', 'worldSailingId',
+  'fleetIds', 'sailNumber', 'bowNumber', 'alternativeSailNumbers', 'fleetSailNumbers', 'entryNumber', 'tallyNumber', 'seed', 'initialFleet', 'worldSailingId',
   'boatName', 'boatClass', 'names',
   'owners', 'helms', 'crewNames', 'clubs', 'nationality',
   'gender', 'age', 'subdivisions',

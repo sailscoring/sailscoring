@@ -1576,3 +1576,22 @@ export function provisionalCutIndexes(total: number, fleetCount: number): number
   }
   return cuts;
 }
+
+/**
+ * The boats drawn more than once within one fleet, as written in the first
+ * entry that holds each. A boat is shared between fleets of a round — one
+ * helm in each — but never between two helms racing each other. Compared
+ * ignoring case and surrounding space; blanks are boats not yet drawn.
+ */
+export function duplicateBoats(boats: Iterable<string | null | undefined>): string[] {
+  const seen = new Map<string, { first: string; count: number }>();
+  for (const raw of boats) {
+    const boat = raw?.trim();
+    if (!boat) continue;
+    const key = boat.toUpperCase();
+    const entry = seen.get(key);
+    if (entry) entry.count++;
+    else seen.set(key, { first: boat, count: 1 });
+  }
+  return [...seen.values()].filter((e) => e.count > 1).map((e) => e.first);
+}
