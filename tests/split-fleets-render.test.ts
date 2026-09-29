@@ -1031,3 +1031,59 @@ describe('boats drawn per fleet', () => {
     expect(renderSplitFleetAssignmentsPage(input)).toContain('<th>Sail</th><th>Helm</th></tr>');
   });
 });
+
+describe('the repêchage on the published pages', () => {
+  it('lists the medal fleet, then the repêchage, then every boat on the stage she was cut from', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor('31-repechage-sailed-one-fleet.yaml'));
+    const medal = html.indexOf('<h2>Final series fleet</h2>');
+    const rep = html.indexOf('<h2>Repêchage</h2>');
+    const cut = html.indexOf('<h2>Qualification series</h2>');
+    expect(medal).toBeGreaterThanOrEqual(0);
+    expect(rep).toBeGreaterThan(medal);
+    expect(cut).toBeGreaterThan(rep);
+    // Nothing carried: the medal table holds the medal races alone.
+    expect(headerRow(html.slice(medal))).toEqual(
+      expect.arrayContaining(['F1', 'F2']),
+    );
+    expect(headerRow(html.slice(medal))).not.toContain('Q1');
+    expect(headerRow(html.slice(rep))).toEqual(expect.arrayContaining(['R1', 'R2']));
+    expect(headerRow(html.slice(rep))).not.toContain('Q1');
+    // The ranking they were cut from lists every boat, the medal boats too.
+    const cutTable = html.slice(cut);
+    for (const sail of ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4']) {
+      expect(cutTable).toContain(`>${sail}<`);
+    }
+    expect(html).toContain('via the repêchage');
+    expect(html).toContain('promoted to the Final series fleet');
+  });
+
+  it('keeps the carried layout where a score is carried, with the repêchage between', () => {
+    const input = renderInputFor('34-repechage-from-gold-and-silver.yaml');
+    const halved = {
+      ...input,
+      config: { ...input.config, medal: { ...input.config.medal!, carry: 'net' as const } },
+    };
+    const html = renderSplitFleetStandingsPage(halved);
+    const rep = html.indexOf('<h2>Repêchage</h2>');
+    expect(rep).toBeGreaterThan(html.indexOf('<h2>Medal fleet</h2>'));
+    expect(html.indexOf('<h2>Gold fleet</h2>')).toBeGreaterThan(rep);
+    // A carry keeps the medal boats' earlier columns in their own table.
+    expect(headerRow(html)).toContain('Q1');
+  });
+
+  it('pages the repêchage races between the stage it followed and the medal races', () => {
+    const html = renderSplitFleetRaceResultsPage(renderInputFor('31-repechage-sailed-one-fleet.yaml'))!;
+    const q2 = html.indexOf(`id="${stageRaceAnchor('qualifying', 2)}"`);
+    const r1 = html.indexOf(`id="${stageRaceAnchor('repechage', 1)}"`);
+    const f1 = html.indexOf(`id="${stageRaceAnchor('medal', 1)}"`);
+    expect(q2).toBeGreaterThanOrEqual(0);
+    expect(r1).toBeGreaterThan(q2);
+    expect(f1).toBeGreaterThan(r1);
+    expect(html).toContain('counts for nothing in the championship');
+  });
+
+  it('heads the repêchage round on the assignments page', () => {
+    const html = renderSplitFleetAssignmentsPage(renderInputFor('32-repechage-in-two-fleets.yaml'));
+    expect(html).toContain('<h2>Repêchage</h2>');
+  });
+});

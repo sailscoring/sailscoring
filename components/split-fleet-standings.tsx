@@ -22,9 +22,12 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   capitaliseStage,
+  cutFromStandings,
   fleetColorById,
+  medalStageStandsAlone,
   provisionalCutIndexes,
   REPECHAGE_WORDS,
+  repechageTableRows,
   STORED_STAGES,
   roundsForStage,
   resolveVocabulary,
@@ -143,20 +146,14 @@ export function SplitFleetStandings({
    *  series, so the chip + finalise affordance live here instead). */
   resultsStatus?: { isFinal: boolean; finalisedAt?: number; onMarkFinal?: () => void };
 }) {
-  const columns = useMemo(() => {
-    const seen = new Map<string, { stage: StoredStage; n: number }>();
-    for (const row of standings) {
-      for (const cell of row.cells) {
-        seen.set(`${cell.stage}:${cell.stageRaceNumber}`, {
-          stage: cell.stage,
-          n: cell.stageRaceNumber,
-        });
-      }
-    }
-    return [...seen.values()].sort(
-      (a, b) => STORED_STAGES.indexOf(a.stage) - STORED_STAGES.indexOf(b.stage) || a.n - b.n,
-    );
-  }, [standings]);
+  const columns = useMemo(() => columnsOf(standings), [standings]);
+  // Every score is listed once. The repêchage's are in tables of their own;
+  // where the medal races carry nothing, the medal boats' earlier scores leave
+  // the championship table for the ranking they were cut from, which then
+  // lists every boat.
+  const repTables = useMemo(() => repechageTableRows(data), [data]);
+  const standsAlone = medalStageStandsAlone(data, standings);
+  const cutRows = useMemo(() => (standsAlone ? cutFromStandings(data) : []), [standsAlone, data]);
 
   if (columns.length === 0) {
     return (
@@ -226,10 +223,19 @@ export function SplitFleetStandings({
     standings.some((r) => r.competitor.clubs?.some((n) => n.trim()));
 
   // Pre-split, the combined table carries a Fleet column with the current
-  // round's assignment; after the split the per-fleet headings say it.
+  // round's assignment; after the split the per-fleet headings say it. The
+  // repêchage is not an assignment of the championship's fleets.
   const latestRound = splitRound
     ? null
-    : ([...data.rounds].sort((a, b) => b.createdAt - a.createdAt)[0] ?? null);
+    : ([...data.rounds].filter((r) => r.stage !== 'repechage').sort((a, b) => b.createdAt - a.createdAt)[0] ??
+      null);
+  // In the ranking the medal fleet was cut from, each boat's qualifying
+  // flight, where there is more than one.
+  const lastQualifying = roundsForStage(data.rounds, 'qualifying').at(-1) ?? null;
+  const qualifyingFleetOf = (row: SplitStandingRow): FleetMeta | null => {
+    const fid = lastQualifying?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
+    return fid ? (fleetMeta.get(fid) ?? null) : null;
+  };
   const currentFleetOf = (row: SplitStandingRow): FleetMeta | null => {
     const fid = latestRound?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
     return fid ? (fleetMeta.get(fid) ?? null) : null;
@@ -237,12 +243,16 @@ export function SplitFleetStandings({
 
   // The legend: one chip per fleet that actually appears in the cells, deduped
   // by label (a later round's fleets reuse the labels under new ids).
-  const cellFleetIds = new Set(standings.flatMap((r) => r.cells.map((c) => c.fleetId)));
+  const cellFleetIds = new Set(
+    [...standings, ...repTables.flatMap((t) => t.rows)].flatMap((r) => r.cells.map((c) => c.fleetId)),
+  );
   const legendLabels = new Set<string>();
   const legendFleets = [...fleetMeta.entries()].filter(
     ([fid, meta]) =>
       cellFleetIds.has(fid) && !legendLabels.has(meta.label) && !!legendLabels.add(meta.label),
   );
+
+  const fieldProps = { showNationality, showClass, showCrew, showClub };
 
   const renderRows = (
     rows: SplitStandingRow[],
@@ -250,6 +260,10 @@ export function SplitFleetStandings({
     /** A single line after this row index, with its label — the medal cut
      *  in the top fleet's table. */
     ownCut?: { after: number; label: string },
+    tableColumns = columns,
+    /** The Fleet column's value per row, or null for a table without one —
+     *  the column's cells and its header must agree. */
+    fleetColumn: ((row: SplitStandingRow) => FleetMeta | null) | null = null,
   ) =>
     rows.map((row, i) => {
       const cellByKey = new Map(
@@ -260,10 +274,10 @@ export function SplitFleetStandings({
           key={row.competitor.id}
           config={data.config}
           row={row}
-          columns={columns}
+          columns={tableColumns}
           cellByKey={cellByKey}
           fleetMeta={fleetMeta}
-          currentFleet={latestRound ? currentFleetOf(row) : undefined}
+          currentFleet={fleetColumn ? fleetColumn(row) : undefined}
           showNationality={showNationality}
           showClass={showClass}
           showCrew={showCrew}
@@ -338,18 +352,105 @@ export function SplitFleetStandings({
             totals read as out of order. They sail races no other boat holds a
             column in, and where the boats who miss the cut race no more, the
             two groups are not even scored over the same number of races. */}
-        {medalRows.length > 0 && (
-          <div className="mb-6">
+        {medalRows.length > 0 && (() => {
+          // Nothing carried: the medal races alone.
+          const cols = columnsOf(medalRows).filter((c) => !standsAlone || c.stage === 'medal');
+          return (
+            <div className="mb-6">
+              <h3 className="mb-1 text-sm font-semibold">
+                {capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)}
+              </h3>
+              <StandingsTable data={data} columns={cols} {...fieldProps}>
+                {renderRows(medalRows, false, undefined, cols)}
+              </StandingsTable>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {standsAlone
+                  ? `These boats are ranked ahead of every other boat in the event, on the ${splitFleetWords(data.config).medal.name} alone: nothing is carried into them.`
+                  : 'These boats are ranked ahead of every other boat in the event.'}
+              </p>
+            </div>
+          );
+        })()}
+        {/* The repêchage, between the medal fleet and the rest: every boat that
+            sailed it, promoted or not — a promoted boat's repêchage scores are
+            in no other table. */}
+        {repTables
+          .filter((t) => t.rows.length > 0)
+          .map((t, i, all) => {
+            const cols = columnsOf(t.rows);
+            const meta = fleetMeta.get(t.fleetId) ?? { label: '?', color: '#888' };
+            return (
+              <div key={t.fleetId} className="mb-6" data-testid="sf-repechage-standings">
+                <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+                  {capitaliseStage(REPECHAGE_WORDS.name)}
+                  {all.length > 1 && <FleetChip meta={meta} />}
+                </h3>
+                <StandingsTable data={data} columns={cols} {...fieldProps}>
+                  {renderRows(t.rows, false, undefined, cols)}
+                </StandingsTable>
+                {i === all.length - 1 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Ranked on its own races alone; nothing in the {REPECHAGE_WORDS.name} counts in
+                    the championship.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        {standsAlone ? (
+          // Nothing carried: the ranking the medal fleet was cut from, every
+          // boat in it, on its own.
+          <div data-testid="sf-cut-standings">
             <h3 className="mb-1 text-sm font-semibold">
-              {capitaliseStage(splitFleetWords(data.config).medal.fleetNoun)}
+              {capitaliseStage(
+                splitRound
+                  ? splitFleetWords(data.config).final.name
+                  : splitFleetWords(data.config).qualifying.name,
+              )}
             </h3>
-            <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub}>{renderRows(medalRows, false)}</StandingsTable>
-            <p className="mt-1 text-xs text-muted-foreground">
-              These boats are ranked ahead of every other boat in the event.
+            <p className="mb-1 text-xs text-muted-foreground">
+              Every boat on her{' '}
+              {splitRound
+                ? splitFleetWords(data.config).final.name
+                : splitFleetWords(data.config).qualifying.name}{' '}
+              scores, the {splitFleetWords(data.config).medal.fleetNoun} included; they decided
+              who sailed the {splitFleetWords(data.config).medal.name} and count for nothing after.
             </p>
+            {splitRound ? (
+              splitRound.fleetIds.map((fid) => {
+                const rows = cutRows.filter((r) => r.finalFleetId === fid);
+                if (rows.length === 0) return null;
+                const cols = columnsOf(rows);
+                const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
+                return (
+                  <div key={fid} className="mb-6">
+                    <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+                      <FleetChip meta={meta} /> fleet
+                    </h3>
+                    <StandingsTable data={data} columns={cols} {...fieldProps}>
+                      {renderRows(rows, false, undefined, cols)}
+                    </StandingsTable>
+                  </div>
+                );
+              })
+            ) : (
+              <StandingsTable
+                data={data}
+                columns={columnsOf(cutRows)}
+                {...fieldProps}
+                showFleet={(lastQualifying?.fleetIds.length ?? 0) > 1}
+              >
+                {renderRows(
+                  cutRows,
+                  false,
+                  undefined,
+                  columnsOf(cutRows),
+                  (lastQualifying?.fleetIds.length ?? 0) > 1 ? qualifyingFleetOf : null,
+                )}
+              </StandingsTable>
+            )}
           </div>
-        )}
-        {splitRound ? (
+        ) : splitRound ? (
           splitRound.fleetIds.map((fid, fleetIndex) => {
             const rows = restRows.filter((r) => r.finalFleetId === fid);
             const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
@@ -359,17 +460,20 @@ export function SplitFleetStandings({
               medalCutInTopFleet && fleetIndex === 0 && rows.length > size
                 ? { after: size - 1, label: medalCutLabel(rows, size - 1) }
                 : undefined;
+            const cols = columnsOf(rows);
             return (
               <div key={fid} className="mb-6">
                 <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
                   <FleetChip meta={meta} /> fleet
                 </h3>
-                <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub}>{renderRows(rows, false, ownCut)}</StandingsTable>
+                <StandingsTable data={data} columns={cols} {...fieldProps}>{renderRows(rows, false, ownCut, cols)}</StandingsTable>
               </div>
             );
           })
         ) : restRows.length > 0 ? (
-          <StandingsTable data={data} columns={columns} showNationality={showNationality} showClass={showClass} showCrew={showCrew} showClub={showClub} showFleet={latestRound !== null}>{renderRows(restRows, true)}</StandingsTable>
+          <StandingsTable data={data} columns={columnsOf(restRows)} {...fieldProps} showFleet={latestRound !== null}>
+            {renderRows(restRows, true, undefined, columnsOf(restRows), latestRound ? currentFleetOf : null)}
+          </StandingsTable>
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -378,6 +482,21 @@ export function SplitFleetStandings({
         parentheses.
       </p>
     </section>
+  );
+}
+
+/** The race columns a table needs: those some boat in it has a cell for, in
+ *  sailed order. Per table — the medal columns mean nothing in a table of the
+ *  boats who missed the cut, nor the repêchage's in anyone else's. */
+function columnsOf(rows: readonly SplitStandingRow[]): { stage: StoredStage; n: number }[] {
+  const seen = new Map<string, { stage: StoredStage; n: number }>();
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      seen.set(`${cell.stage}:${cell.stageRaceNumber}`, { stage: cell.stage, n: cell.stageRaceNumber });
+    }
+  }
+  return [...seen.values()].sort(
+    (a, b) => STORED_STAGES.indexOf(a.stage) - STORED_STAGES.indexOf(b.stage) || a.n - b.n,
   );
 }
 
@@ -491,6 +610,18 @@ function FragmentRow({
           {row.medal && (
             <span className="ml-1 rounded-full border border-amber-400 px-1.5 text-[10px] text-amber-600 dark:text-amber-400">
               medal
+            </span>
+          )}
+          {row.promotedVia && (
+            <span
+              className="ml-1 rounded-full border px-1.5 text-[10px] text-muted-foreground"
+              data-testid="sf-promoted-badge"
+            >
+              {row.medal
+                ? row.promotedVia === 'repechage'
+                  ? `via the ${REPECHAGE_WORDS.name}`
+                  : 'promoted'
+                : `promoted to the ${w.medal.fleetNoun}`}
             </span>
           )}
           {showCrew &&

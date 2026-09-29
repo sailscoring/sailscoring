@@ -33,14 +33,18 @@ import { worldSailingProfileUrl } from './world-sailing';
 import {
   assembleSplitFleetData,
   capitaliseStage,
+  cutFromStandings,
   fleetColorById,
   logicalRaces,
+  medalStageStandsAlone,
   provisionalCutIndexes,
+  REPECHAGE_WORDS,
+  repechageTableRows,
   resolveVocabulary,
   roundsForStage,
   splitFleetStandings,
   stageRaceLabel,
-  STAGES,
+  STORED_STAGES,
   type CellScore,
   type StoredStage,
   type RenderSplitRound,
@@ -290,6 +294,13 @@ export function renderSplitFleetStandingsPage(
 ): string {
   const data = assembleSplitFleetData(input);
   const rows = splitFleetStandings(data);
+  // Every score is listed once. The repêchage's are in tables of their own;
+  // where the medal races carry nothing, the medal boats' earlier scores
+  // leave the championship table for the ranking they were cut from, which
+  // then lists every boat.
+  const repTables = repechageTableRows(data);
+  const standsAlone = medalStageStandsAlone(data, rows);
+  const cutRows = standsAlone ? cutFromStandings(data) : [];
   const fleetName = new Map(data.fleets.map((f) => [f.id, f.name]));
   const colors = fleetColorById(data);
   const splitRound = roundsForStage(data.rounds, 'final')[0] ?? null;
@@ -330,7 +341,7 @@ export function renderSplitFleetStandingsPage(
   const podiumRanks = new Map<string, 1 | 2 | 3>();
   {
     const sailed = new Map<string, { competitorId: string; points: number }[]>();
-    for (const row of rows) {
+    for (const row of [...(standsAlone ? [...rows.filter((r) => r.medal), ...cutRows] : rows), ...repTables.flatMap((t) => t.rows)]) {
       for (const c of row.cells) {
         if (c.code !== null || c.carriedTransform) continue;
         let list = sailed.get(raceKey(c));
@@ -390,10 +401,19 @@ export function renderSplitFleetStandingsPage(
   // The combined qualifying table carries a Fleet column with the current
   // round's assignment — after the split the per-fleet section headings say
   // it instead. `null` = no column.
+  // The repêchage is not an assignment of the championship's fleets, so it
+  // never supplies this column.
   const fleetOf = (row: (typeof rows)[number]): string | undefined => {
-    const latest = [...data.rounds].sort((a, b) => b.createdAt - a.createdAt)[0];
+    const latest = [...data.rounds]
+      .filter((r) => r.stage !== 'repechage')
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
     return latest?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
   };
+  // In the ranking the medal fleet was cut from, the fleet a boat sailed
+  // that stage in — its qualifying flight, where there is more than one.
+  const lastQualifying = roundsForStage(data.rounds, 'qualifying').at(-1);
+  const qualifyingFleetOf = (row: (typeof rows)[number]): string | undefined =>
+    lastQualifying?.fleetIds.find((f) => row.competitor.fleetIds.includes(f));
 
   // With the race page's location known, each race column header deep-links
   // to that race's own tables. A carried-score column (stage race 0) is a
@@ -410,22 +430,27 @@ export function renderSplitFleetStandingsPage(
     cuts: number[] = [],
     withFleetCol = false,
     cutLabel = `provisional split if the ${vocab.stages.qualifying.name} ended now`,
+    /** Only these stages' columns: the medal races alone, where nothing is
+     *  carried into them. */
+    onlyStages?: StoredStage[],
+    fleetColumn: (row: (typeof rows)[number]) => string | undefined = fleetOf,
   ): string => {
-    const columns = columnsFor(rowsIn);
+    const columns = columnsFor(rowsIn).filter((c) => !onlyStages || onlyStages.includes(c.stage));
     const head = columns.map(headerCell).join('');
     const body = rowsIn
       .map((row, i) => {
-        const fleetId = withFleetCol ? fleetOf(row) : undefined;
+        const fleetId = withFleetCol ? fleetColumn(row) : undefined;
         // No WS ID column on the table → the name carries the bio link
         // instead, so the profile is still one click away.
-        const helmHtml = renderHelmCell(
-          row.competitor.names,
-          row.competitor.crewNames,
-          crew,
-          !wsid && row.competitor.worldSailingId
-            ? worldSailingProfileUrl(row.competitor.worldSailingId)
-            : undefined,
-        );
+        const helmHtml =
+          renderHelmCell(
+            row.competitor.names,
+            row.competitor.crewNames,
+            crew,
+            !wsid && row.competitor.worldSailingId
+              ? worldSailingProfileUrl(row.competitor.worldSailingId)
+              : undefined,
+          ) + promotedBadge(row);
         const tr = `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">
   <td>${row.rank}</td>
   ${withFleetCol ? `<td style="white-space:nowrap">${fleetDot(colors, fleetId)}${esc((fleetId && fleetName.get(fleetId)) || '')}</td>` : ''}
@@ -456,12 +481,27 @@ ${body}
 </table></div>`;
   };
 
+  /** How a boat placed in the medal fleet by hand got her seat — on her
+   *  medal row, and on her repêchage row. */
+  const promotedBadge = (row: (typeof rows)[number]): string =>
+    row.promotedVia
+      ? ` <span class="sfnote">${
+          row.medal
+            ? row.promotedVia === 'repechage'
+              ? `via the ${REPECHAGE_WORDS.name}`
+              : 'promoted'
+            : `promoted to the ${esc(vocab.stages.medal.fleetNoun)}`
+        }</span>`
+      : '';
+
   // One dot + name per fleet that actually appears in the cells, in fleet
   // order — the key a reader needs before the tints and dots mean anything.
   // Deduped by name: a round-2 "Yellow" is its own fleet, but the reader is
   // being told what the colour means, and it means the same thing twice.
   const legendHtml = (): string => {
-    const present = new Set(rows.flatMap((r) => r.cells.map((c) => c.fleetId)));
+    const present = new Set(
+      [...rows, ...repTables.flatMap((t) => t.rows)].flatMap((r) => r.cells.map((c) => c.fleetId)),
+    );
     const seen = new Set<string>();
     const items = [...data.fleets]
       .sort((a, b) => a.displayOrder - b.displayOrder)
@@ -482,8 +522,32 @@ ${body}
   // only right by luck.
   const medalRows = rows.filter((r) => r.medal);
   const medalSection = medalRows.length
-    ? `<h2>${esc(capitaliseStage(vocab.stages.medal.fleetNoun))}</h2>\n${table(medalRows)}\n<p class="sfnote">These boats are ranked ahead of every other boat in the event.</p>`
+    ? `<h2>${esc(capitaliseStage(vocab.stages.medal.fleetNoun))}</h2>\n${
+        standsAlone ? table(medalRows, [], false, undefined, ['medal']) : table(medalRows)
+      }\n<p class="sfnote">${
+        standsAlone
+          ? `These boats are ranked ahead of every other boat in the event, on the ${esc(vocab.stages.medal.name)} alone: nothing is carried into them.`
+          : 'These boats are ranked ahead of every other boat in the event.'
+      }</p>`
     : '';
+
+  // The repêchage, between the medal fleet and the rest: one table per
+  // repêchage fleet, listing every boat that sailed it — a promoted boat's
+  // repêchage scores are in no other table.
+  const repechageSection = repTables
+    .filter((t) => t.rows.length > 0)
+    .map((t, i, all) => {
+      const heading =
+        all.length > 1
+          ? `${capitaliseStage(REPECHAGE_WORDS.name)} · ${fleetName.get(t.fleetId) ?? ''}`
+          : capitaliseStage(REPECHAGE_WORDS.name);
+      const note =
+        i === all.length - 1
+          ? `\n<p class="sfnote">Ranked on its own races alone; nothing in the ${REPECHAGE_WORDS.name} counts in the championship.</p>`
+          : '';
+      return `<h2>${esc(heading)}</h2>\n${table(t.rows)}${note}`;
+    })
+    .join('\n');
 
   // The note under the fleet the medal boats came from: they have not left
   // it — the fleet's assigned size still sets its score base — and where the
@@ -519,9 +583,39 @@ ${body}
   const medalCut = (stageName: string) => `${vocab.stages.medal.fleetNoun} cut if the ${stageName} ended now`;
 
   let sections: string;
-  if (splitRound) {
+  if (standsAlone) {
+    // Nothing carried: the ranking the medal fleet was cut from stands on
+    // its own, every boat in it, below the medal fleet and the repêchage.
+    const cutName = splitRound ? vocab.stages.final.name : vocab.stages.qualifying.name;
+    const cutNote = `<p class="sfnote">Every boat on her ${esc(cutName)} scores, the ${esc(vocab.stages.medal.fleetNoun)} included; they decided who sailed the ${esc(vocab.stages.medal.name)} and count for nothing after.</p>`;
     sections = [
       medalSection,
+      repechageSection,
+      splitRound
+        ? [
+            cutNote,
+            ...splitRound.fleetIds.map((fid) => {
+              const fleetRows = cutRows.filter((r) => r.finalFleetId === fid);
+              return fleetRows.length ? `<h2>${esc(fleetName.get(fid) ?? '')} fleet</h2>\n${table(fleetRows)}` : '';
+            }),
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : `<h2>${esc(capitaliseStage(cutName))}</h2>\n${cutNote}\n${table(
+            cutRows,
+            [],
+            (lastQualifying?.fleetIds.length ?? 0) > 1,
+            undefined,
+            undefined,
+            qualifyingFleetOf,
+          )}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  } else if (splitRound) {
+    sections = [
+      medalSection,
+      repechageSection,
       ...splitRound.fleetIds.map((fid, fleetIndex) => {
         const fleetRows = rows.filter((r) => r.finalFleetId === fid && !r.medal);
         const cut = !medalRows.length && fleetIndex === 0 && fleetRows.length > medalSize;
@@ -541,6 +635,7 @@ ${body}
     const undivided = data.config.split.kind === 'none';
     sections = [
       medalSection,
+      repechageSection,
       !rest.length
         ? ''
         : undivided
@@ -624,7 +719,7 @@ export function renderSplitFleetRaceResultsPage(
   // Each row's cell for one (stage race, fleet), joined back to its
   // competitor. Carried cells have no race id: they are scores, not races.
   const entriesByRaceFleet = new Map<string, { competitor: Competitor; cell: CellScore }[]>();
-  for (const row of rows) {
+  for (const row of [...rows, ...repechageTableRows(data).flatMap((t) => t.rows)]) {
     for (const cell of row.cells) {
       if (!cell.raceId) continue;
       const key = `${cell.stage} ${cell.stageRaceNumber} ${cell.fleetId}`;
@@ -733,7 +828,9 @@ ${body}
   };
 
   const sections: string[] = [];
-  for (const stage of STAGES) {
+  // In sailed order: the repêchage between the stage it was cut from and the
+  // medal races.
+  for (const stage of STORED_STAGES) {
     for (const lr of logicalRaces(data, stage)) {
       // No covering round means the engine scored nothing for the race, so
       // there are no cells to page (same guard as the standings pass).
@@ -767,7 +864,9 @@ ${body}
       const note =
         stage === 'qualifying' && !lr.valid
           ? '<p class="sfnote">Does not yet count — race incomplete across fleets.</p>\n'
-          : '';
+          : stage === 'repechage'
+            ? `<p class="sfnote">A ${REPECHAGE_WORDS.raceNoun}: it counts for nothing in the championship.</p>\n`
+            : '';
       sections.push(
         `<h2 id="${stageRaceAnchor(stage, lr.stageRaceNumber)}">${esc(
           stageRaceLabel(data.config, stage, lr.stageRaceNumber),
@@ -803,6 +902,7 @@ export function renderSplitFleetAssignmentsPage(
   const roundLabel = (r: SplitRound): string => {
     if (r.stage === 'final') return `${capitaliseStage(vocab.stages.final.name)} split`;
     if (r.stage === 'medal') return capitaliseStage(vocab.stages.medal.fleetNoun);
+    if (r.stage === 'repechage') return capitaliseStage(REPECHAGE_WORDS.name);
     const idx = roundsForStage(data.rounds, 'qualifying').indexOf(r) + 1;
     return `${capitaliseStage(vocab.stages.qualifying.name)} round ${idx} (${stageRaceLabel(data.config, 'qualifying', r.fromStageRace)} onward)`;
   };

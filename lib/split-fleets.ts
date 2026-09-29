@@ -1779,6 +1779,43 @@ export function repechageStandings(input: SplitFleetData): RepechageTable[] {
   });
 }
 
+/**
+ * The repêchage's rankings as standings rows, one set per repêchage fleet —
+ * the shape the standings tables render. A promoted boat keeps
+ * `promotedVia: 'repechage'` so the table can say so; none of these rows is
+ * a medal row, whatever she sails now.
+ */
+export function repechageTableRows(data: SplitFleetData): { fleetId: string; rows: SplitStandingRow[] }[] {
+  return repechageStandings(data).map((t) => ({
+    fleetId: t.fleetId,
+    rows: t.rows.map((r) => ({
+      competitor: r.competitor,
+      cells: r.cells,
+      total: r.net,
+      net: r.net,
+      rank: r.rank,
+      finalFleetId: null,
+      medal: false,
+      ...(r.promoted ? { promotedVia: 'repechage' as const } : {}),
+    })),
+  }));
+}
+
+/**
+ * Whether the medal fleet's earlier scores have left the championship table:
+ * the medal races carry nothing in, and one of them has counted. From then on
+ * the championship is the medal races alone, and every boat's earlier scores
+ * — the medal boats' included — are listed in the ranking she was cut from
+ * (`cutFromStandings`). Until a medal race counts, the earlier score is still
+ * the result, and the tables stay as they were.
+ */
+export function medalStageStandsAlone(data: SplitFleetData, rows: readonly SplitStandingRow[]): boolean {
+  return (
+    data.config.medal?.carry === 'nothing' &&
+    rows.some((r) => r.medal && r.cells.some((c) => c.stage === 'medal' && c.counts))
+  );
+}
+
 /** A boat whose qualifying scores are not one per counting qualifying race. */
 export interface QualifyingScoreMismatch {
   competitor: Competitor;
