@@ -19,13 +19,17 @@ import {
   duplicateBoats,
   finishSheetsInUse,
   normalizeSplitFleetConfig,
+  repechageBoatsOutsidePool,
+  repechageEligibleIds,
   resolveVocabulary,
   stageRaceLabel,
   type FinishSheets,
 } from '@/lib/split-fleets';
-import type { SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
+import type { OverrideReason, SplitFleetConfig, SplitRound } from '@/lib/split-fleets';
+import type { Competitor } from '@/lib/types';
 import {
   splitAbandonStartSchema,
+  splitPromotionSchema,
   splitFleetBoatsSchema,
   splitFleetConfigSchema,
   splitFleetStateSchema,
@@ -136,6 +140,22 @@ export async function putSplitFleetConfig(
     }
     if (hasRound('medal') && !config.medal) {
       throw new BadRequestError('the medal stage is settled once its fleet is selected');
+    }
+    // A repêchage drawn from outside the fleet the medal fleet is selected
+    // from is only fair while the medal races carry nothing: carried in, a
+    // Silver score would be set against Gold's.
+    if (config.medal && config.medal.carry !== existing.medal?.carry) {
+      const outside = repechageBoatsOutsidePool(
+        { rounds, competitors: await repos.competitors.listBySeries(seriesId) },
+        config.medal.carry,
+      );
+      if (outside.length > 0) {
+        throw new BadRequestError(
+          `the medal races cannot carry a score while ${boatList(outside)} ${
+            outside.length === 1 ? 'is' : 'are'
+          } in the repêchage or promoted from outside the fleet the medal fleet is selected from`,
+        );
+      }
     }
   }
 
@@ -349,6 +369,9 @@ export async function commitSplitRound(
     const config = normalizeSplitFleetConfig(row.qfConfig as Partial<SplitFleetConfig>);
     if (input.stage === 'medal' && !config.medal) {
       throw new BadRequestError('this championship has no medal stage');
+    }
+    if (input.stage === 'repechage') {
+      await assertRepechageCommittable(tx, workspace, seriesId, config, Object.keys(input.assignments));
     }
     // Fleets that share drawn boats can't be on one sheet — the same boat
     // would be two helms in one race — so they always race apart.
@@ -725,7 +748,7 @@ export async function addStageRaces(
   // like any other race of the stage. A race of the stage added before the
   // medal fleet exists is an ordinary one.
   const [medalRound] =
-    roundRow.stage !== 'medal'
+    roundRow.stage === 'qualifying' || roundRow.stage === 'final'
       ? await db
           .select({ fleetIds: schema.splitRounds.fleetIds })
           .from(schema.splitRounds)
@@ -842,6 +865,17 @@ export async function deleteSplitRound(
   if (laterSameStage || laterStage) {
     throw new BadRequestError('only the newest round can be deleted');
   }
+  // The repêchage hangs off the medal fleet: it goes first, and it stays
+  // once a boat has been promoted from it, since her seat came from it.
+  if (round.stage === 'medal' && rounds.some((r) => r.stage === 'repechage')) {
+    throw new BadRequestError('delete the repêchage before the medal fleet');
+  }
+  if (
+    round.stage === 'repechage' &&
+    rounds.some((r) => r.stage === 'medal' && Object.values(r.overrideReasons ?? {}).includes('repechage'))
+  ) {
+    throw new BadRequestError('a boat has been promoted from the repêchage');
+  }
 
   await db.transaction(async (tx) => {
     // Races whose sequences include any of the round's fleets. A sequence
@@ -906,7 +940,15 @@ export async function applySplitOverride(
   const repos = createRepos({ workspaceId: workspace.workspaceId });
   const round = await repos.splitRounds.get(roundId);
   if (!round || round.seriesId !== seriesId) throw new NotFoundError('round');
-  if (!round.fleetIds.includes(input.toFleetId)) {
+  if (round.stage === 'repechage') {
+    await editRepechageMembership(workspace, seriesId, round, input.competitorId, input.toFleetId);
+    return { warning: null };
+  }
+  if (input.toFleetId === null) {
+    throw new BadRequestError('only a repêchage boat can be taken out of a round');
+  }
+  const toFleetId = input.toFleetId;
+  if (!round.fleetIds.includes(toFleetId)) {
     throw new BadRequestError('target fleet is not part of this round');
   }
 
@@ -941,7 +983,7 @@ export async function applySplitOverride(
     const txRepos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
     // Move membership: drop the round's other fleets, add the target.
     for (const fid of round.fleetIds) {
-      if (fid === input.toFleetId) continue;
+      if (fid === toFleetId) continue;
       await tx
         .update(schema.competitors)
         .set({
@@ -960,7 +1002,7 @@ export async function applySplitOverride(
     await tx
       .update(schema.competitors)
       .set({
-        fleetIds: sql`array_append(array_remove(${schema.competitors.fleetIds}, ${input.toFleetId}::uuid), ${input.toFleetId}::uuid)`,
+        fleetIds: sql`array_append(array_remove(${schema.competitors.fleetIds}, ${toFleetId}::uuid), ${toFleetId}::uuid)`,
         version: sql`${schema.competitors.version} + 1`,
         updatedAt: sql`now()`,
       })
@@ -973,7 +1015,7 @@ export async function applySplitOverride(
       );
     await txRepos.splitRounds.setOverrides(
       roundId,
-      { ...(round.overrides ?? {}), [input.competitorId]: input.toFleetId },
+      { ...(round.overrides ?? {}), [input.competitorId]: toFleetId },
       { updatedBy: workspace.userId },
     );
     await txRepos.series.touch(seriesId, workspace.userId);
@@ -1026,6 +1068,306 @@ async function writeFleetBoats(
       .where(eq(schema.competitors.id, row.id));
   }
 }
+
+/** Sail numbers, as a scorer reads them in a refusal. */
+function boatList(competitors: readonly Pick<Competitor, 'sailNumber'>[]): string {
+  return competitors.map((c) => c.sailNumber).join(', ');
+}
+
+/**
+ * Refuse a repêchage the championship cannot have: no medal stage, no medal
+ * fleet selected yet (the direct seats decide who is eligible), a repêchage
+ * already, or a boat who could not fairly join the medal fleet.
+ */
+async function assertRepechageCommittable(
+  tx: Tx,
+  workspace: WorkspaceContext,
+  seriesId: string,
+  config: SplitFleetConfig,
+  competitorIds: string[],
+): Promise<void> {
+  if (!config.medal) throw new BadRequestError('this championship has no medal stage');
+  const repos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+  const [rounds, competitors] = await Promise.all([
+    repos.splitRounds.listBySeries(seriesId),
+    repos.competitors.listBySeries(seriesId),
+  ]);
+  if (!rounds.some((r) => r.stage === 'medal')) {
+    throw new BadRequestError('select the medal fleet before the repêchage');
+  }
+  if (rounds.some((r) => r.stage === 'repechage')) {
+    throw new BadRequestError('this championship already has a repêchage');
+  }
+  if (competitorIds.length === 0) throw new BadRequestError('a repêchage needs boats');
+  assertEligible({ config, rounds, competitors }, competitorIds);
+}
+
+/** Refuse any of `competitorIds` who may not sail the repêchage or be
+ *  promoted into the medal fleet (see `repechageEligibleIds`), naming them. */
+function assertEligible(
+  data: { config: SplitFleetConfig; rounds: SplitRound[]; competitors: Competitor[] },
+  competitorIds: string[],
+): void {
+  const eligible = repechageEligibleIds(data);
+  const refused = data.competitors.filter((c) => competitorIds.includes(c.id) && !eligible.has(c.id));
+  const unknown = competitorIds.filter((id) => !data.competitors.some((c) => c.id === id));
+  if (unknown.length > 0) throw new BadRequestError('competitor not in this series');
+  if (refused.length > 0) {
+    throw new BadRequestError(
+      data.config.medal?.carry === 'nothing'
+        ? `${boatList(refused)} ${refused.length === 1 ? 'is' : 'are'} already in the medal fleet`
+        : `${boatList(refused)} cannot join the medal fleet: the medal races carry a score, so only boats of the fleet it is selected from can`,
+    );
+  }
+}
+
+/**
+ * Change who sails the repêchage: add a boat to one of its fleets, move her
+ * between them, or (`toFleetId` null) take her out. The membership is the
+ * scorer's own choice, so nothing is recorded as an override. Settled once a
+ * boat has been promoted from it.
+ */
+async function editRepechageMembership(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  round: SplitRound,
+  competitorId: string,
+  toFleetId: string | null,
+): Promise<void> {
+  if (toFleetId !== null && !round.fleetIds.includes(toFleetId)) {
+    throw new BadRequestError('target fleet is not part of this round');
+  }
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const [rounds, competitors, series] = await Promise.all([
+    repos.splitRounds.listBySeries(seriesId),
+    repos.competitors.listBySeries(seriesId),
+    getSeriesRow(workspace, seriesId),
+  ]);
+  if (rounds.some((r) => r.stage === 'medal' && Object.values(r.overrideReasons ?? {}).includes('repechage'))) {
+    throw new BadRequestError('a boat has been promoted from the repêchage');
+  }
+  const competitor = competitors.find((c) => c.id === competitorId);
+  if (!competitor) throw new NotFoundError('competitor');
+  const joining = !round.fleetIds.some((fid) => competitor.fleetIds.includes(fid));
+  if (toFleetId !== null && joining) {
+    const config = normalizeSplitFleetConfig(series.qfConfig as Partial<SplitFleetConfig>);
+    assertEligible({ config, rounds, competitors }, [competitorId]);
+  }
+  await getDb().transaction(async (tx) => {
+    for (const fid of round.fleetIds) {
+      if (fid === toFleetId) continue;
+      await tx
+        .update(schema.competitors)
+        .set({
+          fleetIds: sql`array_remove(${schema.competitors.fleetIds}, ${fid}::uuid)`,
+          version: sql`${schema.competitors.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.competitors.id, competitorId),
+            eq(schema.competitors.seriesId, seriesId),
+            eq(schema.competitors.workspaceId, workspace.workspaceId),
+          ),
+        );
+    }
+    if (toFleetId !== null) {
+      await tx
+        .update(schema.competitors)
+        .set({
+          fleetIds: sql`array_append(array_remove(${schema.competitors.fleetIds}, ${toFleetId}::uuid), ${toFleetId}::uuid)`,
+          version: sql`${schema.competitors.version} + 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(schema.competitors.id, competitorId),
+            eq(schema.competitors.seriesId, seriesId),
+            eq(schema.competitors.workspaceId, workspace.workspaceId),
+          ),
+        );
+    }
+    await createRepos({ db: tx, workspaceId: workspace.workspaceId }).series.touch(seriesId, workspace.userId);
+  });
+  await trackChange(workspace, {
+    action: 'split-fleets.round-committed',
+    seriesId,
+    summary:
+      toFleetId === null
+        ? `Took ${competitor.sailNumber} out of the repêchage`
+        : joining
+          ? `Added ${competitor.sailNumber} to the repêchage`
+          : `Moved ${competitor.sailNumber} to another repêchage fleet`,
+    sessionKey: 'split-fleets',
+  });
+}
+
+/** The warnings a change to the medal fleet's membership earns once racing
+ *  has moved on: a medal race already sailed (the boat has no score in it),
+ *  or a companion race already added (its first place scores from the medal
+ *  fleet's size plus one, and its boats are those outside the fleet). */
+async function medalChangeWarning(seriesId: string): Promise<string | null> {
+  const starts = await getDb()
+    .select({
+      stage: schema.raceStarts.stage,
+      firstPlaceOffset: schema.raceStarts.firstPlaceOffset,
+      raceId: schema.raceStarts.raceId,
+    })
+    .from(schema.raceStarts)
+    .innerJoin(schema.races, eq(schema.races.id, schema.raceStarts.raceId))
+    .where(eq(schema.races.seriesId, seriesId));
+  const medalRaceIds = starts.filter((s) => s.stage === 'medal').map((s) => s.raceId);
+  const [sailed] = medalRaceIds.length
+    ? await getDb()
+        .select({ id: schema.finishes.id })
+        .from(schema.finishes)
+        .where(inArray(schema.finishes.raceId, medalRaceIds))
+        .limit(1)
+    : [];
+  if (sailed) {
+    return (
+      'A medal race has already been completed: the promoted boat has no score in it. ' +
+      'Record how the protest committee directs her to be scored there — this move only changes the assignment.'
+    );
+  }
+  if (starts.some((s) => s.stage !== 'medal' && (s.firstPlaceOffset ?? 0) > 0)) {
+    return (
+      'A companion race has already been added: it is scored from the medal fleet\u2019s size plus one, ' +
+      'and a promoted boat leaves it. Check its first-place score against the sailing instructions.'
+    );
+  }
+  return null;
+}
+
+/**
+ * Promote boats into the medal fleet after it was selected: from the
+ * repêchage ranking, or from the ranking they were cut from (the fallback
+ * where the repêchage is not sailed). Each boat must be eligible — outside
+ * the medal fleet, and from the fleet it is selected from where the medal
+ * races carry a score — and one promoted from the repêchage must have sailed
+ * it. The seats are attributed on the medal round with their reason.
+ */
+export async function promoteIntoMedalFleet(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  body: unknown,
+): Promise<{ warning: string | null }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const input = splitPromotionSchema.parse(body);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const [series, rounds, competitors] = await Promise.all([
+    getSeriesRow(workspace, seriesId),
+    repos.splitRounds.listBySeries(seriesId),
+    repos.competitors.listBySeries(seriesId),
+  ]);
+  const config = normalizeSplitFleetConfig((series.qfConfig ?? {}) as Partial<SplitFleetConfig>);
+  const medalRound = rounds.find((r) => r.stage === 'medal');
+  if (!medalRound) throw new BadRequestError('select the medal fleet first');
+  const medalFleetId = medalRound.fleetIds[0];
+  assertEligible({ config, rounds, competitors }, input.competitorIds);
+  if (input.reason === 'repechage') {
+    const repRound = rounds.find((r) => r.stage === 'repechage');
+    if (!repRound) throw new BadRequestError('this championship has no repêchage');
+    const outside = competitors.filter(
+      (c) => input.competitorIds.includes(c.id) && !repRound.fleetIds.some((fid) => c.fleetIds.includes(fid)),
+    );
+    if (outside.length > 0) {
+      throw new BadRequestError(`${boatList(outside)} did not sail the repêchage`);
+    }
+  }
+  const warning = await medalChangeWarning(seriesId);
+
+  await getDb().transaction(async (tx) => {
+    await tx
+      .update(schema.competitors)
+      .set({
+        fleetIds: sql`array_append(${schema.competitors.fleetIds}, ${medalFleetId}::uuid)`,
+        version: sql`${schema.competitors.version} + 1`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          inArray(schema.competitors.id, input.competitorIds),
+          eq(schema.competitors.seriesId, seriesId),
+          eq(schema.competitors.workspaceId, workspace.workspaceId),
+        ),
+      );
+    const promoted = Object.fromEntries(input.competitorIds.map((id) => [id, medalFleetId]));
+    const reasons = Object.fromEntries(input.competitorIds.map((id) => [id, input.reason]));
+    const txRepos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+    await txRepos.splitRounds.setOverrides(
+      medalRound.id,
+      { ...(medalRound.overrides ?? {}), ...promoted },
+      { updatedBy: workspace.userId, reasons: { ...(medalRound.overrideReasons ?? {}), ...reasons } },
+    );
+    await txRepos.series.touch(seriesId, workspace.userId);
+  });
+  const sails = boatList(competitors.filter((c) => input.competitorIds.includes(c.id)));
+  await trackChange(workspace, {
+    action: 'split-fleets.round-committed',
+    seriesId,
+    summary:
+      input.reason === 'repechage'
+        ? `Promoted ${sails} from the repêchage`
+        : `Promoted ${sails} from the ranking they were cut from`,
+    sessionKey: 'split-fleets',
+  });
+  return { warning };
+}
+
+/**
+ * Take back a promotion into the medal fleet — a boat promoted by mistake, or
+ * a decision reversed. Only a boat placed by hand: the boats the selection
+ * dealt in are taken out by deleting the medal fleet.
+ */
+export async function withdrawPromotion(
+  workspace: WorkspaceContext,
+  seriesId: string,
+  competitorId: string,
+): Promise<{ warning: string | null }> {
+  await assertSeriesWritable(workspace, seriesId);
+  const repos = createRepos({ workspaceId: workspace.workspaceId });
+  const rounds = await repos.splitRounds.listBySeries(seriesId);
+  const medalRound = rounds.find((r) => r.stage === 'medal');
+  if (!medalRound?.overrides?.[competitorId]) {
+    throw new BadRequestError('this boat was not promoted into the medal fleet');
+  }
+  const medalFleetId = medalRound.fleetIds[0];
+  const warning = await medalChangeWarning(seriesId);
+  const { [competitorId]: _gone, ...overrides } = medalRound.overrides;
+  const { [competitorId]: _reason, ...reasons } = medalRound.overrideReasons ?? {};
+  await getDb().transaction(async (tx) => {
+    await tx
+      .update(schema.competitors)
+      .set({
+        fleetIds: sql`array_remove(${schema.competitors.fleetIds}, ${medalFleetId}::uuid)`,
+        version: sql`${schema.competitors.version} + 1`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(schema.competitors.id, competitorId),
+          eq(schema.competitors.seriesId, seriesId),
+          eq(schema.competitors.workspaceId, workspace.workspaceId),
+        ),
+      );
+    const txRepos = createRepos({ db: tx, workspaceId: workspace.workspaceId });
+    await txRepos.splitRounds.setOverrides(medalRound.id, overrides, {
+      updatedBy: workspace.userId,
+      reasons: reasons as Record<string, OverrideReason>,
+    });
+    await txRepos.series.touch(seriesId, workspace.userId);
+  });
+  const [competitor] = (await repos.competitors.listBySeries(seriesId)).filter((c) => c.id === competitorId);
+  await trackChange(workspace, {
+    action: 'split-fleets.round-committed',
+    seriesId,
+    summary: `Withdrew ${competitor?.sailNumber ?? 'a boat'}\u2019s promotion into the medal fleet`,
+    sessionKey: 'split-fleets',
+  });
+  return { warning };
+}
+
 
 /**
  * Set the boats drawn for one fleet of a round — the draw arriving after the

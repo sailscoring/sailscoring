@@ -1619,7 +1619,9 @@ export function repechagePool(
 /** The boats that may be added to the repêchage, or promoted into the medal
  *  fleet: the pool under the medal stage's carry, less the medal fleet.
  *  Empty until the medal fleet is selected. */
-export function repechageEligibleIds(data: SplitFleetData): Set<string> {
+export function repechageEligibleIds(
+  data: Pick<SplitFleetData, 'config' | 'rounds' | 'competitors'>,
+): Set<string> {
   const medalRound = roundsForStage(data.rounds, 'medal')[0] ?? null;
   const medalFleetId = medalRound?.fleetIds[0];
   if (!medalFleetId || !data.config.medal) return new Set();
@@ -1633,7 +1635,10 @@ export function repechageEligibleIds(data: SplitFleetData): Set<string> {
  * that a change of the medal carry to `carry` would leave outside the pool:
  * the boats that make the change unsafe. Empty when it is safe.
  */
-export function repechageBoatsOutsidePool(data: SplitFleetData, carry: CarryIn): Competitor[] {
+export function repechageBoatsOutsidePool(
+  data: Pick<SplitFleetData, 'rounds' | 'competitors'>,
+  carry: CarryIn,
+): Competitor[] {
   const pool = repechagePool(data, carry);
   const repRound = repechageRound(data);
   const medalRound = roundsForStage(data.rounds, 'medal')[0] ?? null;
@@ -1652,7 +1657,7 @@ export function repechageBoatsOutsidePool(data: SplitFleetData, carry: CarryIn):
 /** The medal seats not yet filled: the medal card's size, less the boats in
  *  the medal fleet. A fact for the scorer, never a limit — a jury can extend
  *  the fleet. Zero before the fleet is selected. */
-export function medalSeatsOpen(data: SplitFleetData): number {
+export function medalSeatsOpen(data: Pick<SplitFleetData, 'config' | 'rounds' | 'competitors'>): number {
   const medalFleetId = roundsForStage(data.rounds, 'medal')[0]?.fleetIds[0];
   if (!medalFleetId || !data.config.medal) return 0;
   return Math.max(0, data.config.medal.size - fleetMembers(data.competitors, medalFleetId).length);

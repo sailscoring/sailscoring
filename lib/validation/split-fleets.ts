@@ -166,7 +166,16 @@ void _configFromZod;
  *  entry, RC/jury move, redress promotion). */
 export const splitOverrideSchema = z.object({
   competitorId: uuidSchema,
-  toFleetId: uuidSchema,
+  /** Null takes a boat out of the repêchage (the only round whose
+   *  membership is a list the scorer keeps by hand). */
+  toFleetId: uuidSchema.nullable(),
+});
+
+/** Body for POST …/split-fleets/promotions — boats promoted into the medal
+ *  fleet after it was selected, and where their seats came from. */
+export const splitPromotionSchema = z.object({
+  competitorIds: z.array(uuidSchema).min(1).max(50),
+  reason: z.enum(['repechage', 'cut-ranking']),
 });
 
 /** Body for PUT …/rounds/:roundId/boats — the boats drawn for one fleet of

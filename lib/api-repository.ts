@@ -1343,14 +1343,38 @@ export async function abandonSplitStart(
   });
 }
 
+/** Place a boat by hand in a round's fleet. On the repêchage, `toFleetId`
+ *  null takes her out of it. */
 export function applySplitOverride(
   seriesId: string,
   roundId: string,
-  payload: { competitorId: string; toFleetId: string },
+  payload: { competitorId: string; toFleetId: string | null },
 ): Promise<{ warning: string | null }> {
   return apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/overrides`, {
     method: 'POST',
     body: payload,
+  });
+}
+
+/** Promote boats into the medal fleet after it was selected, from the
+ *  repêchage or from the ranking they were cut from. */
+export function promoteIntoMedalFleet(
+  seriesId: string,
+  payload: { competitorIds: string[]; reason: 'repechage' | 'cut-ranking' },
+): Promise<{ warning: string | null }> {
+  return apiFetch(`/api/v1/series/${seriesId}/split-fleets/promotions`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+/** Take back a boat's promotion into the medal fleet. */
+export function withdrawPromotion(
+  seriesId: string,
+  competitorId: string,
+): Promise<{ warning: string | null }> {
+  return apiFetch(`/api/v1/series/${seriesId}/split-fleets/promotions/${competitorId}`, {
+    method: 'DELETE',
   });
 }
 
