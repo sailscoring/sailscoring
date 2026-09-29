@@ -18,7 +18,7 @@ import {
 } from '@/lib/public-export';
 import type { SeriesSnapshot } from '@/lib/series-snapshot';
 import type { SeriesFileSplitRound } from '@/lib/series-file';
-import type { Competitor, Fleet, Series } from '@/lib/types';
+import type { Competitor, Finish, Fleet, Series } from '@/lib/types';
 import type { SplitFleetConfig } from '@/lib/split-fleets';
 import { buildSplitFleetData, loadSplitFleetFixtures } from './fixtures/scoring/split-fleets/loader';
 
@@ -90,6 +90,7 @@ function exportOf(
 function makeRecordingRepos() {
   const fleets: Fleet[] = [];
   const competitors: Competitor[] = [];
+  const finishes: Finish[] = [];
   let split: { config: SplitFleetConfig | null; rounds: SeriesFileSplitRound[] } | null = null;
   const repos = {
     seriesRepo: { save: async (s: Series) => s },
@@ -101,7 +102,7 @@ function makeRecordingRepos() {
     raceRepo: { save: async (r: unknown) => r },
     subSeriesRepo: { saveMany: async () => {} },
     raceStartRepo: { save: async (s: unknown) => s, saveMany: async () => {} },
-    finishRepo: { saveMany: async () => {} },
+    finishRepo: { saveMany: async (l: Finish[]) => { finishes.push(...l); } },
     listSeriesNames: async () => [],
     splitFleets: {
       get: async () => null,
@@ -111,7 +112,7 @@ function makeRecordingRepos() {
       ) => { split = payload; },
     },
   } as unknown as ImportRepos;
-  return { repos, fleets, competitors, read: () => split };
+  return { repos, fleets, competitors, finishes, read: () => split };
 }
 
 describe('public export — the split-fleet block', () => {
@@ -139,7 +140,7 @@ describe('public export — the split-fleet block', () => {
     );
   });
 
-  it('rewrites a hand placement as sail number → fleet name', () => {
+  it('rewrites a hand placement as competitor ref → fleet name', () => {
     const data = championship();
     const round = data.rounds.find((r) => r.stage === 'final')!;
     const boat = data.competitors[0];
@@ -152,8 +153,9 @@ describe('public export — the split-fleet block', () => {
     };
     const out = exportOf(data, withOverride);
     const exported = out.splitFleets!.rounds.find((r) => r.overrides);
+    const ref = out.competitors.find((c) => c.sailNumber === boat.sailNumber)!.ref!;
     expect(exported!.overrides).toEqual({
-      [boat.sailNumber]: data.fleets.find((f) => f.id === fleetId)!.name,
+      [ref]: data.fleets.find((f) => f.id === fleetId)!.name,
     });
   });
 
@@ -204,6 +206,49 @@ describe('public export — importing the split-fleet block', () => {
     const { repos, fleets, competitors, read } = makeRecordingRepos();
     await importPublicExport(out, repos);
 
+    const written = read()!.rounds.find((r) => r.overrides)!;
+    const newBoat = competitors.find((c) => c.sailNumber === boat.sailNumber)!;
+    const newFleet = fleets.find((f) => f.name === data.fleets.find((x) => x.id === fleetId)!.name)!;
+    expect(written.overrides).toEqual({ [newBoat.id]: newFleet.id });
+  });
+
+  it('reads a v5 export, whose hand placements are keyed by sail number', async () => {
+    const data = championship();
+    const round = data.rounds.find((r) => r.stage === 'final')!;
+    const boat = data.competitors[0];
+    const fleetId = round.fleetIds[round.fleetIds.length - 1];
+    const v6 = exportOf(data, {
+      config: data.config,
+      rounds: data.rounds.map((r) =>
+        r === round ? { ...r, overrides: { [boat.id]: fleetId } } : r,
+      ),
+    });
+    const refs = new Map(v6.competitors.map((c) => [c.ref!, c.sailNumber]));
+    const v5: PublicSeriesExport = {
+      ...v6,
+      version: 5,
+      competitors: v6.competitors.map(({ ref: _ref, ...c }) => c),
+      races: v6.races.map((r) => ({
+        ...r,
+        finishes: r.finishes.map(({ competitorRef: _ref, ...f }) => f),
+      })),
+      splitFleets: {
+        ...v6.splitFleets!,
+        rounds: v6.splitFleets!.rounds.map((r) =>
+          r.overrides
+            ? {
+                ...r,
+                overrides: Object.fromEntries(
+                  Object.entries(r.overrides).map(([ref, name]) => [refs.get(ref)!, name]),
+                ),
+              }
+            : r,
+        ),
+      },
+    };
+
+    const { repos, fleets, competitors, read } = makeRecordingRepos();
+    await importPublicExport(v5, repos);
     const written = read()!.rounds.find((r) => r.overrides)!;
     const newBoat = competitors.find((c) => c.sailNumber === boat.sailNumber)!;
     const newFleet = fleets.find((f) => f.name === data.fleets.find((x) => x.id === fleetId)!.name)!;
@@ -271,5 +316,46 @@ describe('public export — a championship\'s identities', () => {
     for (const sail of medalSails) {
       expect(companion.finishes.some((f) => f.sailNumber === sail)).toBe(false);
     }
+  });
+});
+
+/**
+ * A championship that supplies its boats draws them for each fleet: two
+ * fleets of a round sail the same boats, and an entry's own number is not a
+ * boat at all. The export can't lean on the sail number as an identity there.
+ */
+describe('public export — boats drawn per fleet', () => {
+  it('carries the boats by fleet name, and each finish back onto its own entry', async () => {
+    const data = championship();
+    const qRound = data.rounds.find((r) => r.stage === 'qualifying')!;
+    const [fleetA, fleetB] = qRound.fleetIds;
+    const inFleet = (fid: string) => data.competitors.filter((c) => c.fleetIds.includes(fid));
+    const a = inFleet(fleetA)[0];
+    const b = inFleet(fleetB)[0];
+    // Two entries sharing one number, as a draw that reused an entry list's
+    // numbers would leave them; each also has the boat drawn for her fleet.
+    const shared = data.competitors.map((c) =>
+      c.id === a.id
+        ? { ...c, fleetSailNumbers: { [fleetA]: '401' } }
+        : c.id === b.id
+          ? { ...c, sailNumber: a.sailNumber, fleetSailNumbers: { [fleetB]: '401' } }
+          : c,
+    );
+    const withShared = { ...data, competitors: shared };
+    const out = exportOf(withShared);
+    const fleetName = (fid: string) => out.fleets[data.fleets.findIndex((f) => f.id === fid)].name;
+    const exportedA = out.competitors[data.competitors.findIndex((c) => c.id === a.id)];
+    expect(exportedA.fleetSailNumbers).toEqual({ [fleetName(fleetA)]: '401' });
+
+    const { repos, fleets, competitors, finishes } = makeRecordingRepos();
+    await importPublicExport(out, repos);
+    const newA = competitors[data.competitors.findIndex((c) => c.id === a.id)];
+    const newB = competitors[data.competitors.findIndex((c) => c.id === b.id)];
+    const newFleetA = fleets[data.fleets.findIndex((f) => f.id === fleetA)];
+    expect(newA.fleetSailNumbers).toEqual({ [newFleetA.id]: '401' });
+    // Same number, different entries: each keeps her own results.
+    const count = (cid: string) => data.finishes.filter((f) => f.competitorId === cid).length;
+    expect(finishes.filter((f) => f.competitorId === newA.id)).toHaveLength(count(a.id));
+    expect(finishes.filter((f) => f.competitorId === newB.id)).toHaveLength(count(b.id));
   });
 });

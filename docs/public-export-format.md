@@ -74,9 +74,13 @@ results, and beyond that nothing that is not in the published HTML**:
   are printed on the pages this file sits beside, so a reader who takes
   the data still has the sentence that said why the figures read as they
   do. `pageNotes` keys each note by page name, as the publication does.
-- Never included: internal UUIDs (competitors are keyed by sail number,
-  fleets and races by name/number), FTP configuration, revision history,
-  workspace organisation.
+- A championship that supplies its boats and redraws them each stage
+  carries each entry's boat per fleet (`fleetSailNumbers`, by fleet name).
+  In a race that fleet sails, that is the sail number she carries;
+  `sailNumber` is then her own entry number.
+- Never included: internal UUIDs (competitors are keyed by an export-local
+  `ref`, fleets and races by name/number), FTP configuration, revision
+  history, workspace organisation.
 
 ## Versioning
 
@@ -90,6 +94,7 @@ version up to their own; writers write the current one.
 | 3 | A competitor's single `club` becomes the ordered `clubs` list — entry lists routinely carry a club and a second affiliation, and all of them are published. |
 | 4 | `splitFleets.config` narrows to the settings the championships scored with it used ([ADR-013](design/decisions/013-removing-meaning-from-stored-formats.md)). Removed settings are either fixed behaviour or gone; race labels follow `vocabulary`. A reader brings a v1–v3 championship forward, and refuses one that scores with a setting that is gone, naming it. |
 | 5 | `splitFleets.config` gains the score a boat takes into each stage: `final.carry` and `final.tieBreak`, and `medal.carry` in place of `medal.carryTransform` (which meant `carry: 'halved'`). A carry is `net`, `halved`, `nothing` or `rank`. `medal` may be absent: a championship with no medal stage. A reader renames a v4 configuration's `carryTransform` on import. |
+| 6 | Each competitor carries a `ref`, unique within the file, and finishes (`competitorRef`), split-fleet round `overrides` (now keyed by `ref`) and sub-series `competitorOverrides` (`competitorRef`) point at it: a sail number need not name one boat. Competitors gain `fleetSailNumbers`, the boat drawn for them in each fleet. A reader matches a v1–v5 export by sail number, as before. |
 
 The format is a public API surface: field removals or meaning changes
 bump the version; purely additive optional fields may not. The

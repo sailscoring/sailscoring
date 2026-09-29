@@ -170,8 +170,11 @@ export interface PublicSeriesExport {
    *  to resolved rows before assigning places); v3 replaces a competitor's
    *  single `club` with the ordered `clubs` list; v4 narrows
    *  `splitFleets.config` (ADR-013), and a reader brings an older one
-   *  forward. Readers accept all four. */
-  version: 1 | 2 | 3 | 4 | 5;
+   *  forward; v5 adds the score carried into each stage; v6 gives each
+   *  competitor a `ref` that finishes, round overrides and sub-series pins
+   *  point at in place of the sail number, and adds her boats drawn per
+   *  fleet. Readers accept them all. */
+  version: 1 | 2 | 3 | 4 | 5 | 6;
   exportedAt: string;
   series: {
     name: string;
@@ -286,7 +289,17 @@ export interface PublicSeriesExport {
    *  `initialFleet` (its assignments are unexplainable without them).
    *  Everything else follows `series.displayFields`. */
   competitors: {
+    /** The competitor's identity within this export (v6+): what finishes,
+     *  round overrides and sub-series pins refer to her by. Unique in the
+     *  file and meaningless outside it. Absent before v6, where the sail
+     *  number (with the fleet names) was the identity. */
+    ref?: string;
     sailNumber: string;
+    /** The boat drawn for her in each fleet, by fleet name, at a championship
+     *  that supplies its boats and redraws them each stage (v6+). In a race
+     *  that fleet sails, this is the sail number she carries; `sailNumber` is
+     *  then her own entry number. Sparse. */
+    fleetSailNumbers?: Record<string, string>;
     /** Bow number, when it differs from the registered sail number. */
     bowNumber?: string;
     /** Other sail numbers the boat may show; finish-entry lookup keys only. */
@@ -447,6 +460,9 @@ export interface PublicSeriesExport {
     }[];
     finishes: {
       sailNumber: string;
+      /** The finisher's `competitors[*].ref` (v6+). A reader matches on it
+       *  where present, and on `sailNumber` before v6. */
+      competitorRef?: string;
       /** Set when the finish is unresolved (scorer recorded a crossing
        *  but no matching competitor). When present, `sailNumber` is empty.
        *  Written by v1 exports only — still read on import, but v2 stops
@@ -561,7 +577,13 @@ export interface PublicSeriesExport {
     /** Per-boat entry pins for this block, keyed by the export's portable
      *  competitor identity (sail number + fleet names, as `competitors[*]`
      *  carries them). Sparse — omitted when the block has none. */
-    competitorOverrides?: { sailNumber: string; fleetNames: string[]; status: 'included' | 'excluded' }[];
+    competitorOverrides?: {
+      /** The boat's `competitors[*].ref` (v6+). */
+      competitorRef?: string;
+      sailNumber: string;
+      fleetNames: string[];
+      status: 'included' | 'excluded';
+    }[];
   }[];
   /** The course library (ORC constructed courses): the marks the series'
    *  courses are built from, keyed by name (suffixed "(2)", "(3)" … where a
@@ -618,8 +640,8 @@ export interface ExportSplitRound {
   fleetNames: string[];
   method: string;
   basis?: { throughStageRace: number; capturedAt: number } | null;
-  /** Boats placed by hand over the computed assignment: sail number → fleet
-   *  name. The memberships already reflect these; the map is what lets a
+  /** Boats placed by hand over the computed assignment: competitor `ref` →
+   *  fleet name (v6+; sail number → fleet name before). The memberships already reflect these; the map is what lets a
    *  round card tell a hand placement from a computed one. */
   overrides?: Record<string, string>;
   createdAt: number;
@@ -1052,6 +1074,12 @@ export function buildPublicExportFromSnapshot(
   // carries its real one alongside, for an importer to restore.
   const fleetNameById = uniqueFleetNames(fleets);
   const sailNumberById = new Map(competitors.map((c) => [c.id, c.sailNumber]));
+  // The export's own competitor identity: a sail number need not name one
+  // boat (two fleets may share it, and a supplied-boat championship's entries
+  // carry an entry number beside the boats they are drawn), so everything
+  // that points at a competitor — finishes, round overrides, sub-series pins —
+  // points at her `ref` from v6.
+  const refById = new Map(competitors.map((c, i) => [c.id, String(i + 1)]));
   // A boat's fleet names, in the series' own fleet order rather than in the
   // order its membership happened to be written — so the JSON agrees with the
   // published page beside it, and two boats in the same fleets export the same
@@ -1192,6 +1220,7 @@ export function buildPublicExportFromSnapshot(
         const finish = finishesForRace.find((f) => f.competitorId === competitorId);
         return {
           sailNumber: sailNumberById.get(competitorId) ?? competitorId,
+          ...(refById.has(competitorId) ? { competitorRef: refById.get(competitorId)! } : {}),
           ...(finish?.matchedOn ? { matchedOn: finish.matchedOn } : {}),
           ...(finish?.enteredSailNumber ? { enteredSailNumber: finish.enteredSailNumber } : {}),
           sortOrder: finish?.sortOrder ?? null,
@@ -1314,7 +1343,7 @@ export function buildPublicExportFromSnapshot(
     : undefined;
 
   return {
-    version: 5 as const,
+    version: 6 as const,
     exportedAt: (opts?.exportedAt ?? new Date()).toISOString(),
     series: {
       name: series.name,
@@ -1406,7 +1435,16 @@ export function buildPublicExportFromSnapshot(
       ...(f.color ? { color: f.color } : {}),
     })),
     competitors: competitors.map((c) => ({
+      ref: refById.get(c.id)!,
       sailNumber: c.sailNumber,
+      ...(() => {
+        // Keyed by fleet name, as everything in the export is.
+        const boats = Object.entries(c.fleetSailNumbers ?? {}).flatMap(([fid, boat]) => {
+          const name = fleetNameById.get(fid);
+          return name && boat.trim() ? [[name, boat] as [string, string]] : [];
+        });
+        return boats.length > 0 ? { fleetSailNumbers: Object.fromEntries(boats) } : {};
+      })(),
       ...(carry('bowNumber') && c.bowNumber ? { bowNumber: c.bowNumber } : {}),
       ...(carry('alternativeSailNumbers') && c.alternativeSailNumbers?.length
         ? { alternativeSailNumbers: c.alternativeSailNumbers }
@@ -1471,6 +1509,7 @@ export function buildPublicExportFromSnapshot(
             const c = competitorById.get(o.competitorId);
             if (!c) return [];
             return [{
+              competitorRef: refById.get(c.id)!,
               sailNumber: c.sailNumber,
               fleetNames: exportedFleetNames(c.fleetIds),
               status: o.status,
@@ -1504,9 +1543,9 @@ export function buildPublicExportFromSnapshot(
           ? {
               overrides: Object.fromEntries(
                 Object.entries(r.overrides).flatMap(([cid, fid]) => {
-                  const sail = sailNumberById.get(cid);
+                  const ref = refById.get(cid);
                   const fleetName = fleetNameById.get(fid);
-                  return sail && fleetName ? [[sail, fleetName] as [string, string]] : [];
+                  return ref && fleetName ? [[ref, fleetName] as [string, string]] : [];
                 }),
               ),
             }
@@ -1555,7 +1594,7 @@ export function buildPublicExportFromSnapshot(
 /** Export format versions this build can read. A file written by a newer
  *  build is refused rather than half-read: the version is what says which
  *  fields mean what. Mirrors `SUPPORTED_FORMAT_VERSIONS` on the file side. */
-const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5];
+const SUPPORTED_EXPORT_VERSIONS = [1, 2, 3, 4, 5, 6];
 
 /**
  * Parse the text of a published `.sailscoring.json` data file.
@@ -1670,9 +1709,15 @@ export async function importPublicExport(
   const competitorIdBySailFleet = new Map<string, string>();
   // Secondary sail-only multi-map for finish remapping (finishes lack fleet info).
   const competitorIdsBySail = new Map<string, string[]>();
+  // From v6 each competitor carries a `ref`, and everything pointing at one
+  // uses it; the sail-number maps above are how older exports are read.
+  const competitorIdByRef = new Map<string, string>();
+  const competitorIdOf = new Map<PublicSeriesExport['competitors'][number], string>();
   for (const c of data.competitors) {
     const key = `${c.sailNumber}\0${[...c.fleetNames].sort().join('\0')}`;
     const id = newId();
+    competitorIdOf.set(c, id);
+    if (c.ref) competitorIdByRef.set(c.ref, id);
     competitorIdBySailFleet.set(key, id);
     const arr = competitorIdsBySail.get(c.sailNumber);
     if (arr) arr.push(id);
@@ -1913,11 +1958,18 @@ export async function importPublicExport(
       const fleetIds = c.fleetNames
         .map((n) => fleetIdByName.get(n))
         .filter((id): id is string => id != null);
+      const fleetSailNumbers = Object.fromEntries(
+        Object.entries(c.fleetSailNumbers ?? {}).flatMap(([fleetName, boat]) => {
+          const fleetId = fleetIdByName.get(fleetName);
+          return fleetId && boat.trim() ? [[fleetId, boat] as [string, string]] : [];
+        }),
+      );
       return repos.competitorRepo.save({
-        id: competitorIdBySailFleet.get(competitorKey(c.sailNumber, c.fleetNames))!,
+        id: competitorIdOf.get(c)!,
         seriesId: newSeriesId,
         fleetIds,
         sailNumber: c.sailNumber,
+        ...(Object.keys(fleetSailNumbers).length > 0 ? { fleetSailNumbers } : {}),
         ...(c.bowNumber ? { bowNumber: c.bowNumber } : {}),
         ...(c.alternativeSailNumbers?.length
           ? { alternativeSailNumbers: c.alternativeSailNumbers }
@@ -2035,9 +2087,12 @@ export async function importPublicExport(
       // represents an unresolved crossing — store it with competitorId: null
       // so it survives the round trip.
       const exportedUnknownSail = finish.unknownSailNumber;
-      const candidates = finish.sailNumber
-        ? competitorIdsBySail.get(finish.sailNumber) ?? []
-        : [];
+      const byRef = finish.competitorRef ? competitorIdByRef.get(finish.competitorRef) : undefined;
+      const candidates = byRef
+        ? [byRef]
+        : finish.sailNumber
+          ? competitorIdsBySail.get(finish.sailNumber) ?? []
+          : [];
       const competitorId = candidates.find((id) => !usedIds.has(id)) ?? candidates[0];
       if (!competitorId && !exportedUnknownSail) continue;
       if (competitorId) usedIds.add(competitorId);
@@ -2097,7 +2152,9 @@ export async function importPublicExport(
           );
         const competitorOverrides = (s.competitorOverrides ?? [])
           .map((o) => ({
-            competitorId: competitorIdBySailFleet.get(competitorKey(o.sailNumber, o.fleetNames)),
+            competitorId:
+              (o.competitorRef ? competitorIdByRef.get(o.competitorRef) : undefined) ??
+              competitorIdBySailFleet.get(competitorKey(o.sailNumber, o.fleetNames)),
             status: o.status,
           }))
           .filter((o): o is { competitorId: string; status: 'included' | 'excluded' } =>
@@ -2149,8 +2206,12 @@ export async function importPublicExport(
         ...(r.overrides
           ? {
               overrides: Object.fromEntries(
-                Object.entries(r.overrides).flatMap(([sail, fleetName]) => {
-                  const competitorId = competitorIdsBySail.get(sail)?.[0];
+                Object.entries(r.overrides).flatMap(([key, fleetName]) => {
+                  // Keyed by `ref` from v6, by sail number before.
+                  const competitorId =
+                    data.version >= 6
+                      ? competitorIdByRef.get(key)
+                      : competitorIdsBySail.get(key)?.[0];
                   const fleetId = fleetIdByName.get(fleetName);
                   return competitorId && fleetId
                     ? [[competitorId, fleetId] as [string, string]]
