@@ -13,6 +13,7 @@ import {
   deleteSplitRound,
   getSplitFleetState,
   putSplitFleetConfig,
+  setSplitFleetBoats,
   type SplitFleetStateDto,
   type SplitRoundCommit,
 } from '@/lib/api-repository';
@@ -71,6 +72,18 @@ export function useCommitSplitRound(seriesId: string) {
     mutationFn: (payload: SplitRoundCommit) => commitSplitRound(seriesId, payload),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
     // The ceremony dialog stays open and renders the refusal itself.
+    meta: { errorShownToUser: true },
+  });
+}
+
+/** Save the boats drawn for one fleet of a round. The fleet list stays open
+ *  and shows a refusal (a boat drawn twice) itself. */
+export function useSetSplitFleetBoats(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { roundId: string; fleetId: string; boats: Record<string, string | null> }) =>
+      setSplitFleetBoats(seriesId, input.roundId, { fleetId: input.fleetId, boats: input.boats }),
+    onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
     meta: { errorShownToUser: true },
   });
 }

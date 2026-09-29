@@ -30,6 +30,14 @@ import {
 } from '@/components/split-fleet-stage-settings';
 import { useSeriesReadOnly } from '@/components/series-read-only';
 import {
+  BoatCell,
+  boatClashes,
+  boatsNotDrawn,
+  RoundFleetChip,
+  useBoatDraw,
+  type BoatColumn,
+} from './boat-draw';
+import {
   buildFleetMeta,
   FleetChip,
   FleetDot,
@@ -744,14 +752,19 @@ function QualifyingSection({
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {round.fleetIds.map((fid) => (
-                <FleetChip
+                <RoundFleetChip
                   key={fid}
+                  seriesId={seriesId}
+                  data={data}
+                  round={round}
+                  fleetId={fid}
                   meta={fleetMeta.get(fid) ?? { label: '?', color: '#888' }}
-                  count={fleetMembers(data.competitors, fid).length}
+                  canEdit={canManage}
                 />
               ))}
+              <BoatsNotDrawn data={data} round={round} />
             </div>
             <div className="space-y-1.5">
               {covered.map((lr) => (
@@ -822,7 +835,8 @@ function QualifyingSection({
                   ? `Add companion race ${raceLabel(data, 'qualifying', nextStageRace)}`
                   : `Add race ${raceLabel(data, 'qualifying', nextStageRace)}`}
               </Button>
-              {currentRound && currentRound.fleetIds.length > 1 && (
+              {/* Fleets sharing drawn boats always race apart. */}
+              {currentRound && currentRound.fleetIds.length > 1 && !data.config.boatAssignments && (
                 <SheetLayoutChoice value={sheets} onChange={setSheets} />
               )}
               {!unbanded && !medalSelected && (
@@ -1031,6 +1045,19 @@ function useCommit(seriesId: string, onClose: () => void) {
   return { commit, run };
 }
 
+/** A round's boats still to be drawn, where the championship draws them:
+ *  the draw for a stage often comes after its fleets are committed. */
+function BoatsNotDrawn({ data, round }: { data: SplitFleetData; round: SplitRound }) {
+  if (!data.config.boatAssignments) return null;
+  const n = boatsNotDrawn(data, round);
+  if (n === 0) return null;
+  return (
+    <span className="text-xs text-amber-700 dark:text-amber-400">
+      {n} {n === 1 ? 'boat' : 'boats'} not yet drawn — open a fleet to enter them
+    </span>
+  );
+}
+
 function CeremonyDialog({
   title,
   description,
@@ -1171,6 +1198,7 @@ function AssignmentPreviewTable({
   fleetLabels,
   allowUnassigned,
   onMove,
+  boats,
 }: {
   rows: { id: string; sail: string; name: string; rank?: number; from?: string; to: string; moved?: boolean; overridden?: boolean }[];
   /** When set (with onMove), each row gets a fleet select — the editable
@@ -1180,6 +1208,9 @@ function AssignmentPreviewTable({
    *  row carries `to: ''` until the scorer picks. */
   allowUnassigned?: boolean;
   onMove?: (competitorId: string, toLabel: string) => void;
+  /** Where the championship draws boats: the Boat column, and the entry's
+   *  own number is headed Entry, not Sail. */
+  boats?: BoatColumn;
 }) {
   const hasFrom = rows.some((r) => r.from !== undefined);
   return (
@@ -1187,10 +1218,11 @@ function AssignmentPreviewTable({
       <thead>
         <tr className="text-left text-xs text-muted-foreground">
           <th className="py-1 pr-2 font-medium">#</th>
-          <th className="py-1 pr-2 font-medium">Sail</th>
+          <th className="py-1 pr-2 font-medium">{boats ? 'Entry' : 'Sail'}</th>
           <th className="py-1 pr-2 font-medium">Name</th>
           {hasFrom && <th className="py-1 pr-2 font-medium">From</th>}
-          <th className="py-1 font-medium">Fleet</th>
+          <th className="py-1 pr-2 font-medium">Fleet</th>
+          {boats && <th className="py-1 font-medium">Boat</th>}
         </tr>
       </thead>
       <tbody>
@@ -1204,7 +1236,7 @@ function AssignmentPreviewTable({
             <td className="py-1 pr-2 whitespace-nowrap">{r.sail}</td>
             <td className="py-1 pr-2">{r.name}</td>
             {hasFrom && <td className="py-1 pr-2 text-muted-foreground">{r.from}</td>}
-            <td className={`py-1 ${r.moved ? 'font-semibold' : ''}`}>
+            <td className={`py-1 pr-2 ${r.moved ? 'font-semibold' : ''}`}>
               {fleetLabels && onMove ? (
                 <select
                   className={`rounded border bg-background px-1 py-0.5 text-xs${
@@ -1228,6 +1260,11 @@ function AssignmentPreviewTable({
                 </span>
               )}
             </td>
+            {boats && (
+              <td className="py-1">
+                <BoatCell competitorId={r.id} label={`${r.sail} ${r.name}`} column={boats} />
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
@@ -1317,6 +1354,9 @@ function SeedRoundDialog({
       sizes: qFleets.map((_, i) => Object.values(assignments).filter((v) => v === i).length),
     };
   }, [data.competitors, source, order, tailOrder, moves, qFleets]);
+  const drawBoats = data.config.boatAssignments === true;
+  const draw = useBoatDraw(preview.rows.map((r) => r.id));
+  const clashes = boatClashes(preview.rows, draw.values);
 
   return (
     <CeremonyDialog
@@ -1328,7 +1368,9 @@ function SeedRoundDialog({
       blockedReason={
         preview.unassigned.length > 0
           ? `${preview.unassigned.length} ${preview.unassigned.length === 1 ? 'boat is' : 'boats are'} in no fleet — place ${preview.unassigned.length === 1 ? 'it' : 'them'} to commit.`
-          : null
+          : drawBoats
+            ? clashes.message
+            : null
       }
       onClose={onClose}
       onCommit={() =>
@@ -1344,6 +1386,7 @@ function SeedRoundDialog({
           overrideCompetitorIds: Object.keys(moves).filter((cid) => moves[cid] != null),
           stageRaceNumbers: createRaces ? FIRST_ROUND_RACES : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
+          ...(drawBoats ? { boats: draw.payload(preview.assignments) } : {}),
         })
       }
     >
@@ -1404,6 +1447,7 @@ function SeedRoundDialog({
       />
       <AssignmentPreviewTable
         rows={preview.rows}
+        boats={drawBoats ? draw.column(clashes.duplicateIds) : undefined}
         fleetLabels={qFleets.map((f) => f.label)}
         allowUnassigned={source === 'imported'}
         onMove={(cid, label) =>
@@ -1483,6 +1527,9 @@ function ReassignDialog({
     });
     return { assignments, table, moved, tieWarnings };
   }, [data, qFleets, fleetMeta, moves]);
+  const drawBoats = data.config.boatAssignments === true;
+  const draw = useBoatDraw(preview.table.map((r) => r.id));
+  const clashes = boatClashes(preview.table, draw.values);
 
   return (
     <CeremonyDialog
@@ -1491,6 +1538,7 @@ function ReassignDialog({
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit Round ${roundNumber} (${preview.moved} boats change fleet)`}
+      blockedReason={drawBoats ? clashes.message : null}
       onClose={onClose}
       onCommit={() =>
         run({
@@ -1503,6 +1551,7 @@ function ReassignDialog({
           overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: createRaces ? [fromStageRace, fromStageRace + 1] : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
+          ...(drawBoats ? { boats: draw.payload(preview.assignments) } : {}),
         })
       }
     >
@@ -1525,6 +1574,7 @@ function ReassignDialog({
       ))}
       <AssignmentPreviewTable
         rows={preview.table}
+        boats={drawBoats ? draw.column(clashes.duplicateIds) : undefined}
         fleetLabels={qFleets.map((f) => f.label)}
         onMove={(cid, label) =>
           setMoves((m) => ({ ...m, [cid]: qFleets.findIndex((f) => f.label === label) }))
@@ -1603,6 +1653,9 @@ function SplitDialog({
       boundaryTies,
     };
   }, [rows, topSize, moves, fFleets]);
+  const drawBoats = data.config.boatAssignments === true;
+  const draw = useBoatDraw(preview.table.map((r) => r.id));
+  const clashes = boatClashes(preview.table, draw.values);
 
   return (
     <CeremonyDialog
@@ -1611,6 +1664,7 @@ function SplitDialog({
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit split (${preview.sizes.join(' / ')})`}
+      blockedReason={drawBoats ? clashes.message : null}
       onClose={onClose}
       onCommit={() =>
         run({
@@ -1623,6 +1677,7 @@ function SplitDialog({
           overrideCompetitorIds: Object.keys(moves),
           stageRaceNumbers: createRaces ? [1] : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
+          ...(drawBoats ? { boats: draw.payload(preview.assignments) } : {}),
         })
       }
     >
@@ -1660,6 +1715,7 @@ function SplitDialog({
       ))}
       <AssignmentPreviewTable
         rows={preview.table}
+        boats={drawBoats ? draw.column(clashes.duplicateIds) : undefined}
         fleetLabels={fFleets.map((f) => f.label)}
         onMove={(cid, label) =>
           setMoves((m) => ({ ...m, [cid]: fFleets.findIndex((f) => f.label === label) }))
@@ -1744,9 +1800,10 @@ function FinalSection({
                 else is the one more race the sailing instructions give them. */}
             {medalRound ? 'Add companion race' : 'Add next race'}
           </Button>
-          <SheetLayoutChoice value={sheets} onChange={setSheets} />
+          {!data.config.boatAssignments && <SheetLayoutChoice value={sheets} onChange={setSheets} />}
         </div>
       )}
+      <BoatsNotDrawn data={data} round={round} />
       {round.fleetIds.map((fid) => {
         const refs = stageRaceRefs(data, 'final')
           .filter((ref) => ref.fleetId === fid)
@@ -1758,7 +1815,14 @@ function FinalSection({
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">
             <span className="w-40">
-              <FleetChip meta={meta} count={fleetMembers(data.competitors, fid).length} />
+              <RoundFleetChip
+                seriesId={seriesId}
+                data={data}
+                round={round}
+                fleetId={fid}
+                meta={meta}
+                canEdit={canManage}
+              />
             </span>
             {refs.map((ref) => {
               const done = physicalRaceCompleted(ref, data.competitors, data.finishes);
@@ -1998,6 +2062,15 @@ function MedalSelectDialog({
     return assignments;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [standings, size, goldId]);
+  const medalRows = medalists.map((r) => ({
+    id: r.competitor.id,
+    sail: r.competitor.sailNumber,
+    name: r.competitor.names.join(' & '),
+    to: capitaliseStage(w.medal.name),
+  }));
+  const drawBoats = data.config.boatAssignments === true;
+  const draw = useBoatDraw(medalRows.map((r) => r.id));
+  const clashes = boatClashes(medalRows, draw.values);
 
   return (
     <CeremonyDialog
@@ -2010,6 +2083,7 @@ function MedalSelectDialog({
       error={commit.isError ? String(commit.error) : null}
       pending={commit.isPending}
       commitLabel={`Commit ${w.medal.fleetNoun} (top ${size})`}
+      blockedReason={drawBoats ? clashes.message : null}
       onClose={onClose}
       onCommit={() =>
         run({
@@ -2021,6 +2095,7 @@ function MedalSelectDialog({
           assignments: medalAssignments,
           stageRaceNumbers: createRaces ? [1] : [],
           deleteFleetIds: dropLeftovers ? leftovers.map((f) => f.id) : [],
+          ...(drawBoats ? { boats: draw.payload(medalAssignments) } : {}),
         })
       }
     >
@@ -2050,12 +2125,8 @@ function MedalSelectDialog({
         <span className="text-xs text-muted-foreground">SIs usually say ten; juries vary it</span>
       </div>
       <AssignmentPreviewTable
-        rows={medalists.map((r) => ({
-          id: r.competitor.id,
-          sail: r.competitor.sailNumber,
-          name: r.competitor.names.join(' & '),
-          to: capitaliseStage(w.medal.name),
-        }))}
+        rows={medalRows}
+        boats={drawBoats ? draw.column(clashes.duplicateIds) : undefined}
       />
     </CeremonyDialog>
   );
@@ -2097,6 +2168,7 @@ function MedalSection({
           ? `The boats who missed the cut are not scored for this race, and rank below these boats whatever the points say. If the sailing instructions give them one more race, add it from the ${words(data.config).qualifying.name} card as the companion race: it scores from ${medalConfig.size + 1}.`
           : `The boats who missed the cut sail on with their own fleet — add that race from the ${words(data.config).final.name} section. In the fleet they left it scores from ${medalConfig.size + 1} — first finisher ${medalConfig.size + 1}, second ${medalConfig.size + 2}, and so on — since that many boats are elsewhere; the other fleets score it from 1.`}
       </p>
+      <BoatsNotDrawn data={data} round={round} />
       {round.fleetIds.map((fid, i) => {
         const refs = stageRaceRefs(data, 'medal')
           .filter((ref) => ref.fleetId === fid)
@@ -2111,7 +2183,14 @@ function MedalSection({
         return (
           <div key={fid} className="flex flex-wrap items-center gap-2">
             <span className="w-40">
-              <FleetChip meta={meta} count={fleetMembers(data.competitors, fid).length} />
+              <RoundFleetChip
+                seriesId={seriesId}
+                data={data}
+                round={round}
+                fleetId={fid}
+                meta={meta}
+                canEdit={canManage}
+              />
             </span>
             {refs.map((ref) => {
               const done = physicalRaceCompleted(ref, data.competitors, data.finishes);

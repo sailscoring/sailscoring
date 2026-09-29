@@ -345,8 +345,11 @@ export async function commitSplitRound(
     if (input.stage === 'medal' && !config.medal) {
       throw new BadRequestError('this championship has no medal stage');
     }
+    // Fleets that share drawn boats can't be on one sheet — the same boat
+    // would be two helms in one race — so they always race apart.
     const apart =
       input.stage === 'medal' ||
+      config.boatAssignments === true ||
       (input.finishSheets ?? (await inheritedFinishSheets(tx, seriesId))) === 'per-fleet';
     const specs: StageRaceSpec[] = input.stageRaceNumbers.flatMap((n) => {
       const starts = fleetRows.map((f) => ({
@@ -758,11 +761,12 @@ export async function addStageRaces(
         ...offsetFor(fid),
       }));
 
-  // Medal-stage fleets always race apart (own courses). Otherwise a race
-  // added now takes the sheet layout the request names, or the one the
-  // championship's races have used so far.
+  // Medal-stage fleets always race apart (own courses), and so do fleets
+  // sharing drawn boats. Otherwise a race added now takes the sheet layout
+  // the request names, or the one the championship's races have used so far.
   const apart =
     roundRow.stage === 'medal' ||
+    config.boatAssignments === true ||
     (input.finishSheets ?? (await inheritedFinishSheets(db, seriesId))) === 'per-fleet';
   const asSpecs = (starts: StageRaceSpec['starts']): StageRaceSpec[] =>
     apart

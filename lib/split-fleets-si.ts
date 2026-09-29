@@ -77,6 +77,7 @@ export type SplitFleetSentenceId =
   | 'format'
   | 'series-division'
   | 'race-labels'
+  | 'boats'
   | 'fleet-assignment'
   | 'reassignment'
   | 'fleet-equalisation'
@@ -107,6 +108,7 @@ export type SplitFleetSentence = { id: SplitFleetSentenceId; text: string };
  */
 export const SENTENCES_BY_SETTING = {
   fleetCount: ['fleet-assignment', 'split'],
+  boatAssignments: ['boats'],
   discards: ['discards', 'final-discard-cap'],
   medal: ['medal', 'medal-ranking'],
   finalCarry: ['final-carry'],
@@ -166,6 +168,12 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     );
   }
   push('race-labels', raceLabelClause(config));
+  if (config.boatAssignments) {
+    push(
+      'boats',
+      'Boats will be supplied by the organising authority and allocated by draw each time boats are assigned to fleets. The fleets of a round may sail the same boats, and a boat’s sail number identifies it in the fleet it is sailing.',
+    );
+  }
   // A divided championship can still sail its first stage in one fleet (the
   // Melges 15 Sprint Championships split a single qualifying fleet into Gold
   // and Silver), and then there is nothing to assign, reassign or equalise.

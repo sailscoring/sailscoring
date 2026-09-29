@@ -549,6 +549,17 @@ describe.skipIf(skip)('commitSplitRound race shape', () => {
       expect((await getSplitFleetState(ctx, seriesId)).config?.boatAssignments).toBe(true);
     });
 
+    test('fleets sharing drawn boats race apart, whatever sheet layout is asked for', async () => {
+      const { seriesId, competitorIds } = await seedSeries();
+      await putSplitFleetConfig(ctx, seriesId, { ...defaultSplitFleetConfig(3), boatAssignments: true });
+      const round = await commit(seriesId, competitorIds, [1], [], 'combined');
+      await addStageRaces(ctx, seriesId, round.id, { stageRaceNumbers: [2], finishSheets: 'combined' });
+      const races = await racesWithStarts(seriesId);
+      // Three fleets, two stage races: a race each.
+      expect(races).toHaveLength(6);
+      expect(races.every((r) => r.starts.length === 1)).toBe(true);
+    });
+
     test('a commit refuses one boat drawn twice within a fleet', async () => {
       const { seriesId, competitorIds } = await seedSeries();
       await expect(

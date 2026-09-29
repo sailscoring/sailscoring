@@ -189,6 +189,8 @@ describe('sentence ids', () => {
     ilca2026Config(3),
     openingSeriesMedalConfig(),
     melges15SprintConfig(),
+    // The Champions' Cups' supplied boats, drawn for each fleet.
+    { ...defaultSplitFleetConfig(2), boatAssignments: true },
   ];
 
   it('gives each sentence of a configuration its own id', () => {
@@ -207,5 +209,15 @@ describe('sentence ids', () => {
         expect(`${setting} → ${id}`).toBe(`${setting} → ${emitted.has(id) ? id : 'never written'}`);
       }
     }
+  });
+});
+
+describe('boats drawn per fleet', () => {
+  it('says the boats are supplied and drawn only where they are', () => {
+    const text = (c: SplitFleetConfig) => describeSplitFleetConfig(c).map((s) => s.text).join(' ');
+    expect(text({ ...defaultSplitFleetConfig(2), boatAssignments: true })).toMatch(
+      /Boats will be supplied by the organising authority and allocated by draw/,
+    );
+    expect(text(defaultSplitFleetConfig(2))).not.toMatch(/supplied/);
   });
 });

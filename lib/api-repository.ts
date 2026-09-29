@@ -1295,6 +1295,9 @@ export interface SplitRoundCommit {
   /** Non-round fleets the scorer agreed to remove with this ceremony
    *  (memberships stripped, rows deleted — see the commit handler). */
   deleteFleetIds?: string[];
+  /** Boats drawn with the assignment (`boatAssignments`): competitorId →
+   *  sail number, for the fleet she is assigned to. */
+  boats?: Record<string, string>;
 }
 
 export function commitSplitRound(
@@ -1347,6 +1350,20 @@ export function applySplitOverride(
 ): Promise<{ warning: string | null }> {
   return apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/overrides`, {
     method: 'POST',
+    body: payload,
+  });
+}
+
+/** Set, change or clear the boats drawn for one fleet of a round:
+ *  competitorId → sail number, or null to clear. Entries not named keep
+ *  theirs. */
+export async function setSplitFleetBoats(
+  seriesId: string,
+  roundId: string,
+  payload: { fleetId: string; boats: Record<string, string | null> },
+): Promise<void> {
+  await apiFetch(`/api/v1/series/${seriesId}/split-fleets/rounds/${roundId}/boats`, {
+    method: 'PUT',
     body: payload,
   });
 }

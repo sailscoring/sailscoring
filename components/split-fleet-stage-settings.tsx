@@ -498,6 +498,7 @@ export function OpeningSettings({
       summary={[
         divided ? null : `${config.qualifyingFleets.length} fleet${oneFleet ? '' : 's'}`,
         discardSummary(config),
+        config.boatAssignments ? 'boats drawn per fleet' : null,
       ]
         .filter(Boolean)
         .join(' · ')}
@@ -529,6 +530,23 @@ export function OpeningSettings({
               </p>
             </div>
           </div>
+          <Row settings={['boatAssignments']} label="Boats" htmlFor="sf-boats">
+            <select
+              id="sf-boats"
+              className={selectClass}
+              disabled={!canEdit}
+              value={config.boatAssignments ? 'drawn' : 'own'}
+              onChange={(e) => patch({ boatAssignments: e.target.value === 'drawn' })}
+            >
+              <option value="own">Each boat keeps its own sail number</option>
+              <option value="drawn">Boats are drawn for each fleet</option>
+            </select>
+            <p className={hint}>
+              {config.boatAssignments
+                ? 'Supplied boats: enter each boat as fleets are assigned, or later from the fleet on its round. An entry’s own number is her entry number.'
+                : 'Choose drawn boats where the organising authority supplies them and draws them again for each stage.'}
+            </p>
+          </Row>
           {!divided && (
             <Row settings={['fleetCount']} label="Fleets" htmlFor="sf-fleet-count">
               <FleetsControl
