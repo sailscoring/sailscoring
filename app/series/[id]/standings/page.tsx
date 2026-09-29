@@ -138,7 +138,10 @@ export default function StandingsPage({
         />
         {/* How the event is scored, under the standings it produced: the
             follow-up question, not the one the reader came with. */}
-        <SplitFleetFormat config={splitState.config} />
+        <SplitFleetFormat
+          config={splitState.config}
+          repechage={splitState.rounds.some((r) => r.stage === 'repechage')}
+        />
       </div>
     );
   }

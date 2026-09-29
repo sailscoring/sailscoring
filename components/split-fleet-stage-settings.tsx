@@ -117,7 +117,14 @@ export function SailingInstructionsToggle() {
  * right. Not modal: it is read beside the settings, and reaching a setting
  * marks the sentences it writes, so the cards stay usable while it is open.
  */
-export function SailingInstructionsDrawer({ config }: { config: SplitFleetConfig }) {
+export function SailingInstructionsDrawer({
+  config,
+  repechage = false,
+}: {
+  config: SplitFleetConfig;
+  /** The championship has a repêchage, whose rule is then stated. */
+  repechage?: boolean;
+}) {
   const { marked, siOpen, setSiOpen } = useContext(MarkContext);
   if (!siOpen) return null;
   return (
@@ -142,7 +149,7 @@ export function SailingInstructionsDrawer({ config }: { config: SplitFleetConfig
         </Button>
       </div>
       <div className="min-h-0 flex-1 px-4 py-3 text-sm">
-        <SiTranslation config={config} marked={marked} alwaysOpen fill />
+        <SiTranslation config={config} repechage={repechage} marked={marked} alwaysOpen fill />
       </div>
     </aside>
   );

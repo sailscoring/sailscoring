@@ -636,7 +636,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         onClose={() => setShowFinalise(false)}
       />
 
-      <SailingInstructionsDrawer config={sfState.config} />
+      <SailingInstructionsDrawer config={sfState.config} repechage={repechageRound(sfData) !== null} />
     </SplitFleetsFrame>
   );
 }

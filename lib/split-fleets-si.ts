@@ -92,7 +92,8 @@ export type SplitFleetSentenceId =
   | 'final-carry'
   | 'final-tie-break'
   | 'medal-carry'
-  | 'medal-tie-break';
+  | 'medal-tie-break'
+  | 'repechage';
 
 export type SplitFleetSentence = { id: SplitFleetSentenceId; text: string };
 
@@ -123,7 +124,15 @@ export const SENTENCES_BY_SETTING = {
  * reassignment, split, how the series totals, discards, non-finisher scores,
  * medal race.
  */
-export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSentence[] {
+export function describeSplitFleetConfig(
+  config: SplitFleetConfig,
+  opts?: {
+    /** The championship has a repêchage. It is sailed at the committee's
+     *  choice rather than configured, so its rule is written only once one
+     *  exists. */
+    repechage?: boolean;
+  },
+): SplitFleetSentence[] {
   const lines: SplitFleetSentence[] = [];
   const push = (id: SplitFleetSentenceId, text: string) => lines.push({ id, text });
   // The stages by the names the sailing instructions give them: an SI
@@ -290,6 +299,16 @@ export function describeSplitFleetConfig(config: SplitFleetConfig): SplitFleetSe
     'medal-ranking',
     `The boats qualified to compete in the ${m} will be ranked highest in the event.`,
   );
+  if (opts?.repechage) {
+    push(
+      'repechage',
+      `Boats that do not qualify for the ${m} directly may be chosen to sail a repêchage. It will be scored on its own races alone, with no score excluded, a boat that does not finish being scored the number of boats in her repêchage fleet plus one, and it will count in no boat’s series score. ${
+        medal.carry === 'nothing'
+          ? `A boat promoted from it will sail the ${m} as the other qualified boats do.`
+          : `A boat promoted from it will carry her own score into the ${m}, as the other qualified boats do.`
+      }`,
+    );
+  }
   const noMedalRace = `If no ${vocab.stages.medal.raceNoun} is completed, her ${vocab.seriesName} score will decide the championship`;
   if (medal.carry === 'halved') {
     push(

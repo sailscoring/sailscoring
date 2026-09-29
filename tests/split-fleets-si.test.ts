@@ -10,6 +10,7 @@ import { describeSplitFleetConfig, SENTENCES_BY_SETTING } from '@/lib/split-flee
 import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import { defaultSplitFleetConfig, type SplitFleetConfig } from '@/lib/split-fleets';
 import {
+  championsCupConfig,
   ilca2026Config,
   melges15SprintConfig,
   openingSeriesMedalConfig,
@@ -182,6 +183,29 @@ describe('describeSplitFleetConfig', () => {
  * one some configuration actually produces (or the setting marks nothing and
  * the scorer concludes it does nothing).
  */
+describe('the repêchage', () => {
+  const repechageText = (config: SplitFleetConfig, repechage: boolean) =>
+    describeSplitFleetConfig(config, { repechage })
+      .map((s) => s.text)
+      .join('\n');
+
+  it('says nothing about a repêchage until one exists', () => {
+    expect(repechageText(championsCupConfig(), false)).not.toMatch(/repêchage/);
+  });
+
+  it('states its rule once it does, and what a promoted boat takes in', () => {
+    const text = repechageText(championsCupConfig(), true);
+    expect(text).toContain(
+      'Boats that do not qualify for the Final series directly may be chosen to sail a repêchage. It will be scored on its own races alone',
+    );
+    expect(text).toContain('it will count in no boat’s series score');
+    expect(text).toContain('A boat promoted from it will sail the Final series as the other qualified boats do.');
+    expect(repechageText(ilca2026Config(2), true)).toContain(
+      'A boat promoted from it will carry her own score into the Final series, as the other qualified boats do.',
+    );
+  });
+});
+
 describe('sentence ids', () => {
   // Enough configurations between them to reach every branch of the prose.
   const configs: SplitFleetConfig[] = [
