@@ -161,6 +161,18 @@ describe('buildSailwaveBlw', () => {
     const { warnings } = buildSailwaveBlw(modified);
     expect(warnings.map((w) => w.code).sort()).toEqual(['discard-policy', 'points-multiplier', 'sub-series']);
   });
+
+  it('warns that boats drawn per fleet stay behind, exporting her own number', () => {
+    const original = importFixture(`${HYC}/2026 Sat Cruisers Series 1.blw`);
+    const [first, ...rest] = original.competitors;
+    const modified: SeriesFile = {
+      ...original,
+      competitors: [{ ...first, fleetSailNumbers: { [first.fleetIds[0]]: '401' } }, ...rest],
+    };
+    const { blw, warnings } = buildSailwaveBlw(modified);
+    expect(warnings.map((w) => w.code)).toContain('fleet-sail-numbers');
+    expect(blw).toContain(`"compsailno","${first.sailNumber}"`);
+  });
 });
 
 describe('buildSailwaveBlw unrated boats', () => {

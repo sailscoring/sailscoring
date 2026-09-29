@@ -274,6 +274,14 @@ export function buildSailwaveBlw(file: SeriesFile): SailwaveExportResult {
     }
   }
   const races = [...file.races].sort((a, b) => a.raceNumber - b.raceNumber);
+  // Sailwave holds one sail number per competitor, with nothing to say a
+  // boat changes from fleet to fleet.
+  if (file.competitors.some((c) => c.fleetSailNumbers && Object.keys(c.fleetSailNumbers).length > 0)) {
+    warn(
+      'fleet-sail-numbers',
+      'Boats drawn for each fleet are left out: Sailwave keeps one sail number per competitor, so each is exported under her own number.',
+    );
+  }
 
   // -- Series globals --
   for (const [k, v] of SAILWAVE_GLOBAL_DEFAULTS) w.row(k, v);
