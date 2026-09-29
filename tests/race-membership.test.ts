@@ -6,6 +6,7 @@ import {
   sailNumberInRace,
   withRaceSailNumbers,
 } from '@/lib/race-membership';
+import { resolveSailEntry } from '@/lib/finish-entry';
 import type { Competitor, RaceStart } from '@/lib/types';
 
 const competitor = (id: string, fleetIds: string[]): Competitor =>
@@ -98,5 +99,24 @@ describe('boats drawn per fleet', () => {
 
   it('returns an unchanged competitor as the same object', () => {
     expect(withRaceSailNumbers([late], [start(['q2'])])[0]).toBe(late);
+  });
+});
+
+describe('finish entry against a race with drawn boats', () => {
+  const helm = (id: string, entry: string, fleetIds: string[], boats: Record<string, string>) =>
+    ({ id, sailNumber: entry, fleetIds, fleetSailNumbers: boats, names: [id] } as unknown as Competitor);
+  // Both qualifying fleets sail boat 401; the final redraws it.
+  const all = [
+    helm('owens', '1', ['q1', 'final'], { q1: '401', final: '402' }),
+    helm('barry', '2', ['q2', 'final'], { q2: '401', final: '401' }),
+  ];
+
+  it('finds the helm the boat carries in this race, not the one in the other fleet', () => {
+    const q2 = withRaceSailNumbers(all, [start(['q2'])]);
+    const hit = resolveSailEntry('401', q2, new Set());
+    expect(hit.kind === 'commit' && hit.competitor.id).toBe('barry');
+    const final = withRaceSailNumbers(all, [start(['final'])]);
+    const f = resolveSailEntry('402', final, new Set());
+    expect(f.kind === 'commit' && f.competitor.id).toBe('owens');
   });
 });

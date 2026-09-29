@@ -21,6 +21,8 @@ export interface ResolveUnknownHandle {
  */
 export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
   seriesId: string;
+  /** The series' competitors as stored — what a save starts from. */
+  storedCompetitors: Competitor[];
   finishByEntryKey: Map<string, Finish>;
   nonFinishers: NonFinisherView[];
   fleets: Fleet[];
@@ -36,7 +38,7 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
   onClosed: () => void;
 }>(function ResolveUnknownController(
   {
-    seriesId, finishByEntryKey, nonFinishers, fleets,
+    seriesId, storedCompetitors, finishByEntryKey, nonFinishers, fleets,
     primaryFieldLabel, showCrew, enabledCompetitorFields,
     patchCache, saveFinish, onClosed,
   },
@@ -89,7 +91,9 @@ export const ResolveUnknownController = forwardRef<ResolveUnknownHandle, {
    *  switched on for the series when it isn't already — a stored number the
    *  scorer can neither see nor remove would be worse than not storing it. */
   async function recordAsAlternative(competitorId: string, entered: string) {
-    const competitor = nonFinishers.find((v) => v.competitor.id === competitorId)?.competitor;
+    // The stored competitor, not the race's view of her: that carries the boat
+    // drawn for this race's fleet in place of her own number.
+    const competitor = storedCompetitors.find((c) => c.id === competitorId);
     if (!competitor) return;
     const alternativeSailNumbers = addAlternativeSailNumber(competitor, entered);
     if (!alternativeSailNumbers) return;

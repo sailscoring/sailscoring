@@ -24,7 +24,7 @@ import {
 import { useRaceStartsByRace, useRaceStartsBySeries } from '@/hooks/use-race-starts';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
 import { boatsOutsideCompanionRace, resolveVocabulary, stageRaceLabel } from '@/lib/split-fleets';
-import { competitorsInRace, raceFleetIds } from '@/lib/race-membership';
+import { competitorsInRace, raceFleetIds, withRaceSailNumbers } from '@/lib/race-membership';
 import type { Competitor, RaceStart } from '@/lib/types';
 import {
   defaultEnabledCompetitorFields,
@@ -78,7 +78,7 @@ export default function ResultEntryPage({
   const { id: seriesId, raceId } = use(params);
   const router = useRouter();
 
-  const { data: competitors } = useCompetitorsBySeries(seriesId);
+  const { data: storedCompetitors } = useCompetitorsBySeries(seriesId);
   const { data: series } = useSeries(seriesId);
   const enabledCompetitorFields =
     series?.enabledCompetitorFields ?? defaultEnabledCompetitorFields();
@@ -91,6 +91,15 @@ export default function ResultEntryPage({
   const { data: allSeriesRaces } = useRacesBySeries(seriesId);
   const { data: raceStartsData } = useRaceStartsByRace(raceId);
   const raceStarts = useMemo(() => raceStartsData ?? [], [raceStartsData]);
+  // The competitors as this race sees them: at a championship that draws
+  // boats for each fleet, each carries the sail number of the boat she sails
+  // here, which is the number the race committee hails and the one every
+  // matcher below looks for. Only for matching and display: a competitor is
+  // saved from `storedCompetitors`, never from this list.
+  const competitors = useMemo(
+    () => storedCompetitors && withRaceSailNumbers(storedCompetitors, raceStarts),
+    [storedCompetitors, raceStarts],
+  );
   const { has } = useFeatures();
   const { data: sfState } = useSplitFleetState(seriesId, { enabled: has('split-fleets') });
   // A split-fleet companion race is not for the medal boats: they are still
@@ -553,6 +562,7 @@ export default function ResultEntryPage({
       <ResolveUnknownController
         ref={resolveRef}
         seriesId={seriesId}
+        storedCompetitors={storedCompetitors ?? []}
         finishByEntryKey={derived.finishByEntryKey}
         nonFinishers={nonFinishers}
         fleets={fleets ?? []}
