@@ -997,6 +997,11 @@ describe('stageRaceLabel', () => {
     expect(stageRaceLabel(config, 'medal', 1)).toBe('M1');
   });
 
+  it('labels repêchage races R under either wording', () => {
+    expect(stageRaceLabel(defaultSplitFleetConfig(2), 'repechage', 2)).toBe('R2');
+    expect(stageRaceLabel(ilca2026Config(2), 'repechage', 1)).toBe('R1');
+  });
+
   it('labels the 2026 ILCA stages QP, QE and F, as their notice boards did', () => {
     const config = ilca2026Config(3);
     expect(stageRaceLabel(config, 'qualifying', 5)).toBe('QP5');

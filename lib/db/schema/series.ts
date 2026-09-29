@@ -926,7 +926,7 @@ export const splitRounds = pgTable(
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => organization.id, { onDelete: 'cascade' }),
-    stage: text('stage').$type<'qualifying' | 'final' | 'medal'>().notNull(),
+    stage: text('stage').$type<'qualifying' | 'final' | 'medal' | 'repechage'>().notNull(),
     fromStageRace: integer('from_stage_race').notNull(),
     // The round's fleets in SI order (qualifying) / tier order (final).
     // Small ordered list, never queried by content.
@@ -994,7 +994,7 @@ export const raceStarts = pgTable(
     // Split-fleet series: the stage race this start's fleets are sailing and
     // the companion-race offset (see RaceStart in lib/types.ts). All null on
     // standard series.
-    stage: text('stage').$type<'qualifying' | 'final' | 'medal'>(),
+    stage: text('stage').$type<'qualifying' | 'final' | 'medal' | 'repechage'>(),
     stageRaceNumber: integer('stage_race_number'),
     firstPlaceOffset: integer('first_place_offset'),
     distanceNm: real('distance_nm'),

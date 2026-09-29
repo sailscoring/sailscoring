@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { STORED_STAGES, type StoredStage } from '@/lib/split-fleets';
 import type { RaceStart } from '@/lib/types';
 
 import { uuidSchema, versionSchema, wallClockSchema } from './common';
@@ -13,7 +14,7 @@ export const raceStartSchema = z.object({
   startTime: wallClockSchema.optional(),
   // Split-fleet series: the stage race this start's fleets are sailing, and
   // the companion-race offset (see RaceStart in lib/types.ts).
-  stage: z.enum(['qualifying', 'final', 'medal']).optional(),
+  stage: z.enum(STORED_STAGES as [StoredStage, ...StoredStage[]]).optional(),
   stageRaceNumber: z.number().int().positive().optional(),
   firstPlaceOffset: z.number().int().min(0).optional(),
   // Course length in NM — a time-on-distance scoring input, recorded to

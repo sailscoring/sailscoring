@@ -1280,7 +1280,7 @@ export function deleteSplitFleetConfig(seriesId: string): Promise<SplitFleetStat
 }
 
 export interface SplitRoundCommit {
-  stage: 'qualifying' | 'final' | 'medal';
+  stage: 'qualifying' | 'final' | 'medal' | 'repechage';
   fromStageRace: number;
   method: 'seeded' | 'rank-pattern' | 'split' | 'medal-select' | 'manual';
   basis: { throughStageRace: number; capturedAt: number } | null;

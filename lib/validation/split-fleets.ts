@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
-import { CARRY_IN_VALUES, DEFAULT_VOCABULARY } from '@/lib/split-fleets';
-import type { CarryIn, SplitFleetConfig } from '@/lib/split-fleets';
+import { CARRY_IN_VALUES, DEFAULT_VOCABULARY, OVERRIDE_REASONS, STORED_STAGES } from '@/lib/split-fleets';
+import type { CarryIn, OverrideReason, SplitFleetConfig, StoredStage } from '@/lib/split-fleets';
+
+const storedStageSchema = z.enum(STORED_STAGES as [StoredStage, ...StoredStage[]]);
+const overrideReasonSchema = z.enum(OVERRIDE_REASONS as [OverrideReason, ...OverrideReason[]]);
 
 import { uuidSchema } from './common';
 
@@ -77,7 +80,7 @@ export const splitFleetStateSchema = z.object({
   rounds: z.array(
     z.object({
       id: uuidSchema,
-      stage: z.enum(['qualifying', 'final', 'medal']),
+      stage: storedStageSchema,
       fromStageRace: z.number().int().min(0),
       fleetIds: z.array(uuidSchema),
       method: z.string().min(1),
@@ -86,6 +89,7 @@ export const splitFleetStateSchema = z.object({
         .nullish()
         .transform((v) => v ?? null),
       overrides: z.record(uuidSchema, uuidSchema).optional(),
+      overrideReasons: z.record(uuidSchema, overrideReasonSchema).optional(),
       createdAt: z.number().int(),
     }),
   ),
@@ -95,7 +99,7 @@ export const splitFleetStateSchema = z.object({
  *  ceremony commit. The server creates the fleets, memberships, and the
  *  physical races for `stageRaceNumbers`, and stores the round. */
 export const splitRoundCommitSchema = z.object({
-  stage: z.enum(['qualifying', 'final', 'medal']),
+  stage: storedStageSchema,
   fromStageRace: z.number().int().positive(),
   method: z.enum(['seeded', 'rank-pattern', 'split', 'medal-select', 'manual']),
   basis: z

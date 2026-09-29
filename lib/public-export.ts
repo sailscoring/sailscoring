@@ -408,7 +408,7 @@ export interface PublicSeriesExport {
     /** @deprecated split-fleet stage identity on the race (older exports).
      *  Read for back-compat (copied onto the starts), not written; the
      *  per-start fields below are authoritative. */
-    stage?: 'qualifying' | 'final' | 'medal';
+    stage?: 'qualifying' | 'final' | 'medal' | 'repechage';
     stageRaceNumber?: number;
     firstPlaceOffset?: number;
     starts: {
@@ -417,7 +417,7 @@ export interface PublicSeriesExport {
       /** Split-fleet series: the stage race these fleets sail in this
        *  sequence, and the companion-race offset. Per start — a sequence may
        *  span stage race numbers. */
-      stage?: 'qualifying' | 'final' | 'medal';
+      stage?: 'qualifying' | 'final' | 'medal' | 'repechage';
       stageRaceNumber?: number;
       firstPlaceOffset?: number;
       /** Course length in NM — carried because it is a scoring input for
@@ -634,7 +634,7 @@ export interface ExportSplitFleets {
  *  so it travels; `publishedAt` does not — it is workspace-local publishing
  *  state, on the same grounds the series file omits it. */
 export interface ExportSplitRound {
-  stage: 'qualifying' | 'final' | 'medal';
+  stage: 'qualifying' | 'final' | 'medal' | 'repechage';
   fromStageRace: number;
   /** The round's fleets in SI/tier order, by name. */
   fleetNames: string[];

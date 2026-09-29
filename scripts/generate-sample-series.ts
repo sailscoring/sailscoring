@@ -126,7 +126,7 @@ interface FileRaceStart {
   /** Absent for a membership-only start (scopes the fleet, no gun time). */
   startTime?: string;
   /** Split-fleet series (v24+): stage identity per start. */
-  stage?: 'qualifying' | 'final' | 'medal';
+  stage?: 'qualifying' | 'final' | 'medal' | 'repechage';
   stageRaceNumber?: number;
   firstPlaceOffset?: number;
   /** v39+ ORC race facts (the ORC sample): course length, constructed-course
@@ -186,7 +186,7 @@ interface FileSubSeries {
 }
 interface FileSplitRound {
   id: string;
-  stage: 'qualifying' | 'final' | 'medal';
+  stage: 'qualifying' | 'final' | 'medal' | 'repechage';
   fromStageRace: number;
   fleetIds: string[];
   method: string;

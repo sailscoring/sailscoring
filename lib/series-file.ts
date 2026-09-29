@@ -542,7 +542,7 @@ export const FILE_EXTENSION = '.sailscoring';
 // workspace-local publishing state and is not carried.
 export interface SeriesFileSplitRound {
   id: string;
-  stage: 'qualifying' | 'final' | 'medal';
+  stage: 'qualifying' | 'final' | 'medal' | 'repechage';
   fromStageRace: number;
   fleetIds: string[];
   method: string;
@@ -734,7 +734,7 @@ interface SeriesFileRaceStart {
   id: string;
   fleetIds: string[];
   startTime?: string;  // absent for a membership-only start (fleets, no gun time)
-  stage?: 'qualifying' | 'final' | 'medal';  // v24+; split-fleet stage, per start
+  stage?: 'qualifying' | 'final' | 'medal' | 'repechage';  // v24+; split-fleet stage, per start (repechage v61+)
   stageRaceNumber?: number;  // v24+; logical race number this start's fleets sail
   firstPlaceOffset?: number;  // v24+; companion race: first finisher scores offset + 1
   distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)

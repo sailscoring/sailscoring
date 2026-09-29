@@ -91,6 +91,7 @@ import {
   unequalQualifyingScores,
   stageRaceLabel,
   stageRaceRefs,
+  STORED_STAGES,
   type FinishSheets,
   type SeedOrder,
   type SeedTailOrder,
@@ -124,7 +125,7 @@ function computeNextAction(
       ? { label: `add ${raceLabel(data, 'qualifying', 1)}` }
       : { label: `seed Round 1 (create the ${w.qualifying.fleetNoun}s)` };
   }
-  const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
+  const stageOrder = STORED_STAGES;
   const pending = stageRaceRefs(data)
     .sort(
       (a, b) =>
@@ -150,7 +151,7 @@ function computeNextAction(
 
 function DayStrip({ data }: { data: SplitFleetData }) {
   // The races that exist, in event order; completed ones tick.
-  const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
+  const stageOrder = STORED_STAGES;
   const sorted = stageRaceRefs(data).sort(
     (a, b) =>
       stageOrder.indexOf(a.start.stage!) - stageOrder.indexOf(b.start.stage!) ||

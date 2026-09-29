@@ -795,8 +795,9 @@ export interface RaceStart {
   // Split-fleet series: which stage race this start's fleets are sailing.
   // Per start, not per race — a race is one start sequence, and the fleets in
   // a sequence may be a race out of step (Gold F2 + Silver F2 + Bronze F1).
-  // Absent on standard series.
-  stage?: 'qualifying' | 'final' | 'medal';
+  // Absent on standard series. `repechage` marks a race of the repêchage,
+  // which hangs off the medal cut and scores nothing in the championship.
+  stage?: 'qualifying' | 'final' | 'medal' | 'repechage';
   stageRaceNumber?: number;
   // Companion "last race": this start's first finisher scores offset + 1
   // (e.g. the non-medal race scored from 11 when the medal fleet is 10).

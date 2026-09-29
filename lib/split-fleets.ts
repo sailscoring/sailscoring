@@ -37,6 +37,42 @@ export type SeriesStage = 'qualifying' | 'final' | 'medal';
 /** The three stages in event order. */
 export const STAGES: readonly SeriesStage[] = ['qualifying', 'final', 'medal'];
 
+/**
+ * What a round or a start can be stored as: one of the three stages, or the
+ * repêchage.
+ *
+ * The repêchage is not a stage. It hangs off the cut into the medal stage — a
+ * short series for boats who missed that cut, ranked on its own races alone,
+ * whose only output is the boats the scorer promotes into the medal fleet. It
+ * is stored beside the stages because it is built from the same pieces (a
+ * round of fleets, starts carrying a race number), but nothing it scores
+ * reaches the championship: every championship pass iterates `STAGES`, which
+ * does not hold it.
+ */
+export type StoredStage = SeriesStage | 'repechage';
+
+/** Every stored stage, in the order an event sails them: the repêchage sits
+ *  between the stage the medal fleet is cut from and the medal races. */
+export const STORED_STAGES: readonly StoredStage[] = ['qualifying', 'final', 'repechage', 'medal'];
+
+/** Whether a stored stage is one of the championship's three. */
+export function isChampionshipStage(stage: StoredStage | null | undefined): stage is SeriesStage {
+  return stage === 'qualifying' || stage === 'final' || stage === 'medal';
+}
+
+/** The repêchage's words and race prefix, the same under either vocabulary:
+ *  the sailing instructions that sail one call it the repêchage whatever they
+ *  call their stages. */
+export const REPECHAGE_WORDS: StageWords = {
+  name: 'repêchage',
+  raceNoun: 'repêchage race',
+  fleetNoun: 'repêchage fleet',
+};
+export const REPECHAGE_PREFIX = 'R';
+
+/** The repêchage's fleet colours, by position in its round. */
+export const REPECHAGE_FLEET_COLORS: string[] = ['#7c3aed', '#0d9488', '#db2777', '#0284c7'];
+
 /** Stored on series.qf_config — the split-fleet series' full scoring
  *  configuration (docs/design/split-fleets.md). */
 export interface SplitFleetConfig {
@@ -139,9 +175,9 @@ export type FinishSheets = 'combined' | 'per-fleet';
  * one fleet, read off its starts. `combined` before there is any such race.
  */
 export function finishSheetsInUse(input: {
-  rounds: readonly { stage: SeriesStage; fleetIds: readonly string[] }[];
+  rounds: readonly { stage: StoredStage; fleetIds: readonly string[] }[];
   races: readonly { id: string; raceNumber: number }[];
-  raceStarts: readonly { raceId: string; fleetIds: readonly string[]; stage?: SeriesStage | null }[];
+  raceStarts: readonly { raceId: string; fleetIds: readonly string[]; stage?: StoredStage | null }[];
 }): FinishSheets {
   const roundSize = new Map<string, number>();
   for (const round of input.rounds) {
@@ -341,8 +377,9 @@ export function stageAdjective(name: string): string {
 
 /** A race's label as the notice board writes it ("Q3", "F1"). Stage race 0 is
  *  not a race but the carried score a halved carry mints. */
-export function stageRaceLabel(config: SplitFleetConfig, stage: SeriesStage, n: number): string {
+export function stageRaceLabel(config: SplitFleetConfig, stage: StoredStage, n: number): string {
   if (n === 0) return 'Carried';
+  if (stage === 'repechage') return `${REPECHAGE_PREFIX}${n}`;
   return `${resolveVocabulary(config).prefixes[stage]}${n}`;
 }
 
@@ -405,10 +442,21 @@ export function applyCarryTransform(points: number, transform: CarryTransform): 
   return Math.floor(points / transform.by + 0.5 + 1e-9);
 }
 
+/** Why a boat was placed by hand in a round she was not dealt into.
+ *  - `redress`: a protest committee's direction (the default: a placement
+ *    recorded before reasons were, or with none given).
+ *  - `repechage`: promoted into the medal fleet from the repêchage ranking.
+ *  - `cut-ranking`: promoted into the medal fleet from the ranking she was
+ *    cut from — the sailing instructions' fallback where the repêchage is not
+ *    sailed ("the 3rd placed sailors from each of the qualifying flights"). */
+export type OverrideReason = 'redress' | 'repechage' | 'cut-ranking';
+
+export const OVERRIDE_REASONS: readonly OverrideReason[] = ['redress', 'repechage', 'cut-ranking'];
+
 export interface SplitRound {
   id: string;
   seriesId: string;
-  stage: SeriesStage;
+  stage: StoredStage;
   fromStageRace: number;
   /** The round's fleets in SI/tier order. */
   fleetIds: string[];
@@ -419,6 +467,9 @@ export interface SplitRound {
    *  fleet memberships already reflect these; the map records which boats
    *  were hand-placed so the round card can show computed-vs-override. */
   overrides?: Record<string, string>;
+  /** Why a hand-placed boat was placed (see `OverrideReason`): competitorId →
+   *  reason, for the overrides that are not plain redress. Sparse. */
+  overrideReasons?: Record<string, OverrideReason>;
   /** When the round's assignment lists were published (rolling page). */
   publishedAt?: number;
   createdAt: number;
@@ -472,7 +523,9 @@ export function fleetColorById(data: SplitFleetData): Map<string, string> {
         ? data.config.qualifyingFleets.map((f) => f.color)
         : round.stage === 'final'
           ? data.config.finalFleets.map((f) => f.color)
-          : MEDAL_FLEET_COLORS;
+          : round.stage === 'repechage'
+            ? REPECHAGE_FLEET_COLORS
+            : MEDAL_FLEET_COLORS;
     round.fleetIds.forEach((fleetId, i) => {
       const color = palette[Math.min(i, palette.length - 1)];
       if (color && !colors.has(fleetId)) colors.set(fleetId, color);
@@ -797,7 +850,7 @@ export interface SplitFleetData {
 
 /** Enumerate the physical races — one ref per (race, start, fleet) for every
  *  start carrying a stage identity, optionally restricted to one stage. */
-export function stageRaceRefs(data: SplitFleetData, stage?: SeriesStage): StageRaceRef[] {
+export function stageRaceRefs(data: SplitFleetData, stage?: StoredStage): StageRaceRef[] {
   const raceById = new Map(data.races.map((r) => [r.id, r]));
   const refs: StageRaceRef[] = [];
   for (const start of data.raceStarts) {
@@ -810,7 +863,7 @@ export function stageRaceRefs(data: SplitFleetData, stage?: SeriesStage): StageR
   return refs;
 }
 
-export function roundsForStage(rounds: SplitRound[], stage: SeriesStage): SplitRound[] {
+export function roundsForStage(rounds: SplitRound[], stage: StoredStage): SplitRound[] {
   return rounds
     .filter((r) => r.stage === stage)
     .sort((a, b) => a.fromStageRace - b.fromStageRace || a.createdAt - b.createdAt);
@@ -818,7 +871,7 @@ export function roundsForStage(rounds: SplitRound[], stage: SeriesStage): SplitR
 
 export function coveringRound(
   rounds: SplitRound[],
-  stage: SeriesStage,
+  stage: StoredStage,
   stageRaceNumber: number,
 ): SplitRound | null {
   const eligible = roundsForStage(rounds, stage).filter(
@@ -852,7 +905,7 @@ export function physicalRaceCompleted(
  *  attempt lingering beside its resail — so the grouping prefers a complete
  *  physical race over an incomplete one, and the later-created race (the
  *  resail) among equals, rather than depending on start order. */
-export function logicalRaces(data: SplitFleetData, stage: SeriesStage): LogicalRace[] {
+export function logicalRaces(data: SplitFleetData, stage: StoredStage): LogicalRace[] {
   const prefer = (a: StageRaceRef | undefined, b: StageRaceRef): StageRaceRef => {
     if (!a) return b;
     const aDone = physicalRaceCompleted(a, data.competitors, data.finishes);
@@ -1360,8 +1413,10 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
   // into. The medal fleet is cut before the companion race is sailed, so
   // that race is left out of its ranking as well.
   const rankAtCut = (into: SeriesStage): Map<string, number> => {
-    const later = (stage: SeriesStage | undefined) =>
-      !!stage && STAGES.indexOf(stage) >= STAGES.indexOf(into);
+    // The repêchage goes too: it is sailed after the cut, and scores nothing
+    // the championship ranks on.
+    const later = (stage: StoredStage | undefined) =>
+      !!stage && (!isChampionshipStage(stage) || STAGES.indexOf(stage) >= STAGES.indexOf(into));
     const cut = splitFleetStandings({
       ...data,
       rounds: rounds.filter((r) => !later(r.stage)),

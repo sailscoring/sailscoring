@@ -49,7 +49,7 @@ import {
   type RaceSenseWorkbook,
   type StartLineCounts,
 } from './racesense-workbook';
-import type { SeriesStage } from './split-fleets';
+import type { StoredStage } from './split-fleets';
 import { hasTrackData } from './track-data';
 import type { Finish, FinishTrackData } from './types';
 
@@ -97,7 +97,7 @@ export interface SeriesRace {
   raceNumber: number;
   starts: {
     fleetIds: string[];
-    stage?: SeriesStage | null;
+    stage?: StoredStage | null;
     stageRaceNumber?: number | null;
   }[];
 }

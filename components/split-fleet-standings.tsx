@@ -24,12 +24,14 @@ import {
   capitaliseStage,
   fleetColorById,
   provisionalCutIndexes,
+  REPECHAGE_WORDS,
   roundsForStage,
   resolveVocabulary,
   stageRaceLabel,
   type CellScore,
   type SeriesStage,
   type SplitFleetConfig,
+  type StoredStage,
   type SplitFleetData,
   type SplitRound,
   type SplitStandingRow,
@@ -47,14 +49,16 @@ export function splitFleetWords(config: SplitFleetConfig) {
     qualifying: vocab.stages.qualifying,
     final: vocab.stages.final,
     medal: vocab.stages.medal,
-    title: (stage: SeriesStage) => capitaliseStage(vocab.stages[stage].name),
+    repechage: REPECHAGE_WORDS,
+    title: (stage: StoredStage) =>
+      capitaliseStage(stage === 'repechage' ? REPECHAGE_WORDS.name : vocab.stages[stage].name),
   };
 }
 
 /** A race's label as the notice board writes it, per the series' numbering. */
 export function splitFleetRaceLabel(
   data: SplitFleetData,
-  stage: SeriesStage,
+  stage: StoredStage,
   n: number,
 ): string {
   return stageRaceLabel(data.config, stage, n);
