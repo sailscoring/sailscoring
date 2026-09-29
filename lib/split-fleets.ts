@@ -64,6 +64,12 @@ export interface SplitFleetConfig {
   /** Which set of words this championship's sailing instructions use for its
    *  stages and races (see `Vocabulary`). */
   vocabulary: VocabularyKey;
+  /** Whether boats are drawn for each fleet — supplied boats, redrawn at every
+   *  stage and shared between the fleets of a round (the Irish Sailing
+   *  Champions' Cups). The boats themselves are `Competitor.fleetSailNumbers`;
+   *  this only decides whether the assignment and fleet lists offer them.
+   *  Turning it off keeps what was entered. Absent is off. */
+  boatAssignments?: boolean;
   /** The second stage, where the opening series is divided (ignored where it
    *  is not). `carry` is the score each boat takes into it (see `CarryIn`);
    *  `tieBreak` settles a tie between two boats of one final fleet. */

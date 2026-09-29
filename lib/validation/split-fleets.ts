@@ -25,6 +25,7 @@ export const splitFleetConfigSchema = z.object({
   vocabulary: z
     .enum(['opening-medal', 'qualification-final'])
     .default(DEFAULT_VOCABULARY),
+  boatAssignments: z.boolean().optional(),
   final: z
     .object({
       carry: z.enum(CARRY_IN_VALUES as [CarryIn, ...CarryIn[]]),

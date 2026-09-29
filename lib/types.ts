@@ -858,6 +858,7 @@ export interface Competitor {
   sailNumber: string;
   bowNumber?: string; // bow number, when it differs from the registered sail number (e.g. a borrowed hull); optional, used for finish-entry matching
   alternativeSailNumbers?: string[]; // other sail numbers this boat may show — a replacement or borrowed sail mid-event. Lookup keys for finish entry only: the boat is still identified, displayed, and published under `sailNumber`. Sparse.
+  fleetSailNumbers?: Record<string, string>; // split-fleet boat assignments at supplied-boat events: fleetId → the boat this entry sails in that fleet (drawn per stage, so it changes as the entry moves fleet, and two fleets may share a boat). Wins over `sailNumber` in any race that fleet sails; `sailNumber` is then the entry's own number (an entry or bib number). Sparse
   entryNumber?: string; // the OA's registration/admin number on the entry list (split-fleet championships); distinct from bowNumber, often coincident — leave unset when they match
   tallyNumber?: string; // the safety tally token issued at registration and handed over when launching (e.g. "T0001", or a bare "17"); free text, stored verbatim
   seed?: number;      // OA seeding rank for split-fleet initial assignment (Sailwave's "Seeding" column); not derivable from entry order/sail/nationality
