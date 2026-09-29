@@ -100,8 +100,9 @@ export default function RunningASeries() {
         <p>
           Each competitor requires a <strong className="text-foreground">sail number</strong> and a
           primary <strong className="text-foreground">name</strong> (labelled Helm, Owner,
-          Competitor, or Entrant per the series’ primary-identifier setting). Sail numbers
-          must be unique within the series. Other fields — boat name, class, owner, helm, crew,
+          Competitor, or Entrant per the series’ primary-identifier setting). A sail number
+          must be unique within each fleet it is entered in; boats in different fleets may
+          share one. Other fields — boat name, class, owner, helm, crew,
           club, gender, age — are optional, and which of them appear in the form and tables is
           controlled by the <strong className="text-foreground">Competitor fields</strong> card on
           the <strong className="text-foreground">Settings</strong> tab. Enable{' '}
