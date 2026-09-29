@@ -1082,9 +1082,14 @@ describe('the repêchage on the published pages', () => {
     expect(html).toContain('counts for nothing in the championship');
   });
 
-  it('heads the repêchage round on the assignments page', () => {
+  it('heads the repêchage round on the assignments page, between the medal fleet and qualifying', () => {
     const html = renderSplitFleetAssignmentsPage(renderInputFor('32-repechage-in-two-fleets.yaml'));
-    expect(html).toContain('<h2>Repêchage</h2>');
+    const medal = html.indexOf('<h2>Final series fleet</h2>');
+    const rep = html.indexOf('<h2>Repêchage</h2>');
+    const qualifying = html.indexOf('<h2>Qualification series round 1');
+    expect(medal).toBeGreaterThanOrEqual(0);
+    expect(rep).toBeGreaterThan(medal);
+    expect(qualifying).toBeGreaterThan(rep);
   });
 });
 

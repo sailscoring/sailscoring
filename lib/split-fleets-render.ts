@@ -939,8 +939,13 @@ export function renderSplitFleetAssignmentsPage(
     return `${capitaliseStage(vocab.stages.qualifying.name)} round ${idx} (${stageRaceLabel(data.config, 'qualifying', r.fromStageRace)} onward)`;
   };
 
+  // The latest stage first — the medal fleet, then the repêchage its last
+  // seats came from, then the stages before — and within a stage the newest
+  // round first. By stage rather than by when a round was committed: the
+  // repêchage is committed after the medal fleet it feeds, but reads below it.
+  const stageRank = (r: SplitRound) => STORED_STAGES.indexOf(r.stage);
   const sections = [...data.rounds]
-    .sort((a, b) => b.createdAt - a.createdAt)
+    .sort((a, b) => stageRank(b) - stageRank(a) || b.createdAt - a.createdAt)
     .map((round) => {
       // The hand-placement footnote only earns its place when the committee
       // actually moved someone; each moved boat carries the marker on her row.
