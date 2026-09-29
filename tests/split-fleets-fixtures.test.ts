@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 
-import { splitFleetStandings } from '@/lib/split-fleets';
+import { repechageStandings, splitFleetStandings } from '@/lib/split-fleets';
 import {
   buildSplitFleet,
   loadSplitFleetFixtures,
@@ -58,6 +58,30 @@ function assertStandings(fx: SplitFleetFixture, file: string) {
     if (exp.medal !== undefined) {
       expect(row.medal, `${file}: ${exp.sail} medal flag`).toBe(exp.medal);
     }
+    expect(row.promotedVia, `${file}: ${exp.sail} promoted via`).toBe(exp.via);
+  }
+
+  // The repêchage: each fleet's ranking, in order, over its own races.
+  if (fx.expected.repechage) {
+    const tables = repechageStandings(data);
+    const actual = Object.fromEntries(
+      tables.map((t) => [
+        fleetName.get(t.fleetId),
+        t.rows.map((r) => ({
+          rank: r.rank,
+          sail: r.competitor.sailNumber,
+          net: r.net,
+          ...(r.promoted ? { promoted: true } : {}),
+        })),
+      ]),
+    );
+    const expected = Object.fromEntries(
+      Object.entries(fx.expected.repechage).map(([fleet, rows]) => [
+        fleet,
+        rows.map((r) => ({ ...r, sail: String(r.sail) })),
+      ]),
+    );
+    expect(actual, `${file}: repêchage rankings`).toEqual(expected);
   }
 
   // Expected order is the actual order (over the covered sailors).

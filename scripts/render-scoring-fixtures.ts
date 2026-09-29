@@ -32,7 +32,7 @@ import { orcProfileRating, orcRaceProfile } from '../lib/orc-certificate';
 import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/competitor-fields';
 import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
-import { splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
+import { repechageStandings, splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
 import type { StoredStage } from '../lib/split-fleets';
 import {
   buildSplitFleet,
@@ -800,7 +800,14 @@ function generateSplitFleetFixtureHtml(fixture: SplitFleetFixture, yamlSource: s
 <thead><tr><th>Round</th><th>How assigned</th><th>Fleets</th></tr></thead>
 <tbody>
 ${resolvedRounds.map((r) => {
-      const stageLabel = r.stage === 'qualifying' ? `Qualifying (from ${STAGE_PREFIX.qualifying}${r.from})` : r.stage === 'final' ? 'Final split' : 'Medal';
+      const stageLabel =
+        r.stage === 'qualifying'
+          ? `Qualifying (from ${STAGE_PREFIX.qualifying}${r.from})`
+          : r.stage === 'final'
+            ? 'Final split'
+            : r.stage === 'repechage'
+              ? 'Repêchage'
+              : 'Medal';
       const fleetsCell = Object.entries(r.computed)
         .map(([name, sails]) => {
           const tint = FLEET_TINT[name] ?? '#fff';
@@ -848,7 +855,11 @@ ${resolvedRounds.map((r) => {
     const head = columns.map((c) => `<th>${esc(stageRaceLabel(data.config, c.stage, c.n))}</th>`).join('');
     const body = tableRows.map((row) => {
       const name = row.competitor.names.join(' & ');
-      const medalBadge = row.medal ? ' <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal</span>' : '';
+      const medalBadge = row.medal
+        ? ` <span style="font-size:0.8em;color:#b8860b;border:1px solid #b8860b;border-radius:3px;padding:0 3px;">medal${
+            row.promotedVia === 'repechage' ? ' · via repêchage' : row.promotedVia === 'cut-ranking' ? ' · promoted' : ''
+          }</span>`
+        : '';
       return `<tr>
   <td>${row.rank}</td>
   <td class="mono">${esc(row.competitor.sailNumber)}</td>
@@ -883,6 +894,32 @@ ${body}
   } else {
     tables = table('Standings', rows);
   }
+
+  // The repêchage: one table per repêchage fleet, over its own races alone.
+  const repechageHtml = repechageStandings(data)
+    .map((t) => {
+      const cols = [...new Set(t.rows.flatMap((r) => r.cells.map((c) => c.stageRaceNumber)))].sort((a, b) => a - b);
+      const body = t.rows
+        .map((r) => {
+          const cells = cols
+            .map((n) => {
+              const c = r.cells.find((x) => x.stageRaceNumber === n);
+              return c ? `<td style="text-align:center">${esc(`${c.points}${c.code ? ` ${c.code}` : ''}`)}</td>` : '<td></td>';
+            })
+            .join('');
+          const badge = r.promoted ? ' <span style="font-size:0.8em;color:#b8860b;">promoted</span>' : '';
+          return `<tr><td>${r.rank}</td><td class="mono">${esc(r.competitor.sailNumber)}</td><td>${esc(r.competitor.names.join(' & '))}${badge}</td>${cells}<td style="text-align:right;font-weight:bold">${r.net}</td></tr>`;
+        })
+        .join('\n');
+      return `<h2>${esc(fleetName.get(t.fleetId) ?? 'Repêchage')}</h2>
+<table>
+<thead><tr><th>Rank</th><th>Sail</th><th>Helm</th>${cols.map((n) => `<th>${STAGE_PREFIX.repechage}${n}</th>`).join('')}<th>Nett</th></tr></thead>
+<tbody>
+${body}
+</tbody>
+</table>`;
+    })
+    .join('\n');
 
   const p = fixture.provenance;
   const scenarios = p.scenarios?.length ? ` &middot; ${p.scenarios.join(', ')}` : '';
@@ -930,7 +967,7 @@ ${specBanner}
 <div style="margin:0.6em 0;padding:0.5em 1em;background:#f5f5f0;border:1px solid #ccc;font-size:90%;">${configSummary}</div>
 ${notesHtml}
 ${assignmentsHtml}
-${tables}
+${tables}${repechageHtml ? `\n${repechageHtml}` : ''}
 <footer><a href="https://sailscoring.ie">sailscoring.ie</a></footer>
 </body>
 </html>

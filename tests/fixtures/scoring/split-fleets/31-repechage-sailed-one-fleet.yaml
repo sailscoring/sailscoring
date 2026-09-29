@@ -1,0 +1,101 @@
+description: "A repêchage sailed as one fleet, ranked on its own races, its top two promoted into a Final Series that carries nothing"
+provenance:
+  class: "Melges 15 (supplied boats)"
+  year: 2026
+  event: "Irish Sailing Dinghy Champions' Cup, Royal St George YC (NoR 9.2, SI 6.2-6.5, 17.1-17.4)"
+  si: "reference-docs:events/irish-champions-cup-dinghy-2026/SI-draft.md"
+  results: "reference-docs:events/irish-champions-cup-dinghy-2025/"
+  code: F9
+  scenarios: [E5]
+  alternatives: "The Keelboat Champions' Cup shares the format text (2025 SI 6.2-6.5, 17)."
+runnable: true
+notes: |
+  Twelve helms sail two qualifying flights of six. The top two of each flight
+  go straight to a six-boat Final Series; "helms ranked from 3rd to 5th from
+  each Qualifying Fleet may sail a Repêchage of up to 2 races. Scoring for
+  this round shall not include preliminary race results" (SI 6.4), and its
+  top two join them (SI 6.5). The Final Series is the whole championship
+  score: "No scores will be carried forward" (SI 17.3), and nothing is
+  excluded anywhere.
+
+  At reduced scale: flights A and B of four, the winner of each straight
+  into a four-boat Final Series, and the 2nd and 3rd of each into the
+  repêchage. The scorer picks those four boats by hand and promotes its top
+  two, so neither the band nor the number promoted is a rule here.
+
+  Qualifying: a1 2, a2 5, a3 5, a4 8 in flight A; b1 3, b2 3, b3 6, b4 8 in
+  flight B. The repêchage starts everyone on zero: a3 1 then 2, b2 2 then 1,
+  both 3; A8.1 cannot split them and A8.2 goes to the last race, R2, which
+  b2 won. b3 4+3 = 7, a2 3 + DNF (4 boats + 1) = 8.
+
+  b2 and a3 are promoted and carry nothing, like a1 and b1. The Final Series
+  decides the championship alone: a1 2+1, a3 1+3, b1 4+2, b2 3 + OCS 5.
+  The boats who never made it rank on the qualifying series only, below the
+  Final Series fleet — a4 and b4 identical (4, 4), sharing seventh.
+
+config:
+  qualifyingFleets: [A, B]
+  discardThresholds: []
+  vocabulary: qualification-final
+  medal:
+    size: 4
+    multiplier: 1
+    carry: nothing
+    tieBreak: medal-race-then-a8
+
+competitors:
+  - "a1 Helm A1"
+  - "a2 Helm A2"
+  - "a3 Helm A3"
+  - "a4 Helm A4"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+  - "b4 Helm B4"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      A: [a1, a2, a3, a4]
+      B: [b1, b2, b3, b4]
+    races:
+      - { n: 1, results: { A: [a1, a2, a3, a4], B: [b1, b2, b3, b4] } }
+      - { n: 2, results: { A: [a1, a3, a2, a4], B: [b2, b1, b3, b4] } }
+
+  - stage: medal
+    from: 1
+    fleets:
+      Final: [a1, b1]
+    races:
+      - { n: 1, results: { Final: [a3, a1, b2, b1] } }
+      - { n: 2, results: { Final: [a1, b1, a3, "b2 OCS"] } }
+
+  - stage: repechage
+    from: 1
+    fleets:
+      Repêchage: [a2, a3, b2, b3]
+    races:
+      - { n: 1, results: { Repêchage: [a3, b2, a2, b3] } }
+      - { n: 2, results: { Repêchage: [b2, a3, b3, "a2 DNF"] } }
+
+promotions:
+  - { sail: b2, reason: repechage }
+  - { sail: a3, reason: repechage }
+
+expected:
+  standings:
+    - { rank: 1, sail: a1, total: 3, net: 3, medal: true }
+    - { rank: 2, sail: a3, total: 4, net: 4, medal: true, via: repechage }
+    - { rank: 3, sail: b1, total: 6, net: 6, medal: true }
+    - { rank: 4, sail: b2, total: 8, net: 8, medal: true, via: repechage }
+    - { rank: 5, sail: a2, total: 5, net: 5, medal: false }
+    - { rank: 6, sail: b3, total: 6, net: 6, medal: false }
+    - { rank: 7, sail: a4, total: 8, net: 8, medal: false }
+    - { rank: 7, sail: b4, total: 8, net: 8, medal: false }
+  repechage:
+    Repêchage:
+      - { rank: 1, sail: b2, net: 3, promoted: true }
+      - { rank: 2, sail: a3, net: 3, promoted: true }
+      - { rank: 3, sail: b3, net: 7 }
+      - { rank: 4, sail: a2, net: 8 }

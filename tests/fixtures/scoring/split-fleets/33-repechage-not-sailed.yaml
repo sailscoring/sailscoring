@@ -1,0 +1,75 @@
+description: "No repêchage sailed: the last seats filled from the qualifying ranking, as the sailing instructions' fallback directs"
+provenance:
+  class: "National 18 (supplied boats)"
+  year: 2025
+  event: "Irish Sailing Dinghy Champions' Cup, Royal Cork YC (SI 6.4)"
+  si: "reference-docs:events/irish-champions-cup-dinghy-2025/"
+  results: "reference-docs:events/irish-champions-cup-dinghy-2025/"
+  code: F9
+  scenarios: [E1]
+  alternatives: "The 2025 Keelboat Champions' Cup (Royal Irish YC) fell back the same way."
+runnable: true
+notes: |
+  "If the repêchage rounds cannot be sailed, and there are available boats,
+  the organising committee may invite the 3rd placed sailors from the
+  qualifying flights to compete in the final" (SI 6.4). Neither 2025
+  Champions' Cup sailed its repêchage; both did this. So a repêchage is
+  never required: the scorer promotes from the ranking the boats were cut
+  from instead, and those promotions are marked as such.
+
+  Same qualifying racing as fixture 31, at the same scale: a1 and b1 go
+  straight through, and the next boat of each flight is invited — a3, who
+  beat a2 on the last race after both scored 5, and b2. They carry nothing,
+  like the rest of the Final Series fleet, and one race decides it.
+
+config:
+  qualifyingFleets: [A, B]
+  discardThresholds: []
+  vocabulary: qualification-final
+  medal:
+    size: 4
+    multiplier: 1
+    carry: nothing
+    tieBreak: medal-race-then-a8
+
+competitors:
+  - "a1 Helm A1"
+  - "a2 Helm A2"
+  - "a3 Helm A3"
+  - "a4 Helm A4"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+  - "b4 Helm B4"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      A: [a1, a2, a3, a4]
+      B: [b1, b2, b3, b4]
+    races:
+      - { n: 1, results: { A: [a1, a2, a3, a4], B: [b1, b2, b3, b4] } }
+      - { n: 2, results: { A: [a1, a3, a2, a4], B: [b2, b1, b3, b4] } }
+
+  - stage: medal
+    from: 1
+    fleets:
+      Final: [a1, b1]
+    races:
+      - { n: 1, results: { Final: [b2, a3, a1, b1] } }
+
+promotions:
+  - { sail: a3, reason: cut-ranking }
+  - { sail: b2, reason: cut-ranking }
+
+expected:
+  standings:
+    - { rank: 1, sail: b2, total: 1, net: 1, medal: true, via: cut-ranking }
+    - { rank: 2, sail: a3, total: 2, net: 2, medal: true, via: cut-ranking }
+    - { rank: 3, sail: a1, total: 3, net: 3, medal: true }
+    - { rank: 4, sail: b1, total: 4, net: 4, medal: true }
+    - { rank: 5, sail: a2, total: 5, net: 5, medal: false }
+    - { rank: 6, sail: b3, total: 6, net: 6, medal: false }
+    - { rank: 7, sail: a4, total: 8, net: 8, medal: false }
+    - { rank: 7, sail: b4, total: 8, net: 8, medal: false }

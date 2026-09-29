@@ -27,8 +27,10 @@ import type {
   CarryIn,
   SplitFleetConfig,
   SplitFleetData,
+  OverrideReason,
   SplitRound,
   SeriesStage,
+  StoredStage,
   VocabularyKey,
 } from '@/lib/split-fleets';
 import type { Competitor, Finish, Fleet, Race, RaceStart, ResultCode } from '@/lib/types';
@@ -76,7 +78,10 @@ export interface FixtureAssign {
 }
 
 export interface FixtureStage {
-  stage: SeriesStage;
+  /** `repechage` declares the repêchage: its fleets by hand (`fleets`), and
+   *  its races. It is not a stage of the championship and scores nothing in
+   *  it; see `promotions` and `expected.repechage`. */
+  stage: StoredStage;
   from?: number; // fromStageRace, default 1
   /** Explicit fleet name → member sail numbers. Use for hand-picked
    *  memberships; prefer `assign` so the assignment logic is under test. */
@@ -101,6 +106,15 @@ export interface FixtureExpectedRow {
   net: number;
   fleet?: string; // final/medal fleet name
   medal?: boolean;
+  /** How a promoted medal boat got her seat (see `promotions`). */
+  via?: 'repechage' | 'cut-ranking';
+}
+
+export interface FixtureRepechageRow {
+  rank: number;
+  sail: string;
+  net: number;
+  promoted?: boolean;
 }
 
 export interface SplitFleetFixture {
@@ -137,8 +151,16 @@ export interface SplitFleetFixture {
    *  wholesale. Applied after every stage's assignment has been computed and
    *  frozen, so the `expectedFleets` assertions prove the frozen rounds
    *  don't move while `expected.standings` reflects the amended scores. */
-  amendments?: { stage: SeriesStage; race: number; fleet: string; results: string[] }[];
-  expected: { standings: FixtureExpectedRow[] };
+  amendments?: { stage: StoredStage; race: number; fleet: string; results: string[] }[];
+  /** Boats the scorer placed in the medal fleet by hand after it was
+   *  selected, and why: promoted from the repêchage, from the ranking they
+   *  were cut from, or by redress. */
+  promotions?: { sail: string; reason: OverrideReason }[];
+  expected: {
+    standings: FixtureExpectedRow[];
+    /** The repêchage's rankings: repêchage fleet name → rows, in order. */
+    repechage?: Record<string, FixtureRepechageRow[]>;
+  };
 }
 
 export interface LoadedFixture {
@@ -183,7 +205,7 @@ function makeFinish(raceId: string, competitorId: string, sortOrder: number | nu
 
 /** A round's computed membership, and the fixture's assertion for it. */
 export interface ResolvedRound {
-  stage: SeriesStage;
+  stage: StoredStage;
   from: number;
   /** How it was assigned, for display/debug ('seeded (entry-order)', …). */
   method: string;
@@ -247,7 +269,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
     return new Set((named ? Object.values(named)[0] : []).map(String));
   })();
   const offsetFor = (
-    st: SeriesStage,
+    st: StoredStage,
     n: number,
     fleetName: string,
   ): { firstPlaceOffset?: number } => {
@@ -299,7 +321,10 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
   };
 
   // Process stages in event order (qualifying < final < medal, then `from`).
-  const stageOrder: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
+  // The repêchage is declared once the medal fleet is selected, so it comes
+  // after the medal round; none of its races reach the championship, so its
+  // place among them does not matter.
+  const stageOrder: Record<StoredStage, number> = { qualifying: 0, final: 1, medal: 2, repechage: 3 };
   const stages = [...fx.stages].sort(
     (a, b) => stageOrder[a.stage] - stageOrder[b.stage] || (a.from ?? 1) - (b.from ?? 1),
   );
@@ -385,7 +410,8 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
       id: `round:${roundKey}`,
       seriesId: 's', stage: st, fromStageRace: stage.from ?? 1,
       fleetIds: fleetNames.map(fid),
-      method: st === 'qualifying' ? 'seeded' : st === 'final' ? 'split' : 'medal-select',
+      method:
+        st === 'qualifying' ? 'seeded' : st === 'final' ? 'split' : st === 'medal' ? 'medal-select' : 'manual',
       basis: null, createdAt: createdAt++,
     });
 
@@ -408,6 +434,22 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
         // sequences are covered by the engine unit tests.
         enterResults(raceId, r.results[name]);
       }
+    }
+  }
+
+  // Promotions: boats placed in the medal fleet by hand, after its selection
+  // and after the repêchage, recorded on the medal round with their reason.
+  if (fx.promotions?.length) {
+    const medalRound = rounds.find((r) => r.stage === 'medal');
+    if (!medalRound) throw new Error('promotions need a medal stage');
+    const medalFleetId = medalRound.fleetIds[0];
+    medalRound.overrides = {};
+    medalRound.overrideReasons = {};
+    for (const { sail, reason } of fx.promotions) {
+      const c = requireCompetitor(String(sail));
+      if (!c.fleetIds.includes(medalFleetId)) c.fleetIds.push(medalFleetId);
+      medalRound.overrides[c.id] = medalFleetId;
+      medalRound.overrideReasons[c.id] = reason;
     }
   }
 

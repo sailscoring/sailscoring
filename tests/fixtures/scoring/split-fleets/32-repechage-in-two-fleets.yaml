@@ -1,0 +1,93 @@
+description: "A repêchage sailed in two fleets, each ranked on its own, one boat promoted from each"
+provenance:
+  class: "Melges 15 (supplied boats)"
+  year: 2026
+  event: "Irish Sailing Dinghy Champions' Cup, Royal St George YC (NoR 9.2)"
+  si: "reference-docs:events/irish-champions-cup-dinghy-2026/NoR.md"
+  code: F9
+  scenarios: [E4]
+  alternatives: "The same NoR allows one repêchage flight of eight instead (fixture 31's shape)."
+runnable: true
+notes: |
+  "The repêchage will consist of two flights, with 4 boats in each flight,
+  each completing 2 races" (NoR 9.2). One repêchage with two fleets, not two
+  repêchages: the fleets are separate selection pools, so each is ranked on
+  its own and there is no ranking across them. The NoR does not say whether
+  the two places go one per repêchage flight or to the top two overall; here
+  the scorer promotes the winner of each.
+
+  Same qualifying racing as fixture 31. Rep A: b3 1+1, a2 2+2. Rep B: a3 1
+  then 2, b2 2 then 1 — 3 each, split on the last race, which b2 won. b3 and
+  b2 are promoted. The Final Series is one race, which is a series (SI 17.1),
+  and decides everything: b3, a1, b1, b2.
+
+  Below the Final Series fleet the qualifying ranking stands: a2 and a3 tie
+  on 5 and A8.2 puts a3 ahead on Q2; a4 and b4 cannot be separated.
+
+config:
+  qualifyingFleets: [A, B]
+  discardThresholds: []
+  vocabulary: qualification-final
+  medal:
+    size: 4
+    multiplier: 1
+    carry: nothing
+    tieBreak: medal-race-then-a8
+
+competitors:
+  - "a1 Helm A1"
+  - "a2 Helm A2"
+  - "a3 Helm A3"
+  - "a4 Helm A4"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+  - "b4 Helm B4"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      A: [a1, a2, a3, a4]
+      B: [b1, b2, b3, b4]
+    races:
+      - { n: 1, results: { A: [a1, a2, a3, a4], B: [b1, b2, b3, b4] } }
+      - { n: 2, results: { A: [a1, a3, a2, a4], B: [b2, b1, b3, b4] } }
+
+  - stage: medal
+    from: 1
+    fleets:
+      Final: [a1, b1]
+    races:
+      - { n: 1, results: { Final: [b3, a1, b1, b2] } }
+
+  - stage: repechage
+    from: 1
+    fleets:
+      Rep A: [a2, b3]
+      Rep B: [a3, b2]
+    races:
+      - { n: 1, results: { Rep A: [b3, a2], Rep B: [a3, b2] } }
+      - { n: 2, results: { Rep A: [b3, a2], Rep B: [b2, a3] } }
+
+promotions:
+  - { sail: b3, reason: repechage }
+  - { sail: b2, reason: repechage }
+
+expected:
+  standings:
+    - { rank: 1, sail: b3, total: 1, net: 1, medal: true, via: repechage }
+    - { rank: 2, sail: a1, total: 2, net: 2, medal: true }
+    - { rank: 3, sail: b1, total: 3, net: 3, medal: true }
+    - { rank: 4, sail: b2, total: 4, net: 4, medal: true, via: repechage }
+    - { rank: 5, sail: a3, total: 5, net: 5, medal: false }
+    - { rank: 6, sail: a2, total: 5, net: 5, medal: false }
+    - { rank: 7, sail: a4, total: 8, net: 8, medal: false }
+    - { rank: 7, sail: b4, total: 8, net: 8, medal: false }
+  repechage:
+    Rep A:
+      - { rank: 1, sail: b3, net: 2, promoted: true }
+      - { rank: 2, sail: a2, net: 4 }
+    Rep B:
+      - { rank: 1, sail: b2, net: 3, promoted: true }
+      - { rank: 2, sail: a3, net: 3 }

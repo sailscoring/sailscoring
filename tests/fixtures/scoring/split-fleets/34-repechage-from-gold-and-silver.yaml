@@ -1,0 +1,90 @@
+description: "A repêchage after Gold and Silver, open to a Silver boat because the medal races carry nothing"
+provenance:
+  class: "(constructed)"
+  year: 2026
+  event: "A split-fleet championship with a repêchage for the last medal seat"
+  code: F9
+  scenarios: []
+  alternatives: "The sail-off an organiser proposed for a Gold/Silver sprint event, where a Silver boat could win the last medal seat."
+runnable: true
+notes: |
+  The repêchage need not follow a qualifying series: here it follows Gold
+  and Silver, for the last seat in a three-boat medal fleet. The medal races
+  carry nothing in, so a Silver boat may sail it: no Silver score is ever
+  set against a Gold one. (Where the medal stage carries a score, only Gold
+  boats could — see `repechagePool`.)
+
+  One qualifying fleet of six, split into Gold s1-s3 and Silver s4-s6, one
+  final race each. s1 and s2 are selected directly; s3 (Gold) and s4
+  (Silver) sail a one-race repêchage, which s4 wins and is promoted from.
+
+  The medal race decides the championship alone: s4, s1, s2. s4 is still a
+  Silver boat — her final fleet does not change — but she ranks in the medal
+  fleet. The others keep their net score: s3 3+3+3 in Gold, then Silver
+  s5 5+5+2 and s6 6+6+3.
+
+config:
+  qualifyingFleets: [Fleet]
+  finalFleets: [Gold, Silver]
+  discardThresholds: []
+  medal:
+    size: 3
+    multiplier: 1
+    carry: nothing
+    tieBreak: medal-race-then-a8
+
+competitors:
+  - "s1 Helm S1"
+  - "s2 Helm S2"
+  - "s3 Helm S3"
+  - "s4 Helm S4"
+  - "s5 Helm S5"
+  - "s6 Helm S6"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      Fleet: [s1, s2, s3, s4, s5, s6]
+    races:
+      - { n: 1, results: { Fleet: [s1, s2, s3, s4, s5, s6] } }
+      - { n: 2, results: { Fleet: [s1, s2, s3, s4, s5, s6] } }
+
+  - stage: final
+    from: 1
+    assign: { split: true }
+    expectedFleets:
+      Gold: [s1, s2, s3]
+      Silver: [s4, s5, s6]
+    races:
+      - { n: 1, results: { Gold: [s1, s2, s3], Silver: [s4, s5, s6] } }
+
+  - stage: medal
+    from: 1
+    fleets:
+      Medal: [s1, s2]
+    races:
+      - { n: 1, results: { Medal: [s4, s1, s2] } }
+
+  - stage: repechage
+    from: 1
+    fleets:
+      Repêchage: [s3, s4]
+    races:
+      - { n: 1, results: { Repêchage: [s4, s3] } }
+
+promotions:
+  - { sail: s4, reason: repechage }
+
+expected:
+  standings:
+    - { rank: 1, sail: s4, total: 1, net: 1, fleet: Silver, medal: true, via: repechage }
+    - { rank: 2, sail: s1, total: 2, net: 2, fleet: Gold, medal: true }
+    - { rank: 3, sail: s2, total: 3, net: 3, fleet: Gold, medal: true }
+    - { rank: 4, sail: s3, total: 9, net: 9, fleet: Gold, medal: false }
+    - { rank: 5, sail: s5, total: 12, net: 12, fleet: Silver, medal: false }
+    - { rank: 6, sail: s6, total: 15, net: 15, fleet: Silver, medal: false }
+  repechage:
+    Repêchage:
+      - { rank: 1, sail: s4, net: 1, promoted: true }
+      - { rank: 2, sail: s3, net: 2 }
