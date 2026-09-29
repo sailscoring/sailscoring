@@ -1596,13 +1596,19 @@ export async function openSeriesFromFile(
      * on every re-import, which is the churn the pinned id exists to avoid.
      */
     seriesId?: string;
+    /**
+     * Name the new series this, verbatim, instead of the file's name made
+     * unique. For a caller whose user has already chosen the name — copying a
+     * series, where the scorer typed it into the dialog.
+     */
+    name?: string;
   },
 ): Promise<string> {
   const newSeriesId = opts?.seriesId ?? crypto.randomUUID();
   const now = Date.now();
-  const name = opts?.seriesId
+  const name = opts?.name ?? (opts?.seriesId
     ? file.series.name
-    : disambiguateSeriesName(file.series.name, await repos.listSeriesNames());
+    : disambiguateSeriesName(file.series.name, await repos.listSeriesNames()));
 
   // Remap IDs to avoid conflicts with existing DB records.
   const fleetIdMap = new Map(file.fleets.map((f) => [f.id, crypto.randomUUID()]));

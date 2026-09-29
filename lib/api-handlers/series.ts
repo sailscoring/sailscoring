@@ -30,6 +30,7 @@ import { describeSeriesChange } from '@/lib/series-change';
 import { suggestFollowOnName } from '@/lib/series-name';
 import { importPublicExport, parsePublicExport } from '@/lib/public-export';
 import {
+  buildSeriesFile,
   openSeriesFromFile,
   parseSeriesFile,
   updateSeriesFromFile,
@@ -441,19 +442,21 @@ export async function reorderSeries(
  * rather than move so a botched copy is recoverable: the source series
  * stays intact.
  *
- * Strips workspace-scoped references that don't carry across:
- *   - FTP credentials (`ftpHost`, `ftpPath`, `ftpPaths`) — distinct per
- *     workspace, and two series must not publish to the same remote path
- *   - File-tracking metadata (`lastSavedAt`) — the copy has no file history
- *     of its own
+ * The copy carries everything a .sailscoring file does, and leaves behind
+ * what doesn't belong to a fork:
+ *   - Publishing destinations (FTP server and paths, publish mode, rrs.org
+ *     push) — workspace-local, and two series must not publish to the same
+ *     remote path
+ *   - Page and series notes, and the results status — they describe the
+ *     source's publications, not the event
+ *   - File-tracking metadata (`lastSavedAt`) and import provenance (`source`)
  *   - Series-list organisation (`categoryId`, `archived`) — workspace-local,
  *     so the copy lands active and uncategorised (#154) — except that a
  *     same-workspace duplicate keeps its category, which does exist there
  *
- * Resets `version` to 1 and clears `updated_by` on every new row (the
- * `version` reset is automatic — fresh inserts default to 1; we just
- * don't pass an `updatedBy`). The copy is its own object, not an
- * attribution of the source's history.
+ * Every row is freshly inserted, so `version` starts at 1 and `updated_by`
+ * is empty: the copy is its own object, not an attribution of the source's
+ * history.
  *
  * Single-transaction: either every child row lands or none does, so a
  * partial copy can't leak.
@@ -504,311 +507,55 @@ export async function copySeries(
     throw new BadRequestError('an as-published archive series cannot be copied');
   }
 
-  const sourceFleets = await repos.fleets.listBySeries(sourceSeriesId);
-  const sourceCompetitors = await repos.competitors.listBySeries(sourceSeriesId);
-  const sourceRaces = await repos.races.listBySeries(sourceSeriesId);
-
-  const sourceSubSeries = await repos.subSeries.listBySeries(sourceSeriesId);
-  const sourceRaceIds = sourceRaces.map((r) => r.id);
-  const sourceRaceStarts =
-    sourceRaceIds.length > 0
-      ? await repos.raceStarts.listByRaces(sourceRaceIds)
-      : [];
-  const sourceFinishes = await repos.finishes.listBySeries(sourceSeriesId);
-  const sourceMarks = await repos.seriesMarks.listBySeries(sourceSeriesId);
-  const sourceCourses = await repos.seriesCourses.listBySeries(sourceSeriesId);
-  // Build id remap tables. UUIDs are generated up front so child rows
-  // can rewrite parent FKs consistently inside the transaction.
-  const newSeriesId = crypto.randomUUID();
-  const markIdMap = new Map(sourceMarks.map((m) => [m.id, crypto.randomUUID()]));
-  const courseIdMap = new Map(sourceCourses.map((c) => [c.id, crypto.randomUUID()]));
-  const fleetIdMap = new Map<string, string>();
-  for (const f of sourceFleets) fleetIdMap.set(f.id, crypto.randomUUID());
-  const competitorIdMap = new Map<string, string>();
-  for (const c of sourceCompetitors)
-    competitorIdMap.set(c.id, crypto.randomUUID());
-  const raceIdMap = new Map<string, string>();
-  for (const r of sourceRaces) raceIdMap.set(r.id, crypto.randomUUID());
-  const subSeriesIdMap = new Map<string, string>();
-  for (const ss of sourceSubSeries) subSeriesIdMap.set(ss.id, crypto.randomUUID());
+  // The copy is the source's .sailscoring file opened into the target, so it
+  // carries exactly what a file does — every stored field has to travel in
+  // the file anyway, and a copy that listed columns by hand drifted every time
+  // one was added. What a copy deliberately leaves behind is reset below.
+  const file = await buildSeriesFile(
+    sourceSeriesId,
+    seriesFileReposFor({ db, workspaceId: workspace.workspaceId }),
+  );
+  file.series = {
+    ...file.series,
+    // Publishing destinations: FTP servers are workspace-local, and two
+    // series must not publish to the same remote path or rrs.org event.
+    ftpServerId: undefined,
+    ftpHost: '',
+    ftpPath: '',
+    ftpPaths: undefined,
+    ftpPagesExcluded: undefined,
+    publishMode: undefined,
+    ftpLastUploadedAt: undefined,
+    ftpUploadedVersion: undefined,
+    rrsOrgPush: undefined,
+    // Notes describe one publication's pages ("corrected 16:40"), not the
+    // event, so they must not follow a fork.
+    seriesNote: undefined,
+    pageNotes: undefined,
+    // The results *status* stays behind — a copy is a fork whose scorer makes
+    // their own finality assertion, so it lands provisional.
+    resultsStatus: undefined,
+    finalisedAt: undefined,
+  };
 
   const trimmedName = (input.name ?? '').trim();
   const newName =
     trimmedName.length > 0 ? trimmedName : `Copy of ${source.name}`;
-  const now = new Date();
 
-  await db.transaction(async (tx) => {
-    // Series — strip ftp/publishing/file-tracking state. Page notes go with
-    // it: a note describes one publication's pages ("corrected 16:40"), not
-    // the event, so it must not follow a fork.
-    await tx.insert(schema.series).values({
-      id: newSeriesId,
-      workspaceId: targetWorkspaceId,
-      name: newName,
-      venue: source.venue,
-      startDate: source.startDate,
-      endDate: source.endDate,
-      venueLogoUrl: source.venueLogoUrl,
-      eventLogoUrl: source.eventLogoUrl,
-      venueUrl: source.venueUrl,
-      eventUrl: source.eventUrl,
-      createdAt: now,
-      lastSavedAt: null,
-      lastModifiedAt: now,
-      scoringMode: source.scoringMode,
-      // Start groups reference fleets by id, so they remap like every
-      // other fleet-bearing child row.
-      defaultStartSequence: source.defaultStartSequence
-        ? source.defaultStartSequence.map((g) => ({
-            ...g,
-            fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
-          }))
-        : null,
-      discardThresholds: source.discardThresholds,
-      dnfScoring: source.dnfScoring,
-      ftpHost: '',
-      ftpPath: '',
-      ftpPaths: {},
-      includeJsonExport: source.includeJsonExport,
-      publishRatingCalculations: source.publishRatingCalculations ?? true,
-      showPerRaceRatingsInSummary: source.showPerRaceRatingsInSummary ?? true,
-      // Combined pages follow their member fleets through the remap.
-      publishingGroups: (source.publishingGroups ?? []).map((g) => ({
-        ...g,
-        fleetIds: g.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
-      })),
-      publishIndividualFleetPages: source.publishIndividualFleetPages ?? true,
-      publishDetail: source.publishDetail ?? 'full',
-      // The protest-time-limit config travels (it mirrors the SIs); the
-      // results *status* does not — a copy is a fork whose scorer makes
-      // their own finality assertion, so it lands provisional.
-      protestTimeLimit: source.protestTimeLimit ?? null,
-      // The standing team and its publish decision travel with the rest of the
-      // event config; the copy's scorer edits whoever has changed.
-      officials: source.officials ?? [],
-      publishOfficials: source.publishOfficials ?? false,
-      enabledCompetitorFields: source.enabledCompetitorFields,
-      multiPersonFields: source.multiPersonFields?.length ? source.multiPersonFields : null,
-      primaryPersonLabel: source.primaryPersonLabel,
-      // Axis ids are series-local — carried verbatim so competitor
-      // `subdivisions` keys still resolve in the copy.
-      subdivisionAxes: source.subdivisionAxes,
-      // Series-list organisation (#154) is workspace-local: a cross-workspace
-      // copy lands uncategorised — the source category id wouldn't exist in
-      // the target. A same-workspace duplicate keeps its category, which does.
-      // Both land active.
-      categoryId: sameWorkspace ? source.categoryId ?? null : null,
-      archived: false,
-      // Import provenance is deliberately not carried: a copy is a fork with
-      // its own (reset) publishing destination, so it doesn't offer the
-      // in-place "Update from Sailwave file" re-import.
-      source: null,
-      // Append to the end of the target workspace's active list.
-      displayOrder: sql<number>`(select coalesce(max(${schema.series.displayOrder}) + 1, 0) from ${schema.series} where ${schema.series.workspaceId} = ${targetWorkspaceId})`,
-    });
-
-    // Fleets.
-    if (sourceFleets.length > 0) {
-      await tx.insert(schema.fleets).values(
-        sourceFleets.map((f) => ({
-          id: fleetIdMap.get(f.id)!,
-          seriesId: newSeriesId,
-          workspaceId: targetWorkspaceId,
-          name: f.name,
-          displayOrder: f.displayOrder,
-          scoringSystem: f.scoringSystem,
-          ratingLabel: f.ratingLabel ?? null,
-          echoAlpha: f.echoAlpha ?? null,
-          nhcProfile: f.nhcProfile ?? null,
-          orcProfile: f.orcProfile ?? null,
-        })),
-      );
-    }
-
-    // Competitors — fleetIds[] needs remapping element-by-element.
-    if (sourceCompetitors.length > 0) {
-      await tx.insert(schema.competitors).values(
-        sourceCompetitors.map((c) => ({
-          id: competitorIdMap.get(c.id)!,
-          seriesId: newSeriesId,
-          workspaceId: targetWorkspaceId,
-          fleetIds: c.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
-          sailNumber: c.sailNumber,
-          boatName: c.boatName ?? null,
-          boatClass: c.boatClass ?? null,
-          names: c.names,
-          owners: c.owners?.length ? c.owners : null,
-          helms: c.helms?.length ? c.helms : null,
-          crewNames: c.crewNames?.length ? c.crewNames : null,
-          clubs: c.clubs,
-          nationality: c.nationality ?? null,
-          gender: c.gender,
-          age: c.age,
-          subdivisions: c.subdivisions ?? null,
-          createdAt: new Date(c.createdAt),
-          ircTcc: c.ircTcc ?? null,
-          vprsTcc: c.vprsTcc ?? null,
-          fixedTcf: c.fixedTcf ?? null,
-          pyNumber: c.pyNumber ?? null,
-          nhcStartingTcf: c.nhcStartingTcf ?? null,
-          echoStartingTcf: c.echoStartingTcf ?? null,
-          orcCert: c.orcCert ?? null,
-        })),
-      );
-    }
-
-    // Races.
-    if (sourceRaces.length > 0) {
-      await tx.insert(schema.races).values(
-        sourceRaces.map((r) => ({
-          id: raceIdMap.get(r.id)!,
-          seriesId: newSeriesId,
-          workspaceId: targetWorkspaceId,
-          raceNumber: r.raceNumber,
-          name: r.name ?? null,
-          date: r.date,
-          finishRecording: r.finishRecording ?? null,
-          lastFinisherTime: r.lastFinisherTime ?? null,
-          discardPolicy: r.discardPolicy ?? null,
-          pointsMultiplier: r.pointsMultiplier ?? null,
-          // A copy duplicates the racing, finishes and all, so what each race
-          // was sailed in and who ran it are part of what is being copied.
-          conditions: r.conditions ?? null,
-          officials: r.officials ?? null,
-          createdAt: new Date(r.createdAt),
-        })),
-      );
-    }
-
-    // Sub-series — after races so the membership FK resolves.
-    if (sourceSubSeries.length > 0) {
-      await tx.insert(schema.subSeries).values(
-        sourceSubSeries.map((ss) => ({
-          id: subSeriesIdMap.get(ss.id)!,
-          seriesId: newSeriesId,
-          workspaceId: targetWorkspaceId,
-          name: ss.name,
-          displayOrder: ss.displayOrder,
-          startingHandicapSource: ss.startingHandicapSource ?? 'base',
-          continueFromSubSeriesId:
-            ss.continueFromSubSeriesId != null
-              ? subSeriesIdMap.get(ss.continueFromSubSeriesId) ?? null
-              : null,
-        })),
-      );
-      const membership = sourceSubSeries.flatMap((ss) =>
-        ss.raceIds
-          .map((rid) => raceIdMap.get(rid))
-          .filter((rid): rid is string => rid !== undefined)
-          .map((raceId) => ({
-            subSeriesId: subSeriesIdMap.get(ss.id)!,
-            raceId,
-            workspaceId: targetWorkspaceId,
-          })),
-      );
-      if (membership.length > 0) {
-        await tx.insert(schema.subSeriesRaces).values(membership);
-      }
-    }
-
-    // The course library — marks first, courses naming them; the starts'
-    // snapshots below reference both.
-    if (sourceMarks.length > 0) {
-      await tx.insert(schema.seriesMarks).values(
-        sourceMarks.map((m) => ({
-          id: markIdMap.get(m.id)!,
-          seriesId: newSeriesId,
-          workspaceId: targetWorkspaceId,
-          name: m.name,
-          lat: m.lat,
-          lng: m.lng,
-          card: m.card ?? null,
-          shape: m.shape ?? null,
-          color: m.color ?? null,
-          from: m.from && markIdMap.has(m.from.markId) ? { ...m.from, markId: markIdMap.get(m.from.markId)! } : null,
-          createdAt: new Date(m.createdAt),
-        })),
-      );
-    }
-    if (sourceCourses.length > 0) {
-      await tx.insert(schema.seriesCourses).values(
-        sourceCourses.map((c) => ({
-          id: courseIdMap.get(c.id)!,
-          seriesId: newSeriesId,
-          workspaceId: targetWorkspaceId,
-          name: c.name,
-          card: c.card ?? null,
-          modified: c.modified ?? false,
-          marks: c.marks
-            .filter((cm) => markIdMap.has(cm.markId))
-            .map((cm) => ({ ...cm, markId: markIdMap.get(cm.markId)! })),
-          // A leg table names no marks, so it copies verbatim.
-          legs: c.legs?.length ? c.legs : null,
-          createdAt: new Date(c.createdAt),
-        })),
-      );
-    }
-
-    // Race starts — fleet ids and parent race id need remapping.
-    if (sourceRaceStarts.length > 0) {
-      await tx.insert(schema.raceStarts).values(
-        sourceRaceStarts.map((s) => ({
-          id: crypto.randomUUID(),
-          raceId: raceIdMap.get(s.raceId)!,
-          fleetIds: s.fleetIds.map((fid) => fleetIdMap.get(fid) ?? fid),
-          startTime: s.startTime,
-          // Course facts are scoring inputs (ORC ToD/PCS) and copy with the
-          // race data.
-          distanceNm: s.distanceNm ?? null,
-          orcScoringWind: s.orcScoringWind ?? null,
-          courseLegs: s.courseLegs?.length ? s.courseLegs : null,
-          course: s.course
-            ? {
-                ...s.course,
-                courseId: s.course.courseId ? courseIdMap.get(s.course.courseId) : undefined,
-                waypoints: s.course.waypoints.map((w) => ({
-                  ...w,
-                  markId: w.markId ? markIdMap.get(w.markId) : undefined,
-                })),
-              }
-            : null,
-          orcOption: s.orcOption ?? null,
-        })),
-      );
-    }
-
-    // Finishes — competitor and race ids need remapping. Unknown-sail
-    // rows have no competitorId.
-    if (sourceFinishes.length > 0) {
-      await tx.insert(schema.finishes).values(
-        sourceFinishes.map((f) => ({
-          id: crypto.randomUUID(),
-          raceId: raceIdMap.get(f.raceId)!,
-          competitorId:
-            f.competitorId != null ? competitorIdMap.get(f.competitorId) ?? null : null,
-          unknownSailNumber: f.unknownSailNumber ?? null,
-          sortOrder: f.sortOrder,
-          tiedWithPrevious: f.tiedWithPrevious,
-          finishTime: f.finishTime ?? null,
-          // Elapsed time is a scoring input, so a copy that dropped it would
-          // score differently from its source. Track data rides along for the
-          // same reason it is stored at all — the copy is the same race.
-          elapsedSecs: f.elapsedSecs ?? null,
-          trackData: f.trackData ?? null,
-          resultCode: f.resultCode,
-          startPresent: f.startPresent,
-          penaltyCode: f.penaltyCode,
-          penaltyOverride: f.penaltyOverride,
-          redressMethod: f.redressMethod,
-          redressExcludeRaceIds: f.redressExcludeRaceIds,
-          redressIncludeRaceIds: f.redressIncludeRaceIds,
-          redressIncludeAllLater: f.redressIncludeAllLater,
-          redressPoints: f.redressPoints,
-        })),
-      );
-    }
-
-  });
+  const newSeriesId = await db.transaction((tx) =>
+    openSeriesFromFile(
+      file,
+      seriesFileReposFor({ db: tx, workspaceId: targetWorkspaceId }),
+      {
+        name: newName,
+        // Series-list organisation (#154) is workspace-local: a
+        // cross-workspace copy lands uncategorised — the source category id
+        // wouldn't exist in the target. A same-workspace duplicate keeps its
+        // category, which does.
+        categoryId: sameWorkspace ? source.categoryId ?? null : null,
+      },
+    ),
+  );
 
   // Logged in the *target* workspace — that's where the new series lives —
   // and with a baseline revision, so the copy is restorable from the state it
