@@ -383,6 +383,17 @@ describe.skipIf(skip)('provision-org operations', () => {
     expect(ftpOrgs.map((o) => o.id)).toContain(org.id);
     const echoOrgs = await listOrgsWithFeature(db, 'echo');
     expect(echoOrgs.map((o) => o.id)).not.toContain(org.id);
+    expect(ftpOrgs.find((o) => o.id === org.id)?.owner).toBeUndefined();
+  });
+
+  test('listOrgsWithFeature names the owner of a personal workspace', async () => {
+    const email = `list-owner-${Date.now()}@sailscoring.test`;
+    const { orgId } = await makePersonalWorkspace(email);
+    await setOrgFeature(db, { orgSlugOrId: orgId, feature: 'ftp-upload', enabled: true });
+
+    const found = (await listOrgsWithFeature(db, 'ftp-upload')).find((o) => o.id === orgId);
+    expect(found?.name).toBe('My Workspace');
+    expect(found?.owner).toEqual({ name: email.split('@')[0], email });
   });
 
   test('disabling a default-on feature records an opt-out; enabling clears it (#155)', async () => {

@@ -39,7 +39,7 @@
  * Better Auth recognises the email and signs them straight in.
  */
 
-import { and, eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, like, or, sql } from 'drizzle-orm';
 
 import { getDb, getDbClient, type SailScoringDb } from '@/lib/db/client';
 import { invitation, member, organization, orgRequest, user } from '@/lib/db/schema/auth';
@@ -49,6 +49,7 @@ import {
   FEATURES,
   applyFeatureToggle,
   isFeatureKey,
+  isPersonalWorkspaceSlug,
   parseOrgMetadata,
   serializeOrgMetadata,
   type FeatureDef,
@@ -375,13 +376,22 @@ export async function setOrgFeature(
 
 /**
  * List the orgs that have a given feature enabled — the containment-audience
- * query (#155). Metadata is a text JSON column, so we scan and parse in JS;
- * there are few orgs and this runs from the CLI.
+ * query. Metadata is a text JSON column, so we scan and parse in JS; there
+ * are few orgs and this runs from the CLI. Personal workspaces all share the
+ * name "My Workspace" and a slug derived from the user id, so each carries
+ * its owner to say whose it is.
  */
 export async function listOrgsWithFeature(
   db: SailScoringDb,
   feature: FeatureKey,
-): Promise<Array<{ id: string; name: string; slug: string }>> {
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    slug: string;
+    owner?: { name: string; email: string };
+  }>
+> {
   const rows = await db
     .select({
       id: organization.id,
@@ -390,9 +400,28 @@ export async function listOrgsWithFeature(
       metadata: organization.metadata,
     })
     .from(organization);
-  return rows
-    .filter((r) => parseOrgMetadata(r.metadata, r.slug).enabledFeatures.includes(feature))
-    .map(({ id, name, slug }) => ({ id, name, slug }));
+  const orgs = rows.filter((r) =>
+    parseOrgMetadata(r.metadata, r.slug).enabledFeatures.includes(feature),
+  );
+
+  const personalIds = orgs.filter((o) => isPersonalWorkspaceSlug(o.slug)).map((o) => o.id);
+  const owners = new Map<string, { name: string; email: string }>();
+  if (personalIds.length > 0) {
+    const ownerRows = await db
+      .select({ orgId: member.organizationId, name: user.name, email: user.email })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .where(and(inArray(member.organizationId, personalIds), eq(member.role, 'owner')))
+      .orderBy(member.createdAt);
+    for (const r of ownerRows) {
+      if (!owners.has(r.orgId)) owners.set(r.orgId, { name: r.name, email: r.email });
+    }
+  }
+
+  return orgs.map(({ id, name, slug }) => {
+    const owner = owners.get(id);
+    return owner ? { id, name, slug, owner } : { id, name, slug };
+  });
 }
 
 export async function addMember(
@@ -1201,7 +1230,10 @@ export async function runCli(argv: string[]): Promise<number> {
         }
         console.log(`orgs with "${feature}" enabled:`);
         for (const o of orgs) {
-          console.log(`  ${o.slug.padEnd(24)}  ${o.name}  (id: ${o.id})`);
+          const who = o.owner
+            ? `  — ${o.owner.name ? `${o.owner.name} <${o.owner.email}>` : o.owner.email}`
+            : '';
+          console.log(`  ${o.slug.padEnd(24)}  ${o.name}${who}  (id: ${o.id})`);
         }
         return 0;
       }
