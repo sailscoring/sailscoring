@@ -94,6 +94,9 @@ export interface Candidate {
   bowNumber?: string;
   alternativeSailNumbers?: string[];
   fleetIds: string[];
+  /** Boats drawn per fleet (see `Competitor.fleetSailNumbers`). A caller
+   *  scoping candidates to a race gives each the boat she sails in it. */
+  fleetSailNumbers?: Record<string, string>;
   /** The names of the fleets the boat is entered in, for the sheet's class
    *  column to break a tie against. A boat is usually in both of its class's
    *  fleets ("Howth 17 (Scratch)" and "Howth 17 (HPH)"), and either one

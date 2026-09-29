@@ -720,3 +720,31 @@ describe('describeStartLine', () => {
     expect(describeStartLine({ starters: 0, ocs: 0, cleared: 0 })).toBeNull();
   });
 });
+
+describe('boats drawn per fleet', () => {
+  it('matches each device to the helm drawn into its boat for that fleet', () => {
+    // Yellow and Blue sail the same two boats; the device reports the boat.
+    const drawn: Candidate[] = [
+      { id: 'owens', sailNumber: '1', fleetIds: [YELLOW], fleetSailNumbers: { [YELLOW]: '401' } },
+      { id: 'porter', sailNumber: '2', fleetIds: [YELLOW], fleetSailNumbers: { [YELLOW]: '402' } },
+      { id: 'barry', sailNumber: '3', fleetIds: [BLUE], fleetSailNumbers: { [BLUE]: '401' } },
+      { id: 'espey', sailNumber: '4', fleetIds: [BLUE], fleetSailNumbers: { [BLUE]: '402' } },
+    ];
+    const sheet = sourceRace({
+      number: 1,
+      starters: [starter('401'), starter('402')],
+      finishes: [finisher(1, '402', '11:45:20'), finisher(2, '401', '11:46:20')],
+    });
+    for (const [fleet, expected] of [[YELLOW, ['porter', 'owens']], [BLUE, ['espey', 'barry']]] as const) {
+      const { races } = planRaceSenseImport({
+        workbook: workbook([sheet]),
+        fleetId: fleet,
+        races: [seriesRace(1, [fleet])],
+        competitors: drawn,
+        finishes: [],
+      });
+      expect(races[0].result!.finishes.map((f) => f.competitorId)).toEqual(expected);
+      expect(warnings(races[0].notes)).toEqual([]);
+    }
+  });
+});

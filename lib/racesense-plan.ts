@@ -39,6 +39,7 @@ import {
   type ParseFinishSheetResult,
 } from './finish-sheet-csv';
 import { ordinal } from './ordinal';
+import { sailNumberInRace } from './race-membership';
 import {
   neverCameToTheLine,
   startLineCounts,
@@ -393,7 +394,9 @@ function candidateRaces(races: SeriesRace[], fleetId: string | null): SeriesRace
   return ordered.filter((r) => r.starts.some((s) => s.fleetIds.includes(fleetId)));
 }
 
-/** The competitors eligible to appear on a race's sheet. */
+/** The competitors eligible to appear on a race's sheet, each under the
+ *  sail number she carries in it: where boats are drawn per fleet, that is
+ *  the boat — which is what the device fixed to it reports. */
 function candidatesFor(
   race: SeriesRace,
   competitors: Candidate[],
@@ -401,8 +404,14 @@ function candidatesFor(
 ): Candidate[] {
   const fleetIds = new Set(race.starts.flatMap((s) => s.fleetIds));
   if (fleetIds.size === 0) return competitors;
-  if (fleetId !== null) return competitors.filter((c) => c.fleetIds.includes(fleetId));
-  return competitors.filter((c) => c.fleetIds.some((id) => fleetIds.has(id)));
+  const eligible =
+    fleetId !== null
+      ? competitors.filter((c) => c.fleetIds.includes(fleetId))
+      : competitors.filter((c) => c.fleetIds.some((id) => fleetIds.has(id)));
+  return eligible.map((c) => {
+    const sailNumber = sailNumberInRace(c, fleetIds);
+    return sailNumber === c.sailNumber ? c : { ...c, sailNumber };
+  });
 }
 
 // ---------------------------------------------------------------------------
