@@ -998,7 +998,7 @@ function largestFleetSize(data: SplitFleetData, round: SplitRound): number {
 }
 
 export interface CellScore {
-  stage: SeriesStage;
+  stage: StoredStage;
   stageRaceNumber: number;
   fleetId: string;
   raceId: string;
@@ -1035,6 +1035,9 @@ export interface SplitStandingRow {
   /** Final fleet id once split (display grouping), else null. */
   finalFleetId: string | null;
   medal: boolean;
+  /** How a medal boat the scorer placed by hand got her seat, where it was
+   *  not redress: from the repêchage, or from the ranking she was cut from. */
+  promotedVia?: 'repechage' | 'cut-ranking';
 }
 
 /** Score one physical race — one fleet's sailing of a stage race — over the
@@ -1107,6 +1110,39 @@ function scorePhysicalRace(
   return out;
 }
 
+/** Resolve RDG cells per RRS A9: average points, to the nearest tenth (0.05
+ *  rounded up), over the boat's other counting non-RDG cells -- honouring the
+ *  finish's method and include/exclude race-id sets. Stated points pass
+ *  straight through. Resolution reads only non-RDG cells, so two RDG cells
+ *  never feed each other. Mutates the cells. */
+function resolveRedress(rows: readonly { cells: CellScore[] }[]): void {
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      if (!cell.rdg) continue;
+      const f = cell.rdg;
+      if (f.redressMethod === 'stated' && f.redressPoints != null) {
+        cell.points = f.redressPoints;
+        continue;
+      }
+      let pool = row.cells.filter((c) => c !== cell && c.counts && !c.rdg);
+      if (f.redressMethod === 'races_before') {
+        pool = pool.filter((c) => stageRaceKey(c) < stageRaceKey(cell));
+      }
+      if (f.redressIncludeRaceIds?.length) {
+        pool = pool.filter((c) => f.redressIncludeRaceIds!.includes(c.raceId));
+      } else if (f.redressExcludeRaceIds?.length) {
+        pool = pool.filter((c) => !f.redressExcludeRaceIds!.includes(c.raceId));
+      }
+      if (pool.length === 0) {
+        cell.points = 0;
+        continue;
+      }
+      const mean = pool.reduce((sum, c) => sum + c.points, 0) / pool.length;
+      cell.points = Math.round(mean * 10 + 1e-9) / 10;
+    }
+  }
+}
+
 /** RRS A8.1: compare best-to-worst score lists (ascending, lexicographic).
  *  Returns negative when a ranks ahead of b. */
 function compareScoreLists(a: number[], b: number[]): number {
@@ -1120,7 +1156,7 @@ function compareScoreLists(a: number[], b: number[]): number {
 
 /** Sort key putting a row's cells in the order they were sailed. */
 function stageRaceKey(c: CellScore): number {
-  return STAGES.indexOf(c.stage) * 1000 + c.stageRaceNumber;
+  return STORED_STAGES.indexOf(c.stage) * 1000 + c.stageRaceNumber;
 }
 
 /** RRS A8.2: last race, then next-to-last, and so on — over counting cells
@@ -1208,7 +1244,7 @@ function discardCount(config: SplitFleetConfig, countedRaces: number): number {
 function applyDiscards(
   config: SplitFleetConfig,
   cells: CellScore[],
-  settled: ReadonlySet<SeriesStage>,
+  settled: ReadonlySet<StoredStage>,
 ): void {
   const counting = cells.filter((c) => c.counts);
   const thresholdRaces = counting.filter(
@@ -1217,8 +1253,7 @@ function applyDiscards(
   const n = discardCount(config, thresholdRaces);
   const finalCells = counting.filter((c) => c.stage === 'final');
   const loneFinalProtected = finalCells.length === 1;
-  const order: SeriesStage[] = ['qualifying', 'final', 'medal'];
-  const raceKey = (c: CellScore) => order.indexOf(c.stage) * 1000 + c.stageRaceNumber;
+  const raceKey = stageRaceKey;
   let finalDiscards = 0;
   const first = (c: CellScore) => c.discardPolicy === 'discardFirst';
   const candidates = counting
@@ -1272,6 +1307,7 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
       rank: 0,
       finalFleetId: splitRound?.fleetIds.find((fid) => c.fleetIds.includes(fid)) ?? null,
       medal: !!medalFleetId && c.fleetIds.includes(medalFleetId),
+      ...promotedVia(medalRound, c),
     });
   }
 
@@ -1346,38 +1382,7 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
 
   const rows = [...rowByCompetitor.values()];
 
-  // Resolve RDG cells per RRS A9: average points, to the nearest tenth
-  // (0.05 rounded up), over the boat's other counting non-RDG cells --
-  // honouring the finish's method and include/exclude race-id sets. Stated
-  // points pass straight through. Resolution reads only non-RDG cells, so
-  // two RDG cells never feed each other.
-  const stageOrder: SeriesStage[] = ['qualifying', 'final', 'medal'];
-  const cellKey = (c: CellScore) => stageOrder.indexOf(c.stage) * 1000 + c.stageRaceNumber;
-  for (const row of rows) {
-    for (const cell of row.cells) {
-      if (!cell.rdg) continue;
-      const f = cell.rdg;
-      if (f.redressMethod === 'stated' && f.redressPoints != null) {
-        cell.points = f.redressPoints;
-        continue;
-      }
-      let pool = row.cells.filter((c) => c !== cell && c.counts && !c.rdg);
-      if (f.redressMethod === 'races_before') {
-        pool = pool.filter((c) => cellKey(c) < cellKey(cell));
-      }
-      if (f.redressIncludeRaceIds?.length) {
-        pool = pool.filter((c) => f.redressIncludeRaceIds!.includes(c.raceId));
-      } else if (f.redressExcludeRaceIds?.length) {
-        pool = pool.filter((c) => !f.redressExcludeRaceIds!.includes(c.raceId));
-      }
-      if (pool.length === 0) {
-        cell.points = 0;
-        continue;
-      }
-      const mean = pool.reduce((sum, c) => sum + c.points, 0) / pool.length;
-      cell.points = Math.round(mean * 10 + 1e-9) / 10;
-    }
-  }
+  resolveRedress(rows);
 
   // A race the notice of race weights ("the Final series races will score
   // double points") scales its score as sailed — penalties and redress
@@ -1400,7 +1405,7 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
   // way in: its races are never excluded, and do not count towards the
   // discards, which were applied in reaching the carried score.
   const finalCarry: CarryIn = splitRound ? config.final.carry : 'net';
-  const settled = new Set<SeriesStage>(['medal']);
+  const settled = new Set<StoredStage>(['medal']);
   if (finalCarry !== 'net') settled.add('final');
   for (const row of rows) {
     for (const cell of row.cells) if (settled.has(cell.stage)) cell.discardable = false;
@@ -1448,7 +1453,9 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     for (const row of rows) {
       const fleetId = fleetOf(row);
       if (!fleetId) continue;
-      const earlier = row.cells.filter((c) => c.counts && before.includes(c.stage));
+      const earlier = row.cells.filter(
+        (c) => c.counts && isChampionshipStage(c.stage) && before.includes(c.stage),
+      );
       if (earlier.length === 0) continue;
       const applies = row.cells.some((c) => c.stage === stage && c.raceId && c.counts);
       const net = earlier.filter((c) => !c.discarded).reduce((sum, c) => sum + c.points, 0);
@@ -1558,6 +1565,188 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     row.rank = i > 0 && byOverall(rows[i - 1], row) === 0 ? rows[i - 1].rank : i + 1;
   });
   return rows;
+}
+
+/** How a medal boat was placed, where the scorer promoted her from the
+ *  repêchage or the ranking she was cut from (see `OverrideReason`). */
+function promotedVia(
+  medalRound: SplitRound | null,
+  c: Competitor,
+): { promotedVia?: 'repechage' | 'cut-ranking' } {
+  const medalFleetId = medalRound?.fleetIds[0];
+  if (!medalRound || !medalFleetId || !c.fleetIds.includes(medalFleetId)) return {};
+  const reason = medalRound.overrideReasons?.[c.id];
+  return reason === 'repechage' || reason === 'cut-ranking' ? { promotedVia: reason } : {};
+}
+
+// ---------------------------------------------------------------------------
+// The repêchage
+
+/** The series' repêchage round, if it has one. There is at most one: it hangs
+ *  off the cut into the medal stage, and a championship has one such cut. */
+export function repechageRound(data: Pick<SplitFleetData, 'rounds'>): SplitRound | null {
+  return data.rounds.find((r) => r.stage === 'repechage') ?? null;
+}
+
+/**
+ * The boats whose score could be set against the medal fleet's, under a given
+ * medal carry — the pool a repêchage may be drawn from, and a promotion made
+ * from.
+ *
+ * Where the medal stage carries nothing, every boat: nobody's earlier score
+ * reaches the medal races, so nothing is compared. Where it carries a score,
+ * only the boats of the fleet the medal fleet is selected from — the top final
+ * fleet once the series is divided, everyone while it is not (its qualifying
+ * fleets are ranked as one list). A Silver score carried into races against
+ * Gold's would set two fleets' points against each other.
+ *
+ * Medal membership is not considered here: see `repechageEligibleIds` for the
+ * boats who can still be added.
+ */
+export function repechagePool(
+  data: Pick<SplitFleetData, 'rounds' | 'competitors'>,
+  carry: CarryIn,
+): Set<string> {
+  const splitRound = roundsForStage(data.rounds as SplitRound[], 'final')[0] ?? null;
+  const topFleetId = splitRound?.fleetIds[0];
+  const pool =
+    carry === 'nothing' || !topFleetId
+      ? data.competitors
+      : data.competitors.filter((c) => c.fleetIds.includes(topFleetId));
+  return new Set(pool.map((c) => c.id));
+}
+
+/** The boats that may be added to the repêchage, or promoted into the medal
+ *  fleet: the pool under the medal stage's carry, less the medal fleet.
+ *  Empty until the medal fleet is selected. */
+export function repechageEligibleIds(data: SplitFleetData): Set<string> {
+  const medalRound = roundsForStage(data.rounds, 'medal')[0] ?? null;
+  const medalFleetId = medalRound?.fleetIds[0];
+  if (!medalFleetId || !data.config.medal) return new Set();
+  const pool = repechagePool(data, data.config.medal.carry);
+  for (const c of data.competitors) if (c.fleetIds.includes(medalFleetId)) pool.delete(c.id);
+  return pool;
+}
+
+/**
+ * The boats in the repêchage, or promoted from it or from the cut ranking,
+ * that a change of the medal carry to `carry` would leave outside the pool:
+ * the boats that make the change unsafe. Empty when it is safe.
+ */
+export function repechageBoatsOutsidePool(data: SplitFleetData, carry: CarryIn): Competitor[] {
+  const pool = repechagePool(data, carry);
+  const repRound = repechageRound(data);
+  const medalRound = roundsForStage(data.rounds, 'medal')[0] ?? null;
+  const promoted = new Set(
+    Object.entries(medalRound?.overrideReasons ?? {})
+      .filter(([, reason]) => reason === 'repechage' || reason === 'cut-ranking')
+      .map(([id]) => id),
+  );
+  return data.competitors.filter(
+    (c) =>
+      !pool.has(c.id) &&
+      (promoted.has(c.id) || (!!repRound && repRound.fleetIds.some((fid) => c.fleetIds.includes(fid)))),
+  );
+}
+
+/** The medal seats not yet filled: the medal card's size, less the boats in
+ *  the medal fleet. A fact for the scorer, never a limit — a jury can extend
+ *  the fleet. Zero before the fleet is selected. */
+export function medalSeatsOpen(data: SplitFleetData): number {
+  const medalFleetId = roundsForStage(data.rounds, 'medal')[0]?.fleetIds[0];
+  if (!medalFleetId || !data.config.medal) return 0;
+  return Math.max(0, data.config.medal.size - fleetMembers(data.competitors, medalFleetId).length);
+}
+
+export interface RepechageRow {
+  competitor: Competitor;
+  /** Her repêchage races, in order. */
+  cells: CellScore[];
+  net: number;
+  /** Rank within her repêchage fleet. Tied boats the A8 steps cannot
+   *  separate share one. */
+  rank: number;
+  /** Promoted into the medal fleet (from any source). */
+  promoted: boolean;
+}
+
+export interface RepechageTable {
+  fleetId: string;
+  rows: RepechageRow[];
+}
+
+/**
+ * The repêchage's rankings, one per repêchage fleet.
+ *
+ * Each fleet is ranked on its own races and nothing else: every boat starts on
+ * zero, whatever she scored before ("Scoring for this round shall not include
+ * preliminary race results" — Irish Sailing Champions' Cup SI 6.4). No score
+ * is excluded; a boat who does not finish scores her repêchage fleet's size
+ * plus one; ties go to RRS A8. The fleets are separate selection pools, so
+ * there is no ranking across them, and a race counts for a fleet as soon as
+ * that fleet has sailed it.
+ *
+ * Every boat that sailed it is listed, promoted or not: a promoted boat's
+ * repêchage scores are in no other table.
+ */
+export function repechageStandings(input: SplitFleetData): RepechageTable[] {
+  const data = dropNonEntrants(input);
+  const round = repechageRound(data);
+  if (!round) return [];
+  const medalFleetId = roundsForStage(data.rounds, 'medal')[0]?.fleetIds[0] ?? null;
+  const races = logicalRaces(data, 'repechage');
+  return round.fleetIds.map((fleetId) => {
+    const members = fleetMembers(data.competitors, fleetId);
+    const rows: RepechageRow[] = members.map((competitor) => ({
+      competitor,
+      cells: [],
+      net: 0,
+      rank: 0,
+      promoted: !!medalFleetId && competitor.fleetIds.includes(medalFleetId),
+    }));
+    const byId = new Map(rows.map((r) => [r.competitor.id, r]));
+    for (const lr of races) {
+      const ref = lr.races.get(fleetId);
+      if (!ref) continue;
+      const counts = physicalRaceCompleted(ref, data.competitors, data.finishes);
+      const scores = scorePhysicalRace(ref, members, data.finishes, members.length + 1, 1);
+      for (const [competitorId, sc] of scores) {
+        byId.get(competitorId)?.cells.push({
+          stage: 'repechage',
+          stageRaceNumber: lr.stageRaceNumber,
+          fleetId,
+          raceId: ref.race.id,
+          points: sc.points,
+          code: sc.code,
+          counts,
+          discardable: false,
+          discarded: false,
+          rdg: sc.rdg,
+        });
+      }
+    }
+    resolveRedress(rows);
+    for (const row of rows) {
+      row.net = row.cells.filter((c) => c.counts).reduce((sum, c) => sum + c.points, 0);
+    }
+    const byA8 = (a: RepechageRow, b: RepechageRow) =>
+      a.net - b.net ||
+      compareScoreLists(
+        a.cells.filter((c) => c.counts).map((c) => c.points),
+        b.cells.filter((c) => c.counts).map((c) => c.points),
+      ) ||
+      compareLastRace(a.cells, b.cells);
+    rows.sort(
+      (a, b) =>
+        byA8(a, b) ||
+        a.competitor.createdAt - b.competitor.createdAt ||
+        compareSailNumbersIgnoringPrefix(a.competitor.sailNumber, b.competitor.sailNumber),
+    );
+    rows.forEach((row, i) => {
+      row.rank = i > 0 && byA8(rows[i - 1], row) === 0 ? rows[i - 1].rank : i + 1;
+    });
+    return { fleetId, rows };
+  });
 }
 
 /** A boat whose qualifying scores are not one per counting qualifying race. */

@@ -25,6 +25,7 @@ import {
   fleetColorById,
   provisionalCutIndexes,
   REPECHAGE_WORDS,
+  STORED_STAGES,
   roundsForStage,
   resolveVocabulary,
   stageRaceLabel,
@@ -141,7 +142,7 @@ export function SplitFleetStandings({
   resultsStatus?: { isFinal: boolean; finalisedAt?: number; onMarkFinal?: () => void };
 }) {
   const columns = useMemo(() => {
-    const seen = new Map<string, { stage: SeriesStage; n: number }>();
+    const seen = new Map<string, { stage: StoredStage; n: number }>();
     for (const row of standings) {
       for (const cell of row.cells) {
         seen.set(`${cell.stage}:${cell.stageRaceNumber}`, {
@@ -150,9 +151,8 @@ export function SplitFleetStandings({
         });
       }
     }
-    const order: SeriesStage[] = ['qualifying', 'final', 'medal'];
     return [...seen.values()].sort(
-      (a, b) => order.indexOf(a.stage) - order.indexOf(b.stage) || a.n - b.n,
+      (a, b) => STORED_STAGES.indexOf(a.stage) - STORED_STAGES.indexOf(b.stage) || a.n - b.n,
     );
   }, [standings]);
 
@@ -390,7 +390,7 @@ function StandingsTable({
   children,
 }: {
   data: SplitFleetData;
-  columns: { stage: SeriesStage; n: number }[];
+  columns: { stage: StoredStage; n: number }[];
   showNationality: boolean;
   showClass: boolean;
   showCrew: boolean;
@@ -439,7 +439,7 @@ function FragmentRow({
 }: {
   config: SplitFleetConfig;
   row: SplitStandingRow;
-  columns: { stage: SeriesStage; n: number }[];
+  columns: { stage: StoredStage; n: number }[];
   cellByKey: Map<string, CellScore>;
   fleetMeta: Map<string, FleetMeta>;
   /** The current round's assignment, shown as a Fleet column on the combined

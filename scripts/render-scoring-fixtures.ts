@@ -33,7 +33,7 @@ import { defaultEnabledCompetitorFields, formatPrimaryNames } from '../lib/compe
 import type { DiscardThreshold, ProportionalDiscard, ResultCode, PenaltyCode } from '../lib/types';
 import { buildFixtureInputs, type Fixture, type FixtureStanding } from '../tests/fixtures/scoring/types';
 import { splitFleetStandings, stageRaceLabel } from '../lib/split-fleets';
-import type { SeriesStage } from '../lib/split-fleets';
+import type { StoredStage } from '../lib/split-fleets';
 import {
   buildSplitFleet,
   type SplitFleetFixture,
@@ -778,8 +778,8 @@ function generateFixtureHtml(fixture: Fixture, yamlSource: string): string {
 
 // ─── Split-fleet renderer (qualifying / final series) ───────────────────────
 
-const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
-const STAGE_PREFIX: Record<SeriesStage, string> = { qualifying: 'Q', final: 'F', medal: 'M' };
+const STAGE_ORDER: Record<StoredStage, number> = { qualifying: 0, final: 1, repechage: 2, medal: 3 };
+const STAGE_PREFIX: Record<StoredStage, string> = { qualifying: 'Q', final: 'F', repechage: 'R', medal: 'M' };
 
 /** Fleet-colour tints so the preview reads like a published split-fleet result. */
 const FLEET_TINT: Record<string, string> = {
@@ -814,7 +814,7 @@ ${resolvedRounds.map((r) => {
     : '';
 
   // Column set: one per logical race, ordered qualifying → final → medal.
-  const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
+  const colKeys = new Map<string, { stage: StoredStage; n: number }>();
   for (const r of rows) {
     for (const c of r.cells) colKeys.set(`${c.stage}:${c.stageRaceNumber}`, { stage: c.stage, n: c.stageRaceNumber });
   }
@@ -822,7 +822,7 @@ ${resolvedRounds.map((r) => {
     (a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] || a.n - b.n,
   );
 
-  const cellHtml = (row: (typeof rows)[number], col: { stage: SeriesStage; n: number }): string => {
+  const cellHtml = (row: (typeof rows)[number], col: { stage: StoredStage; n: number }): string => {
     const c = row.cells.find((x) => x.stage === col.stage && x.stageRaceNumber === col.n);
     if (!c) return '<td></td>';
     const tint = FLEET_TINT[fleetName.get(c.fleetId) ?? ''] ?? '#fff';

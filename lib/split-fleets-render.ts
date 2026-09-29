@@ -42,7 +42,7 @@ import {
   stageRaceLabel,
   STAGES,
   type CellScore,
-  type SeriesStage,
+  type StoredStage,
   type RenderSplitRound,
   type SplitFleetConfig,
   type SplitRound,
@@ -52,7 +52,7 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-const STAGE_ORDER: Record<SeriesStage, number> = { qualifying: 0, final: 1, medal: 2 };
+const STAGE_ORDER: Record<StoredStage, number> = { qualifying: 0, final: 1, repechage: 2, medal: 3 };
 
 export interface SplitFleetRenderInput {
   seriesName: string;
@@ -299,7 +299,7 @@ export function renderSplitFleetStandingsPage(
   const club = showClub(input);
   const wsid = showWsid(input);
   const vocab = resolveVocabulary(data.config);
-  const columnLabel = (stage: SeriesStage, n: number) =>
+  const columnLabel = (stage: StoredStage, n: number) =>
     stageRaceLabel(data.config, stage, n);
 
   /** The race columns one table needs: those some boat in it has a cell for.
@@ -309,7 +309,7 @@ export function renderSplitFleetStandingsPage(
    *  carry them as dead width. The rule generalises: a stage race a whole
    *  fleet never sailed drops out of that fleet's table the same way. */
   const columnsFor = (rowsIn: typeof rows) => {
-    const colKeys = new Map<string, { stage: SeriesStage; n: number }>();
+    const colKeys = new Map<string, { stage: StoredStage; n: number }>();
     for (const r of rowsIn) for (const c of r.cells) colKeys.set(`${c.stage}:${c.stageRaceNumber}`, { stage: c.stage, n: c.stageRaceNumber });
     return [...colKeys.values()].sort(
       (a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] || a.n - b.n,
@@ -351,7 +351,7 @@ export function renderSplitFleetStandingsPage(
     }
   }
 
-  const cellHtml = (row: (typeof rows)[number], col: { stage: SeriesStage; n: number }): string => {
+  const cellHtml = (row: (typeof rows)[number], col: { stage: StoredStage; n: number }): string => {
     const c = row.cells.find((x: CellScore) => x.stage === col.stage && x.stageRaceNumber === col.n);
     if (!c) return '<td></td>';
     const fleet = fleetName.get(c.fleetId);
@@ -398,7 +398,7 @@ export function renderSplitFleetStandingsPage(
   // With the race page's location known, each race column header deep-links
   // to that race's own tables. A carried-score column (stage race 0) is a
   // score, not a race: no section exists for it, so no link.
-  const headerCell = (c: { stage: SeriesStage; n: number }): string => {
+  const headerCell = (c: { stage: StoredStage; n: number }): string => {
     const label = columnLabel(c.stage, c.n);
     return opts.raceResultsHref && c.n > 0
       ? `<th><a href="${esc(opts.raceResultsHref)}#${stageRaceAnchor(c.stage, c.n)}">${label}</a></th>`
@@ -578,7 +578,7 @@ ${body}
 /** Anchor id for one stage race on the per-race results page. Structural
  *  (`q3`, `f1`, `m1`), never rendered as text — so deep links survive a
  *  vocabulary change, which renames every visible label. */
-export function stageRaceAnchor(stage: SeriesStage, n: number): string {
+export function stageRaceAnchor(stage: StoredStage, n: number): string {
   return `${stage[0]}${n}`;
 }
 

@@ -61,3 +61,23 @@ export function melges15SprintConfig(): SplitFleetConfig {
     medal: undefined,
   };
 }
+
+/** The Irish Sailing Dinghy and Keelboat Champions' Cups: two qualifying
+ *  flights, never divided or re-dealt, no discards, and a six-boat Final
+ *  Series that carries nothing in — the Final Series is the whole
+ *  championship score (2026 Dinghy SI 17). */
+export function championsCupConfig(): SplitFleetConfig {
+  return {
+    ...defaultSplitFleetConfig(2),
+    finalFleets: [],
+    split: { kind: 'none' },
+    discardThresholds: [],
+    vocabulary: 'qualification-final',
+    medal: {
+      size: 6,
+      multiplier: 1,
+      carry: 'nothing',
+      tieBreak: 'medal-race-then-a8',
+    },
+  };
+}
