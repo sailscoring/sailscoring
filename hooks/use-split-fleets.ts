@@ -12,8 +12,10 @@ import {
   deleteSplitFleetConfig,
   deleteSplitRound,
   getSplitFleetState,
+  promoteIntoMedalFleet,
   putSplitFleetConfig,
   setSplitFleetBoats,
+  withdrawPromotion,
   type SplitFleetStateDto,
   type SplitRoundCommit,
 } from '@/lib/api-repository';
@@ -120,7 +122,7 @@ export function useAddSplitStageRaces(seriesId: string) {
 export function useApplySplitOverride(seriesId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { roundId: string; competitorId: string; toFleetId: string }) =>
+    mutationFn: (input: { roundId: string; competitorId: string; toFleetId: string | null }) =>
       applySplitOverride(seriesId, input.roundId, {
         competitorId: input.competitorId,
         toFleetId: input.toFleetId,
@@ -133,6 +135,26 @@ export function useDeleteSplitRound(seriesId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (roundId: string) => deleteSplitRound(seriesId, roundId),
+    onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+  });
+}
+
+/** Promote boats into the medal fleet from the repêchage or the cut
+ *  ranking. The dialog stays open and shows a refusal itself. */
+export function usePromoteIntoMedalFleet(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { competitorIds: string[]; reason: 'repechage' | 'cut-ranking' }) =>
+      promoteIntoMedalFleet(seriesId, input),
+    onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+    meta: { errorShownToUser: true },
+  });
+}
+
+export function useWithdrawPromotion(seriesId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (competitorId: string) => withdrawPromotion(seriesId, competitorId),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
   });
 }

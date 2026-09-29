@@ -1282,7 +1282,15 @@ function applyDiscards(
  * (each by net), then — before any split — everyone by net over the
  * combined line. Returns rows with per-cell detail for rendering.
  */
-export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
+export function splitFleetStandings(
+  input: SplitFleetData,
+  opts?: {
+    /** Rank the stage the medal fleet was cut from, as if there were no
+     *  medal stage: every boat, the medal boats included, on her scores
+     *  before the cut (see `cutFromStandings`). */
+    withoutMedalStage?: boolean;
+  },
+): SplitStandingRow[] {
   // Applied here as well as at every construction site: the entry list is what
   // the replacement score is counted from, so scoring a list that still holds
   // non-entrants is wrong for every boat in the fleet, not just for them.
@@ -1291,11 +1299,15 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
 
   const qRaces = logicalRaces(data, 'qualifying');
   const fRaces = logicalRaces(data, 'final');
-  const mRaces = logicalRaces(data, 'medal');
+  const mRaces = opts?.withoutMedalStage ? [] : logicalRaces(data, 'medal');
 
   const splitRound = roundsForStage(rounds, 'final')[0] ?? null;
-  const medalRound = roundsForStage(rounds, 'medal')[0] ?? null;
+  // Without the medal stage the medal fleet still exists — its boats have
+  // left the companion race — but nobody ranks in it or carries into it.
+  const selectedRound = roundsForStage(rounds, 'medal')[0] ?? null;
+  const medalRound = opts?.withoutMedalStage ? null : selectedRound;
   const medalFleetId = medalRound?.fleetIds[0] ?? null;
+  const selectedFleetId = selectedRound?.fleetIds[0] ?? null;
 
   const rowByCompetitor = new Map<string, SplitStandingRow>();
   for (const c of competitors) {
@@ -1311,8 +1323,8 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     });
   }
 
-  const medalMembers = medalFleetId
-    ? new Set(fleetMembers(competitors, medalFleetId).map((c) => c.id))
+  const medalMembers = selectedFleetId
+    ? new Set(fleetMembers(competitors, selectedFleetId).map((c) => c.id))
     : null;
 
   const addStage = (lrs: LogicalRace[], stage: SeriesStage) => {
@@ -1565,6 +1577,19 @@ export function splitFleetStandings(input: SplitFleetData): SplitStandingRow[] {
     row.rank = i > 0 && byOverall(rows[i - 1], row) === 0 ? rows[i - 1].rank : i + 1;
   });
   return rows;
+}
+
+/**
+ * The ranking the medal fleet was cut from: every boat, the medal boats
+ * included, on her scores before the medal stage — the qualifying series,
+ * or the final fleets once the series is divided, with any companion race
+ * the boats outside the medal fleet sailed. It is what a repêchage is picked
+ * from, what a promotion from the cut ranking reads, and — where the medal
+ * races carry nothing, so the medal boats' earlier scores appear in no
+ * championship table — the table that lists them.
+ */
+export function cutFromStandings(input: SplitFleetData): SplitStandingRow[] {
+  return splitFleetStandings(input, { withoutMedalStage: true });
 }
 
 /** How a medal boat was placed, where the scorer promoted her from the

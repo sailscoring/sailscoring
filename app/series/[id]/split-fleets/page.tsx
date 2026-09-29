@@ -64,8 +64,10 @@ import {
   useApplySplitOverride,
   useCommitSplitRound,
   useDeleteSplitRound,
+  usePromoteIntoMedalFleet,
   useSaveSplitFleetConfig,
   useSplitFleetState,
+  useWithdrawPromotion,
 } from '@/hooks/use-split-fleets';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions';
@@ -73,16 +75,23 @@ import { competitorRepo, type SplitRoundCommit } from '@/lib/api-repository';
 import {
   assignByRankPattern,
   capitaliseStage,
+  cutFromStandings,
   dropNonEntrants,
   finalBlockSizes,
   fleetColorById,
   finishSheetsInUse,
   fleetMembers,
   logicalRaces,
+  medalSeatsOpen,
   MEDAL_FLEET_COLORS,
   physicalRaceCompleted,
   pickableFleets,
   provisionalCutIndexes,
+  REPECHAGE_FLEET_COLORS,
+  REPECHAGE_WORDS,
+  repechageEligibleIds,
+  repechageRound,
+  repechageStandings,
   roundsForStage,
   resolveVocabulary,
   assignFromInitialFleet,
@@ -95,7 +104,7 @@ import {
   type FinishSheets,
   type SeedOrder,
   type SeedTailOrder,
-  type SeriesStage,
+  type StoredStage,
   type QualifyingScoreMismatch,
   type SplitFleetConfig,
   type SplitFleetData,
@@ -146,7 +155,37 @@ function computeNextAction(
     };
   }
   if (config.medal && !medalRound) return { label: `select the ${w.medal.fleetNoun}` };
+  // A repêchage sailed and nobody promoted from it yet: its seats are the
+  // step left before the medal fleet is whole.
+  const repRound = repechageRound(data);
+  if (
+    medalRound &&
+    repRound &&
+    logicalRaces(data, 'repechage').length > 0 &&
+    !Object.values(medalRound.overrideReasons ?? {}).includes('repechage')
+  ) {
+    return { label: `promote from the ${REPECHAGE_WORDS.name}` };
+  }
   return null;
+}
+
+/** A repêchage the scorer has not yet promoted from. The companion race is
+ *  scored from the medal fleet's size, so it waits on those seats. */
+function repechagePending(data: SplitFleetData, medalRound: SplitRound | null): boolean {
+  return (
+    !!medalRound &&
+    !!repechageRound(data) &&
+    !Object.values(medalRound.overrideReasons ?? {}).includes('repechage')
+  );
+}
+
+function CompanionWaitsNote({ data }: { data: SplitFleetData }) {
+  return (
+    <span className="text-xs text-amber-700 dark:text-amber-400">
+      Promote from the {REPECHAGE_WORDS.name} first: this race scores from the{' '}
+      {words(data.config).medal.fleetNoun}&rsquo;s size.
+    </span>
+  );
 }
 
 function DayStrip({ data }: { data: SplitFleetData }) {
@@ -397,6 +436,15 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             medalSelected={medalRound !== null}
             canManage={canManage}
           />
+          {medalRound && medalConfig && (
+            <RepechageSection
+              seriesId={seriesId}
+              data={sfData}
+              fleetMeta={fleetMeta}
+              medalRound={medalRound}
+              canManage={canManage}
+            />
+          )}
         </StageSection>
       ) : (
         <StageSection
@@ -471,6 +519,15 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
                 The {w.final.name} begins when the {w.qualifying.name} ends and the fleet is
                 split.
               </p>
+            )}
+            {medalRound && medalConfig && (
+              <RepechageSection
+                seriesId={seriesId}
+                data={sfData}
+                fleetMeta={fleetMeta}
+                medalRound={medalRound}
+                canManage={canManage}
+              />
             )}
 
           </StageSection>
@@ -836,6 +893,10 @@ function QualifyingSection({
                   ? `Add companion race ${raceLabel(data, 'qualifying', nextStageRace)}`
                   : `Add race ${raceLabel(data, 'qualifying', nextStageRace)}`}
               </Button>
+              {medalSelected &&
+                repechagePending(data, roundsForStage(data.rounds, 'medal')[0] ?? null) && (
+                  <CompanionWaitsNote data={data} />
+                )}
               {/* Fleets sharing drawn boats always race apart. */}
               {currentRound && currentRound.fleetIds.length > 1 && !data.config.boatAssignments && (
                 <SheetLayoutChoice value={sheets} onChange={setSheets} />
@@ -896,7 +957,7 @@ function LogicalRaceRow({
   data: SplitFleetData;
   fleetMeta: Map<string, FleetMeta>;
   round: SplitRound;
-  stage: SeriesStage;
+  stage: StoredStage;
   stageRaceNumber: number;
   canManage: boolean;
 }) {
@@ -1801,6 +1862,7 @@ function FinalSection({
                 else is the one more race the sailing instructions give them. */}
             {medalRound ? 'Add companion race' : 'Add next race'}
           </Button>
+          {repechagePending(data, medalRound) && <CompanionWaitsNote data={data} />}
           {!data.config.boatAssignments && <SheetLayoutChoice value={sheets} onChange={setSheets} />}
         </div>
       )}
@@ -2129,6 +2191,638 @@ function MedalSelectDialog({
         rows={medalRows}
         boats={drawBoats ? draw.column(clashes.duplicateIds) : undefined}
       />
+    </CeremonyDialog>
+  );
+}
+
+// ─── Repêchage ──────────────────────────────────────────────────────────────
+
+/** The stage the medal fleet is cut from, as the repêchage names it: the
+ *  opening series where it is never divided, the final fleets' stage where
+ *  it is. */
+function cutFromName(data: SplitFleetData): string {
+  const w = words(data.config);
+  return data.config.split.kind === 'none' ? w.qualifying.name : w.final.name;
+}
+
+/** Each boat's fleet in the stage the medal fleet is cut from — the final
+ *  fleet once divided, the latest qualifying fleet before — for the "From"
+ *  column of the repêchage dialogs. */
+function cutFromFleetLabel(
+  data: SplitFleetData,
+  fleetMeta: Map<string, FleetMeta>,
+): (c: Competitor) => string {
+  const rounds =
+    data.config.split.kind === 'none'
+      ? roundsForStage(data.rounds, 'qualifying').slice(-1)
+      : roundsForStage(data.rounds, 'final');
+  const fleetIds = rounds.flatMap((r) => r.fleetIds);
+  return (c) => {
+    const fid = fleetIds.find((id) => c.fleetIds.includes(id));
+    return fid ? (fleetMeta.get(fid)?.label ?? '') : '';
+  };
+}
+
+/** Why some boats are absent from the repêchage dialogs, where they are:
+ *  the medal races carry a score, so only the fleet the medal fleet is
+ *  selected from can join it. */
+function EligibilityNote({ data, fleetMeta }: { data: SplitFleetData; fleetMeta: Map<string, FleetMeta> }) {
+  const splitRound = roundsForStage(data.rounds, 'final')[0];
+  if (!splitRound || data.config.medal?.carry === 'nothing') return null;
+  const w = words(data.config);
+  const top = fleetMeta.get(splitRound.fleetIds[0])?.label ?? '';
+  return (
+    <p className="text-xs text-muted-foreground" data-testid="sf-repechage-eligibility">
+      Only {top} boats are listed: the {w.medal.name} carry a score in, and a score from
+      another fleet cannot be set against {top}&rsquo;s.
+    </p>
+  );
+}
+
+/**
+ * The repêchage: a short series for boats who missed the medal cut, sat at
+ * the foot of the card they were cut from. Its boats are picked by hand, it
+ * is ranked on its own races, and it fills the medal fleet's last seats only
+ * by promotion. Promoting from the cut ranking — the fallback where there is
+ * no time to sail it — lives here too.
+ */
+function RepechageSection({
+  seriesId,
+  data,
+  fleetMeta,
+  medalRound,
+  canManage,
+}: {
+  seriesId: string;
+  data: SplitFleetData;
+  fleetMeta: Map<string, FleetMeta>;
+  medalRound: SplitRound;
+  canManage: boolean;
+}) {
+  const w = words(data.config);
+  const confirm = useConfirm();
+  const deleteRound = useDeleteSplitRound(seriesId);
+  const addRaces = useAddSplitStageRaces(seriesId);
+  const withdraw = useWithdrawPromotion(seriesId);
+  const override = useApplySplitOverride(seriesId);
+  const [dialog, setDialog] = useState<'add' | 'promote' | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [sheets, setSheets] = useState<FinishSheets>(() => finishSheetsInUse(data));
+  const [addBoat, setAddBoat] = useState('');
+  const round = repechageRound(data);
+  const seatsOpen = medalSeatsOpen(data);
+  const byId = new Map(data.competitors.map((c) => [c.id, c]));
+  const promoted = Object.entries(medalRound.overrideReasons ?? {}).filter(
+    ([id, reason]) => (reason === 'repechage' || reason === 'cut-ranking') && byId.has(id),
+  );
+  const promotedFromIt = promoted.some(([, reason]) => reason === 'repechage');
+  const lrs = round ? logicalRaces(data, 'repechage') : [];
+  const nextN = lrs.length ? Math.max(...lrs.map((l) => l.stageRaceNumber)) + 1 : 1;
+  const membershipOpen = !!round && canManage && !promotedFromIt;
+  const eligible = repechageEligibleIds(data);
+  const addable = round
+    ? cutFromStandings(data).filter(
+        (r) => eligible.has(r.competitor.id) && !round.fleetIds.some((fid) => r.competitor.fleetIds.includes(fid)),
+      )
+    : [];
+
+  return (
+    <div className="space-y-2 rounded-lg border bg-muted/30 p-4" data-testid="sf-repechage">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{capitaliseStage(REPECHAGE_WORDS.name)}</h3>
+        <span className="text-xs text-muted-foreground" data-testid="sf-seats-open">
+          {seatsOpen === 1 ? '1 seat' : `${seatsOpen} seats`} open in the {w.medal.fleetNoun}
+        </span>
+      </div>
+      {!round ? (
+        <p className="text-xs text-muted-foreground">
+          Boats who missed the cut can sail a {REPECHAGE_WORDS.name} of their own, ranked on
+          its races alone; its leaders are then promoted into the {w.medal.fleetNoun}. Where
+          there is no time to sail one, promote from the {cutFromName(data)} ranking instead.
+        </p>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Ranked on its own races alone, every boat starting on zero, nothing excluded.
+            Nothing it scores counts in the championship.
+          </p>
+          <div className="space-y-1.5">
+            {round.fleetIds.map((fid) => {
+              const meta = fleetMeta.get(fid) ?? { label: '?', color: '#888' };
+              return (
+                <div key={fid} className="flex flex-wrap items-center gap-1.5">
+                  <RoundFleetChip
+                    seriesId={seriesId}
+                    data={data}
+                    round={round}
+                    fleetId={fid}
+                    meta={meta}
+                    canEdit={canManage}
+                  />
+                  {fleetMembers(data.competitors, fid).map((c) => (
+                    <span
+                      key={c.id}
+                      className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xs"
+                    >
+                      {c.sailNumber}
+                      {membershipOpen && (
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={`Take ${c.sailNumber} out of the ${REPECHAGE_WORDS.name}`}
+                          disabled={override.isPending}
+                          onClick={() =>
+                            override.mutate({ roundId: round.id, competitorId: c.id, toFleetId: null })
+                          }
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              );
+            })}
+            {membershipOpen && addable.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  aria-label={`Add a boat to the ${REPECHAGE_WORDS.name}`}
+                  className="rounded-md border bg-background px-2 py-1 text-xs"
+                  value={addBoat}
+                  onChange={(e) => setAddBoat(e.target.value)}
+                >
+                  <option value="">Add a boat…</option>
+                  {addable.map((r) => (
+                    <option key={r.competitor.id} value={r.competitor.id}>
+                      {r.rank}. {r.competitor.sailNumber} {r.competitor.names.join(' & ')}
+                    </option>
+                  ))}
+                </select>
+                {round.fleetIds.map((fid) => (
+                  <Button
+                    key={fid}
+                    variant="outline"
+                    size="xs"
+                    disabled={!addBoat || override.isPending}
+                    onClick={() => {
+                      override.mutate({ roundId: round.id, competitorId: addBoat, toFleetId: fid });
+                      setAddBoat('');
+                    }}
+                  >
+                    {round.fleetIds.length > 1 ? `Add to ${fleetMeta.get(fid)?.label ?? '?'}` : 'Add'}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {lrs.map((lr) => (
+              <LogicalRaceRow
+                key={lr.stageRaceNumber}
+                seriesId={seriesId}
+                data={data}
+                fleetMeta={fleetMeta}
+                round={round}
+                stage="repechage"
+                stageRaceNumber={lr.stageRaceNumber}
+                canManage={canManage}
+              />
+            ))}
+          </div>
+        </>
+      )}
+      {canManage && (
+        <div className="flex flex-wrap items-center gap-2">
+          {!round ? (
+            <Button variant="outline" onClick={() => setDialog('add')}>
+              Add a {REPECHAGE_WORDS.name}…
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                disabled={addRaces.isPending}
+                onClick={() =>
+                  addRaces.mutate({
+                    roundId: round.id,
+                    stageRaceNumbers: [nextN],
+                    ...(round.fleetIds.length > 1 ? { finishSheets: sheets } : {}),
+                  })
+                }
+              >
+                Add {raceLabel(data, 'repechage', nextN)}
+              </Button>
+              {round.fleetIds.length > 1 && !data.config.boatAssignments && (
+                <SheetLayoutChoice value={sheets} onChange={setSheets} />
+              )}
+            </>
+          )}
+          <Button onClick={() => setDialog('promote')} data-testid="sf-promote-open">
+            {round ? `Promote from the ${REPECHAGE_WORDS.name}…` : `Promote from the ${cutFromName(data)} ranking…`}
+          </Button>
+          {round && !promotedFromIt && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={deleteRound.isPending}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: `Delete the ${REPECHAGE_WORDS.name}?`,
+                  description: `Its fleets go, with their memberships and every ${REPECHAGE_WORDS.raceNoun} — finishes included. Nothing in the championship changes.`,
+                  confirmLabel: `Delete the ${REPECHAGE_WORDS.name}`,
+                  destructive: true,
+                });
+                if (ok) deleteRound.mutate(round.id);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete the {REPECHAGE_WORDS.name}…
+            </Button>
+          )}
+        </div>
+      )}
+      {promoted.length > 0 && (
+        <div className="space-y-1" data-testid="sf-promoted">
+          <p className="text-xs font-medium">Promoted into the {w.medal.fleetNoun}</p>
+          {promoted.map(([id, reason]) => {
+            const c = byId.get(id)!;
+            return (
+              <div key={id} className="flex flex-wrap items-center gap-2 text-xs">
+                <span>
+                  {c.sailNumber} {c.names.join(' & ')}
+                </span>
+                <span className="text-muted-foreground">
+                  {reason === 'repechage'
+                    ? `from the ${REPECHAGE_WORDS.name}`
+                    : `from the ${cutFromName(data)} ranking`}
+                </span>
+                {canManage && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    disabled={withdraw.isPending}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Withdraw ${c.sailNumber}’s promotion?`,
+                        description: `She leaves the ${w.medal.fleetNoun}, and her seat is open again.`,
+                        confirmLabel: 'Withdraw',
+                        destructive: true,
+                      });
+                      if (!ok) return;
+                      const res = await withdraw.mutateAsync(id);
+                      setWarning(res.warning);
+                    }}
+                  >
+                    Withdraw
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {warning && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {warning}
+        </p>
+      )}
+      {dialog === 'add' && (
+        <AddRepechageDialog
+          seriesId={seriesId}
+          data={data}
+          fleetMeta={fleetMeta}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === 'promote' && (
+        <PromoteDialog
+          seriesId={seriesId}
+          data={data}
+          fleetMeta={fleetMeta}
+          onClose={(w2) => {
+            setDialog(null);
+            if (w2 !== undefined) setWarning(w2);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddRepechageDialog({
+  seriesId,
+  data,
+  fleetMeta,
+  onClose,
+}: {
+  seriesId: string;
+  data: SplitFleetData;
+  fleetMeta: Map<string, FleetMeta>;
+  onClose: () => void;
+}) {
+  const { commit, run } = useCommit(seriesId, onClose);
+  const [fleetCount, setFleetCount] = useState(1);
+  const [picked, setPicked] = useState<Record<string, number>>({});
+  const [createRaces, setCreateRaces] = useState(false);
+  const [sheets, setSheets] = useState<FinishSheets>(() => finishSheetsInUse(data));
+  const labels =
+    fleetCount === 1
+      ? [capitaliseStage(REPECHAGE_WORDS.name)]
+      : Array.from({ length: fleetCount }, (_, i) => `Rep ${String.fromCharCode(65 + i)}`);
+  const eligible = useMemo(() => repechageEligibleIds(data), [data]);
+  const rows = useMemo(
+    () => cutFromStandings(data).filter((r) => eligible.has(r.competitor.id)),
+    [data, eligible],
+  );
+  const fromLabel = cutFromFleetLabel(data, fleetMeta);
+  const showFrom = new Set(rows.map((r) => fromLabel(r.competitor))).size > 1;
+  const count = Object.keys(picked).length;
+  const assignments = Object.fromEntries(
+    Object.entries(picked).map(([id, i]) => [id, Math.min(i, fleetCount - 1)]),
+  );
+  const emptyFleet = labels.findIndex((_, i) => !Object.values(assignments).includes(i));
+
+  return (
+    <CeremonyDialog
+      title={`Add a ${REPECHAGE_WORDS.name}`}
+      description={`Pick the boats the sailing instructions name. The ${REPECHAGE_WORDS.name} is ranked on its own races alone — every boat starts on zero — and nothing it scores counts in the championship; its leaders are promoted into the ${words(data.config).medal.fleetNoun} afterwards.`}
+      error={commit.isError ? String(commit.error) : null}
+      pending={commit.isPending}
+      commitLabel={`Add the ${REPECHAGE_WORDS.name} (${count} ${count === 1 ? 'boat' : 'boats'})`}
+      blockedReason={
+        count === 0
+          ? 'Pick the boats who sail it'
+          : emptyFleet >= 0
+            ? `${labels[emptyFleet]} has no boats`
+            : null
+      }
+      onClose={onClose}
+      onCommit={() =>
+        run({
+          stage: 'repechage',
+          fromStageRace: 1,
+          method: 'manual',
+          basis: null,
+          fleets: labels.map((label, i) => ({ label, color: REPECHAGE_FLEET_COLORS[i] })),
+          assignments,
+          stageRaceNumbers: createRaces ? [1] : [],
+          ...(fleetCount > 1 ? { finishSheets: sheets } : {}),
+        })
+      }
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <label htmlFor="sf-rep-fleets">Sailed in</label>
+        <select
+          id="sf-rep-fleets"
+          className="rounded-md border bg-background px-2 py-1 text-sm"
+          value={fleetCount}
+          onChange={(e) => setFleetCount(Number(e.target.value))}
+        >
+          <option value={1}>one fleet</option>
+          <option value={2}>two fleets</option>
+          <option value={3}>three fleets</option>
+        </select>
+        {fleetCount > 1 && (
+          <span className="text-xs text-muted-foreground">
+            each ranked on its own; which of them fills a seat is yours to read from the
+            sailing instructions
+          </span>
+        )}
+      </div>
+      {fleetCount > 1 && !data.config.boatAssignments && createRaces && (
+        <SheetLayoutChoice value={sheets} onChange={setSheets} />
+      )}
+      <EligibilityNote data={data} fleetMeta={fleetMeta} />
+      <CreateRacesChoice
+        labels={[raceLabel(data, 'repechage', 1)]}
+        checked={createRaces}
+        onChange={setCreateRaces}
+      />
+      <table className="w-full text-sm" data-testid="sf-repechage-candidates">
+        <thead>
+          <tr className="text-left text-xs text-muted-foreground">
+            <th className="py-1 pr-2 font-medium" />
+            <th className="py-1 pr-2 font-medium">#</th>
+            <th className="py-1 pr-2 font-medium">Sail</th>
+            <th className="py-1 pr-2 font-medium">Name</th>
+            {showFrom && <th className="py-1 pr-2 font-medium">From</th>}
+            {fleetCount > 1 && <th className="py-1 font-medium">Fleet</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const id = r.competitor.id;
+            const on = picked[id] !== undefined;
+            return (
+              <tr key={id}>
+                <td className="py-1 pr-2">
+                  <input
+                    type="checkbox"
+                    aria-label={`${r.competitor.sailNumber} sails the ${REPECHAGE_WORDS.name}`}
+                    checked={on}
+                    onChange={(e) =>
+                      setPicked((p) => {
+                        const { [id]: _drop, ...rest } = p;
+                        return e.target.checked ? { ...rest, [id]: 0 } : rest;
+                      })
+                    }
+                  />
+                </td>
+                <td className="py-1 pr-2 text-muted-foreground">{r.rank}</td>
+                <td className="py-1 pr-2 whitespace-nowrap">{r.competitor.sailNumber}</td>
+                <td className="py-1 pr-2">{r.competitor.names.join(' & ')}</td>
+                {showFrom && (
+                  <td className="py-1 pr-2 text-muted-foreground">{fromLabel(r.competitor)}</td>
+                )}
+                {fleetCount > 1 && (
+                  <td className="py-1">
+                    {on && (
+                      <select
+                        aria-label={`Fleet for ${r.competitor.sailNumber}`}
+                        className="rounded border bg-background px-1 py-0.5 text-xs"
+                        value={Math.min(picked[id], fleetCount - 1)}
+                        onChange={(e) => setPicked((p) => ({ ...p, [id]: Number(e.target.value) }))}
+                      >
+                        {labels.map((l, i) => (
+                          <option key={l} value={i}>
+                            {l}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </CeremonyDialog>
+  );
+}
+
+/**
+ * Promote boats into the medal fleet: from the repêchage ranking, or from the
+ * ranking they were cut from. The leaders are ticked up to the seats open,
+ * as a suggestion; the scorer promotes whom the sailing instructions say.
+ */
+function PromoteDialog({
+  seriesId,
+  data,
+  fleetMeta,
+  onClose,
+}: {
+  seriesId: string;
+  data: SplitFleetData;
+  fleetMeta: Map<string, FleetMeta>;
+  /** With the server's warning when a promotion was made. */
+  onClose: (warning?: string | null) => void;
+}) {
+  const promote = usePromoteIntoMedalFleet(seriesId);
+  const w = words(data.config);
+  const round = repechageRound(data);
+  const [source, setSource] = useState<'repechage' | 'cut-ranking'>(round ? 'repechage' : 'cut-ranking');
+  const seatsOpen = medalSeatsOpen(data);
+  const eligible = useMemo(() => repechageEligibleIds(data), [data]);
+  const fromLabel = cutFromFleetLabel(data, fleetMeta);
+
+  // One list per source, each row with the group it is ranked in.
+  const candidates = useMemo(() => {
+    if (source === 'repechage') {
+      return repechageStandings(data).flatMap((t) =>
+        t.rows
+          .filter((r) => !r.promoted && eligible.has(r.competitor.id))
+          .map((r) => ({
+            competitor: r.competitor,
+            rank: r.rank,
+            group: fleetMeta.get(t.fleetId)?.label ?? '',
+            score: r.net,
+          })),
+      );
+    }
+    return cutFromStandings(data)
+      .filter((r) => eligible.has(r.competitor.id))
+      .map((r) => ({ competitor: r.competitor, rank: r.rank, group: fromLabel(r.competitor), score: r.net }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, data, eligible]);
+
+  // The suggestion: the leaders, taken rank by rank across the repêchage's
+  // fleets, up to the seats open.
+  const suggested = useMemo(() => {
+    const order = [...candidates].sort((a, b) => a.rank - b.rank);
+    return new Set(order.slice(0, seatsOpen).map((c) => c.competitor.id));
+  }, [candidates, seatsOpen]);
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const chosen = picked ?? suggested;
+  const showGroup = new Set(candidates.map((c) => c.group)).size > 1;
+  const medalSailed = stageRaceRefs(data, 'medal').some((ref) =>
+    physicalRaceCompleted(ref, data.competitors, data.finishes),
+  );
+  const companion = data.raceStarts.some(
+    (s) => s.stage && s.stage !== 'medal' && s.stage !== 'repechage' && (s.firstPlaceOffset ?? 0) > 0,
+  );
+
+  return (
+    <CeremonyDialog
+      title={`Promote into the ${w.medal.fleetNoun}`}
+      description={`${seatsOpen === 1 ? '1 seat' : `${seatsOpen} seats`} open. ${
+        data.config.medal?.carry === 'nothing'
+          ? `Nothing is carried into the ${w.medal.name}: a promoted boat starts them level with the boats selected directly.`
+          : `A promoted boat carries her own ${cutFromName(data)} score into the ${w.medal.name}, as the boats selected directly do.`
+      } Nothing from the ${REPECHAGE_WORDS.name} goes with her.`}
+      error={promote.isError ? String(promote.error) : null}
+      pending={promote.isPending}
+      commitLabel={`Promote ${chosen.size} ${chosen.size === 1 ? 'boat' : 'boats'}`}
+      blockedReason={chosen.size === 0 ? 'Pick the boats to promote' : null}
+      onClose={() => onClose()}
+      onCommit={async () => {
+        try {
+          const res = await promote.mutateAsync({ competitorIds: [...chosen], reason: source });
+          onClose(res.warning);
+        } catch {
+          // surfaced via promote.isError
+        }
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span>From</span>
+        {round && (
+          <label className="flex items-center gap-1">
+            <input
+              type="radio"
+              name="sf-promote-source"
+              checked={source === 'repechage'}
+              onChange={() => {
+                setSource('repechage');
+                setPicked(null);
+              }}
+            />
+            the {REPECHAGE_WORDS.name} ranking
+          </label>
+        )}
+        <label className="flex items-center gap-1">
+          <input
+            type="radio"
+            name="sf-promote-source"
+            checked={source === 'cut-ranking'}
+            onChange={() => {
+              setSource('cut-ranking');
+              setPicked(null);
+            }}
+          />
+          the {cutFromName(data)} ranking
+        </label>
+      </div>
+      <EligibilityNote data={data} fleetMeta={fleetMeta} />
+      {(medalSailed || companion) && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          {medalSailed
+            ? `A ${w.medal.raceNoun} has already been sailed: a boat promoted now has no score in it.`
+            : `A companion race has already been added. It is scored from the ${w.medal.fleetNoun}’s size plus one, and a promoted boat leaves it — check its scores after promoting.`}
+        </p>
+      )}
+      <table className="w-full text-sm" data-testid="sf-promote-candidates">
+        <thead>
+          <tr className="text-left text-xs text-muted-foreground">
+            <th className="py-1 pr-2 font-medium" />
+            <th className="py-1 pr-2 font-medium">#</th>
+            {showGroup && (
+              <th className="py-1 pr-2 font-medium">{source === 'repechage' ? 'Fleet' : 'From'}</th>
+            )}
+            <th className="py-1 pr-2 font-medium">Sail</th>
+            <th className="py-1 pr-2 font-medium">Name</th>
+            <th className="py-1 font-medium text-right">Nett</th>
+          </tr>
+        </thead>
+        <tbody>
+          {candidates.map((c) => {
+            const id = c.competitor.id;
+            return (
+              <tr key={id}>
+                <td className="py-1 pr-2">
+                  <input
+                    type="checkbox"
+                    aria-label={`Promote ${c.competitor.sailNumber}`}
+                    checked={chosen.has(id)}
+                    onChange={(e) => {
+                      const next = new Set(chosen);
+                      if (e.target.checked) next.add(id);
+                      else next.delete(id);
+                      setPicked(next);
+                    }}
+                  />
+                </td>
+                <td className="py-1 pr-2 text-muted-foreground">{c.rank}</td>
+                {showGroup && <td className="py-1 pr-2 text-muted-foreground">{c.group}</td>}
+                <td className="py-1 pr-2 whitespace-nowrap">{c.competitor.sailNumber}</td>
+                <td className="py-1 pr-2">{c.competitor.names.join(' & ')}</td>
+                <td className="py-1 text-right">{c.score}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </CeremonyDialog>
   );
 }

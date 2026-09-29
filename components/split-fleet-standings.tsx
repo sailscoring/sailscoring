@@ -85,7 +85,9 @@ export function buildFleetMeta(
           ? data.config.qualifyingFleets.map((f) => f.label)
           : round.stage === 'final'
             ? data.config.finalFleets.map((f) => f.label)
-            : [capitaliseStage(splitFleetWords(data.config).medal.name), 'Last race'];
+            : round.stage === 'repechage'
+              ? [capitaliseStage(REPECHAGE_WORDS.name)]
+              : [capitaliseStage(splitFleetWords(data.config).medal.name), 'Last race'];
       meta.set(fid, {
         label: byId.get(fid)?.name ?? labels[i] ?? '?',
         color: colors.get(fid) ?? '#94a3b8',

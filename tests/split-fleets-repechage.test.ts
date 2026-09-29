@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  cutFromStandings,
   medalSeatsOpen,
   repechageBoatsOutsidePool,
   repechageEligibleIds,
@@ -117,7 +118,7 @@ function championsCup(opts: {
     raceStarts.push(start(id, fleetId, stage, stageRace));
     finishes.push(...sheet(id, order));
   };
-  // Flight A finishes in entry order; flight B in reverse.
+  // Both flights finish in entry order.
   for (const q of [1, 2]) {
     addRace(`qa${q}`, 'qa', 'qualifying', q, ['a1', 'a2', 'a3', 'a4']);
     addRace(`qb${q}`, 'qb', 'qualifying', q, ['b1', 'b2', 'b3', 'b4']);
@@ -257,6 +258,24 @@ describe('the championship, with a repêchage beside it', () => {
     );
     const via = Object.fromEntries(rows.map((r) => [r.competitor.id, r.promotedVia]));
     expect(via).toMatchObject({ a3: 'repechage', b2: 'cut-ranking', a2: undefined, a1: undefined });
+  });
+});
+
+describe('cutFromStandings', () => {
+  it('ranks every boat on the stage she was cut from, the medal boats included', () => {
+    const rows = cutFromStandings(championsCup({ medalSheet: ['a3', 'a1', 'b1'] }));
+    expect(rows.every((r) => !r.medal && !r.cells.some((c) => c.stage === 'medal'))).toBe(true);
+    // Both flights finished in entry order, so each place ties across them.
+    expect(rows.map((r) => [r.competitor.id, r.net, r.rank])).toEqual([
+      ['a1', 2, 1],
+      ['b1', 2, 1],
+      ['a2', 4, 3],
+      ['b2', 4, 3],
+      ['a3', 6, 5],
+      ['b3', 6, 5],
+      ['a4', 8, 7],
+      ['b4', 8, 7],
+    ]);
   });
 });
 
