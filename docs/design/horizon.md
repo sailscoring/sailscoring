@@ -450,6 +450,83 @@ rather than leave the two to argue about it.
 
 ---
 
+## Course data from the water
+
+### Collecting course data from the committee boat, RIBs, and competitors
+
+The course builder takes a club's course card and the positions of the marks
+that were laid for the race. In practice those positions come from people on
+the water, and the scorer is usually ashore. The positions arrive by text
+message or on paper, and the scorer uses judgement to build the course from
+them:
+
+- **The course card** gives the mark order, rounding sides, and the wind the
+  course was set for.
+- **The committee boat** gives its own position, the pin, and any other marks
+  it lays. It also has the best view of wind and current through the race.
+- **The mark-laying RIBs** give the laid marks. A position is only valid from
+  the time it was laid, and marks get moved.
+- **Competitors' tracks** give independent evidence of where the marks were
+  and which course was actually sailed.
+
+A proof of concept overlaid all four for the RCYC Autumn League on 27
+September 2026: Pat Tanner's course card and positions, the course as built in
+Sail Scoring, and one competitor's Garmin GPX. It found things that no single
+source showed:
+
+- The track passed every laid mark at 4–14 m, which corroborated the laid
+  positions.
+- The card measured the first and last legs from the middle of the line.
+  The course builder measured them from the committee boat, which put them
+  5° and 11° off the card.
+- The start and finish crossings in the track both fit a race-office clock
+  running about 5 s ahead of GPS.
+- The windward legs passed through the start line.
+
+The idea is to let each of these sources record its data in Sail Scoring
+directly, and to show the scorer all of it together:
+
+- **A course-builder role.** Someone on the committee boat signs in and builds
+  the course without being a scorer. It could be a new entry in
+  `lib/auth/org-roles.ts` and `lib/auth/permissions.ts`, able to manage marks
+  and courses but not competitors, finishes, or publishing. It would probably
+  want the series scope described under Per-series scorer scope.
+- **A mark-collection page.** The course builder sends a link to each RIB. The
+  crew needs no account and no other position source: they pick a mark, press
+  "Record mark position" to save the phone's GPS fix with a timestamp, and see
+  what they've recorded. Each mark then holds a list of dated fixes, each with
+  its source, and the scorer chooses which one a race uses. That covers the
+  "Windward moved 10:47" case, which today is a note in a text message.
+- **A track-submission page.** A similar link lets competitors upload a track
+  (GPX, or an export from their device) against their entry and see it
+  overlaid on the course. Tracks are evidence for checking marks and legs, not
+  a scoring input. For each rounding the course builder would report the
+  closest approach, and it would flag any mark the fleet passed well clear of.
+- **Wind and current.** ORC legs already carry wind direction and speed, and
+  optionally current, but the scorer has to estimate them. Readings logged from
+  the committee boat through the race, and from the RIBs at the marks, would
+  fill these in directly. Tracks give a cross-check: the angle midway between
+  a boat's two tacks on a beat is the wind direction.
+
+Open questions:
+
+- **Tracks as data.** The sector time analysis entry below says Sail Scoring
+  shouldn't ingest trackers. Using a track to check the course is a narrower
+  use. Does that mean keeping the raw tracks, or only what was derived from
+  them (a rounding distance, a crossing time)?
+- **Privacy.** A track is personal location data. It needs a Privacy Policy
+  change, a retention rule, and a decision on who can see whose track.
+- **Access for people without accounts.** How are the links authorised:
+  per race, expiring, revocable? What stops a leaked link being used to
+  record a bogus position?
+- **Connectivity.** Signal outside a harbour is patchy, so the pages probably
+  need to record offline and sync later.
+- **What gets published.** Is this course evidence part of the scoring
+  record, kept and revisable like finishes, or only a working aid for the
+  scorer?
+
+---
+
 ## Scoring records and audit trail
 
 ### Rendered (WYSIWYG) revision diff
