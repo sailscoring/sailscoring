@@ -183,6 +183,36 @@ describe('describeSplitFleetConfig', () => {
  * one some configuration actually produces (or the setting marks nothing and
  * the scorer concludes it does nothing).
  */
+describe('fleets ranked each on their own', () => {
+  const perFleet: SplitFleetConfig = {
+    ...championsCupConfig(),
+    fleetRanking: 'per-fleet',
+    medal: { ...championsCupConfig().medal!, fromEachFleet: 2 },
+  };
+
+  it('says the fleets are drawn, ranked apart, and the top of each go through', () => {
+    const text = joined(perFleet);
+    expect(text).toContain(
+      'Boats will be drawn into two Qualification fleets (Yellow and Blue) and will sail the Qualification series in them.',
+    );
+    expect(text).toContain(
+      'Each Qualification fleet will be ranked on its own. A race will count for a fleet once that fleet has completed it.',
+    );
+    expect(text).toContain('scored the number of boats in her own Qualification fleet, plus one');
+    expect(text).toContain(
+      'The first 2 boats in each Qualification fleet will sail the Final series, and 2 more boats as these sailing instructions direct.',
+    );
+    expect(text).not.toContain('in one fleet');
+  });
+
+  it('keeps the combined wording where the fleets are ranked together', () => {
+    const text = joined({ ...perFleet, fleetRanking: 'combined' });
+    expect(text).not.toContain('ranked on its own');
+    expect(text).toContain('the number of boats in the largest Qualification fleet, plus one');
+    expect(text).toContain('The first 6 boats in the Qualification series will sail the Final series.');
+  });
+});
+
 describe('the repêchage', () => {
   const repechageText = (config: SplitFleetConfig, repechage: boolean) =>
     describeSplitFleetConfig(config, { repechage })

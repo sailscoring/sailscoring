@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { useSaveSplitFleetConfig } from '@/hooks/use-split-fleets';
 import { SENTENCES_BY_SETTING, type SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import {
+  directSeatsPerFleet,
+  ranksEachFleet,
   CARRY_IN_VALUES,
   capitaliseStage,
   DEFAULT_MEDAL,
@@ -468,6 +470,7 @@ export function OpeningSettings({
   const q = vocab.stages.qualifying;
   const f = vocab.stages.final;
   const oneFleet = config.qualifyingFleets.length === 1;
+  const perFleet = ranksEachFleet(config);
   const title = capitaliseStage(divided ? vocab.seriesName : q.name);
   // What dividing would call the two parts: the wording's own names, which
   // the undivided vocabulary folds into one.
@@ -484,11 +487,15 @@ export function OpeningSettings({
         `Races are numbered ${labels(config, 'qualifying')}.`,
         oneFleet
           ? `A boat that doesn’t finish scores the number of entries, plus one.`
-          : `A boat that doesn’t finish scores the number of boats in the largest fleet, plus one.`,
+          : perFleet
+            ? `A boat that doesn’t finish scores the number of boats in her own fleet, plus one.`
+            : `A boat that doesn’t finish scores the number of boats in the largest fleet, plus one.`,
         ...(oneFleet
           ? []
           : [
-              `A race counts only once every fleet has sailed it.`,
+              perFleet
+                ? `A race counts for a fleet once that fleet has sailed it.`
+                : `A race counts only once every fleet has sailed it.`,
               `Boats keep the fleet they are first assigned to.`,
             ]),
         ...(medalSelected
@@ -565,6 +572,33 @@ export function OpeningSettings({
                 canEdit={canEdit}
                 onChange={(qualifyingFleets) => patch({ qualifyingFleets })}
               />
+            </Row>
+          )}
+          {!divided && !oneFleet && (
+            <Row settings={['fleetRanking']} label="Fleets ranked">
+              <div className="space-y-1" role="radiogroup" aria-label="How the fleets are ranked">
+                {(
+                  [
+                    ['combined', 'All together, as one list'],
+                    ['per-fleet', 'Each on its own'],
+                  ] as const
+                ).map(([value, text]) => (
+                  <label key={value} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="sf-fleet-ranking"
+                      disabled={!canEdit}
+                      checked={(config.fleetRanking ?? 'combined') === value}
+                      onChange={() => patch({ fleetRanking: value })}
+                    />
+                    {text}
+                  </label>
+                ))}
+                <p className={hint}>
+                  Each on its own where the fleets are separate selection pools — the top boats
+                  of each fleet go through, as at the Irish Sailing Champions’ Cups.
+                </p>
+              </div>
             </Row>
           )}
           <Row settings={['discards']} label="Discards">
@@ -823,6 +857,9 @@ export function MedalSettings({
     : `the ${vocab.stages.qualifying.name}`;
   const setMedal = (p: Partial<NonNullable<SplitFleetConfig['medal']>>) =>
     patch({ medal: { ...medal, ...p } });
+  const perFleet = ranksEachFleet(config);
+  const seatsEach = directSeatsPerFleet(config);
+  const fleetCount = config.qualifyingFleets.length;
   const radio = (name: string, checked: boolean, onChange: () => void, label: string) => (
     <label className="flex items-center gap-2">
       <input type="radio" name={name} disabled={!canEdit} checked={checked} onChange={onChange} />
@@ -841,7 +878,13 @@ export function MedalSettings({
       rules={[
         `Races are numbered ${labels(config, 'medal')}.`,
         `No ${m.raceNoun} is excluded, and none counts towards the discards.`,
-        `The ${m.fleetNoun} is the top ${medal.size} of ${from}, ties settled by rule A8 and then entry order.`,
+        perFleet
+          ? `The ${m.fleetNoun} is the top ${seatsEach} of each fleet, ties settled by rule A8 and then entry order${
+              medal.size > seatsEach * fleetCount
+                ? `; the other ${medal.size - seatsEach * fleetCount} seats are filled by promotion`
+                : ''
+            }.`
+          : `The ${m.fleetNoun} is the top ${medal.size} of ${from}, ties settled by rule A8 and then entry order.`,
         `The ${m.fleetNoun} ranks ahead of every other boat, whatever the points say.`,
         ...(medal.carry !== 'net'
           ? [
@@ -864,6 +907,27 @@ export function MedalSettings({
             />
             <p className={hint}>Also where the provisional cut line is drawn before selection.</p>
           </Row>
+          {perFleet && (
+            <Row settings={['medalFromEachFleet']} label="Direct seats" htmlFor="sf-medal-from-each">
+              <div className="flex items-center gap-2">
+                <span>The top</span>
+                <input
+                  id="sf-medal-from-each"
+                  type="number"
+                  min={1}
+                  className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
+                  disabled={!canEdit}
+                  value={seatsEach}
+                  onChange={(e) => setMedal({ fromEachFleet: Math.max(1, Number(e.target.value)) })}
+                />
+                <span>of each fleet</span>
+              </div>
+              <p className={hint}>
+                Where the cut line is drawn in each fleet. Seats beyond these are filled from a
+                repêchage or the ranking the boats were cut from.
+              </p>
+            </Row>
+          )}
           <Row settings={['medal']} label="Points">
             <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={`${capitaliseStage(m.name)} points`}>
               {radio('sf-medal-points', medal.multiplier === 1, () => setMedal({ multiplier: 1 }), 'Single')}

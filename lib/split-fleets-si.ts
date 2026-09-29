@@ -9,7 +9,7 @@
 // Deliberately our own wording rather than extracts from real events' SIs:
 // those are third-party documents, and this has to stay distributable.
 
-import { resolveVocabulary, stageAdjective, stageRaceLabel } from './split-fleets';
+import { directSeatsPerFleet, ranksEachFleet, resolveVocabulary, stageAdjective, stageRaceLabel } from './split-fleets';
 import type { SplitFleetConfig } from './split-fleets';
 
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -112,6 +112,8 @@ export const SENTENCES_BY_SETTING = {
   boatAssignments: ['boats'],
   discards: ['discards', 'final-discard-cap'],
   medal: ['medal', 'medal-ranking'],
+  fleetRanking: ['fleet-ranking', 'non-finisher'],
+  medalFromEachFleet: ['medal'],
   finalCarry: ['final-carry'],
   finalTieBreak: ['final-tie-break'],
   medalCarry: ['medal-carry'],
@@ -157,6 +159,10 @@ export function describeSplitFleetConfig(
   // nothing. What is left is the shape (`q` is the whole opening series
   // here — see `adaptVocabulary`) and, where there is one, the deciding race.
   const unbanded = config.split.kind === 'none';
+  // An undivided championship can still draw its boats into several fleets,
+  // once, and rank them together or each on its own.
+  const drawnFleets = unbanded && config.qualifyingFleets.length > 1;
+  const perFleet = ranksEachFleet(config);
   // Without a deciding stage the two stages are the whole championship, and
   // the umbrella series over them names nothing.
   const medal = config.medal;
@@ -167,7 +173,7 @@ export function describeSplitFleetConfig(
         ? `The championship will be sailed as ${article(q)}.`
         : `The championship will be sailed as ${article(q)} followed by ${article(f)}.`
       : unbanded
-        ? `The championship will be sailed as ${article(q)} followed by the ${m}, in one fleet.`
+        ? `The championship will be sailed as ${article(q)} followed by the ${m}${drawnFleets ? '' : ', in one fleet'}.`
         : `The championship will be sailed as ${article(vocab.seriesName)} followed by the ${m}.`,
   );
   if (!unbanded && medal) {
@@ -187,6 +193,12 @@ export function describeSplitFleetConfig(
   // Melges 15 Sprint Championships split a single qualifying fleet into Gold
   // and Silver), and then there is nothing to assign, reassign or equalise.
   const oneQualifyingFleet = config.qualifyingFleets.length === 1;
+  if (drawnFleets) {
+    push(
+      'fleet-assignment',
+      `Boats will be drawn into ${countWord(config.qualifyingFleets.length)} ${qAdj} fleets (${qualifying}) and will sail the ${q} in them.`,
+    );
+  }
   if (!unbanded && oneQualifyingFleet) {
     push('fleet-assignment', `The ${q} will be sailed in one fleet.`);
   }
@@ -252,7 +264,9 @@ export function describeSplitFleetConfig(
 
   const qualifyingBase = oneQualifyingFleet
     ? 'the number of boats entered, plus one'
-    : `the number of boats in the largest ${qAdj} fleet, plus one`;
+    : perFleet
+      ? `the number of boats in her own ${qAdj} fleet, plus one`
+      : `the number of boats in the largest ${qAdj} fleet, plus one`;
   const finalBase = `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   push(
     'non-finisher',
@@ -270,6 +284,15 @@ export function describeSplitFleetConfig(
       `Boats in the ${finals} fleets will be ranked in that order, whatever their scores.`,
     );
   }
+  // Separate selection pools: the flights of the Irish Sailing Champions'
+  // Cups ("Helms ranked 1st and 2nd from each Qualifying Fleet", 2026 Dinghy
+  // SI 6.3).
+  if (perFleet) {
+    push(
+      'fleet-ranking',
+      `Each ${qAdj} fleet will be ranked on its own. A race will count for a fleet once that fleet has completed it.`,
+    );
+  }
   if (!medal) return lines;
   const score =
     medal.multiplier === 1
@@ -283,9 +306,15 @@ export function describeSplitFleetConfig(
   const rest = unbanded
     ? `; the boats that do not qualify for it will have no score for the ${vocab.stages.medal.raceNoun}, and in any one more ${vocab.stages.qualifying.raceNoun} they sail the first of them will be scored ${medal.size + 1} points, the second ${medal.size + 2}, and so on`
     : `; the boats that do not qualify for it will sail one more ${vocab.stages.final.raceNoun} in their own fleets, in which the first ${topFleet} boat will be scored ${medal.size + 1} points, the second ${medal.size + 2}, and so on`;
+  const seatsEach = directSeatsPerFleet(config);
+  const promoted = medal.size - seatsEach * config.qualifyingFleets.length;
   push(
     'medal',
-    unbanded
+    perFleet
+      ? `The first ${seatsEach} boats in each ${qAdj} fleet will sail the ${m}${
+          promoted > 0 ? `, and ${promoted} more boats as these sailing instructions direct` : ''
+        }. ${score}${rest}.`
+      : unbanded
       ? `The first ${medal.size} boats in the ${q} will sail the ${m}. ${score}${rest}.`
       : `The first ${medal.size} boats in the ${topFleet} fleet will sail the ${m}. ${score}${rest}.`,
   );
