@@ -77,10 +77,9 @@ export default function ReadingAndChecking() {
           host on your club website, or <strong className="text-foreground">Publish</strong> it. The{' '}
           <strong className="text-foreground">Download</strong> menu offers{' '}
           <strong className="text-foreground">HTML</strong> or{' '}
-          <strong className="text-foreground">PDF</strong>; the published page has a{' '}
-          <strong className="text-foreground">Save as PDF</strong> link in its footer. Either opens
-          your browser’s print dialog with a print-tuned layout — handy for a PDF to attach to
-          an email or pin to the noticeboard.
+          <strong className="text-foreground">PDF</strong>, which opens your browser’s print
+          dialog with a print-tuned layout; printing a published page from the browser gives the
+          same layout — handy for a PDF to attach to an email or pin to the noticeboard.
           {has('ftp-upload') && (
             <>
               {' '}To push results directly to a web server, see{' '}

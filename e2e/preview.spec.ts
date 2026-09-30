@@ -44,9 +44,9 @@ test('Preview renders the results page in an in-app iframe', async ({ page }) =>
   await expect(frame.getByText('Alice Murphy').first()).toBeVisible();
   await expect(frame.getByText('Carol Ryan').first()).toBeVisible();
 
-  // The rendered page carries its own "Save as PDF" control (#207); it rides on
-  // the published HTML, so it shows here in the preview iframe too.
-  await expect(frame.getByRole('button', { name: 'Save as PDF' })).toBeVisible();
+  // The page ends on its one-line credit; printing is left to the browser.
+  await expect(frame.getByRole('link', { name: 'Sail Scoring', exact: true })).toBeVisible();
+  await expect(frame.getByRole('button', { name: 'Save as PDF' })).toHaveCount(0);
 
   // Single-fleet: no fleet selector, just Download + Publish.
   await expect(dialog.getByRole('combobox')).toHaveCount(0);

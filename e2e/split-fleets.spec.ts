@@ -397,7 +397,7 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await page.goto(champPath);
   await expect(page.getByText('Publish Worlds').first()).toBeVisible();
   await expect(page.getByRole('link', { name: /Publish Worlds/ }).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Save as PDF' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sail Scoring', exact: true })).toBeVisible();
   await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
 
   // QP2 was created with QP1 but has not been sailed, and an unsailed race is

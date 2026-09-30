@@ -29,7 +29,7 @@ import {
 } from './competitor-fields';
 import { renderPageNoteHtml } from './page-note';
 import { formatConditions, hasConditions } from './race-conditions';
-import { formatOfficials, hasOfficials } from './race-officials';
+import { formatOfficials, hasOfficials, namedOfficials, officialRoleLabel } from './race-officials';
 import { compareSailNumbers } from './sail-number-sort';
 import { roundCorrectedSecs } from './scoring';
 import { seriesSlug } from './series-name';
@@ -865,6 +865,16 @@ export interface DocumentChrome {
   pageNote?: string;
   /** Where the page's IRC ratings came from — see `SeriesResultsData`. */
   ircRatingSource?: { source: string; updatedAt?: string };
+  /** The publication's Scoring notes page, relative to this one. Linked from
+   *  the results stamp; and since the notes page carries the Open in Sail
+   *  Scoring and data-file links itself, the footer drops them. */
+  scoringNotesUrl?: string;
+  /** Keep `fleetName` in the title but leave it off the page: a page whose
+   *  name would only repeat what the header already says. */
+  hidePageHeading?: boolean;
+  /** Leave the Open in Sail Scoring and data-file links out of the footer —
+   *  the page states them in its body instead. */
+  omitFooterDataLinks?: boolean;
 }
 
 export function renderSeriesHtml(
@@ -1482,7 +1492,7 @@ const NOTE_LINES = 4;
 function renderStartersChecklistCss(): string {
   return `.starterslist { display: none; }
 body.starters .starterslist { display: block; text-align: left; }
-body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters .hardleft, body.starters .hardright, body.starters table.headertable { display: none; }
+body.starters .caption, body.starters .tablewrap, body.starters h3.grouptitle, body.starters > h2, body.starters h3.seriestitle, body.starters .seriesofficials, body.starters .pagenotes, body.starters table.headertable { display: none; }
 .startersback { display: none; }
 body.starters .startersback { display: inline; }
 body.starters .starterslink { display: none; }
@@ -1565,7 +1575,11 @@ export function renderHtmlDocument(
   content: string,
   flags: { fontPercent: number; hasNhcDetail: boolean; hasEchoDetail: boolean; flagDefs: string; startersChecklist?: boolean },
 ): string {
-  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote, ircRatingSource } = chrome;
+  const { series, fleetName, leftLogoUrl, rightLogoUrl, leftUrl, rightUrl, generatedAt, resultsFinal, finalisedAt, seriesIndexUrl, openInAppUrl, dataFileUrl, officials, seriesNote, pageNote, ircRatingSource, scoringNotesUrl, hidePageHeading, omitFooterDataLinks } = chrome;
+  const footerDataLinks = !omitFooterDataLinks && !scoringNotesUrl;
+  const notesLink = scoringNotesUrl
+    ? ` <span class="noteslink">&middot; <a href="${esc(scoringNotesUrl)}">Scoring notes</a></span>`
+    : '';
   const { fontPercent, hasNhcDetail, hasEchoDetail, flagDefs, startersChecklist } = flags;
   const titleSuffix = fleetName ? ` \u2014 ${esc(fleetName)}` : '';
   const title = `Results for ${series.name}${series.venue ? ' at ' + series.venue : ''}${
@@ -1589,8 +1603,6 @@ ${renderOpenGraphTags(title, description)}
 <link rel="alternate" type="application/json" href="${esc(dataFileUrl)}">` : ''}
 <style type="text/css">
 body {font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, arial, helvetica, sans-serif; font-size: ${fontPercent}%; text-align: center; color: #1a1a1a; border-top: 4px solid #fb3a3b;}
-.hardleft  {text-align: left; float: left;  margin: 15px 0  15px 25px;}
-.hardright {text-align: right; float: right; margin: 15px 25px 15px 0;}
 .breadcrumb {text-align: left; margin: 0 0 14px 25px; font-size: 0.78em;}
 .breadcrumb a {color: #073358; text-decoration: none;}
 .breadcrumb a:hover {color: #fb3a3b; text-decoration: underline;}
@@ -1669,8 +1681,17 @@ h3.grouptitle { font-size: 1.15em; color: #073358; margin: 0 0 6px 0; }
 h3.grouptitle .groupcount { font-weight: normal; font-size: 0.75em; color: #555; }
 td.ratingcell { font-family: monospace; text-align: right; white-space: nowrap; }
 td.ratingcell.notentered { color: #bbb; }
-.print-btn { font: inherit; color: #073358; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
-.print-btn:hover { color: #fb3a3b; }
+h3.seriestitle .noteslink { font-weight: normal; font-size: 0.85em; }
+/* The standing race management team, folded away at the foot of the page:
+   who ran the event is worth a look, but it is not what a reader came for. */
+details.seriesofficials { max-width: 640px; margin: 0 auto 16px auto; font-size: 0.9em; }
+details.seriesofficials > summary { cursor: pointer; color: #073358; font-weight: 600; }
+details.seriesofficials ul { list-style: none; padding: 0; margin: 6px 0 0 0; }
+details.seriesofficials li { margin: 0 0 2px 0; }
+details.seriesofficials .role { color: #555; }
+/* One line with the sponsor strip the live pages add after it. */
+p.credit-inline { display: inline-block; margin: 1em 0.4em; }
+p.credit-inline > a { text-decoration: none; }
 /* The scorer's explanatory note (#511). Left-aligned prose on a centred
    block, with a rule in the brand red — read as editorial rather than as
    data, and deliberately unlike the bordered calculation explainers, which a
@@ -1690,7 +1711,7 @@ th[aria-sort="descending"]::after { content: " ▼"; font-size: 0.75em; }
 @page { margin: 12mm; }
 @media print {
   body { border-top: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .breadcrumb, .nhc-toggle, .echo-toggle, .print-btn { display: none; }
+  .breadcrumb, .nhc-toggle, .echo-toggle, .noteslink { display: none; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
   h3.racetitle { break-after: avoid; }
@@ -1713,8 +1734,8 @@ ${seriesIndexUrl ? `<p class="breadcrumb"><a href="${esc(seriesIndexUrl)}" targe
 <tr>
 <td width="30%">${leftLogoUrl ? maybeLink(leftUrl, `<img class="headerlogo" src="${esc(leftLogoUrl)}" alt="venue logo" />`) : ''}</td>
 <td width="40%" align="center">
-<h1>${esc(series.name)}</h1>
-${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
+<h1>${rightLogoUrl ? esc(series.name) : maybeLink(rightUrl, esc(series.name))}</h1>
+${series.venue ? `<h2>${leftLogoUrl ? esc(series.venue) : maybeLink(leftUrl, esc(series.venue))}</h2>` : ''}
 </td>
 <td width="30%">${rightLogoUrl ? maybeLink(rightUrl, `<img class="headerlogo headerlogo-right" src="${esc(rightLogoUrl)}" alt="event logo" />`) : ''}</td>
 </tr>
@@ -1723,17 +1744,13 @@ ${series.venue ? `<h2>${esc(series.venue)}</h2>` : ''}
 <div style="clear:both;"></div>
 <style>div.applicant-break {page-break-after:always;}</style>
 ${resultsFinal
-  ? `<h3 class="seriestitle">Final results${finalisedAt ? ` — declared ${formatDate(finalisedAt)}` : ''}</h3>`
-  : generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}</h3>` : ''}
-${hasOfficials(officials) ? `<p class="seriesofficials" style="text-align:center; margin: 0 0 6px 0; font-size: 0.9em;">${esc(formatOfficials(officials))}</p>` : ''}
-${fleetName ? `<h2>${esc(fleetName)}</h2>` : ''}
+  ? `<h3 class="seriestitle">Final results${finalisedAt ? ` — declared ${formatDate(finalisedAt)}` : ''}${notesLink}</h3>`
+  : generatedAt ? `<h3 class="seriestitle">Results are provisional as of ${formatTime(generatedAt)} on ${formatDate(generatedAt)}${notesLink}</h3>` : ''}
+${fleetName && !hidePageHeading ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${renderPageNotes(seriesNote, pageNote)}${flagDefs}
 ${content}
-<p class="hardleft">${leftUrl ? `<a href="${esc(externalHref(leftUrl))}" target="_top" rel="noopener">${esc(series.venue || leftUrl)}</a>` : ''}</p>
-<p class="hardright">${rightUrl ? `<a href="${esc(externalHref(rightUrl))}" target="_top" rel="noopener">${esc(series.name)}</a>` : ''}</p>
-<div style="clear:both;"></div>
-${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is on its rating cell.</p>
-` : ''}<p class="credit"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring &mdash; <a href="https://sailscoring.ie" target="_top" rel="noopener">sailscoring.ie</a>${openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''} &mdash; ${renderPrintButton()}${startersChecklist ? ` &mdash; ${renderStartersButton()}` : ''}</p>
+${renderOfficialsDetails(officials)}${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is on its rating cell.</p>
+` : ''}<p class="credit credit-inline"><a href="https://sailscoring.ie" target="_top" rel="noopener"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring</a>${footerDataLinks && openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${footerDataLinks && dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''}${startersChecklist ? ` &mdash; ${renderStartersButton()}` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 ${renderSortScript()}
@@ -1758,14 +1775,22 @@ function renderPageNotes(seriesNote: string | undefined, pageNote: string | unde
   return `<div class="pagenotes">\n${paragraphs.join('\n')}\n</div>\n`;
 }
 
-/** Screen-only "Save as PDF" control, rendered inline in the footer credit line
- *  next to "Open in Sail Scoring". Calls the browser's print dialog, which the
- *  @media print stylesheet has tuned for a clean printout (and from which the
- *  viewer picks "Save as PDF"). Hidden in print so it doesn't land in the
- *  output. Present on the public `/p/` page; the in-app preview offers the same
- *  via its Download menu, so this is its public-page counterpart. */
-function renderPrintButton(): string {
-  return `<button type="button" class="print-btn" onclick="window.print()">Save as PDF</button>`;
+/** The event's standing race management team, folded away under the results:
+ *  one line per role, a role held by several people naming them together. */
+function renderOfficialsDetails(officials: RaceOfficial[] | undefined): string {
+  if (!hasOfficials(officials)) return '';
+  const byRole = new Map<string, string[]>();
+  for (const o of namedOfficials(officials)) {
+    const role = officialRoleLabel(o);
+    const names = byRole.get(role) ?? [];
+    names.push(o.name.trim());
+    byRole.set(role, names);
+  }
+  const items = [...byRole]
+    .map(([role, names]) =>
+      `<li>${role ? `<span class="role">${esc(role)}:</span> ` : ''}${esc(names.join(', '))}</li>`)
+    .join('\n');
+  return `<details class="seriesofficials"><summary>Race management team</summary>\n<ul>\n${items}\n</ul>\n</details>\n`;
 }
 
 /** Inline column sorter for every results table on the page.

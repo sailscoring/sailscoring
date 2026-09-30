@@ -916,7 +916,8 @@ describe('the race record on a championship’s pages', () => {
     ];
     for (const html of pages) {
       expect(html).toContain('class="seriesofficials"');
-      expect(html).toContain('Race Officer: Jane Smith · Beach Master: Sam Doyle');
+      expect(html).toContain('<span class="role">Race Officer:</span> Jane Smith');
+      expect(html).toContain('<span class="role">Beach Master:</span> Sam Doyle');
     }
   });
 
@@ -929,7 +930,7 @@ describe('the race record on a championship’s pages', () => {
       renderSplitFleetAssignmentsPage(input, {}),
     ];
     for (const html of pages) {
-      expect(html).not.toContain('seriesofficials');
+      expect(html).not.toContain('class="seriesofficials"');
       expect(html).not.toContain('Jane Smith');
     }
   });

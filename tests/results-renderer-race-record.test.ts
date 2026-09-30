@@ -78,10 +78,25 @@ describe('rendering the race record', () => {
     expect(html).toContain('Race Officer: Jane Smith · Recorder: Tom Byrne');
   });
 
-  it('shows the standing team once, under the results stamp', () => {
+  it('folds the standing team away once, after the results', () => {
     const html = renderSeriesHtml(makeData({ officials: SERIES_TEAM }));
-    expect(html).toContain('class="seriesofficials"');
-    expect(html.match(/Principal Race Officer: Ann Kelly/g)).toHaveLength(1);
+    expect(html).toContain('<details class="seriesofficials"><summary>Race management team</summary>');
+    expect(html.match(/Principal Race Officer:<\/span> Ann Kelly/g)).toHaveLength(1);
+    // Below the tables, not under the title where it used to crowd them.
+    expect(html.indexOf('class="seriesofficials"')).toBeGreaterThan(html.lastIndexOf('</table>'));
+  });
+
+  it('names a role held by several people once', () => {
+    const html = renderSeriesHtml(
+      makeData({
+        officials: [
+          { id: 'o1', role: 'raceOfficer', name: 'Ann Kelly' },
+          { id: 'o2', role: 'other', name: 'Ian Venner', customRole: 'Jury' },
+          { id: 'o3', role: 'other', name: 'Emmet Dalton', customRole: 'Jury' },
+        ],
+      }),
+    );
+    expect(html).toContain('<span class="role">Jury:</span> Ian Venner, Emmet Dalton');
   });
 
   it('shows both levels when both are set — neither shadows the other', () => {
@@ -100,7 +115,7 @@ describe('rendering the race record', () => {
         ],
       }),
     );
-    expect(html).toContain('Beach Master: Sam Doyle');
+    expect(html).toContain('Beach Master:</span> Sam Doyle');
   });
 
   it('escapes a written-out role too', () => {
@@ -131,7 +146,7 @@ describe('rendering the race record', () => {
     const html = renderSeriesHtml(makeData());
     expect(html).not.toContain('raceconditions');
     expect(html).not.toContain('raceofficials');
-    expect(html).not.toContain('seriesofficials');
+    expect(html).not.toContain('class="seriesofficials"');
   });
 
   it('carries the standing team onto a combined page', () => {
@@ -139,7 +154,7 @@ describe('rendering the race record', () => {
       [makeData({ fleetName: 'Cruisers 1', officials: SERIES_TEAM })],
       { pageName: 'Combined' },
     );
-    expect(html).toContain('Principal Race Officer: Ann Kelly');
+    expect(html).toContain('Principal Race Officer:</span> Ann Kelly');
   });
 });
 

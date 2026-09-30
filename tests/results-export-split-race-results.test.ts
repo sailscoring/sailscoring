@@ -213,14 +213,15 @@ describe('buildFleetHtmlFiles — the race record on championship pages', () => 
     ]);
     for (const f of files!) {
       expect(f.html).toContain('class="seriesofficials"');
-      expect(f.html).toContain('Race Officer: Jane Smith · Beach Master: Sam Doyle');
+      expect(f.html).toContain('<span class="role">Race Officer:</span> Jane Smith');
+      expect(f.html).toContain('<span class="role">Beach Master:</span> Sam Doyle');
     }
   });
 
   it('publishes no team while the series has not opted in', async () => {
     const files = await buildFleetFiles(reposWith({ officials: TEAM }), 's1');
     for (const f of files!) {
-      expect(f.html).not.toContain('seriesofficials');
+      expect(f.html).not.toContain('class="seriesofficials"');
       expect(f.html).not.toContain('Jane Smith');
     }
   });

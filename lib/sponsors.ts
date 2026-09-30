@@ -86,6 +86,11 @@ function fnv1a(input: string): string {
  * a printed results sheet is the scorer's document, and the same reasoning
  * that keeps sponsors out of exports keeps them off paper.
  *
+ * On a results page rendered since the footer went to one line, it follows the credit
+ * line and joins it — "Sail Scoring ·
+ * Supported by <burgee> Howth Yacht Club" — rather than standing as a block of
+ * its own; the listing pages, which have no credit line, keep the block.
+ *
  * Returns '' when there are no sponsors, so the injection site can stay
  * unconditional.
  */
@@ -101,6 +106,7 @@ export function renderSponsorFooterHtml(): string {
 
   return `<div class="ss-sponsors">
 <p class="ss-sponsors-label">Sail Scoring is supported by</p>
+<span class="ss-sponsors-inline">Supported by</span>
 <div class="ss-sponsors-row">${burgees}</div>
 </div>
 <style type="text/css">
@@ -110,6 +116,14 @@ export function renderSponsorFooterHtml(): string {
 a.ss-sponsor { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #475569; font-size: 13px; font-weight: 600; }
 a.ss-sponsor:hover { color: #fb3a3b; }
 a.ss-sponsor img { display: block; height: 34px; width: auto; max-width: 52px; object-fit: contain; }
+.ss-sponsors-inline { display: none; }
+p.credit-inline ~ .ss-sponsors { display: inline-block; max-width: none; margin: 0; padding: 0 0 1em; vertical-align: middle; font-size: 1em; }
+p.credit-inline ~ .ss-sponsors::before { content: "\\00B7"; margin: 0 0.5em 0 0; color: #6b7280; }
+p.credit-inline ~ .ss-sponsors .ss-sponsors-label { display: none; }
+p.credit-inline ~ .ss-sponsors .ss-sponsors-inline { display: inline; margin-right: 0.4em; color: #6b7280; }
+p.credit-inline ~ .ss-sponsors .ss-sponsors-row { display: inline-flex; gap: 0 1em; vertical-align: middle; }
+p.credit-inline ~ .ss-sponsors a.ss-sponsor { gap: 5px; font-size: inherit; font-weight: normal; color: inherit; }
+p.credit-inline ~ .ss-sponsors a.ss-sponsor img { height: 1.6em; }
 @media print { .ss-sponsors { display: none; } }
 </style>`;
 }

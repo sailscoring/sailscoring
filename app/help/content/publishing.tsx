@@ -496,8 +496,7 @@ export default function Publishing() {
             <strong className="text-foreground">starters checklist</strong> — the sheet the
             recorder takes onto the committee boat to tick off each boat as it arrives in the
             starting area. Open the Entries page and follow{' '}
-            <strong className="text-foreground">Starters checklist</strong> in the footer, beside
-            Save as PDF. The sheet is a view of the page with an address of its own, so you see it
+            <strong className="text-foreground">Starters checklist</strong> in the footer. The sheet is a view of the page with an address of its own, so you see it
             before you print it, and printing it is your browser’s ordinary Print — the share
             sheet on a phone included. <strong className="text-foreground">Back to the entry
             list</strong> returns. Anyone with the link can print it; the race team needs no

@@ -605,7 +605,10 @@ export default function RunningASeries() {
             <strong className="text-foreground">Publish the race management team</strong> switch on
             Series Settings is off by default. While it is off, no team — the standing one or any
             race’s — appears on a published page or in the data export attached to it. Conditions
-            are always published; they describe the racing rather than a person.
+            are always published; they describe the racing rather than a person. Once published,
+            the standing team sits folded away at the foot of each results page, under{' '}
+            <strong className="text-foreground">Race management team</strong>; a race’s own team
+            is shown with that race.
           </p>
         </Section>
       )}

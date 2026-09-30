@@ -140,16 +140,20 @@ describe('renderSeriesHtml', () => {
     expect(renderSeriesHtml(MINIMAL)).not.toContain('ss-sponsors');
   });
 
-  it('includes a print stylesheet and a Save as PDF button', () => {
+  it('includes a print stylesheet, and leaves printing to the browser', () => {
     const html = renderSeriesHtml(MINIMAL);
     // @media print block tuned for a clean printout (#207).
     expect(html).toContain('@media print');
     expect(html).toContain('print-color-adjust: exact');
-    // Screen-only control that opens the browser print dialog, inline in the
-    // footer credit line.
-    expect(html).toContain('onclick="window.print()"');
-    expect(html).toContain('Save as PDF');
-    expect(html).toMatch(/class="credit"[^]*Save as PDF[^]*<\/p>/);
+    // The browser's own Print gives the same result, so the page carries no
+    // button of its own for it.
+    expect(html).not.toContain('window.print()');
+    expect(html).not.toContain('Save as PDF');
+  });
+
+  it('closes on one credit line naming Sail Scoring', () => {
+    const html = renderSeriesHtml(MINIMAL);
+    expect(html).toMatch(/<p class="credit credit-inline"><a href="https:\/\/sailscoring.ie"[^>]*><svg[^]*<\/svg>Sail Scoring<\/a><\/p>/);
   });
 
   it('includes the column-sorter script and its indicator styles', () => {
@@ -544,30 +548,36 @@ describe('renderSeriesHtml', () => {
     );
   });
 
-  it('renders footer venue/event website links from leftUrl/rightUrl', () => {
+  it('links the header names to the websites when there is no logo to carry them', () => {
     const html = renderSeriesHtml({
       ...MINIMAL,
       leftUrl: 'https://venue.example.com',
       rightUrl: 'https://event.example.com',
     });
-    // Venue link uses the venue name as anchor text; event link uses the series name.
-    expect(html).toContain('<p class="hardleft"><a href="https://venue.example.com" target="_top" rel="noopener">Test Venue</a></p>');
-    expect(html).toContain('<p class="hardright"><a href="https://event.example.com" target="_top" rel="noopener">Test Series</a></p>');
+    expect(html).toContain('<h1><a href="https://event.example.com" target="_top" rel="noopener">Test Series</a></h1>');
+    expect(html).toContain('<h2><a href="https://venue.example.com" target="_top" rel="noopener">Test Venue</a></h2>');
   });
 
-  it('falls back to the URL as footer venue link text when venue name is empty', () => {
+  it('links each website once, from the logo where there is one', () => {
     const html = renderSeriesHtml({
       ...MINIMAL,
-      series: { name: 'Test Series', venue: '' },
+      leftLogoUrl: 'https://example.com/venue.png',
+      rightLogoUrl: 'https://example.com/event.png',
       leftUrl: 'https://venue.example.com',
+      rightUrl: 'https://event.example.com',
     });
-    expect(html).toContain('>https://venue.example.com</a>');
+    expect(html.match(/href="https:\/\/venue.example.com"/g)).toHaveLength(1);
+    expect(html.match(/href="https:\/\/event.example.com"/g)).toHaveLength(1);
+    expect(html).toContain('<h1>Test Series</h1>');
+    // The footer no longer repeats them.
+    expect(html).not.toContain('hardleft');
+    expect(html).not.toContain('hardright');
   });
 
-  it('leaves footer link slots empty when no website URLs are set', () => {
+  it('leaves the header names plain when no website URLs are set', () => {
     const html = renderSeriesHtml(MINIMAL);
-    expect(html).toContain('<p class="hardleft"></p>');
-    expect(html).toContain('<p class="hardright"></p>');
+    expect(html).toContain('<h1>Test Series</h1>');
+    expect(html).toContain('<h2>Test Venue</h2>');
   });
 
   it('prefixes https:// on scheme-less link URLs (as imported from Sailwave)', () => {
@@ -578,23 +588,19 @@ describe('renderSeriesHtml', () => {
       leftUrl: 'www.hyc.ie',
       rightUrl: 'ilcaireland.com/event/masters-championships/',
     });
-    // Header logo link and footer venue link both get the scheme.
+    // The header logo link and the series-name link both get the scheme.
     expect(html).toContain('<a href="https://www.hyc.ie" target="_top" rel="noopener"><img');
-    expect(html).toContain('href="https://www.hyc.ie"');
     expect(html).toContain('href="https://ilcaireland.com/event/masters-championships/"');
-    // With no venue name, the footer venue link text falls back to the bare
-    // host (not the https-prefixed href).
-    expect(html).toContain('>www.hyc.ie</a>');
   });
 
   it('leaves already-absolute and protocol-relative link URLs unchanged', () => {
-    const httpsHtml = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, leftUrl: 'https://already.example' });
+    const httpsHtml = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, rightUrl: 'https://already.example' });
     expect(httpsHtml).toContain('href="https://already.example"');
     // http:// is a scheme too — don't force https.
-    const httpHtml = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, leftUrl: 'http://plain.example' });
+    const httpHtml = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, rightUrl: 'http://plain.example' });
     expect(httpHtml).toContain('href="http://plain.example"');
     // Protocol-relative URLs are already absolute.
-    const protoRel = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, leftUrl: '//cdn.example/x' });
+    const protoRel = renderSeriesHtml({ ...MINIMAL, series: { name: 'S', venue: '' }, rightUrl: '//cdn.example/x' });
     expect(protoRel).toContain('href="//cdn.example/x"');
   });
 
@@ -2171,7 +2177,6 @@ describe('renderCompetitorListHtml', () => {
       });
       expect(html).toContain('<a class="starterslink" href="#starters">Starters checklist</a>');
       expect(html).toContain('<a class="startersback" href="#entries">Back to the entry list</a>');
-      expect(html).toContain('>Save as PDF</button>');
       // The class is set from the fragment, on navigation — nothing about
       // the sheet depends on a print event firing.
       const script = html.slice(html.indexOf('var pageCss=document.getElementById(\'starters-page\')'));

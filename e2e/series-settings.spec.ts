@@ -94,9 +94,10 @@ test('logo and website URLs produce clickable logos and footer links in exported
   expect(html).toContain('<a href="https://venue.example.com" target="_top" rel="noopener"><img');
   expect(html).toContain('<a href="https://event.example.com" target="_top" rel="noopener"><img');
 
-  // Footer carries the venue (by name) and event (by series name) website links.
-  expect(html).toContain('<p class="hardleft"><a href="https://venue.example.com" target="_top" rel="noopener">Test Venue</a></p>');
-  expect(html).toContain('<p class="hardright"><a href="https://event.example.com" target="_top" rel="noopener">Logo Test Series</a></p>');
+  // The logos carry the links, so neither the footer nor the header names
+  // repeat them.
+  expect(html.match(/href="https:\/\/venue.example.com"/g)).toHaveLength(1);
+  expect(html.match(/href="https:\/\/event.example.com"/g)).toHaveLength(1);
 });
 
 /**
