@@ -24,6 +24,7 @@ import { resolveFtpPageSelection, resolveFtpServerId } from '@/lib/ftp-publish';
 import {
   CHAMPIONSHIP_PAGE,
   RACE_RESULTS_PAGE,
+  SCORING_NOTES_PAGE,
   type PublishPage,
 } from '@/lib/publish-pages';
 import {
@@ -189,6 +190,12 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
       championshipPath && raceResultsPage && pathFor(championshipPath) && pathFor(raceResultsPage)
         ? relativeSubPath(pathFor(championshipPath), pathFor(raceResultsPage))
         : undefined;
+    const scoringNotesPage = pages.find((p) => p.name === SCORING_NOTES_PAGE);
+    const scoringNotesHref =
+      championshipPath && scoringNotesPage && uploading.includes(scoringNotesPage) &&
+      pathFor(championshipPath) && pathFor(scoringNotesPage)
+        ? relativeSubPath(pathFor(championshipPath), pathFor(scoringNotesPage))
+        : undefined;
     const build = await buildFleetHtmlFiles(
       repos,
       series.id,
@@ -201,6 +208,7 @@ export function FtpPublishPane({ series, pages, lonePageLabel, onClose }: FtpPub
         includeTrackData: has('racesense-import'),
         includePageNotes: has('page-notes'),
         ...(raceResultsHref ? { raceResultsHref } : {}),
+        ...(scoringNotesHref ? { scoringNotesHref } : {}),
         ...(dataUrl ? { dataPath: new URL(dataUrl).pathname } : {}),
         loadCourseBackground,
       },

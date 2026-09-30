@@ -116,7 +116,7 @@ describe('resolvePublishPages', () => {
     expect(names(makeSeries(), FLEETS, { features: { prizes: true } })).toEqual(['Scratch', 'HPH']);
   });
 
-  it('publishes a championship trio instead of the round fleets', () => {
+  it('publishes the championship pages instead of the round fleets', () => {
     const pages = resolvePublishPages({
       series: makeSeries(),
       fleets: FLEETS,
@@ -127,6 +127,7 @@ describe('resolvePublishPages', () => {
       'Championship',
       'Race results',
       'Fleet assignments',
+      'Scoring notes',
       'Entries',
     ]);
     expect(pages[0].isDefault).toBe(true);

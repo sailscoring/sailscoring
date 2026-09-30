@@ -367,10 +367,11 @@ test('split fleets: publish lands the championship + race + assignments pages in
   // Before publishing, the dialog names every page it is about to put out.
   // The championship is the lone results page — called "Championship" here as
   // it is in Preview, not the generic "Standings" — and the per-race results
-  // and rolling assignments pages ride with it.
+  // rolling assignments and scoring notes pages ride with it.
   await expect(dialog.getByText('Championship')).toBeVisible();
   await expect(dialog.getByText('Race results')).toBeVisible();
   await expect(dialog.getByText('Fleet assignments')).toBeVisible();
+  await expect(dialog.getByText('Scoring notes')).toBeVisible();
   // Tickable like any other page — a scorer may publish a subset — and ticked
   // by default on a first publish.
   await expect(dialog.getByRole('checkbox', { name: 'Publish Race results' })).toBeChecked();
@@ -382,13 +383,14 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await assignmentsUrl.fill('who-is-in-what-fleet');
   await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 
-  // All three pages get URLs under /p/{ws}/2026/worlds-26/.
+  // Every page gets a URL under /p/{ws}/2026/worlds-26/.
   const champLink = dialog.getByRole('link', { name: /worlds-26\/standings$/ });
   await expect(champLink).toBeVisible();
   // Exactly one row per page: the extra pages are listed by the extra-pages
   // block, not also as results pages.
   await expect(dialog.getByRole('link', { name: /worlds-26\/race-results$/ })).toHaveCount(1);
   await expect(dialog.getByRole('link', { name: /worlds-26\/who-is-in-what-fleet$/ })).toHaveCount(1);
+  await expect(dialog.getByRole('link', { name: /worlds-26\/scoring-notes$/ })).toHaveCount(1);
   const champPath = new URL((await champLink.getAttribute('href')) ?? '').pathname;
 
   // The public championship page renders the combined qualifying table, in the
@@ -416,8 +418,7 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await expect(page.getByRole('heading', { name: 'Blue fleet' })).toBeVisible();
   await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
 
-  // The event folder lists all three pages; assignments shows the round's
-  // fleets.
+  // The event folder lists the pages; assignments shows the round's fleets.
   await page.goto(champPath.replace(/\/standings$/, ''));
   await expect(page.getByRole('heading', { name: 'Publish Worlds' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Championship' })).toBeVisible();
@@ -426,15 +427,17 @@ test('split fleets: publish lands the championship + race + assignments pages in
   await expect(page).toHaveURL(/\/worlds-26\/who-is-in-what-fleet$/);
   await expect(page.getByText(/Preliminary series round 1/)).toBeVisible();
 
-  // The published standings state the format they were scored under, in the
-  // language a sailing instruction's scoring section uses — folded away, and
-  // in this series' own vocabulary (#498).
+  // The published standings leave the format to the Scoring notes page,
+  // linked beside the results stamp, which states it in the language a
+  // sailing instruction's scoring section uses, in this series' own
+  // vocabulary (#498) — and carries the links to the data behind it.
   await page.goto(champPath);
-  const formatBlock = page.locator('details.sfformat');
-  await expect(formatBlock.locator('li').first()).toBeHidden();
-  await formatBlock.getByText('How this championship is scored').click();
-  await expect(formatBlock.locator('li').first()).toBeVisible();
-  await expect(formatBlock).toContainText(/Preliminary/);
+  await expect(page.locator('details.sfformat')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Championship' })).toHaveCount(0);
+  await page.locator('h3.seriestitle').getByRole('link', { name: 'Scoring notes' }).click();
+  await expect(page).toHaveURL(/\/worlds-26\/scoring-notes$/);
+  await expect(page.getByRole('heading', { name: 'How this championship is scored' })).toBeVisible();
+  await expect(page.locator('.sfnotes ol')).toContainText(/Preliminary/);
 
   // A championship publishes its data file like any other results page
   // (#496), carrying the assignment rounds its pages were built from.
@@ -449,9 +452,10 @@ test('split fleets: publish lands the championship + race + assignments pages in
   // And a reader with no account gets the championship standings they were
   // looking at — one ranking over the stages — rather than a table per round
   // fleet, which is what the data file with no rounds behind it would give.
+  const notesPath = new URL(page.url()).pathname;
   const anon = await browser.newContext();
   const anonPage = await anon.newPage();
-  await anonPage.goto(champPath);
+  await anonPage.goto(notesPath);
   await anonPage.getByRole('link', { name: 'Open in Sail Scoring' }).click();
   await expect(anonPage).toHaveURL(/\/series\/spectator-/);
   await expect(anonPage.getByRole('columnheader', { name: 'QP1', exact: true })).toBeVisible();

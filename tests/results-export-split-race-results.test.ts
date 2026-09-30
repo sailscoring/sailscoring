@@ -144,6 +144,7 @@ describe('buildFleetHtmlFiles — split-fleet per-race results', () => {
       'Championship',
       'Race results',
       'Fleet assignments',
+      'Scoring notes',
     ]);
     const racePage = files!.find((f) => f.fleetName === 'Race results')!;
     // A results page with a name of its own — never relabelled by listings,
@@ -210,6 +211,7 @@ describe('buildFleetHtmlFiles — the race record on championship pages', () => 
       'Championship',
       'Race results',
       'Fleet assignments',
+      'Scoring notes',
     ]);
     for (const f of files!) {
       expect(f.html).toContain('class="seriesofficials"');

@@ -317,18 +317,30 @@ export function SplitFleetsSection() {
         every race as its own tables, one per fleet, ranked the way the racing actually happened
         (the standings page’s race column headings link straight into it), and a rolling{' '}
         <strong className="text-foreground">fleet assignments</strong> page, newest round first,
-        so competitors always know which start they’re in. Preview and publish sit in the series
-        header as for any series, and{' '}
+        so competitors always know which start they’re in, and a{' '}
+        <strong className="text-foreground">Scoring notes</strong> page. Preview and publish sit
+        in the series header as for any series, and{' '}
         <strong className="text-foreground">Mark as final</strong> lives on the Split Fleets
         tab (the regular Standings tab is hidden for these series).
       </p>
       <p>
-        The standings page also carries the same SI prose you checked your settings against,
-        folded away under{' '}
-        <strong className="text-foreground">How this championship is scored</strong> — so a
-        competitor reading the results can see how the event is scored without being handed
-        the sailing instructions again. It follows the settings, so it is right by
-        construction: there is nothing to keep in step by hand.
+        The Scoring notes page carries the same SI prose you checked your settings against,
+        under <strong className="text-foreground">How this championship is scored</strong>,
+        with the links to open the series in Sail Scoring and to its data file — so a
+        competitor can see how the event is scored without being handed the sailing
+        instructions again, and the standings page, which links to it beside the results
+        stamp, stays to the tables. The prose follows the settings, so it is right by
+        construction: there is nothing to keep in step by hand. A preview or a download,
+        which has no notes page beside it, keeps the prose folded away at the foot of the
+        standings instead.
+      </p>
+      <p>
+        A race cell is marked with its fleet only where the page cannot otherwise say which
+        fleet the race was sailed in: a column holding boats of several fleets with no Fleet
+        column to name them — the {q.raceNoun}s on a Gold fleet table after the split, say.
+        The marker spells the fleet’s initials on its colour, so it reads without the colour.
+        Where boats are drawn for each fleet, the standings show no entry numbers: the boat
+        a helm sailed is the number she is known by, and it is on the race results page.
       </p>
     </Section>
   );

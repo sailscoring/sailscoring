@@ -29,6 +29,7 @@ import {
 } from '@/lib/published-repository';
 import { seasonLikeSlug, sharedFolderSegment } from '@/lib/published-tree';
 import { groupApplies, producesPage, resolvePublishingGroups } from '@/lib/publishing-groups';
+import { CHAMPIONSHIP_PAGE, SCORING_NOTES_PAGE } from '@/lib/publish-pages';
 import { readCourseBackground } from '@/lib/course-cards/backgrounds-server';
 import { buildFleetHtmlFiles } from '@/lib/results-export';
 import type { UnscorableRace } from '@/lib/results-export';
@@ -324,6 +325,21 @@ export async function publishSeries(
     subPathFor({ fleetName: 'Championship', isDefault: true }),
     subPathFor({ fleetName: 'Race results', isDefault: false }),
   );
+  // The Scoring notes page, on the same terms — linked only when it will be
+  // live once this publish lands, so a publish that leaves it out never
+  // points the standings at a page that isn't there.
+  const scoringNotesLive =
+    (existing?.pages ?? []).some((p) => p.fleetName === SCORING_NOTES_PAGE) ||
+    (opts.rebuildOnly
+      ? false
+      : (!input.fleets || input.fleets.includes(SCORING_NOTES_PAGE)) &&
+        !(input.skipPages ?? []).includes(SCORING_NOTES_PAGE));
+  const scoringNotesHref = scoringNotesLive
+    ? relativeSubPath(
+        subPathFor({ fleetName: CHAMPIONSHIP_PAGE, isDefault: true }),
+        subPathFor({ fleetName: SCORING_NOTES_PAGE, isDefault: false }),
+      )
+    : undefined;
 
   // Where the publication's data file (ADR-012) will be served. Resolved
   // before the build so the pages can reference it instead of embedding the
@@ -359,6 +375,7 @@ export async function publishSeries(
       includeTrackData: workspace.features.includes('racesense-import'),
       includePageNotes: workspace.features.includes('page-notes'),
       raceResultsHref,
+      ...(scoringNotesHref ? { scoringNotesHref } : {}),
       dataPath,
       // A rebuild says what the publish it re-renders said: the results are
       // provisional as of when the scorer published them, not as of now.

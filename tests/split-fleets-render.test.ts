@@ -10,9 +10,12 @@ import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 
 import {
+  fleetAbbreviations,
+  fleetHeading,
   renderSplitFleetStandingsPage,
   renderSplitFleetAssignmentsPage,
   renderSplitFleetRaceResultsPage,
+  renderSplitFleetScoringNotesPage,
   stageRaceAnchor,
   type SplitFleetRenderInput,
 } from '@/lib/split-fleets-render';
@@ -127,23 +130,23 @@ describe('renderSplitFleetStandingsPage', () => {
     expect(html.indexOf('<h2>Medal fleet</h2>')).toBeGreaterThanOrEqual(0);
     expect(html.indexOf('<h2>Medal fleet</h2>')).toBeLessThan(html.indexOf('<h2>Gold fleet</h2>'));
     expect(html).not.toMatch(/<span style="font-size:0\.8em/);
-    // The rule under it, stated as a rule; and the fleet the boats came from
-    // says they are still assigned to it.
-    expect(html).toContain('ranked ahead of every other boat in the event');
+    // Its place at the top says it ranks ahead; no caption restates it. The
+    // fleet the boats came from still says they are assigned to it — that
+    // explains a score in its table.
+    expect(html).not.toContain('ranked ahead of every other boat');
     expect(html).toContain('remain assigned to this fleet');
 
-    // The heading follows the vocabulary, not the fleet's name: the medal
-    // fleet is named "Final series" under the ILCA vocabulary, and
-    // "Final series fleet" is the fleetNoun — "{name} fleet" would only be
-    // right by luck.
+    // The heading follows the vocabulary, not the fleet's name — and where
+    // the vocabulary's fleet noun is only the stage's name with "fleet"
+    // added, the stage's name: "Final series", not "Final series fleet".
     const ilca: SplitFleetRenderInput = {
       ...input,
       config: { ...input.config, vocabulary: 'qualification-final' },
       fleets: input.fleets.map((f) =>
-        f.name === 'Medal' ? { ...f, name: 'Final series' } : f,
+        f.name === 'Medal' ? { ...f, name: 'Final 10' } : f,
       ),
     };
-    expect(renderSplitFleetStandingsPage(ilca)).toContain('<h2>Final series fleet</h2>');
+    expect(renderSplitFleetStandingsPage(ilca)).toContain('<h2>Final series</h2>');
   });
 
   it('marks the provisional cut line while still in qualifying', () => {
@@ -289,9 +292,9 @@ describe('renderSplitFleetStandingsPage', () => {
 describe('fleet markers on the championship standings', () => {
   const FIXTURE = '01-f1-ilca-continuous-carry.yaml';
 
-  it('marks each race cell with a fleet dot and names the fleet in the tooltip', () => {
+  it('marks each race cell with a fleet chip and names the fleet in the tooltip', () => {
     const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
-    // The dot rides inside the score cell, per cell — after a reassignment a
+    // The chip rides inside the score cell, per cell — after a reassignment a
     // row's qualifying cells can carry different fleets race by race.
     expect(html).toMatch(/<td[^>]*title="Yellow fleet"[^>]*>|title="Yellow fleet"/);
     expect(html).toContain('class="sfdot"');
@@ -303,32 +306,44 @@ describe('fleet markers on the championship standings', () => {
     expect(carried).toMatch(/title="[^"]+ fleet — replaced by the carried score"/);
   });
 
-  it('keys the dots with a legend naming every fleet that appears', () => {
+  it('keys the chips with a legend naming every fleet they mark', () => {
     const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
     const legend = html.match(/<p class="sfnote sflegend">[\s\S]*?<\/p>/)?.[0] ?? '';
-    expect(legend).toContain('Race cells are marked with the fleet the race was sailed in');
-    for (const label of ['Yellow', 'Blue', 'Gold', 'Silver']) {
-      expect(legend).toContain(label);
-    }
+    expect(legend).toContain('Fleet each race was sailed in');
+    // The qualifying columns mix the fleets the boats qualified in; the
+    // final-series columns are each table's own fleet, which its heading says.
+    for (const label of ['Yellow', 'Blue']) expect(legend).toContain(label);
+    for (const label of ['Gold', 'Silver']) expect(legend).not.toContain(label);
+    // No sentence explaining the medal colours: the place is in the cell.
+    expect(legend).not.toContain('medal colours');
   });
 
-  it('marks the medal fleet in its own shade and lists it in the legend', () => {
+  it('spells the fleet out in letters, not colour alone', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    expect(html).toMatch(/<td[^>]*title="Yellow fleet"[^>]*>(?:<span class="sfdot"[^>]*>Y<\/span>)/);
+    expect(html).toMatch(/<span class="sfdot"[^>]*>B<\/span>Blue/);
+  });
+
+  it('marks nothing where every race column is one fleet\'s', () => {
+    // A single qualifying fleet then the medal races: each column's boats
+    // sailed together, so the headings already say which fleet it was.
+    const html = renderSplitFleetStandingsPage(renderInputFor('03-f2-ilca-medal-race.yaml'));
+    const medal = html.slice(html.indexOf('<h2>Medal fleet</h2>'), html.indexOf('<h2>Gold fleet</h2>'));
+    expect(medal).toContain('<table');
+    const mixed = /class="sfdot"/.test(medal);
+    // Either the table mixes fleets in a column and is marked throughout, or
+    // it does not and carries neither chips nor tints.
+    if (!mixed) expect(medal).not.toMatch(/<td style="background:/);
+  });
+
+  it('shades the medal fleet in its own colour', () => {
     // The medal fleet is named by the series' vocabulary, so it appears in
     // neither config fleet list: its colour has to reach the page from the
-    // fleet itself, or from the medal stage's own palette.
-    const html = renderSplitFleetStandingsPage(
-      renderInputFor('03-f2-ilca-medal-race.yaml'),
-    );
-    const legend = html.match(/<p class="sfnote sflegend">[\s\S]*?<\/p>/)?.[0] ?? '';
-    expect(legend).toContain('Medal');
-    // Both the M1 cells and the legend entry carry the medal shade, not the
-    // untinted white a fleet with no colour falls back to. The dot is what
-    // is asserted on: the fleets here are three boats deep, so every cell is
-    // a podium place and the tint has given the background over to it.
-    expect(html).toMatch(
-      /<td[^>]*title="Medal fleet"[^>]*><span class="sfdot" style="background:#f59e0b">/,
-    );
-    expect(legend).toContain('<span class="sfdot" style="background:#f59e0b"></span>Medal');
+    // fleet itself, or from the medal stage's own palette. Its race columns
+    // hold only its own boats, so the standings say it with the heading; the
+    // assignments page, which bands each fleet in its colour, shows it.
+    const html = renderSplitFleetAssignmentsPage(renderInputFor('03-f2-ilca-medal-race.yaml'));
+    expect(html).toContain('#f59e0b');
   });
 
   it('draws a fleet in its own recorded colour, over the config\'s', () => {
@@ -336,26 +351,25 @@ describe('fleet markers on the championship standings', () => {
     input.fleets = input.fleets.map((f) =>
       f.name === 'Gold' || f.name === 'Medal' ? { ...f, color: '#010203' } : f,
     );
-    const html = renderSplitFleetStandingsPage(input);
+    const html = renderSplitFleetAssignmentsPage(input);
     // Gold's colour is #ca8a04 in the config and the medal fleet's is in no
     // config list at all; the fleet's own colour answers for both.
-    expect(html).toMatch(
-      /<td[^>]*title="Gold fleet"[^>]*><span class="sfdot" style="background:#010203">/,
-    );
-    expect(html).toMatch(
-      /<td[^>]*title="Medal fleet"[^>]*><span class="sfdot" style="background:#010203">/,
-    );
+    expect(html).toContain('#010203');
     expect(html).not.toContain('#ca8a04');
+    // And a chip takes light ink on a dark fleet colour.
+    const yellowDark = renderInputFor('01-f1-ilca-continuous-carry.yaml');
+    yellowDark.fleets = yellowDark.fleets.map((f) => (f.name === 'Yellow' ? { ...f, color: '#010203' } : f));
+    expect(renderSplitFleetStandingsPage(yellowDark)).toMatch(
+      /<td[^>]*title="Yellow fleet[^"]*"[^>]*><span class="sfdot" style="background:#010203;color:#ffffff">Y<\/span>/,
+    );
   });
 
   it('carries a Fleet column while combined, and drops it once split', () => {
     const mid = midQualifying(renderInputFor(FIXTURE));
     const combined = renderSplitFleetStandingsPage(mid);
     expect(combined).toContain('<th>Fleet</th>');
-    // The column names the current round's assignment, dot first.
-    expect(combined).toMatch(
-      /<td style="white-space:nowrap"><span class="sfdot"[^>]*><\/span>(Yellow|Blue)<\/td>/,
-    );
+    // The column names the current round's assignment.
+    expect(combined).toMatch(/<td style="white-space:nowrap">(Yellow|Blue)<\/td>/);
 
     // After the split the per-fleet section headings say it instead.
     const post = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
@@ -384,19 +398,17 @@ describe('race podiums on the championship standings', () => {
 
   it('leaves a discarded place on its fleet tint \u2014 a discard loses the medal', () => {
     const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
-    const discarded = [...html.matchAll(/<td([^>]*)>(?:<span[^>]*><\/span>)?\([^)]*\)<\/td>/g)];
+    const discarded = [...html.matchAll(/<td([^>]*)>(<span class="sfdot"[^>]*>[^<]*<\/span>)?\([^)]*\)<\/td>/g)];
     expect(discarded.length).toBeGreaterThan(0);
-    for (const [, attrs] of discarded) {
+    for (const [, attrs, chip] of discarded) {
       expect(attrs).not.toContain('rank');
-      expect(attrs).toContain('background:');
+      // Tinted where the column marks its fleets; plain where it does not.
+      if (chip) expect(attrs).toContain('background:');
+      else expect(attrs).not.toContain('background:');
     }
+    expect(discarded.some(([, , chip]) => chip)).toBe(true);
   });
 
-  it('keys the medal colours in the legend', () => {
-    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
-    const legend = html.match(/<p class="sfnote sflegend">[\s\S]*?<\/p>/)?.[0] ?? '';
-    expect(legend).toContain("The first three places in each fleet's race");
-  });
 });
 
 describe('the championship links to the per-race results page', () => {
@@ -408,8 +420,8 @@ describe('the championship links to the per-race results page', () => {
     });
     expect(html).toContain('<th><a href="race-results#q1">Q1</a></th>');
     expect(html).toContain('<th><a href="race-results#f2">F2</a></th>');
-    // And says so in prose too, above the tables.
-    expect(html).toMatch(/<a href="race-results">Race results<\/a>/);
+    // No line of prose repeating it: the link menu names the page.
+    expect(html).not.toMatch(/<a href="race-results">Race results<\/a>/);
   });
 
   it('leaves a carried-score column unlinked — it is a score, not a race', () => {
@@ -1010,20 +1022,24 @@ describe('boats drawn per fleet', () => {
     return { ...input, config: { ...input.config, boatAssignments: true }, competitors };
   }
 
-  it("shows each race's boats, and the entry numbers on the standings", () => {
+  it("shows each race's boats, and no entry numbers on the standings", () => {
     const input = withBoats();
     const race = renderSplitFleetRaceResultsPage(input)!;
     expect(race).toMatch(/<td style="font-family:monospace">B1<\/td>/);
     expect(race).not.toMatch(/<td style="font-family:monospace">E\d+<\/td>/);
 
+    // An entry number means nothing to a reader: the boat she sailed is the
+    // number she is known by, and it changes fleet by fleet.
     const standings = renderSplitFleetStandingsPage(input);
-    expect(headerRow(standings, 'Gold')).toContain('Entry');
-    expect(standings).toMatch(/<td style="font-family:monospace">E1<\/td>/);
+    expect(headerRow(standings, 'Gold')).not.toContain('Entry');
+    expect(headerRow(standings, 'Gold')).not.toContain('Sail');
+    expect(standings).not.toMatch(/<td style="font-family:monospace">E1<\/td>/);
   });
 
-  it("lists each fleet's boats beside its entries on the assignments page", () => {
+  it("lists each fleet's boats on the assignments page, without entry numbers", () => {
     const assignments = renderSplitFleetAssignmentsPage(withBoats());
-    expect(assignments).toContain('<th>Entry</th><th>Helm</th><th>Boat</th>');
+    expect(assignments).toContain('<th>Helm</th><th>Boat</th>');
+    expect(assignments).not.toContain('<th>Entry</th>');
     expect(assignments).toMatch(/<td style="font-family:monospace">B1<\/td><\/tr>/);
   });
 
@@ -1036,7 +1052,7 @@ describe('boats drawn per fleet', () => {
 describe('the repêchage on the published pages', () => {
   it('lists the medal fleet, then the repêchage, then every boat on the stage she was cut from', () => {
     const html = renderSplitFleetStandingsPage(renderInputFor('31-repechage-sailed-one-fleet.yaml'));
-    const medal = html.indexOf('<h2>Final series fleet</h2>');
+    const medal = html.indexOf('<h2>Final series</h2>');
     const rep = html.indexOf('<h2>Repêchage</h2>');
     const cut = html.indexOf('<h2>Qualification series</h2>');
     expect(medal).toBeGreaterThanOrEqual(0);
@@ -1054,8 +1070,13 @@ describe('the repêchage on the published pages', () => {
     for (const sail of ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4']) {
       expect(cutTable).toContain(`>${sail}<`);
     }
-    expect(html).toContain('via the repêchage');
-    expect(html).toContain('promoted to the Final series fleet');
+    // Once in the Final series a boat is one of its boats, wherever she came
+    // from; her repêchage row says where she went.
+    expect(html).not.toContain('via the repêchage');
+    expect(html).toContain('&rarr; Final series');
+    // The tables explain themselves; no captions restating them.
+    expect(html).not.toContain('class="sfnote">Ranked on its own races');
+    expect(html).not.toContain('count for nothing after');
   });
 
   it('keeps the carried layout where a score is carried, with the repêchage between', () => {
@@ -1085,7 +1106,7 @@ describe('the repêchage on the published pages', () => {
 
   it('heads the repêchage round on the assignments page, between the medal fleet and qualifying', () => {
     const html = renderSplitFleetAssignmentsPage(renderInputFor('32-repechage-in-two-fleets.yaml'));
-    const medal = html.indexOf('<h2>Final series fleet</h2>');
+    const medal = html.indexOf('<h2>Final series</h2>');
     const rep = html.indexOf('<h2>Repêchage</h2>');
     const qualifying = html.indexOf('<h2>Qualification series round 1');
     expect(medal).toBeGreaterThanOrEqual(0);
@@ -1097,13 +1118,15 @@ describe('the repêchage on the published pages', () => {
 describe('fleets ranked each on their own, on the published pages', () => {
   it('gives each flight a table of its own, ranked from 1, after the medal fleet and the repêchage', () => {
     const html = renderSplitFleetStandingsPage(renderInputFor('35-each-flight-ranked-on-its-own.yaml'));
-    const medal = html.indexOf('<h2>Final series fleet</h2>');
+    const medal = html.indexOf('<h2>Final series</h2>');
     const rep = html.indexOf('<h2>Repêchage</h2>');
-    const f1 = html.indexOf('<h2>Flight 1 fleet</h2>');
-    const f2 = html.indexOf('<h2>Flight 2 fleet</h2>');
+    const qualification = html.indexOf('<h2>Qualification series</h2>');
+    const f1 = html.indexOf('<h3>Flight 1</h3>');
+    const f2 = html.indexOf('<h3>Flight 2</h3>');
     expect(medal).toBeGreaterThanOrEqual(0);
     expect(rep).toBeGreaterThan(medal);
-    expect(f1).toBeGreaterThan(rep);
+    expect(qualification).toBeGreaterThan(rep);
+    expect(f1).toBeGreaterThan(qualification);
     expect(f2).toBeGreaterThan(f1);
     // Nothing carried, a medal race sailed: every boat of each flight, the
     // medal boats too, each flight ranked from 1.
@@ -1119,5 +1142,101 @@ describe('fleets ranked each on their own, on the published pages', () => {
     const html = renderSplitFleetStandingsPage(input);
     const cuts = html.match(/Final series fleet cut if the Qualification series ended now/g) ?? [];
     expect(cuts).toHaveLength(2);
+  });
+});
+
+describe('fleet names on the published pages', () => {
+  it('heads a fleet without saying "fleet" twice', () => {
+    expect(fleetHeading('Gold')).toBe('Gold fleet');
+    expect(fleetHeading('Fleet 1')).toBe('Fleet 1');
+    expect(fleetHeading('Flight 2')).toBe('Flight 2');
+    expect(fleetHeading('Medal fleet')).toBe('Medal fleet');
+  });
+
+  it('abbreviates each fleet to letters no other fleet shares', () => {
+    const a = fleetAbbreviations(['Yellow', 'Blue', 'Gold', 'Silver', 'Medal', 'Yellow']);
+    expect([...a.values()]).toEqual(['Y', 'B', 'G', 'S', 'M']);
+    expect(fleetAbbreviations(['Fleet 1', 'Fleet 2'])).toEqual(
+      new Map([['Fleet 1', 'F1'], ['Fleet 2', 'F2']]),
+    );
+    // Two names sharing an initial take more of the first word; the rest
+    // keep their one letter.
+    expect(fleetAbbreviations(['Blue', 'Black', 'Red'])).toEqual(
+      new Map([['Blue', 'Blu'], ['Black', 'Bla'], ['Red', 'R']]),
+    );
+  });
+});
+
+describe('a medal race after one undivided fleet', () => {
+  const FIXTURE = '25-one-fleet-no-split-then-a-medal-race.yaml';
+
+  it('heads the boats below the medal fleet with the stage they sailed', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    const medal = html.indexOf('<h2>Medal fleet</h2>');
+    expect(medal).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('<h2>Opening series</h2>')).toBeGreaterThan(medal);
+  });
+
+  it('carries no Fleet column when every boat sailed in the one fleet', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    expect(html).not.toContain('<th>Fleet</th>');
+  });
+
+  it('marks no fleets: each race column is one fleet’s', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    expect(html).not.toContain('class="sfdot"');
+    expect(html).not.toContain('class="sfnote sflegend"');
+  });
+});
+
+describe('the Scoring notes page', () => {
+  const FIXTURE = '31-repechage-sailed-one-fleet.yaml';
+
+  it('states the format, and the data behind the results', () => {
+    const input = renderInputFor(FIXTURE);
+    const html = renderSplitFleetScoringNotesPage(input, {
+      openInAppUrl: '/open?from=x.sailscoring.json',
+      dataFileUrl: '/p/ws/event/x.sailscoring.json',
+    });
+    expect(html).toContain('<h2>Scoring notes</h2>');
+    expect(html).toContain('<h3>How this championship is scored</h3>');
+    for (const line of describeSplitFleetConfig(input.config, { repechage: true, dnfScoring: input.dnfScoring })) {
+      expect(html).toContain(line.text);
+    }
+    expect(html).toContain('>Open in Sail Scoring</a>');
+    expect(html).toContain('>Data (.sailscoring.json)</a>');
+    // Stated once, in the body — not again in the footer.
+    expect(html.match(/>Open in Sail Scoring</g)).toHaveLength(1);
+  });
+
+  it('takes the format off the standings, which link to it instead', () => {
+    const input = renderInputFor(FIXTURE);
+    const html = renderSplitFleetStandingsPage(input, {
+      scoringNotesHref: 'scoring-notes',
+      openInAppUrl: '/open?from=x.sailscoring.json',
+      dataFileUrl: '/p/ws/event/x.sailscoring.json',
+      generatedAt: new Date('2026-09-30T08:05:00Z'),
+    });
+    expect(html).not.toContain('How this championship is scored');
+    expect(html).toMatch(/<h3 class="seriestitle">Results are provisional[^<]*<span class="noteslink">&middot; <a href="scoring-notes">Scoring notes<\/a><\/span><\/h3>/);
+    expect(html).not.toContain('>Open in Sail Scoring<');
+    expect(html).not.toContain('>Data (.sailscoring.json)<');
+    // The data file is still the page's declared JSON alternate.
+    expect(html).toContain('<link rel="alternate" type="application/json" href="/p/ws/event/x.sailscoring.json">');
+  });
+
+  it('keeps the format folded at the foot of a page built with nowhere to link', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE), {
+      openInAppUrl: '/open?from=x.sailscoring.json',
+    });
+    expect(html).toContain('<summary>How this championship is scored</summary>');
+    expect(html).toContain('>Open in Sail Scoring</a>');
+  });
+
+  it('leaves the page name off the standings', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor(FIXTURE));
+    expect(html).not.toContain('<h2>Championship</h2>');
+    expect(html).toContain('<title>');
+    expect(html).toMatch(/<title>[^<]*Championship<\/title>/);
   });
 });

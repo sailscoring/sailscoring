@@ -39,6 +39,7 @@ import {
   PRIZES_PAGE,
   RACE_RESULTS_PAGE,
   resolvePublishPages,
+  SCORING_NOTES_PAGE,
   type PublishPage,
   type PublishPageKind,
 } from './publish-pages';
@@ -51,6 +52,7 @@ import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
 import {
   renderSplitFleetAssignmentsPage,
   renderSplitFleetRaceResultsPage,
+  renderSplitFleetScoringNotesPage,
   renderSplitFleetStandingsPage,
 } from './split-fleets-render';
 import {
@@ -576,6 +578,10 @@ export async function buildFleetHtmlFiles(
   // to the championship standings page; only the publish handler knows where
   // both will be served, so only it passes one — preview, download and FTP
   // leave the championship's race columns unlinked.
+  // `scoringNotesHref` is the championship's Scoring notes page relative to
+  // its standings, on the same terms. Where it is known the standings link to
+  // it and leave the format and the data links to it; where it is not, the
+  // standings keep the format folded at their foot.
   // `includeTrackData` says the workspace's `racesense-import` feature is on;
   // the columns still need the series' own `publishTrackData` opt-in, and
   // each renders only where a boat carries the value.
@@ -603,6 +609,7 @@ export async function buildFleetHtmlFiles(
     includeTrackData?: boolean;
     includePageNotes?: boolean;
     raceResultsHref?: string;
+    scoringNotesHref?: string;
     dataPath?: string;
     generatedAt?: Date;
     /** How to read a course-cards data set's captured chart, so a published
@@ -725,7 +732,11 @@ export async function buildFleetHtmlFiles(
       : null;
     const splitExportJson = splitExport ? JSON.stringify(splitExport) : null;
     const splitLinks = footerDataLinks(splitExportJson, opts?.dataPath);
-    const splitPageChrome = { ...splitChrome, ...splitLinks };
+    const splitPageChrome = {
+      ...splitChrome,
+      ...splitLinks,
+      ...(opts?.scoringNotesHref ? { scoringNotesHref: opts.scoringNotesHref } : {}),
+    };
     // Each of the three carries its own note: the assignments page is the one
     // most likely to need a sentence saying it does not reconcile with the
     // standings, and that sentence has no business on the standings.
@@ -767,6 +778,15 @@ export async function buildFleetHtmlFiles(
         html: renderSplitFleetAssignmentsPage(input, {
           ...splitPageChrome,
           ...splitNote(FLEET_ASSIGNMENTS_PAGE),
+        }),
+      },
+      {
+        fleetName: SCORING_NOTES_PAGE,
+        isDefault: false,
+        isAuxiliary: true,
+        html: renderSplitFleetScoringNotesPage(input, {
+          ...splitPageChrome,
+          ...splitNote(SCORING_NOTES_PAGE),
         }),
       },
       // The entry list rides along here too. This branch returns early, so

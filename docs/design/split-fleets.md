@@ -901,13 +901,15 @@ above.
 
 ### Standings and publishing
 
-- **Qualifying:** one combined table, every boat, ranked together; each
-  race cell tinted with its fleet colour (matching the Sailwave-published
-  convention scorers and sailors already read: yellow/blue/red cell
-  backgrounds, discards in parentheses). A first, second or third in a
-  fleet's own race takes the gold/silver/bronze an ordinary published page
-  marks a race place in, over the tint — the cell's fleet dot still says
-  which fleet it was sailed in, and a discarded place keeps the tint.
+- **Qualifying:** one combined table, every boat, ranked together, with a
+  Fleet column. A first, second or third in a fleet's own race takes the
+  gold/silver/bronze an ordinary published page marks a race place in.
+- **Fleet markers** appear only where nothing else says which fleet a race
+  was sailed in: a race column mixing fleets, with no Fleet column naming
+  each boat's (a reassignment, or the Q columns of a table after the
+  split). There the cell carries a chip spelling the fleet's initials on
+  its colour, and a faint tint — never colour alone. A column of one fleet
+  is said by its heading, and carries neither.
 - **Final:** one table per fleet — Gold ranked 1…n, Silver continuing
   n+1…, visibly tiered — with Q columns (fleet-tinted) followed by F
   columns, a carried-score column where the medal carry is halved, and
@@ -919,6 +921,10 @@ above.
   standings page's race column headers deep-linking into it. Points come
   from the standings engine's cells, so redress, penalties and the medal
   multiplier are already applied.
+- **Scoring notes** publish as their own page: the format as SI prose
+  and the links to the series' data. The standings link to it from the
+  results stamp and carry no captions explaining the tables — the order
+  of the tables and their headings say it.
 - **Assignment lists** become a publishable artifact: per-fleet rosters
   for the notice board and the boat park, published to a single rolling
   page under the series' `/p/` slug with the latest round at the top,

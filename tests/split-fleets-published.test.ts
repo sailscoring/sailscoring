@@ -98,7 +98,11 @@ const text = (fragment: string) =>
  * reading, so both sides are compared as text.
  */
 function standingsTables(html: string): Table[] {
-  const page = html.replace(/<svg[\s\S]*?<\/svg>/g, '');
+  // A fleet chip marks which fleet a race was sailed in; it is not part of the
+  // score the cell states, which is what the published pages are compared on.
+  const page = html
+    .replace(/<svg[\s\S]*?<\/svg>/g, '')
+    .replace(/<span class="sfdot"[^>]*>[^<]*<\/span>/g, '');
   return [...page.matchAll(/<table class="summarytable">([\s\S]*?)<\/table>/g)].map(([, t]) => {
     const header = [...t.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map(([, h]) => text(h));
     const rows = [...t.matchAll(/<tr class="[^"]*summaryrow[^"]*">([\s\S]*?)<\/tr>/g)].map(
@@ -121,6 +125,14 @@ function standingsTables(html: string): Table[] {
  * its five Preliminary races are QP1–QP5, and Q6–Q12 are QE1–QE7.
  */
 const CHANGED_SINCE_PUBLISHED: Record<string, (tables: Table[]) => Table[]> = {
+  // The boats below the medal fleet sailed the one opening-series fleet, so
+  // the Fleet column named the same fleet on every row — or, as published,
+  // none — and is no longer shown.
+  'junior-champions-cup-2026': (tables) =>
+    tables.map(({ header, rows }) => ({
+      header: header.filter((h) => h !== 'Fleet'),
+      rows: rows.map((row) => Object.fromEntries(Object.entries(row).filter(([h]) => h !== 'Fleet'))),
+    })),
   'ilca7-men-worlds-2026': (tables) => {
     const PRELIMINARY_RACES = 5;
     const relabel = (h: string) => {

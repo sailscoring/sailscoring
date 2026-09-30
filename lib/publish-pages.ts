@@ -2,7 +2,7 @@
  * The pages a series publishes — worked out once, for everyone.
  *
  * A series' published output is a list of named pages: a fleet's results, a
- * publishing group's combined page, a championship's three, the prize sheet,
+ * publishing group's combined page, a championship's four, the prize sheet,
  * the entry list. Which of those exist is a property of the *series*, not of
  * where the pages are going — so the build (`buildFleetHtmlFiles`), the
  * publish dialog's Sail Scoring pane, and its FTP pane all resolve the set
@@ -44,13 +44,14 @@ import {
 import type { Fleet, Series } from './types';
 
 /** What a page is. The kinds a scorer configures (`fleet`, `combined`,
- *  `prizes`, `entries`) and the three a split-fleet series publishes. */
+ *  `prizes`, `entries`) and the four a split-fleet series publishes. */
 export type PublishPageKind =
   | 'fleet'
   | 'combined'
   | 'championship'
   | 'race-results'
   | 'assignments'
+  | 'scoring-notes'
   | 'prizes'
   | 'entries';
 
@@ -60,6 +61,7 @@ export type PublishPageKind =
 const EXTRA_PAGE_KINDS = new Set<PublishPageKind>([
   'race-results',
   'assignments',
+  'scoring-notes',
   'prizes',
   'entries',
 ]);
@@ -70,6 +72,7 @@ const EXTRA_PAGE_KINDS = new Set<PublishPageKind>([
 export const CHAMPIONSHIP_PAGE = 'Championship';
 export const RACE_RESULTS_PAGE = 'Race results';
 export const FLEET_ASSIGNMENTS_PAGE = 'Fleet assignments';
+export const SCORING_NOTES_PAGE = 'Scoring notes';
 export const PRIZES_PAGE = 'Prizes';
 export const ENTRIES_PAGE = 'Entries';
 
@@ -109,6 +112,7 @@ const FIXED_PAGE_KEYS = new Set([
   'championship',
   'race-results',
   'assignments',
+  'scoring-notes',
   'prizes',
   'entries',
 ]);
@@ -129,7 +133,7 @@ export interface PublishPagesInput {
   fleets: Fleet[];
   /** Whether the series scores as a championship — a split-fleet config with
    *  at least one round. Its round fleets are internal, so it publishes the
-   *  championship trio instead of per-fleet pages. */
+   *  championship pages instead of per-fleet pages. */
   splitFleets?: boolean;
   /** The workspace features that add a page. Both default off: a series
    *  carrying prizes into a workspace without the feature publishes none. */
@@ -153,7 +157,7 @@ function unknownFleetPage(): PublishPage {
 /**
  * The pages this series publishes, in the order the build renders them:
  * combined pages ahead of the fleet pages they draw on, then the prize sheet
- * and the entry list. A championship publishes its own trio instead.
+ * and the entry list. A championship publishes its own set instead.
  */
 export function resolvePublishPages(input: PublishPagesInput): PublishPage[] {
   const { series, fleets } = input;
@@ -168,6 +172,7 @@ export function resolvePublishPages(input: PublishPagesInput): PublishPage[] {
       { key: 'championship', name: CHAMPIONSHIP_PAGE, kind: 'championship', isDefault: true },
       { key: 'race-results', name: RACE_RESULTS_PAGE, kind: 'race-results', isDefault: false },
       { key: 'assignments', name: FLEET_ASSIGNMENTS_PAGE, kind: 'assignments', isDefault: false },
+      { key: 'scoring-notes', name: SCORING_NOTES_PAGE, kind: 'scoring-notes', isDefault: false },
       ...entriesPage,
     ];
   }
