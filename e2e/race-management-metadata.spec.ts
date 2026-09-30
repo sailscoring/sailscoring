@@ -164,8 +164,11 @@ test('a race records its conditions and team, published only on opt-in', async (
   const published = await downloadedHtml(page);
   expect(published).toContain('Race Officer: Jane Smith');
   // The written-out role reads exactly as typed, beside the manual's own, and
-  // the standing team keeps the order the scorer dragged it into.
-  expect(published).toContain('Beach Master: Sam Doyle · Principal Race Officer: Ann Kelly');
+  // the standing team — folded at the foot of the page, a line per role —
+  // keeps the order the scorer dragged it into.
+  expect(published).toContain(
+    '<li><span class="role">Beach Master:</span> Sam Doyle</li>\n<li><span class="role">Principal Race Officer:</span> Ann Kelly</li>',
+  );
 });
 
 test('the record is absent when the feature is off', async ({ page, signedInEmail }) => {
