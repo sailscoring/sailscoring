@@ -364,6 +364,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
     races,
     raceStarts,
     finishes: allFinishes,
+    dnfScoring: data.series.dnfScoring,
   });
 
   const fleetMeta = buildFleetMeta(sfData, fleets);
@@ -424,6 +425,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           <OpeningSettings
             seriesId={seriesId}
             config={sfState.config}
+            dnfScoring={data.series.dnfScoring}
             locks={locks}
             canEdit={canManage}
             medalSelected={medalRound !== null}
@@ -457,6 +459,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
           <OpeningSettings
             seriesId={seriesId}
             config={sfState.config}
+            dnfScoring={data.series.dnfScoring}
             locks={locks}
             canEdit={canManage}
             current={qualifyingRounds.length === 0}
@@ -475,6 +478,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             <Stage1Settings
               seriesId={seriesId}
               config={sfState.config}
+              dnfScoring={data.series.dnfScoring}
               locks={locks}
               canEdit={canManage}
               current={qualifyingRounds.length === 0}
@@ -499,6 +503,7 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
             <Stage2Settings
               seriesId={seriesId}
               config={sfState.config}
+              dnfScoring={data.series.dnfScoring}
               locks={locks}
               canEdit={canManage}
               medalSelected={medalRound !== null}
@@ -638,7 +643,11 @@ export default function SplitFleetsPage({ params }: { params: Promise<{ id: stri
         onClose={() => setShowFinalise(false)}
       />
 
-      <SailingInstructionsDrawer config={sfState.config} repechage={repechageRound(sfData) !== null} />
+      <SailingInstructionsDrawer
+        config={sfState.config}
+        repechage={repechageRound(sfData) !== null}
+        dnfScoring={data.series.dnfScoring}
+      />
     </SplitFleetsFrame>
   );
 }

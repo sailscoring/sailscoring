@@ -700,6 +700,7 @@ export async function buildFleetHtmlFiles(
       races: snapshot.races,
       raceStarts: snapshot.raceStarts,
       finishes: snapshot.finishes,
+      dnfScoring: snapshot.series.dnfScoring,
       enabledCompetitorFields,
       ...(opts?.includeTrackData && snapshot.series.publishTrackData
         ? { showTrackData: true }

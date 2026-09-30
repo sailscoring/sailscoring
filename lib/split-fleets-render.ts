@@ -2,13 +2,14 @@
 // standings page (combined qualifying table before the split, tiered
 // Gold/Silver/... tables after, fleet-tinted race cells, provisional cut
 // line), the per-race results page (every stage race, one table per fleet),
-// and the rolling fleet-assignments page (newest round first). Plain
+// and the rolling fleet-assignments page (latest stage first). Plain
 // HTML strings, no React — mirrors lib/results-renderer.ts conventions.
 
 import type { NationalFlag } from './nationality/types';
 import type {
   Competitor,
   CompetitorFieldKey,
+  DnfScoring,
   Finish,
   Fleet,
   Race,
@@ -69,6 +70,8 @@ export interface SplitFleetRenderInput {
   races: Race[];
   raceStarts: RaceStart[];
   finishes: Finish[];
+  /** The series' non-finisher rule (see `SplitFleetData.dnfScoring`). */
+  dnfScoring?: DnfScoring;
   /** Which optional competitor fields the scorer shows; drives the Nat
    *  column. Absent = none. */
   enabledCompetitorFields?: CompetitorFieldKey[];
@@ -116,8 +119,15 @@ const PAGE_CSS = `<style>
  * language the scoring section of a sailing instruction uses. Closed by
  * default: it is the follow-up question, not the one they arrived with.
  */
-function formatDetails(config: SplitFleetConfig, rounds: readonly { stage: string }[]): string {
-  const lines = describeSplitFleetConfig(config, { repechage: rounds.some((r) => r.stage === 'repechage') })
+function formatDetails(
+  config: SplitFleetConfig,
+  rounds: readonly { stage: string }[],
+  dnfScoring: DnfScoring | undefined,
+): string {
+  const lines = describeSplitFleetConfig(config, {
+    repechage: rounds.some((r) => r.stage === 'repechage'),
+    dnfScoring,
+  })
     .map((line) => `<li>${esc(line.text)}</li>`)
     .join('\n');
   return `<details class="sfformat"><summary>How this championship is scored</summary>\n<ol>${lines}</ol></details>`;
@@ -692,7 +702,7 @@ ${body}
 
   return renderHtmlDocument(
     { ...chromeFor(input, opts), fleetName: 'Championship' },
-    `${PAGE_CSS}\n${raceLink}\n${legendHtml()}\n${sections}\n${formatDetails(input.config, input.rounds)}`,
+    `${PAGE_CSS}\n${raceLink}\n${legendHtml()}\n${sections}\n${formatDetails(input.config, input.rounds, input.dnfScoring)}`,
     {
       fontPercent: 72,
       hasNhcDetail: false,

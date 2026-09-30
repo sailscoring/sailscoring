@@ -4,7 +4,7 @@
 // top; RDG average points per RRS A9(a)/(b); SCP/DPI/ZFP penalties; A8.1+A8.2
 // tie-breaking; the end-of-qualifying validity gate.
 
-import type { Competitor, Finish, Fleet, Race, RaceStart } from './types';
+import type { Competitor, DnfScoring, Finish, Fleet, Race, RaceStart } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
 import { applyAdditivePenalty, resolveEntrants } from './scoring';
 import { weightedRacePoints } from './race-scoring-options';
@@ -888,6 +888,11 @@ export interface SplitFleetData {
   /** All starts; those with `stage` set carry the split-fleet identity. */
   raceStarts: RaceStart[];
   finishes: Finish[];
+  /** The series' non-finisher rule (`Series.dnfScoring`). Absent, or RRS
+   *  A5.2 (`seriesEntries`), keeps each stage's own base (see
+   *  `scorePhysicalRace`); the A5.3 settings score from the boats that came
+   *  to the starting area. */
+  dnfScoring?: DnfScoring;
 }
 
 /** Enumerate the physical races — one ref per (race, start, fleet) for every
@@ -995,6 +1000,7 @@ export function assembleSplitFleetData(input: {
   races: Race[];
   raceStarts: RaceStart[];
   finishes: Finish[];
+  dnfScoring?: DnfScoring;
 }): SplitFleetData {
   return dropNonEntrants({
     config: input.config,
@@ -1009,6 +1015,7 @@ export function assembleSplitFleetData(input: {
     races: input.races,
     raceStarts: input.raceStarts,
     finishes: input.finishes,
+    ...(input.dnfScoring ? { dnfScoring: input.dnfScoring } : {}),
   });
 }
 
@@ -1112,12 +1119,21 @@ export interface SplitStandingRow {
  *  - RDG rows are emitted with `rdg` set and points 0; the standings pass
  *    resolves them per RRS A9 once all other cells exist.
  */
+/** How a race scores a boat that did not sail the course: the series'
+ *  non-finisher rule, and the championship's entries it may be scored from. */
+interface NonFinisherRule {
+  dnfScoring: DnfScoring | undefined;
+  /** Boats entered in the championship. */
+  entries: number;
+}
+
 function scorePhysicalRace(
   ref: StageRaceRef,
   members: Competitor[],
   finishes: Finish[],
   codeBase: number,
   multiplier: number,
+  rule: NonFinisherRule,
 ): Map<string, { points: number; code: string | null; rdg: Finish | null }> {
   const offset = ref.start.firstPlaceOffset ?? 0;
   const memberIds = new Set(members.map((m) => m.id));
@@ -1127,10 +1143,24 @@ function scorePhysicalRace(
   const finishers = rows
     .filter((f) => f.sortOrder !== null && !f.resultCode)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  // RRS A5.2, as the stage adapts it: every code scores the stage's base.
+  // RRS A5.3 ("when the notice of race states that A5.3 applies"): a boat
+  // that came to the starting area scores the boats of this race that came
+  // to it, plus one; a boat that did not scores the boats entered, plus one
+  // (the DBSC variant scores her from the starting area too). The starting
+  // area is read as the ordinary engine reads it: the check-in where the
+  // sheet records one, else every boat on the sheet but a DNC.
+  const a53 = rule.dnfScoring !== undefined && rule.dnfScoring !== 'seriesEntries';
+  const cameToStart = rows.some((f) => f.startPresent === true)
+    ? rows.filter((f) => f.startPresent === true).length
+    : rows.filter((f) => f.resultCode !== 'DNC').length;
+  const starterBase = a53 ? cameToStart + 1 : codeBase;
+  const dncBase = !a53 ? codeBase : rule.dnfScoring === 'startingAreaInclDnc' ? starterBase : rule.entries + 1;
   // This race's score for a boat that did not sail the course: the weighting
   // reaches it, so it is also the DNF cap the penalties below are measured
   // against.
-  const codePoints = weightedRacePoints(codeBase, multiplier);
+  const codePoints = weightedRacePoints(starterBase, multiplier);
+  const dncPoints = weightedRacePoints(dncBase, multiplier);
   const out = new Map<string, { points: number; code: string | null; rdg: Finish | null }>();
   finishers.forEach((f, i) => {
     const placePoints = weightedRacePoints(i + 1 + offset, multiplier);
@@ -1145,12 +1175,21 @@ function scorePhysicalRace(
     if (f.resultCode === 'RDG') {
       out.set(f.competitorId!, { points: 0, code: 'RDG', rdg: f });
     } else if (f.resultCode) {
-      out.set(f.competitorId!, { points: codePoints, code: f.resultCode, rdg: null });
+      out.set(f.competitorId!, {
+        points: f.resultCode === 'DNC' ? dncPoints : codePoints,
+        code: f.resultCode,
+        rdg: null,
+      });
+    } else if (a53 && f.startPresent === true) {
+      // Checked in at the start and neither finished nor coded: she came to
+      // the starting area, so under A5.3 she is a DNF, as the ordinary engine
+      // scores her.
+      out.set(f.competitorId!, { points: codePoints, code: 'DNF', rdg: null });
     }
   }
   for (const m of members) {
     if (out.has(m.id)) continue;
-    out.set(m.id, { points: codePoints, code: 'DNC', rdg: null });
+    out.set(m.id, { points: dncPoints, code: 'DNC', rdg: null });
   }
   return out;
 }
@@ -1409,7 +1448,10 @@ export function splitFleetStandings(
         const companion =
           stage !== 'medal' && (ref.start.firstPlaceOffset ?? 0) > 0 && medalMembers !== null;
         const sailing = companion ? members.filter((m) => !medalMembers!.has(m.id)) : members;
-        const scores = scorePhysicalRace(ref, sailing, data.finishes, codeBase, multiplier);
+        const scores = scorePhysicalRace(ref, sailing, data.finishes, codeBase, multiplier, {
+          dnfScoring: data.dnfScoring,
+          entries: competitors.length,
+        });
         for (const [competitorId, sc] of scores) {
           const row = rowByCompetitor.get(competitorId);
           if (!row) continue;
@@ -1825,7 +1867,10 @@ export function repechageStandings(input: SplitFleetData): RepechageTable[] {
       const ref = lr.races.get(fleetId);
       if (!ref) continue;
       const counts = physicalRaceCompleted(ref, data.competitors, data.finishes);
-      const scores = scorePhysicalRace(ref, members, data.finishes, members.length + 1, 1);
+      const scores = scorePhysicalRace(ref, members, data.finishes, members.length + 1, 1, {
+        dnfScoring: data.dnfScoring,
+        entries: data.competitors.length,
+      });
       for (const [competitorId, sc] of scores) {
         byId.get(competitorId)?.cells.push({
           stage: 'repechage',

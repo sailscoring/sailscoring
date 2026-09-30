@@ -153,6 +153,8 @@ export interface SplitFleetFixture {
       fromEachFleet?: number;
     };
   };
+  /** The series' non-finisher rule; RRS A5.2 when omitted. */
+  dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc';
   competitors: string[]; // "sail name..." — first token is the sail number
   stages: FixtureStage[];
   /** Post-hoc result amendments (a protest or redress decided after later
@@ -320,6 +322,7 @@ export function buildSplitFleet(fx: SplitFleetFixture): BuiltSplitFleet {
 
   const snapshot = (): SplitFleetData => ({
     config, rounds, fleets, competitors: [...competitors.values()], races, raceStarts, finishes,
+    ...(fx.dnfScoring ? { dnfScoring: fx.dnfScoring } : {}),
   });
   /** Ordered sails of a qualifying standings snapshot restricted to Q≤n. */
   const qualifyingOrder = (throughRace: number | null): string[] => {

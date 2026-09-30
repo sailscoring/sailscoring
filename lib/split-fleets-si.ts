@@ -11,6 +11,7 @@
 
 import { directSeatsPerFleet, ranksEachFleet, resolveVocabulary, stageAdjective, stageRaceLabel } from './split-fleets';
 import type { SplitFleetConfig } from './split-fleets';
+import type { DnfScoring } from './types';
 
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
 
@@ -115,6 +116,7 @@ export const SENTENCES_BY_SETTING = {
   discards: ['discards', 'final-discard-cap'],
   medal: ['medal', 'medal-ranking'],
   fleetRanking: ['fleet-ranking', 'non-finisher'],
+  nonFinishers: ['non-finisher'],
   medalFromEachFleet: ['medal'],
   finalCarry: ['final-carry'],
   finalTieBreak: ['final-tie-break'],
@@ -135,6 +137,8 @@ export function describeSplitFleetConfig(
      *  choice rather than configured, so its rule is written only once one
      *  exists. */
     repechage?: boolean;
+    /** The series' non-finisher rule; A5.3 replaces each stage's own base. */
+    dnfScoring?: DnfScoring;
   },
 ): SplitFleetSentence[] {
   const lines: SplitFleetSentence[] = [];
@@ -282,7 +286,11 @@ export function describeSplitFleetConfig(
   const finalBase = `the number of boats in her own ${vocab.stages.final.fleetNoun}, plus one`;
   push(
     'non-finisher',
-    unbanded
+    opts?.dnfScoring === 'startingArea'
+      ? 'Rule A5.3 applies. A boat that came to the starting area but did not start, did not finish, retired or was disqualified will be scored the number of boats that came to the starting area in that race, plus one; a boat that did not come to the starting area will be scored the number of boats entered, plus one.'
+      : opts?.dnfScoring === 'startingAreaInclDnc'
+        ? 'Rule A5.3 applies, changed so that a boat that did not come to the starting area is scored as one that did: a boat that did not start, did not finish, retired, was disqualified or did not come to the starting area will be scored the number of boats that came to the starting area in that race, plus one.'
+        : unbanded
       ? `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase}.`
       : `A boat that does not start, does not finish, retires or is disqualified will be scored ${qualifyingBase} in the ${q}, and ${finalBase} in the ${f}.`,
   );

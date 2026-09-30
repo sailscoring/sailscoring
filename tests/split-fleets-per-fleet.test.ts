@@ -181,3 +181,72 @@ describe('each fleet ranked on its own', () => {
     expect(rows.find((r) => r[0] === 'b1')![2]).toBe(1);
   });
 });
+
+describe('non-finishers under the series rule', () => {
+  // Flight A: a1 finishes, a2 DNS, a3 DNF, a4 never came (no row). Flight B
+  // sails normally. Seven boats are entered in the championship.
+  const sheets = {
+    A: [['a1', 'a2 DNS', 'a3 DNF']],
+    B: [['b1', 'b2', 'b3']],
+  };
+  const scores = (dnfScoring?: SplitFleetData['dnfScoring']) => {
+    const rows = splitFleetStandings({ ...flights(PER_FLEET, sheets), ...(dnfScoring ? { dnfScoring } : {}) });
+    return Object.fromEntries(
+      ['a2', 'a3', 'a4'].map((id) => {
+        const cell = rows.find((r) => r.competitor.id === id)!.cells[0];
+        return [id, `${cell.points} ${cell.code}`];
+      }),
+    );
+  };
+
+  it('scores every code from the stage’s base under A5.2', () => {
+    // Her own flight of four, plus one.
+    expect(scores()).toEqual({ a2: '5 DNS', a3: '5 DNF', a4: '5 DNC' });
+    expect(scores('seriesEntries')).toEqual({ a2: '5 DNS', a3: '5 DNF', a4: '5 DNC' });
+  });
+
+  it('scores from the boats that came to the starting area under A5.3, and a DNC from the entries', () => {
+    // Three came (a1, a2, a3): 3 + 1. a4 did not: 7 entries + 1.
+    expect(scores('startingArea')).toEqual({ a2: '4 DNS', a3: '4 DNF', a4: '8 DNC' });
+  });
+
+  it('scores a DNC from the starting area too, where A5.3 is changed so', () => {
+    expect(scores('startingAreaInclDnc')).toEqual({ a2: '4 DNS', a3: '4 DNF', a4: '4 DNC' });
+  });
+
+  it('counts the check-in where the sheet records it, and scores a boat checked in but not finished DNF', () => {
+    const data = flights(PER_FLEET, sheets);
+    const finishes = data.finishes.map((f) =>
+      f.raceId === 'A1' && ['a1', 'a2'].includes(f.competitorId!) ? { ...f, startPresent: true } : f,
+    );
+    // a4 checked in and then neither finished nor was coded.
+    finishes.push({ ...finishes.find((f) => f.competitorId === 'a1')!, id: 'A1-a4', competitorId: 'a4', sortOrder: null, startPresent: true });
+    const rows = splitFleetStandings({ ...data, finishes, dnfScoring: 'startingArea' });
+    const cell = (id: string) => rows.find((r) => r.competitor.id === id)!.cells[0];
+    // Three checked in (a1, a2, a4): 3 + 1. a3's DNF did not check in, but
+    // she is coded, not a DNC, so she scores from the starting area as well.
+    expect(`${cell('a4').points} ${cell('a4').code}`).toBe('4 DNF');
+    expect(cell('a3').points).toBe(4);
+  });
+
+  it('doubles both scores in a doubled medal race', () => {
+    const data = flights(
+      { ...PER_FLEET, medal: { ...PER_FLEET.medal!, multiplier: 2 } },
+      { A: [['a1', 'a2', 'a3', 'a4']], B: [['b1', 'b2', 'b3']] },
+      ['a1', 'a2', 'b1'],
+    );
+    data.races.push({ id: 'M1', seriesId: 's1', raceNumber: 9, name: null, date: '2026-10-04', createdAt: 9 });
+    data.raceStarts.push({ id: 's-M1', raceId: 'M1', fleetIds: ['M'], stage: 'medal', stageRaceNumber: 1 });
+    data.finishes.push(
+      ...['a1', 'a2 DNF'].map((t, i) => {
+        const [id, code] = t.split(' ');
+        return { ...data.finishes[0], id: `M1-${id}`, raceId: 'M1', competitorId: id, sortOrder: code ? null : i + 1, resultCode: (code ?? null) as Finish['resultCode'] };
+      }),
+    );
+    const rows = splitFleetStandings({ ...data, dnfScoring: 'startingArea' });
+    const medalCell = (id: string) => rows.find((r) => r.competitor.id === id)!.cells.find((c) => c.stage === 'medal')!;
+    // Two came: (2 + 1) × 2. b1 never came: (7 + 1) × 2.
+    expect(medalCell('a2').points).toBe(6);
+    expect(medalCell('b1').points).toBe(16);
+  });
+});

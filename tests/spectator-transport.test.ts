@@ -199,7 +199,8 @@ describe('spectator view of a split-fleet championship', () => {
   function open(data: SplitFleetData, source = SOURCE) {
     const exported = buildPublicExportFromSnapshot(
       {
-        series,
+        // The fixture's own non-finisher rule, as its series would hold it.
+        series: { ...series, dnfScoring: data.dnfScoring ?? series.dnfScoring },
         competitors: data.competitors,
         fleets: data.fleets,
         races: data.races,
@@ -223,6 +224,8 @@ describe('spectator view of a split-fleet championship', () => {
       races: view.races,
       raceStarts: view.raceStarts,
       finishes: view.finishes,
+      // The viewer scores by the series it opened, as the page does.
+      ...(view.series?.dnfScoring ? { dnfScoring: view.series.dnfScoring } : {}),
     };
   }
 

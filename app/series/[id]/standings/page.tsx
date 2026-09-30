@@ -118,6 +118,7 @@ export default function StandingsPage({
       races,
       raceStarts: allRaceStarts,
       finishes: allFinishes,
+      dnfScoring: series.dnfScoring,
     });
     return (
       <div className="space-y-4">
@@ -141,6 +142,7 @@ export default function StandingsPage({
         <SplitFleetFormat
           config={splitState.config}
           repechage={splitState.rounds.some((r) => r.stage === 'repechage')}
+          dnfScoring={series.dnfScoring}
         />
       </div>
     );

@@ -222,6 +222,24 @@ describe('fleets ranked each on their own', () => {
   });
 });
 
+describe('the non-finisher rule', () => {
+  const nonFinisher = (dnfScoring?: 'seriesEntries' | 'startingArea' | 'startingAreaInclDnc') =>
+    describeSplitFleetConfig(championsCupConfig(), dnfScoring ? { dnfScoring } : undefined).find(
+      (s) => s.id === 'non-finisher',
+    )!.text;
+
+  it('states each stage’s own base under A5.2', () => {
+    expect(nonFinisher()).toContain('the number of boats in the largest');
+    expect(nonFinisher('seriesEntries')).toBe(nonFinisher());
+  });
+
+  it('says Rule A5.3 applies, and what it scores', () => {
+    expect(nonFinisher('startingArea')).toMatch(/^Rule A5\.3 applies\. A boat that came to the starting area/);
+    expect(nonFinisher('startingArea')).toContain('did not come to the starting area will be scored the number of boats entered, plus one');
+    expect(nonFinisher('startingAreaInclDnc')).toMatch(/^Rule A5\.3 applies, changed so that/);
+  });
+});
+
 describe('the repêchage', () => {
   const repechageText = (config: SplitFleetConfig, repechage: boolean) =>
     describeSplitFleetConfig(config, { repechage })

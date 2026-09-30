@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import { describeSplitFleetConfig } from '@/lib/split-fleets-si';
 import type { SplitFleetSentenceId } from '@/lib/split-fleets-si';
 import type { SplitFleetConfig } from '@/lib/split-fleets';
+import type { DnfScoring } from '@/lib/types';
 
 /**
  * The format as a reader meets it: the sentences, collapsed behind a heading
@@ -28,13 +29,16 @@ import type { SplitFleetConfig } from '@/lib/split-fleets';
 export function SplitFleetFormat({
   config,
   repechage = false,
+  dnfScoring,
 }: {
   config: SplitFleetConfig;
   /** The championship has a repêchage, whose rule is then stated. */
   repechage?: boolean;
+  /** The series' non-finisher rule. */
+  dnfScoring?: DnfScoring;
 }) {
   const [open, setOpen] = useState(false);
-  const lines = describeSplitFleetConfig(config, { repechage });
+  const lines = describeSplitFleetConfig(config, { repechage, dnfScoring });
   return (
     <section className="rounded-lg border bg-card p-5" data-testid="sf-format">
       <button
@@ -62,6 +66,7 @@ export function SplitFleetFormat({
 export function SiTranslation({
   config,
   repechage = false,
+  dnfScoring,
   marked,
   alwaysOpen = false,
   sticky = false,
@@ -70,6 +75,8 @@ export function SiTranslation({
   config: SplitFleetConfig;
   /** The championship has a repêchage, whose rule is then stated. */
   repechage?: boolean;
+  /** The series' non-finisher rule. */
+  dnfScoring?: DnfScoring;
   /** Sentences written by the setting the scorer is on, if any. Marking is
    *  only ever an answer to a question the panel is already open for, so a
    *  collapsed panel is left collapsed rather than opened underneath them. */
@@ -87,7 +94,7 @@ export function SiTranslation({
 }) {
   const [userOpen, setUserOpen] = useState(false);
   const open = alwaysOpen || userOpen;
-  const lines = describeSplitFleetConfig(config, { repechage });
+  const lines = describeSplitFleetConfig(config, { repechage, dnfScoring });
   // The sentences scroll inside the capped panel; its heading and its footing
   // stay put, so what the scorer is reading never loses its label.
   const listRef = useRef<HTMLOListElement>(null);

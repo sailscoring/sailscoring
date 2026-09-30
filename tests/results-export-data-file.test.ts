@@ -215,7 +215,8 @@ describe('a championship\'s data file — the standings behind the page', () => 
   function exportOf(data: SplitFleetData): PublicSeriesExport {
     return buildPublicExportFromSnapshot(
       {
-        series: SERIES,
+        // The fixture's own non-finisher rule, as its series would hold it.
+        series: { ...SERIES, dnfScoring: data.dnfScoring ?? SERIES.dnfScoring },
         competitors: data.competitors,
         fleets: data.fleets,
         races: data.races,

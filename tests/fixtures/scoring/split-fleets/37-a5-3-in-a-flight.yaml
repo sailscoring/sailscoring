@@ -1,0 +1,63 @@
+description: "Rule A5.3 in a qualifying flight: a DNS and a DNF scored from the boats that came to the starting area, a DNC from the entries"
+provenance:
+  class: "Melges 15 (supplied boats)"
+  year: 2026
+  event: "Irish Sailing Dinghy Champions' Cup, Royal St George YC (SI 17.4)"
+  si: "reference-docs:events/irish-champions-cup-dinghy-2026/SI-draft.md"
+  code: F9
+  scenarios: []
+  alternatives: "The Keelboat Champions' Cup shares the format text (2025 SI 17.4)."
+runnable: true
+notes: |
+  "Rule A5.3 applies" (SI 17.4). A boat that came to the starting area but
+  did not start, did not finish, retired or was disqualified scores the
+  boats that came to the starting area, plus one; one that did not come
+  scores the boats entered, plus one. Scored by the series' own setting
+  (`dnfScoring: startingArea`), with each flight ranked on its own.
+
+  Two flights of three, one race each. In Flight A, a2 is OCS and a3 never
+  came to the start: two boats came (a1, a2), so a2 scores 3; a3 scores the
+  six entries plus one, 7. Flight B sails cleanly. Under A5.2 as the flight
+  would adapt it, both would score her own flight of three plus one, 4.
+
+dnfScoring: startingArea
+
+config:
+  qualifyingFleets: [A, B]
+  discardThresholds: []
+  fleetRanking: per-fleet
+  medal:
+    size: 2
+    multiplier: 1
+    carry: nothing
+    tieBreak: medal-race-then-a8
+    fromEachFleet: 1
+
+competitors:
+  - "a1 Helm A1"
+  - "a2 Helm A2"
+  - "a3 Helm A3"
+  - "b1 Helm B1"
+  - "b2 Helm B2"
+  - "b3 Helm B3"
+
+stages:
+  - stage: qualifying
+    from: 1
+    fleets:
+      A: [a1, a2, a3]
+      B: [b1, b2, b3]
+    races:
+      - n: 1
+        results:
+          A: [a1, "a2 OCS"]
+          B: [b1, b2, b3]
+
+expected:
+  standings:
+    - { rank: 1, sail: a1, total: 1, net: 1, inFleet: A }
+    - { rank: 2, sail: a2, total: 3, net: 3, inFleet: A }
+    - { rank: 3, sail: a3, total: 7, net: 7, inFleet: A }
+    - { rank: 1, sail: b1, total: 1, net: 1, inFleet: B }
+    - { rank: 2, sail: b2, total: 2, net: 2, inFleet: B }
+    - { rank: 3, sail: b3, total: 3, net: 3, inFleet: B }

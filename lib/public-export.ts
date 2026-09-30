@@ -1317,6 +1317,7 @@ export function buildPublicExportFromSnapshot(
                 races,
                 raceStarts: allRaceStarts,
                 finishes: allFinishes,
+                dnfScoring: series.dnfScoring,
               }),
             ),
             races,
