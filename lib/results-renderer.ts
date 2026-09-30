@@ -1516,7 +1516,7 @@ table.starterstable td.tick::before { content: ""; display: block; width: 5mm; h
 /* Paper only: how the sheet is laid out across the page, and the footer that
    is the way back to the entry list on screen and nothing on paper. */
 @media print {
-  body.starters .credit { display: none; }
+  body.starters .credit, .startersnav { display: none; }
   .starterscols { column-count: 2; column-gap: 6mm; column-fill: auto; }
   .startersstart.keep { break-inside: avoid; }
   .startersnotes { break-inside: avoid; }
@@ -1533,11 +1533,12 @@ function renderStartersPageCss(): string {
   return `<style id="starters-page" media="not all" type="text/css">@page { margin: 8mm; }</style>`;
 }
 
-/** The footer links between the entry list and the checklist, beside "Save as
- *  PDF". An address rather than a print trigger: the sheet is a view of the
- *  page, so the browser's own Print prints whichever of the two is showing. */
+/** The links between the entry list and the checklist, on a line of their
+ *  own above the credit — a page action, not part of who made the page. An
+ *  address rather than a print trigger: the sheet is a view of the page, so
+ *  the browser's own Print prints whichever of the two is showing. */
 function renderStartersButton(): string {
-  return `<a class="starterslink" href="#starters">Starters checklist</a><a class="startersback" href="#entries">Back to the entry list</a>`;
+  return `<p class="startersnav"><a class="starterslink" href="#starters">Starters checklist</a><a class="startersback" href="#entries">Back to the entry list</a></p>\n`;
 }
 
 /** Reflects the `#starters` fragment into the `starters` body class, the
@@ -1750,7 +1751,7 @@ ${fleetName && !hidePageHeading ? `<h2>${esc(fleetName)}</h2>` : ''}
 ${renderPageNotes(seriesNote, pageNote)}${flagDefs}
 ${content}
 ${renderOfficialsDetails(officials)}${ircRatingSource ? `<p class="ratingsource">IRC ratings from the ${esc(ircRatingSource.source)}${ircRatingSource.updatedAt ? `, published ${esc(ircRatingSource.updatedAt)}` : ''}. Each boat's certificate number is on its rating cell.</p>
-` : ''}<p class="credit credit-inline"><a href="https://sailscoring.ie" target="_top" rel="noopener"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring</a>${footerDataLinks && openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${footerDataLinks && dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''}${startersChecklist ? ` &mdash; ${renderStartersButton()}` : ''}</p>
+` : ''}${startersChecklist ? renderStartersButton() : ''}<p class="credit credit-inline"><a href="https://sailscoring.ie" target="_top" rel="noopener"><svg viewBox="205 205 840 840" width="15" height="15" aria-hidden="true" style="vertical-align:-2px;margin-right:5px;"><path fill="#fb3a3b" d="M551,757.3c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-125.9,125.9c29.4-.8,58.5-.7,87.4.3l191.1-191.1c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-177.3,177.3c33.3,1.8,66.2,4.7,98.7,8.8l59.9-59.9c-5.6-11.7-3.5-26.2,6.2-35.9,12.4-12.4,32.4-12.4,44.7,0,12.4,12.4,12.4,32.4,0,44.7-9.7,9.7-24.2,11.8-35.9,6.2l-48.4,48.4c87.3,12.9,171.9,34.6,253.4,65.8-95.4-229.3-112.6-465-9.6-706L315.1,906.2c31.6-3.2,62.9-5.5,93.9-6.9l142.1-142Z"/></svg>Sail Scoring</a>${footerDataLinks && openInAppUrl ? ` &mdash; <a href="${esc(openInAppUrl)}" target="_top" rel="noopener">Open in Sail Scoring</a>` : ''}${footerDataLinks && dataFileUrl ? ` &mdash; <a href="${esc(dataFileUrl)}" target="_top" rel="noopener">Data (.sailscoring.json)</a>` : ''}</p>
 ${hasNhcDetail ? renderNhcToggleScript() : ''}
 ${hasEchoDetail ? renderEchoToggleScript() : ''}
 ${renderSortScript()}

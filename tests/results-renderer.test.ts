@@ -2176,6 +2176,10 @@ describe('renderCompetitorListHtml', () => {
         checklist,
       });
       expect(html).toContain('<a class="starterslink" href="#starters">Starters checklist</a>');
+      // A page action on its own line, not part of the credit the sponsor
+      // strip joins on the pages we serve.
+      expect(html).toContain('<p class="startersnav"><a class="starterslink"');
+      expect(html).not.toMatch(/<p class="credit[^"]*">(?:(?!<\/p>)[\s\S])*starterslink/);
       expect(html).toContain('<a class="startersback" href="#entries">Back to the entry list</a>');
       // The class is set from the fragment, on navigation — nothing about
       // the sheet depends on a print event firing.

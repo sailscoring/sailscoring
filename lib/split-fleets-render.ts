@@ -109,9 +109,11 @@ const PAGE_CSS = `<style>
 .sffleets { display: flex; flex-wrap: wrap; gap: 0 1.2em; justify-content: center; align-items: flex-start; }
 .sffleets .tablewrap { margin: 0 0 1em 0; }
 .sffleethead { color: #073358; text-align: center; }
-.sfformat { margin: 2em auto 0; max-width: 46em; text-align: left; }
-.sfformat summary { cursor: pointer; font-weight: 600; }
-.sfformat ol { color: #555; line-height: 1.5; }
+/* Folded like the race management team below it, and matching it: the
+   summary centred in the same colour, the list itself left-aligned to read. */
+.sfformat { margin: 2em auto 16px; max-width: 46em; font-size: 0.9em; }
+.sfformat > summary { cursor: pointer; font-weight: 600; color: #073358; }
+.sfformat ol { color: #555; line-height: 1.5; text-align: left; }
 </style>`;
 
 /**
