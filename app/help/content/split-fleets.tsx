@@ -278,6 +278,18 @@ export function SplitFleetsSection() {
         more as the sailing instructions say (see the repêchage, below).
       </p>
       <p>
+        A boat that doesn’t finish is scored by the stage she is in: the largest fleet plus one
+        in the first stage, her own fleet plus one after it — RRS A5.2 as championship
+        sailing instructions adapt it. Where they say instead that{' '}
+        <strong className="text-foreground">Rule A5.3 applies</strong>, set{' '}
+        <strong className="text-foreground">Non-finishers</strong> on the {w.series} card: a
+        boat that came to the starting area then scores the boats that came to it in that race,
+        plus one, and a boat that didn’t come scores the number of entries, plus one. The count
+        is the start check-in where the sheet records it, and otherwise every boat on the sheet
+        but a DNC. It is the series’ own A5.2/A5.3 setting, which an ordinary series makes on
+        its settings page.
+      </p>
+      <p>
         Race labels follow the words the championship uses: Q, F and M under the first set,
         and QP, QE and F under the ILCA wording, with each stage numbering its races from 1.
         A championship that is never divided numbers its first races Q1, Q2 and so on under

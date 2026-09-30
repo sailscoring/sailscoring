@@ -38,6 +38,10 @@ test('each fleet ranked on its own, the top two of each through', async ({ page,
     page.getByRole('radiogroup', { name: 'How the fleets are ranked' }).getByLabel('Each on its own').click(),
   ]);
   await expect(page.getByText('A race counts for a fleet once that fleet has sailed it.')).toBeVisible();
+  // The series' own non-finisher rule, which a split-fleet series offers
+  // only here: Rule A5.3, as the Champions' Cups' SIs say.
+  await page.locator('#sf-non-finishers').selectOption('startingArea');
+  await expect(page.getByText(/^Rule A5\.3 applies: a boat that came to the starting area/)).toBeVisible();
   await showStageSettings(page, 'Opening series', false);
 
   // ── The top two from each flight, nothing carried in ─────────────────────

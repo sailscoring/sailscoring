@@ -55,8 +55,9 @@ fixed.
 | Fleets (undivided) | Count, names, colours | JCC 1; Dinghy Champions' Cup 2026 2 |
 | Fleets ranked (undivided, two or more fleets) | All together, or each on its own: each boat ranked within her fleet, a race counting for a fleet once that fleet has sailed it, a non-finisher scored from her own fleet | Dinghy Champions' Cup 2026 each on its own |
 | Discard ladder | Editable ladder | JCC 1 from 5; ILCA 1 from 3, 2 from 10 |
+| Non-finishers | The series' own A5.2/A5.3 setting (`dnfScoring`), shown here because a split-fleet series has no scoring card. A5.2 keeps each stage's base below; A5.3 scores a boat that came to the starting area from the boats that came to it in that race + 1 and a DNC from the entries + 1 (or, as changed, from the starting area too) | JCC, ILCA A5.2; Dinghy Champions' Cup 2026 A5.3 |
 | Race labels (undivided) | Rule: Q (both sets) | |
-| Non-finisher score (undivided) | Rule: boats in the largest fleet + 1, which is entries + 1 with one fleet; her own fleet + 1 where each fleet is ranked on its own | JCC |
+| Non-finisher score (undivided) | Rule, under A5.2: boats in the largest fleet + 1, which is entries + 1 with one fleet; her own fleet + 1 where each fleet is ranked on its own | JCC |
 | Companion race (undivided) | Rule: once the medal fleet is selected, the next race is for the rest, scored from medal-fleet size + 1 | none yet (found in testing, Sept 2026) |
 
 When the opening series is divided, the ladder stays on this card and runs
@@ -71,7 +72,7 @@ races combined, as it always was.
 |---|---|---|
 | Fleets | Count (1 or more), names, colours | ILCA 7 3 (Yellow/Blue/Red); ILCA 6 2 |
 | Race labels | Rule: Q, or QP | ILCA QP |
-| Non-finisher score | Rule: boats in the largest fleet + 1 | both ILCA |
+| Non-finisher score | Rule, under A5.2: boats in the largest fleet + 1 | both ILCA |
 | A race counts | Rule: only once every fleet of its round has sailed it | both ILCA |
 
 One fleet is allowed. It is the shape #600 describes: everyone races together,
@@ -86,7 +87,7 @@ then the fleet splits.
 | Fleets | Count (2 or more), names, colours | ILCA 7 3 (Gold/Silver/Bronze); ILCA 6 2 |
 | How boats are divided | Rule: near-equal fleets by rank, top fleet largest; block sizes adjustable in the split dialog | both ILCA |
 | Race labels | Rule: F, or QE | ILCA QE |
-| Non-finisher score | Rule: boats in her own fleet + 1 | both ILCA |
+| Non-finisher score | Rule, under A5.2: boats in her own fleet + 1 | both ILCA |
 | Score carried in | Net, net halved with 0.5 rounded up, nothing, or rank | both ILCA net; Melges 15 Sprint halved |
 | Ties within a fleet | A8, or the last race alone | both ILCA A8; Melges 15 Sprint last race |
 | Discard cap | Rule: with a net carry, at most one excluded score from this stage, and never from a lone completed race of it; with any other, none | both ILCA |
@@ -145,10 +146,8 @@ used.
 |---|---|---|
 | `carry: net-plus-net` (F5) | 29er, WASZP, Topper surveys | We score an event whose NoR adds two series |
 | `carry: rank-seed` (F6) | 470 Europeans 2026, Topper 2022 surveys | We score an event that carries a qualifying position |
-| Carry nothing into the deciding stage | Champions' Cup (F9) | #417 |
 | `split: fixed-top` | Skiffs, Moth, 29er surveys | We score an event with a fixed Gold size |
 | `codeBasis: fixed`, `largest-qualifying` | Sailwave practice; pre-2026 Optimist | We score one |
-| A5.3 as a code base | Champions' Cup | #417 |
 | `exclude-extra-scores` (LE 20.4(a)) | IODA, 420, 29er surveys | We score one |
 | `fleet-order` tie order | LE | We score one |
 | `tieBreak: stage-rank` | ILCA 2026 SI before Amendment 3 | We score one |

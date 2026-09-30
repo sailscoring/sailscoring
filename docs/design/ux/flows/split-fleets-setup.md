@@ -119,7 +119,12 @@ ranked within her fleet, a race counting for a fleet once that fleet has sailed
 it, a non-finisher scored from her own fleet. Each on its own turns the medal
 card's **Competitors** from a fleet size into **the top [k] from each fleet**:
 the fleet has no fixed size, and the scorer promotes as many more as the
-sailing instructions say. The standings give each fleet its own table and its
+sailing instructions say.
+
+Every opening series card carries **Non-finishers**: the series' own RRS
+A5.2/A5.3 setting, which a split-fleet series offers nowhere else. A5.2 keeps
+each stage's base; A5.3 replaces them all with the starting-area count, and
+every stage card's rules say so. The standings give each fleet its own table and its
 own cut line, and the selection dialog takes the top *k* of each.
 
 `Change` on the words is offered until the first race exists.
