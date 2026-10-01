@@ -15,7 +15,8 @@ import { useDeleteRaceStart, useSaveRaceStart } from '@/hooks/use-race-starts';
 import { useUpdateSeries } from '@/hooks/use-series';
 import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
 import { DEFAULT_ORC_PROFILE, ORC_STANDARD_OPTIONS, orcFleetProfile, orcOptionKind, orcSelectableOptions } from '@/lib/orc-certificate';
-import type { Fleet, RaceStart, Series } from '@/lib/types';
+import { RATING_VARIANT_LABEL, ratingVariantsFor } from '@/lib/fleet-rating-variant';
+import type { Fleet, FleetRatingVariant, RaceStart, Series } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -158,6 +159,11 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
       ...(system === 'nhc' ? {} : { nhcProfile: undefined }),
       ...(system === 'orc' ? {} : { orcProfile: undefined }),
       ...(system === 'tcf' ? {} : { ratingLabel: undefined }),
+      // Keep a certificate choice the new system offers too (IRC ↔ VPRS
+      // non-spin); drop one it doesn't.
+      ...(fleet.ratingVariant && ratingVariantsFor(system).includes(fleet.ratingVariant)
+        ? {}
+        : { ratingVariant: undefined }),
     };
 
     if (wasScratch === willBeScratch) {
@@ -537,6 +543,35 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                             </SelectItem>
                           );
                         })()}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {ratingVariantsFor(fleet.scoringSystem).length > 0 && (
+                    <Select
+                      value={fleet.ratingVariant ?? 'standard'}
+                      onValueChange={(v) => {
+                        const { ratingVariant: _, ...rest } = fleet;
+                        void saveFleet.mutateAsync(
+                          v === 'standard' ? rest : { ...rest, ratingVariant: v as FleetRatingVariant },
+                        );
+                      }}
+                    >
+                      <SelectTrigger
+                        className="w-36 h-7 text-xs"
+                        title="Which certificate Update handicaps rates this fleet's boats on"
+                        aria-label={`${fleet.name} certificate`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">
+                          {fleet.scoringSystem === 'orc' ? 'Standard certificate' : 'Spinnaker TCC'}
+                        </SelectItem>
+                        {ratingVariantsFor(fleet.scoringSystem).map((v) => (
+                          <SelectItem key={v} value={v}>
+                            {RATING_VARIANT_LABEL[v]}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}

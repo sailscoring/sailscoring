@@ -587,7 +587,8 @@ export default function RatingSystems() {
           classes to their non-spin TCC. Each fleet remembers its choice when you apply, so the
           next update starts from it; if every boat already holds the TCC chosen,{' '}
           <strong className="text-foreground">Save fleet choices</strong> remembers it without
-          applying anything. As with the prior-series source, every change is previewed
+          applying anything. The choice is also the certificate select beside the fleet in
+          Settings → Fleets, where it can be set before the first update. As with the prior-series source, every change is previewed
           as <code className="font-mono text-xs">current → new</code> before anything is written,
           and you can untick individual boats.
         </p>
@@ -671,7 +672,8 @@ export default function RatingSystems() {
           family</strong>: standard fully-crewed, non-spinnaker, or double-handed. A
           boat may hold a non-spinnaker or double-handed certificate alongside its
           standard one; it is scored on the family its fleet races under. Each fleet
-          remembers its family when you apply, so the next update starts from it.
+          remembers its family when you apply, so the next update starts from it; it can also be
+          set beside the fleet in Settings → Fleets.
         </p>
         <p>
           A boat in a non-spinnaker or double-handed fleet that holds no certificate

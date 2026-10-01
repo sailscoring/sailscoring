@@ -528,4 +528,17 @@ test('each fleet remembers its spin / non-spin choice for the next update', asyn
   await openIrcSource();
   await expect(variantSelect).toHaveText('Spinnaker TCC');
   await expect(page.getByRole('cell', { name: '0.918 → 0.932' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  // The choice is a fleet setting, shown and changed on the Settings tab too.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  const fleetSetting = page.getByRole('combobox', { name: 'IRC Non-Spin certificate' });
+  await expect(fleetSetting).toHaveText('Spinnaker TCC');
+  await fleetSetting.click();
+  await page.getByRole('option', { name: 'Non-spinnaker', exact: true }).click();
+  await expect(fleetSetting).toHaveText('Non-spinnaker');
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await openIrcSource();
+  await expect(variantSelect).toHaveText('Non-spinnaker TCC');
 });

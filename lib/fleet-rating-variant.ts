@@ -10,6 +10,11 @@ import type { Fleet, FleetRatingVariant } from './types';
  * an IRC fleet, say, left behind by a change of system — reads as standard.
  */
 
+export const RATING_VARIANT_LABEL: Record<FleetRatingVariant, string> = {
+  'non-spin': 'Non-spinnaker',
+  'double-handed': 'Double-handed',
+};
+
 export function isFleetRatingVariant(v: unknown): v is FleetRatingVariant {
   return v === 'non-spin' || v === 'double-handed';
 }
