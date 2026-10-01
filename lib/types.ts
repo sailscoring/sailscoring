@@ -588,6 +588,10 @@ export interface OrcRaceCalc {
   courseModel?: string;
 }
 
+/** A fleet's non-standard certificate choice — see {@link Fleet.ratingVariant}.
+ *  `double-handed` is an ORC certificate family only. */
+export type FleetRatingVariant = 'non-spin' | 'double-handed';
+
 export interface Fleet {
   id: string;
   seriesId: string;
@@ -611,6 +615,13 @@ export interface Fleet {
   // scorer has picked a rating option other than the default (APHT
   // time-on-time). See OrcProfile.
   orcProfile?: OrcProfile;
+  // Which certificate a rating list rates this fleet's boats on, when it isn't
+  // the standard one: the non-spinnaker TCC for an IRC or VPRS fleet, the
+  // non-spinnaker or double-handed certificate family for an ORC fleet. Read
+  // by Update handicaps to preselect each fleet's choice, and written back
+  // when the scorer applies with a different one. Scoring never reads it —
+  // the rating it chose is already on the competitor. Absent means standard.
+  ratingVariant?: FleetRatingVariant;
   // The split round that created this fleet (round-scoped identity: a
   // round-1 "Yellow" is a different fleet from a round-2 "Yellow").
   // Round-owned fleets are filtered from general-purpose fleet pickers —

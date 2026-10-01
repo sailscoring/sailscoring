@@ -37,6 +37,7 @@ import type {
   OrcScoringOptionCatalog,
   OrcCourseLeg,
   OrcProfile,
+  FleetRatingVariant,
   RaceStartCourse,
   SeriesCourseLeg,
   SeriesCourseMark,
@@ -429,6 +430,9 @@ export const fleets = pgTable(
     echoAlpha: real('echo_alpha'),
     nhcProfile: jsonb('nhc_profile').$type<NhcProfile>(),
     orcProfile: jsonb('orc_profile').$type<OrcProfile>(),
+    // The fleet's non-standard certificate choice for rating lists; see
+    // Fleet.ratingVariant.
+    ratingVariant: text('rating_variant').$type<FleetRatingVariant>(),
     splitRoundId: uuid('split_round_id'),
     color: text('color'),
     // The CSV grouping values that have fed this fleet through the competitor

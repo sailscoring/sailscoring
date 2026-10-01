@@ -17,6 +17,7 @@ import type {
   OrcScoringOptionCatalog,
   OrcCourseLeg,
   OrcProfile,
+  FleetRatingVariant,
   TcfRecord,
   SubdivisionAxis,
   RaceConditions,
@@ -39,6 +40,7 @@ import {
   DEFAULT_PRIMARY_PERSON_LABEL,
   upgradeSubdivisionAxes,
 } from './competitor-fields';
+import { isFleetRatingVariant } from './fleet-rating-variant';
 import { fleetIdFromPageKey, fleetPageKey } from './publish-pages';
 import { hasConditions } from './race-conditions';
 import {
@@ -546,9 +548,15 @@ export interface SeriesFileRepos {
  *  and `splitFleets.config.medal.fromEachFleet`, the leaders of each fleet
  *  who go through directly. A build reading v61 would rank the flights as
  *  one list and hold one flight's races hostage to the other's, so the
- *  version moves. */
-export const FORMAT_VERSION = 62;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62];
+ *  version moves.
+ *
+ *  v63 adds optional `fleets[*].ratingVariant` — the non-spinnaker or
+ *  double-handed certificate a rating list rates the fleet on, which Update
+ *  handicaps preselects. Sparse: absent means the standard certificate. An
+ *  older build reading a v63 file drops it, which costs only a choice the
+ *  scorer makes again on the next update; scoring never reads it. */
+export const FORMAT_VERSION = 63;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -598,6 +606,8 @@ interface SeriesFileFleet {
   // v40+: the fleet's default ORC scoring option; absent means
   // the APHT time-on-time default.
   orcProfile?: OrcProfile;
+  // v63+: the non-standard certificate rating lists rate the fleet on.
+  ratingVariant?: FleetRatingVariant;
   // v48+: the competitor importer's grouping values bound to this fleet.
   // Absent on fleets no import has touched.
   importGroups?: string[];
@@ -1014,6 +1024,7 @@ export async function buildSeriesFile(
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
       ...(f.color ? { color: f.color } : {}),
       ...(f.importGroups?.length ? { importGroups: f.importGroups } : {}),
+      ...(f.ratingVariant ? { ratingVariant: f.ratingVariant } : {}),
     })),
     series: {
       id: series.id,
@@ -2143,6 +2154,7 @@ async function writeFleetsCompetitorsRaces(
       ...(f.orcProfile != null ? { orcProfile: f.orcProfile } : {}),
       ...(f.color ? { color: f.color } : {}),
       ...(f.importGroups?.length ? { importGroups: f.importGroups } : {}),
+      ...(isFleetRatingVariant(f.ratingVariant) ? { ratingVariant: f.ratingVariant } : {}),
     })),
   );
 

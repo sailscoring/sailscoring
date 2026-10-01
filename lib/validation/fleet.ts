@@ -15,6 +15,8 @@ export const scoringSystemSchema = z.enum([
   'tcf',
 ]);
 
+export const fleetRatingVariantSchema = z.enum(['non-spin', 'double-handed']);
+
 // ORC scoring configuration: which certificate rating field the fleet scores
 // on, applied time-on-time or time-on-distance. The field name is validated
 // as shape only — which names exist is certificate data, not code.
@@ -51,6 +53,11 @@ export const fleetSchema = z.object({
   echoAlpha: z.number().optional(),
   nhcProfile: nhcProfileSchema.optional(),
   orcProfile: orcProfileSchema.optional(),
+  // Which certificate rating lists rate the fleet on (see
+  // Fleet.ratingVariant). Not cross-checked against scoringSystem: a value
+  // the fleet's system has no such certificate for is ignored on read, so
+  // changing the system never strands a save.
+  ratingVariant: fleetRatingVariantSchema.optional(),
   // Server-set at round commit; accepted here so a client save round-trips
   // it rather than stripping the marker off a renamed round fleet.
   splitRoundId: uuidSchema.optional(),

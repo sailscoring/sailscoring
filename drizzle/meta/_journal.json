@@ -806,6 +806,13 @@
       "when": 1790688181242,
       "tag": "0114_split_round_override_reasons",
       "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1790850240146,
+      "tag": "0115_fleet_rating_variant",
+      "breakpoints": true
     }
   ]
 }

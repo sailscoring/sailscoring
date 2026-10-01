@@ -165,6 +165,7 @@ function fleetRowToType(row: FleetRow): Fleet {
     ...(row.splitRoundId != null ? { splitRoundId: row.splitRoundId } : {}),
     ...(row.color != null ? { color: row.color } : {}),
     ...(row.importGroups != null ? { importGroups: row.importGroups } : {}),
+    ...(row.ratingVariant != null ? { ratingVariant: row.ratingVariant } : {}),
     version: row.version,
   };
 }
@@ -884,12 +885,13 @@ function fleetToRow(f: Fleet, workspaceId: string) {
     splitRoundId: f.splitRoundId ?? null,
     color: f.color ?? null,
     importGroups: f.importGroups ?? null,
+    ratingVariant: f.ratingVariant ?? null,
   };
 }
 
 const fleetUpdateColumns = [
   'name', 'displayOrder', 'scoringSystem', 'ratingLabel', 'echoAlpha', 'nhcProfile', 'orcProfile', 'splitRoundId',
-  'color', 'importGroups',
+  'color', 'importGroups', 'ratingVariant',
 ] as const satisfies readonly (keyof ReturnType<typeof fleetToRow>)[];
 
 export class PostgresFleetRepository implements FleetRepository {

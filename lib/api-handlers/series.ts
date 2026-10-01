@@ -925,6 +925,7 @@ export async function createFollowOnSeries(
           echoAlpha: f.echoAlpha ?? null,
           nhcProfile: f.nhcProfile ?? null,
           orcProfile: f.orcProfile ?? null,
+          ratingVariant: f.ratingVariant ?? null,
         })),
       );
     }

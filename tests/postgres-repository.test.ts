@@ -304,6 +304,31 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('FleetRepository: round-trips ratingVariant, and an update clears it', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+
+    const id = uuid();
+    await repos.fleets.save({
+      id, seriesId: s.id, name: 'Non-Spinnaker (ORC)', displayOrder: 0, scoringSystem: 'orc',
+      ratingVariant: 'non-spin',
+    });
+    const [saved] = await repos.fleets.listBySeries(s.id);
+    expect(saved).toMatchObject({ scoringSystem: 'orc', ratingVariant: 'non-spin' });
+
+    await repos.fleets.save({ ...saved, ratingVariant: 'double-handed' });
+    const [changed] = await repos.fleets.listBySeries(s.id);
+    expect(changed.ratingVariant).toBe('double-handed');
+
+    const { ratingVariant: _, ...standard } = changed;
+    await repos.fleets.save(standard);
+    expect((await repos.fleets.listBySeries(s.id))[0]).not.toHaveProperty('ratingVariant');
+
+    await repos.fleets.deleteBySeries(s.id);
+    await repos.series.delete(s.id);
+  });
+
   // ─── CompetitorRepository ──────────────────────────────────────────────────
 
   test('CompetitorRepository: optional fields, fleetIds[] round-trip; sorted by sail number', async () => {
