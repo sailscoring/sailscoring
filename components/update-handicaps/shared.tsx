@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { queryKeys } from '@/hooks/query-keys';
+import { useSaveFleets } from '@/hooks/use-fleets';
 import { finishRepo, raceRepo, type HandicapUpdateRow } from '@/lib/api-repository';
 import { formatRatingValue } from '@/lib/competitor-ratings';
 import type { OrcFamily } from '@/lib/orc-certificate';
@@ -24,7 +25,7 @@ import type {
   PreviewRow,
   RatingMatch,
 } from '@/lib/source-handicaps';
-import type { Competitor, Fleet } from '@/lib/types';
+import type { Competitor, Fleet, FleetRatingVariant } from '@/lib/types';
 
 export type HandicapSource = 'series' | 'irish-sailing' | 'irc-rating' | 'vprs-rating' | 'rya-py' | 'orc';
 
@@ -436,6 +437,84 @@ export function MatchByNameCheckbox({
   );
 }
 
+/**
+ * Each fleet's certificate choice for a rating-list source — spin or
+ * non-spin TCC, or an ORC certificate family — preselected from what the
+ * fleet remembers (`Fleet.ratingVariant`), and written back by `save` for the
+ * fleets the scorer changed. `read` and `toVariant` translate between the
+ * stored value and the source's own vocabulary; both must be stable (module
+ * level), as must `systems`.
+ */
+export function useFleetRatingChoices<T extends string>(
+  fleets: Fleet[] | undefined,
+  systems: readonly Fleet['scoringSystem'][],
+  read: (fleet: Fleet) => T,
+  toVariant: (choice: T) => FleetRatingVariant | undefined,
+) {
+  const [overrides, setOverrides] = useState<Record<string, T>>({});
+  const [error, setError] = useState<string | null>(null);
+  const saveFleets = useSaveFleets();
+
+  const sourceFleets = useMemo(
+    () => (fleets ?? []).filter((f) => systems.includes(f.scoringSystem)),
+    [fleets, systems],
+  );
+  const choiceByFleet = useMemo(() => {
+    const out: Record<string, T> = {};
+    for (const f of sourceFleets) out[f.id] = overrides[f.id] ?? read(f);
+    return out;
+  }, [sourceFleets, overrides, read]);
+
+  // Compared in the source's vocabulary, so a stored value the fleet's
+  // system can't use (read as standard) isn't rewritten unasked.
+  const changedFleets = useMemo(
+    () =>
+      sourceFleets
+        .filter((f) => choiceByFleet[f.id] !== read(f))
+        .map((f) => {
+          const { ratingVariant: _, ...rest } = f;
+          const variant = toVariant(choiceByFleet[f.id]);
+          return variant ? { ...rest, ratingVariant: variant } : rest;
+        }),
+    [sourceFleets, choiceByFleet, read, toVariant],
+  );
+
+  /** Remember the changed choices on their fleets; false if that failed,
+   *  in which case the step stays open showing `error`. */
+  async function trySave(): Promise<boolean> {
+    if (changedFleets.length === 0) return true;
+    try {
+      await saveFleets.mutateAsync(changedFleets);
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(
+        `Couldn’t save the fleets’ certificate choices: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
+  }
+
+  return {
+    /** The fleets this source rates, in the order given. */
+    sourceFleets,
+    choiceByFleet,
+    setChoice: (fleetId: string, choice: T) =>
+      setOverrides((prev) => ({ ...prev, [fleetId]: choice })),
+    /** Why the last save failed, for the step to show. */
+    error,
+    trySave,
+    /** {@link StepFooter}'s `onSaveChoices`: save, then close the dialog.
+     *  Absent while no fleet's choice has changed. */
+    saveChoicesThen: (close: () => void) =>
+      changedFleets.length > 0
+        ? async () => {
+            if (await trySave()) close();
+          }
+        : undefined,
+  };
+}
+
 /** Per-fleet spin/non-spin selector for the IRC and VPRS sources. The label
  *  wording differs slightly between the two (IRC says "Non-spinnaker", VPRS
  *  "No-spinnaker"), so the variant strings come in as props. */
@@ -485,26 +564,36 @@ export function FleetVariantSelector({
   );
 }
 
-/** Every step's footer: Cancel plus an "Apply N" button. */
+/** Every step's footer: Cancel plus an "Apply N" button. A step whose only
+ *  change is a fleet's certificate choice — every boat already holds the
+ *  certificate chosen — passes `onSaveChoices`, and the button saves that
+ *  instead, so the choice is remembered even with nothing to apply. */
 export function StepFooter({
   onCancel,
   onApply,
   disabled,
   applying,
   count,
+  onSaveChoices,
 }: {
   onCancel: () => void;
   onApply: () => void;
   disabled: boolean;
   applying: boolean;
   count: number;
+  onSaveChoices?: () => void;
 }) {
+  const choicesOnly = count === 0 && onSaveChoices != null && !applying;
   return (
     <DialogFooter>
       <Button variant="outline" onClick={onCancel}>Cancel</Button>
-      <Button onClick={onApply} disabled={disabled}>
-        {applying ? 'Applying…' : `Apply ${count}`}
-      </Button>
+      {choicesOnly ? (
+        <Button onClick={onSaveChoices}>Save fleet choices</Button>
+      ) : (
+        <Button onClick={onApply} disabled={disabled}>
+          {applying ? 'Applying…' : `Apply ${count}`}
+        </Button>
+      )}
     </DialogFooter>
   );
 }

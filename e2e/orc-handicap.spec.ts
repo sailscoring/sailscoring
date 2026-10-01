@@ -184,6 +184,15 @@ test('non-spinnaker fleet: a boat with no NS certificate gets its standard one',
 
   await expect(page.getByRole('row').filter({ hasText: 'IRL 1551' })).toContainText('0.9712');
   await expect(page.getByRole('row').filter({ hasText: 'IRL 2507' })).toContainText('0.9631');
+
+  // The fleet remembers it races non-spinnaker: the next update starts there,
+  // with both boats already holding what it proposes.
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('ORC certificates', { exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('ORC certificates as of 19/08/2026')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('combobox').filter({ hasText: 'Non-spinnaker' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply 0' })).toBeDisabled();
 });
 
 test('add to fleet: both divisions are offered, and the fleet picks the certificate', async ({ page }) => {

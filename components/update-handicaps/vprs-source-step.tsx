@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/select';
 import { queryKeys } from '@/hooks/query-keys';
 import { loadVprsClubRatings, loadVprsClubs } from '@/lib/api-repository';
-import { defaultSailCountry, type IrcTccVariant } from '@/lib/rating-match';
+import { fleetTccVariant, ratingVariantFromTcc } from '@/lib/fleet-rating-variant';
+import { defaultSailCountry } from '@/lib/rating-match';
 import { planVprsUpdates, type PreviewRow } from '@/lib/source-handicaps';
 
 import { PreviewSection } from './preview-section';
@@ -33,8 +34,11 @@ import {
   previewOutcome,
   splitPreviewRows,
   useExcludedRowIds,
+  useFleetRatingChoices,
   type SourceStepProps,
 } from './shared';
+
+const VPRS_SYSTEMS = ['vprs'] as const;
 
 /**
  * VPRS source: pick a club, then match each boat by sail number against
@@ -51,8 +55,9 @@ export function VprsSourceStep({
 }: SourceStepProps) {
   // VPRS source: which club's listing to pull (a VprsClub id).
   const [vprsClubId, setVprsClubId] = useState<string | null>(null);
-  // Spin/no-spin per VPRS fleet; a fleet absent from the map defaults to spin.
-  const [variantByFleet, setVariantByFleet] = useState<Record<string, IrcTccVariant>>({});
+  // Spin/no-spin per VPRS fleet, starting from what each fleet remembers.
+  const choices = useFleetRatingChoices(fleets, VPRS_SYSTEMS, fleetTccVariant, ratingVariantFromTcc);
+  const variantByFleet = choices.choiceByFleet;
   const [matchByName, setMatchByName] = useState(false);
   const exclusions = useExcludedRowIds();
   const queryClient = useQueryClient();
@@ -99,19 +104,14 @@ export function VprsSourceStep({
 
   const split = splitPreviewRows(previewRows, exclusions.rowSelection);
 
-  // VPRS fleets — each gets its own spin/no-spin selector.
-  const vprsFleets = useMemo(
-    () => (fleets ?? []).filter((f) => f.scoringSystem === 'vprs'),
-    [fleets],
-  );
-
   const targetFleetById = useMemo(() => new Map((fleets ?? []).map((f) => [f.id, f])), [fleets]);
   const targetCompetitorById = useMemo(
     () => new Map((competitors ?? []).map((c) => [c.id, c])),
     [competitors],
   );
 
-  function handleApply() {
+  async function handleApply() {
+    if (!(await choices.trySave())) return;
     onApply(
       buildPreviewUpdateRows(split.appliedChangeRows, [], targetCompetitorById),
       previewOutcome(split, 0),
@@ -171,14 +171,13 @@ export function VprsSourceStep({
           <>
             <FleetVariantSelector
               heading="VPRS rating per fleet"
-              fleets={vprsFleets}
+              fleets={choices.sourceFleets}
               variantByFleet={variantByFleet}
-              onChange={(fleetId, variant) =>
-                setVariantByFleet((prev) => ({ ...prev, [fleetId]: variant }))
-              }
+              onChange={choices.setChoice}
               nonSpinLabel="No-spinnaker TCC"
-              hint="Set non-spinnaker classes to use their no-spin TCC."
+              hint="Set non-spinnaker classes to use their no-spin TCC. Each fleet remembers its choice."
             />
+            {choices.error && <p className="text-sm text-destructive">{choices.error}</p>}
 
             <MatchByNameCheckbox checked={matchByName} onChange={setMatchByName} />
 
@@ -233,6 +232,7 @@ export function VprsSourceStep({
         disabled={!vprsRatings.data || split.appliedChangeRows.length === 0 || applying}
         applying={applying}
         count={split.appliedChangeRows.length}
+        onSaveChoices={choices.saveChoicesThen(onCancel)}
       />
     </>
   );

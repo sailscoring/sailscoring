@@ -472,3 +472,60 @@ test('Refresh from source refetches past the cache (#594)', async ({ page }) => 
   expect(asked.at(0)).toBe('');
   expect(asked.at(-1)).toBe('1');
 });
+
+test('each fleet remembers its spin / non-spin choice for the next update', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'IRC Remembered Variant 2026' });
+  await createFleets(page, ['IRC Non-Spin']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'IRC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  await page.getByRole('button', { name: 'Add competitor' }).click();
+  await page.getByLabel('Sail number').fill('IRL1431');
+  await page.getByLabel('Competitor name').fill('3 Cheers');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('cell', { name: 'IRL1431' })).toBeVisible();
+
+  const openIrcSource = async () => {
+    await page.getByRole('button', { name: 'Update handicaps' }).click();
+    await page.getByText('IRC TCC (international)').click();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('IRC ratings as of 30/05/2026')).toBeVisible();
+  };
+  const variantSelect = page.getByRole('dialog').getByRole('combobox').filter({ hasText: /spinnaker TCC/i });
+
+  // Applying with non-spinnaker remembers it on the fleet.
+  await openIrcSource();
+  await variantSelect.click();
+  await page.getByRole('option', { name: 'Non-spinnaker TCC', exact: true }).click();
+  await expect(page.getByRole('cell', { name: '— → 0.918' })).toBeVisible();
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // Reopened, the fleet starts on non-spinnaker: the boat already holds it.
+  await openIrcSource();
+  await expect(variantSelect).toHaveText('Non-spinnaker TCC');
+  await expect(page.getByRole('button', { name: 'Apply 0' })).toBeDisabled();
+
+  // A choice changed and then cancelled is not remembered.
+  await variantSelect.click();
+  await page.getByRole('option', { name: 'Spinnaker TCC', exact: true }).click();
+  await expect(page.getByRole('cell', { name: '0.918 → 0.932' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await openIrcSource();
+  await expect(variantSelect).toHaveText('Non-spinnaker TCC');
+
+  // With every change unticked, the choice alone can still be saved.
+  await variantSelect.click();
+  await page.getByRole('option', { name: 'Spinnaker TCC', exact: true }).click();
+  await page.getByRole('checkbox', { name: /Apply the change to IRL1431/ }).uncheck();
+  await page.getByRole('button', { name: 'Save fleet choices' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await openIrcSource();
+  await expect(variantSelect).toHaveText('Spinnaker TCC');
+  await expect(page.getByRole('cell', { name: '0.918 → 0.932' })).toBeVisible();
+});

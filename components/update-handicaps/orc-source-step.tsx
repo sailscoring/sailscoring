@@ -26,6 +26,7 @@ import {
   type OrcCertListing,
   type OrcFamily,
 } from '@/lib/orc-certificate';
+import { fleetOrcFamily, ratingVariantFromOrcFamily } from '@/lib/fleet-rating-variant';
 import { defaultSailCountry } from '@/lib/rating-match';
 import {
   additionKey,
@@ -52,9 +53,12 @@ import {
   splitPreviewRows,
   useCompetitorIdsWithResults,
   useRatingListSelections,
+  useFleetRatingChoices,
   useSeriesHasRaces,
   type SourceStepProps,
 } from './shared';
+
+const ORC_SYSTEMS = ['orc'] as const;
 
 /**
  * ORC certificate source: pick the issuing country, choose each ORC fleet's
@@ -75,17 +79,15 @@ export function OrcSourceStep({
   // Issuing country. Certificates from any country are valid at any event
   // (ORC rule 303.2) — visiting boats may need a second pass with theirs.
   const [country, setCountry] = useState(defaultSailCountry() || 'IRL');
-  // Certificate family per ORC fleet; absent means standard fully-crewed.
-  const [familyByFleet, setFamilyByFleet] = useState<Record<string, OrcFamily>>({});
+  // Certificate family per ORC fleet, starting from what each fleet remembers.
+  const choices = useFleetRatingChoices(fleets, ORC_SYSTEMS, fleetOrcFamily, ratingVariantFromOrcFamily);
+  const familyByFleet = choices.choiceByFleet;
+  const orcFleets = choices.sourceFleets;
   const sel = useRatingListSelections();
 
   // Stable "now" for deterministic planning within the step's lifetime.
   const [now] = useState(() => Date.now());
 
-  const orcFleets = useMemo(
-    () => (fleets ?? []).filter((f) => f.scoringSystem === 'orc'),
-    [fleets],
-  );
   // Every family a fleet races under, plus the standard listing whenever
   // there are ORC fleets at all: a boat with no certificate in its fleet's
   // family is rated off its standard one, and a removal is only proposed
@@ -203,7 +205,8 @@ export function OrcSourceStep({
     [competitors],
   );
 
-  function handleApply() {
+  async function handleApply() {
+    if (!(await choices.trySave())) return;
     // The listing carries ORC's own names for its rating fields, and this is
     // the only moment the app has them: the pickers and the published pages
     // that need them run nowhere near a download. Unioned with what the
@@ -270,10 +273,9 @@ export function OrcSourceStep({
         <OrcFamilySelector
           fleets={orcFleets}
           familyByFleet={familyByFleet}
-          onChange={(fleetId, family) =>
-            setFamilyByFleet((prev) => ({ ...prev, [fleetId]: family }))
-          }
+          onChange={choices.setChoice}
         />
+        {choices.error && <p className="text-sm text-destructive">{choices.error}</p>}
 
         <MatchByNameCheckbox checked={sel.matchByName} onChange={sel.setMatchByName} />
 
@@ -384,6 +386,7 @@ export function OrcSourceStep({
         }
         applying={applying}
         count={split.appliedChangeRows.length + checkedAdditions.length + checkedRemovals.length}
+        onSaveChoices={choices.saveChoicesThen(onCancel)}
       />
     </>
   );
@@ -428,7 +431,8 @@ function OrcFamilySelector({
       </div>
       <p className="text-xs text-muted-foreground">
         A boat may hold a non-spinnaker or double-handed certificate alongside its
-        standard one; it is scored on the family its fleet races under.
+        standard one; it is scored on the family its fleet races under. Each fleet
+        remembers its choice.
       </p>
     </div>
   );

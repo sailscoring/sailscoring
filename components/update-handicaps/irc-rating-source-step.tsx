@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import { queryKeys } from '@/hooks/query-keys';
 import { loadIrcRatings } from '@/lib/api-repository';
-import { defaultSailCountry, type IrcTccVariant } from '@/lib/rating-match';
+import { fleetTccVariant, ratingVariantFromTcc } from '@/lib/fleet-rating-variant';
+import { defaultSailCountry } from '@/lib/rating-match';
 import {
   additionKey,
   planIrcFleetAdditions,
@@ -35,9 +36,12 @@ import {
   splitPreviewRows,
   useCompetitorIdsWithResults,
   useRatingListSelections,
+  useFleetRatingChoices,
   useSeriesHasRaces,
   type SourceStepProps,
 } from './shared';
+
+const IRC_SYSTEMS = ['irc'] as const;
 
 /**
  * IRC TCC source: match each boat by sail number against the worldwide IRC
@@ -53,8 +57,9 @@ export function IrcRatingSourceStep({
   onApply,
   onCancel,
 }: SourceStepProps) {
-  // Spin/non-spin per IRC fleet; a fleet absent from the map defaults to spin.
-  const [ircVariantByFleet, setIrcVariantByFleet] = useState<Record<string, IrcTccVariant>>({});
+  // Spin/non-spin per IRC fleet, starting from what each fleet remembers.
+  const choices = useFleetRatingChoices(fleets, IRC_SYSTEMS, fleetTccVariant, ratingVariantFromTcc);
+  const ircVariantByFleet = choices.choiceByFleet;
   const sel = useRatingListSelections();
 
   const ircRatings = useQuery({
@@ -131,19 +136,14 @@ export function IrcRatingSourceStep({
 
   const split = splitPreviewRows(previewRows, sel.rowSelection);
 
-  // IRC fleets in the target series — each gets its own spin/non-spin selector.
-  const ircFleets = useMemo(
-    () => (fleets ?? []).filter((f) => f.scoringSystem === 'irc'),
-    [fleets],
-  );
-
   const targetFleetById = useMemo(() => new Map((fleets ?? []).map((f) => [f.id, f])), [fleets]);
   const targetCompetitorById = useMemo(
     () => new Map((competitors ?? []).map((c) => [c.id, c])),
     [competitors],
   );
 
-  function handleApply() {
+  async function handleApply() {
+    if (!(await choices.trySave())) return;
     onApply(
       buildPreviewUpdateRows(
         split.appliedChangeRows,
@@ -168,14 +168,13 @@ export function IrcRatingSourceStep({
       <div className="space-y-4 py-2 min-h-0 min-w-0 overflow-y-auto">
         <FleetVariantSelector
           heading="IRC rating per fleet"
-          fleets={ircFleets}
+          fleets={choices.sourceFleets}
           variantByFleet={ircVariantByFleet}
-          onChange={(fleetId, variant) =>
-            setIrcVariantByFleet((prev) => ({ ...prev, [fleetId]: variant }))
-          }
+          onChange={choices.setChoice}
           nonSpinLabel="Non-spinnaker TCC"
-          hint="Set non-spinnaker classes to use their non-spin TCC."
+          hint="Set non-spinnaker classes to use their non-spin TCC. Each fleet remembers its choice."
         />
+        {choices.error && <p className="text-sm text-destructive">{choices.error}</p>}
 
         <MatchByNameCheckbox checked={sel.matchByName} onChange={sel.setMatchByName} />
 
@@ -250,6 +249,7 @@ export function IrcRatingSourceStep({
         }
         applying={applying}
         count={split.appliedChangeRows.length + checkedAdditions.length + checkedRemovals.length}
+        onSaveChoices={choices.saveChoicesThen(onCancel)}
       />
     </>
   );

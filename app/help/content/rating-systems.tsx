@@ -584,7 +584,10 @@ export default function RatingSystems() {
           Each IRC fleet has its own <strong className="text-foreground">spinnaker</strong> /{' '}
           <strong className="text-foreground">non-spinnaker</strong> choice, so a series with a mix
           of spinnaker and non-spinnaker classes is handled in one pass — set the non-spinnaker
-          classes to their non-spin TCC. As with the prior-series source, every change is previewed
+          classes to their non-spin TCC. Each fleet remembers its choice when you apply, so the
+          next update starts from it; if every boat already holds the TCC chosen,{' '}
+          <strong className="text-foreground">Save fleet choices</strong> remembers it without
+          applying anything. As with the prior-series source, every change is previewed
           as <code className="font-mono text-xs">current → new</code> before anything is written,
           and you can untick individual boats.
         </p>
@@ -667,7 +670,8 @@ export default function RatingSystems() {
           set each ORC fleet’s <strong className="text-foreground">certificate
           family</strong>: standard fully-crewed, non-spinnaker, or double-handed. A
           boat may hold a non-spinnaker or double-handed certificate alongside its
-          standard one; it is scored on the family its fleet races under.
+          standard one; it is scored on the family its fleet races under. Each fleet
+          remembers its family when you apply, so the next update starts from it.
         </p>
         <p>
           A boat in a non-spinnaker or double-handed fleet that holds no certificate
@@ -716,7 +720,8 @@ export default function RatingSystems() {
           As with IRC, each VPRS fleet has its own{' '}
           <strong className="text-foreground">spinnaker</strong> /{' '}
           <strong className="text-foreground">no-spinnaker</strong> choice — set the
-          no-spinnaker classes to their no-spin TCC. Every change is previewed as{' '}
+          no-spinnaker classes to their no-spin TCC, and each fleet remembers it for the next
+          update. Every change is previewed as{' '}
           <code className="font-mono text-xs">current → new</code> before anything is written, and
           you can untick individual boats. Sail numbers match ignoring case, spacing, and a missing
           country code; turn on <strong className="text-foreground">Also match by boat name</strong>{' '}
