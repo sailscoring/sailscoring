@@ -68,6 +68,14 @@ export default function ReadingAndChecking() {
           grid in the sub-series editor on the Races tab.
         </p>
         <p>
+          Published results go further. A fleet’s page carries only its own races: a race struck
+          for the fleet, or one it had no start in, isn’t on its page at all. The races it did
+          sail are numbered for the fleet — on a day the Puppeteers sail two races and the 17s
+          one, the 17s’ next race is their <em>R3</em>, not the series’ <em>R4</em> — and each
+          column carries the day it was sailed under its number. The Standings tab keeps the
+          series-wide numbers, since that’s how the races are listed on the Races tab.
+        </p>
+        <p>
           To share results, click{' '}
           <strong className="text-foreground">Preview</strong> in the series header, from any tab
           (or press{' '}

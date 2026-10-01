@@ -291,7 +291,8 @@ export default function Publishing() {
             whole series and a browser that can’t do the swapping simply shows the long page.
             A cell is an ordinary link, so you can copy one and send it to a class captain and
             it opens on that race. A fleet that didn’t sail a race gets a dot rather than a
-            link. The grid needs more than one fleet to be worth drawing, and a page it can’t
+            link. Each fleet numbers its own races, so when the fleets on a page count them
+            differently the grid’s columns are headed by date instead. The grid needs more than one fleet to be worth drawing, and a page it can’t
             help — standings only, or a series publishing race results alone — greys the option
             out.
           </p>

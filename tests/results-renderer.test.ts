@@ -1045,7 +1045,7 @@ describe('renderSeriesHtml per-race table (#130)', () => {
     expect(html).not.toMatch(/<h3 class="racetitle"[^>]*>R2/);
     // Summary header for R2 is plain text, not an anchor link
     expect(html).not.toContain('href="#r2"');
-    expect(html).toContain('<th>R2</th>');
+    expect(html).toMatch(/<th>R2<span class="racedate">/);
   });
 });
 
@@ -1828,8 +1828,8 @@ describe('renderCombinedSeriesHtml', () => {
   it("detail 'standings' keeps the per-race summary columns", () => {
     const html = renderCombinedSeriesHtml([fleetA], { pageName: 'Overall', detail: 'standings' });
     // R1/R2 column headers still present as plain text.
-    expect(html).toContain('<th>R1</th>');
-    expect(html).toContain('<th>R2</th>');
+    expect(html).toMatch(/<th>R1<span class="racedate">/);
+    expect(html).toMatch(/<th>R2<span class="racedate">/);
   });
 
   it("detail 'races' drops every section's summary, keeping the race tables", () => {

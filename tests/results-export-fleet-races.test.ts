@@ -181,4 +181,10 @@ describe('buildFleetHtmlFiles — each fleet publishes its own races', () => {
     const cells = [...h17Row.slice(0, h17Row.indexOf('</tr>')).matchAll(/<td[^>]*>(?:<a[^>]*>)?([^<]*)/g)].map((m) => m[1]);
     expect(cells).toEqual(['Series', 'R1', 'R2', '&middot;', '&middot;', 'R3']);
   });
+
+  it('dates each race under its column', async () => {
+    const html = await page('Howth 17');
+    expect(html).toMatch(/>R2<\/a><span class="racedate">19 Sept<\/span><\/th>/);
+    expect(html).toMatch(/>R3<\/a><span class="racedate">3 Oct<\/span><\/th>/);
+  });
 });

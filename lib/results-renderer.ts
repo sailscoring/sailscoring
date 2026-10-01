@@ -1682,6 +1682,7 @@ p.orc-mix-note { max-width: 640px; margin: 6px auto 0 auto; font-size: 0.8em; co
 /* A combined page's per-fleet race block: the rule and the space above it are
    what separate one fleet's set of races from the next when scrolling. */
 .fleetraces { border-top: 1px solid #c7d2de; margin-top: 3em; padding-top: 0.4em; }
+table.summarytable th .racedate { display: block; font-size: 0.8em; font-weight: normal; white-space: nowrap; }
 table.summarytable td .rating { display: block; font-size: 0.85em; color: #666; margin-top: 1px; font-family: monospace; }
 table.summarytable td.discard .rating { color: #888; }
 table.summarytable td.seedrating { font-family: monospace; }
@@ -2048,6 +2049,7 @@ function renderSummaryTable(
   }
   const showRank = !placeholder;
   const showTotal = !placeholder;
+  const racesSpanDays = new Set(races.map((r) => r.date)).size > 1;
   const extraCols = (showBowNumber ? 1 : 0) + (showEntryNumber ? 1 : 0) + (showTallyNumber ? 1 : 0) + (showBoatName ? 1 : 0) + (showBoatClass ? 1 : 0) + (showHelm ? 1 : 0) + (showOwner ? 1 : 0) + (showCrewColumn ? 1 : 0) + (showClub ? 1 : 0) + (showNationality ? 1 : 0) + (showWorldSailingId ? 1 : 0) + subdivisionAxes.length + (showAge ? 1 : 0) + (showGender ? 1 : 0);
   // [rank +] sail [+ bow] [+ entry] [+ tally] [+ boat] [+ class] + primary [+ helm] [+ owner] [+ crew] [+ club] [+ nat] [+ wsid] [+ subdivision] [+ age] [+ gender] [+ seed] + races [+ total [+ nett]]
   const colCount = (showRank ? 1 : 0) + 2 + extraCols + (hasSeedCol ? 1 : 0) + races.length + (showTotal ? (hasDiscards ? 2 : 1) : 0);
@@ -2096,6 +2098,12 @@ function renderSummaryTable(
     ...(showGender ? ['<th>Gender</th>'] : []),
     ...(hasSeedCol ? [`<th>${esc(seedHeader)}</th>`] : []),
     ...races.map((r) => {
+      // The day under the number: "R2" means something to the race
+      // committee, "19 Sept" to the boats that sailed it. Left off when every
+      // race was sailed on one day, where it would only repeat itself.
+      const dateLine = racesSpanDays
+        ? `<span class="racedate">${esc(formatDayMonth(r.date))}</span>`
+        : '';
       // "R4 ×2 *" — the weighting numerically, an asterisk for a race whose
       // discard behaviour differs; both spelled out in the legend below.
       const multiplier = raceMultiplier(r);
@@ -2106,8 +2114,8 @@ function renderSummaryTable(
       const titleText = [r.name, optionsNote].filter(Boolean).join(' — ');
       const titleAttr = titleText ? ` title="${esc(titleText)}"` : '';
       return linkedAnchorIds.has(r.anchorId) && r.results.length > 0
-        ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a>${esc(marks)}</th>`
-        : `<th${titleAttr}>${esc(r.label)}${esc(marks)}</th>`;
+        ? `<th${titleAttr}><a class="racelink" href="#${esc(r.anchorId)}">${esc(r.label)}</a>${esc(marks)}${dateLine}</th>`
+        : `<th${titleAttr}>${esc(r.label)}${esc(marks)}${dateLine}</th>`;
     }),
     ...(showTotal ? ['<th>Total</th>'] : []),
     ...(showTotal && hasDiscards ? ['<th>Nett</th>'] : []),
