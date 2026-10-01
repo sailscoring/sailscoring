@@ -2362,6 +2362,9 @@ export function buildRaceFleetExclusionMap(
   return byFleet;
 }
 
+/** The fleet competitors in no known fleet are scored under. */
+export const UNKNOWN_FLEET_ID = '__unknown__';
+
 export function calculateFleetStandings(
   fleets: Fleet[],
   competitors: Competitor[],
@@ -2444,7 +2447,7 @@ export function calculateFleetStandings(
   });
 
   if (orphans.length > 0) {
-    const unknownFleet: Fleet = { id: '__unknown__', seriesId: '', name: 'Unknown', displayOrder: 9999, scoringSystem: 'scratch' };
+    const unknownFleet: Fleet = { id: UNKNOWN_FLEET_ID, seriesId: '', name: 'Unknown', displayOrder: 9999, scoringSystem: 'scratch' };
     const { standings, circularRedressRaces } = calculateStandings(
       orphans, races, allFinishes, discardThresholds, dnfScoring, undefined, undefined, proportionalDiscard,
     );

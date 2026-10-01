@@ -52,6 +52,27 @@ export function racesFleetIsNotIn(
 }
 
 /**
+ * The races that are a fleet's own, in the order given: every race except
+ * those it is not in ({@link racesFleetIsNotIn}) and those struck for it.
+ *
+ * This is what a fleet's published page shows. Both kinds of race already
+ * count for nothing in the fleet's standings, but to a competitor they are not
+ * races at all — the class didn't sail the one, and the other was abandoned
+ * for it — so a column of dashes for them reads as racing that happened. A
+ * race the fleet sailed and nobody finished is still its own: that is a
+ * result.
+ */
+export function fleetOwnRaces<R extends { id: string }>(
+  fleetId: string,
+  races: readonly R[],
+  starts: readonly RaceStart[],
+  struck?: ReadonlySet<string>,
+): R[] {
+  const notIn = racesFleetIsNotIn(fleetId, starts);
+  return races.filter((r) => !notIn.has(r.id) && !struck?.has(r.id));
+}
+
+/**
  * The sail number a competitor carries in a race whose starts name
  * `raceFleetIds`: the boat drawn for the fleet of hers that is racing, where
  * boats are assigned per fleet (`Competitor.fleetSailNumbers`), and her own

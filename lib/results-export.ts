@@ -4,6 +4,7 @@ import {
   calculateHandicapRaceScores,
   calculateSubSeriesFleetStandings,
   buildRaceFleetExclusionMap,
+  UNKNOWN_FLEET_ID,
   computeOrcCourseRace,
   orcStartHasCourse,
   startKeyResolver,
@@ -49,6 +50,7 @@ import {
   type ExportRepos,
 } from './public-export';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
+import { fleetOwnRaces } from './race-membership';
 import {
   renderSplitFleetAssignmentsPage,
   renderSplitFleetRaceResultsPage,
@@ -555,6 +557,29 @@ function dropUnsailedRaces(snapshot: SeriesSnapshot | null): SeriesSnapshot | nu
   };
 }
 
+/**
+ * A standing cut down to some of its races: every per-race array keeps the
+ * entries at `indices`, in that order. The totals stand as scored — a page
+ * only drops races that counted for nothing — so nothing is recomputed.
+ */
+function standingOverRaces(s: Standing, indices: readonly number[]): Standing {
+  const pick = <T,>(xs: readonly T[]): T[] => indices.map((i) => xs[i]);
+  return {
+    ...s,
+    racePoints: pick(s.racePoints),
+    raceRanks: pick(s.raceRanks),
+    raceCodes: pick(s.raceCodes),
+    racePenaltyCodes: pick(s.racePenaltyCodes),
+    racePenaltyOverrides: pick(s.racePenaltyOverrides),
+    ...(s.racePenaltyLabels ? { racePenaltyLabels: pick(s.racePenaltyLabels) } : {}),
+    raceDiscards: pick(s.raceDiscards),
+    raceNonDiscardable: pick(s.raceNonDiscardable),
+    raceRedressFlags: pick(s.raceRedressFlags),
+    raceExcluded: pick(s.raceExcluded),
+    ...(s.raceNotScored ? { raceNotScored: pick(s.raceNotScored) } : {}),
+  };
+}
+
 export async function buildFleetHtmlFiles(
   // Only the six read repos are needed (same surface as `buildPublicExport`),
   // so this accepts the narrower `ExportRepos` — that lets the server publish
@@ -808,6 +833,7 @@ export async function buildFleetHtmlFiles(
     raceStarts: allRaceStarts,
     ratingOverrides: allRatingOverrides,
   } = snapshot;
+  const seriesStruckByFleet = buildRaceFleetExclusionMap(series.raceFleetExclusions);
   const { fleetStandings: fleetResults } = calculateFleetStandings(
     fleets,
     competitors,
@@ -818,7 +844,7 @@ export async function buildFleetHtmlFiles(
     allRaceStarts,
     allRatingOverrides,
     undefined,
-    buildRaceFleetExclusionMap(series.raceFleetExclusions),
+    seriesStruckByFleet,
     series.proportionalDiscard,
     { excludeDncOnlyCompetitors: series.excludeDncOnlyCompetitors },
   );
@@ -885,10 +911,13 @@ export async function buildFleetHtmlFiles(
   // carry the block name in the page title. Fleets in `skipFleetIds` get no
   // standalone page (they publish through a combined page instead). Returns
   // each fleet's data assembler so the caller can render combined pages from
-  // the same scored inputs.
+  // the same scored inputs. `struckByFleet` is the view's own per-fleet race
+  // strikes: a fleet's page leaves those races out, along with the ones it
+  // had no start in.
   const renderView = (
     viewFleetResults: typeof fleetResults,
     viewRaces: typeof races,
+    struckByFleet: Map<string, Set<string>> | undefined,
     subSeriesName?: string,
     skipFleetIds?: Set<string>,
   ): Map<string, SectionAssembler> => {
@@ -898,6 +927,16 @@ export async function buildFleetHtmlFiles(
     : seriesInfo;
   for (const { fleet, standings, nhcRaceScoresByRaceId, nhcAggregatesByRaceId, echoRaceScoresByRaceId, echoAggregatesByRaceId } of viewFleetResults) {
     const fleetCompetitorIds = new Set(standings.map((s) => s.competitor.id));
+    // The races this fleet's page shows. The standings still carry a column
+    // for every race in the view; `overOwnRaces` cuts each one down to match.
+    // The Unknown bucket is no fleet, so no start can name it — it keeps the
+    // whole view.
+    const ownRaces = fleet.id === UNKNOWN_FLEET_ID
+      ? viewRaces
+      : fleetOwnRaces(fleet.id, viewRaces, allRaceStarts, struckByFleet?.get(fleet.id));
+    const ownIndices = ownRaces.map((r) => viewRaces.indexOf(r));
+    const overOwnRaces = (rows: Standing[]): Standing[] =>
+      ownRaces.length === viewRaces.length ? rows : rows.map((s) => standingOverRaces(s, ownIndices));
 
     // Per-fleet race score maps (only this fleet's competitors)
     const isHandicap = fleet.scoringSystem !== 'scratch';
@@ -1187,8 +1226,8 @@ export async function buildFleetHtmlFiles(
     ): SeriesResultsData => {
       const data = assembleSeriesResultsData(
         viewSeriesInfo,
-        viewRaces,
-        section ? section.standings : standings,
+        ownRaces,
+        overOwnRaces(section ? section.standings : standings),
         raceScoresByRaceId,
         competitorsById,
         series.enabledCompetitorFields ?? defaultEnabledCompetitorFields(),
@@ -1285,6 +1324,7 @@ export async function buildFleetHtmlFiles(
   const renderViewWithGroups = (
     viewFleetResults: typeof fleetResults,
     viewRaces: typeof races,
+    struckByFleet: Map<string, Set<string>> | undefined,
     subSeriesName?: string,
   ) => {
     const viewFleets = viewFleetResults.map((fr) => fr.fleet);
@@ -1306,7 +1346,7 @@ export async function buildFleetHtmlFiles(
       : undefined;
 
     const clusterStart = results.length;
-    const assemblerByFleetId = renderView(viewFleetResults, viewRaces, subSeriesName, suppressed);
+    const assemblerByFleetId = renderView(viewFleetResults, viewRaces, struckByFleet, subSeriesName, suppressed);
 
     // Extra pages lead the cluster — the series index and preview show them
     // first, ahead of the per-fleet pages they draw on.
@@ -1390,14 +1430,19 @@ export async function buildFleetHtmlFiles(
     );
     // With nothing sailed, no block has a race to its name and each would be
     // skipped; the placeholder is the whole series' entrants instead.
-    if (noRacesSailed) renderViewWithGroups(fleetResults, races);
+    if (noRacesSailed) renderViewWithGroups(fleetResults, races, seriesStruckByFleet);
     for (const block of blockResults) {
       if (block.races.length === 0) continue;
       const renumbered = block.races.map((r, i) => ({ ...r, raceNumber: i + 1 }));
-      renderViewWithGroups(block.fleetStandings, renumbered, block.subSeries.name);
+      renderViewWithGroups(
+        block.fleetStandings,
+        renumbered,
+        buildRaceFleetExclusionMap(block.subSeries.raceFleetExclusions),
+        block.subSeries.name,
+      );
     }
   } else {
-    renderViewWithGroups(fleetResults, races);
+    renderViewWithGroups(fleetResults, races, seriesStruckByFleet);
   }
 
   // The prize sheet (#240) closes the page list: one series-wide page,

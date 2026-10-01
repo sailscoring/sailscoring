@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   competitorsInRace,
+  fleetOwnRaces,
   raceFleetIds,
   sailNumberInRace,
   withRaceSailNumbers,
@@ -118,5 +119,30 @@ describe('finish entry against a race with drawn boats', () => {
     const final = withRaceSailNumbers(all, [start(['final'])]);
     const f = resolveSailEntry('402', final, new Set());
     expect(f.kind === 'commit' && f.competitor.id).toBe('owens');
+  });
+});
+
+describe('fleetOwnRaces', () => {
+  const races = [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }, { id: 'r4' }];
+  const at = (raceId: string, fleetIds: string[]): RaceStart =>
+    ({ id: `s-${raceId}-${fleetIds.join('-')}`, raceId, fleetIds } as RaceStart);
+
+  it('keeps every race when the starts name the fleet in each', () => {
+    const starts = races.map((r) => at(r.id, ['fleet-1', 'fleet-2']));
+    expect(fleetOwnRaces('fleet-1', races, starts).map((r) => r.id)).toEqual(['r1', 'r2', 'r3', 'r4']);
+  });
+
+  it('drops a race whose starts are all for other fleets', () => {
+    const starts = [at('r1', ['fleet-1', 'fleet-2']), at('r2', ['fleet-2'])];
+    expect(fleetOwnRaces('fleet-1', races.slice(0, 2), starts).map((r) => r.id)).toEqual(['r1']);
+  });
+
+  it('keeps a race with no starts at all — every fleet is implied', () => {
+    expect(fleetOwnRaces('fleet-1', races.slice(0, 1), []).map((r) => r.id)).toEqual(['r1']);
+  });
+
+  it('drops a race struck for the fleet', () => {
+    const own = fleetOwnRaces('fleet-1', races, [], new Set(['r4']));
+    expect(own.map((r) => r.id)).toEqual(['r1', 'r2', 'r3']);
   });
 });

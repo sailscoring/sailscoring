@@ -161,31 +161,20 @@ async function pages() {
 }
 
 describe('a fleet whose race had no start to correct against', () => {
-  it('publishes the race detail its standings column refers to', async () => {
+  // The race has a start and none is the ECHO fleets', so it is not their
+  // race: the engine scores nothing for them in it, and their pages leave it
+  // off rather than print a column of dashes beside a table of places.
+  it('leaves the race off the page of a fleet no start names', async () => {
     const html = (await pages()).get('Class 1 (Echo)')!;
-    expect(html.match(/class="racetable"/g)).toHaveLength(1);
-    // Every finisher is in it, not just the ones the ECHO chain scored.
-    for (const sail of ['101', '102', '103']) expect(html).toContain(`>${sail}<`);
+    expect(html).not.toContain('class="racetable"');
+    expect(html).not.toContain('>R1<');
   });
 
-  it('keeps the combined page full-detail rather than silently standings-only', async () => {
+  it('leaves it off a combined page of such fleets too', async () => {
     const html = (await pages()).get('ECHO Results')!;
-    // One race block per member fleet, and the summary columns link into them.
-    expect(html.match(/class="racetable"/g)).toHaveLength(2);
-    expect(html).toContain('<section class="fleetraces" id="class-1-echo-races">');
-    expect(html).toContain('<section class="fleetraces" id="class-2-echo-races">');
-    expect(html).toContain('href="#class-1-echo-r1"');
-    expect(html).toContain('href="#class-2-echo-r1"');
-  });
-
-  it('shows no rating or corrected-time columns, which is the race saying it was not corrected', async () => {
-    const html = (await pages()).get('Class 1 (Echo)')!;
-    expect(html).toContain('class="racetable"');
-    expect(html).not.toContain('class="starth"');
-    expect(html).not.toContain('<th>CT</th>');
-    // The scores are crossing order, the way the engine scored them.
-    const ranks = [...html.matchAll(/<td[^>]*>(10[123])<\/td>/g)].map((m) => m[1]);
-    expect(ranks.slice(0, 3)).toEqual(['101', '102', '103']);
+    expect(html).not.toContain('class="racetable"');
+    expect(html).not.toContain('href="#class-1-echo-r1"');
+    expect(html).not.toContain('href="#class-2-echo-r1"');
   });
 
   it('a fleet that is in the start still corrects, so the difference is the start', async () => {
