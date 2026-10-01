@@ -935,8 +935,18 @@ export async function buildFleetHtmlFiles(
       ? viewRaces
       : fleetOwnRaces(fleet.id, viewRaces, allRaceStarts, struckByFleet?.get(fleet.id));
     const ownIndices = ownRaces.map((r) => viewRaces.indexOf(r));
+    const sailedEveryRace = ownRaces.length === viewRaces.length;
     const overOwnRaces = (rows: Standing[]): Standing[] =>
-      ownRaces.length === viewRaces.length ? rows : rows.map((s) => standingOverRaces(s, ownIndices));
+      sailedEveryRace ? rows : rows.map((s) => standingOverRaces(s, ownIndices));
+    // A fleet that sat races out numbers the ones it sailed for itself: its
+    // third race is its R3, the way the sailing instructions count a class's
+    // races, not the series' R4. `order` keeps the series position, which is
+    // what lines the race up with other fleets' on a combined page.
+    const pageRaces = ownRaces.map((r, i) => ({
+      ...r,
+      order: r.raceNumber,
+      raceNumber: sailedEveryRace ? r.raceNumber : i + 1,
+    }));
 
     // Per-fleet race score maps (only this fleet's competitors)
     const isHandicap = fleet.scoringSystem !== 'scratch';
@@ -1226,7 +1236,7 @@ export async function buildFleetHtmlFiles(
     ): SeriesResultsData => {
       const data = assembleSeriesResultsData(
         viewSeriesInfo,
-        ownRaces,
+        pageRaces,
         overOwnRaces(section ? section.standings : standings),
         raceScoresByRaceId,
         competitorsById,

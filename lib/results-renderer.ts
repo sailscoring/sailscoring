@@ -144,7 +144,14 @@ export interface SeriesResultsData {
 }
 
 export interface RaceData {
+  /** The race's number on this page, which is the fleet's own count: a fleet
+   *  that sat races out numbers the ones it sailed 1..n. */
   raceNumber: number;
+  /** Which race this is across the fleets of a page, and where it falls in
+   *  the series — what lines fleets that number it differently up under one
+   *  race-grid column. Absent, the race number stands in for both. */
+  raceId?: string;
+  order?: number;
   date: string; // ISO date string
   name?: string | null; // optional race label, shown in the section heading + column tooltip
   label: string; // column header, e.g. "R1" or "R3 Jul 23"
@@ -745,18 +752,27 @@ function buildRaceGrid(
     `gblock-${gridToken(seriesSlug(data.fleetName ?? 'fleet'))}`;
   const raceClass = (race: RaceData) => `gsec-${gridToken(race.anchorId)}`;
 
-  // Columns are race numbers, so fleets that skipped a race still line up
-  // under the ones that sailed it. Labels come from whichever fleet has the
-  // race — they agree, being the same race.
-  const columns: { raceNumber: number; label: string }[] = [];
+  // Columns are races, in series order, so fleets that skipped a race still
+  // line up under the ones that sailed it. Each fleet numbers its own races,
+  // so the same race can be one fleet's R3 and another's R2. The cells carry
+  // each fleet's own label; the columns are headed by label while the fleets
+  // count alike, and by date as soon as they don't — a column headed "R3"
+  // beside another fleet's R3 in the next one would read as the same race.
+  const raceKey = (race: RaceData) => race.raceId ?? `#${race.raceNumber}`;
+  const columns: { key: string; order: number; labels: Set<string>; date: string }[] = [];
   for (const row of rows) {
     for (const race of row.races) {
-      if (!columns.some((c) => c.raceNumber === race.raceNumber)) {
-        columns.push({ raceNumber: race.raceNumber, label: race.label });
-      }
+      const key = raceKey(race);
+      const column = columns.find((c) => c.key === key);
+      if (column) column.labels.add(race.label);
+      else columns.push({ key, order: race.order ?? race.raceNumber, labels: new Set([race.label]), date: race.date });
     }
   }
-  columns.sort((a, b) => a.raceNumber - b.raceNumber);
+  columns.sort((a, b) => a.order - b.order);
+  const allLabels = columns.flatMap((c) => [...c.labels]);
+  const countAlike = columns.every((c) => c.labels.size === 1) && new Set(allLabels).size === allLabels.length;
+  const columnHeading = (c: (typeof columns)[number]) =>
+    countAlike ? [...c.labels][0] : formatDayMonth(c.date);
 
   const anchors = [
     '<i class="racegrid-all" id="all-standings"></i>',
@@ -804,13 +820,13 @@ ${rules}
   const head = [
     '<th class="racegrid-corner"></th>',
     '<th>Standings</th>',
-    ...columns.map((c) => `<th>${esc(c.label)}</th>`),
+    ...columns.map((c) => `<th>${esc(columnHeading(c))}</th>`),
   ].join('');
 
   const body = rows
     .map((row, i) => {
       const cells = columns.map((col) => {
-        const race = row.races.find((r) => r.raceNumber === col.raceNumber);
+        const race = row.races.find((r) => raceKey(r) === col.key);
         return race
           ? `<td><a href="#${esc(race.anchorId)}">${esc(race.label)}</a></td>`
           : '<td class="racegrid-none" title="Not sailed by this fleet">&middot;</td>';
@@ -2846,6 +2862,13 @@ function formatIsoDate(iso: string): string {
   return d.toLocaleDateString('en-IE', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/** "19 Sept": a race's day where the year goes without saying. */
+function formatDayMonth(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString('en-IE', { month: 'short', day: 'numeric' });
+}
+
 /** Escape HTML special characters */
 /** Ensure a link URL is absolute so it points outward rather than resolving
  *  relative to the results page. Sailwave (and scorers) often store a bare host
@@ -3009,7 +3032,7 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined, appliedAsTot = 
  */
 export function assembleSeriesResultsData(
   series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string },
-  races: Array<{ id: string; raceNumber: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
+  races: Array<{ id: string; raceNumber: number; order?: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
   standings: Array<{
     rank: number;
     competitor: { id: string; sailNumber: string; bowNumber?: string; entryNumber?: string; tallyNumber?: string; boatName?: string; boatClass?: string; names: string[]; owners?: string[]; helms?: string[]; crewNames?: string[]; clubs?: string[]; nationality?: string; worldSailingId?: string; subdivisions?: Record<string, string>; gender?: 'M' | 'F' | ''; age?: number | null };
@@ -3340,6 +3363,8 @@ export function assembleSeriesResultsData(
 
     return {
       raceNumber: race.raceNumber,
+      raceId: race.id,
+      order: race.order ?? race.raceNumber,
       date: race.date,
       ...(race.name ? { name: race.name } : {}),
       label: `R${race.raceNumber}`,
