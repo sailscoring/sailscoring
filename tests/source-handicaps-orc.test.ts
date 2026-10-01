@@ -224,6 +224,51 @@ describe('planOrcUpdates', () => {
     expect(rows[0]).toMatchObject({ status: 'not-found', notFoundReason: 'no-source-competitor' });
   });
 
+  it('matches a foreign certificate on the boat’s alternative sail number', () => {
+    // Entered as a bare 8571, which the default country reads as IRL8571 —
+    // a different boat from the certificate's GBR8571 until the scorer
+    // records GBR8571 as the number it is also known by.
+    const input = {
+      targetFleets: [orcFleet],
+      entriesByFamily: { ORC: [entry('GBR8571', { YachtName: 'SPELLBOUND', APHT: 1.034 })] },
+      defaultCountry: 'IRL',
+      now: NOW,
+    };
+    const bare = planOrcUpdates({
+      ...input,
+      targetCompetitors: [comp('c1', '8571', ['f-orc'], { boatName: 'Spellbound' })],
+      matchByName: true,
+    });
+    expect(bare[0]).toMatchObject({ status: 'not-found', notFoundReason: 'no-source-competitor' });
+
+    const rows = planOrcUpdates({
+      ...input,
+      targetCompetitors: [comp('c1', '8571', ['f-orc'], { alternativeSailNumbers: ['GBR8571'] })],
+    });
+    expect(rows[0]).toMatchObject({ status: 'change', newTcf: 1.034 });
+    expect(rows[0].match).toEqual({ method: 'alternative-sail', sail: 'GBR8571', name: 'SPELLBOUND' });
+  });
+
+  it('prefers the entered sail number and refuses an ambiguous alternative', () => {
+    const entries = [entry('IRL8571', { APHT: 0.9 }), entry('GBR8571', { APHT: 1.0 }), entry('FRA8571', { APHT: 1.1 })];
+    const primary = planOrcUpdates({
+      targetCompetitors: [comp('c1', 'IRL8571', ['f-orc'], { alternativeSailNumbers: ['GBR8571'] })],
+      targetFleets: [orcFleet],
+      entriesByFamily: { ORC: entries },
+      now: NOW,
+    });
+    expect(primary[0]).toMatchObject({ status: 'change', newTcf: 0.9 });
+    expect(primary[0].match).toBeUndefined();
+
+    const ambiguous = planOrcUpdates({
+      targetCompetitors: [comp('c1', 'ESP8571', ['f-orc'], { alternativeSailNumbers: ['GBR8571', 'FRA8571'] })],
+      targetFleets: [orcFleet],
+      entriesByFamily: { ORC: entries },
+      now: NOW,
+    });
+    expect(ambiguous[0]).toMatchObject({ status: 'not-found', notFoundReason: 'ambiguous-match' });
+  });
+
   it('produces no rows for a family whose listing is not loaded', () => {
     const rows = planOrcUpdates({
       targetCompetitors: [comp('c1', 'IRL1431', ['f-orc-ns'])],

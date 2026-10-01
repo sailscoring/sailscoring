@@ -154,6 +154,19 @@ describe('planIrcUpdates — matching and the default country code', () => {
     expect(row.match).toMatchObject({ method: 'sail-no-country', sail: 'IRL1431' });
   });
 
+  it('matches on an alternative sail number and records it on the certificate', () => {
+    const rows = planIrcUpdates({
+      targetCompetitors: [comp('c1', '8571', ['f-irc'], { alternativeSailNumbers: ['GBR8571'] })],
+      targetFleets: fleets,
+      records: [rec('GBR8571', { ircTcc: 0.961 })],
+      defaultCountry: 'IRL',
+    });
+    const row = byKey(rows).get('c1::irc')!;
+    expect(row).toMatchObject({ newTcf: 0.961, status: 'change' });
+    expect(row.match).toMatchObject({ method: 'alternative-sail', sail: 'GBR8571' });
+    expect(row.ircCert).toMatchObject({ sailNumber: 'GBR8571', matchedBy: 'alternative-sail' });
+  });
+
   it('uses the default country to disambiguate a bare number in a worldwide list', () => {
     // "1431" exists for several nations; the IRL default resolves to the Irish boat.
     const rows = planIrcUpdates({

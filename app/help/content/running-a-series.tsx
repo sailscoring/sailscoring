@@ -168,7 +168,9 @@ export default function RunningASeries() {
           against the entry separated by commas (<em>IRL 99, 7</em>). Finish
           entry matches any of them, and a result entered under one is tagged
           with the number used, so the series records which sail the boat
-          actually raced under. Standings and published results always show the
+          actually raced under. <em>Update handicaps</em> tries them too when a
+          boat isn’t on a rating list under its registered number — list the
+          number on its certificate here when the two differ. Standings and published results always show the
           registered sail number — the alternatives are there to be recognised,
           not displayed.
         </p>

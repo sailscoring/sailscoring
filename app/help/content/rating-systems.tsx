@@ -592,7 +592,12 @@ export default function RatingSystems() {
           Sail numbers are matched ignoring case and spacing, and tolerating a missing country
           code (so on an Irish setup <code className="font-mono text-xs">1431</code> matches{' '}
           <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
-          a number are flagged rather than guessed. Turn on{' '}
+          a number are flagged rather than guessed. A boat whose entered sail number matches
+          nothing is tried under its <em>alternative sail numbers</em> — so a visitor entered as{' '}
+          <code className="font-mono text-xs">8571</code>, which an Irish setup reads as{' '}
+          <code className="font-mono text-xs">IRL8571</code>, finds its{' '}
+          <code className="font-mono text-xs">GBR8571</code> certificate once{' '}
+          <code className="font-mono text-xs">GBR8571</code> is listed as an alternative. Turn on{' '}
           <strong className="text-foreground">Also match by boat name</strong> to match a boat
           whose sail number matches nothing, or matches several boats. A shared boat name proves
           nothing on its own — roughly one boat in eight on the IRC list shares its name with
@@ -655,7 +660,8 @@ export default function RatingSystems() {
         <p>
           The <strong className="text-foreground">Update handicaps</strong> dialog can
           import ORC certificates straight from the ORC database’s active-certificates
-          listing, matched by sail number. Choose <em>ORC certificates</em> as the
+          listing, matched by sail number — or, for a boat its certificate lists under
+          another number, by its alternative sail numbers. Choose <em>ORC certificates</em> as the
           source, pick the issuing country (a certificate from any country’s rating
           office is valid — run the source once per country for visiting boats), and
           set each ORC fleet’s <strong className="text-foreground">certificate
@@ -753,7 +759,12 @@ export default function RatingSystems() {
           Sail numbers are matched ignoring case and spacing, and tolerating a missing country
           code (so <code className="font-mono text-xs">1431</code> matches{' '}
           <code className="font-mono text-xs">IRL1431</code>) — though two different boats sharing
-          a number are flagged rather than guessed. Turn on{' '}
+          a number are flagged rather than guessed. A boat whose entered sail number matches
+          nothing is tried under its <em>alternative sail numbers</em> — so a visitor entered as{' '}
+          <code className="font-mono text-xs">8571</code>, which an Irish setup reads as{' '}
+          <code className="font-mono text-xs">IRL8571</code>, finds its{' '}
+          <code className="font-mono text-xs">GBR8571</code> certificate once{' '}
+          <code className="font-mono text-xs">GBR8571</code> is listed as an alternative. Turn on{' '}
           <strong className="text-foreground">Also match by boat name</strong> to match a boat
           whose sail number matches nothing, or matches several boats. A shared boat name proves
           nothing on its own — roughly one boat in eight on the IRC list shares its name with

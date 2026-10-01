@@ -87,6 +87,7 @@ export function describeMatch(m: RatingMatch): string {
   const who = `${m.sail}${m.name ? ` · ${m.name}` : ''}`;
   if (m.method === 'name') return `matched by name alone → ${who}`;
   if (m.method === 'sail-and-name') return `matched by sail number and name → ${who}`;
+  if (m.method === 'alternative-sail') return `matched by alternative sail number → ${who}`;
   return `matched without country code → ${who}`;
 }
 

@@ -34,7 +34,7 @@ export const ircCertRecordSchema = z.object({
   crew: z.number().optional(),
   source: z.string().max(120).optional(),
   sourceUpdatedAt: z.string().max(40).optional(),
-  matchedBy: z.enum(['exact-sail', 'sail-no-country', 'sail-and-name', 'name']).optional(),
+  matchedBy: z.enum(['exact-sail', 'sail-no-country', 'sail-and-name', 'alternative-sail', 'name']).optional(),
   appliedAt: epochMsSchema,
 });
 

@@ -195,6 +195,9 @@ export type RatingMatchMethod =
   /** Sail cores equal but shared by several boats, with the boat name
    *  picking which — so the name is part of what the scorer must verify. */
   | 'sail-and-name'
+  /** Matched on one of the competitor's alternative sail numbers, the one it
+   *  is entered under having matched nothing. */
+  | 'alternative-sail'
   /** Matched on boat name alone, the sail number having matched nothing (the
    *  opt-in liberal fallback). */
   | 'name';
@@ -622,6 +625,23 @@ class RatingMatcher<T extends RatingRecord> {
       return { kind: 'ambiguous' };
     }
 
+    // Nothing under the sail number the boat is entered with — try the others
+    // it is known by. A boat entered as a bare `8571` whose certificate reads
+    // `GBR8571` is otherwise resolved to `IRL8571` by the default country and
+    // refused, and the scorer recording `GBR8571` as an alternative is how
+    // they say which boat it is.
+    const altCandidates = this.alternativeSailCandidates(competitor);
+    if (altCandidates.length > 0) {
+      if (distinctFullSails(altCandidates).size === 1) {
+        return { kind: 'matched', records: altCandidates.map((e) => e.record), method: 'alternative-sail' };
+      }
+      if (matchByName) {
+        const narrowed = this.narrowByName(altCandidates, competitor.boatName);
+        if (narrowed) return { kind: 'matched', records: narrowed, method: 'sail-and-name' };
+      }
+      return { kind: 'ambiguous' };
+    }
+
     // No sail match — optional liberal name fallback. A boat whose sail number
     // names a different nation is a different boat, so those never reach it:
     // `sailNumbersMatch` refuses `IRL3154` against `GBR9608`, and matching the
@@ -638,6 +658,20 @@ class RatingMatcher<T extends RatingRecord> {
     }
 
     return { kind: 'none' };
+  }
+
+  /** Every record matching any of the competitor's alternative sail numbers,
+   *  each resolved against the default country as the primary one is. */
+  private alternativeSailCandidates(competitor: Competitor): RatingEntry<T>[] {
+    const out = new Set<RatingEntry<T>>();
+    for (const alt of competitor.alternativeSailNumbers ?? []) {
+      const parts = withDefaultCountry(sailNumberParts(alt), this.defaultCountry);
+      if (!parts.core) continue;
+      for (const e of this.byCore.get(parts.core) ?? []) {
+        if (sailNumbersMatch(parts, e.parts)) out.add(e);
+      }
+    }
+    return [...out];
   }
 
   /** Among candidates spanning several boats, keep only those whose name
