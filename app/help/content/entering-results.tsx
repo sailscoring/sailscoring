@@ -449,6 +449,17 @@ export default function EnteringResults() {
           along together, or you can point a single sheet at a race yourself.
         </p>
         <p>
+          You only need to say either once. Each race remembers which RaceSense race went
+          into it, and from which regatta and division, so the next upload or player read
+          picks the same fleet and puts every race already imported back where it went —
+          marked <em>where it went last time</em> — and counts the new ones on from there.
+          When a series takes races from more than one RaceSense regatta — a
+          championship’s qualifying series and its finals, say — the second regatta’s race 1
+          is the first race of the fleet the first regatta hasn’t already filled. If every
+          race reads back unchanged and there is nothing to import, <strong className="text-foreground">Remember
+          these races</strong> records the matches without writing any finishes.
+        </p>
+        <p>
           A boat who was over the line and never cleared appears in RaceSense’s finish list
           as a DNF; only her start status records what really happened. The import scores
           her <strong className="text-foreground">OCS</strong> — or UFD or BFD, following
