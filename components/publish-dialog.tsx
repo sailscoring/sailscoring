@@ -43,6 +43,7 @@ import {
 import { PageNoteEditor } from '@/components/page-note-editor';
 import { useSubSeriesBySeries } from '@/hooks/use-sub-series';
 import { useSplitFleetState } from '@/hooks/use-split-fleets';
+import { useRacesBySeries } from '@/hooks/use-races';
 import { useUpdateSeriesNotes, useUpdateSeriesPublishPrefs } from '@/hooks/use-series';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
@@ -154,6 +155,12 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     enabled: has('split-fleets'),
   });
   const isChampionship = (splitState?.rounds?.length ?? 0) > 0;
+  // Before race one a championship publishes only its fleet assignments and
+  // the entry list, so the dialog offers only those. The page list is seeded
+  // once per open, so seeding waits for the races to be known.
+  const { data: races } = useRacesBySeries(series.id);
+  const racesKnown = races !== undefined;
+  const beforeFirstRace = racesKnown && races.length === 0;
   // What this series publishes — the one derivation, shared with the build
   // and with the FTP pane below, so a destination can never offer a set of
   // pages the other doesn't. Combined pages (#255, #390) are defined on the
@@ -163,6 +170,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     series,
     fleets,
     splitFleets: isChampionship,
+    beforeFirstRace,
     features: { prizes: has('prizes'), entryList: has('entry-list') },
   });
   // The lone default page, when there is one: a single-fleet series' results,
@@ -260,8 +268,9 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
     setPhase('loading');
+    if (!racesKnown) return;
+    let cancelled = false;
     setError(null);
     setAllowUnscored(false);
     getPublication(series.id)
@@ -306,7 +315,7 @@ export function PublishDialog({ series, fleets, open, onClose, canFtp, unscored 
     // given series, and listing them would re-seed (wiping edits) on every
     // parent re-render that hands us a fresh array identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, series.id]);
+  }, [open, series.id, racesKnown]);
 
   // Seed the destination mode from the series each time the dialog opens.
   useEffect(() => {

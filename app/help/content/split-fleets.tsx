@@ -324,6 +324,12 @@ export function SplitFleetsSection() {
         tab (the regular Standings tab is hidden for these series).
       </p>
       <p>
+        Before the first race, publishing puts out the fleet assignments page (and the entry
+        list, if your workspace publishes one) on its own, so boats can see which fleet they
+        are in for race one. The standings, race results and Scoring notes pages follow once
+        a race has been sailed. Tick them when you re-publish after race one.
+      </p>
+      <p>
         The Scoring notes page carries the same SI prose you checked your settings against,
         under <strong className="text-foreground">How this championship is scored</strong>,
         with the links to open the series in Sail Scoring and to its data file — so a

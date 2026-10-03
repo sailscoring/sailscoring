@@ -469,6 +469,42 @@ test('split fleets: publish lands the championship + race + assignments pages in
 });
 
 /**
+ * Before race one a championship has no standings to publish: they are tiered
+ * by a split that has not happened. Its fleet assignments do go out, since
+ * they are how a boat learns which fleet it sails in for race one.
+ */
+test('split fleets: the fleet assignments publish before race one', async ({
+  page,
+  signedInEmail,
+}) => {
+  await enableFeatures(page, signedInEmail, ['split-fleets']);
+  await createSplitFleetSeries(page, { name: 'Early Worlds', venue: 'Dun Laoghaire', fleetCount: 2 });
+  await page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }).click();
+  await expect(
+    page.getByRole('button', { name: `Add ${DEMO_COUNT} demo competitors` }),
+  ).toBeHidden();
+  await page.getByRole('button', { name: 'Assign Preliminary fleets' }).click();
+  await page.getByRole('button', { name: /Commit Round 1/ }).click();
+  await expect(page.getByText('Round 1 · QP1 onward')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Publish…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByLabel('Folder').fill('early-worlds');
+  // The assignments are the one page on offer; nothing scored is.
+  await expect(dialog.getByRole('checkbox', { name: 'Publish Fleet assignments' })).toBeChecked();
+  await expect(dialog.getByText('Championship')).toHaveCount(0);
+  await expect(dialog.getByText('Race results')).toHaveCount(0);
+  await expect(dialog.getByText('Scoring notes')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  const link = dialog.getByRole('link', { name: /early-worlds\/fleet-assignments$/ });
+  await expect(link).toHaveCount(1);
+  await page.goto(new URL((await link.getAttribute('href')) ?? '').pathname);
+  await expect(page.getByText(/Preliminary series round 1/)).toBeVisible();
+  await expect(page.getByText(yellowSails[0]).first()).toBeVisible();
+});
+
+/**
  * The setup wizard asks what kind of series this is before anything else, and
  * a split-fleet championship's setup is two steps that land on the tab, with
  * its stage cards, which start from the simplest championship.
