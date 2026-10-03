@@ -49,6 +49,7 @@ import type {
   RaceFleetExclusion,
   FinishTrackData,
   RaceOfficial,
+  RaceSenseLink,
   RrsOrgPushConfig,
   PageNote,
   Prize,
@@ -899,6 +900,9 @@ export const races = pgTable(
     // = nothing recorded, which is the common case.
     conditions: jsonb('conditions').$type<RaceConditions>(),
     officials: jsonb('officials').$type<RaceOfficial[]>(),
+    // The RaceSense races imported into this one, so the next import of the
+    // same regatta matches them back. JSONB, sparse, never queried by content.
+    raceSenseLinks: jsonb('racesense_links').$type<RaceSenseLink[]>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

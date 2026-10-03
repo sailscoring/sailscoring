@@ -228,6 +228,7 @@ function raceRowToType(row: RaceRow): Race {
     ...(row.pointsMultiplier != null ? { pointsMultiplier: row.pointsMultiplier } : {}),
     ...(row.conditions ? { conditions: row.conditions } : {}),
     ...(row.officials?.length ? { officials: row.officials } : {}),
+    ...(row.raceSenseLinks?.length ? { raceSenseLinks: row.raceSenseLinks } : {}),
     createdAt: row.createdAt.getTime(),
     version: row.version,
   };
@@ -1332,13 +1333,14 @@ function raceToRow(r: Race, workspaceId: string) {
     pointsMultiplier: r.pointsMultiplier ?? null,
     conditions: r.conditions ?? null,
     officials: r.officials ?? null,
+    raceSenseLinks: r.raceSenseLinks?.length ? r.raceSenseLinks : null,
     createdAt: new Date(r.createdAt),
   };
 }
 
 const raceUpdateColumns = [
   'raceNumber', 'name', 'date', 'finishRecording', 'lastFinisherTime', 'discardPolicy', 'pointsMultiplier',
-  'conditions', 'officials',
+  'conditions', 'officials', 'raceSenseLinks',
 ] as const satisfies readonly (keyof ReturnType<typeof raceToRow>)[];
 
 export class PostgresRaceRepository implements RaceRepository {

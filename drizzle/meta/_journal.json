@@ -813,6 +813,13 @@
       "when": 1790850240146,
       "tag": "0115_fleet_rating_variant",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1791054790174,
+      "tag": "0116_race_racesense_links",
+      "breakpoints": true
     }
   ]
 }

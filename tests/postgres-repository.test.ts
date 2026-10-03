@@ -477,6 +477,29 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('RaceRepository: RaceSense links survive insert, update and clearing', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = makeSeries();
+    await repos.series.save(s);
+    const r: Race = {
+      id: uuid(), seriesId: s.id, raceNumber: 1, name: null, date: '2026-08-27',
+      raceSenseLinks: [
+        { regattaId: 'FinalsRegatta1234567', regatta: 'ILCA 7 Finals', division: 'Gold', raceNumber: 2, fleetId: uuid() },
+        { regattaId: null, regatta: 'Wednesday League', division: null, raceNumber: 4, fleetId: null },
+      ],
+      createdAt: Date.now(),
+    };
+    await repos.races.save(r);
+    const inserted = await repos.races.get(r.id);
+    expect(inserted?.raceSenseLinks).toEqual(r.raceSenseLinks);
+
+    await repos.races.save({ ...r, raceSenseLinks: [], version: inserted?.version });
+    const cleared = await repos.races.get(r.id);
+    expect(cleared?.raceSenseLinks).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository: the standing team and its publish opt-in round-trip', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     const s = makeSeries();

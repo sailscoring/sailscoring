@@ -25,6 +25,20 @@ export const raceConditionsSchema = z.object({
   notes: z.string().max(RACE_NOTES_MAX_LENGTH).optional(),
 });
 
+/** A RaceSense race this race was imported from. Bounded loosely: the
+ *  strings are what Vakaros printed, and only nonsense is refused. */
+export const raceSenseLinkSchema = z.object({
+  regattaId: z.string().max(200).nullable(),
+  regatta: z.string().max(500).nullable(),
+  division: z.string().max(200).nullable(),
+  raceNumber: z.number().int().nonnegative(),
+  fleetId: uuidSchema.nullable(),
+});
+
+/** One link per division that landed in the race; a championship has a
+ *  handful of divisions, never hundreds. */
+const RACESENSE_LINKS_MAX = 50;
+
 export const raceSchema = z.object({
   id: uuidSchema,
   seriesId: uuidSchema,
@@ -46,6 +60,7 @@ export const raceSchema = z.object({
   // boundary would only turn a typo into a 400.
   conditions: raceConditionsSchema.optional(),
   officials: z.array(raceOfficialSchema).max(OFFICIALS_MAX).optional(),
+  raceSenseLinks: z.array(raceSenseLinkSchema).max(RACESENSE_LINKS_MAX).optional(),
   createdAt: epochMsSchema,
   version: versionSchema,
 });

@@ -1128,8 +1128,32 @@ export interface Race {
   // fills in. Independent of the series-level standing team
   // (Series.officials): no inheritance, no override. Sparse.
   officials?: RaceOfficial[];
+  // Which RaceSense races this race's finishes were imported from, one per
+  // export division that landed here — a split-fleet race carries several.
+  // Written by the RaceSense import, which reads it back to match the same
+  // RaceSense race to the same series race next time. Sparse.
+  raceSenseLinks?: RaceSenseLink[];
   createdAt: number;
   version?: number;    // server-side concurrency token (see Series.version)
+}
+
+/**
+ * One RaceSense race, as a series race remembers having imported it.
+ *
+ * A RaceSense race is named by its regatta, its division and its number, and
+ * both import sources — the committee's workbook and the player — spell all
+ * three the same way. The regatta goes by its id where the source carries
+ * one; the club-series workbook predates the `Regatta ID` row, so the name is
+ * kept too and stands in for the id when there is none.
+ */
+export interface RaceSenseLink {
+  regattaId: string | null;
+  regatta: string | null;
+  division: string | null;
+  raceNumber: number;
+  /** The fleet the division was imported as; `null` for every race of a
+   *  series with no fleets to choose between. */
+  fleetId: string | null;
 }
 
 /**

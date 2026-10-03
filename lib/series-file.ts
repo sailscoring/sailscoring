@@ -24,6 +24,7 @@ import type {
   RaceDiscardPolicy,
   RaceFleetExclusion,
   RaceOfficial,
+  RaceSenseLink,
   PublishingGroup,
   ProtestTimeLimit,
   RrsOrgPushConfig,
@@ -554,9 +555,16 @@ export interface SeriesFileRepos {
  *  double-handed certificate a rating list rates the fleet on, which Update
  *  handicaps preselects. Sparse: absent means the standard certificate. An
  *  older build reading a v63 file drops it, which costs only a choice the
- *  scorer makes again on the next update; scoring never reads it. */
-export const FORMAT_VERSION = 63;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63];
+ *  scorer makes again on the next update; scoring never reads it.
+ *
+ *  v64 adds optional `races[*].raceSenseLinks` — the RaceSense races a race's
+ *  finishes were imported from (regatta id and name, division, race number,
+ *  and the fleet the division was imported as, remapped with the fleets on
+ *  read). Sparse. An older build reading a v64 file drops them, which costs
+ *  only the import matching those races by position again; scoring never
+ *  reads them. */
+export const FORMAT_VERSION = 64;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -818,6 +826,7 @@ interface SeriesFileRace {
   // v27+; what the race was sailed in, and who ran it. Both sparse.
   conditions?: RaceConditions;
   officials?: RaceOfficial[];
+  raceSenseLinks?: RaceSenseLink[];  // v64+; where a RaceSense import put each RaceSense race
   /** @deprecated v23 split-fleet stage identity on the race; v24 carries it
    *  per start. Read for back-compat (copied onto the starts), not written. */
   stage?: 'qualifying' | 'final' | 'medal';
@@ -1133,6 +1142,7 @@ export async function buildSeriesFile(
       ...(r.pointsMultiplier != null && r.pointsMultiplier !== 1 ? { pointsMultiplier: r.pointsMultiplier } : {}),
       ...(hasConditions(r.conditions) ? { conditions: r.conditions } : {}),
       ...(r.officials?.length ? { officials: r.officials } : {}),
+      ...(r.raceSenseLinks?.length ? { raceSenseLinks: r.raceSenseLinks } : {}),
       starts: startsByRace.get(r.id) ?? [],
       finishes: finishesByRace.get(r.id) ?? [],
       ...(overridesByRace.get(r.id)?.length ? { ratingOverrides: overridesByRace.get(r.id) } : {}),
@@ -1369,6 +1379,22 @@ function remapFleetSailNumbers(
     if (newId && boat.trim()) out[newId] = boat;
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+/** A race's RaceSense links with their fleets moved to the new ids. A link
+ *  whose fleet the file doesn't carry is dropped: a null fleet means "a
+ *  series with no fleets", which this isn't, and the import only loses a
+ *  match it can make again by position. */
+function remapRaceSenseLinks(
+  links: RaceSenseLink[] | undefined,
+  fleetIdMap: Map<string, string>,
+): { raceSenseLinks?: RaceSenseLink[] } {
+  const out = (links ?? []).flatMap((l) => {
+    if (l.fleetId === null) return [l];
+    const fleetId = fleetIdMap.get(l.fleetId);
+    return fleetId ? [{ ...l, fleetId }] : [];
+  });
+  return out.length > 0 ? { raceSenseLinks: out } : {};
 }
 
 /** ≤v20 → v21: a single `crewName` becomes a one-element `crewNames` list.
@@ -2280,6 +2306,7 @@ async function writeFleetsCompetitorsRaces(
       ...(r.pointsMultiplier != null ? { pointsMultiplier: r.pointsMultiplier } : {}),
       ...(hasConditions(r.conditions) ? { conditions: r.conditions } : {}),
       ...(r.officials?.length ? { officials: r.officials } : {}),
+      ...(remapRaceSenseLinks(r.raceSenseLinks, fleetIdMap)),
       createdAt: now,
     });
 
