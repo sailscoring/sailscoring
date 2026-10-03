@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { finishRowsFromImport } from '@/lib/finish-entry';
-import { describeStartLine, planRaceSenseImport, type SeriesRace } from '@/lib/racesense-plan';
+import {
+  describeStartLine,
+  planRaceSenseImport,
+  raceSenseLinksAfterImport,
+  rememberedFleet,
+  type SeriesRace,
+} from '@/lib/racesense-plan';
 import type { Candidate } from '@/lib/finish-sheet-csv';
 import type {
   RaceSenseFinish,
@@ -9,7 +15,7 @@ import type {
   RaceSenseStarter,
   RaceSenseWorkbook,
 } from '@/lib/racesense-workbook';
-import type { Finish } from '@/lib/types';
+import type { Finish, RaceSenseLink } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -746,5 +752,164 @@ describe('boats drawn per fleet', () => {
       expect(races[0].result!.finishes.map((f) => f.competitorId)).toEqual(expected);
       expect(warnings(races[0].notes)).toEqual([]);
     }
+  });
+});
+
+describe('remembering where each RaceSense race went', () => {
+  const ELIMINATION = 'Elimination12345678ab';
+  const FINALS = 'FinalsRegatta12345678';
+
+  const link = (regattaId: string | null, raceNumber: number, extra: Partial<RaceSenseLink> = {}): RaceSenseLink => ({
+    regattaId, regatta: 'ILCA 7 Worlds', division: 'Yellow', raceNumber, fleetId: YELLOW, ...extra,
+  });
+
+  const linkedRace = (n: number, links: RaceSenseLink[]): SeriesRace => ({ ...seriesRace(n), raceSenseLinks: links });
+
+  function planFrom(regattaId: string | null, args: {
+    sheets: number[];
+    seriesRaces: SeriesRace[];
+    offset?: number;
+    overrides?: Record<string, string>;
+    fleetId?: string | null;
+  }) {
+    return planRaceSenseImport({
+      workbook: { ...workbook(args.sheets.map((number) => sourceRace({ number }))), regattaId },
+      fleetId: args.fleetId === undefined ? YELLOW : args.fleetId,
+      races: args.seriesRaces,
+      competitors: COMPETITORS,
+      finishes: [],
+      offset: args.offset,
+      overrides: args.overrides,
+    });
+  }
+
+  it('puts a sheet back in the race an earlier import put it in, whatever its position', () => {
+    // Race 2 of the regatta went to the series' race 3 last time.
+    const seriesRaces = [seriesRace(1), seriesRace(2), linkedRace(3, [link(FINALS, 2)])];
+    const { races } = planFrom(FINALS, { sheets: [2], seriesRaces });
+    expect(races[0].race?.raceNumber).toBe(3);
+    expect(races[0].matchedBy).toBe('link');
+  });
+
+  it('counts past the races another regatta already filled for this fleet', () => {
+    // The Elimination Series took races 1 and 2; the Finals' race 1 is the
+    // fleet's third race, with no offset to set.
+    const seriesRaces = [
+      linkedRace(1, [link(ELIMINATION, 1)]),
+      linkedRace(2, [link(ELIMINATION, 2)]),
+      seriesRace(3),
+      seriesRace(4),
+    ];
+    const { races } = planFrom(FINALS, { sheets: [1, 2], seriesRaces });
+    expect(races.map((r) => [r.race?.raceNumber, r.matchedBy])).toEqual([[3, 'position'], [4, 'position']]);
+  });
+
+  it('only counts past a race another regatta filled for the same fleet', () => {
+    // Blue's division of the other regatta landed in race 1 too, which says
+    // nothing about where Yellow's sheets go.
+    const seriesRaces = [
+      { ...seriesRace(1, [YELLOW, BLUE]), raceSenseLinks: [link(ELIMINATION, 1, { division: 'Blue', fleetId: BLUE })] },
+      seriesRace(2),
+    ];
+    const { races } = planFrom(FINALS, { sheets: [1], seriesRaces, fleetId: YELLOW });
+    expect(races[0].race?.raceNumber).toBe(1);
+  });
+
+  it('counts on from the last remembered race, so an offset set once stays set', () => {
+    // Race 1 was abandoned on the water and resailed: the scorer pointed
+    // RaceSense race 2 at the series' race 3 last time. Race 3 follows it.
+    const seriesRaces = [
+      linkedRace(1, [link(FINALS, 1)]),
+      seriesRace(2),
+      linkedRace(3, [link(FINALS, 2)]),
+      seriesRace(4),
+    ];
+    const { races } = planFrom(FINALS, { sheets: [1, 2, 3], seriesRaces });
+    expect(races.map((r) => r.race?.raceNumber)).toEqual([1, 3, 4]);
+  });
+
+  it('will not count a sheet into a race that holds another race of the regatta', () => {
+    // RaceSense race 3 was pointed at race 2 by hand; race 2 of the regatta,
+    // never imported, would count to that same race.
+    const seriesRaces = [seriesRace(1), linkedRace(2, [link(FINALS, 3)]), seriesRace(3)];
+    const { races } = planFrom(FINALS, { sheets: [2, 3], seriesRaces });
+    expect(races[0].state).toBe('unmatched');
+    expect(races[0].notes.find((n) => n.kind === 'no-race')?.message).toContain('already holds RaceSense race 3');
+    expect(races[1].race?.raceNumber).toBe(2);
+  });
+
+  it('lets the scorer overrule a remembered race', () => {
+    const seriesRaces = [linkedRace(1, [link(FINALS, 1)]), seriesRace(2)];
+    const { races } = planFrom(FINALS, { sheets: [1], seriesRaces, overrides: { 'Race 1': seriesRaces[1].id } });
+    expect(races[0].race?.raceNumber).toBe(2);
+    expect(races[0].matchedBy).toBe('override');
+  });
+
+  it('matches a regatta by name when the export predates the Regatta ID row', () => {
+    const seriesRaces = [seriesRace(1), linkedRace(2, [link(FINALS, 1)])];
+    const { races } = planFrom(null, { sheets: [1], seriesRaces });
+    expect(races[0].race?.raceNumber).toBe(2);
+    // Two regattas with ids are never matched by a shared name.
+    expect(planFrom(ELIMINATION, { sheets: [1], seriesRaces }).races[0].race?.raceNumber).toBe(1);
+  });
+
+  it('remembers the fleet each regatta division was imported as', () => {
+    const seriesRaces = [
+      { ...seriesRace(1, [YELLOW, BLUE]), raceSenseLinks: [link(FINALS, 1), link(FINALS, 1, { division: 'Blue', fleetId: BLUE })] },
+    ];
+    const finals = { regattaId: FINALS, regatta: 'ILCA 7 Worlds' };
+    expect(rememberedFleet(seriesRaces, { ...finals, division: 'Yellow' })).toBe(YELLOW);
+    expect(rememberedFleet(seriesRaces, { ...finals, division: 'Blue' })).toBe(BLUE);
+    expect(rememberedFleet(seriesRaces, { ...finals, division: 'Red' })).toBeUndefined();
+  });
+
+  describe('the links an import writes', () => {
+    const source = { regattaId: FINALS, regatta: 'ILCA 7 Worlds', division: 'Yellow' };
+
+    it('links each imported race, leaving other regattas and fleets alone', () => {
+      const blue = link(ELIMINATION, 1, { division: 'Blue', fleetId: BLUE });
+      const seriesRaces = [
+        { ...seriesRace(1, [YELLOW, BLUE]), raceSenseLinks: [blue] },
+        seriesRace(2),
+      ];
+      const plan = planFrom(FINALS, { sheets: [1, 2], seriesRaces });
+      const links = raceSenseLinksAfterImport({ races: seriesRaces, linked: plan.races, source, fleetId: YELLOW });
+      expect(Object.fromEntries(links)).toEqual({
+        [seriesRaces[0].id]: [blue, link(FINALS, 1)],
+        [seriesRaces[1].id]: [link(FINALS, 2)],
+      });
+    });
+
+    it('moves a RaceSense race the scorer pointed somewhere new', () => {
+      const seriesRaces = [linkedRace(1, [link(FINALS, 1)]), seriesRace(2)];
+      const plan = planFrom(FINALS, { sheets: [1], seriesRaces, overrides: { 'Race 1': seriesRaces[1].id } });
+      const links = raceSenseLinksAfterImport({ races: seriesRaces, linked: plan.races, source, fleetId: YELLOW });
+      expect(Object.fromEntries(links)).toEqual({
+        [seriesRaces[0].id]: [],
+        [seriesRaces[1].id]: [link(FINALS, 1)],
+      });
+    });
+
+    it('writes nothing for a race that already remembers the same thing', () => {
+      const seriesRaces = [linkedRace(1, [link(FINALS, 1)])];
+      const plan = planFrom(FINALS, { sheets: [1], seriesRaces });
+      expect(raceSenseLinksAfterImport({ races: seriesRaces, linked: plan.races, source, fleetId: YELLOW }).size).toBe(0);
+    });
+
+    it('reads a link back from storage as the same link, whatever order its keys are in', () => {
+      const { fleetId, raceNumber, division, regatta, regattaId } = link(FINALS, 1);
+      const seriesRaces = [linkedRace(1, [{ fleetId, raceNumber, division, regatta, regattaId }])];
+      const plan = planFrom(FINALS, { sheets: [1], seriesRaces });
+      expect(raceSenseLinksAfterImport({ races: seriesRaces, linked: plan.races, source, fleetId: YELLOW }).size).toBe(0);
+    });
+
+    it('gives a link from an export with no Regatta ID the id once a later read carries one', () => {
+      const old = link(null, 1);
+      const seriesRaces = [linkedRace(1, [old])];
+      const plan = planFrom(FINALS, { sheets: [1], seriesRaces });
+      expect(plan.races[0].matchedBy).toBe('link');
+      const links = raceSenseLinksAfterImport({ races: seriesRaces, linked: plan.races, source, fleetId: YELLOW });
+      expect(links.get(seriesRaces[0].id)).toEqual([link(FINALS, 1)]);
+    });
   });
 });

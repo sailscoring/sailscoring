@@ -51,7 +51,7 @@ import {
 } from './racesense-workbook';
 import type { StoredStage } from './split-fleets';
 import { hasTrackData } from './track-data';
-import type { Finish, FinishTrackData } from './types';
+import type { Finish, FinishTrackData, RaceSenseLink } from './types';
 
 /** Columns of the rows this module builds for the finish-sheet parser.
  *
@@ -100,7 +100,13 @@ export interface SeriesRace {
     stage?: StoredStage | null;
     stageRaceNumber?: number | null;
   }[];
+  /** The RaceSense races imported into this one before. */
+  raceSenseLinks?: RaceSenseLink[];
 }
+
+/** How a sheet found its race: chosen by hand in the dialog, remembered from
+ *  an earlier import, or counted to by position. */
+export type RaceMatchedBy = 'override' | 'link' | 'position';
 
 export type RaceMatchState = 'new' | 'unchanged' | 'differs' | 'unmatched';
 
@@ -117,6 +123,8 @@ export interface PlannedRace {
   /** RaceSense's own race number. */
   raceNumber: number;
   race: SeriesRace | null;
+  /** `null` when there is no race. */
+  matchedBy: RaceMatchedBy | null;
   state: RaceMatchState;
   /** Whether to tick this race by default. Only a `new` race with nothing
    *  flagged against it: anything else is the scorer's call. */
@@ -159,9 +167,11 @@ export interface RaceSensePlanInput {
   competitors: Candidate[];
   /** Existing finishes across the series; filtered per race. */
   finishes: Finish[];
-  /** Shift the match: RaceSense's race `n` becomes the `n + offset`-th race
-   *  this fleet sailed. An abandonment desynchronises the two numberings and
-   *  the workbook gives no way to see it, so this is the scorer's to set. */
+  /** Shift the match by position: RaceSense's race `n` becomes the
+   *  `n + offset`-th race this fleet sailed. An abandonment desynchronises the
+   *  two numberings and the workbook gives no way to see it, so this is the
+   *  scorer's to set — once: a race matched by a remembered link isn't
+   *  shifted, and the races after it count on from it. */
   offset?: number;
   /** sheetName → raceId, overriding the match for one sheet. */
   overrides?: Record<string, string>;
@@ -394,6 +404,172 @@ function candidateRaces(races: SeriesRace[], fleetId: string | null): SeriesRace
   return ordered.filter((r) => r.starts.some((s) => s.fleetIds.includes(fleetId)));
 }
 
+/** A regatta's division, as a workbook names it: the part of a RaceSense race
+ *  that isn't its number. */
+export interface RaceSenseSource {
+  regattaId: string | null;
+  regatta: string | null;
+  division: string | null;
+}
+
+export function raceSenseSourceOf(workbook: RaceSenseWorkbook): RaceSenseSource {
+  return { regattaId: workbook.regattaId, regatta: workbook.regatta, division: workbook.division };
+}
+
+/**
+ * Whether a link names this regatta and division. The regatta goes by its id
+ * when both sides carry one; the club-series export predates the `Regatta ID`
+ * row, and only there does the name have to stand in for it.
+ */
+function sameSource(link: RaceSenseSource, source: RaceSenseSource): boolean {
+  const regatta = link.regattaId !== null && source.regattaId !== null
+    ? link.regattaId === source.regattaId
+    : link.regatta !== null && link.regatta === source.regatta;
+  return regatta && link.division === source.division;
+}
+
+/** The links on a race that this fleet's import from this source wrote. */
+function linksFrom(race: SeriesRace, source: RaceSenseSource, fleetId: string | null): RaceSenseLink[] {
+  return (race.raceSenseLinks ?? []).filter((l) => l.fleetId === fleetId && sameSource(l, source));
+}
+
+/** Whether another regatta or division has already put this fleet's results
+ *  in the race — the Elimination Series' race, seen from the Finals. */
+function claimedByAnother(race: SeriesRace, source: RaceSenseSource, fleetId: string | null): boolean {
+  return (race.raceSenseLinks ?? []).some((l) => l.fleetId === fleetId && !sameSource(l, source));
+}
+
+/**
+ * The fleet a regatta's division was imported as last time, or `undefined`
+ * when no race remembers it. A fleet named by the most links wins, which only
+ * matters if a scorer has moved a division from one fleet to another.
+ */
+export function rememberedFleet(
+  races: SeriesRace[],
+  source: RaceSenseSource,
+): string | null | undefined {
+  const counts = new Map<string | null, number>();
+  for (const race of races) {
+    for (const link of race.raceSenseLinks ?? []) {
+      if (sameSource(link, source)) counts.set(link.fleetId, (counts.get(link.fleetId) ?? 0) + 1);
+    }
+  }
+  let best: string | null | undefined;
+  let most = 0;
+  for (const [fleetId, n] of counts) {
+    if (n > most) { best = fleetId; most = n; }
+  }
+  return best;
+}
+
+/**
+ * Where each sheet lands, before anything is read from it.
+ *
+ * In order: the race the scorer pointed it at; the race an earlier import of
+ * this RaceSense race went to; the race it counts to. Counting is over the
+ * fleet's races less those another regatta has already claimed for the fleet,
+ * and it counts on from the last remembered race before the sheet, so a resail
+ * the scorer allowed for once stays allowed for. A count that lands on a race
+ * already holding a different race of this regatta finds nothing: matching it
+ * would put two RaceSense races in one.
+ */
+function matchSheets(
+  sheets: readonly RaceSenseRace[],
+  races: SeriesRace[],
+  source: RaceSenseSource,
+  fleetId: string | null,
+  offset: number,
+  overrides: Record<string, string>,
+): Map<string, { race: SeriesRace | null; matchedBy: RaceMatchedBy | null; heldBy?: number }> {
+  const byId = new Map(races.map((r) => [r.id, r]));
+  const counted = candidateRaces(races, fleetId).filter((r) => !claimedByAnother(r, source, fleetId));
+  /** RaceSense race number → the race it was imported into. */
+  const linked = new Map<number, SeriesRace>();
+  for (const race of races) {
+    for (const link of linksFrom(race, source, fleetId)) linked.set(link.raceNumber, race);
+  }
+
+  const out = new Map<string, { race: SeriesRace | null; matchedBy: RaceMatchedBy | null; heldBy?: number }>();
+  for (const sheet of sheets) {
+    const override = overrides[sheet.sheetName];
+    if (override) {
+      const race = byId.get(override) ?? null;
+      out.set(sheet.sheetName, { race, matchedBy: race ? 'override' : null });
+      continue;
+    }
+    const remembered = linked.get(sheet.number);
+    if (remembered) {
+      out.set(sheet.sheetName, { race: remembered, matchedBy: 'link' });
+      continue;
+    }
+    // Count on from the nearest remembered race before this one.
+    let anchor: { number: number; index: number } | null = null;
+    for (const [number, race] of linked) {
+      const index = counted.indexOf(race);
+      if (number < sheet.number && index >= 0 && (anchor === null || number > anchor.number)) {
+        anchor = { number, index };
+      }
+    }
+    const index = anchor
+      ? anchor.index + (sheet.number - anchor.number) + offset
+      : sheet.number - 1 + offset;
+    const race = counted[index] ?? null;
+    const held = race ? linksFrom(race, source, fleetId).find((l) => l.raceNumber !== sheet.number) : undefined;
+    out.set(sheet.sheetName, held
+      ? { race: null, matchedBy: null, heldBy: held.raceNumber }
+      : { race, matchedBy: race ? 'position' : null });
+  }
+  return out;
+}
+
+/**
+ * The links to write once a plan's races are imported, as the full new list
+ * for each race whose list changes.
+ *
+ * `linked` is every planned race the scorer confirmed: the ones imported, and
+ * the ones that read back `unchanged`, which confirm the match as surely as an
+ * import would. Each RaceSense race is recorded once per fleet, so a link it
+ * held on another race goes — the scorer pointed it somewhere new — and so
+ * does any link this race held for a different race of the same regatta.
+ */
+export function raceSenseLinksAfterImport(args: {
+  races: SeriesRace[];
+  linked: readonly PlannedRace[];
+  source: RaceSenseSource;
+  fleetId: string | null;
+}): Map<string, RaceSenseLink[]> {
+  const { source, fleetId } = args;
+  const lists = new Map(args.races.map((r) => [r.id, [...(r.raceSenseLinks ?? [])]]));
+  const changed = new Set<string>();
+  const ours = (l: RaceSenseLink) => l.fleetId === fleetId && sameSource(l, source);
+
+  for (const planned of args.linked) {
+    if (!planned.race || !lists.has(planned.race.id)) continue;
+    const link: RaceSenseLink = { ...source, raceNumber: planned.raceNumber, fleetId };
+    for (const [raceId, list] of lists) {
+      const kept = list.filter((l) =>
+        !(ours(l) && (l.raceNumber === planned.raceNumber || raceId === planned.race!.id)));
+      if (kept.length !== list.length) {
+        lists.set(raceId, kept);
+        changed.add(raceId);
+      }
+    }
+    lists.get(planned.race.id)!.push(link);
+    changed.add(planned.race.id);
+  }
+
+  // Compared field by field rather than as JSON: a link read back from
+  // storage needn't keep its keys in the order this one was built in.
+  const spell = (links: readonly RaceSenseLink[]) =>
+    links.map((l) => [l.regattaId, l.regatta, l.division, l.raceNumber, l.fleetId].join('\u0000')).join('\n');
+  const before = new Map(args.races.map((r) => [r.id, spell(r.raceSenseLinks ?? [])]));
+  return new Map(
+    [...changed]
+      .map((id) => [id, lists.get(id)!] as const)
+      .filter(([id, list]) => spell(list) !== before.get(id)),
+  );
+}
+
 /** The competitors eligible to appear on a race's sheet, each under the
  *  sail number she carries in it: where boats are drawn per fleet, that is
  *  the boat — which is what the device fixed to it reports. */
@@ -579,8 +755,9 @@ const WORKBOOK_KINDS = new Set([
 export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
   const { workbook, fleetId, competitors, finishes, offset = 0, overrides = {} } = input;
 
-  const candidates = candidateRaces(input.races, fleetId);
-  const byId = new Map(input.races.map((r) => [r.id, r]));
+  const matches = matchSheets(
+    workbook.races, input.races, raceSenseSourceOf(workbook), fleetId, offset, overrides,
+  );
   const finishesByRace = new Map<string, Finish[]>();
   for (const f of finishes) {
     finishesByRace.set(f.raceId, [...(finishesByRace.get(f.raceId) ?? []), f]);
@@ -597,24 +774,24 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
 
   const races: PlannedRace[] = workbook.races.map((source) => {
     const notes = [...(anomaliesBySheet.get(source.sheetName) ?? [])];
-    const override = overrides[source.sheetName];
-    const race = override
-      ? byId.get(override) ?? null
-      : candidates[source.number - 1 + offset] ?? null;
+    const { race, matchedBy, heldBy } = matches.get(source.sheetName)!;
 
     if (!race) {
       notes.push({
         severity: 'warning',
         kind: 'no-race',
         sheet: source.sheetName,
-        message: override
+        message: overrides[source.sheetName]
           ? 'The race this sheet was pointed at is no longer in the series.'
-          : 'This series has no race for that sheet yet. Create it first, or point the sheet at an existing race.',
+          : heldBy !== undefined
+            ? `The race this sheet counts to already holds RaceSense race ${heldBy}. Point the sheet at a race by hand.`
+            : 'This series has no race for that sheet yet. Create it first, or point the sheet at an existing race.',
       });
       return {
         sheetName: source.sheetName,
         raceNumber: source.number,
         race: null,
+        matchedBy: null,
         state: 'unmatched',
         recommended: false,
         result: null,
@@ -686,6 +863,7 @@ export function planRaceSenseImport(input: RaceSensePlanInput): RaceSensePlan {
       sheetName: source.sheetName,
       raceNumber: source.number,
       race,
+      matchedBy,
       state,
       recommended: state === 'new'
         && notes.every((n) => !blocksRecommendation(n))
