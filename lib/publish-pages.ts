@@ -135,6 +135,12 @@ export interface PublishPagesInput {
    *  at least one round. Its round fleets are internal, so it publishes the
    *  championship pages instead of per-fleet pages. */
   splitFleets?: boolean;
+  /** Whether the series has no races yet. Only a championship heeds it: its
+   *  standings are tiered by a split that has not happened, so before race one
+   *  it publishes its fleet assignments — how a boat learns which fleet it
+   *  sails in — and nothing scored. A fleet page publishes a placeholder
+   *  instead, so the per-fleet set is the same either way. */
+  beforeFirstRace?: boolean;
   /** The workspace features that add a page. Both default off: a series
    *  carrying prizes into a workspace without the feature publishes none. */
   features?: { prizes?: boolean; entryList?: boolean };
@@ -167,6 +173,12 @@ export function resolvePublishPages(input: PublishPagesInput): PublishPage[] {
     ? [{ key: 'entries', name: ENTRIES_PAGE, kind: 'entries', isDefault: false }]
     : [];
 
+  if (input.splitFleets && input.beforeFirstRace) {
+    return [
+      { key: 'assignments', name: FLEET_ASSIGNMENTS_PAGE, kind: 'assignments', isDefault: false },
+      ...entriesPage,
+    ];
+  }
   if (input.splitFleets) {
     return [
       { key: 'championship', name: CHAMPIONSHIP_PAGE, kind: 'championship', isDefault: true },

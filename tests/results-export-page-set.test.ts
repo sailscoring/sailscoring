@@ -273,6 +273,29 @@ describe('where the manifest is knowingly approximate', () => {
     expect(build!.files.map((f) => f.fleetName)).toEqual(declaredPageNames(shape));
   });
 
+  it('agrees with the manifest for a championship before the first race', async () => {
+    const shape = SHAPES['a championship'];
+    const repos = {
+      ...makeRepos(shape),
+      raceRepo: { listBySeries: async () => [] },
+      finishRepo: { listBySeries: async () => [] },
+      raceStartRepo: { listBySeries: async () => [] },
+    } as unknown as ExportRepos;
+    const build = await buildFleetHtmlFiles(repos, 's1', undefined, {
+      includePrizes: true,
+      includeEntryList: true,
+    });
+    const declared = resolvePublishPages({
+      series: shape.series,
+      fleets: shape.fleets,
+      splitFleets: true,
+      beforeFirstRace: true,
+      features: { prizes: true, entryList: true },
+    }).map((p) => p.name);
+    expect(declared).toEqual(['Fleet assignments', 'Entries']);
+    expect(build!.files.map((f) => f.fleetName)).toEqual(declared);
+  });
+
   it('grows an Unknown page for competitors in no fleet, which the manifest cannot see', async () => {
     const shape: Shape = {
       series: makeSeries(),

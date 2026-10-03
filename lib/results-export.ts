@@ -666,6 +666,12 @@ export async function buildFleetHtmlFiles(
   // per-fleet path below.
   const splitFleets = await repos.splitFleets?.get(seriesId);
   const isChampionship = !!splitFleets && splitFleets.rounds.length > 0;
+  // Before race one a fleet page publishes as a placeholder — its entrants,
+  // unranked — so the results link can go live with the event rather than
+  // after the first race. A championship has no such page: its standings are
+  // tiered by a split that has not happened, so it publishes its fleet
+  // assignments and the entry list, and nothing scored.
+  const noRacesSailed = snapshot.races.length === 0;
   // What this series publishes, from the one function that answers that —
   // the same list the publish dialog renders its rows from, for either
   // destination. Which of these actually render is decided below: a page
@@ -674,19 +680,10 @@ export async function buildFleetHtmlFiles(
     series: snapshot.series,
     fleets: snapshot.fleets,
     splitFleets: isChampionship,
+    beforeFirstRace: noRacesSailed,
     features: { prizes: !!opts?.includePrizes, entryList: !!opts?.includeEntryList },
   });
   const publishes = (kind: PublishPageKind): boolean => pages.some((p) => p.kind === kind);
-  // Before race one a fleet page publishes as a placeholder — its entrants,
-  // unranked — so the results link can go live with the event rather than
-  // after the first race. A championship has no such page: its standings are
-  // tiered by a split that has not happened, so it keeps to the entry list.
-  const noRacesSailed = snapshot.races.length === 0;
-  if (noRacesSailed && isChampionship) {
-    return publishes('entries')
-      ? { files: [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)] }
-      : null;
-  }
   // Empty venue/event logo slots inherit the workspace defaults, so the
   // rendered header and the embedded JSON both carry them. Ahead of the
   // split-fleet branch: a championship's pages take the same header as
@@ -767,6 +764,24 @@ export async function buildFleetHtmlFiles(
     // standings, and that sentence has no business on the standings.
     const splitNote = (fleetName: string, isDefault = false) =>
       noteChrome(snapshot.series, { fleetName, isDefault }, opts?.includePageNotes);
+    const assignmentsFile = {
+      fleetName: FLEET_ASSIGNMENTS_PAGE,
+      isDefault: false,
+      isAuxiliary: true,
+      html: renderSplitFleetAssignmentsPage(input, {
+        ...splitPageChrome,
+        ...splitNote(FLEET_ASSIGNMENTS_PAGE),
+      }),
+    };
+    // The entry list rides along here too. This branch returns early, so
+    // the append at the end of the per-fleet path below never runs for a
+    // championship — and a championship is the regime most likely to want
+    // its entry list published.
+    const entryListFiles = publishes('entries')
+      ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)]
+      : [];
+    // Nothing scored yet, so no export either: just who sails in which fleet.
+    if (noRacesSailed) return { files: [assignmentsFile, ...entryListFiles] };
     // Null while no stage race has sheet rows — the championship page then
     // has nothing to link to either.
     const raceResultsHtml = renderSplitFleetRaceResultsPage(input, {
@@ -796,15 +811,7 @@ export async function buildFleetHtmlFiles(
             },
           ]
         : []),
-      {
-        fleetName: FLEET_ASSIGNMENTS_PAGE,
-        isDefault: false,
-        isAuxiliary: true,
-        html: renderSplitFleetAssignmentsPage(input, {
-          ...splitPageChrome,
-          ...splitNote(FLEET_ASSIGNMENTS_PAGE),
-        }),
-      },
+      assignmentsFile,
       {
         fleetName: SCORING_NOTES_PAGE,
         isDefault: false,
@@ -814,13 +821,7 @@ export async function buildFleetHtmlFiles(
           ...splitNote(SCORING_NOTES_PAGE),
         }),
       },
-      // The entry list rides along here too. This branch returns early, so
-      // the append at the end of the per-fleet path below never runs for a
-      // championship — and a championship is the regime most likely to want
-      // its entry list published.
-      ...(publishes('entries')
-        ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)]
-        : []),
+      ...entryListFiles,
     ], ...(splitExportJson ? { exportJson: splitExportJson } : {}) };
   }
   const {

@@ -94,6 +94,13 @@ function makeRepos(races: Race[], finishes: Finish[]): ExportRepos {
  *  `split-fleets-render`'s business, not this test's. */
 const SPLIT_CONFIG = defaultSplitFleetConfig(2);
 
+/** A first round dealing the two fleets, as committed before race one. */
+const FIRST_ROUND = {
+  id: 'r1', seriesId: 's1', stage: 'qualifying', roundNumber: 1,
+  fromStageRace: 1, fleetIds: ['f-red', 'f-blue'], method: 'manual',
+  basis: null, overrides: {}, createdAt: 0,
+};
+
 describe('buildFleetHtmlFiles — the competitor list', () => {
   it('publishes the entry list for a series with no races yet', async () => {
     const files = await buildFleetFiles(makeRepos([], []), 's1', undefined, {
@@ -186,23 +193,29 @@ describe('buildFleetHtmlFiles — the competitor list', () => {
     expect(html).toContain('<style id="starters-page" media="not all"');
   });
 
-  it('publishes the entry list for a split-fleet series with no races', async () => {
-    // A split-fleet series has no Standings tab, so the Split Fleets page is
-    // the only place publishing is reachable — and before race one the entry
-    // list is the only page there is. The no-races path runs ahead of the
-    // split-fleet branch, which needs races to produce anything.
+  it('publishes the fleet assignments and the entry list for a split-fleet series with no races', async () => {
+    // Before race one a championship's standings are tiered by a split that
+    // has not happened, so nothing scored goes out — but the first round's
+    // assignments do: they are how a boat learns which fleet it sails in.
     const repos = {
       ...makeRepos([], []),
-      splitFleets: {
-        get: async () => ({
-          config: { qualifying: {}, finalFleets: [] },
-          rounds: [{ id: 'r1', roundNumber: 1, fleetIds: [] }],
-        }),
-      },
+      splitFleets: { get: async () => ({ config: SPLIT_CONFIG, rounds: [FIRST_ROUND] }) },
     } as unknown as ExportRepos;
     const files = await buildFleetFiles(repos, 's1', undefined, { includeEntryList: true });
-    expect(files!.map((f) => f.fleetName)).toEqual(['Entries']);
-    expect(files![0].html).toContain('Competitor List');
+    expect(files!.map((f) => f.fleetName)).toEqual(['Fleet assignments', 'Entries']);
+    expect(files![0].isAuxiliary).toBe(true);
+    expect(files![0].html).toContain('Red (1)');
+    expect(files![0].html).toContain('Helm 201');
+    expect(files![1].html).toContain('Competitor List');
+  });
+
+  it('publishes the fleet assignments alone before race one when the entry list is not asked for', async () => {
+    const repos = {
+      ...makeRepos([], []),
+      splitFleets: { get: async () => ({ config: SPLIT_CONFIG, rounds: [FIRST_ROUND] }) },
+    } as unknown as ExportRepos;
+    const files = await buildFleetFiles(repos, 's1');
+    expect(files!.map((f) => f.fleetName)).toEqual(['Fleet assignments']);
   });
 
   it('appends the entry list to a split-fleet series that has raced', async () => {
