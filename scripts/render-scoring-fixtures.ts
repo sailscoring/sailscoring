@@ -861,12 +861,12 @@ ${resolvedRounds.map((r) => {
           }</span>`
         : '';
       return `<tr>
-  <td>${row.rank}</td>
+  <td>${row.unranked ? '' : row.rank}</td>
   <td class="mono">${esc(row.competitor.sailNumber)}</td>
   <td>${esc(name)}${medalBadge}</td>
   ${columns.map((c) => cellHtml(row, c)).join('\n  ')}
-  <td style="text-align:right">${row.total}</td>
-  <td style="text-align:right;font-weight:bold">${row.net}</td>
+  <td style="text-align:right">${row.unranked ? '' : row.total}</td>
+  <td style="text-align:right;font-weight:bold">${row.unranked ? '' : row.net}</td>
 </tr>`;
     }).join('\n');
     return `<h2>${esc(title)}</h2>

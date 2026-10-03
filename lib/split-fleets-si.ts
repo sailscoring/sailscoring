@@ -373,7 +373,9 @@ export function describeSplitFleetConfig(
   } else if (medal.carry === 'nothing') {
     push(
       'medal-carry',
-      `No score will be carried into the ${m}: a qualified boat's score will be the total of her scores in it alone. ${noMedalRace}.`,
+      // No fallback to the earlier score: it only chose who sails the stage
+      // (the Champions' Cups' SI 17.1).
+      `No score will be carried into the ${m}: a qualified boat's score will be the total of her scores in it alone. One ${vocab.stages.medal.raceNoun} is required to be completed to constitute a series.`,
     );
   }
   if (medal.tieBreak === 'last-race') {

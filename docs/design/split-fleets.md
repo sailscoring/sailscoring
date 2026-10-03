@@ -731,7 +731,11 @@ standings:
   discards, that supersedes her earlier race cells from the moment her
   fleet completes a race of the stage — so a stage that is never sailed
   leaves the undivided score as the result — and the stage's races are then
-  never excluded and do not count towards the discards. The 2026 ILCA
+  never excluded and do not count towards the discards. The exception is a
+  medal stage that carries nothing: the earlier scores were only ever a
+  selection (Champions' Cup SI 17.1–17.3), so they leave the medal boats'
+  rows at the cut, and the medal boats are listed unranked until a medal
+  race is sailed. The 2026 ILCA
   Worlds halve into their Final series (our medal stage); the 2026 Melges
   15 Sprint Championships halve into Gold and Silver (the final stage,
   fixture 30). Nothing is the Champions' Cups' final series; rank is the

@@ -220,7 +220,11 @@ export function SplitFleetsSection() {
         <strong className="text-foreground">nothing</strong>, the stage scored on its own races
         alone; or her <strong className="text-foreground">rank</strong> at the cut. Anything but
         the net score replaces her earlier races with the one carried score, once her fleet has
-        sailed a race of the stage, and from then on none of the stage’s races is excluded. The{' '}
+        sailed a race of the stage, and from then on none of the stage’s races is excluded.
+        Where nothing is carried into the {w.title('medal')}, the earlier races stop counting as
+        soon as the {m.fleetNoun} is selected: its boats are listed unranked until the first{' '}
+        {m.raceNoun} is sailed, and every boat’s earlier scores stay in the ranking she was cut
+        from. The{' '}
         {f.name} card also says how a tie within a fleet is broken: by rule A8, or on the last
         race alone. Where the sailing instructions instead score particular races double, or say
         they may not be excluded, set that on each race through its{' '}

@@ -566,6 +566,10 @@ export interface PublicSeriesExport {
       totalPoints: number;
       /** The same, less the races marked `raceDiscards`. */
       netPoints: number;
+      /** A championship's medal boat who holds no score yet: nothing is
+       *  carried into the medal races and none has been sailed. `rank` is
+       *  then only her place in the list, the order she qualified in. */
+      unranked?: true;
     }[];
   }[];
   /** Sub-series scoping metadata. Membership stays on `races[*].subSeries`
@@ -974,6 +978,7 @@ function championshipStandingRows(
         : {}),
       totalPoints: row.total,
       netPoints: row.net,
+      ...(row.unranked ? { unranked: true as const } : {}),
     };
   });
 }

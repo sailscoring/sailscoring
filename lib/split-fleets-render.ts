@@ -443,6 +443,10 @@ export function renderSplitFleetStandingsPage(
     const sailed = new Map<string, { competitorId: string; points: number }[]>();
     for (const row of [...(standsAlone ? [...rows.filter((r) => r.medal), ...cutRows] : rows), ...repTables.flatMap((t) => t.rows)]) {
       for (const c of row.cells) {
+        // Where nothing is carried, a medal boat's earlier races are her row
+        // in the ranking she was cut from; counted here as well, she would
+        // take a podium place from the boat behind her.
+        if (standsAlone && row.medal && c.stage !== 'medal') continue;
         if (c.code !== null || c.carriedTransform) continue;
         let list = sailed.get(raceKey(c));
         if (!list) sailed.set(raceKey(c), (list = []));
@@ -589,7 +593,7 @@ export function renderSplitFleetStandingsPage(
               : undefined,
           ) + promotedBadge(row);
         const tr = `<tr class="${i % 2 === 0 ? 'odd' : 'even'} summaryrow">
-  <td>${row.rank}</td>
+  <td>${row.unranked ? '' : row.rank}</td>
   ${fleetCol ? `<td style="white-space:nowrap">${esc((fleetId && fleetName.get(fleetId)) || '')}</td>` : ''}
   ${nat ? natCell(row.competitor.nationality, input.flagSvgByCode) : ''}
   ${ownNumber ? `<td style="font-family:monospace">${esc(row.competitor.sailNumber)}</td>` : ''}
@@ -598,8 +602,8 @@ export function renderSplitFleetStandingsPage(
   ${club ? `<td>${renderListCell(row.competitor.clubs)}</td>` : ''}
   ${wsid ? wsidCell(row.competitor.worldSailingId) : ''}
   ${columns.map((c) => cellHtml(row, c, marksMixed && mixedColumns.includes(c))).join('\n  ')}
-  <td style="text-align:right">${row.total}</td>
-  <td style="text-align:right;font-weight:bold">${row.net}</td>
+  <td style="text-align:right">${row.unranked ? '' : row.total}</td>
+  <td style="text-align:right;font-weight:bold">${row.unranked ? '' : row.net}</td>
 </tr>`;
         // A shared rank across the line means the ranking does not place the
         // cut — say so rather than letting the line silently resolve the tie.

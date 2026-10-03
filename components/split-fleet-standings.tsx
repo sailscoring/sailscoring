@@ -401,9 +401,11 @@ export function SplitFleetStandings({
                 {renderRows(medalRows, false, undefined, cols)}
               </StandingsTable>
               <p className="mt-1 text-xs text-muted-foreground">
-                {standsAlone
-                  ? `These boats are ranked ahead of every other boat in the event, on the ${splitFleetWords(data.config).medal.name} alone: nothing is carried into them.`
-                  : 'These boats are ranked ahead of every other boat in the event.'}
+                {medalRows.some((r) => r.unranked)
+                  ? `These boats are ranked ahead of every other boat in the event, on the ${splitFleetWords(data.config).medal.name} alone: nothing is carried into them, so they are ranked once the first ${splitFleetWords(data.config).medal.raceNoun} is sailed.`
+                  : standsAlone
+                    ? `These boats are ranked ahead of every other boat in the event, on the ${splitFleetWords(data.config).medal.name} alone: nothing is carried into them.`
+                    : 'These boats are ranked ahead of every other boat in the event.'}
               </p>
             </div>
           );
@@ -628,7 +630,7 @@ function FragmentRow({
   return (
     <>
       <tr className="border-t">
-        <td className="py-1 pr-2">{row.rank}</td>
+        <td className="py-1 pr-2">{row.unranked ? '' : row.rank}</td>
         {currentFleet !== undefined && (
           <td className="py-1 pr-2 whitespace-nowrap">
             {currentFleet && <FleetDot color={currentFleet.color} />}
@@ -731,8 +733,8 @@ function FragmentRow({
             </td>
           );
         })}
-        <td className="px-1.5 py-1 text-right">{row.total}</td>
-        <td className="px-1.5 py-1 text-right font-semibold">{row.net}</td>
+        <td className="px-1.5 py-1 text-right">{row.unranked ? '' : row.total}</td>
+        <td className="px-1.5 py-1 text-right font-semibold">{row.unranked ? '' : row.net}</td>
       </tr>
       {cutAfter && (
         <tr aria-hidden>

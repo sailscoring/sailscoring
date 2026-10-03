@@ -1240,3 +1240,31 @@ describe('the Scoring notes page', () => {
     expect(html).toMatch(/<title>[^<]*Championship<\/title>/);
   });
 });
+
+describe('a medal fleet that carries nothing, before its first race', () => {
+  it('lists the boats who went through unranked, and every boat in the flights they came from', () => {
+    const html = renderSplitFleetStandingsPage(renderInputFor('36-flights-sail-unequal-races.yaml'));
+    const sections = html.split('<h2>');
+    const medal = sections.find((s) => s.startsWith('Medal fleet</h2>'))!;
+    expect(medal).toBeDefined();
+    // No earlier race column, and no rank or score: none is held yet.
+    const head = headerRow(medal);
+    expect(head).not.toContain('Q1');
+    expect(head.slice(-2)).toEqual(['Total', 'Nett']);
+    const rows = medal.match(/<tr class="(odd|even) summaryrow">[\s\S]*?<\/tr>/g) ?? [];
+    expect(rows).toHaveLength(4);
+    for (const row of rows) {
+      const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => m[1]);
+      expect(cells[0]).toBe('');
+      expect(cells.slice(-2)).toEqual(['', '']);
+    }
+    // In the order they qualified: each flight's first, then each second.
+    const order = rows.map((r) => r.match(/>(a\d|b\d)</)?.[1]);
+    expect(order).toEqual(['a1', 'b2', 'a3', 'b1']);
+    // The flights they came from list every boat, the medal boats too.
+    const rest = html.slice(html.indexOf(medal) + medal.length);
+    for (const sail of ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6']) {
+      expect(rest).toContain(`>${sail}<`);
+    }
+  });
+});

@@ -19,8 +19,12 @@ notes: |
   to go on; the point is that flight A's second race counts. Flight A:
   a1 1+2, a3 3+1, a2 2+3, then a4 and a5 on 9 (a5 won the last race of
   the two), a6 6 + DNS 7 — her own flight of six plus one. Flight B on its
-  one race. The top two of each go through; the medal boats rank as one
-  list above both flights, and the rest keep their rank in their flight.
+  one race. The top two of each go through, and the rest keep their rank in
+  their flight. Nothing is carried into the Final Series, and none of it has
+  been sailed, so the four who went through hold no score yet: they are
+  listed above both flights in the order they qualified — each flight's
+  first, then each flight's second — but not ranked ("One Final Series race
+  is required to be completed to constitute a series", SI 17.1).
 
 config:
   qualifyingFleets: [A, B]
@@ -70,10 +74,10 @@ stages:
 
 expected:
   standings:
-    - { rank: 1, sail: b2, total: 1, net: 1, medal: true, inFleet: B }
-    - { rank: 2, sail: b1, total: 2, net: 2, medal: true, inFleet: B }
-    - { rank: 3, sail: a1, total: 3, net: 3, medal: true, inFleet: A }
-    - { rank: 4, sail: a3, total: 4, net: 4, medal: true, inFleet: A }
+    - { sail: a1, unranked: true, medal: true, inFleet: A }
+    - { sail: b2, unranked: true, medal: true, inFleet: B }
+    - { sail: a3, unranked: true, medal: true, inFleet: A }
+    - { sail: b1, unranked: true, medal: true, inFleet: B }
     - { rank: 3, sail: a2, total: 5, net: 5, medal: false, inFleet: A }
     - { rank: 4, sail: a5, total: 9, net: 9, medal: false, inFleet: A }
     - { rank: 5, sail: a4, total: 9, net: 9, medal: false, inFleet: A }

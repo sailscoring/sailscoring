@@ -64,7 +64,10 @@ results, and beyond that nothing that is not in the published HTML**:
   "Championship", holding every boat in championship order; the carried
   score that belongs to no race — a qualifying position carried into the
   final series, the medal boats' compressed opening score — travels beside
-  the per-race arrays as `carriedPoints`.
+  the per-race arrays as `carriedPoints`. Where nothing is carried into the
+  medal races and none has been sailed, the medal boats hold no score:
+  their rows are marked `unranked`, and their `rank` is only the order they
+  qualified in.
 - A race still waiting for the course its ORC option corrects over is not
   scored at all: it carries 0 points and `raceExcluded` for every boat, and
   `raceNotScored` alongside says that is why. A reader adding up the totals

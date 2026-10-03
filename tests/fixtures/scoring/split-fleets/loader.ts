@@ -103,10 +103,14 @@ export interface FixtureStage {
 }
 
 export interface FixtureExpectedRow {
-  rank: number;
+  /** Rank, total and net are left out of a row that is `unranked`. */
+  rank?: number;
   sail: string;
-  total: number;
-  net: number;
+  total?: number;
+  net?: number;
+  /** A medal boat who holds no score yet: nothing is carried into the medal
+   *  races and none has been sailed. Listed in the order she qualified. */
+  unranked?: boolean;
   fleet?: string; // final/medal fleet name
   medal?: boolean;
   /** Where each fleet is ranked on its own: the fleet she is ranked in. */

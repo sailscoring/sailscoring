@@ -115,4 +115,17 @@ test('each fleet ranked on its own, the top two of each through', async ({ page,
   await promote.getByRole('button', { name: 'Promote 2 competitors' }).click();
   await expect(promote).toBeHidden();
   await expect(repechage.getByTestId('sf-promoted')).toContainText('from the opening series ranking');
+
+  // ── Nothing carried and no medal race sailed: no score yet ───────────────
+  // The boats who went through are listed but not ranked, and each flight's
+  // table still lists every one of its boats — the ranking they were cut from.
+  await expect(
+    page.getByText(/nothing is carried into them, so they are ranked once the first medal race is sailed/),
+  ).toBeVisible();
+  const medalTable = page.getByRole('heading', { name: 'Medal fleet' }).locator('xpath=..').getByRole('table');
+  const leader = medalTable.getByRole('row').filter({ hasText: sails[0] });
+  await expect(leader.getByRole('cell').first()).toHaveText('');
+  const cut = page.getByTestId('sf-cut-standings');
+  await expect(cut.getByTestId('sf-fleet-standings')).toHaveCount(2);
+  await expect(cut.getByRole('cell', { name: sails[0], exact: true })).toBeVisible();
 });

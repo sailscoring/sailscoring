@@ -1090,6 +1090,10 @@ export interface SplitStandingRow {
   /** How a medal boat the scorer placed by hand got her seat, where it was
    *  not redress: from the repêchage, or from the ranking she was cut from. */
   promotedVia?: 'repechage' | 'cut-ranking';
+  /** A medal boat who holds no score yet: nothing is carried into the medal
+   *  races and none has been sailed. She is listed, in the order she
+   *  qualified, but not ranked — `rank` is only her place in that list. */
+  unranked?: boolean;
 }
 
 /** Score one physical race — one fleet's sailing of a stage race — over the
@@ -1555,6 +1559,16 @@ export function splitFleetStandings(
   // has completed a race of the stage, so a stage that is never sailed
   // leaves the undivided score as the result (2026 ILCA SI 18.7.5 from
   // Amendment 5).
+  //
+  // Carrying nothing is different: the earlier stage only chose who sails
+  // this one, and no score of it is a result once the choice is made
+  // (Champions' Cup SI 17.1–17.3: "One Final Series race is required to be
+  // completed to constitute a series … No scores will be carried forward").
+  // So into the medal stage it is superseded from the cut, and until a medal
+  // race is sailed the medal boats hold no score at all: the ranking they
+  // were cut from is listed on its own (`cutFromStandings`). A final stage
+  // entered on nothing keeps the waiting rule, since every boat of the event
+  // is in one of its fleets and there is no other table to list her in.
   const carryInto = (
     stage: SeriesStage,
     carry: CarryIn,
@@ -1570,7 +1584,9 @@ export function splitFleetStandings(
         (c) => c.counts && isChampionshipStage(c.stage) && before.includes(c.stage),
       );
       if (earlier.length === 0) continue;
-      const applies = row.cells.some((c) => c.stage === stage && c.raceId && c.counts);
+      const applies =
+        (carry === 'nothing' && stage === 'medal') ||
+        row.cells.some((c) => c.stage === stage && c.raceId && c.counts);
       const net = earlier.filter((c) => !c.discarded).reduce((sum, c) => sum + c.points, 0);
       const carried =
         carry === 'halved'
@@ -1673,8 +1689,27 @@ export function splitFleetStandings(
     if (!splitRound || !row.finalFleetId) return splitRound ? 999 : 0;
     return splitRound.fleetIds.indexOf(row.finalFleetId);
   };
+  // Medal boats with no score yet are listed in the order they qualified —
+  // each fleet's first, then each fleet's second, where each fleet is ranked
+  // on its own — which is no ranking of them, and is not shown as one.
+  const awaitingMedal =
+    !!medalRound &&
+    config.medal?.carry === 'nothing' &&
+    !rows.some((r) => r.medal && r.cells.some((c) => c.stage === 'medal' && c.counts));
+  let qualifiedOrder: Map<string, number> | null = null;
+  if (awaitingMedal) {
+    const cut = splitFleetStandings(input, { withoutMedalStage: true });
+    const fleetIndex = (r: SplitStandingRow) =>
+      rankingRound && r.rankedInFleetId ? rankingRound.fleetIds.indexOf(r.rankedInFleetId) : 0;
+    cut.sort((a, b) => a.rank - b.rank || fleetIndex(a) - fleetIndex(b));
+    qualifiedOrder = new Map(cut.map((r, i) => [r.competitor.id, i]));
+    for (const row of rows) if (row.medal) row.unranked = true;
+  }
   const byOverall = (a: SplitStandingRow, b: SplitStandingRow) =>
-    tierIndex(a) - tierIndex(b) || byNet(a, b);
+    tierIndex(a) - tierIndex(b) ||
+    (a.unranked && b.unranked
+      ? (qualifiedOrder!.get(a.competitor.id) ?? 0) - (qualifiedOrder!.get(b.competitor.id) ?? 0)
+      : byNet(a, b));
   rows.sort(byOverall);
   // A tie the tie-break steps cannot separate stays a tie: the boats share
   // the rank and the next boat skips past it. The comparator leads with the
@@ -1934,17 +1969,14 @@ export function repechageTableRows(data: SplitFleetData): { fleetId: string; row
 
 /**
  * Whether the medal fleet's earlier scores have left the championship table:
- * the medal races carry nothing in, and one of them has counted. From then on
- * the championship is the medal races alone, and every boat's earlier scores
- * — the medal boats' included — are listed in the ranking she was cut from
- * (`cutFromStandings`). Until a medal race counts, the earlier score is still
- * the result, and the tables stay as they were.
+ * the medal races carry nothing in, and the medal fleet has been selected.
+ * From then on the championship is the medal races alone — none of them yet,
+ * until the first is sailed — and every boat's earlier scores, the medal
+ * boats' included, are listed in the ranking she was cut from
+ * (`cutFromStandings`).
  */
 export function medalStageStandsAlone(data: SplitFleetData, rows: readonly SplitStandingRow[]): boolean {
-  return (
-    data.config.medal?.carry === 'nothing' &&
-    rows.some((r) => r.medal && r.cells.some((c) => c.stage === 'medal' && c.counts))
-  );
+  return data.config.medal?.carry === 'nothing' && rows.some((r) => r.medal);
 }
 
 /** A boat whose qualifying scores are not one per counting qualifying race. */

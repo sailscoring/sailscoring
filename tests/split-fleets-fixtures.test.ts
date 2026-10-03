@@ -46,9 +46,12 @@ function assertStandings(fx: SplitFleetFixture, file: string) {
     const row = bySail.get(exp.sail);
     expect(row, `${file}: expected sailor ${exp.sail} missing from standings`).toBeDefined();
     if (!row) continue;
-    expect(row.rank, `${file}: ${exp.sail} rank`).toBe(exp.rank);
-    expect(row.total, `${file}: ${exp.sail} total`).toBe(exp.total);
-    expect(row.net, `${file}: ${exp.sail} net`).toBe(exp.net);
+    expect(!!row.unranked, `${file}: ${exp.sail} unranked`).toBe(!!exp.unranked);
+    if (!exp.unranked) {
+      expect(row.rank, `${file}: ${exp.sail} rank`).toBe(exp.rank);
+      expect(row.total, `${file}: ${exp.sail} total`).toBe(exp.total);
+      expect(row.net, `${file}: ${exp.sail} net`).toBe(exp.net);
+    }
     if (exp.fleet !== undefined) {
       expect(
         row.finalFleetId ? fleetName.get(row.finalFleetId) : undefined,
@@ -93,8 +96,8 @@ function assertStandings(fx: SplitFleetFixture, file: string) {
   // Expected order is the actual order (over the covered sailors).
   // Where each fleet is ranked on its own, ranks restart in every fleet, so
   // the order is the one the fixture lists them in.
-  const listed = fx.expected.standings.some((e) => e.inFleet !== undefined);
-  const expectedOrder = (listed ? fx.expected.standings : [...fx.expected.standings].sort((a, b) => a.rank - b.rank))
+  const listed = fx.expected.standings.some((e) => e.inFleet !== undefined || e.unranked);
+  const expectedOrder = (listed ? fx.expected.standings : [...fx.expected.standings].sort((a, b) => a.rank! - b.rank!))
     .map((e) => String(e.sail));
   const actualOrder = rows.map((r) => r.competitor.sailNumber).filter((s) => expectedOrder.includes(s));
   expect(actualOrder, `${file}: standings order`).toEqual(expectedOrder);
