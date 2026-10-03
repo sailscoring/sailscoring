@@ -426,7 +426,7 @@ export default function RacesPage({
   const { data: raceStarts } = useRaceStartsBySeries(seriesId, {
     enabled: raceSenseEnabled,
   });
-  const applyRaceSenseImport = useRaceSenseImport({ seriesId, finishes: allFinishes });
+  const applyRaceSenseImport = useRaceSenseImport({ seriesId, races, finishes: allFinishes });
 
   // The races as the RaceSense planner sees them: each with the starts that
   // say which fleets sailed it.
@@ -443,6 +443,7 @@ export default function RacesPage({
       name: r.name,
       raceNumber: r.raceNumber,
       starts: startsByRace.get(r.id) ?? [],
+      raceSenseLinks: r.raceSenseLinks,
     }));
   }, [races, raceStarts]);
 

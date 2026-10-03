@@ -22,6 +22,9 @@ import type { Candidate } from '@/lib/finish-sheet-csv';
 import {
   describeStartLine,
   planRaceSenseImport,
+  raceSenseLinksAfterImport,
+  raceSenseSourceOf,
+  rememberedFleet,
   type PlannedRace,
   type RaceMatchState,
   type SeriesRace,
@@ -37,7 +40,7 @@ import {
   parseRaceSenseWorkbook,
   type RaceSenseWorkbook,
 } from '@/lib/racesense-workbook';
-import type { Finish, Fleet } from '@/lib/types';
+import type { Finish, Fleet, RaceSenseLink } from '@/lib/types';
 
 const ACCEPT =
   '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -144,7 +147,9 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
   fleets: Fleet[];
   competitors: Candidate[];
   finishes: Finish[] | undefined;
-  onConfirm: (races: PlannedRace[]) => Promise<void> | void;
+  /** `links` is the new RaceSense link list for each race whose list
+   *  changes, imported or not. */
+  onConfirm: (races: PlannedRace[], links: Map<string, RaceSenseLink[]>) => Promise<void> | void;
   trigger?: React.ReactNode;
 }>(function RaceSenseImport(
   { seriesId, races, fleets, competitors, finishes, onConfirm, trigger },
@@ -184,6 +189,16 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
     setExpanded(null);
   }
 
+  /** Choose the fleet this regatta's division went to last time, when a race
+   *  remembers it and the fleet is still in the series. Otherwise the choice
+   *  stands as it was. */
+  function selectRememberedFleet(workbook: RaceSenseWorkbook) {
+    const remembered = rememberedFleet(races, raceSenseSourceOf(workbook));
+    if (remembered === undefined) return;
+    if (remembered === null) setFleetId(EVERY_RACE);
+    else if (fleets.some((f) => f.id === remembered)) setFleetId(remembered);
+  }
+
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -198,6 +213,7 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
       setFlow({ step: 'fileError', message: NOT_RACESENSE });
       return;
     }
+    selectRememberedFleet(workbook);
     setFlow({ step: 'plan', workbook, source: { kind: 'file' } });
   }
 
@@ -232,12 +248,10 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
    *  change of division re-derives the workbook, so the ticks go with it. */
   function openPlayerPlan(source: PlayerSource) {
     const division = pickDivision(source.regatta, source.division) ?? source.regatta.divisions[0];
+    const workbook = regattaToWorkbook(source.regatta, division);
     rematch(() => {
-      setFlow({
-        step: 'plan',
-        workbook: regattaToWorkbook(source.regatta, division),
-        source: { ...source, division: division.name },
-      });
+      selectRememberedFleet(workbook);
+      setFlow({ step: 'plan', workbook, source: { ...source, division: division.name } });
       setOverrides({});
     });
   }
@@ -274,10 +288,24 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
   const isTicked = (race: PlannedRace) =>
     ticked ? ticked.has(race.sheetName) : race.recommended;
 
+  /** What the races will remember of this import: every race imported, and
+   *  every race that read back unchanged — a match the committee's device
+   *  has just confirmed. */
+  const links = useMemo(() => {
+    if (!plan || flow.step !== 'plan') return new Map<string, RaceSenseLink[]>();
+    const chosen = new Set(selected.map((r) => r.sheetName));
+    return raceSenseLinksAfterImport({
+      races,
+      linked: plan.races.filter((r) => chosen.has(r.sheetName) || (r.race && r.state === 'unchanged')),
+      source: raceSenseSourceOf(flow.workbook),
+      fleetId: fleetId === EVERY_RACE ? null : fleetId,
+    });
+  }, [plan, flow, selected, races, fleetId]);
+
   async function confirm() {
     setImporting(true);
     try {
-      await onConfirm(selected);
+      await onConfirm(selected, links);
       reset();
     } finally {
       setImporting(false);
@@ -420,9 +448,11 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
               />
             </label>
             <p className="text-xs text-muted-foreground max-w-md">
-              RaceSense’s race 1 is the first race on this list. If a race was abandoned
-              and resailed, the two numberings part company — shift them back into line,
-              or point a single sheet at a race yourself.
+              A race imported before goes back where it went last time. Otherwise
+              RaceSense’s race 1 is the first race on this list that another RaceSense
+              regatta hasn’t already filled. If a race was abandoned and resailed, the
+              two numberings part company — shift them back into line, or point a
+              single sheet at a race yourself. Either is remembered for next time.
             </p>
           </div>
 
@@ -488,6 +518,11 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
                               </option>
                             ))}
                           </select>
+                          {race.matchedBy === 'link' && (
+                            <p className="text-xs text-muted-foreground mt-0.5" data-testid="racesense-remembered">
+                              where it went last time
+                            </p>
+                          )}
                         </td>
                         <td className="p-2">
                           <Badge variant={STATE_VARIANT[race.state]}>
@@ -569,12 +604,14 @@ export const RaceSenseImport = forwardRef<RaceSenseImportHandle, {
             <Button variant="outline" onClick={reset}>Cancel</Button>
             <Button
               onClick={confirm}
-              disabled={selected.length === 0 || importing}
+              disabled={(selected.length === 0 && links.size === 0) || importing}
               data-testid="racesense-confirm"
             >
               {importing
                 ? 'Importing…'
-                : `Import ${selected.length} race${selected.length === 1 ? '' : 's'}`}
+                : selected.length === 0
+                  ? 'Remember these races'
+                  : `Import ${selected.length} race${selected.length === 1 ? '' : 's'}`}
             </Button>
           </DialogFooter>
         </DialogContent>

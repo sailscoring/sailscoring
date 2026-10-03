@@ -149,12 +149,14 @@ test('a sheet that would overwrite a different race comes unticked, with the cha
   await page.getByTestId('racesense-confirm').click();
   await expect(page.getByTestId('racesense-plan')).toBeHidden();
 
-  // Upload again, but shifted by one — as a resail that renumbered the export
-  // would leave things. Sheet "Race 1" now points at the race holding sheet
-  // "Race 2"'s results.
+  // Upload again, and point sheet "Race 1" at the race holding sheet
+  // "Race 2"'s results — as a scorer correcting a resail would. The shift
+  // moves only the sheet that hasn't been imported yet: the others go back
+  // where they went last time.
   await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
   await expect(page.getByTestId('racesense-plan')).toBeVisible();
   await page.getByTestId('racesense-offset').fill('1');
+  await page.getByLabel('Race for Race 1').selectOption({ label: 'Race 2' });
 
   const shifted = page.getByTestId('racesense-row-1');
   await expect(shifted).toContainText('Differs');
@@ -269,4 +271,34 @@ test('the scorer can see what the device recorded, without publishing it', async
   const publishing = page.getByTestId('publishing-card');
   await publishing.getByRole('button', { name: 'Edit ▸' }).click();
   await expect(page.getByTestId('track-data-coverage')).toHaveText('2 races carry track data.');
+});
+
+test('the import remembers where each race went, and counts on from there', async ({ page }) => {
+  // Four races, and an export whose race 1 is the series' race 2: the first
+  // race of the series was sailed before the device was on the boats.
+  await seriesForTheFixture(page, 'RaceSense Remembered');
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await expect(page.getByText('Race 4', { exact: true })).toBeVisible();
+
+  await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
+  const plan = page.getByTestId('racesense-plan');
+  await expect(plan).toBeVisible();
+  await page.getByTestId('racesense-offset').fill('1');
+  await expect(page.getByLabel('Race for Race 1').locator('option:checked')).toHaveText('Race 2');
+  await expect(page.getByTestId('racesense-confirm')).toHaveText('Import 2 races');
+  await page.getByTestId('racesense-confirm').click();
+  await expect(plan).toBeHidden();
+
+  // The next upload needs no shift: the imported sheets go back where they
+  // went, and the one not yet imported counts on from the last of them.
+  await page.reload();
+  await page.getByTestId('racesense-input').setInputFiles(FIXTURE);
+  await expect(plan).toBeVisible();
+  await expect(page.getByTestId('racesense-offset')).toHaveValue('0');
+  for (const [sheet, race] of [['Race 1', 'Race 2'], ['Race 2', 'Race 3'], ['Race 3', 'Race 4']]) {
+    await expect(page.getByLabel(`Race for ${sheet}`).locator('option:checked')).toHaveText(race);
+  }
+  await expect(page.getByTestId('racesense-row-1')).toContainText('Unchanged');
+  await expect(page.getByTestId('racesense-row-1')).toContainText('where it went last time');
+  await expect(page.getByTestId('racesense-row-3')).not.toContainText('where it went last time');
 });

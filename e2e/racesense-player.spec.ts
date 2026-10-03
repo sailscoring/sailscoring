@@ -182,9 +182,12 @@ test('read a regatta from the player, race by race, and read it again', async ({
   await expect(page.getByTestId('racesense-confirm')).toBeDisabled();
 
   // ── 5. Another division of the same read, without reading again ──────────
+  // Its race 1 counts past the races Fleet A's import filled, rather than
+  // landing on Fleet A's finishes.
   await page.getByTestId('racesense-division').selectOption('Fleet B');
   await expect(plan).toContainText('Fleet B');
-  await expect(page.getByTestId('racesense-row-1')).toContainText('Differs');
+  await expect(page.getByLabel('Race for Race 1').locator('option:checked')).toHaveText('Race 3');
+  await expect(page.getByTestId('racesense-row-1')).toContainText('New');
   await expect(page.getByTestId('racesense-row-1')).toContainText('2 unresolved');
   await expect(page.getByTestId('racesense-row-2')).toHaveCount(0);
 
