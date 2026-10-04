@@ -172,9 +172,9 @@ export default function ScoringCorrectness() {
         </p>
         <p>
           Use the <strong className="text-foreground">Start check-in</strong> tab on each
-          race entry screen to record which boats came to the start. If check-in is not
-          done, the app counts all non-DNC finish records as a proxy for starting-area
-          attendance.
+          race entry screen to record which boats came to the start. Boats that finished
+          or have any code but DNC count as having come to the start too, unless they are
+          unticked there — so if check-in is not done, the finish records alone decide it.
         </p>
       </Section>
     </>

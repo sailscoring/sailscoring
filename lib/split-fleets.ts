@@ -6,7 +6,7 @@
 
 import type { Competitor, DnfScoring, Finish, Fleet, Race, RaceStart } from './types';
 import { compareSailNumbersIgnoringPrefix } from './sail-number-sort';
-import { applyAdditivePenalty, resolveEntrants } from './scoring';
+import { applyAdditivePenalty, resolveEntrants, startingAreaCount } from './scoring';
 import { weightedRacePoints } from './race-scoring-options';
 
 /**
@@ -1152,12 +1152,9 @@ function scorePhysicalRace(
   // that came to the starting area scores the boats of this race that came
   // to it, plus one; a boat that did not scores the boats entered, plus one
   // (the DBSC variant scores her from the starting area too). The starting
-  // area is read as the ordinary engine reads it: the check-in where the
-  // sheet records one, else every boat on the sheet but a DNC.
+  // area is read as the ordinary engine reads it.
   const a53 = rule.dnfScoring !== undefined && rule.dnfScoring !== 'seriesEntries';
-  const cameToStart = rows.some((f) => f.startPresent === true)
-    ? rows.filter((f) => f.startPresent === true).length
-    : rows.filter((f) => f.resultCode !== 'DNC').length;
+  const cameToStart = startingAreaCount(rows);
   const starterBase = a53 ? cameToStart + 1 : codeBase;
   const dncBase = !a53 ? codeBase : rule.dnfScoring === 'startingAreaInclDnc' ? starterBase : rule.entries + 1;
   // This race's score for a boat that did not sail the course: the weighting

@@ -223,10 +223,10 @@ describe('non-finishers under the series rule', () => {
     finishes.push({ ...finishes.find((f) => f.competitorId === 'a1')!, id: 'A1-a4', competitorId: 'a4', sortOrder: null, startPresent: true });
     const rows = splitFleetStandings({ ...data, finishes, dnfScoring: 'startingArea' });
     const cell = (id: string) => rows.find((r) => r.competitor.id === id)!.cells[0];
-    // Three checked in (a1, a2, a4): 3 + 1. a3's DNF did not check in, but
-    // she is coded, not a DNC, so she scores from the starting area as well.
-    expect(`${cell('a4').points} ${cell('a4').code}`).toBe('4 DNF');
-    expect(cell('a3').points).toBe(4);
+    // Three checked in (a1, a2, a4), and a3 did not check in but is scored
+    // DNF, so she came to the starting area too: 4 + 1.
+    expect(`${cell('a4').points} ${cell('a4').code}`).toBe('5 DNF');
+    expect(cell('a3').points).toBe(5);
   });
 
   it('doubles both scores in a doubled medal race', () => {

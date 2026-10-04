@@ -230,6 +230,33 @@ describe('calculateRaceScores', () => {
     expect(scores.get('E')?.points).toBe(n + 1); // DNC stays on entries base (6)
   });
 
+  it('A5.3 counts finishers and coded boats as in the starting area when only some are checked in', () => {
+    // A tracker import carries no check-in; a boat typed onto the sheet by hand
+    // is ticked in. That one check-in must not drop the rest from the count.
+    const finishes = [
+      makeFinish('r1', 'A', 1),
+      makeFinish('r1', 'B', 2),
+      { ...makeFinish('r1', 'C', 3), startPresent: true },
+      makeFinish('r1', 'D', null, 'DNF'),
+    ];
+    const scores = calculateRaceScores(finishes, competitors, 'startingArea');
+    // A, B, C, D came to the starting area → DNF = 5 (not 2); E is DNC = 6.
+    expect(scores.get('D')?.points).toBe(5);
+    expect(scores.get('E')?.points).toBe(n + 1);
+  });
+
+  it('A5.3 leaves out a boat explicitly un-ticked at the start check-in', () => {
+    const finishes = [
+      makeFinish('r1', 'A', 1),
+      makeFinish('r1', 'B', 2),
+      { ...makeFinish('r1', 'C', null, 'DNS'), startPresent: false },
+      makeFinish('r1', 'D', null, 'DNF'),
+    ];
+    const scores = calculateRaceScores(finishes, competitors, 'startingArea');
+    // A, B, D came to the starting area → DNF/DNS = 4.
+    expect(scores.get('D')?.points).toBe(4);
+  });
+
   it('A5.3 starters count is fleet-scoped when called with cross-fleet finishes', () => {
     // Regression: results-export.ts passes all-fleet finishes but per-fleet
     // competitors. The A5.3 starting-area count must filter to the fleet's

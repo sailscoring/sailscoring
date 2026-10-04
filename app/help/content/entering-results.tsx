@@ -630,8 +630,9 @@ export default function EnteringResults() {
           The{' '}
           <strong className="text-foreground">Start check-in</strong> tab on the race
           entry screen lets you record which competitors came to the starting area before
-          the race. This is the data source for A5.3 scoring — if you skip check-in, the
-          app infers starting-area attendance from the finish records instead.
+          the race. It feeds A5.3 scoring: a boat counts as having come to the starting
+          area if she is checked in, or if she finished or has any code but DNC — unless
+          you untick her here. If you skip check-in, the finish records alone decide it.
         </p>
         <p>
           Open a race, switch to the{' '}

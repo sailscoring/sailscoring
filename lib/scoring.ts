@@ -73,11 +73,23 @@ export function roundCorrectedSecs(
  *  pre-filtered to the fleet. */
 function dnfScoreForRace(fleetFinishes: Finish[], entrantCount: number, dnfScoring: DnfScoring): number {
   if (dnfScoring === 'seriesEntries') return entrantCount + 1;
-  const hasCheckin = fleetFinishes.some((f) => f.startPresent === true);
-  const startingAreaCount = hasCheckin
-    ? fleetFinishes.filter((f) => f.startPresent === true).length
-    : fleetFinishes.filter((f) => f.resultCode !== 'DNC').length;
-  return startingAreaCount + 1;
+  return startingAreaCount(fleetFinishes) + 1;
+}
+
+/** Whether a finish record says the boat came to the starting area (RRS
+ *  A5.3): checked in at the start, or on the sheet as anything but a DNC
+ *  and not explicitly un-ticked at check-in. A boat that finished or was
+ *  scored DNF / OCS / RET came to the start whether or not anyone ticked
+ *  her in — the Start check-in tab counts her present on the same terms. */
+export function cameToStartingArea(f: Finish): boolean {
+  if (f.startPresent === true) return true;
+  return f.startPresent !== false && f.resultCode !== 'DNC';
+}
+
+/** The number of boats that came to the starting area, over finish records
+ *  already filtered to the boats being scored together. */
+export function startingAreaCount(finishes: Finish[]): number {
+  return finishes.filter(cameToStartingArea).length;
 }
 
 /**
@@ -236,11 +248,7 @@ export function calculateRaceScores(
   // under 'startingAreaInclDnc' (DBSC A13.2) it uses the starting-area count too.
   let startingAreaPenalty = seriesEntryPenalty;
   if (dnfScoring !== 'seriesEntries') {
-    const hasCheckinData = fleetFinishes.some((f) => f.startPresent === true);
-    const startingAreaCount = hasCheckinData
-      ? fleetFinishes.filter((f) => f.startPresent === true).length
-      : fleetFinishes.filter((f) => f.resultCode !== 'DNC').length;
-    startingAreaPenalty = startingAreaCount + 1;
+    startingAreaPenalty = startingAreaCount(fleetFinishes) + 1;
   }
   const dncPenalty = dnfScoring === 'startingAreaInclDnc' ? startingAreaPenalty : seriesEntryPenalty;
 
@@ -500,11 +508,7 @@ export function calculateHandicapRaceScores(
   let startingAreaPenalty = seriesEntryPenalty;
   if (dnfScoring !== 'seriesEntries') {
     const ratedFinishes = Array.from(finishMap.values()).filter((f) => ratedIds.has(f.competitorId));
-    const hasCheckinData = ratedFinishes.some((f) => f.startPresent === true);
-    const startingAreaCount = hasCheckinData
-      ? ratedFinishes.filter((f) => f.startPresent === true).length
-      : ratedFinishes.filter((f) => f.resultCode !== 'DNC').length;
-    startingAreaPenalty = startingAreaCount + 1;
+    startingAreaPenalty = startingAreaCount(ratedFinishes) + 1;
   }
   // DBSC A13.2 (startingAreaInclDnc): DNC is scored from the starting-area
   // count too, not series entries.

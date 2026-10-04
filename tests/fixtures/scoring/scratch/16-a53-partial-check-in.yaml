@@ -1,0 +1,123 @@
+description: "Scratch — A5.3 starting area when only some boats are checked in"
+rrs_notes: >
+  RRS A5.3 (alternative): DNF and similar codes score the number of boats that
+  came to the starting area plus one. A boat that finished, or that is scored
+  DNF, came to the starting area whether or not she was ticked in at the start
+  check-in. Checking in one boat must not drop the rest from the count.
+  Race 1: 5 boats came to the starting area (four finishers + one DNF), so
+  DNF = 6. Series entries = 6, so DNC = 7.
+
+notes: |
+  The common way this arises: finishes imported from a tracker carry no
+  check-in, and a boat without a tracker is typed onto the finish sheet by
+  hand, which ticks her in. Before the fix, the one check-in made the starting
+  area count 1 and DNF scored 2.
+
+series:
+  discardThresholds: []
+  dnfScoring: startingArea
+
+competitors:
+  - sailNumber: "101"
+    name: "Alice"
+  - sailNumber: "202"
+    name: "Bob"
+  - sailNumber: "303"
+    name: "Carol"
+  - sailNumber: "404"
+    name: "David"
+  - sailNumber: "505"
+    name: "Eve"
+  - sailNumber: "606"
+    name: "Frank"
+
+races:
+  - number: 1
+    # 101, 202, 303 finish with no check-in (imported from a tracker).
+    # 404 was entered by hand and is checked in.
+    # 505 is DNF with no check-in; 606 has no record (implicit DNC).
+    # Starting area = 101, 202, 303, 404, 505 = 5 → DNF scores 6.
+    finishes:
+      - sailor: "101"
+        position: 1
+      - sailor: "202"
+        position: 2
+      - sailor: "303"
+        position: 3
+      - sailor: "404"
+        position: 4
+        startPresent: true
+      - sailor: "505"
+        code: DNF
+
+  - number: 2
+    finishes:
+      - sailor: "303"
+        position: 1
+      - sailor: "101"
+        position: 2
+      - sailor: "202"
+        position: 3
+      - sailor: "606"
+        position: 4
+      - sailor: "404"
+        position: 5
+      - sailor: "505"
+        position: 6
+
+# Points summary (race 1: DNF = 6, DNC = 7):
+#   Alice: 1 + 2 = 3
+#   Carol: 3 + 1 = 4
+#   Bob:   2 + 3 = 5
+#   David: 4 + 5 = 9
+#   Frank: 7 + 4 = 11   (implicit DNC in race 1 — series entries + 1)
+#   Eve:   6 + 6 = 12   (DNF in race 1 — starting area + 1)
+expected:
+  standings:
+    - rank: 1
+      sailor: "101"
+      racePoints: [1, 2]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 3
+      netPoints: 3
+
+    - rank: 2
+      sailor: "303"
+      racePoints: [3, 1]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 4
+      netPoints: 4
+
+    - rank: 3
+      sailor: "202"
+      racePoints: [2, 3]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 5
+      netPoints: 5
+
+    - rank: 4
+      sailor: "404"
+      racePoints: [4, 5]
+      raceCodes: [null, null]
+      raceDiscards: [false, false]
+      totalPoints: 9
+      netPoints: 9
+
+    - rank: 5
+      sailor: "606"
+      racePoints: [7, 4]
+      raceCodes: ["DNC", null]
+      raceDiscards: [false, false]
+      totalPoints: 11
+      netPoints: 11
+
+    - rank: 6
+      sailor: "505"
+      racePoints: [6, 6]
+      raceCodes: ["DNF", null]
+      raceDiscards: [false, false]
+      totalPoints: 12
+      netPoints: 12
