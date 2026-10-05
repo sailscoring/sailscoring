@@ -205,8 +205,8 @@ describe('published ORC transparency', () => {
     const from = html.indexOf('<div class="orc-course-drawing"');
     const block = html.slice(from, html.indexOf('</div>', from));
     expect(block).toContain('aria-label="Course Cove Start to Blackrock"');
-    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 300°T 1\.20 NM/);
-    expect(block).toMatch(/<tspan font-weight="700">3<\/tspan> 250°T 1\.50 NM/);
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 301°M 1\.20 NM/);
+    expect(block).toMatch(/<tspan font-weight="700">3<\/tspan> 251°M 1\.50 NM/);
     expect(block).not.toContain('Blackrock Castle');
     // Walked from an arbitrary origin, so it claims no chart either.
     expect(block).not.toContain('<image');
@@ -259,7 +259,7 @@ describe('published ORC transparency', () => {
     const block = html.slice(from, html.indexOf('</div>', from));
     expect(block).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
     expect(block).toContain('aria-label="Course W/L — 12 Sep R1"');
-    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 190°T 0\.54 NM/);
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 191°M 0\.54 NM/);
     expect(block).toContain('>Z</text>');
     // Nothing to fetch and nothing to run: a course off marks with no data
     // set behind them is drawn on plain ground.
@@ -310,7 +310,7 @@ describe('published ORC transparency', () => {
     expect(block).not.toMatch(/<script|<style/);
     expect((block.match(/href=/g) ?? []).length).toBe(1);
     // And the course is drawn over it as it always was.
-    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 190°T 0\.54 NM/);
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 191°M 0\.54 NM/);
     expect(block).toContain('>Z</text>');
   });
 

@@ -251,12 +251,15 @@ function CourseDialogInner({
   const drawing = useMemo(() => {
     const used = new Set(sequence.map((cm) => cm.markId));
     const over = library.filter((m) => used.has(m.id));
+    const marks = drawnMarks(over);
     return {
-      marks: drawnMarks(over),
+      marks,
       course: drawnCourse(sequence.filter((cm) => libraryById.has(cm.markId))),
       set: markLibrarySet(over),
+      // Its legs in magnetic where its own marks are, not at the venue.
+      variation: courseVariation(marks.map((m) => m.position), venuePosition, naming.date ?? todayIso()),
     };
-  }, [sequence, library, libraryById]);
+  }, [sequence, library, libraryById, venuePosition, naming.date]);
 
   // A leg table has no positions, but its bearings and distances fix the
   // shape and the orientation exactly — so it draws, and a dropped digit is
@@ -545,12 +548,20 @@ function CourseDialogInner({
               <p className="text-xs text-destructive">A mark this course used is no longer in the library; its rows are skipped.</p>
             )}
             {source !== 'legs' ? (
-              <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawing.set} width={520} title="Course drawing" />
+              <CourseDrawing
+                marks={drawing.marks}
+                course={drawing.course}
+                set={drawing.set}
+                variation={drawing.variation}
+                width={520}
+                title="Course drawing"
+              />
             ) : (
               <>
                 <CourseDrawing
                   marks={legDrawing?.marks ?? []}
                   course={legDrawing?.course ?? []}
+                  variation={display.ref === 'M' ? display.variation : undefined}
                   width={520}
                   title="Course drawing"
                 />

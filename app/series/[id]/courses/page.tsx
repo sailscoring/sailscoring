@@ -428,6 +428,7 @@ function SwapMarkDialogInner({
     marks: drawnMarks(drawnOver),
     course: drawnCourse(swapped),
     set: markLibrarySet(drawnOver),
+    variation: courseVariation(drawnOver, undefined, todayIso()),
   };
 
   async function handleSave() {
@@ -487,7 +488,14 @@ function SwapMarkDialogInner({
               aria-label="New course name"
             />
           </div>
-          <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawing.set} width={480} title="Course drawing" />
+          <CourseDrawing
+            marks={drawing.marks}
+            course={drawing.course}
+            set={drawing.set}
+            variation={drawing.variation}
+            width={480}
+            title="Course drawing"
+          />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 mt-2">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { renderCourseSvg, type DrawnCourseMark, type DrawnMark } from '@sailscoring/course-cards';
 
+import type { Variation } from '@/lib/bearings';
 import { loadCourseBackground, type CourseBackground } from '@/lib/course-cards';
 
 /**
@@ -15,6 +16,9 @@ import { loadCourseBackground, type CourseBackground } from '@/lib/course-cards'
  * captured chart is drawn under them — the same water the club's own card
  * page shows. It arrives after the drawing does: the image is a few hundred
  * kilobytes, and waiting for it would mean waiting to show the marks.
+ *
+ * `variation` labels the legs' bearings in magnetic, as the figures beside
+ * the drawing are; without it they are labelled true.
  */
 export function CourseDrawing({
   marks,
@@ -24,6 +28,7 @@ export function CourseDrawing({
   title,
   className,
   set,
+  variation,
 }: {
   marks: DrawnMark[];
   course?: DrawnCourseMark[];
@@ -32,6 +37,7 @@ export function CourseDrawing({
   title?: string;
   className?: string;
   set?: string;
+  variation?: Variation;
 }) {
   // Held with the set it belongs to, so switching sets draws on plain ground
   // until the new chart is in rather than briefly on the old club's water.
@@ -55,8 +61,9 @@ export function CourseDrawing({
         ...(highlight ? { highlight } : {}),
         ...(title ? { title } : {}),
         ...(background ? { background } : {}),
+        ...(variation ? { magneticVariationDeg: variation.deg } : {}),
       }),
-    [marks, course, highlight, width, title, background],
+    [marks, course, highlight, width, title, background, variation],
   );
   if (!svg) {
     return (

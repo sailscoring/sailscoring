@@ -3219,8 +3219,12 @@ export function assembleSeriesResultsData(
                 // Referred to by id rather than embedded in the drawing:
                 // every race on the page is drawn on the same chart.
                 const chartId = set && chart ? `course-chart-${gridToken(set)}` : undefined;
+                // Its legs labelled in magnetic, at the variation the leg
+                // table above it uses.
+                const v = courseVariation(coveringStart?.course?.waypoints ?? [], series.venuePosition, race.date);
                 const svg = renderCourseSvg(drawn.marks, drawn.course, {
                   width: 480,
+                  ...(v ? { magneticVariationDeg: v.deg } : {}),
                   title: coveringStart?.course ? `Course ${coveringStart.course.name}` : 'Course',
                   ...(chart && chartId ? { background: chart, backgroundSymbol: chartId } : {}),
                 });

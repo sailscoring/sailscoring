@@ -715,7 +715,14 @@ function RaceStartDialogInner({
               )}
               {drawing && (
                 <>
-                  <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawingSetPath} width={440} title="Course drawing" />
+                  <CourseDrawing
+                    marks={drawing.marks}
+                    course={drawing.course}
+                    set={drawingSetPath}
+                    variation={display.ref === 'M' ? display.variation : undefined}
+                    width={440}
+                    title="Course drawing"
+                  />
                   {drawing.fromLegs && (
                     <p className="text-xs text-muted-foreground">
                       Drawn from the legs — the shape and the direction
