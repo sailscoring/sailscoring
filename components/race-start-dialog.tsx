@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
+import type { Position } from '@sailscoring/course-cards';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,18 @@ import {
 } from '@/components/ui/select';
 import { CourseDialog, type CourseDialogMode } from '@/components/course-library/course-dialog';
 import { CourseDrawing } from '@/components/course-library/course-drawing';
-import { LegTable, emptyLegRow, type LegTableRow } from '@/components/course-library/leg-table';
+import {
+  BearingRefControl,
+  LegTable,
+  emptyLegRow,
+  figureField,
+  rowBearingTrue,
+  rowWindTrue,
+  rowsInRef,
+  type BearingDisplay,
+  type KeptFigure,
+  type LegTableRow,
+} from '@/components/course-library/leg-table';
 import { useConfirm } from '@/components/confirm-dialog';
 import { useFeatures } from '@/components/features-provider';
 import { useSaveSeriesCourse, useSaveSeriesMark, useSaveSeriesMarks, useSeriesCourses, useSeriesMarks } from '@/hooks/use-course-library';
@@ -28,6 +40,7 @@ import { useSeries } from '@/hooks/use-series';
 import { OrcOptionItems, OrcOptionValue } from '@/components/orc-option-items';
 import { useRacesBySeries } from '@/hooks/use-races';
 import { seriesMarkRepo } from '@/lib/api-repository';
+import { courseVariation, enteredTrue, todayIso, type BearingRef, type Variation } from '@/lib/bearings';
 import { ratingSystemLabel } from '@/lib/competitor-ratings';
 import { loadCourseCard } from '@/lib/course-cards';
 import {
@@ -94,13 +107,18 @@ export interface RaceStartDialogProps {
 }
 
 export function RaceStartDialog(props: RaceStartDialogProps) {
+  // The venue position places a course with no marks for its variation, and
+  // the rows are filled in that reference when the dialog opens — so it
+  // waits for the series, which the race page has already loaded.
+  const { data: series } = useSeries(props.seriesId);
   // Remount per open so form state is fresh; no seed effect needed.
-  if (!props.mode) return null;
+  if (!props.mode || series === undefined) return null;
   return (
     <RaceStartDialogInner
       key={props.mode.kind === 'edit' ? props.mode.start.id : 'add'}
       {...props}
       mode={props.mode}
+      venuePosition={series?.venuePosition}
     />
   );
 }
@@ -114,7 +132,8 @@ function RaceStartDialogInner({
   competitors,
   onSave,
   onCancel,
-}: RaceStartDialogProps & { mode: RaceStartDialogMode }) {
+  venuePosition,
+}: RaceStartDialogProps & { mode: RaceStartDialogMode; venuePosition?: Position }) {
   const seed = mode.kind === 'edit' ? mode.start : null;
   const confirm = useConfirm();
   const { has } = useFeatures();
@@ -170,13 +189,26 @@ function RaceStartDialogInner({
     orcRecordedWindOption(orcOptionValue) ||
     (!orcOptionValue && orcFleetOptions.some(orcRecordedWindOption)) ||
     (seed?.courseLegs ?? []).some((leg) => leg.windSpeedKts != null);
-  const [legRows, setLegRows] = useState<LegTableRow[]>(
-    (seed?.courseLegs ?? []).map((leg) => emptyLegRow({
-      distance: String(leg.distanceNm),
-      bearing: String(leg.bearingDeg),
-      wind: String(leg.windDirectionDeg),
-      windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
-    })),
+  // Bearings and winds are stored true and shown in magnetic, at the
+  // variation where the course is — its marks, else the venue — on the
+  // race's day. A start with neither stays in true.
+  const raceDate = race?.date || todayIso();
+  const [bearingRef, setBearingRef] = useState<BearingRef>('M');
+  const displayAt = (v: Variation | undefined): BearingDisplay => (v ? { ref: bearingRef, variation: v } : { ref: 'T' });
+  const [seedDisplay] = useState(() => displayAt(courseVariation(seed?.course?.waypoints ?? [], venuePosition, raceDate)));
+  const [legRows, setLegRows] = useState<LegTableRow[]>(() =>
+    (seed?.courseLegs ?? []).map((leg) => {
+      const b = figureField(leg.bearingDeg, seedDisplay);
+      const w = figureField(leg.windDirectionDeg, seedDisplay);
+      return emptyLegRow({
+        distance: String(leg.distanceNm),
+        bearing: b.text,
+        bearingKept: b.kept,
+        wind: w.text,
+        windKept: w.kept,
+        windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
+      });
+    }),
   );
   const legsTotal = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
 
@@ -213,7 +245,11 @@ function RaceStartDialogInner({
   const saveCourse = useSaveSeriesCourse();
 
   const [snapshot, setSnapshot] = useState<RaceStartCourse | undefined>(seed?.course);
-  const [windInput, setWindInput] = useState(seed?.course?.windDirectionDeg != null ? String(seed.course.windDirectionDeg) : '');
+  const [seedWind] = useState(() =>
+    seed?.course?.windDirectionDeg != null ? figureField(seed.course.windDirectionDeg, seedDisplay) : undefined,
+  );
+  const [windInput, setWindInput] = useState(seedWind?.text ?? '');
+  const [windKept, setWindKept] = useState<KeptFigure | undefined>(seedWind?.kept);
   const [windSpeedInput, setWindSpeedInput] = useState(
     seed?.course?.windSpeedKts != null ? String(seed.course.windSpeedKts) : '',
   );
@@ -222,8 +258,19 @@ function RaceStartDialogInner({
   const [courseDialog, setCourseDialog] = useState<CourseDialogMode | null>(null);
   const libraryCourse = snapshot?.courseId ? (libraryCourses ?? []).find((c) => c.id === snapshot.courseId) : undefined;
   const outOfDate = snapshot ? courseOutOfDate(snapshot, libraryCourse, marksById) : false;
-  const windDeg = windInput.trim() ? Number(windInput.trim()) : undefined;
-  const windValid = windDeg == null || (Number.isFinite(windDeg) && windDeg >= 0 && windDeg <= 360);
+  const snapshotWaypoints = snapshot?.waypoints;
+  const variation = useMemo(
+    () => courseVariation(snapshotWaypoints ?? [], venuePosition, raceDate),
+    [snapshotWaypoints, venuePosition, raceDate],
+  );
+  const display = useMemo<BearingDisplay>(
+    () => (variation ? { ref: bearingRef, variation } : { ref: 'T' }),
+    [variation, bearingRef],
+  );
+  // The course's wind, in true: null where the field doesn't read.
+  const windTrue = windInput.trim() ? enteredTrue(windInput, display.ref, display.variation, windKept) : undefined;
+  const windDeg = windTrue ?? undefined;
+  const windValid = windTrue !== null;
   const windKt = windSpeedInput.trim() ? Number(windSpeedInput.trim()) : undefined;
   const windSpeedValid = windKt == null || (Number.isFinite(windKt) && windKt > 0 && windKt < 100);
 
@@ -237,13 +284,25 @@ function RaceStartDialogInner({
     // Whichever way the course is defined — a mark sequence or the
     // committee's own leg table — it reaches the start's table as legs.
     const legs = legsForStart(courseLegsOf(course, marks), wind ?? 0, offerWindSpeed ? speed : undefined);
-    setSnapshot(snapshotOfCourse(course, marks, wind, offerWindSpeed ? speed : undefined));
-    setLegRows(legs.map((leg) => emptyLegRow({
-      distance: String(leg.distanceNm),
-      bearing: String(leg.bearingDeg),
-      wind: wind != null ? String(wind) : '',
-      windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
-    })));
+    const next = snapshotOfCourse(course, marks, wind, offerWindSpeed ? speed : undefined);
+    setSnapshot(next);
+    // The new course may sit somewhere else, so the figures are shown at its
+    // variation, not the last one's.
+    const at = displayAt(courseVariation(next.waypoints, venuePosition, raceDate));
+    const w = wind != null ? figureField(wind, at) : undefined;
+    setWindInput(w?.text ?? '');
+    setWindKept(w?.kept);
+    setLegRows(legs.map((leg) => {
+      const b = figureField(leg.bearingDeg, at);
+      return emptyLegRow({
+        distance: String(leg.distanceNm),
+        bearing: b.text,
+        bearingKept: b.kept,
+        wind: w?.text ?? '',
+        ...(w ? { windKept: w.kept } : {}),
+        windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
+      });
+    }));
     setLegsEdited(false);
     setLegsOpen(false);
     setError('');
@@ -251,6 +310,8 @@ function RaceStartDialogInner({
 
   async function pickCourse(courseId: string, fresh?: { course: SeriesCourse; marks: ReadonlyMap<string, SeriesMark> }) {
     if (courseId === '__none__') {
+      // Off the course's marks, the figures are the venue's to convert.
+      redisplay(displayAt(courseVariation([], venuePosition, raceDate)));
       setSnapshot(undefined);
       setLegsOpen(true);
       return;
@@ -264,7 +325,6 @@ function RaceStartDialogInner({
       try {
         const { cardFile } = await loadCourseCard(course.card.set, course.card.cardId);
         wind = windForCardCourse(cardFile, course.card.courseId);
-        if (wind != null) setWindInput(String(wind));
       } catch {
         // The card is a convenience; the course stands without it.
       }
@@ -277,11 +337,23 @@ function RaceStartDialogInner({
   function changeWind(value: string) {
     setWindInput(value);
     setError('');
-    const w = value.trim() ? Number(value.trim()) : undefined;
+    const w = value.trim() ? enteredTrue(value, display.ref, display.variation, windKept) : null;
     if (!snapshot) return;
-    setSnapshot({ ...snapshot, ...(w != null && Number.isFinite(w) ? { windDirectionDeg: w } : { windDirectionDeg: undefined }) });
-    if (!legsEdited && w != null && Number.isFinite(w)) {
-      setLegRows((rows) => rows.map((r) => ({ ...r, wind: String(w) })));
+    setSnapshot({ ...snapshot, ...(w != null ? { windDirectionDeg: w } : { windDirectionDeg: undefined }) });
+    if (!legsEdited && w != null) {
+      const f = figureField(w, display);
+      setLegRows((rows) => rows.map((r) => ({ ...r, wind: f.text, windKept: f.kept })));
+    }
+  }
+
+  /** Show every figure in another reference or at another variation: the
+   *  scorer's choice of north, or a course that sits somewhere else. */
+  function redisplay(next: BearingDisplay) {
+    setLegRows((rows) => rowsInRef(rows, display, next));
+    if (windDeg != null) {
+      const f = figureField(windDeg, next);
+      setWindInput(f.text);
+      setWindKept(f.kept);
     }
   }
 
@@ -319,8 +391,8 @@ function RaceStartDialogInner({
     const legs: OrcCourseLeg[] = legRows
       .map((r) => ({
         distanceNm: Number(r.distance.trim()),
-        bearingDeg: Number(r.bearing.trim()),
-        windDirectionDeg: Number(r.wind.trim()),
+        bearingDeg: rowBearingTrue(r, display) ?? NaN,
+        windDirectionDeg: rowWindTrue(r, display) ?? NaN,
         ...(r.windSpeed.trim() ? { windSpeedKts: Number(r.windSpeed.trim()) } : {}),
       }))
       .filter((l) => l.distanceNm > 0 && l.bearingDeg >= 0 && l.bearingDeg <= 360);
@@ -331,7 +403,7 @@ function RaceStartDialogInner({
       legsForStart(snapshot.legs ?? legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt),
     );
     return drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs);
-  }, [snapshot, legRows, legsEdited, windDeg, windKt]);
+  }, [snapshot, legRows, legsEdited, windDeg, windKt, display]);
   // The chart the course sits on. A snapshot taken before waypoints carried
   // their data set names none, so the series' own library answers for it —
   // the same fallback the published page makes. A drawing of legs has no
@@ -351,6 +423,19 @@ function RaceStartDialogInner({
           && !distanceInput.trim()
           ? 'This option needs the course length below to score.'
           : null;
+  // One choice of north for the whole dialog — the course's wind and every
+  // leg — shown with the variation it applies.
+  const refControl = (
+    <BearingRefControl
+      display={display}
+      onChange={(ref) => {
+        redisplay({ ...display, ref });
+        setBearingRef(ref);
+      }}
+      missing="Set the venue position on the Courses tab, or pick a course built from marks, to enter them in magnetic."
+    />
+  );
+
   /** Any change to the table is the scorer's own — a course picked from the
    *  library is flagged as edited so a recompute has to be asked for. */
   function changeLegRows(rows: LegTableRow[]) {
@@ -416,13 +501,9 @@ function RaceStartDialogInner({
       courseLegs = [];
       for (const row of nonEmptyLegs) {
         const distance = Number(row.distance.trim());
-        const bearing = Number(row.bearing.trim());
-        const wind = Number(row.wind.trim());
-        if (
-          !Number.isFinite(distance) || distance <= 0 ||
-          !Number.isFinite(bearing) || bearing < 0 || bearing > 360 ||
-          !Number.isFinite(wind) || wind < 0 || wind > 360
-        ) {
+        const bearing = rowBearingTrue(row, display);
+        const wind = rowWindTrue(row, display);
+        if (!Number.isFinite(distance) || distance <= 0 || bearing == null || wind == null) {
           setError('Each course leg needs a distance in NM and bearings in degrees (0–360).');
           return;
         }
@@ -603,6 +684,7 @@ function RaceStartDialogInner({
                   New course…
                 </Button>
               </div>
+              {refControl}
               {snapshot && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="font-mono">{legRows.length} legs · {legsTotal.toFixed(2)} NM</span>
@@ -616,7 +698,7 @@ function RaceStartDialogInner({
                       onChange={(e) => changeWind(e.target.value)}
                       placeholder="190"
                     />
-                    °
+                    °{display.ref}
                   </label>
                   {legsEdited && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" data-testid="legs-edited">legs edited</span>
@@ -646,6 +728,7 @@ function RaceStartDialogInner({
           )}
           {offerLegs && (
             <div className="space-y-1.5">
+              {!offerCourse && refControl}
               {/* Above the fold, because picking a course folds the legs away
                   and this is a scoring input, not a detail of the table. */}
               {offerWindSpeed && (
@@ -680,11 +763,14 @@ function RaceStartDialogInner({
                 <div className="space-y-1">
                   <LegTable
                     rows={legRows}
+                    display={display}
                     onChange={changeLegRows}
                     showWind
                     showWindSpeed={offerWindSpeed}
                     newRow={{
-                      wind: snapshot && windDeg != null ? String(windDeg) : '',
+                      ...(snapshot && windDeg != null
+                        ? { wind: figureField(windDeg, display).text, windKept: figureField(windDeg, display).kept }
+                        : { wind: '' }),
                       windSpeed: offerWindSpeed && windKt != null ? String(windKt) : '',
                     }}
                   >
@@ -764,6 +850,7 @@ function RaceStartDialogInner({
         marks={libraryMarks ?? []}
         courses={libraryCourses ?? []}
         naming={naming}
+        venuePosition={venuePosition}
         onSaveMark={(m) => saveMark.mutateAsync(m).then(() => undefined)}
         onSaveMarks={(list) => saveMarks.mutateAsync(list)}
         onSave={async (course) => {

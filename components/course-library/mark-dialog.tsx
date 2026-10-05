@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { drawnMarks, markLibrarySet, positionFrom, proposeMarkName, toMetres, type DistanceUnit, type NamingContext } from '@/lib/course-geometry';
+import { enteredTrue, todayIso, variationAt, type BearingRef } from '@/lib/bearings';
 import type { SeriesMark } from '@/lib/types';
 
 import { CourseDrawing } from './course-drawing';
+import { BearingRefControl, figureField, type BearingDisplay, type KeptFigure } from './leg-table';
 
 export type MarkDialogMode =
   | { kind: 'new'; proposedBase?: string }
@@ -85,21 +87,37 @@ function MarkDialogInner({
     editing ? formatPosition({ lat: editing.lat, lng: editing.lng }, { minuteDecimals: 3 }) : '',
   );
   const [originId, setOriginId] = useState(editing?.from?.markId ?? others[0]?.id ?? '');
-  const [bearing, setBearing] = useState(editing?.from ? String(editing.from.bearingDeg) : '');
+  // The bearing is stored true and taken in magnetic, at the variation where
+  // it was laid from — the origin mark — on the race's day.
+  const date = naming.date ?? todayIso();
+  const [bearingRef, setBearingRef] = useState<BearingRef>('M');
+  const [seedBearing] = useState(() => {
+    const from = editing?.from;
+    const at = from ? marks.find((m) => m.id === from.markId) : undefined;
+    if (!from) return undefined;
+    const v = at ? variationAt({ lat: at.lat, lng: at.lng }, date) : undefined;
+    return figureField(from.bearingDeg, v ? { ref: 'M', variation: v } : { ref: 'T' });
+  });
+  const [bearing, setBearing] = useState(seedBearing?.text ?? '');
+  const [bearingKept, setBearingKept] = useState<KeptFigure | undefined>(seedBearing?.kept);
   const [distance, setDistance] = useState(editing?.from ? String(editing.from.distanceM) : '');
   const [unit, setUnit] = useState<DistanceUnit>(editing?.from ? 'm' : 'nm');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const origin = others.find((m) => m.id === originId);
+  const display = useMemo<BearingDisplay>(() => {
+    const v = origin ? variationAt({ lat: origin.lat, lng: origin.lng }, date) : undefined;
+    return v ? { ref: bearingRef, variation: v } : { ref: 'T' };
+  }, [origin, date, bearingRef]);
+  const bearingTrue = bearing.trim() ? enteredTrue(bearing, display.ref, display.variation, bearingKept) : null;
   const position: Position | null = useMemo(() => {
     if (method === 'coordinates') return parsePosition(coordinates);
-    const b = Number(bearing.trim());
     const d = Number(distance.trim());
-    if (!origin || !bearing.trim() || !distance.trim()) return null;
-    if (!Number.isFinite(b) || b < 0 || b > 360 || !Number.isFinite(d) || d <= 0) return null;
-    return positionFrom({ lat: origin.lat, lng: origin.lng }, b, d, unit);
-  }, [method, coordinates, origin, bearing, distance, unit]);
+    if (!origin || bearingTrue == null || !distance.trim()) return null;
+    if (!Number.isFinite(d) || d <= 0) return null;
+    return positionFrom({ lat: origin.lat, lng: origin.lng }, bearingTrue, d, unit);
+  }, [method, coordinates, origin, bearingTrue, distance, unit]);
 
   // The drawing: every other mark, plus this one where it is so far.
   const drawn = useMemo(() => {
@@ -118,13 +136,13 @@ function MarkDialogInner({
       setError(
         method === 'coordinates'
           ? 'Enter a position as latitude and longitude, e.g. 53° 23.740′ N 006° 04.210′ W or 53.3957, -6.0702.'
-          : 'Pick the mark it was laid from, then a bearing (0–360) and a distance.',
+          : 'Pick the mark it was laid from, then a bearing (0–360, M or T after it if it isn’t in the reference shown) and a distance.',
       );
       return;
     }
     const from =
-      method === 'bearing' && origin
-        ? { markId: origin.id, bearingDeg: Number(bearing.trim()), distanceM: Math.round(toMetres(Number(distance.trim()), unit) * 100) / 100 }
+      method === 'bearing' && origin && bearingTrue != null
+        ? { markId: origin.id, bearingDeg: bearingTrue, distanceM: Math.round(toMetres(Number(distance.trim()), unit) * 100) / 100 }
         : undefined;
     setSaving(true);
     try {
@@ -203,7 +221,7 @@ function MarkDialogInner({
                 <div className="space-y-1.5">
                   <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-sm">
                     <span>from</span>
-                    <Select value={originId} onValueChange={(v) => { setOriginId(v); setError(''); }}>
+                    <Select value={originId} onValueChange={(v) => { setOriginId(v); setBearingKept(undefined); setError(''); }}>
                       <SelectTrigger className="w-full" aria-label="From mark" data-testid="mark-origin">
                         <SelectValue placeholder="Pick a mark" />
                       </SelectTrigger>
@@ -223,7 +241,7 @@ function MarkDialogInner({
                       placeholder="190"
                       inputMode="decimal"
                     />
-                    <span className="text-sm">°</span>
+                    <span className="text-sm">°{display.ref}</span>
                     <input
                       aria-label="Distance"
                       className={`${INPUT} font-mono`}
@@ -241,6 +259,18 @@ function MarkDialogInner({
                       </SelectContent>
                     </Select>
                   </div>
+                  <BearingRefControl
+                    display={display}
+                    onChange={(ref) => {
+                      if (bearingTrue != null) {
+                        const f = figureField(bearingTrue, { ...display, ref });
+                        setBearing(f.text);
+                        setBearingKept(f.kept);
+                      }
+                      setBearingRef(ref);
+                    }}
+                    missing="Pick the mark it was laid from to enter it in magnetic."
+                  />
                 </div>
               )}
               <p className="text-sm font-mono text-muted-foreground min-h-5" data-testid="mark-position-echo">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { printedMarks, type CourseCardFile, type MarksFile } from '@sailscoring/course-cards';
+import { printedMarks, type CourseCardFile, type MarksFile, type Position } from '@sailscoring/course-cards';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { courseVariation, defaultRef, todayIso, type BearingRef } from '@/lib/bearings';
 import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCardSet, loadCourseCard } from '@/lib/course-cards';
 import {
   adoptCardMarks,
@@ -33,7 +34,16 @@ import {
 import type { SeriesCourse, SeriesCourseLeg, SeriesCourseMark, SeriesMark } from '@/lib/types';
 
 import { CourseDrawing } from './course-drawing';
-import { LegTable, emptyLegRow, type LegTableRow } from './leg-table';
+import {
+  BearingRefControl,
+  LegTable,
+  emptyLegRow,
+  figureField,
+  rowBearingTrue,
+  rowsInRef,
+  type BearingDisplay,
+  type LegTableRow,
+} from './leg-table';
 import { MarkDialog, type MarkDialogMode } from './mark-dialog';
 import { SequenceEditor } from './sequence-editor';
 
@@ -59,6 +69,7 @@ export function CourseDialog({
   marks,
   courses,
   naming,
+  venuePosition,
   onSaveMark,
   onSaveMarks,
   onSave,
@@ -69,6 +80,8 @@ export function CourseDialog({
   marks: SeriesMark[];
   courses: SeriesCourse[];
   naming: NamingContext;
+  /** Where a leg table, which has no marks, takes its variation from. */
+  venuePosition?: Position;
   /** Save one scorer-made mark (the inline New mark…). */
   onSaveMark: (mark: SeriesMark) => Promise<void>;
   /** Adopt a card set's marks (idempotent). */
@@ -85,6 +98,7 @@ export function CourseDialog({
       marks={marks}
       courses={courses}
       naming={naming}
+      venuePosition={venuePosition}
       onSaveMark={onSaveMark}
       onSaveMarks={onSaveMarks}
       onSave={onSave}
@@ -99,6 +113,7 @@ function CourseDialogInner({
   marks,
   courses,
   naming,
+  venuePosition,
   onSaveMark,
   onSaveMarks,
   onSave,
@@ -109,6 +124,7 @@ function CourseDialogInner({
   marks: SeriesMark[];
   courses: SeriesCourse[];
   naming: NamingContext;
+  venuePosition?: Position;
   onSaveMark: (mark: SeriesMark) => Promise<void>;
   onSaveMarks: (marks: SeriesMark[]) => Promise<void>;
   onSave: (course: SeriesCourse) => Promise<void>;
@@ -150,12 +166,20 @@ function CourseDialogInner({
   const [openedAt] = useState(() => Date.now());
   // The sequence as edited by hand; null while it follows the card.
   const [edited, setEdited] = useState<SeriesCourseMark[] | null>(seed ? seed.marks : null);
+  // A leg table has no marks to place it, so its variation is the venue's,
+  // on the day it is entered: a library course belongs to no race.
+  const [variation] = useState(() => courseVariation([], venuePosition, naming.date ?? todayIso()));
+  const [bearingRef, setBearingRef] = useState<BearingRef>(defaultRef(variation));
+  const display = useMemo<BearingDisplay>(
+    () => (variation ? { ref: bearingRef, variation } : { ref: 'T' }),
+    [variation, bearingRef],
+  );
   // The committee's leg table, when that is what the course is.
-  const [legRows, setLegRows] = useState<LegTableRow[]>(
-    (seed?.legs ?? []).map((leg) => emptyLegRow({
-      distance: String(leg.distanceNm),
-      bearing: String(leg.bearingDeg),
-    })),
+  const [legRows, setLegRows] = useState<LegTableRow[]>(() =>
+    (seed?.legs ?? []).map((leg) => {
+      const f = figureField(leg.bearingDeg, display);
+      return emptyLegRow({ distance: String(leg.distanceNm), bearing: f.text, bearingKept: f.kept });
+    }),
   );
   // A hand-built course opens on its sequence; a leg table has no sequence.
   const [editorOpen, setEditorOpen] = useState(Boolean(seed && !seed.card && !courseIsLegTable(seed)));
@@ -240,16 +264,15 @@ function CourseDialogInner({
   const legDrawing = useMemo(() => {
     if (source !== 'legs') return null;
     const legs = legRows
-      .map((r) => ({ distanceNm: Number(r.distance), bearingDeg: Number(r.bearing) }))
-      .filter((l) => Number.isFinite(l.distanceNm) && l.distanceNm > 0
-        && Number.isFinite(l.bearingDeg) && l.bearingDeg >= 0 && l.bearingDeg <= 360);
+      .map((r) => ({ distanceNm: Number(r.distance), bearingDeg: rowBearingTrue(r, display) }))
+      .filter((l): l is SeriesCourseLeg => Number.isFinite(l.distanceNm) && l.distanceNm > 0 && l.bearingDeg != null);
     if (legs.length === 0) return null;
     const drawn = drawnLegTable(legs);
     // Rounding a leg to a tenth of a mile can misplace its end by half of
     // that, so this is the drift the committee's own precision explains.
     const explained = 0.05 * legs.length;
     return { ...drawn, rounding: drawn.closureNm <= explained };
-  }, [source, legRows]);
+  }, [source, legRows, display]);
 
   const scorerMarks = library.filter((m) => !m.card);
 
@@ -259,11 +282,8 @@ function CourseDialogInner({
     for (const [i, row] of legRows.entries()) {
       if (!row.distance.trim() && !row.bearing.trim()) continue;
       const distanceNm = Number(row.distance.trim());
-      const bearingDeg = Number(row.bearing.trim());
-      if (
-        !Number.isFinite(distanceNm) || distanceNm <= 0 ||
-        !Number.isFinite(bearingDeg) || bearingDeg < 0 || bearingDeg > 360
-      ) {
+      const bearingDeg = rowBearingTrue(row, display);
+      if (!Number.isFinite(distanceNm) || distanceNm <= 0 || bearingDeg == null) {
         return { error: `Leg ${i + 1} needs a distance in miles and a bearing in degrees (0–360).` };
       }
       legs.push({ distanceNm: legDistance(distanceNm), bearingDeg });
@@ -474,7 +494,15 @@ function CourseDialogInner({
             {source === 'legs' && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Legs</label>
-                <LegTable rows={legRows} onChange={(rows) => { setLegRows(rows); setError(''); }}>
+                <BearingRefControl
+                  display={display}
+                  onChange={(ref) => {
+                    setLegRows((rows) => rowsInRef(rows, display, { ...display, ref }));
+                    setBearingRef(ref);
+                  }}
+                  missing="Set the venue position on the Courses tab to enter them in magnetic."
+                />
+                <LegTable rows={legRows} display={display} onChange={(rows) => { setLegRows(rows); setError(''); }}>
                   <p className="text-xs text-muted-foreground">
                     One row per leg, in sailing order, as the committee recorded it.
                     There are no marks behind a course entered this way, so it has no

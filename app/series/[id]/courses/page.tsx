@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ValidationApiError } from '@/lib/api-client';
-import { todayIso } from '@/lib/bearings';
+import { courseVariation, formatBearing, todayIso, variationAt } from '@/lib/bearings';
 import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCardSet, loadCourseCard } from '@/lib/course-cards';
 import { adoptCardMarks, courseIsLegTable, courseLegsOf, drawnCourse, drawnMarks, markLibrarySet, resolveCourse, type NamingContext } from '@/lib/course-geometry';
 import type { SeriesCourse, SeriesMark } from '@/lib/types';
@@ -97,6 +97,8 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
   const ownMarks = marks.filter((m) => !m.card);
   const setsInUse = [...new Set(cardMarks.map((m) => m.card!.set))];
   const visibleCardMarks = showAllCardMarks ? cardMarks : cardMarks.slice(0, SHOW_CARD_MARKS);
+  // Where a leg table, which has no marks, takes its variation from.
+  const venueVariation = courseVariation([], data.series.venuePosition, naming.date ?? todayIso());
 
   async function handleDeleteMark(mark: SeriesMark) {
     const ok = await confirm({
@@ -131,9 +133,10 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
   }
 
   function describeSequence(course: SeriesCourse): string {
-    // A leg table names no marks; the bearings are the sequence.
+    // A leg table names no marks; the bearings are the sequence, in
+    // magnetic at the venue where it is known.
     if (courseIsLegTable(course)) {
-      return course.legs!.map((leg) => `${leg.bearingDeg}°`).join(' › ');
+      return course.legs!.map((leg) => formatBearing(leg.bearingDeg, venueVariation)).join(' › ');
     }
     return course.marks
       .map((cm) => {
@@ -148,7 +151,8 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
     if (!mark.from) return '';
     const origin = marksById.get(mark.from.markId);
     const nm = mark.from.distanceM / 1852;
-    return `${nm >= 0.1 ? `${nm.toFixed(2)} NM` : `${Math.round(mark.from.distanceM)} m`} @ ${String(Math.round(mark.from.bearingDeg)).padStart(3, '0')}° from ${origin?.name ?? '?'}`;
+    const v = origin ? variationAt({ lat: origin.lat, lng: origin.lng }, naming.date ?? todayIso()) : undefined;
+    return `${nm >= 0.1 ? `${nm.toFixed(2)} NM` : `${Math.round(mark.from.distanceM)} m`} @ ${formatBearing(mark.from.bearingDeg, v, { whole: true })} from ${origin?.name ?? '?'}`;
   }
 
   return (
@@ -306,6 +310,7 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
         marks={marks}
         courses={courses}
         naming={naming}
+        venuePosition={data.series.venuePosition}
         onSaveMark={(mark) => saveMark.mutateAsync(mark).then(() => undefined)}
         onSaveMarks={(list) => saveMarks.mutateAsync(list)}
         onSave={async (course) => {

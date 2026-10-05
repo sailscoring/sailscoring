@@ -81,7 +81,8 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByTestId('mark-row').filter({ hasText: 'Start — 12 Sep' })).toBeVisible();
 
-  // A laid windward mark, logged as a bearing and distance off the line.
+  // A laid windward mark, logged as a bearing and distance off the line —
+  // magnetic, as the committee reads it off a compass.
   await page.getByTestId('new-mark').click();
   await page.getByLabel('Name').fill('Z — 12 Sep R1');
   await page.getByText('Bearing & distance').click();
@@ -91,7 +92,7 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await page.getByRole('button', { name: 'Save' }).click();
   const zRow = page.getByTestId('mark-row').filter({ hasText: 'Z — 12 Sep R1' });
   await expect(zRow).toBeVisible();
-  await expect(zRow).toContainText('0.54 NM @ 190° from Start — 12 Sep');
+  await expect(zRow).toContainText('0.54 NM @ 190°M from Start — 12 Sep');
 
   // Adopt the club's charted marks first — the natural order of the tab. The
   // catalogue's first set belongs to another club, so both dialogs have to
@@ -207,11 +208,14 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   await page.getByRole('button', { name: 'Edit ▸' }).click();
   await page.getByRole('button', { name: 'Edit start' }).click();
   await pick(page, 'start-course-picker', 'K1 — 12 Sep R1');
-  await expect(page.getByLabel('Wind direction')).toHaveValue('180');
+  // The card's 180° is true; the start shows it in magnetic, a degree or so
+  // east of it off Howth.
+  await expect(page.getByLabel('Wind direction')).toHaveValue(/^18[01]\.\d$/);
+  const cardWind = await page.getByLabel('Wind direction').inputValue();
   await expect(page.getByTestId('legs-disclosure')).toContainText(/Legs \(\d+\)/);
   await page.getByTestId('legs-disclosure').click();
   await expect(page.getByLabel('Leg 1 distance')).not.toHaveValue('');
-  await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue('180');
+  await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue(cardWind);
   // Every generated leg is recorded to 0.01 NM, the precision ORC scores a
   // course at — not to the thousandth the geometry could give.
   for (const input of await page.getByLabel(/^Leg \d+ distance$/).all()) {
@@ -303,7 +307,9 @@ test("a course that is the committee's leg table, pasted once and reused", async
   await page.getByLabel('Leg table to paste').fill(committeeTable);
   // What it made of the paste, before it is committed: the header skipped,
   // the row numbers recognised, the wind columns ignored.
-  await expect(page.getByTestId('paste-legs-preview')).toHaveText('12 legs · 12.40 NM');
+  // With no venue position there is nothing to convert at, so the table is
+  // read as true and the dialog says so.
+  await expect(page.getByTestId('paste-legs-preview')).toHaveText('12 legs · 12.40 NM · bearings in °T');
   await page.getByTestId('paste-legs-add').click();
   await expect(page.getByLabel('Leg 1 distance')).toHaveValue('0.8');
   await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('59');
@@ -330,7 +336,7 @@ test("a course that is the committee's leg table, pasted once and reused", async
   await expect(courseRow).toContainText('leg table');
   await expect(courseRow).toContainText('12 legs · 12.40 NM');
   // The bearings stand in for a mark sequence, because there are no marks.
-  await expect(courseRow).toContainText('59° › 239°');
+  await expect(courseRow).toContainText('59°T › 239°T');
 
   // A leg stray enough to matter shows in the closure figure — the failure
   // that put a 13th leg into a scored race.
