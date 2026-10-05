@@ -3,6 +3,7 @@ import { buildOrcMix, type OrcMix } from './orc-mix';
 import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
+import { courseVariation, describeVariation, formatBearing, type Variation } from './bearings';
 import { drawnRaceStartCourse } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
@@ -239,6 +240,10 @@ export interface OrcHeaderData {
   courseModel?: string;
   /** Constructed-course legs, published as the course record. */
   legs?: OrcCourseLeg[];
+  /** The variation the legs' bearings and winds are shown in magnetic at:
+   *  where the course is (its marks, else the venue) on the race's day.
+   *  Absent where neither is known, and the legs print in true. */
+  legsVariation?: Variation;
   /** The course drawn: marks at their positions and the legs over them, as
    *  the start recorded it — one inert SVG element, nothing fetched. A
    *  competitor checking their track sees the picture the scorer checked. */
@@ -2435,10 +2440,14 @@ function renderRaceTable(
               : h.scratchTod != null
                 ? 'Scored on ORC time-on-distance'
                 : 'Scored on an ORC certificate rating';
+        // Bearings and winds are stored true; a sailor reads them off a
+        // compass, so they print in magnetic with the true figure beside, and
+        // the variation that was applied is stated so a reader can check it.
+        const v = h.legsVariation;
         const legsLine = h.legs?.length
           ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
-              .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${leg.bearingDeg}&deg; (wind ${leg.windDirectionDeg}&deg;${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''})`)
-              .join(' &middot; ')}</p>`
+              .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${formatBearing(leg.bearingDeg, v, { both: true })}, wind ${formatBearing(leg.windDirectionDeg, v, { both: true })}${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''}`)
+              .join(' &middot; ')}${v ? `<br><span class="orc-course-variation" style="font-size: 0.9em;">Magnetic at ${esc(describeVariation(v))}.</span>` : ''}</p>`
           : '';
         // Folded away by default: the drawing is an illustration of the legs
         // line above it, and unfolded it pushes the results table off a
@@ -3039,7 +3048,7 @@ function renderOrcMixHtml(mix: OrcMix, boat: string | undefined, appliedAsTot = 
  * Call this from the standings page before passing to renderSeriesHtml().
  */
 export function assembleSeriesResultsData(
-  series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string },
+  series: { name: string; venue: string; venueLogoUrl?: string; eventLogoUrl?: string; venueUrl?: string; eventUrl?: string; venuePosition?: { lat: number; lng: number } },
   races: Array<{ id: string; raceNumber: number; order?: number; name?: string | null; date: string; discardPolicy?: RaceDiscardPolicy; pointsMultiplier?: number; conditions?: RaceConditions; officials?: RaceOfficial[] }>,
   standings: Array<{
     rank: number;
@@ -3188,7 +3197,10 @@ export function assembleSeriesResultsData(
           ...(firstOrc.totApplied != null ? { appliedAsTot: true } : {}),
           ...(firstOrc.courseModel ? { courseModel: firstOrc.courseModel } : {}),
           ...(firstOrc.courseModel === 'CC' && coveringStart?.courseLegs?.length
-            ? { legs: coveringStart.courseLegs }
+            ? (() => {
+                const v = courseVariation(coveringStart.course?.waypoints ?? [], series.venuePosition, race.date);
+                return { legs: coveringStart.courseLegs, ...(v ? { legsVariation: v } : {}) };
+              })()
             : {}),
           ...(firstOrc.courseModel === 'CC'
             ? (() => {

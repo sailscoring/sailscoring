@@ -5,6 +5,7 @@ import {
   renderCombinedSeriesHtml,
   renderSeriesHtml,
 } from '@/lib/results-renderer';
+import { formatBearing, formatVariation, variationAt } from '@/lib/bearings';
 import type { OrcCertData, OrcCourseLeg, OrcRaceCalc, RaceStartCourse } from '@/lib/types';
 
 import sampleCerts from '@/scripts/data/orc-sample-certs.json';
@@ -54,6 +55,8 @@ function assemble(options: {
   /** Certificates on the competitors — without them there is no allowance
    *  matrix to mix, and the handicap-mix fold is correctly absent. */
   certs?: boolean;
+  /** Where the racing is, for a course with no marks to place it. */
+  venuePosition?: { lat: number; lng: number };
 }) {
   // The applied rating is the ToT where the option applies one, and the
   // allowance otherwise — the same choice the engine makes.
@@ -67,7 +70,7 @@ function assemble(options: {
     c2: { id: 'c2', sailNumber: 'IRL 1551', names: ['Mojo'] },
   };
   return assembleSeriesResultsData(
-    { name: 'ORC Render Test', venue: '' },
+    { name: 'ORC Render Test', venue: '', ...(options.venuePosition ? { venuePosition: options.venuePosition } : {}) },
     [{ id: 'r1', raceNumber: 1, date: '2026-09-12', name: null }],
     [
       { rank: 1, competitor: boats.c1, racePoints: [1], raceCodes: [null], totalPoints: 1, netPoints: 1, raceDiscards: [false] },
@@ -158,7 +161,10 @@ describe('published ORC transparency', () => {
     expect(html).toContain('Constructed course');
     expect(html).toContain('8.11 NM');
     expect(html).toContain('2 legs');
-    expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg;)');
+    // Nothing places the course — no marks, no venue — so the figures are
+    // true, and say so.
+    expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T');
+    expect(html).not.toContain('orc-course-variation');
     // No course was picked, but the legs typed in were scored, so they are
     // what draws — unlocated, and captioned as such.
     expect(html).toContain('class="orc-course-drawing"');
@@ -617,8 +623,19 @@ describe('published transparency for a recorded-wind race', () => {
 
   it("records each leg's wind speed beside its bearing", () => {
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs) }));
-    expect(html).toContain('2.09 NM @ 162&deg; (wind 225&deg; at 9 kt)');
-    expect(html).toContain('0.19 NM @ 316&deg; (wind 225&deg; at 9 kt)');
+    expect(html).toContain('2.09 NM @ 162°T, wind 225°T at 9 kt');
+    expect(html).toContain('0.19 NM @ 316°T, wind 225°T at 9 kt');
+  });
+
+  it('prints the legs in magnetic, true beside, at the variation where and when the race was', () => {
+    // Cork Harbour on the race's day: the World Magnetic Model puts magnetic
+    // north a degree or two west of true.
+    const cork = { lat: 51.8, lng: -8.3 };
+    const v = variationAt(cork, '2026-09-12');
+    const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs), venuePosition: cork }));
+    expect(html).toContain(`2.09 NM @ ${formatBearing(162, v)} (162°T), wind ${formatBearing(225, v)} (225°T) at 9 kt`);
+    expect(formatBearing(162, v)).not.toBe('162°M');
+    expect(html).toContain(`Magnetic at variation ${formatVariation(v)} (World Magnetic Model, 12 Sep 2026).`);
   });
 
   it('the handicap mix says what the weights are the allowance for', () => {

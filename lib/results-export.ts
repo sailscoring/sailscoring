@@ -898,7 +898,7 @@ export async function buildFleetHtmlFiles(
     ? (await import('./nationality/flags')).NATIONAL_FLAGS
     : undefined;
 
-  const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl };
+  const seriesInfo = { name: series.name, venue: series.venue, venueLogoUrl: series.venueLogoUrl, eventLogoUrl: series.eventLogoUrl, venueUrl: series.venueUrl, eventUrl: series.eventUrl, venuePosition: series.venuePosition };
 
   // The "Open in Sail Scoring" import URL is series-wide (the JSON covers
   // every fleet), so derive it once for all pages.
