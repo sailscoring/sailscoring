@@ -1,5 +1,5 @@
 {
-  "formatVersion": 52,
+  "formatVersion": 65,
   "seriesId": "sample-orc",
   "exportedAt": "2026-01-01T00:00:00.000Z",
   "series": {
@@ -12,6 +12,10 @@
     "eventLogoUrl": "",
     "venueUrl": "",
     "eventUrl": "",
+    "venuePosition": {
+      "lat": 53.393,
+      "lng": -6.066
+    },
     "discardThresholds": [
       {
         "minRaces": 4,
@@ -4567,7 +4571,8 @@
                 "lat": 53.4235,
                 "lng": -6.058667,
                 "side": "port",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-u",
@@ -4575,7 +4580,8 @@
                 "lat": 53.437,
                 "lng": -6.082833,
                 "side": "port",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-k",
@@ -4583,7 +4589,8 @@
                 "lat": 53.41,
                 "lng": -6.051833,
                 "side": "starboard",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-h",
@@ -4591,7 +4598,8 @@
                 "lat": 53.4285,
                 "lng": -6.073833,
                 "side": "port",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-k",
@@ -4599,7 +4607,8 @@
                 "lat": 53.41,
                 "lng": -6.051833,
                 "side": "starboard",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-q",
@@ -4608,7 +4617,8 @@
                 "lng": -6.053667,
                 "side": "starboard",
                 "passing": true,
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-hm",
@@ -4617,14 +4627,16 @@
                 "lng": -6.059883,
                 "side": "starboard",
                 "passing": true,
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-fh",
                 "label": "FH",
                 "lat": 53.39334,
                 "lng": -6.06529,
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               }
             ],
             "windDirectionDeg": 160
@@ -4904,7 +4916,8 @@
                 "lat": 53.4235,
                 "lng": -6.058667,
                 "side": "port",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-u",
@@ -4912,7 +4925,8 @@
                 "lat": 53.437,
                 "lng": -6.082833,
                 "side": "port",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-k",
@@ -4920,7 +4934,8 @@
                 "lat": 53.41,
                 "lng": -6.051833,
                 "side": "starboard",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-h",
@@ -4928,7 +4943,8 @@
                 "lat": 53.4285,
                 "lng": -6.073833,
                 "side": "port",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-k",
@@ -4936,7 +4952,8 @@
                 "lat": 53.41,
                 "lng": -6.051833,
                 "side": "starboard",
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-q",
@@ -4945,7 +4962,8 @@
                 "lng": -6.053667,
                 "side": "starboard",
                 "passing": true,
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-hm",
@@ -4954,14 +4972,16 @@
                 "lng": -6.059883,
                 "side": "starboard",
                 "passing": true,
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               },
               {
                 "markId": "om-card-fh",
                 "label": "FH",
                 "lat": 53.39334,
                 "lng": -6.06529,
-                "fixed": true
+                "fixed": true,
+                "set": "hyc/al-2026"
               }
             ],
             "windDirectionDeg": 160,

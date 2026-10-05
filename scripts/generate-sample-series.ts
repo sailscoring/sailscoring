@@ -157,6 +157,7 @@ interface FileSeries {
   eventLogoUrl: string;
   venueUrl: string;
   eventUrl: string;
+  venuePosition?: { lat: number; lng: number };  // v65+
   discardThresholds: { minRaces: number; discardCount: number }[];
   dnfScoring: 'seriesEntries' | 'startingArea';
   ftpHost: string;
@@ -1630,7 +1631,7 @@ function buildOrcSample(): SeriesFile {
   });
 
   return {
-    formatVersion: 52,
+    formatVersion: 65,
     seriesId: 'sample-orc',
     exportedAt: EXPORTED_AT,
     series: {
@@ -1643,6 +1644,9 @@ function buildOrcSample(): SeriesFile {
       eventLogoUrl: '',
       venueUrl: '',
       eventUrl: '',
+      // Howth harbour: where the leg-table course, which has no marks, takes
+      // its magnetic variation from.
+      venuePosition: { lat: 53.393, lng: -6.066 },
       discardThresholds: [{ minRaces: 4, discardCount: 1 }],
       dnfScoring: 'seriesEntries',
       ftpHost: '',

@@ -67,6 +67,7 @@ function seedRepos(db: SailScoringDb, workspaceId: string): SeriesFileRepos {
           eventLogoUrl: s.eventLogoUrl,
           venueUrl: s.venueUrl,
           eventUrl: s.eventUrl,
+          venuePosition: s.venuePosition ?? null,
           createdAt: new Date(s.createdAt),
           lastSavedAt: s.lastSavedAt != null ? new Date(s.lastSavedAt) : null,
           lastModifiedAt: new Date(s.lastModifiedAt),
