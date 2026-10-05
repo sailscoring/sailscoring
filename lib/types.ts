@@ -642,8 +642,8 @@ export interface Fleet {
 }
 
 /**
- * One leg of a constructed course (ORC rule 402.5): its length, compass
- * bearing, and the wind direction on the leg — a leg is split into sub-legs
+ * One leg of a constructed course (ORC rule 402.5): its length, bearing,
+ * and the wind direction on the leg — a leg is split into sub-legs
  * by entering separate rows when the wind shifts mid-leg. Current is
  * optional per leg.
  *
@@ -652,6 +652,11 @@ export interface Fleet {
  * legs carry no speed. The recorded-wind options score the course at the
  * wind the race committee measured, which is per leg for the same reason
  * the direction is: a leg is split where the wind changed along it.
+ *
+ * Every bearing and direction the app stores is in degrees true — this one,
+ * the course library's, a laid mark's, a start's wind. Magnetic is how they
+ * are shown and entered, converted at the race's place and date
+ * (`lib/bearings.ts`); stored, a magnetic figure would carry a date in it.
  */
 export interface OrcCourseLeg {
   distanceNm: number;
@@ -682,8 +687,8 @@ export interface SeriesMark {
   card?: { set: string; markId: string; release: string };
   shape?: string;      // the club's description, as the card prints it
   color?: string;
-  // How a laid mark was logged: a bearing and distance off another mark
-  // ("1,000 m upwind of the line on 190°"). Provenance for the position,
+  // How a laid mark was logged: a bearing (true) and distance off another
+  // mark ("1,000 m upwind of the line on 190°"). Provenance for the position,
   // which is what was resolved when it was entered — moving the origin
   // afterwards does not move this mark.
   from?: { markId: string; bearingDeg: number; distanceM: number };
@@ -701,7 +706,7 @@ export interface SeriesCourseMark {
 
 /**
  * One leg of a course as the race committee states it: how far, and on what
- * bearing. There is no position behind it and no wind on it — the wind
+ * bearing (true, whatever the committee wrote it in). There is no position behind it and no wind on it — the wind
  * belongs to the race, not the course (see RaceStart.courseLegs).
  */
 export interface SeriesCourseLeg {
@@ -786,7 +791,7 @@ export interface RaceStartCourse {
    *  how `legsEdited` is worked out and how a course that has moved in the
    *  library since is told apart from one the scorer changed by hand. */
   legs?: SeriesCourseLeg[];
-  windDirectionDeg?: number;
+  windDirectionDeg?: number;  // true, like every stored direction
   /** The wind speed (kt) the scorer gave for the whole course, where the
    *  option scores at the recorded wind. Held so a recompute puts it back
    *  on every leg rather than dropping it and leaving the race unscored. */

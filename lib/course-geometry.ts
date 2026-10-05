@@ -24,6 +24,7 @@ import {
   type Waypoint,
 } from '@sailscoring/course-cards';
 
+import type { BearingRef } from './bearings';
 import type {
   OrcCourseLeg,
   RaceStartCourse,
@@ -164,18 +165,28 @@ export function courseLegsOf(
   return resolveCourse(course.marks, marksById).legs;
 }
 
+/** One leg as a pasted table gave it: the bearing as written, and the
+ *  reference the table wrote beside it, where it wrote one. */
+export interface PastedLeg extends SeriesCourseLeg {
+  bearingRef?: BearingRef;
+}
+
 /** What {@link parseLegTable} made of a pasted table. */
 export interface ParsedLegTable {
-  legs: SeriesCourseLeg[];
+  legs: PastedLeg[];
   /** Lines that held no usable pair of numbers — a header, a total, a blank.
    *  Reported rather than hidden: a paste that drops half the course should
    *  be visible before it is committed. */
   skipped: number;
 }
 
-/** Every number on a line, with the units a committee writes stripped. */
-function numbersOn(line: string): number[] {
-  return [...line.replace(/[°º]/g, ' ').matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => Number(m[0]));
+/** Every number on a line, each with the M or T written straight after it
+ *  (`105M`, `105°T`, `105 M`), the degree sign a committee writes skipped. */
+function numbersOn(line: string): { n: number; ref?: BearingRef }[] {
+  return [...line.matchAll(/(-?\d+(?:\.\d+)?)\s*[°º]?(?:\s*([MmTt])(?![A-Za-z]))?/g)].map((m) => ({
+    n: Number(m[1]),
+    ...(m[2] ? { ref: m[2].toUpperCase() as BearingRef } : {}),
+  }));
 }
 
 /**
@@ -183,6 +194,10 @@ function numbersOn(line: string): number[] {
  * the first two numbers its distance in nautical miles and its bearing in
  * degrees. Anything after them is ignored, so ORC's own four-column form
  * (weight, bearing, wind direction, wind speed) pastes as it stands.
+ *
+ * A bearing may say which north it is from (`0.24 105M`); one that does not
+ * is in whatever reference the caller asks the scorer for, so `bearingRef`
+ * is set only where the table wrote it.
  *
  * A leading row-number column is dropped only when *every* line has one and
  * they run 1, 2, 3 … — a signal, not a guess. Anything else is read as the
@@ -192,13 +207,14 @@ export function parseLegTable(text: string): ParsedLegTable {
   const lines = text.split(/\r?\n/).map(numbersOn).filter((nums) => nums.length > 0);
   const numbered =
     lines.length > 1 &&
-    lines.every((nums, i) => nums.length >= 3 && nums[0] === i + 1);
+    lines.every((nums, i) => nums.length >= 3 && nums[0].n === i + 1);
   const rows = numbered ? lines.map((nums) => nums.slice(1)) : lines;
 
-  const legs: SeriesCourseLeg[] = [];
+  const legs: PastedLeg[] = [];
   let skipped = 0;
   for (const nums of rows) {
-    const [distanceNm, bearingDeg] = nums;
+    const distanceNm = nums[0]?.n;
+    const bearingDeg = nums[1]?.n;
     if (
       nums.length < 2 ||
       !Number.isFinite(distanceNm) || distanceNm <= 0 ||
@@ -207,7 +223,7 @@ export function parseLegTable(text: string): ParsedLegTable {
       skipped++;
       continue;
     }
-    legs.push({ distanceNm, bearingDeg });
+    legs.push({ distanceNm, bearingDeg, ...(nums[1].ref ? { bearingRef: nums[1].ref } : {}) });
   }
   // A line with numbers on it but no legs at all is a header or a total, not
   // a course; saying "3 lines skipped" there is noise.

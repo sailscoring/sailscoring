@@ -457,6 +457,15 @@ describe('pasting a leg table', () => {
     expect(r.skipped).toBe(2);
   });
 
+  it('reads the reference a bearing is written in, and leaves it unset where none is', () => {
+    const refsOf = (text: string) => parseLegTable(text).legs.map((l) => `${l.bearingDeg}${l.bearingRef ?? '?'}`);
+    expect(refsOf('0.24 105M\n1.10 290°T\n0.80 059 M\n0.50 180')).toEqual(['105M', '290T', '59M', '180?']);
+    // Lower case reads the same; a word that merely starts with M or T does not.
+    expect(refsOf('0.24 105m\n0.30 200 Mark')).toEqual(['105M', '200?']);
+    // A reference on the distance or on a later column is not the bearing's.
+    expect(refsOf('1 0.24 105M 230T\n2 0.30 200 230T')).toEqual(['105M', '200?']);
+  });
+
   it('finds nothing in a table with no legs at all, and says so quietly', () => {
     const r = parseLegTable('Distance Bearing\nTotal');
     expect(r.legs).toEqual([]);

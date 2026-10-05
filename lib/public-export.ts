@@ -430,7 +430,8 @@ export interface PublicSeriesExport {
       /** RC PCS scoring-wind override in kt (ORC 402.12) — a scoring input. */
       orcScoringWind?: number;
       /** Constructed-course legs (ORC 402.5) — the course record competitors
-       *  check their tracks against, so it belongs in public results. */
+       *  check their tracks against, so it belongs in public results.
+       *  Bearings and wind directions are degrees true. */
       courseLegs?: import('./types').OrcCourseLeg[];
       /** Where those legs came from: the course as it was when the start
        *  picked it — its name, the resolved waypoints with positions, the
@@ -453,8 +454,10 @@ export interface PublicSeriesExport {
           set?: string;
         }[];
         /** The leg table the course gave, on a course defined by legs —
-         *  which has no waypoints to snapshot. */
+         *  which has no waypoints to snapshot. Bearings are degrees true,
+         *  as is every bearing and wind direction in this file. */
         legs?: { distanceNm: number; bearingDeg: number }[];
+        /** Degrees true. */
         windDirectionDeg?: number;
         windSpeedKts?: number;
         legsEdited?: boolean;
@@ -606,8 +609,8 @@ export interface PublicSeriesExport {
     card?: { set: string; markId: string; release: string };
     shape?: string;
     color?: string;
-    /** A laid mark's log entry: bearing and distance off another mark, by
-     *  that mark's exported name. */
+    /** A laid mark's log entry: bearing (degrees true) and distance off
+     *  another mark, by that mark's exported name. */
     from?: { mark: string; bearingDeg: number; distanceM: number };
   }[];
   courses?: {
@@ -616,7 +619,8 @@ export interface PublicSeriesExport {
     modified?: boolean;
     marks: { mark: string; side?: 'port' | 'starboard'; passing?: boolean }[];
     /** The race committee's own leg table, on a course defined that way
-     *  rather than by marks. Exactly one of the two is non-empty. */
+     *  rather than by marks. Exactly one of the two is non-empty. Bearings
+     *  are degrees true. */
     legs?: { distanceNm: number; bearingDeg: number }[];
   }[];
   /** Split-fleet championship state: the series' configuration and the

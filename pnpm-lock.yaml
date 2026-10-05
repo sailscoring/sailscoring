@@ -62,6 +62,9 @@ importers:
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)
+      magvar:
+        specifier: ^2.2.0
+        version: 2.2.0
       next:
         specifier: 16.3.6
         version: 16.3.6(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@26.6.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -4482,6 +4485,9 @@ packages:
 
   magic-string@1.4.2:
     resolution: {integrity: sha512-vG+rjFRj1PqdIBozIxAGMjPlOhaVe+GXpbttY/iSK7rGcJRMlwNJO7dcUwmUqkymsFLJiNGI06t4D7Fr7yRC9g==}
+
+  magvar@2.2.0:
+    resolution: {integrity: sha512-sWLPLRuEOtiN0U7TKW5g33oVXxEVruyXUkxRxBtwyqBiryd5iTwLLDJSw6Tx5qV2xQpGXy5tfvXxgk+s3OCUeg==}
 
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
@@ -9727,6 +9733,8 @@ snapshots:
   magic-string@1.4.2:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  magvar@2.2.0: {}
 
   math-intrinsics@1.1.0: {}
 
