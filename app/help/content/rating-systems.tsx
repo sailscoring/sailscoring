@@ -495,6 +495,27 @@ export default function RatingSystems() {
           worry about — but a course missing a leg, or carrying one it shouldn’t,
           misses by much more than rounding, and this is where you see it.
         </p>
+        <p>
+          <strong className="text-foreground">True and magnetic.</strong> Every
+          bearing and wind direction is stored in degrees true. Bearings worked out
+          from mark positions are true, true doesn’t change from year to year, and
+          weather sources give the wind in true. On screen they are shown and typed
+          in magnetic by default, because that is what is read off a compass, and
+          every figure is labelled <em>°M</em> or <em>°T</em>. The race officer’s
+          wind and the committee’s leg table can be entered just as they were
+          written down. The conversion uses the variation the World Magnetic Model
+          gives where the course is (the centre of its marks) on the race’s day, so
+          a magnetic figure never goes stale. A leg table has no marks, so it takes
+          the <em>venue position</em>, which you set at the top of the Courses tab;
+          until one is set, a leg table’s bearings stay in true. Each dialog has a{' '}
+          <em>°M / °T</em> choice beside the variation it applies, and a figure
+          followed by M or T (<em>105M</em>, <em>103T</em>) is read that way whatever
+          the choice is. That works when pasting too, so a table that marks its
+          bearings goes in as it stands, and one that doesn’t is read in the
+          dialog’s choice. The published page prints each leg as{' '}
+          <em>164°M (162°T)</em> and states the variation it used and the date it
+          is for.
+        </p>
       </Section>
       )}
       <Section id="fixed-tcf" title="A club handicap fixed for the series">

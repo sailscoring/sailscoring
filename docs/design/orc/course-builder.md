@@ -204,6 +204,20 @@ The first mark of a course's sequence is the start line like any other mark,
 which keeps the sequence uniform; since course-cards 0.2.0 the card's own
 sequences begin with its `startLine`, so adopting one carries it through.
 
+## True and magnetic
+
+Every stored bearing and wind direction is degrees true: the library's legs,
+a laid mark's `from`, a start's `courseLegs` and its course wind, and the
+public export. Positions give true bearings, true does not depend on the
+date, and weather sources give wind in true. Display and entry are magnetic
+by default (what a compass reads), with every figure labelled, converted
+in `lib/bearings.ts` at the World Magnetic Model's variation (`magvar`, MIT)
+where the course is (its marks' centre, else `Series.venuePosition`) on the
+race's day. Nothing places a leg table in a series with no venue position, so
+its figures stay true and the dialogs say so. An entry field left untouched
+saves back its stored figure exactly, so opening and saving never drifts a
+bearing.
+
 ## Rendering a course with no positions
 
 A leg course draws too. Its bearings and distances fix the shape and the

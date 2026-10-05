@@ -399,3 +399,89 @@ test("a course that is the committee's leg table, pasted once and reused", async
     await expect(page).toHaveURL(/\/races$/);
   }
 });
+
+test('a leg table in magnetic, entered as the race officer wrote it', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Magnetic Legs 2026' });
+  await createFleets(page, ['Class 2']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'ORC' }).click();
+  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
+  await page.getByRole('option', { name: 'Constructed course at the recorded wind · time-on-time' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // A leg table has no marks to place it, so the variation needs the venue.
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await expect(page.getByRole('heading', { name: 'Marks' })).toBeVisible();
+  await expect(page.getByTestId('venue-position')).toContainText('stay in °T');
+  await page.getByTestId('venue-position-edit').click();
+  await page.getByLabel('Venue position').fill('51 48.000 N 008 18.000 W');
+  await page.getByTestId('venue-position-save').click();
+  // Cork Harbour: magnetic north a degree or two west of true.
+  await expect(page.getByTestId('venue-position')).toContainText(/variation \d(\.\d)?°W today/);
+
+  await page.getByTestId('new-course').click();
+  await page.getByTestId('course-source-legs').click();
+  await expect(page.getByRole('radio', { name: '°M' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('bearing-ref')).toContainText('World Magnetic Model');
+
+  // The race officer's table in magnetic, one leg marked true: the mark is
+  // honoured, the rest read in the dialog's reference.
+  await page.getByTestId('paste-legs-disclosure').click();
+  await page.getByLabel('Leg table to paste').fill('0.24\t105\n1.10\t290T');
+  await expect(page.getByTestId('paste-legs-preview')).toHaveText(
+    '2 legs · 1.34 NM · bearings in °M and °T (unmarked ones read as °M)',
+  );
+  await page.getByTestId('paste-legs-add').click();
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('105');
+  await expect(page.getByLabel('Leg 2 bearing')).toHaveValue(/^29[1-3](\.\d)?$/);
+
+  // Switching to true re-shows every figure; switching back restores them.
+  await page.getByRole('radio', { name: '°T' }).click();
+  await expect(page.getByLabel('Leg 2 bearing')).toHaveValue('290');
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue(/^10[34](\.\d)?$/);
+  await page.getByRole('radio', { name: '°M' }).click();
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('105');
+
+  await page.getByLabel('Name').fill('RO table — 4 Oct');
+  await page.getByTestId('course-save').click();
+  const courseRow = page.getByTestId('course-row').filter({ hasText: 'RO table — 4 Oct' });
+  await expect(courseRow).toContainText('105°M › 29');
+
+  // Opened again, the figures are the ones typed: stored true, shown back
+  // in magnetic at the same variation.
+  await courseRow.getByRole('button', { name: 'Actions for RO table — 4 Oct' }).click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('105');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // A start picks it, with the race officer's wind off the compass.
+  await page.getByRole('navigation').getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05', { exact: true }).fill('19:00:00');
+  await pick(page, 'start-course-picker', 'RO table — 4 Oct');
+  await expect(page.getByRole('radio', { name: '°M' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByLabel('Wind direction').fill('232');
+  await page.getByLabel('Wind speed', { exact: true }).fill('9');
+  await page.getByTestId('legs-disclosure').click();
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('105');
+  await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue('232');
+  await page.getByRole('checkbox', { name: 'Class 2' }).check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  // Saved and reopened, nothing has moved — and the legs are still the
+  // course's own, not an edit.
+  await page.getByRole('button', { name: 'Edit start' }).click();
+  await expect(page.getByLabel('Wind direction')).toHaveValue('232');
+  await page.getByTestId('legs-disclosure').click();
+  await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('105');
+  await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue('232');
+  await expect(page.getByTestId('legs-edited')).toHaveCount(0);
+});
