@@ -531,6 +531,25 @@ would be the requirements:
 - A fix can be cancelled or deleted, and re-assigned when it was recorded
   under the wrong race.
 - A backup message of the day's fixes, ready to send by WhatsApp.
+- **Only a fresh position is saved.** A phone can return its last known
+  position with that position's old time, even when asked for a new one
+  (Android Chrome ignores `maximumAge: 0`). On the first race day, 4 October
+  2026, half the fixes were between 24 seconds and 12.5 minutes old. So:
+  - A position more than 5 s older than the tap is ignored, and the page
+    keeps listening.
+  - A fresh position at ±5 m or better is saved at once. Otherwise the most
+    accurate fresh one is saved after 10 s. With none by 20 s, nothing is
+    saved and the crew is asked to stay at the mark and record again.
+  - A large "hold still" panel with a countdown is shown while waiting, and
+    "Saved" appears only once a fresh position is stored. Cancelling,
+    locking the screen or leaving the page saves nothing.
+  - Each fix stores the tap time beside the position's own time, so the age
+    of every position can be measured afterwards.
+  - The check relies on the phone's clock, so a phone more than a few
+    seconds out refuses every fix; the page should say why.
+  - Still open: a RIB still closing on the mark gets a fresh position that
+    isn't at the mark. A low speed, or two close positions, could be
+    required before saving.
 
 *Race officer's page: building the course*
 
@@ -576,6 +595,23 @@ would be the requirements:
   refresh stopped.
 - Outputs: a WhatsApp message with the course, legs and positions; and the
   leg table, which in Sail Scoring becomes the start's course directly.
+- **Check the day's fixes.** A read-only plot of every fix for a race, or
+  for the whole day, for the race officer or the scorer to spot one out of
+  place. Tapping a fix shows its name, race, time, accuracy, phone, who
+  recorded it, and how old the position was when saved. Typed positions are
+  drawn as estimates. Flags are advice only and never block anything:
+  - a position that was old when saved
+  - a pin within 60 m of a mark
+  - a start line more than 45° off square to the first leg
+  - a mark more than 500 m from a fix of the same name in another race
+  - line ends recorded out of time order
+  - a race with no committee boat of its own
+
+  Each flag comes with a ready-to-send message asking for the mark to be
+  recorded again.
+- **Used ashore too.** The scorer checks the marks and the legs side by
+  side, so the page needs a wide layout for a tablet or PC as well as the
+  phone layout.
 
 Pat's choices answer two of the open questions below, for his use at least.
 Connectivity: offline-first throughout, with WhatsApp as the fallback.
