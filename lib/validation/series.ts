@@ -147,6 +147,7 @@ export const seriesSchema = z.object({
   eventLogoUrl: z.string(),
   venueUrl: z.string(),
   eventUrl: z.string(),
+  venuePosition: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
   createdAt: epochMsSchema,
   lastSavedAt: epochMsSchema.nullable(),
   lastModifiedAt: epochMsSchema,

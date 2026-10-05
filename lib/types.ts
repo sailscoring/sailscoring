@@ -313,6 +313,10 @@ export interface Series {
   venueLogoUrl: string;
   eventLogoUrl: string;
   venueUrl: string;    // website the venue logo/name links to in exports (empty if unset)
+  // Where the racing is, for the magnetic variation of a course that has no
+  // marks to place it — a pasted leg table. A course with marks is placed by
+  // them. Absent until the scorer sets it.
+  venuePosition?: { lat: number; lng: number };
   eventUrl: string;    // website the event logo/name links to in exports (empty if unset)
   createdAt: number;   // Date.now()
   // File tracking

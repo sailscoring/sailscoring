@@ -135,7 +135,7 @@ const FACETS: readonly Facet[] = [
   },
   {
     key: 'venue',
-    fields: ['venue', 'venueUrl', 'venueLogoUrl', 'eventUrl', 'eventLogoUrl'],
+    fields: ['venue', 'venueUrl', 'venueLogoUrl', 'eventUrl', 'eventLogoUrl', 'venuePosition'],
     action: 'series.updated',
     summary: () => 'Updated the venue and event details',
   },

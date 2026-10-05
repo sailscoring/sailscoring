@@ -33,10 +33,11 @@ export function variationAt(position: Position, isoDate: string): Variation {
   return { deg: magvar(position.lat, position.lng, 0, when), date: isoDate.slice(0, 10) };
 }
 
-/** Today as an ISO date: what a figure with no race behind it — a library
- *  course, a mark — is converted at. */
+/** Today as an ISO date in the scorer's own clock: what a figure with no
+ *  race behind it — a library course, a mark — is converted at. */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Where a set of positions is: their centroid. Undefined when there are

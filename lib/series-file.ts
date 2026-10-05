@@ -562,9 +562,15 @@ export interface SeriesFileRepos {
  *  and the fleet the division was imported as, remapped with the fleets on
  *  read). Sparse. An older build reading a v64 file drops them, which costs
  *  only the import matching those races by position again; scoring never
- *  reads them. */
-export const FORMAT_VERSION = 64;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64];
+ *  reads them.
+ *
+ *  v65 adds optional `series.venuePosition` — where the racing is, which a
+ *  course with no marks to place it (a pasted leg table) takes its magnetic
+ *  variation from. Display and entry only: every bearing is stored true, so
+ *  an older build reading a v65 file scores it identically and loses only
+ *  the position, which the scorer sets again. */
+export const FORMAT_VERSION = 65;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -635,6 +641,7 @@ interface SeriesFileSeries {
   eventLogoUrl: string;
   venueUrl?: string;   // additive; absent in files written before logo/event links landed
   eventUrl?: string;
+  venuePosition?: { lat: number; lng: number };  // v65+; where the racing is, for magnetic variation
   discardThresholds: DiscardThreshold[];
   proportionalDiscard?: ProportionalDiscard;  // v26+; replaces the thresholds when set
   dnfScoring: DnfScoring;
@@ -1045,6 +1052,7 @@ export async function buildSeriesFile(
       eventLogoUrl: series.eventLogoUrl,
       venueUrl: series.venueUrl,
       eventUrl: series.eventUrl,
+      ...(series.venuePosition ? { venuePosition: series.venuePosition } : {}),
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
       dnfScoring: series.dnfScoring,
@@ -1682,6 +1690,7 @@ export async function openSeriesFromFile(
     eventLogoUrl: file.series.eventLogoUrl,
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
+    venuePosition: file.series.venuePosition,
     createdAt: now,
     lastSavedAt: null,
     lastModifiedAt: now,
@@ -1794,6 +1803,7 @@ export async function restoreSeriesFromFile(
     eventLogoUrl: file.series.eventLogoUrl,
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
+    venuePosition: file.series.venuePosition,
     createdAt: now,
     lastSavedAt: null,
     lastModifiedAt: now,
@@ -1905,6 +1915,7 @@ async function updateSeriesFromFileInner(
     eventLogoUrl: file.series.eventLogoUrl,
     venueUrl: file.series.venueUrl ?? '',
     eventUrl: file.series.eventUrl ?? '',
+    venuePosition: file.series.venuePosition,
     lastModifiedAt: now,
     scoringMode: file.series.scoringMode,
     defaultStartSequence: remapStartSequence(file.series.defaultStartSequence, fleetIdMap),

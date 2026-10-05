@@ -189,6 +189,9 @@ export interface PublicSeriesExport {
     eventLogoUrl?: string;
     venueUrl?: string;
     eventUrl?: string;
+    /** Where the racing is, which a course with no marks (a pasted leg
+     *  table) takes its magnetic variation from. Sparse. */
+    venuePosition?: { lat: number; lng: number };
     discardThresholds: DiscardThreshold[];
     /** A proportional discard allowance in place of the thresholds. Sparse —
      *  omitted unless the series uses one. */
@@ -1376,6 +1379,7 @@ export function buildPublicExportFromSnapshot(
       ...(series.venueLogoUrl ? { venueLogoUrl: series.venueLogoUrl } : {}),
       ...(series.eventLogoUrl ? { eventLogoUrl: series.eventLogoUrl } : {}),
       ...(series.venueUrl ? { venueUrl: series.venueUrl } : {}),
+      ...(series.venuePosition ? { venuePosition: series.venuePosition } : {}),
       ...(series.eventUrl ? { eventUrl: series.eventUrl } : {}),
       discardThresholds: series.discardThresholds,
       ...(series.proportionalDiscard ? { proportionalDiscard: series.proportionalDiscard } : {}),
@@ -1828,6 +1832,7 @@ export async function importPublicExport(
     eventLogoUrl: data.series.eventLogoUrl ?? '',
     venueUrl: data.series.venueUrl ?? '',
     eventUrl: data.series.eventUrl ?? '',
+    ...(data.series.venuePosition ? { venuePosition: data.series.venuePosition } : {}),
     createdAt: now,
     lastSavedAt: null,
     lastModifiedAt: now,

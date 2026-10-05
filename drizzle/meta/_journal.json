@@ -820,6 +820,13 @@
       "when": 1791054790174,
       "tag": "0116_race_racesense_links",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1791183013864,
+      "tag": "0117_burly_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

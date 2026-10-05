@@ -149,6 +149,19 @@ describe.skipIf(skip)('postgres repositories', () => {
     await repos.series.delete(s.id);
   });
 
+  test('SeriesRepository.save sets and clears the venue position', async () => {
+    const repos = createRepos({ db, workspaceId: workspaceA });
+    const s = { ...makeSeries(), venuePosition: { lat: 51.8, lng: -8.3 } };
+
+    await repos.series.save(s);
+    expect((await repos.series.get(s.id))?.venuePosition).toEqual({ lat: 51.8, lng: -8.3 });
+
+    await repos.series.save({ ...s, venuePosition: undefined });
+    expect((await repos.series.get(s.id))?.venuePosition).toBeUndefined();
+
+    await repos.series.delete(s.id);
+  });
+
   test('SeriesRepository.list orders by manual display_order; new series append last', async () => {
     const repos = createRepos({ db, workspaceId: workspaceA });
     // Save order determines display_order: each new series seeds max+1, so it

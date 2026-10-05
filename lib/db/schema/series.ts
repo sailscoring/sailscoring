@@ -152,6 +152,9 @@ export const series = pgTable(
     eventLogoUrl: text('event_logo_url').notNull().default(''),
     venueUrl: text('venue_url').notNull().default(''),
     eventUrl: text('event_url').notNull().default(''),
+    // Where the racing is ({lat, lng}), for the magnetic variation of a
+    // course with no marks to place it. Null until the scorer sets it.
+    venuePosition: jsonb('venue_position').$type<{ lat: number; lng: number }>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

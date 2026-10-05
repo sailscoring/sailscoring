@@ -100,6 +100,7 @@ function seriesRowToType(row: SeriesRow): Series {
     eventLogoUrl: row.eventLogoUrl,
     venueUrl: row.venueUrl,
     eventUrl: row.eventUrl,
+    ...(row.venuePosition ? { venuePosition: row.venuePosition } : {}),
     createdAt: row.createdAt.getTime(),
     lastSavedAt: row.lastSavedAt ? row.lastSavedAt.getTime() : null,
     lastModifiedAt: row.lastModifiedAt.getTime(),
@@ -610,6 +611,7 @@ function seriesToRow(s: Series, workspaceId: string) {
     eventLogoUrl: s.eventLogoUrl,
     venueUrl: s.venueUrl,
     eventUrl: s.eventUrl,
+    venuePosition: s.venuePosition ?? null,
     createdAt: new Date(s.createdAt),
     lastSavedAt: s.lastSavedAt != null ? new Date(s.lastSavedAt) : null,
     lastModifiedAt: new Date(s.lastModifiedAt),
@@ -661,7 +663,7 @@ function seriesToRow(s: Series, workspaceId: string) {
 
 const seriesUpdateColumns = [
   'name', 'venue', 'startDate', 'endDate',
-  'venueLogoUrl', 'eventLogoUrl', 'venueUrl', 'eventUrl',
+  'venueLogoUrl', 'eventLogoUrl', 'venueUrl', 'eventUrl', 'venuePosition',
   'lastSavedAt', 'lastModifiedAt',
   'scoringMode', 'defaultStartSequence', 'discardThresholds', 'proportionalDiscard', 'dnfScoring',
   'excludeDncOnlyCompetitors', 'raceFleetExclusions',
