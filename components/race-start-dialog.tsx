@@ -257,7 +257,13 @@ function RaceStartDialogInner({
   const [legsOpen, setLegsOpen] = useState(!seed?.course);
   const [courseDialog, setCourseDialog] = useState<CourseDialogMode | null>(null);
   const libraryCourse = snapshot?.courseId ? (libraryCourses ?? []).find((c) => c.id === snapshot.courseId) : undefined;
-  const outOfDate = snapshot ? courseOutOfDate(snapshot, libraryCourse, marksById) : false;
+  // A start scored before its set's passages reached the app holds the
+  // straight legs: its marks haven't moved, but the course no longer gives
+  // those legs, so it is offered the recompute like any other change.
+  const rerouted =
+    snapshot != null && snapshot === seed?.course && !legsEdited && !snapshot.legs &&
+    (seed.courseLegs?.length ?? 0) > 0 && legsOfWaypoints(snapshot.waypoints).length !== seed.courseLegs!.length;
+  const outOfDate = snapshot ? rerouted || courseOutOfDate(snapshot, libraryCourse, marksById) : false;
   const snapshotWaypoints = snapshot?.waypoints;
   const variation = useMemo(
     () => courseVariation(snapshotWaypoints ?? [], venuePosition, raceDate),
