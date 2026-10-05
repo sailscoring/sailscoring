@@ -14,6 +14,7 @@ import {
   destination,
   distanceNm as positionsApartNm,
   legsFromWaypoints,
+  routedLegsFromWaypoints,
   type CourseCardFile,
   type CourseLeg,
   type DrawnCourseMark,
@@ -21,10 +22,12 @@ import {
   type MarksFile,
   type Position,
   type ResolvedCourseMark,
+  type RoutingFile,
   type Waypoint,
 } from '@sailscoring/course-cards';
 
 import type { BearingRef } from './bearings';
+import { courseRoutingFor } from './course-cards/routing';
 import type {
   OrcCourseLeg,
   RaceStartCourse,
@@ -128,7 +131,7 @@ export function resolveCourse(
       ...(mark.card ? { fixed: true, set: mark.card.set } : {}),
     });
   }
-  const legs = legsFromWaypoints(waypoints.map(toLibraryWaypoint));
+  const legs = waypointLegs(waypoints);
   return { waypoints, legs, totalNm: legs.reduce((sum, l) => sum + l.distanceNm, 0), missingMarkIds };
 }
 
@@ -136,10 +139,65 @@ function toLibraryWaypoint(w: RaceStartCourseWaypoint): Waypoint {
   return { mark: w.markId ?? w.label, label: w.label, position: { lat: w.lat, lng: w.lng } };
 }
 
+/**
+ * The legs a course's waypoints sail. Where its marks came from a data set
+ * with a routing overlay, a leg the overlay routes round an obstruction is
+ * the legs actually sailed through the passage's waypoints — Ringabella to
+ * Cage by W2 and Rams Head, not across the headland — and every leg says
+ * whether the overlay vouches for it. Elsewhere the legs are straight lines,
+ * and claim nothing.
+ *
+ * The overlay names marks by the card's ids, which is what a waypoint's
+ * label is: the card's letter for an adopted mark, and for one the scorer
+ * laid, the name it was proposed under ("SL — 6 Sep R2" is SL). It is the
+ * overlay's own position check that makes a verdict hold, not the name: a
+ * line laid away from where the overlay assumed it, or a mark renamed into
+ * something else, leaves its legs straight and unreviewed.
+ */
+function waypointLegs(waypoints: RaceStartCourseWaypoint[]): CourseLeg[] {
+  const overlay = courseRoutingFor(drawingSet(waypoints));
+  if (!overlay) return legsFromWaypoints(waypoints.map(toLibraryWaypoint));
+  const points = waypoints.map((w) => ({ mark: w.label, label: w.label, position: { lat: w.lat, lng: w.lng } }));
+  return routedLegsFromWaypoints(points, overlay.routing, [...overlay.turnAt, ...points]);
+}
+
 /** The legs of a snapshot's waypoints — the same arithmetic as resolveCourse,
  *  over positions frozen when the start picked the course. */
 export function legsOfWaypoints(waypoints: RaceStartCourseWaypoint[]): CourseLeg[] {
-  return legsFromWaypoints(waypoints.map(toLibraryWaypoint));
+  return waypointLegs(waypoints);
+}
+
+/** How a routing overlay spoke for a course's legs, in the card's terms:
+ *  each card leg it routes, with the points the passage turns at, and the
+ *  card legs it could not vouch for. Legs are numbered from 1, as drawn. */
+export interface CourseRoutingSummary {
+  /** Who wrote the overlay, for the caption. */
+  contributor?: string;
+  passages: { leg: number; via: string[] }[];
+  unreviewed: number[];
+}
+
+/** What a set's overlay said about these legs, or null where none spoke. */
+export function courseRoutingSummary(legs: CourseLeg[], set: string | undefined): CourseRoutingSummary | null {
+  const overlay = courseRoutingFor(set);
+  if (!overlay || !legs.some((l) => l.review)) return null;
+  const passages = new Map<number, string[]>();
+  const unreviewed = new Set<number>();
+  for (const leg of legs) {
+    if (leg.cardLeg == null) continue;
+    if (leg.review === 'unreviewed') unreviewed.add(leg.cardLeg + 1);
+    if (leg.review === 'passage') {
+      const via = passages.get(leg.cardLeg + 1) ?? [];
+      // Each part of a passage after the first starts where it turned.
+      if (passages.has(leg.cardLeg + 1)) via.push(leg.from.label);
+      passages.set(leg.cardLeg + 1, via);
+    }
+  }
+  return {
+    ...(overlay.routing.contributor ? { contributor: overlay.routing.contributor } : {}),
+    passages: [...passages].map(([leg, via]) => ({ leg, via })),
+    unreviewed: [...unreviewed],
+  };
 }
 
 /** Whether a course is the race committee's leg table rather than a mark
@@ -459,6 +517,75 @@ export function drawnRaceStartCourse(
     return { marks, course, fromLegs: true };
   }
   return snapshot ? drawnStartCourse(snapshot) : null;
+}
+
+/**
+ * A drawing made ready for the set's routing overlay, where it has one, so
+ * the renderer draws a leg the overlay routes through the passage's
+ * waypoints, as the legs the course is scored on. The overlay names marks by
+ * the card's ids, so each mark is drawn under its label where that is
+ * unambiguous (a library mark's id is a UUID; `highlight` follows it); and a
+ * mark a passage turns at that the drawing doesn't hold — W2, on the way
+ * from Ringabella to Cage — is added, as the club's charted mark it is.
+ *
+ * `legCount` is how many legs the drawing has once routed, so a caller
+ * holding legs already scored can tell whether the drawing would agree with
+ * them: a start scored before the overlay reached the app has the straight
+ * legs, and a drawing that routed them would contradict its own leg table.
+ */
+export function routedDrawing(
+  marks: DrawnMark[],
+  course: DrawnCourseMark[],
+  set: string | undefined,
+  highlight?: string,
+): { marks: DrawnMark[]; course: DrawnCourseMark[]; highlight?: string; routing?: RoutingFile; legCount: number } {
+  const overlay = courseRoutingFor(set);
+  const pairs = (byId: Map<string, DrawnMark>, sequence: DrawnCourseMark[]) =>
+    sequence.slice(1).flatMap((entry, i) => {
+      const a = byId.get(sequence[i].mark);
+      const b = byId.get(entry.mark);
+      return a && b ? [[a, b] as const] : [];
+    });
+  if (!overlay) {
+    return {
+      marks,
+      course,
+      ...(highlight ? { highlight } : {}),
+      legCount: pairs(new Map(marks.map((m) => [m.id, m])), course).length,
+    };
+  }
+  const labelCount = new Map<string, number>();
+  for (const m of marks) labelCount.set(m.label, (labelCount.get(m.label) ?? 0) + 1);
+  const ids = new Set(marks.map((m) => m.id));
+  const idOf = new Map(marks.map((m) => [
+    m.id,
+    labelCount.get(m.label) === 1 && (m.label === m.id || !ids.has(m.label)) ? m.label : m.id,
+  ]));
+  const drawn = marks.map((m) => ({ ...m, id: idOf.get(m.id)! }));
+  const sequence = course.map((entry) => ({ ...entry, mark: idOf.get(entry.mark) ?? entry.mark }));
+  const present = new Set(drawn.map((m) => m.id));
+  const point = (m: DrawnMark): Waypoint => ({ mark: m.id, label: m.label, position: m.position });
+  const turnAt = [...overlay.turnAt.filter((w) => !present.has(w.mark)), ...drawn.map(point)];
+  let legCount = 0;
+  const used = new Set<string>();
+  for (const [a, b] of pairs(new Map(drawn.map((m) => [m.id, m])), sequence)) {
+    const legs = routedLegsFromWaypoints([point(a), point(b)], overlay.routing, turnAt);
+    legCount += legs.length;
+    for (const leg of legs) {
+      for (const w of [leg.from, leg.to]) if (!w.routing && !present.has(w.mark)) used.add(w.mark);
+    }
+  }
+  const added = overlay.turnAt
+    .filter((w) => used.has(w.mark))
+    .map((w): DrawnMark => ({ id: w.mark, label: w.label, position: w.position, fixed: true }));
+  const shown = highlight ? idOf.get(highlight) ?? highlight : undefined;
+  return {
+    marks: [...drawn, ...added],
+    course: sequence,
+    ...(shown ? { highlight: shown } : {}),
+    routing: overlay.routing,
+    legCount,
+  };
 }
 
 /**

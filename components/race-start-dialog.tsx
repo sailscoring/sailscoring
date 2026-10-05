@@ -402,7 +402,8 @@ function RaceStartDialogInner({
       legs.map((l) => ({ ...l, distanceNm: legDistance(l.distanceNm) })),
       legsForStart(snapshot.legs ?? legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt),
     );
-    return drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs);
+    const drawn = drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs);
+    return drawn && { ...drawn, scoredLegs: legs.length };
   }, [snapshot, legRows, legsEdited, windDeg, windKt, display]);
   // The chart the course sits on. A snapshot taken before waypoints carried
   // their data set names none, so the series' own library answers for it —
@@ -719,6 +720,7 @@ function RaceStartDialogInner({
                     marks={drawing.marks}
                     course={drawing.course}
                     set={drawingSetPath}
+                    scoredLegs={drawing.scoredLegs}
                     variation={display.ref === 'M' ? display.variation : undefined}
                     width={440}
                     title="Course drawing"

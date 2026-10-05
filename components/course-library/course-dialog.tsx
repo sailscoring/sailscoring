@@ -19,6 +19,7 @@ import {
   cardMarksToPlace,
   courseFromCard,
   courseIsLegTable,
+  courseRoutingSummary,
   drawnCourse,
   drawnLegTable,
   drawnMarks,
@@ -372,6 +373,10 @@ function CourseDialogInner({
   const legCount = source === 'legs' ? legRows.length : resolved.legs.length;
   const totalNm = source === 'legs' ? legsTotalNm : resolved.totalNm;
   const summary = legCount > 0 ? `${legCount} leg${legCount === 1 ? '' : 's'} · ${totalNm.toFixed(2)} NM` : '';
+  // Where the marks' set has a routing overlay, say what it did to the
+  // straight lines: a passage is scored as the legs it sails, so the count
+  // and the total above are already its own.
+  const routing = source !== 'legs' ? courseRoutingSummary(resolved.legs, drawing.set) : null;
 
   return (
     <>
@@ -537,6 +542,23 @@ function CourseDialogInner({
                 </Button>
               )}
             </div>
+            {routing && (routing.passages.length > 0 || routing.unreviewed.length > 0) && (
+              <div className="space-y-0.5 text-xs text-muted-foreground" data-testid="course-routing">
+                {routing.passages.map((p) => (
+                  <p key={p.leg}>
+                    Leg {p.leg} goes by {joinNames(p.via)}, not the straight line
+                    {routing.contributor ? ` (${routing.contributor}'s passages for these marks)` : ''}.
+                  </p>
+                ))}
+                {routing.unreviewed.length > 0 && (
+                  <p>
+                    {routing.unreviewed.length === 1 ? 'Leg' : 'Legs'} {joinNames(routing.unreviewed.map(String))}{' '}
+                    {routing.unreviewed.length === 1 ? 'is' : 'are'} not covered by the passages — dashed in the
+                    drawing, and scored as the straight line.
+                  </p>
+                )}
+              </div>
+            )}
             {editorOpen && source !== 'legs' && (
               <SequenceEditor
                 sequence={sequence}
@@ -607,4 +629,9 @@ function CourseDialogInner({
       />
     </>
   );
+}
+
+/** "W2", "W2 and Rams Head", "A, B and C". */
+function joinNames(names: string[]): string {
+  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }

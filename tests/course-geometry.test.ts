@@ -9,7 +9,12 @@ import {
   cardMarksToPlace,
   courseFromCard,
   courseOutOfDate,
+  courseRoutingSummary,
+  drawnCourse,
+  drawnMarks,
   drawnSnapshot,
+  legsOfWaypoints,
+  routedDrawing,
   legsForStart,
   legsMatch,
   markLabel,
@@ -32,6 +37,7 @@ import {
   unplacedEntries,
   windForCardCourse,
 } from '@/lib/course-geometry';
+import { courseRoutingFor } from '@/lib/course-cards/routing';
 import type { SeriesCourse, SeriesMark } from '@/lib/types';
 
 function load(rel: string): unknown {
@@ -518,5 +524,87 @@ describe('drawing a leg table', () => {
     const drawn = drawnLegTable([]);
     expect(drawn.marks).toHaveLength(1);
     expect(drawn.closureNm).toBe(0);
+  });
+});
+
+// Royal Cork's keelboat card, routed by Pat Tanner's Cork Harbour passages:
+// from the Grassy Walk line out to Ringabella and back in to Cage both cross
+// Rams Head, so both are sailed round it, by W2.
+describe('routing a course through its set\'s overlay', () => {
+  const RC = 'rcyc/keelboat-2026';
+  const overlay = courseRoutingFor(RC)!;
+  const assumed = (id: string) => overlay.routing.assumed.find((a) => (a.id ?? a.mark) === id)!.position!;
+  const adopted = (markId: string): SeriesMark => ({
+    ...laid(`rc-${markId}`, markId, assumed(markId)),
+    card: { set: RC, markId, release: '0.12.1' },
+  });
+  const line = laid('rc-line', 'SL — 6 Oct R1', assumed('SL@grassy-walk'));
+  const marks = [line, adopted('Ringabella'), adopted('Cage')];
+  const marksById = new Map(marks.map((m) => [m.id, m]));
+  const sequence = [{ markId: 'rc-line' }, { markId: 'rc-Ringabella' }, { markId: 'rc-Cage' }];
+
+  it('splits a leg the overlay routes into the legs sailed, and vouches for the rest', () => {
+    const { legs, totalNm } = resolveCourse(sequence, marksById);
+    expect(legs.map((l) => [l.from.label, l.to.label, l.review, l.cardLeg])).toEqual([
+      ['SL', 'RW_Temblebreedy_Pier', 'passage', 0],
+      ['RW_Temblebreedy_Pier', 'RW_Rams_Head', 'passage', 0],
+      ['RW_Rams_Head', 'W2', 'passage', 0],
+      ['W2', 'Ringabella', 'passage', 0],
+      ['Ringabella', 'W2', 'passage', 1],
+      ['W2', 'RW_Rams_Head', 'passage', 1],
+      ['RW_Rams_Head', 'Cage', 'passage', 1],
+    ]);
+    const straight = courseLegs(
+      { formatVersion: 1, club: 'x', name: 'x', courses: [{ id: '1', marks: [{ mark: 'R' }, { mark: 'C' }] }] } as never,
+      { formatVersion: 1, marks: [{ id: 'R', position: assumed('Ringabella') }, { id: 'C', position: assumed('Cage') }] } as never,
+      '1',
+      {},
+    )[0].distanceNm;
+    const passage = legs.filter((l) => l.cardLeg === 1).reduce((sum, l) => sum + l.distanceNm, 0);
+    expect(passage).toBeGreaterThan(straight);
+    expect(totalNm).toBeCloseTo(legs.reduce((sum, l) => sum + l.distanceNm, 0), 9);
+  });
+
+  it('routes a snapshot the same way, though it never held W2', () => {
+    const snapshot = snapshotOfCourse({ id: 'c', name: '14', marks: sequence }, marksById, 180);
+    expect(legsOfWaypoints(snapshot.waypoints)).toEqual(resolveCourse(sequence, marksById).legs);
+  });
+
+  it('leaves a laid mark it cannot recognise straight and unreviewed', () => {
+    const renamed = new Map(marksById).set('rc-line', { ...line, name: 'Committee boat' });
+    expect(resolveCourse(sequence, renamed).legs[0]).toMatchObject({ review: 'unreviewed', to: { label: 'Ringabella' } });
+    const moved = new Map(marksById).set('rc-line', { ...line, ...positionFrom({ lat: line.lat, lng: line.lng }, 90, 2, 'nm') });
+    expect(resolveCourse(sequence, moved).legs[0]).toMatchObject({ review: 'unreviewed', to: { label: 'Ringabella' } });
+  });
+
+  it('claims nothing where the set has no overlay', () => {
+    const legs = resolveCourse([{ markId: 'line' }, { markId: 'z' }], new Map([
+      ['line', laid('line', 'Start', start)],
+      ['z', laid('z', 'Z', positionFrom(start, 190, 1, 'nm'))],
+    ])).legs;
+    expect(legs).toHaveLength(1);
+    expect(legs[0]).not.toHaveProperty('review');
+  });
+
+  it('says which card legs it routed and which it could not vouch for', () => {
+    const { legs } = resolveCourse([...sequence, { markId: 'rc-line' }], new Map(marksById).set('rc-line', line));
+    const far = laid('rc-far', 'Z — 6 Oct R1', positionFrom({ lat: line.lat, lng: line.lng }, 180, 3, 'nm'));
+    const withFar = resolveCourse([...sequence, { markId: 'rc-far' }], new Map(marksById).set('rc-far', far)).legs;
+    expect(courseRoutingSummary(legs, RC)).toMatchObject({ contributor: 'Pat Tanner', passages: [
+      { leg: 1, via: ['RW_Temblebreedy_Pier', 'RW_Rams_Head', 'W2'] },
+      { leg: 2, via: ['W2', 'RW_Rams_Head'] },
+    ] });
+    expect(courseRoutingSummary(withFar, RC)?.unreviewed).toEqual([3]);
+    expect(courseRoutingSummary(legs, 'hyc/al-2026')).toBeNull();
+  });
+
+  it('draws under the card ids, adding the mark a passage turns at', () => {
+    const drawn = routedDrawing(drawnMarks(marks), drawnCourse(sequence), RC, 'rc-Cage');
+    expect(drawn.course.map((c) => c.mark)).toEqual(['SL', 'Ringabella', 'Cage']);
+    expect(drawn.marks.map((m) => m.id)).toEqual(['SL', 'Ringabella', 'Cage', 'W2']);
+    expect(drawn.highlight).toBe('Cage');
+    expect(drawn.legCount).toBe(7);
+    expect(drawn.routing).toBe(overlay.routing);
+    expect(routedDrawing(drawnMarks(marks), drawnCourse(sequence), undefined).legCount).toBe(2);
   });
 });

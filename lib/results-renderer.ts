@@ -4,7 +4,7 @@ import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
 import { courseVariation, describeVariation, formatBearing, type Variation } from './bearings';
-import { drawnRaceStartCourse } from './course-geometry';
+import { drawnRaceStartCourse, routedDrawing } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
 import { elapsedSecondsOf, timingPrecisionOf, type TimedFinish } from './elapsed-time';
@@ -3222,8 +3222,14 @@ export function assembleSeriesResultsData(
                 // Its legs labelled in magnetic, at the variation the leg
                 // table above it uses.
                 const v = courseVariation(coveringStart?.course?.waypoints ?? [], series.venuePosition, race.date);
-                const svg = renderCourseSvg(drawn.marks, drawn.course, {
+                // Through the set's routing overlay, as the course was scored
+                // — unless the start was scored before the overlay, when its
+                // legs are the straight ones and the drawing keeps to them.
+                const routed = set && !drawn.fromLegs ? routedDrawing(drawn.marks, drawn.course, set) : undefined;
+                const shown = routed?.routing && routed.legCount === coveringStart?.courseLegs?.length ? routed : drawn;
+                const svg = renderCourseSvg(shown.marks, shown.course, {
                   width: 480,
+                  ...('routing' in shown && shown.routing ? { routing: shown.routing } : {}),
                   ...(v ? { magneticVariationDeg: v.deg } : {}),
                   title: coveringStart?.course ? `Course ${coveringStart.course.name}` : 'Course',
                   ...(chart && chartId ? { background: chart, backgroundSymbol: chartId } : {}),

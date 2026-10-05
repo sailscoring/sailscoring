@@ -485,3 +485,38 @@ test('a leg table in magnetic, entered as the race officer wrote it', async ({ p
   await expect(page.getByLabel('Leg 1 wind direction')).toHaveValue('232');
   await expect(page.getByTestId('legs-edited')).toHaveCount(0);
 });
+
+test("a card course routed round the headland by the set's passages", async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Routed Course Test 2026' });
+  await createFleets(page, ['Keelboats']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'ORC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await expect(page.getByRole('heading', { name: 'Marks' })).toBeVisible();
+  // The Grassy Walk line, where Royal Cork's passages assume it.
+  await page.getByTestId('new-mark').click();
+  await page.getByLabel('Name').fill('SL — 5 Oct R1');
+  await page.getByRole('textbox', { name: 'Coordinates' }).fill('51 48.714 N 008 16.996 W');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByTestId('mark-row').filter({ hasText: 'SL — 5 Oct R1' })).toBeVisible();
+
+  // Course 14 runs out to Ringabella and back in to Cage, both across Rams
+  // Head as the crow flies: the passages take each round it.
+  await page.getByTestId('new-course').click();
+  await pick(page, 'course-card-set', /Royal Cork/);
+  await pick(page, 'course-card', /keelboat/i);
+  await pick(page, 'course-number', /^14\b/);
+  await pick(page, 'placement-SL', 'SL — 5 Oct R1');
+  const routing = page.getByTestId('course-routing');
+  await expect(routing).toContainText('Leg 2 goes by W2 and RW_Rams_Head, not the straight line');
+  await expect(routing).toContainText("Pat Tanner's passages");
+  const drawing = page.getByRole('dialog').getByTestId('course-drawing');
+  await expect(drawing).toContainText('2b');
+  await expect(drawing.locator('title', { hasText: 'RW_Rams_Head' })).toHaveCount(1);
+  await page.getByTestId('course-save').click();
+  await expect(page.getByTestId('course-row')).toBeVisible();
+});

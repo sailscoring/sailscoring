@@ -444,6 +444,21 @@ export default function RatingSystems() {
           nothing to load.
         </p>
         <p>
+          <strong className="text-foreground">A leg the straight line
+          won’t do.</strong> Between two marks the direct line can cross a
+          headland or a bank. Where a club’s data set carries passages — the
+          local knowledge of which legs are sailable as drawn and how the
+          fleet goes round the rest, as Royal Cork’s does for Cork Harbour —
+          a leg across an obstruction is sailed through the passage’s turning
+          points: drawn as lettered legs (2a, 2b, 2c), counted in the course’s
+          distance, and filled into a start as legs of their own, because that
+          is the water the boats actually sail. The course dialog says which
+          legs it routed. A leg the passages don’t cover — a mark laid well
+          away from where they assume it, or a pair nobody checked — is drawn
+          dashed and scored as the straight line, so check it before trusting
+          the distance.
+        </p>
+        <p>
           A race start then <strong className="text-foreground">picks a course</strong>{' '}
           from the list — most recently used first — and its legs fill in at the one
           wind direction you give the start, pre-filled where the card lays the
