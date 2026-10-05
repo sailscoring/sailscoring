@@ -497,6 +497,8 @@ directly, and to show the scorer all of it together:
   what they've recorded. Each mark then holds a list of dated fixes, each with
   its source, and the scorer chooses which one a race uses. That covers the
   "Windward moved 10:47" case, which today is a note in a text message.
+- **A race officer's course page.** The committee boat builds and checks the
+  course from the day's fixes, before the start and after the gun.
 - **A track-submission page.** A similar link lets competitors upload a track
   (GPX, or an export from their device) against their entry and see it
   overlaid on the course. Tracks are evidence for checking marks and legs, not
@@ -507,6 +509,79 @@ directly, and to show the scorer all of it together:
   the committee boat through the race, and from the RIBs at the marks, would
   fill these in directly. Tracks give a cross-check: the angle midway between
   a boat's two tacks on a beat is the wind direction.
+
+#### Pat Tanner's pages: the requirements to build in
+
+Pat Tanner (RCYC) built and is running the first two of these for RCYC's
+Autumn League 2026 ORC trial: a RIB page (`tradboats.ie/record/`) and a race
+officer's page (`tradboats.ie/course/`). Their source is MIT, in
+`github.com/Bateleur88/cork-harbour-orc` (`pages/`). Sail Scoring could either import their
+output or do everything they do itself; that decision is still to be made
+with Pat. If we were to bring everything they do into Sail Scoring, these
+would be the requirements:
+
+*RIB page*
+
+- Pick the date, race and mark (quick picks for the club's laid marks, or a
+  typed name), then one button records the fix: position, accuracy, time,
+  device, and an optional "who's recording" name.
+- Works with no signal: fixes queue on the phone and upload when there is
+  signal, and the page itself opens offline. Unsent fixes and deletes survive
+  until sent; starting a new day warns about any still pending.
+- A fix can be cancelled or deleted, and re-assigned when it was recorded
+  under the wrong race.
+- A backup message of the day's fixes, ready to send by WhatsApp.
+
+*Race officer's page: building the course*
+
+- The day's fixes, refreshed automatically, with a "Record committee boat
+  here" button using the race officer's own phone. Marks can also be typed
+  as positions or read from a pasted WhatsApp message.
+- A course comes from the card, keeping its route (including passages around
+  shallow water, sailscoring/course-cards#16), or from tapping marks in rounding
+  order. One course per race and start; a race's starts, the classes in each,
+  and start times are set per race.
+- **Laid and moored marks are treated differently.** A laid mark takes the
+  newest fix with exactly its name, or else the card position, which is flagged
+  as a planning position. A moored mark always uses its charted position. A
+  near-miss name is suggested and never applied automatically. The race
+  officer can pin any fix or the card position, and go back to automatic.
+- **Fixes are bound to time.** A fix recorded after the start is never picked
+  automatically. A mark moved during the race keeps both positions, and each
+  rounding uses the one in place at the time (on 21 September 2026 Leeward
+  09:05 was used for one rounding and 09:34 for the other).
+- Start and finish line ends are chosen separately: the recorded committee
+  boat and pin, or the card's mark standing in until they are recorded. A
+  card's finish decides itself: at a mark, the finish is the mark itself, not
+  a line. Finish options for a hand-built course are the start line, committee
+  boat and finish pin, or at the last mark.
+- The first and last hops measured from a recorded line, rather than the
+  card's start point, are labelled as not checked against depth. A warning
+  appears when the line's midpoint is more than 500 m from the card's start.
+- Fix accuracy is shown, with a warning when it is poor.
+
+*Race officer's page: checking it*
+
+- Legs in sailing order with bearing (°M and °T, variation computed for the
+  date and place; see #660), distance, true wind angle and the type of leg
+  (beat, reach, run), plus the total. Drawn as a sketch and on the chart.
+- Start line length, how far it is off square to the wind, and which end is
+  favoured and by how much.
+- Whether the windward mark is square to the wind, and how far to move it
+  ("move 11 m towards 185°M to square it").
+- Wind shift: given a new wind direction, the mark moves that restore a true
+  beat, ready to copy to the RIB.
+- After the gun, a race view with alerts for anything that changes: a laid
+  mark re-pointed, a mark moved, two phones disagreeing about one mark, or the
+  refresh stopped.
+- Outputs: a WhatsApp message with the course, legs and positions; and the
+  leg table, which in Sail Scoring becomes the start's course directly.
+
+Pat's choices answer two of the open questions below, for his use at least.
+Connectivity: offline-first throughout, with WhatsApp as the fallback.
+Access: a single shared race key. It's served to both pages, so anyone who
+loads them can read it. It deters casual misuse, not deliberate misuse, so
+Sail Scoring needs per-race or revocable links instead.
 
 Open questions:
 
@@ -519,8 +594,9 @@ Open questions:
 - **Access for people without accounts.** How are the links authorised:
   per race, expiring, revocable? What stops a leaked link being used to
   record a bogus position?
-- **Connectivity.** Signal outside a harbour is patchy, so the pages probably
-  need to record offline and sync later.
+- **Connectivity.** Signal outside a harbour is patchy, so the pages need to
+  record offline and sync later. Pat's pages show it can be done: a queue on
+  the phone, plus a service worker so the page opens with no signal.
 - **What gets published.** Is this course evidence part of the scoring
   record, kept and revisable like finishes, or only a working aid for the
   scorer?
