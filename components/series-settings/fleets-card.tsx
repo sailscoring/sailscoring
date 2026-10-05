@@ -49,6 +49,14 @@ export type FleetsCardProps = {
 
 export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardProps) {
   const { has } = useFeatures();
+  // Whether a fleet's scoring system brings options of its own, which the
+  // fleet row puts on a second line.
+  const hasSystemOptions = (fleet: Fleet) =>
+    fleet.scoringSystem === 'echo' ||
+    fleet.scoringSystem === 'tcf' ||
+    fleet.scoringSystem === 'orc' ||
+    ratingVariantsFor(fleet.scoringSystem).length > 0 ||
+    (fleet.scoringSystem === 'nhc' && (has('nhc-parameters') || Boolean(fleet.nhcProfile)));
   const isWizard = mode === 'wizard';
   const { data: fleetsData } = useFleetsBySeries(seriesId);
   // The ORC option picker offers, beyond the internationally published
@@ -399,7 +407,7 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                   }}
                 />
               ) : (
-                <span className="flex-1 text-sm">
+                <span className="flex-1 min-w-0 text-sm">
                   {roundLabelFor(fleet) && (
                     <span className="text-muted-foreground">{roundLabelFor(fleet)} · </span>
                   )}
@@ -407,194 +415,44 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                 </span>
               )}
               {series.scoringMode === 'handicap' && (
-                <>
-                  <Select
-                    value={fleet.scoringSystem}
-                    onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
-                  >
-                    <SelectTrigger className="w-28 h-7 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="scratch">Scratch</SelectItem>
-                      {/* IRC is gated (#155) but on by default; still offer it
-                          for a fleet already using it if a workspace opts out. */}
-                      {(has('irc-rating') || fleet.scoringSystem === 'irc') && (
-                        <SelectItem value="irc">IRC</SelectItem>
-                      )}
-                      {/* PY is gated but on by default; still offer it for a
-                          fleet already using it if a workspace opts out. */}
-                      {(has('rya-py') || fleet.scoringSystem === 'py') && (
-                        <SelectItem value="py">PY</SelectItem>
-                      )}
-                      {/* VPRS is experimental/gated (#155, #175); still offer it
-                          for a fleet that already uses it if a workspace opts out. */}
-                      {(has('vprs') || fleet.scoringSystem === 'vprs') && (
-                        <SelectItem value="vprs">VPRS</SelectItem>
-                      )}
-                      {/* ORC is experimental/gated; still offer it for a fleet
-                          that already uses it if a workspace opts out. */}
-                      {(has('orc') || fleet.scoringSystem === 'orc') && (
-                        <SelectItem value="orc">ORC</SelectItem>
-                      )}
-                      <SelectItem value="tcf">Fixed TCF</SelectItem>
-                      <SelectItem value="nhc">NHC</SelectItem>
-                      {/* ECHO is experimental/gated (#155); still offer it for a
-                          fleet that already uses it so the control isn't broken. */}
-                      {(has('echo') || fleet.scoringSystem === 'echo') && (
-                        <SelectItem value="echo">ECHO</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fleet.scoringSystem === 'echo' && (
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                      α
-                      <Input
-                        type="number"
-                        defaultValue={fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA}
-                        step="0.01"
-                        min="0.01"
-                        max="1"
-                        className="w-16 h-7 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        onBlur={(e) => commitEchoAlpha(fleet, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            commitEchoAlpha(fleet, (e.target as HTMLInputElement).value);
-                          }
-                        }}
-                        title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
-                      />
-                    </label>
-                  )}
-                  {/* Outside the label: inside, the link's name is read as
-                      part of the α input's own. */}
-                  {fleet.scoringSystem === 'echo' && (
-                    <HelpHint
-                      chapter="rating-systems"
-                      section="tuning-progressive-handicaps"
-                      label="What the blend rate does"
-                    />
-                  )}
-                  {fleet.scoringSystem === 'tcf' && (
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                      called
-                      <Input
-                        defaultValue={fleet.ratingLabel ?? ''}
-                        placeholder="TCF"
-                        maxLength={32}
-                        className="w-20 h-7 text-xs"
-                        onBlur={(e) => commitRatingLabel(fleet, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            commitRatingLabel(fleet, (e.target as HTMLInputElement).value);
-                          }
-                        }}
-                        title="What the club calls this handicap (e.g. HPH) — heads the rating column on published results"
-                      />
-                    </label>
-                  )}
-                  {fleet.scoringSystem === 'orc' && (
-                    <Select
-                      // Keyed by the option name alone — the option determines
-                      // the kind. (A serialized-object value would break here:
-                      // the stored profile round-trips through jsonb, which
-                      // re-orders object keys, so the string wouldn't match.)
-                      value={orcFleetProfile(fleet).option}
-                      onValueChange={(option) => {
-                        const current = orcFleetProfile(fleet);
-                        const kind = option === current.option
-                          ? current.kind
-                          : (orcOptionKind(option) ?? 'tot');
-                        // The APHT default stays implicit (no stored profile),
-                        // matching how absent has always meant APHT.
-                        void saveFleet.mutateAsync({
-                          ...fleet,
-                          orcProfile:
-                            option === DEFAULT_ORC_PROFILE.option ? undefined : { option, kind },
-                        });
-                      }}
-                    >
-                      <SelectTrigger
-                        className="w-56 h-7 text-xs"
-                        title="The fleet's default scoring option — each race start can override it. Time-on-distance options need a course length on the race start."
-                        data-testid={`orc-option-${fleet.id}`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ORC_STANDARD_OPTIONS.map((o) => (
-                          <SelectItem key={o.option} value={o.option}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                        <OrcOptionItems options={orcCertificateOptions} catalog={orcCatalog} />
-                        {(() => {
-                          // A stored option no certificate carries any more
-                          // still renders, so the control isn't broken.
-                          const current = orcFleetProfile(fleet);
-                          const known =
-                            ORC_STANDARD_OPTIONS.some((o) => o.option === current.option) ||
-                            orcCertificateOptions.some((o) => o.option === current.option);
-                          return known ? null : (
-                            <SelectItem value={current.option}>
-                              <OrcOptionValue option={current.option} catalog={orcCatalog} />
-                            </SelectItem>
-                          );
-                        })()}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {ratingVariantsFor(fleet.scoringSystem).length > 0 && (
-                    <Select
-                      value={fleet.ratingVariant ?? 'standard'}
-                      onValueChange={(v) => {
-                        const { ratingVariant: _, ...rest } = fleet;
-                        void saveFleet.mutateAsync(
-                          v === 'standard' ? rest : { ...rest, ratingVariant: v as FleetRatingVariant },
-                        );
-                      }}
-                    >
-                      <SelectTrigger
-                        className="w-36 h-7 text-xs"
-                        title="Which certificate Update handicaps rates this fleet's boats on"
-                        aria-label={`${fleet.name} certificate`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="standard">
-                          {fleet.scoringSystem === 'orc' ? 'Standard certificate' : 'Spinnaker TCC'}
-                        </SelectItem>
-                        {ratingVariantsFor(fleet.scoringSystem).map((v) => (
-                          <SelectItem key={v} value={v}>
-                            {RATING_VARIANT_LABEL[v]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {/* Custom NHC parameters are experimental/gated (#155); NHC
-                      scoring with stock SWNHC2015 stays GA. Keep the button for
-                      a fleet that already carries a custom profile. */}
-                  {fleet.scoringSystem === 'nhc' &&
-                    (has('nhc-parameters') || Boolean(fleet.nhcProfile)) && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setEditingNhcProfileFor(fleet)}
-                      title={fleet.nhcProfile
-                        ? 'Edit per-fleet NHC parameters (currently customised)'
-                        : 'Edit per-fleet NHC parameters (currently stock SWNHC2015)'}
-                      data-testid={`nhc-configure-${fleet.id}`}
-                    >
-                      {fleet.nhcProfile ? 'NHC · custom' : 'Configure…'}
-                    </Button>
-                  )}
-                </>
+                <Select
+                  value={fleet.scoringSystem}
+                  onValueChange={(v) => changeScoringSystem(fleet, v as Fleet['scoringSystem'])}
+                >
+                  <SelectTrigger className="w-28 h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Scratch</SelectItem>
+                    {/* IRC is gated (#155) but on by default; still offer it
+                        for a fleet already using it if a workspace opts out. */}
+                    {(has('irc-rating') || fleet.scoringSystem === 'irc') && (
+                      <SelectItem value="irc">IRC</SelectItem>
+                    )}
+                    {/* PY is gated but on by default; still offer it for a
+                        fleet already using it if a workspace opts out. */}
+                    {(has('rya-py') || fleet.scoringSystem === 'py') && (
+                      <SelectItem value="py">PY</SelectItem>
+                    )}
+                    {/* VPRS is experimental/gated (#155, #175); still offer it
+                        for a fleet that already uses it if a workspace opts out. */}
+                    {(has('vprs') || fleet.scoringSystem === 'vprs') && (
+                      <SelectItem value="vprs">VPRS</SelectItem>
+                    )}
+                    {/* ORC is experimental/gated; still offer it for a fleet
+                        that already uses it if a workspace opts out. */}
+                    {(has('orc') || fleet.scoringSystem === 'orc') && (
+                      <SelectItem value="orc">ORC</SelectItem>
+                    )}
+                    <SelectItem value="tcf">Fixed TCF</SelectItem>
+                    <SelectItem value="nhc">NHC</SelectItem>
+                    {/* ECHO is experimental/gated (#155); still offer it for a
+                        fleet that already uses it so the control isn't broken. */}
+                    {(has('echo') || fleet.scoringSystem === 'echo') && (
+                      <SelectItem value="echo">ECHO</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               )}
               {renamingId !== fleet.id && (
                 <Button
@@ -618,6 +476,162 @@ export function FleetsCard({ seriesId, series, mode = 'settings' }: FleetsCardPr
                 ×
               </Button>
             </div>
+            {/* The options a scoring system brings go on a line of their own,
+                so every row's name, system, Rename and × line up whatever
+                the system, and an ORC fleet's options don't push the row
+                out of the card. */}
+            {series.scoringMode === 'handicap' && hasSystemOptions(fleet) && (
+              <div className="flex flex-wrap items-center gap-2 pl-6 pt-1 pb-1" data-testid={`fleet-options-${fleet.id}`}>
+                {fleet.scoringSystem === 'echo' && (
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    α
+                    <Input
+                      type="number"
+                      defaultValue={fleet.echoAlpha ?? ECHO_DEFAULT_ALPHA}
+                      step="0.01"
+                      min="0.01"
+                      max="1"
+                      className="w-16 h-7 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      onBlur={(e) => commitEchoAlpha(fleet, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          commitEchoAlpha(fleet, (e.target as HTMLInputElement).value);
+                        }
+                      }}
+                      title="ECHO blend rate (0 < α ≤ 1; 0.25 club / 0.50 regatta — IS 2022 guide)"
+                    />
+                  </label>
+                )}
+                {/* Outside the label: inside, the link's name is read as
+                    part of the α input's own. */}
+                {fleet.scoringSystem === 'echo' && (
+                  <HelpHint
+                    chapter="rating-systems"
+                    section="tuning-progressive-handicaps"
+                    label="What the blend rate does"
+                  />
+                )}
+                {fleet.scoringSystem === 'tcf' && (
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    called
+                    <Input
+                      defaultValue={fleet.ratingLabel ?? ''}
+                      placeholder="TCF"
+                      maxLength={32}
+                      className="w-20 h-7 text-xs"
+                      onBlur={(e) => commitRatingLabel(fleet, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          commitRatingLabel(fleet, (e.target as HTMLInputElement).value);
+                        }
+                      }}
+                      title="What the club calls this handicap (e.g. HPH) — heads the rating column on published results"
+                    />
+                  </label>
+                )}
+                {fleet.scoringSystem === 'orc' && (
+                  <Select
+                    // Keyed by the option name alone — the option determines
+                    // the kind. (A serialized-object value would break here:
+                    // the stored profile round-trips through jsonb, which
+                    // re-orders object keys, so the string wouldn't match.)
+                    value={orcFleetProfile(fleet).option}
+                    onValueChange={(option) => {
+                      const current = orcFleetProfile(fleet);
+                      const kind = option === current.option
+                        ? current.kind
+                        : (orcOptionKind(option) ?? 'tot');
+                      // The APHT default stays implicit (no stored profile),
+                      // matching how absent has always meant APHT.
+                      void saveFleet.mutateAsync({
+                        ...fleet,
+                        orcProfile:
+                          option === DEFAULT_ORC_PROFILE.option ? undefined : { option, kind },
+                      });
+                    }}
+                  >
+                    <SelectTrigger
+                      className="flex-1 min-w-0 h-7 text-xs"
+                      title="The fleet's default scoring option — each race start can override it. Time-on-distance options need a course length on the race start."
+                      data-testid={`orc-option-${fleet.id}`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ORC_STANDARD_OPTIONS.map((o) => (
+                        <SelectItem key={o.option} value={o.option}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                      <OrcOptionItems options={orcCertificateOptions} catalog={orcCatalog} />
+                      {(() => {
+                        // A stored option no certificate carries any more
+                        // still renders, so the control isn't broken.
+                        const current = orcFleetProfile(fleet);
+                        const known =
+                          ORC_STANDARD_OPTIONS.some((o) => o.option === current.option) ||
+                          orcCertificateOptions.some((o) => o.option === current.option);
+                        return known ? null : (
+                          <SelectItem value={current.option}>
+                            <OrcOptionValue option={current.option} catalog={orcCatalog} />
+                          </SelectItem>
+                        );
+                      })()}
+                    </SelectContent>
+                  </Select>
+                )}
+                {ratingVariantsFor(fleet.scoringSystem).length > 0 && (
+                  <Select
+                    value={fleet.ratingVariant ?? 'standard'}
+                    onValueChange={(v) => {
+                      const { ratingVariant: _, ...rest } = fleet;
+                      void saveFleet.mutateAsync(
+                        v === 'standard' ? rest : { ...rest, ratingVariant: v as FleetRatingVariant },
+                      );
+                    }}
+                  >
+                    <SelectTrigger
+                      className="w-44 h-7 text-xs"
+                      title="Which certificate Update handicaps rates this fleet's boats on"
+                      aria-label={`${fleet.name} certificate`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">
+                        {fleet.scoringSystem === 'orc' ? 'Standard certificate' : 'Spinnaker TCC'}
+                      </SelectItem>
+                      {ratingVariantsFor(fleet.scoringSystem).map((v) => (
+                        <SelectItem key={v} value={v}>
+                          {RATING_VARIANT_LABEL[v]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {/* Custom NHC parameters are experimental/gated (#155); NHC
+                    scoring with stock SWNHC2015 stays GA. Keep the button for
+                    a fleet that already carries a custom profile. */}
+                {fleet.scoringSystem === 'nhc' &&
+                  (has('nhc-parameters') || Boolean(fleet.nhcProfile)) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setEditingNhcProfileFor(fleet)}
+                    title={fleet.nhcProfile
+                      ? 'Edit per-fleet NHC parameters (currently customised)'
+                      : 'Edit per-fleet NHC parameters (currently stock SWNHC2015)'}
+                    data-testid={`nhc-configure-${fleet.id}`}
+                  >
+                    {fleet.nhcProfile ? 'NHC · custom' : 'Configure…'}
+                  </Button>
+                )}
+              </div>
+            )}
             {renamingId === fleet.id && renameError && (
               <p className="text-xs text-destructive mt-0.5">{renameError}</p>
             )}
