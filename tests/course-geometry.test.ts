@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   adoptCardMarks,
+  cardMarksToPlace,
   courseFromCard,
   courseOutOfDate,
   drawnSnapshot,
@@ -117,6 +118,20 @@ describe('adopting a card', () => {
     expect(needed.map((e) => e.resolved.mark.id)).toEqual(['SL', 'F']);
     expect(needed[1].resolved.mark.placement).toBe('South of the Island mark in the vicinity of the Sound');
     expect(entries.filter((e) => e.mark).every((e) => e.mark!.card?.markId === e.resolved.mark.id)).toBe(true);
+  });
+
+  it('asks once for a line the course both starts and finishes at', () => {
+    // As RCYC's keelboat cards do: the run home ends at the start line.
+    const card = { ...bmCard, courses: [...bmCard.courses, { id: '99', marks: [{ mark: 'SL' }, { mark: 'I', side: 'port' as const }, { mark: 'SL' }] }] };
+    const library = adoptCardMarks(bmMarks, card, BM, 's1', [], NOW);
+    const entries = matchCardCourse(card, bmMarks, '99', BM.set, library, {});
+    expect(unplacedEntries(entries).map((e) => e.resolved.mark.id)).toEqual(['SL']);
+    expect(cardMarksToPlace(entries).map((e) => e.resolved.mark.id)).toEqual(['SL']);
+    // Placing it once places both ends, and the row stays to show the pick.
+    const placed = matchCardCourse(card, bmMarks, '99', BM.set, [...library, laid('line', 'Start — 13 Dec', start)], { SL: 'line' });
+    expect(unplacedEntries(placed)).toEqual([]);
+    expect(cardMarksToPlace(placed).map((e) => e.resolved.mark.id)).toEqual(['SL']);
+    expect(courseFromCard(placed, BM, '99', 's1', '99', NOW).marks.map((m) => m.markId)).toEqual(['line', expect.any(String), 'line']);
   });
 
   it('builds the course once the scorer has placed the rest, and its legs are the library’s', () => {

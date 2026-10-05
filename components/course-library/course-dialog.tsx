@@ -16,6 +16,7 @@ import { courseVariation, defaultRef, todayIso, type BearingRef } from '@/lib/be
 import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCardSet, loadCourseCard } from '@/lib/course-cards';
 import {
   adoptCardMarks,
+  cardMarksToPlace,
   courseFromCard,
   courseIsLegTable,
   drawnCourse,
@@ -449,7 +450,7 @@ function CourseDialogInner({
                 {entries && (
                   <div className="space-y-1.5 rounded-md border p-3">
                     <p className="text-xs font-medium">Marks</p>
-                    {entries.filter((e) => !e.resolved.placed).map((e) => {
+                    {cardMarksToPlace(entries).map((e) => {
                       const cardMark = e.resolved.mark;
                       const chosen = placements[cardMark.id] ?? '';
                       return (

@@ -572,9 +572,26 @@ export function matchCardCourse(
 }
 
 /** The entries of a matched course still without a mark: what the New
- *  course dialog asks for, in the card's own words. */
+ *  course dialog asks for, in the card's own words. One per card mark — a
+ *  course that starts and finishes at the same line places it once. */
 export function unplacedEntries(entries: CardCourseEntry[]): CardCourseEntry[] {
-  return entries.filter((e) => !e.mark);
+  return firstPerCardMark(entries.filter((e) => !e.mark));
+}
+
+/** The card marks the card cannot place itself, each once, in the order the
+ *  course first reaches them: the rows the New course dialog asks the scorer
+ *  to fill, whether or not they are filled yet. */
+export function cardMarksToPlace(entries: CardCourseEntry[]): CardCourseEntry[] {
+  return firstPerCardMark(entries.filter((e) => !e.resolved.placed));
+}
+
+function firstPerCardMark(entries: CardCourseEntry[]): CardCourseEntry[] {
+  const seen = new Set<string>();
+  return entries.filter((e) => {
+    if (seen.has(e.resolved.mark.id)) return false;
+    seen.add(e.resolved.mark.id);
+    return true;
+  });
 }
 
 /** A library course from a fully matched card course. */
