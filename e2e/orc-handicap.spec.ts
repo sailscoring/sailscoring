@@ -429,7 +429,7 @@ test('ORC fleet: PCS over a constructed course entered leg by leg', async ({ pag
   expect(html).toContain('8.11 NM');
   expect(html).toContain("Scoring wind 18.06 kt (winner's implied wind)");
   expect(html).toContain('<th>Implied wind</th>');
-  expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg;)');
+  expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T');
 
   // And, folded away beside the course, what that course bought off the
   // certificate: its own allowance table, every row and column of it, with
@@ -519,7 +519,7 @@ test('ORC fleet: a constructed course at the wind the committee recorded', async
   expect(html).toContain('Scored on ORC performance curves at the recorded wind');
   expect(html).toContain('Wind 14.00 kt');
   expect(html).toContain('Time-on-time');
-  expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg; at 14 kt)');
+  expect(html).toContain('Legs: 2.09 NM @ 162°T, wind 160°T at 14 kt');
   // The rating is a multiplier, published to four decimals; and nothing was
   // inferred from how the boats sailed, so no implied wind is claimed.
   expect(html).toContain('<th>ToT</th>');
