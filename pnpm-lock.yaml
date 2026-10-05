@@ -27,8 +27,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.3.0)
       '@sailscoring/course-cards':
-        specifier: ^0.9.1
-        version: 0.9.1
+        specifier: ^0.10.0
+        version: 0.10.0
       '@tanstack/query-sync-storage-persister':
         specifier: ^5.104.0
         version: 5.104.0
@@ -2308,8 +2308,8 @@ packages:
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
 
-  '@sailscoring/course-cards@0.9.1':
-    resolution: {integrity: sha512-mCUmzYRCicsl9/YAri77t5Hch2xDnCwEY1Usz9f2WUCwC9NfgVse/5Dj94YrKtdpFtxnIuIz/FSxnTv0Az3fbA==}
+  '@sailscoring/course-cards@0.10.0':
+    resolution: {integrity: sha512-6HhvGty7JmPNWo7qAa6mCpYfLWXqXqkxM8Wt3acQTI/A7cRtC8n47NL2Sgvlo/v736+TyBF5tPbfdcv5pq/LKQ==}
     engines: {node: '>=22'}
 
   '@sec-ant/readable-stream@0.4.1':
@@ -7574,7 +7574,7 @@ snapshots:
 
   '@rtsao/scc@1.1.0': {}
 
-  '@sailscoring/course-cards@0.9.1': {}
+  '@sailscoring/course-cards@0.10.0': {}
 
   '@sec-ant/readable-stream@0.4.1': {}
 
