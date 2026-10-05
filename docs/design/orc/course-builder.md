@@ -228,6 +228,12 @@ The closure figure stays in the authoring dialog: it is a scorer's check, and
 on a published page it would invite "your course doesn't close" over what is
 usually rounding.
 
+The same drawing stands in for a mark course once the start's legs stop being
+the course's — edited by hand, or pasted over a picked course from the
+committee's table — and for legs typed on a start with no course at all. The
+drawing shows what was scored; marks whose legs were not scored would
+contradict the leg record printed above them.
+
 ## Rendering the course
 
 One renderer, two surfaces. Promote the `course-cards` repo's

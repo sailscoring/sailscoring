@@ -455,7 +455,9 @@ export default function RatingSystems() {
           rather than silently recomputed; <em>Recompute from course</em> says what
           it will discard first. Each start keeps its own record of the course as it
           was when picked, drawn on the published page, so correcting a mark later
-          never moves a scored race. Names are how you find things again a
+          never moves a scored race. Once the legs are edited — or typed with no
+          course at all — the drawing shows the legs that were scored rather than
+          the course’s marks, captioned as having no position on the water. Names are how you find things again a
           fortnight later: the date and race are proposed, and the qualifier that
           matters — <em>inner</em>, <em>outer</em> — is yours to add. The second
           course of a day is <em>Swap a mark…</em> on the first.

@@ -33,7 +33,7 @@ import { loadCourseCard } from '@/lib/course-cards';
 import {
   courseLegsOf,
   courseOutOfDate,
-  drawnStartCourse,
+  drawnRaceStartCourse,
   legDistance,
   legsForStart,
   legsMatch,
@@ -311,11 +311,32 @@ function RaceStartDialogInner({
     if (ok) applyCourse(libraryCourse, windDeg, marksById, windKt);
   }
 
-  const drawing = useMemo(() => (snapshot ? drawnStartCourse(snapshot) : null), [snapshot]);
+  // The picture the published page will show: the course's marks while the
+  // legs are still theirs, and the legs as typed once the scorer has edited
+  // them or there is no course. Rows that don't parse yet are left out — the
+  // drawing follows the typing, and saving is where a bad row is refused.
+  const drawing = useMemo(() => {
+    const legs: OrcCourseLeg[] = legRows
+      .map((r) => ({
+        distanceNm: Number(r.distance.trim()),
+        bearingDeg: Number(r.bearing.trim()),
+        windDirectionDeg: Number(r.wind.trim()),
+        ...(r.windSpeed.trim() ? { windSpeedKts: Number(r.windSpeed.trim()) } : {}),
+      }))
+      .filter((l) => l.distanceNm > 0 && l.bearingDeg >= 0 && l.bearingDeg <= 360);
+    // The same test saving applies, so an edit that changed nothing still
+    // draws the marks.
+    const edited = snapshot != null && legsEdited && !legsMatch(
+      legs.map((l) => ({ ...l, distanceNm: legDistance(l.distanceNm) })),
+      legsForStart(snapshot.legs ?? legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt),
+    );
+    return drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs);
+  }, [snapshot, legRows, legsEdited, windDeg, windKt]);
   // The chart the course sits on. A snapshot taken before waypoints carried
   // their data set names none, so the series' own library answers for it —
-  // the same fallback the published page makes.
-  const drawingSetPath = drawing?.set ?? markLibrarySet(libraryMarks ?? []);
+  // the same fallback the published page makes. A drawing of legs has no
+  // position on the water, so no chart.
+  const drawingSetPath = drawing?.fromLegs ? undefined : drawing?.set ?? markLibrarySet(libraryMarks ?? []);
 
   // A gentle nudge when the chosen option needs course data the start lacks;
   // saving is still allowed — the race falls back to scratch until the
@@ -615,7 +636,7 @@ function RaceStartDialogInner({
                   <CourseDrawing marks={drawing.marks} course={drawing.course} set={drawingSetPath} width={440} title="Course drawing" />
                   {drawing.fromLegs && (
                     <p className="text-xs text-muted-foreground">
-                      Drawn from the course&apos;s legs — the shape and the direction
+                      Drawn from the legs — the shape and the direction
                       are the committee&apos;s; there are no positions behind it.
                     </p>
                   )}

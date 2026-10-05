@@ -426,6 +426,26 @@ export function drawnStartCourse(snapshot: RaceStartCourse): {
 }
 
 /**
+ * What a start scored, drawn. The course snapshot is where the legs came
+ * from, but `courseLegs` is what was scored — and once the scorer has edited
+ * them (pasted the committee's table over a picked course, split a leg) or
+ * typed them with no course at all, the marks no longer describe the race.
+ * Those legs then draw as a leg table, captioned as one, so the drawing never
+ * contradicts the legs and total printed beside it. Null when there is
+ * nothing to draw.
+ */
+export function drawnRaceStartCourse(
+  snapshot: RaceStartCourse | undefined,
+  courseLegs: readonly SeriesCourseLeg[] | undefined,
+): ReturnType<typeof drawnStartCourse> | null {
+  if (courseLegs && courseLegs.length > 0 && (!snapshot || snapshot.legsEdited)) {
+    const { marks, course } = drawnLegTable(courseLegs);
+    return { marks, course, fromLegs: true };
+  }
+  return snapshot ? drawnStartCourse(snapshot) : null;
+}
+
+/**
  * Which data set's chart a drawing belongs on: the set most of its charted
  * marks came from. Usually there is only one — a series adopts one club's
  * card — and a course over two clubs' marks is drawn on whichever it uses

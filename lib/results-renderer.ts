@@ -3,7 +3,7 @@ import { buildOrcMix, type OrcMix } from './orc-mix';
 import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
-import { drawnStartCourse } from './course-geometry';
+import { drawnRaceStartCourse } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
 import { elapsedSecondsOf, timingPrecisionOf, type TimedFinish } from './elapsed-time';
@@ -3190,23 +3190,26 @@ export function assembleSeriesResultsData(
           ...(firstOrc.courseModel === 'CC' && coveringStart?.courseLegs?.length
             ? { legs: coveringStart.courseLegs }
             : {}),
-          ...(firstOrc.courseModel === 'CC' && coveringStart?.course
+          ...(firstOrc.courseModel === 'CC'
             ? (() => {
-                // Either kind draws: a course defined by the committee's leg
-                // table has no marks, but its bearings and distances fix the
-                // shape and the direction exactly.
-                const drawn = drawnStartCourse(coveringStart.course);
+                // What was scored, drawn: the course's marks while the legs
+                // are still theirs, and otherwise the legs themselves — a
+                // leg table has no marks, but its bearings and distances fix
+                // the shape and the direction exactly.
+                const drawn = drawnRaceStartCourse(coveringStart?.course, coveringStart?.courseLegs);
+                if (!drawn) return {};
                 // The club's chart under the course, where the marks came
                 // off a data set that captured one. Embedded by the renderer,
-                // never linked: a published page fetches nothing.
-                const set = drawn.set ?? options?.courseBackgroundSet;
+                // never linked: a published page fetches nothing. A drawing
+                // with no position on the water has no chart to sit on.
+                const set = drawn.fromLegs ? undefined : drawn.set ?? options?.courseBackgroundSet;
                 const chart = set ? options?.courseBackgrounds?.get(set) : undefined;
                 // Referred to by id rather than embedded in the drawing:
                 // every race on the page is drawn on the same chart.
                 const chartId = set && chart ? `course-chart-${gridToken(set)}` : undefined;
                 const svg = renderCourseSvg(drawn.marks, drawn.course, {
                   width: 480,
-                  title: `Course ${coveringStart.course.name}`,
+                  title: coveringStart?.course ? `Course ${coveringStart.course.name}` : 'Course',
                   ...(chart && chartId ? { background: chart, backgroundSymbol: chartId } : {}),
                 });
                 // A course that never reaches the chart's water is drawn

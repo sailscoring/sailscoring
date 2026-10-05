@@ -159,8 +159,53 @@ describe('published ORC transparency', () => {
     expect(html).toContain('8.11 NM');
     expect(html).toContain('2 legs');
     expect(html).toContain('Legs: 2.09 NM @ 162&deg; (wind 160&deg;)');
-    // No course was picked, so there is no drawing.
-    expect(html).not.toContain('orc-course-drawing');
+    // No course was picked, but the legs typed in were scored, so they are
+    // what draws — unlocated, and captioned as such.
+    expect(html).toContain('class="orc-course-drawing"');
+    expect(html).toContain('aria-label="Course"');
+    expect(html).toContain('the course&rsquo;s position on the water is not recorded');
+  });
+
+  it('legs pasted over a picked course draw as scored, not as the course’s marks', () => {
+    // Two marks picked, then the committee's legs pasted over them: the
+    // header scores the pasted legs, so the drawing has to show those.
+    const pasted: OrcCourseLeg[] = [
+      { distanceNm: 1.2, bearingDeg: 300, windDirectionDeg: 270 },
+      { distanceNm: 0.8, bearingDeg: 20, windDirectionDeg: 270 },
+      { distanceNm: 1.5, bearingDeg: 250, windDirectionDeg: 270 },
+    ];
+    const html = renderSeriesHtml(
+      assemble({
+        orc: (id) => ({ todApplied: id === 'c1' ? 600 : 620, scratchTod: 600, distanceNm: 3.5, courseModel: 'CC' }),
+        courseBackgrounds: new Map([['hyc/al-2026', hycChart]]),
+        raceStarts: [{
+          raceId: 'r1',
+          fleetIds: ['f1'],
+          startTime: '14:00:00',
+          courseLegs: pasted,
+          course: {
+            courseId: 'c1',
+            name: 'Cove Start to Blackrock',
+            windDirectionDeg: 270,
+            legsEdited: true,
+            waypoints: [
+              { markId: 'start', label: 'Cove Start', lat: 53.4055, lng: -6.0675, fixed: true, set: 'hyc/al-2026' },
+              { markId: 'finish', label: 'Blackrock Castle', lat: 53.3967, lng: -6.0702, fixed: true, set: 'hyc/al-2026' },
+            ],
+          },
+        }],
+      }),
+    );
+    const from = html.indexOf('<div class="orc-course-drawing"');
+    const block = html.slice(from, html.indexOf('</div>', from));
+    expect(block).toContain('aria-label="Course Cove Start to Blackrock"');
+    expect(block).toMatch(/<tspan font-weight="700">1<\/tspan> 300° 1\.20 NM/);
+    expect(block).toMatch(/<tspan font-weight="700">3<\/tspan> 250° 1\.50 NM/);
+    expect(block).not.toContain('Blackrock Castle');
+    // Walked from an arbitrary origin, so it claims no chart either.
+    expect(block).not.toContain('<image');
+    expect(html).not.toContain('<image href="data:image/png');
+    expect(html).toContain('the course&rsquo;s position on the water is not recorded');
   });
 
   it('a constructed course picked from the library is drawn on the page, inertly', () => {

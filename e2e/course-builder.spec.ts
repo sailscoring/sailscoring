@@ -225,11 +225,16 @@ test('marks, a course from the card, a start that picks it, and the drawing on t
   // Editing a leg flags the start; recomputing from the course clears it.
   await page.getByRole('button', { name: 'Edit start' }).click();
   await page.getByTestId('legs-disclosure').click();
+  await expect(page.getByText(/Drawn from the legs/)).toHaveCount(0);
   await page.getByLabel('Leg 1 distance').fill('0.60');
   await expect(page.getByTestId('legs-edited')).toBeVisible();
+  // The edited legs are what will score, so they are what draws — unlocated,
+  // and captioned as such, rather than the course's marks.
+  await expect(page.getByText(/Drawn from the legs/)).toBeVisible();
   await page.getByTestId('recompute-legs').click();
   await page.getByRole('button', { name: 'Recompute' }).click();
   await expect(page.getByTestId('legs-edited')).toHaveCount(0);
+  await expect(page.getByText(/Drawn from the legs/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByTitle('The course this start sailed')).toHaveText('K1 — 12 Sep R1');
@@ -378,7 +383,7 @@ test("a course that is the committee's leg table, pasted once and reused", async
     // start must not claim there is nothing to draw.
     await expect(page.getByTestId('course-drawing')).toBeVisible();
     await expect(page.getByTestId('course-drawing-empty')).toHaveCount(0);
-    await expect(page.getByText(/Drawn from the course.s legs/)).toBeVisible();
+    await expect(page.getByText(/Drawn from the legs/)).toBeVisible();
     await page.getByRole('checkbox', { name: 'Class 2' }).check();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();

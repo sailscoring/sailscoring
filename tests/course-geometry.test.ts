@@ -18,6 +18,7 @@ import {
   courseIsLegTable,
   courseLegsOf,
   drawnLegTable,
+  drawnRaceStartCourse,
   drawingSet,
   drawnStartCourse,
   parseLegTable,
@@ -360,6 +361,36 @@ describe('a course defined by the committee’s leg table', () => {
     expect(fromMarks.marks.map((m) => m.label)).toEqual(['Start', 'Z']);
     // Both marks were laid, so the drawing names no chart to sit on.
     expect(fromMarks.set).toBeUndefined();
+  });
+
+  it('draws what a start scored: its marks until the legs are edited, then the legs', () => {
+    const library = [
+      laid('line', 'Start — 6 Sep', start),
+      laid('z', 'Z — 6 Sep R2', destination(start, 190, 1000)),
+    ];
+    const byId = new Map(library.map((m) => [m.id, m]));
+    const snapshot = snapshotOfCourse(
+      { id: 'c2', name: 'W/L', marks: [{ markId: 'line' }, { markId: 'z' }] }, byId, 190,
+    );
+    const scored = [
+      { distanceNm: 1.2, bearingDeg: 300 },
+      { distanceNm: 0.8, bearingDeg: 20 },
+      { distanceNm: 1.5, bearingDeg: 250 },
+    ];
+    // The legs are still the course's own: the marks draw.
+    const asPicked = drawnRaceStartCourse(snapshot, scored)!;
+    expect(asPicked.fromLegs).toBe(false);
+    expect(asPicked.marks.map((m) => m.label)).toEqual(['Start', 'Z']);
+    // Edited: the scored legs draw, unlocated.
+    const edited = drawnRaceStartCourse({ ...snapshot, legsEdited: true }, scored)!;
+    expect(edited.fromLegs).toBe(true);
+    expect(edited.marks.map((m) => m.label)).toEqual(['Start', '1', '2', 'Finish']);
+    // No course at all: the typed legs are all there is.
+    expect(drawnRaceStartCourse(undefined, scored)!.fromLegs).toBe(true);
+    // Edited down to nothing still leaves the course to draw; no course and
+    // no legs leaves nothing.
+    expect(drawnRaceStartCourse({ ...snapshot, legsEdited: true }, [])!.fromLegs).toBe(false);
+    expect(drawnRaceStartCourse(undefined, undefined)).toBeNull();
   });
 
   it('a snapshot names the chart its course belongs on, even once the mark is gone', () => {
