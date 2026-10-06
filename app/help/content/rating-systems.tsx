@@ -427,7 +427,11 @@ export default function RatingSystems() {
           home the sailing instructions add after the last mark the card prints —
           which is why it is longer than the printed sequence beside its number.
           Every dialog draws the marks and legs as you edit, so a dropped digit
-          shows before you save.
+          shows before you save. Where the card has since moved a charted mark
+          you adopted — a corrected survey, a buoy relaid — the course dialog
+          says which and by how far, and saving brings it to the card’s current
+          position, which moves every course that uses it; a start already
+          scored on the old position offers <em>Recompute from course</em>.
         </p>
         <p>
           <strong className="text-foreground">The drawing is on the club’s

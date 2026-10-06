@@ -520,3 +520,54 @@ test("a card course routed round the headland by the set's passages", async ({ p
   await page.getByTestId('course-save').click();
   await expect(page.getByTestId('course-row')).toBeVisible();
 });
+
+test('a card course saves the marks the card has moved since they were adopted', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Moved Marks Test 2026' });
+  await createFleets(page, ['Keelboats']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'ORC' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  const seriesId = page.url().match(/\/series\/([0-9a-f-]+)/)![1];
+  // Harp, as an older release of Royal Cork's set placed it: 82 m from
+  // where the set has it now.
+  const harpId = crypto.randomUUID();
+  const seeded = await page.request.post(`/api/v1/series/${seriesId}/marks`, {
+    data: {
+      marks: [
+        {
+          id: harpId,
+          seriesId,
+          name: 'Harp',
+          lat: 51.7865,
+          lng: -8.236833,
+          card: { set: 'rcyc/keelboat-2026', markId: 'Harp', release: '0.8.0' },
+          shape: 'conical',
+          color: 'yellow',
+          createdAt: Date.now(),
+        },
+        { id: crypto.randomUUID(), seriesId, name: 'Grassy Start', lat: 51.8119083, lng: -8.2832667, createdAt: Date.now() },
+      ],
+    },
+  });
+  expect(seeded.ok()).toBe(true);
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await expect(page.getByTestId('mark-row').filter({ hasText: 'Grassy Start' })).toBeVisible();
+  await page.getByTestId('new-course').click();
+  await pick(page, 'course-card-set', /Royal Cork/);
+  await pick(page, 'course-card', /keelboat/i);
+  await pick(page, 'course-number', /^3\b/);
+  await pick(page, 'placement-SL', 'Grassy Start');
+  await expect(page.getByTestId('course-marks-moved')).toContainText('Harp 82 m');
+  await page.getByTestId('course-save').click();
+  await expect(page.getByTestId('course-row')).toBeVisible();
+
+  // The library now holds Harp where the dialog drew it.
+  const marks: Array<{ id: string; lat: number; lng: number; card?: { release: string } }> =
+    await (await page.request.get(`/api/v1/series/${seriesId}/marks`)).json();
+  const harp = marks.find((m) => m.id === harpId)!;
+  expect(harp).toMatchObject({ lat: 51.786667, lng: -8.238 });
+  expect(harp.card?.release).not.toBe('0.8.0');
+});

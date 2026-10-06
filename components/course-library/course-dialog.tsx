@@ -17,12 +17,14 @@ import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCar
 import {
   adoptCardMarks,
   cardMarksToPlace,
+  cardMarksToWrite,
   courseFromCard,
   courseIsLegTable,
   courseRoutingSummary,
   drawnCourse,
   drawnLegTable,
   drawnMarks,
+  markLabel,
   markLibrarySet,
   legDistance,
   matchCardCourse,
@@ -244,6 +246,10 @@ function CourseDialogInner({
   );
   const sequence: SeriesCourseMark[] = useMemo(() => edited ?? cardSequence ?? [], [edited, cardSequence]);
   const resolved = useMemo(() => resolveCourse(sequence, libraryById), [sequence, libraryById]);
+  const cardMarks = useMemo(
+    () => cardMarksToWrite(adopted, marks, new Set(sequence.map((cm) => cm.markId))),
+    [adopted, marks, sequence],
+  );
   const modified = source === 'card' && entries && needed.length === 0 && edited
     ? !sequenceMatchesCard(edited, libraryById, entries.map((e) => e.resolved))
     : false;
@@ -342,10 +348,10 @@ function CourseDialogInner({
     }
     setSaving(true);
     try {
-      // Adopt the set's marks the library does not have yet, then the course.
-      const have = new Set(marks.map((m) => m.id));
-      const usedAdopted = adopted.filter((m) => !have.has(m.id) && sequence.some((cm) => cm.markId === m.id));
-      if (usedAdopted.length > 0) await onSaveMarks(usedAdopted);
+      // Adopt the set's marks the course uses that the library does not have
+      // yet, or has where an older release put them, then the course: the
+      // positions it was previewed against are the ones it is saved against.
+      if (cardMarks.marks.length > 0) await onSaveMarks(cardMarks.marks);
       const cardRef = source === 'card' && set && entries && !edited
         ? { set: set.path, cardId: effectiveCardId, release: COURSE_CARDS_RELEASE }
         : null;
@@ -558,6 +564,15 @@ function CourseDialogInner({
                   </p>
                 )}
               </div>
+            )}
+            {source !== 'legs' && cardMarks.moved.length > 0 && (
+              <p className="text-xs text-amber-800 dark:text-amber-300" data-testid="course-marks-moved">
+                The card has moved {joinNames(cardMarks.moved.map((m) => `${markLabel(m.mark)} ${Math.round(m.metres)} m`))}{' '}
+                since {cardMarks.moved.length === 1 ? 'it was' : 'they were'} adopted
+                {cardMarks.moved[0].fromRelease ? ` (course-cards ${cardMarks.moved[0].fromRelease})` : ''}.
+                Saving moves {cardMarks.moved.length === 1 ? 'it' : 'them'} in the library, and every course
+                that uses {cardMarks.moved.length === 1 ? 'it' : 'them'} with {cardMarks.moved.length === 1 ? 'it' : 'them'}.
+              </p>
             )}
             {editorOpen && source !== 'legs' && (
               <SequenceEditor

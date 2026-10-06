@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   adoptCardMarks,
   cardMarksToPlace,
+  cardMarksToWrite,
   courseFromCard,
   courseOutOfDate,
   courseRoutingSummary,
@@ -114,6 +115,32 @@ describe('adopting a card', () => {
     expect(cush.lat).toBe(53.408333);
     expect(cush.createdAt).toBe(NOW);
     expect(again.map((m) => m.id).sort()).toEqual(first.map((m) => m.id).sort());
+  });
+
+  it('writes the marks a course uses that the library lacks or holds where an older release put them', () => {
+    const OLD = { ...BM, release: '0.2.0' };
+    const first = adoptCardMarks(bmMarks, bmCard, OLD, 's1', [], NOW);
+    const cushId = first.find((m) => m.card!.markId === 'C')!.id;
+    const islandId = first.find((m) => m.card!.markId === 'I')!.id;
+    const deliId = first.find((m) => m.card!.markId === 'D')!.id;
+    // The library has Cush 82 m south of where the set now has it, at the
+    // older release, and Island as it is now but read at the older release;
+    // it never adopted Deli.
+    const library = first
+      .filter((m) => m.id !== deliId)
+      .map((m) => (m.id === cushId ? { ...m, ...positionFrom({ lat: m.lat, lng: m.lng }, 180, 82, 'm'), version: 3 } : m));
+    const adopted = adoptCardMarks(bmMarks, bmCard, BM, 's1', library, NOW + 1);
+    const newDeliId = adopted.find((m) => m.card!.markId === 'D')!.id;
+    const { marks, moved } = cardMarksToWrite(adopted, library, new Set([cushId, islandId, newDeliId]));
+    expect(marks.map((m) => m.card!.markId).sort()).toEqual(['C', 'D', 'I']);
+    expect(marks.find((m) => m.id === cushId)).toMatchObject({ lat: 53.408333, version: 3, card: { release: '0.3.0' } });
+    expect(moved).toHaveLength(1);
+    expect(moved[0]).toMatchObject({ mark: { id: cushId }, fromRelease: '0.2.0' });
+    expect(moved[0].metres).toBeCloseTo(82, 0);
+    // A mark the course doesn't use is left alone, however far it moved.
+    expect(cardMarksToWrite(adopted, library, new Set([islandId])).moved).toEqual([]);
+    // Nothing to write once the library is current.
+    expect(cardMarksToWrite(adopted, adopted, new Set([cushId, islandId, newDeliId])).marks).toEqual([]);
   });
 
   it('matches a card course to the library and says which marks it still needs, in the club’s words', () => {

@@ -667,6 +667,51 @@ export function adoptCardMarks(
   });
 }
 
+/** An adopted mark the set has since moved: where the library has it, and
+ *  how far the current release puts it from there. */
+export interface MovedCardMark {
+  mark: SeriesMark;
+  fromRelease: string;
+  metres: number;
+}
+
+/**
+ * Which of `adopted` (from {@link adoptCardMarks}) a course over `used` has
+ * to write for the library to hold what the course was drawn and measured
+ * against: the marks the library doesn't have yet, and the ones the set has
+ * moved or redescribed since they were adopted. `moved` is the second kind
+ * where the position changed, for the dialog to say so — a moved mark moves
+ * every course built on it.
+ */
+export function cardMarksToWrite(
+  adopted: SeriesMark[],
+  existing: SeriesMark[],
+  used: ReadonlySet<string>,
+): { marks: SeriesMark[]; moved: MovedCardMark[] } {
+  const byId = new Map(existing.map((m) => [m.id, m]));
+  const marks: SeriesMark[] = [];
+  const moved: MovedCardMark[] = [];
+  for (const m of adopted) {
+    if (!used.has(m.id)) continue;
+    const prior = byId.get(m.id);
+    if (!prior) {
+      marks.push(m);
+      continue;
+    }
+    const metres = positionsApartNm({ lat: prior.lat, lng: prior.lng }, { lat: m.lat, lng: m.lng }) * METRES_PER_NM;
+    const changed =
+      prior.lat !== m.lat ||
+      prior.lng !== m.lng ||
+      prior.card?.release !== m.card?.release ||
+      prior.shape !== m.shape ||
+      prior.color !== m.color;
+    if (!changed) continue;
+    marks.push({ ...m, ...(prior.version != null ? { version: prior.version } : {}) });
+    if (metres >= 1) moved.push({ mark: m, fromRelease: prior.card?.release ?? '', metres });
+  }
+  return { marks, moved };
+}
+
 /** A card course's entries, each with the library mark that stands for it
  *  where one does — an adopted mark for a fixed one, the scorer's chosen
  *  mark for a laid one — or nothing yet. */
