@@ -452,6 +452,11 @@ rather than leave the two to argue about it.
 
 ## Course data from the water
 
+[`course-days.md`](course-days.md) proposes where this lives: a
+workspace-level course day rather than the series libraries. It also draws
+the line between scoring and race management, and orders the work below
+into steps.
+
 ### Collecting course data from the committee boat, RIBs, and competitors
 
 The course builder takes a club's course card and the positions of the marks
