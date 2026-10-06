@@ -706,6 +706,10 @@ export interface SeriesCourseMark {
   markId: string;
   side?: 'port' | 'starboard';
   passing?: boolean;
+  // On a course made from a card, the card mark a mark the card can't place
+  // stands for here ("SL", "Z"): the scorer's "Grassy Start" is the card's
+  // start line whatever it is called. An adopted mark carries its own.
+  cardMarkId?: string;
 }
 
 /**
@@ -775,6 +779,9 @@ export interface RaceStartCourseWaypoint {
   // page and the start dialog see this snapshot and not the marks it was
   // taken from — and the mark may since have been deleted.
   set?: string;
+  // The card mark a laid mark stood for on the course (SeriesCourseMark's
+  // `cardMarkId`), which is what a routing overlay knows it by.
+  cardMarkId?: string;
 }
 
 /**

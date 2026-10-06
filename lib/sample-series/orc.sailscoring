@@ -1,5 +1,5 @@
 {
-  "formatVersion": 65,
+  "formatVersion": 66,
   "seriesId": "sample-orc",
   "exportedAt": "2026-01-01T00:00:00.000Z",
   "series": {
@@ -4556,14 +4556,16 @@
                 "markId": "om-line",
                 "label": "Start",
                 "lat": 53.4135,
-                "lng": -6.0605
+                "lng": -6.0605,
+                "cardMarkId": "SL"
               },
               {
                 "markId": "om-z",
                 "label": "Z",
                 "lat": 53.39784862823774,
                 "lng": -6.050946211068322,
-                "side": "port"
+                "side": "port",
+                "cardMarkId": "Z"
               },
               {
                 "markId": "om-card-o",
@@ -4901,14 +4903,16 @@
                 "markId": "om-line",
                 "label": "Start",
                 "lat": 53.4135,
-                "lng": -6.0605
+                "lng": -6.0605,
+                "cardMarkId": "SL"
               },
               {
                 "markId": "om-z",
                 "label": "Z",
                 "lat": 53.39784862823774,
                 "lng": -6.050946211068322,
-                "side": "port"
+                "side": "port",
+                "cardMarkId": "Z"
               },
               {
                 "markId": "om-card-o",
@@ -5427,11 +5431,13 @@
       },
       "marks": [
         {
-          "markId": "om-line"
+          "markId": "om-line",
+          "cardMarkId": "SL"
         },
         {
           "markId": "om-z",
-          "side": "port"
+          "side": "port",
+          "cardMarkId": "Z"
         },
         {
           "markId": "om-card-o",

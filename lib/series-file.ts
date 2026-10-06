@@ -568,9 +568,17 @@ export interface SeriesFileRepos {
  *  course with no marks to place it (a pasted leg table) takes its magnetic
  *  variation from. Display and entry only: every bearing is stored true, so
  *  an older build reading a v65 file scores it identically and loses only
- *  the position, which the scorer sets again. */
-export const FORMAT_VERSION = 65;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65];
+ *  the position, which the scorer sets again.
+ *
+ *  v66 adds optional `courses[*].marks[*].cardMarkId` and
+ *  `starts[*].course.waypoints[*].cardMarkId`: on a course made from a card,
+ *  the card mark a laid mark stands for ("SL" for the scorer's "Grassy
+ *  Start"), which is what a data set's routing overlay knows it by. An older
+ *  build reading a v66 file matches those marks by name again, which can
+ *  leave a leg straight in a drawing or a recompute; the legs a start was
+ *  scored on are stored, so it scores identically. */
+export const FORMAT_VERSION = 66;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -783,7 +791,7 @@ interface SeriesFileRaceStart {
   distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
   courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5), carrying v51+ per-leg wind speeds
-  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot (v57+ waypoints name their data set)
+  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot (v57+ waypoints name their data set; v66+ a laid mark's card mark)
   orcOption?: string;  // v40+; the ORC scoring option for this start's races
 }
 
@@ -808,7 +816,7 @@ interface SeriesFileCourse {
   name: string;
   card?: { set: string; cardId: string; courseId: string; release: string };
   modified?: boolean;
-  marks: { markId: string; side?: 'port' | 'starboard'; passing?: boolean }[];
+  marks: { markId: string; side?: 'port' | 'starboard'; passing?: boolean; cardMarkId?: string }[];  // cardMarkId v66+
   legs?: SeriesCourseLeg[];
   createdAt?: number;
 }

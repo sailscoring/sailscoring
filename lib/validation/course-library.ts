@@ -55,6 +55,7 @@ export const seriesCourseMarkSchema = z.object({
   markId: uuidSchema,
   side: sideSchema.optional(),
   passing: z.boolean().optional(),
+  cardMarkId: z.string().min(1).max(40).optional(),
 });
 
 /** The fields, unrefined — the refinement below goes on each schema derived
@@ -114,6 +115,7 @@ export const raceStartCourseSchema = z.object({
         passing: z.boolean().optional(),
         fixed: z.boolean().optional(),
         set: z.string().min(1).max(200).optional(),
+        cardMarkId: z.string().min(1).max(40).optional(),
       }),
     )
     .max(MAX_COURSE_MARKS),

@@ -455,6 +455,9 @@ export interface PublicSeriesExport {
           /** The course-cards data set the mark was adopted from, which is
            *  the set whose chart the course is drawn on. */
           set?: string;
+          /** The card mark a laid mark stood for on a card course ("SL"),
+           *  which is what the data set's routing overlay knows it by. */
+          cardMarkId?: string;
         }[];
         /** The leg table the course gave, on a course defined by legs —
          *  which has no waypoints to snapshot. Bearings are degrees true,
@@ -620,7 +623,9 @@ export interface PublicSeriesExport {
     name: string;
     card?: { set: string; cardId: string; courseId: string; release: string };
     modified?: boolean;
-    marks: { mark: string; side?: 'port' | 'starboard'; passing?: boolean }[];
+    /** `cardMarkId`: on a course made from a card, the card mark a laid
+     *  mark stands for ("SL"), whatever the scorer called it. */
+    marks: { mark: string; side?: 'port' | 'starboard'; passing?: boolean; cardMarkId?: string }[];
     /** The race committee's own leg table, on a course defined that way
      *  rather than by marks. Exactly one of the two is non-empty. Bearings
      *  are degrees true. */
@@ -893,6 +898,7 @@ function exportStartCourse(
         ...(w.passing ? { passing: true } : {}),
         ...(w.fixed ? { fixed: true } : {}),
         ...(w.set ? { set: w.set } : {}),
+        ...(w.cardMarkId ? { cardMarkId: w.cardMarkId } : {}),
       };
     }),
     ...(course.legs?.length ? { legs: course.legs } : {}),
@@ -1618,6 +1624,7 @@ export function buildPublicExportFromSnapshot(
                 mark: markNameById.get(cm.markId)!,
                 ...(cm.side ? { side: cm.side } : {}),
                 ...(cm.passing ? { passing: true } : {}),
+                ...(cm.cardMarkId ? { cardMarkId: cm.cardMarkId } : {}),
               })),
             ...(c.legs?.length ? { legs: c.legs } : {}),
           })),
@@ -1952,6 +1959,7 @@ export async function importPublicExport(
             markId: markIdByName.get(cm.mark)!,
             ...(cm.side ? { side: cm.side } : {}),
             ...(cm.passing ? { passing: true } : {}),
+            ...(cm.cardMarkId ? { cardMarkId: cm.cardMarkId } : {}),
           })),
         ...(c.legs?.length ? { legs: c.legs } : {}),
         createdAt: now,
@@ -1976,6 +1984,7 @@ export async function importPublicExport(
           ...(w.passing ? { passing: true } : {}),
           ...(w.fixed ? { fixed: true } : {}),
           ...(w.set ? { set: w.set } : {}),
+          ...(w.cardMarkId ? { cardMarkId: w.cardMarkId } : {}),
         };
       }),
       ...(c.legs?.length ? { legs: c.legs } : {}),

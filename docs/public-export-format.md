@@ -54,7 +54,10 @@ results, and beyond that nothing that is not in the published HTML**:
   `course` snapshot — the waypoints, the wind, and whether the legs were
   edited — which the published drawing is rendered from. A waypoint taken
   from a club's charted mark names the course-cards data set it came from
-  (`set`), which is the chart the drawing sits on. Course facts are what
+  (`set`), which is the chart the drawing sits on; a laid mark on a card
+  course names the card mark it stands for (`cardMarkId`, on the course's
+  marks and on the waypoints), which is what the set's routing overlay
+  knows it by. Course facts are what
   competitors check their tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.

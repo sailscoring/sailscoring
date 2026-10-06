@@ -81,7 +81,7 @@ const island: SeriesMark = {
 const course: SeriesCourse = {
   id: 'c-1', seriesId: 's1', name: '19 — 12 Sep R1',
   card: { set: 'hyc/al-2026', cardId: 'offshore', courseId: 'K1', release: '0.3.0' },
-  marks: [{ markId: 'm-line' }, { markId: 'm-z', side: 'port' }, { markId: 'm-i', side: 'starboard', passing: true }, { markId: 'm-line', side: 'port' }],
+  marks: [{ markId: 'm-line' }, { markId: 'm-z', side: 'port', cardMarkId: 'Z' }, { markId: 'm-i', side: 'starboard', passing: true }, { markId: 'm-line', side: 'port' }],
   createdAt: 3,
 };
 const start: RaceStart = {
@@ -96,7 +96,7 @@ const start: RaceStart = {
     name: '19 — 12 Sep R1',
     waypoints: [
       { markId: 'm-line', label: 'Start', lat: 53.4055, lng: -6.0675 },
-      { markId: 'm-z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' },
+      { markId: 'm-z', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', cardMarkId: 'Z' },
       { markId: 'm-i', label: 'I', lat: 53.411667, lng: -6.072667, side: 'starboard', passing: true, fixed: true, set: 'hyc/al-2026' },
       { markId: 'm-line', label: 'Start', lat: 53.4055, lng: -6.0675, side: 'port' },
     ],
@@ -220,6 +220,8 @@ describe('.sailscoring v45 course library round-trip', () => {
       idByName.get('Start — 12 Sep'), idByName.get('Z — 12 Sep R1'), idByName.get('Island'), idByName.get('Start — 12 Sep'),
     ]);
     expect(savedCourses[0].marks[2]).toMatchObject({ side: 'starboard', passing: true });
+    // The card mark a laid mark stands for, which the routing overlay knows it by.
+    expect(savedCourses[0].marks[1].cardMarkId).toBe('Z');
 
     expect(savedStarts).toHaveLength(1);
     const saved = savedStarts[0].course!;
@@ -230,6 +232,7 @@ describe('.sailscoring v45 course library round-trip', () => {
     // The set travels with the waypoint: it is what the published drawing
     // finds the club's chart by, and the mark it names may be gone by then.
     expect(saved.waypoints[2]).toMatchObject({ lat: 53.411667, lng: -6.072667, fixed: true, passing: true, set: 'hyc/al-2026' });
+    expect(saved.waypoints[1].cardMarkId).toBe('Z');
     expect(saved.windDirectionDeg).toBe(190);
     expect(saved.legsEdited).toBe(true);
     expect(savedStarts[0].courseLegs).toEqual(start.courseLegs);
@@ -318,12 +321,12 @@ describe('public export course library round-trip', () => {
       {
         name: '19 — 12 Sep R1',
         card: course.card,
-        marks: [{ mark: 'Start — 12 Sep' }, { mark: 'Z — 12 Sep R1', side: 'port' }, { mark: 'Island', side: 'starboard', passing: true }, { mark: 'Start — 12 Sep', side: 'port' }],
+        marks: [{ mark: 'Start — 12 Sep' }, { mark: 'Z — 12 Sep R1', side: 'port', cardMarkId: 'Z' }, { mark: 'Island', side: 'starboard', passing: true }, { mark: 'Start — 12 Sep', side: 'port' }],
       },
     ]);
     const exported = data.races[0].starts[0].course!;
     expect(exported.course).toBe('19 — 12 Sep R1');
-    expect(exported.waypoints[1]).toEqual({ mark: 'Z — 12 Sep R1', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' });
+    expect(exported.waypoints[1]).toEqual({ mark: 'Z — 12 Sep R1', label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', cardMarkId: 'Z' });
     expect(exported.waypoints[2]).toMatchObject({ mark: 'Island', fixed: true, passing: true, set: 'hyc/al-2026' });
     expect(exported.windDirectionDeg).toBe(190);
     expect(exported.legsEdited).toBe(true);
@@ -356,7 +359,8 @@ describe('public export course library round-trip', () => {
     const saved = savedStarts[0].course!;
     expect(saved.courseId).toBe(savedCourses[0].id);
     expect(saved.waypoints.map((w) => w.markId)).toEqual(savedCourses[0].marks.map((cm) => cm.markId));
-    expect(saved.waypoints[1]).toMatchObject({ label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' });
+    expect(saved.waypoints[1]).toMatchObject({ label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', cardMarkId: 'Z' });
+    expect(savedCourses[0].marks[1].cardMarkId).toBe('Z');
     expect(saved.legsEdited).toBe(true);
   });
 
@@ -386,6 +390,6 @@ describe('public export course library round-trip', () => {
     const saved = savedStarts[0].course!;
     expect(saved.name).toBe('19 — 12 Sep R1');
     expect(saved.courseId).toBeUndefined();
-    expect(saved.waypoints[1]).toEqual({ label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port' });
+    expect(saved.waypoints[1]).toEqual({ label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', cardMarkId: 'Z' });
   });
 });

@@ -147,7 +147,11 @@ empty. A race start that sailed a course carries its own snapshot of it in
 were then edited — beside the `courseLegs` it is scored on, so the record
 stands even if the library is later edited. A waypoint off a charted mark
 also names the data set it was adopted from (`set`, v57+), which is the
-chart the course is drawn on wherever it is drawn.
+chart the course is drawn on wherever it is drawn. On a course made from a
+card, an entry whose mark the scorer laid names the card mark it stands for
+(`cardMarkId`, v66+ — "SL" for a line called "Grassy Start"), on the
+course and on the waypoints a start snapshots from it: that is what a data
+set's routing overlay knows the mark by.
 
 ---
 

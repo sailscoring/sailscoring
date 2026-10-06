@@ -178,8 +178,11 @@ describe('adopting a card', () => {
     const course = courseFromCard(entries, BM, '10', 's1', proposeCourseName('10', { date: '2025-12-13' }), NOW);
     expect(course.name).toBe('10 — 13 Dec');
     expect(course.card).toEqual({ ...BM, courseId: '10' });
-    expect(course.marks[0]).toEqual({ markId: 'line' });
-    expect(course.marks[course.marks.length - 1]).toEqual({ markId: 'fin' });
+    // The marks the scorer placed keep the card marks they stand for; the
+    // adopted ones carry their own.
+    expect(course.marks[0]).toEqual({ markId: 'line', cardMarkId: 'SL' });
+    expect(course.marks[course.marks.length - 1]).toEqual({ markId: 'fin', cardMarkId: 'F' });
+    expect(course.marks.slice(1, -1).every((m) => !m.cardMarkId)).toBe(true);
 
     const marksById = new Map(library.map((m) => [m.id, m]));
     const resolved = resolveCourse(course.marks, marksById);
@@ -602,6 +605,34 @@ describe('routing a course through its set\'s overlay', () => {
     expect(resolveCourse(sequence, renamed).legs[0]).toMatchObject({ review: 'unreviewed', to: { label: 'Ringabella' } });
     const moved = new Map(marksById).set('rc-line', { ...line, ...positionFrom({ lat: line.lat, lng: line.lng }, 90, 2, 'nm') });
     expect(resolveCourse(sequence, moved).legs[0]).toMatchObject({ review: 'unreviewed', to: { label: 'Ringabella' } });
+  });
+
+  it('knows a laid mark on a card course by the card mark it stands for, whatever its name', () => {
+    // Pat's own line, "Grassy Start", where the overlay assumes SL.
+    const named = new Map(marksById).set('rc-line', { ...line, name: 'Grassy Start' });
+    const asSL = [{ markId: 'rc-line', cardMarkId: 'SL' }, ...sequence.slice(1)];
+    expect(resolveCourse(sequence, named).legs[0]).toMatchObject({ review: 'unreviewed' });
+    const { legs, waypoints } = resolveCourse(asSL, named);
+    expect(legs.map((l) => l.review)).toEqual(resolveCourse(sequence, marksById).legs.map((l) => l.review));
+    expect(legs[0].from.label).toBe('Grassy Start');
+    expect(waypoints[0].cardMarkId).toBe('SL');
+    // A snapshot keeps it, so a recompute routes the same way.
+    const snapshot = snapshotOfCourse({ id: 'c', name: '14', marks: asSL }, named, 180);
+    expect(legsOfWaypoints(snapshot.waypoints)).toEqual(legs);
+    // A snapshot taken before the course knew it is out of date.
+    expect(courseOutOfDate(snapshotOfCourse({ id: 'c', name: '14', marks: sequence }, named, 180), { marks: asSL }, named)).toBe(true);
+    expect(courseOutOfDate(snapshot, { marks: asSL }, named)).toBe(false);
+    // The overlay's position check still decides: laid 2 NM away, it isn't SL.
+    const far = new Map(named).set('rc-line', { ...line, name: 'Grassy Start', ...positionFrom({ lat: line.lat, lng: line.lng }, 90, 2, 'nm') });
+    expect(resolveCourse(asSL, far).legs[0]).toMatchObject({ review: 'unreviewed' });
+    // An adopted mark is known by its own card id, not an entry's claim.
+    expect(resolveCourse([...asSL.slice(0, 1), { markId: 'rc-Ringabella', cardMarkId: 'Cage' }], named).waypoints[1]).not.toHaveProperty('cardMarkId');
+    // And it is drawn under SL, so the drawing routes as the legs do.
+    const drawn = routedDrawing(drawnMarks([...named.values()]), drawnCourse(asSL), RC);
+    expect(drawn.course.map((c) => c.mark)).toEqual(['SL', 'Ringabella', 'Cage']);
+    expect(drawn.legCount).toBe(7);
+    expect(drawn.course.every((c) => !('cardMarkId' in c))).toBe(true);
+    expect(drawnStartCourse(snapshot).course[0]).toMatchObject({ cardMarkId: 'SL' });
   });
 
   it('claims nothing where the set has no overlay', () => {

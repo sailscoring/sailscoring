@@ -129,6 +129,7 @@ export function resolveCourse(
       ...(entry.side ? { side: entry.side } : {}),
       ...(entry.passing ? { passing: true } : {}),
       ...(mark.card ? { fixed: true, set: mark.card.set } : {}),
+      ...(!mark.card && entry.cardMarkId ? { cardMarkId: entry.cardMarkId } : {}),
     });
   }
   const legs = waypointLegs(waypoints);
@@ -147,17 +148,19 @@ function toLibraryWaypoint(w: RaceStartCourseWaypoint): Waypoint {
  * whether the overlay vouches for it. Elsewhere the legs are straight lines,
  * and claim nothing.
  *
- * The overlay names marks by the card's ids, which is what a waypoint's
- * label is: the card's letter for an adopted mark, and for one the scorer
- * laid, the name it was proposed under ("SL — 6 Sep R2" is SL). It is the
- * overlay's own position check that makes a verdict hold, not the name: a
- * line laid away from where the overlay assumed it, or a mark renamed into
- * something else, leaves its legs straight and unreviewed.
+ * The overlay names marks by the card's ids. An adopted mark's label is
+ * its card id; a mark the scorer laid for a card course is known by the
+ * card mark it stands for there, whatever it is called ("Grassy Start" is
+ * SL); and a laid mark on a course with no card behind it, by the name it
+ * was proposed under ("SL — 6 Sep R2" is SL). It is the overlay's own
+ * position check that makes a verdict hold, not the name: a line laid away
+ * from where the overlay assumed it, or a mark renamed into something else,
+ * leaves its legs straight and unreviewed.
  */
 function waypointLegs(waypoints: RaceStartCourseWaypoint[]): CourseLeg[] {
   const overlay = courseRoutingFor(drawingSet(waypoints));
   if (!overlay) return legsFromWaypoints(waypoints.map(toLibraryWaypoint));
-  const points = waypoints.map((w) => ({ mark: w.label, label: w.label, position: { lat: w.lat, lng: w.lng } }));
+  const points = waypoints.map((w) => ({ mark: w.cardMarkId ?? w.label, label: w.label, position: { lat: w.lat, lng: w.lng } }));
   return routedLegsFromWaypoints(points, overlay.routing, [...overlay.turnAt, ...points]);
 }
 
@@ -408,7 +411,8 @@ export function courseOutOfDate(
       Math.abs(w.lat - s.lat) > 1e-5 ||
       Math.abs(w.lng - s.lng) > 1e-5 ||
       (w.side ?? undefined) !== (s.side ?? undefined) ||
-      Boolean(w.passing) !== Boolean(s.passing)
+      Boolean(w.passing) !== Boolean(s.passing) ||
+      (w.cardMarkId ?? undefined) !== (s.cardMarkId ?? undefined)
     );
   });
 }
@@ -468,13 +472,18 @@ export function markLibrarySet(marks: Pick<SeriesMark, 'card'>[]): string | unde
 }
 
 /** A course's sequence as the renderer takes it, over the library's marks. */
-export function drawnCourse(marks: SeriesCourseMark[]): DrawnCourseMark[] {
+export function drawnCourse(marks: SeriesCourseMark[]): RoutableCourseMark[] {
   return marks.map((cm) => ({
     mark: cm.markId,
     ...(cm.side ? { side: cm.side } : {}),
     ...(cm.passing ? { passing: true } : {}),
+    ...(cm.cardMarkId ? { cardMarkId: cm.cardMarkId } : {}),
   }));
 }
+
+/** An entry of a course to draw, with the card mark it stands for where a
+ *  laid mark stands for one — the name a routing overlay knows it by. */
+export type RoutableCourseMark = DrawnCourseMark & { cardMarkId?: string };
 
 /**
  * A start's snapshot drawn, whichever kind of course it came from: the
@@ -487,7 +496,7 @@ export function drawnCourse(marks: SeriesCourseMark[]): DrawnCourseMark[] {
  */
 export function drawnStartCourse(snapshot: RaceStartCourse): {
   marks: DrawnMark[];
-  course: DrawnCourseMark[];
+  course: RoutableCourseMark[];
   fromLegs: boolean;
   set?: string;
 } {
@@ -523,8 +532,9 @@ export function drawnRaceStartCourse(
  * A drawing made ready for the set's routing overlay, where it has one, so
  * the renderer draws a leg the overlay routes through the passage's
  * waypoints, as the legs the course is scored on. The overlay names marks by
- * the card's ids, so each mark is drawn under its label where that is
- * unambiguous (a library mark's id is a UUID; `highlight` follows it); and a
+ * the card's ids, so each mark is drawn under the card mark it stands for on
+ * the course, or else its label, where that is unambiguous (a library mark's
+ * id is a UUID; `highlight` follows it); and a
  * mark a passage turns at that the drawing doesn't hold — W2, on the way
  * from Ringabella to Cage — is added, as the club's charted mark it is.
  *
@@ -535,7 +545,7 @@ export function drawnRaceStartCourse(
  */
 export function routedDrawing(
   marks: DrawnMark[],
-  course: DrawnCourseMark[],
+  course: RoutableCourseMark[],
   set: string | undefined,
   highlight?: string,
 ): { marks: DrawnMark[]; course: DrawnCourseMark[]; highlight?: string; routing?: RoutingFile; legCount: number } {
@@ -554,15 +564,18 @@ export function routedDrawing(
       legCount: pairs(new Map(marks.map((m) => [m.id, m])), course).length,
     };
   }
-  const labelCount = new Map<string, number>();
-  for (const m of marks) labelCount.set(m.label, (labelCount.get(m.label) ?? 0) + 1);
+  const standsFor = new Map<string, string>();
+  for (const entry of course) if (entry.cardMarkId) standsFor.set(entry.mark, entry.cardMarkId);
+  const nameOf = (m: DrawnMark) => standsFor.get(m.id) ?? m.label;
+  const nameCount = new Map<string, number>();
+  for (const m of marks) nameCount.set(nameOf(m), (nameCount.get(nameOf(m)) ?? 0) + 1);
   const ids = new Set(marks.map((m) => m.id));
-  const idOf = new Map(marks.map((m) => [
-    m.id,
-    labelCount.get(m.label) === 1 && (m.label === m.id || !ids.has(m.label)) ? m.label : m.id,
-  ]));
+  const idOf = new Map(marks.map((m) => {
+    const name = nameOf(m);
+    return [m.id, nameCount.get(name) === 1 && (name === m.id || !ids.has(name)) ? name : m.id];
+  }));
   const drawn = marks.map((m) => ({ ...m, id: idOf.get(m.id)! }));
-  const sequence = course.map((entry) => ({ ...entry, mark: idOf.get(entry.mark) ?? entry.mark }));
+  const sequence = course.map(({ cardMarkId: _, ...entry }) => ({ ...entry, mark: idOf.get(entry.mark) ?? entry.mark }));
   const present = new Set(drawn.map((m) => m.id));
   const point = (m: DrawnMark): Waypoint => ({ mark: m.id, label: m.label, position: m.position });
   const turnAt = [...overlay.turnAt.filter((w) => !present.has(w.mark)), ...drawn.map(point)];
@@ -606,15 +619,20 @@ export function drawingSet(waypoints: Pick<RaceStartCourseWaypoint, 'set'>[]): s
  *  their own, so a repeated mark is one drawn mark visited twice. Positions
  *  only — a course defined by legs has none, and draws through
  *  `drawnStartCourse`. */
-export function drawnSnapshot(snapshot: RaceStartCourse): { marks: DrawnMark[]; course: DrawnCourseMark[] } {
+export function drawnSnapshot(snapshot: RaceStartCourse): { marks: DrawnMark[]; course: RoutableCourseMark[] } {
   const marks = new Map<string, DrawnMark>();
-  const course: DrawnCourseMark[] = [];
+  const course: RoutableCourseMark[] = [];
   snapshot.waypoints.forEach((w, i) => {
     const id = w.markId ?? `${w.label}\0${w.lat}\0${w.lng}\0${i}`;
     if (!marks.has(id)) {
       marks.set(id, { id, label: w.label, position: { lat: w.lat, lng: w.lng }, ...(w.fixed ? { fixed: true } : {}) });
     }
-    course.push({ mark: id, ...(w.side ? { side: w.side } : {}), ...(w.passing ? { passing: true } : {}) });
+    course.push({
+      mark: id,
+      ...(w.side ? { side: w.side } : {}),
+      ...(w.passing ? { passing: true } : {}),
+      ...(w.cardMarkId ? { cardMarkId: w.cardMarkId } : {}),
+    });
   });
   return { marks: [...marks.values()], course };
 }
@@ -766,6 +784,17 @@ function firstPerCardMark(entries: CardCourseEntry[]): CardCourseEntry[] {
   });
 }
 
+/** A matched entry as a course's sequence holds it: a mark the card can't
+ *  place keeps the card mark it stands for. */
+export function courseMarkOfEntry(e: CardCourseEntry): SeriesCourseMark {
+  return {
+    markId: e.mark!.id,
+    ...(e.resolved.entry.side ? { side: e.resolved.entry.side } : {}),
+    ...(e.resolved.entry.passing ? { passing: true } : {}),
+    ...(!e.resolved.placed ? { cardMarkId: e.resolved.mark.id } : {}),
+  };
+}
+
 /** A library course from a fully matched card course. */
 export function courseFromCard(
   entries: CardCourseEntry[],
@@ -781,11 +810,7 @@ export function courseFromCard(
     seriesId,
     name,
     card: { ...ref, courseId },
-    marks: entries.map((e) => ({
-      markId: e.mark!.id,
-      ...(e.resolved.entry.side ? { side: e.resolved.entry.side } : {}),
-      ...(e.resolved.entry.passing ? { passing: true } : {}),
-    })),
+    marks: entries.map(courseMarkOfEntry),
     createdAt: now,
   };
 }

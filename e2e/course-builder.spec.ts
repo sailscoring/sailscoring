@@ -521,7 +521,7 @@ test("a card course routed round the headland by the set's passages", async ({ p
   await expect(page.getByTestId('course-row')).toBeVisible();
 });
 
-test('a card course saves the marks the card has moved since they were adopted', async ({ page }) => {
+test('a card course saves the marks the card has moved since they were adopted, and knows its line as SL', async ({ page }) => {
   await createSeriesQuick(page, { name: 'Moved Marks Test 2026' });
   await createFleets(page, ['Keelboats']);
   await setScoringMode(page, 'handicap');
@@ -561,6 +561,10 @@ test('a card course saves the marks the card has moved since they were adopted',
   await pick(page, 'course-number', /^3\b/);
   await pick(page, 'placement-SL', 'Grassy Start');
   await expect(page.getByTestId('course-marks-moved')).toContainText('Harp 82 m');
+  // The scorer's own line is the card's SL, whatever it is called, so the
+  // first leg goes round the southern shore as Pat's passages have it.
+  await expect(page.getByTestId('course-routing')).toContainText('Leg 1 goes by RW_Temblebreedy_Pier, RW_Rams_Head and RW_Roches_Point');
+  await expect(page.getByTestId('course-summary')).toContainText('12 legs · 8.52 NM');
   await page.getByTestId('course-save').click();
   await expect(page.getByTestId('course-row')).toBeVisible();
 

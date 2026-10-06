@@ -19,6 +19,7 @@ import {
   cardMarksToPlace,
   cardMarksToWrite,
   courseFromCard,
+  courseMarkOfEntry,
   courseIsLegTable,
   courseRoutingSummary,
   drawnCourse,
@@ -240,11 +241,18 @@ function CourseDialogInner({
   const cardSequence: SeriesCourseMark[] | null = useMemo(
     () =>
       entries && entries.every((e) => e.mark)
-        ? entries.map((e) => ({ markId: e.mark!.id, ...(e.resolved.entry.side ? { side: e.resolved.entry.side } : {}), ...(e.resolved.entry.passing ? { passing: true } : {}) }))
+        ? entries.map(courseMarkOfEntry)
         : null,
     [entries],
   );
-  const sequence: SeriesCourseMark[] = useMemo(() => edited ?? cardSequence ?? [], [edited, cardSequence]);
+  // A course saved before its entries said which card mark a laid mark
+  // stands for learns it here, while the sequence is still the card's.
+  const sequence: SeriesCourseMark[] = useMemo(() => {
+    if (edited && entries && sequenceMatchesCard(edited, libraryById, entries.map((e) => e.resolved))) {
+      return edited.map((cm, i) => (cm.cardMarkId || entries[i].resolved.placed ? cm : { ...cm, cardMarkId: entries[i].resolved.mark.id }));
+    }
+    return edited ?? cardSequence ?? [];
+  }, [edited, entries, libraryById, cardSequence]);
   const resolved = useMemo(() => resolveCourse(sequence, libraryById), [sequence, libraryById]);
   const cardMarks = useMemo(
     () => cardMarksToWrite(adopted, marks, new Set(sequence.map((cm) => cm.markId))),

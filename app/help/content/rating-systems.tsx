@@ -456,7 +456,9 @@ export default function RatingSystems() {
           a leg across an obstruction is sailed through the passage’s turning
           points: drawn as lettered legs (2a, 2b, 2c), counted in the course’s
           distance, and filled into a start as legs of their own, because that
-          is the water the boats actually sail. The course dialog says which
+          is the water the boats actually sail. A mark you laid for a card
+          course counts as the card mark it fills — your “Grassy Start” is the
+          card’s start line — whatever you named it. The course dialog says which
           legs it routed. A leg the passages don’t cover — a mark laid well
           away from where they assume it, or a pair nobody checked — is drawn
           dashed and scored as the straight line, so check it before trusting
