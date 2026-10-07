@@ -44,6 +44,7 @@ import {
   upsertPublishedFolder,
 } from '@/lib/published-repository';
 import { contentHash, publishedBlobKey } from '@/lib/publishing';
+import { summariseArchiveDoc } from '@/lib/publication-summary';
 import { sharedFolderSegment } from '@/lib/published-tree';
 import type { PageNote, PublishedSeries, PublishedSeriesPage } from '@/lib/types';
 
@@ -562,6 +563,7 @@ async function publishArchiveSeries(
     contentHash: hash,
     publishedAt: Date.now(),
     publishedVersion: versionRow?.version ?? 1,
+    summary: summariseArchiveDoc(doc),
   };
   await savePublished(published);
 

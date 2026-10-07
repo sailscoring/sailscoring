@@ -98,7 +98,7 @@ async function contributorNames(others: PublishedSeries[]): Promise<string[]> {
   return names;
 }
 
-function exportReposFor(workspaceId: string): ExportRepos {
+export function exportReposFor(workspaceId: string): ExportRepos {
   const repos = createRepos({ workspaceId });
   return {
     seriesRepo: repos.series,
@@ -640,6 +640,7 @@ export async function publishSeries(
     // A rebuild is not a new publish: it keeps the scorer's time.
     publishedAt: opts.rebuildOnly ? existing!.publishedAt : Date.now(),
     publishedVersion: series.version ?? 1,
+    summary: build.summary ?? null,
   };
   await savePublished(published);
 

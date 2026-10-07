@@ -189,6 +189,16 @@ describe.skipIf(skip)('archive ingest', () => {
       .from(schema.publishedSeries)
       .where(eq(schema.publishedSeries.seriesId, seriesId));
     expect(pub.slug).toBe('iodai-ulsters-2015');
+    // Its summary counts the published table; undated race headers fall back
+    // to the event's own day.
+    expect(pub.summary).toEqual({
+      firstRaceDate: '2015-06-13',
+      lastRaceDate: '2015-06-13',
+      races: 2,
+      boats: 2,
+      fleets: [{ name: 'Main Fleet' }],
+      asPublished: true,
+    });
     const html = await readPublishedHtml(pub.pages[0].blobUrl);
     expect(html).toContain('Holly Cantwell');
     expect(html).toContain('(3 DNC)');

@@ -50,6 +50,7 @@ import {
   type ExportRepos,
 } from './public-export';
 import { loadSeriesSnapshot, type SeriesSnapshot } from './series-snapshot';
+import { summariseSnapshot } from './publication-summary';
 import { fleetOwnRaces } from './race-membership';
 import {
   renderSplitFleetAssignmentsPage,
@@ -66,7 +67,7 @@ import { pageNoteFor, type NotePageRef } from './page-note';
 import { isSyntheticFleetName } from './publishing';
 import { buildStartersChecklist } from './starters-checklist';
 import { seriesSlug } from './series-name';
-import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, RaceStart, ResultCode, PenaltyCode, Series, Standing } from './types';
+import type { Competitor, FinishTrackData, Fleet, OrcRaceCalc, PublicationSummary, RaceStart, ResultCode, PenaltyCode, Series, Standing } from './types';
 import type { CourseBackground } from '@sailscoring/course-cards';
 
 /**
@@ -190,6 +191,9 @@ export interface FleetHtmlFile {
 export interface FleetHtmlBuild {
   files: FleetHtmlFile[];
   exportJson?: string;
+  /** What the publication holds, counted from the snapshot the pages were
+   *  built from — stored with it for the public indexes. */
+  summary?: PublicationSummary;
   /** Races a fleet can't score under the ORC option they resolved to — the
    *  start carries no course to correct over, so nobody in them is scored.
    *  A download says so on the page; publishing refuses. Absent on the
@@ -666,6 +670,7 @@ export async function buildFleetHtmlFiles(
   // per-fleet path below.
   const splitFleets = await repos.splitFleets?.get(seriesId);
   const isChampionship = !!splitFleets && splitFleets.rounds.length > 0;
+  const summary = summariseSnapshot(snapshot, isChampionship);
   // Before race one a fleet page publishes as a placeholder — its entrants,
   // unranked — so the results link can go live with the event rather than
   // after the first race. A championship has no such page: its standings are
@@ -781,14 +786,14 @@ export async function buildFleetHtmlFiles(
       ? [await buildCompetitorListFile(snapshot, seriesIndexUrl, generatedAt, opts?.includePageNotes)]
       : [];
     // Nothing scored yet, so no export either: just who sails in which fleet.
-    if (noRacesSailed) return { files: [assignmentsFile, ...entryListFiles] };
+    if (noRacesSailed) return { files: [assignmentsFile, ...entryListFiles], summary };
     // Null while no stage race has sheet rows — the championship page then
     // has nothing to link to either.
     const raceResultsHtml = renderSplitFleetRaceResultsPage(input, {
       ...splitPageChrome,
       ...splitNote(RACE_RESULTS_PAGE),
     });
-    return { files: [
+    return { summary, files: [
       {
         fleetName: CHAMPIONSHIP_PAGE,
         isDefault: true,
@@ -1506,6 +1511,7 @@ export async function buildFleetHtmlFiles(
   return results.length > 0
     ? {
         files: results,
+        summary,
         ...(publicExportJson ? { exportJson: publicExportJson } : {}),
         ...(unscorable.length > 0 ? { unscorable } : {}),
       }
