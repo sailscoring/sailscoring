@@ -175,7 +175,7 @@ export interface SeriesIndexGroup {
 
 // The shared chrome lives in published-shell.ts; re-exported here for the
 // long-standing external callers (career arc, competitor index, rankings).
-import { renderPublicHero, renderPublicShell } from './published-shell';
+import { jsonAlternateLink, renderPublicHero, renderPublicShell } from './published-shell';
 export { renderPublicHero, renderPublicShell };
 
 /** Category sections over a set of items: section order is the category's
@@ -423,8 +423,11 @@ export function renderWorkspaceIndexHtml(
     currentSeason?: string;
     /** Folder metadata (ADR-011): label pins for event rows. */
     folderMeta?: Map<string, { label: string | null }>;
+    /** The page's `index.json` twin (#669), declared in the head. */
+    indexJsonHref?: string;
   } = {},
 ): string {
+  const head = opts.indexJsonHref ? jsonAlternateLink(opts.indexJsonHref) : '';
   const heading = `${esc(workspaceName)} &mdash; published results`;
   const hero = renderPublicHero(heading, logoUrl);
   // Forward links to the competitor and ranking indexes, when there's
@@ -441,6 +444,8 @@ export function renderWorkspaceIndexHtml(
       `${workspaceName} — published results`,
       hero,
       `${competitorsLink}<p class="empty">No published results yet.</p>`,
+      '',
+      head,
     );
   }
 
@@ -506,6 +511,8 @@ export function renderWorkspaceIndexHtml(
     `${workspaceName} — published results`,
     hero,
     `${competitorsLink}${picker.controls}${sections}${picker.script}`,
+    '',
+    head,
   );
 }
 
@@ -691,6 +698,9 @@ export function renderSeriesIndexHtml(
   logoUrl = '',
   /** Pre-rendered navigation-cascade fragment (ADR-011), above the listing. */
   nav = '',
+  /** The `index.json` twin (#669) to declare in the head — a slug that is a
+   *  season (the archive shape) is that season's index. */
+  indexJsonHref = '',
 ): string {
   const renderFlatList = (pages: SeriesIndexPage[]): string => {
     // A lone results page reads better as "Standings" than as its (possibly
@@ -741,7 +751,13 @@ ${pages
 
   const back = `<p class="back"><a href="/p/${esc(workspaceSlug)}">&larr; ${esc(workspaceName)} &mdash; published results</a></p>`;
   const hero = renderPublicHero(esc(title), logoUrl);
-  return renderPublicShell(title, hero, `${back}\n${nav}${sections}`);
+  return renderPublicShell(
+    title,
+    hero,
+    `${back}\n${nav}${sections}`,
+    '',
+    indexJsonHref ? jsonAlternateLink(indexJsonHref) : '',
+  );
 }
 
 /** The public ranking index at `/p/{ws}/rankings` (#209/#309): the live

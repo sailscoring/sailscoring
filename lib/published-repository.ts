@@ -7,7 +7,7 @@ import { parseOrgMetadata, type OrgMetadata } from './features';
 import { purgePublishedCache } from './published-cache';
 import { humanizeSlug, kebab } from './publishing';
 import { publicationPath, seasonLikeSlug } from './published-tree';
-import type { PublishedSeries } from './types';
+import type { PublicationSummary, PublishedSeries, PublishedSeriesPage } from './types';
 
 /**
  * Server-side data access for `published_series` (ADR-008 Phase 9/10, #153).
@@ -477,6 +477,8 @@ export async function listPublishedByWorkspaceDigest(
     publishedVersion: number;
     contentHash: string;
     pagesHash: string;
+    /** md5 of the publish-time summary; '' while it is null. */
+    summaryHash: string;
     seriesName: string | null;
     archived: boolean | null;
     seriesOrder: number | null;
@@ -495,6 +497,7 @@ export async function listPublishedByWorkspaceDigest(
       // jsonb has a canonical text form, so this digest is stable for a given
       // stored value — the same page list always hashes the same way.
       pagesHash: sql<string>`md5(${schema.publishedSeries.pages}::text)`,
+      summaryHash: sql<string>`coalesce(md5(${schema.publishedSeries.summary}::text), '')`,
       seriesName: schema.series.name,
       archived: schema.series.archived,
       seriesOrder: schema.series.displayOrder,
@@ -520,12 +523,67 @@ export async function listPublishedByWorkspaceDigest(
     publishedVersion: r.publishedVersion,
     contentHash: r.contentHash,
     pagesHash: r.pagesHash,
+    summaryHash: r.summaryHash,
     seriesName: r.seriesName,
     archived: r.archived,
     seriesOrder: r.seriesOrder,
     startYear: yearOf(r.startDate),
     categoryName: r.categoryName,
     categoryOrder: r.categoryOrder,
+  }));
+}
+
+/** One publication as the public `index.json` lists it (#669). */
+export interface IndexPublicationRow {
+  slug: string;
+  /** The contributing series' name; null for an orphaned publication. */
+  seriesName: string | null;
+  pages: Omit<PublishedSeriesPage, 'blobUrl'>[];
+  /** The data file's sub-path, when the publication has one. */
+  dataSubPath: string | null;
+  summary: PublicationSummary | null;
+  publishedAt: number;
+}
+
+/**
+ * Every publication in a workspace, for the public `index.json` (#669): one
+ * row per publication — per series — rather than per slug, since an
+ * integrator wants each series' pages and data file, and an archive year
+ * files dozens of series under one slug. Ordered the way a slug's own index
+ * lists its contributors (the in-app series order, then publish recency),
+ * so grouping by slug keeps each group in display order. Blob locators are
+ * stripped: this feeds a public document.
+ */
+export async function listPublicationsForIndex(
+  workspaceId: string,
+): Promise<IndexPublicationRow[]> {
+  const rows = await getDb()
+    .select({
+      slug: schema.publishedSeries.slug,
+      seriesName: schema.series.name,
+      pages: schema.publishedSeries.pages,
+      dataSubPath: schema.publishedSeries.dataSubPath,
+      dataBlobUrl: schema.publishedSeries.dataBlobUrl,
+      summary: schema.publishedSeries.summary,
+      publishedAt: schema.publishedSeries.publishedAt,
+    })
+    .from(schema.publishedSeries)
+    .leftJoin(
+      schema.series,
+      eq(schema.publishedSeries.seriesId, schema.series.id),
+    )
+    .where(eq(schema.publishedSeries.workspaceId, workspaceId))
+    .orderBy(
+      asc(schema.series.displayOrder),
+      desc(schema.publishedSeries.publishedAt),
+    );
+  return rows.map((r) => ({
+    slug: r.slug,
+    seriesName: r.seriesName,
+    pages: r.pages.map(({ blobUrl: _blobUrl, ...page }) => page),
+    dataSubPath: r.dataSubPath && r.dataBlobUrl ? r.dataSubPath : null,
+    summary: r.summary ?? null,
+    publishedAt: r.publishedAt.getTime(),
   }));
 }
 

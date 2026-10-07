@@ -61,7 +61,9 @@ import {
   listPublishedByWorkspace,
   listPublishedByWorkspaceDigest,
   listPublishedSeriesIds,
+  listPublicationsForIndex,
 } from '@/lib/published-repository';
+import { buildPublicIndex, PUBLIC_INDEX_VERSION } from '@/lib/published-index-json';
 import type { OrgMetadata } from '@/lib/features';
 import type { PublishedSeasonTreeRows } from '@/lib/published-repository';
 import type { PublishedSeries } from '@/lib/types';
@@ -135,6 +137,41 @@ function htmlResponse(
   });
 }
 
+/** 304 for a JSON document — the data file, an `index.json` — whose ETag is
+ *  its content tag alone: no sponsor footer is injected into JSON, so the
+ *  sponsor revision `notModified` folds in has no part in it. */
+function jsonNotModified(req: NextRequest, etag: string): Response | null {
+  if (req.headers.get('if-none-match') !== etag) return null;
+  return new Response(null, {
+    status: 304,
+    headers: {
+      etag,
+      'cache-control': CACHE_CONTROL,
+      'access-control-allow-origin': '*',
+      'access-control-expose-headers': 'ETag',
+    },
+  });
+}
+
+/** A public JSON document — the data file (ADR-012), an `index.json` (#669).
+ *  Served with an open CORS header: these are the portability surface, and
+ *  third-party pages and scripts are welcome to read them cross-origin. The
+ *  ETag is exposed so a script can poll with `If-None-Match`. */
+function jsonResponse(json: string, etag: string, cacheTag: string): Response {
+  return new Response(json, {
+    status: 200,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': CACHE_CONTROL,
+      'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
+      'Vercel-Cache-Tag': cacheTag,
+      'access-control-allow-origin': '*',
+      'access-control-expose-headers': 'ETag',
+      etag,
+    },
+  });
+}
+
 /**
  * Public, unauthenticated results pages and listings (ADR-008 Phase 9/10, the
  * bilge replacement — #153, #162). Path shapes:
@@ -143,6 +180,8 @@ function htmlResponse(
  *   /p/{ws}/{series}            → series index: that publication's fleet pages (rendered live)
  *   /p/{ws}/{series}/{subPath}  → a fleet's standings HTML (`standings` or `kebab(fleet)`;
  *                                 sub-series pages add a block segment, `{block}/{fleet}`)
+ *   /p/{ws}/index.json          → the workspace's publications as JSON (#669)
+ *   /p/{ws}/{season}/index.json → the same, narrowed to one season
  *
  * The read path is a thin always-fresh function rather than a static blob
  * rewrite: re-publish freshness matters more than shaving the function/DB hit
@@ -187,6 +226,14 @@ async function dispatch(
   segments: string[],
 ): Promise<Response> {
   if (segments.length < 1 || segments.length > 4) return NOT_FOUND;
+
+  // The machine-readable indexes (#669). No published slug or page sub-path
+  // can contain a dot, so `index.json` never shadows a page.
+  if (segments.at(-1) === 'index.json') {
+    if (segments.length === 2) return indexJson(req, segments[0]);
+    if (segments.length === 3) return indexJson(req, segments[0], segments[1]);
+    return NOT_FOUND;
+  }
 
   if (segments.length === 1) return workspaceIndex(req, segments[0]);
   // `/p/{ws}/competitors` — the public competitor index (#217). Checked before
@@ -305,8 +352,78 @@ async function workspaceIndex(
     rankingsLink,
     currentSeason,
     folderMeta,
+    indexJsonHref: `/p/${workspaceSlug}/index.json`,
   });
   return htmlResponse(html, etag, workspace.id);
+}
+
+/**
+ * `/p/{ws}/index.json` — every publication in the workspace, as JSON (#669)
+ * — and `/p/{ws}/{season}/index.json`, the same narrowed to one season, for
+ * either shape: a season whose events publish under their own folders, or a
+ * slug that is the season (the archive shape). 404 when nothing is published,
+ * like the HTML listing, and for a segment that names no season with
+ * publications.
+ */
+async function indexJson(
+  req: NextRequest,
+  workspaceSlug: string,
+  seasonSegment?: string,
+): Promise<Response> {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  if (!workspace) return NOT_FOUND;
+
+  // Freshness first, as for the HTML listing: the digest condenses each
+  // publication's pages and summary into hashes, so a poller holding the
+  // current version is answered without reading every page list.
+  const [digest, folderMeta, seasonRows] = await Promise.all([
+    listPublishedByWorkspaceDigest(workspace.id),
+    getPublishedFolderMeta(workspace.id),
+    readPublishedSeasonTreeRows(workspace.id),
+  ]);
+  if (digest.length === 0) return NOT_FOUND;
+  const seasonTree = assemblePublishedSeasonTree(seasonRows, folderMeta);
+  let season: string | undefined;
+  if (seasonSegment !== undefined) {
+    const found = seasonTree.seasons.find((s) => s.segment === seasonSegment);
+    if (!found || found.folders.length === 0) return NOT_FOUND;
+    season = found.label;
+  }
+
+  const origin = req.nextUrl.origin;
+  const etag = `"${await contentHash([
+    `v:${PUBLIC_INDEX_VERSION}`,
+    `origin:${origin}`,
+    `name:${workspace.name}`,
+    `logo:${workspace.logo}`,
+    `season:${season ?? ''}`,
+    ...seasonTreeEtag(seasonTree),
+    ...[...folderMeta].map(
+      ([p, m]) => `fmeta:${p}:${m.label ?? ''}:${m.season ?? ''}`,
+    ),
+    ...digest
+      .map(
+        (d) =>
+          `${d.slug}:${d.seriesId ?? ''}:${d.publishedAt}:${d.contentHash}:${d.pagesHash}:${d.summaryHash}:${d.seriesName ?? ''}:${d.seriesOrder}`,
+      )
+      .sort(),
+  ])}"`;
+  const cached = jsonNotModified(req, etag);
+  if (cached) return cached;
+
+  const doc = buildPublicIndex({
+    origin,
+    workspace: { slug: workspaceSlug, name: workspace.name, logo: workspace.logo },
+    seasonTree,
+    folderMeta,
+    publications: await listPublicationsForIndex(workspace.id),
+    ...(season !== undefined ? { season } : {}),
+  });
+  return jsonResponse(
+    JSON.stringify(doc, null, 2),
+    etag,
+    publishedCacheTag(workspace.id),
+  );
 }
 
 /** `/p/{ws}/rankings` — the public ranking index (#209/#309): computed
@@ -665,6 +782,7 @@ async function seriesIndex(
     groups,
     workspace.logo,
     nav,
+    seasonForSlug ? `/p/${workspaceSlug}/${seriesSlug}/index.json` : '',
   );
   return htmlResponse(html, etag, workspace.id);
 }
@@ -704,25 +822,11 @@ async function fleetPage(
     // gets no footer, so its ETag is the publication's content hash and
     // nothing else.
     const etag = `"${dataOwner.contentHash}"`;
-    if (req.headers.get('if-none-match') === etag) {
-      return new Response(null, {
-        status: 304,
-        headers: { etag, 'cache-control': CACHE_CONTROL },
-      });
-    }
+    const cached = jsonNotModified(req, etag);
+    if (cached) return cached;
     const json = await readPublishedHtml(dataOwner.dataBlobUrl!);
     if (json === null) return NOT_FOUND;
-    return new Response(json, {
-      status: 200,
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'cache-control': CACHE_CONTROL,
-        'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
-        'Vercel-Cache-Tag': publishedCacheTag(workspace.id),
-        'access-control-allow-origin': '*',
-        etag,
-      },
-    });
+    return jsonResponse(json, etag, publishedCacheTag(workspace.id));
   }
 
   const owner = group.find((p) => p.pages.some((pg) => pg.subPath === subPath));
@@ -830,6 +934,7 @@ async function seasonIndex(
     folders: season.folders,
     logoUrl: workspace.logo,
     nav,
+    indexJsonHref: `/p/${workspaceSlug}/${segment}/index.json`,
   });
   return htmlResponse(html, etag, workspace.id);
 }

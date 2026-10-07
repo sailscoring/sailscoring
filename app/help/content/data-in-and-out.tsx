@@ -373,6 +373,24 @@ export default function DataInAndOut() {
           comes down with the next publish and the footer reverts to a plain link with no
           Open in Sail Scoring option.
         </p>
+        <p>
+          To find those files without being handed each link, an app can read your
+          workspace’s index:{' '}
+          <code className="text-foreground text-sm">/p/{'{workspace}'}/index.json</code> lists
+          every published series — its season and folder, its pages, its data file, its
+          fleets, its first and last race, and when it was last published — and{' '}
+          <code className="text-foreground text-sm">/p/{'{workspace}'}/{'{season}'}/index.json</code>{' '}
+          narrows it to one season. Like the data files, the index is open to any site or
+          script, and it lists only what is already published: unpublish a series and it
+          drops out. The format is described in{' '}
+          <a
+            href="https://github.com/sailscoring/sailscoring/blob/main/docs/public-index-format.md"
+            className="underline"
+          >
+            the index format reference
+          </a>
+          .
+        </p>
       </Section>
     </>
   );
