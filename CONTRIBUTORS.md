@@ -21,6 +21,7 @@ come back with concrete, actionable reports:
 - **Ian Bowring** — Royal St George Yacht Club, Dublin Bay Sailing Club
 - **Gary Cullen** — Howth Yacht Club
 - **John Kelly** — Royal Irish Yacht Club, ORC Ireland
+- **Fergal Lyons** — Galway Bay Sailing Club, RaceOps
 - **Mark McGibney** — Royal Irish Yacht Club
 - **Dave Mullally** — Killaloe Sailing Club
 - **Neil Murphy** — Howth Yacht Club
