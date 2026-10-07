@@ -84,7 +84,8 @@ describe.skipIf(!DATABASE_URL)('session lifetime', () => {
   }
 
   /** Full magic-link sign-in: request a link, read the token straight out of
-   *  `verification` (the plugin stores it unhashed by default), verify it. */
+   *  `verification` (the plugin stores it unhashed by default, as the
+   *  identifier `magic-link:<token>`), verify it. */
   async function signIn(email: string, ip: string): Promise<Response> {
     const sent = await auth.handler(
       new Request('http://localhost:3000/api/auth/sign-in/magic-link', {
@@ -101,10 +102,11 @@ describe.skipIf(!DATABASE_URL)('session lifetime', () => {
       .where(like(schema.verification.value, `%${email}%`))
       .limit(1);
     expect(row, 'magic-link token was not stored').toBeDefined();
+    const token = row.identifier.replace(/^magic-link:/, '');
 
     return auth.handler(
       new Request(
-        `http://localhost:3000/api/auth/magic-link/verify?token=${row.identifier}&callbackURL=/`,
+        `http://localhost:3000/api/auth/magic-link/verify?token=${token}&callbackURL=/`,
         { headers: { 'x-forwarded-for': ip } },
       ),
     );
