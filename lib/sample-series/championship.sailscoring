@@ -2274,9 +2274,14 @@
         }
       ],
       "vocabulary": "opening-medal",
+      "final": {
+        "carry": "net",
+        "tieBreak": "a8"
+      },
       "medal": {
         "size": 6,
         "multiplier": 2,
+        "carry": "net",
         "tieBreak": "medal-race-then-a8"
       }
     },
