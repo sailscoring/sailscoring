@@ -362,7 +362,9 @@ pencil tick, and the thing that separates a genuine DNC from a boat that started
 Not a third-party integration. It is a first-party accessory to the app, sharing the entry
 list it constrains recognition against and writing back through the same surface; if it does
 ride `/api/v1` it needs a low-latency write path that tolerates corrections and ambiguous
-identifiers, which is worth remembering when that API is scoped.
+identifiers. Finish sheet submissions (#671) are that write path: a whole-sheet recording
+the scorer reviews before applying, with unmatched sail numbers kept as unresolved
+crossings. The voice accessory would be one more submitter.
 
 If real-world trials expose browser limitations — iOS backgrounding killing the mic stream
 being the likeliest — the same web app can be wrapped in Capacitor and switched to
@@ -446,7 +448,9 @@ political as technical: connectivity on a committee boat (see voice-driven
 finish recording above), and who is entitled to show numbers before the race
 committee has ratified them. The broadcast's incentive is speed and the
 scorer's is correctness; the output format should make the distinction visible
-rather than leave the two to argue about it.
+rather than leave the two to argue about it. Finish sheet submissions (#671) supply the
+capture half for recorders other than the scorer, with an optional "apply automatically"
+setting. The live read path and the explicitly provisional publication remain open here.
 
 ---
 
@@ -495,7 +499,9 @@ directly, and to show the scorer all of it together:
   the course without being a scorer. It could be a new entry in
   `lib/auth/org-roles.ts` and `lib/auth/permissions.ts`, able to manage marks
   and courses but not competitors, finishes, or publishing. It would probably
-  want the series scope described under Per-series scorer scope.
+  want the series scope described under Per-series scorer scope. Finish sheet
+  submissions (#671) add a submit-only role for whoever records finishes on the same
+  boat; the two are probably one race-officer role, and should be designed together.
 - **A mark-collection page.** The course builder sends a link to each RIB. The
   crew needs no account and no other position source: they pick a mark, press
   "Record mark position" to save the phone's GPS fix with a timestamp, and see
@@ -1085,7 +1091,9 @@ What's deferred is everything around making that repeatable and supported:
   per-deployment concern — relates to the deferred RYA NHC 2015 work below.
 - **Cross-instance identity and discovery.** Open questions, not commitments:
   does a scorer with accounts on two instances have any shared identity; is
-  there a federated directory of "where is club X scored"; how do published
+  there a federated directory of "where is club X scored" (the single-instance
+  directory is #670, with its JSON index and #669's per-workspace indexes as the
+  natural thing to federate); how do published
   `/p/...` URLs read across instances. Likely unnecessary for a long time —
   each instance can be fully independent — but worth flagging that the
   workspace-namespaced URL scheme assumes a single host today.
@@ -1898,8 +1906,9 @@ rankings over time are scoring data Sail Scoring owns — squarely in scope. The
 tempting next step is a *photo* retrospective: tag regatta photos with a competitor
 ID so the page shows the sailor as well as their results. That steps outside scoring
 data, and belongs **outside** the app — a third-party integration built on the Sail
-Scoring API (the same "thin client over the API" framing as the mobile
-finish-recorder and clubhouse big-screen display under *Third-party integrations*),
+Scoring API (the same "thin client over the API" framing as a race-day finish-recording
+app writing finish sheet submissions, #671, and the clubhouse big-screen display under
+*Third-party integrations*),
 with the competitor identity as the join key, rather than photos becoming
 something Sail Scoring stores and manages itself. The exciting feature and its
 correct home are different things: the app exposes the identity and the record;
