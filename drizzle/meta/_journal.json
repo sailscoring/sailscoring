@@ -827,6 +827,13 @@
       "when": 1791183013864,
       "tag": "0117_burly_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1791367366362,
+      "tag": "0118_published_series_summary",
+      "breakpoints": true
     }
   ]
 }

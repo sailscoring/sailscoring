@@ -46,6 +46,9 @@ from?", start here.
 | `pnpm republish`         | Operator pass: re-render existing publications with the current renderer; report only without `--apply` (uses `.env.local`; see [republish.md](republish.md)) | Yes |
 | `pnpm republish:test`    | Same, but against the local container with `.env.test`'s app URL | Yes — run `pnpm db:up` first |
 | `pnpm republish:prod`    | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
+| `pnpm publication-summaries` | Operator pass: fill in the publish-time summary (race dates, counts) of publications made before it was stored, from each one's own data file, archive tables, or unchanged series; report only without `--apply`, `--workspace` to narrow (uses `.env.local`) | Yes |
+| `pnpm publication-summaries:test` | Same, but against the local container | Yes — run `pnpm db:up` first |
+| `pnpm publication-summaries:prod` | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |
 | `pnpm redirects`         | Admin CLI: list/add/remove public-URL redirects (ADR-011; uses `.env.local`) | Yes |
 | `pnpm redirects:test`    | Same, but against the local container                | Yes — run `pnpm db:up` first   |
 | `pnpm redirects:prod`    | Same, but against production, with the secrets fetched from Bitwarden for the run (see [account-admin.md](account-admin.md#production-usage)) | Yes (Neon) |

@@ -1539,6 +1539,34 @@ export interface PublishedSeries {
   contentHash: string;           // hash over all page HTML + the data file; unchanged ⇒ skip re-upload
   publishedAt: number;           // Unix ms of the last publish
   publishedVersion: number;      // series.version captured at publish (drives "X edits since")
+  // What the publication holds, counted at publish time from the data the
+  // pages were built from — pinned like the data file, so the public indexes
+  // never read the live series. Null on a row published before it existed.
+  summary?: PublicationSummary | null;
+}
+
+/**
+ * The facts about a publication its public indexes show without opening its
+ * pages or data file: when its racing ran, how much of it there is, and what
+ * kind it is. Counted from the published snapshot (sailed races only).
+ */
+export interface PublicationSummary {
+  /** `YYYY-MM-DD` of the earliest and latest race with a date; null when no
+   *  race carries one. */
+  firstRaceDate: string | null;
+  lastRaceDate: string | null;
+  /** Races sailed — for an as-published archive, the most any fleet shows. */
+  races: number;
+  /** Entries across the series. */
+  boats: number;
+  /** The fleets as scored, in display order. An as-published fleet's scoring
+   *  system is unknown and absent; a split-fleet championship's round fleets
+   *  are left out — they are the championship's machinery, not its fleets. */
+  fleets: { name: string; scoringSystem?: Fleet['scoringSystem'] }[];
+  /** A split-fleet championship. */
+  splitFleet?: boolean;
+  /** Results ingested as originally published (ADR-010), never re-scored. */
+  asPublished?: boolean;
 }
 
 /**

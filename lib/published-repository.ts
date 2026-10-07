@@ -34,6 +34,7 @@ function rowToPublished(row: PublishedRow): PublishedSeries {
     contentHash: row.contentHash,
     publishedAt: row.publishedAt.getTime(),
     publishedVersion: row.publishedVersion,
+    summary: row.summary ?? null,
   };
 }
 
@@ -173,6 +174,7 @@ export async function getPublishedGroupByWorkspaceSlug(
       contentHash: schema.publishedSeries.contentHash,
       publishedAt: schema.publishedSeries.publishedAt,
       publishedVersion: schema.publishedSeries.publishedVersion,
+      summary: schema.publishedSeries.summary,
     })
     .from(schema.publishedSeries)
     .leftJoin(
@@ -905,6 +907,7 @@ export async function savePublished(p: PublishedSeries): Promise<void> {
       contentHash: p.contentHash,
       publishedAt: new Date(p.publishedAt),
       publishedVersion: p.publishedVersion,
+      summary: p.summary ?? null,
     })
     .onConflictDoUpdate({
       target: schema.publishedSeries.id,
@@ -917,6 +920,7 @@ export async function savePublished(p: PublishedSeries): Promise<void> {
         contentHash: p.contentHash,
         publishedAt: new Date(p.publishedAt),
         publishedVersion: p.publishedVersion,
+        summary: p.summary ?? null,
       },
     });
   await purgePublishedCache(p.workspaceId);

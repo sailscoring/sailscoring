@@ -56,6 +56,7 @@ import type {
   SeriesSource,
   StartGroup,
   SubdivisionAxis,
+  PublicationSummary,
   PublishedSeriesPage,
 } from '@/lib/types';
 import type {
@@ -1227,6 +1228,11 @@ export const publishedSeries = pgTable(
       .notNull()
       .defaultNow(),
     publishedVersion: integer('published_version').notNull(),
+    // What the publication holds, counted at publish time (races, boats,
+    // fleets, race dates) — what the public indexes show. Null on a row
+    // published before the column existed, until it is re-published or
+    // backfilled.
+    summary: jsonb('summary').$type<PublicationSummary>(),
   },
   (table) => [
     // Non-unique: a slug is a shared namespace (several series can publish into

@@ -1,0 +1,1 @@
+ALTER TABLE "published_series" ADD COLUMN "summary" jsonb;
