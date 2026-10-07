@@ -5,7 +5,7 @@
  *   /p/{ws}            → workspace index: every published series in the workspace
  *   /p/{ws}/{series}   → series index: that publication's fleet pages
  *
- * Both are rendered on the fly by the `/p/[...slug]` route (the read path is a
+ * Both are rendered on the fly by the `/p/[[...slug]]` route (the read path is a
  * thin always-fresh function, not a static blob — see #162), so there is no
  * stored index blob to regenerate on publish/unpublish. The chrome mirrors
  * `results-renderer.ts` (arial, centred, the `Sail Scoring — sailscoring.ie`

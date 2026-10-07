@@ -58,7 +58,7 @@ export function DirectoryCard() {
       </div>
       <p className="text-sm text-muted-foreground">
         The{' '}
-        <a href="/p/" className="underline" target="_blank" rel="noopener">
+        <a href="/p" className="underline" target="_blank" rel="noopener">
           directory
         </a>{' '}
         lists the clubs and classes publishing their results with Sail Scoring. Your

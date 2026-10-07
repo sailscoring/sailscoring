@@ -12,7 +12,15 @@ import {
   renderCompetitorIndexHtml,
   toCompetitorIndexEntries,
 } from '@/lib/published-competitor-index';
-import { publishedCacheTag } from '@/lib/published-cache';
+import { DIRECTORY_CACHE_TAG, publishedCacheTag } from '@/lib/published-cache';
+import {
+  buildDirectory,
+  directoryJson,
+  directoryLinkIds,
+  PUBLIC_DIRECTORY_VERSION,
+  renderDirectoryHtml,
+  type Directory,
+} from '@/lib/published-directory';
 import { renderSponsorFooterHtml, SPONSORS_REVISION } from '@/lib/sponsors';
 import { contentHash, humanizeSlug } from '@/lib/publishing';
 import {
@@ -62,6 +70,8 @@ import {
   listPublishedByWorkspaceDigest,
   listPublishedSeriesIds,
   listPublicationsForIndex,
+  readDirectoryRows,
+  readPublicationPages,
 } from '@/lib/published-repository';
 import { buildPublicIndex, PUBLIC_INDEX_VERSION } from '@/lib/published-index-json';
 import type { OrgMetadata } from '@/lib/features';
@@ -123,7 +133,7 @@ function notModified(req: NextRequest, contentEtag: string): Response | null {
 function htmlResponse(
   html: string,
   contentEtag: string,
-  workspaceId: string,
+  cacheTag: string,
 ): Response {
   return new Response(injectBeforeBodyEnd(html, renderSponsorFooterHtml()), {
     status: 200,
@@ -131,7 +141,7 @@ function htmlResponse(
       'content-type': 'text/html; charset=utf-8',
       'cache-control': CACHE_CONTROL,
       'Vercel-CDN-Cache-Control': CDN_CACHE_CONTROL,
-      'Vercel-Cache-Tag': publishedCacheTag(workspaceId),
+      'Vercel-Cache-Tag': cacheTag,
       etag: pageEtag(contentEtag),
     },
   });
@@ -176,6 +186,8 @@ function jsonResponse(json: string, etag: string, cacheTag: string): Response {
  * Public, unauthenticated results pages and listings (ADR-008 Phase 9/10, the
  * bilge replacement — #153, #162). Path shapes:
  *
+ *   /p                          → the directory of club workspaces (#670)
+ *   /p/index.json               → the same, as JSON
  *   /p/{ws}                     → workspace index: every published series (rendered live)
  *   /p/{ws}/{series}            → series index: that publication's fleet pages (rendered live)
  *   /p/{ws}/{series}/{subPath}  → a fleet's standings HTML (`standings` or `kebab(fleet)`;
@@ -194,9 +206,9 @@ function jsonResponse(json: string, etag: string, cacheTag: string): Response {
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ slug: string[] }> },
+  { params }: { params: Promise<{ slug?: string[] }> },
 ): Promise<Response> {
-  const { slug: segments } = await params;
+  const { slug: segments = [] } = await params;
   const res = await dispatch(req, segments);
   // Moved URLs (ADR-011): only after everything else 404s, consult the
   // static redirect table — a redirect can never shadow a live page.
@@ -225,7 +237,12 @@ async function dispatch(
   req: NextRequest,
   segments: string[],
 ): Promise<Response> {
-  if (segments.length < 1 || segments.length > 4) return NOT_FOUND;
+  // The directory of workspaces (#670): `/p/` and its JSON twin.
+  if (segments.length === 0) return directory(req);
+  if (segments.length === 1 && segments[0] === 'index.json') {
+    return directoryIndexJson(req);
+  }
+  if (segments.length > 4) return NOT_FOUND;
 
   // The machine-readable indexes (#669). No published slug or page sub-path
   // can contain a dot, so `index.json` never shadows a page.
@@ -354,7 +371,43 @@ async function workspaceIndex(
     folderMeta,
     indexJsonHref: `/p/${workspaceSlug}/index.json`,
   });
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
+}
+
+/** The directory's ETag: a hash over everything it shows, so a repeat view
+ *  revalidates without re-rendering. Its rows are read either way — the
+ *  directory is a handful of small queries across every listed workspace,
+ *  not a per-workspace page list. */
+async function readDirectory(): Promise<{ dir: Directory; etag: string }> {
+  const rows = await readDirectoryRows();
+  const pages = await readPublicationPages(directoryLinkIds(rows));
+  const dir = buildDirectory(rows, pages);
+  const etag = `"${await contentHash([`v:${PUBLIC_DIRECTORY_VERSION}`, JSON.stringify(dir)])}"`;
+  return { dir, etag };
+}
+
+/** `/p` — the public directory of club workspaces (#670). */
+async function directory(req: NextRequest): Promise<Response> {
+  const { dir, etag } = await readDirectory();
+  const cached = notModified(req, etag);
+  if (cached) return cached;
+  return htmlResponse(renderDirectoryHtml(dir), etag, DIRECTORY_CACHE_TAG);
+}
+
+/** `/p/index.json` — the directory as JSON (#670), each workspace linking
+ *  its own `index.json`. */
+async function directoryIndexJson(req: NextRequest): Promise<Response> {
+  const { dir, etag: dirEtag } = await readDirectory();
+  // The JSON carries absolute URLs, so the origin is part of its version.
+  const origin = req.nextUrl.origin;
+  const etag = `"${await contentHash([dirEtag, `origin:${origin}`])}"`;
+  const cached = jsonNotModified(req, etag);
+  if (cached) return cached;
+  return jsonResponse(
+    JSON.stringify(directoryJson(dir, origin), null, 2),
+    etag,
+    DIRECTORY_CACHE_TAG,
+  );
 }
 
 /**
@@ -456,7 +509,7 @@ async function rankingIndex(
     entries,
     workspace.logo,
   );
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
 
 /** `/p/{ws}/ranking/{slug}` — a public cross-series season ladder (#209).
@@ -513,7 +566,7 @@ async function rankingPage(
     standings,
     { competitorLinks, logoUrl: workspace.logo },
   );
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
 
 /** The as-published fall-through for `/p/{ws}/ranking/{slug}` (#309): a
@@ -575,7 +628,7 @@ async function asPublishedRankingPage(
     linkable,
     { competitorLinks, logoUrl: workspace.logo },
   );
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
 
 /** `/p/{ws}/competitor/{ref}` — a recurring competitor's timeline across every
@@ -627,7 +680,7 @@ async function careerArc(
     identity,
     workspace.logo,
   );
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
 
 /** `/p/{ws}/competitors` — the browsable, searchable index of every recurring
@@ -686,7 +739,7 @@ async function competitorIndex(
     competitors,
     workspace.logo,
   );
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
 
 /** `/p/{ws}/{series}` — the fleet listing for a slug. A slug is a shared
@@ -784,7 +837,7 @@ async function seriesIndex(
     nav,
     seasonForSlug ? `/p/${workspaceSlug}/${seriesSlug}/index.json` : '',
   );
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
 
 /** `/p/{ws}/{series}/{subPath}` — a single fleet's results HTML. The fleet may
@@ -871,7 +924,7 @@ async function fleetPage(
     },
     'float',
   );
-  return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag, workspace.id);
+  return htmlResponse(nav ? injectAfterBodyTag(html, nav) : html, etag, publishedCacheTag(workspace.id));
 }
 
 /** The season tree's contribution to a page ETag: any season, current-flag,
@@ -936,7 +989,7 @@ async function seasonIndex(
     nav,
     indexJsonHref: `/p/${workspaceSlug}/${segment}/index.json`,
   });
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }
 
 /** The slug group's pages flattened into tree pages, each carrying its
@@ -1041,5 +1094,5 @@ async function folderIndex(
     logoUrl: workspace.logo,
     nav,
   });
-  return htmlResponse(html, etag, workspace.id);
+  return htmlResponse(html, etag, publishedCacheTag(workspace.id));
 }

@@ -20,6 +20,12 @@ import type { MetadataRoute } from 'next';
  * whether those copies are indexed is the club's call, on the club's
  * bandwidth.
  *
+ * One page is the exception: the directory of workspaces at `/p` (#670), a
+ * single page served from the CDN, which exists to be found — a scorer
+ * weighing up a switch should be able to search their way to the clubs
+ * already scoring here. `$` anchors the allowance to that page alone;
+ * everything beneath it stays disallowed, and stays `noindex`.
+ *
  * Compliant crawlers obey this; the ones that don't are a firewall problem,
  * not a robots.txt problem.
  */
@@ -27,6 +33,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
+      allow: '/p$',
       disallow: '/',
     },
   };

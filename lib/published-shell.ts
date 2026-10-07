@@ -97,6 +97,8 @@ footer.credit a:hover { color: #fb3a3b; text-decoration: underline; }`;
  * `Sail Scoring — sailscoring.ie` footer). `extraCss` is appended after the
  * base stylesheet for page-specific rules; `headExtra` is raw markup for the
  * head (callers escape their own values), e.g. {@link jsonAlternateLink}.
+ * Every public page is `noindex` except one that asks to be `indexable` —
+ * the directory at `/p/`, the one page meant to be found by search.
  */
 export function renderPublicShell(
   title: string,
@@ -104,14 +106,14 @@ export function renderPublicShell(
   body: string,
   extraCss = '',
   headExtra = '',
+  opts: { indexable?: boolean } = {},
 ): string {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width">
-<meta name="robots" content="noindex">
-<title>${esc(title)}</title>
+${opts.indexable ? '' : '<meta name="robots" content="noindex">\n'}<title>${esc(title)}</title>
 ${FAVICON}${headExtra ? `\n${headExtra}` : ''}
 <style type="text/css">
 ${STYLE}

@@ -23,6 +23,9 @@ published series with its pages and its data file.
 - Lists only what is already published. Unpublishing a series drops it from
   the index; a workspace with nothing published, or a season with nothing
   filed under it, is `404`.
+- The [directory](#the-directory-pindexjson) at `/p/index.json` links each
+  listed workspace's index, so an app can walk from the directory to any
+  series' data without being given a URL.
 
 ## Shape
 
@@ -104,6 +107,52 @@ Field notes:
   made before Sail Scoring recorded them, until it is published again.
 - **A season index** has the same shape, narrowed: `seasons` holds just
   that season and `publications` just the ones filed under it.
+
+## The directory (`/p/index.json`)
+
+The JSON twin of the public directory at `/p`: the club workspaces
+publishing with Sail Scoring. A club workspace is listed once it has
+published something, unless it opts out in its settings; personal
+workspaces never are. Served the same way as the workspace index (CORS-open,
+`ETag` exposed).
+
+```jsonc
+{
+  "version": 1,
+  "workspaces": [                           // most recently published first
+    {
+      "slug": "hyc",
+      "name": "Howth Yacht Club",
+      "url": "https://app.sailscoring.ie/p/hyc",
+      "index": "https://app.sailscoring.ie/p/hyc/index.json",   // its workspace index, above
+      "logo": "https://…",                  // absent when it has none
+      "description": "…",                   // absent when it has none
+      "lastPublishedAt": "2026-10-04T18:12:00.000Z",
+      "currentSeason": "2026",              // null when nothing published has a season
+      "latest": { "name": "Autumn League 2026", "url": "…", "publishedAt": "…" },
+      "counts": { "seasons": 3, "series": 42, "races": 310, "entries": 1204 },
+      "badges": ["IRC", "ECHO", "One-design"]
+    }
+  ],
+  "recent": [                               // the latest publications across every workspace
+    { "name": "Autumn League 2026", "url": "…", "publishedAt": "…", "workspace": "hyc" }
+  ]
+}
+```
+
+- **`counts`** sum the workspace's publications: `entries` counts a boat
+  once per series it sailed, not once overall. Publications made before
+  Sail Scoring recorded their races and entries count toward `series` only.
+- **`badges`** name the kinds of racing the workspace has published:
+  `IRC`, `ORC`, `ECHO`, `NHC`, `VPRS`, `PY`, `TCF` (handicap systems),
+  `One-design` (scratch fleets), `Split-fleet` (split-fleet championships)
+  and `Archive` (results ingested as originally published). More may be
+  added without a version change.
+
+The authoritative shape is `directoryJson` in
+[`lib/published-directory.ts`](../lib/published-directory.ts). Its
+`version` follows the same rules as the workspace index's, and is numbered
+separately.
 
 ## Versioning
 

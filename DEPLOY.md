@@ -156,7 +156,7 @@ Postgres table instead, so local dev, CI, and the e2e suite run the full
 publish flow without a Blob store. Leave the token unset on Development.
 
 **The read path is a function, not a static rewrite (#162).** `/p/...` is
-served by `app/p/[...slug]/route.ts`, not a CDN rewrite to Blob. It reads the
+served by `app/p/[[...slug]]/route.ts`, not a CDN rewrite to Blob. It reads the
 fleet HTML from Blob with the publication's content hash as a query
 cache-buster (`?v=…`) so a re-publish is visible immediately — Blob takes up to
 ~60s to propagate an overwrite at a stable URL, which the buster sidesteps. The

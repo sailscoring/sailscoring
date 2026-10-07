@@ -1203,6 +1203,22 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: the public directory (#670) — every club scoring with Sail
+    // Scoring, on one page. Read-only, and a page of other people's clubs: in
+    // local mode it shows whatever club workspaces the database holds (the
+    // fresh user's personal workspace is never listed), so the production
+    // run is the one to keep.
+    slug: 'public-directory',
+    group: 'Publishing',
+    async capture({ anon, shot }) {
+      const dir = await anon.newPage();
+      await dir.goto(`${BASE}/p`);
+      await settle(dir);
+      await shot('public-directory.png', { page: dir });
+      await dir.close();
+    },
+  },
+  {
     // Inventory: JSON export and Open in Sail Scoring — the public footer.
     slug: 'open-in-sailscoring',
     group: 'Data in and out',

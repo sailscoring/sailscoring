@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb } from './db/client';
 import * as schema from './db/schema';
-import { parseOrgMetadata, type OrgMetadata } from './features';
+import { listedInDirectory, parseOrgMetadata, type OrgMetadata } from './features';
 import { purgePublishedCache } from './published-cache';
 import { humanizeSlug, kebab } from './publishing';
 import { publicationPath, seasonLikeSlug } from './published-tree';
@@ -585,6 +585,131 @@ export async function listPublicationsForIndex(
     summary: r.summary ?? null,
     publishedAt: r.publishedAt.getTime(),
   }));
+}
+
+/** Everything the public directory at `/p/` is built from, read in bulk
+ *  across the listed workspaces (#670). Raw rows: `buildDirectory` in
+ *  `lib/published-directory.ts` does the grouping and counting. */
+export interface DirectoryRows {
+  workspaces: {
+    id: string;
+    slug: string;
+    name: string;
+    logo: string;
+    description: string | null;
+  }[];
+  publications: {
+    id: string;
+    workspaceId: string;
+    slug: string;
+    seriesName: string | null;
+    publishedAt: Date;
+    startDate: string | null;
+    summary: PublicationSummary | null;
+  }[];
+  folders: {
+    workspaceId: string;
+    path: string;
+    label: string | null;
+    season: string | null;
+  }[];
+  seasons: { workspaceId: string; label: string; isCurrent: boolean }[];
+}
+
+/**
+ * The directory's rows (#670): club workspaces not opted out, their
+ * publications (summaries, not page lists — a large archive's pages would be
+ * most of the read), folder metadata and defined seasons. Four queries for
+ * the whole directory, however many workspaces it lists. A listed workspace
+ * with nothing published comes back with no publications; the builder drops
+ * it.
+ */
+export async function readDirectoryRows(): Promise<DirectoryRows> {
+  const orgs = await getDb()
+    .select({
+      id: schema.organization.id,
+      slug: schema.organization.slug,
+      name: schema.organization.name,
+      logo: schema.organization.logo,
+      metadata: schema.organization.metadata,
+    })
+    .from(schema.organization)
+    .where(sql`${schema.organization.slug} not like 'u-%'`);
+  const workspaces = orgs.flatMap((o) => {
+    const meta = parseOrgMetadata(o.metadata, o.slug);
+    if (!listedInDirectory(meta)) return [];
+    return [
+      {
+        id: o.id,
+        slug: o.slug,
+        name: o.name,
+        logo: o.logo ?? '',
+        description: meta.directory?.description ?? null,
+      },
+    ];
+  });
+  if (workspaces.length === 0) {
+    return { workspaces, publications: [], folders: [], seasons: [] };
+  }
+  const ids = workspaces.map((w) => w.id);
+  const [publications, folders, seasons] = await Promise.all([
+    getDb()
+      .select({
+        id: schema.publishedSeries.id,
+        workspaceId: schema.publishedSeries.workspaceId,
+        slug: schema.publishedSeries.slug,
+        seriesName: schema.series.name,
+        publishedAt: schema.publishedSeries.publishedAt,
+        startDate: schema.series.startDate,
+        summary: schema.publishedSeries.summary,
+      })
+      .from(schema.publishedSeries)
+      .leftJoin(
+        schema.series,
+        eq(schema.publishedSeries.seriesId, schema.series.id),
+      )
+      .where(inArray(schema.publishedSeries.workspaceId, ids))
+      .orderBy(desc(schema.publishedSeries.publishedAt)),
+    getDb()
+      .select({
+        workspaceId: schema.publishedFolders.workspaceId,
+        path: schema.publishedFolders.path,
+        label: schema.publishedFolders.label,
+        season: schema.publishedFolders.season,
+      })
+      .from(schema.publishedFolders)
+      .where(inArray(schema.publishedFolders.workspaceId, ids)),
+    getDb()
+      .select({
+        workspaceId: schema.workspaceSeasons.workspaceId,
+        label: schema.workspaceSeasons.label,
+        isCurrent: schema.workspaceSeasons.isCurrent,
+      })
+      .from(schema.workspaceSeasons)
+      .where(inArray(schema.workspaceSeasons.workspaceId, ids)),
+  ]);
+  return {
+    workspaces,
+    publications: publications.map((p) => ({ ...p, summary: p.summary ?? null })),
+    folders,
+    seasons,
+  };
+}
+
+/** The page lists of a few publications, by id — the ones the directory
+ *  links into, so each link can land on the publication's own event rather
+ *  than a season listing (see `publicationPath`). */
+export async function readPublicationPages(
+  ids: string[],
+): Promise<Map<string, Omit<PublishedSeriesPage, 'blobUrl'>[]>> {
+  if (ids.length === 0) return new Map();
+  const rows = await getDb()
+    .select({ id: schema.publishedSeries.id, pages: schema.publishedSeries.pages })
+    .from(schema.publishedSeries)
+    .where(inArray(schema.publishedSeries.id, ids));
+  return new Map(
+    rows.map((r) => [r.id, r.pages.map(({ blobUrl: _blobUrl, ...page }) => page)]),
+  );
 }
 
 /** The redirect target for a moved public path (ADR-011), or null. `fromPath`
