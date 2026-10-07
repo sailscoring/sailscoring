@@ -161,3 +161,25 @@ describe('renderDirectoryHtml', () => {
     expect(renderDirectoryHtml({ workspaces: [], recent: [] })).toContain('Nothing published yet.');
   });
 });
+
+describe('buildDirectory — season mode', () => {
+  test("a lone series in a season folder links to its own event, not the season", () => {
+    const one: DirectoryRows = {
+      workspaces: [{ id: 'w-gbsc', slug: 'gbsc', name: 'GBSC', logo: '', description: null }],
+      publications: [
+        {
+          id: 'p-bay', workspaceId: 'w-gbsc', slug: '2026', seriesName: 'Bay Series',
+          publishedAt: day(3), startDate: '2026-09-06', summary: null,
+        },
+      ],
+      folders: [],
+      seasons: [],
+    };
+    const dir = buildDirectory(
+      one,
+      new Map([['p-bay', [{ fleetName: 'Default', isDefault: true, subPath: 'bay-series/standings' }]]]),
+    );
+    expect(dir.workspaces[0].latest.path).toBe('/p/gbsc/2026/bay-series');
+    expect(dir.recent[0].path).toBe('/p/gbsc/2026/bay-series');
+  });
+});

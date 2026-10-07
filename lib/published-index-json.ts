@@ -146,7 +146,11 @@ export function buildPublicIndex(input: {
 
   const publications = placed.flatMap(({ season, folder }) => {
     const group = bySlug.get(folder.slug) ?? [];
-    const slugShared = group.length > 1;
+    // A folder that is a season (the season-mode and archive shapes) is never
+    // one event's address, even while a single series has published into it:
+    // the publication's own event folder below it is.
+    const slugShared =
+      group.length > 1 || seasonTree.seasons.some((s) => s.segment === folder.slug);
     return group.map((p): PublicIndexPublication => {
       const single = p.pages.filter((pg) => !isAuxiliaryPage(pg)).length === 1;
       const segment = sharedFolderSegment(

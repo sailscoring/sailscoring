@@ -181,3 +181,25 @@ describe('buildPublicIndex — the archive shape (the slug is the season)', () =
     expect(doc.publications.map((p) => p.name)).toEqual(['2024']);
   });
 });
+
+describe('buildPublicIndex — season mode', () => {
+  test('a lone series in a season folder lands on its own event', () => {
+    const doc = buildPublicIndex({
+      origin: ORIGIN,
+      workspace: WS,
+      seasonTree: {
+        seasons: [{ label: '2026', segment: '2026', current: true, folders: [{ slug: '2026', label: '2026' }] }],
+        undated: [],
+      },
+      folderMeta: new Map(),
+      publications: [
+        row({
+          slug: '2026',
+          seriesName: 'Bay Series',
+          pages: [{ fleetName: 'Default', isDefault: true, subPath: 'bay-series/standings' }],
+        }),
+      ],
+    });
+    expect(doc.publications[0].url).toBe('https://app.example/p/hyc/2026/bay-series');
+  });
+});
