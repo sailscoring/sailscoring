@@ -724,6 +724,40 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Course builder — a card course's start line recorded as
+    // its two ends on the seeded ORC sample: the committee boat and the pin
+    // picked for HYC's J2, and the line's length and bearing.
+    slug: 'course-start-line',
+    group: 'Rating and handicap systems',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'orc');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      const orcSeriesId = new URL(page.url()).pathname.split('/')[2];
+      await page.goto(`${BASE}/series/${orcSeriesId}/courses`);
+      await settle(page);
+      const pick = async (testId: string, option: string | RegExp) => {
+        await page.getByTestId(testId).click();
+        await page.getByRole('option', { name: option }).click();
+      };
+      await page.getByTestId('new-course').click();
+      await page.getByRole('dialog').waitFor();
+      await pick('course-card-set', 'Howth Yacht Club — Autumn League 2026');
+      await pick('course-card', /offshore/);
+      await pick('course-number', /^J2\b/);
+      await pick('placement-SL', 'Start — 26 Sep');
+      await pick('placement-SL-pin', 'Pin — 26 Sep');
+      await pick('placement-Z', 'Z — 26 Sep R3');
+      await page.getByTestId('placement-SL-line').waitFor();
+      // The rows, not the drawing: on a course of several miles a 200 m line
+      // draws as little more than its two end symbols.
+      await settle(page);
+      await shot('course-start-line.png', { helpOnly: true });
+    },
+  },
+  {
     // Inventory: Course builder — the Courses tab of the seeded ORC sample:
     // the marks adopted from HYC's card and the two the race committee laid,
     // the course built from card J2, and the drawing.

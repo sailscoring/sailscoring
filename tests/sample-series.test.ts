@@ -262,16 +262,18 @@ describe('sample series files', () => {
     expect(r3?.option).toBe('CC');
     expect(r3?.courseModel).toBe('CC');
     // The constructed course is HYC's Autumn League 2026 offshore J2 over
-    // the sample's library: the line, a laid Z, the card's charted marks,
+    // the sample's library: the line (committee boat and pin, measured from
+    // its middle), a laid Z, the card's charted marks,
     // and the run home past Rowan Rocks and the Howth Mark to the finish.
     // Its length is the sum of nine legs each recorded to 0.01 NM, so it
     // is a hundredth off the geometry's own figure.
     expect(r3?.distanceNm).toBeCloseTo(9.65, 2);
     const cc = raceStarts.find((s) => s.orcOption === 'CC')!;
     expect(cc.course?.name).toBe('J2 — 26 Sep R3');
-    expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['Start', 'Z', 'O', 'U', 'K', 'H', 'K', 'Q', 'HM', 'FH']);
+    expect(cc.course?.waypoints.map((w) => w.label)).toEqual(['SL', 'Z', 'O', 'U', 'K', 'H', 'K', 'Q', 'HM', 'FH']);
+    expect(cc.course?.waypoints[0].ends?.map((e) => [e.end, e.label])).toEqual([['starboard', 'Start'], ['port', 'Pin']]);
     expect(cc.course?.windDirectionDeg).toBe(160);
-    expect(file.marks).toHaveLength(25);
+    expect(file.marks).toHaveLength(26);
     // Two courses, defined the two different ways: J2 from the club's card,
     // and the committee's own leg table with no marks behind it.
     expect(file.courses?.map((c) => c.card?.courseId)).toEqual(['J2', undefined]);

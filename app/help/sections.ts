@@ -88,7 +88,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
       { id: 'tuning-progressive-handicaps', title: 'Tuning a progressive handicap', keywords: ['nhc', 'echo', 'progressive', 'adjust', 'rolling handicap', 'recalculate'] },
       { id: 'fixed-tcf', title: 'A club handicap fixed for the series', keywords: ['club handicap', 'hph', 'fixed rating', 'house handicap'] },
       { id: 'scoring-orc', title: 'ORC scoring and performance curves', feature: 'orc', keywords: ['orc', 'performance curve', 'pcs', 'implied wind', 'triple number', 'wind band', 'aphd', 'apht', 'constructed course', 'scoring option'] },
-      { id: 'course-builder', title: 'Building a constructed course', feature: 'orc', keywords: ['course', 'marks', 'legs', 'bearing', 'distance', 'course card', 'windward', 'leeward', 'magnetic', 'true', 'variation', 'venue position'] },
+      { id: 'course-builder', title: 'Building a constructed course', feature: 'orc', keywords: ['course', 'marks', 'legs', 'bearing', 'distance', 'course card', 'windward', 'leeward', 'magnetic', 'true', 'variation', 'venue position', 'start line', 'finish line', 'pin', 'committee boat', 'midpoint'] },
       { id: 'updating-handicaps', title: 'Updating handicaps from another series', keywords: ['carry ratings', 'previous series', 'last season', 'copy handicaps'] },
       { id: 'update-handicaps-irc-rating', title: 'Updating IRC TCCs from the rating list', feature: 'irc-rating', keywords: ['irc', 'tcc', 'certificate', 'rorc', 'club listing', 'rating list', 'endorsed'] },
       { id: 'update-handicaps-orc', title: 'Importing ORC certificates', feature: 'orc', keywords: ['orc', 'certificate', 'import certificates', 'downrms', 'vpp'] },

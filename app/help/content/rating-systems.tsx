@@ -464,6 +464,34 @@ export default function RatingSystems() {
           dashed and scored as the straight line, so check it before trusting
           the distance.
         </p>
+        <HelpShot
+          src="/help/shots/course-start-line.webp"
+          alt="A course from HYC's card with its start line recorded as the committee boat and the pin, and the line's length and bearing beneath them."
+          caption="A start line recorded as its two ends: the committee boat, then its pin."
+        />
+        <p>
+          <strong className="text-foreground">Start and finish lines.</strong>{' '}
+          A line has two ends, and a club’s card and a race officer measure the
+          legs to and from it from the middle of the line, not from the
+          committee boat — on a short first beat the difference is several
+          degrees. Record both ends and the course does the same: on a card
+          course, pick the committee boat for the start line and then its{' '}
+          <em>Pin</em>; on a course built by hand, the first and last rows each
+          take a pin beside their mark. Until the pin is recorded the committee
+          boat stands in for the line, and the dialog says so. Beside a line
+          you’re told its length and which way it lies, warned when the pin is
+          within 60 m of another mark, and, on a card course, warned when the
+          middle of the line is more than 500 m from where the card puts the
+          start — a line recorded under the wrong race, or an end mistyped. A
+          course built by hand finishes on the start line again (<em>Finish on
+          the start line</em> in the Add menu), on a line of its own (the
+          committee boat with a finish pin), at a mark, or at the last rounding
+          mark. Where the club’s passages route the first leg, a line recorded
+          away from where they assume it keeps the route, but the dialog says
+          that leg is measured from the recorded line and was not checked
+          against depth from there. The line is drawn between its ends, here and
+          on the published page, with the legs leaving from its middle.
+        </p>
         <p>
           A race start then <strong className="text-foreground">picks a course</strong>{' '}
           from the list — most recently used first — and its legs fill in at the one

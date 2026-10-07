@@ -4504,7 +4504,7 @@
           "courseLegs": [
             {
               "distanceNm": 1,
-              "bearingDeg": 160,
+              "bearingDeg": 156.9,
               "windDirectionDeg": 160
             },
             {
@@ -4554,10 +4554,26 @@
             "waypoints": [
               {
                 "markId": "om-line",
-                "label": "Start",
-                "lat": 53.4135,
-                "lng": -6.0605,
-                "cardMarkId": "SL"
+                "label": "SL",
+                "lat": 53.41319240549958,
+                "lng": -6.0619178341438555,
+                "cardMarkId": "SL",
+                "ends": [
+                  {
+                    "end": "starboard",
+                    "markId": "om-line",
+                    "label": "Start",
+                    "lat": 53.4135,
+                    "lng": -6.0605
+                  },
+                  {
+                    "end": "port",
+                    "markId": "om-pin",
+                    "label": "Pin",
+                    "lat": 53.41288479420769,
+                    "lng": -6.063335647779013
+                  }
+                ]
               },
               {
                 "markId": "om-z",
@@ -4651,7 +4667,7 @@
           "id": "ofin-3-oc-07",
           "competitorId": "oc-07",
           "sortOrder": 1,
-          "finishTime": "12:04:46",
+          "finishTime": "12:04:45",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4661,7 +4677,7 @@
           "id": "ofin-3-oc-08",
           "competitorId": "oc-08",
           "sortOrder": 2,
-          "finishTime": "12:11:00",
+          "finishTime": "12:10:59",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4671,7 +4687,7 @@
           "id": "ofin-3-oc-04",
           "competitorId": "oc-04",
           "sortOrder": 3,
-          "finishTime": "12:12:35",
+          "finishTime": "12:12:34",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4681,7 +4697,7 @@
           "id": "ofin-3-oc-02",
           "competitorId": "oc-02",
           "sortOrder": 4,
-          "finishTime": "12:12:58",
+          "finishTime": "12:12:57",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4691,7 +4707,7 @@
           "id": "ofin-3-oc-03",
           "competitorId": "oc-03",
           "sortOrder": 5,
-          "finishTime": "12:16:50",
+          "finishTime": "12:16:49",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4701,7 +4717,7 @@
           "id": "ofin-3-oc-01",
           "competitorId": "oc-01",
           "sortOrder": 6,
-          "finishTime": "12:17:19",
+          "finishTime": "12:17:18",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4711,7 +4727,7 @@
           "id": "ofin-3-oc-05",
           "competitorId": "oc-05",
           "sortOrder": 7,
-          "finishTime": "12:22:54",
+          "finishTime": "12:22:53",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -4842,7 +4858,7 @@
           "courseLegs": [
             {
               "distanceNm": 1,
-              "bearingDeg": 160,
+              "bearingDeg": 156.9,
               "windDirectionDeg": 160,
               "windSpeedKts": 11
             },
@@ -4901,10 +4917,26 @@
             "waypoints": [
               {
                 "markId": "om-line",
-                "label": "Start",
-                "lat": 53.4135,
-                "lng": -6.0605,
-                "cardMarkId": "SL"
+                "label": "SL",
+                "lat": 53.41319240549958,
+                "lng": -6.0619178341438555,
+                "cardMarkId": "SL",
+                "ends": [
+                  {
+                    "end": "starboard",
+                    "markId": "om-line",
+                    "label": "Start",
+                    "lat": 53.4135,
+                    "lng": -6.0605
+                  },
+                  {
+                    "end": "port",
+                    "markId": "om-pin",
+                    "label": "Pin",
+                    "lat": 53.41288479420769,
+                    "lng": -6.063335647779013
+                  }
+                ]
               },
               {
                 "markId": "om-z",
@@ -4999,7 +5031,7 @@
           "id": "ofin-5-oc-07",
           "competitorId": "oc-07",
           "sortOrder": 1,
-          "finishTime": "12:14:54",
+          "finishTime": "12:14:53",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5009,7 +5041,7 @@
           "id": "ofin-5-oc-01",
           "competitorId": "oc-01",
           "sortOrder": 2,
-          "finishTime": "12:27:06",
+          "finishTime": "12:27:05",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5019,7 +5051,7 @@
           "id": "ofin-5-oc-06",
           "competitorId": "oc-06",
           "sortOrder": 3,
-          "finishTime": "12:27:42",
+          "finishTime": "12:27:41",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5029,7 +5061,7 @@
           "id": "ofin-5-oc-02",
           "competitorId": "oc-02",
           "sortOrder": 4,
-          "finishTime": "12:27:46",
+          "finishTime": "12:27:44",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5039,7 +5071,7 @@
           "id": "ofin-5-oc-08",
           "competitorId": "oc-08",
           "sortOrder": 5,
-          "finishTime": "12:28:29",
+          "finishTime": "12:28:28",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5049,7 +5081,7 @@
           "id": "ofin-5-oc-03",
           "competitorId": "oc-03",
           "sortOrder": 6,
-          "finishTime": "12:32:26",
+          "finishTime": "12:32:25",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5059,7 +5091,7 @@
           "id": "ofin-5-oc-04",
           "competitorId": "oc-04",
           "sortOrder": 7,
-          "finishTime": "12:32:39",
+          "finishTime": "12:32:38",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5069,7 +5101,7 @@
           "id": "ofin-5-oc-05",
           "competitorId": "oc-05",
           "sortOrder": 8,
-          "finishTime": "12:37:15",
+          "finishTime": "12:37:14",
           "resultCode": null,
           "startPresent": true,
           "penaltyCode": null,
@@ -5407,6 +5439,13 @@
       "createdAt": 1767225600001
     },
     {
+      "id": "om-pin",
+      "name": "Pin — 26 Sep",
+      "lat": 53.41288479420769,
+      "lng": -6.063335647779013,
+      "createdAt": 1767225600001
+    },
+    {
       "id": "om-z",
       "name": "Z — 26 Sep R3",
       "lat": 53.39784862823774,
@@ -5432,7 +5471,8 @@
       "marks": [
         {
           "markId": "om-line",
-          "cardMarkId": "SL"
+          "cardMarkId": "SL",
+          "portEndMarkId": "om-pin"
         },
         {
           "markId": "om-z",

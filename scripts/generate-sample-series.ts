@@ -1432,11 +1432,15 @@ function buildOrcCourseLibrary(seriesId: string): {
       ...(m.color ? { color: m.color } : {}),
       createdAt,
     }));
-  // The line north of Ireland's Eye, Z a mile upwind of it on 160°.
+  // The line north of Ireland's Eye, the committee boat at its starboard
+  // end and the pin 200 m off it square to the wind, Z a mile upwind of the
+  // committee boat on 160°.
   const line = { lat: 53.4135, lng: -6.0605 };
+  const pin = destination(line, ORC_SAMPLE_WIND + 90, 200);
   const z = destination(line, ORC_SAMPLE_WIND, 1852);
   const laid: SeriesMark[] = [
     { id: 'om-line', seriesId, name: 'Start — 26 Sep', lat: line.lat, lng: line.lng, createdAt: createdAt + 1 },
+    { id: 'om-pin', seriesId, name: 'Pin — 26 Sep', lat: pin.lat, lng: pin.lng, createdAt: createdAt + 1 },
     {
       id: 'om-z', seriesId, name: 'Z — 26 Sep R3', lat: z.lat, lng: z.lng,
       from: { markId: 'om-line', bearingDeg: ORC_SAMPLE_WIND, distanceM: 1852 }, createdAt: createdAt + 2,
@@ -1444,9 +1448,9 @@ function buildOrcCourseLibrary(seriesId: string): {
   ];
   const marks = [...adopted, ...laid];
   // The card runs each course from the line its sailing instructions define
-  // to the finish on the East Pier, so the line and the laid windward mark
-  // are the only two the scorer places.
-  const entries = matchCardCourse(cardFile, marksFile, ORC_SAMPLE_CARD.courseId, ORC_SAMPLE_CARD.set, marks, { SL: 'om-line', Z: 'om-z' });
+  // to the finish on the East Pier, so the line — both its ends — and the
+  // laid windward mark are the only ones the scorer places.
+  const entries = matchCardCourse(cardFile, marksFile, ORC_SAMPLE_CARD.courseId, ORC_SAMPLE_CARD.set, marks, { SL: 'om-line', Z: 'om-z' }, { SL: 'om-pin' });
   const fromCard = courseFromCard(entries, ORC_SAMPLE_CARD, ORC_SAMPLE_CARD.courseId, seriesId, `${ORC_SAMPLE_CARD.courseId} — 26 Sep R3`, createdAt + 3);
   const course: SeriesCourse = { ...fromCard, id: 'oco-j2' };
   const marksById = new Map(marks.map((m) => [m.id, m]));
