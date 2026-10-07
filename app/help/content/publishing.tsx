@@ -223,6 +223,37 @@ export default function Publishing() {
           </>
         )}
       </Section>
+      <Section id="public-directory" title="The public directory">
+        <p>
+          {/* A route handler, not a page: <Link> would try a client-side render. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/p" className="underline">The directory</a> is a public page listing
+          the clubs, classes and events publishing their results with Sail Scoring. Each
+          club workspace gets a card: its logo and name, a line describing it, when it
+          last published and its latest event, how much it has published, and the kinds
+          of racing it scores. A strip across the top shows the most recent results from
+          every club, so a sailor curious about another club — or a scorer weighing up a
+          switch — can browse it all from one place.
+        </p>
+        <p>
+          A club workspace is listed once it has published something. To change that, an
+          owner or admin opens{' '}
+          <strong className="text-foreground">Workspace settings</strong> and uses the{' '}
+          <strong className="text-foreground">Public directory</strong> card: switch the
+          listing off, or set the one line shown under your name. Taking a workspace out of
+          the directory only stops it being advertised there — every published page stays
+          live at its own address. Personal workspaces are never listed.
+        </p>
+        <p>
+          The directory is also available as data, at{' '}
+          <code className="text-foreground text-sm">/p/index.json</code>, linking each
+          club’s own index of its publications — see{' '}
+          <a href="/help/data-in-and-out#json-export" className="underline">
+            the data behind published results
+          </a>
+          .
+        </p>
+      </Section>
       {has('combined-pages') && (
         <Section id="combined-pages" title="Extra pages">
           <HelpShot

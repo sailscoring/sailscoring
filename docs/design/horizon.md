@@ -807,6 +807,18 @@ over the canonical `/p/{workspace}` tree and user slugs driving attribution
 surfaces (e.g. a profile under `/u/{slug}`). The canonical URLs work without
 any of it, so this is a naming-polish layer, not plumbing.
 
+### Growing the public directory
+
+The directory at `/p` (#670) shipped as one list of club cards under a
+recent-results strip. Two of the issue's ideas wait until there are enough
+workspaces to need them: grouping or filtering by country, and by kind of
+organisation (club, class association, national body) — which wants a
+stored workspace attribute the metadata doesn't carry yet; and a "show all"
+toggle revealing listed workspaces that have published nothing, which only
+earns its place if an empty card turns out to be useful. The marketing site
+could also embed a "who's scoring with Sail Scoring" strip built from
+`/p/index.json`.
+
 ### Scheduled publishing
 
 Today publishing is a manual, per-fleet action: when results are ready, the scorer

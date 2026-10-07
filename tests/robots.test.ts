@@ -11,8 +11,10 @@ describe('robots.txt', () => {
     expect(rule.disallow).toBe('/');
   });
 
-  it('allows nothing back in — an Allow would re-open a served path', () => {
+  it('allows back only the directory page itself — anchored, so nothing beneath it', () => {
+    // Any other Allow would re-open a served path; an unanchored `/p` would
+    // re-open the whole publication tree.
     const rule = robots().rules as Exclude<ReturnType<typeof robots>['rules'], unknown[]>;
-    expect(rule.allow).toBeUndefined();
+    expect(rule.allow).toBe('/p$');
   });
 });

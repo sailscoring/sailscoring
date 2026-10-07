@@ -20,7 +20,7 @@ import * as races from '@/lib/api-handlers/races';
 import * as finishes from '@/lib/api-handlers/finishes';
 import { publishSeries, unpublishBySeries } from '@/lib/api-handlers/publish';
 import { NextRequest } from 'next/server';
-import { GET } from '@/app/p/[...slug]/route';
+import { GET } from '@/app/p/[[...slug]]/route';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const skip = !DATABASE_URL;

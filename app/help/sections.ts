@@ -112,6 +112,7 @@ export const HELP_GROUPS: HelpGroupDef[] = [
     blurb: 'From standings to public pages your club can link to.',
     sections: [
       { id: 'publishing-results', title: 'Publishing results', keywords: ['publish', 'public page', 'url', 'link', 'share results', 'website', 'ftp', 'upload'] },
+      { id: 'public-directory', title: 'The public directory', keywords: ['directory', 'clubs', 'listing', 'showcase', 'unlisted', 'opt out', 'who uses sail scoring'] },
       { id: 'combined-pages', title: 'Extra pages', feature: 'combined-pages', keywords: ['overall page', 'one page', 'all fleets', 'extra page', 'race grid'] },
       { id: 'page-notes', title: 'A note on a published page', feature: 'page-notes', keywords: ['note', 'explain', 'correction', 'annotation', 'message on the page'] },
       { id: 'results-status', title: 'Provisional and final results', feature: 'results-status', keywords: ['provisional', 'final', 'finalise', 'protest time limit', 'lock'] },
