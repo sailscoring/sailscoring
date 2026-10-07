@@ -18,6 +18,14 @@ export function publishedCacheTag(workspaceId: string): string {
 }
 
 /**
+ * The tag covering the public directory of workspaces (`/p/` and its JSON
+ * twin). The directory draws on every listed workspace's publications, so any
+ * publication change anywhere can change it — every purge below drops it too.
+ * A workspace id is a random token, so no workspace tag can equal it.
+ */
+export const DIRECTORY_CACHE_TAG = 'p:directory';
+
+/**
  * Drop a workspace's public pages from the CDN.
  *
  * Deliberately `dangerouslyDeleteByTag` and not `invalidateByTag`. Invalidate
@@ -39,9 +47,20 @@ export function publishedCacheTag(workspaceId: string): string {
  * the floor, so an unpurged page self-corrects within a minute.
  */
 export async function purgePublishedCache(workspaceId: string): Promise<void> {
+  await deleteTags([publishedCacheTag(workspaceId), DIRECTORY_CACHE_TAG]);
+}
+
+/** Drop the public directory alone — for a change to how a workspace is
+ *  listed (its opt-out, its description) rather than to what it publishes.
+ *  Same no-op-off-Vercel and log-don't-throw contract as above. */
+export async function purgeDirectoryCache(): Promise<void> {
+  await deleteTags([DIRECTORY_CACHE_TAG]);
+}
+
+async function deleteTags(tags: string[]): Promise<void> {
   if (!process.env.VERCEL) return;
   try {
-    await dangerouslyDeleteByTag(publishedCacheTag(workspaceId));
+    await dangerouslyDeleteByTag(tags);
   } catch (err) {
     console.error('purgePublishedCache failed (non-fatal):', err);
   }

@@ -10,6 +10,7 @@ import { getDb } from '@/lib/db/client';
 import { isPersonalWorkspaceSlug } from '@/lib/features';
 import { member, organization } from '@/lib/db/schema/auth';
 import { CategoriesCard } from '@/components/workspace-settings/categories-card';
+import { DirectoryCard } from '@/components/workspace-settings/directory-card';
 import { SeasonsCard } from '@/components/workspace-settings/seasons-card';
 import { FeaturesCard } from '@/components/workspace-settings/features-card';
 import { FtpServersCard } from '@/components/workspace-settings/ftp-servers-card';
@@ -105,6 +106,7 @@ export default async function WorkspacePage() {
       )}
       {canManageSeries && <SeasonsCard />}
       {canManageSeries && <CategoriesCard />}
+      {canManageWorkspace && !isPersonal && <DirectoryCard />}
       {canManageWorkspace && <FeaturesCard />}
       {features.includes('logo-library') && canManageWorkspace && <LogosCard />}
       {features.includes('ftp-upload') && canManageWorkspace && <FtpServersCard />}

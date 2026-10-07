@@ -3,7 +3,7 @@
  * `/api/v1`. UI callers wrap these in TanStack Query (see hooks/use-*.ts).
  */
 import { apiFetch } from './api-client';
-import type { FeatureKey } from './features';
+import type { DirectorySettings, FeatureKey } from './features';
 import type { FtpUploadInput } from './validation/publish';
 import type { MergeSuggestion } from './api-handlers/competitor-identity';
 import type { SeriesLocation } from './api-handlers/series';
@@ -639,6 +639,23 @@ export function setWorkspaceFeature(
   return apiFetch('/api/v1/workspace', {
     method: 'PATCH',
     body: { feature, enabled },
+  });
+}
+
+/** The active workspace's entry in the public directory at `/p/`. */
+export function getDirectorySettings(): Promise<DirectorySettings> {
+  return apiFetch<DirectorySettings>('/api/v1/workspace/directory');
+}
+
+/** List or unlist the active workspace in the public directory, and set the
+ *  line under its name. */
+export function setDirectorySettings(input: {
+  listed: boolean;
+  description: string;
+}): Promise<DirectorySettings> {
+  return apiFetch<DirectorySettings>('/api/v1/workspace/directory', {
+    method: 'PUT',
+    body: input,
   });
 }
 
