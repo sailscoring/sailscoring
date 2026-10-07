@@ -710,6 +710,12 @@ export interface SeriesCourseMark {
   // stands for here ("SL", "Z"): the scorer's "Grassy Start" is the card's
   // start line whatever it is called. An adopted mark carries its own.
   cardMarkId?: string;
+  // A start or finish line with two ends: `markId` is its starboard end (the
+  // committee boat, as a rule) and this its port end (the pin). Legs to and
+  // from it are measured from the geodesic midpoint of the two, which is how
+  // a club's card and a race officer measure them. Absent, the entry is one
+  // point, as every entry was before lines had ends.
+  portEndMarkId?: string;
 }
 
 /**
@@ -782,6 +788,22 @@ export interface RaceStartCourseWaypoint {
   // The card mark a laid mark stood for on the course (SeriesCourseMark's
   // `cardMarkId`), which is what a routing overlay knows it by.
   cardMarkId?: string;
+  // A line with two ends (SeriesCourseMark's `portEndMarkId`): its
+  // starboard end and its port end as they were, so the published drawing
+  // shows the line and the legs stay reproducible. `lat`/`lng` above are
+  // then the midpoint the legs were measured from.
+  ends?: [RaceStartCourseLineEnd, RaceStartCourseLineEnd];
+}
+
+/** One end of a line a start's course was measured from. */
+export interface RaceStartCourseLineEnd {
+  end: 'starboard' | 'port';
+  markId?: string;     // the library mark, for recompute; absent once deleted
+  label: string;
+  lat: number;
+  lng: number;
+  fixed?: boolean;     // a club's charted mark
+  set?: string;        // the course-cards data set a charted mark came from
 }
 
 /**

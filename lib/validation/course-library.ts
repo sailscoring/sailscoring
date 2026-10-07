@@ -56,6 +56,18 @@ export const seriesCourseMarkSchema = z.object({
   side: sideSchema.optional(),
   passing: z.boolean().optional(),
   cardMarkId: z.string().min(1).max(40).optional(),
+  portEndMarkId: uuidSchema.optional(),
+});
+
+/** One end of a line a start's course was measured from. */
+const raceStartCourseLineEndSchema = z.object({
+  end: sideSchema,
+  markId: uuidSchema.optional(),
+  label: z.string().max(80),
+  lat: latSchema,
+  lng: lngSchema,
+  fixed: z.boolean().optional(),
+  set: z.string().min(1).max(200).optional(),
 });
 
 /** The fields, unrefined — the refinement below goes on each schema derived
@@ -116,6 +128,12 @@ export const raceStartCourseSchema = z.object({
         fixed: z.boolean().optional(),
         set: z.string().min(1).max(200).optional(),
         cardMarkId: z.string().min(1).max(40).optional(),
+        ends: z
+          .tuple([raceStartCourseLineEndSchema, raceStartCourseLineEndSchema])
+          .refine(([a, b]) => a.end === 'starboard' && b.end === 'port', {
+            message: 'A line has its starboard end first and its port end second',
+          })
+          .optional(),
       }),
     )
     .max(MAX_COURSE_MARKS),

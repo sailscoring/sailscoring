@@ -25,7 +25,12 @@ import {
   courseIsLegTable,
   courseLegsOf,
   drawnLegTable,
+  drawnLibraryCourse,
   drawnRaceStartCourse,
+  isCardLine,
+  LINE_FROM_CARD_WARN_M,
+  lineDistanceFromCardM,
+  lineFacts,
   drawingSet,
   drawnStartCourse,
   parseLegTable,
@@ -664,5 +669,156 @@ describe('routing a course through its set\'s overlay', () => {
     expect(drawn.legCount).toBe(7);
     expect(drawn.routing).toBe(overlay.routing);
     expect(routedDrawing(drawnMarks(marks), drawnCourse(sequence), undefined).legCount).toBe(2);
+  });
+});
+
+// Royal Cork's Autumn League, Sunday 27 September 2026, race 1 start 1, as
+// Pat Tanner's race officer page recorded it: the committee boat and the
+// pin, the three laid marks, and the legs it plots from the middle of the
+// line. Bearings there are given magnetic and true; these are the true ones.
+describe('a line with two ends', () => {
+  const dm = (deg: number, min: number) => deg + min / 60;
+  const at = (lat: number, lng: number) => ({ lat: dm(51, lat), lng: -dm(8, lng) });
+  const cb = laid('cb', 'CB — 27 Sep R1', at(46.95, 14.065));
+  const pin = laid('pin', 'Pin — 27 Sep R1', at(46.827, 14.105));
+  const W = laid('w', 'W — 27 Sep R1', at(47.006, 15.155));
+  const G = laid('g', 'G — 27 Sep R1', at(46.387, 14.388));
+  const L = laid('l', 'L — 27 Sep R1', at(46.89, 13.541));
+  const library = [cb, pin, W, G, L];
+  const byId = new Map(library.map((m) => [m.id, m]));
+  const line = { markId: 'cb', portEndMarkId: 'pin' };
+  const sequence = [line, { markId: 'w', side: 'port' as const }, { markId: 'g', side: 'port' as const }, { markId: 'l', side: 'port' as const }, { markId: 'w', side: 'port' as const }, { markId: 'l', side: 'port' as const }, line];
+  const PAT = [
+    { distanceNm: 0.67, bearingDeg: 280 },
+    { distanceNm: 0.78, bearingDeg: 143 },
+    { distanceNm: 0.73, bearingDeg: 46 },
+    { distanceNm: 1.01, bearingDeg: 277 },
+    { distanceNm: 1.01, bearingDeg: 97 },
+    { distanceNm: 0.34, bearingDeg: 270 },
+  ];
+  const off = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+
+  it('measures the legs from the middle of the line, as the race officer did', () => {
+    const { legs, totalNm, waypoints } = resolveCourse(sequence, byId);
+    expect(legs).toHaveLength(6);
+    legs.forEach((leg, i) => {
+      expect(leg.distanceNm).toBeCloseTo(PAT[i].distanceNm, 1);
+      expect(Math.abs(leg.distanceNm - PAT[i].distanceNm)).toBeLessThanOrEqual(0.006);
+      expect(off(leg.bearingDeg, PAT[i].bearingDeg)).toBeLessThanOrEqual(1);
+    });
+    expect(totalNm).toBeCloseTo(4.53, 1);
+    expect(waypoints[0]).toMatchObject({ markId: 'cb', label: 'CB–Pin', ends: [{ end: 'starboard', markId: 'cb' }, { end: 'port', markId: 'pin' }] });
+    expect(legs[0].from.line).toBe('midpoint');
+  });
+
+  it('is what measuring from the committee boat got wrong', () => {
+    const { legs } = resolveCourse(sequence.map((cm) => (cm === line ? { markId: 'cb' } : cm)), byId);
+    expect(off(legs[0].bearingDeg, PAT[0].bearingDeg)).toBeGreaterThan(4);
+    expect(off(legs[5].bearingDeg, PAT[5].bearingDeg)).toBeGreaterThan(10);
+  });
+
+  it('knows the line’s length and bearing, and a pin laid near another mark', () => {
+    const facts = lineFacts(cb, pin, library);
+    expect(facts.lengthM).toBeGreaterThan(225);
+    expect(facts.lengthM).toBeLessThan(240);
+    // 193°M on the day, with the variation 2° west.
+    expect(off(facts.bearingDeg, 191)).toBeLessThanOrEqual(1);
+    expect(facts.nearPin).toEqual([]);
+    const buoy = laid('buoy', 'No 9', positionFrom({ lat: pin.lat, lng: pin.lng }, 0, 40, 'm'));
+    expect(lineFacts(cb, pin, [...library, buoy]).nearPin).toEqual([buoy]);
+  });
+
+  it('keeps both ends in the snapshot, and notices an end moved under it', () => {
+    const snapshot = snapshotOfCourse({ id: 'c', name: '27 Sep R1', marks: sequence }, byId, 280);
+    expect(snapshot.waypoints[0].ends?.map((e) => [e.end, e.lat, e.lng])).toEqual([['starboard', cb.lat, cb.lng], ['port', pin.lat, pin.lng]]);
+    expect(legsOfWaypoints(snapshot.waypoints)).toEqual(resolveCourse(sequence, byId).legs);
+    expect(courseOutOfDate(snapshot, { marks: sequence }, byId)).toBe(false);
+    const moved = new Map(byId).set('pin', { ...pin, lat: pin.lat + 0.001 });
+    expect(courseOutOfDate(snapshot, { marks: sequence }, moved)).toBe(true);
+    // A start whose course gains a line is out of date too.
+    const single = snapshotOfCourse({ id: 'c', name: '27 Sep R1', marks: sequence.map((cm) => (cm === line ? { markId: 'cb' } : cm)) }, byId, 280);
+    expect(courseOutOfDate(single, { marks: sequence }, byId)).toBe(true);
+  });
+
+  it('a single-mark line is as it always was', () => {
+    const single = resolveCourse([{ markId: 'cb' }, { markId: 'w' }], byId);
+    expect(single.waypoints[0]).not.toHaveProperty('ends');
+    expect(single.waypoints[0]).toMatchObject({ lat: cb.lat, lng: cb.lng });
+    expect(single.legs[0].from).not.toHaveProperty('line');
+  });
+
+  it('skips a line whose end the library no longer has, and says so', () => {
+    const gone = new Map(byId);
+    gone.delete('pin');
+    expect(resolveCourse(sequence, gone).missingMarkIds).toEqual(['pin']);
+  });
+
+  it('draws the line between its ends once, and the legs from its midpoint', () => {
+    const drawn = drawnLibraryCourse(sequence, byId);
+    const lines = drawn.marks.filter((m) => m.ends);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].ends!.map((e) => [e.label, e.kind])).toEqual([['CB', 'vessel'], ['Pin', 'buoy']]);
+    expect(drawn.course[0].mark).toBe(lines[0].id);
+    expect(drawn.course[6].mark).toBe(lines[0].id);
+    // A finish line of its own off the same committee boat is a second line.
+    const finPin = laid('fp', 'Finish pin', positionFrom({ lat: cb.lat, lng: cb.lng }, 90, 100, 'm'));
+    const withFinish = drawnLibraryCourse([...sequence.slice(0, -1), { markId: 'cb', portEndMarkId: 'fp' }], new Map(byId).set('fp', finPin));
+    expect(withFinish.marks.filter((m) => m.ends)).toHaveLength(2);
+  });
+});
+
+describe('a card course’s line', () => {
+  const RC = 'rcyc/keelboat-2026';
+  const overlay = courseRoutingFor(RC)!;
+  const grassy = overlay.routing.assumed.find((a) => a.id === 'SL@grassy-walk')!.position!;
+  const adopted = (markId: string): SeriesMark => ({
+    ...laid(`rc-${markId}`, markId, overlay.routing.assumed.find((a) => (a.id ?? a.mark) === markId)!.position!),
+    card: { set: RC, markId, release: '0.13.0' },
+  });
+  const ends = (mid: { lat: number; lng: number }) => [
+    laid('rc-cb', 'CB — 6 Oct R1', positionFrom(mid, 0, 100, 'm')),
+    laid('rc-pin', 'Pin — 6 Oct R1', positionFrom(mid, 180, 100, 'm')),
+  ];
+
+  it('keeps the card’s route from a recorded line, and says the hop from it was not checked against depth', () => {
+    const [cb, pin] = ends(positionFrom(grassy, 270, 120, 'm'));
+    const marks = [cb, pin, adopted('Ringabella')];
+    const byId = new Map(marks.map((m) => [m.id, m]));
+    const { legs } = resolveCourse([{ markId: 'rc-cb', portEndMarkId: 'rc-pin', cardMarkId: 'SL' }, { markId: 'rc-Ringabella' }], byId);
+    expect(legs[0]).toMatchObject({ review: 'passage', from: { label: 'SL', line: 'midpoint' } });
+    expect(courseRoutingSummary(legs, RC)?.unchecked).toEqual([1]);
+  });
+
+  it('warns when the recorded line is far from where the card puts it', () => {
+    expect(lineDistanceFromCardM(positionFrom(grassy, 270, 120, 'm'), { id: 'SL' }, RC)).toBeCloseTo(120, 0);
+    expect(lineDistanceFromCardM(positionFrom(grassy, 180, 3, 'nm'), { id: 'SL' }, RC)).toBeGreaterThan(LINE_FROM_CARD_WARN_M);
+    expect(lineDistanceFromCardM(grassy, { id: 'SL' }, 'hyc/al-2026')).toBeUndefined();
+    expect(lineDistanceFromCardM(start, { id: 'SL', position: start }, undefined)).toBe(0);
+  });
+
+  it('records both ends on a card course, and the card’s single mark stands in until then', () => {
+    const library: SeriesMark[] = [
+      ...adoptCardMarks(bmMarks, bmCard, { set: BM.set, release: BM.release }, 's1', [], NOW),
+      laid('cb', 'CB', start),
+      laid('pin', 'Pin', positionFrom(start, 200, 200, 'm')),
+      laid('fin', 'F', positionFrom(start, 90, 300, 'm')),
+    ];
+    const courseId = bmCard.courses[0].id;
+    const lineId = bmCard.startLine!.id;
+    const finishId = bmCard.finish?.id;
+    // The line on the committee boat; every other mark the card can't place
+    // on one laid mark, which is all this needs.
+    const toPlace = cardMarksToPlace(matchCardCourse(bmCard, bmMarks, courseId, BM.set, library, {}));
+    const placements = Object.fromEntries(toPlace.map((e) => [e.resolved.mark.id, e.resolved.mark.id === lineId ? 'cb' : 'fin']));
+    const single = matchCardCourse(bmCard, bmMarks, courseId, BM.set, library, placements);
+    expect(single[0].portEnd).toBeUndefined();
+    const both = matchCardCourse(bmCard, bmMarks, courseId, BM.set, library, placements, { [lineId]: 'pin' });
+    expect(both[0].portEnd?.id).toBe('pin');
+    const course = courseFromCard(both, { ...BM }, courseId, 's1', courseId, NOW);
+    expect(course.marks[0]).toEqual({ markId: 'cb', cardMarkId: lineId, portEndMarkId: 'pin' });
+    // A port end for a mark that is not a line is ignored.
+    const notLine = bmCard.courses[0].marks.find((m) => m.mark !== lineId && m.mark !== finishId)!.mark;
+    expect(isCardLine(bmCard, notLine)).toBe(false);
+    expect(isCardLine(bmCard, lineId)).toBe(true);
   });
 });

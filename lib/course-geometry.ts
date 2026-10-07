@@ -13,11 +13,14 @@ import {
   courseMarks,
   destination,
   distanceNm as positionsApartNm,
+  bearingDeg as positionBearingDeg,
   legsFromWaypoints,
+  midpointOf,
   routedLegsFromWaypoints,
   type CourseCardFile,
   type CourseLeg,
   type DrawnCourseMark,
+  type DrawnLineEnd,
   type DrawnMark,
   type MarksFile,
   type Position,
@@ -31,6 +34,7 @@ import { courseRoutingFor } from './course-cards/routing';
 import type {
   OrcCourseLeg,
   RaceStartCourse,
+  RaceStartCourseLineEnd,
   RaceStartCourseWaypoint,
   SeriesCourse,
   SeriesCourseLeg,
@@ -117,8 +121,15 @@ export function resolveCourse(
   const missingMarkIds: string[] = [];
   for (const entry of marks) {
     const mark = marksById.get(entry.markId);
-    if (!mark) {
-      if (!missingMarkIds.includes(entry.markId)) missingMarkIds.push(entry.markId);
+    const port = entry.portEndMarkId ? marksById.get(entry.portEndMarkId) : undefined;
+    if (!mark || (entry.portEndMarkId && !port)) {
+      for (const id of [entry.markId, entry.portEndMarkId]) {
+        if (id && !marksById.has(id) && !missingMarkIds.includes(id)) missingMarkIds.push(id);
+      }
+      continue;
+    }
+    if (port) {
+      waypoints.push(lineWaypoint(entry, mark, port));
       continue;
     }
     waypoints.push({
@@ -136,8 +147,104 @@ export function resolveCourse(
   return { waypoints, legs, totalNm: legs.reduce((sum, l) => sum + l.distanceNm, 0), missingMarkIds };
 }
 
+function lineEnd(end: 'starboard' | 'port', mark: SeriesMark): RaceStartCourseLineEnd {
+  return {
+    end,
+    markId: mark.id,
+    label: markLabel(mark),
+    lat: mark.lat,
+    lng: mark.lng,
+    ...(mark.card ? { fixed: true, set: mark.card.set } : {}),
+  };
+}
+
+/** A line's two ends as one waypoint, at the midpoint legs are measured
+ *  from. Labelled by the card mark it stands for on a card course ("SL"),
+ *  and otherwise by its two ends ("CB–Pin"). */
+function lineWaypoint(entry: SeriesCourseMark, starboard: SeriesMark, port: SeriesMark): RaceStartCourseWaypoint {
+  const mid = midpointOf({ lat: starboard.lat, lng: starboard.lng }, { lat: port.lat, lng: port.lng });
+  const set = starboard.card?.set ?? port.card?.set;
+  return {
+    markId: starboard.id,
+    label: entry.cardMarkId ?? `${markLabel(starboard)}–${markLabel(port)}`,
+    lat: mid.lat,
+    lng: mid.lng,
+    ...(entry.side ? { side: entry.side } : {}),
+    ...(entry.passing ? { passing: true } : {}),
+    ...(set ? { set } : {}),
+    ...(entry.cardMarkId ? { cardMarkId: entry.cardMarkId } : {}),
+    ends: [lineEnd('starboard', starboard), lineEnd('port', port)],
+  };
+}
+
+/** How far apart a line's ends are, in metres, and the bearing (true) from
+ *  its starboard end to its port end: facts about the course, shown beside
+ *  it. `nearPin` is the library marks other than the line's own within 60 m
+ *  of its port end — a pin picked from the list one row off, or a line
+ *  recorded on top of a club mark, is worth a second look. */
+export interface LineFacts {
+  lengthM: number;
+  bearingDeg: number;
+  nearPin: SeriesMark[];
+}
+
+export const PIN_NEAR_MARK_M = 60;
+
+export function lineFacts(starboard: SeriesMark, port: SeriesMark, library: readonly SeriesMark[]): LineFacts {
+  const a = { lat: starboard.lat, lng: starboard.lng };
+  const b = { lat: port.lat, lng: port.lng };
+  return {
+    lengthM: positionsApartNm(a, b) * METRES_PER_NM,
+    bearingDeg: positionBearingDeg(a, b),
+    nearPin: library.filter(
+      (m) => m.id !== starboard.id && m.id !== port.id && positionsApartNm(b, { lat: m.lat, lng: m.lng }) * METRES_PER_NM <= PIN_NEAR_MARK_M,
+    ),
+  };
+}
+
+/** How far the midpoint of a line may be from where the card puts the start
+ *  before the builder warns: Pat Tanner's threshold, which catches a line
+ *  recorded under the wrong race or an end mistyped. */
+export const LINE_FROM_CARD_WARN_M = 500;
+
+/**
+ * How far, in metres, a recorded line's midpoint is from where the card
+ * puts that line: the card's own position for it, or the positions the
+ * set's routing overlay assumed for it (Royal Cork's Grassy Walk and Dosco
+ * lines), whichever is nearest. Undefined where neither places it.
+ */
+export function lineDistanceFromCardM(
+  midpoint: Position,
+  cardLine: { id: string; position?: Position } | undefined,
+  set: string | undefined,
+): number | undefined {
+  if (!cardLine) return undefined;
+  const routing = courseRoutingFor(set)?.routing;
+  const byId = new Map((routing?.assumed ?? []).map((a) => [a.id, a]));
+  const candidates: Position[] = [
+    ...(cardLine.position ? [cardLine.position] : []),
+    ...(routing?.assumed ?? [])
+      .filter((a) => a.mark === cardLine.id)
+      .map((a) => a.position ?? byId.get(a.as ?? '')?.position)
+      .filter((p): p is Position => p != null),
+  ];
+  if (candidates.length === 0) return undefined;
+  return Math.min(...candidates.map((p) => positionsApartNm(midpoint, p) * METRES_PER_NM));
+}
+
+/** The midpoint of two library marks: where a line between them is
+ *  measured from. */
+export function lineMidpoint(starboard: Pick<SeriesMark, 'lat' | 'lng'>, port: Pick<SeriesMark, 'lat' | 'lng'>): Position {
+  return midpointOf({ lat: starboard.lat, lng: starboard.lng }, { lat: port.lat, lng: port.lng });
+}
+
 function toLibraryWaypoint(w: RaceStartCourseWaypoint): Waypoint {
-  return { mark: w.markId ?? w.label, label: w.label, position: { lat: w.lat, lng: w.lng } };
+  return {
+    mark: w.markId ?? w.label,
+    label: w.label,
+    position: { lat: w.lat, lng: w.lng },
+    ...(w.ends ? { line: 'midpoint' as const } : {}),
+  };
 }
 
 /**
@@ -160,7 +267,12 @@ function toLibraryWaypoint(w: RaceStartCourseWaypoint): Waypoint {
 function waypointLegs(waypoints: RaceStartCourseWaypoint[]): CourseLeg[] {
   const overlay = courseRoutingFor(drawingSet(waypoints));
   if (!overlay) return legsFromWaypoints(waypoints.map(toLibraryWaypoint));
-  const points = waypoints.map((w) => ({ mark: w.cardMarkId ?? w.label, label: w.label, position: { lat: w.lat, lng: w.lng } }));
+  const points = waypoints.map((w): Waypoint => ({
+    mark: w.cardMarkId ?? w.label,
+    label: w.label,
+    position: { lat: w.lat, lng: w.lng },
+    ...(w.ends ? { line: 'midpoint' as const } : {}),
+  }));
   return routedLegsFromWaypoints(points, overlay.routing, [...overlay.turnAt, ...points]);
 }
 
@@ -178,6 +290,10 @@ export interface CourseRoutingSummary {
   contributor?: string;
   passages: { leg: number; via: string[] }[];
   unreviewed: number[];
+  /** Card legs the overlay routes or vouches for, measured from a line's
+   *  midpoint away from where the overlay assumed the line: the passages
+   *  were checked from there, so the water between was not. */
+  unchecked: number[];
 }
 
 /** What a set's overlay said about these legs, or null where none spoke. */
@@ -186,9 +302,11 @@ export function courseRoutingSummary(legs: CourseLeg[], set: string | undefined)
   if (!overlay || !legs.some((l) => l.review)) return null;
   const passages = new Map<number, string[]>();
   const unreviewed = new Set<number>();
+  const unchecked = new Set<number>();
   for (const leg of legs) {
     if (leg.cardLeg == null) continue;
     if (leg.review === 'unreviewed') unreviewed.add(leg.cardLeg + 1);
+    else if ((leg.from.line || leg.to.line) && (leg.offsetM ?? 0) > 0) unchecked.add(leg.cardLeg + 1);
     if (leg.review === 'passage') {
       const via = passages.get(leg.cardLeg + 1) ?? [];
       // Each part of a passage after the first starts where it turned.
@@ -200,6 +318,7 @@ export function courseRoutingSummary(legs: CourseLeg[], set: string | undefined)
     ...(overlay.routing.contributor ? { contributor: overlay.routing.contributor } : {}),
     passages: [...passages].map(([leg, via]) => ({ leg, via })),
     unreviewed: [...unreviewed],
+    unchecked: [...unchecked],
   };
 }
 
@@ -412,9 +531,15 @@ export function courseOutOfDate(
       Math.abs(w.lng - s.lng) > 1e-5 ||
       (w.side ?? undefined) !== (s.side ?? undefined) ||
       Boolean(w.passing) !== Boolean(s.passing) ||
-      (w.cardMarkId ?? undefined) !== (s.cardMarkId ?? undefined)
+      (w.cardMarkId ?? undefined) !== (s.cardMarkId ?? undefined) ||
+      !sameEnds(w.ends, s.ends)
     );
   });
+}
+
+function sameEnds(a: RaceStartCourseWaypoint['ends'], b: RaceStartCourseWaypoint['ends']): boolean {
+  if (!a || !b) return !a && !b;
+  return a.every((e, i) => Math.abs(e.lat - b[i].lat) <= 1e-5 && Math.abs(e.lng - b[i].lng) <= 1e-5);
 }
 
 // ─── Drawing ─────────────────────────────────────────────────────────────────
@@ -615,6 +740,28 @@ export function drawingSet(waypoints: Pick<RaceStartCourseWaypoint, 'set'>[]): s
   return best;
 }
 
+/** One end of a line as the renderer draws it: a club's charted mark is a
+ *  buoy; of the ends the race committee laid, the starboard one is drawn as
+ *  the committee boat it usually is, and the port one as the pin. */
+function drawnLineEnd(e: RaceStartCourseLineEnd): DrawnLineEnd {
+  return {
+    position: { lat: e.lat, lng: e.lng },
+    label: e.label,
+    kind: !e.fixed && e.end === 'starboard' ? 'vessel' : 'buoy',
+  };
+}
+
+/** A library course's sequence drawn over the marks it uses, lines and
+ *  all: what the builder and the swap dialog show. */
+export function drawnLibraryCourse(
+  marks: SeriesCourseMark[],
+  marksById: ReadonlyMap<string, SeriesMark>,
+): { marks: DrawnMark[]; course: RoutableCourseMark[]; set?: string } {
+  const { waypoints } = resolveCourse(marks, marksById);
+  const set = drawingSet(waypoints);
+  return { ...drawnSnapshot({ name: '', waypoints }), ...(set ? { set } : {}) };
+}
+
 /** A start's snapshot as the renderer takes it: the waypoints stand on
  *  their own, so a repeated mark is one drawn mark visited twice. Positions
  *  only — a course defined by legs has none, and draws through
@@ -623,9 +770,19 @@ export function drawnSnapshot(snapshot: RaceStartCourse): { marks: DrawnMark[]; 
   const marks = new Map<string, DrawnMark>();
   const course: RoutableCourseMark[] = [];
   snapshot.waypoints.forEach((w, i) => {
-    const id = w.markId ?? `${w.label}\0${w.lat}\0${w.lng}\0${i}`;
+    // A line is drawn once per pair of ends: the start line and a finish
+    // line off the same committee boat are two lines.
+    const id = w.ends
+      ? `line\0${w.ends.map((e) => e.markId ?? `${e.lat},${e.lng}`).join('\0')}`
+      : w.markId ?? `${w.label}\0${w.lat}\0${w.lng}\0${i}`;
     if (!marks.has(id)) {
-      marks.set(id, { id, label: w.label, position: { lat: w.lat, lng: w.lng }, ...(w.fixed ? { fixed: true } : {}) });
+      marks.set(id, {
+        id,
+        label: w.label,
+        position: { lat: w.lat, lng: w.lng },
+        ...(w.fixed ? { fixed: true } : {}),
+        ...(w.ends ? { ends: [drawnLineEnd(w.ends[0]), drawnLineEnd(w.ends[1])] as [DrawnLineEnd, DrawnLineEnd] } : {}),
+      });
     }
     course.push({
       mark: id,
@@ -736,6 +893,15 @@ export function cardMarksToWrite(
 export interface CardCourseEntry {
   resolved: ResolvedCourseMark;
   mark?: SeriesMark;
+  /** On the card's start or finishing line, the mark at its port end, where
+   *  the scorer recorded both ends; `mark` is then the starboard end. */
+  portEnd?: SeriesMark;
+}
+
+/** Whether a card mark is the card's start or finishing line — one the
+ *  scorer may record as two ends rather than one point. */
+export function isCardLine(card: CourseCardFile, cardMarkId: string): boolean {
+  return card.startLine?.id === cardMarkId || card.finish?.id === cardMarkId;
 }
 
 /**
@@ -751,13 +917,16 @@ export function matchCardCourse(
   set: string,
   library: SeriesMark[],
   placements: Record<string, string>,
+  portPlacements: Record<string, string> = {},
 ): CardCourseEntry[] {
   const adopted = new Map(library.filter((m) => m.card?.set === set).map((m) => [m.card!.markId, m]));
   const byId = new Map(library.map((m) => [m.id, m]));
   return courseMarks(card, marksFile, courseId).map((resolved) => {
     const placement = placements[resolved.mark.id];
     const mark = placement ? byId.get(placement) : resolved.placed ? adopted.get(resolved.mark.id) : undefined;
-    return { resolved, ...(mark ? { mark } : {}) };
+    const portPlacement = mark && isCardLine(card, resolved.mark.id) ? portPlacements[resolved.mark.id] : undefined;
+    const portEnd = portPlacement ? byId.get(portPlacement) : undefined;
+    return { resolved, ...(mark ? { mark } : {}), ...(portEnd ? { portEnd } : {}) };
   });
 }
 
@@ -792,6 +961,7 @@ export function courseMarkOfEntry(e: CardCourseEntry): SeriesCourseMark {
     ...(e.resolved.entry.side ? { side: e.resolved.entry.side } : {}),
     ...(e.resolved.entry.passing ? { passing: true } : {}),
     ...(!e.resolved.placed ? { cardMarkId: e.resolved.mark.id } : {}),
+    ...(e.portEnd ? { portEndMarkId: e.portEnd.id } : {}),
   };
 }
 
