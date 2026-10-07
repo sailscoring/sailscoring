@@ -60,8 +60,9 @@ test('a club that publishes appears in the directory until it opts out', async (
   const entry = reader.locator(`li.card[data-workspace="${org.slug}"]`);
   await expect(entry).toContainText('Racing on the bay');
   await expect(entry).toContainText('Season 2026');
+  // A club publishes into its season folder; the link lands on the event.
   await entry.getByRole('link', { name: 'Bay Series' }).click();
-  await expect(reader).toHaveURL(new RegExp(`/p/${org.slug}/bay-series$`));
+  await expect(reader).toHaveURL(new RegExp(`/p/${org.slug}/2026/bay-series$`));
 
   const json = await (await reader.request.get('/p/index.json')).json();
   const listed = json.workspaces.find((w: { slug: string }) => w.slug === org.slug);
