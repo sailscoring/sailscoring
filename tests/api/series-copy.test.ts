@@ -65,7 +65,7 @@ function normalise(file: SeriesFile): unknown {
   out.races.sort((a, b) => a.raceNumber - b.raceNumber);
   for (const r of out.races) {
     r.starts.sort(by((s) => `${s.startTime}|${s.fleetIds.join(',')}`));
-    r.finishes.sort((a, b) => a.sortOrder - b.sortOrder);
+    r.finishes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     r.ratingOverrides?.sort(by((o) => `${o.competitorId}|${o.field}`));
   }
   out.tcfHistory?.sort(by((h) => `${h.raceId}|${h.competitorId}|${h.fleetId}`));
