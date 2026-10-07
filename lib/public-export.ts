@@ -21,6 +21,7 @@ import type {
   Race,
   RaceOfficial,
   RaceStartCourse,
+  RaceStartCourseLineEnd,
   SeriesCourse,
   SeriesMark,
 } from './types';
@@ -458,6 +459,19 @@ export interface PublicSeriesExport {
           /** The card mark a laid mark stood for on a card course ("SL"),
            *  which is what the data set's routing overlay knows it by. */
           cardMarkId?: string;
+          /** A line recorded as its two ends, starboard then port: `lat`
+           *  and `lng` above are then their midpoint, which the legs were
+           *  measured from. `mark` names each end's library mark, by the
+           *  name `marks[]` carries it under, when it still exists there. */
+          ends?: {
+            end: 'starboard' | 'port';
+            mark?: string;
+            label: string;
+            lat: number;
+            lng: number;
+            fixed?: boolean;
+            set?: string;
+          }[];
         }[];
         /** The leg table the course gave, on a course defined by legs —
          *  which has no waypoints to snapshot. Bearings are degrees true,
@@ -624,8 +638,11 @@ export interface PublicSeriesExport {
     card?: { set: string; cardId: string; courseId: string; release: string };
     modified?: boolean;
     /** `cardMarkId`: on a course made from a card, the card mark a laid
-     *  mark stands for ("SL"), whatever the scorer called it. */
-    marks: { mark: string; side?: 'port' | 'starboard'; passing?: boolean; cardMarkId?: string }[];
+     *  mark stands for ("SL"), whatever the scorer called it. `portEnd`: on
+     *  a start or finish line recorded as two ends, the mark at its port end
+     *  (the pin), `mark` being its starboard end; legs are measured from the
+     *  midpoint of the two. */
+    marks: { mark: string; side?: 'port' | 'starboard'; passing?: boolean; cardMarkId?: string; portEnd?: string }[];
     /** The race committee's own leg table, on a course defined that way
      *  rather than by marks. Exactly one of the two is non-empty. Bearings
      *  are degrees true. */
@@ -899,6 +916,22 @@ function exportStartCourse(
         ...(w.fixed ? { fixed: true } : {}),
         ...(w.set ? { set: w.set } : {}),
         ...(w.cardMarkId ? { cardMarkId: w.cardMarkId } : {}),
+        ...(w.ends
+          ? {
+              ends: w.ends.map((e) => {
+                const endMark = e.markId ? markNameById.get(e.markId) : undefined;
+                return {
+                  end: e.end,
+                  ...(endMark ? { mark: endMark } : {}),
+                  label: e.label,
+                  lat: e.lat,
+                  lng: e.lng,
+                  ...(e.fixed ? { fixed: true } : {}),
+                  ...(e.set ? { set: e.set } : {}),
+                };
+              }),
+            }
+          : {}),
       };
     }),
     ...(course.legs?.length ? { legs: course.legs } : {}),
@@ -1619,12 +1652,13 @@ export function buildPublicExportFromSnapshot(
             ...(c.card ? { card: c.card } : {}),
             ...(c.modified ? { modified: true } : {}),
             marks: c.marks
-              .filter((cm) => markNameById.has(cm.markId))
+              .filter((cm) => markNameById.has(cm.markId) && (!cm.portEndMarkId || markNameById.has(cm.portEndMarkId)))
               .map((cm) => ({
                 mark: markNameById.get(cm.markId)!,
                 ...(cm.side ? { side: cm.side } : {}),
                 ...(cm.passing ? { passing: true } : {}),
                 ...(cm.cardMarkId ? { cardMarkId: cm.cardMarkId } : {}),
+                ...(cm.portEndMarkId ? { portEnd: markNameById.get(cm.portEndMarkId)! } : {}),
               })),
             ...(c.legs?.length ? { legs: c.legs } : {}),
           })),
@@ -1954,12 +1988,13 @@ export async function importPublicExport(
         ...(c.card ? { card: c.card } : {}),
         ...(c.modified ? { modified: true } : {}),
         marks: c.marks
-          .filter((cm) => markIdByName.has(cm.mark))
+          .filter((cm) => markIdByName.has(cm.mark) && (!cm.portEnd || markIdByName.has(cm.portEnd)))
           .map((cm) => ({
             markId: markIdByName.get(cm.mark)!,
             ...(cm.side ? { side: cm.side } : {}),
             ...(cm.passing ? { passing: true } : {}),
             ...(cm.cardMarkId ? { cardMarkId: cm.cardMarkId } : {}),
+            ...(cm.portEnd ? { portEndMarkId: markIdByName.get(cm.portEnd)! } : {}),
           })),
         ...(c.legs?.length ? { legs: c.legs } : {}),
         createdAt: now,
@@ -1985,6 +2020,22 @@ export async function importPublicExport(
           ...(w.fixed ? { fixed: true } : {}),
           ...(w.set ? { set: w.set } : {}),
           ...(w.cardMarkId ? { cardMarkId: w.cardMarkId } : {}),
+          ...(w.ends?.length === 2
+            ? {
+                ends: w.ends.map((e) => {
+                  const endMarkId = e.mark ? markIdByName.get(e.mark) : undefined;
+                  return {
+                    end: e.end,
+                    ...(endMarkId && repos.seriesMarkRepo ? { markId: endMarkId } : {}),
+                    label: e.label,
+                    lat: e.lat,
+                    lng: e.lng,
+                    ...(e.fixed ? { fixed: true } : {}),
+                    ...(e.set ? { set: e.set } : {}),
+                  };
+                }) as [RaceStartCourseLineEnd, RaceStartCourseLineEnd],
+              }
+            : {}),
         };
       }),
       ...(c.legs?.length ? { legs: c.legs } : {}),

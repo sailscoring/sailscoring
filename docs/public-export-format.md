@@ -57,7 +57,9 @@ results, and beyond that nothing that is not in the published HTML**:
   (`set`), which is the chart the drawing sits on; a laid mark on a card
   course names the card mark it stands for (`cardMarkId`, on the course's
   marks and on the waypoints), which is what the set's routing overlay
-  knows it by. Course facts are what
+  knows it by. A start or finish line recorded as its two ends names its
+  port end (`portEnd`) beside the starboard end's `mark` on a course, and a
+  waypoint at its midpoint carries both `ends`, starboard first. Course facts are what
   competitors check their tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.

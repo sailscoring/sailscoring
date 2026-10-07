@@ -151,7 +151,12 @@ chart the course is drawn on wherever it is drawn. On a course made from a
 card, an entry whose mark the scorer laid names the card mark it stands for
 (`cardMarkId`, v66+ — "SL" for a line called "Grassy Start"), on the
 course and on the waypoints a start snapshots from it: that is what a data
-set's routing overlay knows the mark by.
+set's routing overlay knows the mark by. A start or finish line recorded as its
+two ends (v67+) is an entry whose `markId` is the starboard end, usually
+the committee boat, and whose `portEndMarkId` is the port end, the pin. Legs
+to and from it are measured from the midpoint of the two, and the waypoint a
+start snapshots from it sits at that midpoint with both `ends` kept beside
+it, so the published drawing shows the line.
 
 ---
 

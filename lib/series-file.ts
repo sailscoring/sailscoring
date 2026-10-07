@@ -576,9 +576,18 @@ export interface SeriesFileRepos {
  *  Start"), which is what a data set's routing overlay knows it by. An older
  *  build reading a v66 file matches those marks by name again, which can
  *  leave a leg straight in a drawing or a recompute; the legs a start was
- *  scored on are stored, so it scores identically. */
-export const FORMAT_VERSION = 66;
-export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66];
+ *  scored on are stored, so it scores identically.
+ *
+ *  v67 adds optional `courses[*].marks[*].portEndMarkId` and
+ *  `starts[*].course.waypoints[*].ends`: a start or finish line recorded as
+ *  its two ends, the committee boat and the pin, with legs to and from it
+ *  measured from their midpoint. The entry's `markId` is the starboard end
+ *  and `portEndMarkId` the port end; the waypoint's position is the midpoint
+ *  and `ends` keeps both as they were. An older build reading a v67 file
+ *  would measure a library course from the starboard end and draw no line;
+ *  the legs a start was scored on are stored, so it scores identically. */
+export const FORMAT_VERSION = 67;
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67];
 export const FILE_EXTENSION = '.sailscoring';
 
 // ---- File format types ----
@@ -791,7 +800,7 @@ interface SeriesFileRaceStart {
   distanceNm?: number;  // v40+; course length in NM (time-on-distance scoring input)
   orcScoringWind?: number;  // v40+; RC PCS scoring-wind override in kt (ORC 402.12)
   courseLegs?: OrcCourseLeg[];  // v40+; constructed-course legs (ORC 402.5), carrying v51+ per-leg wind speeds
-  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot (v57+ waypoints name their data set; v66+ a laid mark's card mark)
+  course?: RaceStartCourse;  // v45+; the library course those legs came from, as a snapshot (v57+ waypoints name their data set; v66+ a laid mark's card mark; v67+ a line's two ends)
   orcOption?: string;  // v40+; the ORC scoring option for this start's races
 }
 
@@ -816,7 +825,7 @@ interface SeriesFileCourse {
   name: string;
   card?: { set: string; cardId: string; courseId: string; release: string };
   modified?: boolean;
-  marks: { markId: string; side?: 'port' | 'starboard'; passing?: boolean; cardMarkId?: string }[];  // cardMarkId v66+
+  marks: { markId: string; side?: 'port' | 'starboard'; passing?: boolean; cardMarkId?: string; portEndMarkId?: string }[];  // cardMarkId v66+, portEndMarkId v67+
   legs?: SeriesCourseLeg[];
   createdAt?: number;
 }
@@ -2284,13 +2293,19 @@ async function writeFleetsCompetitorsRaces(
         ...(c.card ? { card: c.card } : {}),
         ...(c.modified ? { modified: true } : {}),
         marks: c.marks
-          .filter((cm) => markIdMap.has(cm.markId))
-          .map((cm) => ({ ...cm, markId: markIdMap.get(cm.markId)! })),
+          .filter((cm) => markIdMap.has(cm.markId) && (!cm.portEndMarkId || markIdMap.has(cm.portEndMarkId)))
+          .map((cm) => ({
+            ...cm,
+            markId: markIdMap.get(cm.markId)!,
+            ...(cm.portEndMarkId ? { portEndMarkId: markIdMap.get(cm.portEndMarkId)! } : {}),
+          })),
         ...(c.legs?.length ? { legs: c.legs } : {}),
         createdAt: c.createdAt ?? now,
       })),
     );
   }
+  const remapMarkId = (markId: string | undefined): { markId: string | undefined } =>
+    markId && repos.seriesMarkRepo && markIdMap.has(markId) ? { markId: markIdMap.get(markId)! } : { markId: undefined };
   const remapStartCourse = (course: RaceStartCourse): RaceStartCourse => ({
     ...course,
     ...(course.courseId && repos.seriesCourseRepo && courseIdMap.has(course.courseId)
@@ -2298,9 +2313,10 @@ async function writeFleetsCompetitorsRaces(
       : { courseId: undefined }),
     waypoints: course.waypoints.map((w) => ({
       ...w,
-      ...(w.markId && repos.seriesMarkRepo && markIdMap.has(w.markId)
-        ? { markId: markIdMap.get(w.markId)! }
-        : { markId: undefined }),
+      ...remapMarkId(w.markId),
+      ...(w.ends
+        ? { ends: w.ends.map((e) => ({ ...e, ...remapMarkId(e.markId) })) as typeof w.ends }
+        : {}),
     })),
   });
 

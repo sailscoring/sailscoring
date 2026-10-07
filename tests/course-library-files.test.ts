@@ -26,6 +26,7 @@ import type {
   Fleet,
   Race,
   RaceStart,
+  RaceStartCourseLineEnd,
   Series,
   SeriesCourse,
   SeriesMark,
@@ -391,5 +392,60 @@ describe('public export course library round-trip', () => {
     expect(saved.name).toBe('19 — 12 Sep R1');
     expect(saved.courseId).toBeUndefined();
     expect(saved.waypoints[1]).toEqual({ label: 'Z', lat: 53.3967, lng: -6.0702, side: 'port', cardMarkId: 'Z' });
+  });
+});
+
+// The same course finishing on a line recorded as its two ends: the
+// committee boat at the starboard end, a pin at the port end.
+describe('a line with two ends round-trips', () => {
+  const pin: SeriesMark = { id: 'm-pin', seriesId: 's1', name: 'Pin — 12 Sep', lat: 53.4040, lng: -6.0690, createdAt: 5 };
+  const lineEntry = { markId: 'm-line', portEndMarkId: 'm-pin', side: 'port' as const };
+  const ends: [RaceStartCourseLineEnd, RaceStartCourseLineEnd] = [
+    { end: 'starboard', markId: 'm-line', label: 'Start', lat: 53.4055, lng: -6.0675 },
+    { end: 'port', markId: 'm-pin', label: 'Pin', lat: 53.404, lng: -6.069 },
+  ];
+  const withLine: SeriesSnapshot = {
+    ...snapshot,
+    marks: [island, line, pin, zephyr],
+    courses: [{ ...course, marks: [...course.marks.slice(0, -1), lineEntry] }],
+    raceStarts: [{
+      ...start,
+      course: {
+        ...start.course!,
+        waypoints: [
+          ...start.course!.waypoints.slice(0, -1),
+          { markId: 'm-line', label: 'Start–Pin', lat: 53.40475, lng: -6.06825, side: 'port', ends },
+        ],
+      },
+    }],
+  };
+
+  it('through the series file, with every end remapped', async () => {
+    const built = await buildSeriesFile('s1', makeRecordingRepos(withLine).repos);
+    expect(built.formatVersion).toBe(FORMAT_VERSION);
+    const { repos, savedMarks, savedCourses, savedStarts } = makeRecordingRepos();
+    await openSeriesFromFile(built, repos);
+    const idByName = new Map(savedMarks.map((m) => [m.name, m.id]));
+    expect(savedCourses[0].marks[3]).toEqual({ markId: idByName.get('Start — 12 Sep'), portEndMarkId: idByName.get('Pin — 12 Sep'), side: 'port' });
+    const waypoint = savedStarts[0].course!.waypoints[3];
+    expect(waypoint).toMatchObject({ lat: 53.40475, lng: -6.06825 });
+    expect(waypoint.ends?.map((e) => [e.end, e.markId, e.lat, e.lng])).toEqual([
+      ['starboard', idByName.get('Start — 12 Sep'), 53.4055, -6.0675],
+      ['port', idByName.get('Pin — 12 Sep'), 53.404, -6.069],
+    ]);
+  });
+
+  it('through the public export, by name', async () => {
+    const data = buildPublicExportFromSnapshot(withLine)!;
+    expect(data.courses?.[0].marks[3]).toEqual({ mark: 'Start — 12 Sep', portEnd: 'Pin — 12 Sep', side: 'port' });
+    expect(data.races[0].starts[0].course?.waypoints[3].ends).toEqual([
+      { end: 'starboard', mark: 'Start — 12 Sep', label: 'Start', lat: 53.4055, lng: -6.0675 },
+      { end: 'port', mark: 'Pin — 12 Sep', label: 'Pin', lat: 53.404, lng: -6.069 },
+    ]);
+    const { repos, savedMarks, savedCourses, savedStarts } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    const idByName = new Map(savedMarks.map((m) => [m.name, m.id]));
+    expect(savedCourses[0].marks[3].portEndMarkId).toBe(idByName.get('Pin — 12 Sep'));
+    expect(savedStarts[0].course!.waypoints[3].ends?.map((e) => e.markId)).toEqual([idByName.get('Start — 12 Sep'), idByName.get('Pin — 12 Sep')]);
   });
 });
