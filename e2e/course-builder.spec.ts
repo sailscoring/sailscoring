@@ -575,3 +575,112 @@ test('a card course saves the marks the card has moved since they were adopted, 
   expect(harp).toMatchObject({ lat: 51.786667, lng: -8.238 });
   expect(harp.card?.release).not.toBe('0.8.0');
 });
+
+// Royal Cork's Autumn League, 27 September 2026: the committee boat, the
+// pin and the three laid marks as Pat Tanner's race officer page recorded
+// them, and the legs it plotted from the middle of the line — 0.67, 0.78,
+// 0.73, 1.01, 1.01 and 0.34 NM, 4.53 NM in all, on a 232 m line.
+test('a start line recorded as its two ends: legs from its middle, drawn on the published page', async ({ page }) => {
+  await createSeriesQuick(page, { name: 'Two-Ended Line Test 2026' });
+  await createFleets(page, ['Class 1']);
+  await setScoringMode(page, 'handicap');
+  await page.locator('h2', { hasText: 'Fleets' }).locator('..').locator('button').click();
+  await page.getByRole('combobox').filter({ hasText: /Scratch/i }).click();
+  await page.getByRole('option', { name: 'ORC' }).click();
+  await page.getByRole('combobox').filter({ hasText: 'All-purpose · time-on-time' }).click();
+  await page.getByRole('option', { name: 'Constructed course · performance curve (PCS)' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  const seriesId = page.url().match(/\/series\/([0-9a-f-]+)/)![1];
+
+  await page.getByRole('link', { name: 'Competitors' }).click();
+  for (const c of [{ sailNumber: 'IRL 2507', name: 'Impetuous' }, { sailNumber: 'IRL 1551', name: 'Mojo' }]) {
+    await page.getByRole('button', { name: 'Add competitor' }).click();
+    await page.getByLabel('Sail number').fill(c.sailNumber);
+    await page.getByLabel('Competitor name').fill(c.name);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('cell', { name: c.sailNumber })).toBeVisible();
+  }
+  await page.getByRole('button', { name: 'Update handicaps' }).click();
+  await page.getByText('ORC certificates', { exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: /^Apply/ }).click();
+  await expect(page.getByText('Handicaps updated')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  const marks = [
+    { name: 'CB — 27 Sep R1', lat: 51.7825, lng: -8.234416666666666 },
+    { name: 'Pin — 27 Sep R1', lat: 51.78045, lng: -8.235083333333334 },
+    { name: 'W — 27 Sep R1', lat: 51.783433333333335, lng: -8.252583333333334 },
+    { name: 'G — 27 Sep R1', lat: 51.77311666666667, lng: -8.2398 },
+    { name: 'L — 27 Sep R1', lat: 51.7815, lng: -8.225683333333333 },
+  ];
+  const seeded = await page.request.post(`/api/v1/series/${seriesId}/marks`, {
+    data: { marks: marks.map((m, i) => ({ id: crypto.randomUUID(), seriesId, ...m, createdAt: Date.now() + i })) },
+  });
+  expect(seeded.ok()).toBe(true);
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Courses' }).click();
+  await expect(page.getByTestId('mark-row').filter({ hasText: 'L — 27 Sep R1' })).toBeVisible();
+  await page.getByTestId('new-course').click();
+  await page.getByText('Build by hand').click();
+  const addMark = page.getByTestId('sequence-add-mark');
+  await addMark.click();
+  await page.getByRole('option', { name: 'CB — 27 Sep R1', exact: true }).click();
+  // The first row is the start: the committee boat, and a pin beside it.
+  await pick(page, 'sequence-pin-1', 'Pin — 27 Sep R1');
+  // 232.5 m, which Pat's page prints as 232 m; 193°M as it does.
+  await expect(page.getByTestId('sequence-line-1')).toContainText(/Line 23[23] m, 193°M/);
+  for (const name of ['W', 'G', 'L', 'W', 'L']) {
+    await addMark.click();
+    await page.getByRole('option', { name: `${name} — 27 Sep R1`, exact: true }).click();
+  }
+  // And the finish is the start line again.
+  await addMark.click();
+  await page.getByRole('option', { name: 'Finish on the start line' }).click();
+  await expect(page.getByTestId('course-summary')).toContainText('6 legs · 4.53 NM');
+  const drawing = page.getByRole('dialog').getByTestId('course-drawing');
+  // Each end drawn, named on hover, and the line's own mark at its middle.
+  for (const title of [/^CB$/, /^Pin$/, /^CB–Pin$/]) {
+    await expect(drawing.locator('title').filter({ hasText: title })).toHaveCount(1);
+  }
+  await page.getByLabel('Name').fill('27 Sep R1');
+  await page.getByTestId('course-save').click();
+  const courseRow = page.getByTestId('course-row').filter({ hasText: '27 Sep R1' });
+  await expect(courseRow).toContainText('CB–Pin › W');
+
+  await page.getByRole('link', { name: 'Races' }).click();
+  await page.getByRole('button', { name: 'Add race' }).click();
+  await page.getByText('Race 1').click();
+  await expect(page.getByText('Race 1 — results')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit ▸' }).click();
+  await page.getByRole('button', { name: 'Add start' }).click();
+  await page.getByPlaceholder('14:05', { exact: true }).fill('11:12:00');
+  await page.getByRole('checkbox', { name: 'Class 1' }).check();
+  await pick(page, 'start-course-picker', '27 Sep R1');
+  await page.getByLabel('Wind direction').fill('280');
+  await page.getByTestId('legs-disclosure').click();
+  for (const [i, nm] of ['0.67', '0.78', '0.73', '1.01', '1.01', '0.34'].entries()) {
+    await expect(page.getByLabel(`Leg ${i + 1} distance`)).toHaveValue(nm);
+  }
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  for (const { sailNumber, finishTime } of [
+    { sailNumber: 'IRL 1551', finishTime: '12:05:00' },
+    { sailNumber: 'IRL 2507', finishTime: '12:07:00' },
+  ]) {
+    await page.getByLabel('Sail number').fill(sailNumber);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Finish time', exact: true }).fill(finishTime);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  }
+  await expect(page.getByTestId('autosave-status')).toHaveText('All changes saved');
+
+  // The published drawing shows the line between its ends.
+  await page.getByRole('link', { name: 'Standings' }).click();
+  const download = await downloadFleetHtml(page);
+  const html = readFileSync(await download.path(), 'utf-8');
+  expect(html).toContain('aria-label="Course 27 Sep R1"');
+  expect(html).toContain('<title>CB</title></path>');
+  expect(html).toContain('<title>Pin</title></circle>');
+});

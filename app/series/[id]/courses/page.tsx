@@ -35,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ValidationApiError } from '@/lib/api-client';
 import { courseVariation, formatBearing, todayIso, variationAt } from '@/lib/bearings';
 import { COURSE_CARDS_RELEASE, courseCardSetLabel, courseCardSets, findCourseCardSet, loadCourseCard } from '@/lib/course-cards';
-import { adoptCardMarks, courseIsLegTable, courseLegsOf, drawnCourse, drawnMarks, markLibrarySet, resolveCourse, type NamingContext } from '@/lib/course-geometry';
+import { adoptCardMarks, courseIsLegTable, courseLegsOf, drawnLibraryCourse, drawnMarks, markLibrarySet, resolveCourse, type NamingContext } from '@/lib/course-geometry';
 import type { SeriesCourse, SeriesMark } from '@/lib/types';
 import {
   useDeleteSeriesCourse,
@@ -141,7 +141,9 @@ export default function CoursesPage({ params }: { params: Promise<{ id: string }
     return course.marks
       .map((cm) => {
         const m = marksById.get(cm.markId);
-        const label = m ? (m.card ? m.card.markId : m.name.split(' — ')[0]) : '?';
+        const labelOf = (mark: SeriesMark | undefined) => (mark ? (mark.card ? mark.card.markId : mark.name.split(' — ')[0]) : '?');
+        // A line reads as its two ends: "CB–Pin".
+        const label = cm.portEndMarkId ? `${labelOf(m)}–${labelOf(marksById.get(cm.portEndMarkId))}` : labelOf(m);
         return `${label}${cm.side === 'starboard' ? '(s)' : ''}${cm.passing ? '(p)' : ''}`;
       })
       .join(' › ');
@@ -417,18 +419,25 @@ function SwapMarkDialogInner({
   onCancel: () => void;
 }) {
   const byId = new Map(marks.map((m) => [m.id, m]));
-  const inCourse = [...new Set(course.marks.map((cm) => cm.markId))].map((id) => byId.get(id)).filter((m): m is SeriesMark => !!m);
+  const inCourse = [...new Set(course.marks.flatMap((cm) => [cm.markId, ...(cm.portEndMarkId ? [cm.portEndMarkId] : [])]))]
+    .map((id) => byId.get(id))
+    .filter((m): m is SeriesMark => !!m);
   const [fromId, setFromId] = useState(inCourse.find((m) => !m.card)?.id ?? inCourse[0]?.id ?? '');
   const [toId, setToId] = useState('');
   const [name, setName] = useState(course.name);
   const [error, setError] = useState('');
-  const swapped = fromId && toId ? course.marks.map((cm) => (cm.markId === fromId ? { ...cm, markId: toId } : cm)) : course.marks;
-  const drawnOver = marks.filter((m) => swapped.some((cm) => cm.markId === m.id));
+  // A line's pin is swapped like any other mark.
+  const swapped = fromId && toId
+    ? course.marks.map((cm) => ({
+        ...cm,
+        ...(cm.markId === fromId ? { markId: toId } : {}),
+        ...(cm.portEndMarkId === fromId ? { portEndMarkId: toId } : {}),
+      }))
+    : course.marks;
+  const drawn = drawnLibraryCourse(swapped, byId);
   const drawing = {
-    marks: drawnMarks(drawnOver),
-    course: drawnCourse(swapped),
-    set: markLibrarySet(drawnOver),
-    variation: courseVariation(drawnOver, undefined, todayIso()),
+    ...drawn,
+    variation: courseVariation(drawn.marks.map((m) => m.position), undefined, todayIso()),
   };
 
   async function handleSave() {

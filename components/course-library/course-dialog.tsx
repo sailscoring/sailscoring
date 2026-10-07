@@ -22,11 +22,12 @@ import {
   courseMarkOfEntry,
   courseIsLegTable,
   courseRoutingSummary,
-  drawnCourse,
   drawnLegTable,
-  drawnMarks,
+  drawnLibraryCourse,
+  isCardLine,
+  lineDistanceFromCardM,
+  lineMidpoint,
   markLabel,
-  markLibrarySet,
   legDistance,
   matchCardCourse,
   proposeCourseName,
@@ -39,6 +40,7 @@ import {
 import type { SeriesCourse, SeriesCourseLeg, SeriesCourseMark, SeriesMark } from '@/lib/types';
 
 import { CourseDrawing } from './course-drawing';
+import { LineFacts } from './line-facts';
 import {
   BearingRefControl,
   LegTable,
@@ -165,6 +167,9 @@ function CourseDialogInner({
   const [loaded, setLoaded] = useState<{ key: string; marksFile: MarksFile; cardFile: CourseCardFile } | null>(null);
   const [loadError, setLoadError] = useState('');
   const [placements, setPlacements] = useState<Record<string, string>>({});
+  // The pins of the card's start and finishing lines, where the scorer
+  // recorded both ends; until then the line's one mark stands in.
+  const [portPlacements, setPortPlacements] = useState<Record<string, string>>({});
   // The name follows the card course until the scorer types one.
   const [typedName, setTypedName] = useState(seed ? (mode.kind === 'duplicate' ? `${seed.name} (copy)` : seed.name) : '');
   const [nameTouched, setNameTouched] = useState(Boolean(seed));
@@ -188,7 +193,7 @@ function CourseDialogInner({
   );
   // A hand-built course opens on its sequence; a leg table has no sequence.
   const [editorOpen, setEditorOpen] = useState(Boolean(seed && !seed.card && !courseIsLegTable(seed)));
-  const [markDialog, setMarkDialog] = useState<(MarkDialogMode & { forCardMark?: string }) | null>(null);
+  const [markDialog, setMarkDialog] = useState<(MarkDialogMode & { forCardMark?: string; forPortEnd?: boolean }) | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -232,11 +237,11 @@ function CourseDialogInner({
   const entries: CardCourseEntry[] | null = useMemo(() => {
     if (source !== 'card' || !card || !set || !courseId) return null;
     try {
-      return matchCardCourse(card.cardFile, card.marksFile, courseId, set.path, library, placements);
+      return matchCardCourse(card.cardFile, card.marksFile, courseId, set.path, library, placements, portPlacements);
     } catch {
       return null;
     }
-  }, [source, card, set, courseId, library, placements]);
+  }, [source, card, set, courseId, library, placements, portPlacements]);
   const needed = entries ? unplacedEntries(entries) : [];
   const cardSequence: SeriesCourseMark[] | null = useMemo(
     () =>
@@ -255,7 +260,7 @@ function CourseDialogInner({
   }, [edited, entries, libraryById, cardSequence]);
   const resolved = useMemo(() => resolveCourse(sequence, libraryById), [sequence, libraryById]);
   const cardMarks = useMemo(
-    () => cardMarksToWrite(adopted, marks, new Set(sequence.map((cm) => cm.markId))),
+    () => cardMarksToWrite(adopted, marks, new Set(sequence.flatMap((cm) => [cm.markId, ...(cm.portEndMarkId ? [cm.portEndMarkId] : [])]))),
     [adopted, marks, sequence],
   );
   const modified = source === 'card' && entries && needed.length === 0 && edited
@@ -265,17 +270,13 @@ function CourseDialogInner({
   const name = nameTouched ? typedName : source === 'card' && courseId ? proposeCourseName(courseId, naming) : '';
 
   const drawing = useMemo(() => {
-    const used = new Set(sequence.map((cm) => cm.markId));
-    const over = library.filter((m) => used.has(m.id));
-    const marks = drawnMarks(over);
+    const drawn = drawnLibraryCourse(sequence, libraryById);
     return {
-      marks,
-      course: drawnCourse(sequence.filter((cm) => libraryById.has(cm.markId))),
-      set: markLibrarySet(over),
+      ...drawn,
       // Its legs in magnetic where its own marks are, not at the venue.
-      variation: courseVariation(marks.map((m) => m.position), venuePosition, naming.date ?? todayIso()),
+      variation: courseVariation(drawn.marks.map((m) => m.position), venuePosition, naming.date ?? todayIso()),
     };
-  }, [sequence, library, libraryById, venuePosition, naming.date]);
+  }, [sequence, libraryById, venuePosition, naming.date]);
 
   // A leg table has no positions, but its bearings and distances fix the
   // shape and the orientation exactly — so it draws, and a dropped digit is
@@ -432,7 +433,7 @@ function CourseDialogInner({
                     top of each other; min-w-0 lets them shrink and the value's
                     line-clamp do its job. */}
                 <div className="grid grid-cols-2 gap-2">
-                  <Select value={setPath} onValueChange={(v) => { setSetPath(v); setCourseId(''); setPlacements({}); setEdited(null); setError(''); setLoadError(''); }} disabled={Boolean(editing)}>
+                  <Select value={setPath} onValueChange={(v) => { setSetPath(v); setCourseId(''); setPlacements({}); setPortPlacements({}); setEdited(null); setError(''); setLoadError(''); }} disabled={Boolean(editing)}>
                     <SelectTrigger className="w-full min-w-0" aria-label="Course card set" data-testid="course-card-set"><SelectValue placeholder="Club and event" /></SelectTrigger>
                     <SelectContent>
                       {sets.map((s) => (
@@ -440,7 +441,7 @@ function CourseDialogInner({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select value={effectiveCardId} onValueChange={(v) => { setCardId(v); setCourseId(''); setPlacements({}); setEdited(null); setError(''); setLoadError(''); }} disabled={Boolean(editing) || !set}>
+                  <Select value={effectiveCardId} onValueChange={(v) => { setCardId(v); setCourseId(''); setPlacements({}); setPortPlacements({}); setEdited(null); setError(''); setLoadError(''); }} disabled={Boolean(editing) || !set}>
                     <SelectTrigger className="w-full min-w-0" aria-label="Course card" data-testid="course-card"><SelectValue placeholder="Card" /></SelectTrigger>
                     <SelectContent>
                       {(set?.cards ?? []).map((c) => (
@@ -452,7 +453,7 @@ function CourseDialogInner({
                 {loadError && <p className="text-sm text-destructive">{loadError}</p>}
                 <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-sm">
                   <span>Course</span>
-                  <Select value={courseId} onValueChange={(v) => { setCourseId(v); setPlacements({}); setEdited(null); setEditorOpen(false); setError(''); }} disabled={!card || Boolean(editing)}>
+                  <Select value={courseId} onValueChange={(v) => { setCourseId(v); setPlacements({}); setPortPlacements({}); setEdited(null); setEditorOpen(false); setError(''); }} disabled={!card || Boolean(editing)}>
                     <SelectTrigger className="w-full min-w-0" aria-label="Course number" data-testid="course-number">
                       <SelectValue placeholder={card ? 'Pick the course the committee boat showed' : 'Loading the card…'} />
                     </SelectTrigger>
@@ -500,6 +501,32 @@ function CourseDialogInner({
                             </Select>
                             {!chosen && cardMark.placement && (
                               <p className="text-xs text-muted-foreground mt-0.5">{cardMark.placement}</p>
+                            )}
+                            {card && chosen && isCardLine(card.cardFile, cardMark.id) && (
+                              <CardLinePin
+                                cardMarkId={cardMark.id}
+                                starboard={libraryById.get(chosen)}
+                                port={portPlacements[cardMark.id] ? libraryById.get(portPlacements[cardMark.id]) : undefined}
+                                choices={scorerMarks.filter((m) => m.id !== chosen)}
+                                library={library}
+                                variation={drawing.variation}
+                                cardLine={card.cardFile.startLine?.id === cardMark.id ? card.cardFile.startLine : card.cardFile.finish}
+                                set={set?.path}
+                                onChange={(v) => {
+                                  if (v === NEW_MARK) {
+                                    setMarkDialog({ kind: 'new', proposedBase: 'Pin', forCardMark: cardMark.id, forPortEnd: true });
+                                    return;
+                                  }
+                                  setPortPlacements((p) => {
+                                    const next = { ...p };
+                                    if (v) next[cardMark.id] = v;
+                                    else delete next[cardMark.id];
+                                    return next;
+                                  });
+                                  setEdited(null);
+                                  setError('');
+                                }}
+                              />
                             )}
                           </div>
                         </div>
@@ -556,7 +583,7 @@ function CourseDialogInner({
                 </Button>
               )}
             </div>
-            {routing && (routing.passages.length > 0 || routing.unreviewed.length > 0) && (
+            {routing && (routing.passages.length > 0 || routing.unreviewed.length > 0 || routing.unchecked.length > 0) && (
               <div className="space-y-0.5 text-xs text-muted-foreground" data-testid="course-routing">
                 {routing.passages.map((p) => (
                   <p key={p.leg}>
@@ -564,6 +591,13 @@ function CourseDialogInner({
                     {routing.contributor ? ` (${routing.contributor}'s passages for these marks)` : ''}.
                   </p>
                 ))}
+                {routing.unchecked.length > 0 && (
+                  <p data-testid="course-routing-unchecked">
+                    {routing.unchecked.length === 1 ? 'Leg' : 'Legs'} {joinNames(routing.unchecked.map(String))}{' '}
+                    {routing.unchecked.length === 1 ? 'is' : 'are'} measured from the recorded line, not from where the
+                    passages assume it: the route is kept, but not checked against depth from there.
+                  </p>
+                )}
                 {routing.unreviewed.length > 0 && (
                   <p>
                     {routing.unreviewed.length === 1 ? 'Leg' : 'Legs'} {joinNames(routing.unreviewed.map(String))}{' '}
@@ -588,6 +622,7 @@ function CourseDialogInner({
                 marks={library}
                 onChange={(next) => { setEdited(next); setError(''); }}
                 onNewMark={() => setMarkDialog({ kind: 'new' })}
+                variation={drawing.variation}
               />
             )}
             {source !== 'legs' && resolved.missingMarkIds.length > 0 && (
@@ -640,7 +675,10 @@ function CourseDialogInner({
         naming={naming}
         onSave={async (mark) => {
           await onSaveMark(mark);
-          if (markDialog?.forCardMark) {
+          if (markDialog?.forCardMark && markDialog.forPortEnd) {
+            setPortPlacements((p) => ({ ...p, [markDialog.forCardMark!]: mark.id }));
+            setEdited(null);
+          } else if (markDialog?.forCardMark) {
             setPlacements((p) => ({ ...p, [markDialog.forCardMark!]: mark.id }));
             setEdited(null);
           } else {
@@ -657,4 +695,70 @@ function CourseDialogInner({
 /** "W2", "W2 and Rams Head", "A, B and C". */
 function joinNames(names: string[]): string {
   return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+const ONE_POINT = '__one_point__';
+
+/**
+ * The pin of a card's start or finishing line, beside the mark the scorer
+ * chose for it, which is the line's starboard end — the committee boat.
+ * Until a pin is recorded that one mark stands in for the line, and the
+ * builder says so, because the card measures from the middle of the line.
+ */
+function CardLinePin({
+  cardMarkId,
+  starboard,
+  port,
+  choices,
+  library,
+  variation,
+  cardLine,
+  set,
+  onChange,
+}: {
+  cardMarkId: string;
+  starboard: SeriesMark | undefined;
+  port: SeriesMark | undefined;
+  choices: SeriesMark[];
+  library: SeriesMark[];
+  variation: ReturnType<typeof courseVariation>;
+  cardLine: { id: string; position?: Position } | undefined;
+  set: string | undefined;
+  /** A mark id, '' to go back to one point, or NEW_MARK. */
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="mt-1 space-y-1">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground shrink-0">Pin</span>
+        <Select value={port?.id ?? ONE_POINT} onValueChange={(v) => onChange(v === ONE_POINT ? '' : v)}>
+          <SelectTrigger className="h-7 w-full min-w-0 text-xs" aria-label={`Pin for ${cardMarkId}`} data-testid={`placement-${cardMarkId}-pin`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ONE_POINT}>— not recorded —</SelectItem>
+            {choices.map((m) => (
+              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+            ))}
+            <SelectItem value={NEW_MARK}>New mark…</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {starboard && port ? (
+        <LineFacts
+          starboard={starboard}
+          port={port}
+          library={library}
+          variation={variation}
+          fromCardM={lineDistanceFromCardM(lineMidpoint(starboard, port), cardLine, set)}
+          testId={`placement-${cardMarkId}-line`}
+        />
+      ) : starboard ? (
+        <p className="text-xs text-muted-foreground" data-testid={`placement-${cardMarkId}-stand-in`}>
+          Measured from {starboard.name} alone, standing in for the line. The card measures from the middle of
+          the line: record the pin as well to measure from there.
+        </p>
+      ) : null}
+    </div>
+  );
 }
