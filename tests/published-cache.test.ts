@@ -3,7 +3,12 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 const deleteByTag = vi.hoisted(() => vi.fn());
 vi.mock('@vercel/functions', () => ({ dangerouslyDeleteByTag: deleteByTag }));
 
-import { publishedCacheTag, purgePublishedCache } from '@/lib/published-cache';
+import {
+  DIRECTORY_CACHE_TAG,
+  publishedCacheTag,
+  purgeDirectoryCache,
+  purgePublishedCache,
+} from '@/lib/published-cache';
 
 describe('publishedCacheTag', () => {
   it('namespaces the workspace id', () => {
@@ -36,7 +41,14 @@ describe('purgePublishedCache', () => {
   it('deletes rather than invalidates, so a re-publish is seen on reload', async () => {
     process.env.VERCEL = '1';
     await purgePublishedCache('ws-1');
-    expect(deleteByTag).toHaveBeenCalledWith('p:ws-1');
+    expect(deleteByTag).toHaveBeenCalledWith(['p:ws-1', DIRECTORY_CACHE_TAG]);
+  });
+
+  it('a publication change drops the directory too; a listing change drops only it', async () => {
+    process.env.VERCEL = '1';
+    await purgeDirectoryCache();
+    expect(deleteByTag).toHaveBeenCalledWith([DIRECTORY_CACHE_TAG]);
+    
   });
 
   it('swallows a purge failure: the write it follows already succeeded', async () => {

@@ -137,6 +137,21 @@ scoring a series that ought to survive, get the owner to copy it to a
 club workspace first ("Copy to another workspace" on series Settings)
 — removal leaves the series where it is, reachable only by the owner.
 
+### The public directory
+
+Every club workspace appears in the public directory at `/p/` (and its
+JSON twin, `/p/index.json`) as soon as it has published something —
+listing is **on by default**, since the results are already public and
+every club workspace is one we onboarded. Personal workspaces are never
+listed. An owner or admin can opt out, and set the one-line description
+shown under the workspace's name, from the **Public directory** card on
+`/workspace`; opting out stops the directory advertising the workspace
+but leaves every published page live at its own URL. Both settings live
+in `organization.metadata` (`directory.unlisted`,
+`directory.description`), not in the feature table below — this is not a
+feature gate. When onboarding a club, mention the card so they know
+they are listed.
+
 ## Support access
 
 A scorer asks for help with a series in a workspace you are not a member

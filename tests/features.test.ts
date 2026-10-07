@@ -7,6 +7,7 @@ import {
   isFeatureKey,
   isPersonalWorkspaceSlug,
   isSelfServiceFeature,
+  listedInDirectory,
   parseOrgMetadata,
   SELF_SERVICE_FEATURES,
   serializeOrgMetadata,
@@ -354,5 +355,39 @@ describe('applyFeatureToggle', () => {
     expect(applyFeatureToggle(base([], [], 'personal'), 'prizes', true).kind).toBe(
       'personal',
     );
+  });
+});
+
+describe('the directory listing in workspace metadata', () => {
+  it('lists a club workspace by default and never a personal one', () => {
+    expect(listedInDirectory(parseOrgMetadata(null, 'hyc'))).toBe(true);
+    expect(listedInDirectory(parseOrgMetadata(null, 'u-alice'))).toBe(false);
+  });
+
+  it('round-trips an opt-out and a description', () => {
+    const meta: OrgMetadata = {
+      kind: 'club',
+      enabledFeatures: [],
+      disabledFeatures: [],
+      seededFeatureSamples: [],
+      directory: { unlisted: true, description: 'Racing on Dublin Bay' },
+    };
+    const back = parseOrgMetadata(serializeOrgMetadata(meta));
+    expect(back).toEqual(meta);
+    expect(listedInDirectory(back)).toBe(false);
+  });
+
+  it('drops a malformed listing and trims an over-long description', () => {
+    expect(parseOrgMetadata(JSON.stringify({ directory: 'yes' }), 'hyc').directory).toBeUndefined();
+    const long = parseOrgMetadata(
+      JSON.stringify({ directory: { description: `  ${'x'.repeat(400)}  ` } }),
+      'hyc',
+    );
+    expect(long.directory?.description).toHaveLength(160);
+  });
+
+  it('survives a feature toggle', () => {
+    const meta = parseOrgMetadata(JSON.stringify({ directory: { unlisted: true } }), 'hyc');
+    expect(applyFeatureToggle(meta, 'echo', true).directory).toEqual({ unlisted: true });
   });
 });

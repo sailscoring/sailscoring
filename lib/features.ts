@@ -412,6 +412,48 @@ export interface OrgMetadata {
    *  demo) doesn't seed it again. Write-once per feature; see
    *  `setWorkspaceFeature`. Not part of feature resolution. */
   seededFeatureSamples: FeatureKey[];
+  /** How the workspace appears in the public directory at `/p/`. Absent =
+   *  the defaults: a club workspace with something published is listed, with
+   *  no description. Not part of feature resolution. */
+  directory?: DirectoryListing;
+}
+
+/** A workspace's entry in the public directory of workspaces at `/p/`. */
+export interface DirectoryListing {
+  /** Kept out of the directory. Its pages stay public at their own URLs; the
+   *  workspace just isn't advertised. */
+  unlisted?: boolean;
+  /** One line under its name on the directory card. */
+  description?: string;
+}
+
+/** A workspace's directory entry as its settings card reads and writes it.
+ *  `kind` lets the card explain why a personal workspace is never listed. */
+export interface DirectorySettings {
+  kind: WorkspaceKind;
+  listed: boolean;
+  description: string;
+}
+
+/** The longest directory description a workspace may set. */
+export const DIRECTORY_DESCRIPTION_MAX = 160;
+
+/** Whether a workspace is eligible for the public directory: club workspaces
+ *  only — a personal workspace is never listed — and not opted out. Whether
+ *  it has published anything is the directory's own filter. */
+export function listedInDirectory(meta: OrgMetadata): boolean {
+  return meta.kind === 'club' && !meta.directory?.unlisted;
+}
+
+function parseDirectoryListing(value: unknown): DirectoryListing | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const obj = value as Record<string, unknown>;
+  const listing: DirectoryListing = {};
+  if (obj.unlisted === true) listing.unlisted = true;
+  if (typeof obj.description === 'string' && obj.description.trim()) {
+    listing.description = obj.description.trim().slice(0, DIRECTORY_DESCRIPTION_MAX);
+  }
+  return Object.keys(listing).length > 0 ? listing : undefined;
 }
 
 /**
@@ -454,11 +496,13 @@ export function parseOrgMetadata(
   const obj = parsed as Record<string, unknown>;
   const kind: WorkspaceKind =
     obj.kind === 'personal' || obj.kind === 'club' ? obj.kind : fallbackKind;
+  const directory = parseDirectoryListing(obj.directory);
   return {
     kind,
     enabledFeatures: dedupe(parseFeatureArray(obj.enabledFeatures)),
     disabledFeatures: dedupe(parseFeatureArray(obj.disabledFeatures)),
     seededFeatureSamples: dedupe(parseFeatureArray(obj.seededFeatureSamples)),
+    ...(directory ? { directory } : {}),
   };
 }
 
@@ -478,6 +522,9 @@ export function serializeOrgMetadata(meta: OrgMetadata): string {
     enabledFeatures: dedupe(meta.enabledFeatures),
     disabledFeatures: dedupe(meta.disabledFeatures),
     seededFeatureSamples: dedupe(meta.seededFeatureSamples),
+    ...(meta.directory && Object.keys(meta.directory).length > 0
+      ? { directory: meta.directory }
+      : {}),
   });
 }
 
@@ -516,6 +563,7 @@ export function applyFeatureToggle(
     enabledFeatures: [...enabledSet],
     disabledFeatures: [...disabledSet],
     seededFeatureSamples: [...meta.seededFeatureSamples],
+    ...(meta.directory ? { directory: { ...meta.directory } } : {}),
   };
 }
 

@@ -88,6 +88,9 @@ export const ACTIVITY_ACTIONS = [
   'publish.unpublished',
   'publish.page-retracted',
   'publish.ftp-uploaded',
+  // The workspace's entry in the public directory at `/p/` changed: listed or
+  // not, or its description.
+  'publish.directory-updated',
   'support.joined',
   'support.left',
   'member.invited',

@@ -8,16 +8,23 @@ import {
 } from '@/lib/auth/require-workspace';
 import { getDb } from '@/lib/db/client';
 import { organization } from '@/lib/db/schema/auth';
+import { recordActivity } from '@/lib/activity-log';
 import {
   applyFeatureToggle,
   FEATURES,
   isSelfServiceFeature,
+  listedInDirectory,
   parseOrgMetadata,
   serializeOrgMetadata,
   type FeatureDef,
   type FeatureKey,
+  type DirectorySettings,
 } from '@/lib/features';
-import { featureToggleSchema } from '@/lib/validation/workspace';
+import { purgeDirectoryCache } from '@/lib/published-cache';
+import {
+  directorySettingsSchema,
+  featureToggleSchema,
+} from '@/lib/validation/workspace';
 
 /**
  * ADR-009 M4 — the caller's resolved identity and active workspace, for
@@ -108,4 +115,73 @@ export async function setWorkspaceFeature(
     enabledFeatures: next.enabledFeatures,
     disabledFeatures: next.disabledFeatures,
   };
+}
+
+async function readMetadata(workspace: WorkspaceContext) {
+  const [row] = await getDb()
+    .select({ metadata: organization.metadata })
+    .from(organization)
+    .where(eq(organization.id, workspace.workspaceId))
+    .limit(1);
+  return parseOrgMetadata(row?.metadata ?? null, workspace.workspaceSlug);
+}
+
+export async function getDirectorySettings(
+  workspace: WorkspaceContext,
+): Promise<DirectorySettings> {
+  const meta = await readMetadata(workspace);
+  return {
+    kind: meta.kind,
+    listed: listedInDirectory(meta),
+    description: meta.directory?.description ?? '',
+  };
+}
+
+/**
+ * Set the active workspace's directory entry: whether it is listed, and its
+ * description. A personal workspace is never listed, so it can't be opted in
+ * (a 403, not a silent no-op). Logged to the activity feed — whether a club
+ * is advertised is a decision the rest of its panel should be able to see —
+ * and the directory's CDN copy is dropped so the change shows at once.
+ */
+export async function setDirectorySettings(
+  workspace: WorkspaceContext,
+  body: unknown,
+): Promise<DirectorySettings> {
+  const input = directorySettingsSchema.parse(body);
+  const meta = await readMetadata(workspace);
+  if (meta.kind !== 'club') {
+    throw new ForbiddenError('directory-club-only');
+  }
+  const before = await getDirectorySettings(workspace);
+  const next = {
+    ...meta,
+    directory: {
+      ...(input.listed ? {} : { unlisted: true }),
+      ...(input.description ? { description: input.description } : {}),
+    },
+  };
+  await getDb()
+    .update(organization)
+    .set({ metadata: serializeOrgMetadata(next) })
+    .where(eq(organization.id, workspace.workspaceId));
+  const after: DirectorySettings = {
+    kind: meta.kind,
+    listed: input.listed,
+    description: input.description,
+  };
+
+  if (before.listed !== after.listed || before.description !== after.description) {
+    await recordActivity(workspace, {
+      action: 'publish.directory-updated',
+      summary:
+        before.listed !== after.listed
+          ? after.listed
+            ? 'Listed the workspace in the public directory'
+            : 'Took the workspace out of the public directory'
+          : 'Changed the workspace’s directory description',
+    });
+    await purgeDirectoryCache();
+  }
+  return after;
 }
