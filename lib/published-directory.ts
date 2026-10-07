@@ -122,15 +122,21 @@ export function buildDirectory(
     byWorkspace.set(p.workspaceId, list);
   }
 
+  // Each workspace's season segments, filled in below as its tree is built.
+  const seasonSegments = new Map<string, Set<string>>();
+
   // Where a publication's link lands: its own event when its slug is shared
-  // (the season-folder archive shape), the slug otherwise.
+  // or is a season folder (the season-mode and archive shapes), the slug
+  // otherwise.
   const linkFor = (
     ws: { slug: string },
     p: DirectoryRows['publications'][number],
     folderLabel: string,
   ): DirectoryLink => {
     const group = byWorkspace.get(p.workspaceId) ?? [];
-    const shared = group.filter((q) => q.slug === p.slug).length > 1;
+    const shared =
+      group.filter((q) => q.slug === p.slug).length > 1 ||
+      (seasonSegments.get(p.workspaceId)?.has(p.slug) ?? false);
     const path = publicationPath(p.slug, pages.get(p.id) ?? [], shared);
     return {
       name: p.seriesName ?? folderLabel,
@@ -167,6 +173,7 @@ export function buildDirectory(
       [...tree.seasons.flatMap((s) => s.folders), ...tree.undated].map((f) => [f.slug, f.label]),
     );
     folderLabels.set(ws.id, labels);
+    seasonSegments.set(ws.id, new Set(tree.seasons.map((s) => s.segment)));
     const populated = tree.seasons.filter((s) => s.folders.length > 0);
     const summaries = pubs
       .map((p) => p.summary)
