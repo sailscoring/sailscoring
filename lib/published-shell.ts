@@ -95,13 +95,15 @@ footer.credit a:hover { color: #fb3a3b; text-decoration: underline; }`;
 /**
  * The shared public-page chrome (navy hero, red accent, Poppins, the
  * `Sail Scoring — sailscoring.ie` footer). `extraCss` is appended after the
- * base stylesheet for page-specific rules.
+ * base stylesheet for page-specific rules; `headExtra` is raw markup for the
+ * head (callers escape their own values), e.g. {@link jsonAlternateLink}.
  */
 export function renderPublicShell(
   title: string,
   hero: string,
   body: string,
   extraCss = '',
+  headExtra = '',
 ): string {
   return `<!doctype html>
 <html lang="en">
@@ -110,7 +112,7 @@ export function renderPublicShell(
 <meta name="viewport" content="width=device-width">
 <meta name="robots" content="noindex">
 <title>${esc(title)}</title>
-${FAVICON}
+${FAVICON}${headExtra ? `\n${headExtra}` : ''}
 <style type="text/css">
 ${STYLE}
 ${extraCss}
@@ -130,4 +132,11 @@ ${FOOTER}
  *  heading. `headingHtml` is inserted as-is (callers escape their own text). */
 export function renderPublicHero(headingHtml: string, logoUrl = ''): string {
   return `<div class="herologos">${brandLockup()}${heroLogo(logoUrl)}</div>\n<h1>${headingHtml}</h1>`;
+}
+
+/** The head declaration of a page's machine-readable twin — how an index page
+ *  points at its `index.json` (#669), as a results page points at its data
+ *  file. */
+export function jsonAlternateLink(href: string): string {
+  return `<link rel="alternate" type="application/json" href="${esc(href)}">`;
 }

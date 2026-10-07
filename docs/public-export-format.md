@@ -21,6 +21,10 @@ series' Publishing settings can opt out) serves one file:
   (#475). Saving a copy imports it through `/import?from={path}`.
 - Served with `Access-Control-Allow-Origin: *` — browser-based tools may
   read it cross-origin.
+- Listed, with every other publication of the workspace, in the
+  workspace's `index.json` — see
+  [the public index format](public-index-format.md) — so an app can find
+  each series' file without being given its URL.
 - **Snapshot-pinned**: the file holds exactly the data the pages were
   rendered from, updated only by a re-publish. Unpublishing removes it.
 - Standalone artifacts (a downloaded page, an FTP page of a

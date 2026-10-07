@@ -19,7 +19,7 @@
 
 import { escapeHtml as esc } from './html';
 import { humanizeSlug, isSyntheticFleetName } from './publishing';
-import { renderPublicHero, renderPublicShell } from './published-shell';
+import { jsonAlternateLink, renderPublicHero, renderPublicShell } from './published-shell';
 import { isAuxiliaryPage, keepsItsName, loneResultsPageLabel, type SeriesIndexPage } from './published-index';
 
 /** A page in a slug group, with its contributing series named so labels can
@@ -498,6 +498,8 @@ export function renderSeasonIndexHtml(opts: {
   folders: TopFolder[];
   logoUrl?: string;
   nav?: string;
+  /** The season's `index.json` twin (#669), declared in the head. */
+  indexJsonHref?: string;
 }): string {
   const { workspaceSlug, workspaceName, season, folders } = opts;
   const rows = folders
@@ -512,6 +514,8 @@ export function renderSeasonIndexHtml(opts: {
     `${season} — ${workspaceName}`,
     hero,
     `${back}\n${opts.nav ?? ''}<ul class="listing">\n${rows}\n</ul>`,
+    '',
+    opts.indexJsonHref ? jsonAlternateLink(opts.indexJsonHref) : '',
   );
 }
 

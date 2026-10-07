@@ -246,6 +246,53 @@ test('the publication serves a .sailscoring.json data file and pages reference i
   await expect(page.getByRole('cell', { name: '17' }).first()).toBeVisible();
 });
 
+test('the workspace serves a machine-readable index of its publications (#669)', async ({ page }) => {
+  await createSeriesWithData(page, { name: 'Index League', sail: '23', date: '2026-09-06' });
+  await page.getByRole('button', { name: 'Publish' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Publish results' });
+  await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+  const link = dialog.getByRole('link', { name: /\/p\// });
+  await expect(link).toBeVisible();
+  const workspaceSlug = new URL((await link.getAttribute('href')) ?? '').pathname.split('/')[2];
+
+  // The HTML workspace index declares its JSON twin in the head.
+  await page.goto(`/p/${workspaceSlug}`);
+  const indexHref = await page
+    .locator('link[rel="alternate"][type="application/json"]')
+    .getAttribute('href');
+  expect(indexHref).toBe(`/p/${workspaceSlug}/index.json`);
+
+  // Served like the data file: JSON, CORS-open, its ETag readable.
+  const res = await page.request.get(indexHref!);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('application/json');
+  expect(res.headers()['access-control-allow-origin']).toBe('*');
+  expect(res.headers()['access-control-expose-headers']).toContain('ETag');
+  const index = await res.json();
+  expect(index.version).toBe(1);
+  const pub = index.publications.find((p: { name: string }) => p.name === 'Index League');
+  expect(pub).toMatchObject({ season: '2026', races: 1, boats: 1 });
+  expect(pub.firstRaceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(pub.pages).toEqual([
+    expect.objectContaining({ label: 'Standings', kind: 'standings' }),
+  ]);
+
+  // Every URL it names resolves: the page and the data file.
+  expect((await page.request.get(pub.pages[0].url)).status()).toBe(200);
+  const data = await page.request.get(pub.data);
+  expect(data.status()).toBe(200);
+  expect((await data.json()).series.name).toBe('Index League');
+
+  // The season index lists it too, and an unchanged index revalidates.
+  const season = index.seasons.find((s: { label: string }) => s.label === '2026');
+  const seasonIndex = await (await page.request.get(season.index)).json();
+  expect(seasonIndex.publications.map((p: { name: string }) => p.name)).toContain('Index League');
+  const again = await page.request.get(indexHref!, {
+    headers: { 'if-none-match': res.headers()['etag'] },
+  });
+  expect(again.status()).toBe(304);
+});
+
 test('signed out, Open in Sail Scoring opens the results rather than a login (#465, #475)', async ({ page, browser }) => {
   await createSeriesWithData(page, { name: 'Signed Out League' });
   await page.getByRole('button', { name: 'Publish' }).click();
