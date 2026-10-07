@@ -780,6 +780,15 @@ original alongside the compressed copy or treat the normalised image as the reco
 truth (lean: normalised *is* the record — the whole point is to not hoard full-colour
 originals).
 
+The photo could also be an *input*, not just an artifact. Finish sheet submissions
+(#671) give the committee boat a way to hand over a recording that the scorer reviews
+before it touches the finish sheet: an API for race-day apps and a page with a
+spreadsheet import. A scan of the handwritten sheet is the obvious third way in. A vision
+model transcribes it into a draft submission, and the scorer reviews it against the image
+beside it, through the same Apply / Dismiss flow as any other submission. The review step
+is what makes an imperfect transcription acceptable: nothing the model reads becomes a
+result until a scorer has checked it against the paper.
+
 ---
 
 ## Publishing
