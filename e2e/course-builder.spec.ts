@@ -559,6 +559,11 @@ test('a card course saves the marks the card has moved since they were adopted, 
   await pick(page, 'course-card-set', /Royal Cork/);
   await pick(page, 'course-card', /keelboat/i);
   await pick(page, 'course-number', /^3\b/);
+  // SL's placement is a whole SI clause; the row must wrap it inside the
+  // dialog rather than widen to fit it on one line.
+  const dialogBox = (await page.getByRole('dialog').boundingBox())!;
+  const slBox = (await page.getByTestId('placement-SL').boundingBox())!;
+  expect(slBox.x + slBox.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width);
   await pick(page, 'placement-SL', 'Grassy Start');
   await expect(page.getByTestId('course-marks-moved')).toContainText('Harp 82 m');
   // The scorer's own line is the card's SL, whatever it is called, so the

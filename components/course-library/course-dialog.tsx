@@ -476,7 +476,10 @@ function CourseDialogInner({
                       return (
                         <div key={cardMark.id} className="grid grid-cols-[3rem_1fr] items-center gap-2 text-sm">
                           <span className="font-mono">{cardMark.id}</span>
-                          <div>
+                          {/* min-w-0 here, not just on the trigger: this div is
+                              the grid item, and without it the 1fr track grows
+                              to the trigger's one-line content. */}
+                          <div className="min-w-0">
                             <Select
                               value={chosen}
                               onValueChange={(v) => {
@@ -490,7 +493,7 @@ function CourseDialogInner({
                               }}
                             >
                               <SelectTrigger className="w-full min-w-0" aria-label={`Mark for ${cardMark.id}`} data-testid={`placement-${cardMark.id}`}>
-                                <SelectValue placeholder={`needs one — ${cardMark.placement ?? cardMark.name ?? ''}`} />
+                                <SelectValue placeholder={cardMark.name && cardMark.name !== cardMark.id ? `needs one — ${cardMark.name}` : 'needs one'} />
                               </SelectTrigger>
                               <SelectContent>
                                 {scorerMarks.map((m) => (
@@ -500,7 +503,9 @@ function CourseDialogInner({
                               </SelectContent>
                             </Select>
                             {!chosen && cardMark.placement && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{cardMark.placement}</p>
+                              // A placement can be a whole SI clause; two lines is enough to
+                              // place the mark, and the rest is a hover away.
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2" title={cardMark.placement}>{cardMark.placement}</p>
                             )}
                             {card && chosen && isCardLine(card.cardFile, cardMark.id) && (
                               <CardLinePin
