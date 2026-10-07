@@ -138,7 +138,7 @@ export async function deleteSeriesMark(
   const existing = await repos.seriesMarks.get(markId);
   if (!existing || existing.seriesId !== seriesId) return;
   const users = (await repos.seriesCourses.listBySeries(seriesId)).filter((c) =>
-    c.marks.some((cm) => cm.markId === markId),
+    c.marks.some((cm) => cm.markId === markId || cm.portEndMarkId === markId),
   );
   if (users.length > 0) {
     // Structured, like the publish dialog's slug clash: the client names the
@@ -187,12 +187,15 @@ export async function listSeriesCourses(
 }
 
 /** A course names only marks of its own series; an entry naming anything
- *  else is dropped rather than written dangling. */
+ *  else is dropped rather than written dangling, and a line whose pin is
+ *  not one of them is left as its one mark. */
 function sanitizeSequence(
   marks: SeriesCourse['marks'],
   seriesMarkIds: Set<string>,
 ): SeriesCourse['marks'] {
-  return marks.filter((cm) => seriesMarkIds.has(cm.markId));
+  return marks
+    .filter((cm) => seriesMarkIds.has(cm.markId))
+    .map(({ portEndMarkId, ...cm }) => (portEndMarkId && seriesMarkIds.has(portEndMarkId) ? { ...cm, portEndMarkId } : cm));
 }
 
 export async function putSeriesCourse(

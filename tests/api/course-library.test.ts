@@ -192,6 +192,34 @@ describe.skipIf(skip)('course library handlers', () => {
     expect(await library.listSeriesMarks(ctxA, seriesId)).toEqual([]);
   });
 
+  test('a line keeps a pin of its own series, and the pin cannot be deleted while a course uses it', async () => {
+    const seriesId = await makeSeries();
+    const other = await makeSeries();
+    const cb = mark(seriesId, 'CB');
+    const pin = mark(seriesId, 'Pin', { lat: 53.404, lng: -6.069 });
+    const z = mark(seriesId, 'Z', { lat: 53.3967, lng: -6.0702 });
+    const theirs = mark(other, 'Theirs');
+    for (const m of [cb, pin, z]) await library.putSeriesMark(ctxA, seriesId, m.id, m);
+    await library.putSeriesMark(ctxA, other, theirs.id, theirs);
+
+    const course = await library.putSeriesCourse(ctxA, seriesId, uuid(), {
+      seriesId,
+      name: 'Line',
+      marks: [{ markId: cb.id, portEndMarkId: pin.id }, { markId: z.id, side: 'port' }, { markId: cb.id, portEndMarkId: theirs.id }],
+      createdAt: Date.now(),
+    });
+    // A pin from another series leaves the finish as its one mark.
+    expect(course.marks).toEqual([{ markId: cb.id, portEndMarkId: pin.id }, { markId: z.id, side: 'port' }, { markId: cb.id }]);
+
+    let caught: unknown;
+    try {
+      await library.deleteSeriesMark(ctxA, seriesId, pin.id);
+    } catch (e) {
+      caught = e;
+    }
+    expect((caught as BadRequestError).issues).toEqual({ code: 'mark-in-use', courses: ['Line'] });
+  });
+
   test('a course can be deleted while a start still snapshots it; the start keeps its course', async () => {
     const seriesId = await makeSeries();
     const fleetId = uuid();
