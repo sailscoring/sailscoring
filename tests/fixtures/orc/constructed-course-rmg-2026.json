@@ -1,0 +1,15 @@
+{
+  "format": "orc-constructed-course",
+  "version": 1,
+  "name": "ORC Race Management Guide 2026, §3.2",
+  "north": "magnetic",
+  "legs": [
+    { "name": "Start – 1",         "distance": 2.09, "course": 162, "windDirection": 160 },
+    { "name": "1 – 1A",            "distance": 0.06, "course": 60,  "windDirection": 155 },
+    { "name": "1A – Gate (2P-2S)", "distance": 1.91, "course": 340, "windDirection": 155 },
+    { "name": "Gate (2P-2S) – 1",  "distance": 1.89, "course": 161, "windDirection": 160 },
+    { "name": "1 – 1A",            "distance": 0.06, "course": 60,  "windDirection": 160 },
+    { "name": "1A – Gate (2P-2S)", "distance": 1.91, "course": 340, "windDirection": 160 },
+    { "name": "2S – Finish",       "distance": 0.19, "course": 316, "windDirection": 160 }
+  ]
+}
