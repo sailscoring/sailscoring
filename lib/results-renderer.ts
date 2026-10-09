@@ -2448,9 +2448,12 @@ function renderRaceTable(
         // compass, so they print in magnetic with the true figure beside, and
         // the variation that was applied is stated so a reader can check it.
         const v = h.legsVariation;
+        // A leg is printed under the race committee's own label for it,
+        // where the course came with one, and with the current where one was
+        // recorded, since it is scored.
         const legsLine = h.legs?.length
           ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
-              .map((leg) => `${leg.distanceNm.toFixed(2)} NM @ ${formatBearing(leg.bearingDeg, v, { both: true })}, wind ${formatBearing(leg.windDirectionDeg, v, { both: true })}${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''}`)
+              .map((leg) => `${leg.name ? `${esc(leg.name)} ` : ''}${leg.distanceNm.toFixed(2)} NM @ ${formatBearing(leg.bearingDeg, v, { both: true })}, wind ${formatBearing(leg.windDirectionDeg, v, { both: true })}${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''}${leg.currentSpeedKts != null && leg.currentDirectionDeg != null ? `, current ${leg.currentSpeedKts} kt to ${formatBearing(leg.currentDirectionDeg, v, { both: true })}` : ''}`)
               .join(' &middot; ')}${v ? `<br><span class="orc-course-variation" style="font-size: 0.9em;">Magnetic at ${esc(describeVariation(v))}.</span>` : ''}</p>`
           : '';
         // Folded away by default: the drawing is an illustration of the legs

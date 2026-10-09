@@ -669,6 +669,16 @@ describe('published transparency for a recorded-wind race', () => {
     expect(html).toContain(`Magnetic at variation ${formatVariation(v)} (World Magnetic Model, 12 Sep 2026).`);
   });
 
+  it('prints a leg under its name, with the current where one was recorded', () => {
+    const named: OrcCourseLeg[] = [
+      { ...legs[0], name: 'Start – <Windward>' },
+      { ...legs[1], name: 'Windward – Finish', currentSpeedKts: 1.5, currentDirectionDeg: 90 },
+    ];
+    const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(named) }));
+    expect(html).toContain('Start – &lt;Windward&gt; 2.09 NM @ 162°T, wind 225°T at 9 kt');
+    expect(html).toContain(`Windward – Finish ${legs[1].distanceNm.toFixed(2)} NM @ ${legs[1].bearingDeg}°T, wind 225°T at 9 kt, current 1.5 kt to 90°T`);
+  });
+
   it('the handicap mix says what the weights are the allowance for', () => {
     const html = renderSeriesHtml(assemble({ orc: totCalc, raceStarts: starts(legs), certs: true }));
     expect(html).toContain('Show handicap mix');
