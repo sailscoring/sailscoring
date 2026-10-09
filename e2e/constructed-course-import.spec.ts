@@ -93,14 +93,14 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
   const use = page.getByTestId('import-course-use');
 
   // A document that isn't the format says why, and can't be used.
-  await page.getByLabel('Course to import').fill(JSON.stringify({ ...COURSE, north: 'true' }));
+  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify({ ...COURSE, north: 'true' }));
   await expect(preview).toContainText('from "true" north');
   await expect(use).toBeDisabled();
 
   // One with no anchor, in a series with no venue position, has nowhere to
   // read the variation its magnetic figures need.
   const { anchor: _anchor, ...unplaced } = COURSE;
-  await page.getByLabel('Course to import').fill(JSON.stringify(unplaced));
+  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify(unplaced));
   await expect(preview).toHaveText(
     'Autumn League, Race 3, Class 1 · 3 legs · 2.18 NM · wind direction and speed on every leg · no position',
   );
@@ -151,7 +151,7 @@ test('an ORC constructed course imported into a start, and drawn where it sits',
   await expect(page.getByLabel('Leg 1 bearing')).toHaveValue('282');
   await expect(page.getByTestId('legs-edited')).toHaveCount(0);
   await page.getByTestId('import-course-disclosure').click();
-  await page.getByLabel('Course to import').fill(JSON.stringify({ ...COURSE, name: 'Autumn League, Race 3, re-laid' }));
+  await page.getByLabel('Course to import', { exact: true }).fill(JSON.stringify({ ...COURSE, name: 'Autumn League, Race 3, re-laid' }));
   await page.getByTestId('import-course-use').click();
   await expect(page.getByTestId('confirm-dialog')).toContainText(
     "This start's 3 legs will be replaced by the 3 legs of Autumn League, Race 3, re-laid.",

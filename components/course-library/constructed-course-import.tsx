@@ -111,7 +111,7 @@ export function ConstructedCourseImport({
           route={false}
           variation={variation}
           width={440}
-          title="Course to import"
+          title="Drawing of the course to import"
         />
       )}
       <div className="flex justify-end gap-2">
