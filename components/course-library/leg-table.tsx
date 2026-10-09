@@ -38,6 +38,9 @@ export interface KeptFigure {
 }
 
 export interface LegTableRow {
+  /** The race committee's label for the leg ("Start – 1"), where the course
+   *  came with one. Unused where the name column is off. */
+  name: string;
   distance: string;
   bearing: string;
   /** Wind direction on the leg. Unused where the wind columns are off. */
@@ -46,10 +49,14 @@ export interface LegTableRow {
   windSpeed: string;
   bearingKept?: KeptFigure;
   windKept?: KeptFigure;
+  /** The current on the leg (true), where a course arrived with one. There
+   *  is no entry for it: it is carried through, and shown under the table
+   *  because it is scored. */
+  current?: { speedKts: number; directionDeg: number };
 }
 
 export function emptyLegRow(defaults?: Partial<LegTableRow>): LegTableRow {
-  return { distance: '', bearing: '', wind: '', windSpeed: '', ...defaults };
+  return { name: '', distance: '', bearing: '', wind: '', windSpeed: '', ...defaults };
 }
 
 /** Which north a table's bearings and winds are shown and typed in, and the
@@ -146,24 +153,45 @@ export interface LegTableProps {
   showWind?: boolean;
   /** The recorded wind-speed column, where the option scores at one. */
   showWindSpeed?: boolean;
+  /** The leg-name column, where the course came with names. */
+  showName?: boolean;
+  /** The "Paste a table" box. A caller with its own way in turns it off. */
+  paste?: boolean;
+  /** Beside "Add leg": the caller's own way of filling the table. */
+  actions?: ReactNode;
   /** What a row the scorer adds starts out holding. */
   newRow?: Partial<LegTableRow>;
   /** The note under the table; each caller's own. */
   children?: ReactNode;
 }
 
-export function LegTable({ rows, onChange, display, showWind, showWindSpeed, newRow, children }: LegTableProps) {
+export function LegTable({
+  rows,
+  onChange,
+  display,
+  showWind,
+  showWindSpeed,
+  showName,
+  paste = true,
+  actions,
+  newRow,
+  children,
+}: LegTableProps) {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasted, setPasted] = useState('');
 
   const total = rows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
-  // Spelled out rather than built: Tailwind finds class names by scanning
-  // this file's text, so a computed one produces no CSS at all.
-  const grid = showWind && showWindSpeed
-    ? 'grid-cols-[1fr_1fr_1fr_1fr_auto]'
-    : showWind || showWindSpeed
-      ? 'grid-cols-[1fr_1fr_1fr_auto]'
-      : 'grid-cols-[1fr_1fr_auto]';
+  // A style rather than a class: Tailwind finds class names by scanning
+  // this file's text, and the columns vary by which ones are on.
+  const columns = [
+    ...(showName ? ['minmax(0,1.6fr)'] : []),
+    'minmax(0,1fr)',
+    'minmax(0,1fr)',
+    ...(showWind ? ['minmax(0,1fr)'] : []),
+    ...(showWindSpeed ? ['minmax(0,1fr)'] : []),
+    'auto',
+  ].join(' ');
+  const currents = rows.flatMap((r, i) => (r.current ? [{ leg: i + 1, ...r.current }] : []));
 
   function setRow(i: number, field: keyof LegTableRow, value: string) {
     onChange(rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
@@ -214,7 +242,8 @@ export function LegTable({ rows, onChange, display, showWind, showWindSpeed, new
           button in a row and nothing in the header, so it resolves to a
           different width and the 1fr columns drift out from under their
           headers. */}
-      <div className={`grid ${grid} gap-1`}>
+      <div className="grid gap-1" style={{ gridTemplateColumns: columns }}>
+        {showName && <span className="text-xs text-muted-foreground">Leg</span>}
         <span className="text-xs text-muted-foreground">Distance (NM)</span>
         <span className="text-xs text-muted-foreground">Bearing (°{display.ref})</span>
         {showWind && <span className="text-xs text-muted-foreground">Wind dir (°{display.ref})</span>}
@@ -222,6 +251,14 @@ export function LegTable({ rows, onChange, display, showWind, showWindSpeed, new
         <span />
         {rows.map((row, i) => (
           <Fragment key={i}>
+            {showName && (
+              <input
+                aria-label={`Leg ${i + 1} name`}
+                className="flex h-8 min-w-0 rounded-md border border-input bg-transparent px-2 text-sm"
+                value={row.name}
+                onChange={(e) => setRow(i, 'name', e.target.value)}
+              />
+            )}
             <input
               aria-label={`Leg ${i + 1} distance`}
               className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm font-mono"
@@ -277,22 +314,33 @@ export function LegTable({ rows, onChange, display, showWind, showWindSpeed, new
           >
             Add leg
           </Button>
-          <button
-            type="button"
-            className="flex items-center gap-1 text-xs text-muted-foreground"
-            onClick={() => setPasteOpen((v) => !v)}
-            aria-expanded={pasteOpen}
-            data-testid="paste-legs-disclosure"
-          >
-            <ChevronRight className={`h-3 w-3 transition-transform ${pasteOpen ? 'rotate-90' : ''}`} />
-            Paste a table
-          </button>
+          {paste && (
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs text-muted-foreground"
+              onClick={() => setPasteOpen((v) => !v)}
+              aria-expanded={pasteOpen}
+              data-testid="paste-legs-disclosure"
+            >
+              <ChevronRight className={`h-3 w-3 transition-transform ${pasteOpen ? 'rotate-90' : ''}`} />
+              Paste a table
+            </button>
+          )}
+          {actions}
         </div>
         {total > 0 && (
           <span className="text-xs text-muted-foreground font-mono">{total.toFixed(2)} NM total</span>
         )}
       </div>
-      {pasteOpen && (
+      {currents.length > 0 && (
+        <p className="text-xs text-muted-foreground" data-testid="leg-currents">
+          Current, as the course gave it, and scored:{' '}
+          {currents
+            .map((c) => `leg ${c.leg} ${c.speedKts} kt to ${bearingFigure(c.directionDeg, display.ref, display.variation)}°${display.ref}`)
+            .join(' · ')}
+        </p>
+      )}
+      {paste && pasteOpen && (
         <div className="space-y-1.5 rounded-md border p-2">
           <textarea
             aria-label="Leg table to paste"

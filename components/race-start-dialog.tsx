@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { Position } from '@sailscoring/course-cards';
 import {
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ConstructedCourseImport } from '@/components/course-library/constructed-course-import';
 import { CourseDialog, type CourseDialogMode } from '@/components/course-library/course-dialog';
 import { CourseDrawing } from '@/components/course-library/course-drawing';
 import {
@@ -65,6 +66,11 @@ import {
   orcRecordedWindOption,
   orcSelectableOptions,
 } from '@/lib/orc-certificate';
+import {
+  importedCourseLegs,
+  snapshotOfImportedCourse,
+  type ConstructedCourse,
+} from '@/lib/orc-constructed-course';
 import { normalizeTimeInput } from '@/lib/time-parse';
 import type { Competitor, Fleet, OrcCourseLeg, RaceStart, RaceStartCourse, SeriesCourse, SeriesMark } from '@/lib/types';
 
@@ -186,10 +192,9 @@ function RaceStartDialogInner({
   // wind the race committee recorded; PCS derives the wind instead, and
   // offering a speed there would invite the scorer to fill in a number
   // nothing reads.
-  const offerWindSpeed =
+  const optionScoresRecordedWind =
     orcRecordedWindOption(orcOptionValue) ||
-    (!orcOptionValue && orcFleetOptions.some(orcRecordedWindOption)) ||
-    (seed?.courseLegs ?? []).some((leg) => leg.windSpeedKts != null);
+    (!orcOptionValue && orcFleetOptions.some(orcRecordedWindOption));
   // Bearings and winds are stored true and shown in magnetic, at the
   // variation where the course is — its marks, else the venue — on the
   // race's day. A start with neither stays in true.
@@ -202,16 +207,27 @@ function RaceStartDialogInner({
       const b = figureField(leg.bearingDeg, seedDisplay);
       const w = figureField(leg.windDirectionDeg, seedDisplay);
       return emptyLegRow({
+        name: leg.name ?? '',
         distance: String(leg.distanceNm),
         bearing: b.text,
         bearingKept: b.kept,
         wind: w.text,
         windKept: w.kept,
         windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
+        ...(leg.currentSpeedKts != null && leg.currentDirectionDeg != null
+          ? { current: { speedKts: leg.currentSpeedKts, directionDeg: leg.currentDirectionDeg } }
+          : {}),
       });
     }),
   );
   const legsTotal = legRows.reduce((sum, r) => sum + (Number(r.distance) || 0), 0);
+  // Also wherever a leg already has a speed — one typed under another
+  // option, or a course that arrived with the recorded wind — so a figure
+  // that is saved is never one the scorer can't see.
+  const offerWindSpeed = optionScoresRecordedWind || legRows.some((r) => r.windSpeed.trim() !== '');
+  // The race committee's names for the legs, where the course came with them.
+  const [showLegNames, setShowLegNames] = useState(() => (seed?.courseLegs ?? []).some((leg) => leg.name));
+  const [importOpen, setImportOpen] = useState(false);
 
   // The course library (ORC constructed courses): the start picks a course,
   // and its legs fill in from there — the wind is the start's own. Offered
@@ -321,6 +337,59 @@ function RaceStartDialogInner({
     }));
     setLegsEdited(false);
     setLegsOpen(false);
+    setShowLegNames(false);
+    setImportOpen(false);
+    setError('');
+  }
+
+  /** The variation an imported course's magnetic figures are converted at:
+   *  where its first leg starts, else the venue, on the race's day. */
+  const importVariationAt = useCallback(
+    (anchor: Position | undefined) => courseVariation(anchor ? [anchor] : [], venuePosition, raceDate),
+    [venuePosition, raceDate],
+  );
+
+  /** Fill the leg table from an imported ORC constructed course, as the
+   *  start's course: the document is the course, so there is no library
+   *  entry behind it and nothing to recompute from. Legs already in the
+   *  table are replaced, which the scorer is asked about first. */
+  async function applyImportedCourse(course: ConstructedCourse, v: Variation) {
+    const filled = legRows.filter((r) => r.distance.trim() || r.bearing.trim()).length;
+    if (filled > 0) {
+      const ok = await confirm({
+        title: 'Replace the legs?',
+        description: `This start's ${filled} leg${filled === 1 ? '' : 's'} will be replaced by the ${course.legs.length} leg${course.legs.length === 1 ? '' : 's'} of ${course.name ?? 'the imported course'}.`,
+        confirmLabel: 'Replace',
+      });
+      if (!ok) return;
+    }
+    const legs = importedCourseLegs(course, v);
+    const next = snapshotOfImportedCourse(course, legs);
+    const at = displayAt(v);
+    setSnapshot(next);
+    const w = next.windDirectionDeg != null ? figureField(next.windDirectionDeg, at) : undefined;
+    setWindInput(w?.text ?? '');
+    setWindKept(w?.kept);
+    setWindSpeedInput(next.windSpeedKts != null ? String(next.windSpeedKts) : '');
+    setLegRows(legs.map((leg) => {
+      const b = figureField(leg.bearingDeg, at);
+      const wind = leg.windDirectionDeg != null ? figureField(leg.windDirectionDeg, at) : undefined;
+      return emptyLegRow({
+        name: leg.name ?? '',
+        distance: String(leg.distanceNm),
+        bearing: b.text,
+        bearingKept: b.kept,
+        wind: wind?.text ?? '',
+        ...(wind ? { windKept: wind.kept } : {}),
+        windSpeed: leg.windSpeedKts != null ? String(leg.windSpeedKts) : '',
+        ...(leg.currentSpeedKts != null && leg.currentDirectionDeg != null
+          ? { current: { speedKts: leg.currentSpeedKts, directionDeg: leg.currentDirectionDeg } }
+          : {}),
+      });
+    }));
+    setShowLegNames(legs.some((leg) => leg.name));
+    setLegsEdited(false);
+    setImportOpen(false);
     setError('');
   }
 
@@ -533,6 +602,7 @@ function RaceStartDialogInner({
           }
           legWindSpeed = kt;
         }
+        const name = row.name.trim().slice(0, 80);
         courseLegs.push({
           // Recorded at ORC's own precision whoever typed it, so the figure
           // the results page prints is the one the curve was read at.
@@ -540,6 +610,8 @@ function RaceStartDialogInner({
           bearingDeg: bearing,
           windDirectionDeg: wind,
           ...(legWindSpeed != null ? { windSpeedKts: legWindSpeed } : {}),
+          ...(row.current ? { currentSpeedKts: row.current.speedKts, currentDirectionDeg: row.current.directionDeg } : {}),
+          ...(name ? { name } : {}),
         });
       }
     }
@@ -683,14 +755,22 @@ function RaceStartDialogInner({
             <div className="space-y-1.5" data-testid="start-course">
               <label className="text-sm font-medium">Course</label>
               <div className="flex items-center gap-2">
-                <Select value={snapshot?.courseId ?? (snapshot ? '__gone__' : '__none__')} onValueChange={(v) => void pickCourse(v)}>
+                <Select
+                  value={!snapshot ? '__none__' : snapshot.courseId ?? '__imported__'}
+                  onValueChange={(v) => void pickCourse(v)}
+                >
                   <SelectTrigger className="w-full" data-testid="start-course-picker">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">Not recorded</SelectItem>
-                    {snapshot && !libraryCourse && (
-                      <SelectItem value="__gone__">{snapshot.name} (no longer in the library)</SelectItem>
+                    {/* An imported course is the start's own: no library
+                        entry stands behind it. */}
+                    {snapshot && !snapshot.courseId && (
+                      <SelectItem value="__imported__">{snapshot.name} (imported)</SelectItem>
+                    )}
+                    {snapshot?.courseId && !libraryCourse && (
+                      <SelectItem value={snapshot.courseId}>{snapshot.name} (no longer in the library)</SelectItem>
                     )}
                     {orderedCourses.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -799,6 +879,20 @@ function RaceStartDialogInner({
                     onChange={changeLegRows}
                     showWind
                     showWindSpeed={offerWindSpeed}
+                    showName={showLegNames}
+                    paste={false}
+                    actions={(
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-xs text-muted-foreground"
+                        onClick={() => setImportOpen((v) => !v)}
+                        aria-expanded={importOpen}
+                        data-testid="import-course-disclosure"
+                      >
+                        <ChevronRight className={`h-3 w-3 transition-transform ${importOpen ? 'rotate-90' : ''}`} />
+                        Import a course
+                      </button>
+                    )}
                     newRow={{
                       ...(snapshot && windDeg != null
                         ? { wind: figureField(windDeg, display).text, windKept: figureField(windDeg, display).kept }
@@ -809,9 +903,17 @@ function RaceStartDialogInner({
                     <p className="text-xs text-muted-foreground">
                       One row per leg, in sailing order; split a leg into two rows when
                       the wind shifts along it. The course distance is the total.
-                      {offerWindSpeed && ' This option scores at the wind recorded here, so every leg needs a speed.'}
+                      {optionScoresRecordedWind && ' This option scores at the wind recorded here, so every leg needs a speed.'}
                     </p>
                   </LegTable>
+                  {importOpen && (
+                    <ConstructedCourseImport
+                      variationAt={importVariationAt}
+                      librarySet={librarySet}
+                      onUse={(course, v) => void applyImportedCourse(course, v)}
+                      onCancel={() => setImportOpen(false)}
+                    />
+                  )}
                 </div>
               )}
             </div>
