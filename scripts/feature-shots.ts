@@ -777,6 +777,57 @@ const SHOTS: Shot[] = [
     },
   },
   {
+    // Inventory: Importing a constructed course — a race start on the seeded
+    // ORC sample with a course from an app that builds courses pasted in: its
+    // name, legs and length, and the drawing on the club's chart from where
+    // its first leg starts, before it is used. Race 3's start is opened and
+    // the import only previewed, so nothing is saved.
+    slug: 'course-import',
+    group: 'Rating and handicap systems',
+    async capture({ page, shot }) {
+      await ensureFeature(page, 'orc');
+      await page.goto(`${BASE}/`);
+      await settle(page);
+      await page.getByRole('link', { name: 'Sample ORC Series 2026' }).first().click();
+      await page.waitForURL(/\/series\/[^/]+/);
+      const orcSeriesId = new URL(page.url()).pathname.split('/')[2];
+      await openRace(page, orcSeriesId, 3);
+      await page.getByRole('button', { name: 'Edit ▸' }).click();
+      await page.getByRole('button', { name: 'Edit start' }).first().click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      await dialog.getByTestId('legs-disclosure').click();
+      await dialog.getByTestId('import-course-disclosure').click();
+      // A triangle northwest of Ireland's Eye, where the Autumn League
+      // starts, as a race officer's page would hand it over.
+      const course = {
+        format: 'orc-constructed-course',
+        version: 1,
+        name: 'Autumn League, Sat 3 Oct, Race 2, Class 1',
+        north: 'magnetic',
+        anchor: { lat: 53.4215, lng: -6.0800 },
+        legs: [
+          { name: 'Start – Windward', distance: 1.0, course: 282, windDirection: 280, windSpeed: 11.5 },
+          { name: 'Windward – Gybe', distance: 0.8, course: 150, windDirection: 280, windSpeed: 11.5 },
+          { name: 'Gybe – Leeward', distance: 0.7, course: 50, windDirection: 285, windSpeed: 12 },
+          { name: 'Leeward – Finish', distance: 0.35, course: 300, windDirection: 285, windSpeed: 12 },
+        ],
+      };
+      const textarea = dialog.getByLabel('Course to import', { exact: true });
+      await textarea.fill(JSON.stringify(course, null, 2));
+      // Typing leaves the box scrolled to its end; the document reads from
+      // the top.
+      await textarea.evaluate((el) => { el.scrollTop = 0; });
+      const panel = dialog.getByTestId('import-course');
+      await panel.locator('[data-testid="course-drawing"][data-chart="set"]').waitFor();
+      // The document at the top, then what was made of it.
+      await panel.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      await settle(page);
+      await shot('course-import.png', { helpOnly: true });
+      await page.keyboard.press('Escape');
+    },
+  },
+  {
     // Inventory: Published competitor list — the sample league's classes are
     // each scored under IRC and ECHO at once, so the page is a table per
     // class with a rating column per fleet.

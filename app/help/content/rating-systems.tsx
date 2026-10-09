@@ -567,6 +567,56 @@ export default function RatingSystems() {
         </p>
       </Section>
       )}
+      {has('orc') && (
+      <Section id="import-constructed-course" title="Importing a constructed course">
+        <HelpShot
+          src="/help/shots/course-import.webp"
+          alt="A race start importing an ORC constructed course: the course's name, legs and length, and the course drawn on the club's chart from where its first leg starts."
+          caption="A course from an app that builds courses, checked before it reaches the start."
+        />
+        <p>
+          An app that builds courses on the water — a race officer’s page that
+          records where the marks were laid, say — can hand a race start the course
+          it worked out as an <strong className="text-foreground">ORC constructed
+          course</strong>: a small document with each leg’s distance and course in
+          degrees magnetic and the wind on each leg, and, where the app has them, the
+          wind speed the committee recorded, the current, a name for each leg, and
+          where the first leg starts. On the race start, open{' '}
+          <em>Import a course</em> under the legs and paste it, or{' '}
+          <em>Choose a file…</em>. Before anything changes you see the course’s name,
+          how many legs and how far, whether it carries the wind, and a drawing; a
+          document that can’t be read says why. <em>Use this course</em> fills the
+          legs, and asks first if the start already has some.
+        </p>
+        <p>
+          The figures read on the start as the document gave them, in magnetic, and
+          are stored in true like every other bearing. The variation is read where
+          the first leg starts, when the document says, and otherwise at the venue
+          position — so for a course with neither, set the venue position on the
+          Courses tab first. A course that carries the wind fills each leg’s; one
+          that doesn’t takes the start’s course wind, as a course from the library
+          does. The course is the start’s own: the picker shows it as{' '}
+          <em>(imported)</em>, there is no library course to recompute it from, and
+          its legs stay editable like any others. Leg names appear in a{' '}
+          <em>Leg</em> column and on the published leg record, and a current the
+          course carries is listed under the legs, because it is scored. A course
+          that says where its first leg starts is drawn on the club’s chart from
+          that point, captioned as the one recorded position on it; without one it
+          is drawn from the legs alone.
+        </p>
+        <p>
+          The format is open, for anyone building such an app: see{' '}
+          <a
+            href="https://github.com/sailscoring/sailscoring/blob/main/docs/design/orc/constructed-course-format.md"
+            className="underline"
+          >
+            the ORC constructed course format
+          </a>
+          . Its fields are the ones ORC’s own scoring software uses for a course’s
+          legs.
+        </p>
+      </Section>
+      )}
       <Section id="fixed-tcf" title="A club handicap fixed for the series">
         <HelpShot
           src="/help/shots/fixed-tcf.webp"
