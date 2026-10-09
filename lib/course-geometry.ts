@@ -30,6 +30,7 @@ import {
 } from '@sailscoring/course-cards';
 
 import type { BearingRef } from './bearings';
+import { chartSetCovering } from './course-cards';
 import { courseRoutingFor } from './course-cards/routing';
 import type {
   OrcCourseLeg,
@@ -551,19 +552,24 @@ function sameEnds(a: RaceStartCourseWaypoint['ends'], b: RaceStartCourseWaypoint
  * has no positions, and inventing some to keep would be a fiction the
  * published page would go on repeating.
  *
+ * Given an `anchor` — where the first leg starts, the one position an
+ * imported course may carry — the walk starts there instead, and the
+ * drawing is on the water. The points after it are still only where the
+ * legs lead, and are not stored either.
+ *
  * `closureNm` is how far the last leg ends from where the first began. A
  * table rounded to a tenth of a mile does not close exactly, so this is a
  * figure to read rather than an error to flag — but a course with a leg
  * missing or a digit dropped will not close by anything like a rounding.
  */
-export function drawnLegTable(legs: readonly SeriesCourseLeg[]): {
+export function drawnLegTable(legs: readonly SeriesCourseLeg[], anchor?: Position): {
   marks: DrawnMark[];
   course: DrawnCourseMark[];
   closureNm: number;
 } {
   // Mid-latitude so the projection behaves; which point is immaterial, and
   // the drawing shows no coordinates.
-  let at: Position = { lat: 53.5, lng: -6.1 };
+  let at: Position = anchor ? { lat: anchor.lat, lng: anchor.lng } : { lat: 53.5, lng: -6.1 };
   const marks: DrawnMark[] = [{ id: 'p0', label: 'Start', position: at }];
   for (const [i, leg] of legs.entries()) {
     at = destination(at, leg.bearingDeg, leg.distanceNm * METRES_PER_NM);
@@ -610,24 +616,50 @@ export function drawnCourse(marks: SeriesCourseMark[]): RoutableCourseMark[] {
  *  laid mark stands for one — the name a routing overlay knows it by. */
 export type RoutableCourseMark = DrawnCourseMark & { cardMarkId?: string };
 
-/**
- * A start's snapshot drawn, whichever kind of course it came from: the
- * waypoints where it has any, and otherwise the leg table walked from an
- * arbitrary origin. `fromLegs` says which, because a drawing with no
- * position on the water has to be captioned as one — it is not the same
- * artefact as a course drawn from surveyed marks, and on a published page
- * the two would be indistinguishable. `set` is the data set whose chart the
- * course sits on, where its marks came from one.
- */
-export function drawnStartCourse(snapshot: RaceStartCourse): {
+/** The positions a start's course is known by: its waypoints, or on a
+ *  course defined by legs, the anchor its first leg starts from. What its
+ *  magnetic variation is read at; empty where there are none. */
+export function startCoursePositions(course: RaceStartCourse | undefined): Position[] {
+  if (!course) return [];
+  if (course.waypoints.length > 0) return course.waypoints.map((w) => ({ lat: w.lat, lng: w.lng }));
+  return course.anchor ? [course.anchor] : [];
+}
+
+/** What a start's drawing is, and where it sits. */
+export interface DrawnStartCourse {
   marks: DrawnMark[];
   course: RoutableCourseMark[];
+  /** Drawn by walking legs rather than from recorded positions. */
   fromLegs: boolean;
+  /** Walked from a recorded anchor, so on the water: every point after
+   *  the first is still only where the legs lead. */
+  anchored?: boolean;
+  /** The data set whose chart the course sits on. */
   set?: string;
-} {
+}
+
+/** Legs drawn as a table, from the anchor where there is one, on the chart
+ *  that covers where they lead. */
+function drawnLegs(legs: readonly SeriesCourseLeg[], anchor: Position | undefined, preferredSet?: string): DrawnStartCourse {
+  const { marks, course } = drawnLegTable(legs, anchor);
+  if (!anchor) return { marks, course, fromLegs: true };
+  const set = chartSetCovering(marks.map((m) => m.position), preferredSet);
+  return { marks, course, fromLegs: true, anchored: true, ...(set ? { set } : {}) };
+}
+
+/**
+ * A start's snapshot drawn, whichever kind of course it came from: the
+ * waypoints where it has any, and otherwise the leg table walked from its
+ * anchor or an arbitrary origin. `fromLegs` says which, because a drawing
+ * built from legs has to be captioned as one — it is not the same artefact
+ * as a course drawn from surveyed marks, and on a published page the two
+ * would be indistinguishable. `set` is the data set whose chart the course
+ * sits on: where its marks came from one, or where an anchored course's
+ * legs lead, preferring `preferredSet` where both cover it.
+ */
+export function drawnStartCourse(snapshot: RaceStartCourse, preferredSet?: string): DrawnStartCourse {
   if (snapshot.waypoints.length === 0 && (snapshot.legs?.length ?? 0) > 0) {
-    const { marks, course } = drawnLegTable(snapshot.legs!);
-    return { marks, course, fromLegs: true };
+    return drawnLegs(snapshot.legs!, snapshot.anchor, preferredSet);
   }
   const set = drawingSet(snapshot.waypoints);
   return { ...drawnSnapshot(snapshot), fromLegs: false, ...(set ? { set } : {}) };
@@ -645,12 +677,14 @@ export function drawnStartCourse(snapshot: RaceStartCourse): {
 export function drawnRaceStartCourse(
   snapshot: RaceStartCourse | undefined,
   courseLegs: readonly SeriesCourseLeg[] | undefined,
-): ReturnType<typeof drawnStartCourse> | null {
+  preferredSet?: string,
+): DrawnStartCourse | null {
   if (courseLegs && courseLegs.length > 0 && (!snapshot || snapshot.legsEdited)) {
-    const { marks, course } = drawnLegTable(courseLegs);
-    return { marks, course, fromLegs: true };
+    // An anchor is where the first leg starts whatever was done to the legs
+    // after, so edited legs are still walked from it.
+    return drawnLegs(courseLegs, snapshot?.anchor, preferredSet);
   }
-  return snapshot ? drawnStartCourse(snapshot) : null;
+  return snapshot ? drawnStartCourse(snapshot, preferredSet) : null;
 }
 
 /**

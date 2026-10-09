@@ -25,7 +25,8 @@ import { routedDrawing } from '@/lib/course-geometry';
  * is drawn through the passage, lettered as the legs it is scored as. A
  * caller showing legs already scored passes how many as `scoredLegs`, and a
  * drawing that would route them into a different number — a start scored
- * before the overlay — is drawn straight, as it was scored.
+ * before the overlay — is drawn straight, as it was scored. Legs drawn from
+ * a leg table are what they are, and pass `route={false}`.
  */
 export function CourseDrawing({
   marks,
@@ -37,6 +38,7 @@ export function CourseDrawing({
   set,
   variation,
   scoredLegs,
+  route = true,
 }: {
   marks: DrawnMark[];
   course?: DrawnCourseMark[];
@@ -47,6 +49,7 @@ export function CourseDrawing({
   set?: string;
   variation?: Variation;
   scoredLegs?: number;
+  route?: boolean;
 }) {
   // Held with the set it belongs to, so switching sets draws on plain ground
   // until the new chart is in rather than briefly on the old club's water.
@@ -64,7 +67,7 @@ export function CourseDrawing({
   const background = set && loaded?.set === set ? loaded.chart : undefined;
 
   const svg = useMemo(() => {
-    const routed = routedDrawing(marks, course ?? [], set, highlight);
+    const routed = routedDrawing(marks, course ?? [], route ? set : undefined, highlight);
     const drawn = scoredLegs == null || routed.legCount === scoredLegs
       ? routed
       : { marks, course: course ?? [], highlight, routing: undefined };
@@ -76,7 +79,7 @@ export function CourseDrawing({
       ...(variation ? { magneticVariationDeg: variation.deg } : {}),
       ...(drawn.routing ? { routing: drawn.routing } : {}),
     });
-  }, [marks, course, highlight, width, title, background, variation, set, scoredLegs]);
+  }, [marks, course, highlight, width, title, background, variation, set, scoredLegs, route]);
   if (!svg) {
     return (
       <div

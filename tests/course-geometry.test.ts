@@ -40,9 +40,11 @@ import {
   sequenceMatchesCard,
   shortDayLabel,
   snapshotOfCourse,
+  startCoursePositions,
   unplacedEntries,
   windForCardCourse,
 } from '@/lib/course-geometry';
+import { chartSetCovering } from '@/lib/course-cards';
 import { courseRoutingFor } from '@/lib/course-cards/routing';
 import type { SeriesCourse, SeriesMark } from '@/lib/types';
 
@@ -820,5 +822,75 @@ describe('a card course’s line', () => {
     const notLine = bmCard.courses[0].marks.find((m) => m.mark !== lineId && m.mark !== finishId)!.mark;
     expect(isCardLine(bmCard, notLine)).toBe(false);
     expect(isCardLine(bmCard, lineId)).toBe(true);
+  });
+});
+
+describe('a leg table placed on the water by its anchor', () => {
+  // Off Ireland's Eye, inside the chart HYC's Autumn League sets captured.
+  const anchor = { lat: 53.40125, lng: -6.08413 };
+  const legs = [
+    { distanceNm: 0.67, bearingDeg: 280 },
+    { distanceNm: 0.78, bearingDeg: 143 },
+    { distanceNm: 0.73, bearingDeg: 46 },
+  ];
+  const imported = { name: 'Autumn League, Race 3', waypoints: [], legs, anchor };
+
+  it('walks the legs from the anchor, and from an arbitrary origin without one', () => {
+    const placed = drawnLegTable(legs, anchor);
+    expect(placed.marks[0].position).toEqual(anchor);
+    const first = destination(anchor, 280, 0.67 * 1852);
+    expect(placed.marks[1].position.lat).toBeCloseTo(first.lat, 9);
+    expect(placed.marks[1].position.lng).toBeCloseTo(first.lng, 9);
+    // The shape is the same either way; only where it sits differs.
+    expect(placed.closureNm).toBeCloseTo(drawnLegTable(legs).closureNm, 3);
+    expect(drawnLegTable(legs).marks[0].position).not.toEqual(anchor);
+  });
+
+  it('draws on the chart that covers it, and says it is anchored', () => {
+    const drawn = drawnStartCourse(imported);
+    expect(drawn).toMatchObject({ fromLegs: true, anchored: true });
+    expect(drawn.set).toMatch(/^hyc\//);
+    // The series' own set wins a tie, so a club's own chart is the one used.
+    expect(drawnStartCourse(imported, 'hyc/al-2025').set).toBe('hyc/al-2025');
+    // Without an anchor there is nowhere on the water to put it.
+    const unplaced = drawnStartCourse({ ...imported, anchor: undefined });
+    expect(unplaced.anchored).toBeUndefined();
+    expect(unplaced.set).toBeUndefined();
+  });
+
+  it('walks edited legs from the anchor too', () => {
+    const edited = drawnRaceStartCourse({ ...imported, legsEdited: true }, [...legs, { distanceNm: 0.2, bearingDeg: 300 }])!;
+    expect(edited).toMatchObject({ fromLegs: true, anchored: true });
+    expect(edited.marks).toHaveLength(5);
+    expect(edited.marks[0].position).toEqual(anchor);
+  });
+
+  it('is where the variation is read: the anchor, or the waypoints of a mark course', () => {
+    expect(startCoursePositions(imported)).toEqual([anchor]);
+    expect(startCoursePositions({ ...imported, anchor: undefined })).toEqual([]);
+    expect(startCoursePositions(undefined)).toEqual([]);
+    expect(startCoursePositions({ name: 'W/L', waypoints: [{ label: 'Start', lat: 53.4, lng: -6.07 }] })).toEqual([
+      { lat: 53.4, lng: -6.07 },
+    ]);
+  });
+});
+
+describe('the chart under a course with no charted marks', () => {
+  it('is a set whose chart holds the first point', () => {
+    // Cork Harbour, Dublin Bay, and the open Irish Sea.
+    expect(chartSetCovering([{ lat: 51.81, lng: -8.27 }])).toBe('rcyc/keelboat-2026');
+    expect(chartSetCovering([{ lat: 53.31, lng: -6.12 }])).toMatch(/^(dbsc|dlcc)\//);
+    expect(chartSetCovering([{ lat: 53.0, lng: -5.0 }])).toBeUndefined();
+    expect(chartSetCovering([])).toBeUndefined();
+  });
+
+  it('prefers the chart that holds more of the course, then the closer-in one', () => {
+    // Inside both Howth charts: the Brass Monkey chart is the closer in.
+    const inner = { lat: 53.41, lng: -6.08 };
+    expect(chartSetCovering([inner])).toBe('hyc/brass-monkey-2025');
+    // A course running out past the Brass Monkey chart's edge belongs on
+    // the Autumn League's, which holds all of it.
+    const outer = { lat: 53.45, lng: -6.03 };
+    expect(chartSetCovering([inner, outer])).toMatch(/^hyc\/al-/);
   });
 });

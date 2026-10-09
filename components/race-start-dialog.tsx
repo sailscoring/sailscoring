@@ -54,6 +54,7 @@ import {
   markLibrarySet,
   resolveCourse,
   snapshotOfCourse,
+  startCoursePositions,
   windForCardCourse,
   type NamingContext,
 } from '@/lib/course-geometry';
@@ -195,7 +196,7 @@ function RaceStartDialogInner({
   const raceDate = race?.date || todayIso();
   const [bearingRef, setBearingRef] = useState<BearingRef>('M');
   const displayAt = (v: Variation | undefined): BearingDisplay => (v ? { ref: bearingRef, variation: v } : { ref: 'T' });
-  const [seedDisplay] = useState(() => displayAt(courseVariation(seed?.course?.waypoints ?? [], venuePosition, raceDate)));
+  const [seedDisplay] = useState(() => displayAt(courseVariation(startCoursePositions(seed?.course), venuePosition, raceDate)));
   const [legRows, setLegRows] = useState<LegTableRow[]>(() =>
     (seed?.courseLegs ?? []).map((leg) => {
       const b = figureField(leg.bearingDeg, seedDisplay);
@@ -221,6 +222,9 @@ function RaceStartDialogInner({
   const { data: seriesStarts } = useRaceStartsBySeries(seriesId, { enabled: offerCourse });
   const { data: seriesRaces } = useRacesBySeries(seriesId);
   const marksById = useMemo(() => new Map((libraryMarks ?? []).map((m) => [m.id, m])), [libraryMarks]);
+  // The data set the series' own marks came from: the chart a course drawn
+  // over them sits on, and the one preferred under an anchored leg table.
+  const librarySet = useMemo(() => markLibrarySet(libraryMarks ?? []), [libraryMarks]);
   // Most recently used first: with five starts to get through, the second
   // is two clicks and the third is one.
   const orderedCourses = useMemo(() => {
@@ -264,10 +268,16 @@ function RaceStartDialogInner({
     snapshot != null && snapshot === seed?.course && !legsEdited && !snapshot.legs &&
     (seed.courseLegs?.length ?? 0) > 0 && legsOfWaypoints(snapshot.waypoints).length !== seed.courseLegs!.length;
   const outOfDate = snapshot ? rerouted || courseOutOfDate(snapshot, libraryCourse, marksById) : false;
+  // Where the course is: its marks, or the anchor of an imported one.
   const snapshotWaypoints = snapshot?.waypoints;
+  const snapshotAnchor = snapshot?.anchor;
   const variation = useMemo(
-    () => courseVariation(snapshotWaypoints ?? [], venuePosition, raceDate),
-    [snapshotWaypoints, venuePosition, raceDate],
+    () => courseVariation(
+      startCoursePositions(snapshotWaypoints && { name: '', waypoints: snapshotWaypoints, anchor: snapshotAnchor }),
+      venuePosition,
+      raceDate,
+    ),
+    [snapshotWaypoints, snapshotAnchor, venuePosition, raceDate],
   );
   const display = useMemo<BearingDisplay>(
     () => (variation ? { ref: bearingRef, variation } : { ref: 'T' }),
@@ -294,7 +304,7 @@ function RaceStartDialogInner({
     setSnapshot(next);
     // The new course may sit somewhere else, so the figures are shown at its
     // variation, not the last one's.
-    const at = displayAt(courseVariation(next.waypoints, venuePosition, raceDate));
+    const at = displayAt(courseVariation(startCoursePositions(next), venuePosition, raceDate));
     const w = wind != null ? figureField(wind, at) : undefined;
     setWindInput(w?.text ?? '');
     setWindKept(w?.kept);
@@ -408,14 +418,14 @@ function RaceStartDialogInner({
       legs.map((l) => ({ ...l, distanceNm: legDistance(l.distanceNm) })),
       legsForStart(snapshot.legs ?? legsOfWaypoints(snapshot.waypoints), windDeg ?? 0, windKt),
     );
-    const drawn = drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs);
+    const drawn = drawnRaceStartCourse(snapshot && { ...snapshot, legsEdited: edited || undefined }, legs, librarySet);
     return drawn && { ...drawn, scoredLegs: legs.length };
-  }, [snapshot, legRows, legsEdited, windDeg, windKt, display]);
+  }, [snapshot, legRows, legsEdited, windDeg, windKt, display, librarySet]);
   // The chart the course sits on. A snapshot taken before waypoints carried
   // their data set names none, so the series' own library answers for it —
-  // the same fallback the published page makes. A drawing of legs has no
-  // position on the water, so no chart.
-  const drawingSetPath = drawing?.fromLegs ? undefined : drawing?.set ?? markLibrarySet(libraryMarks ?? []);
+  // the same fallback the published page makes. A drawing of legs is on the
+  // water only where an anchor puts it there.
+  const drawingSetPath = drawing?.fromLegs ? drawing.set : drawing?.set ?? librarySet;
 
   // A gentle nudge when the chosen option needs course data the start lacks;
   // saving is still allowed — the race falls back to scratch until the
@@ -726,13 +736,20 @@ function RaceStartDialogInner({
                     marks={drawing.marks}
                     course={drawing.course}
                     set={drawingSetPath}
+                    route={!drawing.fromLegs}
                     scoredLegs={drawing.scoredLegs}
                     variation={display.ref === 'M' ? display.variation : undefined}
                     width={440}
                     title="Course drawing"
                   />
-                  {drawing.fromLegs && (
-                    <p className="text-xs text-muted-foreground">
+                  {drawing.anchored ? (
+                    <p className="text-xs text-muted-foreground" data-testid="course-drawing-caption">
+                      Drawn from the legs, from where the first leg starts —
+                      the only recorded position; the rest is where the
+                      bearings and distances lead.
+                    </p>
+                  ) : drawing.fromLegs && (
+                    <p className="text-xs text-muted-foreground" data-testid="course-drawing-caption">
                       Drawn from the legs — the shape and the direction
                       are the committee&apos;s; there are no positions behind it.
                     </p>

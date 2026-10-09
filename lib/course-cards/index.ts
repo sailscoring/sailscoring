@@ -15,6 +15,7 @@ import {
   type CourseBackground,
   type CourseCardFile,
   type MarksFile,
+  type Position,
 } from '@sailscoring/course-cards';
 
 import { COURSE_CARDS_RELEASE, COURSE_CARD_CATALOGUE } from './generated/catalogue';
@@ -69,6 +70,38 @@ export function courseBackgroundOf(
  *  covers, and a course over that set's marks draws on plain ground. */
 export function courseChartOf(set: CatalogueSet | undefined): { file: string; placement: NonNullable<NonNullable<CatalogueSet['map']>['placement']> } | undefined {
   return set?.map?.placement ? { file: set.map.background, placement: set.map.placement } : undefined;
+}
+
+/**
+ * The data set whose chart a course with no charted marks belongs on: one
+ * whose captured ground contains the first point (where the course is
+ * placed from), and of those the one that holds the most of the rest. A
+ * tie goes to `preferred` — the set the series' own marks came from —
+ * then to the closer-in chart, then to the later set (a newer season of
+ * the same water). Undefined where no set captured the water at all.
+ */
+export function chartSetCovering(points: readonly Position[], preferred?: string): string | undefined {
+  if (points.length === 0) return undefined;
+  type Bounds = NonNullable<ReturnType<typeof courseChartOf>>['placement']['bounds'];
+  const inside = (b: Bounds, p: Position) => p.lat >= b.south && p.lat <= b.north && p.lng >= b.west && p.lng <= b.east;
+  const candidates = COURSE_CARD_CATALOGUE.sets.flatMap((set, index) => {
+    const chart = courseChartOf(set);
+    if (!chart || !inside(chart.placement.bounds, points[0])) return [];
+    const b = chart.placement.bounds;
+    return [{
+      path: set.path,
+      covered: points.filter((p) => inside(b, p)).length,
+      area: (b.north - b.south) * (b.east - b.west),
+      index,
+    }];
+  });
+  candidates.sort((a, b) =>
+    b.covered - a.covered ||
+    Number(b.path === preferred) - Number(a.path === preferred) ||
+    a.area - b.area ||
+    b.index - a.index,
+  );
+  return candidates[0]?.path;
 }
 
 const marksCache = new Map<string, Promise<MarksFile>>();

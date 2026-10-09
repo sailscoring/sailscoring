@@ -214,6 +214,37 @@ describe('published ORC transparency', () => {
     expect(html).toContain('the course&rsquo;s position on the water is not recorded');
   });
 
+  it('an imported course placed by its anchor is drawn on the chart it sits in, captioned as such', () => {
+    // Off Ireland's Eye, with a beat long enough to run out past the
+    // Brass Monkey chart onto the Autumn League's.
+    const legs: OrcCourseLeg[] = [
+      { distanceNm: 3, bearingDeg: 30, windDirectionDeg: 30, name: 'Start – Windward' },
+      { distanceNm: 3, bearingDeg: 210, windDirectionDeg: 30, name: 'Windward – Finish' },
+    ];
+    const html = renderSeriesHtml(
+      assemble({
+        orc: (id) => ({ todApplied: id === 'c1' ? 600 : 620, scratchTod: 600, distanceNm: 6, courseModel: 'CC' }),
+        courseBackgrounds: new Map([['hyc/al-2026', hycChart]]),
+        raceStarts: [{
+          raceId: 'r1',
+          fleetIds: ['f1'],
+          startTime: '14:00:00',
+          courseLegs: legs,
+          course: {
+            name: 'Autumn League, Race 3',
+            waypoints: [],
+            legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
+            anchor: { lat: 53.41, lng: -6.08 },
+            windDirectionDeg: 30,
+          },
+        }],
+      }),
+    );
+    expect(html).toContain('href="#course-chart-');
+    expect(html).toContain('from where the first leg starts');
+    expect(html).not.toContain('position on the water is not recorded');
+  });
+
   it('a constructed course picked from the library is drawn on the page, inertly', () => {
     const calc = (id: string): OrcRaceCalc => ({
       todApplied: id === 'c1' ? 600 : 620,

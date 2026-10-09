@@ -4,7 +4,7 @@ import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
 import { courseVariation, describeVariation, formatBearing, type Variation } from './bearings';
-import { drawnRaceStartCourse, routedDrawing } from './course-geometry';
+import { drawnRaceStartCourse, routedDrawing, startCoursePositions } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
 import { elapsedSecondsOf, timingPrecisionOf, type TimedFinish } from './elapsed-time';
@@ -257,6 +257,10 @@ export interface OrcHeaderData {
    *  the water is not recorded. Captioned, because a located drawing and an
    *  unlocated one are otherwise indistinguishable on a page. */
   courseSvgFromLegs?: boolean;
+  /** …walked from where the first leg starts, the one position the course
+   *  recorded: on the water, but every point after the first is only where
+   *  the legs lead. Captioned as such. */
+  courseSvgAnchored?: boolean;
   /** Which cells of the certificate's allowance matrix this race's rating
    *  was mixed from, and whose certificate the mix was read off. Present
    *  only for the models the mix is defined over (see lib/orc-mix.ts). */
@@ -2453,9 +2457,11 @@ function renderRaceTable(
         // line above it, and unfolded it pushes the results table off a
         // phone. A closed <details> doesn't print, which matches how the
         // NHC and ECHO calculation toggles already behave.
-        const drawnNote = h.courseSvgFromLegs
-          ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.</p>'
-          : '';
+        const drawnNote = h.courseSvgAnchored
+          ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above, from where the first leg starts &mdash; the only recorded position on the course; every other point is where the race committee&rsquo;s bearings and distances lead.</p>'
+          : h.courseSvgFromLegs
+            ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.</p>'
+            : '';
         const drawing = h.courseSvg
           ? `\n<details class="orc-course"><summary>Show course</summary><div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>${drawnNote}</details>`
           : '';
@@ -3198,7 +3204,7 @@ export function assembleSeriesResultsData(
           ...(firstOrc.courseModel ? { courseModel: firstOrc.courseModel } : {}),
           ...(firstOrc.courseModel === 'CC' && coveringStart?.courseLegs?.length
             ? (() => {
-                const v = courseVariation(coveringStart.course?.waypoints ?? [], series.venuePosition, race.date);
+                const v = courseVariation(startCoursePositions(coveringStart.course), series.venuePosition, race.date);
                 return { legs: coveringStart.courseLegs, ...(v ? { legsVariation: v } : {}) };
               })()
             : {}),
@@ -3208,20 +3214,21 @@ export function assembleSeriesResultsData(
                 // are still theirs, and otherwise the legs themselves — a
                 // leg table has no marks, but its bearings and distances fix
                 // the shape and the direction exactly.
-                const drawn = drawnRaceStartCourse(coveringStart?.course, coveringStart?.courseLegs);
+                const drawn = drawnRaceStartCourse(coveringStart?.course, coveringStart?.courseLegs, options?.courseBackgroundSet);
                 if (!drawn) return {};
                 // The club's chart under the course, where the marks came
-                // off a data set that captured one. Embedded by the renderer,
-                // never linked: a published page fetches nothing. A drawing
-                // with no position on the water has no chart to sit on.
-                const set = drawn.fromLegs ? undefined : drawn.set ?? options?.courseBackgroundSet;
+                // off a data set that captured one, or where an anchored
+                // leg table leads. Embedded by the renderer, never linked: a
+                // published page fetches nothing. A drawing with no position
+                // on the water has no chart to sit on.
+                const set = drawn.fromLegs ? drawn.set : drawn.set ?? options?.courseBackgroundSet;
                 const chart = set ? options?.courseBackgrounds?.get(set) : undefined;
                 // Referred to by id rather than embedded in the drawing:
                 // every race on the page is drawn on the same chart.
                 const chartId = set && chart ? `course-chart-${gridToken(set)}` : undefined;
                 // Its legs labelled in magnetic, at the variation the leg
                 // table above it uses.
-                const v = courseVariation(coveringStart?.course?.waypoints ?? [], series.venuePosition, race.date);
+                const v = courseVariation(startCoursePositions(coveringStart?.course), series.venuePosition, race.date);
                 // Through the set's routing overlay, as the course was scored
                 // — unless the start was scored before the overlay, when its
                 // legs are the straight ones and the drawing keeps to them.
@@ -3242,6 +3249,7 @@ export function assembleSeriesResultsData(
                       courseSvg: svg,
                       ...(usesChart ? { courseChart: { id: chartId, background: chart } } : {}),
                       ...(drawn.fromLegs ? { courseSvgFromLegs: true } : {}),
+                      ...(drawn.anchored ? { courseSvgAnchored: true } : {}),
                     }
                   : {};
               })()

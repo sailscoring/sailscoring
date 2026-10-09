@@ -126,6 +126,33 @@ describe('buildFleetHtmlFiles — the charts its courses are drawn on', () => {
     expect(asked).toEqual(['hyc/al-2026']);
   });
 
+  it('asks for the chart an imported course is placed on by its anchor', async () => {
+    // No charted marks at all: the legs lead from the anchor off Ireland's
+    // Eye out past the Brass Monkey chart, onto the Autumn League's.
+    const asked: string[] = [];
+    const legs = [
+      { distanceNm: 3, bearingDeg: 30, windDirectionDeg: 30 },
+      { distanceNm: 3, bearingDeg: 210, windDirectionDeg: 30 },
+    ];
+    const imported: RaceStart = {
+      ...START,
+      courseLegs: legs,
+      course: {
+        name: 'Imported course',
+        waypoints: [],
+        legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
+        anchor: { lat: 53.41, lng: -6.08 },
+      },
+    };
+    await buildFleetHtmlFiles(makeRepos([imported]), 's1', undefined, {
+      loadCourseBackground: async (set) => {
+        asked.push(set);
+        return undefined;
+      },
+    });
+    expect(asked).toEqual(['hyc/al-2026']);
+  });
+
   it('builds the pages with no loader at all', async () => {
     const build = await buildFleetHtmlFiles(makeRepos([START]), 's1');
     expect(build?.files.length).toBeGreaterThan(0);
