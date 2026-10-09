@@ -291,7 +291,9 @@ unscored in that race only; series-level ratability follows the default.
   generating legs from a course number plus start/windward/finish
   positions — the `markmate` prototype's model) and a course visualization
   on published pages. Record the richest form available; always derive the
-  leg array from it.
+  leg array from it. Apps that build courses outside Sail Scoring hand
+  them over as an [ORC constructed course](constructed-course-format.md)
+  document.
 
 ### Gating
 
