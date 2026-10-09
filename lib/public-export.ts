@@ -435,7 +435,8 @@ export interface PublicSeriesExport {
       orcScoringWind?: number;
       /** Constructed-course legs (ORC 402.5) — the course record competitors
        *  check their tracks against, so it belongs in public results.
-       *  Bearings and wind directions are degrees true. */
+       *  Bearings and wind directions are degrees true. A leg carries the
+       *  race committee's `name` for it where the course arrived with one. */
       courseLegs?: import('./types').OrcCourseLeg[];
       /** Where those legs came from: the course as it was when the start
        *  picked it — its name, the resolved waypoints with positions, the
@@ -477,6 +478,9 @@ export interface PublicSeriesExport {
          *  which has no waypoints to snapshot. Bearings are degrees true,
          *  as is every bearing and wind direction in this file. */
         legs?: { distanceNm: number; bearingDeg: number }[];
+        /** Where the first leg starts, on a course defined by legs that
+         *  arrived with one: its only recorded position. */
+        anchor?: { lat: number; lng: number };
         /** Degrees true. */
         windDirectionDeg?: number;
         windSpeedKts?: number;
@@ -935,6 +939,7 @@ function exportStartCourse(
       };
     }),
     ...(course.legs?.length ? { legs: course.legs } : {}),
+    ...(course.anchor ? { anchor: { lat: course.anchor.lat, lng: course.anchor.lng } } : {}),
     ...(course.windDirectionDeg != null ? { windDirectionDeg: course.windDirectionDeg } : {}),
     ...(course.windSpeedKts != null ? { windSpeedKts: course.windSpeedKts } : {}),
     ...(course.legsEdited ? { legsEdited: true } : {}),
@@ -2039,6 +2044,7 @@ export async function importPublicExport(
         };
       }),
       ...(c.legs?.length ? { legs: c.legs } : {}),
+      ...(c.anchor ? { anchor: { lat: c.anchor.lat, lng: c.anchor.lng } } : {}),
       ...(c.windDirectionDeg != null ? { windDirectionDeg: c.windDirectionDeg } : {}),
       ...(c.windSpeedKts != null ? { windSpeedKts: c.windSpeedKts } : {}),
       ...(c.legsEdited ? { legsEdited: true } : {}),

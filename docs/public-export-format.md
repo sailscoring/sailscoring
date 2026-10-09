@@ -63,7 +63,10 @@ results, and beyond that nothing that is not in the published HTML**:
   marks and on the waypoints), which is what the set's routing overlay
   knows it by. A start or finish line recorded as its two ends names its
   port end (`portEnd`) beside the starboard end's `mark` on a course, and a
-  waypoint at its midpoint carries both `ends`, starboard first. Course facts are what
+  waypoint at its midpoint carries both `ends`, starboard first. A course
+  imported as an ORC constructed course carries the race committee's label
+  for each leg (`courseLegs[*].name`) and, where it came with one, the
+  position the first leg starts from (`course.anchor`). Course facts are what
   competitors check their tracks against.
 - Unresolved finish entries (a crossing recorded but matched to no
   competitor) are the scorer's work in progress and are not exported.

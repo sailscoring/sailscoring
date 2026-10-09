@@ -669,7 +669,11 @@ export interface OrcCourseLeg {
   /** True wind speed on the leg (kt), for the recorded-wind options. */
   windSpeedKts?: number;
   currentSpeedKts?: number;
+  /** Where the current flows to (its set), as ORC's module reads it. */
   currentDirectionDeg?: number;
+  /** The leg as the race committee labels it ("Start – 1"), where the
+   *  course arrived with one. Printed with the leg; never scored. */
+  name?: string;
 }
 
 /**
@@ -824,6 +828,12 @@ export interface RaceStartCourse {
    *  how `legsEdited` is worked out and how a course that has moved in the
    *  library since is told apart from one the scorer changed by hand. */
   legs?: SeriesCourseLeg[];
+  /** Where the first leg starts, on a course defined by legs that arrived
+   *  with one (an imported ORC constructed course). The only recorded
+   *  position on such a course: every other point follows from the legs,
+   *  so it places the drawing on a chart and the variation, and nothing
+   *  else is stored. */
+  anchor?: { lat: number; lng: number };
   windDirectionDeg?: number;  // true, like every stored direction
   /** The wind speed (kt) the scorer gave for the whole course, where the
    *  option scores at the recorded wind. Held so a recompute puts it back

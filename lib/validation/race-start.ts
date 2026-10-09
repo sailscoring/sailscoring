@@ -37,6 +37,9 @@ export const raceStartSchema = z.object({
         windSpeedKts: z.number().positive().max(99).optional(),
         currentSpeedKts: z.number().min(0).max(20).optional(),
         currentDirectionDeg: z.number().min(0).max(360).optional(),
+        // The race committee's label for the leg, where the course came
+        // with one ("Start – 1").
+        name: z.string().trim().min(1).max(80).optional(),
       }),
     )
     .max(60)

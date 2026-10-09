@@ -449,3 +449,45 @@ describe('a line with two ends round-trips', () => {
     expect(savedStarts[0].course!.waypoints[3].ends?.map((e) => e.markId)).toEqual([idByName.get('Start — 12 Sep'), idByName.get('Pin — 12 Sep')]);
   });
 });
+
+describe('an imported constructed course round-trips', () => {
+  // No library course behind it: the legs as the document named them, and
+  // the position the first leg starts from.
+  const anchor = { lat: 53.40125, lng: -6.08413 };
+  const legs = [
+    { distanceNm: 0.67, bearingDeg: 279.7, windDirectionDeg: 277.7, windSpeedKts: 11.5, name: 'Start – Windward' },
+    { distanceNm: 0.78, bearingDeg: 141.7, windDirectionDeg: 277.7, windSpeedKts: 11.5, name: 'Windward – Gybe', currentSpeedKts: 0.5, currentDirectionDeg: 90 },
+  ];
+  const imported: RaceStart = {
+    id: 'st-imp', raceId: 'r1', fleetIds: ['fl-1'], startTime: '14:00:00', orcOption: 'CC_TOT',
+    courseLegs: legs,
+    course: {
+      name: 'Autumn League, Race 3, Class 1',
+      waypoints: [],
+      legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
+      anchor,
+      windDirectionDeg: 277.7,
+      windSpeedKts: 11.5,
+    },
+  };
+  const snap: SeriesSnapshot = { ...snapshot, marks: [], courses: [], raceStarts: [imported] };
+
+  it('through the series file', async () => {
+    const built = await buildSeriesFile('s1', makeRecordingRepos(snap).repos);
+    const { repos, savedStarts } = makeRecordingRepos();
+    await openSeriesFromFile(parseSeriesFile(JSON.stringify(built)), repos);
+    expect(savedStarts[0].courseLegs).toEqual(legs);
+    expect(savedStarts[0].course?.anchor).toEqual(anchor);
+    expect(savedStarts[0].course?.courseId).toBeUndefined();
+  });
+
+  it('through the public export', async () => {
+    const data = buildPublicExportFromSnapshot(snap)!;
+    expect(data.races[0].starts[0].courseLegs).toEqual(legs);
+    expect(data.races[0].starts[0].course?.anchor).toEqual(anchor);
+    const { repos, savedStarts } = makeRecordingRepos();
+    await importPublicExport(data, repos);
+    expect(savedStarts[0].courseLegs).toEqual(legs);
+    expect(savedStarts[0].course?.anchor).toEqual(anchor);
+  });
+});

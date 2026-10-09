@@ -156,7 +156,11 @@ two ends (v67+) is an entry whose `markId` is the starboard end, usually
 the committee boat, and whose `portEndMarkId` is the port end, the pin. Legs
 to and from it are measured from the midpoint of the two, and the waypoint a
 start snapshots from it sits at that midpoint with both `ends` kept beside
-it, so the published drawing shows the line.
+it, so the published drawing shows the line. A start whose course was
+imported as an [ORC constructed course](orc/constructed-course-format.md)
+(v68+) keeps the race committee's label for each leg as
+`courseLegs[*].name`, and where the document gave one, the position the
+first leg starts from as `course.anchor`.
 
 ---
 
