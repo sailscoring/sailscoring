@@ -223,4 +223,11 @@ test('a course with nowhere to read the variation at, kept in magnetic', async (
   await expect(page.getByTestId('bearing-ref')).toContainText('Bearings in °M');
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
+
+  // Published as given: magnetic, with no true figure beside it, and the
+  // drawing magnetic north up.
+  const html = await finishAndPublish(page);
+  expect(html).toContain('Start – Windward 0.67 NM @ 282°M, wind 280°M at 11.5 kt');
+  expect(html).toContain('there was no position to read the variation at');
+  expect(html).toContain('Magnetic north is up.');
 });

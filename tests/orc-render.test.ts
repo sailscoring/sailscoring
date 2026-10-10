@@ -669,6 +669,37 @@ describe('published transparency for a recorded-wind race', () => {
     expect(html).toContain(`Magnetic at variation ${formatVariation(v)} (World Magnetic Model, 12 Sep 2026).`);
   });
 
+  it('prints a course kept in magnetic as it was given, even where the venue gives a variation', () => {
+    const cork = { lat: 51.8, lng: -8.3 };
+    const html = renderSeriesHtml(assemble({
+      orc: totCalc,
+      venuePosition: cork,
+      raceStarts: [{
+        raceId: 'r1',
+        fleetIds: ['f1'],
+        startTime: '14:00:00',
+        courseLegs: legs,
+        course: {
+          name: 'Thursday, Race 2',
+          waypoints: [],
+          legs: legs.map((l) => ({ distanceNm: l.distanceNm, bearingDeg: l.bearingDeg })),
+          north: 'magnetic',
+          windDirectionDeg: 225,
+          windSpeedKts: 9,
+        },
+      }],
+    }));
+    expect(html).toContain('2.09 NM @ 162°M, wind 225°M at 9 kt');
+    expect(html).toContain('0.19 NM @ 316°M, wind 225°M at 9 kt');
+    expect(html).toContain('Magnetic, as the course was recorded; there was no position to read the variation at.');
+    expect(html).not.toContain('Magnetic at variation');
+    // Drawn as the figures are, so magnetic north is up, and labelled so.
+    expect(html).toContain('the course&rsquo;s position on the water is not recorded. Magnetic north is up.');
+    const svg = html.slice(html.indexOf('<svg xmlns'), html.indexOf('</svg>'));
+    expect(svg).toContain('162°M');
+    expect(svg).not.toContain('°T');
+  });
+
   it('prints a leg under its name, with the current where one was recorded', () => {
     const named: OrcCourseLeg[] = [
       { ...legs[0], name: 'Start – <Windward>' },

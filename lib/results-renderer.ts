@@ -3,7 +3,7 @@ import { buildOrcMix, type OrcMix } from './orc-mix';
 import { orcOptionName } from './orc-certificate';
 import type { PcsAllowances } from './orc-pcs';
 import { renderCourseBackgroundSymbol, renderCourseSvg, type CourseBackground } from '@sailscoring/course-cards';
-import { courseVariation, describeVariation, formatBearing, type Variation } from './bearings';
+import { courseVariation, describeVariation, formatBearing, formatDeg, type Variation } from './bearings';
 import { drawnRaceStartCourse, routedDrawing, startCoursePositions } from './course-geometry';
 import { escapeHtml as esc } from './html';
 import type { NationalFlag } from './nationality/types';
@@ -244,6 +244,10 @@ export interface OrcHeaderData {
    *  where the course is (its marks, else the venue) on the race's day.
    *  Absent where neither is known, and the legs print in true. */
   legsVariation?: Variation;
+  /** The legs, and the drawing, are in magnetic as the course was imported:
+   *  there was nowhere to read the variation at, so they print in °M with
+   *  no true beside them, and the drawing has magnetic north up. */
+  legsMagnetic?: boolean;
   /** The course drawn: marks at their positions and the legs over them, as
    *  the start recorded it — one inert SVG element, nothing fetched. A
    *  competitor checking their track sees the picture the scorer checked. */
@@ -2448,13 +2452,21 @@ function renderRaceTable(
         // compass, so they print in magnetic with the true figure beside, and
         // the variation that was applied is stated so a reader can check it.
         const v = h.legsVariation;
+        // A course kept in magnetic prints as it was given: there is no
+        // variation to work out a true figure from.
+        const direction = (deg: number) => (h.legsMagnetic ? `${formatDeg(deg)}°M` : formatBearing(deg, v, { both: true }));
+        const directionNote = v
+          ? `Magnetic at ${esc(describeVariation(v))}.`
+          : h.legsMagnetic
+            ? 'Magnetic, as the course was recorded; there was no position to read the variation at.'
+            : '';
         // A leg is printed under the race committee's own label for it,
         // where the course came with one, and with the current where one was
         // recorded, since it is scored.
         const legsLine = h.legs?.length
           ? `\n<p class="orc-course-legs" style="text-align:center; margin: 0 0 6px 0; font-size: 0.85em;">Legs: ${h.legs
-              .map((leg) => `${leg.name ? `${esc(leg.name)} ` : ''}${leg.distanceNm.toFixed(2)} NM @ ${formatBearing(leg.bearingDeg, v, { both: true })}, wind ${formatBearing(leg.windDirectionDeg, v, { both: true })}${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''}${leg.currentSpeedKts != null && leg.currentDirectionDeg != null ? `, current ${leg.currentSpeedKts} kt to ${formatBearing(leg.currentDirectionDeg, v, { both: true })}` : ''}`)
-              .join(' &middot; ')}${v ? `<br><span class="orc-course-variation" style="font-size: 0.9em;">Magnetic at ${esc(describeVariation(v))}.</span>` : ''}</p>`
+              .map((leg) => `${leg.name ? `${esc(leg.name)} ` : ''}${leg.distanceNm.toFixed(2)} NM @ ${direction(leg.bearingDeg)}, wind ${direction(leg.windDirectionDeg)}${leg.windSpeedKts != null ? ` at ${leg.windSpeedKts} kt` : ''}${leg.currentSpeedKts != null && leg.currentDirectionDeg != null ? `, current ${leg.currentSpeedKts} kt to ${direction(leg.currentDirectionDeg)}` : ''}`)
+              .join(' &middot; ')}${directionNote ? `<br><span class="orc-course-variation" style="font-size: 0.9em;">${directionNote}</span>` : ''}</p>`
           : '';
         // Folded away by default: the drawing is an illustration of the legs
         // line above it, and unfolded it pushes the results table off a
@@ -2463,7 +2475,7 @@ function renderRaceTable(
         const drawnNote = h.courseSvgAnchored
           ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above, from where the first leg starts &mdash; the only recorded position on the course; every other point is where the race committee&rsquo;s bearings and distances lead.</p>'
           : h.courseSvgFromLegs
-            ? '<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.</p>'
+            ? `<p class="orc-course-note" style="text-align:center; margin: 0 0 6px 0; font-size: 0.8em;">Drawn from the leg record above &mdash; the bearings and distances are the race committee&rsquo;s; the course&rsquo;s position on the water is not recorded.${h.legsMagnetic ? ' Magnetic north is up.' : ''}</p>`
             : '';
         const drawing = h.courseSvg
           ? `\n<details class="orc-course"><summary>Show course</summary><div class="orc-course-drawing" style="max-width: 480px; margin: 0 auto 8px auto;">${h.courseSvg}</div>${drawnNote}</details>`
@@ -3207,6 +3219,7 @@ export function assembleSeriesResultsData(
           ...(firstOrc.courseModel ? { courseModel: firstOrc.courseModel } : {}),
           ...(firstOrc.courseModel === 'CC' && coveringStart?.courseLegs?.length
             ? (() => {
+                if (coveringStart.course?.north === 'magnetic') return { legs: coveringStart.courseLegs, legsMagnetic: true };
                 const v = courseVariation(startCoursePositions(coveringStart.course), series.venuePosition, race.date);
                 return { legs: coveringStart.courseLegs, ...(v ? { legsVariation: v } : {}) };
               })()
@@ -3230,8 +3243,10 @@ export function assembleSeriesResultsData(
                 // every race on the page is drawn on the same chart.
                 const chartId = set && chart ? `course-chart-${gridToken(set)}` : undefined;
                 // Its legs labelled in magnetic, at the variation the leg
-                // table above it uses.
-                const v = courseVariation(startCoursePositions(coveringStart?.course), series.venuePosition, race.date);
+                // table above it uses — or, on a course kept in magnetic,
+                // drawn as their figures are, with magnetic north up.
+                const magnetic = coveringStart?.course?.north === 'magnetic';
+                const v = magnetic ? undefined : courseVariation(startCoursePositions(coveringStart?.course), series.venuePosition, race.date);
                 // Through the set's routing overlay, as the course was scored
                 // — unless the start was scored before the overlay, when its
                 // legs are the straight ones and the drawing keeps to them.
@@ -3240,7 +3255,7 @@ export function assembleSeriesResultsData(
                 const svg = renderCourseSvg(shown.marks, shown.course, {
                   width: 480,
                   ...('routing' in shown && shown.routing ? { routing: shown.routing } : {}),
-                  ...(v ? { magneticVariationDeg: v.deg } : {}),
+                  ...(v ? { magneticVariationDeg: v.deg } : magnetic ? { magneticVariationDeg: 0 } : {}),
                   title: coveringStart?.course ? `Course ${coveringStart.course.name}` : 'Course',
                   ...(chart && chartId ? { background: chart, backgroundSymbol: chartId } : {}),
                 });
