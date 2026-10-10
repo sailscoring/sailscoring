@@ -120,7 +120,9 @@ export function useAddSplitStageRaces(seriesId: string) {
   });
 }
 
-export function useApplySplitOverride(seriesId: string) {
+/** Place a boat by hand in a round's fleet. A caller that renders a refusal
+ *  itself says so, and the generic lost-write notice stays out of it. */
+export function useApplySplitOverride(seriesId: string, opts?: { errorShownToUser?: boolean }) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: {
@@ -135,6 +137,7 @@ export function useApplySplitOverride(seriesId: string) {
         ...(input.boat !== undefined ? { boat: input.boat } : {}),
       }),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+    ...(opts?.errorShownToUser ? { meta: { errorShownToUser: true } } : {}),
   });
 }
 
@@ -144,6 +147,7 @@ export function useSwapSplitRoundEntries(seriesId: string) {
     mutationFn: (input: { roundId: string; competitorIds: [string, string] }) =>
       swapSplitRoundEntries(seriesId, input.roundId, { competitorIds: input.competitorIds }),
     onSuccess: () => invalidateSplitFleetScope(qc, seriesId),
+    meta: { errorShownToUser: true },
   });
 }
 

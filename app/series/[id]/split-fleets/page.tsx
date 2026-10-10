@@ -37,6 +37,7 @@ import {
   useBoatDraw,
   type BoatColumn,
 } from './boat-draw';
+import { PlaceEntryControls } from './place-entry';
 import {
   buildFleetMeta,
   FleetChip,
@@ -834,6 +835,15 @@ function QualifyingSection({
                 />
               ))}
               <BoatsNotDrawn data={data} round={round} />
+              {canManage && !split && (
+                <PlaceEntryControls
+                  seriesId={seriesId}
+                  data={data}
+                  round={round}
+                  fleetMeta={fleetMeta}
+                  latest={isLatest}
+                />
+              )}
             </div>
             <div className="space-y-1.5">
               {covered.map((lr) => (
