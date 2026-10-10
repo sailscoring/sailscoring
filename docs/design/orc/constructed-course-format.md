@@ -121,6 +121,10 @@ recorded:
 - A reader ignores fields it doesn't know, as ORC's PCS module keeps
   attributes it doesn't know. So adding an optional field that doesn't
   change what the others mean needs no new version.
+- A producer that adds a field of its own starts its name with `x-`, as in
+  `"x-series": "Autumn League"`, at the top or on a leg. Names without the
+  prefix are kept for the format, so a field added to it later can't clash
+  with one a producer already writes.
 - The version changes only when an older reader would misread a document.
 
 ## ORC's own course shapes
